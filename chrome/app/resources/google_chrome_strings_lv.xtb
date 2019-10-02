@@ -87,12 +87,6 @@ Ja pierakstīsieties tik un tā, Chrome informācija, piemēram, grāmatzīmes, 
 <translation id="3080151273017101988">Turpināt lietotņu izpildi fonā, kad Google Chrome ir aizvērts</translation>
 <translation id="3089968997497233615">Ir pieejama jauna un drošāka Google Chrome versija.</translation>
 <translation id="3149510190863420837">Chrome lietotnes</translation>
-<translation id="3251381707915721925">Lai iestatītu, kuras vietnes var skatīt lietotājs <ph name="NEW_PROFILE_NAME" />, varat konfigurēt ierobežojumus un iestatījumus vietnē <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" />. Ja nemainīsiet noklusējuma iestatījumus, <ph name="NEW_PROFILE_NAME" /> varēs pārlūkot visu tīmekļa saturu.
-
-Lai <ph name="NEW_PROFILE_NAME" /> nevarētu piekļūt jūsu kontam, noteikti bloķējiet savu profilu, kad neizmantojat Chrome. Lai to izdarītu, pārlūka augšējā labajā malā noklikšķiniet uz sava profila vārda un atlasiet vienumu “Iziet un bloķēt”.
-<ph name="BEGIN_LINK_2" />Uzziniet vairāk<ph name="END_LINK_2" />.
-
-Papildu norādījumus skatiet e-pasta ziņojumā šeit: <ph name="ACCOUNT_EMAIL" />.</translation>
 <translation id="3282568296779691940">Pierakstīties pārlūkā Chrome</translation>
 <translation id="3340978935015468852">Iestatījumi</translation>
 <translation id="3360895254066713204">Chrome Helper</translation>
@@ -152,7 +146,6 @@ Papildu norādījumus skatiet e-pasta ziņojumā šeit: <ph name="ACCOUNT_EMAIL"
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Google Chrome nevarēja sinhronizēt jūsu datus. Lūdzu, atjauniniet savu sinhronizācijas ieejas frāzi.</translation>
 <translation id="5062123544085870375">Restartējiet Chrome OS</translation>
-<translation id="5090044601776247154">Google Chrome 70 un jaunākās versijās vairs nebūs pieejami uzraudzīto lietotāju profili.</translation>
 <translation id="5132929315877954718">Atklājiet lieliskas lietotnes, spēles, paplašinājumus un motīvus, ko varat izmantot pārlūkā Google Chrome.</translation>
 <translation id="5170938038195470297">Jūsu profilu nevar lietot, jo tas ir veidots ar jaunāku Google Chrome versiju.
 
@@ -179,9 +172,11 @@ Dažas funkcijas var nebūt pieejamas. Norādiet citu profila direktoriju vai li
 <translation id="5906655207909574370">Atjaunināšana ir gandrīz pabeigta. Restartējiet ierīci, lai pabeigtu atjaunināšanu.</translation>
 <translation id="5940385492829620908">Šeit atrodas jūsu tīmekļa saturs, grāmatzīmes un cits Chrome saturs.</translation>
 <translation id="5941830788786076944">Izveidot Google Chrome par noklusējuma pārlūku</translation>
+<translation id="5977372243443849142">Chrome var palīdzēt jums atcerēties paroles, lai jums tas nebūtu jādara.</translation>
 <translation id="6014844626092547096">Jūs esat pierakstījies pārlūkā Chrome. Jūsu administrators ir atspējojis sinhronizēšanu.</translation>
 <translation id="6040143037577758943">Aizvērt</translation>
 <translation id="6070348360322141662">Papildu drošības nolūkos Google Chrome šifrēs jūsu datus.</translation>
+<translation id="6102256037460917300">Ja šajā lapā iestatījums nav pieejams, skatiet to sadaļā <ph name="LINK_BEGIN" />Pārlūka Chrome iestatījumi<ph name="LINK_END" />.</translation>
 <translation id="6113794647360055231">Pārlūkā Chrome ir veikti uzlabojumi</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> — Google Chrome beta versija</translation>
@@ -223,7 +218,6 @@ Dažas funkcijas var nebūt pieejamas. Norādiet citu profila direktoriju vai li
 <translation id="7486227612705979895">Pārlūkā Chrome tiks izmantota Diskā pieejamā informācija, lai adrešu joslā piedāvātu ieteikumus</translation>
 <translation id="7531671357096394523">Aizveriet visas Chrome kopijas.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
-<translation id="7552219221109926349">Rādīt Chrome OS šajā valodā</translation>
 <translation id="7589360514048265910">Šajā datorā vairs netiks saņemti Google Chrome atjauninājumi, jo operētājsistēma Mac OS X 10.9 vairs netiek atbalstīta.</translation>
 <translation id="7592736734348559088">Google Chrome nevarēja sinhronizēt jūsu datus, jo jūsu konta pierakstīšanās informācija ir novecojusi.</translation>
 <translation id="7626032353295482388">Laipni lūdzam pārlūkā Chrome</translation>
@@ -241,7 +235,6 @@ Dažas funkcijas var nebūt pieejamas. Norādiet citu profila direktoriju vai li
 <translation id="7896673875602241923">Kāds iepriekš pierakstījās pārlūkā Chrome šajā datorā, izmantojot e-pasta adresi <ph name="ACCOUNT_EMAIL_LAST" />. Lūdzu, izveidojiet jaunu Chrome lietotāju, lai nošķirtu savu informāciju.</translation>
 <translation id="7908168227788431038">Atjaunināšana gandrīz pabeigta! Lai pabeigtu atjaunināšanu, atkārtoti palaidiet pārlūku Google Chrome.</translation>
 <translation id="7962410387636238736">Šajā datorā vairs netiks saņemti Google Chrome atjauninājumi, jo operētājsistēmas Windows XP un Windows Vista vairs netiek atbalstītas.</translation>
-<translation id="8005540215158006229">Chrome ir gandrīz gatavs.</translation>
 <translation id="8008534537613507642">Pārinstalēt Chrome</translation>
 <translation id="8013993649590906847">Ja attēlam nav vērtīga apraksta, pārlūks Chrome mēģinās jums tādu nodrošināt. Lai izveidotu aprakstus, attēli tiek nosūtīti uzņēmumam Google.</translation>
 <translation id="8030318113982266900">Notiek ierīces atjaunināšana uz kanālu <ph name="CHANNEL_NAME" />...</translation>
@@ -274,7 +267,6 @@ Dažas funkcijas var nebūt pieejamas. Norādiet citu profila direktoriju vai li
 <translation id="870251953148363156">Atjaunināt &amp;Google Chrome</translation>
 <translation id="873133009373065397">Google Chrome nevar noteikt vai iestatīt noklusējuma pārlūku.</translation>
 <translation id="8736674169840206667">Lai lietotu atjauninājumu, administrators pieprasa restartēt pārlūku Chrome.</translation>
-<translation id="8788264404293392165">Šī valoda tiek izmantota, lai attēlotu Chrome OS lietotāja saskarni</translation>
 <translation id="8823341990149967727">Chrome versija ir novecojusi</translation>
 <translation id="884296878221830158">Tas nosaka arī to, kāda lapa tiks rādīta, kad atvērsiet pārlūku Chrome vai noklikšķināsiet uz pogas “Sākums”.</translation>
 <translation id="8862326446509486874">Jums nav vajadzīgo tiesību, lai instalētu sistēmas līmenī. Mēģiniet vēlreiz palaist instalēšanas programmu kā administrators.</translation>

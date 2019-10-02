@@ -17,9 +17,9 @@
 #include "chrome/browser/page_load_metrics/page_load_metrics_embedder_interface.h"
 #include "chrome/browser/page_load_metrics/page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/page_load_tracker.h"
-#include "chrome/common/page_load_metrics/test/weak_mock_timer.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
+#include "components/page_load_metrics/common/test/weak_mock_timer.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/common/resource_load_info.mojom.h"
@@ -82,8 +82,7 @@ class TestPageLoadMetricsObserver : public PageLoadMetricsObserver {
   }
 
   void OnTimingUpdate(content::RenderFrameHost* subframe_rfh,
-                      const mojom::PageLoadTiming& timing,
-                      const PageLoadExtraInfo& extra_info) override {
+                      const mojom::PageLoadTiming& timing) override {
     if (subframe_rfh) {
       DCHECK(subframe_rfh->GetParent());
       updated_subframe_timings_->push_back(timing.Clone());
@@ -97,14 +96,12 @@ class TestPageLoadMetricsObserver : public PageLoadMetricsObserver {
     updated_cpu_timings_->push_back(timing.Clone());
   }
 
-  void OnComplete(const mojom::PageLoadTiming& timing,
-                  const PageLoadExtraInfo& extra_info) override {
+  void OnComplete(const mojom::PageLoadTiming& timing) override {
     complete_timings_->push_back(timing.Clone());
   }
 
   ObservePolicy FlushMetricsOnAppEnterBackground(
-      const mojom::PageLoadTiming& timing,
-      const PageLoadExtraInfo& extra_info) override {
+      const mojom::PageLoadTiming& timing) override {
     return STOP_OBSERVING;
   }
 
@@ -113,9 +110,9 @@ class TestPageLoadMetricsObserver : public PageLoadMetricsObserver {
     loaded_resources_->emplace_back(extra_request_complete_info);
   }
 
-  void OnFeaturesUsageObserved(content::RenderFrameHost* rfh,
-                               const mojom::PageLoadFeatures& features,
-                               const PageLoadExtraInfo& extra_info) override {
+  void OnFeaturesUsageObserved(
+      content::RenderFrameHost* rfh,
+      const mojom::PageLoadFeatures& features) override {
     observed_features_->push_back(features);
   }
 
@@ -158,9 +155,8 @@ class FilteringPageLoadMetricsObserver : public PageLoadMetricsObserver {
     return should_ignore ? STOP_OBSERVING : CONTINUE_OBSERVING;
   }
 
-  void OnComplete(const mojom::PageLoadTiming& timing,
-                  const PageLoadExtraInfo& extra_info) override {
-    completed_filtered_urls_->push_back(extra_info.url);
+  void OnComplete(const mojom::PageLoadTiming& timing) override {
+    completed_filtered_urls_->push_back(GetDelegate().GetUrl());
   }
 
  private:

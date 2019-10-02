@@ -33,9 +33,15 @@ cr.define('settings_people_page', function() {
         // UnifiedConsentUITest suite.
         unifiedConsentEnabled: false,
       });
+      if (cr.isChromeOS) {
+        loadTimeData.overrideValues({
+          // Account Manager is tested in the Chrome OS-specific section below.
+          isAccountManagerEnabled: false,
+        });
+      }
     });
 
-    setup(function() {
+    setup(async function() {
       browserProxy = new TestProfileInfoBrowserProxy();
       settings.ProfileInfoBrowserProxyImpl.instance_ = browserProxy;
 
@@ -47,14 +53,9 @@ cr.define('settings_people_page', function() {
       peoplePage.pageVisibility = settings.pageVisibility;
       document.body.appendChild(peoplePage);
 
-      return Promise
-          .all([
-            browserProxy.whenCalled('getProfileInfo'),
-            syncBrowserProxy.whenCalled('getSyncStatus')
-          ])
-          .then(function() {
-            Polymer.dom.flush();
-          });
+      await syncBrowserProxy.whenCalled('getSyncStatus');
+      await browserProxy.whenCalled('getProfileInfo');
+      Polymer.dom.flush();
     });
 
     teardown(function() {
@@ -585,4 +586,127 @@ cr.define('settings_people_page', function() {
       assertEquals(settings.getCurrentRoute(), settings.routes.SYNC);
     });
   });
+
+  if (cr.isChromeOS) {
+    /** @implements {settings.AccountManagerBrowserProxy} */
+    class TestAccountManagerBrowserProxy extends TestBrowserProxy {
+      constructor() {
+        super([
+          'getAccounts',
+          'addAccount',
+          'reauthenticateAccount',
+          'removeAccount',
+          'showWelcomeDialogIfRequired',
+        ]);
+      }
+
+      /** @override */
+      getAccounts() {
+        this.methodCalled('getAccounts');
+        return Promise.resolve([{
+          id: '123',
+          accountType: 1,
+          isDeviceAccount: false,
+          isSignedIn: true,
+          unmigrated: false,
+          fullName: 'Primary Account',
+          email: 'user@gmail.com',
+          pic: 'data:image/png;base64,primaryAccountPicData',
+        }]);
+      }
+
+      /** @override */
+      addAccount() {
+        this.methodCalled('addAccount');
+      }
+
+      /** @override */
+      reauthenticateAccount(account_email) {
+        this.methodCalled('reauthenticateAccount', account_email);
+      }
+
+      /** @override */
+      removeAccount(account) {
+        this.methodCalled('removeAccount', account);
+      }
+
+      /** @override */
+      showWelcomeDialogIfRequired() {
+        this.methodCalled('showWelcomeDialogIfRequired');
+      }
+    }
+
+    suite('Chrome OS', function() {
+      /** @type {SettingsPeoplePageElement} */
+      let peoplePage = null;
+      /** @type {settings.SyncBrowserProxy} */
+      let browserProxy = null;
+      /** @type {settings.ProfileInfoBrowserProxy} */
+      let profileInfoBrowserProxy = null;
+      /** @type {settings.AccountManagerBrowserProxy} */
+      let accountManagerBrowserProxy = null;
+
+      suiteSetup(function() {
+        loadTimeData.overrideValues({
+          // Simulate SplitSettings (OS settings in their own surface).
+          showOSSettings: false,
+          // Simulate ChromeOSAccountManager (Google Accounts support).
+          isAccountManagerEnabled: true,
+        });
+      });
+
+      setup(async function() {
+        browserProxy = new TestSyncBrowserProxy();
+        settings.SyncBrowserProxyImpl.instance_ = browserProxy;
+
+        profileInfoBrowserProxy = new TestProfileInfoBrowserProxy();
+        settings.ProfileInfoBrowserProxyImpl.instance_ =
+            profileInfoBrowserProxy;
+
+        accountManagerBrowserProxy = new TestAccountManagerBrowserProxy();
+        settings.AccountManagerBrowserProxyImpl.instance_ =
+            accountManagerBrowserProxy;
+
+        PolymerTest.clearBody();
+        peoplePage = document.createElement('settings-people-page');
+        peoplePage.pageVisibility = settings.pageVisibility;
+        document.body.appendChild(peoplePage);
+
+        await accountManagerBrowserProxy.whenCalled('getAccounts');
+        await browserProxy.whenCalled('getSyncStatus');
+        Polymer.dom.flush();
+      });
+
+      teardown(function() {
+        peoplePage.remove();
+      });
+
+      test('GAIA name and picture', async () => {
+        chai.assert.include(
+            peoplePage.$$('#profile-icon').style.backgroundImage,
+            'data:image/png;base64,primaryAccountPicData');
+        assertEquals(
+            'Primary Account',
+            peoplePage.$$('#profile-name').textContent.trim());
+      });
+
+      test('clicking profile row does not open change picture page', () => {
+        // Simulate a signed-in user.
+        sync_test_util.simulateSyncStatus({
+          signedIn: true,
+        });
+
+        // Profile row items aren't actionable.
+        const profileIcon = assert(peoplePage.$$('#profile-icon'));
+        assertFalse(profileIcon.hasAttribute('actionable'));
+        const subpageArrow = assert(peoplePage.$$('#profile-subpage-arrow'));
+        assertFalse(subpageArrow.hasAttribute('actionable'));
+
+        // Clicking on profile icon doesn't navigate to a new route.
+        const oldRoute = settings.getCurrentRoute();
+        profileIcon.click();
+        assertEquals(oldRoute, settings.getCurrentRoute());
+      });
+    });
+  }
 });

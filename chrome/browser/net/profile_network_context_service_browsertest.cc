@@ -12,10 +12,12 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/stl_util.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_split.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/net/profile_network_context_service.h"
 #include "chrome/browser/net/profile_network_context_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -32,6 +34,7 @@
 #include "net/base/load_flags.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -43,8 +46,6 @@
 #include "components/policy/policy_constants.h"
 #include "net/base/features.h"
 #endif  // defined(OS_CHROMEOS)
-
-namespace {
 
 // Most tests for this class are in NetworkContextConfigurationBrowserTest.
 class ProfileNetworkContextServiceBrowsertest : public InProcessBrowserTest {
@@ -95,6 +96,20 @@ IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceBrowsertest,
   EXPECT_TRUE(base::PathExists(expected_cache_path));
 }
 
+IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceBrowsertest,
+                       DefaultCacheSize) {
+  // We don't have a great way of directly checking that the disk cache has the
+  // correct max size, but we can make sure that we set up our network context
+  // params correctly.
+  ProfileNetworkContextService* profile_network_context_service =
+      ProfileNetworkContextServiceFactory::GetForContext(browser()->profile());
+  base::FilePath empty_relative_partition_path;
+  network::mojom::NetworkContextParamsPtr network_context_params_ptr =
+      profile_network_context_service->CreateNetworkContextParams(
+          /*in_memory=*/false, empty_relative_partition_path);
+  EXPECT_EQ(0, network_context_params_ptr->http_cache_max_size);
+}
+
 IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceBrowsertest, BrotliEnabled) {
   // Brotli is only used over encrypted connections.
   net::EmbeddedTestServer https_server(net::EmbeddedTestServer::TYPE_HTTPS);
@@ -120,20 +135,24 @@ IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceBrowsertest, BrotliEnabled) {
   EXPECT_TRUE(base::Contains(encodings, "br"));
 }
 
-// Test subclass that adds switches::kDiskCacheDir to the command line, to make
-// sure it's respected.
-class ProfileNetworkContextServiceDiskCacheDirBrowsertest
+// Test subclass that adds switches::kDiskCacheDir and switches::kDiskCacheSize
+// to the command line, to make sure they're respected.
+class ProfileNetworkContextServiceDiskCacheBrowsertest
     : public ProfileNetworkContextServiceBrowsertest {
  public:
-  ProfileNetworkContextServiceDiskCacheDirBrowsertest() {
+  const int64_t kCacheSize = 7;
+
+  ProfileNetworkContextServiceDiskCacheBrowsertest() {
     EXPECT_TRUE(temp_dir_.CreateUniqueTempDir());
   }
 
-  ~ProfileNetworkContextServiceDiskCacheDirBrowsertest() override {}
+  ~ProfileNetworkContextServiceDiskCacheBrowsertest() override {}
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
     command_line->AppendSwitchPath(switches::kDiskCacheDir,
                                    temp_dir_.GetPath());
+    command_line->AppendSwitchASCII(switches::kDiskCacheSize,
+                                    base::NumberToString(kCacheSize));
   }
 
   const base::FilePath& TempPath() { return temp_dir_.GetPath(); }
@@ -143,10 +162,10 @@ class ProfileNetworkContextServiceDiskCacheDirBrowsertest
 };
 
 // Makes sure switches::kDiskCacheDir is hooked up correctly.
-IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceDiskCacheDirBrowsertest,
+IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceDiskCacheBrowsertest,
                        DiskCacheLocation) {
   // Make sure command line switch is hooked up to the pref.
-  ASSERT_EQ(TempPath(), browser()->profile()->GetPrefs()->GetFilePath(
+  ASSERT_EQ(TempPath(), g_browser_process->local_state()->GetFilePath(
                             prefs::kDiskCacheDir));
 
   // Run a request that caches the response, to give the network service time to
@@ -171,6 +190,25 @@ IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceDiskCacheDirBrowsertest,
           .Append(chrome::kCacheDirname);
   base::ScopedAllowBlockingForTesting allow_blocking;
   EXPECT_TRUE(base::PathExists(expected_cache_path));
+}
+
+// Makes sure switches::kDiskCacheSize is hooked up correctly.
+IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceDiskCacheBrowsertest,
+                       DiskCacheSize) {
+  // Make sure command line switch is hooked up to the pref.
+  ASSERT_EQ(kCacheSize, g_browser_process->local_state()->GetInteger(
+                            prefs::kDiskCacheSize));
+
+  // We don't have a great way of directly checking that the disk cache has the
+  // correct max size, but we can make sure that we set up our network context
+  // params correctly.
+  ProfileNetworkContextService* profile_network_context_service =
+      ProfileNetworkContextServiceFactory::GetForContext(browser()->profile());
+  base::FilePath empty_relative_partition_path;
+  network::mojom::NetworkContextParamsPtr network_context_params_ptr =
+      profile_network_context_service->CreateNetworkContextParams(
+          /*in_memory=*/false, empty_relative_partition_path);
+  EXPECT_EQ(kCacheSize, network_context_params_ptr->http_cache_max_size);
 }
 
 #if defined(OS_CHROMEOS)
@@ -282,25 +320,26 @@ class ProfileNetworkContextServiceCertVerifierBuiltinDisabledBrowsertest
       ProfileNetworkContextServiceCertVerifierBuiltinDisabledBrowsertest);
 };
 
-// If the built-in cert verifier is disabled, it should be disabled everywhere.
+// If the built-in cert verifier feature is disabled, it should be disabled in
+// user profiles but enabled in the sign-in profile.
 IN_PROC_BROWSER_TEST_F(
     ProfileNetworkContextServiceCertVerifierBuiltinDisabledBrowsertest,
     TurnedOffByFeature) {
   SkipToLoginScreen();
-  EXPECT_FALSE(IsSigninProfileUsingBuiltinCertVerifier());
+  EXPECT_TRUE(IsSigninProfileUsingBuiltinCertVerifier());
 
   LogIn(kAccountId, kAccountPassword, kEmptyServices);
 
   EXPECT_FALSE(IsActiveProfileUsingBuiltinCertVerifier());
 }
 
-// If the built-in cert verifier is disabled, but policy force-enables it for a
-// profile, it should be enabled in the profile.
+// If the built-in cert verifier feature is disabled, but policy force-enables
+// it for a profile, it should be enabled in the profile.
 IN_PROC_BROWSER_TEST_F(
     ProfileNetworkContextServiceCertVerifierBuiltinDisabledBrowsertest,
     TurnedOffByFeatureOverrideByPolicy) {
   SkipToLoginScreen();
-  EXPECT_FALSE(IsSigninProfileUsingBuiltinCertVerifier());
+  EXPECT_TRUE(IsSigninProfileUsingBuiltinCertVerifier());
 
   SetPolicyValue(policy::key::kBuiltinCertificateVerifierEnabled,
                  base::Value(true));
@@ -310,5 +349,3 @@ IN_PROC_BROWSER_TEST_F(
 }
 
 #endif  // defined(OS_CHROMEOS)
-
-}  // namespace

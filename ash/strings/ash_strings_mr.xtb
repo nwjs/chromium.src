@@ -35,8 +35,10 @@
 <translation id="1351937230027495976">मेनू कोलॅप्स करा</translation>
 <translation id="1383876407941801731">शोधा</translation>
 <translation id="1419738280318246476">सूचनेशी संबंधित क्रिया पार पाडण्यासाठी डिव्हाइस अनलॉक करा</translation>
+<translation id="1420408895951708260">रात्रीचा प्रकाश टॉगल करा. <ph name="STATE_TEXT" /></translation>
 <translation id="1426410128494586442">होय</translation>
 <translation id="1455242230282523554">भाषा सेटिंग्ज दर्शवा</translation>
+<translation id="1460620680449458626">व्हॉल्यूम म्यूट केलेला आहे.</translation>
 <translation id="1467432559032391204">डावे</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{सूचना सेटिंग्ज दाखवा. ॲपसाठी सूचना बंद आहेत}other{सूचना सेटिंग्ज दाखवा. # ॲप्ससाठी सूचना बंद आहेत}}</translation>
@@ -61,6 +63,7 @@
 <translation id="1820355135508821526">या डिव्हाइसवर लागू केलेल्या धोरणाने <ph name="FEATURE_NAME" /> बंद केले आहे. कृपया बदलण्याची विनंती करण्यासाठी तुमच्या अॅडमिनिस्ट्रेटरशी संपर्क साधा.</translation>
 <translation id="1823873187264960516">इथरनेट: <ph name="ADDRESS" /></translation>
 <translation id="1836215606488044471">साहाय्यक (लोड होत आहे...)</translation>
+<translation id="1838895407229022812">रात्रीचा प्रकाश बंद आहे.</translation>
 <translation id="1850504506766569011">वाय-फाय बंद आहे.</translation>
 <translation id="1864454756846565995">USB-C डिव्‍हाइस (मागील बाजूचे पोर्ट)</translation>
 <translation id="1882897271359938046"><ph name="DISPLAY_NAME" /> वर मिरर करत आहे</translation>
@@ -110,11 +113,11 @@
 <translation id="2501920221385095727">स्टिकी की</translation>
 <translation id="2509468283778169019">CAPS LOCK सुरु आहे</translation>
 <translation id="2532589005999780174">उच्च तीव्रता मोड</translation>
+<translation id="2542089167727451762">तुमच्या प्रोफाइल इमेजवर टॅप करा</translation>
 <translation id="255671100581129685">सार्वजनिक सेशनमध्ये Google असिस्टंट उपलब्ध नाही.</translation>
 <translation id="2575685495496069081">एकाहून अधिक साइन इन बंद करण्यात आले आहे</translation>
 <translation id="2582112259361606227">अपडेट करण्यासाठी रीस्टार्ट करा</translation>
 <translation id="2617342710774726426">सिम कार्ड लॉक केले आहे</translation>
-<translation id="2651765386227849097">या डिव्हाइसवर Google असिस्टंट बंद केले आहे.</translation>
 <translation id="2653659639078652383">सबमिट करा</translation>
 <translation id="2658778018866295321">क्लिक आणि ड्रॅग करा</translation>
 <translation id="2700493154570097719">तुमचा कीबोर्ड सेट करा</translation>
@@ -159,6 +162,7 @@
 <translation id="3236488194889173876">कोणतेही मोबाइल नेटवर्क उपलब्ध नाही</translation>
 <translation id="3249513730522716925">विंडो <ph name="WINDOW_TITLE" /> डेस्क <ph name="ACTIVE_DESK" /> वरून डेस्क <ph name="TARGET_DESK" /> वर हलवली</translation>
 <translation id="3255483164551725916">तुला काय करता येते?</translation>
+<translation id="3277674767125718685">व्हॉल्यूम सुरू आहे.</translation>
 <translation id="3294437725009624529">अतिथी</translation>
 <translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> नंतरही साइन इन करू शकतो.</translation>
 <translation id="3321628682574733415">चुकीचा पालक कोड</translation>
@@ -230,12 +234,10 @@
 <translation id="4331809312908958774">Chrome OS</translation>
 <translation id="4338109981321384717">भिंग</translation>
 <translation id="4351433414020964307">साहाय्यक लोड होत आहे...</translation>
-<translation id="435527878592612277">तुमचा फोटो निवडा</translation>
 <translation id="4378551569595875038">कनेक्ट करीत आहे...</translation>
 <translation id="4379531060876907730">ही तुमची स्टायलस टूल आहेत</translation>
 <translation id="4389184120735010762">तुम्ही डॉक मॅग्निफायरसाठी कीबोर्ड शॉर्टकट दाबला आहे. तुम्हाला ते सुरू करायचे आहे का?</translation>
 <translation id="4421231901400348175">दूरस्त सहाय्याद्वारे <ph name="HELPER_NAME" /> सह आपल्या स्क्रीनचे नियंत्रण शेअर करत आहे.</translation>
-<translation id="4430019312045809116">व्हॉल्यूम</translation>
 <translation id="4450893287417543264">पुन्हा दाखवू नका</translation>
 <translation id="4477350412780666475">पुढील ट्रॅक</translation>
 <translation id="4479639480957787382">इथरनेट</translation>
@@ -309,8 +311,8 @@
 <translation id="574392208103952083">मध्यम</translation>
 <translation id="5744083938413354016">टॅप ड्रॅगिंग</translation>
 <translation id="5750765938512549687">ब्लूटूथ बंद आहे</translation>
+<translation id="576453121877257266">रात्रीचा प्रकाश सुरू आहे.</translation>
 <translation id="5777841717266010279">स्क्रीन सामायिकरण थांबवायचे?</translation>
-<translation id="57838592816432529">म्यूट करा</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5837036133683224804"><ph name="RECEIVER_NAME" /> वर <ph name="ROUTE_TITLE" /> थांबवा</translation>
 <translation id="5860033963881614850">बंद</translation>
@@ -333,6 +335,7 @@
 <translation id="6043212731627905357">हा मॉनिटर आपल्या <ph name="DEVICE_TYPE" /> सह प्राप्त होत नाही (मॉनिटर समर्थित नाही).</translation>
 <translation id="6043994281159824495">आता साइन आउट करा</translation>
 <translation id="6047696787498798094">तुम्ही दुसर्‍या वापरकर्त्यावर स्‍विच करता तेव्‍हा स्क्रीन सामायिकरण थांबेल. तुम्ही सुरु ठेवू इच्छिता?</translation>
+<translation id="6054305421211936131">तुमचे स्मार्ट कार्ड वापरून साइन इन करा</translation>
 <translation id="6062360702481658777">तुम्हाला <ph name="LOGOUT_TIME_LEFT" /> मधून स्वयंचलितपणे साइन आउट केले जाईल.</translation>
 <translation id="6064337552080329342">सॉरी, तुमच्या पासवर्डची पडताळणी होऊ शकत नाही. कृपया नंतर पुन्हा प्रयत्न करा.</translation>
 <translation id="607652042414456612">तुमचा कॉंप्युटर जवळपासच्या ब्लूटूथ डिव्हाइसवर शोधता येऊ शकतो आणि <ph name="ADDRESS" /> पत्त्यासह "<ph name="NAME" />" म्हणून दिसेल</translation>
@@ -348,7 +351,6 @@
 <translation id="6284232397434400372">रीझोल्युशन बदलले</translation>
 <translation id="6297287540776456956">विभाग निवडण्यासाठी स्टायलस वापरा</translation>
 <translation id="6310121235600822547"><ph name="DISPLAY_NAME" /> <ph name="ROTATION" /> वर फिरविले होते</translation>
-<translation id="6344698853700675736">रात्रीचा प्रकाश टॉगल करा</translation>
 <translation id="6376931439017688372">ब्लूटूथ सुरू आहे</translation>
 <translation id="639644700271529076">CAPS LOCK बंद आहे</translation>
 <translation id="6406704438230478924">altgr</translation>
@@ -360,6 +362,7 @@
 <translation id="6459472438155181876"><ph name="DISPLAY_NAME" /> मध्ये स्क्रीन विस्तृत करत आहे</translation>
 <translation id="6482559668224714696">फुल-स्क्रीन मॅग्निफायर</translation>
 <translation id="6490471652906364588">USB-C डिव्‍हाइस (उजवे पोर्ट)</translation>
+<translation id="649452524636452238">स्मार्ट कार्डाचा पिन</translation>
 <translation id="6501401484702599040"><ph name="RECEIVER_NAME" /> वर स्क्रीन कास्ट करीत आहे</translation>
 <translation id="6521655319214113338">हस्तलेखन इनपुट</translation>
 <translation id="6528179044667508675">व्यत्यय आणू नका</translation>
@@ -389,6 +392,7 @@
 <translation id="6857811139397017780">सक्रिय करा<ph name="NETWORKSERVICE" /></translation>
 <translation id="6910714959251846841">या अपडेटसाठी तुमचे डिव्हाइस Powerwash करणे आवश्यक आहे. <ph name="SYSTEM_APP_NAME" /> च्या नवीनतम अपडेटबाबत अधिक जाणून घ्या.</translation>
 <translation id="6911468394164995108">दुसरीकडे सामील व्हा...</translation>
+<translation id="6919251195245069855">तुमचे स्मार्ट कार्ड ओळखू शकलो नाही. पुन्हा प्रयत्न करा.</translation>
 <translation id="6972754398087986839">प्रारंभ करा</translation>
 <translation id="6981982820502123353">अॅक्सेसिबिलिटी</translation>
 <translation id="698231206551913481">एकदा हा वापरकर्ता काढल्यानंतर या वापरकर्त्याशी संबद्ध सर्व फायली आणि स्थानिक डेटा कायमचा हटवला जाईल.</translation>
@@ -508,6 +512,7 @@
 <translation id="8673028979667498656">270°</translation>
 <translation id="8676770494376880701">निम्न-उर्जेचे चार्जर कनेक्ट केले</translation>
 <translation id="8683506306463609433">परफॉर्मंस ट्रेसिंग ॲक्टिव्ह आहे</translation>
+<translation id="8721053961083920564">व्‍हॉल्‍यूम टॉगल करा. <ph name="STATE_TEXT" /></translation>
 <translation id="8734991477317290293">तो कदाचित तुमचे कीस्ट्रोक चोरण्याचा प्रयत्न करत असेल.</translation>
 <translation id="8735953464173050365">कीबोर्ड सेटिंग्ज दाखवा. <ph name="KEYBOARD_NAME" /> निवडले आहे</translation>
 <translation id="875593634123171288">VPN सेटिंग्ज दाखवा</translation>

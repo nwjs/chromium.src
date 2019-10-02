@@ -69,7 +69,6 @@
 <translation id="1383876407941801731">Išči</translation>
 <translation id="1385214448885562192">Pritisnite »enter« za sprejetje ali »escape« za preklic, dol za naprej in gor za nazaj.</translation>
 <translation id="1396114365388024581">sezzav</translation>
-<translation id="139902759009894363">Izgovorjava atributov obogatenega besedila</translation>
 <translation id="1405567553485452995">Svetlo zelena</translation>
 <translation id="1417889266572670458">Mornarsko modra</translation>
 <translation id="1431911867058218151">Slivova</translation>
@@ -485,6 +484,7 @@
 <translation id="4372705107434148843">Ustavitev govora</translation>
 <translation id="4373197658375206385">Ni prejšnjega elementa, ki ni povezava.</translation>
 <translation id="4376316291247992553">Ogled grafike v brailovi pisavi</translation>
+<translation id="437809255587011096">Oblikovanje sloga za predstavitev besedila</translation>
 <translation id="4378308539633073595">Pomik naprej</translation>
 <translation id="4384583879834880242">Vprašanja</translation>
 <translation id="4391478986194775161">podovseb</translation>
@@ -761,7 +761,6 @@
 <translation id="6348869651006731065">Mračno siva</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{točka}one{# točka}two{# točki}few{# točke}other{# točk}}</translation>
 <translation id="6355910664415701303">Ni prejšnjega elementa seznama.</translation>
-<translation id="6360318852623800555">Atributi obogatenega besedila</translation>
 <translation id="6364795331201459219">n6</translation>
 <translation id="6368143427468974988">Prejšnji naslov</translation>
 <translation id="6376999910001533545">Kostanjeva</translation>
@@ -1087,7 +1086,6 @@
 <translation id="8153880621934657047">Zunaj tabele.</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{podčrtaj}one{# podčrtaj}two{# podčrtaja}few{# podčrtaji}other{# podčrtajev}}</translation>
 <translation id="8179976553408161302">Enter</translation>
-<translation id="8183813379996435469">Samodejno zaznaj in preklopi jezik ChromeVoxa.</translation>
 <translation id="8184828902145951186">vrstica</translation>
 <translation id="8186185314313222077">preklop celozaslonskega načina</translation>
 <translation id="8199231515320852133">Obvestilo o glavah trenutne celice</translation>
@@ -1124,6 +1122,7 @@
 <translation id="8503360654911991865">Zmanjšanje razdrobljenosti krmarjenja</translation>
 <translation id="8504695234784218301">Konec slovnične napake</translation>
 <translation id="8520472399088452386">Pomikalnik</translation>
+<translation id="8534394844575788431">Oblikovanje</translation>
 <translation id="8538744478902126321">Ugibanje glave vrstice v trenutni celici</translation>
 <translation id="8540054775867439484">Prelom do vrha</translation>
 <translation id="8542271685829952264">Če želite raziskati vse ukaze in bližnjice ChromeVoxa, pritisnite tipko za iskanje in piko, nato se po menijih pomikajte s puščičnimi tipkami in pritisnite tipko Enter, če želite aktivirati ukaz. Sem se vrnete tako, da pritisnete tipko za iskanje in tipko O, nato pa tipko T.</translation>
@@ -1203,6 +1202,7 @@
 <translation id="9149560530563164529">razd</translation>
 <translation id="9150735707954472829">Zavihek</translation>
 <translation id="9151211641321628915">Objavi kratek opis trenutnega položaja</translation>
+<translation id="9151249085738989067">Samodejni preklop glasu ChromeVoxa glede na jezik</translation>
 <translation id="9153606228985488238">Višina tona: <ph name="PERCENT" /> %</translation>
 <translation id="9160096769946561184">Pomik na konec trenutnega stolpca</translation>
 <translation id="9173115498289768110">Glasnost: <ph name="PERCENT" /> %</translation>

@@ -100,7 +100,6 @@ void APIBindingJSUtil::SendRequestHelper(
   const APISignature* signature = type_refs_->GetAPIMethodSignature(name);
   DCHECK(signature);
 
-  binding::RequestThread thread = binding::RequestThread::UI;
   v8::Local<v8::Function> custom_callback;
   if (!options.IsEmpty() && !options->IsUndefined() && !options->IsNull()) {
     if (!options->IsObject()) {
@@ -113,11 +112,8 @@ void APIBindingJSUtil::SendRequestHelper(
       return;
     }
     gin::Dictionary options_dict(isolate, options_obj);
-    // NOTE: We don't throw any errors here if forIOThread or customCallback are
-    // of invalid types. We could, if we wanted to be a bit more verbose.
-    bool for_io_thread = false;
-    if (options_dict.Get("forIOThread", &for_io_thread) && for_io_thread)
-      thread = binding::RequestThread::IO;
+    // NOTE: We don't throw any errors here if customCallback is of an invalid
+    // type. We could, if we wanted to be a bit more verbose.
     options_dict.Get("customCallback", &custom_callback);
   }
 
@@ -134,9 +130,9 @@ void APIBindingJSUtil::SendRequestHelper(
       signature->ConvertArgumentsIgnoringSchema(context, request_args);
   CHECK(parse_result.succeeded());
 
-  request_handler_->StartRequest(
-      context, name, std::move(parse_result.arguments), parse_result.callback,
-      custom_callback, thread, sync, success, response, error);
+  request_handler_->StartRequest(context, name,
+                                 std::move(parse_result.arguments),
+                                 parse_result.callback, custom_callback, sync, success, response, error);
 }
 
 void APIBindingJSUtil::RegisterEventArgumentMassager(

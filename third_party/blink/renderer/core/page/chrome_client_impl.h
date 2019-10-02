@@ -216,7 +216,7 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
       const String& dialog_message,
       Document::PageDismissalType) const override;
 
-  bool RequestPointerLock(LocalFrame*) override;
+  bool RequestPointerLock(LocalFrame*, bool) override;
   void RequestPointerUnlock(LocalFrame*) override;
 
   // AutofillClient pass throughs:
@@ -246,7 +246,7 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   void UnregisterPopupOpeningObserver(PopupOpeningObserver*) override;
   void NotifyPopupOpeningObservers() const override;
 
-  WebLayerTreeView* GetWebLayerTreeView(LocalFrame*) override;
+  viz::FrameSinkId GetFrameSinkId(LocalFrame*) override;
 
   void RequestDecode(LocalFrame*,
                      const PaintImage&,
@@ -262,6 +262,11 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
 
   void FallbackCursorModeSetCursorVisibility(LocalFrame* frame,
                                              bool visible) override;
+
+  void RequestBeginMainFrameNotExpected(LocalFrame& frame,
+                                        bool request) override;
+
+  int GetLayerTreeId(LocalFrame& frame) override;
 
   void DidUpdateTextAutosizerPageInfo(const WebTextAutosizerPageInfo&) override;
 

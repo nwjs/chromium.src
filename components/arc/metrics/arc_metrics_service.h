@@ -16,8 +16,8 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chromeos/dbus/power/power_manager_client.h"
-#include "components/arc/common/metrics.mojom.h"
-#include "components/arc/common/process.mojom.h"
+#include "components/arc/mojom/metrics.mojom.h"
+#include "components/arc/mojom/process.mojom.h"
 #include "components/arc/session/connection_observer.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/session_manager/core/session_manager_observer.h"
@@ -52,20 +52,10 @@ class ArcMetricsService : public KeyedService,
                           public mojom::MetricsHost,
                           public ui::GamepadObserver {
  public:
-  // Delegate for handling window focus observation that is used to track ARC
-  // app usage metrics.
-  class ArcWindowDelegate {
-   public:
-    virtual ~ArcWindowDelegate() = default;
-    // Returns whether |window| is an ARC window.
-    virtual bool IsArcAppWindow(const aura::Window* window) const = 0;
-    virtual void RegisterActivationChangeObserver() = 0;
-    virtual void UnregisterActivationChangeObserver() = 0;
-  };
+  using WindowMatcher = base::RepeatingCallback<bool(const aura::Window*)>;
 
-  // Sets the fake ArcWindowDelegate for testing.
-  void SetArcWindowDelegateForTesting(
-      std::unique_ptr<ArcWindowDelegate> delegate);
+  // Sets the fake WindowMatcher for testing.
+  void SetWindowMatcherForTesting(WindowMatcher window_matcher);
 
   // Sets Clock for testing.
   void SetClockForTesting(base::Clock* clock);
@@ -172,7 +162,10 @@ class ArcMetricsService : public KeyedService,
   THREAD_CHECKER(thread_checker_);
 
   ArcBridgeService* const arc_bridge_service_;  // Owned by ArcServiceManager.
-  std::unique_ptr<ArcWindowDelegate> arc_window_delegate_;
+
+  // A function to determine if a window is an ARC window, which can be
+  // replaced in tests.
+  WindowMatcher window_matcher_;
 
   ProcessObserver process_observer_;
   base::RepeatingTimer request_process_list_timer_;
@@ -201,7 +194,7 @@ class ArcMetricsService : public KeyedService,
 
   // Always keep this the last member of this class to make sure it's the
   // first thing to be destructed.
-  base::WeakPtrFactory<ArcMetricsService> weak_ptr_factory_;
+  base::WeakPtrFactory<ArcMetricsService> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(ArcMetricsService);
 };

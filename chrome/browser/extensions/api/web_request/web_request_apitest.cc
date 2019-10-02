@@ -78,7 +78,8 @@
 #include "extensions/browser/api/web_request/web_request_api.h"
 #include "extensions/browser/blocked_action_type.h"
 #include "extensions/browser/extension_prefs.h"
-#include "extensions/browser/extension_system.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/process_manager.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/features/feature.h"
@@ -93,6 +94,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
+#include "net/test/embedded_test_server/request_handler_util.h"
 #include "net/test/test_data_directory.h"
 #include "net/test/url_request/url_request_mock_http_job.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
@@ -534,8 +536,15 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiAuthRequiredTest,
       << message_;
 }
 
+// TODO(crbug.com/998369): Flaky on Win ASAN.
+#if defined(OS_WIN) && defined(ADDRESS_SANITIZER)
+#define MAYBE_WebRequestAuthRequiredParallel \
+  DISABLED_WebRequestAuthRequiredParallel
+#else
+#define MAYBE_WebRequestAuthRequiredParallel WebRequestAuthRequiredParallel
+#endif
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiAuthRequiredTest,
-                       WebRequestAuthRequiredParallel) {
+                       MAYBE_WebRequestAuthRequiredParallel) {
   CancelLoginDialog login_dialog_helper;
 
   ASSERT_TRUE(StartEmbeddedTestServer());
@@ -579,6 +588,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, WebRequestExtraHeaders) {
   ASSERT_TRUE(StartEmbeddedTestServer());
   ASSERT_TRUE(RunExtensionSubtest("webrequest", "test_extra_headers.html"))
       << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
+                       WebRequestCORSWithExtraHeaders) {
+  ASSERT_TRUE(StartEmbeddedTestServer());
+  ASSERT_TRUE(RunExtensionSubtest("webrequest", "test_cors.html")) << message_;
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, WebRequestRedirects) {
@@ -652,10 +667,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, MAYBE_WebRequestNewTab) {
 
   ResultCatcher catcher;
 
-  ExtensionService* service =
-      ExtensionSystem::Get(browser()->profile())->extension_service();
-  const Extension* extension =
-      service->GetExtensionById(last_loaded_extension_id(), false);
+  ExtensionRegistry* registry = ExtensionRegistry::Get(browser()->profile());
+  const Extension* extension = registry->GetExtensionById(
+      last_loaded_extension_id(), extensions::ExtensionRegistry::ENABLED);
   GURL url = extension->GetResourceURL("newTab/a.html");
 
   ui_test_utils::NavigateToURL(browser(), url);
@@ -949,9 +963,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, HostedAppRequest) {
                                   .Build())
                   .Build())
           .Build();
-  ExtensionSystem::Get(browser()->profile())
-      ->extension_service()
-      ->AddExtension(hosted_app.get());
+  extension_service()->AddExtension(hosted_app.get());
 
   ExtensionTestMessageListener listener1("main_frame", false);
   ExtensionTestMessageListener listener2("xmlhttprequest", false);
@@ -1778,7 +1790,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
   content::RenderFrameHost* frame = temp_web_contents->GetMainFrame();
   EXPECT_TRUE(api->MaybeProxyURLLoaderFactory(
       frame->GetProcess()->GetBrowserContext(), frame,
-      frame->GetProcess()->GetID(), false, false, &pending_receiver, nullptr));
+      frame->GetProcess()->GetID(),
+      content::ContentBrowserClient::URLLoaderFactoryType::kDocumentSubResource,
+      &pending_receiver, nullptr));
   temp_web_contents.reset();
   auto params = network::mojom::URLLoaderFactoryParams::New();
   params->process_id = 0;
@@ -2509,6 +2523,63 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, ServiceWorkerFallback) {
 IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
                        ServiceWorkerNoFetchHandler) {
   RunServiceWorkerFetchTest("empty.js");
+}
+
+// An extension should be able to modify the request header for service worker
+// script by using WebRequest API.
+//
+// Disabled due to https://crbug.com/995763.
+IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
+                       DISABLED_ServiceWorkerScript) {
+  // The extension to be used in this test adds foo=bar request header.
+  const char kScriptPath[] = "/echoheader_service_worker.js";
+  int served_service_worker_count = 0;
+  std::string foo_header_value;
+
+  // Capture the value of a request header foo, which should be added if
+  // extension modifies the request header.
+  embedded_test_server()->RegisterRequestHandler(base::BindLambdaForTesting(
+      [&](const net::test_server::HttpRequest& request)
+          -> std::unique_ptr<net::test_server::HttpResponse> {
+        if (request.relative_url != kScriptPath)
+          return nullptr;
+
+        ++served_service_worker_count;
+        foo_header_value.clear();
+        if (request.headers.find("foo") != request.headers.end())
+          foo_header_value = request.headers.at("foo");
+
+        auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+        response->set_code(net::HTTP_OK);
+        response->set_content_type("text/javascript");
+        response->AddCustomHeader("Cache-Control", "no-cache");
+        response->set_content("// empty");
+        return response;
+      }));
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  InstallRequestHeaderModifyingExtension();
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  GURL url = embedded_test_server()->GetURL(
+      "/service_worker/create_service_worker.html");
+  EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  // Register a service worker. The worker script should have "foo: bar" request
+  // header added by the extension.
+  std::string script =
+      content::JsReplace("register($1, './in-scope');", kScriptPath);
+  EXPECT_EQ("DONE", EvalJs(web_contents, script));
+  EXPECT_EQ(1, served_service_worker_count);
+  EXPECT_EQ("bar", foo_header_value);
+
+  // Update the worker. The worker should have "foo: bar" request header in the
+  // request for update checking.
+  EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  EXPECT_EQ("DONE", EvalJs(web_contents, "update('./in-scope');"));
+  EXPECT_EQ(2, served_service_worker_count);
+  EXPECT_EQ("bar", foo_header_value);
 }
 
 // Ensure that extensions can intercept service worker navigation preload

@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="sv">
+<translation id="1036550831858290950">Spara den aktuella fliken som ett bokmärke</translation>
 <translation id="104962181688258143">Öppna appen Filer</translation>
 <translation id="1098295134904615027">Aktivera det virtuella skrivbordet till höger</translation>
 <translation id="1122869341872663659">Visar <ph name="N" /> sökresultat för <ph name="QUERY" /></translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">Återställ zoomnivån på sidan</translation>
 <translation id="2596078834055697711">Ta en skärmdump av fönstret</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, sedan <ph name="TAB" /> eller <ph name="RIGHT" /></translation>
-<translation id="2699509451653686398">Sparar den aktuella webbsidan som ett bokmärke</translation>
 <translation id="2750942583782703988">Läs in den aktuella sidan igen</translation>
 <translation id="2764005613199379871">Flytta fokus till sökadressfältet</translation>
 <translation id="2789868185375229787">Zooma ut</translation>

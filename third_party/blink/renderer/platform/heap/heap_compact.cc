@@ -15,7 +15,6 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
-#include "third_party/blink/renderer/platform/wtf/time.h"
 
 namespace blink {
 
@@ -41,16 +40,15 @@ class HeapCompact::MovableObjectFixups final {
   // Adds a slot for compaction. Filters slots in dead objects.
   void AddOrFilter(MovableReference* slot);
 
-  // Adds a callback that is invoked when a given slot is compacted.
-  void AddFixupCallback(MovableReference* slot,
-                        MovingObjectCallback callback,
-                        void* callback_data);
-
   // Relocates a backing store |from| -> |to|.
   void Relocate(Address from, Address to);
 
   // Relocates interior slots in a backing store that is moved |from| -> |to|.
   void RelocateInteriorFixups(Address from, Address to, size_t size);
+
+  // Updates the collection of callbacks from the item pushed the worklist by
+  // marking visitors.
+  void UpdateCallbacks();
 
 #if DEBUG_HEAP_COMPACTION
   void dumpDebugStats() {
@@ -101,15 +99,6 @@ class HeapCompact::MovableObjectFixups final {
 void HeapCompact::MovableObjectFixups::AddCompactingPage(BasePage* page) {
   DCHECK(!page->IsLargeObjectPage());
   relocatable_pages_.insert(page);
-}
-
-void HeapCompact::MovableObjectFixups::AddFixupCallback(
-    MovableReference* slot,
-    MovingObjectCallback callback,
-    void* callback_data) {
-  DCHECK(!fixup_callbacks_.Contains(slot));
-  fixup_callbacks_.insert(
-      slot, std::pair<void*, MovingObjectCallback>(callback_data, callback));
 }
 
 void HeapCompact::MovableObjectFixups::AddOrFilter(MovableReference* slot) {
@@ -177,7 +166,7 @@ void HeapCompact::MovableObjectFixups::AddOrFilter(MovableReference* slot) {
 
   auto interior_it = interior_fixups_.find(slot);
   CHECK(interior_fixups_.end() == interior_it);
-  interior_fixups_.insert({slot, nullptr});
+  interior_fixups_.emplace(slot, nullptr);
 #if DCHECK_IS_ON()
   interior_slot_to_object_.insert(slot, header->Payload());
 #endif  // DCHECK_IS_ON()
@@ -293,6 +282,16 @@ void HeapCompact::MovableObjectFixups::RelocateInteriorFixups(Address from,
   }
 }
 
+void HeapCompact::MovableObjectFixups::UpdateCallbacks() {
+  BackingStoreCallbackWorklist::View backing_store_callbacks(
+      heap_->GetBackingStoreCallbackWorklist(), WorklistTaskId::MainThread);
+  BackingStoreCallbackItem item;
+  while (backing_store_callbacks.Pop(&item)) {
+    fixup_callbacks_.insert(item.slot, std::pair<void*, MovingObjectCallback>(
+                                           item.callback_data, item.callback));
+  }
+}
+
 void HeapCompact::MovableObjectFixups::VerifyUpdatedSlot(
     MovableReference* slot) {
 // Verify that the already updated slot is valid, meaning:
@@ -384,21 +383,10 @@ void HeapCompact::Initialize(ThreadState* state) {
   force_for_next_gc_ = false;
 }
 
-bool HeapCompact::ShouldRegisterMovingObjectReference(MovableReference* slot) {
+bool HeapCompact::ShouldRegisterMovingObject(MovableReference* slot) {
   CHECK(heap_->LookupPageForAddress(reinterpret_cast<Address>(slot)));
 
   return do_compact_;
-}
-
-void HeapCompact::RegisterMovingObjectCallback(MovableReference* slot,
-                                               MovingObjectCallback callback,
-                                               void* callback_data) {
-  DCHECK(heap_->LookupPageForAddress(reinterpret_cast<Address>(slot)));
-
-  if (!do_compact_)
-    return;
-
-  Fixups().AddFixupCallback(slot, callback, callback_data);
 }
 
 void HeapCompact::UpdateHeapResidency() {
@@ -450,6 +438,13 @@ void HeapCompact::Relocate(Address from, Address to) {
   Fixups().Relocate(from, to);
 }
 
+void HeapCompact::UpdateBackingStoreCallbacks() {
+  if (!do_compact_)
+    return;
+
+  Fixups().UpdateCallbacks();
+}
+
 void HeapCompact::FilterNonLiveSlots() {
   if (!do_compact_)
     return;
@@ -474,8 +469,8 @@ void HeapCompact::Finish() {
   if (fixups_)
     fixups_->dumpDebugStats();
 #endif
-  fixups_.reset();
   do_compact_ = false;
+  fixups_.reset();
 }
 
 void HeapCompact::Cancel() {
@@ -485,6 +480,7 @@ void HeapCompact::Cancel() {
   last_fixup_count_for_testing_ = 0;
   do_compact_ = false;
   heap_->GetMovableReferenceWorklist()->Clear();
+  heap_->GetBackingStoreCallbackWorklist()->Clear();
   fixups_.reset();
 }
 

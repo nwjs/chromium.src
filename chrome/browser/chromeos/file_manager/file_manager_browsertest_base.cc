@@ -754,13 +754,10 @@ class LocalTestVolume : public TestVolume {
 // DownloadsTestVolume: local test volume for the "Downloads" directory.
 class DownloadsTestVolume : public LocalTestVolume {
  public:
-  DownloadsTestVolume() : LocalTestVolume("Downloads") {}
+  DownloadsTestVolume() : LocalTestVolume("MyFiles") {}
   ~DownloadsTestVolume() override = default;
 
   void EnsureDownloadsFolderExists() {
-    if (!base::FeatureList::IsEnabled(chromeos::features::kMyFilesVolume))
-      return;
-
     // When MyFiles is the volume create the Downloads folder under it.
     auto downloads_folder = root_path().Append("Downloads");
     auto downloads_entry = AddEntriesMessage::TestEntryInfo(
@@ -776,12 +773,7 @@ class DownloadsTestVolume : public LocalTestVolume {
   // the Volume, so tests are compatible with volume being MyFiles or Downloads.
   // TODO(lucmult): Remove this special case once MyFiles volume has been
   // rolled out.
-  base::FilePath base_path() const {
-    if (base::FeatureList::IsEnabled(chromeos::features::kMyFilesVolume))
-      return root_path().Append("Downloads");
-
-    return root_path();
-  }
+  base::FilePath base_path() const { return root_path().Append("Downloads"); }
 
   bool Mount(Profile* profile) override {
     if (!CreateRootDirectory(profile))
@@ -1529,8 +1521,14 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
   std::vector<base::Feature> enabled_features;
   std::vector<base::Feature> disabled_features;
 
+  enabled_features.emplace_back(features::kCrostiniAdvancedAccessControls);
+
   if (!IsGuestModeTest()) {
     enabled_features.emplace_back(features::kCrostini);
+  }
+
+  if (IsFilesNgTest()) {
+    enabled_features.emplace_back(chromeos::features::kFilesNG);
   }
 
   if (!IsNativeSmbTest()) {
@@ -1541,12 +1539,6 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
     enabled_features.emplace_back(chromeos::features::kDriveFs);
   } else {
     disabled_features.emplace_back(chromeos::features::kDriveFs);
-  }
-
-  if (IsMyFilesVolume()) {
-    enabled_features.emplace_back(chromeos::features::kMyFilesVolume);
-  } else {
-    disabled_features.emplace_back(chromeos::features::kMyFilesVolume);
   }
 
   if (IsArcTest()) {
@@ -1628,6 +1620,8 @@ void FileManagerBrowserTestBase::SetUpOnMainThread() {
     // for testing without such tight coupling.
     crostini_volume_ = std::make_unique<CrostiniTestVolume>();
     profile()->GetPrefs()->SetBoolean(crostini::prefs::kCrostiniEnabled, true);
+    profile()->GetPrefs()->SetBoolean(
+        crostini::prefs::kUserCrostiniRootAccessAllowedByPolicy, true);
     crostini::CrostiniManager* crostini_manager =
         crostini::CrostiniManager::GetForProfile(
             profile()->GetOriginalProfile());
@@ -1719,10 +1713,6 @@ bool FileManagerBrowserTestBase::GetTabletMode() const {
   return false;
 }
 
-bool FileManagerBrowserTestBase::GetEnableMyFilesVolume() const {
-  return false;
-}
-
 bool FileManagerBrowserTestBase::GetEnableDriveFs() const {
   return true;
 }
@@ -1748,6 +1738,10 @@ bool FileManagerBrowserTestBase::GetNeedsZipSupport() const {
 }
 
 bool FileManagerBrowserTestBase::GetIsOffline() const {
+  return false;
+}
+
+bool FileManagerBrowserTestBase::GetEnableFilesNg() const {
   return false;
 }
 
@@ -1856,18 +1850,12 @@ void FileManagerBrowserTestBase::OnCommand(const std::string& name,
   }
 
   if (name == "getRootPaths") {
-    // Obtain the root paths. TODO(lucmult): Remove the + /Downloads once
-    // MyFilesVolume is rolled out.
-    const std::string downloads_path =
-        base::FeatureList::IsEnabled(chromeos::features::kMyFilesVolume)
-            ? "/Downloads"
-            : "";
+    // Obtain the root paths.
     const auto downloads_root =
-        util::GetDownloadsMountPointName(profile()) + downloads_path;
+        util::GetDownloadsMountPointName(profile()) + "/Downloads";
 
     base::DictionaryValue dictionary;
     dictionary.SetString("downloads", "/" + downloads_root);
-    dictionary.SetString("downloads_path", downloads_path);
 
     if (!profile()->IsGuestSession()) {
       auto* drive_integration_service =
@@ -2105,6 +2093,22 @@ void FileManagerBrowserTestBase::OnCommand(const std::string& name,
     bool enabled;
     ASSERT_TRUE(value.GetBoolean("enabled", &enabled));
     profile()->GetPrefs()->SetBoolean(drive::prefs::kDisableDrive, !enabled);
+    return;
+  }
+
+  if (name == "setCrostiniEnabled") {
+    bool enabled;
+    ASSERT_TRUE(value.GetBoolean("enabled", &enabled));
+    profile()->GetPrefs()->SetBoolean(crostini::prefs::kCrostiniEnabled,
+                                      enabled);
+    return;
+  }
+
+  if (name == "setCrostiniRootAccessAllowed") {
+    bool enabled;
+    ASSERT_TRUE(value.GetBoolean("enabled", &enabled));
+    profile()->GetPrefs()->SetBoolean(
+        crostini::prefs::kUserCrostiniRootAccessAllowedByPolicy, enabled);
     return;
   }
 

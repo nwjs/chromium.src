@@ -69,9 +69,7 @@ std::string FormatFileSystemTypeToString(FormatFileSystemType filesystem) {
 class DiskMountManagerImpl : public DiskMountManager,
                              public CrosDisksClient::Observer {
  public:
-  DiskMountManagerImpl() :
-    already_refreshed_(false),
-    weak_ptr_factory_(this) {
+  DiskMountManagerImpl() : already_refreshed_(false) {
     DBusThreadManager* dbus_thread_manager = DBusThreadManager::Get();
     cros_disks_client_ = dbus_thread_manager->GetCrosDisksClient();
     suspend_unmount_manager_.reset(new SuspendUnmountManager(this));
@@ -665,9 +663,11 @@ class DiskMountManagerImpl : public DiskMountManager,
     DVLOG(1) << "Found disk " << disk_info.device_path();
     // Delete previous disk info for this path:
     bool is_new = true;
+    bool is_first_mount = false;
     std::string base_mount_path = std::string();
     DiskMap::iterator iter = disks_.find(disk_info.device_path());
     if (iter != disks_.end()) {
+      is_first_mount = iter->second->is_first_mount();
       base_mount_path = iter->second->base_mount_path();
       disks_.erase(iter);
       is_new = false;
@@ -682,6 +682,9 @@ class DiskMountManagerImpl : public DiskMountManager,
         && access_mode->second == chromeos::MOUNT_ACCESS_MODE_READ_ONLY;
     Disk* disk = new Disk(disk_info, write_disabled_by_policy,
                           base_mount_path);
+    if (!is_new) {
+      disk->set_is_first_mount(is_first_mount);
+    }
     disks_.insert(
         std::make_pair(disk_info.device_path(), base::WrapUnique(disk)));
     NotifyDiskStatusUpdate(is_new ? DISK_ADDED : DISK_CHANGED, *disk);
@@ -846,7 +849,7 @@ class DiskMountManagerImpl : public DiskMountManager,
   typedef std::map<std::string, chromeos::MountAccessMode> AccessModeMap;
   AccessModeMap access_modes_;
 
-  base::WeakPtrFactory<DiskMountManagerImpl> weak_ptr_factory_;
+  base::WeakPtrFactory<DiskMountManagerImpl> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(DiskMountManagerImpl);
 };

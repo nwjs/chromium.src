@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="pt-BR">
+<translation id="1036550831858290950">Salvar a guia atual nos favoritos</translation>
 <translation id="104962181688258143">Abrir o app Arquivos</translation>
 <translation id="1098295134904615027">Ativar a área de trabalho à direita</translation>
 <translation id="1122869341872663659">Exibindo <ph name="N" /> resultados da pesquisa para <ph name="QUERY" /></translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">Redefinir nível de zoom na página</translation>
 <translation id="2596078834055697711">Fazer captura de tela da janela</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" /> e depois <ph name="TAB" /> ou <ph name="RIGHT" /></translation>
-<translation id="2699509451653686398">Salvar a página da Web atual nos favoritos</translation>
 <translation id="2750942583782703988">Atualizar a página atual</translation>
 <translation id="2764005613199379871">Colocar o foco na barra de endereço de pesquisa</translation>
 <translation id="2789868185375229787">Diminuir zoom na página</translation>

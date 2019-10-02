@@ -156,11 +156,11 @@ extern const char kWebKitTextAreasAreResizable[];
 extern const char kWebKitJavascriptCanAccessClipboard[];
 extern const char kWebkitTabsToLinks[];
 extern const char kWebKitAllowRunningInsecureContent[];
+extern const char kWebKitForceDarkModeEnabled[];
 #if defined(OS_ANDROID)
 extern const char kWebKitFontScaleFactor[];
 extern const char kWebKitForceEnableZoom[];
 extern const char kWebKitPasswordEchoEnabled[];
-extern const char kWebKitForceDarkModeEnabled[];
 #endif
 extern const char kSSLErrorOverrideAllowed[];
 extern const char kIncognitoModeAvailability[];
@@ -204,6 +204,8 @@ extern const char kEnableTouchpadThreeFingerClick[];
 extern const char kNaturalScroll[];
 extern const char kPrimaryMouseButtonRight[];
 extern const char kMouseReverseScroll[];
+extern const char kMouseAcceleration[];
+extern const char kTouchpadAcceleration[];
 extern const char kMouseSensitivity[];
 extern const char kTouchpadSensitivity[];
 extern const char kUse24HourClock[];
@@ -299,6 +301,7 @@ extern const char kChildScreenTimeMilliseconds[];
 extern const char kLastChildScreenTimeSaved[];
 extern const char kLastChildScreenTimeReset[];
 extern const char kReleaseNotesLastShownMilestone[];
+extern const char kReleaseNotesSuggestionChipTimesLeftToShow[];
 extern const char kNTLMShareAuthenticationEnabled[];
 extern const char kNetworkFileSharesPreconfiguredShares[];
 extern const char kMostRecentlyUsedNetworkFileShareURL[];
@@ -310,8 +313,10 @@ extern const char kKerberosAccounts[];
 extern const char kKerberosActivePrincipalName[];
 extern const char kAppReinstallRecommendationEnabled[];
 extern const char kStartupBrowserWindowLaunchSuppressed[];
-extern const char kDeviceWebUsbAllowDevicesForUrls[];
 extern const char kLoginExtensionApiDataForNextLoginAttempt[];
+extern const char kSettingsShowBrowserBanner[];
+extern const char kSettingsShowOSBanner[];
+extern const char kSettingsShowAboutOSBanner[];
 #endif  // defined(OS_CHROMEOS)
 extern const char kShowHomeButton[];
 extern const char kSpeechRecognitionFilterProfanities[];
@@ -346,6 +351,7 @@ extern const char kRunAllFlashInAllowMode[];
 extern const char kPluginsMetadata[];
 extern const char kPluginsResourceCacheUpdate[];
 #endif
+extern const char kPluginsDeprecationInfobarLastShown[];
 extern const char kDefaultBrowserLastDeclined[];
 extern const char kResetCheckDefaultBrowser[];
 extern const char kDefaultBrowserSettingEnabled[];
@@ -409,7 +415,6 @@ extern const char kPrintPreviewUseSystemDefaultPrinter[];
 #endif
 
 #if defined(OS_CHROMEOS)
-extern const char kExternalPrintServers[];
 extern const char kRecommendedNativePrinters[];
 extern const char kRecommendedNativePrintersAccessMode[];
 extern const char kRecommendedNativePrintersBlacklist[];
@@ -724,8 +729,8 @@ extern const char kCipherSuiteBlacklist[];
 extern const char kH2ClientCertCoalescingHosts[];
 
 extern const char kBuiltInDnsClientEnabled[];
-extern const char kDnsOverHttpsServers[];
-extern const char kDnsOverHttpsServerMethods[];
+extern const char kDnsOverHttpsMode[];
+extern const char kDnsOverHttpsTemplates[];
 
 extern const char kRegisteredProtocolHandlers[];
 extern const char kIgnoredProtocolHandlers[];
@@ -886,6 +891,11 @@ extern const char kThirdPartyBlockingEnabled[];
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #endif  // defined(OS_WIN)
 
+// Windows mitigation policies.
+#if defined(OS_WIN)
+extern const char kRendererCodeIntegrityEnabled[];
+#endif  // defined(OS_WIN)
+
 extern const char kSettingsResetPromptPromptWave[];
 extern const char kSettingsResetPromptLastTriggeredForDefaultSearch[];
 extern const char kSettingsResetPromptLastTriggeredForStartupUrls[];
@@ -952,6 +962,7 @@ extern const char kUsageStatsEnabled[];
 
 #if defined(OS_CHROMEOS)
 extern const char kClientCertificateManagementAllowed[];
+extern const char kCACertificateManagementAllowed[];
 extern const char kBuiltinCertificateVerifierEnabled[];
 #endif
 

@@ -11,7 +11,8 @@ namespace content {
 class WebContents;
 }
 
-class PasswordDialogController;
+class CredentialLeakDialogController;
+class CredentialManagerDialogController;
 
 // The default inset from BubbleFrameView.
 const int kTitleTopInset = 12;
@@ -48,12 +49,33 @@ class AutoSigninFirstRunPrompt {
   virtual ~AutoSigninFirstRunPrompt() = default;
 };
 
+// A platform-independent interface for the credentials leaked prompt.
+class CredentialLeakPrompt {
+ public:
+  // Shows the dialog.
+  virtual void ShowCredentialLeakPrompt() = 0;
+
+  // Notifies the UI element that its controller is no longer managing the UI
+  // element. The dialog should close.
+  virtual void ControllerGone() = 0;
+
+ protected:
+  virtual ~CredentialLeakPrompt() = default;
+};
+
 // Factory function for AccountChooserPrompt on desktop platforms.
 AccountChooserPrompt* CreateAccountChooserPromptView(
-    PasswordDialogController* controller, content::WebContents* web_contents);
+    CredentialManagerDialogController* controller,
+    content::WebContents* web_contents);
 
 // Factory function for AutoSigninFirstRunPrompt on desktop platforms.
 AutoSigninFirstRunPrompt* CreateAutoSigninPromptView(
-    PasswordDialogController* controller, content::WebContents* web_contents);
+    CredentialManagerDialogController* controller,
+    content::WebContents* web_contents);
+
+// Factory function for CredentialsLeakedPrompt on desktop platforms.
+CredentialLeakPrompt* CreateCredentialLeakPromptView(
+    CredentialLeakDialogController* controller,
+    content::WebContents* web_contents);
 
 #endif  // CHROME_BROWSER_UI_PASSWORDS_PASSWORD_DIALOG_PROMPTS_H_

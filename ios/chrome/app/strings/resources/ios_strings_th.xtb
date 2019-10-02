@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="th">
+<translation id="1005230401424685968">ปปปป</translation>
 <translation id="1016495303386450659">อัปเดตรายการแล้ว</translation>
 <translation id="1047726139967079566">บุ๊กมาร์กหน้านี้...</translation>
 <translation id="1049743911850919806">โหมดไม่ระบุตัวตน</translation>
@@ -71,6 +72,7 @@
 <translation id="1820259098641718022">เพิ่มไปยังเรื่องรออ่านแล้ว</translation>
 <translation id="1828824471510190776">แนะนำรหัสผ่าน...</translation>
 <translation id="1870148520156231997">แสดงรหัสผ่าน</translation>
+<translation id="1872096359983322073">แฟลช</translation>
 <translation id="1876721852596493031">ส่งข้อมูลการใช้งาน</translation>
 <translation id="1911619930368729126">อัปโหลดไปยัง Google ไดรฟ์</translation>
 <translation id="1923342640370224680">ชั่วโมงล่าสุด</translation>
@@ -148,7 +150,6 @@
 <translation id="2921219216347069551">ไม่สามารถแชร์เว็บ</translation>
 <translation id="2923448633003185837">วางแล้วไป</translation>
 <translation id="292639812446257861">ทำเครื่องหมายว่ายังไม่ได้อ่าน</translation>
-<translation id="2933759065870693102">แฟลช</translation>
 <translation id="2958718410589002129">รหัสผ่าน</translation>
 <translation id="2969979262385602596">ไม่สามารถลงชื่อเข้าใช้ได้ โปรดลองอีกครั้งในภายหลัง</translation>
 <translation id="298306318844797842">เพิ่มวิธีการชำระเงิน...</translation>
@@ -194,6 +195,7 @@
 <translation id="3607167657931203000">ป้อนข้อมูลอัตโนมัติ</translation>
 <translation id="3609785682760573515">กำลังซิงค์...</translation>
 <translation id="3638472932233958418">โหลดหน้าเว็บล่วงหน้า</translation>
+<translation id="3670030362669914947">หมายเลข</translation>
 <translation id="3691593122358196899">เพิ่มบุ๊กมาร์กไปยัง <ph name="FOLDER_TITLE" /> แล้ว</translation>
 <translation id="3771033907050503522">แท็บที่ไม่ระบุตัวตน</translation>
 <translation id="3775743491439407556">การซิงค์ไม่ทำงาน</translation>
@@ -261,9 +263,11 @@
 <translation id="4747097190499141774">การเข้ารหัสลับด้วยรหัสผ่านจะไม่รวมข้อมูลวิธีการชำระเงินและที่อยู่จาก Google Pay เฉพาะผู้ที่มีรหัสผ่านของคุณเท่านั้นจึงจะอ่านข้อมูลที่เข้ารหัสได้ Google จะไม่ได้รับหรือจัดเก็บรหัสผ่านนี้ คุณจะต้องรีเซ็ตการซิงค์หากลืมรหัสผ่านหรือต้องการเปลี่ยนแปลงการตั้งค่านี้ <ph name="BEGIN_LINK" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK" /></translation>
 <translation id="4749030437873592350">ค้นหาในหน้าเว็บ...</translation>
 <translation id="4751645464639803239">แท็บไม่ระบุตัวตนใหม่</translation>
+<translation id="4758977202923349869">จัดตำแหน่งบัตรเครดิตให้อยู่ในกรอบนี้</translation>
 <translation id="4802417911091824046">การเข้ารหัสลับด้วยรหัสผ่านจะไม่รวมข้อมูลวิธีการชำระเงินและที่อยู่จาก Google Pay
 
 หากต้องการเปลี่ยนแปลงการตั้งค่านี้ ให้<ph name="BEGIN_LINK" />รีเซ็ตการซิงค์<ph name="END_LINK" /></translation>
+<translation id="4805759445554688327">หมายเลขบัตรไม่ถูกต้อง</translation>
 <translation id="4807020197310989387">บทความในรายการเรื่องรออ่านที่ยังไม่อ่าน 1 รายการ</translation>
 <translation id="4818522717893377262">เพิ่มภาษา...</translation>
 <translation id="481968316161811770">คุกกี้ ข้อมูลเว็บไซต์</translation>
@@ -302,6 +306,7 @@
 <translation id="5317780077021120954">บันทึก</translation>
 <translation id="5327248766486351172">ชื่อ</translation>
 <translation id="5388358297987318779">เปิดภาพ</translation>
+<translation id="5407969256130905701">ยกเลิกการเปลี่ยนแปลง</translation>
 <translation id="5409365236829784218">ไม่ได้ติดตั้งแอปพลิเคชันที่สามารถเปิดไฟล์นี้</translation>
 <translation id="5416022985862681400">7 วันที่ผ่านมา</translation>
 <translation id="5433691172869980887">คัดลอกชื่อผู้ใช้แล้ว</translation>
@@ -324,6 +329,7 @@
 <translation id="5728700505257787410">ขออภัย เกิดปัญหาในการลงชื่อเข้าใช้บัญชีของคุณ</translation>
 <translation id="5737974891429562743">รายละเอียดการลงชื่อเข้าใช้บัญชีล้าสมัยแล้ว โปรดอัปเดตเพื่อเริ่มการซิงค์</translation>
 <translation id="5738887413654608789">วิธีนี้ช่วยให้คุณค้นพบหน้าเว็บที่เกี่ยวข้องโดยอิงตามสิ่งที่อยู่รอบตัวคุณ</translation>
+<translation id="5803566855766646066">คุณแน่ใจไหมว่าต้องการทิ้งบัตรใบใหม่นี้</translation>
 <translation id="5816228676161003208">ช่วยให้คุณค้นหาได้เร็วขึ้นโดยใช้เสียง</translation>
 <translation id="5846482154967366008">เครื่องมือค้นหา</translation>
 <translation id="5854790677617711513">เกิน 30 วัน</translation>
@@ -352,6 +358,7 @@
 <translation id="605721222689873409">ปป</translation>
 <translation id="6066301408025741299">แตะเพื่อยกเลิก</translation>
 <translation id="6108923351542677676">กำลังดำเนินการตั้งค่า…</translation>
+<translation id="6119050551270742952">หน้าเว็บนี้อยู่ในโหมดไม่ระบุตัวตน</translation>
 <translation id="6122191549521593678">ออนไลน์</translation>
 <translation id="6127379762771434464">นำรายการออกแล้ว</translation>
 <translation id="6136914049981179737">วินาทีแล้ว</translation>
@@ -391,6 +398,7 @@
 <translation id="6476800141292307438">กำลังแปลหน้าเว็บเป็นภาษา<ph name="LANGUAGE" /> ตัวเลือกจะอยู่ทางด้านล่างของหน้าจอ</translation>
 <translation id="6482629121755362506">ลบแล้ว <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> รายการ</translation>
 <translation id="6610002944194042868">ตัวเลือกการแปลภาษา</translation>
+<translation id="6628106477656132239">วันที่หมดอายุไม่ถูกต้อง</translation>
 <translation id="6642362222295953972">เปลี่ยนไปใช้แท็บที่มีอยู่</translation>
 <translation id="6643016212128521049">ล้าง</translation>
 <translation id="6656103420185847513">แก้ไขโฟลเดอร์</translation>
@@ -407,6 +415,9 @@
 <translation id="6807889908376551050">แสดงทั้งหมด...</translation>
 <translation id="681368974849482173">สร้างรายการแล้ว</translation>
 <translation id="6851516051005285358">ขอเว็บไซต์สำหรับเดสก์ท็อป</translation>
+<translation id="6858855187367714033">สแกนแล้ว</translation>
+<translation id="6859944681507688231">หากต้องการสแกนคิวอาร์โค้ดหรือบัตรเครดิต ให้เปิดใช้กล้องถ่ายรูปจากการตั้งค่า</translation>
+<translation id="6873263987691478642">Split View</translation>
 <translation id="6896758677409633944">คัดลอก</translation>
 <translation id="6903907808598579934">เปิดการซิงค์</translation>
 <translation id="6914583639806229067">ค้นหารูปภาพที่คุณคัดลอก</translation>
@@ -449,6 +460,7 @@
 <translation id="744343212394640790">ไม่ใช่ <ph name="EMAIL" /></translation>
 <translation id="7454057999980797137">เขต/แขวง</translation>
 <translation id="7456847797759667638">เปิดตำแหน่ง...</translation>
+<translation id="7460314822154045102">ใช้กล้องถ่ายรูป</translation>
 <translation id="7464701184726199289">การดำเนินการนี้จะล้างข้อมูลที่ซิงค์จากอุปกรณ์ทั้งหมด การตั้งค่าเว็บไซต์ที่บันทึกไว้จะไม่ถูกลบและอาจส่งผลกับลักษณะการท่องเว็บของคุณ <ph name="BEGIN_LINK" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK" /></translation>
 <translation id="7472734401283673885">ชื่อบริษัท</translation>
 <translation id="7481312909269577407">ส่งต่อ</translation>
@@ -504,7 +516,9 @@
 <translation id="8428045167754449968">เมือง/จังหวัด</translation>
 <translation id="8428213095426709021">การตั้งค่า</translation>
 <translation id="8458397775385147834">ลบแล้ว 1 รายการ</translation>
+<translation id="8487667956631253959">เปิด</translation>
 <translation id="8487700953926739672">ใช้งานแบบออฟไลน์ได้</translation>
+<translation id="8490978609246021741">บันทึกการเปลี่ยนแปลง</translation>
 <translation id="8503813439785031346">ชื่อผู้ใช้</translation>
 <translation id="850600235656508448">เปิดในโหมดไม่ระบุตัวตน</translation>
 <translation id="8517375800490286174">ใบอนุญาตโอเพนซอร์ส</translation>
@@ -513,6 +527,7 @@
 <translation id="8532105204136943229">ปีที่หมดอายุ</translation>
 <translation id="8534481786647257214">โพสต์ใน Google+ แล้ว</translation>
 <translation id="8548878600947630424">ค้นหาในหน้าเว็บ...</translation>
+<translation id="8588404856427128947">ปิด</translation>
 <translation id="8605219856220328675">ปิดแท็บ</translation>
 <translation id="8620640915598389714">แก้ไข</translation>
 <translation id="8636825310635137004">เปิดการซิงค์เพื่อรับแท็บจากอุปกรณ์เครื่องอื่นๆ ของคุณ</translation>
@@ -553,6 +568,7 @@
 <translation id="9203116392574189331">แฮนด์ออฟ</translation>
 <translation id="9223358826628549784">ส่งรายงานข้อขัดข้องแล้ว</translation>
 <translation id="935490618240037774">บุ๊กมาร์ก ประวัติการเข้าชม รหัสผ่าน และการตั้งค่าอื่นๆ จะซิงค์กับบัญชี Google เพื่อให้คุณสามารถใช้ข้อมูลเหล่านี้ได้กับอุปกรณ์ทุกเครื่อง</translation>
+<translation id="952704832371081537">ยกเลิก</translation>
 <translation id="976982866697960176">จัดการข้อมูลที่ซิงค์…</translation>
 <translation id="988141524645182168">อุปกรณ์อื่นๆ</translation>
 <translation id="989988560359834682">แก้ไขที่อยู่</translation>

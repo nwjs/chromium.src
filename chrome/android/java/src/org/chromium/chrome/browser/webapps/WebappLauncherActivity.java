@@ -67,7 +67,7 @@ public class WebappLauncherActivity extends Activity {
     public static Intent createRelaunchWebApkIntent(Intent sourceIntent, WebApkInfo webApkInfo) {
         assert webApkInfo != null;
 
-        Intent intent = new Intent(Intent.ACTION_VIEW, webApkInfo.uri());
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(webApkInfo.url()));
         intent.setPackage(webApkInfo.webApkPackageName());
         intent.setFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK | ApiCompatibilityUtils.getActivityNewDocumentFlag());
@@ -169,7 +169,7 @@ public class WebappLauncherActivity extends Activity {
             return true;
         }
 
-        String webappUrl = webappInfo.uri().toString();
+        String webappUrl = webappInfo.url();
         String webappMac = IntentUtils.safeGetStringExtra(intent, ShortcutHelper.EXTRA_MAC);
 
         return (webappInfo.isForWebApk() || isValidMacForUrl(webappUrl, webappMac)
@@ -178,7 +178,7 @@ public class WebappLauncherActivity extends Activity {
 
     private static void launchWebapp(Activity launchingActivity, Intent intent,
             @NonNull WebappInfo webappInfo, long createTimestamp) {
-        String webappUrl = webappInfo.uri().toString();
+        String webappUrl = webappInfo.url();
         int webappSource = webappInfo.source();
 
         // Retrieves the source of the WebAPK from WebappDataStorage if it is unknown. The
@@ -368,8 +368,8 @@ public class WebappLauncherActivity extends Activity {
         // CustomTabActivity activity and go back to the WebAPK activity. It is intentional that
         // Custom Tab will not be reachable with a back button.
         if (webappInfo.isSplashProvidedByWebApk()) {
-            launchIntent.setFlags(
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+            launchIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NO_ANIMATION
+                    | Intent.FLAG_ACTIVITY_FORWARD_RESULT);
         } else {
             launchIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                     | ApiCompatibilityUtils.getActivityNewDocumentFlag()

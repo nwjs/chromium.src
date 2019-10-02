@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "ash/public/cpp/app_list/app_list_controller.h"
+#include "ash/public/cpp/tablet_mode.h"
 #include "base/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -31,7 +32,6 @@
 #include "chrome/browser/ui/app_list/search/search_result_ranker/ranking_item_util.h"
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller_util.h"
-#include "chrome/browser/ui/ash/tablet_mode_client.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
@@ -48,8 +48,7 @@ namespace {
 AppListClientImpl* g_app_list_client_instance = nullptr;
 
 bool IsTabletMode() {
-  return TabletModeClient::Get() &&
-         TabletModeClient::Get()->tablet_mode_enabled();
+  return ash::TabletMode::Get() && ash::TabletMode::Get()->InTabletMode();
 }
 
 }  // namespace
@@ -170,6 +169,8 @@ void AppListClientImpl::ViewShown(int64_t display_id) {
                              current_model_updater_->BadgedItemCount());
   }
   display_id_ = display_id;
+  if (search_controller_)
+    search_controller_->AppListShown();
 }
 
 void AppListClientImpl::ActivateItem(int profile_id,
@@ -294,10 +295,10 @@ void AppListClientImpl::OnSearchResultVisibilityChanged(const std::string& id,
   result->OnVisibilityChanged(visibility);
 }
 
-void AppListClientImpl::ActiveUserChanged(
-    const user_manager::User* active_user) {
+void AppListClientImpl::ActiveUserChanged(user_manager::User* active_user) {
   if (!active_user->is_profile_created())
     return;
+
   UpdateProfile();
 }
 
@@ -305,8 +306,9 @@ void AppListClientImpl::UpdateProfile() {
   Profile* profile = ProfileManager::GetActiveUserProfile();
   app_list::AppListSyncableService* syncable_service =
       app_list::AppListSyncableServiceFactory::GetForProfile(profile);
-  DCHECK(syncable_service);
-  SetProfile(profile);
+  // AppListSyncableService is null in tests.
+  if (syncable_service)
+    SetProfile(profile);
 }
 
 void AppListClientImpl::SetProfile(Profile* new_profile) {
@@ -517,7 +519,12 @@ void AppListClientImpl::NotifySearchResultsForLogging(
     const base::string16& trimmed_query,
     const ash::SearchResultIdWithPositionIndices& results,
     int position_index) {
-  search_ranking_event_logger_->Log(trimmed_query, results, position_index);
+  if (search_ranking_event_logger_)
+    search_ranking_event_logger_->Log(trimmed_query, results, position_index);
+  if (search_controller_) {
+    search_controller_->OnSearchResultsDisplayed(trimmed_query, results,
+                                                 position_index);
+  }
 }
 
 ash::ShelfLaunchSource AppListClientImpl::AppListSourceToLaunchSource(

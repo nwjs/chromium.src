@@ -31,7 +31,7 @@
 #include <utility>
 
 #include "base/single_thread_task_runner.h"
-#include "services/network/public/cpp/cors/preflight_timing_info.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/public/mojom/blob/blob_registry.mojom-blink.h"
 #include "third_party/blink/public/mojom/service_worker/controller_service_worker_mode.mojom-blink.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
@@ -44,7 +44,6 @@
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_hash.h"
-#include "third_party/blink/renderer/platform/wtf/time.h"
 
 namespace blink {
 
@@ -57,7 +56,6 @@ class FetchContext;
 class FrameScheduler;
 class MHTMLArchive;
 class KURL;
-class PreflightTimingInfo;
 class Resource;
 class ResourceError;
 class ResourceLoadObserver;
@@ -210,9 +208,7 @@ class PLATFORM_EXPORT ResourceFetcher
                           base::TimeTicks finish_time,
                           LoaderFinishType,
                           uint32_t inflight_keepalive_bytes,
-                          bool should_report_corb_blocking,
-                          const WebVector<network::cors::PreflightTimingInfo>&
-                              cors_preflight_timing_info);
+                          bool should_report_corb_blocking);
   void HandleLoaderError(Resource*,
                          const ResourceError&,
                          uint32_t inflight_keepalive_bytes);
@@ -412,7 +408,7 @@ class PLATFORM_EXPORT ResourceFetcher
 
   uint32_t inflight_keepalive_bytes_ = 0;
 
-  mojom::blink::BlobRegistryPtr blob_registry_ptr_;
+  mojo::Remote<mojom::blink::BlobRegistry> blob_registry_remote_;
 
   // This is not in the bit field below because we want to use AutoReset.
   bool is_in_request_resource_ = false;

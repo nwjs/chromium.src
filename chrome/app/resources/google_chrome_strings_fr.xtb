@@ -88,12 +88,6 @@ Si vous vous connectez quand même, toutes les informations Chrome, comme les fa
 <translation id="3080151273017101988">Poursuivre l'exécution d'applications en arrière-plan après la fermeture de Google Chrome</translation>
 <translation id="3089968997497233615">Une nouvelle version de Google Chrome encore plus sûre est disponible.</translation>
 <translation id="3149510190863420837">Applications Chrome</translation>
-<translation id="3251381707915721925">Pour définir les sites Web que l'utilisateur <ph name="NEW_PROFILE_NAME" /> peut consulter, vous pouvez configurer des restrictions et des paramètres sur le site <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" />. Si vous conservez les paramètres par défaut, <ph name="NEW_PROFILE_NAME" /> peut parcourir l'ensemble des sites du Web.
-
-Pour empêcher <ph name="NEW_PROFILE_NAME" /> d'accéder à votre compte, assurez-vous de verrouiller votre profil lorsque vous n'utilisez pas Chrome. Pour ce faire, cliquez sur le nom de votre profil dans l'angle supérieur droit du navigateur, puis sélectionnez "Fermer et activer le verrouillage enfant".
-<ph name="BEGIN_LINK_2" />En savoir plus<ph name="END_LINK_2" />
-
-Pour obtenir plus d'informations, veuillez consulter votre compte de messagerie (<ph name="ACCOUNT_EMAIL" />).</translation>
 <translation id="3282568296779691940">Connectez-vous à Chrome</translation>
 <translation id="3340978935015468852">paramètres</translation>
 <translation id="3360895254066713204">Aide de Chrome</translation>
@@ -153,7 +147,6 @@ Pour obtenir plus d'informations, veuillez consulter votre compte de messagerie 
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Impossible de synchroniser vos données dans Google Chrome. Veuillez mettre à jour votre phrase secrète de synchronisation.</translation>
 <translation id="5062123544085870375">Redémarrer Chrome OS</translation>
-<translation id="5090044601776247154">Les utilisateurs supervisés ne seront plus disponibles à partir de Chromium 70.</translation>
 <translation id="5132929315877954718">Découvrez des applications, des jeux, des extensions et des thèmes exceptionnels pour Google Chrome.</translation>
 <translation id="5170938038195470297">Votre profil ne peut pas être utilisé parce qu'il vient d'une version plus récente de Google Chrome. 
 
@@ -182,9 +175,11 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="5906655207909574370">Mise à jour presque terminée. Pour la finaliser, veuillez redémarrer votre appareil.</translation>
 <translation id="5940385492829620908">Votre contenu Web, vos favoris et toutes vos données Chrome sont conservés ici.</translation>
 <translation id="5941830788786076944">Définir Google Chrome comme navigateur par défaut</translation>
+<translation id="5977372243443849142">Chrome peut mémoriser vos mots de passe pour que vous n'ayez pas à les retenir.</translation>
 <translation id="6014844626092547096">Vous êtes maintenant connecté à Chrome. La synchronisation a été désactivée par votre administrateur.</translation>
 <translation id="6040143037577758943">Fermer</translation>
 <translation id="6070348360322141662">Pour plus de sécurité, vos données seront chiffrées dans Google Chrome</translation>
+<translation id="6102256037460917300">Si un paramètre ne s'affiche pas sur la page, accédez aux <ph name="LINK_BEGIN" />paramètres du navigateur Chrome<ph name="LINK_END" /></translation>
 <translation id="6113794647360055231">Chrome s'est amélioré</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> – Google Chrome Bêta</translation>
@@ -226,7 +221,6 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="7486227612705979895">Chromium va accéder à votre Drive pour proposer des suggestions dans la barre d'adresse</translation>
 <translation id="7531671357096394523">Fermez toutes les copies de Chrome.</translation>
 <translation id="7535429826459677826">Google Chrome pour les développeurs</translation>
-<translation id="7552219221109926349">Afficher Chrome OS dans cette langue</translation>
 <translation id="7589360514048265910">Cet ordinateur ne recevra plus les mises à jour de Google Chrome, car la compatibilité avec Mac OS X 10.9 n'est plus assurée.</translation>
 <translation id="7592736734348559088">Impossible de synchroniser vos données dans Google Chrome, car les informations de connexion de votre compte ne sont plus à jour.</translation>
 <translation id="7626032353295482388">Bienvenue dans Chrome</translation>
@@ -244,7 +238,6 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="7896673875602241923">Un utilisateur s'est récemment connecté à Chrome sur cet ordinateur en tant que <ph name="ACCOUNT_EMAIL_LAST" />. Veuillez créer un autre utilisateur Chrome pour séparer vos informations.</translation>
 <translation id="7908168227788431038">Mise à jour presque terminée. Relancez Google Chrome pour la finaliser.</translation>
 <translation id="7962410387636238736">Cet ordinateur ne recevra plus les mises à jour de Google Chrome, car la compatibilité n'est plus assurée sur Windows XP et Windows Vista</translation>
-<translation id="8005540215158006229">Google Chrome est presque prêt</translation>
 <translation id="8008534537613507642">Réinstaller Chrome</translation>
 <translation id="8013993649590906847">Si une image n'est pas accompagnée d'une description utile, Chrome essaiera de vous en proposer une. Pour nous permettre de créer des descriptions, les images sont envoyées à Google.</translation>
 <translation id="8030318113982266900">Passage de votre appareil à la version <ph name="CHANNEL_NAME" />…</translation>
@@ -277,7 +270,6 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="870251953148363156">Mettre à jour &amp;Google Chrome</translation>
 <translation id="873133009373065397">Impossible d'identifier ou de définir le navigateur par défaut avec Google Chrome</translation>
 <translation id="8736674169840206667">À la demande de votre administrateur, vous devez relancer Chrome pour installer une mise à jour</translation>
-<translation id="8788264404293392165">Cette langue est utilisée pour l'UI de Chrome OS</translation>
 <translation id="8823341990149967727">Version de Chrome obsolète</translation>
 <translation id="884296878221830158">Elle contrôle également la page qui s'affiche au démarrage de Chrome ou lorsque vous cliquez sur le bouton Accueil.</translation>
 <translation id="8862326446509486874">Vous ne disposez pas des droits requis pour installer la version système. Relancez l'installation en vous connectant comme administrateur.</translation>

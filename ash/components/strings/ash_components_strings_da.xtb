@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="da">
+<translation id="1036550831858290950">Gem den aktuelle fane som et bogmærke</translation>
 <translation id="104962181688258143">Åbn appen Filer</translation>
 <translation id="1098295134904615027">Aktivér det virtuelle skrivebord til højre</translation>
 <translation id="1122869341872663659">Viser <ph name="N" /> søgeresultater for <ph name="QUERY" /></translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">Nulstil zoomniveauet på siden</translation>
 <translation id="2596078834055697711">Tag screenshot af vinduet</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" /> og derefter <ph name="TAB" /> eller <ph name="RIGHT" /></translation>
-<translation id="2699509451653686398">Gem den aktuelle webside som et bogmærke</translation>
 <translation id="2750942583782703988">Genindlæs den aktuelle side</translation>
 <translation id="2764005613199379871">Fokuser på søgning i adresselinjen</translation>
 <translation id="2789868185375229787">Zoom ud fra siden</translation>

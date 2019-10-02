@@ -18,12 +18,17 @@
 #include "chrome/browser/sharing/ping_message_handler.h"
 #include "chrome/browser/sharing/proto/sharing_message.pb.h"
 #include "chrome/browser/sharing/sharing_device_registration.h"
+#include "chrome/browser/sharing/sharing_fcm_sender.h"
+#include "components/gcm_driver/web_push_common.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/sync/driver/sync_service_observer.h"
 #include "net/base/backoff_entry.h"
 
 #if defined(OS_ANDROID)
-#include "chrome/browser/sharing/click_to_call/click_to_call_message_handler_android.h"
+#include "chrome/browser/sharing/shared_clipboard/shared_clipboard_message_handler_android.h"
+#include "chrome/browser/sharing/sharing_service_proxy_android.h"
+#else
+#include "chrome/browser/sharing/shared_clipboard/shared_clipboard_message_handler_desktop.h"
 #endif  // defined(OS_ANDROID)
 
 namespace gcm {
@@ -31,14 +36,14 @@ class GCMDriver;
 }  // namespace gcm
 
 namespace syncer {
+class DeviceInfo;
 class DeviceInfoTracker;
 class LocalDeviceInfoProvider;
 class SyncService;
 }  // namespace syncer
 
-class SharingDeviceInfo;
+class NotificationDisplayService;
 class SharingFCMHandler;
-class SharingFCMSender;
 class SharingMessageHandler;
 class SharingSyncPreference;
 class VapidKeyManager;
@@ -50,7 +55,8 @@ class SharingService : public KeyedService,
                        syncer::SyncServiceObserver,
                        AckMessageHandler::AckMessageObserver {
  public:
-  using SendMessageCallback = base::OnceCallback<void(bool)>;
+  using SendMessageCallback =
+      base::OnceCallback<void(SharingSendMessageResult)>;
 
   enum class State {
     // Device is unregistered with FCM and Sharing is unavailable.
@@ -72,13 +78,18 @@ class SharingService : public KeyedService,
       gcm::GCMDriver* gcm_driver,
       syncer::DeviceInfoTracker* device_info_tracker,
       syncer::LocalDeviceInfoProvider* local_device_info_provider,
-      syncer::SyncService* sync_service);
+      syncer::SyncService* sync_service,
+      NotificationDisplayService* notification_display_service);
   ~SharingService() override;
+
+  // Returns the device matching |guid|, or nullptr if no match was found.
+  virtual std::unique_ptr<syncer::DeviceInfo> GetDeviceByGuid(
+      const std::string& guid) const;
 
   // Returns a list of DeviceInfo that is available to receive messages.
   // All returned devices has the specified |required_capabilities| defined in
   // SharingDeviceCapability enum.
-  virtual std::vector<SharingDeviceInfo> GetDeviceCandidates(
+  virtual std::vector<std::unique_ptr<syncer::DeviceInfo>> GetDeviceCandidates(
       int required_capabilities) const;
 
   // Sends a message to the device specified by GUID.
@@ -98,6 +109,16 @@ class SharingService : public KeyedService,
   // Returns the current state of SharingService.
   virtual State GetState() const;
 
+  // Used to register devices with required capabilities in tests.
+  void RegisterDeviceInTesting(
+      int capabilities,
+      SharingDeviceRegistration::RegistrationCallback callback);
+
+  SharingSyncPreference* GetSyncPreferences() const;
+
+  // Used to fake client names in integration tests.
+  void SetDeviceInfoTrackerForTesting(syncer::DeviceInfoTracker* tracker);
+
  private:
   // Overrides for syncer::SyncServiceObserver.
   void OnSyncShutdown(syncer::SyncService* sync) override;
@@ -107,13 +128,16 @@ class SharingService : public KeyedService,
   void OnAckReceived(const std::string& message_id) override;
 
   void RegisterDevice();
+
   void UnregisterDevice();
   void OnDeviceRegistered(SharingDeviceRegistrationResult result);
   void OnDeviceUnregistered(SharingDeviceRegistrationResult result);
   void OnMessageSent(base::TimeTicks start_time,
                      const std::string& message_guid,
+                     SharingSendMessageResult result,
                      base::Optional<std::string> message_id);
-  void InvokeSendMessageCallback(const std::string& message_guid, bool result);
+  void InvokeSendMessageCallback(const std::string& message_guid,
+                                 SharingSendMessageResult result);
 
   // Returns true if required sync feature is enabled.
   bool IsSyncEnabled() const;
@@ -145,8 +169,11 @@ class SharingService : public KeyedService,
   std::map<std::string, std::string> message_guids_;
 
 #if defined(OS_ANDROID)
-  ClickToCallMessageHandler click_to_call_message_handler_;
+  SharingServiceProxyAndroid sharing_service_proxy_android_{this};
 #endif  // defined(OS_ANDROID)
+
+  std::unique_ptr<SharedClipboardMessageHandler>
+      shared_clipboard_message_handler_;
 
   base::WeakPtrFactory<SharingService> weak_ptr_factory_{this};
 

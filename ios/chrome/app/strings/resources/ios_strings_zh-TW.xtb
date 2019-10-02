@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="zh-TW">
+<translation id="1005230401424685968">YYYY</translation>
 <translation id="1016495303386450659">項目已更新</translation>
 <translation id="1047726139967079566">把此頁加入書籤...</translation>
 <translation id="1049743911850919806">無痕模式</translation>
@@ -71,6 +72,7 @@
 <translation id="1820259098641718022">已加入閱讀清單</translation>
 <translation id="1828824471510190776">建議密碼...</translation>
 <translation id="1870148520156231997">顯示密碼</translation>
+<translation id="1872096359983322073">閃光燈</translation>
 <translation id="1876721852596493031">傳送使用情況資料</translation>
 <translation id="1911619930368729126">上傳至 Google 雲端硬碟</translation>
 <translation id="1923342640370224680">前一個小時</translation>
@@ -148,7 +150,6 @@
 <translation id="2921219216347069551">無法分享網頁</translation>
 <translation id="2923448633003185837">貼上並前往</translation>
 <translation id="292639812446257861">標示為未讀取</translation>
-<translation id="2933759065870693102">閃光燈</translation>
 <translation id="2958718410589002129">密碼</translation>
 <translation id="2969979262385602596">無法登入，請稍後再試。</translation>
 <translation id="298306318844797842">新增付款方式...</translation>
@@ -194,6 +195,7 @@
 <translation id="3607167657931203000">自動填入資料</translation>
 <translation id="3609785682760573515">同步處理中...</translation>
 <translation id="3638472932233958418">預先載入網頁</translation>
+<translation id="3670030362669914947">號碼</translation>
 <translation id="3691593122358196899">已將書籤加入「<ph name="FOLDER_TITLE" />」</translation>
 <translation id="3771033907050503522">無痕式分頁</translation>
 <translation id="3775743491439407556">同步功能無法正常運作</translation>
@@ -261,9 +263,11 @@
 <translation id="4747097190499141774">通關密語加密保護的資料不包括 Google Pay 的付款方式和地址。只有知道你通關密語的人，才能讀取加密保護的資料。系統不會將通關密語傳送給 Google，Google 也不會儲存通關密語。如果你忘記自己的通關密語，或是想變更這項設定，則必須重設同步功能。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="4749030437873592350">在網頁中尋找...</translation>
 <translation id="4751645464639803239">新無痕式分頁</translation>
+<translation id="4758977202923349869">請將信用卡置於此方框內</translation>
 <translation id="4802417911091824046">通關密語加密保護的資料不包括 Google Pay 的付款方式和地址。
 
 如要變更這項設定，請<ph name="BEGIN_LINK" />重設同步功能<ph name="END_LINK" /></translation>
+<translation id="4805759445554688327">卡號無效</translation>
 <translation id="4807020197310989387">閱讀清單中有 1 篇未讀文章。</translation>
 <translation id="4818522717893377262">新增語言...</translation>
 <translation id="481968316161811770">Cookie、網站資料</translation>
@@ -302,6 +306,7 @@
 <translation id="5317780077021120954">儲存</translation>
 <translation id="5327248766486351172">名稱</translation>
 <translation id="5388358297987318779">開啟圖片</translation>
+<translation id="5407969256130905701">捨棄變更</translation>
 <translation id="5409365236829784218">未安裝可開啟這個檔案的應用程式。</translation>
 <translation id="5416022985862681400">過去 7 天</translation>
 <translation id="5433691172869980887">已複製使用者名稱</translation>
@@ -324,6 +329,7 @@
 <translation id="5728700505257787410">很抱歉，登入您的帳戶時發生問題。</translation>
 <translation id="5737974891429562743">帳戶登入詳細資訊過舊。請先更新，再開始進行同步處理。</translation>
 <translation id="5738887413654608789">可讓你找到與目前周遭環境相關的網頁。</translation>
+<translation id="5803566855766646066">確定要捨棄這張新的信用卡嗎？</translation>
 <translation id="5816228676161003208">可讓你使用語音搜尋功能，查詢資訊更方便。</translation>
 <translation id="5846482154967366008">搜尋引擎</translation>
 <translation id="5854790677617711513">超過 30 天前</translation>
@@ -352,6 +358,7 @@
 <translation id="605721222689873409">年</translation>
 <translation id="6066301408025741299">輕觸即可取消。</translation>
 <translation id="6108923351542677676">設定中…</translation>
+<translation id="6119050551270742952">目前的網頁處於無痕模式</translation>
 <translation id="6122191549521593678">線上</translation>
 <translation id="6127379762771434464">已移除項目</translation>
 <translation id="6136914049981179737">幾秒前</translation>
@@ -391,6 +398,7 @@
 <translation id="6476800141292307438">將網頁翻譯成<ph name="LANGUAGE" />。翻譯選項位於靠近畫面底部的位置。</translation>
 <translation id="6482629121755362506">已刪除 <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> 個項目</translation>
 <translation id="6610002944194042868">翻譯選項</translation>
+<translation id="6628106477656132239">到期日無效</translation>
 <translation id="6642362222295953972">切換至現有分頁</translation>
 <translation id="6643016212128521049">清除</translation>
 <translation id="6656103420185847513">編輯資料夾</translation>
@@ -407,6 +415,9 @@
 <translation id="6807889908376551050">全部顯示...</translation>
 <translation id="681368974849482173">項目已建立</translation>
 <translation id="6851516051005285358">切換為電腦版網站</translation>
+<translation id="6858855187367714033">已掃描</translation>
+<translation id="6859944681507688231">如要掃描 QR 圖碼或信用卡，請在設定中啟用相機。</translation>
+<translation id="6873263987691478642">分割檢視</translation>
 <translation id="6896758677409633944">複製</translation>
 <translation id="6903907808598579934">開啟同步處理功能</translation>
 <translation id="6914583639806229067">搜尋你複製的圖片</translation>
@@ -449,6 +460,7 @@
 <translation id="744343212394640790">不是 <ph name="EMAIL" /></translation>
 <translation id="7454057999980797137">州/縣</translation>
 <translation id="7456847797759667638">開啟位置...</translation>
+<translation id="7460314822154045102">使用相機</translation>
 <translation id="7464701184726199289">系統會將保持同步的資料從所有裝置上刪除。已儲存的網站設定不會遭到刪除，而且可能會反映您的瀏覽習慣。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="7472734401283673885">公司名稱</translation>
 <translation id="7481312909269577407">往前</translation>
@@ -504,7 +516,9 @@
 <translation id="8428045167754449968">鄉/鎮/市/區</translation>
 <translation id="8428213095426709021">設定</translation>
 <translation id="8458397775385147834">已刪除 1 個項目</translation>
+<translation id="8487667956631253959">開啟</translation>
 <translation id="8487700953926739672">可離線使用</translation>
+<translation id="8490978609246021741">儲存變更</translation>
 <translation id="8503813439785031346">使用者名稱</translation>
 <translation id="850600235656508448">以無痕模式開啟</translation>
 <translation id="8517375800490286174">開放原始碼授權</translation>
@@ -513,6 +527,7 @@
 <translation id="8532105204136943229">到期年份</translation>
 <translation id="8534481786647257214">已順利發布到 Google+。</translation>
 <translation id="8548878600947630424">在網頁中尋找...</translation>
+<translation id="8588404856427128947">關閉</translation>
 <translation id="8605219856220328675">關閉分頁。</translation>
 <translation id="8620640915598389714">編輯</translation>
 <translation id="8636825310635137004">如要存取您在其他裝置上開啟的分頁，請開啟同步處理功能。</translation>
@@ -553,6 +568,7 @@
 <translation id="9203116392574189331">Handoff</translation>
 <translation id="9223358826628549784">當機報告已送出。</translation>
 <translation id="935490618240037774">您的書籤、歷史記錄、密碼和其他設定都會在您的 Google 帳戶中保持同步，以便您在所有個人裝置上使用。</translation>
+<translation id="952704832371081537">取消</translation>
 <translation id="976982866697960176">管理同步資料…</translation>
 <translation id="988141524645182168">其他裝置</translation>
 <translation id="989988560359834682">編輯地址</translation>

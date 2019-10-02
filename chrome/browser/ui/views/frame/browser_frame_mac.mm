@@ -176,13 +176,13 @@ void BrowserFrameMac::ValidateUserInterfaceItem(
                                             : IDS_ENTER_FULLSCREEN_MAC));
       break;
     }
-    case IDC_BOOKMARK_PAGE: {
-      // Extensions have the ability to hide the bookmark page menu item.
-      // This only affects the bookmark page menu item under the main menu.
-      // The bookmark page menu item under the app menu has its visibility
+    case IDC_BOOKMARK_THIS_TAB: {
+      // Extensions have the ability to hide the bookmark tab menu item.
+      // This only affects the bookmark tab menu item under the main menu.
+      // The bookmark tab menu item under the app menu has its visibility
       // controlled by AppMenuModel.
       result->new_hidden_state =
-          chrome::ShouldRemoveBookmarkThisPageUI(browser->profile());
+          chrome::ShouldRemoveBookmarkThisTabUI(browser->profile());
       break;
     }
     case IDC_BOOKMARK_ALL_TABS: {
@@ -191,14 +191,14 @@ void BrowserFrameMac::ValidateUserInterfaceItem(
       // menu.  The bookmark page menu item under the app menu has its
       // visibility controlled by AppMenuModel.
       result->new_hidden_state =
-          chrome::ShouldRemoveBookmarkOpenPagesUI(browser->profile());
+          chrome::ShouldRemoveBookmarkAllTabsUI(browser->profile());
       break;
     }
     case IDC_SHOW_AS_TAB: {
       // Hide this menu option if the window is tabbed or is the devtools
       // window.
       result->new_hidden_state =
-          browser->is_type_tabbed() || browser->is_devtools();
+          browser->is_type_normal() || browser->is_type_devtools();
       break;
     }
     case IDC_ROUTE_MEDIA: {

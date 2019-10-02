@@ -27,15 +27,8 @@ const base::Feature kNetworkService {
 };
 
 // Out of Blink CORS
-const base::Feature kOutOfBlinkCors {
-  "OutOfBlinkCors",
-#if defined(OS_ANDROID)
-      base::FEATURE_DISABLED_BY_DEFAULT
-};
-#else
-      base::FEATURE_ENABLED_BY_DEFAULT
-};
-#endif
+const base::Feature kOutOfBlinkCors{"OutOfBlinkCors",
+                                    base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kReporting{"Reporting", base::FEATURE_ENABLED_BY_DEFAULT};
 
@@ -99,18 +92,48 @@ const base::Feature kProactivelyThrottleLowPriorityRequests{
 const base::Feature kCrossOriginEmbedderPolicy{
     "CrossOriginEmbedderPolicy", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// If this feature is enabled, the mDNS responder service responds to queries
-// for TXT records associated with
-// "Generated-Names._mdns_name_generator._udp.local" with a list of generated
-// mDNS names (random UUIDs) in the TXT record data.
-const base::Feature kMdnsResponderGeneratedNameListing{
-    "MdnsResponderGeneratedNameListing", base::FEATURE_DISABLED_BY_DEFAULT};
+// When kBlockNonSecureExternalRequests is enabled, requests initiated from a
+// pubic network may only target a private network if the initiating context
+// is secure.
+//
+// https://wicg.github.io/cors-rfc1918/#integration-fetch
+const base::Feature kBlockNonSecureExternalRequests{
+    "BlockNonSecureExternalRequests", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// When kPrefetchMainResourceNetworkIsolationKey is enabled, cross-origin
+// prefetch requests for main-resources, as well as their preload response
+// headers, will use a special NetworkIsolationKey allowing them to be reusable
+// from a cross-origin context when the HTTP cache is partitioned by the
+// NetworkIsolationKey.
+const base::Feature kPrefetchMainResourceNetworkIsolationKey{
+    "PrefetchMainResourceNetworkIsolationKey",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enable usage of hardcoded DoH upgrade mapping for use in automatic mode.
+const base::Feature kDnsOverHttpsUpgrade {
+  "DnsOverHttpsUpgrade",
+#if defined(OS_CHROMEOS) || defined(OS_MACOSX) || defined(OS_ANDROID) || \
+    defined(OS_WIN)
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+};
+
+// Provides a mechanism to disable DoH upgrades for some subset of the hardcoded
+// upgrade mapping. Separate multiple provider ids with commas. See the
+// mapping in net/dns/dns_util.cc for provider ids.
+const base::FeatureParam<std::string>
+    kDnsOverHttpsUpgradeDisabledProvidersParam{&kDnsOverHttpsUpgrade,
+                                               "DisabledProviders", ""};
+
+// Disable special treatment on requests with keepalive set (see
+// https://fetch.spec.whatwg.org/#request-keepalive-flag). This is introduced
+// for investigation on the memory usage, and should not be enabled widely.
+const base::Feature kDisableKeepaliveFetch{"DisableKeepaliveFetch",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
 bool ShouldEnableOutOfBlinkCors() {
-  // OOR-CORS requires NetworkService.
-  if (!base::FeatureList::IsEnabled(features::kNetworkService))
-    return false;
-
   return base::FeatureList::IsEnabled(features::kOutOfBlinkCors);
 }
 

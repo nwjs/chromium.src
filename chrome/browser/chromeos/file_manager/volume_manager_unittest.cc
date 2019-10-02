@@ -37,7 +37,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/storage_monitor/storage_info.h"
 #include "components/user_manager/user.h"
-#include "content/public/test/test_browser_thread_bundle.h"
+#include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_service_manager_context.h"
 #include "extensions/browser/extension_registry.h"
 #include "services/device/public/mojom/mtp_storage_info.mojom.h"
@@ -256,7 +256,7 @@ class VolumeManagerTest : public testing::Test {
     main_profile_.reset();
     disk_mount_manager_.reset();
     chromeos::PowerManagerClient::Shutdown();
-    thread_bundle_.RunUntilIdle();
+    task_environment_.RunUntilIdle();
   }
 
   Profile* profile() const { return main_profile_->profile(); }
@@ -264,7 +264,7 @@ class VolumeManagerTest : public testing::Test {
     return main_profile_->volume_manager();
   }
 
-  content::TestBrowserThreadBundle thread_bundle_;
+  content::BrowserTaskEnvironment task_environment_;
   content::TestServiceManagerContext context_;
   std::unique_ptr<FakeDiskMountManager> disk_mount_manager_;
   std::unique_ptr<ProfileEnvironment> main_profile_;
@@ -873,8 +873,6 @@ TEST_F(VolumeManagerTest, OnExternalStorageReadOnlyChanged) {
 }
 
 TEST_F(VolumeManagerTest, GetVolumeList) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(chromeos::features::kMyFilesVolume);
   volume_manager()->Initialize();  // Adds "Downloads"
   std::vector<base::WeakPtr<Volume>> volume_list =
       volume_manager()->GetVolumeList();
@@ -887,8 +885,6 @@ TEST_F(VolumeManagerTest, VolumeManagerInitializeMyFilesVolume) {
   // Emulate running inside ChromeOS.
   chromeos::ScopedSetRunningOnChromeOSForTesting fake_release(kLsbRelease,
                                                               base::Time());
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(chromeos::features::kMyFilesVolume);
   volume_manager()->Initialize();  // Adds "Downloads"
   std::vector<base::WeakPtr<Volume>> volume_list =
       volume_manager()->GetVolumeList();
@@ -899,8 +895,6 @@ TEST_F(VolumeManagerTest, VolumeManagerInitializeMyFilesVolume) {
 }
 
 TEST_F(VolumeManagerTest, FindVolumeById) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(chromeos::features::kMyFilesVolume);
   volume_manager()->Initialize();  // Adds "Downloads"
   base::WeakPtr<Volume> bad_volume =
       volume_manager()->FindVolumeById("nonexistent");
@@ -966,19 +960,15 @@ TEST_F(VolumeManagerTest, MTPPlugAndUnplug) {
   storage_monitor::StorageInfo info(
       storage_monitor::StorageInfo::MakeDeviceId(
           storage_monitor::StorageInfo::MTP_OR_PTP, "dummy-device-id"),
-      FILE_PATH_LITERAL("/dummy/device/location"),
-      base::UTF8ToUTF16("label"),
-      base::UTF8ToUTF16("vendor"),
-      base::UTF8ToUTF16("model"),
+      FILE_PATH_LITERAL("/dummy/device/location"), base::UTF8ToUTF16("label"),
+      base::UTF8ToUTF16("vendor"), base::UTF8ToUTF16("model"),
       12345 /* size */);
 
   storage_monitor::StorageInfo non_mtp_info(
       storage_monitor::StorageInfo::MakeDeviceId(
           storage_monitor::StorageInfo::FIXED_MASS_STORAGE, "dummy-device-id2"),
-      FILE_PATH_LITERAL("/dummy/device/location2"),
-      base::UTF8ToUTF16("label2"),
-      base::UTF8ToUTF16("vendor2"),
-      base::UTF8ToUTF16("model2"),
+      FILE_PATH_LITERAL("/dummy/device/location2"), base::UTF8ToUTF16("label2"),
+      base::UTF8ToUTF16("vendor2"), base::UTF8ToUTF16("model2"),
       12345 /* size */);
 
   // Attach

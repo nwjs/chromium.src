@@ -10,6 +10,8 @@
 #include "base/debug/debugger.h"
 #include "base/debug/leak_annotations.h"
 #include "base/i18n/rtl.h"
+#include "base/message_loop/message_pump.h"
+#include "base/message_loop/message_pump_type.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/pending_task.h"
 #include "base/run_loop.h"
@@ -102,9 +104,10 @@ std::unique_ptr<base::MessagePump> CreateMainThreadMessagePump(bool nwjs) {
     p = new base::MessagePumpNSRunLoop();
   std::unique_ptr<base::MessagePump> pump(p);
   return pump;
+
 #elif defined(OS_FUCHSIA)
   // Allow FIDL APIs on renderer main thread.
-  return base::MessagePump::Create(base::MessagePump::Type::IO);
+  return base::MessagePump::Create(base::MessagePumpType::IO);
 #else
   base::MessagePump* p;
   if (nwjs) {
@@ -112,7 +115,7 @@ std::unique_ptr<base::MessagePump> CreateMainThreadMessagePump(bool nwjs) {
     std::unique_ptr<base::MessagePump> pump(p);
     return pump;
   } else
-    return base::MessagePump::Create(base::MessagePump::Type::DEFAULT);
+    return base::MessagePump::Create(base::MessagePumpType::DEFAULT);
 #endif
 }
 
@@ -221,7 +224,8 @@ int RendererMain(const MainFunctionParams& parameters) {
                          std::move(main_thread_scheduler));
 
     // Setup tracing sampler profiler as early as possible.
-    tracing::TracingSamplerProfiler::CreateForCurrentThread();
+    auto tracing_sampler_profiler =
+        tracing::TracingSamplerProfiler::CreateOnMainThread();
 
     if (need_sandbox)
       should_run_loop = platform.EnableSandbox();

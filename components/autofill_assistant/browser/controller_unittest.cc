@@ -13,12 +13,11 @@
 #include "components/autofill_assistant/browser/features.h"
 #include "components/autofill_assistant/browser/mock_controller_observer.h"
 #include "components/autofill_assistant/browser/mock_service.h"
-#include "components/autofill_assistant/browser/mock_web_controller.h"
 #include "components/autofill_assistant/browser/service.h"
 #include "components/autofill_assistant/browser/trigger_context.h"
+#include "components/autofill_assistant/browser/web/mock_web_controller.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_browser_context.h"
-#include "content/public/test/test_browser_thread_bundle.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -61,6 +60,7 @@ class FakeClient : public Client {
   autofill::PersonalDataManager* GetPersonalDataManager() override {
     return nullptr;
   }
+  WebsiteLoginFetcher* GetWebsiteLoginFetcher() override { return nullptr; }
   std::string GetServerUrl() override { return ""; }
   std::string GetAccountEmailAddress() override { return ""; }
   std::string GetLocale() override { return ""; }
@@ -76,8 +76,8 @@ class ControllerTest : public content::RenderViewHostTestHarness {
  public:
   ControllerTest()
       : RenderViewHostTestHarness(
-            base::test::ScopedTaskEnvironment::MainThreadType::UI,
-            base::test::ScopedTaskEnvironment::TimeSource::MOCK_TIME) {}
+            base::test::TaskEnvironment::MainThreadType::UI,
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
   ~ControllerTest() override {}
 
   void SetUp() override {
@@ -91,7 +91,7 @@ class ControllerTest : public content::RenderViewHostTestHarness {
     mock_service_ = service.get();
 
     controller_ = std::make_unique<Controller>(
-        web_contents(), &fake_client_, thread_bundle()->GetMockTickClock(),
+        web_contents(), &fake_client_, task_environment()->GetMockTickClock(),
         std::move(service));
     controller_->SetWebControllerForTest(std::move(web_controller));
 
@@ -195,8 +195,8 @@ class ControllerTest : public content::RenderViewHostTestHarness {
 
   UiDelegate* GetUiDelegate() { return controller_.get(); }
 
-  // |thread_bundle_| must be the first field, to make sure that everything runs
-  // in the same task environment.
+  // |task_environment_| must be the first field, to make sure that everything
+  // runs in the same task environment.
   base::test::ScopedFeatureList scoped_feature_list_;
   base::TimeTicks now_;
   std::vector<AutofillAssistantState> states_;
@@ -503,42 +503,42 @@ TEST_F(ControllerTest, Stop) {
 }
 
 TEST_F(ControllerTest, Reset) {
-    // 1. Fetch scripts for URL, which in contains a single "reset" script.
-    SupportsScriptResponseProto script_response;
-    auto* reset_script = AddRunnableScript(&script_response, "reset");
-    RunOnce(reset_script);
-    std::string script_response_str;
-    script_response.SerializeToString(&script_response_str);
-    EXPECT_CALL(*mock_service_, OnGetScriptsForUrl(_, _, _))
-        .WillRepeatedly(RunOnceCallback<2>(true, script_response_str));
+  // 1. Fetch scripts for URL, which in contains a single "reset" script.
+  SupportsScriptResponseProto script_response;
+  auto* reset_script = AddRunnableScript(&script_response, "reset");
+  RunOnce(reset_script);
+  std::string script_response_str;
+  script_response.SerializeToString(&script_response_str);
+  EXPECT_CALL(*mock_service_, OnGetScriptsForUrl(_, _, _))
+      .WillRepeatedly(RunOnceCallback<2>(true, script_response_str));
 
-    Start("http://a.example.com/path");
-    EXPECT_THAT(controller_->GetUserActions(),
-                ElementsAre(Property(&UserAction::chip,
-                                     Field(&Chip::text, StrEq("reset")))));
+  Start("http://a.example.com/path");
+  EXPECT_THAT(controller_->GetUserActions(),
+              ElementsAre(Property(&UserAction::chip,
+                                   Field(&Chip::text, StrEq("reset")))));
 
-    // 2. Execute the "reset" script, which contains a reset action.
-    ActionsResponseProto actions_response;
-    actions_response.add_actions()->mutable_reset();
-    std::string actions_response_str;
-    actions_response.SerializeToString(&actions_response_str);
-    EXPECT_CALL(*mock_service_, OnGetActions(StrEq("reset"), _, _, _, _, _))
-        .WillOnce(RunOnceCallback<5>(true, actions_response_str));
+  // 2. Execute the "reset" script, which contains a reset action.
+  ActionsResponseProto actions_response;
+  actions_response.add_actions()->mutable_reset();
+  std::string actions_response_str;
+  actions_response.SerializeToString(&actions_response_str);
+  EXPECT_CALL(*mock_service_, OnGetActions(StrEq("reset"), _, _, _, _, _))
+      .WillOnce(RunOnceCallback<5>(true, actions_response_str));
 
-    controller_->GetClientMemory()->set_selected_card(
-        std::make_unique<autofill::CreditCard>());
-    EXPECT_TRUE(controller_->GetClientMemory()->has_selected_card());
+  controller_->GetClientMemory()->set_selected_card(
+      std::make_unique<autofill::CreditCard>());
+  EXPECT_TRUE(controller_->GetClientMemory()->has_selected_card());
 
-    EXPECT_TRUE(controller_->PerformUserAction(0));
+  EXPECT_TRUE(controller_->PerformUserAction(0));
 
-    // Resetting should have cleared the client memory
-    EXPECT_FALSE(controller_->GetClientMemory()->has_selected_card());
+  // Resetting should have cleared the client memory
+  EXPECT_FALSE(controller_->GetClientMemory()->has_selected_card());
 
-    // The reset script should be available again, even though it's marked
-    // RunOnce, as the script state should have been cleared as well.
-    EXPECT_THAT(controller_->GetUserActions(),
-                ElementsAre(Property(&UserAction::chip,
-                                     Field(&Chip::text, StrEq("reset")))));
+  // The reset script should be available again, even though it's marked
+  // RunOnce, as the script state should have been cleared as well.
+  EXPECT_THAT(controller_->GetUserActions(),
+              ElementsAre(Property(&UserAction::chip,
+                                   Field(&Chip::text, StrEq("reset")))));
 }
 
 TEST_F(ControllerTest, RefreshScriptWhenDomainChanges) {
@@ -715,13 +715,13 @@ TEST_F(ControllerTest, KeepCheckingForElement) {
   EXPECT_EQ(AutofillAssistantState::STARTING, controller_->GetState());
 
   for (int i = 0; i < 3; i++) {
-    thread_bundle()->FastForwardBy(base::TimeDelta::FromSeconds(1));
+    task_environment()->FastForwardBy(base::TimeDelta::FromSeconds(1));
     EXPECT_EQ(AutofillAssistantState::STARTING, controller_->GetState());
   }
 
   EXPECT_CALL(*mock_web_controller_, OnElementCheck(_, _))
       .WillRepeatedly(RunOnceCallback<1>(true));
-  thread_bundle()->FastForwardBy(base::TimeDelta::FromSeconds(1));
+  task_environment()->FastForwardBy(base::TimeDelta::FromSeconds(1));
 
   EXPECT_EQ(AutofillAssistantState::AUTOSTART_FALLBACK_PROMPT,
             controller_->GetState());
@@ -754,7 +754,7 @@ TEST_F(ControllerTest, ScriptTimeoutError) {
   Start("http://a.example.com/path");
   for (int i = 0; i < 30; i++) {
     EXPECT_EQ(AutofillAssistantState::STARTING, controller_->GetState());
-    thread_bundle()->FastForwardBy(base::TimeDelta::FromSeconds(1));
+    task_environment()->FastForwardBy(base::TimeDelta::FromSeconds(1));
   }
   EXPECT_EQ(AutofillAssistantState::STOPPED, controller_->GetState());
   EXPECT_EQ("I give up", controller_->GetStatusMessage());
@@ -788,13 +788,13 @@ TEST_F(ControllerTest, ScriptTimeoutWarning) {
   // Warning after 4s, script succeeds and the client continues to wait.
   for (int i = 0; i < 4; i++) {
     EXPECT_EQ(AutofillAssistantState::STARTING, controller_->GetState());
-    thread_bundle()->FastForwardBy(base::TimeDelta::FromSeconds(1));
+    task_environment()->FastForwardBy(base::TimeDelta::FromSeconds(1));
   }
   EXPECT_EQ(AutofillAssistantState::STARTING, controller_->GetState());
   EXPECT_EQ("This is slow", controller_->GetStatusMessage());
   for (int i = 0; i < 10; i++) {
     EXPECT_EQ(AutofillAssistantState::STARTING, controller_->GetState());
-    thread_bundle()->FastForwardBy(base::TimeDelta::FromSeconds(1));
+    task_environment()->FastForwardBy(base::TimeDelta::FromSeconds(1));
   }
 }
 
@@ -934,7 +934,7 @@ TEST_F(ControllerTest, WaitForNavigationActionTimesOut) {
 
   // No navigation event happened within the action timeout and the script ends.
   EXPECT_THAT(processed_actions_capture, SizeIs(0));
-  thread_bundle()->FastForwardBy(base::TimeDelta::FromSeconds(1));
+  task_environment()->FastForwardBy(base::TimeDelta::FromSeconds(1));
 
   ASSERT_THAT(processed_actions_capture, SizeIs(2));
   EXPECT_EQ(ACTION_APPLIED, processed_actions_capture[0].status());
@@ -972,7 +972,7 @@ TEST_F(ControllerTest, WaitForNavigationActionStartWithinTimeout) {
           GURL("http://a.example.com/path"), web_contents()->GetMainFrame());
   simulator->SetTransition(ui::PAGE_TRANSITION_LINK);
   simulator->Start();
-  thread_bundle()->FastForwardBy(base::TimeDelta::FromSeconds(1));
+  task_environment()->FastForwardBy(base::TimeDelta::FromSeconds(1));
 
   // Navigation finishes and the script ends.
   EXPECT_THAT(processed_actions_capture, SizeIs(0));

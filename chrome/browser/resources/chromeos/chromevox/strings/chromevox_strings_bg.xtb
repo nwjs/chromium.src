@@ -69,7 +69,6 @@
 <translation id="1383876407941801731">Търсене</translation>
 <translation id="1385214448885562192">Натиснете „enter“, за да приемете, или „escape“, за да анулирате, стрелката за надолу – за напред, а тази за нагоре – за назад.</translation>
 <translation id="1396114365388024581">tablst</translation>
-<translation id="139902759009894363">Съобщаване на атрибутите за форматиран текст</translation>
 <translation id="1405567553485452995">светлозелено</translation>
 <translation id="1417889266572670458">тъмносиньо</translation>
 <translation id="1431911867058218151">синя слива</translation>
@@ -484,6 +483,7 @@
 <translation id="4372705107434148843">Спиране на говора</translation>
 <translation id="4373197658375206385">Няма предишен елемент, който не е връзка.</translation>
 <translation id="4376316291247992553">Преглед на графиката като брайлов текст</translation>
+<translation id="437809255587011096">Съобщаване на оформлението на текста</translation>
 <translation id="4378308539633073595">Превъртане напред</translation>
 <translation id="4384583879834880242">Въпроси и отговори</translation>
 <translation id="4391478986194775161">cntntinfo</translation>
@@ -760,7 +760,6 @@
 <translation id="6348869651006731065">наситено сиво</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{водещ символ}other{# водещи символа}}</translation>
 <translation id="6355910664415701303">Няма предишен списъчен елемент.</translation>
-<translation id="6360318852623800555">Атрибути на форматирания текст</translation>
 <translation id="6364795331201459219">заглавие от шесто ниво</translation>
 <translation id="6368143427468974988">Предишното заглавие</translation>
 <translation id="6376999910001533545">бордо</translation>
@@ -1086,7 +1085,6 @@
 <translation id="8153880621934657047">Не сте в таблицата.</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{долна черта}other{# долни черти}}</translation>
 <translation id="8179976553408161302">Enter</translation>
-<translation id="8183813379996435469">Автоматично откриване и превключване на езика на ChromeVox.</translation>
 <translation id="8184828902145951186">ред</translation>
 <translation id="8186185314313222077">превключване на режима на цял екран</translation>
 <translation id="8199231515320852133">Съобщаване на заглавките за текущата клетка</translation>
@@ -1123,6 +1121,7 @@
 <translation id="8503360654911991865">По-малко подробна навигация</translation>
 <translation id="8504695234784218301">Край на граматичната грешка</translation>
 <translation id="8520472399088452386">Брояч</translation>
+<translation id="8534394844575788431">Форматиране</translation>
 <translation id="8538744478902126321">Предположение за заглавката на реда за текущата клетка</translation>
 <translation id="8540054775867439484">Пренасяне в началото</translation>
 <translation id="8542271685829952264">За да разгледате всички команди и комбинации за ChromeVox, натиснете „търсене“ + клавиша за точка, след което използвайте клавишите със стрелки, за да се придвижвате в менютата, и Enter, за да активирате дадена команда. Върнете се тук, като натиснете „търсене“ + О и след това t.</translation>
@@ -1202,6 +1201,7 @@
 <translation id="9149560530563164529">sctn</translation>
 <translation id="9150735707954472829">Раздел</translation>
 <translation id="9151211641321628915">Съобщава кратко описание на текущата позиция</translation>
+<translation id="9151249085738989067">Автоматично превключване на гласа на ChromeVox според езика</translation>
 <translation id="9153606228985488238">Височина: <ph name="PERCENT" /> процента</translation>
 <translation id="9160096769946561184">Към края на текущата графа</translation>
 <translation id="9173115498289768110">Сила на звука: <ph name="PERCENT" /> процента</translation>

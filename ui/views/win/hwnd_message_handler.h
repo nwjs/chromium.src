@@ -192,7 +192,7 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   friend class ::views::test::DesktopWindowTreeHostWinTestApi;
 
   using TouchIDs = std::set<DWORD>;
-  enum class DwmFrameState { OFF, ON };
+  enum class DwmFrameState { kOff, kOn };
 
   // Overridden from WindowImpl:
   HICON GetDefaultWindowIcon() const override;
@@ -239,13 +239,14 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   void ApplyPanGestureScroll(int scroll_x, int scroll_y) override;
   void ApplyPanGestureFling(int scroll_x, int scroll_y) override;
   void ApplyPanGestureScrollBegin(int scroll_x, int scroll_y) override;
-  void ApplyPanGestureScrollEnd() override;
+  void ApplyPanGestureScrollEnd(bool transitioning_to_pinch) override;
   void ApplyPanGestureFlingBegin() override;
   void ApplyPanGestureFlingEnd() override;
 
   // Overridden from AXFragmentRootDelegateWin.
   gfx::NativeViewAccessible GetChildOfAXFragmentRoot() override;
   gfx::NativeViewAccessible GetParentOfAXFragmentRoot() override;
+  bool IsAXFragmentRootAControlElement() override;
 
   void ApplyPanGestureEvent(int scroll_x,
                             int scroll_y,
@@ -784,7 +785,7 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   CR_MSG_MAP_CLASS_DECLARATIONS(HWNDMessageHandler)
 
   // The factory used to lookup appbar autohide edges.
-  base::WeakPtrFactory<HWNDMessageHandler> autohide_factory_;
+  base::WeakPtrFactory<HWNDMessageHandler> autohide_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(HWNDMessageHandler);
 };

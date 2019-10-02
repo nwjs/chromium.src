@@ -5,13 +5,16 @@
 #ifndef CHROME_BROWSER_RESOURCE_COORDINATOR_TAB_RANKER_TAB_SCORE_PREDICTOR_H_
 #define CHROME_BROWSER_RESOURCE_COORDINATOR_TAB_RANKER_TAB_SCORE_PREDICTOR_H_
 
+#include <map>
 #include <memory>
 
 #include "base/compiler_specific.h"
 #include "base/macros.h"
+#include "base/optional.h"
 
 namespace assist_ranker {
 class ExamplePreprocessorConfig;
+class RankerExample;
 }  // namespace assist_ranker
 
 namespace tab_ranker {
@@ -46,12 +49,23 @@ class TabScorePredictor {
   TabRankerResult ScoreTab(const TabFeatures& tab,
                            float* score) WARN_UNUSED_RESULT;
 
+  // Scores multiple tabs.
+  // Input is a map from an id (lifecycle_unit id) to the TabFeatures of that
+  // tab.
+  // Returns a map from an id to its predicted reactivation score.
+  // If the scoring fails at any step, it will set
+  // std::numeric_limits<float>::max() as the reactivation score for that tab.
+  std::map<int32_t, float> ScoreTabs(
+      const std::map<int32_t, base::Optional<TabFeatures>>& tabs);
+
  private:
   // Loads the preprocessor config if not already loaded.
   void LazyInitialize();
 
   TabRankerResult ScoreTabWithMRUScorer(const TabFeatures& tab, float* score);
   TabRankerResult ScoreTabWithMLScorer(const TabFeatures& tab, float* score);
+  TabRankerResult PredictWithPreprocess(assist_ranker::RankerExample* example,
+                                        float* score);
 
   std::unique_ptr<assist_ranker::ExamplePreprocessorConfig>
       preprocessor_config_;

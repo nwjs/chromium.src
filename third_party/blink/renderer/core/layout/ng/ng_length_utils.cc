@@ -205,8 +205,8 @@ LayoutUnit ResolveBlockLengthInternal(
       // would be compat issues for matching their behavior.
       if (style.BoxSizing() == EBoxSizing::kBorderBox ||
           (length.IsPercentOrCalc() &&
-           constraint_space.TableCellChildLayoutPhase() ==
-               NGTableCellChildLayoutPhase::kLayout)) {
+           constraint_space.TableCellChildLayoutMode() ==
+               NGTableCellChildLayoutMode::kLayout)) {
         value = std::max(border_padding.BlockSum(), value);
       } else {
         value += border_padding.BlockSum();
@@ -409,7 +409,7 @@ LayoutUnit ComputeInlineSizeForFragment(
     NGLayoutInputNode node,
     const NGBoxStrut& border_padding,
     const MinMaxSize* override_minmax_for_test) {
-  if (space.IsFixedSizeInline() || space.IsAnonymous())
+  if (space.IsFixedInlineSize() || space.IsAnonymous())
     return space.AvailableSize().inline_size;
 
   const ComputedStyle& style = node.Style();
@@ -498,11 +498,10 @@ LayoutUnit ComputeBlockSizeForFragmentInternal(
   // things to consider, would be checking the row and row-group, and also other
   // properties, such as {min,max}-block-size.
   if (logical_height.IsPercentOrCalc() &&
-      constraint_space.TableCellChildLayoutPhase() ==
-          NGTableCellChildLayoutPhase::kMeasure &&
+      constraint_space.TableCellChildLayoutMode() ==
+          NGTableCellChildLayoutMode::kMeasureRestricted &&
       (style.OverflowY() == EOverflow::kAuto ||
-       style.OverflowY() == EOverflow::kScroll) &&
-      constraint_space.IsInRestrictedBlockSizeTableCell())
+       style.OverflowY() == EOverflow::kScroll))
     return min;
 
   LayoutUnit extent = ResolveMainBlockLength(
@@ -526,20 +525,20 @@ LayoutUnit ComputeBlockSizeForFragmentInternal(
 
 LayoutUnit ComputeBlockSizeForFragment(
     const NGConstraintSpace& constraint_space,
-    const NGBlockNode& node,
+    const ComputedStyle& style,
     const NGBoxStrut& border_padding,
     LayoutUnit content_size) {
   // The final block-size of a table-cell is always its intrinsic size.
-  if (node.IsTableCell() && content_size != kIndefiniteSize)
+  if (constraint_space.IsTableCell() && content_size != kIndefiniteSize)
     return content_size;
 
-  if (constraint_space.IsFixedSizeBlock())
+  if (constraint_space.IsFixedBlockSize())
     return constraint_space.AvailableSize().block_size;
 
   if (constraint_space.IsAnonymous())
     return content_size;
 
-  return ComputeBlockSizeForFragmentInternal(constraint_space, node.Style(),
+  return ComputeBlockSizeForFragmentInternal(constraint_space, style,
                                              border_padding, content_size);
 }
 
@@ -838,11 +837,9 @@ NGBoxStrut ComputeBorders(const NGConstraintSpace& constraint_space,
 
   // If we are a table cell we just access the values set by the parent table
   // layout as border may be collapsed etc.
-  if (node.IsTableCell()) {
-    const LayoutBox* box = node.GetLayoutBox();
-    return NGBoxStrut(box->BorderStart(), box->BorderEnd(), box->BorderBefore(),
-                      box->BorderAfter());
-  }
+  if (constraint_space.IsTableCell())
+    return constraint_space.TableCellBorders();
+
   return ComputeBordersInternal(node.Style());
 }
 
@@ -855,18 +852,24 @@ NGBoxStrut ComputeBordersForTest(const ComputedStyle& style) {
 }
 
 NGBoxStrut ComputeIntrinsicPadding(const NGConstraintSpace& constraint_space,
-                                   const NGLayoutInputNode node) {
-  if (constraint_space.IsAnonymous() || !node.IsTableCell())
-    return NGBoxStrut();
+                                   const ComputedStyle& style,
+                                   const NGBoxStrut& scrollbar) {
+  DCHECK(constraint_space.IsTableCell());
+  DCHECK(!scrollbar.block_start);
 
-  // At the moment we just access the values set by the parent table layout.
-  // Once we have a NGTableLayoutAlgorithm this should pass the intrinsic
-  // padding via the constraint space object.
+  // During the "layout" table phase, adjust the given intrinsic-padding to
+  // accommodate the scrollbar.
+  NGBoxStrut intrinsic_padding = constraint_space.TableCellIntrinsicPadding();
+  if (constraint_space.IsFixedBlockSize()) {
+    if (style.VerticalAlign() == EVerticalAlign::kMiddle) {
+      intrinsic_padding.block_start -= scrollbar.block_end / 2;
+      intrinsic_padding.block_end -= scrollbar.block_end / 2;
+    } else {
+      intrinsic_padding.block_end -= scrollbar.block_end;
+    }
+  }
 
-  // TODO(karlo): intrinsic padding can sometimes be negative; that seems
-  // insane, but works in the old code; in NG it trips DCHECKs.
-  return {LayoutUnit(), LayoutUnit(), node.IntrinsicPaddingBlockStart(),
-          node.IntrinsicPaddingBlockEnd()};
+  return intrinsic_padding;
 }
 
 NGBoxStrut ComputePadding(const NGConstraintSpace& constraint_space,
@@ -1055,7 +1058,7 @@ NGFragmentGeometry CalculateInitialFragmentGeometry(
       constraint_space, node, border_scrollbar_padding);
   LogicalSize border_box_size(
       ComputeInlineSizeForFragment(constraint_space, node, border_padding),
-      ComputeBlockSizeForFragment(constraint_space, node, border_padding,
+      ComputeBlockSizeForFragment(constraint_space, style, border_padding,
                                   default_block_size));
 
   if (UNLIKELY(border_box_size.inline_size <
@@ -1102,7 +1105,7 @@ LogicalSize AdjustChildPercentageSizeForQuirksAndFlex(
     LayoutUnit parent_percentage_block_size) {
   // Flex items may have a fixed block-size, but children shouldn't resolve
   // their percentages against this.
-  if (space.IsFixedSizeBlock() && !space.FixedSizeBlockIsDefinite()) {
+  if (space.IsFixedBlockSize() && space.IsFixedBlockSizeIndefinite()) {
     DCHECK(node.IsFlexItem());
     child_percentage_size.block_size = kIndefiniteSize;
     return child_percentage_size;
@@ -1131,7 +1134,7 @@ LogicalSize CalculateChildPercentageSize(
   LogicalSize child_percentage_size = child_available_size;
 
   bool is_table_cell_in_measure_phase =
-      node.IsTableCell() && !space.IsFixedSizeBlock();
+      space.IsTableCell() && !space.IsFixedBlockSize();
 
   // Table cells which are measuring their content, force their children to
   // have an indefinite percentage resolution size.
@@ -1143,8 +1146,8 @@ LogicalSize CalculateChildPercentageSize(
   // Table cell children don't apply the "percentage-quirk". I.e. if their
   // percentage resolution block-size is indefinite, they don't pass through
   // their parent's percentage resolution block-size.
-  if (space.TableCellChildLayoutPhase() !=
-      NGTableCellChildLayoutPhase::kNotTableCellChild)
+  if (space.TableCellChildLayoutMode() !=
+      NGTableCellChildLayoutMode::kNotTableCellChild)
     return child_percentage_size;
 
   return AdjustChildPercentageSizeForQuirksAndFlex(
@@ -1166,7 +1169,7 @@ LogicalSize CalculateReplacedChildPercentageSize(
                                    !node.Style().LogicalMinHeight().IsAuto();
 
   bool is_table_cell_in_layout_phase =
-      node.IsTableCell() && space.IsFixedSizeBlock();
+      space.IsTableCell() && space.IsFixedBlockSize();
 
   // Table cells in the "layout" phase have a fixed block-size. However
   // replaced children should resolve their percentages against the size given
@@ -1220,9 +1223,12 @@ LayoutUnit ClampIntrinsicBlockSize(const NGBlockNode& node,
                                    const NGBoxStrut& border_scrollbar_padding,
                                    LayoutUnit current_intrinsic_block_size) {
   // With contain: size, we ignore intrinsic sizing. If the block-size was
-  // specified as auto, its content-box size will become 0.
-  if (node.ShouldApplySizeContainment())
-    return border_scrollbar_padding.BlockSum();
+  // specified as auto, its content-box size will become 0, unless overridden by
+  // content-size.
+  if (node.ShouldApplySizeContainment()) {
+    return node.ContentBlockSizeForSizeContainment() +
+           border_scrollbar_padding.BlockSum();
+  }
 
   // If display locking induces size containment, then we replace its content
   // size with the locked content size.
@@ -1243,8 +1249,10 @@ base::Optional<MinMaxSize> CalculateMinMaxSizesIgnoringChildren(
     sizes += border_scrollbar_padding.InlineSum();
 
   // Size contained elements don't consider children for intrinsic sizing.
-  if (node.ShouldApplySizeContainment())
+  if (node.ShouldApplySizeContainment()) {
+    sizes += node.ContentInlineSizeForSizeContainment();
     return sizes;
+  }
 
   // Display locked elements override the content size, without considering
   // children. Note that contain: size (above) takes precedence over display

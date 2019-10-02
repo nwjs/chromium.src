@@ -15,6 +15,7 @@
 #include "base/macros.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
+#include "ui/views/controls/webview/webview.h"
 #include "ui/views/controls/webview/webview_export.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/window/client_view.h"
@@ -23,10 +24,27 @@
 
 namespace content {
 class BrowserContext;
+class RenderFrameHost;
 }
 
 namespace views {
-class WebView;
+
+// A kind of webview that can notify its delegate when its content is ready.
+class ObservableWebView : public WebView {
+ public:
+  ObservableWebView(content::BrowserContext* browser_context,
+                    ui::WebDialogDelegate* delegate);
+  ~ObservableWebView() override;
+
+  // content::WebContentsObserver
+  void DidFinishLoad(content::RenderFrameHost* render_frame_host,
+                     const GURL& validated_url) override;
+
+ private:
+  ui::WebDialogDelegate* delegate_;
+
+  DISALLOW_COPY_AND_ASSIGN(ObservableWebView);
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -47,12 +65,14 @@ class WEBVIEW_EXPORT WebDialogView : public views::ClientView,
                                      public views::WidgetDelegate {
  public:
   // |handler| must not be nullptr.
+  // |use_dialog_frame| indicates whether to use dialog frame view for non
+  // client frame view.
   WebDialogView(content::BrowserContext* context,
                 ui::WebDialogDelegate* delegate,
-                std::unique_ptr<WebContentsHandler> handler);
+                std::unique_ptr<WebContentsHandler> handler,
+                bool use_dialog_frame = false);
   ~WebDialogView() override;
 
-  // For testing.
   content::WebContents* web_contents();
 
   // Overridden from views::ClientView:
@@ -73,8 +93,10 @@ class WEBVIEW_EXPORT WebDialogView : public views::ClientView,
   void WindowClosing() override;
   views::View* GetContentsView() override;
   ClientView* CreateClientView(views::Widget* widget) override;
+  NonClientFrameView* CreateNonClientFrameView(Widget* widget) override;
   views::View* GetInitiallyFocusedView() override;
   bool ShouldShowWindowTitle() const override;
+  bool ShouldShowCloseButton() const override;
   views::Widget* GetWidget() override;
   const views::Widget* GetWidget() const override;
 
@@ -144,7 +166,7 @@ class WEBVIEW_EXPORT WebDialogView : public views::ClientView,
   // using this variable.
   ui::WebDialogDelegate* delegate_;
 
-  views::WebView* web_view_;
+  ObservableWebView* web_view_;
 
   // Whether user is attempting to close the dialog and we are processing
   // beforeunload event.
@@ -166,6 +188,9 @@ class WEBVIEW_EXPORT WebDialogView : public views::ClientView,
 
   // Handler for unhandled key events from renderer.
   UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
+
+  // Whether to use dialog frame view for non client frame view.
+  bool use_dialog_frame_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(WebDialogView);
 };

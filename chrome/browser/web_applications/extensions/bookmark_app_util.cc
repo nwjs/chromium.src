@@ -7,7 +7,6 @@
 #include "base/strings/string_piece.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/web_applications/extensions/bookmark_app_util.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/api/url_handlers/url_handlers_parser.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
@@ -16,8 +15,6 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/extension.h"
-#include "extensions/common/url_pattern.h"
-#include "extensions/common/url_pattern_set.h"
 #include "url/gurl.h"
 
 namespace extensions {
@@ -106,12 +103,6 @@ int CountUserInstalledBookmarkApps(content::BrowserContext* browser_context) {
   }
 
   return num_user_installed;
-}
-
-bool IsValidBookmarkAppUrl(const GURL& url) {
-  URLPattern origin_only_pattern(Extension::kValidBookmarkAppSchemes);
-  origin_only_pattern.SetMatchAllURLs(true);
-  return url.is_valid() && origin_only_pattern.MatchesURL(url);
 }
 
 }  // namespace extensions

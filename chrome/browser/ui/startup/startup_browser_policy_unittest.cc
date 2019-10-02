@@ -5,12 +5,12 @@
 #include "chrome/browser/policy/browser_signin_policy_handler.h"
 #include "chrome/browser/profile_resetter/profile_resetter_test_base.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/ui/webui/welcome/nux_helper.h"
+#include "chrome/browser/ui/webui/welcome/helpers.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/policy/core/common/mock_policy_service.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/policy_constants.h"
-#include "content/public/test/test_browser_thread_bundle.h"
+#include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 class StartupBrowserPolicyUnitTest : public testing::Test {
@@ -48,52 +48,52 @@ class StartupBrowserPolicyUnitTest : public testing::Test {
 };
 
 TEST_F(StartupBrowserPolicyUnitTest, BookmarkBarEnabled) {
-  EXPECT_TRUE(nux::CanShowGoogleAppModuleForTesting(policy::PolicyMap()));
+  EXPECT_TRUE(welcome::CanShowGoogleAppModuleForTesting(policy::PolicyMap()));
 
   auto policy_map = MakePolicy(policy::key::kBookmarkBarEnabled, true);
-  EXPECT_TRUE(nux::CanShowGoogleAppModuleForTesting(*policy_map));
+  EXPECT_TRUE(welcome::CanShowGoogleAppModuleForTesting(*policy_map));
 
   policy_map = MakePolicy(policy::key::kBookmarkBarEnabled, false);
-  EXPECT_FALSE(nux::CanShowGoogleAppModuleForTesting(*policy_map));
+  EXPECT_FALSE(welcome::CanShowGoogleAppModuleForTesting(*policy_map));
 }
 
 TEST_F(StartupBrowserPolicyUnitTest, EditBookmarksEnabled) {
-  EXPECT_TRUE(nux::CanShowGoogleAppModuleForTesting(policy::PolicyMap()));
+  EXPECT_TRUE(welcome::CanShowGoogleAppModuleForTesting(policy::PolicyMap()));
 
   auto policy_map = MakePolicy(policy::key::kEditBookmarksEnabled, true);
-  EXPECT_TRUE(nux::CanShowGoogleAppModuleForTesting(*policy_map));
+  EXPECT_TRUE(welcome::CanShowGoogleAppModuleForTesting(*policy_map));
 
   policy_map = MakePolicy(policy::key::kEditBookmarksEnabled, false);
-  EXPECT_FALSE(nux::CanShowGoogleAppModuleForTesting(*policy_map));
+  EXPECT_FALSE(welcome::CanShowGoogleAppModuleForTesting(*policy_map));
 }
 
 TEST_F(StartupBrowserPolicyUnitTest, DefaultBrowserSettingEnabled) {
-  EXPECT_TRUE(nux::CanShowSetDefaultModuleForTesting(policy::PolicyMap()));
+  EXPECT_TRUE(welcome::CanShowSetDefaultModuleForTesting(policy::PolicyMap()));
 
   auto policy_map =
       MakePolicy(policy::key::kDefaultBrowserSettingEnabled, true);
-  EXPECT_TRUE(nux::CanShowSetDefaultModuleForTesting(*policy_map));
+  EXPECT_TRUE(welcome::CanShowSetDefaultModuleForTesting(*policy_map));
 
   policy_map = MakePolicy(policy::key::kDefaultBrowserSettingEnabled, false);
-  EXPECT_FALSE(nux::CanShowSetDefaultModuleForTesting(*policy_map));
+  EXPECT_FALSE(welcome::CanShowSetDefaultModuleForTesting(*policy_map));
 }
 
 TEST_F(StartupBrowserPolicyUnitTest, BrowserSignin) {
-  EXPECT_TRUE(nux::CanShowSigninModuleForTesting(policy::PolicyMap()));
+  EXPECT_TRUE(welcome::CanShowSigninModuleForTesting(policy::PolicyMap()));
 
   auto policy_map =
       MakePolicy(policy::key::kBrowserSignin,
                  static_cast<int>(policy::BrowserSigninMode::kEnabled));
-  EXPECT_TRUE(nux::CanShowSigninModuleForTesting(*policy_map));
+  EXPECT_TRUE(welcome::CanShowSigninModuleForTesting(*policy_map));
 
   policy_map = MakePolicy(policy::key::kBrowserSignin,
                           static_cast<int>(policy::BrowserSigninMode::kForced));
-  EXPECT_TRUE(nux::CanShowSigninModuleForTesting(*policy_map));
+  EXPECT_TRUE(welcome::CanShowSigninModuleForTesting(*policy_map));
 
   policy_map =
       MakePolicy(policy::key::kBrowserSignin,
                  static_cast<int>(policy::BrowserSigninMode::kDisabled));
-  EXPECT_FALSE(nux::CanShowSigninModuleForTesting(*policy_map));
+  EXPECT_FALSE(welcome::CanShowSigninModuleForTesting(*policy_map));
 }
 
 TEST_F(StartupBrowserPolicyUnitTest, ForceEphemeralProfiles) {
@@ -101,16 +101,16 @@ TEST_F(StartupBrowserPolicyUnitTest, ForceEphemeralProfiles) {
   TestingProfile::Builder builder;
   builder.SetPolicyService(GetPolicyService(policy_map));
   // Needed by the builder when building the profile.
-  content::TestBrowserThreadBundle thread_bundle;
+  content::BrowserTaskEnvironment task_environment;
   auto profile = builder.Build();
 
-  EXPECT_TRUE(nux::DoesOnboardingHaveModulesToShow(profile.get()));
+  EXPECT_TRUE(welcome::HasModulesToShow(profile.get()));
 
   SetPolicy(policy_map, policy::key::kForceEphemeralProfiles, true);
-  EXPECT_FALSE(nux::DoesOnboardingHaveModulesToShow(profile.get()));
+  EXPECT_FALSE(welcome::HasModulesToShow(profile.get()));
 
   SetPolicy(policy_map, policy::key::kForceEphemeralProfiles, false);
-  EXPECT_TRUE(nux::DoesOnboardingHaveModulesToShow(profile.get()));
+  EXPECT_TRUE(welcome::HasModulesToShow(profile.get()));
 }
 
 TEST_F(StartupBrowserPolicyUnitTest, NewTabPageLocation) {
@@ -118,16 +118,16 @@ TEST_F(StartupBrowserPolicyUnitTest, NewTabPageLocation) {
   TestingProfile::Builder builder;
   builder.SetPolicyService(GetPolicyService(policy_map));
   // Needed by the builder when building the profile.
-  content::TestBrowserThreadBundle thread_bundle;
+  content::BrowserTaskEnvironment task_environment;
   auto profile = builder.Build();
 
   TemplateURLServiceFactory::GetInstance()->SetTestingFactory(
       profile.get(), base::BindRepeating(&CreateTemplateURLServiceForTesting));
 
   EXPECT_TRUE(
-      nux::CanShowNTPBackgroundModuleForTesting(policy_map, profile.get()));
+      welcome::CanShowNTPBackgroundModuleForTesting(policy_map, profile.get()));
 
   SetPolicy(policy_map, policy::key::kNewTabPageLocation, "https://crbug.com");
   EXPECT_FALSE(
-      nux::CanShowNTPBackgroundModuleForTesting(policy_map, profile.get()));
+      welcome::CanShowNTPBackgroundModuleForTesting(policy_map, profile.get()));
 }

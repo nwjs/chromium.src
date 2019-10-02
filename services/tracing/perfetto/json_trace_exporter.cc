@@ -361,6 +361,8 @@ void JSONTraceExporter::SetTraceStatsMetadata(
                          buf_stats.readaheads_succeeded());
     buf_dict->SetInteger("readaheads_failed", buf_stats.readaheads_failed());
     buf_dict->SetInteger("abi_violations", buf_stats.abi_violations());
+    buf_dict->SetInteger("trace_writer_packet_loss",
+                         buf_stats.trace_writer_packet_loss());
     buf_list->GetList().push_back(std::move(buf_value));
   }
   dict->SetList("buffer_stats", std::move(buf_list));
@@ -582,6 +584,11 @@ void JSONTraceExporter::ScopedJSONTraceEventAppender::AddThreadDuration(
 void JSONTraceExporter::ScopedJSONTraceEventAppender::AddThreadTimestamp(
     int64_t thread_timestamp) {
   out_->AppendF(",\"tts\":%" PRId64, thread_timestamp);
+}
+
+void JSONTraceExporter::ScopedJSONTraceEventAppender::AddThreadInstructionCount(
+    int64_t thread_instruction_count) {
+  out_->AppendF(",\"ticount\":%" PRId64, thread_instruction_count);
 }
 
 void JSONTraceExporter::ScopedJSONTraceEventAppender::AddThreadInstructionDelta(

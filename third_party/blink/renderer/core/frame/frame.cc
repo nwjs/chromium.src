@@ -92,7 +92,6 @@ void Frame::Detach(FrameDetachType type) {
   if (!client_)
     return;
 
-  detach_stack_ = base::debug::StackTrace();
   client_->SetOpener(nullptr);
   // After this, we must no longer talk to the client since this clears
   // its owning reference back to our owning LocalFrame.
@@ -137,6 +136,7 @@ bool Frame::IsMainFrame() const {
 }
 
 bool Frame::IsCrossOriginSubframe() const {
+  DCHECK(GetSecurityContext());
   const SecurityOrigin* security_origin =
       GetSecurityContext()->GetSecurityOrigin();
   return !security_origin->CanAccess(
@@ -292,8 +292,7 @@ Frame::Frame(FrameClient* client,
       dev_jail_owner_(nullptr),
       nodejs_(false),
       is_loading_(false),
-      devtools_frame_token_(client->GetDevToolsFrameToken()),
-      create_stack_(base::debug::StackTrace()) {
+      devtools_frame_token_(client->GetDevToolsFrameToken()) {
   InstanceCounters::IncrementCounter(InstanceCounters::kFrameCounter);
 }
 

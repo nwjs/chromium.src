@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="ro">
+<translation id="1036550831858290950">Salvează fila actuală ca marcaj</translation>
 <translation id="104962181688258143">Deschide aplicația Fișiere</translation>
 <translation id="1098295134904615027">Activează desktopul virtual din dreapta</translation>
 <translation id="1122869341872663659">Se afișează <ph name="N" /> rezultate ale căutării pentru <ph name="QUERY" /></translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">Resetează nivelul de zoom al paginii</translation>
 <translation id="2596078834055697711">Realizează o captură de ecran a ferestrei</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, apoi <ph name="TAB" /> sau <ph name="RIGHT" /></translation>
-<translation id="2699509451653686398">Salvează pagina web curentă ca marcaj</translation>
 <translation id="2750942583782703988">Reîncarcă pagina curentă</translation>
 <translation id="2764005613199379871">Focalizează pe bara de adrese pentru căutare</translation>
 <translation id="2789868185375229787">Micșorează pagina</translation>

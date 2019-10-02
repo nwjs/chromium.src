@@ -70,7 +70,6 @@
 
           この設定が無効な場合や設定されていない場合、リモート アシスタンス ホストはユーザーのコンテキストで実行され、リモート ユーザーはデスクトップ上の権限昇格ウィンドウとやり取りできません。</translation>
 <translation id="1096105751829466145">デフォルトの検索プロバイダ</translation>
-<translation id="1099024407376270611">アクセス先の URL に関するセーフ ブラウジングの評価をリアルタイムで確認する</translation>
 <translation id="1099282607296956954">すべてのサイトに対してサイト分離を有効にする</translation>
 <translation id="1100570158310952027">
       保護されていない発行元に関するセキュリティ制限の適用対象外となる
@@ -416,23 +415,13 @@
 
       警告: <ph name="PRODUCT_OS_NAME" /> のバージョンの制御をキオスクアプリに委ねることはおすすめしません。このようにした場合、デバイスでソフトウェアのアップデートや重要なセキュリティ修正を取得できなくなる可能性があります。つまり、<ph name="PRODUCT_OS_NAME" /> のバージョンの制御を委ねると、ユーザーが危険にさらされる恐れがあります。</translation>
 <translation id="1675002386741412210">サポート対象:</translation>
+<translation id="1695708467571967752">デバイスがロックされているときにユーザーがメディアを再生できるかどうかを制御します。
+
+      このポリシーが False に設定されている場合、ロック画面のメディア コントロールは無効になります。
+
+      このポリシーが True または未設定の場合、メディアの再生中にユーザーがデバイスをロックすると、ロック画面にメディア コントロールが表示されます。
+      </translation>
 <translation id="1700811900332333712">デバイスに Powerwash のリクエストを許可する</translation>
-<translation id="1704516734140344991"><ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェア アップデート機能を利用可能にするかどうか、利用可能にする場合はその動作を設定します。
-
-      個々の設定は JSON プロパティで指定できます。
-
-      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" /> に設定されている場合、ユーザーは <ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェア アップデートをインストールするために Powerwash のフローを開始できます。
-
-      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_PRESERVE_DEVICE_STATE" />: <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_PRESERVE_DEVICE_STATE_TRUE" /> に設定されている場合、ユーザーはデバイス全体の状態（企業の登録を含む）を保持する <ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェア アップデートのフローを開始できますが、ユーザーデータは失われます。このアップデート フローはバージョン 68 より利用可能です。
-
-      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_AUTO_UPDATE_MODE" />: 脆弱性のある <ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェアに対して自動的な <ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェア アップデートをどのように実行するかを制御します。すべてのフローはローカル デバイスの状態を保持します。
-        1 に設定または未設定の場合、TPM ファームウェア アップデートは実行されません。
-        2 に設定した場合、<ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェアは、ユーザーがアップデートを確認した後に、次の再起動で更新されます。
-        3 に設定した場合、<ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェアは次の再起動で更新されます。
-        4 に設定した場合、<ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェアは登録後、ユーザーのログイン前に更新されます。
-        このオプションはバージョン 74 より利用可能です。
-
-      このポリシーが設定されていない場合、<ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェア アップデート機能は利用できません。</translation>
 <translation id="1708496595873025510">バリエーション シードの取得に制限を設定する</translation>
 <translation id="1717817358640580294">このポリシーが未設定の場合、Chrome クリーンアップで望ましくないソフトウェアが検出されると、SafeBrowsingExtendedReportingEnabled で設定されているポリシーに基づいて、スキャンに関するメタデータのレポートが Google に送信される可能性があります。ユーザーは望ましくないソフトウェアをクリーンアップするかどうかを選択できます。また、望ましくないソフトウェアの検出精度を向上するために、クリーンアップの結果を Google と共有するかどうかも選択できます。これらの結果には、Chrome のプライバシー ホワイトペーパーで説明されているとおり、ファイルのメタデータのほか自動インストールされた拡張機能とレジストリキーが含まれます。
 
@@ -818,6 +807,22 @@
 <translation id="2463034609187171371">TLS の DHE 暗号スイートを有効にする</translation>
 <translation id="2463365186486772703">アプリケーションの言語/地域</translation>
 <translation id="2466131534462628618">キャプティブ ポータル認証でプロキシを無視する</translation>
+<translation id="2466697858869282874"><ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェア アップデート機能を利用可能にするかどうか、利用可能にする場合はその動作を設定します。
+
+      個々の設定は JSON プロパティで指定できます。
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" /> に設定されている場合、ユーザーは <ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェア アップデートをインストールする Powerwash のフローを開始できます。
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_PRESERVE_DEVICE_STATE" />: <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_PRESERVE_DEVICE_STATE_TRUE" /> に設定されている場合、ユーザーはデバイス全体の状態（企業の登録を含む）を保持する <ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェア アップデートのフローを開始できますが、ユーザーデータは失われます。このアップデート フローはバージョン 68 より利用可能です。
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_AUTO_UPDATE_MODE" />: 脆弱性のある <ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェアに対して自動的な <ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェア アップデートをどのように実行するかを制御します。すべてのフローではローカル デバイスの状態が保持されます。
+        1 に設定するか未設定のままにした場合、TPM ファームウェア アップデートは実行されません。
+        2 に設定した場合、<ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェアは、ユーザーがアップデートを適用した後、次の再起動で更新されます。
+        3 に設定した場合、<ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェアは次の再起動で更新されます。
+        4 に設定した場合、<ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェアは登録後、ユーザーのログイン前に更新されます。
+        このオプションはバージョン 75 より利用可能です。
+
+      このポリシーが設定されていない場合、<ph name="TPM_FIRMWARE_UPDATE_TPM" /> ファームウェア アップデート機能は利用できません。</translation>
 <translation id="2471748297300970300">無効の場合、危険性のあるコマンドライン フラグ付きで Chrome が起動したときにセキュリティ警告は表示されません。
 
           有効または未設定の場合は、Chrome の起動にコマンドライン フラグが使用されるとセキュリティ警告が表示されます。
@@ -1621,15 +1626,6 @@
 
           未設定の場合、または False に設定されている場合、ユーザーは Google ドライブにファイルを転送できます。</translation>
 <translation id="3915395663995367577">プロキシ .pac ファイルへの URL</translation>
-<translation id="3920892052017026701">バッテリー充電のカスタムの充電開始設定（%）を行います。
-
-          バッテリーは、このバッテリー充電のカスタムの充電開始設定の値まで消費すると、充電を開始します。
-
-          DeviceBatteryChargeCustomStartCharging には DeviceBatteryChargeCustomStopCharging よりも少ない値を指定する必要があります。
-
-          このポリシーは、DeviceBatteryChargeMode がカスタムに設定されている場合にのみ使用されます。
-
-          このポリシーを設定していない場合は、標準のバッテリー充電モードが適用されます。</translation>
 <translation id="3925377537407648234">ディスプレイの解像度と倍率を設定する</translation>
 <translation id="3939893074578116847">オンライン ステータス監視のためにネットワーク パケットを管理サーバーに送信します。
       これにより、サーバーではデバイスがオフラインかどうかを検出できます。
@@ -1812,6 +1808,13 @@
 
       このポリシーが未設定の場合、デフォルトのローミング プロフィール パスが使用されます。</translation>
 <translation id="4239720644496144453">キャッシュは Android アプリには使用されません。複数のユーザーが同じ Android アプリをインストールする場合、アプリはユーザーごとに新しくダウンロードされます。</translation>
+<translation id="4241202391219483189">このポリシーでは、証明書マネージャーによる CA 証明書の取り込みや削除をユーザーに許可するかどうかを制御します。
+
+      このポリシーが「すべての証明書の管理をユーザーに許可する」に設定されているか未設定の場合、ユーザーは、すべての CA 証明書の信頼設定の編集、ユーザーが取り込んだ証明書の削除、証明書の取り込みを行うことができます。
+
+      このポリシーが「ユーザー証明書の管理をユーザーに許可する」に設定されている場合、ユーザーは、ユーザーが取り込んだ証明書のみを管理でき、組み込みの証明書の信頼設定を変更することはできません。
+
+      このポリシーが「証明書の管理をユーザーに許可しない」に設定されている場合、ユーザーは CA 証明書を管理できず、CA 証明書の表示のみ可能となります。</translation>
 <translation id="4243336580717651045"><ph name="PRODUCT_NAME" /> で URL キーによる匿名化データの収集を有効にし、ユーザーがこの設定を変更できないようにします。
 
       URL キーによる匿名化データの収集では、検索とブラウジングを改善する目的で、ユーザーがアクセスしたページの URL を Google に送信します。
@@ -1887,6 +1890,7 @@
 
           現在、この機能はサーバー側で無効になっています。</translation>
 <translation id="4363057787588706121">ソースの異なるリストポリシーの統合を許可する</translation>
+<translation id="4363101430102811068">入力された認証情報に対して漏洩の検出を有効にする</translation>
 <translation id="4363136876356691536">このポリシーが true の場合、通知領域（システムトレイ）メニューにユーザー補助オプションが常に表示されます。
 
           このポリシーが false の場合、通知領域（システムトレイ）メニューにユーザー補助オプションは表示されません。
@@ -2038,10 +2042,6 @@
 
           このポリシーが未設定の場合、サーバーがイントラネット上で検出されたとしても、<ph name="PRODUCT_NAME" /> はユーザーの認証情報を委任しません。</translation>
 <translation id="4752880493649142945">RemoteAccessHostTokenValidationUrl への接続用のクライアント証明書</translation>
-<translation id="4756984056524699088">このユーザーに対して Crostini コンテナへのルートアクセスを許可します。
-
-      このポリシーが true または未設定の場合、Crostini コンテナへのルートアクセスがユーザーに許可されます。
-      このポリシーが false の場合、Crostini コンテナ（新規、既存の両方）へのルートアクセスはユーザーに許可されません。</translation>
 <translation id="4759650396863318477">保留中のアップデートを適用するために <ph name="PRODUCT_NAME" /> または <ph name="PRODUCT_OS_NAME" /> デバイスの再起動が必要であることをユーザーに通知する期間をミリ秒単位で設定します。
 
       指定した期間中は、アップデートが必要であることがユーザーに繰り返し通知されます。<ph name="PRODUCT_OS_NAME" /> デバイスの場合は、<ph name="RELAUNCH_HEADS_UP_PERIOD_POLICY_NAME" /> ポリシーに従ってシステムトレイに再起動を促す通知が表示されます。<ph name="PRODUCT_NAME" /> ブラウザの場合は、通知期間の 3 分の 1 が経過した時点で、再起動が必要であること表すためにアプリメニューの色が変わります。この通知の色は、通知期間の 3 分の 2 が経過した時点と、通知期間が最後まで経過した時点でさらに変わります。<ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" /> ポリシーによって追加の通知を有効にしている場合は、同じスケジュールで通知が表示されます。
@@ -2696,15 +2696,6 @@
       このポリシーを true に設定した場合は、指定した送受信速度（キロビット / 秒）を超えないようにシステムに制限が適用されます。</translation>
 <translation id="591088232153082363">バッテリー使用状況のパターンに基づいてバッテリー充電を自動調整する。</translation>
 <translation id="5921713479449475707">HTTP 経由での自動更新ダウンロードを許可する</translation>
-<translation id="5921888683953999946">ログイン画面でのユーザー補助機能「大きいカーソル」のデフォルト状態を設定します。
-
-          このポリシーが true に設定されている場合は、ログイン画面が表示されるときに大きいカーソルが有効になります。
-
-          このポリシーが false に設定されている場合は、ログイン画面が表示されるときに大きいカーソルは無効になります。
-
-          管理者がこのポリシーを設定した場合も、ユーザーは一時的に大きいカーソルを有効または無効にすることができます。ただし、このユーザーの選択は恒久的ではなく、ログイン画面が改めて表示されたときや、ログイン画面でユーザーが何もしない時間が 1 分に達したときにデフォルト値が復元されます。
-
-          このポリシーが未設定の場合は、ログイン画面が表示された直後は大きいカーソルが無効になります。ユーザーはいつでも大きいカーソルを有効または無効にすることができ、ログイン画面での大きいカーソルの状態はログアウト後も維持されます。</translation>
 <translation id="5929855945144989709">Chrome OS での仮想マシンの実行をデバイスに許可する</translation>
 <translation id="5932767795525445337">このポリシーを使って Android アプリを固定することもできます。</translation>
 <translation id="5936622343001856595">セーフサーチをアクティブに設定して Google ウェブ検索のクエリを強制するとともに、ユーザーがこの設定を変更できないようにします。
@@ -2891,12 +2882,14 @@
       このポリシーが False に設定されている場合、ユーザーは報告されません。</translation>
 <translation id="6394350458541421998">このポリシーは <ph name="PRODUCT_OS_NAME" /> バージョン 29 で廃止されました。PresentationScreenDimDelayScale ポリシーを代わりに使用してください。</translation>
 <translation id="6401669939808766804">ユーザーをログアウトする</translation>
+<translation id="6403746242226534223">アクセス先の URL に関するセーフ ブラウジングの評価をリアルタイムで確認する</translation>
 <translation id="6406448383934634215">起動時の動作として [URL のリストを開く] が選択されている場合に、開かれる URL のリストを指定できます。このポリシーを未設定のままにした場合、起動時に URL は開かれません。
 
           このポリシーは、RestoreOnStartup ポリシーが「RestoreOnStartupIsURLs」に設定されている場合にのみ機能します。
 
           このポリシーは、<ph name="MS_AD_NAME" /> ドメインに追加した Windows インスタンス、またはデバイスの管理対象として登録した Windows 10 Pro あるいは Enterprise インスタンスでのみ使用できます。</translation>
 <translation id="6417265370957905582">Google アシスタント</translation>
+<translation id="6424485010103067949"><ph name="OMA_URI" />:</translation>
 <translation id="6426205278746959912">Android アプリにプロキシの使用を強制することはできません。一部のプロキシ設定は Android アプリで使用可能ですが、使用するかどうかは Android アプリ側の選択となります。
 
           [プロキシ サーバーを使用しない] を選択した場合は、プロキシが設定されていないことが Android アプリに通知されます。
@@ -2966,6 +2959,9 @@
 <translation id="6544897973797372144">このポリシーを true に設定し、ChromeOsReleaseChannel ポリシーを指定していない場合、登録したドメインのユーザーに、デバイスのリリース チャンネルの変更を許可します。このポリシーを false に設定すると、デバイスは、最後に設定されたチャンネルに固定されます。
 
       ユーザーが選択したチャンネルよりも ChromeOsReleaseChannel ポリシーが優先されます。ただし、ポリシーのチャンネルが、デバイスにインストールされたチャンネルよりも安定している場合、ポリシーのチャンネルのバージョン番号がデバイスにインストールされているチャンネルよりも大きくなったときのみチャンネルが切り替わります。</translation>
+<translation id="6549567350270907557">この設定が有効な場合、ユーザーは <ph name="PRODUCT_NAME" /> で入力済みの認証情報が漏洩内容に含まれていなかったかを確認できます。
+
+              このポリシーが有効または無効に設定されている場合、ユーザーは <ph name="PRODUCT_NAME" /> で設定を変更したりオーバーライドしたりすることはできません。このポリシーが未設定の場合、漏洩チェックは実行可能ですが、ユーザーがオフにすることもできます。</translation>
 <translation id="6553143066970470539">画面の明るさの割合（%）</translation>
 <translation id="6559057113164934677">カメラやマイクへのアクセスをどのサイトにも許可しない</translation>
 <translation id="6561396069801924653">システム トレイ メニューにユーザー補助オプションを表示</translation>
@@ -3046,15 +3042,6 @@
 <translation id="6731757988219967594">アダルト コンテンツに基づいて最上位サイト（埋め込み iframe 以外）を除外する</translation>
 <translation id="6734521799274931721">Chrome OS でネットワーク ファイル共有を使用できるかどうかの設定</translation>
 <translation id="6735701345096330595">言語のスペルチェックを強制的に有効にする</translation>
-<translation id="673699536430961464">ユーザーが <ph name="PRODUCT_OS_NAME" /> デバイスにログインした後に、ブラウザ ウィンドウのコンテンツ領域内で Google アカウントを切り替えることができるかどうかを制御します。
-
-      このポリシーが false に設定されている場合は、シークレット モード以外のブラウザ コンテンツ領域内から別のアカウントにログインすることはできません。
-
-      このポリシーが true に設定されている場合は、デフォルトの動作が使用されます。つまり、子アカウントでなければ、ブラウザのコンテンツ領域内から別のアカウントにログインすることができます。子アカウントの場合、シークレット モード以外のコンテンツ領域内から別のアカウントにログインすることはできません。
-
-      シークレット モードで別のアカウントにログインできないようにする必要がある場合は、IncognitoModeAvailability ポリシーを使用してシークレット モードをブロックすることをご検討ください。
-
-      なお、ユーザーは Cookie をブロックすることで、承認されていない状態でも Google のサービスにアクセスできます。</translation>
 <translation id="6757438632136860443"><ph name="FLASH_PLUGIN_NAME" /> プラグインの実行を許可するサイトを表す URL パターンのリストを設定します。
 
           このポリシーが未設定の場合は、すべてのサイトでグローバルなデフォルト値（「DefaultPluginsSetting」ポリシーで値が設定されている場合はその値、設定されていない場合はユーザーの個人設定の値）が使用されます。</translation>
@@ -3540,15 +3527,6 @@
       このポリシーの値が 0 の場合は、デフォルトのキャッシュ サイズが使用されます。ユーザーはこの値を変更できません。
 
       このポリシーが未設定の場合は、デフォルトのサイズが使用されます。ユーザーは --disk-cache-size フラグを使用してこの値をオーバーライドできます。</translation>
-<translation id="759389052790680884">バッテリー充電のカスタムの充電停止設定（%）を行います。
-
-          バッテリーは、このバッテリー充電のカスタムの充電停止設定の値に達すると、充電を停止します。
-
-          DeviceBatteryChargeCustomStartCharging には DeviceBatteryChargeCustomStopCharging よりも少ない値を指定する必要があります。
-
-          このポリシーは、DeviceBatteryChargeMode がカスタムに設定されている場合にのみ使用されます。
-
-          このポリシーを設定していない場合は、標準のバッテリー充電モードが適用されます。</translation>
 <translation id="759957074386651883">セーフ ブラウジングの設定</translation>
 <translation id="7604169113182304895">このリストを使用するかどうかは Android アプリ側の選択となります。Android アプリにリストの使用を強制することはできません。</translation>
 <translation id="7612157962821894603"><ph name="PRODUCT_NAME" /> 起動時にシステム全体のフラグを適用</translation>
@@ -3637,9 +3615,6 @@
 <translation id="7750991880413385988">新しいタブ ページを開く</translation>
 <translation id="7754704193130578113">ダウンロード前に各ファイルの保存場所を確認する</translation>
 <translation id="7761446981238915769">ログイン画面でインストールするアプリのリストを設定する</translation>
-<translation id="7763479091692861127"> OS アップデートに使用できる接続のタイプです。OS アップデートは、サイズが大きいために接続に大きな負担がかかり、余分な費用が発生する可能性があります。そのため、デフォルトでは現在、WiMax、Bluetooth、携帯通信など費用が高くなる接続タイプは利用できません。
-
-      認識される接続タイプ ID は「ethernet」、「wifi」、「wimax」、「bluetooth」、「cellular」です。</translation>
 <translation id="7763614521440615342">[新しいタブ] ページにおすすめのコンテンツを表示します</translation>
 <translation id="7765879851993224640">Smart Lock Signin の使用を許可する</translation>
 <translation id="7772346342637974431">バッテリー電源で動作している場合に、ユーザー入力が行われなくなってから警告ダイアログを表示するまでの時間を指定します。
@@ -3894,6 +3869,7 @@
 <translation id="8312129124898414409">ウェブサイトがキー生成を使用できるかどうかを設定します。すべてのサイトを対象に、キー生成の使用を許可または禁止できます。
 
           このポリシーが未設定の場合は「BlockKeygen」が使用されます。ユーザーはこの設定を変更できます。</translation>
+<translation id="8314214821702356835">デバイスのロック時にユーザーのメディア再生を許可する</translation>
 <translation id="8320149248919453401">バッテリー充電モード</translation>
 <translation id="8329984337216493753">このポリシーは小売りモードでのみアクティブになります。
 
@@ -3933,6 +3909,10 @@
 
       Internet Explorer の <ph name="IEEM_SITELIST_POLICY" /> ポリシーについて詳しくは、https://docs.microsoft.com/internet-explorer/ie11-deploy-guide/what-is-enterprise-mode をご覧ください。</translation>
 <translation id="8402079500086185021">PDF ファイルを常に外部アプリで開く</translation>
+<translation id="8405691014775178834">このユーザーに対して Crostini コンテナへのルートアクセスを許可します。
+
+      このポリシーが true または未設定の場合、Crostini コンテナへのルートアクセスがユーザーに許可されます。
+      このポリシーが false の場合、Crostini コンテナ（新規、既存の両方）へのルートアクセスはユーザーに許可されません。</translation>
 <translation id="8417305981081876834">ロック画面の PIN の最大桁数を設定する</translation>
 <translation id="841977920223099909">パスワード保護について警告する場合のトリガー</translation>
 <translation id="8424255554404582727">再起動のたびにデフォルトのディスプレイ回転方法を再適用する</translation>
@@ -4183,6 +4163,7 @@
 
           ポリシーの値はミリ秒単位で指定してください。アイドル時間より長い値は指定できません。</translation>
 <translation id="891435090623616439">JSON 文字列としてのエンコードについて詳しくは、<ph name="COMPLEX_POLICIES_URL" /> をご覧ください</translation>
+<translation id="8917070657147922192">インストール済み CA 証明書の管理をユーザーに許可する。</translation>
 <translation id="8934944553121392674">ユーザーが <ph name="DEVICE_PRINTERS_POLICY" /> のどのプリンタを使用できるかを制御します。
 
       このポリシーは、プリンタの一括設定で使用するアクセス ポリシーを指定するものです。<ph name="PRINTERS_ALLOW_ALL" /> が選択されている場合は、すべてのプリンタが表示されます。<ph name="PRINTERS_BLACKLIST" /> が選択されている場合は、<ph name="DEVICE_PRINTERS_BLACKLIST" /> に基づき、指定されたプリンタへのアクセスが制限されます。<ph name="PRINTERS_WHITELIST" /> が選択されている場合は、<ph name="DEVICE_PRINTERS_WHITELIST" />
@@ -4329,7 +4310,6 @@
 <translation id="9152473318295429890">現在のウェブページに関連するおすすめのウェブページの表示を有効にする</translation>
 <translation id="9153446010242995516">OS のバージョンが対象バージョンより新しい場合は、対象バージョンに戻してそのバージョンを維持します。ロールバック プロセスでデバイスごとの設定（ネットワーク認証情報など）を引き継げる場合は、引き継ぎを試みますが、データの復元が可能でない（対象バージョンがデータの復元に対応していない、または後方互換性のない変更がある）場合でも、完全な Powerwash によるロールバックを行います。
           サポート対象は <ph name="PRODUCT_OS_NAME" /> バージョン 75 以降です。これより古いクライアントの場合、この値はロールバックが無効であることを意味します。</translation>
-<translation id="9158929520101169054">ブラウザ内でのマルチログインを許可する</translation>
 <translation id="9159126470527871268">保留中のアップデートを適用するには <ph name="PRODUCT_NAME" /> または <ph name="PRODUCT_OS_NAME" /> の再起動が必要であることをユーザーに通知します。
 
       このポリシー設定は、ブラウザまたはデバイスの再起動が推奨されるか必要であることをユーザーに示す通知を有効にするものです。このポリシーを設定しない場合、再起動が必要であることをユーザーに知らせるために <ph name="PRODUCT_NAME" /> ではメニュー表示がわずかに変更され、<ph name="PRODUCT_OS_NAME" /> ではシステムトレイに通知が表示されます。このポリシーを「推奨」に設定した場合は、再起動を推奨する警告がユーザーに繰り返し表示され、ユーザーはこの警告を閉じて再起動を遅らせることができます。このポリシーを「必須」に設定した場合は、通知期間を過ぎるとブラウザが自動的に再起動されることを示す警告がユーザーに繰り返し表示されます。このデフォルトの期間は、<ph name="PRODUCT_NAME" /> の場合は 7 日間、<ph name="PRODUCT_OS_NAME" /> の場合は 4 日間です。この期間は <ph name="RELAUNCH_NOTIFICATION_PERIOD_POLICY_NAME" /> ポリシーの設定で変更できます。

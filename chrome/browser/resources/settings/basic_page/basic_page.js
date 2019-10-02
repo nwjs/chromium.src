@@ -12,6 +12,7 @@ Polymer({
   behaviors: [
     settings.MainPageBehavior,
     settings.RouteObserverBehavior,
+    PrefsBehavior,
     WebUIListenerBehavior,
   ],
 
@@ -23,8 +24,6 @@ Polymer({
     },
 
     // <if expr="chromeos">
-    showApps: Boolean,
-
     showAndroidApps: Boolean,
 
     showCrostini: Boolean,
@@ -90,6 +89,13 @@ Polymer({
     showSecondaryUserBanner_: {
       type: Boolean,
       computed: 'computeShowSecondaryUserBanner_(hasExpandedSection_)',
+    },
+
+    /** @private */
+    showOSSettingsBanner_: {
+      type: Boolean,
+      computed: 'computeShowOSSettingsBanner_(' +
+          'prefs.settings.cros.show_os_banner.value, currentRoute_)',
     },
     // </if>
 
@@ -220,6 +226,33 @@ Polymer({
     return !this.hasExpandedSection_ &&
         loadTimeData.getBoolean('isSecondaryUser');
   },
+
+  /**
+   * @return {boolean|undefined}
+   * @private
+   */
+  computeShowOSSettingsBanner_: function() {
+    // this.prefs is implicitly used by this.getPref() below.
+    if (!this.prefs || !this.currentRoute_) {
+      return;
+    }
+    // Don't show the banner when SplitSettings is disabled (and hence this page
+    // is already showing OS settings).
+    if (loadTimeData.getBoolean('showOSSettings')) {
+      return false;
+    }
+    const showPref = /** @type {boolean} */ (
+        this.getPref('settings.cros.show_os_banner').value);
+
+    // Banner only shows on the main page because direct navigations to a
+    // sub-page are unlikely to be due to a user looking for an OS setting.
+    return showPref && !this.currentRoute_.isSubpage();
+  },
+
+  /** @private */
+  onOSSettingsBannerClosed_: function() {
+    this.setPrefValue('settings.cros.show_os_banner', false);
+  },
   // </if>
 
   /** @private */
@@ -233,18 +266,6 @@ Polymer({
    */
   androidAppsInfoUpdate_: function(info) {
     this.androidAppsInfo = info;
-  },
-
-  /**
-   * Returns true in case Android apps settings needs to be created. It is not
-   * created in case ARC++ is not allowed for the current profile.
-   * @return {boolean}
-   * @private
-   */
-  shouldCreateAndroidAppsSection_: function() {
-    const visibility = /** @type {boolean|undefined} */ (
-        this.get('pageVisibility.androidApps'));
-    return this.showAndroidApps && this.showPage_(visibility);
   },
 
   /**

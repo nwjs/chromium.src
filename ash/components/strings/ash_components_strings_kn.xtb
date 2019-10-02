@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="kn">
+<translation id="1036550831858290950">ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಟ್ಯಾಬ್ ಅನ್ನು ಬುಕ್‌ಮಾರ್ಕ್‌ನಂತೆ ಉಳಿಸಿ</translation>
 <translation id="104962181688258143">ಫೈಲ್‌ಗಳ ಅಪ್ಲಿಕೇಶನ್ ತೆರೆಯಿರಿ</translation>
 <translation id="1098295134904615027">ಬಲಬದಿಯಲ್ಲಿರುವ ವರ್ಚುವಲ್ ಡೆಸ್ಕ್ ಅನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ</translation>
 <translation id="1122869341872663659"><ph name="QUERY" /> ಗಾಗಿ <ph name="N" /> ಹುಡುಕಾಟ ಫಲಿತಾಂಶಗಳನ್ನು ಪ್ರದರ್ಶಿಸಲಾಗುತ್ತಿದೆ</translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">ಪುಟದಲ್ಲಿನ ಝೂಮ್ ಮಟ್ಟವನ್ನು ಮರುಹೊಂದಿಸಿ</translation>
 <translation id="2596078834055697711">ವಿಂಡೋ ಸ್ಕ್ರೀನ್‌ಶಾಟ್ ತೆಗೆದುಕೊಳ್ಳಿ</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, ನಂತರ <ph name="TAB" /> ಅಥವಾ <ph name="RIGHT" /></translation>
-<translation id="2699509451653686398">ನಿಮ್ಮ ಪ್ರಸ್ತುತ ವೆಬ್‌ಪುಟವನ್ನು ಬುಕ್‌ಮಾರ್ಕ್‌ನಂತೆ ಉಳಿಸಿ</translation>
 <translation id="2750942583782703988">ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಪುಟವನ್ನು ಮರುಲೋಡ್ ಮಾಡಿ</translation>
 <translation id="2764005613199379871">ಹುಡುಕಾಟ ವಿಳಾಸ ಪಟ್ಟಿಯಲ್ಲಿ ಫೋಕಸ್ ಇರಿಸಿ</translation>
 <translation id="2789868185375229787">ಪುಟದಲ್ಲಿ ಝೂಮ್ ಔಟ್ ಮಾಡಿ</translation>

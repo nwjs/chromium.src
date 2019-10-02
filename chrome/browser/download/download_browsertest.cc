@@ -35,6 +35,7 @@
 #include "base/task/post_task.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_file_util.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
@@ -53,10 +54,10 @@
 #include "chrome/browser/download/download_shelf.h"
 #include "chrome/browser/download/download_target_determiner.h"
 #include "chrome/browser/download/download_test_file_activity_observer.h"
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/install_verifier.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/infobars/infobar_service.h"
+#include "chrome/browser/lookalikes/safety_tips/safety_tip_test_utils.h"
 #include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_browsertest_util.h"
@@ -70,6 +71,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -88,6 +90,7 @@
 #include "components/infobars/core/confirm_infobar_delegate.h"
 #include "components/infobars/core/infobar.h"
 #include "components/prefs/pref_service.h"
+#include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/proto/csd.pb.h"
 #include "components/safe_browsing/safe_browsing_service_interface.h"
@@ -114,8 +117,10 @@
 #include "content/public/test/test_file_error_injector.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "extensions/browser/extension_dialog_auto_confirm.h"
+#include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/scoped_ignore_content_verifier_for_test.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/filename_util.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -132,7 +137,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/page_transition_types.h"
 
-#if defined(FULL_SAFE_BROWSING)
+#if BUILDFLAG(FULL_SAFE_BROWSING)
 #include "chrome/browser/safe_browsing/download_protection/download_feedback_service.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
 #include "chrome/browser/safe_browsing/test_safe_browsing_service.h"
@@ -1130,8 +1135,8 @@ class FakeDownloadProtectionService
 
   void CheckClientDownload(
       DownloadItem* download_item,
-      const safe_browsing::CheckDownloadCallback& callback) override {
-    callback.Run(safe_browsing::DownloadCheckResult::UNCOMMON);
+      safe_browsing::CheckDownloadCallback callback) override {
+    std::move(callback).Run(safe_browsing::DownloadCheckResult::UNCOMMON);
   }
 };
 
@@ -1202,8 +1207,8 @@ class DownloadWakeLockTest : public DownloadTest {
 
   void Initialize() {
     connector_ = content::GetSystemConnector()->Clone();
-    connector_->BindInterface(device::mojom::kServiceName,
-                              &wake_lock_provider_);
+    connector_->Connect(device::mojom::kServiceName,
+                        wake_lock_provider_.BindNewPipeAndPassReceiver());
   }
 
   // Returns the number of active wake locks of type |type|.
@@ -1223,7 +1228,7 @@ class DownloadWakeLockTest : public DownloadTest {
   }
 
  protected:
-  device::mojom::WakeLockProviderPtr wake_lock_provider_;
+  mojo::Remote<device::mojom::WakeLockProvider> wake_lock_provider_;
   std::unique_ptr<service_manager::Connector> connector_;
   DISALLOW_COPY_AND_ASSIGN(DownloadWakeLockTest);
 };
@@ -1447,7 +1452,8 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, DownloadResourceThrottleCancels) {
   ASSERT_TRUE(tab_download_state);
   tab_download_state->set_download_seen();
   tab_download_state->SetDownloadStatusAndNotify(
-      same_site_url.GetOrigin(), DownloadRequestLimiter::DOWNLOADS_NOT_ALLOWED);
+      url::Origin::Create(same_site_url),
+      DownloadRequestLimiter::DOWNLOADS_NOT_ALLOWED);
 
   // Try to start the download via Javascript and wait for the corresponding
   // load stop event.
@@ -1501,7 +1507,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest,
   // Let the first download to fail.
   tab_download_state->set_download_seen();
   tab_download_state->SetDownloadStatusAndNotify(
-      url.GetOrigin(), DownloadRequestLimiter::DOWNLOADS_NOT_ALLOWED);
+      url::Origin::Create(url), DownloadRequestLimiter::DOWNLOADS_NOT_ALLOWED);
   bool download_attempted;
   ASSERT_TRUE(content::ExecuteScriptAndExtractBool(
       browser()->tab_strip_model()->GetActiveWebContents(),
@@ -1515,7 +1521,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest,
   std::unique_ptr<content::DownloadTestObserver> observer(
       CreateWaiter(browser(), 1));
   tab_download_state->SetDownloadStatusAndNotify(
-      url.GetOrigin(), DownloadRequestLimiter::ALLOW_ALL_DOWNLOADS);
+      url::Origin::Create(url), DownloadRequestLimiter::ALLOW_ALL_DOWNLOADS);
   ASSERT_TRUE(content::ExecuteScriptAndExtractBool(
       browser()->tab_strip_model()->GetActiveWebContents(),
       "window.domAutomationController.send(startDownload2());",
@@ -2218,10 +2224,10 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, CrxDenyInstall) {
   EXPECT_TRUE(VerifyNoDownloads());
 
   // Check that the CRX is not installed.
-  extensions::ExtensionService* extension_service =
-      extensions::ExtensionSystem::Get(browser()->profile())
-          ->extension_service();
-  ASSERT_FALSE(extension_service->GetExtensionById(kGoodCrxId, false));
+  extensions::ExtensionRegistry* extension_registry =
+      extensions::ExtensionRegistry::Get(browser()->profile());
+  ASSERT_FALSE(extension_registry->GetExtensionById(
+      kGoodCrxId, extensions::ExtensionRegistry::ENABLED));
 }
 
 // Download an extension.  Expect a dangerous download warning.
@@ -2255,10 +2261,10 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, CrxInstallDenysPermissions) {
       downloads[0], base::Bind(&WasAutoOpened)).WaitForEvent();
 
   // Check that the extension was not installed.
-  extensions::ExtensionService* extension_service =
-      extensions::ExtensionSystem::Get(browser()->profile())
-          ->extension_service();
-  ASSERT_FALSE(extension_service->GetExtensionById(kGoodCrxId, false));
+  extensions::ExtensionRegistry* extension_registry =
+      extensions::ExtensionRegistry::Get(browser()->profile());
+  ASSERT_FALSE(extension_registry->GetExtensionById(
+      kGoodCrxId, extensions::ExtensionRegistry::ENABLED));
 }
 
 // Download an extension.  Expect a dangerous download warning.
@@ -2295,10 +2301,10 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, CrxInstallAcceptPermissions) {
       downloads[0], base::Bind(&WasAutoOpened)).WaitForEvent();
 
   // Check that the extension was installed.
-  extensions::ExtensionService* extension_service =
-      extensions::ExtensionSystem::Get(browser()->profile())
-          ->extension_service();
-  ASSERT_TRUE(extension_service->GetExtensionById(kGoodCrxId, false));
+  extensions::ExtensionRegistry* extension_registry =
+      extensions::ExtensionRegistry::Get(browser()->profile());
+  ASSERT_TRUE(extension_registry->GetExtensionById(
+      kGoodCrxId, extensions::ExtensionRegistry::ENABLED));
 }
 
 // Test installing a CRX that fails integrity checks.
@@ -2323,10 +2329,10 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, CrxInvalid) {
   CheckDownloadStates(1, DownloadItem::COMPLETE);
 
   // Check that the extension was not installed.
-  extensions::ExtensionService* extension_service =
-      extensions::ExtensionSystem::Get(browser()->profile())
-          ->extension_service();
-  ASSERT_FALSE(extension_service->GetExtensionById(kGoodCrxId, false));
+  extensions::ExtensionRegistry* extension_registry =
+      extensions::ExtensionRegistry::Get(browser()->profile());
+  ASSERT_FALSE(extension_registry->GetExtensionById(
+      kGoodCrxId, extensions::ExtensionRegistry::ENABLED));
 }
 
 // Install a large (100kb) theme.
@@ -2362,10 +2368,10 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, CrxLargeTheme) {
       downloads[0], base::Bind(&WasAutoOpened)).WaitForEvent();
 
   // Check that the extension was installed.
-  extensions::ExtensionService* extension_service =
-      extensions::ExtensionSystem::Get(browser()->profile())
-          ->extension_service();
-  ASSERT_TRUE(extension_service->GetExtensionById(kLargeThemeCrxId, false));
+  extensions::ExtensionRegistry* extension_registry =
+      extensions::ExtensionRegistry::Get(browser()->profile());
+  ASSERT_TRUE(extension_registry->GetExtensionById(
+      kLargeThemeCrxId, extensions::ExtensionRegistry::ENABLED));
 }
 
 // Tests for download initiation functions.
@@ -3690,6 +3696,61 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SecurityLevels) {
                                     2);
 }
 
+// Tests that the Safety Tip status of the initiating page is used for the
+// histogram rather than the status of the download URL, and that downloads in
+// new tabs are not tracked.
+IN_PROC_BROWSER_TEST_F(DownloadTest, SafetyTips) {
+  embedded_test_server()->ServeFilesFromDirectory(GetTestDataDirectory());
+  ASSERT_TRUE(embedded_test_server()->Start());
+  net::EmbeddedTestServer download_server;
+  download_server.ServeFilesFromDirectory(GetTestDataDirectory());
+  ASSERT_TRUE(download_server.Start());
+  GURL download_url = download_server.GetURL("/downloads/empty.bin");
+
+  // Test that the correct histogram value is recorded for a page that does not
+  // trigger a Safety Tip.
+  {
+    base::HistogramTester histogram_tester;
+    ui_test_utils::NavigateToURL(
+        browser(), embedded_test_server()->GetURL("/simple.html"));
+    DownloadAndWait(browser(), download_url);
+    histogram_tester.ExpectUniqueSample("Security.SafetyTips.DownloadStarted",
+                                        security_state::SafetyTipStatus::kNone,
+                                        1);
+  }
+
+  // When a Safety Tip is triggered, test with the feature both enabled and
+  // disabled. The same metrics should be recorded either way.
+  SetSafetyTipBadRepPatterns(
+      {embedded_test_server()->GetURL("/").host() + "/"});
+  for (const auto& enable_feature : {true, false}) {
+    base::test::ScopedFeatureList feature_list;
+    if (enable_feature) {
+      feature_list.InitAndEnableFeature(features::kSafetyTipUI);
+    } else {
+      feature_list.InitAndDisableFeature(features::kSafetyTipUI);
+    }
+
+    base::HistogramTester histogram_tester;
+    ui_test_utils::NavigateToURL(
+        browser(), embedded_test_server()->GetURL("/simple.html"));
+    DownloadAndWait(browser(), download_url);
+    histogram_tester.ExpectUniqueSample(
+        "Security.SafetyTips.DownloadStarted",
+        security_state::SafetyTipStatus::kBadReputation, 1);
+
+    // Test that no Safety Tip status is recorded for a download in a new tab.
+    ui_test_utils::NavigateToURL(
+        browser(), embedded_test_server()->GetURL("/simple.html"));
+    DownloadAndWaitWithDisposition(browser(), download_url,
+                                   WindowOpenDisposition::NEW_BACKGROUND_TAB,
+                                   ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB);
+    histogram_tester.ExpectUniqueSample(
+        "Security.SafetyTips.DownloadStarted",
+        security_state::SafetyTipStatus::kBadReputation, 1);
+  }
+}
+
 // Tests that opening the downloads page will cause file existence check.
 IN_PROC_BROWSER_TEST_F(DownloadTest, FileExistenceCheckOpeningDownloadsPage) {
   base::ScopedAllowBlockingForTesting allow_blocking;
@@ -3791,7 +3852,7 @@ IN_PROC_BROWSER_TEST_F(DownloadWakeLockTest, WakeLockAcquireAndCancel) {
                    device::mojom::WakeLockType::kPreventAppSuspension));
 }
 
-#if defined(FULL_SAFE_BROWSING)
+#if BUILDFLAG(FULL_SAFE_BROWSING)
 
 namespace {
 

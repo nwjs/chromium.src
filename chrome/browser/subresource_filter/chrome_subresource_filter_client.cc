@@ -78,8 +78,7 @@ void ChromeSubresourceFilterClient::MaybeAppendNavigationThrottles(
         std::make_unique<subresource_filter::
                              SubresourceFilterSafeBrowsingActivationThrottle>(
             navigation_handle, this,
-            base::CreateSingleThreadTaskRunnerWithTraits(
-                {content::BrowserThread::IO}),
+            base::CreateSingleThreadTaskRunner({content::BrowserThread::IO}),
             safe_browsing_service->database_manager()));
   }
 #endif

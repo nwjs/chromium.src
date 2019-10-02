@@ -7,12 +7,14 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 
 #include "ash/ash_export.h"
 #include "ash/assistant/assistant_controller_observer.h"
 #include "ash/assistant/model/assistant_interaction_model_observer.h"
 #include "ash/assistant/model/assistant_screen_context_model_observer.h"
+#include "ash/assistant/model/assistant_suggestions_model_observer.h"
 #include "ash/assistant/model/assistant_ui_model.h"
 #include "ash/assistant/model/assistant_ui_model_observer.h"
 #include "ash/assistant/ui/assistant_view_delegate.h"
@@ -44,12 +46,14 @@ namespace ash {
 
 class AssistantContainerView;
 class AssistantController;
+class ProactiveSuggestionsView;
 
 class ASH_EXPORT AssistantUiController
     : public views::WidgetObserver,
       public AssistantControllerObserver,
       public AssistantInteractionModelObserver,
       public AssistantScreenContextModelObserver,
+      public AssistantSuggestionsModelObserver,
       public AssistantUiModelObserver,
       public AssistantViewDelegateObserver,
       public CaptionBarDelegate,
@@ -81,6 +85,10 @@ class ASH_EXPORT AssistantUiController
   void OnInteractionStateChanged(InteractionState interaction_state) override;
   void OnMicStateChanged(MicState mic_state) override;
 
+  // AssistantSuggestionsModelObserver:
+  void OnProactiveSuggestionsChanged(
+      scoped_refptr<const ProactiveSuggestions> proactive_suggestions) override;
+
   // AssistantScreenContextModelObserver:
   void OnScreenContextRequestStateChanged(
       ScreenContextRequestState request_state) override;
@@ -91,6 +99,8 @@ class ASH_EXPORT AssistantUiController
   // AssistantViewDelegateObserver:
   void OnDialogPlateButtonPressed(AssistantButtonId id) override;
   void OnMiniViewPressed() override;
+  void OnProactiveSuggestionsCloseButtonPressed() override;
+  void OnProactiveSuggestionsViewPressed() override;
 
   // HighlighterController::Observer:
   void OnHighlighterEnabledChanged(HighlighterEnabledState state) override;
@@ -140,11 +150,21 @@ class ASH_EXPORT AssistantUiController
   // Calculate and update the usable work area.
   void UpdateUsableWorkArea(aura::Window* root_window);
 
-  // Construct |container_view_| and add keyboard/display observers.
+  // Constructs/resets |container_view_|.
   void CreateContainerView();
-
-  // Reset |container_view_| and remove keyboard/display observers.
   void ResetContainerView();
+
+  // Constructs/resets |proactive_suggestions_view_|.
+  void CreateProactiveSuggestionsView();
+  void ResetProactiveSuggestionsView();
+
+  // Returns the root window for |container_view_| if it exists, otherwise
+  // |proactive_suggestions_view_|. Note that this method may only be called
+  // when one of these views exist.
+  aura::Window* GetRootWindow();
+
+  // Adds/removes observers used for calculating usable work area as needed.
+  void UpdateUsableWorkAreaObservers();
 
   AssistantController* const assistant_controller_;  // Owned by Shell.
 
@@ -153,8 +173,9 @@ class ASH_EXPORT AssistantUiController
 
   AssistantUiModel model_;
 
-  AssistantContainerView* container_view_ =
-      nullptr;  // Owned by view hierarchy.
+  // Owned by view hierarchy.
+  AssistantContainerView* container_view_ = nullptr;
+  ProactiveSuggestionsView* proactive_suggestions_view_ = nullptr;
 
   std::unique_ptr<views::EventMonitor> event_monitor_;
 
@@ -164,7 +185,20 @@ class ASH_EXPORT AssistantUiController
   // session. We delay this behavior to allow the user an opportunity to resume.
   base::OneShotTimer auto_close_timer_;
 
-  base::WeakPtrFactory<AssistantUiController> weak_factory_;
+  // When shown, the proactive suggestions widget will automatically be closed
+  // if the user doesn't interact with it within a fixed interval.
+  base::OneShotTimer auto_close_proactive_suggestions_timer_;
+
+  // Whether the UI controller is observing changes to the usable work area.
+  bool is_observing_usable_work_area_ = false;
+
+  // When proactive suggestions duplicate suppression is enabled, we won't show
+  // proactive suggestions that have been shown before. To accomplish this, we
+  // must cache proactive suggestions that have already been shown to the user.
+  // We cache a hash representation of the proactive suggestions to save space.
+  std::set<size_t> shown_proactive_suggestions_;
+
+  base::WeakPtrFactory<AssistantUiController> weak_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(AssistantUiController);
 };

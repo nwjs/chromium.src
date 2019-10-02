@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="bn">
+<translation id="1005230401424685968">YYYY</translation>
 <translation id="1016495303386450659">আইটেম আপডেট হয়েছে</translation>
 <translation id="1047726139967079566">এই পৃষ্ঠাটি বুকমার্ক করুন...</translation>
 <translation id="1049743911850919806">ছদ্মবেশী</translation>
@@ -71,6 +72,7 @@
 <translation id="1820259098641718022">পড়ার তালিকায় যোগ করা হয়েছে</translation>
 <translation id="1828824471510190776">পাসওয়ার্ড সাজেস্ট করুন…</translation>
 <translation id="1870148520156231997">পাসওয়ার্ড দেখুন</translation>
+<translation id="1872096359983322073">টর্চ</translation>
 <translation id="1876721852596493031">ব্যবহারের ডেটা পাঠান</translation>
 <translation id="1911619930368729126">Google ড্রাইভে আপলোড করুন</translation>
 <translation id="1923342640370224680">শেষ ঘণ্টা</translation>
@@ -148,7 +150,6 @@
 <translation id="2921219216347069551">পৃষ্ঠা শেয়ার করা যায়নি</translation>
 <translation id="2923448633003185837">পেস্ট করে শুরু করুন</translation>
 <translation id="292639812446257861">অপঠিত হিসেবে চিহ্নিত করুন</translation>
-<translation id="2933759065870693102">টর্চ</translation>
 <translation id="2958718410589002129">পাসওয়ার্ড</translation>
 <translation id="2969979262385602596">সাইন-ইন করা যায়নি৷ অনুগ্রহ করে পরে আবার চেষ্টা করুন৷</translation>
 <translation id="298306318844797842">পেমেন্টের পদ্ধতি যোগ করুন...</translation>
@@ -194,6 +195,7 @@
 <translation id="3607167657931203000">ডেটা স্বতঃপূর্ণ করুন</translation>
 <translation id="3609785682760573515">সিঙ্ক হচ্ছে...</translation>
 <translation id="3638472932233958418">পূর্বলোড ওয়েবপৃষ্ঠা</translation>
+<translation id="3670030362669914947">নম্বর</translation>
 <translation id="3691593122358196899"><ph name="FOLDER_TITLE" /> এ বুকমার্ক করা হয়েছে</translation>
 <translation id="3771033907050503522">ছদ্মবেশী ট্যাবগুলি</translation>
 <translation id="3775743491439407556">সিঙ্ক কাজ করছে না</translation>
@@ -264,6 +266,7 @@
 <translation id="4802417911091824046">পাসফ্রেজ এনক্রিপশনে Google Pay-এর পেমেন্ট পদ্ধতি ও ঠিকানা অন্তর্ভুক্ত থাকে না।
 
 <ph name="BEGIN_LINK" />রিসেট সিঙ্ক<ph name="END_LINK" /> থেকে এই সেটিং পরিবর্তন করুন</translation>
+<translation id="4805759445554688327">ভুল কার্ড নম্বর</translation>
 <translation id="4807020197310989387">পড়ার তালিকাতে ১টি না পড়া নিবন্ধ।</translation>
 <translation id="4818522717893377262">ভাষা যোগ করুন…</translation>
 <translation id="481968316161811770">কুকিজ, সাইট ডেটা</translation>
@@ -302,6 +305,7 @@
 <translation id="5317780077021120954">সেভ করুন</translation>
 <translation id="5327248766486351172">নাম</translation>
 <translation id="5388358297987318779">ইমেজ খুলুন</translation>
+<translation id="5407969256130905701">পরিবর্তনগুলি বাতিল করুন</translation>
 <translation id="5409365236829784218">এই ফাউলটি খুলতে পারে এমন কোনো অ্যাপ্লিকেশন এখানে ডাউনলোড করা নেই৷</translation>
 <translation id="5416022985862681400">গত ৭ দিনে</translation>
 <translation id="5433691172869980887">ইউজারনেম কপি করা হয়েছে</translation>
@@ -353,6 +357,7 @@
 <translation id="605721222689873409">YY</translation>
 <translation id="6066301408025741299">বাতিল করতে আলতো চাপুন৷</translation>
 <translation id="6108923351542677676">সেটআপ চলছে...</translation>
+<translation id="6119050551270742952">বর্তমান ওয়েবপেজটি ছদ্মবেশী মোডে আছে</translation>
 <translation id="6122191549521593678">অনলাইন</translation>
 <translation id="6127379762771434464">আইটেম সরানো হয়েছে</translation>
 <translation id="6136914049981179737">সেকেন্ড আগে</translation>
@@ -392,6 +397,7 @@
 <translation id="6476800141292307438">পৃষ্ঠাটি <ph name="LANGUAGE" /> ভাষাতে অনুবাদ হচ্ছে। স্ক্রিনের নিচের দিকে বিকল্পগুলি দেওয়া আছে।</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" />টি আইটেম মোছা হয়েছে</translation>
 <translation id="6610002944194042868">অনুবাদের বিকল্প</translation>
+<translation id="6628106477656132239">মেয়াদ শেষ হওয়ার তারিখটি ভুল</translation>
 <translation id="6642362222295953972">আগে থেকে থাকা ট্যাবে পাল্টান</translation>
 <translation id="6643016212128521049">সাফ করুন</translation>
 <translation id="6656103420185847513">ফোল্ডার সম্পাদনা করুন</translation>
@@ -408,6 +414,9 @@
 <translation id="6807889908376551050">সমস্ত দেখান...</translation>
 <translation id="681368974849482173">আইটেম তৈরি করা হয়েছে</translation>
 <translation id="6851516051005285358">ডেস্কটপ সাইটের জন্য অনুরোধ করুন</translation>
+<translation id="6858855187367714033">স্ক্যান করা হয়েছে</translation>
+<translation id="6859944681507688231">কোনও QR কোড বা ক্রেডিট কার্ড স্ক্যান করতে সেটিংস থেকে ক্যামেরা চালু করুন।</translation>
+<translation id="6873263987691478642">স্প্লিট ভিউ</translation>
 <translation id="6896758677409633944">কপি</translation>
 <translation id="6903907808598579934">সিঙ্ক চালু করুন</translation>
 <translation id="6914583639806229067">আপনার কপি করা ছবি সার্চ করুন</translation>
@@ -450,6 +459,7 @@
 <translation id="744343212394640790"><ph name="EMAIL" /> না</translation>
 <translation id="7454057999980797137">রাজ্য / দেশ</translation>
 <translation id="7456847797759667638">লোকেশন খুলুন...</translation>
+<translation id="7460314822154045102">ক্যামেরা ব্যবহার করুন</translation>
 <translation id="7464701184726199289">এটি সব ডিভাইস থেকে সিঙ্ক হওয়া ডেটা সাফ করবে। সংরক্ষিত সাইটের সেটিংস মোছা হবে না এবং আপনার ব্রাউজিং অভ্যাস প্রতিফলিত হতে পারে। <ph name="BEGIN_LINK" />আরও জানুন<ph name="END_LINK" /></translation>
 <translation id="7472734401283673885">কোম্পানির নাম:</translation>
 <translation id="7481312909269577407">ফরওয়ার্ড</translation>
@@ -505,7 +515,9 @@
 <translation id="8428045167754449968">নগর / ছোট শহর</translation>
 <translation id="8428213095426709021">সেটিংস</translation>
 <translation id="8458397775385147834">১টি আইটেম মোছা হয়েছে</translation>
+<translation id="8487667956631253959">চালু করা আছে</translation>
 <translation id="8487700953926739672">অফলাইনে উপলব্ধ</translation>
+<translation id="8490978609246021741">পরিবর্তনগুলি সেভ করুন</translation>
 <translation id="8503813439785031346">ইউজারনেম</translation>
 <translation id="850600235656508448">ছদ্মবেশী ট্যাবে খুলুন</translation>
 <translation id="8517375800490286174">ওপেন সোর্স লাইসেন্স</translation>
@@ -514,6 +526,7 @@
 <translation id="8532105204136943229">মেয়াদপূর্তির বছর</translation>
 <translation id="8534481786647257214">Google+ পোষ্ট সম্পূর্ণ হয়েছে৷</translation>
 <translation id="8548878600947630424">পৃষ্ঠাটি খুঁজুন...</translation>
+<translation id="8588404856427128947">বন্ধ করা আছে</translation>
 <translation id="8605219856220328675">ট্যাব বন্ধ করুন।</translation>
 <translation id="8620640915598389714">সম্পাদনা করুন</translation>
 <translation id="8636825310635137004">আপনার অন্য ডিভাইসগুলি থেকে আপনার ট্যাবগুলি পেতে, সিঙ্ক চালু করুন।</translation>
@@ -554,6 +567,7 @@
 <translation id="9203116392574189331">Handoff</translation>
 <translation id="9223358826628549784">ক্র্যাশ রিপোর্ট পাঠানো হয়েছে৷</translation>
 <translation id="935490618240037774">আপনার বুকমার্ক, ইতিহাস এবং অন্যান্য সেটিংস আপনার Google অ্যাকাউন্টে সিঙ্ক হবে যাতে আপনি আপনার সমস্ত ডিভাইসে সেগুলি ব্যবহার করতে পারেন।</translation>
+<translation id="952704832371081537">বাতিল করুন</translation>
 <translation id="976982866697960176">সিঙ্ক হওয়া ডেটা পরিচালনা করুন...</translation>
 <translation id="988141524645182168">অন্যান্য ডিভাইস</translation>
 <translation id="989988560359834682">ঠিকানা সম্পাদনা করুন</translation>

@@ -16,8 +16,8 @@
 #import "ios/web/js_messaging/crw_wk_script_message_router.h"
 #import "ios/web/public/deprecated/crw_context_menu_delegate.h"
 #import "ios/web/public/navigation/navigation_context.h"
-#import "ios/web/public/web_state/context_menu_params.h"
-#import "ios/web/public/web_state/web_state.h"
+#import "ios/web/public/ui/context_menu_params.h"
+#import "ios/web/public/web_state.h"
 #import "ios/web/public/web_state/web_state_observer_bridge.h"
 #import "ios/web/web_state/context_menu_constants.h"
 #import "ios/web/web_state/context_menu_params_utils.h"
@@ -35,6 +35,9 @@ namespace {
 // If our detection duration is shorter, our gesture recognizer will fire
 // first in order to cancel the system context menu gesture recognizer.
 const NSTimeInterval kLongPressDurationSeconds = 0.55 - 0.1;
+// Since iOS 13, our gesture recognizer needs to allow enough time for drag and
+// drop to trigger first.
+const NSTimeInterval kLongPressDurationSecondsIOS13 = 0.75;
 
 // If there is a movement bigger than |kLongPressMoveDeltaPixels|, the context
 // menu will not be triggered.
@@ -113,8 +116,9 @@ UIGestureRecognizer* GestureRecognizerWithDescriptionFragment(
 void OverrideGestureRecognizers(UIGestureRecognizer* contextMenuRecognizer,
                                 WKWebView* webView) {
   NSString* fragment = nil;
+
   if (@available(iOS 13, *)) {
-    fragment = @"action=_handleGestureRecognizer:";
+    fragment = @"com.apple.UIKit.clickPresentationFailure";
   } else {
     fragment = @"action=_longPressRecognized:";
   }
@@ -123,26 +127,16 @@ void OverrideGestureRecognizers(UIGestureRecognizer* contextMenuRecognizer,
   if (systemContextMenuRecognizer) {
     [systemContextMenuRecognizer
         requireGestureRecognizerToFail:contextMenuRecognizer];
-    // requireGestureRecognizerToFail: doesn't retain the recognizer, so it
-    // is possible for |iRecognizer| to outlive |recognizer| and end up with
-    // a dangling pointer. Add a retaining associative reference to ensure
-    // that the lifetimes work out.
-    // Note that normally using the value as the key wouldn't make any
-    // sense, but here it's fine since nothing needs to look up the value.
+    // requireGestureRecognizerToFail: doesn't retain the recognizer, so it is
+    // possible for |systemContextMenuRecognizer| to outlive
+    // |contextMenuRecognizer| and end up with a dangling pointer. Add a
+    // retaining associative reference to ensure that the lifetimes work out.
+    // Note that normally using the value as the key wouldn't make any sense,
+    // but here it's fine since nothing needs to look up the value.
     void* associated_object_key = (__bridge void*)contextMenuRecognizer;
     objc_setAssociatedObject(systemContextMenuRecognizer.view,
                              associated_object_key, contextMenuRecognizer,
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-  }
-
-  if (@available(iOS 13, *)) {
-    fragment = @"com.apple.UIKit.clickPresentationFailure";
-    systemContextMenuRecognizer =
-        GestureRecognizerWithDescriptionFragment(fragment, webView);
-    if (systemContextMenuRecognizer) {
-      [systemContextMenuRecognizer
-          requireGestureRecognizerToFail:contextMenuRecognizer];
-    }
   }
 }
 
@@ -232,7 +226,13 @@ void OverrideGestureRecognizers(UIGestureRecognizer* contextMenuRecognizer,
         initWithTarget:self
                 action:@selector(longPressDetectedByGestureRecognizer:)];
 
-    [_contextMenuRecognizer setMinimumPressDuration:kLongPressDurationSeconds];
+    if (@available(iOS 13, *)) {
+      [_contextMenuRecognizer
+          setMinimumPressDuration:kLongPressDurationSecondsIOS13];
+    } else {
+      [_contextMenuRecognizer
+          setMinimumPressDuration:kLongPressDurationSeconds];
+    }
     [_contextMenuRecognizer setAllowableMovement:kLongPressMoveDeltaPixels];
     [_contextMenuRecognizer setDelegate:self];
     [_webView addGestureRecognizer:_contextMenuRecognizer];

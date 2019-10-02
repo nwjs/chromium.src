@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="no">
+<translation id="1036550831858290950">Lagre den aktive fanen som bokmerke</translation>
 <translation id="104962181688258143">Åpne Filer-appen</translation>
 <translation id="1098295134904615027">Aktivér det virtuelle skrivebordet til høyre</translation>
 <translation id="1122869341872663659">Viser <ph name="N" /> søkeresultater for <ph name="QUERY" /></translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">Tilbakestill zoomnivået på siden</translation>
 <translation id="2596078834055697711">Ta en skjermdump av vinduet</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" /> og så <ph name="TAB" /> eller <ph name="RIGHT" /></translation>
-<translation id="2699509451653686398">Lagre den aktive nettsiden som et bokmerke</translation>
 <translation id="2750942583782703988">Last inn den aktive siden på nytt</translation>
 <translation id="2764005613199379871">Plassér fokuset i søkeadressefeltet</translation>
 <translation id="2789868185375229787">Zoom ut på siden</translation>

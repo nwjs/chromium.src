@@ -17,6 +17,7 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerP
 import android.graphics.Bitmap;
 import android.os.Handler;
 import android.support.annotation.Nullable;
+import android.view.ViewGroup;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
@@ -25,7 +26,6 @@ import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.ChromeFeatureList;
-import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
@@ -106,7 +106,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
                 }
             };
 
-    private final CompositorViewHolder mCompositorViewHolder;
+    private final ViewGroup mContainerView;
     private final TabSelectionEditorCoordinator
             .TabSelectionEditorController mTabSelectionEditorController;
     private TabSwitcher.OnTabSelectingListener mOnTabSelectingListener;
@@ -123,6 +123,8 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
     private int mIndexInNewModelWhenSwitched;
     private boolean mIsSelectingInTabSwitcher;
 
+    private boolean mShowTabsInMruOrder;
+
     /**
      * Interface to delegate resetting the tab grid.
      */
@@ -131,9 +133,10 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
          * Reset the tab grid with the given {@link TabList}, which can be null.
          * @param tabList The {@link TabList} to show the tabs for in the grid.
          * @param quickMode Whether to skip capturing the selected live tab for the thumbnail.
+         * @param mruMode Whether order the Tabs by MRU.
          * @return Whether the {@link TabListRecyclerView} can be shown quickly.
          */
-        boolean resetWithTabList(@Nullable TabList tabList, boolean quickMode);
+        boolean resetWithTabList(@Nullable TabList tabList, boolean quickMode, boolean mruMode);
 
         /**
          * Release the thumbnail {@link Bitmap} but keep the {@link TabGridViewHolder}.
@@ -153,15 +156,16 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
      *         grid or carousel.
      * @param tabModelSelector {@link TabModelSelector} to observer for model and selection changes.
      * @param fullscreenManager {@link FullscreenManager} to use.
-     * @param compositorViewHolder {@link CompositorViewHolder} to use.
+     * @param containerView The container {@link ViewGroup} to use.
      * @param tabSelectionEditorController The controller that can control the visibility of the
      *                                     TabSelectionEditor.
+     * @param mode One of the {@TabListCoordinator.TabListMode}.
      */
     TabSwitcherMediator(ResetHandler resetHandler, PropertyModel containerViewModel,
             TabModelSelector tabModelSelector, ChromeFullscreenManager fullscreenManager,
-            CompositorViewHolder compositorViewHolder,
-            TabSelectionEditorCoordinator
-                    .TabSelectionEditorController tabSelectionEditorController) {
+            ViewGroup containerView,
+            TabSelectionEditorCoordinator.TabSelectionEditorController tabSelectionEditorController,
+            @TabListCoordinator.TabListMode int mode) {
         mResetHandler = resetHandler;
         mContainerViewModel = containerViewModel;
         mTabModelSelector = tabModelSelector;
@@ -175,7 +179,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
 
                 TabList currentTabModelFilter =
                         mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter();
-                mResetHandler.resetWithTabList(currentTabModelFilter, false);
+                mResetHandler.resetWithTabList(currentTabModelFilter, false, mShowTabsInMruOrder);
                 mContainerViewModel.set(IS_INCOGNITO, currentTabModelFilter.isIncognito());
                 if (mTabGridDialogResetHandler != null) {
                     mTabGridDialogResetHandler.hideDialog(false);
@@ -223,32 +227,39 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
                         .getCurrentTabModelFilter()
                         .isIncognito());
         mContainerViewModel.set(ANIMATE_VISIBILITY_CHANGES, true);
-        mContainerViewModel.set(TOP_CONTROLS_HEIGHT, fullscreenManager.getTopControlsHeight());
-        mContainerViewModel.set(
-                BOTTOM_CONTROLS_HEIGHT, fullscreenManager.getBottomControlsHeight());
 
-        int toolbarHeight =
-                ContextUtils.getApplicationContext().getResources().getDimensionPixelSize(
-                        R.dimen.toolbar_height_no_shadow);
-        int topPadding = ReturnToChromeExperimentsUtil.shouldShowOmniboxOnTabSwitcher()
-                ? toolbarHeight
-                : DEFAULT_TOP_PADDING;
-        mContainerViewModel.set(TOP_PADDING, topPadding);
-        int shadowTopMargin = ReturnToChromeExperimentsUtil.shouldShowOmniboxOnTabSwitcher()
-                ? toolbarHeight * 2
-                : toolbarHeight;
-        mContainerViewModel.set(SHADOW_TOP_MARGIN, shadowTopMargin);
+        // Container view takes care of padding and margin in carousel mode.
+        if (mode != TabListCoordinator.TabListMode.CAROUSEL) {
+            mContainerViewModel.set(TOP_CONTROLS_HEIGHT, fullscreenManager.getTopControlsHeight());
+            mContainerViewModel.set(
+                    BOTTOM_CONTROLS_HEIGHT, fullscreenManager.getBottomControlsHeight());
 
-        mCompositorViewHolder = compositorViewHolder;
+            int toolbarHeight =
+                    ContextUtils.getApplicationContext().getResources().getDimensionPixelSize(
+                            R.dimen.toolbar_height_no_shadow);
+            int topPadding = ReturnToChromeExperimentsUtil.shouldShowOmniboxOnTabSwitcher()
+                    ? toolbarHeight
+                    : DEFAULT_TOP_PADDING;
+            mContainerViewModel.set(TOP_PADDING, topPadding);
+            int shadowTopMargin = ReturnToChromeExperimentsUtil.shouldShowOmniboxOnTabSwitcher()
+                    ? toolbarHeight * 2
+                    : toolbarHeight;
+            mContainerViewModel.set(SHADOW_TOP_MARGIN, shadowTopMargin);
+        }
+
+        mContainerView = containerView;
 
         mSoftClearTabListRunnable = mResetHandler::softCleanup;
-        mClearTabListRunnable = () -> mResetHandler.resetWithTabList(null, false);
+        mClearTabListRunnable =
+                () -> mResetHandler.resetWithTabList(null, false, mShowTabsInMruOrder);
         mHandler = new Handler();
         mTabSelectionEditorController = tabSelectionEditorController;
-    }
 
-    void setBottomControlsHeight(int bottomControlsHeight) {
-        mContainerViewModel.set(BOTTOM_CONTROLS_HEIGHT, bottomControlsHeight);
+        // TODO(crbug.com/982018): Let the start surface pass in the parameter and add unit test for
+        // it. This is a temporary solution to keep this change minimum.
+        String feature = ChromeFeatureList.getFieldTrialParamByFeature(
+                ChromeFeatureList.START_SURFACE_ANDROID, "start_surface_variation");
+        mShowTabsInMruOrder = feature.equals("twopanes") || feature.equals("single");
     }
 
     /**
@@ -300,12 +311,6 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         }
 
         mContainerViewModel.set(IS_VISIBLE, isVisible);
-    }
-
-    private void setContentOverlayVisibility(boolean isVisible) {
-        Tab currentTab = mTabModelSelector.getCurrentTab();
-        if (currentTab == null) return;
-        mCompositorViewHolder.setContentOverlayVisibility(isVisible, true);
     }
 
     /**
@@ -401,13 +406,16 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         boolean quick = false;
         if (FeatureUtilities.isTabToGtsAnimationEnabled()) {
             quick = mResetHandler.resetWithTabList(
-                    mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(),
-                    false);
+                    mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(), false,
+                    mShowTabsInMruOrder);
         }
+
         int initialPosition = Math.max(
                 mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter().index()
                         - INITIAL_SCROLL_INDEX_OFFSET,
                 0);
+        // In MRU order, selected Tab is always at the first position.
+        if (mShowTabsInMruOrder) initialPosition = 0;
         mContainerViewModel.set(INITIAL_SCROLL_INDEX, initialPosition);
         return quick;
     }
@@ -416,7 +424,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
     public void showOverview(boolean animate) {
         mResetHandler.resetWithTabList(
                 mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(),
-                FeatureUtilities.isTabToGtsAnimationEnabled());
+                FeatureUtilities.isTabToGtsAnimationEnabled(), mShowTabsInMruOrder);
         if (!animate) mContainerViewModel.set(ANIMATE_VISIBILITY_CHANGES, false);
         setVisibility(true);
         mModelIndexWhenShown = mTabModelSelector.getCurrentModelIndex();
@@ -441,12 +449,10 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         for (TabSwitcher.OverviewModeObserver observer : mObservers) {
             observer.finishedShowing();
         }
-        setContentOverlayVisibility(false);
     }
 
     @Override
     public void startedHiding(boolean isAnimating) {
-        setContentOverlayVisibility(true);
         for (TabSwitcher.OverviewModeObserver observer : mObservers) {
             observer.startedHiding();
         }
@@ -470,6 +476,11 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         onTabSelecting(mTabModelSelector.getCurrentTabId());
 
         return true;
+    }
+
+    @Override
+    public void setBottomControlsHeight(int bottomControlsHeight) {
+        mContainerViewModel.set(BOTTOM_CONTROLS_HEIGHT, bottomControlsHeight);
     }
 
     /**

@@ -15,6 +15,7 @@
 <translation id="1524282610922162960">Condividi una scheda di Chromium</translation>
 <translation id="1668054258064581266">Dopo avere rimosso il tuo account da Chromium, potresti dover ricaricare le schede aperte perché le modifiche vengano applicate.</translation>
 <translation id="1688750314291223739">Configura la sincronizzazione per salvare le funzioni personalizzate del browser sul Web e accedervi da Chromium su qualsiasi computer.</translation>
+<translation id="1705503634486268204">Chromium può aiutarti a ricordare le password in modo che tu non debba memorizzarle.</translation>
 <translation id="1708666629004767631">È disponibile una nuova versione più sicura di Chromium.</translation>
 <translation id="1766096484055239003">L'amministratore richiede il riavvio di Chromium per installare un aggiornamento</translation>
 <translation id="1774152462503052664">Lascia Chromium in esecuzione in background</translation>
@@ -125,9 +126,6 @@
 <translation id="5634636535844844681">Chromium richiede Windows 7 o versioni successive.</translation>
 <translation id="5680901439334282664">accedi a Chromium</translation>
 <translation id="5698481217667032250">Visualizza Chromium in questa lingua</translation>
-<translation id="5756484659843248772">Questa lingua è utilizzata per mostrare l'UI di Chromium OS</translation>
-<translation id="5768914737813585044">Visualizza Chromium OS in questa lingua</translation>
-<translation id="5796460469508169315">Chromium è quasi pronto.</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5862307444128926510">Benvenuto in Chromium</translation>
 <translation id="5877064549588274448">Canale cambiato. Riavvia il dispositivo per applicare le modifiche.</translation>
@@ -143,6 +141,8 @@
 <translation id="6096348254544841612">È disponibile un nuovo aggiornamento.</translation>
 <translation id="6120345080069858279">Chromium salverà la password nel tuo Account Google affinché tu non debba memorizzarla.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> è pericoloso, pertanto è stato bloccato da Chromium.</translation>
+<translation id="6173098285107411678">Se un'impostazione non viene mostrata su questa pagina, guarda nelle <ph name="LINK_BEGIN" />
+    impostazioni del browser Chromium<ph name="LINK_END" /></translation>
 <translation id="6212496753309875659">Questo computer ha già una versione più recente di Chromium. Se il software non funziona, disinstalla Chromium e riprova.</translation>
 <translation id="6219195342503754812">{0,plural, =0{Chromium verrà riavviato ora}=1{Chromium verrà riavviato tra 1 secondo}other{Chromium verrà riavviato tra # secondi}}</translation>
 <translation id="6248213926982192922">Imposta Chromium come browser predefinito</translation>
@@ -190,12 +190,6 @@ Chromium non è in grado di recuperare le impostazioni.</translation>
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7339898014177206373">Nuova finestra</translation>
 <translation id="734373864078049451">I tuoi siti web, i tuoi segnalibri e gli altri contenuti Chromium sempre disponibili e aggiornati qui.</translation>
-<translation id="7344413941077984497">Per impostare i siti web che <ph name="NEW_PROFILE_NAME" /> potrà visitare, puoi configurare limitazioni e impostazioni visitando la pagina <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" />. Se non cambi le impostazioni predefinite, <ph name="NEW_PROFILE_NAME" /> potrà visitare qualsiasi sito web.
-
-Per impedire a <ph name="NEW_PROFILE_NAME" /> di accedere al tuo account, assicurati di bloccare il tuo profilo quando non utilizzi Chromium. A tale scopo, fai clic sul nome del tuo profilo nell'angolo in alto a destra del browser e seleziona "Esci e blocca".
-<ph name="BEGIN_LINK_2" />Ulteriori informazioni<ph name="END_LINK_2" />
-
-Per ulteriori informazioni, controlla l'email all'indirizzo <ph name="ACCOUNT_EMAIL" />.</translation>
 <translation id="7349591376906416160">L'amministratore di sistema ha configurato Chromium per l'apertura di <ph name="ALTERNATIVE_BROWSER_NAME" /> per accedere a <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="7448255348454382571">Riavvia Chromium OS</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium per gli sviluppatori</translation>
@@ -229,7 +223,6 @@ Per ulteriori informazioni, controlla l'email all'indirizzo <ph name="ACCOUNT_EM
 <translation id="8290862415967981663">Questo file potrebbe essere pericoloso, pertanto è stato bloccato da Chromium.</translation>
 <translation id="8330519371938183845">Accedi per sincronizzare e personalizzare Chromium sui tuoi dispositivi</translation>
 <translation id="8340674089072921962">L'indirizzo <ph name="USER_EMAIL_ADDRESS" /> utilizzava in precedenza Chromium</translation>
-<translation id="8375950122744241554">I profili utente supervisionati non saranno più disponibili a partire da Chromium 70.</translation>
 <translation id="8417404458978023919">{0,plural, =1{Riavvia Chromium entro un giorno}other{Riavvia Chromium entro # giorni}}</translation>
 <translation id="8453117565092476964">L'archivio di installazione è danneggiato o non valido. Scarica di nuovo Chromium.</translation>
 <translation id="8493179195440786826">Chromium non è aggiornato</translation>

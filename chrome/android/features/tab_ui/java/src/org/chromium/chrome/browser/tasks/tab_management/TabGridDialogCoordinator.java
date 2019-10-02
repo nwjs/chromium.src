@@ -8,8 +8,8 @@ import android.content.Context;
 import android.graphics.Rect;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.view.ViewGroup;
 
-import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
@@ -34,8 +34,7 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.ResetHand
 
     TabGridDialogCoordinator(Context context, TabModelSelector tabModelSelector,
             TabContentManager tabContentManager, TabCreatorManager tabCreatorManager,
-            CompositorViewHolder compositorViewHolder,
-            TabSwitcherMediator.ResetHandler resetHandler,
+            ViewGroup containerView, TabSwitcherMediator.ResetHandler resetHandler,
             TabListMediator.GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
             TabGridDialogMediator.AnimationParamsProvider animationParamsProvider) {
         mContext = context;
@@ -51,10 +50,10 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.ResetHand
 
         mTabListCoordinator = new TabListCoordinator(TabListCoordinator.TabListMode.GRID, context,
                 tabModelSelector, tabContentManager::getTabThumbnailWithCallback, null, false, null,
-                gridCardOnClickListenerProvider, mMediator.getTabGridDialogHandler(), null, null,
-                compositorViewHolder, null, false, mComponentName);
+                gridCardOnClickListenerProvider, mMediator.getTabGridDialogHandler(),
+                TabProperties.UiType.CLOSABLE, null, containerView, null, false, mComponentName);
 
-        mParentLayout = new TabGridDialogParent(context, compositorViewHolder);
+        mParentLayout = new TabGridDialogParent(context, containerView);
 
         TabListRecyclerView recyclerView = mTabListCoordinator.getContainerView();
         mToolbarCoordinator = new TabGridSheetToolbarCoordinator(
@@ -69,13 +68,8 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.ResetHand
         mMediator.destroy();
         mToolbarCoordinator.destroy();
         mParentLayout.destroy();
-    }
-
-    private void updateDialogContent(List<Tab> tabs) {
-        if (tabs != null) {
-            mMediator.onReset(tabs.get(0).getId());
-        } else {
-            mMediator.onReset(null);
+        if (mToolbarCoordinator != null) {
+            mToolbarCoordinator.destroy();
         }
     }
 
@@ -99,7 +93,7 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.ResetHand
     @Override
     public void resetWithListOfTabs(@Nullable List<Tab> tabs) {
         mTabListCoordinator.resetWithListOfTabs(tabs);
-        updateDialogContent(tabs);
+        mMediator.onReset(tabs);
     }
 
     @Override

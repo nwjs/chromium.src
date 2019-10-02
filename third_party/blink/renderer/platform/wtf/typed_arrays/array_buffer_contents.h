@@ -70,7 +70,7 @@ class WTF_EXPORT ArrayBufferContents {
           deleter_(deleter),
           deleter_info_(deleter_info) {}
     // Move constructor
-    DataHandle(DataHandle&& other) { *this = std::move(other); }
+    DataHandle(DataHandle&& other) noexcept { *this = std::move(other); }
     ~DataHandle() {
       if (!data_)
         return;
@@ -82,7 +82,7 @@ class WTF_EXPORT ArrayBufferContents {
     }
 
     // Move operator
-    DataHandle& operator=(DataHandle&& other) {
+    DataHandle& operator=(DataHandle&& other) noexcept {
       data_ = other.data_;
       data_length_ = other.data_length_;
       is_node_js_ = other.is_node_js_;
@@ -128,7 +128,7 @@ class WTF_EXPORT ArrayBufferContents {
 
   ArrayBufferContents& operator=(ArrayBufferContents&&) = default;
 
-  void Neuter();
+  void Detach();
 
   void* Data() const {
     DCHECK(!IsShared());

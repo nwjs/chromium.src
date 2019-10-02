@@ -4,7 +4,6 @@
 
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_line_breaker.h"
 
-#include "third_party/blink/renderer/core/layout/logical_values.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_bidi_paragraph.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_break_token.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_node.h"
@@ -204,7 +203,6 @@ NGLineBreaker::NGLineBreaker(NGInlineNode node,
     break_iterator_.SetStartOffset(offset_);
     is_after_forced_break_ = break_token->IsForcedBreak();
     items_data_.AssertOffset(item_index_, offset_);
-    ignore_floats_ = break_token->IgnoreFloats();
   }
 
   // There's a special intrinsic size measure quirk for images that are direct
@@ -473,7 +471,10 @@ void NGLineBreaker::ComputeLineLocation(NGLineInfo* line_info) const {
   // Negative margins can make the position negative, but the inline size is
   // always positive or 0.
   LayoutUnit available_width = AvailableWidth();
-  DCHECK_EQ(position_, line_info->ComputeWidth());
+
+  // Text measurement is done using floats which may introduce small rounding
+  // errors for near-saturated values.
+  DCHECK_EQ(position_.Round(), line_info->ComputeWidth().Round());
 
   line_info->SetWidth(available_width, position_);
   line_info->SetBfcOffset(
@@ -1306,9 +1307,6 @@ void NGLineBreaker::HandleFloat(const NGInlineItem& item,
     return;
   }
 
-  if (ignore_floats_)
-    return;
-
   // Make sure we populate the positioned_float inside the |item_result|.
   if (item_index_ <= handled_leading_floats_index_ &&
       !leading_floats_.IsEmpty()) {
@@ -1485,19 +1483,16 @@ void NGLineBreaker::HandleCloseTag(const NGInlineItem& item,
   MoveToNextOf(item);
 
   // If the line can break after the previous item, prohibit it and allow break
-  // after this close tag instead. Even when the close tag has "nowrap", break
-  // after it is allowed if the line is breakable after the previous item.
-  const NGInlineItemResults& item_results = line_info->Results();
-  if (item_results.size() >= 2) {
-    NGInlineItemResult* last = std::prev(item_result);
-    if (was_auto_wrap || last->can_break_after) {
+  // after this close tag instead.
+  if (was_auto_wrap) {
+    const NGInlineItemResults& item_results = line_info->Results();
+    if (item_results.size() >= 2) {
+      NGInlineItemResult* last = std::prev(item_result);
       item_result->can_break_after = last->can_break_after;
       last->can_break_after = false;
-      return;
     }
-  }
-  if (was_auto_wrap)
     return;
+  }
 
   DCHECK(!item_result->can_break_after);
   if (!auto_wrap_)

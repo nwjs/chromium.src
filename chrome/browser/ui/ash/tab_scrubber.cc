@@ -94,7 +94,7 @@ void TabScrubber::OnScrollEvent(ui::ScrollEvent* event) {
     return;
   }
 
-  if (event->finger_count() != 3)
+  if (event->finger_count() != 4)
     return;
 
   Browser* browser = GetActiveBrowser();
@@ -202,7 +202,7 @@ void TabScrubber::OnTabRemoved(int index) {
 
 Browser* TabScrubber::GetActiveBrowser() {
   Browser* browser = chrome::FindLastActive();
-  if (!browser || browser->type() != Browser::TYPE_TABBED ||
+  if (!browser || !browser->is_type_normal() ||
       !browser->window()->IsActive()) {
     return nullptr;
   }

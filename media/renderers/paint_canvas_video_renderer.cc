@@ -558,7 +558,8 @@ void PaintCanvasVideoRenderer::Paint(scoped_refptr<VideoFrame> video_frame,
   }
 
   SkRect dest;
-  dest.set(dest_rect.x(), dest_rect.y(), dest_rect.right(), dest_rect.bottom());
+  dest.setLTRB(dest_rect.x(), dest_rect.y(), dest_rect.right(),
+               dest_rect.bottom());
 
   // Paint black rectangle if there isn't a frame available or the
   // frame has an unexpected format.
@@ -1029,7 +1030,6 @@ void PaintCanvasVideoRenderer::ConvertVideoFrameToRGBPixels(
     case PIXEL_FORMAT_XRGB:
     case PIXEL_FORMAT_RGB24:
     case PIXEL_FORMAT_MJPEG:
-    case PIXEL_FORMAT_MT21:
     case PIXEL_FORMAT_ABGR:
     case PIXEL_FORMAT_XBGR:
     case PIXEL_FORMAT_P016LE:
@@ -1283,7 +1283,7 @@ bool PaintCanvasVideoRenderer::CopyVideoFrameYUVDataToGLTexture(
 
     // Upload the CPU-side SkImage into a GPU-side SkImage.
     // (Note the original video_frame data is no longer used after this point.)
-    yuv_images[plane] = plane_image_cpu->makeTextureImage(gr_context, nullptr);
+    yuv_images[plane] = plane_image_cpu->makeTextureImage(gr_context);
     DCHECK(yuv_images[plane]);
 
     // Extract the backend texture from the GPU-side image.

@@ -14,7 +14,7 @@
 #include "base/path_service.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/test/scoped_task_environment.h"
+#include "base/test/task_environment.h"
 #include "content/public/common/content_features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/font_unique_name_lookup/font_table_matcher.h"
@@ -72,7 +72,7 @@ class DWriteFontLookupTableBuilderTest : public testing::Test {
 
  protected:
   base::test::ScopedFeatureList feature_list_;
-  base::test::ScopedTaskEnvironment scoped_task_environment_;
+  base::test::TaskEnvironment task_environment_;
   DWriteFontLookupTableBuilder* font_lookup_table_builder_;
   base::ScopedTempDir scoped_temp_dir_;
 };
@@ -87,7 +87,9 @@ class DWriteFontLookupTableBuilderTimeoutTest
 // Run a test similar to DWriteFontProxyImplUnitTest, TestFindUniqueFont but
 // without going through Mojo and running it on the DWRiteFontLookupTableBuilder
 // class directly.
-TEST_F(DWriteFontLookupTableBuilderTest, TestFindUniqueFontDirect) {
+// TODO(https://crbug.com/996167): Re-enable the DWriteFontLookupTableBuilder
+// tests once the root cause for flakiness is addressed.
+TEST_F(DWriteFontLookupTableBuilderTest, DISABLED_TestFindUniqueFontDirect) {
   font_lookup_table_builder_->SchedulePrepareFontUniqueNameTableIfNeeded();
   bool test_callback_executed = false;
   font_lookup_table_builder_->QueueShareMemoryRegionWhenReady(
@@ -97,11 +99,13 @@ TEST_F(DWriteFontLookupTableBuilderTest, TestFindUniqueFontDirect) {
             TestMatchFonts();
             test_callback_executed = true;
           }));
-  scoped_task_environment_.RunUntilIdle();
+  task_environment_.RunUntilIdle();
   ASSERT_TRUE(test_callback_executed);
 }
 
-TEST_P(DWriteFontLookupTableBuilderTimeoutTest, TestTimeout) {
+// TODO(https://crbug.com/996167): Re-enable the DWriteFontLookupTableBuilder
+// tests once the root cause for flakiness is addressed.
+TEST_P(DWriteFontLookupTableBuilderTimeoutTest, DISABLED_TestTimeout) {
   font_lookup_table_builder_->SetSlowDownIndexingForTestingWithTimeout(
       GetParam(), kTestingTimeout);
   font_lookup_table_builder_->SchedulePrepareFontUniqueNameTableIfNeeded();
@@ -123,18 +127,22 @@ TEST_P(DWriteFontLookupTableBuilderTimeoutTest, TestTimeout) {
           font_lookup_table_builder_->ResumeFromHangForTesting();
         test_callback_executed = true;
       }));
-  scoped_task_environment_.RunUntilIdle();
+  task_environment_.RunUntilIdle();
   ASSERT_TRUE(test_callback_executed);
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    ,
-    DWriteFontLookupTableBuilderTimeoutTest,
-    ::testing::Values(
-        DWriteFontLookupTableBuilder::SlowDownMode::kDelayEachTask,
-        DWriteFontLookupTableBuilder::SlowDownMode::kHangOneTask));
+// TODO(https://crbug.com/996167): Re-enable the DWriteFontLookupTableBuilder
+// tests once the root cause for flakiness is addressed.
+// INSTANTIATE_TEST_SUITE_P(
+//     ,
+//     DWriteFontLookupTableBuilderTimeoutTest,
+//     ::testing::Values(
+//         DWriteFontLookupTableBuilder::SlowDownMode::kDelayEachTask,
+//         DWriteFontLookupTableBuilder::SlowDownMode::kHangOneTask));
 
-TEST_F(DWriteFontLookupTableBuilderTest, TestReadyEarly) {
+// TODO(https://crbug.com/996167): Re-enable the DWriteFontLookupTableBuilder
+// tests once the root cause for flakiness is addressed.
+TEST_F(DWriteFontLookupTableBuilderTest, DISABLED_TestReadyEarly) {
   font_lookup_table_builder_->SetSlowDownIndexingForTestingWithTimeout(
       DWriteFontLookupTableBuilder::SlowDownMode::kHangOneTask,
       kTestingTimeout);
@@ -150,11 +158,13 @@ TEST_F(DWriteFontLookupTableBuilderTest, TestReadyEarly) {
           }));
   ASSERT_FALSE(font_lookup_table_builder_->FontUniqueNameTableReady());
   font_lookup_table_builder_->ResumeFromHangForTesting();
-  scoped_task_environment_.RunUntilIdle();
+  task_environment_.RunUntilIdle();
   ASSERT_TRUE(test_callback_executed);
 }
 
-TEST_F(DWriteFontLookupTableBuilderTest, RepeatedScheduling) {
+// TODO(https://crbug.com/996167): Re-enable the DWriteFontLookupTableBuilder
+// tests once the root cause for flakiness is addressed.
+TEST_F(DWriteFontLookupTableBuilderTest, DISABLED_RepeatedScheduling) {
   for (unsigned i = 0; i < 3; ++i) {
     font_lookup_table_builder_->ResetLookupTableForTesting();
     font_lookup_table_builder_->SetCachingEnabledForTesting(false);
@@ -166,16 +176,20 @@ TEST_F(DWriteFontLookupTableBuilderTest, RepeatedScheduling) {
             [&test_callback_executed](base::ReadOnlySharedMemoryRegion) {
               test_callback_executed = true;
             }));
-    scoped_task_environment_.RunUntilIdle();
+    task_environment_.RunUntilIdle();
     ASSERT_TRUE(test_callback_executed);
   }
 }
 
-TEST_F(DWriteFontLookupTableBuilderTest, FontsHash) {
+// TODO(https://crbug.com/996167): Re-enable the DWriteFontLookupTableBuilder
+// tests once the root cause for flakiness is addressed.
+TEST_F(DWriteFontLookupTableBuilderTest, DISABLED_FontsHash) {
   ASSERT_GT(font_lookup_table_builder_->ComputePersistenceHash().size(), 0u);
 }
 
-TEST_F(DWriteFontLookupTableBuilderTest, HandleCorruptCacheFile) {
+// TODO(https://crbug.com/996167): Re-enable the DWriteFontLookupTableBuilder
+// tests once the root cause for flakiness is addressed.
+TEST_F(DWriteFontLookupTableBuilderTest, DISABLED_HandleCorruptCacheFile) {
   // Cycle once to build cache file.
   font_lookup_table_builder_->ResetLookupTableForTesting();
   font_lookup_table_builder_->SchedulePrepareFontUniqueNameTableIfNeeded();
@@ -205,7 +219,7 @@ TEST_F(DWriteFontLookupTableBuilderTest, HandleCorruptCacheFile) {
         ASSERT_TRUE(cache_file.SetLength(cache_file.GetLength() * 2));
         test_callback_executed = true;
       }));
-  scoped_task_environment_.RunUntilIdle();
+  task_environment_.RunUntilIdle();
   ASSERT_TRUE(test_callback_executed);
 
   // Reload the cache file.
@@ -221,7 +235,7 @@ TEST_F(DWriteFontLookupTableBuilderTest, HandleCorruptCacheFile) {
             test_callback_executed = true;
           }));
 
-  scoped_task_environment_.RunUntilIdle();
+  task_environment_.RunUntilIdle();
   ASSERT_TRUE(test_callback_executed);
 
   // Ensure that the table is still valid even though persisting has failed

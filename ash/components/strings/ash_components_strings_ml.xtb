@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="ml">
+<translation id="1036550831858290950">നിങ്ങളുടെ നിലവിലെ ടാബ് ഒരു ബുക്ക്‌മാർക്ക് ആയി സംരക്ഷിക്കുക</translation>
 <translation id="104962181688258143">'ഫയലുകൾ' ആപ്പ് തുറക്കുക</translation>
 <translation id="1098295134904615027">വലതുവശത്ത് വെർച്വൽ ഡെസ്‌ക് സജീവമാക്കുക</translation>
 <translation id="1122869341872663659"><ph name="QUERY" /> എന്നതിനായി <ph name="N" /> തിരയൽ ഫലങ്ങൾ കാണിക്കുന്നു</translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">പേജിൽ സൂം നില പുനഃസജ്ജീകരിക്കുക</translation>
 <translation id="2596078834055697711">വിൻഡോ സ്ക്രീൻഷോട്ട് എടുക്കുക</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, തുടർന്ന് <ph name="TAB" /> അല്ലെങ്കിൽ <ph name="RIGHT" /></translation>
-<translation id="2699509451653686398">നിങ്ങളുടെ നിലവിലെ വെബ്‌പേജ് ഒരു ബുക്ക്‌മാർക്കായി സംരക്ഷിക്കുക</translation>
 <translation id="2750942583782703988">നിങ്ങളുടെ നിലവിലെ പേജ് വീണ്ടും ലോഡ് ചെയ്യുക</translation>
 <translation id="2764005613199379871">തിരയൽ വിലാസബാറിൽ ഫോക്കസ് ചെയ്യുക</translation>
 <translation id="2789868185375229787">പേജിൽ സൂം ഔട്ട് ചെയ്യുക</translation>

@@ -186,12 +186,11 @@ BASE_EXPORT bool ReadFileToStringWithMaxSize(const FilePath& path,
 BASE_EXPORT bool ReadFromFD(int fd, char* buffer, size_t bytes);
 
 // Performs the same function as CreateAndOpenTemporaryFileInDir(), but returns
-// the file-descriptor directly, rather than wrapping it into a FILE. Returns
-// -1 on failure.
-BASE_EXPORT int CreateAndOpenFdForTemporaryFileInDir(const FilePath& dir,
-                                                     FilePath* path);
+// the file-descriptor wrapped in a ScopedFD, rather than wrapped in a FILE.
+BASE_EXPORT ScopedFD CreateAndOpenFdForTemporaryFileInDir(const FilePath& dir,
+                                                          FilePath* path);
 
-#endif  // OS_POSIX || OS_FUCHSIA
+#endif  // defined(OS_POSIX) || defined(OS_FUCHSIA)
 
 #if defined(OS_POSIX)
 
@@ -398,15 +397,19 @@ BASE_EXPORT bool GetCurrentDirectory(FilePath* path);
 // Sets the current working directory for the process.
 BASE_EXPORT bool SetCurrentDirectory(const FilePath& path);
 
-// Attempts to find a number that can be appended to the |path| to make it
-// unique. If |path| does not exist, 0 is returned.  If it fails to find such
-// a number, -1 is returned. If |suffix| is not empty, also checks the
-// existence of it with the given suffix.
-BASE_EXPORT int GetUniquePathNumber(const FilePath& path,
-                                    const FilePath::StringType& suffix);
+// The largest value attempted by GetUniquePath{Number,}.
+enum { kMaxUniqueFiles = 100 };
 
-// If file at |path| already exists, modifies filename portion of |path| to
-// return unique path.
+// Returns the number N that makes |path| unique when formatted as " (N)" in a
+// suffix to its basename before any file extension, where N is a number between
+// 1 and 100 (inclusive). Returns 0 if |path| does not exist (meaning that it is
+// unique as-is), or -1 if no such number can be found.
+BASE_EXPORT int GetUniquePathNumber(const FilePath& path);
+
+// Returns |path| if it does not exist. Otherwise, returns |path| with the
+// suffix " (N)" appended to its basename before any file extension, where N is
+// a number between 1 and 100 (inclusive). Returns an empty path if no such
+// number can be found.
 BASE_EXPORT FilePath GetUniquePath(const FilePath& path);
 
 // Sets the given |fd| to non-blocking mode.

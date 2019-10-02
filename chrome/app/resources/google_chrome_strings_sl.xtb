@@ -66,7 +66,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="2348335408836342058">Chrome potrebuje dovoljenje za dostop do fotoaparata in mikrofona za to spletno mesto</translation>
 <translation id="2429317896000329049">Google Chrome ni mogel sinhronizirati podatkov, ker sinhronizacija ni na voljo za vašo domeno.</translation>
 <translation id="2467438592969358367">Google Chrome želi izvoziti gesla. Če želite omogočiti to, vnesite geslo za Windows.</translation>
-<translation id="2485422356828889247">Odmeščanje</translation>
+<translation id="2485422356828889247">Odstranjevanje</translation>
 <translation id="2534507159460261402">Google Pay (kopirano v Chrome)</translation>
 <translation id="2535429035253759792">Skrbnik prosi, da za uveljavitev te posodobitve znova zaženete Chrome</translation>
 <translation id="2580411288591421699">Ni mogoče namestiti različice Google Chroma, enake tisti, ki se trenutno izvaja. Zaprite Google Chrome in poskusite znova.</translation>
@@ -89,12 +89,6 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="3080151273017101988">Nadaljuj izvajanje programov v ozadju, ko je Google Chrome zaprt</translation>
 <translation id="3089968997497233615">Na voljo je nova, varnejša različica Google Chroma.</translation>
 <translation id="3149510190863420837">Aplikacije za Chrome</translation>
-<translation id="3251381707915721925">Če želite nastaviti, katera spletna mesta si lahko ogleda <ph name="NEW_PROFILE_NAME" />, lahko na <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" /> konfigurirate omejitve in nastavitve. Če privzetih nastavitev ne spremenite, lahko <ph name="NEW_PROFILE_NAME" /> brska po spletu brez omejitev.
-
-Če želite preprečiti, da bi <ph name="NEW_PROFILE_NAME" /> dostopal(-a) do vašega računa, zaklenite profil, ko ne uporabljate Chroma. To storite tako, da v zgornjem desnem kotu brskalnika kliknete ime profila in izberete »Izhod in zaklepanje pred otroki«.
-<ph name="BEGIN_LINK_2" />Več o tem<ph name="END_LINK_2" />
-
-Nadaljnja navodila preberite v e-poštnem sporočilu, ki ste ga prejeli na <ph name="ACCOUNT_EMAIL" />.</translation>
 <translation id="3282568296779691940">Prijava v Chrome</translation>
 <translation id="3340978935015468852">nastavitve</translation>
 <translation id="3360895254066713204">Pomočnik za Chrome</translation>
@@ -154,7 +148,6 @@ Nadaljnja navodila preberite v e-poštnem sporočilu, ki ste ga prejeli na <ph n
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Google Chrome ni mogel sinhronizirati podatkov. Posodobite geslo za sinhroniziranje.</translation>
 <translation id="5062123544085870375">Vnovičen zagon OS-a Chrome</translation>
-<translation id="5090044601776247154">Z Googlom Chrome 70 profili zaščitenih uporabnikov ne bodo več na voljo.</translation>
 <translation id="5132929315877954718">Odkrijte zanimive aplikacije, igre, razširitve in teme za Google Chrome.</translation>
 <translation id="5170938038195470297">Vašega profila ni mogoče uporabiti, ker je iz novejše različice Google Chroma.
 
@@ -183,9 +176,12 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="5906655207909574370">Samo še malo. Znova zaženite napravo, da dokončate posodobitev.</translation>
 <translation id="5940385492829620908">Tu so shranjeni vaš splet, zaznamki in druge stvari v Chromu.</translation>
 <translation id="5941830788786076944">Nastavi Google Chrome kot privzeti brskalnik</translation>
+<translation id="5977372243443849142">Chrome lahko shrani gesla, da si vam jih ni treba zapomniti.</translation>
 <translation id="6014844626092547096">Zdaj ste prijavljeni v Chrome. Sinhronizacijo je onemogočil skrbnik.</translation>
 <translation id="6040143037577758943">Zapri</translation>
 <translation id="6070348360322141662">Zaradi večje varnosti bo Google Chrome šifriral vaše podatke</translation>
+<translation id="6102256037460917300">Če nastavitev ni prikazana na tej strani, preverite <ph name="LINK_BEGIN" />
+    nastavitve brskalnika Chrome<ph name="LINK_END" /></translation>
 <translation id="6113794647360055231">Chrome je pravkar postal še boljši</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> – Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> različica beta Google Chroma</translation>
@@ -227,7 +223,6 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="7486227612705979895">Chrome bo dostopal do Googla Drive zaradi ponujanja predlogov v naslovni vrstici</translation>
 <translation id="7531671357096394523">Zapiranje vseh kopij Chroma.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
-<translation id="7552219221109926349">Prikaži OS Chrome v tem jeziku</translation>
 <translation id="7589360514048265910">Ta računalnik ne bo več prejemal posodobitev za Google Chrome, ker sistem Mac OS X 10.9 ni več podprt.</translation>
 <translation id="7592736734348559088">Google Chrome ni mogel sinhronizirati podatkov, ker so podatki za prijavo v račun zastareli.</translation>
 <translation id="7626032353295482388">Dobrodošli v Chromu</translation>
@@ -245,7 +240,6 @@ Google Chrome ne more obnoviti vaših nastavitev.</translation>
 <translation id="7896673875602241923">Nekdo se je prijavil v Chrome v tem računalniku kot <ph name="ACCOUNT_EMAIL_LAST" />. Ustvarite nov uporabniški profil za Chrome, če želite, da bodo vaši podatki ločeni.</translation>
 <translation id="7908168227788431038">Samo še malo. Znova zaženite Google Chrome, da dokončate posodobitev.</translation>
 <translation id="7962410387636238736">Ta računalnik ne bo več prejemal posodobitev za Google Chrome, ker sistema Windows XP in Windows Vista nista več podprta.</translation>
-<translation id="8005540215158006229">Chrome je skoraj pripravljen.</translation>
 <translation id="8008534537613507642">Vnovična namestitev Chroma</translation>
 <translation id="8013993649590906847">Če slika nima koristnega opisa, ga bo Chrome poskušal zagotoviti. Opisi se ustvarijo tako, da se slike pošljejo Googlu.</translation>
 <translation id="8030318113982266900">Posodabljanje naprave na kanal <ph name="CHANNEL_NAME" /> ...</translation>
@@ -279,7 +273,6 @@ Te storitve lahko morda onemogočite. <ph name="BEGIN_LINK" />Več o tem<ph name
 <translation id="870251953148363156">Posodabljanje &amp;Google Chroma</translation>
 <translation id="873133009373065397">Google Chrome ne more določiti ali nastaviti privzetega brskalnika</translation>
 <translation id="8736674169840206667">Skrbnik zahteva, da za uveljavitev te posodobitve znova zaženete Chrome</translation>
-<translation id="8788264404293392165">Ta jezik se uporablja za prikaz uporabniškega vmesnika za Chrome OS</translation>
 <translation id="8823341990149967727">Chrome je zastarel</translation>
 <translation id="884296878221830158">Določa tudi, katera stran je prikazana, ko zaženete Chrome ali kliknete gumb za domačo stran.</translation>
 <translation id="8862326446509486874">Nimate ustreznih pravic za namestitev na ravni sistema. Poskusite znova zagnati namestitveni program kot skrbnik.</translation>

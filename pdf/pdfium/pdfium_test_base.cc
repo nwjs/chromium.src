@@ -6,9 +6,14 @@
 
 #include <memory>
 
+#include "build/build_config.h"
 #include "pdf/pdfium/pdfium_engine.h"
 #include "pdf/test/test_client.h"
 #include "pdf/test/test_document_loader.h"
+
+#if defined(OS_CHROMEOS)
+#include "base/system/sys_info.h"
+#endif
 
 namespace chrome_pdf {
 
@@ -21,18 +26,33 @@ std::unique_ptr<DocumentLoader> CreateTestDocumentLoader(
   return std::make_unique<TestDocumentLoader>(client, g_test_pdf_name);
 }
 
+bool IsValidLinkForTesting(const std::string& url) {
+  return !url.empty();
+}
+
 }  // namespace
 
 PDFiumTestBase::PDFiumTestBase() = default;
 
 PDFiumTestBase::~PDFiumTestBase() = default;
 
+// static
+bool PDFiumTestBase::IsRunningOnChromeOS() {
+#if defined(OS_CHROMEOS)
+  return base::SysInfo::IsRunningOnChromeOS();
+#else
+  return false;
+#endif
+}
+
 void PDFiumTestBase::SetUp() {
   InitializePDFium();
+  PDFiumPage::SetIsValidLinkFunctionForTesting(&IsValidLinkForTesting);
 }
 
 void PDFiumTestBase::TearDown() {
   PDFiumEngine::SetCreateDocumentLoaderFunctionForTesting(nullptr);
+  PDFiumPage::SetIsValidLinkFunctionForTesting(nullptr);
   g_test_pdf_name = nullptr;
   FPDF_DestroyLibrary();
 }

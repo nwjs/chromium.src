@@ -4,6 +4,7 @@
 <link rel="import" href="../i18n_setup.html">
 <link rel="import" href="../icons.html">
 <link rel="import" href="../lifetime_browser_proxy.html">
+<link rel="import" href="../prefs/prefs_behavior.html">
 <link rel="import" href="../prefs/prefs.html">
 <link rel="import" href="../route.html">
 <link rel="import" href="../settings_page/main_page_behavior.html">
@@ -23,6 +24,7 @@
 <if expr="chromeos">
 <link rel="import" href="detailed_build_info.html">
 <link rel="import" href="update_warning_dialog.html">
+<link rel="import" href="../chromeos/os_icons.html">
 <link rel="import" href="../settings_page/settings_subpage.html">
 <link rel="import" href="../reset_page/powerwash_dialog.html">
 </if>
@@ -32,6 +34,15 @@
     <style include="settings-shared settings-page-styles">
       :host {
         --about-page-image-space: 10px;
+      }
+
+      #aboutOSBanner {
+        @apply --cr-card-elevation;
+        align-items: center;
+        background-color: white;
+        border-radius: 2px;
+        display: flex;
+        margin-top: 21px;
       }
 
       .info-section {
@@ -86,6 +97,19 @@
       }
 </if>
     </style>
+<if expr="chromeos">
+    <template is="dom-if" if="[[showAboutOSBanner_]]">
+      <div id="aboutOSBanner" class="settings-box">
+        <div class="start">
+          $i18nRaw{aboutOSBanner}
+        </div>
+        <cr-icon-button class="icon-clear"
+            aria-label="$i18n{clear}"
+            on-click="onAboutOSBannerClosed_">
+        </cr-icon-button>
+      </div>
+    </template>
+</if>
     <settings-section page-title="$i18n{aboutPageTitle}" section="about">
       <settings-animated-pages id="pages" section="about"
           focus-config="[[focusConfig_]]">
@@ -233,7 +257,7 @@
 <if expr="_google_chrome">
           <cr-link-row class="hr" id="reportIssue" on-click="onReportIssueTap_"
               hidden="[[!prefs.feedback_allowed.value]]"
-              label="$i18n{aboutReportAnIssue}"></cr-link-row>
+              label="$i18n{aboutReportAnIssue}" external></cr-link-row>
 </if>
 <if expr="chromeos">
           <cr-link-row class="hr" id="detailed-build-info-trigger"

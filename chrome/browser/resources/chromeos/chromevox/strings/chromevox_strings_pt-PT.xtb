@@ -69,7 +69,6 @@ Se concluiu o tutorial, utilize o ChromeVox para navegar para o botão Fechar e 
 <translation id="1383876407941801731">Pesquisar</translation>
 <translation id="1385214448885562192">Prima Enter para aceitar ou escape para cancelar, seta para baixo para seguinte e seta para cima para anterior.</translation>
 <translation id="1396114365388024581">tablst</translation>
-<translation id="139902759009894363">Anunciar atributos de texto rico</translation>
 <translation id="1405567553485452995">Verde-claro</translation>
 <translation id="1417889266572670458">Azul-marinho</translation>
 <translation id="1431911867058218151">Ameixa</translation>
@@ -485,6 +484,7 @@ Se concluiu o tutorial, utilize o ChromeVox para navegar para o botão Fechar e 
 <translation id="4372705107434148843">Parar voz</translation>
 <translation id="4373197658375206385">Não existe nenhum item anterior que não seja um link.</translation>
 <translation id="4376316291247992553">Ver gráfico como braille</translation>
+<translation id="437809255587011096">Anunciar definição de estilos de texto</translation>
 <translation id="4378308539633073595">Deslocar para a frente</translation>
 <translation id="4384583879834880242">Perg e Resp</translation>
 <translation id="4391478986194775161">cntntinfo</translation>
@@ -761,7 +761,6 @@ Se concluiu o tutorial, utilize o ChromeVox para navegar para o botão Fechar e 
 <translation id="6348869651006731065">Cinzento fosco</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{marca}other{# marcas}}</translation>
 <translation id="6355910664415701303">Não existe nenhum item de lista anterior.</translation>
-<translation id="6360318852623800555">Atributos do texto rico</translation>
 <translation id="6364795331201459219">h6</translation>
 <translation id="6368143427468974988">Título anterior</translation>
 <translation id="6376999910001533545">Mogno</translation>
@@ -1087,7 +1086,6 @@ Para abrir o menu do navegador Chrome, prima Alt + F.</translation>
 <translation id="8153880621934657047">Não está dentro da tabela.</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{sublinhado}other{# sublinhados}}</translation>
 <translation id="8179976553408161302">Enter</translation>
-<translation id="8183813379996435469">Detetar e alterar automaticamente o idioma do ChromeVox.</translation>
 <translation id="8184828902145951186">linha</translation>
 <translation id="8186185314313222077">ativar/desativar ecrã inteiro</translation>
 <translation id="8199231515320852133">Anunciar os cabeçalhos da célula atual</translation>
@@ -1124,6 +1122,7 @@ Para abrir o menu do navegador Chrome, prima Alt + F.</translation>
 <translation id="8503360654911991865">Diminuir nível de detalhe da navegação</translation>
 <translation id="8504695234784218301">Fim de erro de gramática</translation>
 <translation id="8520472399088452386">Botão giratório</translation>
+<translation id="8534394844575788431">Formatação</translation>
 <translation id="8538744478902126321">Adivinhar o cabeçalho da linha da célula atual</translation>
 <translation id="8540054775867439484">Direcionado para o início</translation>
 <translation id="8542271685829952264">Para explorar todos os comandos e atalhos do ChromeVox, prima Pesquisar + Ponto e, em seguida, utilize as teclas de seta para navegar nos menus e a tecla Enter para ativar um comando. Volte aqui ao premir Pesquisar + o e, em seguida, t.</translation>
@@ -1203,6 +1202,7 @@ Para abrir o menu do navegador Chrome, prima Alt + F.</translation>
 <translation id="9149560530563164529">sctn</translation>
 <translation id="9150735707954472829">Tabulação</translation>
 <translation id="9151211641321628915">Anuncia uma breve descrição da posição atual</translation>
+<translation id="9151249085738989067">Altere automaticamente a voz do ChromeVox com base no idioma</translation>
 <translation id="9153606228985488238">Timbre: <ph name="PERCENT" />%</translation>
 <translation id="9160096769946561184">Ir para o fim da coluna atual</translation>
 <translation id="9173115498289768110">Volume: <ph name="PERCENT" />%</translation>

@@ -69,7 +69,6 @@
 <translation id="1383876407941801731">వెతుకు</translation>
 <translation id="1385214448885562192">ఆమోదించడానికి enterని లేదా రద్దు చేయడానికి escapeని, తరువాత దాని కోసం క్రిందికి మరియు మునుపటి దాని కోసం పైకి నొక్కండి.</translation>
 <translation id="1396114365388024581">tablst</translation>
-<translation id="139902759009894363">రిచ్ టెక్స్ట్ లక్షణాలను ప్రకటించు</translation>
 <translation id="1405567553485452995">లేత ఆకుపచ్చ రంగు</translation>
 <translation id="1417889266572670458">నేవీ నీలం రంగు</translation>
 <translation id="1431911867058218151">రేగు పండు రంగు</translation>
@@ -485,6 +484,7 @@
 <translation id="4372705107434148843">ప్రసంగాన్ని ఆపివేయండి</translation>
 <translation id="4373197658375206385">లింక్ కానటువంటి మునుపటి అంశం లేదు.</translation>
 <translation id="4376316291247992553">గ్రాఫిక్‌ను బ్రెయిలీ లాగా వీక్షించండి</translation>
+<translation id="437809255587011096">వచన శైలిని ప్రకటించండి</translation>
 <translation id="4378308539633073595">ముందుకు స్క్రోల్ చేస్తుంది</translation>
 <translation id="4384583879834880242">Q&amp;A</translation>
 <translation id="4391478986194775161">cntntinfo</translation>
@@ -761,7 +761,6 @@
 <translation id="6348869651006731065">కాంతిహీనమైన బూడిద రంగు</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{బుల్లెట్}other{# బుల్లెట్‌లు}}</translation>
 <translation id="6355910664415701303">మునుపటి జాబితా అంశం లేదు.</translation>
-<translation id="6360318852623800555">రిచ్ టెక్స్ట్ లక్షణాలు</translation>
 <translation id="6364795331201459219">h6</translation>
 <translation id="6368143427468974988">మునుపటి శీర్షిక</translation>
 <translation id="6376999910001533545">ముదురు ఎరుపు రంగు</translation>
@@ -1087,7 +1086,6 @@ Chrome బ్రౌజర్ మెనూను తెరవడానికి, 
 <translation id="8153880621934657047">లోపల పట్టిక కాదు.</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{అండర్‌స్కోర్ గుర్తు}other{# అండర్‌స్కోర్ గుర్తులు}}</translation>
 <translation id="8179976553408161302">Enter</translation>
-<translation id="8183813379996435469">ChromeVox భాషను ఆటోమేటిక్‌గా గుర్తించి, మార్చాలి.</translation>
 <translation id="8184828902145951186">అడ్డు</translation>
 <translation id="8186185314313222077">పూర్తి స్క్రీన్‌ను టోగుల్ చేస్తుంది</translation>
 <translation id="8199231515320852133">ప్రస్తుత సెల్ యొక్క ముఖ్య శీర్షికలను తెలియజేయండి</translation>
@@ -1124,6 +1122,7 @@ Chrome బ్రౌజర్ మెనూను తెరవడానికి, 
 <translation id="8503360654911991865">నావిగేషన్ గ్రాన్యులారిటీని తగ్గించండి</translation>
 <translation id="8504695234784218301">వ్యాకరణ దోషం ముగింపు</translation>
 <translation id="8520472399088452386">స్పిన్ బటన్</translation>
+<translation id="8534394844575788431">ఫార్మాటింగ్</translation>
 <translation id="8538744478902126321">ప్రస్తుత సెల్ యొక్క అడ్డు వరుస శీర్షిక వద్ద అంచనా వేయండి</translation>
 <translation id="8540054775867439484">ఎగువకు సర్దుబాటు చేయబడింది</translation>
 <translation id="8542271685829952264">అన్ని ChromeVox ఆదేశాల‌ను, షార్ట్‌క‌ట్‌ల‌ను అన్వేషించ‌డానికి, శోధన + పూర్ణ విరామం నొక్కండి. ఆపై మెనూలను నావిగేట్ చేయడానికి బాణం కీలను ఉపయోగించండి. ఆదేశాన్ని యాక్టివేట్‌ చేయడానికి Enter నొక్కండి. శోధన+o, ఆపై t నొక్కడం ద్వారా ఇక్కడికి తిరిగి రండి.</translation>
@@ -1203,6 +1202,7 @@ Chrome బ్రౌజర్ మెనూను తెరవడానికి, 
 <translation id="9149560530563164529">sctn</translation>
 <translation id="9150735707954472829">ట్యాబ్</translation>
 <translation id="9151211641321628915">ప్రస్తుత స్థానం యొక్క సంక్షిప్త వివరణను తెలియజేస్తుంది</translation>
+<translation id="9151249085738989067">భాష ఆధారంగా ChromeVox వాయిస్‌ను ఆటోమేటిక్‌గా మార్చు</translation>
 <translation id="9153606228985488238">స్వర స్థాయి <ph name="PERCENT" /> శాతం</translation>
 <translation id="9160096769946561184">ప్రస్తుత నిలువు వరుస యొక్క చివరకు వెళ్లండి</translation>
 <translation id="9173115498289768110">వాల్యూమ్ <ph name="PERCENT" /> శాతం</translation>

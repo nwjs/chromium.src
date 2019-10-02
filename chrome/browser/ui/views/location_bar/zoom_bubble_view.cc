@@ -145,30 +145,17 @@ ImmersiveModeController* GetImmersiveModeControllerForBrowser(
   return browser_view->immersive_mode_controller();
 }
 
-void ParentToViewsBrowser(Browser* browser,
-                          ZoomBubbleView* zoom_bubble,
-                          views::View* anchor_view,
-                          content::WebContents* web_contents) {
-  // If the anchor view exists the zoom icon should be highlighed.
-  if (anchor_view) {
-    zoom_bubble->SetHighlightedButton(
-        BrowserView::GetBrowserViewForBrowser(browser)
-            ->toolbar_button_provider()
-            ->GetOmniboxPageActionIconContainerView()
-            ->GetPageActionIconView(PageActionIconType::kZoom));
-  } else {
-    // If we do not have an anchor view, parent the bubble to the content area.
-    zoom_bubble->set_parent_window(web_contents->GetNativeView());
-  }
-
-  views::BubbleDialogDelegateView::CreateBubble(zoom_bubble);
-}
-
 void ParentToBrowser(Browser* browser,
                      ZoomBubbleView* zoom_bubble,
                      views::View* anchor_view,
                      content::WebContents* web_contents) {
-  ParentToViewsBrowser(browser, zoom_bubble, anchor_view, web_contents);
+  zoom_bubble->SetHighlightedButton(
+      BrowserView::GetBrowserViewForBrowser(browser)
+          ->toolbar_button_provider()
+          ->GetOmniboxPageActionIconContainerView()
+          ->GetPageActionIconView(PageActionIconType::kZoom));
+
+  views::BubbleDialogDelegateView::CreateBubble(zoom_bubble);
 }
 #endif
 
@@ -188,7 +175,6 @@ ZoomBubbleView* ZoomBubbleView::zoom_bubble_ = nullptr;
 
 // static
 void ZoomBubbleView::ShowBubble(content::WebContents* web_contents,
-                                const gfx::Point& anchor_point,
                                 DisplayReason reason) {
 #if 0
   Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
@@ -209,8 +195,8 @@ void ZoomBubbleView::ShowBubble(content::WebContents* web_contents,
   ImmersiveModeController* immersive_mode_controller =
       GetImmersiveModeControllerForBrowser(browser);
 
-  zoom_bubble_ = new ZoomBubbleView(anchor_view, anchor_point, web_contents,
-                                    reason, immersive_mode_controller);
+  zoom_bubble_ = new ZoomBubbleView(anchor_view, web_contents, reason,
+                                    immersive_mode_controller);
 
   const extensions::ExtensionZoomRequestClient* client =
       GetExtensionZoomRequestClient(web_contents);
@@ -222,7 +208,6 @@ void ZoomBubbleView::ShowBubble(content::WebContents* web_contents,
 
   ParentToBrowser(browser, zoom_bubble_, anchor_view, web_contents);
 
-  // Adjust for fullscreen after creation as it relies on the content size.
   if (is_fullscreen)
     zoom_bubble_->AdjustForFullscreen(browser->window()->GetBounds());
 
@@ -290,11 +275,10 @@ void ZoomBubbleView::Refresh() {
 
 ZoomBubbleView::ZoomBubbleView(
     views::View* anchor_view,
-    const gfx::Point& anchor_point,
     content::WebContents* web_contents,
     DisplayReason reason,
     ImmersiveModeController* immersive_mode_controller)
-    : LocationBarBubbleDelegateView(anchor_view, anchor_point, web_contents),
+    : LocationBarBubbleDelegateView(anchor_view, web_contents),
       auto_close_duration_(kBubbleCloseDelayDefault),
       auto_close_(reason == AUTOMATIC),
       immersive_mode_controller_(immersive_mode_controller),
@@ -562,9 +546,9 @@ void ZoomBubbleView::SetExtensionInfo(const extensions::Extension* extension) {
   bool has_default_sized_icon =
       !icons.Get(gfx::kFaviconSize, ExtensionIconSet::MATCH_EXACTLY).empty();
   if (has_default_sized_icon) {
-    extension_info_.icon_image.reset(new extensions::IconImage(
+    extension_info_.icon_image = std::make_unique<extensions::IconImage>(
         web_contents()->GetBrowserContext(), extension, icons, icon_size,
-        default_extension_icon_image, this));
+        default_extension_icon_image, this);
     return;
   }
 

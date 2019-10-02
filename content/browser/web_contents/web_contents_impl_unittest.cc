@@ -3029,7 +3029,10 @@ TEST_F(WebContentsImplTestWithSiteIsolation, StartStopEventsBalance) {
 
   // Navigate the main RenderFrame and commit. The frame should still be
   // loading.
-  NavigationSimulator::NavigateAndCommitFromBrowser(contents(), main_url);
+  auto main_frame_navigation =
+      NavigationSimulatorImpl::CreateBrowserInitiated(main_url, contents());
+  main_frame_navigation->SetKeepLoading(true);
+  main_frame_navigation->Commit();
   EXPECT_FALSE(contents()->CrossProcessNavigationPending());
   EXPECT_EQ(orig_rfh, main_test_rfh());
   EXPECT_TRUE(contents()->IsLoading());
@@ -3044,18 +3047,11 @@ TEST_F(WebContentsImplTestWithSiteIsolation, StartStopEventsBalance) {
 
   // Navigate the child frame to about:blank, which will send DidStopLoading
   // message.
-  {
-    NavigationSimulator::NavigateAndCommitFromDocument(initial_url, subframe);
-    subframe->OnMessageReceived(
-        FrameHostMsg_DidStopLoading(subframe->GetRoutingID()));
-  }
+  NavigationSimulator::NavigateAndCommitFromDocument(initial_url, subframe);
 
   // Navigate the frame to another URL, which will send again
   // DidStartLoading and DidStopLoading messages.
-  subframe = static_cast<TestRenderFrameHost*>(
-      NavigationSimulator::NavigateAndCommitFromDocument(foo_url, subframe));
-  subframe->OnMessageReceived(
-      FrameHostMsg_DidStopLoading(subframe->GetRoutingID()));
+  NavigationSimulator::NavigateAndCommitFromDocument(foo_url, subframe);
 
   // Since the main frame hasn't sent any DidStopLoading messages, it is
   // expected that the WebContents is still in loading state.
@@ -3085,9 +3081,6 @@ TEST_F(WebContentsImplTestWithSiteIsolation, StartStopEventsBalance) {
     navigation->Commit();
     subframe = static_cast<TestRenderFrameHost*>(
         navigation->GetFinalRenderFrameHost());
-
-    subframe->OnMessageReceived(
-        FrameHostMsg_DidStopLoading(subframe->GetRoutingID()));
   }
 
   // At this point the status should still be loading, since the main frame
@@ -3098,8 +3091,7 @@ TEST_F(WebContentsImplTestWithSiteIsolation, StartStopEventsBalance) {
 
   // Send the DidStopLoading for the main frame and ensure it isn't loading
   // anymore.
-  orig_rfh->OnMessageReceived(
-      FrameHostMsg_DidStopLoading(orig_rfh->GetRoutingID()));
+  main_frame_navigation->StopLoading();
   EXPECT_FALSE(contents()->IsLoading());
   EXPECT_FALSE(observer.is_loading());
   EXPECT_FALSE(observer.did_receive_response());
@@ -3114,7 +3106,10 @@ TEST_F(WebContentsImplTestWithSiteIsolation, IsLoadingToDifferentDocument) {
 
   // Navigate the main RenderFrame and commit. The frame should still be
   // loading.
-  NavigationSimulator::NavigateAndCommitFromBrowser(contents(), main_url);
+  auto navigation =
+      NavigationSimulatorImpl::CreateBrowserInitiated(main_url, contents());
+  navigation->SetKeepLoading(true);
+  navigation->Commit();
   EXPECT_FALSE(contents()->CrossProcessNavigationPending());
   EXPECT_EQ(orig_rfh, main_test_rfh());
   EXPECT_TRUE(contents()->IsLoading());
@@ -3122,8 +3117,7 @@ TEST_F(WebContentsImplTestWithSiteIsolation, IsLoadingToDifferentDocument) {
 
   // Send the DidStopLoading for the main frame and ensure it isn't loading
   // anymore.
-  orig_rfh->OnMessageReceived(
-      FrameHostMsg_DidStopLoading(orig_rfh->GetRoutingID()));
+  navigation->StopLoading();
   EXPECT_FALSE(contents()->IsLoading());
   EXPECT_FALSE(contents()->IsLoadingToDifferentDocument());
 
@@ -3390,6 +3384,8 @@ class MockWebContentsDelegate : public WebContentsDelegate {
  public:
   MOCK_METHOD2(HandleContextMenu,
                bool(RenderFrameHost*, const ContextMenuParams&));
+  MOCK_METHOD4(RegisterProtocolHandler,
+               void(WebContents*, const std::string&, const GURL&, bool));
 };
 
 }  // namespace
@@ -3404,6 +3400,63 @@ TEST_F(WebContentsImplTest, HandleContextMenuDelegate) {
 
   ContextMenuParams params;
   contents()->ShowContextMenu(rfh, params);
+
+  contents()->SetDelegate(nullptr);
+}
+
+TEST_F(WebContentsImplTest, RegisterProtocolHandlerDifferentOrigin) {
+  MockWebContentsDelegate delegate;
+  contents()->SetDelegate(&delegate);
+
+  GURL url("https://www.google.com");
+  GURL handler_url1("https://www.google.com/handler/%s");
+  GURL handler_url2("https://www.example.com/handler/%s");
+
+  contents()->NavigateAndCommit(url);
+
+  // Only the first call to RegisterProtocolHandler should register because the
+  // other call has a handler from a different origin.
+  EXPECT_CALL(delegate,
+              RegisterProtocolHandler(contents(), "mailto", handler_url1, true))
+      .Times(1);
+
+  {
+    FrameHostMsg_RegisterProtocolHandler message(
+        main_test_rfh()->GetRoutingID(), "mailto", handler_url1,
+        base::string16(), /*user_gesture=*/true);
+    contents()->OnMessageReceived(main_test_rfh(), message);
+  }
+
+  {
+    FrameHostMsg_RegisterProtocolHandler message(
+        main_test_rfh()->GetRoutingID(), "mailto", handler_url2,
+        base::string16(), /*user_gesture=*/true);
+    contents()->OnMessageReceived(main_test_rfh(), message);
+  }
+
+  contents()->SetDelegate(nullptr);
+}
+
+TEST_F(WebContentsImplTest, RegisterProtocolHandlerDataURL) {
+  MockWebContentsDelegate delegate;
+  contents()->SetDelegate(&delegate);
+
+  GURL data("data:text/html,<html><body><b>hello world</b></body></html>");
+  GURL data_handler(data.spec() + "%s");
+
+  contents()->NavigateAndCommit(data);
+
+  // Data URLs should fail.
+  EXPECT_CALL(delegate,
+              RegisterProtocolHandler(contents(), "mailto", data_handler, true))
+      .Times(0);
+
+  {
+    FrameHostMsg_RegisterProtocolHandler message(
+        main_test_rfh()->GetRoutingID(), "mailto", data_handler,
+        base::string16(), /*user_gesture=*/true);
+    contents()->OnMessageReceived(main_test_rfh(), message);
+  }
 
   contents()->SetDelegate(nullptr);
 }

@@ -29,7 +29,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/threading/scoped_blocking_call.h"
+#include "build/branding_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/apps/app_shim/app_shim_termination_manager.h"
 #include "chrome/browser/apps/app_shim/extension_app_shim_handler_mac.h"
 #include "chrome/browser/apps/platform_apps/app_window_registry_util.h"
 #include "chrome/browser/background/background_application_list_model.h"
@@ -77,6 +79,7 @@
 #include "chrome/browser/ui/cocoa/last_active_browser_cocoa.h"
 #import "chrome/browser/ui/cocoa/profiles/profile_menu_controller.h"
 #import "chrome/browser/ui/cocoa/share_menu_controller.h"
+#import "chrome/browser/ui/cocoa/tab_menu_bridge.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/startup/startup_browser_creator_impl.h"
@@ -84,7 +87,6 @@
 #include "chrome/browser/ui/user_manager.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/components/web_app_shortcut_mac.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/cloud_print/cloud_print_class_mac.h"
@@ -113,7 +115,6 @@
 
 #include "content/nw/src/nw_content.h"
 
-using apps::AppShimHandler;
 using apps::ExtensionAppShimHandler;
 using base::UserMetricsAction;
 using content::BrowserContext;
@@ -433,24 +434,6 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   }
 
   [self initShareMenu];
-
-  // Remove "Enable Javascript in Apple Events" if the feature is disabled.
-  if (!base::FeatureList::IsEnabled(
-          features::kAppleScriptExecuteJavaScriptMenuItem)) {
-    NSMenu* mainMenu = [NSApp mainMenu];
-    NSMenu* viewMenu = [[mainMenu itemWithTag:IDC_VIEW_MENU] submenu];
-    NSMenu* devMenu = [[viewMenu itemWithTag:IDC_DEVELOPER_MENU] submenu];
-    NSMenuItem* javascriptAppleEventItem =
-        [devMenu itemWithTag:IDC_TOGGLE_JAVASCRIPT_APPLE_EVENTS];
-    if (javascriptAppleEventItem)
-      [devMenu removeItem:javascriptAppleEventItem];
-  }
-}
-
-- (void)applicationWillHide:(NSNotification*)notification {
-  if (![self isProfileReady])
-    return;
-  apps::ExtensionAppShimHandler::Get()->OnChromeWillHide();
 }
 
 - (BOOL)tryToTerminateApplication:(NSApplication*)app {
@@ -618,8 +601,19 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 
 - (void)windowDidBecomeMain:(NSNotification*)notify {
   Browser* browser = chrome::FindBrowserWithWindow([notify object]);
-  if (browser)
-    [self windowChangedToProfile:browser->profile()->GetOriginalProfile()];
+  if (!browser)
+    return;
+
+  if (browser->is_type_normal()) {
+    tabMenuBridge_ = std::make_unique<TabMenuBridge>(
+        browser->tab_strip_model(),
+        [[NSApp mainMenu] itemWithTag:IDC_TAB_MENU]);
+    tabMenuBridge_->BuildMenu();
+  } else {
+    tabMenuBridge_.reset();
+  }
+
+  [self windowChangedToProfile:browser->profile()->GetOriginalProfile()];
 }
 
 - (void)windowDidResignMain:(NSNotification*)notify {
@@ -670,7 +664,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 // 1) Same spot as other Pref stuff
 // 2) Try and be friendly by keeping this after app launch
 - (void)setUpdateCheckInterval {
-#if defined(GOOGLE_CHROME_BUILD)
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   CFStringRef app = CFSTR("com.google.Keystone.Agent");
   CFStringRef checkInterval = CFSTR("checkInterval");
   CFPropertyListRef plist = CFPreferencesCopyAppValue(checkInterval, app);
@@ -783,10 +777,11 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   // Record the path to the (browser) app bundle; this is used by the app mode
   // shim.
   if (base::mac::AmIBundled()) {
-    base::PostTaskWithTraits(FROM_HERE,
-                             {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-                              base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-                             base::BindOnce(&RecordLastRunAppBundlePath));
+    base::PostTask(
+        FROM_HERE,
+        {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+         base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+        base::BindOnce(&RecordLastRunAppBundlePath));
   }
 
   // Makes "Services" menu items available.
@@ -1197,7 +1192,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
     for (auto* browser : *BrowserList::GetInstance()) {
       // When focusing Chrome, don't focus any browser windows associated with
       // a currently running app shim, so ignore them.
-      if (browser && browser->is_app()) {
+      if (browser && browser->deprecated_is_app()) {
         extensions::ExtensionRegistry* registry =
             extensions::ExtensionRegistry::Get(browser->profile());
         const extensions::Extension* extension = registry->GetExtensionById(
@@ -1239,7 +1234,8 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   // Normally, it'd just open a new empty page.
   {
     static BOOL doneOnce = NO;
-    BOOL attemptRestore = apps::AppShimHandler::ShouldRestoreSession() ||
+    BOOL attemptRestore =
+        apps::AppShimTerminationManager::Get()->ShouldRestoreSession() ||
         (!doneOnce && base::mac::WasLaunchedAsHiddenLoginItem());
     doneOnce = YES;
     if (attemptRestore) {
@@ -1288,7 +1284,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   menuState_->UpdateCommandEnabled(IDC_MANAGE_EXTENSIONS, true);
   menuState_->UpdateCommandEnabled(IDC_HELP_PAGE_VIA_MENU, true);
   menuState_->UpdateCommandEnabled(IDC_IMPORT_SETTINGS, true);
-#if defined(GOOGLE_CHROME_BUILD)
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   menuState_->UpdateCommandEnabled(IDC_FEEDBACK, true);
 #endif
   menuState_->UpdateCommandEnabled(IDC_TASK_MANAGER, true);
@@ -1571,6 +1567,10 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   return historyMenuBridge_.get();
 }
 
+- (TabMenuBridge*)tabMenuBridge {
+  return tabMenuBridge_.get();
+}
+
 - (void)initAppShimMenuController {
   if (!appShimMenuController_)
     appShimMenuController_.reset([[AppShimMenuController alloc] init]);
@@ -1654,7 +1654,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
       window = mainWindow;
     }
     Browser* browser = chrome::FindBrowserWithWindow(window);
-    enableCloseTabShortcut = browser && browser->is_type_tabbed();
+    enableCloseTabShortcut = browser && browser->is_type_normal();
   }
 
   [self adjustCloseWindowMenuItemKeyEquivalent:enableCloseTabShortcut];

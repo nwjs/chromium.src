@@ -88,6 +88,7 @@
 <translation id="1942765061641586207">Резолуција слике</translation>
 <translation id="1943097386230153518">Инсталирајте нову услугу</translation>
 <translation id="1947424002851288782">Језик тастатуре: немачки</translation>
+<translation id="1972984168337863910">Прошири окна за повратне информације о датотекама</translation>
 <translation id="197560921582345123">Може да мења</translation>
 <translation id="1984603991036629094">Јерменска фонетска тастатура</translation>
 <translation id="2001796770603320721">Управљајте на Диску</translation>
@@ -270,7 +271,6 @@
 <translation id="426015154560005552">Арапска тастатура</translation>
 <translation id="4261901459838235729">Google презентација</translation>
 <translation id="4290535918735525311">1 директоријум се дели са Linux-ом</translation>
-<translation id="42981349822642051">Проширите</translation>
 <translation id="4298972503445160211">Језик тастатуре: дански</translation>
 <translation id="4299729908419173967">португалски (Бразил)</translation>
 <translation id="4309915981827077375">Опште информације</translation>
@@ -326,7 +326,6 @@
 <translation id="4880520557730313061">Аутоматски исправи</translation>
 <translation id="4881695831933465202">Отвори</translation>
 <translation id="4886021172213954916">Тамилска тастатура (писаћа машина)</translation>
-<translation id="4892969127351273348">Отварање помоћу апликације <ph name="APP_NAME" /> није успело</translation>
 <translation id="4905417359854579806">Све је спремно за прављење резервних копија (<ph name="FILE_COUNT" />)</translation>
 <translation id="4924638091161556692">Фиксирана</translation>
 <translation id="4935975195727477204">Цвет газаније</translation>
@@ -366,7 +365,6 @@
 <translation id="5218183485292899140">швајцарска француска</translation>
 <translation id="5234764350956374838">Одбаци</translation>
 <translation id="5241298539944515331">Вијетнамска тастатура (VIQR)</translation>
-<translation id="52446585071384036">Да бисте отварали датотеке помоћу апликације <ph name="APP_NAME" />, прво их копирајте у директоријум Linux датотека.</translation>
 <translation id="5253070652067921974">Аутор</translation>
 <translation id="5257456363153333584">Вилин коњиц</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />Приступајте датотекама било где, чак и офлајн.<ph name="MARKUP_2" />
@@ -641,6 +639,7 @@
 <translation id="8223479393428528563">Да бисте сачували ове датотеке за офлајн коришћење, повежите се поново на интернет, кликните десним тастером на датотеке и изаберите опцију <ph name="OFFLINE_CHECKBOX_NAME" />.</translation>
 <translation id="8249296373107784235">Откажи</translation>
 <translation id="8261506727792406068">Избриши</translation>
+<translation id="8269755669432358899">Скупи окна за повратне информације о датотекама</translation>
 <translation id="8279388322240498158">Сорани курдска тастатура заснована на енглеском</translation>
 <translation id="8280151743281770066">јерменска фонетска</translation>
 <translation id="8294431847097064396">Извор</translation>
@@ -671,6 +670,7 @@
 <translation id="8569764466147087991">Избор датотеке за отварање</translation>
 <translation id="8579285237314169903">Синхронизују се ставке (<ph name="NUMBER_OF_FILES" />)...</translation>
 <translation id="8600173386174225982">Листа датотека се променила у приказ сличица.</translation>
+<translation id="8601932370724196034">Crostini датотека слике</translation>
 <translation id="8669949407341943408">Премештање...</translation>
 <translation id="8671210955687109937">Може да коментарише</translation>
 <translation id="8686213429977032554">Ова датотека са Диска се још увек не дели</translation>

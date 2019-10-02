@@ -36,7 +36,6 @@ void TabMenuModel::Build(TabStripModel* tab_strip, int index) {
           ? tab_strip->selection_model().selected_indices()
           : std::vector<int>{index};
   int num_affected_tabs = affected_indices.size();
-  AddItemWithStringId(TabStripModel::CommandNewTab, IDS_TAB_CXMENU_NEWTAB);
   if (base::FeatureList::IsEnabled(features::kTabGroups)) {
     AddItemWithStringId(TabStripModel::CommandAddToNewGroup,
                         IDS_TAB_CXMENU_ADD_TAB_TO_NEW_GROUP);
@@ -57,17 +56,16 @@ void TabMenuModel::Build(TabStripModel* tab_strip, int index) {
         break;
       }
     }
+
+    AddSeparator(ui::NORMAL_SEPARATOR);
   }
-  AddSeparator(ui::NORMAL_SEPARATOR);
   AddItemWithStringId(TabStripModel::CommandReload, IDS_TAB_CXMENU_RELOAD);
   AddItemWithStringId(TabStripModel::CommandDuplicate,
                       IDS_TAB_CXMENU_DUPLICATE);
   bool will_pin = tab_strip->WillContextMenuPin(index);
-  AddItem(TabStripModel::CommandTogglePinned,
-          will_pin ? l10n_util::GetPluralStringFUTF16(IDS_TAB_CXMENU_PIN_TAB,
-                                                      num_affected_tabs)
-                   : l10n_util::GetPluralStringFUTF16(IDS_TAB_CXMENU_UNPIN_TAB,
-                                                      num_affected_tabs));
+  AddItemWithStringId(
+      TabStripModel::CommandTogglePinned,
+      will_pin ? IDS_TAB_CXMENU_PIN_TAB : IDS_TAB_CXMENU_UNPIN_TAB);
   if (base::FeatureList::IsEnabled(features::kFocusMode)) {
     // TODO(crbug.com/941577): Allow Focus Mode in Incognito and Guest Session.
     if (!tab_strip->profile()->IsOffTheRecord()) {
@@ -127,19 +125,7 @@ void TabMenuModel::Build(TabStripModel* tab_strip, int index) {
   }
 
   AddSeparator(ui::NORMAL_SEPARATOR);
-  AddItem(TabStripModel::CommandCloseTab,
-          l10n_util::GetPluralStringFUTF16(IDS_TAB_CXMENU_CLOSETAB,
-                                           num_affected_tabs));
-  AddItemWithStringId(TabStripModel::CommandCloseOtherTabs,
-                      IDS_TAB_CXMENU_CLOSEOTHERTABS);
+  AddItemWithStringId(TabStripModel::CommandCloseTab, IDS_TAB_CXMENU_CLOSETAB);
   AddItemWithStringId(TabStripModel::CommandCloseTabsToRight,
                       IDS_TAB_CXMENU_CLOSETABSTORIGHT);
-  AddSeparator(ui::NORMAL_SEPARATOR);
-
-  const bool is_window = tab_strip->delegate()->GetRestoreTabType() ==
-      TabStripModelDelegate::RESTORE_WINDOW;
-  AddItemWithStringId(TabStripModel::CommandRestoreTab,
-                      is_window ? IDS_RESTORE_WINDOW : IDS_RESTORE_TAB);
-  AddItemWithStringId(TabStripModel::CommandBookmarkAllTabs,
-                      IDS_TAB_CXMENU_BOOKMARK_ALL_TABS);
 }

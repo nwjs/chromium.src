@@ -22,6 +22,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chromeos/crostini/crostini_export_import.h"
 #include "chrome/browser/chromeos/crostini/crostini_package_service.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/drive/drive_integration_service.h"
@@ -39,6 +40,7 @@
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/extensions/devtools_util.h"
+#include "chrome/browser/file_util_service.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/profiles/profile.h"
@@ -65,7 +67,6 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/user_manager/user_manager.h"
 #include "components/zoom/page_zoom.h"
-#include "content/public/browser/system_connector.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/page_zoom.h"
 #include "extensions/browser/api/file_handlers/mime_util.h"
@@ -93,7 +94,7 @@ constexpr base::TimeDelta kMountCrostiniVerySlowOperationThreshold =
     base::TimeDelta::FromSeconds(30);
 
 // Obtains the current app window.
-AppWindow* GetCurrentAppWindow(UIThreadExtensionFunction* function) {
+AppWindow* GetCurrentAppWindow(ExtensionFunction* function) {
   content::WebContents* const contents = function->GetSenderWebContents();
   return contents
              ? AppWindowRegistry::Get(function->browser_context())
@@ -341,7 +342,7 @@ FileManagerPrivateInternalZipSelectionFunction::Run() {
        base::Bind(&FileManagerPrivateInternalZipSelectionFunction::OnZipDone,
                   this),
        src_dir, src_relative_paths, dest_file))
-      ->Start(content::GetSystemConnector());
+      ->Start(LaunchFileUtilService());
   return RespondLater();
 }
 
@@ -711,6 +712,34 @@ void FileManagerPrivateMountCrostiniFunction::RestartCallback(
   Respond(NoArguments());
 }
 
+FileManagerPrivateInternalImportCrostiniImageFunction::
+    FileManagerPrivateInternalImportCrostiniImageFunction() = default;
+
+FileManagerPrivateInternalImportCrostiniImageFunction::
+    ~FileManagerPrivateInternalImportCrostiniImageFunction() = default;
+
+ExtensionFunction::ResponseAction
+FileManagerPrivateInternalImportCrostiniImageFunction::Run() {
+  using extensions::api::file_manager_private_internal::ImportCrostiniImage::
+      Params;
+
+  const auto params = Params::Create(*args_);
+  EXTENSION_FUNCTION_VALIDATE(params);
+
+  Profile* profile = Profile::FromBrowserContext(browser_context());
+  const scoped_refptr<storage::FileSystemContext> file_system_context =
+      file_manager::util::GetFileSystemContextForRenderFrameHost(
+          profile, render_frame_host());
+
+  base::FilePath path = file_system_context->CrackURL(GURL(params->url)).path();
+
+  crostini::CrostiniExportImport::GetForProfile(profile)->ImportContainer(
+      crostini::ContainerId{crostini::kCrostiniDefaultVmName,
+                            crostini::kCrostiniDefaultContainerName},
+      path, base::DoNothing());
+  return RespondNow(NoArguments());
+}
+
 ExtensionFunction::ResponseAction
 FileManagerPrivateInternalSharePathsWithCrostiniFunction::Run() {
   using extensions::api::file_manager_private_internal::SharePathsWithCrostini::
@@ -739,7 +768,7 @@ FileManagerPrivateInternalSharePathsWithCrostiniFunction::Run() {
 }
 
 void FileManagerPrivateInternalSharePathsWithCrostiniFunction::
-    SharePathsCallback(bool success, std::string failure_reason) {
+    SharePathsCallback(bool success, const std::string& failure_reason) {
   Respond(success ? NoArguments() : Error(failure_reason));
 }
 
@@ -767,7 +796,7 @@ FileManagerPrivateInternalUnsharePathWithCrostiniFunction::Run() {
 }
 
 void FileManagerPrivateInternalUnsharePathWithCrostiniFunction::
-    UnsharePathCallback(bool success, std::string failure_reason) {
+    UnsharePathCallback(bool success, const std::string& failure_reason) {
   Respond(success ? NoArguments() : Error(failure_reason));
 }
 
@@ -826,15 +855,9 @@ FileManagerPrivateInternalGetLinuxPackageInfoFunction::Run() {
       file_manager::util::GetFileSystemContextForRenderFrameHost(
           profile, render_frame_host());
 
-  base::FilePath path;
-  if (!file_manager::util::ConvertFileSystemURLToPathInsideCrostini(
-          profile, file_system_context->CrackURL(GURL(params->url)), &path)) {
-    return RespondNow(Error("Invalid url: " + params->url));
-  }
-
   crostini::CrostiniPackageService::GetForProfile(profile)->GetLinuxPackageInfo(
       crostini::kCrostiniDefaultVmName, crostini::kCrostiniDefaultContainerName,
-      path.value(),
+      file_system_context->CrackURL(GURL(params->url)),
       base::BindOnce(&FileManagerPrivateInternalGetLinuxPackageInfoFunction::
                          OnGetLinuxPackageInfo,
                      this));
@@ -872,18 +895,15 @@ FileManagerPrivateInternalInstallLinuxPackageFunction::Run() {
       file_manager::util::GetFileSystemContextForRenderFrameHost(
           profile, render_frame_host());
 
-  base::FilePath path;
-  if (!file_manager::util::ConvertFileSystemURLToPathInsideCrostini(
-          profile, file_system_context->CrackURL(GURL(params->url)), &path)) {
-    return RespondNow(Error("Invalid url: " + params->url));
-  }
-
-  crostini::CrostiniPackageService::GetForProfile(profile)->InstallLinuxPackage(
-      crostini::kCrostiniDefaultVmName, crostini::kCrostiniDefaultContainerName,
-      path.value(),
-      base::BindOnce(&FileManagerPrivateInternalInstallLinuxPackageFunction::
-                         OnInstallLinuxPackage,
-                     this));
+  crostini::CrostiniPackageService::GetForProfile(profile)
+      ->QueueInstallLinuxPackage(
+          crostini::kCrostiniDefaultVmName,
+          crostini::kCrostiniDefaultContainerName,
+          file_system_context->CrackURL(GURL(params->url)),
+          base::BindOnce(
+              &FileManagerPrivateInternalInstallLinuxPackageFunction::
+                  OnInstallLinuxPackage,
+              this));
   return RespondLater();
 }
 

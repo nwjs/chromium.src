@@ -193,8 +193,7 @@ GpuProcessTransportFactory::GpuProcessTransportFactory(
   task_graph_runner_->Start("CompositorTileWorker1",
                             base::SimpleThread::Options());
 
-  if (command_line->HasSwitch(switches::kDisableGpu) ||
-      command_line->HasSwitch(switches::kDisableGpuCompositing)) {
+  if (GpuDataManagerImpl::GetInstance()->IsGpuCompositingDisabled()) {
     DisableGpuCompositing(nullptr);
   }
 }
@@ -408,7 +407,8 @@ void GpuProcessTransportFactory::EstablishedGpuChannel(
       display_output_surface = std::move(gpu_output_surface);
     } else {
       auto gpu_output_surface =
-          std::make_unique<GpuBrowserCompositorOutputSurface>(context_provider);
+          std::make_unique<GpuBrowserCompositorOutputSurface>(
+              context_provider, data->surface_handle);
       display_output_surface = std::move(gpu_output_surface);
     }
   }
@@ -497,7 +497,8 @@ void GpuProcessTransportFactory::EstablishedGpuChannel(
       compositor->frame_sink_id(), GetHostFrameSinkManager(),
       GetFrameSinkManager(), data->display.get(), data->display_client.get(),
       context_provider, shared_worker_context_provider(),
-      compositor->task_runner(), GetGpuMemoryBufferManager());
+      compositor->task_runner(), GetGpuMemoryBufferManager(),
+      features::IsVizHitTestingSurfaceLayerEnabled());
   data->display->Resize(compositor->size());
   data->display->SetOutputIsSecure(data->output_is_secure);
   compositor->SetLayerTreeFrameSink(std::move(layer_tree_frame_sink));
@@ -507,8 +508,11 @@ void GpuProcessTransportFactory::DisableGpuCompositing(
     ui::Compositor* guilty_compositor) {
   DLOG(ERROR) << "Switching to software compositing.";
 
-  // Change the result of IsGpuCompositingDisabled() before notifying anything.
   is_gpu_compositing_disabled_ = true;
+
+  // Change the result of GpuDataManagerImpl::IsGpuCompositingDisabled() before
+  // notifying anything.
+  GpuDataManagerImpl::GetInstance()->SetGpuCompositingDisabled();
 
   // This will notify all CompositingModeWatchers.
   compositing_mode_reporter_->SetUsingSoftwareCompositing();
@@ -549,8 +553,6 @@ void GpuProcessTransportFactory::DisableGpuCompositing(
     if (visible)
       compositor->SetVisible(true);
   }
-
-  GpuDataManagerImpl::GetInstance()->NotifyGpuInfoUpdate();
 }
 
 std::unique_ptr<ui::Reflector> GpuProcessTransportFactory::CreateReflector(
@@ -617,10 +619,6 @@ cc::TaskGraphRunner* GpuProcessTransportFactory::GetTaskGraphRunner() {
 void GpuProcessTransportFactory::DisableGpuCompositing() {
   if (!is_gpu_compositing_disabled_)
     DisableGpuCompositing(nullptr);
-}
-
-bool GpuProcessTransportFactory::IsGpuCompositingDisabled() {
-  return is_gpu_compositing_disabled_;
 }
 
 ui::ContextFactory* GpuProcessTransportFactory::GetContextFactory() {

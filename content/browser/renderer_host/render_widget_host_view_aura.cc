@@ -902,12 +902,6 @@ void RenderWidgetHostViewAura::OnDidNotProduceFrame(
     delegated_frame_host_->DidNotProduceFrame(ack);
 }
 
-void RenderWidgetHostViewAura::ClearCompositorFrame() {
-  // This method is only used for content rendering timeout when surface sync is
-  // off. However, surface sync is always on on Aura platforms.
-  NOTREACHED();
-}
-
 void RenderWidgetHostViewAura::ResetFallbackToFirstNavigationSurface() {
   if (delegated_frame_host_)
     delegated_frame_host_->ResetFallbackToFirstNavigationSurface();
@@ -1186,12 +1180,16 @@ void RenderWidgetHostViewAura::SetMainFrameAXTreeID(ui::AXTreeID id) {
   window_->SetProperty(ui::kChildAXTreeID, id.ToString());
 }
 
-bool RenderWidgetHostViewAura::LockMouse() {
-  return event_handler_->LockMouse();
+bool RenderWidgetHostViewAura::LockMouse(bool request_unadjusted_movement) {
+  return event_handler_->LockMouse(request_unadjusted_movement);
 }
 
 void RenderWidgetHostViewAura::UnlockMouse() {
   event_handler_->UnlockMouse();
+}
+
+bool RenderWidgetHostViewAura::GetIsMouseLockedUnadjustedMovementForTesting() {
+  return event_handler_->mouse_locked_unadjusted_movement();
 }
 
 bool RenderWidgetHostViewAura::LockKeyboard(
@@ -2530,8 +2528,8 @@ void RenderWidgetHostViewAura::OnTextSelectionChanged(
   const TextInputManager::TextSelection* selection =
       GetTextInputManager()->GetTextSelection(focused_view);
   if (selection->selected_text().length()) {
-    // Set the ClipboardType::kSelection to the ui::Clipboard.
-    ui::ScopedClipboardWriter clipboard_writer(ui::ClipboardType::kSelection);
+    // Set the ClipboardBuffer::kSelection to the ui::Clipboard.
+    ui::ScopedClipboardWriter clipboard_writer(ui::ClipboardBuffer::kSelection);
     clipboard_writer.WriteText(selection->selected_text());
   }
 #endif  // defined(USE_X11)

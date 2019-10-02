@@ -5,8 +5,11 @@
 #ifndef CHROMEOS_SERVICES_ASSISTANT_PUBLIC_FEATURES_H_
 #define CHROMEOS_SERVICES_ASSISTANT_PUBLIC_FEATURES_H_
 
+#include <string>
+
 #include "base/component_export.h"
 #include "base/feature_list.h"
+#include "base/metrics/field_trial_params.h"
 
 namespace chromeos {
 namespace assistant {
@@ -27,6 +30,22 @@ extern const base::Feature kAssistantWarmerWelcomeFeature;
 // Enables Assistant app support.
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 extern const base::Feature kAssistantAppSupport;
+
+// Enables Assistant proactive suggestions.
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
+extern const base::Feature kAssistantProactiveSuggestions;
+
+// A comma-delimited list of experiment IDs to trigger on the proactive
+// suggestions server.
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
+extern const base::FeatureParam<std::string>
+    kAssistantProactiveSuggestionsServerExperimentIds;
+
+// Enables suppression of Assistant proactive suggestions that have already been
+// shown to the user.
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
+extern const base::FeatureParam<bool>
+    kAssistantProactiveSuggestionsSuppressDuplicates;
 
 // Enables Assistant routines.
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
@@ -76,6 +95,9 @@ extern const base::Feature kEnableTextQueriesWithClientDiscourseContext;
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 extern const base::Feature kTimerTicks;
 
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
+std::string GetProactiveSuggestionsServerExperimentIds();
+
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsAlarmTimerManagerEnabled();
 
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsAppSupportEnabled();
@@ -97,6 +119,11 @@ COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 bool IsMediaSessionIntegrationEnabled();
 
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsPowerManagerEnabled();
+
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsProactiveSuggestionsEnabled();
+
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
+bool IsProactiveSuggestionsSuppressDuplicatesEnabled();
 
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsRoutinesEnabled();
 

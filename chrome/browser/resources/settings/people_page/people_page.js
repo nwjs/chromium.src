@@ -91,6 +91,20 @@ Polymer({
     profileIconUrl_: String,
 
     /**
+     * Whether clicking on the profile row should take the user to the
+     * "change picture" sub-page.
+     * @private
+     */
+    allowChangePicture_: {
+      type: Boolean,
+      value: function() {
+        // On Chrome OS, only allow when SplitSettings is disabled.
+        return cr.isChromeOS ? loadTimeData.getBoolean('showOSSettings') : true;
+      },
+      readOnly: true,
+    },
+
+    /**
      * The current profile name.
      * @private
      */
@@ -124,30 +138,6 @@ Polymer({
       type: Boolean,
       value: function() {
         return loadTimeData.getBoolean('fingerprintUnlockEnabled');
-      },
-      readOnly: true,
-    },
-
-    /**
-     * True if Chrome OS Account Manager is enabled.
-     * @private
-     */
-    isAccountManagerEnabled_: {
-      type: Boolean,
-      value: function() {
-        return loadTimeData.getBoolean('isAccountManagerEnabled');
-      },
-      readOnly: true,
-    },
-
-    /**
-     * True if Chrome OS Kerberos support is enabled.
-     * @private
-     */
-    isKerberosEnabled_: {
-      type: Boolean,
-      value: function() {
-        return loadTimeData.getBoolean('isKerberosEnabled');
       },
       readOnly: true,
     },
@@ -219,10 +209,24 @@ Polymer({
 
   /** @override */
   attached: function() {
-    const profileInfoProxy = settings.ProfileInfoBrowserProxyImpl.getInstance();
-    profileInfoProxy.getProfileInfo().then(this.handleProfileInfo_.bind(this));
-    this.addWebUIListener(
-        'profile-info-changed', this.handleProfileInfo_.bind(this));
+    let useProfileNameAndIcon = true;
+    // <if expr="chromeos">
+    if (!loadTimeData.getBoolean('showOSSettings') &&
+        loadTimeData.getBoolean('isAccountManagerEnabled')) {
+      // If this is SplitSettings and we have the Google Account manager,
+      // prefer the GAIA name and icon.
+      useProfileNameAndIcon = false;
+      this.addWebUIListener(
+          'accounts-changed', this.updateAccounts_.bind(this));
+      this.updateAccounts_();
+    }
+    // </if>
+    if (useProfileNameAndIcon) {
+      settings.ProfileInfoBrowserProxyImpl.getInstance().getProfileInfo().then(
+          this.handleProfileInfo_.bind(this));
+      this.addWebUIListener(
+          'profile-info-changed', this.handleProfileInfo_.bind(this));
+    }
 
     this.syncBrowserProxy_ = settings.SyncBrowserProxyImpl.getInstance();
     this.syncBrowserProxy_.getSyncStatus().then(
@@ -283,6 +287,18 @@ Polymer({
   // </if>
 
   /**
+   * @return {string}
+   * @private
+   */
+  getSyncAndGoogleServicesSubtext_: function() {
+    if (this.syncStatus && this.syncStatus.hasError &&
+        this.syncStatus.statusText) {
+      return this.syncStatus.statusText;
+    }
+    return '';
+  },
+
+  /**
    * Handler for when the profile's icon and name is updated.
    * @private
    * @param {!settings.ProfileInfo} info
@@ -303,6 +319,27 @@ Polymer({
 
     this.profileIconUrl_ = info.iconUrl;
   },
+
+  // <if expr="chromeos">
+  /**
+   * @private
+   * @suppress {checkTypes} The types only exists in Chrome OS builds, but
+   * Closure doesn't understand the <if> above.
+   */
+  updateAccounts_: async function() {
+    const /** @type {!Array<{settings.Account}>} */ accounts =
+        await settings.AccountManagerBrowserProxyImpl.getInstance()
+            .getAccounts();
+    // The user might not have any GAIA accounts (e.g. guest mode, Kerberos,
+    // Active Directory). In these cases the profile row is hidden, so there's
+    // nothing to do.
+    if (accounts.length == 0) {
+      return;
+    }
+    this.profileName_ = accounts[0].fullName;
+    this.profileIconUrl_ = accounts[0].pic;
+  },
+  // </if>
 
   /**
    * Handler for when the sync state is pushed from the browser.
@@ -342,7 +379,11 @@ Polymer({
   /** @private */
   onProfileTap_: function() {
     // <if expr="chromeos">
-    settings.navigateTo(settings.routes.CHANGE_PICTURE);
+    if (this.allowChangePicture_) {
+      // Testing allowChangePicture_ is simpler than conditionally removing
+      // on-click handlers in the HTML.
+      settings.navigateTo(settings.routes.CHANGE_PICTURE);
+    }
     // </if>
     // <if expr="not chromeos">
     settings.navigateTo(settings.routes.MANAGE_PROFILE);
@@ -458,18 +499,6 @@ Polymer({
   /** @private */
   onManageOtherPeople_: function() {
     settings.navigateTo(settings.routes.ACCOUNTS);
-  },
-
-  /** @private */
-  shouldShowAccountManager_: function() {
-    return this.isAccountManagerEnabled_ &&
-        this.pageVisibility.people.googleAccounts;
-  },
-
-  /** @private */
-  shouldShowKerberos_: function() {
-    return this.isKerberosEnabled_ &&
-        this.pageVisibility.people.kerberosAccounts;
   },
   // </if>
 
@@ -590,7 +619,7 @@ Polymer({
           'sync-error';
     }
 
-    return '';
+    return 'no-error';
   },
 
   /**

@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="sk">
+<translation id="1005230401424685968">RRRR</translation>
 <translation id="1016495303386450659">Položka bola aktualizovaná</translation>
 <translation id="1047726139967079566">Pridať stránku medzi záložky…</translation>
 <translation id="1049743911850919806">Inkognito</translation>
@@ -71,6 +72,7 @@
 <translation id="1820259098641718022">Pridané do zoznamu na čítanie</translation>
 <translation id="1828824471510190776">Navrhnúť heslo…</translation>
 <translation id="1870148520156231997">Odhaliť heslo</translation>
+<translation id="1872096359983322073">Baterka</translation>
 <translation id="1876721852596493031">Odosielanie údajov o používaní</translation>
 <translation id="1911619930368729126">Nahrať na Disk Google</translation>
 <translation id="1923342640370224680">Posledná hodina</translation>
@@ -148,7 +150,6 @@
 <translation id="2921219216347069551">Str. sa nedá zdieľať</translation>
 <translation id="2923448633003185837">Prilepiť a prejsť</translation>
 <translation id="292639812446257861">Označiť ako neprečítané</translation>
-<translation id="2933759065870693102">Svietidlo</translation>
 <translation id="2958718410589002129">Heslá</translation>
 <translation id="2969979262385602596">Prihlásenie zlyhalo. Skúste to znova neskôr.</translation>
 <translation id="298306318844797842">Pridať spôsob platby…</translation>
@@ -194,6 +195,7 @@
 <translation id="3607167657931203000">Údaje automatického dopĺňania</translation>
 <translation id="3609785682760573515">Prebieha synchronizácia...</translation>
 <translation id="3638472932233958418">Predbežne načítavať webové stránky</translation>
+<translation id="3670030362669914947">Číslo</translation>
 <translation id="3691593122358196899">Uložené ako záložka v priečinku <ph name="FOLDER_TITLE" /></translation>
 <translation id="3771033907050503522">Karty inkognito</translation>
 <translation id="3775743491439407556">Synchronizácia nefunguje</translation>
@@ -261,9 +263,11 @@
 <translation id="4747097190499141774">Šifrovanie prístupovej frázy nezahŕňa spôsoby platby a adresy zo služby Google Pay. Šifrované údaje si môže prečítať iba používateľ s prístupovou frázou. Prístupová fráza sa neodosiela do Googlu ani sa v ňom neuchováva. Ak ju zabudnete, budete musieť resetovať synchronizáciu. <ph name="BEGIN_LINK" />Ďalšie informácie<ph name="END_LINK" /></translation>
 <translation id="4749030437873592350">Nájsť na stránke...</translation>
 <translation id="4751645464639803239">Nová karta inkognito</translation>
+<translation id="4758977202923349869">Umiestnite kreditnú kartu do tohoto rámca</translation>
 <translation id="4802417911091824046">Šifrovanie prístupovej frázy nezahŕňa spôsoby platby a adresy zo služby Google Pay.
 
 Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />resetujte synchronizáciu<ph name="END_LINK" /></translation>
+<translation id="4805759445554688327">Neplatné číslo karty</translation>
 <translation id="4807020197310989387">1 neprečítaný článok v čitateľskom zozname.</translation>
 <translation id="4818522717893377262">Pridať jazyk…</translation>
 <translation id="481968316161811770">Súbory cookie, údaje webu</translation>
@@ -302,6 +306,7 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />resetujte synchroniz�
 <translation id="5317780077021120954">Uložiť</translation>
 <translation id="5327248766486351172">Názov</translation>
 <translation id="5388358297987318779">Otvoriť obrázok</translation>
+<translation id="5407969256130905701">Zahodiť zmeny</translation>
 <translation id="5409365236829784218">Nie sú nainštalované žiadne aplikácie, ktoré dokážu otvoriť tento súbor.</translation>
 <translation id="5416022985862681400">Posledných 7 dní</translation>
 <translation id="5433691172869980887">Používateľské meno bolo skopírované</translation>
@@ -324,6 +329,7 @@ Funkciu Handoff musíte povoliť v nastaveniach v časti Všeobecné a vaše zar
 <translation id="5728700505257787410">Je nám ľúto, pri prihlasovaní do účtu sa vyskytol problém.</translation>
 <translation id="5737974891429562743">Informácie o prihlásení do účtu sú neaktuálne. Ak chcete spustiť synchronizáciu, aktualizujte ich.</translation>
 <translation id="5738887413654608789">Umožní vám to objavovať relevantné webové stránky na základe objektov vo vašom okolí.</translation>
+<translation id="5803566855766646066">Naozaj chcete zahodiť túto novú kartu?</translation>
 <translation id="5816228676161003208">Umožňuje rýchlejšie vyhľadávania pomocou hlasu.</translation>
 <translation id="5846482154967366008">Vyhľadávací nástroj</translation>
 <translation id="5854790677617711513">Staršie ako 30 dní</translation>
@@ -352,6 +358,7 @@ Funkciu Handoff musíte povoliť v nastaveniach v časti Všeobecné a vaše zar
 <translation id="605721222689873409">RR</translation>
 <translation id="6066301408025741299">Sťahovanie zrušíte klepnutím.</translation>
 <translation id="6108923351542677676">Inštaluje sa...</translation>
+<translation id="6119050551270742952">Aktuálna webová stránka je v anonymnom režime</translation>
 <translation id="6122191549521593678">Online</translation>
 <translation id="6127379762771434464">Položka bola odstránená</translation>
 <translation id="6136914049981179737">Pred chvíľou</translation>
@@ -391,6 +398,7 @@ Vaše údaje boli <ph name="TIME" /> zašifrované pomocou vlastnej prístupovej
 <translation id="6476800141292307438">Stránka sa prekladá do jazyka <ph name="LANGUAGE" />. Možnosti nájdete v dolnej časti obrazovky.</translation>
 <translation id="6482629121755362506">Počet odstránených položiek: <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
 <translation id="6610002944194042868">Možnosti prekladu</translation>
+<translation id="6628106477656132239">Neplatný dátum vypršania platnosti</translation>
 <translation id="6642362222295953972">Prepnúť na existujúcu kartu</translation>
 <translation id="6643016212128521049">Vymazať</translation>
 <translation id="6656103420185847513">Upraviť priečinok</translation>
@@ -407,6 +415,9 @@ Vaše údaje boli <ph name="TIME" /> zašifrované pomocou vlastnej prístupovej
 <translation id="6807889908376551050">Zobraziť všetky...</translation>
 <translation id="681368974849482173">Položka bola vytvorená</translation>
 <translation id="6851516051005285358">Vyžiadať stránky pre počítač</translation>
+<translation id="6858855187367714033">Naskenované</translation>
+<translation id="6859944681507688231">Ak chcete nasnímať kód QR alebo kreditnú kartu, povoľte v nastaveniach fotoaparát.</translation>
+<translation id="6873263987691478642">Rozdelené zobrazenie</translation>
 <translation id="6896758677409633944">Kopírovať</translation>
 <translation id="6903907808598579934">Zapnúť synchronizáciu</translation>
 <translation id="6914583639806229067">Vyhľadať skopírovaný obrázok</translation>
@@ -449,6 +460,7 @@ Vaše údaje boli <ph name="TIME" /> zašifrované pomocou vlastnej prístupovej
 <translation id="744343212394640790">Nie som <ph name="EMAIL" /></translation>
 <translation id="7454057999980797137">Štát/okres</translation>
 <translation id="7456847797759667638">Otvoriť umiestnenie...</translation>
+<translation id="7460314822154045102">Použiť fotoaparát</translation>
 <translation id="7464701184726199289">Táto akcia vymaže synchronizované údaje zo všetkých zariadení. Uložené nastavenia webov sa neodstránia a môžu odrážať vaše návyky prehliadania. <ph name="BEGIN_LINK" />Ďalšie informácie<ph name="END_LINK" /></translation>
 <translation id="7472734401283673885">Názov spoločnosti</translation>
 <translation id="7481312909269577407">Dopredu</translation>
@@ -504,7 +516,9 @@ Vaše údaje boli <ph name="TIME" /> zašifrované pomocou vlastnej prístupovej
 <translation id="8428045167754449968">Mesto</translation>
 <translation id="8428213095426709021">Nastavenia</translation>
 <translation id="8458397775385147834">Počet odstránených záložiek: 1</translation>
+<translation id="8487667956631253959">Zapnúť</translation>
 <translation id="8487700953926739672">K dispozícii offline</translation>
+<translation id="8490978609246021741">Uložiť zmeny</translation>
 <translation id="8503813439785031346">Meno používateľa</translation>
 <translation id="850600235656508448">Otvoriť v režime inkognito</translation>
 <translation id="8517375800490286174">Licencie open source</translation>
@@ -513,6 +527,7 @@ Vaše údaje boli <ph name="TIME" /> zašifrované pomocou vlastnej prístupovej
 <translation id="8532105204136943229">Rok vypršania platnosti</translation>
 <translation id="8534481786647257214">Príspevok bol uverejnený v Google+.</translation>
 <translation id="8548878600947630424">Nájsť na stránke...</translation>
+<translation id="8588404856427128947">Vypnúť</translation>
 <translation id="8605219856220328675">Zatvoriť kartu.</translation>
 <translation id="8620640915598389714">Upraviť</translation>
 <translation id="8636825310635137004">Ak chcete získať karty zo svojich ostatných zariadení, zapnite synchronizáciu.</translation>
@@ -553,6 +568,7 @@ Vaše údaje boli <ph name="TIME" /> zašifrované pomocou vlastnej prístupovej
 <translation id="9203116392574189331">Handoff</translation>
 <translation id="9223358826628549784">Správa o zlyhaní bola odoslaná.</translation>
 <translation id="935490618240037774">Záložky, história, heslá a ďalšie nastavenia budú synchronizované s vaším účtom Google a budete ich môcť používať na všetkých zariadeniach.</translation>
+<translation id="952704832371081537">Zrušiť</translation>
 <translation id="976982866697960176">Spravujte synchronizované údaje…</translation>
 <translation id="988141524645182168">Iné zariadenia</translation>
 <translation id="989988560359834682">Úprava adresy</translation>

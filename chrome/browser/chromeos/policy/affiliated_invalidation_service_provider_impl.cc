@@ -27,8 +27,10 @@
 #include "chrome/common/chrome_features.h"
 #include "components/gcm_driver/instance_id/instance_id_driver.h"
 #include "components/invalidation/impl/fcm_invalidation_service.h"
+#include "components/invalidation/impl/fcm_network_handler.h"
 #include "components/invalidation/impl/invalidation_state_tracker.h"
 #include "components/invalidation/impl/invalidator_storage.h"
+#include "components/invalidation/impl/per_user_topic_registration_manager.h"
 #include "components/invalidation/impl/profile_invalidation_provider.h"
 #include "components/invalidation/impl/ticl_invalidation_service.h"
 #include "components/invalidation/public/identity_provider.h"
@@ -78,10 +80,9 @@ void RequestProxyResolvingSocketFactoryOnUIThread(
 void RequestProxyResolvingSocketFactory(
     base::WeakPtr<invalidation::TiclInvalidationService> owner,
     network::mojom::ProxyResolvingSocketFactoryRequest request) {
-  base::PostTaskWithTraits(
-      FROM_HERE, {content::BrowserThread::UI},
-      base::BindOnce(&RequestProxyResolvingSocketFactoryOnUIThread, owner,
-                     std::move(request)));
+  base::PostTask(FROM_HERE, {content::BrowserThread::UI},
+                 base::BindOnce(&RequestProxyResolvingSocketFactoryOnUIThread,
+                                owner, std::move(request)));
 }
 
 }  // namespace
@@ -409,11 +410,19 @@ AffiliatedInvalidationServiceProviderImpl::
     DCHECK(device_instance_id_driver_);
     auto device_invalidation_service =
         std::make_unique<invalidation::FCMInvalidationService>(
-            device_identity_provider_.get(), g_browser_process->gcm_driver(),
+            device_identity_provider_.get(),
+            base::BindRepeating(&syncer::FCMNetworkHandler::Create,
+                                g_browser_process->gcm_driver(),
+                                device_instance_id_driver_.get()),
+            base::BindRepeating(
+                &syncer::PerUserTopicRegistrationManager::Create,
+                device_identity_provider_.get(),
+                g_browser_process->local_state(),
+                base::RetainedRef(url_loader_factory),
+                base::BindRepeating(&data_decoder::SafeJsonParser::Parse,
+                                    content::GetSystemConnector())),
             device_instance_id_driver_.get(), g_browser_process->local_state(),
-            base::BindRepeating(data_decoder::SafeJsonParser::Parse,
-                                content::GetSystemConnector()),
-            url_loader_factory.get(), policy::kPolicyFCMInvalidationSenderID);
+            policy::kPolicyFCMInvalidationSenderID);
     device_invalidation_service->Init();
     return device_invalidation_service;
   }
@@ -422,8 +431,7 @@ AffiliatedInvalidationServiceProviderImpl::
           GetUserAgent(), device_identity_provider_.get(),
           g_browser_process->gcm_driver(),
           base::BindRepeating(&RequestProxyResolvingSocketFactory),
-          base::CreateSingleThreadTaskRunnerWithTraits(
-              {content::BrowserThread::IO}),
+          base::CreateSingleThreadTaskRunner({content::BrowserThread::IO}),
           std::move(url_loader_factory),
           content::GetNetworkConnectionTracker());
 

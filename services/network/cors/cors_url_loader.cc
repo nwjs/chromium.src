@@ -13,6 +13,7 @@
 #include "services/network/public/cpp/cors/cors.h"
 #include "services/network/public/cpp/cors/origin_access_list.h"
 #include "services/network/public/cpp/header_util.h"
+#include "services/network/public/cpp/request_mode.h"
 #include "url/url_util.h"
 
 namespace network {
@@ -223,10 +224,6 @@ void CorsURLLoader::FollowRedirect(
   network_loader_->FollowRedirect(removed_headers, modified_headers, new_url);
 }
 
-void CorsURLLoader::ProceedWithResponse() {
-  NOTREACHED();
-}
-
 void CorsURLLoader::SetPriority(net::RequestPriority priority,
                                 int32_t intra_priority_value) {
   if (network_loader_)
@@ -243,22 +240,22 @@ void CorsURLLoader::ResumeReadingBodyFromNet() {
     network_loader_->ResumeReadingBodyFromNet();
 }
 
-void CorsURLLoader::OnReceiveResponse(
-    const ResourceResponseHead& response_head) {
+void CorsURLLoader::OnReceiveResponse(mojom::URLResponseHeadPtr response_head) {
   DCHECK(network_loader_);
   DCHECK(forwarding_client_);
   DCHECK(!deferred_redirect_url_);
 
   int response_status_code =
-      response_head.headers ? response_head.headers->response_code() : 0;
+      response_head->headers ? response_head->headers->response_code() : 0;
 
   const bool is_304_for_revalidation =
       request_.is_revalidating && response_status_code == 304;
   if (fetch_cors_flag_ && !is_304_for_revalidation) {
     const auto error_status = CheckAccess(
         request_.url, response_status_code,
-        GetHeaderString(response_head, header_names::kAccessControlAllowOrigin),
-        GetHeaderString(response_head,
+        GetHeaderString(*response_head,
+                        header_names::kAccessControlAllowOrigin),
+        GetHeaderString(*response_head,
                         header_names::kAccessControlAllowCredentials),
         request_.credentials_mode,
         tainted_ ? url::Origin() : *request_.request_initiator);
@@ -268,21 +265,20 @@ void CorsURLLoader::OnReceiveResponse(
     }
   }
 
-  ResourceResponseHead response_head_to_pass = response_head;
-  response_head_to_pass.response_type = response_tainting_;
-  forwarding_client_->OnReceiveResponse(response_head_to_pass);
+  response_head->response_type = response_tainting_;
+  forwarding_client_->OnReceiveResponse(std::move(response_head));
 }
 
-void CorsURLLoader::OnReceiveRedirect(
-    const net::RedirectInfo& redirect_info,
-    const ResourceResponseHead& response_head) {
+void CorsURLLoader::OnReceiveRedirect(const net::RedirectInfo& redirect_info,
+                                      mojom::URLResponseHeadPtr response_head) {
   DCHECK(network_loader_);
   DCHECK(forwarding_client_);
   DCHECK(!deferred_redirect_url_);
 
   if (request_.redirect_mode == mojom::RedirectMode::kManual) {
     deferred_redirect_url_ = std::make_unique<GURL>(redirect_info.new_url);
-    forwarding_client_->OnReceiveRedirect(redirect_info, response_head);
+    forwarding_client_->OnReceiveRedirect(redirect_info,
+                                          std::move(response_head));
     return;
   }
 
@@ -290,9 +286,10 @@ void CorsURLLoader::OnReceiveRedirect(
   // failure, then return a network error.
   if (fetch_cors_flag_ && IsCorsEnabledRequestMode(request_.mode)) {
     const auto error_status = CheckAccess(
-        request_.url, response_head.headers->response_code(),
-        GetHeaderString(response_head, header_names::kAccessControlAllowOrigin),
-        GetHeaderString(response_head,
+        request_.url, response_head->headers->response_code(),
+        GetHeaderString(*response_head,
+                        header_names::kAccessControlAllowOrigin),
+        GetHeaderString(*response_head,
                         header_names::kAccessControlAllowCredentials),
         request_.credentials_mode,
         tainted_ ? url::Origin() : *request_.request_initiator);
@@ -352,14 +349,13 @@ void CorsURLLoader::OnReceiveRedirect(
 
   deferred_redirect_url_ = std::make_unique<GURL>(redirect_info.new_url);
 
-  auto response_head_to_pass = response_head;
   if (request_.redirect_mode == mojom::RedirectMode::kManual) {
-    response_head_to_pass.response_type =
-        mojom::FetchResponseType::kOpaqueRedirect;
+    response_head->response_type = mojom::FetchResponseType::kOpaqueRedirect;
   } else {
-    response_head_to_pass.response_type = response_tainting_;
+    response_head->response_type = response_tainting_;
   }
-  forwarding_client_->OnReceiveRedirect(redirect_info, response_head_to_pass);
+  forwarding_client_->OnReceiveRedirect(redirect_info,
+                                        std::move(response_head));
 }
 
 void CorsURLLoader::OnUploadProgress(int64_t current_position,
@@ -367,7 +363,6 @@ void CorsURLLoader::OnUploadProgress(int64_t current_position,
                                      OnUploadProgressCallback ack_callback) {
   DCHECK(network_loader_);
   DCHECK(forwarding_client_);
-  DCHECK(!deferred_redirect_url_);
   forwarding_client_->OnUploadProgress(current_position, total_size,
                                        std::move(ack_callback));
 }
@@ -403,10 +398,7 @@ void CorsURLLoader::OnComplete(const URLLoaderCompletionStatus& status) {
   // to expect it also happens even during redirect handling.
   DCHECK(!deferred_redirect_url_ || status.error_code != net::OK);
 
-  URLLoaderCompletionStatus modified_status(status);
-  if (status.error_code == net::OK)
-    modified_status.cors_preflight_timing_info.swap(preflight_timing_info_);
-  HandleComplete(modified_status);
+  HandleComplete(status);
 }
 
 void CorsURLLoader::StartRequest() {
@@ -424,8 +416,7 @@ void CorsURLLoader::StartRequest() {
   //
   // We exclude navigation requests to keep the existing behavior.
   // TODO(yhirano): Reconsider this.
-  if (request_.mode != mojom::RequestMode::kNavigate &&
-      request_.request_initiator &&
+  if (!IsNavigationRequestMode(request_.mode) && request_.request_initiator &&
       (fetch_cors_flag_ ||
        (request_.method != "GET" && request_.method != "HEAD"))) {
     if (!fetch_cors_flag_ &&
@@ -454,16 +445,11 @@ void CorsURLLoader::StartRequest() {
       request_.url, request_.mode, request_.request_initiator, fetch_cors_flag_,
       tainted_, origin_access_list_);
 
-  if (!CalculateCredentialsFlag(request_.credentials_mode,
-                                response_tainting_)) {
-    request_.allow_credentials = false;
-  }
-
   // Note that even when |NeedsPreflight(request_)| holds we don't make a
   // preflight request when |fetch_cors_flag_| is false (e.g., when the origin
   // of the url is equal to the origin of the request.
   if (!fetch_cors_flag_ || !NeedsPreflight(request_)) {
-    StartNetworkRequest(net::OK, base::nullopt, base::nullopt);
+    StartNetworkRequest(net::OK, base::nullopt);
     return;
   }
 
@@ -476,8 +462,7 @@ void CorsURLLoader::StartRequest() {
 
 void CorsURLLoader::StartNetworkRequest(
     int error_code,
-    base::Optional<CorsErrorStatus> status,
-    base::Optional<PreflightTimingInfo> preflight_timing_info) {
+    base::Optional<CorsErrorStatus> status) {
   if (error_code != net::OK) {
     HandleComplete(status ? URLLoaderCompletionStatus(*status)
                           : URLLoaderCompletionStatus(error_code));
@@ -485,8 +470,14 @@ void CorsURLLoader::StartNetworkRequest(
   }
   DCHECK(!status);
 
-  if (preflight_timing_info)
-    preflight_timing_info_.push_back(*preflight_timing_info);
+  // Here we overwrite the credentials mode sent to URLLoader because
+  // network::URLLoader doesn't understand |kSameOrigin|.
+  // TODO(crbug.com/943939): Fix this.
+  auto original_credentials_mode = request_.credentials_mode;
+  request_.credentials_mode =
+      CalculateCredentialsFlag(original_credentials_mode, response_tainting_)
+          ? mojom::CredentialsMode::kInclude
+          : mojom::CredentialsMode::kOmit;
 
   mojom::URLLoaderClientPtr network_client;
   network_client_binding_.Bind(mojo::MakeRequest(&network_client));
@@ -497,6 +488,8 @@ void CorsURLLoader::StartNetworkRequest(
   network_loader_factory_->CreateLoaderAndStart(
       mojo::MakeRequest(&network_loader_), routing_id_, request_id_, options_,
       request_, std::move(network_client), traffic_annotation_);
+
+  request_.credentials_mode = original_credentials_mode;
 }
 
 void CorsURLLoader::HandleComplete(const URLLoaderCompletionStatus& status) {
@@ -605,7 +598,7 @@ mojom::FetchResponseType CorsURLLoader::CalculateResponseTainting(
 }
 
 base::Optional<std::string> CorsURLLoader::GetHeaderString(
-    const ResourceResponseHead& response,
+    const mojom::URLResponseHead& response,
     const std::string& header_name) {
   if (!response.headers)
     return base::nullopt;

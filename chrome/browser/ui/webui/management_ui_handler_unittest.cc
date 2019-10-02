@@ -16,7 +16,7 @@
 #include "components/policy/core/common/policy_namespace.h"
 #include "components/policy/core/common/policy_service.h"
 #include "components/strings/grit/components_strings.h"
-#include "content/public/test/test_browser_thread_bundle.h"
+#include "content/public/test/browser_task_environment.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -119,7 +119,7 @@ class ManagementUIHandlerTests : public testing::Test {
 
  protected:
   TestManagementUIHandler handler_;
-  content::TestBrowserThreadBundle thread_bundle_;
+  content::BrowserTaskEnvironment task_environment_;
   policy::MockPolicyService policy_service_;
   policy::PolicyMap empty_policy_map_;
   base::string16 device_domain_;

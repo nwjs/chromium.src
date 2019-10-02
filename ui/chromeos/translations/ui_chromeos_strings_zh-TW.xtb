@@ -88,6 +88,7 @@
 <translation id="1942765061641586207">影像解析度</translation>
 <translation id="1943097386230153518">安裝新服務</translation>
 <translation id="1947424002851288782">德文鍵盤</translation>
+<translation id="1972984168337863910">展開檔案意見回饋面板</translation>
 <translation id="197560921582345123">可以編輯</translation>
 <translation id="1984603991036629094">亞美尼亞文 (拼音) 鍵盤</translation>
 <translation id="2001796770603320721">在雲端硬碟中管理</translation>
@@ -270,7 +271,6 @@
 <translation id="426015154560005552">阿拉伯文鍵盤</translation>
 <translation id="4261901459838235729">Google 簡報</translation>
 <translation id="4290535918735525311">已與 Linux 共用 1 個資料夾</translation>
-<translation id="42981349822642051">展開</translation>
 <translation id="4298972503445160211">丹麥文鍵盤</translation>
 <translation id="4299729908419173967">巴西語系</translation>
 <translation id="4309915981827077375">一般資訊</translation>
@@ -326,7 +326,6 @@
 <translation id="4880520557730313061">自動修正</translation>
 <translation id="4881695831933465202">開啟</translation>
 <translation id="4886021172213954916">坦米爾文鍵盤 (打字機)</translation>
-<translation id="4892969127351273348">無法使用「<ph name="APP_NAME" />」開啟</translation>
 <translation id="4905417359854579806">現在可以備份 <ph name="FILE_COUNT" />了</translation>
 <translation id="4924638091161556692">已修正</translation>
 <translation id="4935975195727477204">勳章菊花</translation>
@@ -366,7 +365,6 @@
 <translation id="5218183485292899140">瑞士法文</translation>
 <translation id="5234764350956374838">關閉</translation>
 <translation id="5241298539944515331">越南文鍵盤 (VIQR)</translation>
-<translation id="52446585071384036">如要使用「<ph name="APP_NAME" />」開啟檔案，請先將檔案複製到 Linux 檔案資料夾。</translation>
 <translation id="5253070652067921974">建立者</translation>
 <translation id="5257456363153333584">蜻蜓</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />隨時隨地存取檔案，甚至可離線存取。<ph name="MARKUP_2" />
@@ -641,6 +639,7 @@
 <translation id="8223479393428528563">如要儲存這些檔案以供離線使用，請重新上網，在檔案上按一下滑鼠右鍵，然後選取 [<ph name="OFFLINE_CHECKBOX_NAME" />] 選項。</translation>
 <translation id="8249296373107784235">取消</translation>
 <translation id="8261506727792406068">刪除</translation>
+<translation id="8269755669432358899">收合檔案意見回饋面板</translation>
 <translation id="8279388322240498158">索拉尼庫爾德式英文鍵盤</translation>
 <translation id="8280151743281770066">亞美尼亞文 (拼音)</translation>
 <translation id="8294431847097064396">來源</translation>
@@ -671,6 +670,7 @@
 <translation id="8569764466147087991">選取要開啟的檔案</translation>
 <translation id="8579285237314169903">正在同步處理 <ph name="NUMBER_OF_FILES" /> 個項目...</translation>
 <translation id="8600173386174225982">檔案清單已變更為縮圖檢視模式。</translation>
+<translation id="8601932370724196034">Crostini 圖片檔</translation>
 <translation id="8669949407341943408">移動中...</translation>
 <translation id="8671210955687109937">可以註解</translation>
 <translation id="8686213429977032554">這個雲端硬碟檔案尚未與你共用</translation>

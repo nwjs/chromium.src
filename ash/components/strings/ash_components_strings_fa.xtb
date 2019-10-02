@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="fa">
+<translation id="1036550831858290950">ذخیره برگه کنونی به‌عنوان نشانک</translation>
 <translation id="104962181688258143">‏باز کردن برنامه Files</translation>
 <translation id="1098295134904615027">میز مجازی در سمت چپ فعال شود</translation>
 <translation id="1122869341872663659">درحال نمایش <ph name="N" /> نتیجه جستجو برای <ph name="QUERY" /></translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">بازنشانی میزان بزرگ‌نمایی صفحه</translation>
 <translation id="2596078834055697711">گرفتن عکس از پنجره صفحه‌نمایش</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" /> و سپس <ph name="TAB" /> یا <ph name="RIGHT" /></translation>
-<translation id="2699509451653686398">ذخیره صفحه وب کنونی شما به‌عنوان نشانک</translation>
 <translation id="2750942583782703988">بارگیری مجدد صفحه کنونی</translation>
 <translation id="2764005613199379871">قرار دادن تمرکز روی نوار نشانی جستجو</translation>
 <translation id="2789868185375229787">دورنمایی کردن روی صفحه</translation>

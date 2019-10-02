@@ -15,6 +15,7 @@
 <translation id="1524282610922162960">Udostępnij kartę Chromium</translation>
 <translation id="1668054258064581266">Aby po usunięciu konta z Chromium zmiany zostały zastosowane, może być konieczne ponowne załadowanie otwartych kart.</translation>
 <translation id="1688750314291223739">Skonfiguruj synchronizację, by zapisać w internecie własne funkcje przeglądarki i mieć do nich dostęp w Chromium na każdym komputerze.</translation>
+<translation id="1705503634486268204">Chromium może zapamiętywać za Ciebie hasła.</translation>
 <translation id="1708666629004767631">Dostępna jest nowa, bezpieczniejsza wersja Chromium.</translation>
 <translation id="1766096484055239003">Administrator wymaga od Ciebie ponownego uruchomienia Chromium, by przeglądarka mogła zainstalować aktualizację</translation>
 <translation id="1774152462503052664">Zezwól Chromium na działanie w tle</translation>
@@ -123,9 +124,6 @@
 <translation id="5634636535844844681">Chromium wymaga systemu Windows 7 lub nowszego.</translation>
 <translation id="5680901439334282664">zaloguj się w Chromium</translation>
 <translation id="5698481217667032250">Wyświetlaj Chromium w tym języku</translation>
-<translation id="5756484659843248772">Ten język jest używany do wyświetlania UI Chromium OS</translation>
-<translation id="5768914737813585044">Wyświetlaj system operacyjny Chromium w tym języku</translation>
-<translation id="5796460469508169315">Chromium jest prawie gotowy.</translation>
 <translation id="5820394555380036790">System operacyjny Chromium</translation>
 <translation id="5862307444128926510">Chromium – witamy!</translation>
 <translation id="5877064549588274448">Kanał został zmieniony. Aby zastosować zmiany, uruchom ponownie urządzenie.</translation>
@@ -141,6 +139,8 @@
 <translation id="6096348254544841612">Dostosowywanie i kontrolowanie Chromium. Dostępna jest aktualizacja.</translation>
 <translation id="6120345080069858279">Chromium zapisze to hasło na Twoim koncie Google. Nie musisz go pamiętać.</translation>
 <translation id="6129621093834146363">Plik <ph name="FILE_NAME" /> jest niebezpieczny, dlatego został zablokowany przez Chromium.</translation>
+<translation id="6173098285107411678">Jeśli ustawienia nie widać na tej stronie, zajrzyj do
+    <ph name="LINK_BEGIN" />ustawień przeglądarki Chromium<ph name="LINK_END" /></translation>
 <translation id="6212496753309875659">Na tym komputerze jest już zainstalowana nowsza wersja Chromium. Jeśli program nie działa, odinstaluj go i spróbuj ponownie.</translation>
 <translation id="6219195342503754812">{0,plural, =0{Chromium uruchomi się ponownie teraz}=1{Chromium uruchomi się ponownie za 1 sekundę}few{Chromium uruchomi się ponownie za # sekundy}many{Chromium uruchomi się ponownie za # sekund}other{Chromium uruchomi się ponownie za # sekundy}}</translation>
 <translation id="6248213926982192922">Ustaw Chromium jako domyślną przeglądarkę</translation>
@@ -188,12 +188,6 @@ Chromium nie może odzyskać ustawień.</translation>
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7339898014177206373">Nowe okno</translation>
 <translation id="734373864078049451">Tu są Twoje strony, zakładki i inne dane z Chromium.</translation>
-<translation id="7344413941077984497">Aby określić, które witryny może wyświetlać <ph name="NEW_PROFILE_NAME" />, skonfiguruj ograniczenia i ustawienia na stronie <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" />. Jeśli nie zmienisz ustawień domyślnych, użytkownik <ph name="NEW_PROFILE_NAME" /> będzie mógł przeglądać wszystkie strony w internecie.
-
-Aby uniemożliwić użytkownikowi <ph name="NEW_PROFILE_NAME" /> korzystanie z Twojego konta, blokuj swój profil, gdy nie używasz Chromium. Kliknij w tym celu nazwę profilu w prawym górnym rogu przeglądarki i wybierz „Wyjdź i aktywuj blokadę dostępu dla dzieci”.
-<ph name="BEGIN_LINK_2" />Więcej informacji<ph name="END_LINK_2" />
-
-Więcej instrukcji znajdziesz w e-mailu wysłanym na adres <ph name="ACCOUNT_EMAIL" />.</translation>
 <translation id="7349591376906416160">Administrator systemu skonfigurował Chromium tak, by strona <ph name="TARGET_URL_HOSTNAME" /> otwierała się w przeglądarce <ph name="ALTERNATIVE_BROWSER_NAME" />.</translation>
 <translation id="7448255348454382571">Ponowne uruchomienie Chromium OS</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> – Chromium Dev</translation>
@@ -227,7 +221,6 @@ Więcej instrukcji znajdziesz w e-mailu wysłanym na adres <ph name="ACCOUNT_EM
 <translation id="8290862415967981663">Ten plik może być niebezpieczny, dlatego został zablokowany przez Chromium.</translation>
 <translation id="8330519371938183845">Zaloguj się, by synchronizować dane Chromium i korzystać z własnych ustawień przeglądarki na wielu urządzeniach</translation>
 <translation id="8340674089072921962">Użytkownik <ph name="USER_EMAIL_ADDRESS" /> wcześniej używał Chromium</translation>
-<translation id="8375950122744241554">Profile nadzorowanych użytkowników nie będą dostępne począwszy od Chromium 70.</translation>
 <translation id="8417404458978023919">{0,plural, =1{Ponowne uruchomienie Chromium nastąpi w ciągu 1 dnia}few{Ponowne uruchomienie Chromium nastąpi w ciągu # dni}many{Ponowne uruchomienie Chromium nastąpi w ciągu # dni}other{Ponowne uruchomienie Chromium nastąpi w ciągu # dnia}}</translation>
 <translation id="8453117565092476964">Archiwum instalatora jest uszkodzone lub nieprawidłowe. Pobierz Chromium ponownie.</translation>
 <translation id="8493179195440786826">Chromium jest nieaktualny</translation>

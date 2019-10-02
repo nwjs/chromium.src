@@ -19,7 +19,7 @@
 #include "ios/chrome/browser/sync/sync_setup_service.h"
 #include "ios/chrome/browser/sync/sync_setup_service_factory.h"
 #include "ios/chrome/test/ios_chrome_scoped_testing_chrome_browser_state_manager.h"
-#include "ios/web/public/test/test_web_thread_bundle.h"
+#include "ios/web/public/test/web_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
@@ -77,7 +77,7 @@ class SettingsNavigationControllerTest : public PlatformTest {
     }
   }
 
-  web::TestWebThreadBundle thread_bundle_;
+  web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingChromeBrowserStateManager scoped_browser_state_manager_;
   std::unique_ptr<TestChromeBrowserState> chrome_browser_state_;
   id mockDelegate_;

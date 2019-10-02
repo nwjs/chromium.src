@@ -144,7 +144,6 @@ class PanelItem extends HTMLElement {
                 </xf-circular-progress>
                 <div class='xf-panel-text'>
                     <span class='xf-panel-label-text'>
-                            Placeholder text
                     </span>
                     <br class='xf-linebreaker'/>
                 </div>
@@ -207,14 +206,12 @@ class PanelItem extends HTMLElement {
         buttonSpacer.insertAdjacentElement('afterend', secondaryButton);
         break;
       case this.panelTypeSummary:
-        // TODO(crbug.com/989322) i18n for this string.
-        const fbWindow = ' Files feedback panels';
         this.setAttribute('indicator', 'largeprogress');
         primaryButton = document.createElement('xf-button');
         primaryButton.id = 'primary-action';
         primaryButton.dataset.category = 'expand';
         primaryButton.setAttribute(
-            'aria-label', '$i18n{EXPAND_LABEL}' + fbWindow);
+            'aria-label', '$i18n{FEEDBACK_EXPAND_LABEL}');
         buttonSpacer.insertAdjacentElement('afterend', primaryButton);
         break;
       case this.panelTypeDone:

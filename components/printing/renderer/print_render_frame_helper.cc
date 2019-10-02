@@ -33,6 +33,7 @@
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
 #include "mojo/public/cpp/base/shared_memory_utils.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/base/escape.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "printing/buildflags/buildflags.h"
@@ -691,10 +692,12 @@ void PrintRenderFrameHelper::PrintHeaderAndFooter(
   };
 
   HeaderAndFooterClient frame_client;
-  blink::mojom::DocumentInterfaceBrokerPtrInfo document_interface_broker;
+  mojo::PendingRemote<blink::mojom::DocumentInterfaceBroker>
+      document_interface_broker;
   blink::WebLocalFrame* frame = blink::WebLocalFrame::CreateMainFrame(
       web_view, &frame_client, nullptr,
-      mojo::MakeRequest(&document_interface_broker).PassMessagePipe(), nullptr);
+      document_interface_broker.InitWithNewPipeAndPassReceiver().PassPipe(),
+      nullptr);
 
   blink::WebWidgetClient web_widget_client;
   blink::WebFrameWidget::CreateForMainFrame(&web_widget_client, frame);
@@ -710,8 +713,6 @@ void PrintRenderFrameHelper::PrintHeaderAndFooter(
   options->SetDouble("height", page_size.height);
   options->SetDouble("topMargin", page_layout.margin_top);
   options->SetDouble("bottomMargin", page_layout.margin_bottom);
-  options->SetDouble("leftMargin", page_layout.margin_left);
-  options->SetDouble("rightMargin", page_layout.margin_right);
   options->SetInteger("pageNumber", page_number);
   options->SetInteger("totalPages", total_pages);
   options->SetString("url", params.url);
@@ -730,7 +731,7 @@ void PrintRenderFrameHelper::PrintHeaderAndFooter(
   frame->PrintPage(0, canvas);
   frame->PrintEnd();
 
-  web_view->MainFrameWidget()->Close();
+  web_view->Close();
 }
 
 // static - Not anonymous so that platform implementations can use it.
@@ -882,6 +883,9 @@ void PrepareFrameAndViewForPrint::ResizeForPrinting() {
     if (web_frame->IsWebLocalFrame())
       prev_scroll_offset_ = web_frame->ToWebLocalFrame()->GetScrollOffset();
   }
+
+  // It doesn't make sense to print a detached WebView without a Widget.
+  CHECK(web_view->MainFrameWidget());
   prev_view_size_ = web_view->MainFrameWidget()->Size();
   web_view->MainFrameWidget()->Resize(print_layout_size);
 }
@@ -927,10 +931,12 @@ void PrepareFrameAndViewForPrint::CopySelection(
       /*compositing_enabled=*/false,
       /*opener=*/nullptr);
   content::RenderView::ApplyWebPreferences(prefs, web_view);
-  blink::mojom::DocumentInterfaceBrokerPtrInfo document_interface_broker;
+  mojo::PendingRemote<blink::mojom::DocumentInterfaceBroker>
+      document_interface_broker;
   blink::WebLocalFrame* main_frame = blink::WebLocalFrame::CreateMainFrame(
       web_view, this, nullptr,
-      mojo::MakeRequest(&document_interface_broker).PassMessagePipe(), nullptr);
+      document_interface_broker.InitWithNewPipeAndPassReceiver().PassPipe(),
+      nullptr);
   frame_.Reset(main_frame);
   blink::WebFrameWidget::CreateForMainFrame(this, main_frame);
   node_to_print_.Reset();
@@ -942,7 +948,8 @@ void PrepareFrameAndViewForPrint::CopySelection(
   navigation_control_->CommitNavigation(
       blink::WebNavigationParams::CreateWithHTMLString(
           html, GURL(url::kAboutBlankURL)),
-      nullptr /* extra_data */);
+      nullptr /* extra_data */,
+      base::DoNothing::Once() /* call_before_attaching_new_document */);
 }
 
 blink::WebScreenInfo PrepareFrameAndViewForPrint::GetScreenInfo() {
@@ -1008,6 +1015,8 @@ void PrepareFrameAndViewForPrint::RestoreSize() {
     return;
 
   blink::WebView* web_view = frame_.GetFrame()->View();
+  // It doesn't make sense to print a detached WebView without a Widget.
+  CHECK(web_view->MainFrameWidget());
   web_view->MainFrameWidget()->Resize(prev_view_size_);
   if (blink::WebFrame* web_frame = web_view->MainFrame()) {
     // TODO(lukasza, weili): Support restoring scroll offset of a remote main
@@ -1032,7 +1041,7 @@ void PrepareFrameAndViewForPrint::FinishPrinting() {
     if (owns_web_view_) {
       DCHECK(!frame->IsLoading());
       owns_web_view_ = false;
-      web_view->MainFrameWidget()->Close();
+      web_view->Close();
     }
   }
   navigation_control_ = nullptr;
@@ -1826,8 +1835,10 @@ bool PrintRenderFrameHelper::PrintPagesNative(blink::WebLocalFrame* frame,
 #if defined(OS_WIN)
   page_params.physical_offsets = printer_printable_area_.origin();
 #endif
-  Send(new PrintHostMsg_DidPrintDocument(routing_id(), page_params));
-  return true;
+  bool completed = false;
+  Send(
+      new PrintHostMsg_DidPrintDocument(routing_id(), page_params, &completed));
+  return completed;
 }
 
 void PrintRenderFrameHelper::FinishFramePrinting() {

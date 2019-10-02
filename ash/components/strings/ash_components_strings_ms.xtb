@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="ms">
+<translation id="1036550831858290950">Simpan tab semasa anda sebagai penanda halaman</translation>
 <translation id="104962181688258143">Buka apl Fail</translation>
 <translation id="1098295134904615027">Aktifkan meja maya di sebelah kanan</translation>
 <translation id="1122869341872663659">Memaparkan <ph name="N" /> hasil carian untuk <ph name="QUERY" /></translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">Tetapkan semula tahap zum pada halaman</translation>
 <translation id="2596078834055697711">Ambil tangkapan skrin tetingkap</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, kemudian <ph name="TAB" /> atau <ph name="RIGHT" /></translation>
-<translation id="2699509451653686398">Simpan halaman web semasa anda sebagai penanda halaman</translation>
 <translation id="2750942583782703988">Muat semula halaman semasa anda</translation>
 <translation id="2764005613199379871">Letakkan fokus dalam bar alamat carian</translation>
 <translation id="2789868185375229787">Zum keluar pada halaman</translation>

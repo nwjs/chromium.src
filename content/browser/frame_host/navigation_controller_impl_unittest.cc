@@ -300,8 +300,8 @@ class LoadCommittedDetailsObserver : public WebContentsObserver {
   bool has_navigation_ui_data_;
 };
 
-// PlzNavigate
-// A NavigationControllerTest run with --enable-browser-side-navigation.
+// "Legacy" class that was used to run NavigationControllerTest with the now
+// defunct --enable-browser-side-navigation flag.
 // TODO(clamy): Make those regular NavigationControllerTests.
 class NavigationControllerTestWithBrowserSideNavigation
     : public NavigationControllerTest {
@@ -2023,8 +2023,9 @@ TEST_F(NavigationControllerTest, AutoSubframe) {
   main_test_rfh()->OnCreateChildFrame(
       process()->GetNextRoutingID(),
       TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name0, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
       FrameOwnerProperties(), kOwnerType);
@@ -2062,8 +2063,9 @@ TEST_F(NavigationControllerTest, AutoSubframe) {
   main_test_rfh()->OnCreateChildFrame(
       process()->GetNextRoutingID(),
       TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name1, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
       FrameOwnerProperties(), kOwnerType);
@@ -2101,8 +2103,9 @@ TEST_F(NavigationControllerTest, AutoSubframe) {
   subframe->OnCreateChildFrame(
       process()->GetNextRoutingID(),
       TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name2, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
       FrameOwnerProperties(), kOwnerType);
@@ -2158,8 +2161,9 @@ TEST_F(NavigationControllerTest, BackSubframe) {
   main_test_rfh()->OnCreateChildFrame(
       process()->GetNextRoutingID(),
       TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
       FrameOwnerProperties(), blink::FrameOwnerElementType::kIframe);
@@ -2828,6 +2832,33 @@ TEST_F(NavigationControllerTest, TransientEntry) {
   EXPECT_EQ(controller.GetEntryAtIndex(4)->GetURL(), url4);
 }
 
+// Test that RemoveEntryAtIndex can handle an index that refers to a transient
+// entry.
+TEST_F(NavigationControllerTest, RemoveTransientByIndex) {
+  NavigationControllerImpl& controller = controller_impl();
+  const GURL url0("http://foo/0");
+  const GURL transient_url("http://foo/transient");
+
+  NavigationSimulator::NavigateAndCommitFromBrowser(contents(), url0);
+
+  std::unique_ptr<NavigationEntry> transient_entry =
+      std::make_unique<NavigationEntryImpl>();
+  transient_entry->SetURL(transient_url);
+  controller.SetTransientEntry(std::move(transient_entry));
+
+  EXPECT_EQ(transient_url, controller.GetVisibleEntry()->GetURL());
+  EXPECT_EQ(controller.GetEntryCount(), 2);
+  EXPECT_EQ(controller.GetLastCommittedEntryIndex(), 0);
+  EXPECT_TRUE(controller.GetTransientEntry());
+  EXPECT_EQ(controller.GetTransientEntry(), controller.GetEntryAtIndex(1));
+
+  EXPECT_TRUE(controller.RemoveEntryAtIndex(1));
+
+  EXPECT_EQ(controller.GetEntryCount(), 1);
+  EXPECT_EQ(controller.GetLastCommittedEntryIndex(), 0);
+  EXPECT_FALSE(controller.GetTransientEntry());
+}
+
 // Test that Reload initiates a new navigation to a transient entry's URL.
 TEST_F(NavigationControllerTest, ReloadTransient) {
   NavigationControllerImpl& controller = controller_impl();
@@ -3335,8 +3366,9 @@ TEST_F(NavigationControllerTest, SameSubframe) {
   main_test_rfh()->OnCreateChildFrame(
       process()->GetNextRoutingID(),
       TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
       FrameOwnerProperties(), blink::FrameOwnerElementType::kIframe);
@@ -3503,8 +3535,9 @@ TEST_F(NavigationControllerTest, SubframeWhilePending) {
   main_test_rfh()->OnCreateChildFrame(
       process()->GetNextRoutingID(),
       TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
       FrameOwnerProperties(), blink::FrameOwnerElementType::kIframe);
@@ -4044,7 +4077,7 @@ TEST_F(NavigationControllerTest, HistoryNavigate) {
   process()->sink().ClearMessages();
 
   // Simulate the page calling history.back(). It should create a pending entry.
-  contents()->OnGoToEntryAtOffset(main_test_rfh(), -1, false);
+  contents()->OnGoToEntryAtOffset(main_test_rfh(), -1, false, true);
   EXPECT_EQ(0, controller.GetPendingEntryIndex());
 
   // Also make sure we told the page to navigate.
@@ -4054,7 +4087,7 @@ TEST_F(NavigationControllerTest, HistoryNavigate) {
   process()->sink().ClearMessages();
 
   // Now test history.forward()
-  contents()->OnGoToEntryAtOffset(main_test_rfh(), 2, false);
+  contents()->OnGoToEntryAtOffset(main_test_rfh(), 2, false, true);
   EXPECT_EQ(2, controller.GetPendingEntryIndex());
 
   nav_url = GetLastNavigationURL();
@@ -4065,8 +4098,8 @@ TEST_F(NavigationControllerTest, HistoryNavigate) {
   controller.DiscardNonCommittedEntries();
 
   // Make sure an extravagant history.go() doesn't break.
-  contents()->OnGoToEntryAtOffset(main_test_rfh(), 120,
-                                  false);  // Out of bounds.
+  contents()->OnGoToEntryAtOffset(main_test_rfh(), 120, false,
+                                  true);  // Out of bounds.
   EXPECT_EQ(-1, controller.GetPendingEntryIndex());
   EXPECT_FALSE(HasNavigationRequest());
 }
@@ -4743,8 +4776,9 @@ TEST_F(NavigationControllerTest, SubFrameNavigationUIData) {
   main_test_rfh()->OnCreateChildFrame(
       process()->GetNextRoutingID(),
       TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerRequest(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
       FrameOwnerProperties(), blink::FrameOwnerElementType::kIframe);

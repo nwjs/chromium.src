@@ -46,6 +46,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorImpl;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.widget.ScrimView;
+import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.testing.local.LocalRobolectricTestRunner;
@@ -132,6 +133,8 @@ public class TabGridDialogMediatorUnitTest {
         doReturn(mTabGroupModelFilter).when(mTabModelFilterProvider).getCurrentTabModelFilter();
         doReturn(POSITION1).when(mTabGroupModelFilter).indexOf(mTab1);
         doReturn(POSITION2).when(mTabGroupModelFilter).indexOf(mTab2);
+        doReturn(mTab1).when(mTabGroupModelFilter).getTabAt(POSITION1);
+        doReturn(mTab2).when(mTabGroupModelFilter).getTabAt(POSITION2);
         doReturn(tabs1).when(mTabGroupModelFilter).getRelatedTabList(TAB1_ID);
         doReturn(tabs2).when(mTabGroupModelFilter).getRelatedTabList(TAB2_ID);
         doReturn(mTab1).when(mTabModelSelector).getCurrentTab();
@@ -149,15 +152,13 @@ public class TabGridDialogMediatorUnitTest {
         doReturn(mResources).when(mContext).getResources();
         doReturn(DIALOG_TITLE1)
                 .when(mResources)
-                .getQuantityString(
-                        org.chromium.chrome.R.plurals.bottom_tab_grid_title_placeholder, 1, 1);
+                .getQuantityString(R.plurals.bottom_tab_grid_title_placeholder, 1, 1);
         doReturn(DIALOG_TITLE2)
                 .when(mResources)
-                .getQuantityString(
-                        org.chromium.chrome.R.plurals.bottom_tab_grid_title_placeholder, 2, 2);
+                .getQuantityString(R.plurals.bottom_tab_grid_title_placeholder, 2, 2);
         doReturn(mAnimationParams)
                 .when(mAnimationParamsProvider)
-                .getAnimationParamsForIndex(anyInt());
+                .getAnimationParamsForTab(anyInt());
         doReturn(mTabCreator).when(mTabCreatorManager).getTabCreator(anyBoolean());
 
         mModel = new PropertyModel(TabGridSheetProperties.ALL_KEYS);
@@ -254,7 +255,7 @@ public class TabGridDialogMediatorUnitTest {
         // Current tab ID should not update.
         assertThat(mMediator.getCurrentTabIdForTest(), equalTo(TAB1_ID));
         assertThat(mModel.get(TabGridSheetProperties.HEADER_TITLE), equalTo(DIALOG_TITLE1));
-        verify(mTabSwitcherResetHandler).resetWithTabList(mTabGroupModelFilter, false);
+        verify(mTabSwitcherResetHandler).resetWithTabList(mTabGroupModelFilter, false, false);
     }
 
     @Test
@@ -274,7 +275,7 @@ public class TabGridDialogMediatorUnitTest {
         // Current tab ID should be updated to TAB1_ID now.
         assertThat(mMediator.getCurrentTabIdForTest(), equalTo(TAB1_ID));
         assertThat(mModel.get(TabGridSheetProperties.HEADER_TITLE), equalTo(DIALOG_TITLE1));
-        verify(mTabSwitcherResetHandler).resetWithTabList(mTabGroupModelFilter, false);
+        verify(mTabSwitcherResetHandler).resetWithTabList(mTabGroupModelFilter, false, false);
     }
 
     @Test
@@ -289,10 +290,13 @@ public class TabGridDialogMediatorUnitTest {
 
         mTabModelObserverCaptor.getValue().willCloseTab(mTab1, false);
 
-        assertThat(mMediator.getCurrentTabIdForTest(), equalTo(Tab.INVALID_TAB_ID));
         assertThat(mModel.get(TabGridSheetProperties.ANIMATION_PARAMS), equalTo(null));
         verify(mDialogResetHandler).resetWithListOfTabs(null);
-        verify(mTabSwitcherResetHandler, never()).resetWithTabList(mTabGroupModelFilter, false);
+        verify(mTabSwitcherResetHandler, never())
+                .resetWithTabList(mTabGroupModelFilter, false, false);
+
+        mMediator.onReset(null);
+        assertThat(mMediator.getCurrentTabIdForTest(), equalTo(Tab.INVALID_TAB_ID));
     }
 
     @Test
@@ -314,7 +318,8 @@ public class TabGridDialogMediatorUnitTest {
         assertThat(mModel.get(TabGridSheetProperties.HEADER_TITLE), equalTo(DIALOG_TITLE1));
         // Dialog should still be hidden.
         assertThat(mModel.get(TabGridSheetProperties.IS_DIALOG_VISIBLE), equalTo(false));
-        verify(mTabSwitcherResetHandler, never()).resetWithTabList(mTabGroupModelFilter, false);
+        verify(mTabSwitcherResetHandler, never())
+                .resetWithTabList(mTabGroupModelFilter, false, false);
     }
 
     @Test
@@ -327,7 +332,7 @@ public class TabGridDialogMediatorUnitTest {
         mTabModelObserverCaptor.getValue().tabClosureUndone(mTab1);
 
         assertThat(mModel.get(TabGridSheetProperties.HEADER_TITLE), equalTo(DIALOG_TITLE1));
-        verify(mTabSwitcherResetHandler).resetWithTabList(mTabGroupModelFilter, false);
+        verify(mTabSwitcherResetHandler).resetWithTabList(mTabGroupModelFilter, false, false);
     }
 
     @Test
@@ -342,7 +347,8 @@ public class TabGridDialogMediatorUnitTest {
         assertThat(mModel.get(TabGridSheetProperties.HEADER_TITLE), equalTo(DIALOG_TITLE1));
         // Dialog should still be hidden.
         assertThat(mModel.get(TabGridSheetProperties.IS_DIALOG_VISIBLE), equalTo(false));
-        verify(mTabSwitcherResetHandler, never()).resetWithTabList(mTabGroupModelFilter, false);
+        verify(mTabSwitcherResetHandler, never())
+                .resetWithTabList(mTabGroupModelFilter, false, false);
     }
 
     @Test
@@ -373,6 +379,7 @@ public class TabGridDialogMediatorUnitTest {
         // Mock that the animation source Rect is null.
         mModel.set(TabGridSheetProperties.ANIMATION_PARAMS, null);
 
+        mMediator.setCurrentTabIdForTest(TAB1_ID);
         mMediator.hideDialog(true);
 
         // Animation params should be specified.
@@ -396,7 +403,7 @@ public class TabGridDialogMediatorUnitTest {
         mModel.set(TabGridSheetProperties.ANIMATION_PARAMS, null);
         mModel.set(TabGridSheetProperties.HEADER_TITLE, null);
 
-        mMediator.onReset(TAB1_ID);
+        mMediator.onReset(Arrays.asList(mTab1));
 
         assertThat(mModel.get(TabGridSheetProperties.IS_DIALOG_VISIBLE), equalTo(true));
         // Animation source Rect should be updated with specific Rect.
@@ -416,7 +423,7 @@ public class TabGridDialogMediatorUnitTest {
         mModel.set(TabGridSheetProperties.ANIMATION_PARAMS, null);
         mModel.set(TabGridSheetProperties.HEADER_TITLE, null);
 
-        mMediator.onReset(TAB1_ID);
+        mMediator.onReset(Arrays.asList(mTab1));
 
         assertThat(mModel.get(TabGridSheetProperties.IS_DIALOG_VISIBLE), equalTo(true));
         // Animation params should not be specified.

@@ -85,12 +85,6 @@
 <translation id="3080151273017101988">‏ادامه اجرای برنامه‌ها در پس‌زمینه هنگامیکه Google Chrome بسته می‌شود</translation>
 <translation id="3089968997497233615">‏نسخه جدید و امن تری از Google Chrome موجود است.</translation>
 <translation id="3149510190863420837">‏برنامه‌های Chrome</translation>
-<translation id="3251381707915721925">‏برای تنظیم وب‌سایت‌هایی که <ph name="NEW_PROFILE_NAME" /> می‌تواند ببیند، می‌توانید با رفتن به <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" /> محدودیت‌ها و تنظیمات را اعمال کنید. اگر تنظیمات پیش‌فرض را تغییر ندهید، <ph name="NEW_PROFILE_NAME" /> می‌تواند همه محتوای وب را مرور کند.
-
-برای اینکه <ph name="NEW_PROFILE_NAME" /> نتواند به محتوای شما دسترسی داشته باشد، حتماً در زمان‌هایی که از Chrome استفاده نمی‌کنید نمایه‌تان را قفل کنید. برای انجام این کار، روی نام نمایه در گوشه چپ بالای مرورگر کلیک کنید و «خروج و قفل کودک» را انتخاب نمایید.
-<ph name="BEGIN_LINK_2" />بیشتر بدانید<ph name="END_LINK_2" />
-
-برای دستورالعمل‌های بیشتر، لطفاً رایانامه‌تان (<ph name="ACCOUNT_EMAIL" />) را بررسی کنید.</translation>
 <translation id="3282568296779691940">‏ورود به Chrome</translation>
 <translation id="3340978935015468852">تنظیمات</translation>
 <translation id="3360895254066713204">‏راهنمای Chrome</translation>
@@ -150,7 +144,6 @@
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">‏Google Chrome قادر به همگام‌سازی داده‌های شما نبود. لطفاً رمز عبارتی همگام‌سازی خود را به‌روز کنید.</translation>
 <translation id="5062123544085870375">‏بازراه‌اندازی سیستم‌عامل Chrome</translation>
-<translation id="5090044601776247154">‏نمایه‌های کاربر تحت نظارت، از نسخه ۷۰ Google Chrome دیگر دردسترس نخواهد بود.</translation>
 <translation id="5132929315877954718">‏برنامه‌های کاربردی، بازی‌ها، افزونه‌ها و طرح‌های زمینه فوق‌العاده را برای Google Chrome کاوش کنید.</translation>
 <translation id="5170938038195470297">‏نمایهٔ شما نمی‌تواند استفاده شود زیرا مربوط به یک نسخه جدیدتر از Google Chrome است. بعضی از ویژگی‌ها ممکن است موجود نباشند. لطفاً یک مسیر دیگر برای نمایه تعیین کنید یا از نسخه جدیدتر Chrome استفاده کنید.</translation>
 <translation id="5193136243808726294">‏Google Chrome OS نمی‌‎تواند این صفحه را باز کند.</translation>
@@ -175,9 +168,12 @@
 <translation id="5906655207909574370">تقریباً به‌روز شده است! برای تمام کردن به‌روزرسانی، دستگاهتان را دوباره راه‌اندازی کنید.</translation>
 <translation id="5940385492829620908">‏وب، نشانک‌ها و موارد دیگر Chrome شما در اینجا هستند.</translation>
 <translation id="5941830788786076944">‏Google Chrome مرورگر پیش‌فرض شود</translation>
+<translation id="5977372243443849142">‏Chrome کمک می‌کند گذرواژه‌تان ذخیره شود، در نتیجه لازم نیست خودتان آن را به حافظه بسپارید.</translation>
 <translation id="6014844626092547096">‏اکنون وارد Chrome شدید! سرپرست سیستم شما همگام‌سازی را از کار انداخته است.</translation>
 <translation id="6040143037577758943">بستن</translation>
 <translation id="6070348360322141662">‏برای امنیت بیشتر، Google Chrome داده‌های شما را رمزگذاری می‌کند</translation>
+<translation id="6102256037460917300">‏اگر تنظیمی در این صفحه نشان داده نمی‌شود، در <ph name="LINK_BEGIN" />
+    تنظیمات مرورگر Chrome<ph name="LINK_END" /> پیدایش کنید</translation>
 <translation id="6113794647360055231">‏Chrome اکنون بهتر شده است</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome Beta</translation>
@@ -219,7 +215,6 @@
 <translation id="7486227612705979895">‏Chrome برای ارائه پیشنهاد در نوار نشانی، به Drive شما دسترسی خواهد داشت</translation>
 <translation id="7531671357096394523">‏از همه نسخه‌های Chrome خارج شوید.</translation>
 <translation id="7535429826459677826">‏Google Chrome نسخه Dev</translation>
-<translation id="7552219221109926349">‏سیستم عامل Chrome به این زبان نشان داده می‌شود</translation>
 <translation id="7589360514048265910">‏این رایانه دیگر به‌روزرسانی‌های Google Chrome را دریافت نمی‌کند، زیرا Mac OS X نسخه ۱۰.۹ دیگر پشتیبانی نمی‌شود.</translation>
 <translation id="7592736734348559088">‏Google Chrome قادر به همگام‌سازی داده‌های شما نبود زیرا جزئیات ورود به حساب شما به‌روز نیست.</translation>
 <translation id="7626032353295482388">‏به Chrome خوش آمدید</translation>
@@ -237,7 +232,6 @@
 <translation id="7896673875602241923">‏شخصی قبلاً به‌عنوان <ph name="ACCOUNT_EMAIL_LAST" /> به سیستم Chrome در این رایانه وارد شده است. برای اینکه اطلاعاتتان جدا حفظ شود، لطفاً کاربر Chrome جدیدی ایجاد کنید.</translation>
 <translation id="7908168227788431038">‏تقریباً به‌روز شده است! برای تمام کردن به‌روزرسانی، Google Chrome را راه‌اندازی مجدد کنید.</translation>
 <translation id="7962410387636238736">‏این رایانه دیگر به‌روزرسانی‌های Google Chrome را دریافت نمی‌کند زیرا Windows XP و Windows Vista دیگر پشتیبانی نمی‌شوند</translation>
-<translation id="8005540215158006229">‏Chrome تقریباً آماده است.</translation>
 <translation id="8008534537613507642">‏نصب مجدد Chrome</translation>
 <translation id="8013993649590906847">‏اگر تصویری توضیح مفیدی نداشته باشد، Chrome توضیحی برای شما ارائه خواهد کرد. برای ایجاد توضیحات، تصاویر به Google ارسال می‌شود.</translation>
 <translation id="8030318113982266900">درحال به روزرسانی دستگاه شما به کانال <ph name="CHANNEL_NAME" />...</translation>
@@ -270,7 +264,6 @@
 <translation id="870251953148363156">‏به‌روزرسانی Goo&amp;gle Chrome</translation>
 <translation id="873133009373065397">‏Google Chrome نمی‌تواند مرورگر پیش‌فرض را تعیین یا تنظیم کند</translation>
 <translation id="8736674169840206667">‏سرپرست سیستم لازم می‌داند برای اعمال به‌روزرسانی، Chrome را راه‌اندازی مجدد کنید</translation>
-<translation id="8788264404293392165">‏از این زبان برای نمایش رابط کاربری سیستم عامل Chrome استفاده می‌شود</translation>
 <translation id="8823341990149967727">‏نسخه Chrome قدیمی است</translation>
 <translation id="884296878221830158">‏این برنامه همچنین صفحه‌ای را که هنگام راه‌اندازی Chrome یا کلیک کردن روی دکمه صفحه اصلی نشان داده می‌شود، کنترل می‌کند.</translation>
 <translation id="8862326446509486874">شما حقوق لازم برای نصب در سطح سیستم را ندارید. دوباره به‌عنوان سرپرست نصب‌کننده را اجرا کنید.</translation>

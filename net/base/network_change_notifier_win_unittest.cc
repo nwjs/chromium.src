@@ -13,7 +13,7 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "net/base/network_change_notifier.h"
 #include "net/base/network_change_notifier_factory.h"
-#include "net/test/test_with_scoped_task_environment.h"
+#include "net/test/test_with_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -82,7 +82,7 @@ bool ExitMessageLoopAndReturnFalse() {
 
 }  // namespace
 
-class NetworkChangeNotifierWinTest : public TestWithScopedTaskEnvironment {
+class NetworkChangeNotifierWinTest : public TestWithTaskEnvironment {
  public:
   // Calls WatchForAddressChange, and simulates a WatchForAddressChangeInternal
   // success.  Expects that |network_change_notifier_| has just been created, so

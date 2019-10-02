@@ -36,6 +36,7 @@ Polymer({
 
   behaviors: [
     I18nBehavior,
+    WebUIListenerBehavior,
     ListPropertyUpdateBehavior,
     Polymer.IronA11yKeysBehavior,
     settings.GlobalScrollTargetBehavior,
@@ -94,6 +95,18 @@ Polymer({
     },
 
     /** @private */
+    hidePasswordsLink_: {
+      type: Boolean,
+      computed: 'computeHidePasswordsLink_(syncPrefs_, syncStatus_)',
+    },
+
+    /** @private */
+    passwordsLeakDetectionEnabled_: {
+      type: Boolean,
+      value: loadTimeData.getBoolean('passwordsLeakDetectionEnabled'),
+    },
+
+    /** @private */
     showExportPasswords_: {
       type: Boolean,
       computed: 'hasPasswords_(savedPasswords.splices)',
@@ -110,6 +123,12 @@ Polymer({
 
     /** @private */
     showPasswordEditDialog_: Boolean,
+
+    /** @private {settings.SyncPrefs} */
+    syncPrefs_: Object,
+
+    /** @private {settings.SyncStatus} */
+    syncStatus_: Object,
 
     /** Filter on the saved passwords and exceptions. */
     filter: {
@@ -156,11 +175,14 @@ Polymer({
   },
 
   /**
-   * The element to return focus to, when the currently active dialog is
-   * closed.
-   * @private {?HTMLElement}
+   * A stack of the elements that triggered dialog to open and should therefore
+   * receive focus when that dialog is closed. The bottom of the stack is the
+   * element that triggered the earliest open dialog and top of the stack is the
+   * element that triggered the most recent (i.e. active) dialog. If no dialog
+   * is open, the stack is empty.
+   * @private {!Array<Element>}
    */
-  activeDialogAnchor_: null,
+  activeDialogAnchorStack_: [],
 
   /**
    * @type {PasswordManagerProxy}
@@ -210,7 +232,7 @@ Polymer({
       this.tokenRequestManager_ = new settings.BlockingRequestManager();
     } else {
       this.tokenRequestManager_ = new settings.BlockingRequestManager(
-          () => this.showPasswordPromptDialog_ = true);
+          this.openPasswordPromptDialog_.bind(this));
     }
     // </if>
 
@@ -225,6 +247,16 @@ Polymer({
         setPasswordExceptionsListener);
 
     this.notifySplices('savedPasswords', []);
+
+    const syncBrowserProxy = settings.SyncBrowserProxyImpl.getInstance();
+
+    const syncStatusChanged = syncStatus => this.syncStatus_ = syncStatus;
+    syncBrowserProxy.getSyncStatus().then(syncStatusChanged);
+    this.addWebUIListener('sync-status-changed', syncStatusChanged);
+
+    const syncPrefsChanged = syncPrefs => this.syncPrefs_ = syncPrefs;
+    this.addWebUIListener('sync-prefs-changed', syncPrefsChanged);
+    syncBrowserProxy.sendSyncPrefsChanged();
 
     Polymer.RenderStatus.afterNextRender(this, function() {
       Polymer.IronA11yAnnouncer.requestAvailability();
@@ -243,9 +275,8 @@ Polymer({
          * @type {function(!Array<PasswordManagerProxy.ExceptionEntry>):void}
          */
         (this.setPasswordExceptionsListener_));
-
-    if (this.$.undoToast.open) {
-      this.$.undoToast.hide();
+    if (cr.toastManager.getInstance().isToastOpen) {
+      cr.toastManager.getInstance().hide();
     }
   },
 
@@ -273,6 +304,12 @@ Polymer({
 
   onPasswordPromptClosed_: function() {
     this.showPasswordPromptDialog_ = false;
+    cr.ui.focusWithoutInk(assert(this.activeDialogAnchorStack_.pop()));
+  },
+
+  openPasswordPromptDialog_: function() {
+    this.activeDialogAnchorStack_.push(getDeepActiveElement());
+    this.showPasswordPromptDialog_ = true;
   },
   // </if>
 
@@ -290,12 +327,20 @@ Polymer({
   /** @private */
   onPasswordEditDialogClosed_: function() {
     this.showPasswordEditDialog_ = false;
-    cr.ui.focusWithoutInk(assert(this.activeDialogAnchor_));
-    this.activeDialogAnchor_ = null;
+    cr.ui.focusWithoutInk(assert(this.activeDialogAnchorStack_.pop()));
 
     // Trigger a re-evaluation of the activePassword as the visibility state of
     // the password might have changed.
     this.activePassword.notifyPath('item.password');
+  },
+
+  /**
+   * @return {boolean}
+   * @private
+   */
+  computeHidePasswordsLink_: function() {
+    return !!this.syncStatus_ && !!this.syncStatus_.signedIn &&
+        !!this.syncPrefs_ && !!this.syncPrefs_.encryptAllData;
   },
 
   /**
@@ -330,8 +375,7 @@ Polymer({
   onMenuRemovePasswordTap_: function() {
     this.passwordManager_.removeSavedPassword(
         this.activePassword.item.entry.id);
-    this.fire('iron-announce', {text: this.$.undoLabel.textContent});
-    this.$.undoToast.show();
+    cr.toastManager.getInstance().show(this.i18n('passwordDeleted'), false);
     /** @type {CrActionMenuElement} */ (this.$.menu).close();
   },
 
@@ -344,7 +388,7 @@ Polymer({
     const activeElement = getDeepActiveElement();
     if (!activeElement || !isEditable(activeElement)) {
       this.passwordManager_.undoRemoveSavedPasswordOrException();
-      this.$.undoToast.hide();
+      cr.toastManager.getInstance().hide();
       // Preventing the default is necessary to not conflict with a possible
       // search action.
       event.preventDefault();
@@ -353,7 +397,7 @@ Polymer({
 
   onUndoButtonTap_: function() {
     this.passwordManager_.undoRemoveSavedPasswordOrException();
-    this.$.undoToast.hide();
+    cr.toastManager.getInstance().hide();
   },
   /**
    * Fires an event that should delete the password exception.
@@ -376,7 +420,7 @@ Polymer({
     this.activePassword =
         /** @type {!PasswordListItemElement} */ (event.detail.listItem);
     menu.showAt(target);
-    this.activeDialogAnchor_ = target;
+    this.activeDialogAnchorStack_.push(target);
   },
 
   /**
@@ -389,7 +433,7 @@ Polymer({
         /** @type {!HTMLElement} */ (this.$$('#exportImportMenuButton'));
 
     menu.showAt(target);
-    this.activeDialogAnchor_ = target;
+    this.activeDialogAnchorStack_.push(target);
   },
 
   /**
@@ -413,8 +457,7 @@ Polymer({
   /** @private */
   onPasswordsExportDialogClosed_: function() {
     this.showPasswordsExportDialog_ = false;
-    cr.ui.focusWithoutInk(assert(this.activeDialogAnchor_));
-    this.activeDialogAnchor_ = null;
+    cr.ui.focusWithoutInk(assert(this.activeDialogAnchorStack_.pop()));
   },
 
   /**

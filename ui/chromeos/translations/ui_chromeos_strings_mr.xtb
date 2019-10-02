@@ -88,6 +88,7 @@
 <translation id="1942765061641586207">इमेज रिझोल्युशन</translation>
 <translation id="1943097386230153518">नवीन सेवा इंस्टॉल करा</translation>
 <translation id="1947424002851288782">जर्मन कीबोर्ड</translation>
+<translation id="1972984168337863910">फाइल फीडबॅक पॅनलचा विस्तार करा</translation>
 <translation id="197560921582345123">संपादित होऊ शकते</translation>
 <translation id="1984603991036629094">अर्मेनियन Phonetic कीबोर्ड</translation>
 <translation id="2001796770603320721">ड्राइव्ह मध्ये व्यवस्थापित करा</translation>
@@ -270,7 +271,6 @@
 <translation id="426015154560005552">अरेबिक कीबोर्ड</translation>
 <translation id="4261901459838235729">Google सादरीकरण</translation>
 <translation id="4290535918735525311">Linux सह एक फोल्डर शेअर केला</translation>
-<translation id="42981349822642051">विस्तृत करा</translation>
 <translation id="4298972503445160211">डॅनिश कीबोर्ड</translation>
 <translation id="4299729908419173967">ब्राझिलियन</translation>
 <translation id="4309915981827077375">सामान्य माहिती</translation>
@@ -326,7 +326,6 @@
 <translation id="4880520557730313061">स्वयं-निश्चित</translation>
 <translation id="4881695831933465202">उघडा</translation>
 <translation id="4886021172213954916">तामिळ कीबोर्ड (Typewriter)</translation>
-<translation id="4892969127351273348"><ph name="APP_NAME" /> ने उघडता आले नाही</translation>
 <translation id="4905417359854579806"><ph name="FILE_COUNT" /> चा बॅकअप घेण्यास तयार</translation>
 <translation id="4924638091161556692">निश्चित</translation>
 <translation id="4935975195727477204">गॅझानियाचे फूल</translation>
@@ -366,7 +365,6 @@
 <translation id="5218183485292899140">स्विस फ्रेंच</translation>
 <translation id="5234764350956374838">डिसमिस करा</translation>
 <translation id="5241298539944515331">व्हिएतनामी कीबोर्ड (VIQR)</translation>
-<translation id="52446585071384036"><ph name="APP_NAME" /> ने फायली उघडण्यासाठी, आधी त्या Linux फायली फोल्डरमध्ये कॉपी करा.</translation>
 <translation id="5253070652067921974">ने तयार केली</translation>
 <translation id="5257456363153333584">ड्रॅगनफ्लाय</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />फायली कुठूनही अॅक्सेस करा, अगदी ऑफलाइन सुद्धा.<ph name="MARKUP_2" />
@@ -641,6 +639,7 @@ Google ड्राइव्ह मधील फायली अपडेट क
 <translation id="8223479393428528563">ऑफलाइन वापराकरिता या फायली सेव्ह करण्यासाठी, परत ऑनलाइन व्‍हा, फायलींवर राइट-क्लिक करा आणि <ph name="OFFLINE_CHECKBOX_NAME" /> पर्याय निवडा.</translation>
 <translation id="8249296373107784235">रद्द करा</translation>
 <translation id="8261506727792406068">हटवा</translation>
+<translation id="8269755669432358899">फाइल फीडबॅक पॅनल कोलॅप्स करा</translation>
 <translation id="8279388322240498158">सोरानी कुर्दिश इंग्रजी-आधारित कीबोर्ड</translation>
 <translation id="8280151743281770066">अर्मेनियन ध्वन्यात्मक</translation>
 <translation id="8294431847097064396">स्रोत</translation>
@@ -671,6 +670,7 @@ Google ड्राइव्ह मधील फायली अपडेट क
 <translation id="8569764466147087991">उघडण्यासाठी फाइल निवडा</translation>
 <translation id="8579285237314169903"><ph name="NUMBER_OF_FILES" /> आयटम संकालित करीत आहे...</translation>
 <translation id="8600173386174225982">फाइल सूची थंबनेल व्ह्यूमध्ये बदलली गेली आहे.</translation>
+<translation id="8601932370724196034">Crostini इमेज फाइल</translation>
 <translation id="8669949407341943408">हलवत आहे...</translation>
 <translation id="8671210955687109937">टिप्पणी देऊ शकत नाही</translation>
 <translation id="8686213429977032554">ही ड्राइव्ह फाईल अद्याप शेअर केलेली नाही</translation>

@@ -8,6 +8,7 @@
 #include <tuple>
 
 #include "base/bind.h"
+#include "base/debug/alias.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -25,10 +26,6 @@ namespace media {
 using ProtoDecodeStatsEntry = leveldb_proto::ProtoDatabase<DecodeStatsProto>;
 
 namespace {
-
-// Avoid changing client name. Used in UMA.
-// See comments in components/leveldb_proto/leveldb_database.h
-const char kDatabaseClientName[] = "VideoDecodeStatsDB";
 
 const int kMaxFramesPerBufferDefault = 2500;
 
@@ -70,33 +67,30 @@ bool VideoDecodeStatsDBImpl::GetEnableUnweightedEntries() {
 
 // static
 std::unique_ptr<VideoDecodeStatsDBImpl> VideoDecodeStatsDBImpl::Create(
-    base::FilePath db_dir) {
+    base::FilePath db_dir,
+    leveldb_proto::ProtoDatabaseProvider* db_provider) {
   DVLOG(2) << __func__ << " db_dir:" << db_dir;
 
-  auto proto_db =
-      leveldb_proto::ProtoDatabaseProvider::CreateUniqueDB<DecodeStatsProto>(
-          base::CreateSequencedTaskRunnerWithTraits(
-              {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-               base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN}));
+  auto proto_db = db_provider->GetDB<DecodeStatsProto>(
+      leveldb_proto::ProtoDbType::VIDEO_DECODE_STATS_DB, db_dir,
+      base::CreateSequencedTaskRunner(
+          {base::ThreadPool(), base::MayBlock(),
+           base::TaskPriority::BEST_EFFORT,
+           base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN}));
 
-  return base::WrapUnique(
-      new VideoDecodeStatsDBImpl(std::move(proto_db), db_dir));
+  return base::WrapUnique(new VideoDecodeStatsDBImpl(std::move(proto_db)));
 }
 
 constexpr char VideoDecodeStatsDBImpl::kDefaultWriteTime[];
 
 VideoDecodeStatsDBImpl::VideoDecodeStatsDBImpl(
-    std::unique_ptr<leveldb_proto::ProtoDatabase<DecodeStatsProto>> db,
-    const base::FilePath& db_dir)
-    : db_(std::move(db)),
-      db_dir_(db_dir),
-      wall_clock_(base::DefaultClock::GetInstance()) {
+    std::unique_ptr<leveldb_proto::ProtoDatabase<DecodeStatsProto>> db)
+    : db_(std::move(db)), wall_clock_(base::DefaultClock::GetInstance()) {
   bool time_parsed =
       base::Time::FromString(kDefaultWriteTime, &default_write_time_);
   DCHECK(time_parsed);
 
   DCHECK(db_);
-  DCHECK(!db_dir_.empty());
 }
 
 VideoDecodeStatsDBImpl::~VideoDecodeStatsDBImpl() {
@@ -112,13 +106,15 @@ void VideoDecodeStatsDBImpl::Initialize(InitializeCB init_cb) {
   // case our whole DB will be less than 35K, so we aren't worried about
   // spamming the cache.
   // TODO(chcunningham): Keep an eye on the size as the table evolves.
-  db_->Init(kDatabaseClientName, db_dir_, leveldb_proto::CreateSimpleOptions(),
-            base::BindOnce(&VideoDecodeStatsDBImpl::OnInit,
+  db_->Init(base::BindOnce(&VideoDecodeStatsDBImpl::OnInit,
                            weak_ptr_factory_.GetWeakPtr(), std::move(init_cb)));
 }
 
-void VideoDecodeStatsDBImpl::OnInit(InitializeCB init_cb, bool success) {
+void VideoDecodeStatsDBImpl::OnInit(InitializeCB init_cb,
+                                    leveldb_proto::Enums::InitStatus status) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK_NE(status, leveldb_proto::Enums::InitStatus::kInvalidOperation);
+  bool success = status == leveldb_proto::Enums::InitStatus::kOK;
   DVLOG(2) << __func__ << (success ? " succeeded" : " FAILED!");
   UMA_HISTOGRAM_BOOLEAN("Media.VideoDecodeStatsDB.OpSuccess.Initialize",
                         success);
@@ -239,9 +235,20 @@ void VideoDecodeStatsDBImpl::WriteUpdatedEntry(
     stats_proto.reset(new DecodeStatsProto());
   }
 
+  // Debug alias the various counts so we can get them in dumps to catch
+  // lingering crashes in http://crbug.com/982009
   uint64_t old_frames_decoded = stats_proto->frames_decoded();
   uint64_t old_frames_dropped = stats_proto->frames_dropped();
   uint64_t old_frames_power_efficient = stats_proto->frames_power_efficient();
+  uint64_t new_frames_decoded = new_entry.frames_decoded;
+  uint64_t new_frames_dropped = new_entry.frames_dropped;
+  uint64_t new_frames_power_efficient = new_entry.frames_power_efficient;
+  base::debug::Alias(&old_frames_decoded);
+  base::debug::Alias(&old_frames_dropped);
+  base::debug::Alias(&old_frames_power_efficient);
+  base::debug::Alias(&new_frames_decoded);
+  base::debug::Alias(&new_frames_dropped);
+  base::debug::Alias(&new_frames_power_efficient);
 
   const uint64_t kMaxFramesPerBuffer = GetMaxFramesPerBuffer();
   DCHECK_GT(kMaxFramesPerBuffer, 0UL);
@@ -273,6 +280,14 @@ void VideoDecodeStatsDBImpl::WriteUpdatedEntry(
                                (1 - fill_ratio) * old_dropped_ratio;
     double agg_efficient_ratio = fill_ratio * new_entry_efficient_ratio +
                                  (1 - fill_ratio) * old_efficient_ratio;
+
+    // Debug alias the various counts so we can get them in dumps to catch
+    // lingering crashes in http://crbug.com/982009
+    base::debug::Alias(&fill_ratio);
+    base::debug::Alias(&old_dropped_ratio);
+    base::debug::Alias(&old_efficient_ratio);
+    base::debug::Alias(&agg_dropped_ratio);
+    base::debug::Alias(&agg_efficient_ratio);
 
     stats_proto->set_frames_decoded(kMaxFramesPerBuffer);
     stats_proto->set_frames_dropped(

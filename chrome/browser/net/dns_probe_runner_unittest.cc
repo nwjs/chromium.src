@@ -11,12 +11,12 @@
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
 #include "chrome/browser/net/dns_probe_test_util.h"
-#include "content/public/test/test_browser_thread_bundle.h"
+#include "content/public/test/browser_task_environment.h"
 #include "services/network/test/test_network_context.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using base::RunLoop;
-using content::TestBrowserThreadBundle;
+using content::BrowserTaskEnvironment;
 
 namespace chrome_browser_net {
 
@@ -97,7 +97,7 @@ class DnsProbeRunnerTest : public testing::Test {
     return network_context_.get();
   }
 
-  TestBrowserThreadBundle bundle_;
+  BrowserTaskEnvironment task_environment_;
   std::unique_ptr<network::mojom::NetworkContext> network_context_;
   std::unique_ptr<DnsProbeRunner> runner_;
 };

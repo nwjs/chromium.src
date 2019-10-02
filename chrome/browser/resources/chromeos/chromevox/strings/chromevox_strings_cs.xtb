@@ -69,7 +69,6 @@ Chcete-li výukový program ukončit, přejděte pomocí nástroje ChromeVox na 
 <translation id="1383876407941801731">Vyhledávání</translation>
 <translation id="1385214448885562192">Klávesou Enter položku přijmete, klávesou Esc zrušíte akci, šipkou dolů přejdete na další položku a šipkou nahoru na předchozí položku.</translation>
 <translation id="1396114365388024581">seznam karet</translation>
-<translation id="139902759009894363">Oznamovat atributy formátovaného textu</translation>
 <translation id="1405567553485452995">Světle zelená</translation>
 <translation id="1417889266572670458">Námořnická modrá</translation>
 <translation id="1431911867058218151">Švestková</translation>
@@ -484,6 +483,7 @@ Chcete-li výukový program ukončit, přejděte pomocí nástroje ChromeVox na 
 <translation id="4372705107434148843">Zastavit řeč</translation>
 <translation id="4373197658375206385">Žádná předchozí položka, která není odkaz.</translation>
 <translation id="4376316291247992553">Zobrazit grafiku na hmatovém displeji</translation>
+<translation id="437809255587011096">Oznamovat styl textu</translation>
 <translation id="4378308539633073595">Posunout vpřed</translation>
 <translation id="4384583879834880242">Dotazy</translation>
 <translation id="4391478986194775161">info o obsahu</translation>
@@ -760,7 +760,6 @@ Chcete-li výukový program ukončit, přejděte pomocí nástroje ChromeVox na 
 <translation id="6348869651006731065">Kouřově šedá</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{odrážka}few{# odrážky}many{# odrážky}other{# odrážek}}</translation>
 <translation id="6355910664415701303">Žádná předchozí položka seznamu.</translation>
-<translation id="6360318852623800555">Atributy formátovaného textu</translation>
 <translation id="6364795331201459219">nadp 6</translation>
 <translation id="6368143427468974988">Předchozí záhlaví</translation>
 <translation id="6376999910001533545">Kaštanová</translation>
@@ -1086,7 +1085,6 @@ Chcete-li otevřít nabídku prohlížeče Chrome, stiskněte Alt + F.</translat
 <translation id="8153880621934657047">Mimo tabulku.</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{podtržítko}few{# podtržítka}many{# underscores}other{# podtržítek}}</translation>
 <translation id="8179976553408161302">Enter</translation>
-<translation id="8183813379996435469">Automaticky zjistit a přepnout jazyk nástroje ChromeVox</translation>
 <translation id="8184828902145951186">řádek</translation>
 <translation id="8186185314313222077">přepnout zobrazení na celou obrazovku</translation>
 <translation id="8199231515320852133">Oznámit záhlaví aktuální buňky</translation>
@@ -1123,6 +1121,7 @@ Chcete-li otevřít nabídku prohlížeče Chrome, stiskněte Alt + F.</translat
 <translation id="8503360654911991865">Snížit rozlišovací schopnost navigace</translation>
 <translation id="8504695234784218301">Konec gramatické chyby</translation>
 <translation id="8520472399088452386">Číselník</translation>
+<translation id="8534394844575788431">Formátování</translation>
 <translation id="8538744478902126321">Odhadnout záhlaví řádku aktuální buňky</translation>
 <translation id="8540054775867439484">Skok na začátek</translation>
 <translation id="8542271685829952264">Chcete-li prozkoumat všechny příkazy a klávesové zkratky nástroje ChromeVox, stiskněte Hledat + Tečka a poté nabídky procházejte pomocí kláves se šipkami. Příkaz aktivujete stisknutím klávesy Enter. Sem se vrátíte tak, že stisknete klávesy Hledat+o a poté klávesu t.</translation>
@@ -1202,6 +1201,7 @@ Chcete-li otevřít nabídku prohlížeče Chrome, stiskněte Alt + F.</translat
 <translation id="9149560530563164529">oddíl</translation>
 <translation id="9150735707954472829">Karta</translation>
 <translation id="9151211641321628915">Oznamuje stručný popis současné pozice</translation>
+<translation id="9151249085738989067">Automaticky přepínat hlas čtečky ChromeVox podle jazyka</translation>
 <translation id="9153606228985488238">Výška <ph name="PERCENT" /> procent</translation>
 <translation id="9160096769946561184">Přejít na konec aktuálního sloupce</translation>
 <translation id="9173115498289768110">Hlasitost <ph name="PERCENT" /> procent</translation>

@@ -87,12 +87,6 @@
 <translation id="3080151273017101988">Tiếp tục chạy các ứng dụng nền khi Google Chrome đóng</translation>
 <translation id="3089968997497233615">Đã có phiên bản Google Chrome mới và an toàn hơn.</translation>
 <translation id="3149510190863420837">Ứng dụng Chrome</translation>
-<translation id="3251381707915721925">Để đặt những trang web mà <ph name="NEW_PROFILE_NAME" /> có thể xem, bạn có thể định cấu hình các hạn chế và cài đặt bằng cách truy cập <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" />. Nếu bạn không thay đổi cài đặt mặc định thì <ph name="NEW_PROFILE_NAME" /> có thể duyệt mọi nội dung trên web.
-
-Để ngăn <ph name="NEW_PROFILE_NAME" /> truy cập vào tài khoản của bạn, hãy nhớ khóa hồ sơ khi bạn không sử dụng Chrome. Để làm điều này, nhấp vào tên hồ sơ trong góc phía trên bên phải của trình duyệt, sau đó chọn "Thoát và khóa chặn trẻ em".
-<ph name="BEGIN_LINK_2" />Tìm hiểu thêm<ph name="END_LINK_2" />
-
-Vui lòng xem email của bạn tại <ph name="ACCOUNT_EMAIL" /> để biết thêm hướng dẫn.</translation>
 <translation id="3282568296779691940">Đăng nhập vào Chrome</translation>
 <translation id="3340978935015468852">cài đặt</translation>
 <translation id="3360895254066713204">Trình trợ giúp của Chrome</translation>
@@ -152,7 +146,6 @@ Vui lòng xem email của bạn tại <ph name="ACCOUNT_EMAIL" /> để biết t
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Google Chrome không thể đồng bộ hóa dữ liệu của bạn. Vui lòng cập nhật cụm mật khẩu Đồng bộ hóa của bạn.</translation>
 <translation id="5062123544085870375">Khởi động lại Chrome OS</translation>
-<translation id="5090044601776247154">Kể từ Google Chrome 70, tính năng hồ sơ người dùng được giám sát sẽ không còn được cung cấp nữa.</translation>
 <translation id="5132929315877954718">Khám phá các ứng dụng, trò chơi, tiện ích và chủ đề tuyệt vời cho Google Chrome.</translation>
 <translation id="5170938038195470297">Không thể sử dụng hồ sơ của bạn vì hồ sơ được tạo từ phiên bản Google Chrome mới hơn.
 
@@ -179,6 +172,7 @@ Một số tính năng có thể không khả dụng. Vui lòng chỉ định th
 <translation id="5906655207909574370">Gần được cập nhật! Hãy khởi động lại thiết bị của bạn để hoàn tất cập nhật.</translation>
 <translation id="5940385492829620908">Web, dấu trang và các nội dung khác của bạn trên Chrome đều có ở đây.</translation>
 <translation id="5941830788786076944">Chọn Google Chrome làm trình duyệt mặc định</translation>
+<translation id="5977372243443849142">Chrome có thể giúp bạn ghi nhớ mật khẩu.</translation>
 <translation id="6014844626092547096">Bạn hiện đã đăng nhập vào Chrome! Quản trị viên của bạn đã tắt tính năng Đồng bộ hóa.</translation>
 <translation id="6040143037577758943">Đóng</translation>
 <translation id="6070348360322141662">Để bảo mật hơn, Google Chrome sẽ mã hóa dữ liệu của bạn</translation>
@@ -223,7 +217,6 @@ Một số tính năng có thể không khả dụng. Vui lòng chỉ định th
 <translation id="7486227612705979895">Chrome sẽ truy cập vào Drive của bạn để đưa ra đề xuất trên thanh địa chỉ</translation>
 <translation id="7531671357096394523">Đóng tất cả các bản sao của Chrome.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
-<translation id="7552219221109926349">Hiển thị Chrome OS bằng ngôn ngữ này</translation>
 <translation id="7589360514048265910">Máy tính này sẽ không còn nhận được bản cập nhật của Google Chrome do hệ điều hành Mac OS X 10.9 không được hỗ trợ nữa.</translation>
 <translation id="7592736734348559088">Google Chrome không thể đồng bộ hóa dữ liệu của bạn vì chi tiết đăng nhập tài khoản của bạn đã cũ.</translation>
 <translation id="7626032353295482388">Chào mừng bạn đến với Chrome</translation>
@@ -241,7 +234,6 @@ Một số tính năng có thể không khả dụng. Vui lòng chỉ định th
 <translation id="7896673875602241923">Ai đó trước đây đã đăng nhập vào Chrome trên máy tính này bằng <ph name="ACCOUNT_EMAIL_LAST" />. Vui lòng tạo người dùng Chrome mới để giữ riêng biệt thông tin của bạn.</translation>
 <translation id="7908168227788431038">Gần được cập nhật! Hãy khởi chạy lại Google Chrome để hoàn tất cập nhật.</translation>
 <translation id="7962410387636238736">Máy tính này sẽ không còn nhận được bản cập nhật Google Chrome do Windows XP và Windows Vista không còn được hỗ trợ</translation>
-<translation id="8005540215158006229">Chrome sắp sẵn sàng.</translation>
 <translation id="8008534537613507642">Cài đặt lại Chrome</translation>
 <translation id="8013993649590906847">Chrome sẽ cố gắng mô tả cho bạn những hình ảnh không có nội dung mô tả hữu ích. Để tạo nội dung mô tả, các hình ảnh sẽ được gửi đến Google.</translation>
 <translation id="8030318113982266900">Đang cập nhật thiết bị tới kênh <ph name="CHANNEL_NAME" />...</translation>
@@ -274,7 +266,6 @@ Một số tính năng có thể không khả dụng. Vui lòng chỉ định th
 <translation id="870251953148363156">Cập nhật &amp;Google Chrome</translation>
 <translation id="873133009373065397">Google Chrome không thể xác định hoặc đặt trình duyệt mặc định</translation>
 <translation id="8736674169840206667">Quản trị viên của bạn yêu cầu bạn chạy lại Chrome để áp dụng bản cập nhật</translation>
-<translation id="8788264404293392165">Ngôn ngữ này dùng để hiển thị giao diện người dùng của Chrome OS</translation>
 <translation id="8823341990149967727">Chrome đã lỗi thời</translation>
 <translation id="884296878221830158">Tiện ích này cũng điều khiển trang nào được hiển thị khi bạn khởi động Chrome hoặc nhấp vào nút Trang chủ.</translation>
 <translation id="8862326446509486874">Bạn không có quyền thích hợp để cài đặt cấp hệ thống. Thử chạy lại trình cài đặt với vai trò Quản trị viên.</translation>

@@ -5,6 +5,16 @@
 #include "ash/assistant/util/assistant_util.h"
 
 #include "ash/assistant/model/assistant_ui_model.h"
+#include "base/system/sys_info.h"
+
+namespace {
+
+constexpr char kEveBoardName[] = "eve";
+constexpr char kNocturneBoardName[] = "nocturne";
+
+bool g_override_is_google_device = false;
+
+}  // namespace
 
 namespace ash {
 namespace assistant {
@@ -32,6 +42,7 @@ bool IsVoiceEntryPoint(AssistantEntryPoint entry_point, bool prefer_voice) {
     case AssistantEntryPoint::kUnspecified:
     case AssistantEntryPoint::kDeepLink:
     case AssistantEntryPoint::kLauncherSearchResult:
+    case AssistantEntryPoint::kProactiveSuggestions:
     case AssistantEntryPoint::kSetup:
     case AssistantEntryPoint::kStylus:
       return false;
@@ -44,6 +55,7 @@ bool ShouldAttemptWarmerWelcome(AssistantEntryPoint entry_point) {
     case AssistantEntryPoint::kHotword:
     case AssistantEntryPoint::kLauncherSearchBoxMic:
     case AssistantEntryPoint::kLauncherSearchResult:
+    case AssistantEntryPoint::kProactiveSuggestions:
     case AssistantEntryPoint::kStylus:
       return false;
     case AssistantEntryPoint::kUnspecified:
@@ -53,6 +65,16 @@ bool ShouldAttemptWarmerWelcome(AssistantEntryPoint entry_point) {
     case AssistantEntryPoint::kSetup:
       return true;
   }
+}
+
+bool IsGoogleDevice() {
+  const std::string board_name = base::SysInfo::GetLsbReleaseBoard();
+  return g_override_is_google_device || board_name == kEveBoardName ||
+         board_name == kNocturneBoardName;
+}
+
+void OverrideIsGoogleDeviceForTesting() {
+  g_override_is_google_device = true;
 }
 
 }  // namespace util

@@ -15,6 +15,7 @@
 <translation id="1524282610922162960">Поділитися вкладкою Chromium</translation>
 <translation id="1668054258064581266">Якщо видалити обліковий запис із Chromium, можливо, потрібно оновити відкриті вкладки, щоб зміни почали діяти.</translation>
 <translation id="1688750314291223739">Налаштуйте синхронізацію, щоб зберегти свої персоналізовані функції веб-переглядача в Інтернеті й мати до них доступ із Chromium на будь-якому комп’ютері.</translation>
+<translation id="1705503634486268204">Chromium може зберігати паролі, тож вам не доведеться запам'ятовувати їх.</translation>
 <translation id="1708666629004767631">Доступна нова, надійніша версія Chromium.</translation>
 <translation id="1766096484055239003">Адміністратор вимагає перезапустити Chromium, щоб застосувати оновлення</translation>
 <translation id="1774152462503052664">Дозволити Chromium працювати у фоновому режимі</translation>
@@ -125,9 +126,6 @@
 <translation id="5634636535844844681">Для роботи Chromium потрібно мати ОС Windows 7 або новішої версії.</translation>
 <translation id="5680901439334282664">увійдіть в обліковий запис Chromium</translation>
 <translation id="5698481217667032250">Вибрати цю мову для Chromium</translation>
-<translation id="5756484659843248772">Цією мовою відображається інтерфейс ОС Chromium</translation>
-<translation id="5768914737813585044">Вибрати цю мову для ОС Chromium</translation>
-<translation id="5796460469508169315">Chromium майже готовий.</translation>
 <translation id="5820394555380036790">ОС Chromium</translation>
 <translation id="5862307444128926510">Вітаємо в Chromium</translation>
 <translation id="5877064549588274448">Канал змінено. Перезапустіть пристрій, щоб застосувати зміни.</translation>
@@ -143,6 +141,7 @@
 <translation id="6096348254544841612">Налаштуйте й контролюйте Chromium. Доступне оновлення.</translation>
 <translation id="6120345080069858279">Chromium збереже цей пароль в обліковому записі Google. Не потрібно його запам’ятовувати.</translation>
 <translation id="6129621093834146363">Файл <ph name="FILE_NAME" /> небезпечний, тому Chromium заблокував його.</translation>
+<translation id="6173098285107411678">Якщо налаштування не з'явиться на цій сторінці, пошукайте його в <ph name="LINK_BEGIN" />налаштуваннях веб-переглядача Chromium<ph name="LINK_END" /></translation>
 <translation id="6212496753309875659">На цьому комп’ютері вже встановлено новішу версію Chromium. Якщо програмне забезпечення не працює, видаліть Chromium і повторіть спробу.</translation>
 <translation id="6219195342503754812">{0,plural, =0{Chromium перезапуститься зараз}=1{Chromium перезапуститься через 1 секунду}one{Chromium перезапуститься через # секунду}few{Chromium перезапуститься через # секунди}many{Chromium перезапуститься через # секунд}other{Chromium перезапуститься через # секунди}}</translation>
 <translation id="6248213926982192922">Зробити Chromium переглядачем за умовчанням</translation>
@@ -190,12 +189,6 @@ Chromium не може відновити ваші налаштування.</tr
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7339898014177206373">Нове вікно</translation>
 <translation id="734373864078049451">Тут містяться ваші веб-сторінки, закладки та інші дані Chromium.</translation>
-<translation id="7344413941077984497">Щоб указати, які веб-сайти може переглядати <ph name="NEW_PROFILE_NAME" />, налаштуйте обмеження й параметри на сторінці <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" />. Якщо не змінити налаштування за умовчанням, <ph name="NEW_PROFILE_NAME" /> зможе переглядати всі сайти в Інтернеті.
-
-Щоб користувач <ph name="NEW_PROFILE_NAME" /> не мав доступу до вашого облікового запису, блокуйте свій профіль, коли не користуєтеся Chromium. Для цього натисніть назву свого профілю у верхньому правому куті екрана й виберіть "Вийти та заблокувати".
-<ph name="BEGIN_LINK_2" />Докладніше<ph name="END_LINK_2" />
-
-Подальші вказівки надійдуть на електронну адресу <ph name="ACCOUNT_EMAIL" />.</translation>
 <translation id="7349591376906416160">Ваш системний адміністратор налаштував Chromium відкривати сторінку <ph name="TARGET_URL_HOSTNAME" /> в <ph name="ALTERNATIVE_BROWSER_NAME" />.</translation>
 <translation id="7448255348454382571">Перезапустіть ОС Chromium</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> – Версія Chromium для розробників</translation>
@@ -229,7 +222,6 @@ Chromium не може відновити ваші налаштування.</tr
 <translation id="8290862415967981663">Цей файл може бути небезпечним, тому Chromium заблокував його.</translation>
 <translation id="8330519371938183845">Увійдіть, щоб синхронізувати та персоналізувати роботу Chromium на всіх своїх пристроях</translation>
 <translation id="8340674089072921962">Раніше ви входили в обліковий запис <ph name="USER_EMAIL_ADDRESS" /> у Chromium</translation>
-<translation id="8375950122744241554">Профілі контрольованих користувачів будуть недоступні в Chromium 70 і новіших версій.</translation>
 <translation id="8417404458978023919">{0,plural, =1{Перезапустіть Chromium упродовж дня}one{Перезапустіть Chromium упродовж # дня}few{Перезапустіть Chromium упродовж # днів}many{Перезапустіть Chromium упродовж # днів}other{Перезапустіть Chromium упродовж # дня}}</translation>
 <translation id="8453117565092476964">Архів програми встановлення пошкоджений або недійсний. Завантажте Chromium ще раз.</translation>
 <translation id="8493179195440786826">Версія Chromium застаріла</translation>

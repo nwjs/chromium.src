@@ -85,12 +85,6 @@ Ha mindenképp bejelentkezik, akkor egyesíti a(z) <ph name="ACCOUNT_EMAIL_NEW" 
 <translation id="3080151273017101988">A háttéralkalmazások továbbfuttatása, ha a Google Chrome-ot bezárják</translation>
 <translation id="3089968997497233615">Elérhető a Google Chrome új, biztonságosabb verziója.</translation>
 <translation id="3149510190863420837">Chrome-alkalmazások</translation>
-<translation id="3251381707915721925">Annak szabályozásához, hogy <ph name="NEW_PROFILE_NAME" /> mely webhelyeket nézheti meg, Önnek lehetősége van korlátozásokat és beállításokat megadni a(z) <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" /> címen. Ha nem módosítja az alapértelmezett beállításokat, akkor <ph name="NEW_PROFILE_NAME" /> minden webhelyen böngészhet az interneten.
-
-Ha szeretné megakadályozni, hogy <ph name="NEW_PROFILE_NAME" /> hozzáférjen az Ön fiókjához, ügyeljen rá, hogy mindig zárolja profilját, amikor nem használja a Chrome-ot. A zároláshoz kattintson profilja nevére a böngésző jobb felső sarkában, majd válassza a „Kilépés és gyermekzár” lehetőséget.
-<ph name="BEGIN_LINK_2" />További információ<ph name="END_LINK_2" />.
-
-További utasításokat a(z) <ph name="ACCOUNT_EMAIL" /> címére küldött e-mailekben talál.</translation>
 <translation id="3282568296779691940">Bejelentkezés a Chrome-ba</translation>
 <translation id="3340978935015468852">beállítások</translation>
 <translation id="3360895254066713204">Chrome segéd</translation>
@@ -150,7 +144,6 @@ További utasításokat a(z) <ph name="ACCOUNT_EMAIL" /> címére küldött e-ma
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">A Google Chrome nem tudta szinkronizálni az adatokat. Kérjük, frissítse a szinkronizálás jelszavát.</translation>
 <translation id="5062123544085870375">A Chrome OS újraindítása</translation>
-<translation id="5090044601776247154">A Google Chrome 70-től kezdődően a felügyelt felhasználói profilok megszűnnek.</translation>
 <translation id="5132929315877954718">Fedezzen fel nagyszerű alkalmazásokat, játékokat, bővítményeket és témákat a Google Chrome-hoz.</translation>
 <translation id="5170938038195470297">A profilja nem használható, mivel a Google Chrome egy újabb verziójából származik. Előfordulhat, hogy egyes funkciók nem érhetők el. Kérjük, adjon meg egy másik profilmappát, vagy használja a Google Chrome újabb verzióját.</translation>
 <translation id="5193136243808726294">A Google Chrome OS nem tudja megnyitni ezt az oldalt.</translation>
@@ -175,9 +168,11 @@ További utasításokat a(z) <ph name="ACCOUNT_EMAIL" /> címére küldött e-ma
 <translation id="5906655207909574370">Már majdnem naprakész! Indítsa újra az eszközt a frissítés befejezéséhez.</translation>
 <translation id="5940385492829620908">Az Ön könyvjelzői, valamint az internetezéssel és a Chrome-mal kapcsolatos egyéb dolgai vannak itt.</translation>
 <translation id="5941830788786076944">A Google Chrome beállítása alapértelmezett böngészőként</translation>
+<translation id="5977372243443849142">A Chrome segít megjegyezni a saját jelszavakat, így Önnek nem kell fejben tartania őket.</translation>
 <translation id="6014844626092547096">Bejelentkezett a Chrome-ba! A szinkronizálást a rendszergazdája letiltotta.</translation>
 <translation id="6040143037577758943">Bezárás</translation>
 <translation id="6070348360322141662">A nagyobb biztonság érdekében a Google Chrome titkosítja az Ön adatait</translation>
+<translation id="6102256037460917300">Ha valamelyik beállítás nem látható ezen az oldalon, nézze meg a <ph name="LINK_BEGIN" /> Chrome böngésző beállításait<ph name="LINK_END" /></translation>
 <translation id="6113794647360055231">A Chrome még jobb lett</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> – Google Chrome Béta</translation>
@@ -219,7 +214,6 @@ További utasításokat a(z) <ph name="ACCOUNT_EMAIL" /> címére küldött e-ma
 <translation id="7486227612705979895">A Chrome hozzáfér Drive-jához, hogy javaslatokat nyújthasson a címsávon.</translation>
 <translation id="7531671357096394523">A Chrome összes példányát be kell zárnia.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
-<translation id="7552219221109926349">A Chrome OS megjelenítése ezen a nyelven</translation>
 <translation id="7589360514048265910">Mivel a jelenlegi Mac OS X 10.9 rendszer támogatása megszűnik, ez a számítógép a továbbiakban nem kap Google Chrome-frissítéseket.</translation>
 <translation id="7592736734348559088">A Google Chrome nem tudta szinkronizálni az adatokat, mert a fiók bejelentkezési adatai elavultak.</translation>
 <translation id="7626032353295482388">A Chrome üdvözli Önt!</translation>
@@ -237,7 +231,6 @@ További utasításokat a(z) <ph name="ACCOUNT_EMAIL" /> címére küldött e-ma
 <translation id="7896673875602241923">Valaki korábban <ph name="ACCOUNT_EMAIL_LAST" /> néven bejelentkezett a Chrome-ba erről a számítógépről. Az adatai elkülönítéséhez hozzon létre új Chrome-felhasználót.</translation>
 <translation id="7908168227788431038">Már majdnem naprakész! Indítsa újra a Google Chrome-ot a frissítés befejezéséhez.</translation>
 <translation id="7962410387636238736">Ez a számítógép a továbbiakban már nem kapja meg a Google Chrome frissítéseit, mert már nem támogatjuk a Windows XP és Windows Vista rendszereket.</translation>
-<translation id="8005540215158006229">A Chrome majdnem készen áll.</translation>
 <translation id="8008534537613507642">A Chrome újratelepítése</translation>
 <translation id="8013993649590906847">Ha valamelyik kép nem rendelkezik hasznos leírással, akkor a Chrome igyekszik leírást adni róla. A Google automatikusan megkapja a leírások létrehozásához szükséges képeket.</translation>
 <translation id="8030318113982266900">Eszköz frissítése a(z) <ph name="CHANNEL_NAME" /> csatornára...</translation>
@@ -270,7 +263,6 @@ További utasításokat a(z) <ph name="ACCOUNT_EMAIL" /> címére küldött e-ma
 <translation id="870251953148363156">A &amp;Google Chrome frissítése</translation>
 <translation id="873133009373065397">A Google Chrome problémába ütközött az alapértelmezett böngésző megállapításakor vagy beállításakor</translation>
 <translation id="8736674169840206667">A rendszergazda előírta, hogy újra kell indítania a Chrome-ot egy frissítés alkalmazása miatt</translation>
-<translation id="8788264404293392165">A Chrome OS kezelőfelülete ezen a nyelven jelenik meg.</translation>
 <translation id="8823341990149967727">A Chrome elavult</translation>
 <translation id="884296878221830158">Továbbá azt is szabályozza, hogy melyik oldal jelenik meg a Chrome indításakor vagy a Kezdőlap gombra történő kattintáskor.</translation>
 <translation id="8862326446509486874">Nincsenek meg a megfelelő jogai a rendszerszintű telepítéshez. Indítsa újra a telepítőt rendszergazdaként.</translation>

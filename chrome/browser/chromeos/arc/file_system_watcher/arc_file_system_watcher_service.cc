@@ -295,7 +295,7 @@ class ArcFileSystemWatcherService::FileSystemWatcher {
 
   // Note: This should remain the last member so it'll be destroyed and
   // invalidate the weak pointers before any other members are destroyed.
-  base::WeakPtrFactory<FileSystemWatcher> weak_ptr_factory_;
+  base::WeakPtrFactory<FileSystemWatcher> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(FileSystemWatcher);
 };
@@ -309,8 +309,7 @@ ArcFileSystemWatcherService::FileSystemWatcher::FileSystemWatcher(
       cros_dir_(cros_dir),
       android_dir_(android_dir),
       last_notify_time_(base::TimeTicks()),
-      outstanding_task_(false),
-      weak_ptr_factory_(this) {
+      outstanding_task_(false) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DETACH_FROM_SEQUENCE(sequence_checker_);
 }
@@ -356,10 +355,9 @@ void ArcFileSystemWatcherService::FileSystemWatcher::OnFilePathChanged(
 void ArcFileSystemWatcherService::FileSystemWatcher::DelayBuildTimestampMap() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(outstanding_task_);
-  base::PostTaskWithTraitsAndReplyWithResult(
-      FROM_HERE, {base::MayBlock()},
-      base::Bind(&BuildTimestampMapCallback, cros_dir_,
-                 android_dir_),
+  base::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::ThreadPool(), base::MayBlock()},
+      base::Bind(&BuildTimestampMapCallback, cros_dir_, android_dir_),
       base::Bind(&FileSystemWatcher::OnBuildTimestampMap,
                  weak_ptr_factory_.GetWeakPtr()));
 }
@@ -379,8 +377,8 @@ void ArcFileSystemWatcherService::FileSystemWatcher::OnBuildTimestampMap(
   for (size_t i = 0; i < changed_paths.size(); ++i) {
     string_paths[i] = changed_paths[i].value();
   }
-  base::PostTaskWithTraits(FROM_HERE, {BrowserThread::UI},
-                           base::BindOnce(callback_, std::move(string_paths)));
+  base::PostTask(FROM_HERE, {BrowserThread::UI},
+                 base::BindOnce(callback_, std::move(string_paths)));
   if (last_notify_time_ > snapshot_time)
     DelayBuildTimestampMap();
   else
@@ -398,9 +396,8 @@ ArcFileSystemWatcherService::ArcFileSystemWatcherService(
     ArcBridgeService* bridge_service)
     : context_(context),
       arc_bridge_service_(bridge_service),
-      file_task_runner_(
-          base::CreateSequencedTaskRunnerWithTraits({base::MayBlock()})),
-      weak_ptr_factory_(this) {
+      file_task_runner_(base::CreateSequencedTaskRunner(
+          {base::ThreadPool(), base::MayBlock()})) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   arc_bridge_service_->file_system()->AddObserver(this);
 }

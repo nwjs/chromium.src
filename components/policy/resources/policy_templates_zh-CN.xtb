@@ -67,7 +67,6 @@
 
           如果停用或未配置此设置，远程协助主机则会在用户的环境中运行，而远程用户将无法在桌面上操控提权后的窗口。</translation>
 <translation id="1096105751829466145">默认搜索服务提供商</translation>
-<translation id="1099024407376270611">实时检查所访问网址的安全浏览声誉</translation>
 <translation id="1099282607296956954">为所有网站启用网站隔离功能</translation>
 <translation id="1100570158310952027">
       此政策可指定针对不安全来源的安全性限制不适用于哪些来源（网址）或主机名模式（例如“*.example.com”）。
@@ -386,23 +385,13 @@
 
       警告：建议您不要委托自助服务终端应用控制 <ph name="PRODUCT_OS_NAME" />版本，因为这可能会阻止相应设备接收软件更新和重要的安全修补程序。委托 <ph name="PRODUCT_OS_NAME" />版本控制可能会将用户置于风险之中。</translation>
 <translation id="1675002386741412210">支持的环境：</translation>
+<translation id="1695708467571967752">此政策用于控制用户是否能够在设备锁定时播放媒体。
+
+      如果将此政策设为 False，系统会停用锁定屏幕上的媒体控件。
+
+      如果将此政策设置为 True 或未设置此政策，那么当用户在媒体播放时锁定设备时，锁定屏幕上会显示媒体控件。
+      </translation>
 <translation id="1700811900332333712">允许设备请求 Powerwash</translation>
-<translation id="1704516734140344991">配置 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件更新功能的可用性和行为。
-
-      各项具体设置可在 JSON 属性中进行指定：
-
-      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />：如果设为 <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />，用户将能够触发 Powerwash 流程以安装 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件更新。
-
-      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_PRESERVE_DEVICE_STATE" />：如果设为 <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_PRESERVE_DEVICE_STATE_TRUE" />，用户将能够调用 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件更新流程，此流程会保留设备级状态（包括企业注册），但不会保留用户数据。68 及更高版本均支持此更新流程。
-
-      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_AUTO_UPDATE_MODE" />：控制如何对容易受到攻击的 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件强制执行自动 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件更新。所有流程都会保留本地设备状态。
-        如果设为 1 或未设置，则系统不会强制执行 TPM 固件更新。
-        如果设为 2，系统将在用户确认更新后的下次重启时更新 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件。
-        如果设为 3，系统将在下次重启时更新 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件。
-        如果设为 4，系统将在注册后、用户登录前更新 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件。
-        74 及更高版本均提供此选项。
-
-      如果未设置此政策，<ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件更新功能将不可用。</translation>
 <translation id="1708496595873025510">对变体种子的提取设置限制条件</translation>
 <translation id="1717817358640580294">如果此政策未设置，当 Chrome 清理功能检测到垃圾软件时，它可能会按照 SafeBrowsingExtendedReportingEnabled 设置的政策向 Google 报告与此项扫描相关的元数据。然后，Chrome 清理功能会询问用户是否要清理垃圾软件。用户可以选择与 Google 分享清理结果，以协助 Google 日后更好地检测垃圾软件。这些结果包括文件元数据、自动安装的扩展程序以及注册表项（如《Chrome 隐私权白皮书》中所述）。
 
@@ -782,6 +771,22 @@
 <translation id="2463034609187171371">在 TLS 中启用 DHE 加密套件</translation>
 <translation id="2463365186486772703">应用语言区域</translation>
 <translation id="2466131534462628618">进行强制门户身份验证时忽略代理服务器</translation>
+<translation id="2466697858869282874">配置 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件更新功能的可用性和行为。
+
+      各项具体设置可在 JSON 属性中进行指定：
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />：如果设为 <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />，用户将能够触发 Powerwash 流程以安装 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件更新。
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_PRESERVE_DEVICE_STATE" />：如果设为 <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_PRESERVE_DEVICE_STATE_TRUE" />，用户将能够调用 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件更新流程，此流程会保留设备级状态（包括企业注册），但不会保留用户数据。版本 68 及更高版本均支持此更新流程。
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_AUTO_UPDATE_MODE" />：控制如何对容易受到攻击的 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件强制执行自动 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件更新。所有流程都会保留本地设备状态。
+        如果设为 1 或未设置，则系统不会强制执行 TPM 固件更新。
+        如果设为 2，系统将在用户确认更新后的下次重启时更新 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件。
+        如果设为 3，系统将在下次重启时更新 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件。
+        如果设为 4，系统将在注册后、用户登录前更新 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件。
+        版本 75 及更高版本均提供此选项。
+
+      如果未设置此政策，<ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件更新功能将不可用。</translation>
 <translation id="2471748297300970300">如果此政策已停用，当您使用某些可能不安全的命令行标记启动 Chrome 时，系统会禁止显示安全警告。
 
           如果此政策处于启用状态或未设置，当您使用某些命令行标记启动 Chrome 时，系统会显示安全警告。
@@ -1576,15 +1581,6 @@
 
           如果此政策未设置或设为 False，用户可以将文件传输到 Google 云端硬盘。</translation>
 <translation id="3915395663995367577">代理 .pac 文件的网址</translation>
-<translation id="3920892052017026701">设定电池充电自定义开始充电值（以百分比表示）。
-
-          当电池电量消耗到电池充电自定义开始充电值时，电池就会开始充电。
-
-          DeviceBatteryChargeCustomStartCharging 必须小于 DeviceBatteryChargeCustomStopCharging。
-
-          仅当 DeviceBatteryChargeMode 设为“custom”时，才会用到此政策。
-
-          如果未配置或未设置此政策，则会应用标准电池充电模式。</translation>
 <translation id="3925377537407648234">设置显示屏分辨率和缩放比例</translation>
 <translation id="3939893074578116847">将网络数据包发送到管理服务器以监控联网状态，从而使得服务器能够判断设备有没有联网。
 
@@ -1766,6 +1762,13 @@
 
       如果未设置此政策，系统会使用默认的漫游个人资料路径。</translation>
 <translation id="4239720644496144453">缓存不适用于 Android 应用。如果多个用户都想安装同一款 Android 应用，系统便会分别为每个用户重新下载相应的 Android 应用。</translation>
+<translation id="4241202391219483189">此政策用于控制用户是否能够通过证书管理器导入和移除 CA 证书。
+
+      如果此政策设为“允许用户管理所有证书”或未设置，用户将能够修改所有 CA 证书的信任设置、移除用户导入的证书以及导入证书。
+
+      如果此政策设为“允许用户管理用户证书”，用户将仅能够管理用户导入的证书，而无法更改内置证书的信任设置。
+
+      如果此政策设为“禁止用户管理证书”，用户将无法管理 CA 证书，只能查看 CA 证书。</translation>
 <translation id="4243336580717651045">对 <ph name="PRODUCT_NAME" /> 启用以网址为键的匿名化数据收集功能，并阻止用户更改此设置。
 
       以网址为键的匿名化数据收集功能会将用户访问的网页网址发送给 Google，用于改善搜索和浏览体验。
@@ -1841,6 +1844,7 @@
 
           该功能目前在服务器端已停用。</translation>
 <translation id="4363057787588706121">允许合并具有多个不同来源的列表政策</translation>
+<translation id="4363101430102811068">针对输入的凭据启用泄露检测功能</translation>
 <translation id="4363136876356691536">如果将此政策设为 true，系统任务栏菜单中将始终显示无障碍选项。
 
           如果将此政策设为 false，系统任务栏菜单中绝不会显示无障碍选项。
@@ -1992,10 +1996,6 @@
 
           如果此政策未设置，那么即使检测到某个服务器在内网上，<ph name="PRODUCT_NAME" /> 也不会委托用户凭据。</translation>
 <translation id="4752880493649142945">连接到 RemoteAccessHostTokenValidationUrl 时使用的客户端证书</translation>
-<translation id="4756984056524699088">允许此用户拥有 Crostini 容器的 root 权限。
-
-      如果此政策设为 true 或未设置，用户会获得对 Crostini 容器的 root 权限。
-      如果此政策设为 false，则用户不会获得对现有以及新的 Crostini 容器的 root 权限。</translation>
 <translation id="4759650396863318477">让您能够设置一个时间段（以毫秒为单位），在该时间段内，如果必须重新启动 <ph name="PRODUCT_NAME" /> 或必须重启 <ph name="PRODUCT_OS_NAME" />设备以应用待应用的更新，用户将会收到通知。
 
       在该时间段内，如果需要更新，系统会反复通知用户。对于 <ph name="PRODUCT_OS_NAME" />设备，系统会根据 <ph name="RELAUNCH_HEADS_UP_PERIOD_POLICY_NAME" /> 政策在系统任务栏中显示重启通知。对于 <ph name="PRODUCT_NAME" /> 浏览器，应用菜单会在通知时间段过去三分之一后立即发生变化，以指示需要重新启动浏览器。此通知会在通知时间段过去三分之二后立即改变颜色，并会在整个通知时间段过后再次立即改变颜色。由 <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" /> 政策启用的其他通知也会遵循这一时间表。
@@ -2641,15 +2641,6 @@
       如果设为 true，系统则会启用节流功能，以实现所提供的上传速率和下载速率（以 kb/s 为单位）。</translation>
 <translation id="591088232153082363">基于电池使用模式自动调节电池充电速率。</translation>
 <translation id="5921713479449475707">允许通过 HTTP 自动更新下载内容</translation>
-<translation id="5921888683953999946">设置登录屏幕上大号光标辅助功能的默认状态。
-
-          如果此政策的值设为 True，则登录屏幕显示时将会启用大号光标。
-
-          如果此政策的值设为 False，则登录屏幕显示时将会停用大号光标。
-
-          如果您设置了此政策，那么用户将可通过启用或停用大号光标暂时覆盖此政策。不过，用户选择的设置并不是永久有效的；只要登录屏幕重新显示或用户在登录屏幕上停止操作一段时间，系统即会恢复默认设置。
-
-          如果未设置此政策，则登录屏幕初次显示时会停用大号光标。用户可以随时启用或停用大号光标，并且其在登录屏幕上的启用或停用状态对于各用户均有效。</translation>
 <translation id="5929855945144989709">允许设备在 Chrome 操作系统上运行虚拟机</translation>
 <translation id="5932767795525445337">此政策也可用于固定 Android 应用。</translation>
 <translation id="5936622343001856595">在安全搜索被设置为激活的状态下强制在 Google 网页搜索中执行查询，并禁止用户更改此设置。
@@ -2824,12 +2815,14 @@
       如果此政策设为False，则不报告这些用户。</translation>
 <translation id="6394350458541421998">此政策从 <ph name="PRODUCT_OS_NAME" />版本 29 起开始弃用。请改用 PresentationScreenDimDelayScale 政策。</translation>
 <translation id="6401669939808766804">使用户退出</translation>
+<translation id="6403746242226534223">实时查看所访问网址的安全浏览声誉</translation>
 <translation id="6406448383934634215">如果选择“打开网址列表”作为启动时的操作，您就可以指定要打开的网址的列表。如果此政策未设置，启动时将不会打开任何网址。
 
           仅当“RestoreOnStartup”政策设为“RestoreOnStartupIsURLs”时，此政策才有效。
 
           此政策仅适用于已加入 <ph name="MS_AD_NAME" /> 网域的 Windows 实例，或者已注册设备管理服务的 Windows 10 Pro 或 Enterprise 实例。</translation>
 <translation id="6417265370957905582">Google 助理</translation>
+<translation id="6424485010103067949"><ph name="OMA_URI" />：</translation>
 <translation id="6426205278746959912">您无法强制 Android 应用使用代理。一小部分代理设置已可供 Android 应用使用，此类应用可能会主动选择使用这些设置：
 
           如果您选择永不使用代理服务器，则系统会通知 Android 应用未配置任何代理。
@@ -2900,6 +2893,9 @@
 <translation id="6544897973797372144">如果该策略设置为 True，且未指定 ChromeOsReleaseChannel 策略，那么注册域的用户将可以更改设备的发布版。如果该策略设置为 False，那么设备就会锁定最后设置的任何版本。
 
      ChromeOsReleaseChannel 策略将会覆盖用户选择的版本，但是，如果该策略版本比设备上已安装的版本更稳定，那么仅当较稳定版本的版本值高于设备上已安装版本时，系统才会切换版本。</translation>
+<translation id="6549567350270907557">如果启用此设置，用户可以让 <ph name="PRODUCT_NAME" /> 检查输入的凭据是否已泄露。
+
+              如果启用或停用了此政策，用户将无法在 <ph name="PRODUCT_NAME" /> 中更改或覆盖它。如果未设置此政策，系统将允许执行泄露检查（但此功能可由用户关闭）。</translation>
 <translation id="6553143066970470539">屏幕亮度百分比</translation>
 <translation id="6559057113164934677">不允许任何网站使用摄像头和麦克风</translation>
 <translation id="6561396069801924653">在系统任务栏菜单中显示无障碍选项</translation>
@@ -2980,15 +2976,6 @@
 <translation id="6731757988219967594">滤除提供成人内容的顶级网站（但不滤除嵌入式 iframe）</translation>
 <translation id="6734521799274931721">控制是否允许在 Chrome 操作系统中使用网络文件共享功能</translation>
 <translation id="6735701345096330595">强制检查语言拼写</translation>
-<translation id="673699536430961464">您可以通过此设置允许用户在登录其 <ph name="PRODUCT_OS_NAME" />设备后从浏览器窗口的内容区域切换 Google 帐号。
-
-      如果此政策设为 false，将不允许用户从处于非无痕模式的浏览器内容区域切换帐号。
-
-      如果此政策设为 true 或未设置，系统将会遵从默认行为：将允许用户从浏览器的内容区域切换帐号（切换到未成年人帐号除外，因为系统将阻止从处于非无痕模式的内容区域登录未成年人帐号）。
-
-      如果不应允许通过无痕模式切换帐号，建议使用 IncognitoModeAvailability 政策屏蔽该模式。
-
-      请注意，通过阻止 Google 服务的 Cookie，用户将能够在未经身份验证的情况下访问 Google 服务。</translation>
 <translation id="6757438632136860443">可让您设置一系列网址格式，以用于指定允许哪些网站运行 <ph name="FLASH_PLUGIN_NAME" /> 插件。
 
           如果未设置此政策，系统将会对所有网站使用“DefaultPluginsSetting”政策中的全局默认值（倘若已设置“DefaultPluginsSetting”政策），或使用用户个人配置中的全局默认值（倘若未设置“DefaultPluginsSetting”政策）。</translation>
@@ -3468,15 +3455,6 @@
       如果此政策的值为0，系统将使用默认缓存大小，并且用户无法更改该默认值。
 
       如果未设置此政策，系统将使用默认缓存大小，并且用户可以使用“--disk-cache-size”标记覆盖默认值。</translation>
-<translation id="759389052790680884">设置电池充电自定义停止充电值（以百分比表示）。
-
-          当电池电量达到电池充电自定义停止充电值时，电池就会停止充电。
-
-          DeviceBatteryChargeCustomStartCharging 必须小于 DeviceBatteryChargeCustomStopCharging。
-
-          仅当 DeviceBatteryChargeMode 设为“custom”时，才会用到此政策。
-
-          如果未配置或未设置此政策，则会应用标准电池充电模式。</translation>
 <translation id="759957074386651883">安全浏览设置</translation>
 <translation id="7604169113182304895">Android 应用可能会主动选择采纳该列表。您无法强制此类应用采纳该列表。</translation>
 <translation id="7612157962821894603">在 <ph name="PRODUCT_NAME" /> 启动时应用于整个系统的设置</translation>
@@ -3572,9 +3550,6 @@
 <translation id="7750991880413385988">打开新标签页</translation>
 <translation id="7754704193130578113">下载前询问每个文件的保存位置</translation>
 <translation id="7761446981238915769">配置登录屏幕上已安装应用的列表</translation>
-<translation id="7763479091692861127"> 可用于操作系统更新的连接类型。由于操作系统更新较大，因此可能会增加连接的负荷，还可能会产生额外费用。因此在默认情况下，系统不会针对公认的昂贵连接类型（目前包括 WiMax、蓝牙和移动网络）启用操作系统更新。
-
-      已识别的连接类型标识符包括“以太网”、“Wi-Fi”、“WiMax”、“蓝牙”和“移动”网络。</translation>
 <translation id="7763614521440615342">在“打开新的标签页”页面上显示内容建议</translation>
 <translation id="7765879851993224640">允许使用 Smart Lock 登录功能。</translation>
 <translation id="7772346342637974431">指定当使用电池供电时系统应在设备闲置多久后显示警告对话框。
@@ -3827,6 +3802,7 @@
 <translation id="8312129124898414409">可让您设置是否允许网站使用密钥生成功能。您可以允许或禁止所有网站使用密钥生成功能。
 
           如果此政策未设置，系统将使用“BlockKeygen”，并且用户可以更改此设置。</translation>
+<translation id="8314214821702356835">允许用户在设备锁定时播放媒体</translation>
 <translation id="8320149248919453401">电池充电模式</translation>
 <translation id="8329984337216493753">此政策仅在零售模式下有效。
 
@@ -3865,6 +3841,10 @@
 
       如需详细了解 Internet Explorer 的 <ph name="IEEM_SITELIST_POLICY" /> 政策，请访问：https://docs.microsoft.com/internet-explorer/ie11-deploy-guide/what-is-enterprise-mode</translation>
 <translation id="8402079500086185021">始终使用外部应用打开 PDF 文件</translation>
+<translation id="8405691014775178834">允许此用户拥有 Crostini 容器的 root 权限。
+
+      如果此政策设为 true 或未设置，用户会获得对 Crostini 容器的 root 权限。
+      如果此政策设为 false，用户将不会获得对现有以及新的 Crostini 容器的 root 权限。</translation>
 <translation id="8417305981081876834">设置锁定屏幕 PIN 码的长度上限</translation>
 <translation id="841977920223099909">密码保护服务警告功能触发条件</translation>
 <translation id="8424255554404582727">设置显示屏默认旋转角度，每次重新启动后都重新应用设置的角度</translation>
@@ -4098,6 +4078,7 @@
 
           指定的政策值应以毫秒为单位，并且必须少于闲置延迟时间。</translation>
 <translation id="891435090623616439">已编码为 JSON 字符串。有关详情，请访问 <ph name="COMPLEX_POLICIES_URL" /></translation>
+<translation id="8917070657147922192">允许用户管理已安装的 CA 证书。</translation>
 <translation id="8934944553121392674">控制用户可以使用 <ph name="DEVICE_PRINTERS_POLICY" /> 中的哪些打印机。
 
       指定对批量打印机配置使用哪项访问政策。如果选择 <ph name="PRINTERS_ALLOW_ALL" />，则系统会显示所有打印机。如果选择 <ph name="PRINTERS_BLACKLIST" />，则系统会使用 <ph name="DEVICE_PRINTERS_BLACKLIST" /> 来限制用户使用指定的打印机。如果选择 <ph name="PRINTERS_WHITELIST" />，则 <ph name="DEVICE_PRINTERS_WHITELIST" /> 只会指定可供用户选择的打印机。
@@ -4227,7 +4208,6 @@
 <translation id="9152473318295429890">允许根据上下文建议相关的网页</translation>
 <translation id="9153446010242995516">如果操作系统版本比目标版本新，则回滚到目标版本，并一直使用此版本。如果可能，会尝试通过回滚过程保留设备级配置（包括网络凭据），但即使无法恢复数据（因为目标版本不支持恢复数据，或因为发生了无法向后兼容的更改），也会通过执行完整的 Powerwash 操作进行回滚。
           <ph name="PRODUCT_OS_NAME" /> 75 及更高版本均支持。对于旧版客户端，此值意味着禁用回滚。</translation>
-<translation id="9158929520101169054">允许在同一浏览器中登录多个帐号</translation>
 <translation id="9159126470527871268">必须重新启动 <ph name="PRODUCT_NAME" /> 或必须重启 <ph name="PRODUCT_OS_NAME" />以应用待应用的更新时，通知用户。
 
       此政策设置用于启用通知功能，以便在系统建议或要求重新启动浏览器或重启设备时，通知用户。如果此政策未设置，当需要重新启动时，<ph name="PRODUCT_NAME" /> 会通过菜单的细微变化来提示用户，而 <ph name="PRODUCT_OS_NAME" />则会通过系统任务栏中的通知来提示用户。如果此政策设为“推荐”，当建议重新启动浏览器时，系统将会显示周期性警告。用户可以关闭该警告来推迟重新启动。如果此政策设为“必需”，系统将会显示周期性警告，以便让用户知道系统将于通知时间段过后立即强制重新启动浏览器。对于 <ph name="PRODUCT_NAME" />，通知时间段会默认设为 7 天，对于 <ph name="PRODUCT_OS_NAME" />，则会默认设为 4 天，不过可以通过 <ph name="RELAUNCH_NOTIFICATION_PERIOD_POLICY_NAME" /> 政策设置进行配置。

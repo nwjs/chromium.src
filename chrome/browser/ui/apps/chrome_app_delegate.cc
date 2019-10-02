@@ -201,8 +201,8 @@ ChromeAppDelegate::ChromeAppDelegate(bool keep_alive)
       new_window_contents_delegate_(new NewWindowContentsDelegate()),
       web_contents_(nullptr) {
   if (keep_alive) {
-    keep_alive_.reset(new ScopedKeepAlive(KeepAliveOrigin::CHROME_APP_DELEGATE,
-                                          KeepAliveRestartOption::DISABLED));
+    keep_alive_ = std::make_unique<ScopedKeepAlive>(
+        KeepAliveOrigin::CHROME_APP_DELEGATE, KeepAliveRestartOption::DISABLED);
   }
   registrar_.Add(this,
                  chrome::NOTIFICATION_APP_TERMINATING,
@@ -389,7 +389,7 @@ void ChromeAppDelegate::OnHide() {
 
   // Hold on to the keep alive for some time to give the app a chance to show
   // the window.
-  base::PostDelayedTaskWithTraits(
+  base::PostDelayedTask(
       FROM_HERE, {content::BrowserThread::UI},
       base::BindOnce(&ChromeAppDelegate::RelinquishKeepAliveAfterTimeout,
                      weak_factory_.GetWeakPtr()),
@@ -401,8 +401,8 @@ void ChromeAppDelegate::OnShow() {
   has_been_shown_ = true;
   is_hidden_ = false;
 #if 0
-  keep_alive_.reset(new ScopedKeepAlive(KeepAliveOrigin::CHROME_APP_DELEGATE,
-                                        KeepAliveRestartOption::DISABLED));
+  keep_alive_ = std::make_unique<ScopedKeepAlive>(
+      KeepAliveOrigin::CHROME_APP_DELEGATE, KeepAliveRestartOption::DISABLED);
 #endif
 }
 

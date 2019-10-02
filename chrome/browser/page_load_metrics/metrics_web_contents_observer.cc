@@ -17,7 +17,7 @@
 #include "chrome/browser/page_load_metrics/page_load_metrics_util.h"
 #include "chrome/browser/page_load_metrics/page_load_tracker.h"
 #include "chrome/browser/prerender/prerender_contents.h"
-#include "chrome/common/page_load_metrics/page_load_timing.h"
+#include "components/page_load_metrics/common/page_load_timing.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/global_request_id.h"
 #include "content/public/browser/media_player_id.h"
@@ -384,10 +384,20 @@ void MetricsWebContentsObserver::OnCookieChange(
                                     blocked_by_policy);
 }
 
-const PageLoadExtraInfo
-MetricsWebContentsObserver::GetPageLoadExtraInfoForCommittedLoad() {
+void MetricsWebContentsObserver::OnDomStorageAccessed(
+    const GURL& url,
+    const GURL& first_party_url,
+    bool local,
+    bool blocked_by_policy) {
+  if (committed_load_)
+    committed_load_->OnDomStorageAccessed(url, first_party_url, local,
+                                          blocked_by_policy);
+}
+
+const PageLoadMetricsObserverDelegate&
+MetricsWebContentsObserver::GetDelegateForCommittedLoad() {
   DCHECK(committed_load_);
-  return committed_load_->ComputePageLoadExtraInfo();
+  return *committed_load_.get();
 }
 
 void MetricsWebContentsObserver::ReadyToCommitNavigation(
@@ -477,9 +487,8 @@ void MetricsWebContentsObserver::HandleFailedNavigationForTrackedLoad(
   const net::Error error = navigation_handle->GetNetErrorCode();
 
   // net::OK: This case occurs when the NavigationHandle finishes and reports
-  // !HasCommitted(), but reports no net::Error. This should not occur
-  // pre-PlzNavigate, but afterwards it should represent the navigation stopped
-  // by the user before it was ready to commit.
+  // !HasCommitted(), but reports no net::Error. This represents the navigation
+  // being stopped by the user before it was ready to commit.
   // net::ERR_ABORTED: An aborted provisional load has error net::ERR_ABORTED.
   const bool is_aborted_provisional_load =
       error == net::OK || error == net::ERR_ABORTED;
@@ -805,6 +814,11 @@ MetricsWebContentsObserver::TestingObserver::~TestingObserver() {
 
 void MetricsWebContentsObserver::TestingObserver::OnGoingAway() {
   observer_ = nullptr;
+}
+
+const PageLoadMetricsObserverDelegate&
+MetricsWebContentsObserver::TestingObserver::GetDelegateForCommittedLoad() {
+  return observer_->GetDelegateForCommittedLoad();
 }
 
 void MetricsWebContentsObserver::BroadcastEventToObservers(

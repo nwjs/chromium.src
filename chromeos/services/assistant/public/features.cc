@@ -22,6 +22,16 @@ const base::Feature kAssistantWarmerWelcomeFeature{
 const base::Feature kAssistantAppSupport{"AssistantAppSupport",
                                          base::FEATURE_DISABLED_BY_DEFAULT};
 
+const base::Feature kAssistantProactiveSuggestions{
+    "AssistantProactiveSuggestions", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::FeatureParam<std::string>
+    kAssistantProactiveSuggestionsServerExperimentIds{
+        &kAssistantProactiveSuggestions, "server-experiment-ids", ""};
+
+const base::FeatureParam<bool> kAssistantProactiveSuggestionsSuppressDuplicates{
+    &kAssistantProactiveSuggestions, "suppress-duplicates", true};
+
 const base::Feature kAssistantRoutines{"AssistantRoutines",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -63,6 +73,10 @@ const base::Feature kEnableMediaSessionIntegration{
     "AssistantEnableMediaSessionIntegration",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
+std::string GetProactiveSuggestionsServerExperimentIds() {
+  return kAssistantProactiveSuggestionsServerExperimentIds.Get();
+}
+
 bool IsAlarmTimerManagerEnabled() {
   return base::FeatureList::IsEnabled(kEnableAssistantAlarmTimerManager);
 }
@@ -98,6 +112,14 @@ bool IsMediaSessionIntegrationEnabled() {
 
 bool IsPowerManagerEnabled() {
   return base::FeatureList::IsEnabled(kEnablePowerManager);
+}
+
+bool IsProactiveSuggestionsEnabled() {
+  return base::FeatureList::IsEnabled(kAssistantProactiveSuggestions);
+}
+
+bool IsProactiveSuggestionsSuppressDuplicatesEnabled() {
+  return kAssistantProactiveSuggestionsSuppressDuplicates.Get();
 }
 
 bool IsRoutinesEnabled() {

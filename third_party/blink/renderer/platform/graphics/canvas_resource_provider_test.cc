@@ -142,6 +142,15 @@ class CanvasResourceProviderTest : public Test {
         ->SetCapabilities(capabilities);
   }
 
+  void EnsureOverlaysSupported() {
+    auto* context_provider = context_provider_wrapper_->ContextProvider();
+    auto capabilities = context_provider->GetCapabilities();
+    capabilities.texture_storage_image = true;
+    capabilities.max_texture_size = 1024;
+    static_cast<MockWebGraphisContext3DProviderWrapper*>(context_provider)
+        ->SetCapabilities(capabilities);
+  }
+
  protected:
   base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper_;
   ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform_;
@@ -182,7 +191,8 @@ TEST_F(CanvasResourceProviderTest, CanvasResourceProviderTexture) {
 
   auto provider = CanvasResourceProvider::Create(
       kSize, CanvasResourceProvider::ResourceUsage::kAcceleratedResourceUsage,
-      context_provider_wrapper_, 0 /* msaa_sample_count */, kColorParams,
+      context_provider_wrapper_, 0 /* msaa_sample_count */,
+      kLow_SkFilterQuality, kColorParams,
       CanvasResourceProvider::kAllowImageChromiumPresentationMode,
       nullptr /* resource_dispatcher */, true /* is_origin_top_left */);
 
@@ -208,8 +218,10 @@ TEST_F(CanvasResourceProviderTest,
 
   auto provider = CanvasResourceProvider::Create(
       kSize,
-      CanvasResourceProvider::ResourceUsage::kSoftwareCompositedResourceUsage,
-      context_provider_wrapper_, 0 /* msaa_sample_count */, kColorParams,
+      CanvasResourceProvider::ResourceUsage::
+          kSoftwareCompositedDirect2DResourceUsage,
+      context_provider_wrapper_, 0 /* msaa_sample_count */,
+      kLow_SkFilterQuality, kColorParams,
       CanvasResourceProvider::kAllowImageChromiumPresentationMode,
       nullptr /* resource_dispatcher */, true /* is_origin_top_left */);
 
@@ -345,7 +357,8 @@ TEST_F(CanvasResourceProviderTest, CanvasResourceProviderBitmap) {
 
   auto provider = CanvasResourceProvider::Create(
       kSize, CanvasResourceProvider::ResourceUsage::kSoftwareResourceUsage,
-      context_provider_wrapper_, 0 /* msaa_sample_count */, kColorParams,
+      context_provider_wrapper_, 0 /* msaa_sample_count */,
+      kLow_SkFilterQuality, kColorParams,
       CanvasResourceProvider::kAllowImageChromiumPresentationMode,
       nullptr /* resource_dispatcher */, true /* is_origin_top_left */);
 
@@ -375,7 +388,8 @@ TEST_F(CanvasResourceProviderTest, CanvasResourceProviderSharedBitmap) {
   auto provider = CanvasResourceProvider::Create(
       kSize,
       CanvasResourceProvider::ResourceUsage::kSoftwareCompositedResourceUsage,
-      context_provider_wrapper_, 0 /* msaa_sample_count */, kColorParams,
+      context_provider_wrapper_, 0 /* msaa_sample_count */,
+      kLow_SkFilterQuality, kColorParams,
       CanvasResourceProvider::kDefaultPresentationMode,
       resource_dispatcher.GetWeakPtr(), true /* is_origin_top_left */);
 
@@ -400,11 +414,13 @@ TEST_F(CanvasResourceProviderTest,
   const CanvasColorParams kColorParams(kSRGBCanvasColorSpace,
                                        kRGBA8CanvasPixelFormat, kNonOpaque);
   EnsureBufferFormatIsSupported(kColorParams.GetBufferFormat());
+  EnsureOverlaysSupported();
 
   auto provider = CanvasResourceProvider::Create(
       kSize,
       CanvasResourceProvider::ResourceUsage::kAcceleratedDirect2DResourceUsage,
-      context_provider_wrapper_, 0 /* msaa_sample_count */, kColorParams,
+      context_provider_wrapper_, 0 /* msaa_sample_count */,
+      kLow_SkFilterQuality, kColorParams,
       CanvasResourceProvider::kAllowImageChromiumPresentationMode,
       nullptr /* resource_dispatcher */, true /* is_origin_top_left */);
 
@@ -433,7 +449,8 @@ TEST_F(CanvasResourceProviderTest,
   auto provider = CanvasResourceProvider::Create(
       kSize,
       CanvasResourceProvider::ResourceUsage::kAcceleratedDirect3DResourceUsage,
-      context_provider_wrapper_, 0 /* msaa_sample_count */, kColorParams,
+      context_provider_wrapper_, 0 /* msaa_sample_count */,
+      kLow_SkFilterQuality, kColorParams,
       CanvasResourceProvider::kAllowImageChromiumPresentationMode,
       nullptr /* resource_dispatcher */, true /* is_origin_top_left */);
 

@@ -96,7 +96,7 @@ class CONTENT_EXPORT LevelDBScope {
     return buffer_batch_.ApproximateSize();
   }
 
-  uint64_t GetTransactionSize() const {
+  uint64_t GetApproximateBytesWritten() const {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     return approximate_bytes_written_.ValueOrDie();
   }
@@ -137,7 +137,13 @@ class CONTENT_EXPORT LevelDBScope {
   // status & the mode of this scope. The caller (LevelDBScopes) is expected to
   // queue up a cleanup task if the mode is kUndoLogOnDisk. This instance should
   // not be used after this call.
-  std::pair<leveldb::Status, Mode> Commit() WARN_UNUSED_RESULT;
+  std::pair<leveldb::Status, Mode> Commit(bool sync_on_commit)
+      WARN_UNUSED_RESULT;
+
+  // Submits pending changes & the undo log to LevelDB. Required to be able to
+  // read any keys that have been submitted to Put, Delete, or
+  // DeleteRange. |sync| makes the write a synchronous write.
+  leveldb::Status WriteChangesAndUndoLogInternal(bool sync);
 
   void AddUndoPutTask(std::string key, std::string value);
   void AddUndoDeleteTask(std::string key);

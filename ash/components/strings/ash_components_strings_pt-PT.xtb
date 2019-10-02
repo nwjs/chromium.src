@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="pt-PT">
+<translation id="1036550831858290950">Guarde o separador atual como um marcador</translation>
 <translation id="104962181688258143">Abrir a aplicação Ficheiros</translation>
 <translation id="1098295134904615027">Ative o espaço de trabalho virtual à direita.</translation>
 <translation id="1122869341872663659">A apresentar <ph name="N" /> resultados da pesquisa para <ph name="QUERY" />.</translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">Repor o nível de zoom na página</translation>
 <translation id="2596078834055697711">Criar uma captura de ecrã da janela</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" /> e, em seguida, <ph name="TAB" /> ou <ph name="RIGHT" />.</translation>
-<translation id="2699509451653686398">Guardar a página Web atual como um marcador</translation>
 <translation id="2750942583782703988">Atualizar a página atual</translation>
 <translation id="2764005613199379871">Focar a barra de endereço da pesquisa</translation>
 <translation id="2789868185375229787">Reduzir a página</translation>

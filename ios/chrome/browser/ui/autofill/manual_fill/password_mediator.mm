@@ -15,7 +15,7 @@
 #import "ios/chrome/browser/ui/autofill/manual_fill/action_cell.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/credential.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/credential_password_form.h"
-#import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_content_delegate.h"
+#import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_content_injector.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_password_cell.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/password_consumer.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/password_list_navigator.h"
@@ -59,7 +59,7 @@ BOOL AreCredentialsAtIndexesConnected(
       isEqualToString:credentials[secondIndex].host];
 }
 
-@interface ManualFillPasswordMediator () <ManualFillContentDelegate,
+@interface ManualFillPasswordMediator () <ManualFillContentInjector,
                                           PasswordFetcherDelegate> {
   // The interface for getting and manipulating a user's saved passwords.
   scoped_refptr<password_manager::PasswordStore> _passwordStore;
@@ -182,7 +182,7 @@ BOOL AreCredentialsAtIndexesConnected(
                initWithCredential:credential
         isConnectedToPreviousItem:isConnectedToPreviousItem
             isConnectedToNextItem:isConnectedToNextItem
-                         delegate:self];
+                  contentInjector:self];
     [items addObject:item];
   }
   return items;
@@ -197,21 +197,18 @@ BOOL AreCredentialsAtIndexesConnected(
         [[NSMutableArray alloc] init];
     __weak __typeof(self) weakSelf = self;
 
-    // TODO(crbug.com/908776): fix or wait until iOS 11.2- is deprecated.
-    if (@available(iOS 11.3, *)) {
-      NSString* otherPasswordsTitleString = l10n_util::GetNSString(
-          IDS_IOS_MANUAL_FALLBACK_USE_OTHER_PASSWORD_WITH_DOTS);
-      auto otherPasswordsItem = [[ManualFillActionItem alloc]
-          initWithTitle:otherPasswordsTitleString
-                 action:^{
-                   base::RecordAction(base::UserMetricsAction(
-                       "ManualFallback_Password_OpenOtherPassword"));
-                   [weakSelf.navigator openAllPasswordsList];
-                 }];
-      otherPasswordsItem.accessibilityIdentifier =
-          manual_fill::OtherPasswordsAccessibilityIdentifier;
-      [actions addObject:otherPasswordsItem];
-    }
+    NSString* otherPasswordsTitleString = l10n_util::GetNSString(
+        IDS_IOS_MANUAL_FALLBACK_USE_OTHER_PASSWORD_WITH_DOTS);
+    auto otherPasswordsItem = [[ManualFillActionItem alloc]
+        initWithTitle:otherPasswordsTitleString
+               action:^{
+                 base::RecordAction(base::UserMetricsAction(
+                     "ManualFallback_Password_OpenOtherPassword"));
+                 [weakSelf.navigator openAllPasswordsList];
+               }];
+    otherPasswordsItem.accessibilityIdentifier =
+        manual_fill::OtherPasswordsAccessibilityIdentifier;
+    [actions addObject:otherPasswordsItem];
 
     NSString* managePasswordsTitle =
         l10n_util::GetNSString(IDS_IOS_MANUAL_FALLBACK_MANAGE_PASSWORDS);
@@ -240,11 +237,11 @@ BOOL AreCredentialsAtIndexesConnected(
   [self postDataToConsumer];
 }
 
-#pragma mark - ManualFillContentDelegate
+#pragma mark - ManualFillContentInjector
 
 - (BOOL)canUserInjectInPasswordField:(BOOL)passwordField
                        requiresHTTPS:(BOOL)requiresHTTPS {
-  return [self.contentDelegate canUserInjectInPasswordField:passwordField
+  return [self.contentInjector canUserInjectInPasswordField:passwordField
                                               requiresHTTPS:requiresHTTPS];
 }
 
@@ -252,7 +249,7 @@ BOOL AreCredentialsAtIndexesConnected(
              passwordField:(BOOL)passwordField
              requiresHTTPS:(BOOL)requiresHTTPS {
   [self.navigator dismissPresentedViewController];
-  [self.contentDelegate userDidPickContent:content
+  [self.contentInjector userDidPickContent:content
                              passwordField:passwordField
                              requiresHTTPS:requiresHTTPS];
 }

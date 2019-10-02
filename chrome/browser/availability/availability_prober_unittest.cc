@@ -12,7 +12,7 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/testing_pref_service.h"
-#include "content/public/test/test_browser_thread_bundle.h"
+#include "content/public/test/browser_task_environment.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_status_code.h"
@@ -88,8 +88,7 @@ class TestAvailabilityProber : public AvailabilityProber {
 class AvailabilityProberTest : public testing::Test {
  public:
   AvailabilityProberTest()
-      : thread_bundle_(
-            base::test::ScopedTaskEnvironment::TimeSource::MOCK_TIME),
+      : task_environment_(base::test::TaskEnvironment::TimeSource::MOCK_TIME),
         test_shared_loader_factory_(
             base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
                 &test_url_loader_factory_)),
@@ -130,17 +129,17 @@ class AvailabilityProberTest : public testing::Test {
             AvailabilityProber::ClientName::kLitepages, kTestUrl,
             AvailabilityProber::HttpMethod::kGet, headers, retry_policy,
             timeout_policy, TRAFFIC_ANNOTATION_FOR_TESTS, 1,
-            kCacheRevalidateAfter, thread_bundle_.GetMockTickClock(),
-            thread_bundle_.GetMockClock());
+            kCacheRevalidateAfter, task_environment_.GetMockTickClock(),
+            task_environment_.GetMockClock());
     prober->SetOnCompleteCallback(base::BindRepeating(
         &AvailabilityProberTest::OnProbeComplete, base::Unretained(this)));
     return prober;
   }
 
-  void RunUntilIdle() { thread_bundle_.RunUntilIdle(); }
+  void RunUntilIdle() { task_environment_.RunUntilIdle(); }
 
   void FastForward(base::TimeDelta delta) {
-    thread_bundle_.FastForwardBy(delta);
+    task_environment_.FastForwardBy(delta);
   }
 
   void MakeResponseAndWait(net::HttpStatusCode http_status,
@@ -179,7 +178,8 @@ class AvailabilityProberTest : public testing::Test {
     EXPECT_EQ(testing_header, "Hello world");
     EXPECT_EQ(request->request.method, "GET");
     EXPECT_EQ(request->request.load_flags, net::LOAD_DISABLE_CACHE);
-    EXPECT_FALSE(request->request.allow_credentials);
+    EXPECT_EQ(request->request.credentials_mode,
+              network::mojom::CredentialsMode::kOmit);
     if (expect_random_guid) {
       EXPECT_NE(request->request.url, kTestUrl);
       EXPECT_TRUE(request->request.url.query().find("guid=") !=
@@ -198,7 +198,7 @@ class AvailabilityProberTest : public testing::Test {
   base::Optional<bool> callback_result() { return callback_result_; }
 
  private:
-  content::TestBrowserThreadBundle thread_bundle_;
+  content::BrowserTaskEnvironment task_environment_;
   network::TestURLLoaderFactory test_url_loader_factory_;
   scoped_refptr<network::SharedURLLoaderFactory> test_shared_loader_factory_;
   TestDelegate test_delegate_;
@@ -849,4 +849,25 @@ TEST_F(AvailabilityProberTest, CacheEntryAge) {
       "Availability.Prober.CacheEntryAge.Litepages", 24, 1);
   histogram_tester.ExpectTotalCount(
       "Availability.Prober.CacheEntryAge.Litepages", 2);
+}
+
+TEST_F(AvailabilityProberTest, Repeating) {
+  base::HistogramTester histogram_tester;
+
+  std::unique_ptr<AvailabilityProber> prober = NewProber();
+  EXPECT_EQ(prober->LastProbeWasSuccessful(), base::nullopt);
+
+  prober->RepeatedlyProbe(base::TimeDelta::FromSeconds(1), false);
+  VerifyRequest();
+  MakeResponseAndWait(net::HTTP_OK, net::OK);
+  EXPECT_TRUE(prober->LastProbeWasSuccessful().value());
+  EXPECT_FALSE(prober->is_active());
+
+  FastForward(base::TimeDelta::FromSeconds(1));
+  EXPECT_TRUE(prober->is_active());
+
+  VerifyRequest();
+  MakeResponseAndWait(net::HTTP_OK, net::OK);
+  EXPECT_TRUE(prober->LastProbeWasSuccessful().value());
+  EXPECT_FALSE(prober->is_active());
 }

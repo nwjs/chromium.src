@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="iw">
+<translation id="1005230401424685968">YYYY</translation>
 <translation id="1016495303386450659">הפריט עודכן</translation>
 <translation id="1047726139967079566">הוסף דף זה לסימניות...</translation>
 <translation id="1049743911850919806">גלישה פרטית</translation>
@@ -71,6 +72,7 @@
 <translation id="1820259098641718022">נוסף לרשימת הקריאה</translation>
 <translation id="1828824471510190776">הצעת סיסמה…</translation>
 <translation id="1870148520156231997">הצגת הסיסמה</translation>
+<translation id="1872096359983322073">פנס</translation>
 <translation id="1876721852596493031">שלח נתוני שימוש</translation>
 <translation id="1911619930368729126">‏העלה אל Google Drive</translation>
 <translation id="1923342640370224680">בשעה האחרונה</translation>
@@ -148,7 +150,6 @@
 <translation id="2921219216347069551">לא ניתן לשתף את הדף</translation>
 <translation id="2923448633003185837">הדבקה וחיפוש</translation>
 <translation id="292639812446257861">סמן כ'לא נקרא'</translation>
-<translation id="2933759065870693102">פנס</translation>
 <translation id="2958718410589002129">סיסמאות</translation>
 <translation id="2969979262385602596">הכניסה נכשלה. נסה שוב מאוחר יותר.</translation>
 <translation id="298306318844797842">הוספת אמצעי תשלום...</translation>
@@ -194,6 +195,7 @@
 <translation id="3607167657931203000">נתוני מילוי אוטומטי</translation>
 <translation id="3609785682760573515">מסנכרן ...</translation>
 <translation id="3638472932233958418">טעינה מראש של דפי אינטרנט</translation>
+<translation id="3670030362669914947">מספר</translation>
 <translation id="3691593122358196899">התווסף לסימניות ב-<ph name="FOLDER_TITLE" /></translation>
 <translation id="3771033907050503522">כרטיסיות גלישה בסתר</translation>
 <translation id="3775743491439407556">הסינכרון לא פועל</translation>
@@ -261,9 +263,11 @@
 <translation id="4747097190499141774">‏הצפנה באמצעות ביטוי סיסמה לא כוללת אמצעי תשלום וכתובות מ-Google Pay. רק מי שיודע את ביטוי הסיסמה שלך יכול לקרוא את הנתונים המוצפנים. ביטוי הסיסמה לא נשלח אל Google והיא אינה מאחסנת אותו. אם שוכחים את ביטוי הסיסמה או רוצים לשנות את ההגדרה הזו, צריך לאפס את הסנכרון. <ph name="BEGIN_LINK" />מידע נוסף<ph name="END_LINK" /></translation>
 <translation id="4749030437873592350">חיפוש בדף…</translation>
 <translation id="4751645464639803239">כרטיסייה חדשה לגלישה בסתר</translation>
+<translation id="4758977202923349869">יש למקם את כרטיס האשראי בתוך המסגרת הזו</translation>
 <translation id="4802417911091824046">‏הצפנה באמצעות ביטוי סיסמה לא כוללת אמצעי תשלום וכתובות מ-Google Pay
 
 כדי לשנות את ההגדרה הזו צריך <ph name="BEGIN_LINK" />לאפס את הסנכרון<ph name="END_LINK" /></translation>
+<translation id="4805759445554688327">מספר כרטיס לא חוקי</translation>
 <translation id="4807020197310989387">מאמר אחד שלא נקרא ברשימת הקריאה.</translation>
 <translation id="4818522717893377262">הוספת שפה…</translation>
 <translation id="481968316161811770">‏קובצי cookie, נתוני אתרים</translation>
@@ -302,6 +306,7 @@
 <translation id="5317780077021120954">שמור</translation>
 <translation id="5327248766486351172">שם</translation>
 <translation id="5388358297987318779">פתח תמונה</translation>
+<translation id="5407969256130905701">ביטול השינויים</translation>
 <translation id="5409365236829784218">אין יישומים מותקנים שיכולים לפתוח את הקובץ הזה.</translation>
 <translation id="5416022985862681400">7 הימים האחרונים</translation>
 <translation id="5433691172869980887">שם המשתמש הועתק</translation>
@@ -324,6 +329,7 @@
 <translation id="5728700505257787410">מצטערים, אירעה בעיה בכניסה לחשבון שלך.</translation>
 <translation id="5737974891429562743">פרטי הכניסה לחשבון אינם עדכניים. עדכן כדי להפעיל את הסינכרון.</translation>
 <translation id="5738887413654608789">‏תקשורת Bluetooth מאפשרת לך למצוא אתרי אינטרנט רלוונטיים לפי המיקום שלך.</translation>
+<translation id="5803566855766646066">הכרטיס החדש יימחק. להמשיך?</translation>
 <translation id="5816228676161003208">אישור זה מאפשר לך לחפש מהר יותר בעזרת דיבור.</translation>
 <translation id="5846482154967366008">מנוע חיפוש</translation>
 <translation id="5854790677617711513">לפני יותר מ-30 ימים</translation>
@@ -352,6 +358,7 @@
 <translation id="605721222689873409">YY</translation>
 <translation id="6066301408025741299">הקש כדי לבטל.</translation>
 <translation id="6108923351542677676">ההגדרה מתבצעת…</translation>
+<translation id="6119050551270742952">דף האינטרנט הנוכחי מוצג במצב גלישה בסתר</translation>
 <translation id="6122191549521593678">מקוון</translation>
 <translation id="6127379762771434464">הפריט הוסר</translation>
 <translation id="6136914049981179737">שניות</translation>
@@ -391,6 +398,7 @@
 <translation id="6476800141292307438">הדפדפן מתרגם את הדף ל<ph name="LANGUAGE" />. האפשרויות מוצגות בחלק התחתון של המסך.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> פריטים נמחקו</translation>
 <translation id="6610002944194042868">אפשרויות תרגום</translation>
+<translation id="6628106477656132239">תאריך התפוגה אינו חוקי</translation>
 <translation id="6642362222295953972">מעבר אל כרטיסייה קיימת</translation>
 <translation id="6643016212128521049">ניקוי</translation>
 <translation id="6656103420185847513">ערוך תיקייה</translation>
@@ -407,6 +415,9 @@
 <translation id="6807889908376551050">הצג הכל...</translation>
 <translation id="681368974849482173">הפריט נוצר</translation>
 <translation id="6851516051005285358">בקשת אתר למחשב</translation>
+<translation id="6858855187367714033">נסרק</translation>
+<translation id="6859944681507688231">‏כדי לסרוק קוד QR או כרטיס אשראי, יש להפעיל את המצלמה דרך ההגדרות.</translation>
+<translation id="6873263987691478642">‏מצב Split View</translation>
 <translation id="6896758677409633944">העתק</translation>
 <translation id="6903907808598579934">הפעל סנכרון</translation>
 <translation id="6914583639806229067">חיפוש תמונה שהעתקת</translation>
@@ -449,6 +460,7 @@
 <translation id="744343212394640790">אני לא <ph name="EMAIL" /></translation>
 <translation id="7454057999980797137">מדינה / ארץ</translation>
 <translation id="7456847797759667638">פתח מיקום...</translation>
+<translation id="7460314822154045102">שימוש במצלמה</translation>
 <translation id="7464701184726199289">פעולה זו מוחקת נתונים מסונכרנים מכל המכשירים. הגדרות אתרים שנשמרו לא יימחקו ועשויות לשקף את הרגלי הגלישה שלך. <ph name="BEGIN_LINK" />למידע נוסף<ph name="END_LINK" /></translation>
 <translation id="7472734401283673885">שם החברה</translation>
 <translation id="7481312909269577407">קדימה</translation>
@@ -504,7 +516,9 @@
 <translation id="8428045167754449968">עיר / יישוב</translation>
 <translation id="8428213095426709021">הגדרות</translation>
 <translation id="8458397775385147834">פריט אחד נמחק</translation>
+<translation id="8487667956631253959">מופעל</translation>
 <translation id="8487700953926739672">זמין במצב לא מקוון</translation>
+<translation id="8490978609246021741">שמירת השינויים</translation>
 <translation id="8503813439785031346">שם משתמש</translation>
 <translation id="850600235656508448">פתיחה במצב גלישה בסתר</translation>
 <translation id="8517375800490286174">רישיונות קוד פתוח</translation>
@@ -513,6 +527,7 @@
 <translation id="8532105204136943229">שנת פקיעת התוקף</translation>
 <translation id="8534481786647257214">‏הפרסום ב-‏Google+‎ בוצע.</translation>
 <translation id="8548878600947630424">חיפוש בדף...</translation>
+<translation id="8588404856427128947">כבוי</translation>
 <translation id="8605219856220328675">סגור כרטיסייה.</translation>
 <translation id="8620640915598389714">עריכה</translation>
 <translation id="8636825310635137004">כדי לקבל את הכרטיסיות מהמכשירים האחרים שלך, הפעל את הסנכרון.</translation>
@@ -553,6 +568,7 @@
 <translation id="9203116392574189331">Handoff</translation>
 <translation id="9223358826628549784">דוח הקריסה נשלח.</translation>
 <translation id="935490618240037774">‏הסימניות, ההיסטוריה, הסיסמאות והגדרות נוספות יסונכרנו עם חשבון Google, כך שתוכל להשתמש בהן בכל המכשירים שלך.</translation>
+<translation id="952704832371081537">ביטול</translation>
 <translation id="976982866697960176">ניהול נתונים מסונכרנים…</translation>
 <translation id="988141524645182168">מכשירים אחרים</translation>
 <translation id="989988560359834682">ערוך כתובת</translation>

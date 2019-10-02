@@ -453,8 +453,7 @@ HWNDMessageHandler::HWNDMessageHandler(HWNDMessageHandlerDelegate* delegate,
       pointer_events_for_touch_(::features::IsUsingWMPointerForTouch()),
       precision_touchpad_scroll_phase_enabled_(base::FeatureList::IsEnabled(
           ::features::kPrecisionTouchpadScrollPhase)),
-      is_remote_session_(base::win::IsCurrentSessionRemote()),
-      autohide_factory_(this) {}
+      is_remote_session_(base::win::IsCurrentSessionRemote()) {}
 
 HWNDMessageHandler::~HWNDMessageHandler() {
   DCHECK(delegate_->GetHWNDMessageDelegateInputMethod());
@@ -650,7 +649,7 @@ void HWNDMessageHandler::SetDwmFrameExtension(DwmFrameState state) {
   if (!delegate_->HasFrame() && ui::win::IsAeroGlassEnabled() &&
       !is_translucent_) {
     MARGINS m = {0, 0, 0, 0};
-    if (state == DwmFrameState::ON)
+    if (state == DwmFrameState::kOn)
       m = {0, 0, 1, 0};
     DwmExtendFrameIntoClientArea(hwnd(), &m);
   }
@@ -1266,11 +1265,13 @@ void HWNDMessageHandler::ApplyPanGestureScrollBegin(int scroll_x,
                        ui::ScrollEventPhase::kBegan);
 }
 
-void HWNDMessageHandler::ApplyPanGestureScrollEnd() {
+void HWNDMessageHandler::ApplyPanGestureScrollEnd(bool transitioning_to_pinch) {
   if (!precision_touchpad_scroll_phase_enabled_)
     return;
 
-  ApplyPanGestureEvent(0, 0, ui::EventMomentumPhase::NONE,
+  ApplyPanGestureEvent(0, 0,
+                       transitioning_to_pinch ? ui::EventMomentumPhase::BLOCKED
+                                              : ui::EventMomentumPhase::NONE,
                        ui::ScrollEventPhase::kEnd);
 }
 
@@ -1296,6 +1297,10 @@ gfx::NativeViewAccessible HWNDMessageHandler::GetChildOfAXFragmentRoot() {
 
 gfx::NativeViewAccessible HWNDMessageHandler::GetParentOfAXFragmentRoot() {
   return nullptr;
+}
+
+bool HWNDMessageHandler::IsAXFragmentRootAControlElement() {
+  return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2846,7 +2851,7 @@ void HWNDMessageHandler::OnWindowPosChanging(WINDOWPOS* window_pos) {
   if (window_pos->flags & SWP_SHOWWINDOW) {
     delegate_->HandleVisibilityChanging(true);
   } else if (window_pos->flags & SWP_HIDEWINDOW) {
-    SetDwmFrameExtension(DwmFrameState::OFF);
+    SetDwmFrameExtension(DwmFrameState::kOff);
     delegate_->HandleVisibilityChanging(false);
   }
 
@@ -2857,10 +2862,10 @@ void HWNDMessageHandler::OnWindowPosChanged(WINDOWPOS* window_pos) {
   if (DidClientAreaSizeChange(window_pos))
     ClientAreaSizeChanged();
   if (window_pos->flags & SWP_FRAMECHANGED)
-    SetDwmFrameExtension(DwmFrameState::ON);
+    SetDwmFrameExtension(DwmFrameState::kOn);
   if (window_pos->flags & SWP_SHOWWINDOW) {
     delegate_->HandleVisibilityChanged(true);
-    SetDwmFrameExtension(DwmFrameState::ON);
+    SetDwmFrameExtension(DwmFrameState::kOn);
   } else if (window_pos->flags & SWP_HIDEWINDOW) {
     delegate_->HandleVisibilityChanged(false);
   }
@@ -3388,10 +3393,6 @@ bool HWNDMessageHandler::HandleMouseInputForCaption(unsigned int message,
 
 void HWNDMessageHandler::SetBoundsInternal(const gfx::Rect& bounds_in_pixels,
                                            bool force_size_changed) {
-  LONG style = GetWindowLong(hwnd(), GWL_STYLE);
-  if (style & WS_MAXIMIZE)
-    SetWindowLong(hwnd(), GWL_STYLE, style & ~WS_MAXIMIZE);
-
   gfx::Size old_size = GetClientAreaBounds().size();
   SetWindowPos(hwnd(), nullptr, bounds_in_pixels.x(), bounds_in_pixels.y(),
                bounds_in_pixels.width(), bounds_in_pixels.height(),

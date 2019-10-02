@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="uk">
+<translation id="1005230401424685968">РРРР</translation>
 <translation id="1016495303386450659">Закладку оновлено</translation>
 <translation id="1047726139967079566">Додати цю сторінку до закладок...</translation>
 <translation id="1049743911850919806">Анонімний перегляд</translation>
@@ -71,6 +72,7 @@
 <translation id="1820259098641718022">Додано в список читання</translation>
 <translation id="1828824471510190776">Запропонувати пароль…</translation>
 <translation id="1870148520156231997">Показати пароль</translation>
+<translation id="1872096359983322073">Ліхтарик</translation>
 <translation id="1876721852596493031">Надсилати статистику</translation>
 <translation id="1911619930368729126">Завантажити на Google Диск</translation>
 <translation id="1923342640370224680">Остання година</translation>
@@ -148,7 +150,6 @@
 <translation id="2921219216347069551">Неможливо поділитися</translation>
 <translation id="2923448633003185837">Вставити й перейти</translation>
 <translation id="292639812446257861">Позначити як непрочитані</translation>
-<translation id="2933759065870693102">Ліхтарик</translation>
 <translation id="2958718410589002129">Паролі</translation>
 <translation id="2969979262385602596">Не вдалося ввійти. Спробуйте пізніше.</translation>
 <translation id="298306318844797842">Додати спосіб оплати…</translation>
@@ -194,6 +195,7 @@
 <translation id="3607167657931203000">Дані автозаповнення</translation>
 <translation id="3609785682760573515">Синхронізація…</translation>
 <translation id="3638472932233958418">Попер.завантаж.стор.</translation>
+<translation id="3670030362669914947">Номер</translation>
 <translation id="3691593122358196899">Закладку збережено в папці "<ph name="FOLDER_TITLE" />"</translation>
 <translation id="3771033907050503522">Анонімні вкладки</translation>
 <translation id="3775743491439407556">Синхронізація не працює</translation>
@@ -261,9 +263,11 @@
 <translation id="4747097190499141774">Парольна фраза не стосується способів оплати й адрес із Google Pay. Ваші зашифровані дані можуть переглядати лише користувачі, які знають вашу парольну фразу. Вона не надсилається й не зберігається в Google. Якщо ви забули її або хочете змінити це налаштування, скиньте параметри синхронізації. <ph name="BEGIN_LINK" />Докладніше<ph name="END_LINK" /></translation>
 <translation id="4749030437873592350">Знайти на сторінці…</translation>
 <translation id="4751645464639803239">Нова анонімна вкладка</translation>
+<translation id="4758977202923349869">Розмістіть кредитну картку в цьому фреймі</translation>
 <translation id="4802417911091824046">Парольна фраза не стосується способів оплати й адрес із Google Pay.
 
 Щоб змінити це налаштування, <ph name="BEGIN_LINK" />скиньте параметри синхронізації<ph name="END_LINK" /></translation>
+<translation id="4805759445554688327">Недійсний номер картки</translation>
 <translation id="4807020197310989387">1 непрочитана стаття в списку читання.</translation>
 <translation id="4818522717893377262">Додати мову…</translation>
 <translation id="481968316161811770">Файли cookie й дані із сайтів</translation>
@@ -302,6 +306,7 @@
 <translation id="5317780077021120954">Зберегти</translation>
 <translation id="5327248766486351172">Назва</translation>
 <translation id="5388358297987318779">Відкрити зображення</translation>
+<translation id="5407969256130905701">Відхилити зміни</translation>
 <translation id="5409365236829784218">Немає встановлених програм, які можуть відкрити цей файл.</translation>
 <translation id="5416022985862681400">Останні 7 днів</translation>
 <translation id="5433691172869980887">Ім’я користувача скопійовано</translation>
@@ -324,6 +329,7 @@
 <translation id="5728700505257787410">Під час входу в обліковий запис виникла проблема.</translation>
 <translation id="5737974891429562743">Дані для входу в обліковий запис застаріли. Оновіть їх, щоб почати синхронізацію.</translation>
 <translation id="5738887413654608789">Ви зможете знаходити відповідні веб-сторінки на основі об’єктів поблизу.</translation>
+<translation id="5803566855766646066">Відхилити цю нову картку?</translation>
 <translation id="5816228676161003208">Ви зможете швидше шукати голосом.</translation>
 <translation id="5846482154967366008">Пошукова система</translation>
 <translation id="5854790677617711513">Понад 30 днів тому</translation>
@@ -352,6 +358,7 @@
 <translation id="605721222689873409">РР</translation>
 <translation id="6066301408025741299">Торкніться, щоб скасувати.</translation>
 <translation id="6108923351542677676">Виконується налаштування…</translation>
+<translation id="6119050551270742952">Поточна сторінка в анонімному режимі</translation>
 <translation id="6122191549521593678">Онлайн</translation>
 <translation id="6127379762771434464">Веб-сайт видалено</translation>
 <translation id="6136914049981179737">Мить тому</translation>
@@ -391,6 +398,7 @@
 <translation id="6476800141292307438">Сторінка перекладається такою мовою: <ph name="LANGUAGE" />. Параметри розташовано внизу екрана.</translation>
 <translation id="6482629121755362506">Видалено елементів: <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
 <translation id="6610002944194042868">Параметри перекладу</translation>
+<translation id="6628106477656132239">Недійсна дата закінчення терміну дії</translation>
 <translation id="6642362222295953972">Перейти на наявну вкладку</translation>
 <translation id="6643016212128521049">Очистити</translation>
 <translation id="6656103420185847513">Редагувати папку</translation>
@@ -407,6 +415,9 @@
 <translation id="6807889908376551050">Показати всі...</translation>
 <translation id="681368974849482173">Закладку творено</translation>
 <translation id="6851516051005285358">Повна версія сайту</translation>
+<translation id="6858855187367714033">Зіскановано</translation>
+<translation id="6859944681507688231">Щоб відсканувати QR-код або кредитну картку, увімкніть камеру в налаштуваннях.</translation>
+<translation id="6873263987691478642">Режим розділеного екрана</translation>
 <translation id="6896758677409633944">Копіювати</translation>
 <translation id="6903907808598579934">Увімкнути синхронізацію</translation>
 <translation id="6914583639806229067">Шукати скопійоване зображення</translation>
@@ -449,6 +460,7 @@
 <translation id="744343212394640790">Не <ph name="EMAIL" /></translation>
 <translation id="7454057999980797137">Область</translation>
 <translation id="7456847797759667638">Відкрити розташування...</translation>
+<translation id="7460314822154045102">Відкрити камеру</translation>
 <translation id="7464701184726199289">Синхронізовані дані буде видалено з усіх пристроїв. Збережені налаштування, які можуть стосуватися ваших зацікавлень в Інтернеті, не буде видалено. <ph name="BEGIN_LINK" />Докладніше<ph name="END_LINK" /></translation>
 <translation id="7472734401283673885">Назва компанії</translation>
 <translation id="7481312909269577407">Переслати</translation>
@@ -504,7 +516,9 @@
 <translation id="8428045167754449968">Місто</translation>
 <translation id="8428213095426709021">Налаштування</translation>
 <translation id="8458397775385147834">Видалено 1 елемент</translation>
+<translation id="8487667956631253959">Увімкнено</translation>
 <translation id="8487700953926739672">Доступ у режимі офлайн</translation>
+<translation id="8490978609246021741">Зберегти зміни</translation>
 <translation id="8503813439785031346">Ім’я користувача</translation>
 <translation id="850600235656508448">Відкрити в режимі анонімного перегляду</translation>
 <translation id="8517375800490286174">Ліцензії ПЗ з відкритим кодом</translation>
@@ -513,6 +527,7 @@
 <translation id="8532105204136943229">Рік закінчення терміну дії</translation>
 <translation id="8534481786647257214">Опубліковано в Google+</translation>
 <translation id="8548878600947630424">Знайти на сторінці...</translation>
+<translation id="8588404856427128947">Вимкнено</translation>
 <translation id="8605219856220328675">Закрити вкладку.</translation>
 <translation id="8620640915598389714">Редагувати</translation>
 <translation id="8636825310635137004">Щоб мати доступ до вкладок з інших пристроїв, увімкніть синхронізацію.</translation>
@@ -553,6 +568,7 @@
 <translation id="9203116392574189331">Handoff</translation>
 <translation id="9223358826628549784">Звіт про аварійне завершення роботи надіслано.</translation>
 <translation id="935490618240037774">Ваші закладки, історія, паролі й інші налаштування синхронізуватимуться з обліковим записом Google, щоб ви могли користуватися ними на всіх своїх пристроях.</translation>
+<translation id="952704832371081537">Скасувати</translation>
 <translation id="976982866697960176">Керування синхронізованими даними…</translation>
 <translation id="988141524645182168">Інші пристрої</translation>
 <translation id="989988560359834682">Редагувати адресу</translation>

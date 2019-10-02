@@ -14,6 +14,7 @@
 #include "base/path_service.h"
 #include "base/task/post_task.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
@@ -38,7 +39,7 @@
 #include "chrome/install_static/install_util.h"
 #endif
 
-#if !defined(GOOGLE_CHROME_BUILD)
+#if !BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #include "chrome/common/chrome_switches.h"
 #endif
 
@@ -60,7 +61,7 @@ void RecordEnrollmentResult(
 // However, it can be enabled on Chromium by command line switch for test and
 // development purpose.
 bool IsMachineLevelUserCloudPolicyEnabled() {
-#if defined(GOOGLE_CHROME_BUILD)
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   return true;
 #else
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -134,8 +135,9 @@ MachineLevelUserCloudPolicyController::CreatePolicyManager(
   std::unique_ptr<MachineLevelUserCloudPolicyStore> policy_store =
       MachineLevelUserCloudPolicyStore::Create(
           dm_token, client_id, policy_dir, cloud_policy_has_priority,
-          base::CreateSequencedTaskRunnerWithTraits(
-              {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+          base::CreateSequencedTaskRunner(
+              {base::ThreadPool(), base::MayBlock(),
+               base::TaskPriority::BEST_EFFORT,
                // Block shutdown to make sure the policy cache update is always
                // finished.
                base::TaskShutdownBehavior::BLOCK_SHUTDOWN}));

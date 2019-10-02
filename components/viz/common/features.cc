@@ -14,15 +14,12 @@
 
 namespace features {
 
-const base::Feature kEnableSurfaceSynchronization{
-    "SurfaceSynchronization", base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Enables running the display compositor as part of the viz service in the GPU
 // process. This is also referred to as out-of-process display compositor
 // (OOP-D).
 // TODO(dnicoara): Look at enabling Chromecast support when ChromeOS support is
 // ready.
-#if defined(IS_CHROMECAST) || defined(OS_CHROMEOS)
+#if defined(IS_CHROMECAST) && !defined(OS_ANDROID)
 const base::Feature kVizDisplayCompositor{"VizDisplayCompositor",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
 #else
@@ -45,11 +42,6 @@ const base::Feature kUseSkiaRenderer{"UseSkiaRenderer",
 const base::Feature kRecordSkPicture{"RecordSkPicture",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
-bool IsSurfaceSynchronizationEnabled() {
-  return IsVizDisplayCompositorEnabled() ||
-         base::FeatureList::IsEnabled(kEnableSurfaceSynchronization);
-}
-
 bool IsVizDisplayCompositorEnabled() {
 #if defined(OS_MACOSX) || defined(OS_WIN)
   // We can't remove the feature switch yet because OOP-D isn't enabled on all
@@ -68,10 +60,6 @@ bool IsVizDisplayCompositorEnabled() {
 bool IsVizHitTestingDebugEnabled() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kEnableVizHitTestDebug);
-}
-
-bool IsVizHitTestingDrawQuadEnabled() {
-  return !IsVizHitTestingSurfaceLayerEnabled();
 }
 
 // VizHitTestSurfaceLayer is enabled when this feature is explicitly enabled on

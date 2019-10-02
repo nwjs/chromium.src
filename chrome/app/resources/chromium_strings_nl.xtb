@@ -17,6 +17,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="1524282610922162960">Een Chromium-tabblad delen</translation>
 <translation id="1668054258064581266">Nadat je je account uit Chromium hebt verwijderd, moet je je geopende tabbladen mogelijk opnieuw laden om de wijzigingen door te voeren.</translation>
 <translation id="1688750314291223739">Stel synchronisatie in om je persoonlijke browserfuncties online op te slaan en toegang te hebben tot deze functies via Chromium, vanaf elke computer.</translation>
+<translation id="1705503634486268204">Chromium kan je wachtwoorden onthouden, zodat jij dit niet hoeft te doen.</translation>
 <translation id="1708666629004767631">Er is een nieuwe, veiligere versie van Chromium beschikbaar.</translation>
 <translation id="1766096484055239003">Je beheerder vereist dat je Chromium opnieuw start om een update toe te passen</translation>
 <translation id="1774152462503052664">Chromium laten uitvoeren op de achtergrond</translation>
@@ -127,9 +128,6 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="5634636535844844681">Voor Chromium is Windows 7 of hoger vereist.</translation>
 <translation id="5680901439334282664">inloggen bij Chromium</translation>
 <translation id="5698481217667032250">Chromium weergeven in deze taal</translation>
-<translation id="5756484659843248772">Deze taal wordt gebruikt om de Chromium OS-UI weer te geven</translation>
-<translation id="5768914737813585044">Chromium OS weergeven in deze taal</translation>
-<translation id="5796460469508169315">Chromium is bijna klaar.</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5862307444128926510">Welkom bij Chromium</translation>
 <translation id="5877064549588274448">Kanaal gewijzigd. Start het apparaat opnieuw op om de wijzigingen door te voeren.</translation>
@@ -145,6 +143,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="6096348254544841612">Chromium aanpassen en beheren. Update is beschikbaar</translation>
 <translation id="6120345080069858279">Chromium slaat dit wachtwoord op in je Google-account. Je hoeft het niet te onthouden.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> is gevaarlijk en is daarom door Chromium geblokkeerd.</translation>
+<translation id="6173098285107411678">Als een instelling niet wordt weergegeven op deze pagina, kijk je in <ph name="LINK_BEGIN" />de instellingen van je Chromium-browser<ph name="LINK_END" /></translation>
 <translation id="6212496753309875659">Deze computer beschikt al over een recentere versie van Chromium. Als de software niet werkt, moet je Chromium verwijderen en het opnieuw proberen.</translation>
 <translation id="6219195342503754812">{0,plural, =0{Chromium wordt nu opnieuw gestart}=1{Chromium wordt over één seconde opnieuw gestart}other{Chromium wordt over # seconden opnieuw gestart}}</translation>
 <translation id="6248213926982192922">Chromium als standaardbrowser instellen</translation>
@@ -192,12 +191,6 @@ Chromium kan je instellingen niet herstellen.</translation>
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7339898014177206373">Nieuw venster</translation>
 <translation id="734373864078049451">Hier vind je internet, bladwijzers en andere Chromium-instellingen.</translation>
-<translation id="7344413941077984497">Als je wilt instellen welke websites <ph name="NEW_PROFILE_NAME" /> kan bekijken, kun je beperkingen en instellingen configureren door naar <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" /> te gaan. Als je de standaardinstellingen niet wijzigt, kan <ph name="NEW_PROFILE_NAME" /> overal op internet browsen.
-
-Als je wilt voorkomen dat <ph name="NEW_PROFILE_NAME" /> toegang krijgt tot je account, moet je ervoor zorgen dat je je profiel vergrendelt wanneer je Chromium niet gebruikt. Klik hiervoor op je profielnaam in de rechterbovenhoek van de browser en selecteer 'Afsluiten en kinderslot'.
-<ph name="BEGIN_LINK_2" />Meer informatie<ph name="END_LINK_2" />
-
-Controleer je e-mail op <ph name="ACCOUNT_EMAIL" /> voor verdere instructies.</translation>
 <translation id="7349591376906416160">Je systeembeheerder heeft Chromium geconfigureerd om <ph name="ALTERNATIVE_BROWSER_NAME" /> te openen voor toegang tot <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="7448255348454382571">Chromium OS opnieuw opstarten</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium voor ontwikkelaars</translation>
@@ -231,7 +224,6 @@ Controleer je e-mail op <ph name="ACCOUNT_EMAIL" /> voor verdere instructies.</t
 <translation id="8290862415967981663">Dit bestand kan gevaarlijk zijn en is daarom door Chromium geblokkeerd.</translation>
 <translation id="8330519371938183845">Log in om Chromium op al je apparaten te synchroniseren en te personaliseren</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> maakte eerder gebruik van Chromium</translation>
-<translation id="8375950122744241554">Vanaf Chromium 70 zijn profielen van gebruikers met beperkte rechten niet meer beschikbaar.</translation>
 <translation id="8417404458978023919">{0,plural, =1{Start Chromium binnen een dag opnieuw}other{Start Chromium binnen # dagen opnieuw}}</translation>
 <translation id="8453117565092476964">Het archief van het installatieprogramma is beschadigd of ongeldig. Download Chromium opnieuw.</translation>
 <translation id="8493179195440786826">Chromium is verouderd</translation>

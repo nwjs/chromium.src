@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="en-GB">
+<translation id="1036550831858290950">Save your current tab as a bookmark</translation>
 <translation id="104962181688258143">Open the Files app</translation>
 <translation id="1098295134904615027">Activate the virtual desk on the right</translation>
 <translation id="1122869341872663659">Displaying <ph name="N" /> search results for <ph name="QUERY" /></translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">Reset zoom level on the page</translation>
 <translation id="2596078834055697711">Take window screenshot</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, then <ph name="TAB" /> or <ph name="RIGHT" /></translation>
-<translation id="2699509451653686398">Save your current web page as a bookmark</translation>
 <translation id="2750942583782703988">Reload your current page</translation>
 <translation id="2764005613199379871">Place focus in search address bar</translation>
 <translation id="2789868185375229787">Zoom out on the page</translation>

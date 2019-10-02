@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#import "ios/web/public/web_state/web_state.h"
+#import "ios/web/public/web_state.h"
 
 #import <UIKit/UIKit.h>
 
@@ -23,6 +23,7 @@
 #import "ios/web/public/navigation/navigation_manager.h"
 #import "ios/web/public/session/crw_navigation_item_storage.h"
 #import "ios/web/public/session/crw_session_storage.h"
+#import "ios/web/public/test/error_test_util.h"
 #import "ios/web/public/test/fakes/test_web_client.h"
 #import "ios/web/public/test/fakes/test_web_state_delegate.h"
 #import "ios/web/public/test/web_test_with_web_state.h"
@@ -46,9 +47,6 @@ using base::test::ios::kWaitForPageLoadTimeout;
 
 namespace web {
 namespace {
-
-// Error when loading an app specific page.
-const char kUnsupportedUrlErrorPage[] = "NSURLErrorDomain error -1002.";
 
 // A text string from the test HTML page in the session storage returned  by
 // GetTestSessionStorage().
@@ -517,7 +515,10 @@ TEST_P(WebStateTest, CallLoadURLWithParamsDuringSessionRestore) {
   EXPECT_TRUE(navigation_manager->CanGoForward());
 
   // Now wait until the last committed item is fully loaded.
-  EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
+  // TODO(crbug.com/996544) On Xcode 11 beta 6 this became very slow.  This
+  // appears to only affect simulator, and will hopefully be fixed in a future
+  // Xcode release.  Revert this to |kWaitForPageLoadTimeout| alone when fixed.
+  EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout * 5, ^{
     return web_state_ptr->GetLastCommittedURL() == url;
   }));
 }
@@ -646,9 +647,13 @@ TEST_P(WebStateTest, LoadChromeThenHTML) {
   EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
     return !web_state()->IsLoading();
   }));
-  // Wait for the error loading.
-  EXPECT_TRUE(test::WaitForWebViewContainingText(web_state(),
-                                                 kUnsupportedUrlErrorPage));
+  // Wait for the error loading and check that it corresponds with
+  // kUnsupportedUrlErrorPage.
+  EXPECT_TRUE(test::WaitForWebViewContainingText(
+      web_state(),
+      testing::GetErrorText(web_state(), app_specific_url, "NSURLErrorDomain",
+                            /*error_code=*/NSURLErrorUnsupportedURL,
+                            /*is_post=*/false, /*is_otr=*/false)));
   NSString* data_html = @(kTestPageHTML);
   web_state()->LoadData([data_html dataUsingEncoding:NSUTF8StringEncoding],
                         @"text/html", GURL("https://www.chromium.org"));
@@ -657,7 +662,16 @@ TEST_P(WebStateTest, LoadChromeThenHTML) {
 }
 
 // Tests that reloading after loading HTML page will load the online page.
-TEST_P(WebStateTest, LoadChromeThenWaitThenHTMLThenReload) {
+// TODO(crbug.com/994468): This test sometimes shows an error page instead of
+// the online page when SlimNavigationManager is enabled.
+#if !TARGET_IPHONE_SIMULATOR
+#define MAYBE_LoadChromeThenWaitThenHTMLThenReload \
+  LoadChromeThenWaitThenHTMLThenReload
+#else
+#define MAYBE_LoadChromeThenWaitThenHTMLThenReload \
+  FLAKY_LoadChromeThenWaitThenHTMLThenReload
+#endif
+TEST_P(WebStateTest, MAYBE_LoadChromeThenWaitThenHTMLThenReload) {
   net::EmbeddedTestServer server;
   net::test_server::RegisterDefaultHandlers(&server);
   ASSERT_TRUE(server.Start());
@@ -671,8 +685,11 @@ TEST_P(WebStateTest, LoadChromeThenWaitThenHTMLThenReload) {
   EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
     return !web_state()->IsLoading();
   }));
-  EXPECT_TRUE(test::WaitForWebViewContainingText(web_state(),
-                                                 kUnsupportedUrlErrorPage));
+  EXPECT_TRUE(test::WaitForWebViewContainingText(
+      web_state(),
+      testing::GetErrorText(web_state(), app_specific_url, "NSURLErrorDomain",
+                            /*error_code=*/NSURLErrorUnsupportedURL,
+                            /*is_post=*/false, /*is_otr=*/false)));
   NSString* data_html = @(kTestPageHTML);
   web_state()->LoadData([data_html dataUsingEncoding:NSUTF8StringEncoding],
                         @"text/html", echo_url);

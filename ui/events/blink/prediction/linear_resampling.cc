@@ -6,8 +6,6 @@
 
 #include "ui/events/blink/prediction/predictor_factory.h"
 
-#include <algorithm>
-
 namespace ui {
 
 namespace {
@@ -88,6 +86,13 @@ bool LinearResampling::GeneratePrediction(base::TimeTicks frame_time,
 
   result->pos = lerp(events_queue_[0], events_queue_[1], sample_time);
   return true;
+}
+
+base::TimeDelta LinearResampling::TimeInterval() const {
+  if (events_queue_.size() == kNumEventsForResampling) {
+    return events_dt_;
+  }
+  return kTimeInterval;
 }
 
 }  // namespace ui

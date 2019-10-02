@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="da">
-<translation id="100812568230599391">Skift til visning med sammenfletning.</translation>
+<translation id="100812568230599391">Skift visningsformat for at sammenflette.</translation>
 <translation id="1011903154582639569">Find en tast, og løft fingeren for at skrive</translation>
 <translation id="1012173283529841972">Punkt på listen</translation>
 <translation id="1013742170491673792">srched</translation>
@@ -69,7 +69,6 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="1383876407941801731">Søg</translation>
 <translation id="1385214448885562192">Tryk på enter for at acceptere eller escape for at annullere. Tryk på ned for næste og op for forrige.</translation>
 <translation id="1396114365388024581">tablst</translation>
-<translation id="139902759009894363">Annoncér attributter med formateret tekst</translation>
 <translation id="1405567553485452995">Lysegrøn</translation>
 <translation id="1417889266572670458">Marineblå</translation>
 <translation id="1431911867058218151">Blommefarvet</translation>
@@ -485,6 +484,7 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="4372705107434148843">Stop tale</translation>
 <translation id="4373197658375206385">Ingen tidligere elementer, der ikke er links.</translation>
 <translation id="4376316291247992553">Se grafik som braille</translation>
+<translation id="437809255587011096">Oplæs styling af tekst</translation>
 <translation id="4378308539633073595">Rul fremad</translation>
 <translation id="4384583879834880242">Spørgsmål og svar</translation>
 <translation id="4391478986194775161">cntntinfo</translation>
@@ -761,7 +761,6 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="6348869651006731065">Dæmpet grå</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{punkttegn}one{# punkttegn}other{# punkttegn}}</translation>
 <translation id="6355910664415701303">Ingen tidligere elementer på listen.</translation>
-<translation id="6360318852623800555">Egenskaber for formateret tekst</translation>
 <translation id="6364795331201459219">h6</translation>
 <translation id="6368143427468974988">Forrige overskrift</translation>
 <translation id="6376999910001533545">Rødbrun</translation>
@@ -1087,7 +1086,6 @@ Tryk på Alt+F for at åbne browsermenuen i Chrome.</translation>
 <translation id="8153880621934657047">Ikke i tabel.</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{understregning}one{# understregninger}other{# understregninger}}</translation>
 <translation id="8179976553408161302">Enter</translation>
-<translation id="8183813379996435469">Registrer og skift automatisk ChromeVox-sprog.</translation>
 <translation id="8184828902145951186">rk</translation>
 <translation id="8186185314313222077">slå fuld skærm til eller fra</translation>
 <translation id="8199231515320852133">Offentliggør overskrifterne for den aktuelle celle</translation>
@@ -1124,6 +1122,7 @@ Tryk på Alt+F for at åbne browsermenuen i Chrome.</translation>
 <translation id="8503360654911991865">Mindsk detaljegraden for navigation</translation>
 <translation id="8504695234784218301">Slut på grammatisk fejl</translation>
 <translation id="8520472399088452386">Skalafelt</translation>
+<translation id="8534394844575788431">Formatering</translation>
 <translation id="8538744478902126321">Giv et bud på rækkeoverskriften for den aktuelle celle</translation>
 <translation id="8540054775867439484">Ombrudt til toppen</translation>
 <translation id="8542271685829952264">Du kan udforske alle ChromeVox-kommandoer og -genveje ved at trykke på søgetasten+punktum. Brug derefter piletasterne til at navigere i menuerne og Enter til at aktivere en kommando. Vend tilbage hertil ved at trykke på søgetasten+O og derefter T.</translation>
@@ -1203,6 +1202,7 @@ Tryk på Alt+F for at åbne browsermenuen i Chrome.</translation>
 <translation id="9149560530563164529">sctn</translation>
 <translation id="9150735707954472829">Fane</translation>
 <translation id="9151211641321628915">Angiver en kort beskrivelse af den aktuelle position</translation>
+<translation id="9151249085738989067">Skift automatisk ChromeVox-stemme på baggrund af sprog</translation>
 <translation id="9153606228985488238">Toneleje <ph name="PERCENT" /> procent</translation>
 <translation id="9160096769946561184">Gå til slutningen af ​​den aktuelle kolonne</translation>
 <translation id="9173115498289768110">Lydstyrke <ph name="PERCENT" /> procent</translation>

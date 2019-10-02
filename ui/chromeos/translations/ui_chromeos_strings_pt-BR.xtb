@@ -88,6 +88,7 @@
 <translation id="1942765061641586207">Resolução da imagem</translation>
 <translation id="1943097386230153518">Instalar novo serviço</translation>
 <translation id="1947424002851288782">Teclado alemão</translation>
+<translation id="1972984168337863910">Expandir painéis de feedback de arquivos</translation>
 <translation id="197560921582345123">Pode editar</translation>
 <translation id="1984603991036629094">Teclado fonético armênio</translation>
 <translation id="2001796770603320721">Gerenciar no Drive</translation>
@@ -270,7 +271,6 @@
 <translation id="426015154560005552">Teclado árabe</translation>
 <translation id="4261901459838235729">Apresentação do Google</translation>
 <translation id="4290535918735525311">1 pasta compartilhada com o Linux</translation>
-<translation id="42981349822642051">Expandir</translation>
 <translation id="4298972503445160211">Teclado dinamarquês</translation>
 <translation id="4299729908419173967">Português brasileiro</translation>
 <translation id="4309915981827077375">Informações gerais</translation>
@@ -326,7 +326,6 @@
 <translation id="4880520557730313061">Correção automática</translation>
 <translation id="4881695831933465202">Abrir</translation>
 <translation id="4886021172213954916">Teclado tâmil (máquina de escrever)</translation>
-<translation id="4892969127351273348">Não é possível abrir com <ph name="APP_NAME" /></translation>
 <translation id="4905417359854579806">Pronto para fazer backup de <ph name="FILE_COUNT" /></translation>
 <translation id="4924638091161556692">Corrigida</translation>
 <translation id="4935975195727477204">Flor Gazânia</translation>
@@ -366,7 +365,6 @@
 <translation id="5218183485292899140">Francês suíço</translation>
 <translation id="5234764350956374838">Dispensar</translation>
 <translation id="5241298539944515331">Teclado vietnamita (VIQR)</translation>
-<translation id="52446585071384036">Para abrir arquivos com <ph name="APP_NAME" />, primeiro você precisa copiá-los para a pasta de arquivos do Linux.</translation>
 <translation id="5253070652067921974">Criado por</translation>
 <translation id="5257456363153333584">Libélula</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />Acesse arquivos de qualquer lugar, até mesmo off-line.<ph name="MARKUP_2" />
@@ -641,6 +639,7 @@
 <translation id="8223479393428528563">Para salvar esses arquivos para uso off-line, fique on-line novamente, clique com o botão direito nos arquivos e selecione a opção <ph name="OFFLINE_CHECKBOX_NAME" />.</translation>
 <translation id="8249296373107784235">Cancelar</translation>
 <translation id="8261506727792406068">Excluir</translation>
+<translation id="8269755669432358899">Recolher painéis de feedback de arquivos</translation>
 <translation id="8279388322240498158">Teclado curdo sorâni baseado em inglês</translation>
 <translation id="8280151743281770066">Armênio fonético</translation>
 <translation id="8294431847097064396">Origem</translation>
@@ -671,6 +670,7 @@
 <translation id="8569764466147087991">Selecionar um arquivo para ser aberto</translation>
 <translation id="8579285237314169903">Sincronizando <ph name="NUMBER_OF_FILES" /> itens...</translation>
 <translation id="8600173386174225982">A lista de arquivos foi alterada para a visualização em miniatura.</translation>
+<translation id="8601932370724196034">Arquivo de imagem do Crostini</translation>
 <translation id="8669949407341943408">Movendo...</translation>
 <translation id="8671210955687109937">Pode comentar</translation>
 <translation id="8686213429977032554">Este arquivo do Google Drive ainda não foi compartilhado.</translation>

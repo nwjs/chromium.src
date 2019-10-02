@@ -11,14 +11,22 @@ var cca = cca || {};
 
 /**
  * Creates the Camera App main object.
+ * @param {!cca.mojo.MojoConnector} mojoConnector The mojo connector which could
+ *     be used to communicate with Chrome and video capture devices.
  * @constructor
  */
-cca.App = function() {
+cca.App = function(mojoConnector) {
+  /**
+   * @type {cca.mojo.MojoConnector}
+   * @private
+   */
+  this.mojoConnector_ = mojoConnector;
+
   /**
    * @type {cca.models.Gallery}
    * @private
    */
-  this.model_ = new cca.models.Gallery();
+  this.gallery_ = new cca.models.Gallery();
 
   /**
    * @type {cca.ResolutionEventBroker}
@@ -45,27 +53,27 @@ cca.App = function() {
    * @private
    */
   this.infoUpdater_ = new cca.device.DeviceInfoUpdater(
-      this.photoPreferrer_, this.videoPreferrer_);
+      this.photoPreferrer_, this.videoPreferrer_, this.mojoConnector_);
 
   /**
    * @type {cca.GalleryButton}
    * @private
    */
-  this.galleryButton_ = new cca.GalleryButton(this.model_);
+  this.galleryButton_ = new cca.GalleryButton(this.gallery_);
 
   /**
    * @type {cca.views.Browser}
    * @private
    */
-  this.browserView_ = new cca.views.Browser(this.model_);
+  this.browserView_ = new cca.views.Browser(this.gallery_);
 
   /**
    * @type {cca.views.Camera}
    * @private
    */
   this.cameraView_ = new cca.views.Camera(
-      this.model_, this.infoUpdater_, this.photoPreferrer_,
-      this.videoPreferrer_);
+      this.mojoConnector_, this.gallery_, this.infoUpdater_,
+      this.photoPreferrer_, this.videoPreferrer_);
 
   // End of properties. Seal the object.
   Object.seal(this);
@@ -87,6 +95,7 @@ cca.App = function() {
         this.resolBroker_),
     new cca.views.BaseSettings('#photoresolutionsettings'),
     new cca.views.BaseSettings('#videoresolutionsettings'),
+    new cca.views.BaseSettings('#expertsettings'),
     this.browserView_,
     new cca.views.Warning(),
     new cca.views.Dialog('#message-dialog'),
@@ -102,10 +111,21 @@ cca.App.useGalleryApp = function() {
 };
 
 /**
+ * Getter for App's mojo connector.
+ * @return {!cca.mojo.MojoConnector} mojoConnector The mojo connector
+ *     in App.
+ */
+cca.App.getMojoConnector = function() {
+  return cca.App.instance_.mojoConnector_;
+};
+
+/**
  * Sets up toggles (checkbox and radio) by data attributes.
  * @private
  */
 cca.App.prototype.setupToggles_ = function() {
+  cca.proxy.browserProxy.localStorageGet(
+      {expert: false}, ({expert}) => cca.state.set('expert', expert));
   document.querySelectorAll('input').forEach((element) => {
     element.addEventListener('keypress', (event) =>
         cca.util.getShortcutIdentifier(event) == 'Enter' && element.click());
@@ -163,11 +183,11 @@ cca.App.prototype.start = function() {
         });
   }).then((external) => {
     cca.state.set('ext-fs', external);
-    this.model_.addObserver(this.galleryButton_);
+    this.gallery_.addObserver(this.galleryButton_);
     if (!cca.App.useGalleryApp()) {
-      this.model_.addObserver(this.browserView_);
+      this.gallery_.addObserver(this.browserView_);
     }
-    this.model_.load();
+    this.gallery_.load();
     cca.nav.open('camera');
   }).catch((error) => {
     console.error(error);
@@ -192,7 +212,8 @@ cca.App.prototype.onKeyPressed_ = function(event) {
 };
 
 /**
- * @type {cca.App} Singleton of the App object.
+ * Singleton of the App object.
+ * @type {cca.App}
  * @private
  */
 cca.App.instance_ = null;
@@ -200,9 +221,10 @@ cca.App.instance_ = null;
 /**
  * Creates the App object and starts camera stream.
  */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  const mojoConnector = new cca.mojo.MojoConnector();
   if (!cca.App.instance_) {
-    cca.App.instance_ = new cca.App();
+    cca.App.instance_ = new cca.App(mojoConnector);
   }
   cca.App.instance_.start();
   chrome.app.window.current().show();

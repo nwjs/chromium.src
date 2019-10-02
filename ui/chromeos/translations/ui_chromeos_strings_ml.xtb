@@ -88,6 +88,7 @@
 <translation id="1942765061641586207">ചിത്രത്തിന്റെ റെസല്യൂഷൻ</translation>
 <translation id="1943097386230153518">പുതിയ സേവനം ഇൻസ്‌റ്റാൾ ചെയ്യുക</translation>
 <translation id="1947424002851288782">ജര്‍മന്‍ കീബോര്‍ഡ്</translation>
+<translation id="1972984168337863910">ഫയലുകളുടെ ഫീഡ്ബാക്ക് പാനലുകൾ വികസിപ്പിക്കുക</translation>
 <translation id="197560921582345123">എഡിറ്റുചെയ്യാനാകുന്നത്</translation>
 <translation id="1984603991036629094">അർമേനിയൻ സ്വരസൂചക കീബോർഡ്</translation>
 <translation id="2001796770603320721">ഡ്രൈവിൽ മാനേജ് ചെയ്യുക</translation>
@@ -270,7 +271,6 @@
 <translation id="426015154560005552">അറബിക് കീബോർഡ്</translation>
 <translation id="4261901459838235729">Google അവതരണം</translation>
 <translation id="4290535918735525311">Linux ഉപയോഗിച്ച് ഒരു ഫോൾഡർ പങ്കിട്ടു</translation>
-<translation id="42981349822642051">വികസിപ്പിക്കുക</translation>
 <translation id="4298972503445160211">ഡാനിഷ് കീബോര്‍ഡ്</translation>
 <translation id="4299729908419173967">ബ്രസീലിയന്‍</translation>
 <translation id="4309915981827077375">പൊതുവായ വിവരം</translation>
@@ -326,7 +326,6 @@
 <translation id="4880520557730313061">സ്വയമേവ ശരിയാക്കുക</translation>
 <translation id="4881695831933465202">തുറക്കുക</translation>
 <translation id="4886021172213954916">തമിഴ് കീബോർഡ് (ടൈപ്പ്റൈറ്റർ)</translation>
-<translation id="4892969127351273348"><ph name="APP_NAME" /> ഉപയോഗിച്ച് തുറക്കാനാവില്ല</translation>
 <translation id="4905417359854579806"><ph name="FILE_COUNT" /> ബാക്കപ്പ് ചെയ്യാൻ തയ്യാറാണ്</translation>
 <translation id="4924638091161556692">പരിഹരിച്ചു</translation>
 <translation id="4935975195727477204">ഗസാനിയ പുഷ്‌പം</translation>
@@ -366,7 +365,6 @@
 <translation id="5218183485292899140">സ്വിസ് ഫ്രഞ്ച്</translation>
 <translation id="5234764350956374838">ബഹിഷ്‌ക്കരിക്കുക</translation>
 <translation id="5241298539944515331">വിയറ്റ്‌നാമീസ് കീബോർഡ് (VIQR)</translation>
-<translation id="52446585071384036"><ph name="APP_NAME" /> ഉപയോഗിച്ച് ഫയലുകൾ തുറക്കാൻ, ആദ്യം Linux ഫയലുകൾ ഫോൾഡറിലേക്ക് പകർത്തുക.</translation>
 <translation id="5253070652067921974">സൃഷ്‌ടിച്ചത്</translation>
 <translation id="5257456363153333584">തുമ്പി</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />ഓഫ്‌ലൈനിൽ ആണെങ്കിൽപ്പോലും എവിടെനിന്നും ഫയലുകൾ ആക്‌സസ് ചെയ്യുക.<ph name="MARKUP_2" />
@@ -641,6 +639,7 @@
 <translation id="8223479393428528563">ഓഫ്‌ലൈൻ ഉപയോഗത്തിനായി ഈ ഫയലുകൾ സംരക്ഷിക്കാൻ, ഓൺലൈനിൽ തിരികെ വന്ന് ഫയലുകൾ റൈറ്റ് ക്ലിക്ക് ചെയ്‌ത്, <ph name="OFFLINE_CHECKBOX_NAME" /> ഓപ്‌ഷൻ തിരഞ്ഞെടുക്കുക.</translation>
 <translation id="8249296373107784235">ഉപേക്ഷിക്കുക</translation>
 <translation id="8261506727792406068">ഇല്ലാതാക്കുക</translation>
+<translation id="8269755669432358899">ഫയലുകളുടെ ഫീഡ്ബാക്ക് പാനലുകൾ ചുരുക്കുക</translation>
 <translation id="8279388322240498158">സൊറാനി കുർദ്ദിഷ് ഇംഗ്ലീഷ് അധിഷ്‌ഠിത കീബോർഡ്</translation>
 <translation id="8280151743281770066">അർമേനിയൻ സ്വരസൂചകം</translation>
 <translation id="8294431847097064396">ഉറവിടം</translation>
@@ -671,6 +670,7 @@
 <translation id="8569764466147087991">തുറക്കുന്നതിന് ഒരു ഫയല്‍ തിരഞ്ഞെടുക്കുക</translation>
 <translation id="8579285237314169903"><ph name="NUMBER_OF_FILES" /> ഇനങ്ങൾ സമന്വയിപ്പിക്കുന്നു...</translation>
 <translation id="8600173386174225982">ഫയൽ ലിസ്‌റ്റ് ലഘുചിത്ര കാഴ്‌ചയിലേക്ക് മാറ്റിയിട്ടുണ്ട്.</translation>
+<translation id="8601932370724196034">Crostini ചിത്ര ഫയൽ</translation>
 <translation id="8669949407341943408">നീക്കുന്നു...</translation>
 <translation id="8671210955687109937">അഭിപ്രായമിടാനാകുന്നത്</translation>
 <translation id="8686213429977032554">ഈ ഡ്രൈവ് ഫയൽ ഇതുവരെ പങ്കിട്ടില്ല</translation>

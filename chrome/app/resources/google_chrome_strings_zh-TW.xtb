@@ -85,12 +85,6 @@
 <translation id="3080151273017101988">Google Chrome 關閉時繼續執行背景應用程式</translation>
 <translation id="3089968997497233615">Google Chrome 推出全新版本，安全性更勝以往。</translation>
 <translation id="3149510190863420837">Chrome 應用程式</translation>
-<translation id="3251381707915721925">如要設定「<ph name="NEW_PROFILE_NAME" />」可瀏覽哪些網站，您可以前往 <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" /> 調整限制與設定。如果您未變更預設設定，「<ph name="NEW_PROFILE_NAME" />」將可瀏覽網路上的所有網站。
-
-如要禁止「<ph name="NEW_PROFILE_NAME" />」存取您的帳戶，當您不使用 Chrome 時，請務必鎖定您的設定檔。方法是按一下瀏覽器右上角的設定檔名稱，然後選取 [結束並執行 Childlock]。
-<ph name="BEGIN_LINK_2" />瞭解詳情<ph name="END_LINK_2" />
-
-如需進一步的操作說明，請登入您的 <ph name="ACCOUNT_EMAIL" /> 帳戶，查看系統寄給您的電子郵件。</translation>
 <translation id="3282568296779691940">登入 Chrome</translation>
 <translation id="3340978935015468852">設定</translation>
 <translation id="3360895254066713204">Chrome 小幫手</translation>
@@ -150,7 +144,6 @@
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Google Chrome 無法同步處理你的資料，請更新你的同步通關密語。</translation>
 <translation id="5062123544085870375">重新啟動 Chrome 作業系統</translation>
-<translation id="5090044601776247154">Google Chrome 從 70 版本起將不再支援受監管的使用者設定檔。</translation>
 <translation id="5132929315877954718">幫你的 Google Chrome 物色各種實用有趣的應用程式、遊戲、擴充功能和主題。</translation>
 <translation id="5170938038195470297">由於你的設定檔是來自較新版本的 Google Chrome，所以系統無法使用該檔案。這表示你可能無法使用部分功能。請指定另一個設定檔目錄，或使用較新版本的 Google Chrome。</translation>
 <translation id="5193136243808726294">Google Chrome 作業系統無法開啟這個網頁。</translation>
@@ -177,9 +170,12 @@ Google Chrome 無法復原你的設定。</translation>
 <translation id="5906655207909574370">即將更新為最新版本！重新啟動您的裝置即可完成更新程序。</translation>
 <translation id="5940385492829620908">你瀏覽的網頁、書籤和其他 Chrome 設定都在這裡。</translation>
 <translation id="5941830788786076944">使用 Google Chrome 做為我的預設瀏覽器</translation>
+<translation id="5977372243443849142">Chrome 能幫你記住密碼，讓你省去記憶密碼的麻煩。</translation>
 <translation id="6014844626092547096">你現在已登入 Chrome！但管理員已關閉同步功能。</translation>
 <translation id="6040143037577758943">關閉</translation>
 <translation id="6070348360322141662">為了提升安全性，Google Chrome 會將你的資料加密保護</translation>
+<translation id="6102256037460917300">如果這個頁面上未顯示你的設定，請檢查 <ph name="LINK_BEGIN" />
+    Chrome 瀏覽器設定<ph name="LINK_END" /></translation>
 <translation id="6113794647360055231">Chrome 變得更好用了</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome 測試版</translation>
@@ -221,7 +217,6 @@ Google Chrome 無法復原你的設定。</translation>
 <translation id="7486227612705979895">Chrome 將存取你的雲端硬碟，並在網址列提供建議</translation>
 <translation id="7531671357096394523">請關閉所有 Chrome 瀏覽器。</translation>
 <translation id="7535429826459677826">Google Chrome 開發人員版</translation>
-<translation id="7552219221109926349">將 Chrome 作業系統的介面文字設為這種語言</translation>
 <translation id="7589360514048265910">我們已不支援 Mac OS X 10.9，因此這部電腦不會再收到 Google Chrome 更新。</translation>
 <translation id="7592736734348559088">你的帳戶登入詳細資料尚未更新，因此 Google Chrome 無法同步處理你的資料。</translation>
 <translation id="7626032353295482388">歡迎使用 Chrome</translation>
@@ -239,7 +234,6 @@ Google Chrome 無法復原你的設定。</translation>
 <translation id="7896673875602241923">先前已有其他使用者使用 <ph name="ACCOUNT_EMAIL_LAST" /> 在這部電腦上登入 Chrome。請建立新的 Chrome 使用者，以便另行保存你的資訊。</translation>
 <translation id="7908168227788431038">即將更新為最新版本！重新啟動 Google Chrome 即可完成更新程序。</translation>
 <translation id="7962410387636238736">Google Chrome 已停止支援 Windows XP 和 Windows Vista，因此這部電腦不會再收到 Google Chrome 更新</translation>
-<translation id="8005540215158006229">Chrome 即將準備就緒。</translation>
 <translation id="8008534537613507642">重新安裝 Chrome</translation>
 <translation id="8013993649590906847">如果圖片缺少有用的說明，Chrome 會嘗試為你提供說明。系統會將圖片傳送給 Google，以便產生說明。</translation>
 <translation id="8030318113982266900">正在將裝置更新至「<ph name="CHANNEL_NAME" />」...</translation>
@@ -272,7 +266,6 @@ Google Chrome 無法復原你的設定。</translation>
 <translation id="870251953148363156">更新 Google Chrome(&amp;G)</translation>
 <translation id="873133009373065397">Google Chrome 無法偵測或設定預設瀏覽器</translation>
 <translation id="8736674169840206667">你的管理員要求你重新啟動 Chrome，以套用更新</translation>
-<translation id="8788264404293392165">這是 Chrome 作業系統 UI 的顯示語言</translation>
 <translation id="8823341990149967727">Chrome 版本過舊</translation>
 <translation id="884296878221830158">這個擴充功能也會控管 Chrome 啟動時或你點選 [首頁] 按鈕時所顯示的網頁。</translation>
 <translation id="8862326446509486874">你沒有在系統層級進行安裝的權限，請以管理員的身分執行安裝檔。</translation>

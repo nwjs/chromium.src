@@ -12,8 +12,8 @@
 #include "base/macros.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/test/scoped_task_environment.h"
 #include "base/test/simple_test_tick_clock.h"
+#include "base/test/task_environment.h"
 #include "base/test/trace_event_analyzer.h"
 #include "cc/input/main_thread_scrolling_reason.h"
 #include "cc/trees/swap_promise_monitor.h"
@@ -146,6 +146,7 @@ class MockInputHandler : public cc::InputHandler {
       const gfx::PointF& mouse_position) override {
     cc::InputHandlerPointerResult pointer_result;
     pointer_result.type = cc::kScrollbarScroll;
+    pointer_result.scroll_offset = gfx::ScrollOffset(0, 1);
     return pointer_result;
   }
 
@@ -517,7 +518,7 @@ class InputHandlerProxyEventQueueTest : public testing::Test {
 
   uint64_t next_begin_frame_number_ = viz::BeginFrameArgs::kStartingFrameNumber;
 
-  base::test::ScopedTaskEnvironment scoped_task_environment_;
+  base::test::SingleThreadTaskEnvironment task_environment_;
   base::WeakPtrFactory<InputHandlerProxyEventQueueTest> weak_ptr_factory_{this};
 };
 

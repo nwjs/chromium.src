@@ -128,6 +128,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::TextInputState)
   IPC_STRUCT_TRAITS_MEMBER(composition_end)
   IPC_STRUCT_TRAITS_MEMBER(can_compose_inline)
   IPC_STRUCT_TRAITS_MEMBER(show_ime_if_needed)
+  IPC_STRUCT_TRAITS_MEMBER(always_hide_ime)
   IPC_STRUCT_TRAITS_MEMBER(reply_to_request)
 IPC_STRUCT_TRAITS_END()
 
@@ -293,9 +294,10 @@ IPC_MESSAGE_ROUTED1(WidgetHostMsg_RequestSetBounds, gfx::Rect /* bounds */)
 // |privileged| is used by Pepper Flash. If this flag is set to true, we won't
 // pop up a bubble to ask for user permission or take mouse lock content into
 // account.
-IPC_MESSAGE_ROUTED2(WidgetHostMsg_LockMouse,
+IPC_MESSAGE_ROUTED3(WidgetHostMsg_LockMouse,
                     bool /* user_gesture */,
-                    bool /* privileged */)
+                    bool /* privileged */,
+                    bool /* request_raw_movement */)
 
 // Requests to unlock the mouse. A WidgetMsg_MouseLockLost message will be sent
 // whenever the mouse is unlocked (which may or may not be caused by

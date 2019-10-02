@@ -57,6 +57,8 @@ const char kChromeUIDevToolsURL[] =
 const char kChromeUIDeviceLogHost[] = "device-log";
 const char kChromeUIDevicesHost[] = "devices";
 const char kChromeUIDevicesURL[] = "chrome://devices/";
+const char kChromeUIDevUiLoaderHost[] = "dev-ui-loader";
+const char kChromeUIDevUiLoaderURL[] = "chrome://dev-ui-loader/";
 const char kChromeUIDomainReliabilityInternalsHost[] =
     "domain-reliability-internals";
 const char kChromeUIDownloadInternalsHost[] = "download-internals";
@@ -160,18 +162,15 @@ const char kChromeUIThumbnailListHost[] = "thumbnails";
 const char kChromeUIThumbnailURL[] = "chrome://thumb/";
 const char kChromeUITranslateInternalsHost[] = "translate-internals";
 const char kChromeUIUkmHost[] = "ukm";
-const char kChromeUIUberHost[] = "chrome";
 const char kChromeUIUsbInternalsHost[] = "usb-internals";
 const char kChromeUIUserActionsHost[] = "user-actions";
 const char kChromeUIVersionHost[] = "version";
 const char kChromeUIVersionURL[] = "chrome://version/";
+const char kChromeUIWebFooterExperimentHost[] = "web-footer-experiment";
+const char kChromeUIWebFooterExperimentURL[] =
+    "chrome://web-footer-experiment/";
 const char kChromeUIWelcomeHost[] = "welcome";
 const char kChromeUIWelcomeURL[] = "chrome://welcome/";
-
-#if defined(OS_WIN)
-// TODO(crbug.com/1003960): Remove when issue is resolved.
-const char kChromeUIWelcomeWin10Host[] = "welcome-win10";
-#endif  // defined(OS_WIN)
 
 #if defined(OS_ANDROID)
 const char kChromeUIExploreSitesInternalsHost[] = "explore-sites-internals";
@@ -303,11 +302,6 @@ bool IsSystemWebUIHost(base::StringPiece host) {
 }
 #endif  // defined(OS_CHROMEOS)
 
-#if defined(OS_WIN)
-const char kChromeUIMetroFlowHost[] = "make-metro";
-const char kChromeUIMetroFlowURL[] = "chrome://make-metro/";
-#endif
-
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_CHROMEOS)
 const char kChromeUICastHost[] = "cast";
 #endif
@@ -339,6 +333,11 @@ const char kChromeUITabModalConfirmDialogHost[] = "tab-modal-confirm-dialog";
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
 const char kChromeUIPrintHost[] = "print";
+#endif
+
+#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+const char kChromeUITabStripHost[] = "tab-strip";
+const char kChromeUITabStripURL[] = "chrome://tab-strip";
 #endif
 
 const char kChromeUIWebRtcLogsHost[] = "webrtc-logs";
@@ -386,6 +385,7 @@ const char kChangePictureSubPage[] = "changePicture";
 // 'multidevice/features' is a child of the 'multidevice' route
 const char kConnectedDevicesSubPage[] = "multidevice/features";
 const char kCrostiniSharedUsbDevicesSubPage[] = "crostini/sharedUsbDevices";
+const char kCrostiniExportImportSubPage[] = "crostini/exportImport";
 const char kDateTimeSubPage[] = "dateTime";
 const char kDisplaySubPage[] = "display";
 const char kHelpSubPage[] = "help";
@@ -394,12 +394,13 @@ const char kKerberosAccountsSubPage[] = "kerberosAccounts";
 const char kKeyboardOverlaySubPage[] = "keyboard-overlay";
 const char kLockScreenSubPage[] = "lockScreen";
 const char kManageAccessibilitySubPage[] = "manageAccessibility";
+const char kManageAccessibilityTtsSubPage[] = "manageAccessibility/tts";
 const char kMultideviceSubPage[] = "multidevice";
 const char kNativePrintingSettingsSubPage[] = "cupsPrinters";
 const char kNetworkDetailSubPage[] = "networkDetail";
 const char kNetworksSubPage[] = "networks";
 const char kPluginVmDetailsSubPage[] = "pluginVm/details";
-const char kPluginVmSharedPathSubPage[] = "pluginVm/sharedPath";
+const char kPluginVmSharedPathsSubPage[] = "pluginVm/sharedPaths";
 const char kPointerOverlaySubPage[] = "pointer-overlay";
 const char kPowerSubPage[] = "power";
 const char kResetSubPage[] = "reset";
@@ -407,6 +408,7 @@ const char kSmartLockSettingsSubPage[] = "multidevice/features/smartLock";
 const char kSmbSharesSubPage[] = "smbShares";
 const char kStorageSubPage[] = "storage";
 const char kStylusSubPage[] = "stylus";
+const char kSwitchAccessSubPage[] = "manageAccessibility/switchAccess";
 // Tether is a child of the 'networks' route.
 const char kTetherSettingsSubPage[] = "networks?type=Tether";
 const char kVPNSettingsSubPage[] = "networks?type=VPN";
@@ -434,6 +436,7 @@ bool IsOSSettingsSubPage(const std::string& sub_page) {
       kLanguageOptionsSubPage,
       kLockScreenSubPage,
       kManageAccessibilitySubPage,
+      kManageAccessibilityTtsSubPage,
       kMultideviceSubPage,
       kNativePrintingSettingsSubPage,
       kNetworkDetailSubPage,
@@ -446,6 +449,7 @@ bool IsOSSettingsSubPage(const std::string& sub_page) {
       kSmbSharesSubPage,
       kStorageSubPage,
       kStylusSubPage,
+      kSwitchAccessSubPage,
       // sync is both an OS and browser sub page, but prefer the OS version
       kSyncSetupSubPage,
       kVPNSettingsSubPage,
@@ -550,7 +554,6 @@ const char* const kChromeHostURLs[] = {
     kChromeUIInspectHost,
     kChromeUISettingsHost,
     kChromeUISystemInfoHost,
-    kChromeUIUberHost,
 #endif
 #if defined(OS_ANDROID)
     kChromeUIExploreSitesInternalsHost,
@@ -568,6 +571,7 @@ const char* const kChromeHostURLs[] = {
     kChromeUINetworkHost,
     kChromeUIOobeHost,
     kChromeUIOSCreditsHost,
+    kChromeUIOSSettingsHost,
     kChromeUIPowerHost,
     kChromeUIInternetConfigDialogHost,
     kChromeUIInternetDetailDialogHost,

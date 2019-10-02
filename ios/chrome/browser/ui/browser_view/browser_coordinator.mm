@@ -11,7 +11,6 @@
 #import "ios/chrome/browser/app_launcher/app_launcher_tab_helper.h"
 #import "ios/chrome/browser/autofill/autofill_tab_helper.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/download/features.h"
 #import "ios/chrome/browser/download/pass_kit_tab_helper.h"
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/store_kit/store_kit_coordinator.h"
@@ -20,7 +19,7 @@
 #import "ios/chrome/browser/tabs/tab_title_util.h"
 #import "ios/chrome/browser/ui/alert_coordinator/repost_form_coordinator.h"
 #import "ios/chrome/browser/ui/app_launcher/app_launcher_coordinator.h"
-#import "ios/chrome/browser/ui/autofill/form_input_accessory_coordinator.h"
+#import "ios/chrome/browser/ui/autofill/form_input_accessory/form_input_accessory_coordinator.h"
 #import "ios/chrome/browser/ui/browser_container/browser_container_coordinator.h"
 #import "ios/chrome/browser/ui/browser_view/browser_view_controller+private.h"
 #import "ios/chrome/browser/ui/browser_view/browser_view_controller.h"
@@ -188,6 +187,9 @@
 
   [self.printController dismissAnimated:YES];
 
+  [self.readingListCoordinator stop];
+  self.readingListCoordinator = nil;
+
   [self.viewController clearPresentedStateWithCompletion:completion
                                           dismissOmnibox:dismissOmnibox];
 }
@@ -202,8 +204,7 @@
           initWithBrowserState:self.browserState
                   webStateList:self.tabModel.webStateList];
   _viewController = [[BrowserViewController alloc]
-                    initWithTabModel:self.tabModel
-                        browserState:self.browserState
+                     initWithBrowser:self.browser
                    dependencyFactory:factory
           applicationCommandEndpoint:self.applicationCommandHandler
                    commandDispatcher:self.dispatcher
@@ -240,13 +241,11 @@
   self.appLauncherCoordinator = [[AppLauncherCoordinator alloc]
       initWithBaseViewController:self.viewController];
 
-  if (download::IsUsdzPreviewEnabled()) {
-    self.ARQuickLookCoordinator = [[ARQuickLookCoordinator alloc]
-        initWithBaseViewController:self.viewController
-                      browserState:self.browserState
-                      webStateList:self.tabModel.webStateList];
-    [self.ARQuickLookCoordinator start];
-  }
+  self.ARQuickLookCoordinator = [[ARQuickLookCoordinator alloc]
+      initWithBaseViewController:self.viewController
+                    browserState:self.browserState
+                    webStateList:self.tabModel.webStateList];
+  [self.ARQuickLookCoordinator start];
 
   self.formInputAccessoryCoordinator = [[FormInputAccessoryCoordinator alloc]
       initWithBaseViewController:self.viewController
@@ -258,7 +257,9 @@
   self.translateInfobarCoordinator = [[TranslateInfobarCoordinator alloc]
       initWithBaseViewController:self.viewController
                     browserState:self.browserState
-                    webStateList:self.tabModel.webStateList];
+                    webStateList:self.tabModel.webStateList
+                      dispatcher:static_cast<id<SnackbarCommands>>(
+                                     self.dispatcher)];
   [self.translateInfobarCoordinator start];
 
   self.pageInfoCoordinator = [[PageInfoLegacyCoordinator alloc]

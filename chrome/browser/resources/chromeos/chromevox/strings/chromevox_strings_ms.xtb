@@ -69,7 +69,6 @@ Jika anda ingin keluar daripada tutorial, gunakan ChromeVox untuk menavigasi ke 
 <translation id="1383876407941801731">Carian</translation>
 <translation id="1385214448885562192">Tekan enter untuk menerima atau escape untuk membatalkan, ke bawah untuk seterusnya dan ke atas untuk sebelumnya.</translation>
 <translation id="1396114365388024581">tablst</translation>
-<translation id="139902759009894363">Umumkan atribut teks beraneka</translation>
 <translation id="1405567553485452995">Hijau Cerah</translation>
 <translation id="1417889266572670458">Biru Kelasi</translation>
 <translation id="1431911867058218151">Ijas</translation>
@@ -485,6 +484,7 @@ Jika anda ingin keluar daripada tutorial, gunakan ChromeVox untuk menavigasi ke 
 <translation id="4372705107434148843">Hentikan pertuturan</translation>
 <translation id="4373197658375206385">Tiada item terdahulu yang bukan pautan.</translation>
 <translation id="4376316291247992553">Lihat Grafik Sebagai Braille</translation>
+<translation id="437809255587011096">Umumkan penggayaan teks</translation>
 <translation id="4378308539633073595">Tatal ke hadapan</translation>
 <translation id="4384583879834880242">Soal Jawab</translation>
 <translation id="4391478986194775161">cntntinfo</translation>
@@ -761,7 +761,6 @@ Jika anda ingin keluar daripada tutorial, gunakan ChromeVox untuk menavigasi ke 
 <translation id="6348869651006731065">Kelabu Malap</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{peluru}other{# peluru}}</translation>
 <translation id="6355910664415701303">Tiada item senarai terdahulu.</translation>
-<translation id="6360318852623800555">Atribut Teks Beraneka</translation>
 <translation id="6364795331201459219">h6</translation>
 <translation id="6368143427468974988">Tajuk sebelumnya</translation>
 <translation id="6376999910001533545">Merah Manggis</translation>
@@ -1087,7 +1086,6 @@ Untuk membuka menu penyemak imbas Chrome, tekan Alt+F.</translation>
 <translation id="8153880621934657047">Bukan dalam jadual.</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{garis bawah}other{# garis bawah}}</translation>
 <translation id="8179976553408161302">Enter</translation>
-<translation id="8183813379996435469">Kesan dan tukar bahasa ChromeVox secara automatik.</translation>
 <translation id="8184828902145951186">baris</translation>
 <translation id="8186185314313222077">togol skrin penuh</translation>
 <translation id="8199231515320852133">Umumkan pengepala sel semasa</translation>
@@ -1124,6 +1122,7 @@ Untuk membuka menu penyemak imbas Chrome, tekan Alt+F.</translation>
 <translation id="8503360654911991865">Kurangkan kebutiran navigasi</translation>
 <translation id="8504695234784218301">Kesilapan tatabahasa tamat</translation>
 <translation id="8520472399088452386">Butang putar</translation>
+<translation id="8534394844575788431">Memformat</translation>
 <translation id="8538744478902126321">Buat tekaan pada pengepala baris sel semasa</translation>
 <translation id="8540054775867439484">Dibalut ke atas</translation>
 <translation id="8542271685829952264">Untuk menerokai semua perintah dan pintasan ChromeVox, tekan Carian + Titik, kemudian gunakan kekunci Anak panah untuk menavigasi menu dan Enter untuk mengaktifkan perintah. Kembali ke sini dengan menekan Carian+o kemudian t.</translation>
@@ -1203,6 +1202,7 @@ Untuk membuka menu penyemak imbas Chrome, tekan Alt+F.</translation>
 <translation id="9149560530563164529">sctn</translation>
 <translation id="9150735707954472829">Tab</translation>
 <translation id="9151211641321628915">Mengumumkan penerangan ringkas tentang kedudukan semasa</translation>
+<translation id="9151249085738989067">Ubah suara ChromeVox berdasarkan bahasa secara automatik</translation>
 <translation id="9153606228985488238">Nada <ph name="PERCENT" /> peratus</translation>
 <translation id="9160096769946561184">Pergi ke penghujung lajur semasa</translation>
 <translation id="9173115498289768110">Kelantangan <ph name="PERCENT" /> peratus</translation>

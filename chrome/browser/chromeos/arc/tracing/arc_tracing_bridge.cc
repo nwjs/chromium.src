@@ -128,7 +128,7 @@ class ArcTracingDataSource
       const perfetto::DataSourceConfig& data_source_config) override {
     // |this| never gets destructed, so it's OK to bind an unretained pointer.
     // |producer| is a singleton that is never destroyed.
-    base::PostTaskWithTraits(
+    base::PostTask(
         FROM_HERE, {content::BrowserThread::UI},
         base::BindOnce(&ArcTracingDataSource::StartTracingOnUI,
                        base::Unretained(this), producer, data_source_config));
@@ -136,11 +136,10 @@ class ArcTracingDataSource
 
   void StopTracing(base::OnceClosure stop_complete_callback) override {
     // |this| never gets destructed, so it's OK to bind an unretained pointer.
-    base::PostTaskWithTraits(
-        FROM_HERE, {content::BrowserThread::UI},
-        base::BindOnce(&ArcTracingDataSource::StopTracingOnUI,
-                       base::Unretained(this),
-                       std::move(stop_complete_callback)));
+    base::PostTask(FROM_HERE, {content::BrowserThread::UI},
+                   base::BindOnce(&ArcTracingDataSource::StopTracingOnUI,
+                                  base::Unretained(this),
+                                  std::move(stop_complete_callback)));
   }
 
   void Flush(base::RepeatingClosure flush_complete_callback) override {
@@ -291,8 +290,7 @@ ArcTracingBridge::ArcTracingBridge(content::BrowserContext* context,
                                    ArcBridgeService* bridge_service)
     : arc_bridge_service_(bridge_service),
       agent_(this),
-      reader_(std::make_unique<ArcTracingReader>()),
-      weak_ptr_factory_(this) {
+      reader_(std::make_unique<ArcTracingReader>()) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   arc_bridge_service_->tracing()->AddObserver(this);
   ArcTracingDataSource::GetInstance()->RegisterBridgeOnUI(this);
@@ -304,7 +302,7 @@ ArcTracingBridge::~ArcTracingBridge() {
   arc_bridge_service_->tracing()->RemoveObserver(this);
 
   // Delete the reader on the IO thread.
-  base::CreateSingleThreadTaskRunnerWithTraits({content::BrowserThread::IO})
+  base::CreateSingleThreadTaskRunner({content::BrowserThread::IO})
       ->DeleteSoon(FROM_HERE, reader_.release());
 }
 
@@ -380,7 +378,7 @@ void ArcTracingBridge::StartTracing(const std::string& config,
 
   // |reader_| will be destroyed after us on the IO thread, so it's OK to use an
   // unretained pointer.
-  base::PostTaskWithTraits(
+  base::PostTask(
       FROM_HERE, {content::BrowserThread::IO},
       base::BindOnce(&ArcTracingReader::StartTracing,
                      base::Unretained(reader_.get()), std::move(read_fd)));
@@ -425,7 +423,7 @@ void ArcTracingBridge::OnArcTracingStopped(
   }
   // |reader_| will be destroyed after us on the IO thread, so it's OK to use an
   // unretained pointer.
-  base::PostTaskWithTraitsAndReplyWithResult(
+  base::PostTaskAndReplyWithResult(
       FROM_HERE, {content::BrowserThread::IO},
       base::BindOnce(&ArcTracingReader::StopTracing,
                      base::Unretained(reader_.get())),

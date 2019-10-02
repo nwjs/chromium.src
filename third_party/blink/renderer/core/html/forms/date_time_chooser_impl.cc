@@ -33,6 +33,7 @@
 #include "third_party/blink/public/mojom/choosers/date_time_chooser.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/html/forms/chooser_resource_loader.h"
 #include "third_party/blink/renderer/core/html/forms/date_time_chooser_client.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
@@ -120,10 +121,15 @@ void DateTimeChooserImpl::WriteDocument(SharedBuffer* data) {
   }
 
   AddString("<!DOCTYPE html><head><meta charset='UTF-8'><style>\n", data);
-  data->Append(Platform::Current()->GetDataResource("pickerCommon.css"));
-  data->Append(Platform::Current()->GetDataResource("pickerButton.css"));
-  data->Append(Platform::Current()->GetDataResource("suggestionPicker.css"));
-  data->Append(Platform::Current()->GetDataResource("calendarPicker.css"));
+
+  data->Append(ChooserResourceLoader::GetPickerCommonStyleSheet());
+  if (!RuntimeEnabledFeatures::FormControlsRefreshEnabled())
+    data->Append(ChooserResourceLoader::GetPickerButtonStyleSheet());
+  data->Append(ChooserResourceLoader::GetSuggestionPickerStyleSheet());
+  data->Append(ChooserResourceLoader::GetCalendarPickerStyleSheet());
+  if (RuntimeEnabledFeatures::FormControlsRefreshEnabled()) {
+    data->Append(ChooserResourceLoader::GetCalendarPickerRefreshStyleSheet());
+  }
   AddString(
       "</style></head><body><div id=main>Loading...</div><script>\n"
       "window.dialogArguments = {\n",
@@ -169,6 +175,8 @@ void DateTimeChooserImpl::WriteDocument(SharedBuffer* data) {
   AddProperty("dayLabels", locale_->WeekDayShortLabels(), data);
   AddProperty("isLocaleRTL", locale_->IsRTL(), data);
   AddProperty("isRTL", parameters_->is_anchor_element_rtl, data);
+  AddProperty("isFormControlsRefreshEnabled",
+              RuntimeEnabledFeatures::FormControlsRefreshEnabled(), data);
   AddProperty("mode", parameters_->type.GetString(), data);
   if (parameters_->suggestions.size()) {
     Vector<String> suggestion_values;
@@ -206,9 +214,9 @@ void DateTimeChooserImpl::WriteDocument(SharedBuffer* data) {
   }
   AddString("}\n", data);
 
-  data->Append(Platform::Current()->GetDataResource("pickerCommon.js"));
-  data->Append(Platform::Current()->GetDataResource("suggestionPicker.js"));
-  data->Append(Platform::Current()->GetDataResource("calendarPicker.js"));
+  data->Append(ChooserResourceLoader::GetPickerCommonJS());
+  data->Append(ChooserResourceLoader::GetSuggestionPickerJS());
+  data->Append(ChooserResourceLoader::GetCalendarPickerJS());
   AddString("</script></body>\n", data);
 }
 

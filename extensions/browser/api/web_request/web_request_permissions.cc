@@ -10,7 +10,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "content/public/browser/child_process_security_policy.h"
-#include "content/public/browser/resource_request_info.h"
 #include "extensions/browser/api/extensions_api_client.h"
 #include "extensions/browser/api/web_request/permission_helper.h"
 #include "extensions/browser/api/web_request/web_request_api_constants.h"
@@ -30,7 +29,6 @@
 #include "chromeos/login/login_state/login_state.h"
 #endif  // defined(OS_CHROMEOS)
 
-using content::ResourceRequestInfo;
 using extensions::PermissionsData;
 
 namespace {
@@ -338,7 +336,7 @@ PermissionsData::PageAccess WebRequestPermissions::CanExtensionAccessURL(
     bool crosses_incognito,
     HostPermissionsCheck host_permissions_check,
     const base::Optional<url::Origin>& initiator,
-    const base::Optional<content::ResourceType>& resource_type) {
+    content::ResourceType resource_type) {
   return CanExtensionAccessURLInternal(
       permission_helper, extension_id, url, tab_id, crosses_incognito,
       host_permissions_check, initiator, resource_type);

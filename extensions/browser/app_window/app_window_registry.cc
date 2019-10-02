@@ -107,14 +107,6 @@ AppWindowRegistry::AppWindowList AppWindowRegistry::GetAppWindowsForApp(
   return app_windows;
 }
 
-void AppWindowRegistry::CloseAllAppWindowsForApp(const std::string& app_id, bool user_force) {
-  const AppWindowList windows = GetAppWindowsForApp(app_id);
-  for (auto it = windows.cbegin(); it != windows.cend(); ++it) {
-    if ((*it)->NWCanClose(user_force))
-    (*it)->GetBaseWindow()->Close();
-  }
-}
-
 AppWindow* AppWindowRegistry::GetAppWindowForWebContents(
     const content::WebContents* web_contents) const {
   for (AppWindow* window : app_windows_) {

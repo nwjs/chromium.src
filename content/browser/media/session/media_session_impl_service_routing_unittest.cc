@@ -53,12 +53,24 @@ class MockMediaSessionPlayerObserver : public MediaSessionPlayerObserver {
   MOCK_METHOD2(OnSetVolumeMultiplier,
                void(int player_id, double volume_multiplier));
 
+  base::Optional<media_session::MediaPosition> GetPosition(
+      int player_id) const override {
+    return position_;
+  }
+
+  void SetPosition(
+      const base::Optional<media_session::MediaPosition>& position) {
+    position_ = position;
+  }
+
   RenderFrameHost* render_frame_host() const override {
     return render_frame_host_;
   }
 
  private:
   RenderFrameHost* render_frame_host_;
+
+  base::Optional<media_session::MediaPosition> position_;
 };
 
 }  // anonymous namespace
@@ -272,14 +284,6 @@ TEST_F(MediaSessionImplServiceRoutingTest,
   ClearPlayersForFrame(main_frame_);
 
   ASSERT_EQ(services_[sub_frame_].get(), ComputeServiceForRouting());
-}
-
-TEST_F(MediaSessionImplServiceRoutingTest, NotifyMockPositionData) {
-  media_session::test::MockMediaSessionMojoObserver observer(
-      *GetMediaSession());
-
-  // Verify that the default/mock position data is received by the observer.
-  observer.WaitForNonEmptyPosition();
 }
 
 TEST_F(MediaSessionImplServiceRoutingTest,
@@ -579,6 +583,75 @@ TEST_F(MediaSessionImplServiceRoutingTest,
 
   MediaSessionImpl::Get(contents())->Seek(kDefaultSeekTime);
   run_loop.Run();
+}
+
+TEST_F(MediaSessionImplServiceRoutingTest,
+       TestSeekToBehaviorWhenMainFrameIsRouted) {
+  base::RunLoop run_loop;
+
+  StartPlayerForFrame(main_frame_);
+  StartPlayerForFrame(sub_frame_);
+
+  CreateServiceForFrame(main_frame_);
+
+  base::TimeDelta seek_time = base::TimeDelta::FromSeconds(10);
+
+  EXPECT_CALL(*GetClientForFrame(main_frame_),
+              DidReceiveAction(MediaSessionAction::kSeekTo, _))
+      .WillOnce([&run_loop, &seek_time](auto a, auto details) {
+        EXPECT_EQ(seek_time, details->get_seek_to()->seek_time);
+        EXPECT_FALSE(details->get_seek_to()->fast_seek);
+        run_loop.Quit();
+      });
+
+  services_[main_frame_]->EnableAction(MediaSessionAction::kSeekTo);
+
+  MediaSessionImpl::Get(contents())->SeekTo(seek_time);
+  run_loop.Run();
+}
+
+TEST_F(MediaSessionImplServiceRoutingTest,
+       TestScrubToBehaviorWhenMainFrameIsRouted) {
+  base::RunLoop run_loop;
+
+  StartPlayerForFrame(main_frame_);
+  StartPlayerForFrame(sub_frame_);
+
+  CreateServiceForFrame(main_frame_);
+
+  base::TimeDelta seek_time = base::TimeDelta::FromSeconds(10);
+
+  EXPECT_CALL(*GetClientForFrame(main_frame_),
+              DidReceiveAction(MediaSessionAction::kSeekTo, _))
+      .WillOnce([&run_loop, &seek_time](auto a, auto details) {
+        EXPECT_EQ(seek_time, details->get_seek_to()->seek_time);
+        EXPECT_TRUE(details->get_seek_to()->fast_seek);
+        run_loop.Quit();
+      });
+
+  services_[main_frame_]->EnableAction(MediaSessionAction::kSeekTo);
+
+  MediaSessionImpl::Get(contents())->ScrubTo(seek_time);
+  run_loop.Run();
+}
+
+TEST_F(MediaSessionImplServiceRoutingTest, SeekToActionEnablesScrubTo) {
+  CreateServiceForFrame(main_frame_);
+  StartPlayerForFrame(main_frame_);
+
+  std::set<MediaSessionAction> expected_actions(default_actions().begin(),
+                                                default_actions().end());
+  expected_actions.insert(MediaSessionAction::kSeekTo);
+  expected_actions.insert(MediaSessionAction::kScrubTo);
+
+  services_[main_frame_]->EnableAction(MediaSessionAction::kSeekTo);
+
+  media_session::test::MockMediaSessionMojoObserver observer(
+      *GetMediaSession());
+  observer.WaitForExpectedActions(expected_actions);
+
+  services_[main_frame_]->DisableAction(MediaSessionAction::kSeekTo);
+  observer.WaitForExpectedActions(default_actions());
 }
 
 TEST_F(MediaSessionImplServiceRoutingTest,
@@ -910,6 +983,69 @@ TEST_F(MediaSessionImplServiceRoutingTest, StopBehaviourWhenActionEnabled) {
 
   MediaSessionImpl::Get(contents())->Stop(MediaSession::SuspendType::kUI);
   run_loop.Run();
+}
+
+TEST_F(MediaSessionImplServiceRoutingTest,
+       PositionFromServiceShouldOverridePlayer) {
+  CreateServiceForFrame(main_frame_);
+  StartPlayerForFrame(main_frame_);
+
+  media_session::MediaPosition player_position(
+      0.0, base::TimeDelta::FromSeconds(20), base::TimeDelta());
+
+  media_session::test::MockMediaSessionMojoObserver observer(
+      *GetMediaSession());
+
+  players_[main_frame_].get()->SetPosition(player_position);
+  GetMediaSession()->RebuildAndNotifyMediaPositionChanged();
+
+  observer.WaitForExpectedPosition(player_position);
+
+  EXPECT_EQ(services_[main_frame_].get(), ComputeServiceForRouting());
+
+  media_session::MediaPosition expected_position(
+      0.0, base::TimeDelta::FromSeconds(10), base::TimeDelta());
+
+  services_[main_frame_]->SetPositionState(expected_position);
+
+  observer.WaitForExpectedPosition(expected_position);
+
+  DestroyServiceForFrame(main_frame_);
+
+  EXPECT_EQ(nullptr, ComputeServiceForRouting());
+
+  observer.WaitForExpectedPosition(player_position);
+}
+
+TEST_F(MediaSessionImplServiceRoutingTest, PositionFromServiceCanBeReset) {
+  CreateServiceForFrame(main_frame_);
+  StartPlayerForFrame(main_frame_);
+
+  media_session::MediaPosition player_position(
+      0.0, base::TimeDelta::FromSeconds(20), base::TimeDelta());
+
+  media_session::test::MockMediaSessionMojoObserver observer(
+      *GetMediaSession());
+
+  players_[main_frame_].get()->SetPosition(player_position);
+  GetMediaSession()->RebuildAndNotifyMediaPositionChanged();
+
+  observer.WaitForExpectedPosition(player_position);
+
+  EXPECT_EQ(services_[main_frame_].get(), ComputeServiceForRouting());
+
+  media_session::MediaPosition expected_position(
+      0.0, base::TimeDelta::FromSeconds(10), base::TimeDelta());
+
+  services_[main_frame_]->SetPositionState(expected_position);
+
+  observer.WaitForExpectedPosition(expected_position);
+
+  services_[main_frame_]->SetPositionState(base::nullopt);
+
+  EXPECT_EQ(services_[main_frame_].get(), ComputeServiceForRouting());
+
+  observer.WaitForExpectedPosition(player_position);
 }
 
 }  // namespace content

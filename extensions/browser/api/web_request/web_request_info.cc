@@ -12,7 +12,6 @@
 #include "base/stl_util.h"
 #include "base/values.h"
 #include "content/public/browser/render_frame_host.h"
-#include "content/public/browser/resource_request_info.h"
 #include "content/public/browser/websocket_handshake_request_info.h"
 #include "extensions/browser/api/web_request/upload_data_presenter.h"
 #include "extensions/browser/api/web_request/web_request_api_constants.h"
@@ -180,7 +179,7 @@ WebRequestInfoInitParams::WebRequestInfoInitParams(
   else if (is_download)
     web_request_type = WebRequestResourceType::OTHER;
   else
-    web_request_type = ToWebRequestResourceType(type.value());
+    web_request_type = ToWebRequestResourceType(type);
 
   InitializeWebViewAndFrameData(navigation_ui_data.get());
 

@@ -34,11 +34,11 @@
 <translation id="1206892813135768548">Linktext kopieren</translation>
 <translation id="1208340532756947324">Aktivieren Sie die Synchronisierung, um geräteübergreifend zu synchronisieren und zu personalisieren</translation>
 <translation id="1209206284964581585">Vorerst ausblenden</translation>
+<translation id="1227058898775614466">Navigationsverlauf</translation>
 <translation id="1231733316453485619">Synchronisierung aktivieren?</translation>
 <translation id="123724288017357924">Aktuelle Seite neu laden, Cache-Inhalte ignorieren</translation>
 <translation id="124116460088058876">Weitere Sprachen</translation>
 <translation id="124678866338384709">Aktuellen Tab schließen</translation>
-<translation id="125153950246128346">Tippen, um einen anderen Tab zu sehen</translation>
 <translation id="1258753120186372309">Google-Doodle: <ph name="DOODLE_DESCRIPTION" /></translation>
 <translation id="1260236875608242557">Suchen und entdecken</translation>
 <translation id="1264974993859112054">Sport</translation>
@@ -46,9 +46,11 @@
 <translation id="1283039547216852943">Zum Maximieren tippen</translation>
 <translation id="1285320974508926690">Diese Website nie übersetzen</translation>
 <translation id="1291207594882862231">Verlauf, Cookies, Websitedaten, Cache leeren…</translation>
+<translation id="129382876167171263">Hier werden von Websites gespeicherte Dateien angezeigt</translation>
 <translation id="129553762522093515">Kürzlich geschlossen</translation>
 <translation id="1303507811548703290"><ph name="DOMAIN" />: gesendet von <ph name="DEVICE_NAME" /></translation>
 <translation id="1310482092992808703">Tabs gruppieren</translation>
+<translation id="1327257854815634930">Der Navigationsverlauf ist geöffnet</translation>
 <translation id="1331212799747679585">Chrome kann nicht aktualisiert werden. Weitere Optionen</translation>
 <translation id="1332501820983677155">Tastenkombinationen für Google Chrome-Funktionen</translation>
 <translation id="1360432990279830238">Abmelden &amp; Synchronisierung deaktivieren?</translation>
@@ -71,7 +73,6 @@
 <translation id="1446450296470737166">Volle Kontr. über MIDI-Ger. erl.</translation>
 <translation id="145097072038377568">In den Android-Einstellungen deaktiviert</translation>
 <translation id="1477626028522505441"><ph name="FILE_NAME" /> konnte aufgrund von Serverproblemen nicht heruntergeladen werden.</translation>
-<translation id="1497775360237967938">{DETAIL_COUNT,plural, =1{ (+ 1 weitere)}other{ (+ # weitere)}}</translation>
 <translation id="1501480321619201731">Gruppe löschen</translation>
 <translation id="1506061864768559482">Suchmaschine</translation>
 <translation id="1513352483775369820">Lesezeichen und Webprotokoll</translation>
@@ -108,12 +109,12 @@
 <translation id="1791662854739702043">Installiert</translation>
 <translation id="1792959175193046959">Sie können den Standard-Downloadpfad jederzeit ändern</translation>
 <translation id="1807246157184219062">Hell</translation>
+<translation id="1810845389119482123">Erste Einrichtung der Synchronisierung nicht abgeschlossen</translation>
 <translation id="1821253160463689938">Zum Speichern Ihrer Einstellungen werden Cookies verwendet, auch wenn Sie diese Seiten nicht besuchen</translation>
 <translation id="1829244130665387512">Auf Seite suchen</translation>
 <translation id="1853692000353488670">Neuer Inkognito-Tab</translation>
 <translation id="1856325424225101786">Lite-Modus zurücksetzen?</translation>
 <translation id="1868024384445905608">In Chrome sind Downloads jetzt noch schneller</translation>
-<translation id="1869137256605757565">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> Tab}other{<ph name="TABS_COUNT_MANY" /> Tabs}}</translation>
 <translation id="1880072593381090678">Beliebte Seiten aus Chrome</translation>
 <translation id="1883903952484604915">Meine Dateien</translation>
 <translation id="1887786770086287077">Der Standortzugriff ist für dieses Gerät deaktiviert. Sie können ihn in den <ph name="BEGIN_LINK" />Android-Einstellungen<ph name="END_LINK" /> aktivieren.</translation>
@@ -143,7 +144,6 @@
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB sonstiger Apps</translation>
 <translation id="2013642289801508067">{FILE_COUNT,plural, =1{# Datei}other{# Dateien}}</translation>
 <translation id="2017836877785168846">Löscht den Verlauf sowie Autovervollständigungen in der Adressleiste.</translation>
-<translation id="2018707881002649255">Die Kontakte, die Sie unten auswählen, werden mit der Website <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> geteilt.</translation>
 <translation id="2021896219286479412">Vollbild-Steuerelemente</translation>
 <translation id="2038563949887743358">"Desktopversion ansehen" aktivieren</translation>
 <translation id="2041019821020695769">Aktivieren Sie Benachrichtigungen auch in den <ph name="BEGIN_LINK" />Android-Einstellungen<ph name="END_LINK" />, damit Chrome Ihnen Benachrichtigungen senden kann.</translation>
@@ -217,14 +217,12 @@
 <translation id="2567385386134582609">BILD</translation>
 <translation id="257088987046510401">Designs</translation>
 <translation id="2570922361219980984">Der Standortzugriff ist für dieses Gerät ebenfalls deaktiviert. Sie können ihn in den <ph name="BEGIN_LINK" />Android-Einstellungen<ph name="END_LINK" /> aktivieren.</translation>
-<translation id="257674075312929031">Gruppe</translation>
 <translation id="257931822824936280">Maximiert – zum Minimieren klicken</translation>
 <translation id="2581165646603367611">Alle Cookies, der Cache und andere Daten von Websites, die Chrome nicht für wichtig hält, werden gelöscht.</translation>
 <translation id="2586657967955657006">Zwischenablage</translation>
 <translation id="2587052924345400782">Neuere Version verfügbar</translation>
 <translation id="2593272815202181319">Monospace</translation>
 <translation id="2612676031748830579">Kartennummer</translation>
-<translation id="2613747923081026172">Gruppe erstellen</translation>
 <translation id="2621115761605608342">JavaScript für eine bestimmte Website zulassen.</translation>
 <translation id="2625189173221582860">Passwort kopiert</translation>
 <translation id="2631006050119455616">Eingespart</translation>
@@ -238,7 +236,6 @@
 <translation id="2707726405694321444">Seite aktualisieren</translation>
 <translation id="2709516037105925701">AutoFill</translation>
 <translation id="271033894570825754">Neu</translation>
-<translation id="2714850608275780394">Warten auf den Code</translation>
 <translation id="2717722538473713889">E-Mail-Adressen</translation>
 <translation id="2728754400939377704">Nach Website sortieren</translation>
 <translation id="2744248271121720757">Tippen Sie auf ein Wort, um eine Sofortsuche zu starten oder weitere Aktionen anzuzeigen</translation>
@@ -247,7 +244,6 @@
 <translation id="2777555524387840389"><ph name="SECONDS" /> Sekunden übrig</translation>
 <translation id="2779651927720337254">fehlgeschlagen</translation>
 <translation id="2781151931089541271">1 Sekunde übrig</translation>
-<translation id="2796941233371040292">Keine Speicherdaten vorhanden</translation>
 <translation id="2801022321632964776">Chrome jetzt aktualisieren und das Internet in Ihrer Sprache entdecken</translation>
 <translation id="2810645512293415242">Vereinfachte Seite für einen geringeren Datenverbrauch und schnelleres Laden.</translation>
 <translation id="281504910091592009">Gespeicherte Passwörter in Ihrem <ph name="BEGIN_LINK" />Google-Konto<ph name="END_LINK" /> ansehen und verwalten</translation>
@@ -255,7 +251,6 @@
 <translation id="2822354292072154809">Möchten Sie wirklich alle Websiteberechtigungen für <ph name="CHOSEN_OBJECT_NAME" /> zurücksetzen?</translation>
 <translation id="2836148919159985482">Tippen Sie zum Beenden des Vollbildmodus auf die Zurück-Taste.</translation>
 <translation id="2842985007712546952">Übergeordneter Ordner</translation>
-<translation id="2845873210977809562">Geöffnete Tabs geschlossen</translation>
 <translation id="2858138569776157458">Top-Websites</translation>
 <translation id="2870560284913253234">Website</translation>
 <translation id="2874939134665556319">Vorheriger Titel</translation>
@@ -275,8 +270,8 @@
 <translation id="2956410042958133412">Dieses Konto wird von <ph name="PARENT_NAME_1" /> und <ph name="PARENT_NAME_2" /> verwaltet.</translation>
 <translation id="2962095958535813455">Zu Inkognito-Tabs gewechselt</translation>
 <translation id="2968755619301702150">Zertifikats-Viewer</translation>
-<translation id="2977480621796371840">Aus Gruppe entfernen</translation>
 <translation id="2979025552038692506">Ausgewählter Inkognito-Tab</translation>
+<translation id="2987620471460279764">Text, der über ein anderes Gerät geteilt wurde</translation>
 <translation id="2989523299700148168">Kürzlich besucht</translation>
 <translation id="2996291259634659425">Passphrase erstellen</translation>
 <translation id="2996809686854298943">URL erforderlich</translation>
@@ -306,7 +301,6 @@
 <translation id="3236059992281584593">1 Minute übrig</translation>
 <translation id="3244271242291266297">MM</translation>
 <translation id="3254409185687681395">Lesezeichen für diese Seite erstellen</translation>
-<translation id="3254626532848657899">Ganz nach unten</translation>
 <translation id="3259831549858767975">Gesamten Seiteninhalt verkleinern</translation>
 <translation id="3269093882174072735">Bild laden</translation>
 <translation id="3269956123044984603">Aktivieren Sie "Daten automatisch synchronisieren" in den Android-Kontoeinstellungen, um Tabs von Ihren anderen Geräten abzurufen.</translation>
@@ -356,7 +350,6 @@
 <translation id="3632295766818638029">Passwort anzeigen</translation>
 <translation id="363596933471559332">Sie werden mit gespeicherten Anmeldedaten automatisch auf Websites angemeldet. Wenn das Kästchen nicht angeklickt ist, werden Sie jedes Mal aufgefordert, sich manuell auf einer Website anzumelden.</translation>
 <translation id="3658159451045945436">Durch das Zurücksetzen wird der Verlauf gelöscht. Dazu gehört auch die Liste der besuchten Websites.</translation>
-<translation id="3663367437272849150"><ph name="NUM_SELECTED" /> Tabs gruppieren.</translation>
 <translation id="3692944402865947621">Download von <ph name="FILE_NAME" /> fehlgeschlagen, weil der Speicherort nicht erreichbar ist.</translation>
 <translation id="3714981814255182093">Suchleiste öffnen</translation>
 <translation id="3716182511346448902">Diese Seite benötigt zu viel Arbeitsspeicher und wurde daher von Chrome angehalten.</translation>
@@ -420,18 +413,13 @@ Wenn Sie den Suchbegriff anpassen möchten, halten Sie den entsprechenden Begrif
 <translation id="4170011742729630528">Der Dienst ist momentan nicht verfügbar. Bitte versuchen Sie es später erneut.</translation>
 <translation id="4179980317383591987"><ph name="AMOUNT" /> verwendet</translation>
 <translation id="4181841719683918333">Sprachen</translation>
+<translation id="4183868528246477015">Mit Google Lens suchen <ph name="BEGIN_NEW" />Neu<ph name="END_NEW" /></translation>
 <translation id="4195643157523330669">In neuem Tab öffnen</translation>
 <translation id="4198423547019359126">Keine verfügbaren Speicherorte für Downloads</translation>
 <translation id="4209895695669353772">Aktivieren Sie die Synchronisierung, um personalisierte, von Google vorgeschlagene Inhalte zu erhalten</translation>
 <translation id="4226663524361240545">Bei Benachrichtigungen kann das Gerät vibrieren</translation>
 <translation id="423219824432660969">Synchronisierte Daten mit dem Google-Passwort vom <ph name="TIME" /> verschlüsseln</translation>
 <translation id="4242533952199664413">Einstellungen öffnen</translation>
-<translation id="4247274662191902962">Sensordaten werden nur geteilt, während Sie diese VR-Funktion verwenden. Die Website erhält möglicherweise bestimmte Informationen über Sie. Dazu gehören
-    – Ihr Standort,
-    – physische Merkmale wie Ihre Augenposition und
-    – Bewegungen, wie z. B. Ihre Art, zu gehen.
-
-    Geben Sie dieser Website nur Zugriff, wenn Sie ihr vertrauen.</translation>
 <translation id="4256782883801055595">Open Source-Lizenzen</translation>
 <translation id="4259722352634471385">Die Navigation zu <ph name="URL" /> ist blockiert.</translation>
 <translation id="4269820728363426813">URL kopieren</translation>
@@ -483,12 +471,12 @@ Eventuell finden Sie unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 <translation id="4616150815774728855"><ph name="WEBAPK_NAME" /> öffnen</translation>
 <translation id="4634124774493850572">Passwort verwenden</translation>
 <translation id="4645575059429386691">Von deinen Eltern verwaltet</translation>
-<translation id="4648718555153979859">Ihre Tabs werden hier in Gruppen zusammengefasst</translation>
 <translation id="4650364565596261010">Systemstandardeinstellung</translation>
 <translation id="4663756553811254707"><ph name="NUMBER_OF_BOOKMARKS" /> Lesezeichen gelöscht</translation>
 <translation id="4665282149850138822"><ph name="NAME" /> wurde Ihrem Startbildschirm hinzugefügt.</translation>
 <translation id="4684427112815847243">Alles synchronisieren</translation>
 <translation id="4695891336199304370">{SHIPPING_OPTIONS,plural, =1{<ph name="SHIPPING_OPTION_PREVIEW" />\u2026 und <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> weitere}other{<ph name="SHIPPING_OPTION_PREVIEW" />\u2026 und <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> weitere}}</translation>
+<translation id="4696983787092045100">SMS an meine Geräte senden</translation>
 <translation id="4698034686595694889">Offline in <ph name="APP_NAME" /> ansehen</translation>
 <translation id="4698413471314543145">Es fehlen wichtige Funktionen zur Ausführung von Chrome. Ihre Chrome-Installation ist entweder unvollständig oder nicht mit dieser Android-Version kompatibel.</translation>
 <translation id="4699172675775169585">Bilder und Dateien im Cache</translation>
@@ -508,7 +496,6 @@ Eventuell finden Sie unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 
 Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie die Synchronisierung zurück<ph name="END_LINK" /></translation>
 <translation id="4807098396393229769">Name auf Karte</translation>
-<translation id="4816465935029283692">Datentypen</translation>
 <translation id="4824958205181053313">Synchronisierung abbrechen?</translation>
 <translation id="4837753911714442426">Optionen zum Drucken einer Seite öffnen</translation>
 <translation id="4842092870884894799">Pop-up-Fenster zur Passwortgenerierung wird angezeigt.</translation>
@@ -545,12 +532,14 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="5011311129201317034"><ph name="SITE" /> möchte eine Verbindung herstellen</translation>
 <translation id="5013696553129441713">Keine neuen Vorschläge</translation>
 <translation id="5016205925109358554">Serifenschrift</translation>
+<translation id="5033865233969348410">Während Sie sich im VR-Modus befinden, erhält die Website möglicherweise bestimmte Informationen über Sie. Dazu gehören:
+– physische Merkmale wie Ihre Größe
+
+Starten Sie den VR-Modus nur dann, wenn Sie dieser Website vertrauen.</translation>
 <translation id="5039804452771397117">Zulassen</translation>
 <translation id="5040262127954254034">Datenschutz</translation>
 <translation id="5048398596102334565">Websites den Zugriff auf Bewegungssensoren erlauben (empfohlen)</translation>
 <translation id="5063480226653192405">Verwendung</translation>
-<translation id="5073204694187207510">Vollbildraster ausblenden</translation>
-<translation id="5082793167783849073">Sie können Seiten schnell miteinander vergleichen, indem Sie eine Gruppe erstellen. Berühren und halten Sie einen Link, um den Vorgang zu starten.</translation>
 <translation id="5087580092889165836">Karte hinzufügen</translation>
 <translation id="5098406615395468004">Zu meinen Apps hinzufügen</translation>
 <translation id="5100237604440890931">Minimiert – zum Maximieren klicken</translation>
@@ -564,14 +553,17 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="5152843274749979095">Keine unterstützten Apps installiert</translation>
 <translation id="5161254044473106830">Titel erforderlich</translation>
 <translation id="5162754098604580781">{FILE_COUNT,plural, =1{1 Download fehlgeschlagen.}other{# Downloads fehlgeschlagen.}}</translation>
+<translation id="5170568018924773124">In Ordner anzeigen</translation>
 <translation id="5184329579814168207">In Chrome öffnen</translation>
+<translation id="5193988420012215838">In die Zwischenablage kopiert</translation>
+<translation id="5197729504361054390">Die von Ihnen ausgewählten Kontakte werden mit <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> geteilt.</translation>
 <translation id="5199929503336119739">Arbeitsprofil</translation>
-<translation id="5202089186707505116">Zulassen, dass diese Website auf Ihre VR-Sensoren zugreift?</translation>
 <translation id="5210286577605176222">Zum vorherigen Tab wechseln</translation>
 <translation id="5210365745912300556">Schließen</translation>
 <translation id="5224771365102442243">Mit Video</translation>
 <translation id="5230560987958996918"><ph name="SITE" /> möchte nach Bluetooth-Geräten in der Nähe suchen. Die folgenden Geräte wurden gefunden:</translation>
 <translation id="5233638681132016545">Neuer Tab</translation>
+<translation id="5234764350956374838">Schließen</translation>
 <translation id="526421993248218238">Fehler beim Laden der Seite</translation>
 <translation id="5271967389191913893">Das Gerät kann den Inhalt, der heruntergeladen werden soll, nicht öffnen.</translation>
 <translation id="528192093759286357">Ziehen Sie zum Beenden des Vollbildmodus von oben und tippen Sie auf die Zurück-Taste.</translation>
@@ -579,6 +571,7 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="5300589172476337783">Anzeigen</translation>
 <translation id="5301954838959518834">Ok</translation>
 <translation id="5304593522240415983">Dieses Feld darf nicht leer sein.</translation>
+<translation id="5307446750509046227">Websitespeicher löschen</translation>
 <translation id="5308380583665731573">Verbinden</translation>
 <translation id="5313967007315987356">Website hinzufügen</translation>
 <translation id="5317780077021120954">Speichern</translation>
@@ -589,6 +582,7 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="5363230136052241468">Tippen Sie auf die Schaltfläche "Startseite", um die "Neuer Tab"-Seite zu laden</translation>
 <translation id="5368958499335451666">{OPEN_TABS,plural, =1{<ph name="OPEN_TABS_ONE" /> geöffneter Tab, zum Wechseln der Tabs tippen}other{<ph name="OPEN_TABS_MANY" /> geöffnete Tabs, zum Wechseln der Tabs tippen}}</translation>
 <translation id="5391532827096253100">Die Verbindung zu dieser Website ist nicht sicher. Websiteinformationen</translation>
+<translation id="5394307150471348411">{DETAIL_COUNT,plural, =1{(+ 1 weitere)}other{(+ # weitere)}}</translation>
 <translation id="5400569084694353794">Durch die Verwendung dieser App stimmen Sie den <ph name="BEGIN_LINK1" />Nutzungsbedingungen<ph name="END_LINK1" /> und <ph name="BEGIN_LINK2" />Datenschutzhinweisen<ph name="END_LINK2" /> von Chrome zu.</translation>
 <translation id="5403592356182871684">Namen</translation>
 <translation id="5403644198645076998">Nur bestimmte Websites zulassen</translation>
@@ -608,7 +602,6 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="548278423535722844">In einer Karten-App öffnen</translation>
 <translation id="5487521232677179737">Daten löschen</translation>
 <translation id="5494752089476963479">Werbung auf Websites blockieren, auf denen aufdringliche oder irreführende Werbung angezeigt wird</translation>
-<translation id="5497272504048921382">Geöffnete Tabs</translation>
 <translation id="5500777121964041360">In Ihrem Land möglicherweise nicht verfügbar</translation>
 <translation id="5512137114520586844">Dieses Konto wird von <ph name="PARENT_NAME" /> verwaltet.</translation>
 <translation id="5514904542973294328">Vom Administrator dieses Geräts deaktiviert</translation>
@@ -619,15 +612,18 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="5527082711130173040">Chrome benötigt Zugriff auf den Standort, um nach Geräten suchen zu können. <ph name="BEGIN_LINK1" />Berechtigungen aktualisieren.<ph name="END_LINK1" /> Außerdem ist der Standortzugriff <ph name="BEGIN_LINK2" />für dieses Gerät deaktiviert<ph name="END_LINK2" />.</translation>
 <translation id="5527111080432883924">Nachfragen, bevor einer Website erlaubt wird, Texte und Bilder aus der Zwischenablage abzurufen (empfohlen)</translation>
 <translation id="5530766185686772672">Inkognito-Tabs schließen</translation>
+<translation id="5534334044554683961">Während Sie sich im VR-Modus befinden, erhält die Website möglicherweise bestimmte Informationen über Sie. Dazu gehören:
+– physische Merkmale wie Ihre Größe und
+– der Grundriss Ihres Zimmers
+
+Starten Sie den VR-Modus nur dann, wenn Sie dieser Website vertrauen.</translation>
 <translation id="5534640966246046842">Website kopiert</translation>
 <translation id="5556459405103347317">Neu laden</translation>
 <translation id="5561549206367097665">Warten auf Netzwerk…</translation>
 <translation id="557283862590186398">Chrome benötigt für diese Website die Berechtigung, auf Ihr Mikrofon zuzugreifen.</translation>
 <translation id="55737423895878184">Standortermittlung und Benachrichtigungen sind erlaubt</translation>
 <translation id="5578795271662203820">In <ph name="SEARCH_ENGINE" /> nach dem Bild suchen</translation>
-<translation id="5580090775658607195"><ph name="TAB_COUNT" /> Tabs gruppiert</translation>
 <translation id="5581519193887989363">Sie können in den <ph name="BEGIN_LINK1" />Einstellungen<ph name="END_LINK1" /> auswählen, was Sie synchronisieren möchten.</translation>
-<translation id="5586306159936941448">Tab zum Gruppieren auf einen anderen Tab ziehen</translation>
 <translation id="5595485650161345191">Adresse bearbeiten</translation>
 <translation id="5596627076506792578">Weitere Optionen</translation>
 <translation id="5599455543593328020">Inkognitomodus</translation>
@@ -658,7 +654,6 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="5809361687334836369">{HOURS,plural, =1{Vor # Stunde}other{Vor # Stunden}}</translation>
 <translation id="5810288467834065221">Copyright <ph name="YEAR" /> Google LLC Alle Rechte vorbehalten.</translation>
 <translation id="5817918615728894473">Koppeln</translation>
-<translation id="58326064309361797">Tabs zum Gruppieren ziehen</translation>
 <translation id="583281660410589416">Unbekannt</translation>
 <translation id="5833984609253377421">Link teilen</translation>
 <translation id="5836192821815272682">Chrome-Update wird heruntergeladen…</translation>
@@ -689,6 +684,7 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="6042308850641462728">Mehr</translation>
 <translation id="604996488070107836"><ph name="FILE_NAME" /> konnte aufgrund eines unbekannten Fehlers nicht heruntergeladen werden.</translation>
 <translation id="605721222689873409">JJ</translation>
+<translation id="6064125863973209585">Abgeschlossene Downloads</translation>
 <translation id="6075798973483050474">Startseite bearbeiten</translation>
 <translation id="60923314841986378"><ph name="HOURS" /> Stunden übrig</translation>
 <translation id="6108923351542677676">Einrichtung läuft...</translation>
@@ -704,12 +700,10 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="6181444274883918285">Ausnahme für Website hinzufügen</translation>
 <translation id="6192333916571137726">Download-Datei</translation>
 <translation id="6192792657125177640">Ausnahmen</translation>
-<translation id="6193448654517602979">Tabs auswählen</translation>
 <translation id="6194112207524046168">Aktivieren Sie die Kamera auch in den <ph name="BEGIN_LINK" />Android-Einstellungen<ph name="END_LINK" />, damit Chrome auf sie zugreifen kann.</translation>
 <translation id="6196640612572343990">Drittanbieter-Cookies blockieren</translation>
 <translation id="6206551242102657620">Die Verbindung ist sicher. Websiteinformationen</translation>
 <translation id="6210748933810148297"><ph name="EMAIL" /> ist nicht Ihre E-Mail-Adresse?</translation>
-<translation id="6216432067784365534">Optionen für <ph name="NAME_OF_LIST_ITEM" /></translation>
 <translation id="6221633008163990886">Zum Exportieren Ihrer Passwörter entsperren</translation>
 <translation id="6232535412751077445">Wenn Sie das Kästchen "Do Not Track" anklicken, wird mit Ihren Browserzugriffen eine Anforderung gesendet. Wie sich diese Anforderung auswirkt, hängt davon ab, ob eine Website darauf reagiert und wie die Anforderung interpretiert wird.
 
@@ -731,7 +725,6 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="6364438453358674297">Vorschlag aus Verlauf entfernen?</translation>
 <translation id="6369229450655021117">Von hier aus können Sie im Web suchen, Inhalte mit Freunden teilen und sich geöffnete Seiten ansehen.</translation>
 <translation id="6378173571450987352">Details: Nach der Menge der verwendeten Daten sortiert</translation>
-<translation id="6383961787135158834">Websitespeicher löschen...</translation>
 <translation id="6388207532828177975">Löschen &amp; zurücksetzen</translation>
 <translation id="6393863479814692971">Chrome benötigt für diese Website die Berechtigung, auf Ihre Kamera und Ihr Mikrofon zuzugreifen.</translation>
 <translation id="6395288395575013217">LINK</translation>
@@ -767,7 +760,6 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="6600954340915313787">In Chrome kopiert</translation>
 <translation id="6608650720463149374"><ph name="GIGABYTES" /> GB</translation>
 <translation id="6612358246767739896">Geschützte Inhalte</translation>
-<translation id="6615455863669487791">Zeigen</translation>
 <translation id="6627583120233659107">Ordner bearbeiten</translation>
 <translation id="6643016212128521049">Löschen</translation>
 <translation id="6643649862576733715">Nach Menge der gespeicherten Daten sortieren</translation>
@@ -793,8 +785,6 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="6767294960381293877">Die Liste von Geräten, mit denen ein Tab geteilt werden kann, ist halb geöffnet.</translation>
 <translation id="6782111308708962316">Websites von Drittanbietern am Speichern und Lesen von Cookiedaten hindern</translation>
 <translation id="6790428901817661496">Wiedergabe</translation>
-<translation id="679325081238418596">Rufen Sie Ihre Lesezeichen, Ihren Verlauf, Ihre Passwörter und andere Einstellungen auf allen Ihren Geräten ab</translation>
-<translation id="6803423358608456383">Geöffnete Tabs halb geöffnet</translation>
 <translation id="6811034713472274749">Seitenansicht bereit</translation>
 <translation id="6818926723028410516">Einträge auswählen</translation>
 <translation id="6820686453637990663">CVC</translation>
@@ -822,13 +812,12 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="6989267951144302301">Fehler beim Download</translation>
 <translation id="6990079615885386641">App aus dem Play Store abrufen: <ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">Nachfragen, bevor Websites auf Ihr Mikrofon zugreifen dürfen (empfohlen)</translation>
+<translation id="7015203776128479407">Die erstmalige Einrichtung der Synchronisierung wurde nicht abgeschlossen. Synchronisierung ist deaktiviert.</translation>
 <translation id="7016516562562142042">Für die aktuelle Suchmaschine zugelassen</translation>
 <translation id="7021515813996758557"><ph name="FILE_NAME" /> heruntergeladen</translation>
 <translation id="7022756207310403729">Im Browser öffnen</translation>
 <translation id="702463548815491781">Empfohlen, wenn TalkBack oder der Schalterzugriff aktiviert ist</translation>
 <translation id="7029809446516969842">Passwörter</translation>
-<translation id="7031882061095297553">Synchronisieren mit</translation>
-<translation id="7034608350006174882">Karten und Adressen aus Google Pay</translation>
 <translation id="7053983685419859001">Blockieren</translation>
 <translation id="7055152154916055070">Weiterleitung blockiert:</translation>
 <translation id="7062545763355031412">Akzeptieren und Konto wechseln</translation>
@@ -843,7 +832,6 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="7141896414559753902">Anzeige von Pop-ups und Weiterleitungen für Websites blockieren (empfohlen)</translation>
 <translation id="7149158118503947153"><ph name="BEGIN_LINK" />Originalseite<ph name="END_LINK" /> aus <ph name="DOMAIN_NAME" /> laden</translation>
 <translation id="7149893636342594995">Letzte 24 Stunden</translation>
-<translation id="7161892015146974550">Tab "<ph name="TAB_TITLE" />" auswählen.</translation>
 <translation id="7176368934862295254"><ph name="KILOBYTES" /> KB</translation>
 <translation id="7177466738963138057">Dies kann später in den Einstellungen geändert werden</translation>
 <translation id="7180611975245234373">Aktualisieren</translation>
@@ -853,10 +841,10 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="7233236755231902816">Das Web in Ihrer Sprache – mit der aktuellen Version von Chrome</translation>
 <translation id="7243308994586599757">Optionen unten auf dem Bildschirm verfügbar</translation>
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> ausgewählt</translation>
-<translation id="7253272406652746122">Fügen Sie ein Google-Konto über die Seite "Konten" der App "Einstellungen" Ihres Geräts hinzu.</translation>
 <translation id="7274013316676448362">Blockierte Website</translation>
 <translation id="7290209999329137901">Umbenennen nicht verfügbar</translation>
 <translation id="7291387454912369099">Assistant für AutoFill</translation>
+<translation id="7293171162284876153">Aktivieren Sie "Chrome-Daten synchronisieren", um die Synchronisierung zu starten.</translation>
 <translation id="729975465115245577">Auf Ihrem Gerät befindet sich keine App zum Speichern der Passwortdatei.</translation>
 <translation id="7302081693174882195">Details: Nach der Menge der gespeicherten Daten sortiert</translation>
 <translation id="7328017930301109123">Im Lite-Modus werden Seiten schneller in Chrome geladen und es werden bis zu 60 Prozent weniger Daten verbraucht.</translation>
@@ -895,7 +883,6 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="751961395872307827">Keine Verbindung zur Website möglich</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Vorschläge können nicht abgerufen werden</translation>
-<translation id="7559245342362162951">Tabs der Gruppe in Vollbildraster anzeigen</translation>
 <translation id="7559975015014302720">Lite-Modus ist deaktiviert</translation>
 <translation id="7562080006725997899">Browserdaten werden gelöscht</translation>
 <translation id="756809126120519699">Gelöschte Chrome-Daten</translation>
@@ -919,12 +906,14 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="7665369617277396874">Konto hinzufügen</translation>
 <translation id="766587987807204883">Artikel erscheinen hier und können auch gelesen werden, wenn Sie offline sind</translation>
 <translation id="7682724950699840886">Probieren Sie folgende Tipps aus: Sorgen Sie dafür, dass auf Ihrem Gerät ausreichend Speicherplatz vorhanden ist, und wiederholen Sie den Export.</translation>
+<translation id="7685301384041462804">Starten Sie den VR-Modus nur dann, wenn Sie dieser Website vertrauen.</translation>
 <translation id="7698359219371678927">E-Mail in <ph name="APP_NAME" /> erstellen</translation>
 <translation id="7704317875155739195">Suchanfragen und URLs automatisch vervollständigen</translation>
 <translation id="7725024127233776428">Seiten, die Sie als Lesezeichen speichern, werden hier angezeigt</translation>
 <translation id="773466115871691567">Seiten auf <ph name="SOURCE_LANGUAGE" /> immer übersetzen</translation>
 <translation id="7735672056998735387"><ph name="SPACE_FREE" /> (<ph name="SPACE_OTHER" />)</translation>
 <translation id="7746457520633464754">Chrome sendet die URLs einiger von Ihnen besuchter Seiten, bestimmte Systeminformationen und einige Seiteninhalte an Google, um gefährliche Apps und Websites zu erkennen</translation>
+<translation id="7757787379047923882">Text geteilt von <ph name="DEVICE_NAME" /></translation>
 <translation id="7762668264895820836">SD-Karte <ph name="SD_CARD_NUMBER" /></translation>
 <translation id="7764225426217299476">Adresse hinzufügen</translation>
 <translation id="7769602470925380267">Akzeptieren und abmelden</translation>
@@ -948,6 +937,7 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="7886917304091689118">Wird in Chrome ausgeführt</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Datei wird heruntergeladen.}other{# Dateien werden heruntergeladen.}}</translation>
 <translation id="7929962904089429003">Menü öffnen</translation>
+<translation id="7930681627240672853">Passwortsicherheit überprüfen</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> ist veraltet.</translation>
 <translation id="7947953824732555851">Akzeptieren und anmelden</translation>
 <translation id="7963646190083259054">Anbieter:</translation>
@@ -1012,7 +1002,6 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="8339163506404995330">Seiten auf <ph name="LANGUAGE" /> werden nicht übersetzt</translation>
 <translation id="8349013245300336738">Nach Menge der verwendeten Daten sortieren</translation>
 <translation id="8364299278605033898">Beliebte Websites ansehen</translation>
-<translation id="8364603787714420828">Auswahl des Tabs "<ph name="TAB_TITLE" />" aufheben.</translation>
 <translation id="8368027906805972958">Unbekanntes oder nicht unterstütztes Gerät (<ph name="DEVICE_ID" />)</translation>
 <translation id="8372893542064058268">Lässt die Hintergrundsynchronisierung für eine bestimmte Website zu.</translation>
 <translation id="8374821112118309944">TalkBack muss auf eine neuere Version aktualisiert werden.</translation>
@@ -1020,7 +1009,6 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="8380167699614421159">Diese Website zeigt aufdringliche oder irreführende Werbung an</translation>
 <translation id="8393700583063109961">Nachricht senden</translation>
 <translation id="8413126021676339697">Gesamtverlauf anzeigen</translation>
-<translation id="8425955042390522843">Telefonnummer-Bestätigung</translation>
 <translation id="8428213095426709021">Einstellungen</translation>
 <translation id="8438566539970814960">Suchanfragen und das Surfen verbessern</translation>
 <translation id="8441146129660941386">Zurück navigieren</translation>
@@ -1046,7 +1034,6 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="8569404424186215731">seit <ph name="DATE" /></translation>
 <translation id="8571213806525832805">Letzte 4 Wochen</translation>
 <translation id="857943718398505171">Zugelassen (empfohlen)</translation>
-<translation id="8582216581279205169">Geöffnete Tabs ganz geöffnet</translation>
 <translation id="8583805026567836021">Kontodaten werden gelöscht</translation>
 <translation id="860043288473659153">Name des Karteninhabers</translation>
 <translation id="8609465669617005112">Nach oben</translation>
@@ -1067,6 +1054,7 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="8730621377337864115">Fertig</translation>
 <translation id="8748850008226585750">Inhalte ausgeblendet</translation>
 <translation id="8751914237388039244">Bild auswählen</translation>
+<translation id="8788265440806329501">Der Navigationsverlauf wurde geschlossen</translation>
 <translation id="8788968922598763114">Zuletzt geschlossenen Tab öffnen</translation>
 <translation id="8801436777607969138">Hier können Sie Websites angeben, für die JavaScript blockiert werden soll.</translation>
 <translation id="8812260976093120287">Auf manchen Websites können Sie über Ihr Gerät mit den obigen unterstützten Zahlungs-Apps bezahlen.</translation>
@@ -1097,6 +1085,7 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="8993760627012879038">Neuen Tab im Inkognitomodus öffnen</translation>
 <translation id="8998729206196772491">Sie melden sich mit einem von <ph name="MANAGED_DOMAIN" /> verwalteten Konto an und geben dem Administrator der Domain Kontrolle über Ihre Chrome-Daten. Die Daten werden diesem Konto dauerhaft zugeordnet. Wenn Sie sich von Chrome abmelden, werden Ihre Daten auf dem Gerät gelöscht, bleiben jedoch in Ihrem Google-Konto erhalten.</translation>
 <translation id="9019902583201351841">Von deinen Eltern verwaltet</translation>
+<translation id="9029323097866369874"><ph name="DOMAIN" /> erlauben, VR zu starten?</translation>
 <translation id="9040142327097499898">Benachrichtigungen sind erlaubt. Der Standortzugriff ist für dieses Gerät deaktiviert.</translation>
 <translation id="9041669420854607037">{FILE_COUNT,plural, =1{# Video}other{# Videos}}</translation>
 <translation id="9050666287014529139">Passphrase</translation>
@@ -1113,9 +1102,7 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="9137013805542155359">Original anzeigen</translation>
 <translation id="9139068048179869749">Nachfragen, bevor Websites Benachrichtigungen senden dürfen (empfohlen)</translation>
 <translation id="9139318394846604261">Shopping</translation>
-<translation id="9150694013019234766">Am unteren Bildschirmrand können Sie zwischen den Tabs in Ihrer Tabgruppe wechseln</translation>
 <translation id="9155898266292537608">Sie können auch kurz auf ein Wort tippen, um eine Suche zu starten</translation>
-<translation id="9169594135889675189">Der Gruppe einen neuen Tab hinzufügen</translation>
 <translation id="9188680907066685419">Von verwaltetem Konto abmelden</translation>
 <translation id="9204836675896933765">Noch 1 Datei</translation>
 <translation id="9206873250291191720">A</translation>
@@ -1126,7 +1113,6 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="945632385593298557">Mikrofonzugriff</translation>
 <translation id="951339005376969845">Vorhandene Daten werden gelöscht. Wenn Sie Ihre vorhandenen Daten abrufen möchten, wechseln Sie zurück zu <ph name="FROM_ACCOUNT" />.</translation>
 <translation id="95817756606698420">Chrome kann in China <ph name="BEGIN_BOLD" />Sogou<ph name="END_BOLD" /> für die Suche verwenden. Sie können dies unter <ph name="BEGIN_LINK" />Einstellungen<ph name="END_LINK" /> ändern.</translation>
-<translation id="959682366969460160">Besser organisiert</translation>
 <translation id="965817943346481315">Blockieren, wenn Website aufdringliche oder irreführende Werbung anzeigt (empfohlen)</translation>
 <translation id="968900484120156207">Von Ihnen besuchte Seiten werden hier angezeigt</translation>
 <translation id="970715775301869095"><ph name="MINUTES" /> Minuten übrig</translation>

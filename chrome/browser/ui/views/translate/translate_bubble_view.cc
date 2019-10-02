@@ -444,7 +444,7 @@ void TranslateBubbleView::LinkClicked(views::Link* source, int event_flags) {
 void TranslateBubbleView::ShowOptionsMenu(views::Button* source) {
   // Recreate the menu model as translated languages can change while the menu
   // is not showing, which invalidates these text strings.
-  options_menu_model_.reset(new ui::SimpleMenuModel(this));
+  options_menu_model_ = std::make_unique<ui::SimpleMenuModel>(this);
 
   // Don't show "Always translate <language>" in incognito mode, because it
   // doesn't do anything anyways.
@@ -472,8 +472,8 @@ void TranslateBubbleView::ShowOptionsMenu(views::Button* source) {
       OptionsMenuItem::MORE_OPTIONS,
       IDS_TRANSLATE_BUBBLE_ADVANCED_MENU_BUTTON);
 
-  options_menu_runner_.reset(new views::MenuRunner(
-      options_menu_model_.get(), views::MenuRunner::COMBOBOX));
+  options_menu_runner_ = std::make_unique<views::MenuRunner>(
+      options_menu_model_.get(), views::MenuRunner::COMBOBOX);
   gfx::Rect screen_bounds = source->GetBoundsInScreen();
   options_menu_runner_->RunMenuAt(source->GetWidget(), nullptr, screen_bounds,
                                   views::MenuAnchorPosition::kTopRight,
@@ -484,7 +484,7 @@ void TranslateBubbleView::ShowOptionsMenu(views::Button* source) {
 void TranslateBubbleView::ShowOptionsMenuTab(views::Button* source) {
   // Recreate the menu model as translated languages can change while the menu
   // is not showing, which invalidates these text strings.
-  tab_options_menu_model_.reset(new ui::SimpleMenuModel(this));
+  tab_options_menu_model_ = std::make_unique<ui::SimpleMenuModel>(this);
 
   tab_options_menu_model_->AddItemWithStringId(
       OptionsMenuItem::CHANGE_TARGET_LANGUAGE,
@@ -518,8 +518,8 @@ void TranslateBubbleView::ShowOptionsMenuTab(views::Button* source) {
           IDS_TRANSLATE_BUBBLE_CHANGE_SOURCE_LANGUAGE,
           model_->GetLanguageNameAt(model_->GetOriginalLanguageIndex())));
 
-  options_menu_runner_.reset(new views::MenuRunner(
-      tab_options_menu_model_.get(), views::MenuRunner::COMBOBOX));
+  options_menu_runner_ = std::make_unique<views::MenuRunner>(
+      tab_options_menu_model_.get(), views::MenuRunner::COMBOBOX);
   gfx::Rect screen_bounds = source->GetAnchorBoundsInScreen();
   options_menu_runner_->RunMenuAt(source->GetWidget(), nullptr, screen_bounds,
                                   views::MenuAnchorPosition::kTopRight,
@@ -542,8 +542,10 @@ void TranslateBubbleView::ExecuteCommand(int command_id, int event_flags) {
       model_->SetAlwaysTranslate(should_always_translate_);
 
       if (should_always_translate_ &&
-          model_->GetViewState() ==
-              TranslateBubbleModel::VIEW_STATE_BEFORE_TRANSLATE) {
+          ((model_->GetViewState() ==
+            TranslateBubbleModel::VIEW_STATE_BEFORE_TRANSLATE) ||
+           (bubble_ui_model_ == language::TranslateUIBubbleModel::TAB &&
+            TabUiIsEquivalentState(model_->GetViewState())))) {
         model_->Translate();
         SwitchView(TranslateBubbleModel::VIEW_STATE_TRANSLATING);
       }
@@ -603,16 +605,16 @@ TranslateBubbleView::TranslateBubbleView(
     std::unique_ptr<TranslateBubbleModel> model,
     translate::TranslateErrors::Type error_type,
     content::WebContents* web_contents)
-    : LocationBarBubbleDelegateView(anchor_view, gfx::Point(), web_contents),
+    : LocationBarBubbleDelegateView(anchor_view, web_contents),
       model_(std::move(model)),
       error_type_(error_type),
       is_in_incognito_window_(
           web_contents && web_contents->GetBrowserContext()->IsOffTheRecord()),
       bubble_ui_model_(language::GetTranslateUiBubbleModel()) {
-  DCHECK(anchor_view);
   translate_bubble_view_ = this;
   if (web_contents)  // web_contents can be null in unit_tests.
-    mouse_handler_.reset(new WebContentMouseHandler(this, web_contents));
+    mouse_handler_ =
+        std::make_unique<WebContentMouseHandler>(this, web_contents);
   chrome::RecordDialogCreation(chrome::DialogIdentifier::TRANSLATE);
 }
 
@@ -1658,6 +1660,13 @@ std::unique_ptr<views::View> TranslateBubbleView::CreateViewAdvancedTabUi(
   UpdateAdvancedView();
 
   return view;
+}
+
+bool TranslateBubbleView::TabUiIsEquivalentState(
+    TranslateBubbleModel::ViewState view_state) {
+  return view_state == TranslateBubbleModel::VIEW_STATE_BEFORE_TRANSLATE ||
+         view_state == TranslateBubbleModel::VIEW_STATE_TRANSLATING ||
+         view_state == TranslateBubbleModel::VIEW_STATE_AFTER_TRANSLATE;
 }
 
 views::Checkbox* TranslateBubbleView::GetAlwaysTranslateCheckbox() {

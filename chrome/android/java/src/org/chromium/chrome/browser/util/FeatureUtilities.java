@@ -83,14 +83,15 @@ public class FeatureUtilities {
     private static Boolean sIsNightModeForCustomTabsAvailable;
     private static Boolean sShouldPrioritizeBootstrapTasks;
     private static Boolean sIsGridTabSwitcherEnabled;
+    private static Boolean sIsStartSurfaceEnabled;
     private static Boolean sIsTabGroupsAndroidEnabled;
     private static Boolean sIsTabToGtsAnimationEnabled;
     private static Boolean sFeedEnabled;
     private static Boolean sServiceManagerForBackgroundPrefetch;
-    private static Boolean sIsNetworkServiceEnabled;
     private static Boolean sIsNetworkServiceWarmUpEnabled;
     private static Boolean sIsImmersiveUiModeEnabled;
     private static Boolean sServiceManagerForDownloadResumption;
+    private static Boolean sIsClickToCallOpenDialerDirectlyEnabled;
 
     private static Boolean sDownloadAutoResumptionEnabledInNative;
 
@@ -187,11 +188,12 @@ public class FeatureUtilities {
         cacheDownloadAutoResumptionEnabledInNative();
         cachePrioritizeBootstrapTasks();
         cacheFeedEnabled();
-        cacheNetworkService();
         cacheNetworkServiceWarmUpEnabled();
         cacheImmersiveUiModeEnabled();
         cacheSwapPixelFormatToFixConvertFromTranslucentEnabled();
         cacheReachedCodeProfilerTrialGroup();
+        cacheStartSurfaceEnabled();
+        cacheClickToCallOpenDialerDirectlyEnabled();
 
         if (isHighEndPhone()) cacheGridTabSwitcherEnabled();
         if (isHighEndPhone()) cacheTabGroupsAndroidEnabled();
@@ -256,23 +258,6 @@ public class FeatureUtilities {
         sIsHomePageButtonForceEnabled = null;
     }
 
-    private static void cacheNetworkService() {
-        boolean networkService = ChromeFeatureList.isEnabled(ChromeFeatureList.NETWORK_SERVICE);
-
-        ChromePreferenceManager.getInstance().writeBoolean(
-                ChromePreferenceManager.NETWORK_SERVICE_KEY, networkService);
-    }
-
-    private static boolean isNetworkServiceEnabled() {
-        if (sIsNetworkServiceEnabled == null) {
-            ChromePreferenceManager prefManager = ChromePreferenceManager.getInstance();
-
-            sIsNetworkServiceEnabled =
-                    prefManager.readBoolean(ChromePreferenceManager.NETWORK_SERVICE_KEY, false);
-        }
-        return sIsNetworkServiceEnabled;
-    }
-
     private static void cacheServiceManagerForDownloadResumption() {
         boolean resumptionDownloadInReducedMode =
                 ChromeFeatureList.isEnabled(ChromeFeatureList.SERVICE_MANAGER_FOR_DOWNLOAD);
@@ -292,7 +277,7 @@ public class FeatureUtilities {
             sServiceManagerForDownloadResumption = prefManager.readBoolean(
                     ChromePreferenceManager.SERVICE_MANAGER_FOR_DOWNLOAD_RESUMPTION_KEY, false);
         }
-        return sServiceManagerForDownloadResumption && isNetworkServiceEnabled();
+        return sServiceManagerForDownloadResumption;
     }
 
     public static void cacheServiceManagerForBackgroundPrefetch() {
@@ -314,7 +299,7 @@ public class FeatureUtilities {
             sServiceManagerForBackgroundPrefetch = prefManager.readBoolean(
                     ChromePreferenceManager.SERVICE_MANAGER_FOR_BACKGROUND_PREFETCH_KEY, false);
         }
-        return sServiceManagerForBackgroundPrefetch && isFeedEnabled() && isNetworkServiceEnabled();
+        return sServiceManagerForBackgroundPrefetch && isFeedEnabled();
     }
 
     /**
@@ -581,6 +566,25 @@ public class FeatureUtilities {
         return ChromeFeatureList.isEnabled(ChromeFeatureList.DOWNLOAD_PROGRESS_INFOBAR);
     }
 
+    private static void cacheStartSurfaceEnabled() {
+        ChromePreferenceManager.getInstance().writeBoolean(
+                ChromePreferenceManager.START_SURFACE_ENABLED_KEY,
+                ChromeFeatureList.isEnabled(ChromeFeatureList.START_SURFACE_ANDROID));
+    }
+
+    /**
+     * @return Whether the Start Surface is enabled.
+     */
+    public static boolean isStartSurfaceEnabled() {
+        if (sIsStartSurfaceEnabled == null) {
+            ChromePreferenceManager prefManager = ChromePreferenceManager.getInstance();
+
+            sIsStartSurfaceEnabled = prefManager.readBoolean(
+                    ChromePreferenceManager.START_SURFACE_ENABLED_KEY, false);
+        }
+        return sIsStartSurfaceEnabled;
+    }
+
     private static void cacheGridTabSwitcherEnabled() {
         ChromePreferenceManager.getInstance().writeBoolean(
                 ChromePreferenceManager.GRID_TAB_SWITCHER_ENABLED_KEY,
@@ -789,6 +793,38 @@ public class FeatureUtilities {
                 ChromePreferenceManager.SWAP_PIXEL_FORMAT_TO_FIX_CONVERT_FROM_TRANSLUCENT,
                 ChromeFeatureList.isEnabled(
                         ChromeFeatureList.SWAP_PIXEL_FORMAT_TO_FIX_CONVERT_FROM_TRANSLUCENT));
+    }
+
+    /**
+     * Cache the value of the flag whether or not to directly open the dialer for click to call.
+     */
+    public static void cacheClickToCallOpenDialerDirectlyEnabled() {
+        ChromePreferenceManager.getInstance().writeBoolean(
+                ChromePreferenceManager.CLICK_TO_CALL_OPEN_DIALER_DIRECTLY_KEY,
+                ChromeFeatureList.isEnabled(ChromeFeatureList.CLICK_TO_CALL_OPEN_DIALER_DIRECTLY));
+    }
+
+    /**
+     * @return Whether or not we should directly open dialer for click to call (based on the cached
+     *         value in SharedPrefs).
+     */
+    public static boolean isClickToCallOpenDialerDirectlyEnabled() {
+        if (sIsClickToCallOpenDialerDirectlyEnabled == null) {
+            sIsClickToCallOpenDialerDirectlyEnabled =
+                    ChromePreferenceManager.getInstance().readBoolean(
+                            ChromePreferenceManager.CLICK_TO_CALL_OPEN_DIALER_DIRECTLY_KEY, false);
+        }
+        return sIsClickToCallOpenDialerDirectlyEnabled;
+    }
+
+    /**
+     * Toggles whether experiment for opening dialer directly in click to call is enabled for
+     * testing. Should be reset back to null after the test has finished.
+     */
+    @VisibleForTesting
+    public static void setIsClickToCallOpenDialerDirectlyEnabledForTesting(
+            @Nullable Boolean isEnabled) {
+        sIsClickToCallOpenDialerDirectlyEnabled = isEnabled;
     }
 
     /**

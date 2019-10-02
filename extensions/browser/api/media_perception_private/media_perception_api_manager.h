@@ -158,9 +158,10 @@ class MediaPerceptionAPIManager
   std::unique_ptr<MediaPerceptionControllerClient>
       media_perception_controller_client_;
 
-  ScopedObserver<chromeos::MediaAnalyticsClient, MediaPerceptionAPIManager>
-      scoped_observer_;
-  base::WeakPtrFactory<MediaPerceptionAPIManager> weak_ptr_factory_;
+  ScopedObserver<chromeos::MediaAnalyticsClient,
+                 chromeos::MediaAnalyticsClient::Observer>
+      scoped_observer_{this};
+  base::WeakPtrFactory<MediaPerceptionAPIManager> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(MediaPerceptionAPIManager);
 };

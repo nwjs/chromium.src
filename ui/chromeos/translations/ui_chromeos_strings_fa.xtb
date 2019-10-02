@@ -88,6 +88,7 @@
 <translation id="1942765061641586207">وضوح تصویر</translation>
 <translation id="1943097386230153518">نصب سرویس جدید</translation>
 <translation id="1947424002851288782">صفحه‌کلید آلمانی</translation>
+<translation id="1972984168337863910">بزرگ کردن پانل‌های بازخورد فایل‌ها</translation>
 <translation id="197560921582345123">می‌تواند ویرایش کند</translation>
 <translation id="1984603991036629094">صفحه‌کلید آوایی ارمنی</translation>
 <translation id="2001796770603320721">مدیریت در درایو</translation>
@@ -270,7 +271,6 @@
 <translation id="426015154560005552">صفحه‌کلید عربی</translation>
 <translation id="4261901459838235729">‏ارائه Google </translation>
 <translation id="4290535918735525311">‏۱ پوشه با Linux هم‌رسانی شد</translation>
-<translation id="42981349822642051">بزرگ کردن</translation>
 <translation id="4298972503445160211">صفحه‌کلید دانمارکی</translation>
 <translation id="4299729908419173967">برزیلی</translation>
 <translation id="4309915981827077375">اطلاعات عمومی</translation>
@@ -326,7 +326,6 @@
 <translation id="4880520557730313061">تصحیح خودکار</translation>
 <translation id="4881695831933465202">باز کردن</translation>
 <translation id="4886021172213954916">صفحه‌کلید تامیل (ماشین تحریر)</translation>
-<translation id="4892969127351273348">با <ph name="APP_NAME" /> باز نشد</translation>
 <translation id="4905417359854579806">آماده پشتیبان گرفتن از <ph name="FILE_COUNT" /> مورد</translation>
 <translation id="4924638091161556692">تصحیح شد</translation>
 <translation id="4935975195727477204">گل میخک</translation>
@@ -366,7 +365,6 @@
 <translation id="5218183485292899140">فرانسوی سوئیس</translation>
 <translation id="5234764350956374838">لغو کردن</translation>
 <translation id="5241298539944515331">‏صفحه‌کلید ویتنامی (VIQR)</translation>
-<translation id="52446585071384036">‏برای باز کردن فایل‌ها با <ph name="APP_NAME" />، ابتدا آن‌ها را در پوشه فایل‌های Linux کپی کنید.</translation>
 <translation id="5253070652067921974">ایجاد شده توسط</translation>
 <translation id="5257456363153333584">سنجاقک</translation>
 <translation id="5262311848634918433">‏<ph name="MARKUP_1" />در همه جا به فایل‌ها دسترسی داشته باشید، حتی وقتی به اینترنت متصل نیستید.<ph name="MARKUP_2" />
@@ -641,6 +639,7 @@
 <translation id="8223479393428528563">برای ذخیره این فایل‌ها جهت استفاده آفلاین، دوباره آنلاین شوید، روی فایل‌ها کلیک راست کنید و گزینه <ph name="OFFLINE_CHECKBOX_NAME" /> را انتخاب کنید.</translation>
 <translation id="8249296373107784235">لغو</translation>
 <translation id="8261506727792406068">حذف</translation>
+<translation id="8269755669432358899">کوچک کردن پانل بازخورد فایل‌ها</translation>
 <translation id="8279388322240498158">صفحه‌کلید کردی سورانی مبتنی بر انگلیسی</translation>
 <translation id="8280151743281770066">آوایی ارمنی</translation>
 <translation id="8294431847097064396">منبع</translation>
@@ -671,6 +670,7 @@
 <translation id="8569764466147087991">انتخاب فایلی برای باز کردن</translation>
 <translation id="8579285237314169903">در حال همگام‌سازی <ph name="NUMBER_OF_FILES" /> مورد...</translation>
 <translation id="8600173386174225982">فهرست فایل به نمای تصویر کوچک تغییر کرده است.</translation>
+<translation id="8601932370724196034">‏فایل تصویری Crostini</translation>
 <translation id="8669949407341943408">در حال انتقال...</translation>
 <translation id="8671210955687109937">می‌تواند نظر بدهد</translation>
 <translation id="8686213429977032554">‏این فایل Drive هنوز به اشتراک گذاشته نشده است</translation>

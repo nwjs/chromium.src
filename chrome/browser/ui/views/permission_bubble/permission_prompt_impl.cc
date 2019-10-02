@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
+#include "chrome/browser/ui/views/front_eliding_title_label.h"
 #include "chrome/browser/ui/views/page_info/permission_selector_row.h"
 #include "chrome/browser/ui/views/page_info/permission_selector_row_observer.h"
 #include "chrome/grit/generated_resources.h"
@@ -58,23 +59,6 @@ gfx::Rect GetPermissionAnchorRect(Browser* browser) {
 }
 
 }  // namespace
-
-// A custom view for the title label that will be ignored by screen readers
-// (since the PermissionsBubble handles the context).
-class PermissionsLabel : public views::Label {
- public:
-  explicit PermissionsLabel(const base::string16& text)
-      : views::Label(text, views::style::CONTEXT_DIALOG_TITLE) {}
-  ~PermissionsLabel() override {}
-
-  // views::Label:
-  void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
-    node_data->role = ax::mojom::Role::kIgnored;
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(PermissionsLabel);
-};
 
 ///////////////////////////////////////////////////////////////////////////////
 // View implementation for the permissions bubble.
@@ -166,25 +150,8 @@ void PermissionsBubbleDialogDelegateView::AddedToWidget() {
   if (!name_or_origin_.is_origin)
     return;
 
-  std::unique_ptr<views::Label> title =
-      std::make_unique<PermissionsLabel>(GetWindowTitle());
-  title->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-  title->SetCollapseWhenHidden(true);
-  title->SetMultiLine(true);
-
-  // Elide from head in order to keep the most significant part of the origin
-  // and avoid spoofing. Note that in English, GetWindowTitle() returns a string
-  // "$ORIGIN wants to", so the "wants to" will not be elided. In other
-  // languages, the non-origin part may appear fully or partly before the origin
-  // (e.g., in Filipino, "Gusto ng $ORIGIN na"), which means it may be elided.
-  // This is not optimal, but it is necessary to avoid origin spoofing. See
-  // crbug.com/774438.
-  title->SetElideBehavior(gfx::ELIDE_HEAD);
-
-  // Multiline breaks elision, which would mean a very long origin gets
-  // truncated from the least significant side. Explicitly disable multiline.
-  title->SetMultiLine(false);
-  GetBubbleFrameView()->SetTitleView(std::move(title));
+  GetBubbleFrameView()->SetTitleView(
+      CreateFrontElidingTitleLabel(GetWindowTitle()));
 }
 
 bool PermissionsBubbleDialogDelegateView::ShouldShowCloseButton() const {
@@ -286,6 +253,10 @@ gfx::NativeWindow PermissionPromptImpl::GetNativeWindow() {
   if (bubble_delegate_ && bubble_delegate_->GetWidget())
     return bubble_delegate_->GetWidget()->GetNativeWindow();
   return nullptr;
+}
+
+bool PermissionPromptImpl::ShouldDestroyOnTabSwitching() {
+  return true;
 }
 
 void PermissionPromptImpl::Closing() {

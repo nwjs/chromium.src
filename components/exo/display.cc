@@ -11,6 +11,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/traced_value.h"
+#include "build/build_config.h"
 #include "components/exo/data_device.h"
 #include "components/exo/file_helper.h"
 #include "components/exo/input_method_surface_manager.h"
@@ -110,18 +111,14 @@ std::unique_ptr<Buffer> Display::CreateLinuxDMABufBuffer(
   // Using zero-copy for optimal performance.
   bool use_zero_copy = true;
 
-  // TODO(dcastagna): Re-enable NV12 format as HW overlay once b/113362843
-  // is addressed.
-  bool is_overlay_candidate = format != gfx::BufferFormat::YUV_420_BIPLANAR;
-
   return std::make_unique<Buffer>(
       std::move(gpu_memory_buffer),
       gpu::NativeBufferNeedsPlatformSpecificTextureTarget(format)
           ? gpu::GetPlatformSpecificTextureTarget()
           : GL_TEXTURE_2D,
       // COMMANDS_COMPLETED queries are required by native pixmaps.
-      GL_COMMANDS_COMPLETED_CHROMIUM, use_zero_copy, is_overlay_candidate,
-      y_invert);
+      GL_COMMANDS_COMPLETED_CHROMIUM, use_zero_copy,
+      /*is_overlay_candidate=*/true, y_invert);
 }
 #endif  // defined(USE_OZONE)
 

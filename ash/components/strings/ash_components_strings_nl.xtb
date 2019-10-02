@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="nl">
+<translation id="1036550831858290950">Het huidige tabblad als bladwijzer opslaan</translation>
 <translation id="104962181688258143">De app Bestanden openen</translation>
 <translation id="1098295134904615027">Het virtuele bureau aan de rechterkant activeren</translation>
 <translation id="1122869341872663659">Er worden <ph name="N" /> zoekresultaten voor <ph name="QUERY" /> getoond</translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">Zoomniveau op de pagina resetten</translation>
 <translation id="2596078834055697711">Een screenshot van het venster maken</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, en dan <ph name="TAB" /> of <ph name="RIGHT" /></translation>
-<translation id="2699509451653686398">De huidige webpagina als bladwijzer opslaan</translation>
 <translation id="2750942583782703988">De huidige pagina opnieuw laden</translation>
 <translation id="2764005613199379871">De focus in de zoek-/adresbalk plaatsen</translation>
 <translation id="2789868185375229787">Uitzoomen op de pagina</translation>

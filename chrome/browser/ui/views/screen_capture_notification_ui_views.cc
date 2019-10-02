@@ -36,7 +36,7 @@
 namespace {
 
 const int kHorizontalMargin = 10;
-const float kWindowAlphaValue = 0.85f;
+const float kWindowAlphaValue = 0.96f;
 const int kPaddingVertical = 5;
 const int kPaddingHorizontal = 10;
 
@@ -206,8 +206,8 @@ gfx::NativeViewId ScreenCaptureNotificationUIViews::OnStarted(
   params.context = ash::Shell::GetPrimaryRootWindow();
 #endif
 
-  widget->set_frame_type(views::Widget::FRAME_TYPE_FORCE_CUSTOM);
-  widget->Init(params);
+  widget->set_frame_type(views::Widget::FrameType::kForceCustom);
+  widget->Init(std::move(params));
 
   SetBackground(views::CreateSolidBackground(GetNativeTheme()->GetSystemColor(
       ui::NativeTheme::kColorId_DialogBackground)));

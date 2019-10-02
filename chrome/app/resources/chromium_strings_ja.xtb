@@ -15,6 +15,7 @@
 <translation id="1524282610922162960">Chromium タブの共有</translation>
 <translation id="1668054258064581266">Chromium からアカウントを削除したら、場合によっては開いているタブを再読み込みして変更を反映させる必要があります。</translation>
 <translation id="1688750314291223739">同期を設定すると、パーソナライズされたブラウザ機能をウェブ上に保存して、どのパソコンの Chromium からでも使用できるようになります。</translation>
+<translation id="1705503634486268204">パスワードを覚えておく必要のないように、Chromium に保存できます。</translation>
 <translation id="1708666629004767631">Chromium がさらに安全になりました。最新バージョンをぜひお試しください。</translation>
 <translation id="1766096484055239003">管理者が、アップデートを適用するために Chromium を再起動するよう求めています</translation>
 <translation id="1774152462503052664">Chromium をバックグラウンドで実行する</translation>
@@ -125,9 +126,6 @@
 <translation id="5634636535844844681">Chromium のご利用には Windows 7 以上が必要です。</translation>
 <translation id="5680901439334282664">Chromium にログイン</translation>
 <translation id="5698481217667032250">Chromium をこの言語で表示</translation>
-<translation id="5756484659843248772">この言語が Chromium OS UI の表示に使用されます</translation>
-<translation id="5768914737813585044">Chromium OS をこの言語で表示</translation>
-<translation id="5796460469508169315">もうすぐ Chromium を使用できます。</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5862307444128926510">Chromium へようこそ</translation>
 <translation id="5877064549588274448">チャンネルが変更されました。変更を適用するには、デバイスを再起動してください。</translation>
@@ -190,12 +188,6 @@
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7339898014177206373">新しいウィンドウ</translation>
 <translation id="734373864078049451">ウェブ、ブックマーク、その他の Chromium データを好みに設定できます。</translation>
-<translation id="7344413941077984497"><ph name="NEW_PROFILE_NAME" /> が閲覧できるウェブサイトを設定するには、<ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" /> で制限と設定を指定します。デフォルト設定のままにすると、<ph name="NEW_PROFILE_NAME" /> はウェブ上のあらゆるコンテンツを閲覧できます。
-
-ご使用のアカウントに <ph name="NEW_PROFILE_NAME" /> がアクセスできないようにするには、Chromium の使用時以外はご自分のプロフィールをロックします。それには、ブラウザ右上でご自分のプロフィール名をクリックし、[終了してチャイルドロックをかける] を選択します。
-<ph name="BEGIN_LINK_2" />詳細<ph name="END_LINK_2" />
-
-詳しくは、<ph name="ACCOUNT_EMAIL" /> 宛にメールをお送りしましたのでご確認ください。</translation>
 <translation id="7349591376906416160">システム管理者が、<ph name="TARGET_URL_HOSTNAME" /> へのアクセスに <ph name="ALTERNATIVE_BROWSER_NAME" /> を開くよう Chromium を設定しています。</translation>
 <translation id="7448255348454382571">Chromium OS を再起動してください</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium Dev</translation>
@@ -229,7 +221,6 @@
 <translation id="8290862415967981663">このファイルは危険なファイルの可能性があるため、Chromium でブロックしました。</translation>
 <translation id="8330519371938183845">ログインすると、同期してカスタマイズした Chromium をどのデバイスでも使用できます</translation>
 <translation id="8340674089072921962">Chromium の前回の使用者は <ph name="USER_EMAIL_ADDRESS" /> です</translation>
-<translation id="8375950122744241554">監視対象ユーザーのプロフィールは、Chromium 70 よりご利用いただけなくなります。</translation>
 <translation id="8417404458978023919">{0,plural, =1{1 日以内に Chromium を再起動してください}other{# 日以内に Chromium を再起動してください}}</translation>
 <translation id="8453117565092476964">インストーラ アーカイブが壊れているか無効です。Chromium をダウンロードし直してください。</translation>
 <translation id="8493179195440786826">Chromium は古いバージョンです</translation>

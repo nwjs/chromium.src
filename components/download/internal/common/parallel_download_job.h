@@ -10,17 +10,14 @@
 #include <vector>
 
 #include "base/macros.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
 #include "components/download/internal/common/download_job_impl.h"
 #include "components/download/internal/common/download_worker.h"
 #include "components/download/public/common/download_create_info.h"
 #include "components/download/public/common/download_export.h"
 #include "components/download/public/common/parallel_download_configs.h"
-
-namespace net {
-class URLRequestContextGetter;
-}  // namespace net
+#include "components/download/public/common/url_loader_factory_provider.h"
 
 namespace service_manager {
 class Connector;
@@ -39,11 +36,9 @@ class COMPONENTS_DOWNLOAD_EXPORT ParallelDownloadJob
   // enabled.
   ParallelDownloadJob(
       DownloadItem* download_item,
-      std::unique_ptr<DownloadRequestHandleInterface> request_handle,
+      CancelRequestCallback cancel_request_callback,
       const DownloadCreateInfo& create_info,
-      scoped_refptr<download::DownloadURLLoaderFactoryGetter>
-          url_loader_factory_getter,
-      net::URLRequestContextGetter* url_request_context_getter,
+      base::WeakPtr<URLLoaderFactoryProvider> url_loader_factory_provider,
       service_manager::Connector* connector);
   ~ParallelDownloadJob() override;
 
@@ -123,13 +118,9 @@ class COMPONENTS_DOWNLOAD_EXPORT ParallelDownloadJob
   // Whether the server accepts range requests.
   RangeRequestSupportType range_support_;
 
-  // URLLoaderFactory getter to issue network requests with network service
-  scoped_refptr<download::DownloadURLLoaderFactoryGetter>
-      url_loader_factory_getter_;
-
-  // URLRequestContextGetter for issueing network requests when network service
-  // is disabled.
-  scoped_refptr<net::URLRequestContextGetter> url_request_context_getter_;
+  // URLLoaderFactoryProvider to retrieve the URLLoaderFactory and issue
+  // parallel requests.
+  base::WeakPtr<URLLoaderFactoryProvider> url_loader_factory_provider_;
 
   // Connector used for establishing the connection to the ServiceManager.
   service_manager::Connector* connector_;

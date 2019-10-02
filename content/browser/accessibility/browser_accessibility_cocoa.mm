@@ -121,13 +121,91 @@ NSString* const NSAccessibilityStartTextMarkerForBoundsParameterizedAttribute =
 NSString* const
     NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute =
         @"AXLineTextMarkerRangeForTextMarker";
-NSString* const NSAccessibilitySelectTextWithCriteriaParameterizedAttribute =
-    @"AXSelectTextWithCriteria";
+// TODO(nektar): Implement programmatic text operations.
+//
+// NSString* const NSAccessibilityTextOperationMarkerRanges =
+//    @"AXTextOperationMarkerRanges";
+NSString* const NSAccessibilityUIElementForTextMarkerParameterizedAttribute =
+    @"AXUIElementForTextMarker";
+NSString* const
+    NSAccessibilityTextMarkerRangeForUIElementParameterizedAttribute =
+        @"AXTextMarkerRangeForUIElement";
+NSString* const NSAccessibilityLineForTextMarkerParameterizedAttribute =
+    @"AXLineForTextMarker";
+NSString* const NSAccessibilityTextMarkerRangeForLineParameterizedAttribute =
+    @"AXTextMarkerRangeForLine";
+NSString* const NSAccessibilityStringForTextMarkerRangeParameterizedAttribute =
+    @"AXStringForTextMarkerRange";
+NSString* const NSAccessibilityTextMarkerForPositionParameterizedAttribute =
+    @"AXTextMarkerForPosition";
 NSString* const NSAccessibilityBoundsForTextMarkerRangeParameterizedAttribute =
     @"AXBoundsForTextMarkerRange";
 NSString* const
+    NSAccessibilityAttributedStringForTextMarkerRangeParameterizedAttribute =
+        @"AXAttributedStringForTextMarkerRange";
+NSString* const
+    NSAccessibilityAttributedStringForTextMarkerRangeWithOptionsParameterizedAttribute =
+        @"AXAttributedStringForTextMarkerRangeWithOptions";
+NSString* const
     NSAccessibilityTextMarkerRangeForUnorderedTextMarkersParameterizedAttribute =
         @"AXTextMarkerRangeForUnorderedTextMarkers";
+NSString* const
+    NSAccessibilityNextTextMarkerForTextMarkerParameterizedAttribute =
+        @"AXNextTextMarkerForTextMarker";
+NSString* const
+    NSAccessibilityPreviousTextMarkerForTextMarkerParameterizedAttribute =
+        @"AXPreviousTextMarkerForTextMarker";
+NSString* const
+    NSAccessibilityLeftWordTextMarkerRangeForTextMarkerParameterizedAttribute =
+        @"AXLeftWordTextMarkerRangeForTextMarker";
+NSString* const
+    NSAccessibilityRightWordTextMarkerRangeForTextMarkerParameterizedAttribute =
+        @"AXRightWordTextMarkerRangeForTextMarker";
+NSString* const
+    NSAccessibilityLeftLineTextMarkerRangeForTextMarkerParameterizedAttribute =
+        @"AXLeftLineTextMarkerRangeForTextMarker";
+NSString* const
+    NSAccessibilityRightLineTextMarkerRangeForTextMarkerParameterizedAttribute =
+        @"AXRightLineTextMarkerRangeForTextMarker";
+NSString* const
+    NSAccessibilitySentenceTextMarkerRangeForTextMarkerParameterizedAttribute =
+        @"AXSentenceTextMarkerRangeForTextMarker";
+NSString* const
+    NSAccessibilityParagraphTextMarkerRangeForTextMarkerParameterizedAttribute =
+        @"AXParagraphTextMarkerRangeForTextMarker";
+NSString* const
+    NSAccessibilityNextWordEndTextMarkerForTextMarkerParameterizedAttribute =
+        @"AXNextWordEndTextMarkerForTextMarker";
+NSString* const
+    NSAccessibilityPreviousWordStartTextMarkerForTextMarkerParameterizedAttribute =
+        @"AXPreviousWordStartTextMarkerForTextMarker";
+NSString* const
+    NSAccessibilityNextLineEndTextMarkerForTextMarkerParameterizedAttribute =
+        @"AXNextLineEndTextMarkerForTextMarker";
+NSString* const
+    NSAccessibilityPreviousLineStartTextMarkerForTextMarkerParameterizedAttribute =
+        @"AXPreviousLineStartTextMarkerForTextMarker";
+NSString* const
+    NSAccessibilityNextSentenceEndTextMarkerForTextMarkerParameterizedAttribute =
+        @"AXNextSentenceEndTextMarkerForTextMarker";
+NSString* const
+    NSAccessibilityPreviousSentenceStartTextMarkerForTextMarkerParameterizedAttribute =
+        @"AXPreviousSentenceStartTextMarkerForTextMarker";
+NSString* const
+    NSAccessibilityNextParagraphEndTextMarkerForTextMarkerParameterizedAttribute =
+        @"AXNextParagraphEndTextMarkerForTextMarker";
+NSString* const
+    NSAccessibilityPreviousParagraphStartTextMarkerForTextMarkerParameterizedAttribute =
+        @"AXPreviousParagraphStartTextMarkerForTextMarker";
+NSString* const
+    NSAccessibilityStyleTextMarkerRangeForTextMarkerParameterizedAttribute =
+        @"AXStyleTextMarkerRangeForTextMarker";
+NSString* const NSAccessibilityLengthForTextMarkerRangeParameterizedAttribute =
+    @"AXLengthForTextMarkerRange";
+
+// Other private attributes.
+NSString* const NSAccessibilitySelectTextWithCriteriaParameterizedAttribute =
+    @"AXSelectTextWithCriteria";
 NSString* const NSAccessibilityIndexForChildUIElementParameterizedAttribute =
     @"AXIndexForChildUIElement";
 NSString* const NSAccessibilityValueAutofillAvailableAttribute =
@@ -270,11 +348,11 @@ AXPlatformRange CreateAXPlatformRange(const BrowserAccessibility& start_object,
                                       int end_offset,
                                       ax::mojom::TextAffinity end_affinity) {
   BrowserAccessibilityPositionInstance anchor =
-      start_object.IsTextOnlyObject()
+      start_object.PlatformIsLeaf()
           ? CreateTextPosition(start_object, start_offset, start_affinity)
           : CreateTreePosition(start_object, start_offset);
   BrowserAccessibilityPositionInstance focus =
-      end_object.IsTextOnlyObject()
+      end_object.PlatformIsLeaf()
           ? CreateTextPosition(end_object, end_offset, end_affinity)
           : CreateTreePosition(end_object, end_offset);
   // |AXPlatformRange| takes ownership of its anchor and focus.
@@ -483,7 +561,7 @@ bool InitializeAccessibilityTreeSearch(OneShotAccessibilityTreeSearch* search,
   if ([immediateDescendantsOnlyParameter isKindOfClass:[NSNumber class]])
     immediateDescendantsOnly = [immediateDescendantsOnlyParameter boolValue];
 
-  bool visibleOnly = false;
+  bool visibleOnly = true;  // Default to visible only.
   NSNumber* visibleOnlyParameter = [dictionary objectForKey:@"AXVisibleOnly"];
   if ([visibleOnlyParameter isKindOfClass:[NSNumber class]])
     visibleOnly = [visibleOnlyParameter boolValue];
@@ -2279,22 +2357,10 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   return base::SysUTF16ToNSString(owner_->GetValue());
 }
 
-// TODO(crbug.com/865101) Remove this once the autofill state works.
-- (BOOL)isFocusedInputWithSuggestions {
-  if (!owner_->IsPlainTextField())
-    return false;
-  BrowserAccessibilityManager* manager = owner_->manager();
-  if (manager->GetFocus() != owner_)
-    return false;
-  return ui::AXPlatformNode::HasInputSuggestions();
-}
-
 - (NSNumber*)valueAutofillAvailable {
   if (![self instanceActive])
     return nil;
-  // TODO(crbug.com/865101) Use this instead:
-  // return owner_->HasState(ax::mojom::State::kAutofillAvailable) ? @YES : @NO;
-  return [self isFocusedInputWithSuggestions] ? @YES : @NO;
+  return owner_->HasState(ax::mojom::State::kAutofillAvailable) ? @YES : @NO;
 }
 
 // Not currently supported, as Chrome does not store whether an autofill
@@ -2498,7 +2564,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
       return ToBrowserAccessibilityCocoa(cell);
   }
 
-  if ([attribute isEqualToString:@"AXUIElementForTextMarker"]) {
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityUIElementForTextMarkerParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance position =
         CreatePositionFromTextMarker(parameter);
     if (!position->IsNullPosition())
@@ -2507,7 +2575,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return nil;
   }
 
-  if ([attribute isEqualToString:@"AXTextMarkerRangeForUIElement"]) {
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityTextMarkerRangeForUIElementParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance startPosition =
         owner_->CreatePositionAt(0);
     BrowserAccessibilityPositionInstance endPosition =
@@ -2517,13 +2587,19 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return CreateTextMarkerRange(std::move(range));
   }
 
-  if ([attribute isEqualToString:@"AXStringForTextMarkerRange"])
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityStringForTextMarkerRangeParameterizedAttribute])
     return GetTextForTextMarkerRange(parameter);
 
-  if ([attribute isEqualToString:@"AXAttributedStringForTextMarkerRange"])
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityAttributedStringForTextMarkerRangeParameterizedAttribute])
     return GetAttributedTextForTextMarkerRange(parameter);
 
-  if ([attribute isEqualToString:@"AXNextTextMarkerForTextMarker"]) {
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityNextTextMarkerForTextMarkerParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance position =
         CreatePositionFromTextMarker(parameter);
     if (position->IsNullPosition())
@@ -2532,7 +2608,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
         ui::AXBoundaryBehavior::CrossBoundary));
   }
 
-  if ([attribute isEqualToString:@"AXPreviousTextMarkerForTextMarker"]) {
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityPreviousTextMarkerForTextMarkerParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance position =
         CreatePositionFromTextMarker(parameter);
     if (position->IsNullPosition())
@@ -2541,7 +2619,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
         ui::AXBoundaryBehavior::CrossBoundary));
   }
 
-  if ([attribute isEqualToString:@"AXLeftWordTextMarkerRangeForTextMarker"]) {
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityLeftWordTextMarkerRangeForTextMarkerParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance endPosition =
         CreatePositionFromTextMarker(parameter);
     if (endPosition->IsNullPosition())
@@ -2560,7 +2640,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return CreateTextMarkerRange(std::move(range));
   }
 
-  if ([attribute isEqualToString:@"AXRightWordTextMarkerRangeForTextMarker"]) {
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityRightWordTextMarkerRangeForTextMarkerParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance startPosition =
         CreatePositionFromTextMarker(parameter);
     if (startPosition->IsNullPosition())
@@ -2579,7 +2661,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return CreateTextMarkerRange(std::move(range));
   }
 
-  if ([attribute isEqualToString:@"AXNextWordEndTextMarkerForTextMarker"]) {
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityNextWordEndTextMarkerForTextMarkerParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance position =
         CreatePositionFromTextMarker(parameter);
     if (position->IsNullPosition())
@@ -2589,7 +2673,8 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   }
 
   if ([attribute
-          isEqualToString:@"AXPreviousWordStartTextMarkerForTextMarker"]) {
+          isEqualToString:
+              NSAccessibilityPreviousWordStartTextMarkerForTextMarkerParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance position =
         CreatePositionFromTextMarker(parameter);
     if (position->IsNullPosition())
@@ -2598,7 +2683,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
         ui::AXBoundaryBehavior::CrossBoundary));
   }
 
-  if ([attribute isEqualToString:@"AXTextMarkerRangeForLine"]) {
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityTextMarkerRangeForLineParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance position =
         CreatePositionFromTextMarker(parameter);
     if (position->IsNullPosition())
@@ -2614,7 +2701,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return CreateTextMarkerRange(std::move(range));
   }
 
-  if ([attribute isEqualToString:@"AXLeftLineTextMarkerRangeForTextMarker"]) {
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityLeftLineTextMarkerRangeForTextMarkerParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance endPosition =
         CreatePositionFromTextMarker(parameter);
     if (endPosition->IsNullPosition())
@@ -2633,7 +2722,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return CreateTextMarkerRange(std::move(range));
   }
 
-  if ([attribute isEqualToString:@"AXRightLineTextMarkerRangeForTextMarker"]) {
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityRightLineTextMarkerRangeForTextMarkerParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance startPosition =
         CreatePositionFromTextMarker(parameter);
     if (startPosition->IsNullPosition())
@@ -2652,7 +2743,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return CreateTextMarkerRange(std::move(range));
   }
 
-  if ([attribute isEqualToString:@"AXNextLineEndTextMarkerForTextMarker"]) {
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityNextLineEndTextMarkerForTextMarkerParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance position =
         CreatePositionFromTextMarker(parameter);
     if (position->IsNullPosition())
@@ -2662,7 +2755,8 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   }
 
   if ([attribute
-          isEqualToString:@"AXPreviousLineStartTextMarkerForTextMarker"]) {
+          isEqualToString:
+              NSAccessibilityPreviousLineStartTextMarkerForTextMarkerParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance position =
         CreatePositionFromTextMarker(parameter);
     if (position->IsNullPosition())
@@ -2671,9 +2765,96 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
         ui::AXBoundaryBehavior::CrossBoundary));
   }
 
-  if ([attribute isEqualToString:@"AXLengthForTextMarkerRange"]) {
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityParagraphTextMarkerRangeForTextMarkerParameterizedAttribute]) {
+    BrowserAccessibilityPositionInstance position =
+        CreatePositionFromTextMarker(parameter);
+    if (position->IsNullPosition())
+      return nil;
+
+    BrowserAccessibilityPositionInstance startPosition =
+        position->CreatePreviousParagraphStartPosition(
+            ui::AXBoundaryBehavior::StopIfAlreadyAtBoundary);
+    BrowserAccessibilityPositionInstance endPosition =
+        position->CreateNextParagraphEndPosition(
+            ui::AXBoundaryBehavior::StopIfAlreadyAtBoundary);
+    AXPlatformRange range(std::move(startPosition), std::move(endPosition));
+    return CreateTextMarkerRange(std::move(range));
+  }
+
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityNextParagraphEndTextMarkerForTextMarkerParameterizedAttribute]) {
+    BrowserAccessibilityPositionInstance position =
+        CreatePositionFromTextMarker(parameter);
+    if (position->IsNullPosition())
+      return nil;
+    return CreateTextMarker(position->CreateNextParagraphEndPosition(
+        ui::AXBoundaryBehavior::CrossBoundary));
+  }
+
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityPreviousParagraphStartTextMarkerForTextMarkerParameterizedAttribute]) {
+    BrowserAccessibilityPositionInstance position =
+        CreatePositionFromTextMarker(parameter);
+    if (position->IsNullPosition())
+      return nil;
+    return CreateTextMarker(position->CreatePreviousParagraphStartPosition(
+        ui::AXBoundaryBehavior::CrossBoundary));
+  }
+
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityStyleTextMarkerRangeForTextMarkerParameterizedAttribute]) {
+    BrowserAccessibilityPositionInstance position =
+        CreatePositionFromTextMarker(parameter);
+    if (position->IsNullPosition())
+      return nil;
+
+    BrowserAccessibilityPositionInstance startPosition =
+        position->CreatePreviousFormatStartPosition(
+            ui::AXBoundaryBehavior::StopIfAlreadyAtBoundary);
+    BrowserAccessibilityPositionInstance endPosition =
+        position->CreateNextFormatEndPosition(
+            ui::AXBoundaryBehavior::StopIfAlreadyAtBoundary);
+    AXPlatformRange range(std::move(startPosition), std::move(endPosition));
+    return CreateTextMarkerRange(std::move(range));
+  }
+
+  if ([attribute
+          isEqualToString:
+              NSAccessibilityLengthForTextMarkerRangeParameterizedAttribute]) {
     NSString* text = GetTextForTextMarkerRange(parameter);
-    return [NSNumber numberWithInt:[text length]];
+    return @([text length]);
+  }
+
+  if ([attribute isEqualToString:
+                     NSAccessibilityTextMarkerIsValidParameterizedAttribute]) {
+    return @(CreatePositionFromTextMarker(parameter)->IsNullPosition());
+  }
+
+  if ([attribute isEqualToString:
+                     NSAccessibilityIndexForTextMarkerParameterizedAttribute]) {
+    BrowserAccessibilityPositionInstance position =
+        CreatePositionFromTextMarker(parameter);
+    if (position->IsNullPosition())
+      return nil;
+    return @(position->AsTextPosition()->text_offset());
+  }
+
+  if ([attribute isEqualToString:
+                     NSAccessibilityTextMarkerForIndexParameterizedAttribute]) {
+    int index = [static_cast<NSNumber*>(parameter) intValue];
+    if (index < 0)
+      return nil;
+
+    const BrowserAccessibility* root = owner_->manager()->GetRoot();
+    if (!root)
+      return nil;
+
+    return CreateTextMarker(root->CreatePositionAt(index));
   }
 
   if ([attribute isEqualToString:
@@ -2801,37 +2982,42 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   // General attributes.
   NSMutableArray* ret = [NSMutableArray
       arrayWithObjects:
-          @"AXUIElementForTextMarker", @"AXTextMarkerRangeForUIElement",
-          @"AXLineForTextMarker", @"AXTextMarkerRangeForLine",
-          @"AXStringForTextMarkerRange", @"AXTextMarkerForPosition",
-          @"AXAttributedStringForTextMarkerRange",
-          @"AXNextTextMarkerForTextMarker",
-          @"AXPreviousTextMarkerForTextMarker",
-          @"AXLeftWordTextMarkerRangeForTextMarker",
-          @"AXRightWordTextMarkerRangeForTextMarker",
-          @"AXLeftLineTextMarkerRangeForTextMarker",
-          @"AXRightLineTextMarkerRangeForTextMarker",
-          @"AXSentenceTextMarkerRangeForTextMarker",
-          @"AXParagraphTextMarkerRangeForTextMarker",
-          @"AXNextWordEndTextMarkerForTextMarker",
-          @"AXPreviousWordStartTextMarkerForTextMarker",
-          @"AXNextLineEndTextMarkerForTextMarker",
-          @"AXPreviousLineStartTextMarkerForTextMarker",
-          @"AXNextSentenceEndTextMarkerForTextMarker",
-          @"AXPreviousSentenceStartTextMarkerForTextMarker",
-          @"AXNextParagraphEndTextMarkerForTextMarker",
-          @"AXPreviousParagraphStartTextMarkerForTextMarker",
-          @"AXStyleTextMarkerRangeForTextMarker", @"AXLengthForTextMarkerRange",
+          NSAccessibilityUIElementForTextMarkerParameterizedAttribute,
+          NSAccessibilityTextMarkerRangeForUIElementParameterizedAttribute,
+          NSAccessibilityLineForTextMarkerParameterizedAttribute,
+          NSAccessibilityTextMarkerRangeForLineParameterizedAttribute,
+          NSAccessibilityStringForTextMarkerRangeParameterizedAttribute,
+          NSAccessibilityTextMarkerForPositionParameterizedAttribute,
           NSAccessibilityBoundsForTextMarkerRangeParameterizedAttribute,
+          NSAccessibilityAttributedStringForTextMarkerRangeParameterizedAttribute,
+          NSAccessibilityAttributedStringForTextMarkerRangeWithOptionsParameterizedAttribute,
           NSAccessibilityTextMarkerRangeForUnorderedTextMarkersParameterizedAttribute,
+          NSAccessibilityNextTextMarkerForTextMarkerParameterizedAttribute,
+          NSAccessibilityPreviousTextMarkerForTextMarkerParameterizedAttribute,
+          NSAccessibilityLeftWordTextMarkerRangeForTextMarkerParameterizedAttribute,
+          NSAccessibilityRightWordTextMarkerRangeForTextMarkerParameterizedAttribute,
+          NSAccessibilityLeftLineTextMarkerRangeForTextMarkerParameterizedAttribute,
+          NSAccessibilityRightLineTextMarkerRangeForTextMarkerParameterizedAttribute,
+          NSAccessibilitySentenceTextMarkerRangeForTextMarkerParameterizedAttribute,
+          NSAccessibilityParagraphTextMarkerRangeForTextMarkerParameterizedAttribute,
+          NSAccessibilityNextWordEndTextMarkerForTextMarkerParameterizedAttribute,
+          NSAccessibilityPreviousWordStartTextMarkerForTextMarkerParameterizedAttribute,
+          NSAccessibilityNextLineEndTextMarkerForTextMarkerParameterizedAttribute,
+          NSAccessibilityPreviousLineStartTextMarkerForTextMarkerParameterizedAttribute,
+          NSAccessibilityNextSentenceEndTextMarkerForTextMarkerParameterizedAttribute,
+          NSAccessibilityPreviousSentenceStartTextMarkerForTextMarkerParameterizedAttribute,
+          NSAccessibilityNextParagraphEndTextMarkerForTextMarkerParameterizedAttribute,
+          NSAccessibilityPreviousParagraphStartTextMarkerForTextMarkerParameterizedAttribute,
+          NSAccessibilityStyleTextMarkerRangeForTextMarkerParameterizedAttribute,
+          NSAccessibilityLengthForTextMarkerRangeParameterizedAttribute,
+          NSAccessibilityEndTextMarkerForBoundsParameterizedAttribute,
+          NSAccessibilityStartTextMarkerForBoundsParameterizedAttribute,
+          NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute,
           NSAccessibilityIndexForChildUIElementParameterizedAttribute,
           NSAccessibilityBoundsForRangeParameterizedAttribute,
           NSAccessibilityStringForRangeParameterizedAttribute,
           NSAccessibilityUIElementCountForSearchPredicateParameterizedAttribute,
           NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute,
-          NSAccessibilityEndTextMarkerForBoundsParameterizedAttribute,
-          NSAccessibilityStartTextMarkerForBoundsParameterizedAttribute,
-          NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute,
           NSAccessibilitySelectTextWithCriteriaParameterizedAttribute, nil];
 
   if ([[self role] isEqualToString:NSAccessibilityTableRole] ||
@@ -3204,6 +3390,29 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   BrowserAccessibilityManager* manager = owner_->manager();
   if ([action isEqualToString:NSAccessibilityPressAction]) {
     manager->DoDefaultAction(*owner_);
+    if (owner_->GetData().GetRestriction() != ax::mojom::Restriction::kNone ||
+        !owner_->HasIntAttribute(ax::mojom::IntAttribute::kCheckedState))
+      return;
+    // Hack: preemptively set the checked state to what it should become,
+    // otherwise VoiceOver will very likely report the old, incorrect state to
+    // the user as it requests the value too quickly.
+    ui::AXNode* node = owner_->node();
+    if (!node)
+      return;
+    AXNodeData data(node->TakeData());  // Temporarily take data.
+    if (data.role == ax::mojom::Role::kRadioButton) {
+      data.SetCheckedState(ax::mojom::CheckedState::kTrue);
+    } else if (data.role == ax::mojom::Role::kCheckBox ||
+               data.role == ax::mojom::Role::kSwitch ||
+               data.role == ax::mojom::Role::kToggleButton) {
+      ax::mojom::CheckedState checkedState = data.GetCheckedState();
+      ax::mojom::CheckedState newCheckedState =
+          checkedState == ax::mojom::CheckedState::kFalse
+              ? ax::mojom::CheckedState::kTrue
+              : ax::mojom::CheckedState::kFalse;
+      data.SetCheckedState(newCheckedState);
+    }
+    node->SetData(data);  // Set the data back in the node.
   } else if ([action isEqualToString:NSAccessibilityShowMenuAction]) {
     manager->ShowContextMenu(*owner_);
   } else if ([action isEqualToString:NSAccessibilityScrollToVisibleAction]) {

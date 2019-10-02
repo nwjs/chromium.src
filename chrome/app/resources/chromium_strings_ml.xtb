@@ -17,6 +17,7 @@
 <translation id="1524282610922162960">ഒരു Chromium ടാബ് പങ്കിടുക</translation>
 <translation id="1668054258064581266">Chromium-ൽ നിന്ന് നിങ്ങളുടെ അക്കൗണ്ട് നീക്കം ചെയ്‌തുകഴിഞ്ഞാൽ, അത് പ്രാബല്യത്തിൽ വരുന്നതിന് ഓപ്പൺ ടാബുകൾ വീണ്ടും ലോഡ് ചെയ്യേണ്ടതായി വരാം.</translation>
 <translation id="1688750314291223739">നിങ്ങളുടെ വ്യക്തിപരമാക്കിയ ബ്രൗസർ സവിശേഷതകൾ വെബിലേക്ക് സംരക്ഷിച്ച് അവയെ ഏത് കമ്പ്യൂട്ടറിലെയും Chromium-ൽ നിന്ന് ആക്‌സസ് ചെയ്യുന്നതിന് സമന്വയം സജ്ജമാക്കുക.</translation>
+<translation id="1705503634486268204">പാസ്‌വേഡുകൾ ഓർത്ത് വെയ്ക്കാൻ Chromium-ത്തിനാകും, നിങ്ങളത് ചെയ്യേണ്ടതില്ല.</translation>
 <translation id="1708666629004767631">പുതിയതും സുരക്ഷിതവുമായ Chromium പതിപ്പ് ലഭ്യമാണ്.</translation>
 <translation id="1766096484055239003">അപ്‌ഡേറ്റ് പ്രയോഗിക്കുന്നതിന് Chromium വീണ്ടും സമാരംഭിക്കാൻ നിങ്ങളുടെ അഡ്‌മിനിസ്‌ട്രേറ്റർ ആവശ്യപ്പെടുന്നു</translation>
 <translation id="1774152462503052664">Chromium-ത്തെ പശ്ചാത്തലത്തിൽ പ്രവർത്തിക്കാൻ അനുവദിക്കുക</translation>
@@ -127,9 +128,6 @@
 <translation id="5634636535844844681">Chromium-ത്തിന് Windows 7 അല്ലെങ്കിൽ അതിനുശേഷമുള്ള പതിപ്പ് ആവശ്യമാണ്.</translation>
 <translation id="5680901439334282664">Chromium-ലേക്ക് സൈൻ ഇൻ ചെയ്യുക</translation>
 <translation id="5698481217667032250">ഈ ഭാഷയിൽ Chromium പ്രദർശിപ്പിക്കുക</translation>
-<translation id="5756484659843248772">Chromium OS UI പ്രദര്‍ശിപ്പിക്കാൻ ഈ ഭാഷ ഉപയോഗിക്കുന്നു</translation>
-<translation id="5768914737813585044">ഈ ഭാഷയിൽ Chromium OS പ്രദർശിപ്പിക്കുക</translation>
-<translation id="5796460469508169315">Chromium ഏകദേശം തയാറായിക്കഴിഞ്ഞു.</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5862307444128926510">Chromium-ത്തിലേക്ക് സ്വാഗതം</translation>
 <translation id="5877064549588274448">ചാനൽ മാറ്റി. മാറ്റങ്ങൾ ബാധകമാകാൻ നിങ്ങളുടെ ഉപകരണം പുനരാരംഭിക്കുക.</translation>
@@ -145,6 +143,8 @@
 <translation id="6096348254544841612">Chromium ഇഷ്ടാനുസൃതമാക്കി നിയന്ത്രിക്കുക. അപ്‌ഡേറ്റ് ലഭ്യമാണ്.</translation>
 <translation id="6120345080069858279">നിങ്ങളുടെ Google അക്കൗണ്ടിൽ Chromium ഈ പാസ്‌വേഡ് സംരക്ഷിക്കും. നിങ്ങൾ അത് ഓർത്ത് വയ്ക്കേണ്ടതില്ല.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> അപകടകരമായതിനാൽ, Chromium ഇതിനെ ബ്ലോക്കുചെയ്‌തു.</translation>
+<translation id="6173098285107411678">ഈ പേജിൽ ക്രമീകരണം കാണിക്കുന്നില്ലെങ്കിൽ <ph name="LINK_BEGIN" />
+    Chromium ബ്രൗസർ ക്രമീകരണത്തിൽ<ph name="LINK_END" /> പരിശോധിക്കുക</translation>
 <translation id="6212496753309875659">Chromium-ത്തിന്റെ ഏറ്റവും പുതിയ പതിപ്പ് ഈ കമ്പ്യൂട്ടറില്‍ ഇപ്പോൾ തന്നെയുണ്ട്. സോഫ്റ്റ്‌വെയര്‍ പ്രവര്‍ത്തിക്കുന്നില്ലെങ്കില്‍, Chromium അൺഇൻസ്റ്റാൾ ചെയ്‌ത് വീണ്ടും ശ്രമിക്കുക.</translation>
 <translation id="6219195342503754812">{0,plural, =0{Chromium ഇപ്പോൾ വീണ്ടും സമാരംഭിക്കും}=1{ഒരു സെക്കൻഡിൽ Chromium വീണ്ടും സമാരംഭിക്കും}other{# സെക്കൻഡിൽ Chromium വീണ്ടും സമാരംഭിക്കും}}</translation>
 <translation id="6248213926982192922">Chromium ഡിഫോൾട്ട് ബ്രൗസറാക്കൂ</translation>
@@ -192,12 +192,6 @@
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7339898014177206373">പുതിയ വിന്‍ഡോ</translation>
 <translation id="734373864078049451">നിങ്ങളുടെ വെബ്, ബുക്ക്മാർക്കുകൾ,മറ്റ് Chromium ഫയൽ എന്നിവ ഇവിടെ തത്സമയമാണ്.</translation>
-<translation id="7344413941077984497"><ph name="NEW_PROFILE_NAME" /> എന്നയാൾക്ക് ഏതൊക്കെ വെബ്‌സൈറ്റുകൾ കാണാനാകുമെന്ന് സജ്ജമാക്കാൻ, <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" />സന്ദർശിച്ച് നിയന്ത്രണങ്ങളും ക്രമീകരണവും കോൺഫിഗർ ചെയ്യാം. നിങ്ങൾ ഡിഫോൾട്ട് ക്രമീകരണം മാറ്റുന്നില്ലെങ്കിൽ, <ph name="NEW_PROFILE_NAME" /> എന്നയാൾക്ക് വെബിൽ എല്ലാ കാര്യങ്ങളും ബ്രൗസ് ചെയ്യാനാകും.
-
-നിങ്ങളുടെ അക്കൗണ്ട് ആക്‌സസ്സ് ചെയ്യുന്നതിൽ നിന്ന് <ph name="NEW_PROFILE_NAME" /> എന്നയാളെ തടയാൻ, Chromium ഉപയോഗിക്കാത്തപ്പോൾ നിങ്ങളുടെ പ്രൊഫൈൽ ലോക്ക് ചെയ്തുവെന്ന് ഉറപ്പാക്കുക. ഇങ്ങനെ ചെയ്യാൻ, ബ്രൗസറിന് മുകളിൽ വലതുകോണിലുള്ള നിങ്ങളുടെ പ്രൊഫൈൽ പേരിൽ ക്ലിക്ക് ചെയ്‌ത്, "പുറത്ത് കടന്ന് ചൈൽഡ്‌ലോക്ക് ചെയ്യുക" തിരഞ്ഞെടുക്കുക.
-<ph name="BEGIN_LINK_2" />കൂടുതലറിയുക<ph name="END_LINK_2" />
-
-കൂടുതൽ നിർദ്ദേശങ്ങൾക്ക് <ph name="ACCOUNT_EMAIL" /> എന്നതിൽ നിങ്ങളുടെ ഇമെയിൽ പരിശോധിക്കുക.</translation>
 <translation id="7349591376906416160"><ph name="TARGET_URL_HOSTNAME" /> ആക്‌സസ് ചെയ്യാൻ <ph name="ALTERNATIVE_BROWSER_NAME" /> തുറക്കുന്നതിനായി നിങ്ങളുടെ സിസ്‌റ്റം അഡ്‌മിൻ Chromium കോൺഫിഗർ ചെയ്‌തു.</translation>
 <translation id="7448255348454382571">Chromium OS പുനഃരാരംഭിക്കുക</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium Dev</translation>
@@ -231,7 +225,6 @@
 <translation id="8290862415967981663">ഈ ഫയൽ അപകടകരമാകാൻ ഇടയുള്ളതിനാൽ Chromium ഇതിനെ ബ്ലോക്കുചെയ്‌തു.</translation>
 <translation id="8330519371938183845">നിങ്ങളുടെ ഉപകരണങ്ങളിലുടനീളം Chromium സമന്വയിപ്പിച്ച് വ്യക്തിഗതമാക്കാൻ സൈൻ ഇൻ ചെയ്യുക</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> മുമ്പ് Chromium ഉപയോഗിച്ചിട്ടുണ്ട്</translation>
-<translation id="8375950122744241554">Chromium 70 പതിപ്പ് മുതൽ സൂപ്പർവൈസ് ചെയ്യപ്പെടുന്ന ഉപയോക്തൃ പ്രൊഫൈലുകള്‍‌ ഇനിയങ്ങോട്ട് ലഭ്യമല്ല.</translation>
 <translation id="8417404458978023919">{0,plural, =1{ഒരു ദിവസത്തിനുള്ളിൽ Chromium വീണ്ടും സമാരംഭിക്കുക}other{# ദിവസത്തിനുള്ളിൽ Chromium വീണ്ടും സമാരംഭിക്കുക}}</translation>
 <translation id="8453117565092476964">ഇൻസ്റ്റാളർ ആർക്കൈവ് കേടായതാണ് അല്ലെങ്കിൽ അസാധുവാണ്. Chromium വീണ്ടും ഡൗൺലോഡ് ചെയ്യുക.</translation>
 <translation id="8493179195440786826">Chromium കാലഹരണപ്പെട്ടു</translation>

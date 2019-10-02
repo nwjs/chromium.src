@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="es-419">
+<translation id="1005230401424685968">AAAA</translation>
 <translation id="1016495303386450659">Elemento actualizado</translation>
 <translation id="1047726139967079566">Agregar esta página a favoritos...</translation>
 <translation id="1049743911850919806">Incógnito</translation>
@@ -71,6 +72,7 @@
 <translation id="1820259098641718022">Se agregó a la lista de lectura</translation>
 <translation id="1828824471510190776">Sugerir contraseña…</translation>
 <translation id="1870148520156231997">Mostrar contraseña</translation>
+<translation id="1872096359983322073">Linterna</translation>
 <translation id="1876721852596493031">Enviar datos de uso</translation>
 <translation id="1911619930368729126">Cargar a Google Drive</translation>
 <translation id="1923342640370224680">Última hora</translation>
@@ -148,7 +150,6 @@
 <translation id="2921219216347069551">Error al compartir</translation>
 <translation id="2923448633003185837">Pegar y acceder</translation>
 <translation id="292639812446257861">Marcar como no leídas</translation>
-<translation id="2933759065870693102">Linterna</translation>
 <translation id="2958718410589002129">Contraseñas</translation>
 <translation id="2969979262385602596">Error al iniciar la sesión. Inténtalo más tarde.</translation>
 <translation id="298306318844797842">Agregar forma de pago…</translation>
@@ -194,6 +195,7 @@
 <translation id="3607167657931203000">Autocompletar datos</translation>
 <translation id="3609785682760573515">Sincronizando…</translation>
 <translation id="3638472932233958418">Precargar pág. web</translation>
+<translation id="3670030362669914947">Número</translation>
 <translation id="3691593122358196899">Se agregó a favoritos en <ph name="FOLDER_TITLE" /></translation>
 <translation id="3771033907050503522">Pestañas de incógnito</translation>
 <translation id="3775743491439407556">La sincronización no funciona</translation>
@@ -261,9 +263,11 @@ Tus datos están encriptados con tu frase de contraseña para sincronización. D
 <translation id="4747097190499141774">La encriptación de la frase de contraseña no incluye formas de pago ni direcciones de Google Pay. Solo las personas que tengan tu frase de contraseña pueden leer los datos encriptados. Google no envía ni almacena la frase de contraseña. Si la olvidas o quieres cambiar esta configuración, deberás restablecer la sincronización. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="4749030437873592350">Buscar en la página…</translation>
 <translation id="4751645464639803239">Nueva pestaña de incógnito</translation>
+<translation id="4758977202923349869">Coloca la tarjeta de crédito en este marco</translation>
 <translation id="4802417911091824046">La encriptación de la frase de contraseña no incluye formas de pago ni direcciones de Google Pay.
 
 Para cambiar esta configuración, <ph name="BEGIN_LINK" />restablece la sincronización<ph name="END_LINK" /></translation>
+<translation id="4805759445554688327">El número de la tarjeta no es válido</translation>
 <translation id="4807020197310989387">1 artículo sin leer en tu lista de lectura</translation>
 <translation id="4818522717893377262">Agregar idioma…</translation>
 <translation id="481968316161811770">Cookies, datos del sitio</translation>
@@ -302,6 +306,7 @@ Para cambiar esta configuración, <ph name="BEGIN_LINK" />restablece la sincroni
 <translation id="5317780077021120954">Guardar</translation>
 <translation id="5327248766486351172">Nombre</translation>
 <translation id="5388358297987318779">Abrir imagen</translation>
+<translation id="5407969256130905701">Descartar cambios</translation>
 <translation id="5409365236829784218">No se instalaron aplicaciones que puedan abrir este archivo.</translation>
 <translation id="5416022985862681400">Últimos 7 días</translation>
 <translation id="5433691172869980887">Se copió el nombre de usuario</translation>
@@ -324,6 +329,7 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="5728700505257787410">Se produjo un error al acceder a tu cuenta.</translation>
 <translation id="5737974891429562743">Los detalles de acceso de la cuenta están desactualizados. Actualízalos para comenzar la sincronización.</translation>
 <translation id="5738887413654608789">Esta capacidad te permite descubrir páginas web relevantes en función de tu entorno.</translation>
+<translation id="5803566855766646066">¿Confirmas que quieres descartar esta tarjeta nueva?</translation>
 <translation id="5816228676161003208">Te permite realizar búsquedas más rápidas con tu voz.</translation>
 <translation id="5846482154967366008">Motor de búsqueda</translation>
 <translation id="5854790677617711513">Hace más de 30 días</translation>
@@ -352,6 +358,7 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="605721222689873409">AA</translation>
 <translation id="6066301408025741299">Toca para cancelar.</translation>
 <translation id="6108923351542677676">Configuración en curso…</translation>
+<translation id="6119050551270742952">Pág. incógnito</translation>
 <translation id="6122191549521593678">En línea</translation>
 <translation id="6127379762771434464">Se eliminó el elemento</translation>
 <translation id="6136914049981179737">Hace seg.</translation>
@@ -391,6 +398,7 @@ Tus datos se encriptaron con tu frase de contraseña para sincronización el <ph
 <translation id="6476800141292307438">Se está traduciendo la página al <ph name="LANGUAGE" />. Las opciones disponibles se encuentran cerca de la parte inferior de la pantalla.</translation>
 <translation id="6482629121755362506"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> elementos eliminados</translation>
 <translation id="6610002944194042868">Opciones de traducción</translation>
+<translation id="6628106477656132239">La fecha de vencimiento no es válida</translation>
 <translation id="6642362222295953972">Cambiar a la pestaña existente</translation>
 <translation id="6643016212128521049">Borrar</translation>
 <translation id="6656103420185847513">Editar carpeta</translation>
@@ -407,6 +415,9 @@ Tus datos se encriptaron con tu frase de contraseña para sincronización el <ph
 <translation id="6807889908376551050">Mostrar todos...</translation>
 <translation id="681368974849482173">Elemento creado</translation>
 <translation id="6851516051005285358">Solicitar versión de escritorio</translation>
+<translation id="6858855187367714033">Escaneado</translation>
+<translation id="6859944681507688231">Para escanear un código QR o una tarjeta de crédito, habilita la cámara desde la configuración.</translation>
+<translation id="6873263987691478642">Vista dividida</translation>
 <translation id="6896758677409633944">Copiar</translation>
 <translation id="6903907808598579934">Activar la sincronización</translation>
 <translation id="6914583639806229067">Buscar la imagen que copiaste</translation>
@@ -449,6 +460,7 @@ Tus datos se encriptaron con tu frase de contraseña para sincronización el <ph
 <translation id="744343212394640790">No soy <ph name="EMAIL" /></translation>
 <translation id="7454057999980797137">Estado/condado</translation>
 <translation id="7456847797759667638">Abrir ubicación...</translation>
+<translation id="7460314822154045102">Usar la cámara</translation>
 <translation id="7464701184726199289">Esta opción borra los datos sincronizados en todos los dispositivos. Las opciones de configuración de sitios guardadas no se borrarán y es posible que reflejen tus hábitos de navegación. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="7472734401283673885">Nombre de empresa</translation>
 <translation id="7481312909269577407">Reenviar</translation>
@@ -504,7 +516,9 @@ Tus datos se encriptaron con tu frase de contraseña para sincronización el <ph
 <translation id="8428045167754449968">Ciudad/pueblo</translation>
 <translation id="8428213095426709021">Configuración</translation>
 <translation id="8458397775385147834">1 elemento eliminado</translation>
+<translation id="8487667956631253959">Encendida</translation>
 <translation id="8487700953926739672">Disponible sin conexión</translation>
+<translation id="8490978609246021741">Guardar cambios</translation>
 <translation id="8503813439785031346">Nombre de usuario</translation>
 <translation id="850600235656508448">Abrir en incógnito</translation>
 <translation id="8517375800490286174">Licencias de código abierto</translation>
@@ -513,6 +527,7 @@ Tus datos se encriptaron con tu frase de contraseña para sincronización el <ph
 <translation id="8532105204136943229">Año vencimiento</translation>
 <translation id="8534481786647257214">Entrada de Google+ publicada</translation>
 <translation id="8548878600947630424">Buscar en la página...</translation>
+<translation id="8588404856427128947">Apagada</translation>
 <translation id="8605219856220328675">Cierra la pestaña.</translation>
 <translation id="8620640915598389714">Editar</translation>
 <translation id="8636825310635137004">Activa la sincronización para obtener las pestañas de tus otros dispositivos.</translation>
@@ -553,6 +568,7 @@ Tus datos se encriptaron con tu frase de contraseña para sincronización el <ph
 <translation id="9203116392574189331">Handoff</translation>
 <translation id="9223358826628549784">Informe de fallos enviado.</translation>
 <translation id="935490618240037774">Tus favoritos, historial, contraseñas y otras opciones de configuración se sincronizarán con tu cuenta de Google para que puedas usarlos en todos tus dispositivos.</translation>
+<translation id="952704832371081537">Cancelar</translation>
 <translation id="976982866697960176">Administrar datos sincronizados...</translation>
 <translation id="988141524645182168">Otros dispositivos</translation>
 <translation id="989988560359834682">Modificar dirección</translation>

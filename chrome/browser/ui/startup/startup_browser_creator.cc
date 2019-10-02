@@ -7,6 +7,8 @@
 #include "content/nw/src/common/shell_switches.h"
 #include "content/public/common/content_features.h"
 
+#include "extensions/browser/extension_registry.h"
+
 #include <stddef.h>
 
 #include <limits>
@@ -194,10 +196,9 @@ class ProfileLaunchObserver : public content::NotificationObserver,
     }
     // Asynchronous post to give a chance to the last window to completely
     // open and activate before trying to activate |profile_to_activate_|.
-    base::PostTaskWithTraits(
-        FROM_HERE, {BrowserThread::UI},
-        base::BindOnce(&ProfileLaunchObserver::ActivateProfile,
-                       base::Unretained(this)));
+    base::PostTask(FROM_HERE, {BrowserThread::UI},
+                   base::BindOnce(&ProfileLaunchObserver::ActivateProfile,
+                                  base::Unretained(this)));
     // Avoid posting more than once before ActivateProfile gets called.
     registrar_.RemoveAll();
     BrowserList::RemoveObserver(this);
@@ -329,11 +330,9 @@ bool IsGuestModeEnforced(const base::CommandLine& command_line,
 
 }  // namespace
 
-StartupBrowserCreator::StartupBrowserCreator()
-    : is_default_browser_dialog_suppressed_(false),
-      show_main_browser_window_(true) {}
+StartupBrowserCreator::StartupBrowserCreator() = default;
 
-StartupBrowserCreator::~StartupBrowserCreator() {}
+StartupBrowserCreator::~StartupBrowserCreator() = default;
 
 // static
 bool StartupBrowserCreator::was_restarted_read_ = false;
@@ -483,8 +482,7 @@ SessionStartupPref StartupBrowserCreator::GetSessionStartupPref(
       pref.type = SessionStartupPref::LAST;
   }
 
-  if (pref.type == SessionStartupPref::LAST &&
-      IncognitoModePrefs::ShouldLaunchIncognito(command_line, prefs)) {
+  if (pref.type == SessionStartupPref::LAST && profile->IsOffTheRecord()) {
     // We don't store session information when incognito. If the user has
     // chosen to restore last session and launched incognito, fallback to
     // default launch behavior.
@@ -698,11 +696,11 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
     base::FilePath output_file(
         command_line.GetSwitchValuePath(switches::kDumpBrowserHistograms));
     if (!output_file.empty()) {
-      base::PostTaskWithTraits(
-          FROM_HERE,
-          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-           base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
-          base::BindOnce(&DumpBrowserHistograms, output_file));
+      base::PostTask(FROM_HERE,
+                     {base::ThreadPool(), base::MayBlock(),
+                      base::TaskPriority::BEST_EFFORT,
+                      base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
+                     base::BindOnce(&DumpBrowserHistograms, output_file));
     }
     silent_launch = true;
   }
@@ -717,6 +715,7 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
         command_line.GetSwitchValueASCII(
             switches::kNativeMessagingConnectExtension),
         command_line.GetSwitchValueASCII(switches::kNativeMessagingConnectHost),
+        command_line.GetSwitchValueASCII(switches::kNativeMessagingConnectId),
         last_used_profile);
   }
 #endif
@@ -790,6 +789,8 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
     } else {
       extensions::ExtensionService* extension_service =
         extensions::ExtensionSystem::Get(last_used_profile)->extension_service();
+      extensions::ExtensionRegistry* extension_registry =
+        extensions::ExtensionRegistry::Get(last_used_profile);
       extensions::ComponentLoader* component_loader = extension_service->component_loader();
       std::string id;
       if (base::FeatureList::IsEnabled(::features::kNWNewWin)) {
@@ -801,7 +802,7 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
       }
 
       LOG(INFO) << "loading default app: " << id;
-      const extensions::Extension* extension = extension_service->GetExtensionById(id, true);
+      const extensions::Extension* extension = extension_registry->GetExtensionById(id, extensions::ExtensionRegistry::EVERYTHING);
       if (!extension) {
         LOG(FATAL) << "Failed to load default app";
         return false;

@@ -9,20 +9,23 @@
 #include "ash/assistant/assistant_screen_context_controller.h"
 #include "ash/assistant/ui/assistant_container_view.h"
 #include "ash/assistant/ui/assistant_ui_constants.h"
+#include "ash/assistant/ui/proactive_suggestions_view.h"
 #include "ash/assistant/util/assistant_util.h"
 #include "ash/assistant/util/deep_link_util.h"
 #include "ash/assistant/util/histogram_util.h"
 #include "ash/keyboard/ui/keyboard_ui_controller.h"
 #include "ash/multi_user/multi_user_window_manager_impl.h"
 #include "ash/public/cpp/app_list/app_list_features.h"
+#include "ash/public/cpp/assistant/assistant_setup.h"
+#include "ash/public/cpp/assistant/proactive_suggestions.h"
 #include "ash/public/cpp/toast_data.h"
-#include "ash/public/cpp/voice_interaction_controller.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/system/toast/toast_manager_impl.h"
 #include "base/bind.h"
 #include "base/optional.h"
+#include "chromeos/services/assistant/public/features.h"
 #include "chromeos/services/assistant/public/mojom/assistant.mojom.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -33,6 +36,11 @@ namespace {
 
 // When hidden, Assistant will automatically close after |kAutoCloseThreshold|.
 constexpr base::TimeDelta kAutoCloseThreshold = base::TimeDelta::FromMinutes(5);
+
+// When shown, the proactive suggestions widget will automatically close if the
+// user doesn't interact with it within a fixed interval.
+constexpr base::TimeDelta kAutoCloseProactiveSuggestionsThreshold =
+    base::TimeDelta::FromSeconds(15);
 
 // Toast -----------------------------------------------------------------------
 
@@ -54,7 +62,7 @@ void ShowToast(const std::string& id, int message_id) {
 
 AssistantUiController::AssistantUiController(
     AssistantController* assistant_controller)
-    : assistant_controller_(assistant_controller), weak_factory_(this) {
+    : assistant_controller_(assistant_controller) {
   AddModelObserver(this);
   assistant_controller_->AddObserver(this);
   Shell::Get()->highlighter_controller()->AddObserver(this);
@@ -143,6 +151,58 @@ void AssistantUiController::OnMicStateChanged(MicState mic_state) {
     UpdateUiMode();
 }
 
+void AssistantUiController::OnProactiveSuggestionsChanged(
+    scoped_refptr<const ProactiveSuggestions> proactive_suggestions) {
+  const bool should_suppress_duplicates = chromeos::assistant::features::
+      IsProactiveSuggestionsSuppressDuplicatesEnabled();
+
+  // When proactive suggestions duplicate suppression is enabled, we'll need to
+  // check if a set of proactive suggestions has already been shown before
+  // showing it to the user. Per UX requirement, proactive suggestions are
+  // considered duplicates for purposes of suppression if they share the same
+  // content |description|, regardless of whether or not their respective |html|
+  // matches. Note that we only calculate the hash here if needed.
+  const size_t proactive_suggestions_hash =
+      proactive_suggestions && should_suppress_duplicates
+          ? base::FastHash(proactive_suggestions->description())
+          : static_cast<size_t>(0);
+
+  bool should_show = !!proactive_suggestions;
+  if (should_show && should_suppress_duplicates) {
+    should_show = !base::Contains(shown_proactive_suggestions_,
+                                  proactive_suggestions_hash);
+  }
+
+  // When proactive suggestions need to be shown, we show the associated view if
+  // it isn't showing already. If it's already showing, no action need be taken.
+  if (should_show) {
+    if (!proactive_suggestions_view_) {
+      CreateProactiveSuggestionsView();
+      proactive_suggestions_view_->GetWidget()->ShowInactive();
+    }
+
+    // When suppressing duplicates, we need to cache the hash for the proactive
+    // suggestions that are being shown so that we don't show them again.
+    if (should_suppress_duplicates)
+      shown_proactive_suggestions_.emplace(proactive_suggestions_hash);
+
+    // The proactive suggestions widget will automatically be closed if the user
+    // doesn't interact with it within a fixed interval.
+    auto_close_proactive_suggestions_timer_.Start(
+        FROM_HERE, kAutoCloseProactiveSuggestionsThreshold,
+        base::BindRepeating(
+            &AssistantUiController::ResetProactiveSuggestionsView,
+            weak_factory_.GetWeakPtr()));
+    return;
+  }
+  // When proactive suggestions should not be shown, we need to ensure that the
+  // associated view is absent if it isn't already.
+  if (proactive_suggestions_view_) {
+    ResetProactiveSuggestionsView();
+    DCHECK(!proactive_suggestions_view_);
+  }
+}
+
 void AssistantUiController::OnScreenContextRequestStateChanged(
     ScreenContextRequestState request_state) {
   if (model_.visibility() != AssistantVisibility::kVisible)
@@ -200,6 +260,18 @@ void AssistantUiController::OnMiniViewPressed() {
     UpdateUiMode(AssistantUiMode::kMainUi);
 }
 
+void AssistantUiController::OnProactiveSuggestionsCloseButtonPressed() {
+  ResetProactiveSuggestionsView();
+  DCHECK(!proactive_suggestions_view_);
+}
+
+void AssistantUiController::OnProactiveSuggestionsViewPressed() {
+  ResetProactiveSuggestionsView();
+  DCHECK(!proactive_suggestions_view_);
+
+  ShowUi(AssistantEntryPoint::kProactiveSuggestions);
+}
+
 void AssistantUiController::OnHighlighterEnabledChanged(
     HighlighterEnabledState state) {
   if (app_list_features::IsEmbeddedAssistantUIEnabled()) {
@@ -229,11 +301,13 @@ void AssistantUiController::OnHighlighterEnabledChanged(
 void AssistantUiController::OnAssistantControllerConstructed() {
   assistant_controller_->interaction_controller()->AddModelObserver(this);
   assistant_controller_->screen_context_controller()->AddModelObserver(this);
+  assistant_controller_->suggestions_controller()->AddModelObserver(this);
   assistant_controller_->view_delegate()->AddObserver(this);
 }
 
 void AssistantUiController::OnAssistantControllerDestroying() {
   assistant_controller_->view_delegate()->RemoveObserver(this);
+  assistant_controller_->suggestions_controller()->RemoveModelObserver(this);
   assistant_controller_->screen_context_controller()->RemoveModelObserver(this);
   assistant_controller_->interaction_controller()->RemoveModelObserver(this);
 
@@ -286,7 +360,7 @@ void AssistantUiController::OnUiVisibilityChanged(
     AssistantVisibility old_visibility,
     base::Optional<AssistantEntryPoint> entry_point,
     base::Optional<AssistantExitPoint> exit_point) {
-  VoiceInteractionController::Get()->NotifyStatusChanged(
+  AssistantState::Get()->NotifyStatusChanged(
       new_visibility == AssistantVisibility::kVisible
           ? mojom::VoiceInteractionState::RUNNING
           : mojom::VoiceInteractionState::STOPPED);
@@ -362,16 +436,20 @@ void AssistantUiController::OnUiVisibilityChanged(
 }
 
 void AssistantUiController::ShowUi(AssistantEntryPoint entry_point) {
-  auto* voice_interaction_controller = VoiceInteractionController::Get();
+  // Skip if the opt-in window is active.
+  auto* assistant_setup = AssistantSetup::GetInstance();
+  if (assistant_setup && assistant_setup->BounceOptInWindowIfActive())
+    return;
 
-  if (!voice_interaction_controller->settings_enabled().value_or(false) ||
-      voice_interaction_controller->locked_full_screen_enabled().value_or(
-          false)) {
+  auto* assistant_state = AssistantState::Get();
+
+  if (!assistant_state->settings_enabled().value_or(false) ||
+      assistant_state->locked_full_screen_enabled().value_or(false)) {
     return;
   }
 
   // TODO(dmblack): Show a more helpful message to the user.
-  if (VoiceInteractionController::Get()->voice_interaction_state() ==
+  if (assistant_state->voice_interaction_state() ==
       mojom::VoiceInteractionState::NOT_READY) {
     ShowToast(kUnboundServiceToastId, IDS_ASH_ASSISTANT_ERROR_GENERIC);
     return;
@@ -482,17 +560,18 @@ void AssistantUiController::UpdateUiMode(
 
 void AssistantUiController::OnKeyboardOccludedBoundsChanged(
     const gfx::Rect& new_bounds_in_screen) {
-  DCHECK(container_view_);
+  DCHECK(container_view_ || proactive_suggestions_view_);
 
   // Check the display for root window and where the keyboard shows to handle
   // the case when there are multiple monitors and the virtual keyboard is shown
   // on a different display other than Assistant UI.
   // TODO(https://crbug.com/943446): Directly compare with the root window of
   // the virtual keyboard controller.
-  aura::Window* root_window =
-      container_view_->GetWidget()->GetNativeWindow()->GetRootWindow();
+  aura::Window* root_window = GetRootWindow();
+
   display::Display keyboard_display =
       display::Screen::GetScreen()->GetDisplayMatching(new_bounds_in_screen);
+
   if (!new_bounds_in_screen.IsEmpty() &&
       root_window !=
           Shell::Get()->GetRootWindowForDisplayId(keyboard_display.id())) {
@@ -512,20 +591,20 @@ void AssistantUiController::OnKeyboardOccludedBoundsChanged(
 void AssistantUiController::OnDisplayMetricsChanged(
     const display::Display& display,
     uint32_t changed_metrics) {
-  DCHECK(container_view_);
+  DCHECK(container_view_ || proactive_suggestions_view_);
 
   // Disable this display event when virtual keyboard shows for solving the
   // inconsistency between normal virtual keyboard and accessibility keyboard in
   // changing the work area (accessibility keyboard will change the display work
   // area but virtual keyboard won't). Display metrics change with keyboard
   // showing is instead handled by OnKeyboardOccludedBoundsChanged.
-  if (keyboard_workspace_occluded_bounds_.IsEmpty()) {
-    aura::Window* root_window =
-        container_view_->GetWidget()->GetNativeWindow()->GetRootWindow();
-    if (root_window == Shell::Get()->GetRootWindowForDisplayId(display.id())) {
-      UpdateUsableWorkArea(root_window);
-    }
-  }
+  if (!keyboard_workspace_occluded_bounds_.IsEmpty())
+    return;
+
+  aura::Window* root_window = GetRootWindow();
+
+  if (root_window == Shell::Get()->GetRootWindowForDisplayId(display.id()))
+    UpdateUsableWorkArea(root_window);
 }
 
 void AssistantUiController::OnEvent(const ui::Event& event) {
@@ -596,7 +675,64 @@ void AssistantUiController::CreateContainerView() {
       new AssistantContainerView(assistant_controller_->view_delegate());
   container_view_->GetWidget()->AddObserver(this);
 
-  // To save resources, only watch these events while Assistant UI exists.
+  UpdateUsableWorkAreaObservers();
+}
+
+void AssistantUiController::ResetContainerView() {
+  DCHECK(container_view_);
+
+  container_view_->GetWidget()->RemoveObserver(this);
+  container_view_ = nullptr;
+
+  UpdateUsableWorkAreaObservers();
+}
+
+void AssistantUiController::CreateProactiveSuggestionsView() {
+  DCHECK(!proactive_suggestions_view_);
+
+  proactive_suggestions_view_ =
+      new ProactiveSuggestionsView(assistant_controller_->view_delegate());
+
+  UpdateUsableWorkAreaObservers();
+}
+
+void AssistantUiController::ResetProactiveSuggestionsView() {
+  DCHECK(proactive_suggestions_view_);
+
+  auto_close_proactive_suggestions_timer_.Stop();
+
+  proactive_suggestions_view_->GetWidget()->Close();
+  proactive_suggestions_view_ = nullptr;
+
+  UpdateUsableWorkAreaObservers();
+}
+
+aura::Window* AssistantUiController::GetRootWindow() {
+  DCHECK(container_view_ || proactive_suggestions_view_);
+  return container_view_
+             ? container_view_->GetWidget()->GetNativeWindow()->GetRootWindow()
+             : proactive_suggestions_view_->GetWidget()
+                   ->GetNativeWindow()
+                   ->GetRootWindow();
+}
+
+void AssistantUiController::UpdateUsableWorkAreaObservers() {
+  // To save resources, we only observe the usable work area when Assistant UI
+  // exists as we otherwise don't need to respond to events in realtime.
+  const bool should_observe_usable_work_area =
+      container_view_ || proactive_suggestions_view_;
+
+  if (should_observe_usable_work_area == is_observing_usable_work_area_)
+    return;
+
+  is_observing_usable_work_area_ = should_observe_usable_work_area;
+
+  if (!is_observing_usable_work_area_) {
+    keyboard::KeyboardUIController::Get()->RemoveObserver(this);
+    display::Screen::GetScreen()->RemoveObserver(this);
+    return;
+  }
+
   display::Screen::GetScreen()->AddObserver(this);
   keyboard::KeyboardUIController::Get()->AddObserver(this);
 
@@ -605,19 +741,8 @@ void AssistantUiController::CreateContainerView() {
       keyboard::KeyboardUIController::Get()
           ->GetWorkspaceOccludedBoundsInScreen();
 
-  // Set the initial usable work area for Assistant views.
-  aura::Window* root_window =
-      container_view_->GetWidget()->GetNativeWindow()->GetRootWindow();
-  UpdateUsableWorkArea(root_window);
-}
-
-void AssistantUiController::ResetContainerView() {
-  // Remove observers when the Assistant UI is closed.
-  keyboard::KeyboardUIController::Get()->RemoveObserver(this);
-  display::Screen::GetScreen()->RemoveObserver(this);
-
-  container_view_->GetWidget()->RemoveObserver(this);
-  container_view_ = nullptr;
+  // Set the initial usable work area.
+  UpdateUsableWorkArea(GetRootWindow());
 }
 
 }  // namespace ash

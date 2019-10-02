@@ -33,7 +33,6 @@
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/extension_launcher_context_menu.h"
 #include "chrome/browser/ui/ash/launcher/internal_app_shelf_context_menu.h"
-#include "chrome/browser/ui/ash/tablet_mode_client.h"
 #include "chrome/test/base/chrome_ash_test_base.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/arc/metrics/arc_metrics_constants.h"
@@ -80,8 +79,6 @@ class LauncherContextMenuTest : public ChromeAshTestBase {
     launcher_controller_ =
         std::make_unique<ChromeLauncherController>(&profile_, model_.get());
 
-    tablet_mode_client_ = std::make_unique<TabletModeClient>();
-
     // Disable safe icon decoding to ensure ArcAppShortcutRequests returns in
     // the test environment.
     arc::IconDecodeRequest::DisableSafeDecodingForTesting();
@@ -97,11 +94,11 @@ class LauncherContextMenuTest : public ChromeAshTestBase {
   }
 
   // Creates app window and set optional ARC application id.
-  views::Widget* CreateArcWindow(std::string& window_app_id) {
+  views::Widget* CreateArcWindow(const std::string& window_app_id) {
     views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
     views::Widget* widget = new views::Widget();
     params.context = CurrentContext();
-    widget->Init(params);
+    widget->Init(std::move(params));
     widget->Show();
     widget->Activate();
     exo::SetShellApplicationId(widget->GetNativeWindow(), window_app_id);
@@ -139,14 +136,11 @@ class LauncherContextMenuTest : public ChromeAshTestBase {
   void TearDown() override {
     launcher_controller_.reset();
     ChromeAshTestBase::TearDown();
-    // To match ChromeBrowserMainExtraPartsAsh, shut down the TabletModeClient
-    // after Shell.
-    tablet_mode_client_.reset();
   }
 
   ArcAppTest& arc_test() { return arc_test_; }
 
-  Profile* profile() { return &profile_; }
+  TestingProfile* profile() { return &profile_; }
 
   ChromeLauncherController* controller() { return launcher_controller_.get(); }
 
@@ -158,8 +152,6 @@ class LauncherContextMenuTest : public ChromeAshTestBase {
   std::unique_ptr<session_manager::SessionManager> session_manager_;
   std::unique_ptr<ash::ShelfModel> model_;
   std::unique_ptr<ChromeLauncherController> launcher_controller_;
-
-  std::unique_ptr<TabletModeClient> tablet_mode_client_;
 
   DISALLOW_COPY_AND_ASSIGN(LauncherContextMenuTest);
 };
@@ -225,7 +217,32 @@ TEST_F(LauncherContextMenuTest,
   ASSERT_FALSE(IsItemPresentInMenu(menu.get(), ash::MENU_CLOSE));
 }
 
+// Verifies that "App Info and Uninstall" are shown in context menu for pinned
+// apps.
+TEST_F(LauncherContextMenuTest, GeneralAppContextMenuInfoUninstall) {
+  const int64_t display_id = GetPrimaryDisplay().id();
+  std::unique_ptr<LauncherContextMenu> launcher_context_menu =
+      CreateLauncherContextMenu(ash::TYPE_PINNED_APP, display_id);
+  std::unique_ptr<ui::MenuModel> menu =
+      GetMenuModel(launcher_context_menu.get());
+  EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::SHOW_APP_INFO));
+  EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::UNINSTALL));
+}
+
+// Verifies that "App Info and Uninstall" are shown in context menu for V1, V2,
+// and ARC apps.
+TEST_F(LauncherContextMenuTest, ArcAppContextMenuInfoUninstall) {
+  const int64_t display_id = GetPrimaryDisplay().id();
+  std::unique_ptr<LauncherContextMenu> launcher_context_menu =
+      CreateLauncherContextMenu(ash::TYPE_APP, display_id);
+  std::unique_ptr<ui::MenuModel> menu =
+      GetMenuModel(launcher_context_menu.get());
+  EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::SHOW_APP_INFO));
+  EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::UNINSTALL));
+}
+
 // Verifies context menu and app menu items for ARC app.
+// The 0th item is sticky but not the following.
 TEST_F(LauncherContextMenuTest, ArcLauncherMenusCheck) {
   arc_test().app_instance()->SendRefreshAppList(
       std::vector<arc::mojom::AppInfo>(arc_test().fake_apps().begin(),
@@ -252,6 +269,8 @@ TEST_F(LauncherContextMenuTest, ArcLauncherMenusCheck) {
   // ARC app is pinned but not running.
   EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::MENU_OPEN_NEW));
   EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::MENU_PIN));
+  EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::SHOW_APP_INFO));
+  EXPECT_FALSE(IsItemEnabledInMenu(menu.get(), ash::UNINSTALL));
   EXPECT_FALSE(IsItemPresentInMenu(menu.get(), ash::MENU_CLOSE));
 
   // ARC app is running.
@@ -272,6 +291,8 @@ TEST_F(LauncherContextMenuTest, ArcLauncherMenusCheck) {
   EXPECT_FALSE(IsItemPresentInMenu(menu.get(), ash::MENU_OPEN_NEW));
   EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::MENU_PIN));
   EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::MENU_CLOSE));
+  EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::SHOW_APP_INFO));
+  EXPECT_FALSE(IsItemEnabledInMenu(menu.get(), ash::UNINSTALL));
 
   // ARC non-launchable app is running.
   const std::string app_id2 = ArcAppTest::GetAppId(arc_test().fake_apps()[1]);
@@ -298,6 +319,8 @@ TEST_F(LauncherContextMenuTest, ArcLauncherMenusCheck) {
   EXPECT_FALSE(IsItemPresentInMenu(menu.get(), ash::MENU_OPEN_NEW));
   EXPECT_FALSE(IsItemPresentInMenu(menu.get(), ash::MENU_PIN));
   EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::MENU_CLOSE));
+  EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::SHOW_APP_INFO));
+  EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::UNINSTALL));
 
   // Shelf group context menu.
   std::vector<arc::mojom::ShortcutInfo> shortcuts = arc_test().fake_shortcuts();
@@ -339,6 +362,8 @@ TEST_F(LauncherContextMenuTest, ArcLauncherMenusCheck) {
     EXPECT_FALSE(IsItemPresentInMenu(menu.get(), ash::MENU_OPEN_NEW));
     EXPECT_FALSE(IsItemPresentInMenu(menu.get(), ash::MENU_PIN));
     EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::MENU_CLOSE));
+    EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::SHOW_APP_INFO));
+    EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::UNINSTALL));
 
     menu_list = item_delegate3->GetAppMenuItems(0 /* event_flags */);
     ASSERT_EQ(i + 1, menu_list.size());
@@ -376,6 +401,8 @@ TEST_F(LauncherContextMenuTest, ArcLauncherSuspendAppMenu) {
   EXPECT_FALSE(IsItemPresentInMenu(menu.get(), ash::MENU_OPEN_NEW));
   EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::MENU_PIN));
   EXPECT_FALSE(IsItemPresentInMenu(menu.get(), ash::MENU_CLOSE));
+  EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::SHOW_APP_INFO));
+  EXPECT_FALSE(IsItemEnabledInMenu(menu.get(), ash::UNINSTALL));
 }
 
 TEST_F(LauncherContextMenuTest, ArcDeferredLauncherContextMenuItemCheck) {
@@ -413,6 +440,8 @@ TEST_F(LauncherContextMenuTest, ArcDeferredLauncherContextMenuItemCheck) {
   EXPECT_FALSE(IsItemPresentInMenu(menu.get(), ash::MENU_OPEN_NEW));
   EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::MENU_PIN));
   EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::MENU_CLOSE));
+  EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::SHOW_APP_INFO));
+  EXPECT_FALSE(IsItemEnabledInMenu(menu.get(), ash::UNINSTALL));
 
   item_delegate = model()->GetShelfItemDelegate(shelf_id2);
   ASSERT_TRUE(item_delegate);
@@ -422,6 +451,8 @@ TEST_F(LauncherContextMenuTest, ArcDeferredLauncherContextMenuItemCheck) {
   EXPECT_FALSE(IsItemPresentInMenu(menu.get(), ash::MENU_OPEN_NEW));
   EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::MENU_PIN));
   EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::MENU_CLOSE));
+  EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::SHOW_APP_INFO));
+  EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::UNINSTALL));
 }
 
 TEST_F(LauncherContextMenuTest, CommandIdsMatchEnumsForHistograms) {
@@ -440,10 +471,10 @@ TEST_F(LauncherContextMenuTest, CommandIdsMatchEnumsForHistograms) {
 }
 
 TEST_F(LauncherContextMenuTest, ArcContextMenuOptions) {
-  // Tests that there are 8 ARC app context menu options. If you're
-  // adding a context menu option ensure that you have added the enum to
-  // tools/metrics/enums.xml and that you haven't modified the order of the
-  // existing enums.
+  // Tests that there are the right number of ARC app context menu options. If
+  // you're adding a context menu option ensure that you have added the enum to
+  // tools/metrics/histograms/enums.xml and that you haven't modified the order
+  // of the existing enums.
   arc_test().app_instance()->SendRefreshAppList(
       std::vector<arc::mojom::AppInfo>(arc_test().fake_apps().begin(),
                                        arc_test().fake_apps().begin() + 1));
@@ -460,8 +491,8 @@ TEST_F(LauncherContextMenuTest, ArcContextMenuOptions) {
   std::unique_ptr<ui::MenuModel> menu =
       GetContextMenu(item_delegate, primary_id);
 
-  // Test that there are 8 items in an ARC app context menu.
-  EXPECT_EQ(8, menu->GetItemCount());
+  // Test that there are 9 items in an ARC app context menu.
+  EXPECT_EQ(9, menu->GetItemCount());
 }
 
 // Tests that the context menu of internal app  is correct.
@@ -537,9 +568,9 @@ TEST_F(LauncherContextMenuTest, CrostiniTerminalApp) {
 
   // Check that every menu item has an icon
   for (int i = 0; i < menu->GetItemCount(); ++i) {
-    gfx::Image icon;
-    EXPECT_TRUE(menu->GetIconAt(i, &icon));
-    EXPECT_FALSE(icon.IsEmpty());
+    const gfx::VectorIcon* icon = menu->GetVectorIconAt(i);
+    ASSERT_TRUE(icon);
+    EXPECT_FALSE(icon->is_empty());
   }
 
   // When crostini is running, the terminal should have an option to kill the
@@ -577,15 +608,16 @@ TEST_F(LauncherContextMenuTest, CrostiniNormalApp) {
 
   // Check that every menu item has an icon
   for (int i = 0; i < menu->GetItemCount(); ++i) {
-    gfx::Image icon;
-    EXPECT_TRUE(menu->GetIconAt(i, &icon));
-    EXPECT_FALSE(icon.IsEmpty());
+    const gfx::VectorIcon* icon = menu->GetVectorIconAt(i);
+    ASSERT_TRUE(icon);
+    EXPECT_FALSE(icon->is_empty());
   }
 
   // Precisely which density option is shown is not important to us, we only
   // care that one is shown.
   EXPECT_TRUE(IsItemEnabledInMenu(menu.get(), ash::CROSTINI_USE_LOW_DENSITY) ||
               IsItemEnabledInMenu(menu.get(), ash::CROSTINI_USE_HIGH_DENSITY));
+  EXPECT_FALSE(IsItemEnabledInMenu(menu.get(), ash::UNINSTALL));
 }
 
 // Confirms the menu items for unregistered crostini apps (i.e. apps that do not

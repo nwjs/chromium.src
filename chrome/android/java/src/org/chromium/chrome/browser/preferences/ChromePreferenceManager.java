@@ -318,6 +318,12 @@ public class ChromePreferenceManager {
             "interest_feed_content_suggestions";
 
     /**
+     * Whether or not the start surface is enabled.
+     * Default value is false.
+     */
+    public static final String START_SURFACE_ENABLED_KEY = "start_surface_enabled";
+
+    /**
      * Whether or not the grid tab switcher is enabled.
      * Default value is false.
      */
@@ -374,11 +380,6 @@ public class ChromePreferenceManager {
     public static final String PRIORITIZE_BOOTSTRAP_TASKS_KEY = "prioritize_bootstrap_tasks";
 
     /**
-     * Whether network service is enabled.
-     */
-    public static final String NETWORK_SERVICE_KEY = "network_service";
-
-    /**
      * Whether warming up network service is enabled.
      * Default value is false.
      */
@@ -390,6 +391,13 @@ public class ChromePreferenceManager {
      * enabled.
      */
     public static final String REACHED_CODE_PROFILER_GROUP_KEY = "reached_code_profiler_group";
+
+    /**
+     * Whether or not we should directly open the dialer when a click to call notification is
+     * received. Default value is false.
+     */
+    public static final String CLICK_TO_CALL_OPEN_DIALER_DIRECTLY_KEY =
+            "click_to_call_open_dialer_directly";
 
     /**
      * Key to cache whether immersive ui mode is enabled.

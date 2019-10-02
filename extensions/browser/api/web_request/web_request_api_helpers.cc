@@ -16,6 +16,7 @@
 #include "base/containers/adapters.h"
 #include "base/containers/flat_map.h"
 #include "base/macros.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/stl_util.h"
@@ -42,6 +43,7 @@
 #include "net/http/http_request_headers.h"
 #include "net/http/http_util.h"
 #include "net/log/net_log_event_type.h"
+#include "services/network/public/cpp/features.h"
 #include "url/url_constants.h"
 
 // TODO(battre): move all static functions into an anonymous namespace at the
@@ -86,6 +88,16 @@ bool ParseCookieLifetime(const net::ParsedCookie& cookie,
     return *seconds_till_expiry >= 0;
   }
   return false;
+}
+
+std::set<std::string> GetExtraHeaderRequestHeaders() {
+  std::set<std::string> headers(
+      {"accept-encoding", "accept-language", "cookie", "referer"});
+
+  if (network::features::ShouldEnableOutOfBlinkCors())
+    headers.insert("origin");
+
+  return headers;
 }
 
 void RecordRequestHeaderRemoved(RequestHeaderType type) {
@@ -1227,7 +1239,7 @@ void MergeCookiesInOnHeadersReceivedResponses(
 
   // Only create a copy if we really want to modify the response headers.
   if (override_response_headers->get() == NULL) {
-    *override_response_headers = new net::HttpResponseHeaders(
+    *override_response_headers = base::MakeRefCounted<net::HttpResponseHeaders>(
         original_response_headers->raw_headers());
   }
 
@@ -1353,8 +1365,9 @@ void MergeOnHeadersReceivedResponses(
   if (new_url.is_valid()) {
     // Only create a copy if we really want to modify the response headers.
     if (override_response_headers->get() == NULL) {
-      *override_response_headers = new net::HttpResponseHeaders(
-          original_response_headers->raw_headers());
+      *override_response_headers =
+          base::MakeRefCounted<net::HttpResponseHeaders>(
+              original_response_headers->raw_headers());
     }
     (*override_response_headers)->ReplaceStatusLine("HTTP/1.1 302 Found");
     (*override_response_headers)->RemoveHeader("location");
@@ -1442,8 +1455,8 @@ void ClearCacheOnNavigation() {
   if (content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
     ClearCacheOnNavigationOnUI();
   } else {
-    base::PostTaskWithTraits(FROM_HERE, {content::BrowserThread::UI},
-                             base::BindOnce(&ClearCacheOnNavigationOnUI));
+    base::PostTask(FROM_HERE, {content::BrowserThread::UI},
+                   base::BindOnce(&ClearCacheOnNavigationOnUI));
   }
 }
 
@@ -1464,12 +1477,8 @@ std::unique_ptr<base::DictionaryValue> CreateHeaderDictionary(
 }
 
 bool ShouldHideRequestHeader(int extra_info_spec, const std::string& name) {
-  static const std::set<std::string> kRequestHeaders{
-      "accept-encoding",
-      "accept-language",
-      "cookie",
-      "referer",
-  };
+  static const std::set<std::string> kRequestHeaders =
+      GetExtraHeaderRequestHeaders();
   return !(extra_info_spec & ExtraInfoSpec::EXTRA_HEADERS) &&
          kRequestHeaders.find(base::ToLowerASCII(name)) !=
              kRequestHeaders.end();

@@ -69,7 +69,6 @@ Ako ste gotovi s vodičem, pomoću ChromeVoxa dođite do gumba Zatvori i kliknit
 <translation id="1383876407941801731">Traži</translation>
 <translation id="1385214448885562192">Pritisnite tipku "enter" za prihvaćanje ili tipku "escape" za otkazivanje, strelicu prema dolje za sljedeće i strelicu prema gore za prethodno.</translation>
 <translation id="1396114365388024581">popkart</translation>
-<translation id="139902759009894363">Najavi atribute obogaćenog teksta</translation>
 <translation id="1405567553485452995">Svijetlozelena</translation>
 <translation id="1417889266572670458">Mornarskoplava</translation>
 <translation id="1431911867058218151">Boja šljive</translation>
@@ -485,6 +484,7 @@ Ako ste gotovi s vodičem, pomoću ChromeVoxa dođite do gumba Zatvori i kliknit
 <translation id="4372705107434148843">Zaustavljanje govora</translation>
 <translation id="4373197658375206385">Nema prethodne stavke koja nije veza.</translation>
 <translation id="4376316291247992553">Prikazivanje slike kao uzorka ispisanog brajicom</translation>
+<translation id="437809255587011096">Najavi stiliziranje teksta</translation>
 <translation id="4378308539633073595">Pomicanje unaprijed</translation>
 <translation id="4384583879834880242">Pitanja i odgovori</translation>
 <translation id="4391478986194775161">sdržjinfo</translation>
@@ -761,7 +761,6 @@ Ako ste gotovi s vodičem, pomoću ChromeVoxa dođite do gumba Zatvori i kliknit
 <translation id="6348869651006731065">Zagasita siva</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{znak uspravnog nabrajanja}one{# znak uspravnog nabrajanja}few{# znaka uspravnog nabrajanja}other{# znakova uspravnog nabrajanja}}</translation>
 <translation id="6355910664415701303">Nema prethodne stavke popisa.</translation>
-<translation id="6360318852623800555">Atributi za obogaćeni tekst</translation>
 <translation id="6364795331201459219">h6</translation>
 <translation id="6368143427468974988">Prethodni naslov</translation>
 <translation id="6376999910001533545">Kestenjasta</translation>
@@ -1087,7 +1086,6 @@ Za otvaranje izbornika preglednika Chrome pritisnite tipke Alt i F.</translation
 <translation id="8153880621934657047">Niste unutar tablice.</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{donja crta}one{# donja crta}few{# donje crte}other{# donjih crta}}</translation>
 <translation id="8179976553408161302">Enter</translation>
-<translation id="8183813379996435469">Automatski otkrij i prebaci jezik ChromeVoxa.</translation>
 <translation id="8184828902145951186">redak</translation>
 <translation id="8186185314313222077">prebacivanje na cijeli zaslon</translation>
 <translation id="8199231515320852133">Izgovaranje zaglavlja trenutačne ćelije</translation>
@@ -1124,6 +1122,7 @@ Za otvaranje izbornika preglednika Chrome pritisnite tipke Alt i F.</translation
 <translation id="8503360654911991865">Smanji razinu pojedinosti navigacije</translation>
 <translation id="8504695234784218301">Kraj gramatičke pogreške</translation>
 <translation id="8520472399088452386">Okretni gumb</translation>
+<translation id="8534394844575788431">Formatiranje</translation>
 <translation id="8538744478902126321">Pokušaj utvrđivanja zaglavlja retka trenutačne ćelije</translation>
 <translation id="8540054775867439484">Prelomljeno na vrh</translation>
 <translation id="8542271685829952264">Da biste istražili sve naredbe i prečace ChromeVoxa, pritisnite tipku za pretraživanje i točku, a zatim se pomičite izbornicima pomoću tipki sa strelicama. Željenu naredbu aktivirajte tipkom Enter. Pritisnite tipku za pretraživanje i "o" pa "t" da biste se vratili na ovo mjesto.</translation>
@@ -1203,6 +1202,7 @@ Za otvaranje izbornika preglednika Chrome pritisnite tipke Alt i F.</translation
 <translation id="9149560530563164529">odjljk</translation>
 <translation id="9150735707954472829">Kartica</translation>
 <translation id="9151211641321628915">Najavljuje kratak opis trenutačnog položaja</translation>
+<translation id="9151249085738989067">Automatski prebaci ChromeVoxov glas na temelju jezika</translation>
 <translation id="9153606228985488238">Visina glasa: <ph name="PERCENT" /> posto</translation>
 <translation id="9160096769946561184">Prelazak na kraj trenutačnog stupca</translation>
 <translation id="9173115498289768110">Glasnoća <ph name="PERCENT" /> posto</translation>

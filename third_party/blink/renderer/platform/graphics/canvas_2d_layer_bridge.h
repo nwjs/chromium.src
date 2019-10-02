@@ -112,7 +112,7 @@ class PLATFORM_EXPORT Canvas2DLayerBridge : public cc::TextureLayerClient {
   virtual void DidRestoreCanvasMatrixClipStack(cc::PaintCanvas*) {}
   virtual bool IsAccelerated() const;
 
-  cc::PaintCanvas* Canvas();
+  cc::PaintCanvas* DrawingCanvas();
   bool IsValid();
   bool WritePixels(const SkImageInfo&,
                    const void* pixels,
@@ -146,11 +146,12 @@ class PLATFORM_EXPORT Canvas2DLayerBridge : public cc::TextureLayerClient {
     kHibernationAbortedDueGpuContextLoss = 4,
     kHibernationAbortedDueToSwitchToUnacceleratedRendering = 5,
     kHibernationAbortedDueToAllocationFailure = 6,
-    kHibernationEndedNormally = 7,
-    kHibernationEndedWithSwitchToBackgroundRendering = 8,
-    kHibernationEndedWithFallbackToSW = 9,
-    kHibernationEndedWithTeardown = 10,
-    kHibernationAbortedBecauseNoSurface = 11,
+    kHibernationAbortedDueSnapshotFailure = 7,
+    kHibernationEndedNormally = 8,
+    kHibernationEndedWithSwitchToBackgroundRendering = 9,
+    kHibernationEndedWithFallbackToSW = 10,
+    kHibernationEndedWithTeardown = 11,
+    kHibernationAbortedBecauseNoSurface = 12,
     kMaxValue = kHibernationAbortedBecauseNoSurface,
   };
 

@@ -248,7 +248,6 @@ int APIRequestHandler::StartRequest(v8::Local<v8::Context> context,
                                     std::unique_ptr<base::ListValue> arguments,
                                     v8::Local<v8::Function> callback,
                                     v8::Local<v8::Function> custom_callback,
-                                    binding::RequestThread thread,
                                     bool sync,
                                     bool* success,
                                     base::ListValue* response,
@@ -291,7 +290,7 @@ int APIRequestHandler::StartRequest(v8::Local<v8::Context> context,
         isolate, callback, std::move(callback_args));
   }
 
-  StartRequestImpl(context, request_id, method, std::move(arguments), thread,
+  StartRequestImpl(context, request_id, method, std::move(arguments),
                    std::move(async_handler), sync, success, response, error);
   return request_id;
 }
@@ -300,14 +299,13 @@ std::pair<int, v8::Local<v8::Promise>>
 APIRequestHandler::StartPromiseBasedRequest(
     v8::Local<v8::Context> context,
     const std::string& method,
-    std::unique_ptr<base::ListValue> arguments,
-    binding::RequestThread thread) {
+    std::unique_ptr<base::ListValue> arguments) {
   v8::Isolate* isolate = context->GetIsolate();
   v8::Local<v8::Promise::Resolver> resolver =
       v8::Promise::Resolver::New(context).ToLocalChecked();
   auto async_handler = std::make_unique<AsyncResultHandler>(isolate, resolver);
   int request_id = GetNextRequestId();
-  StartRequestImpl(context, request_id, method, std::move(arguments), thread,
+  StartRequestImpl(context, request_id, method, std::move(arguments),
                    std::move(async_handler), false, nullptr, nullptr, nullptr);
 
   return {request_id, resolver->GetPromise()};
@@ -388,7 +386,6 @@ void APIRequestHandler::StartRequestImpl(
     int request_id,
     const std::string& method,
     std::unique_ptr<base::ListValue> arguments,
-    binding::RequestThread thread,
     std::unique_ptr<AsyncResultHandler> async_handler,
     bool sync, bool* success, base::ListValue* response, std::string* error) {
   auto request = std::make_unique<Request>();
@@ -411,7 +408,6 @@ void APIRequestHandler::StartRequestImpl(
       interaction_provider_->HasActiveInteraction(context);
   request->arguments = std::move(arguments);
   request->method_name = method;
-  request->thread = thread;
 
   last_sent_request_id_ = request_id;
   request->sync = sync;

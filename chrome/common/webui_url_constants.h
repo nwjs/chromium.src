@@ -64,6 +64,8 @@ extern const char kChromeUIDevToolsURL[];
 extern const char kChromeUIDeviceLogHost[];
 extern const char kChromeUIDevicesHost[];
 extern const char kChromeUIDevicesURL[];
+extern const char kChromeUIDevUiLoaderHost[];
+extern const char kChromeUIDevUiLoaderURL[];
 extern const char kChromeUIDomainReliabilityInternalsHost[];
 extern const char kChromeUIDownloadInternalsHost[];
 extern const char kChromeUIDownloadsHost[];
@@ -162,18 +164,14 @@ extern const char kChromeUIThumbnailListHost[];
 extern const char kChromeUIThumbnailURL[];
 extern const char kChromeUITranslateInternalsHost[];
 extern const char kChromeUIUkmHost[];
-extern const char kChromeUIUberHost[];
 extern const char kChromeUIUsbInternalsHost[];
 extern const char kChromeUIUserActionsHost[];
 extern const char kChromeUIVersionHost[];
 extern const char kChromeUIVersionURL[];
+extern const char kChromeUIWebFooterExperimentHost[];
+extern const char kChromeUIWebFooterExperimentURL[];
 extern const char kChromeUIWelcomeHost[];
 extern const char kChromeUIWelcomeURL[];
-
-#if defined(OS_WIN)
-// TODO(crbug.com/1003960): Remove when issue is resolved.
-extern const char kChromeUIWelcomeWin10Host[];
-#endif  // defined(OS_WIN)
 
 #if defined(OS_ANDROID)
 extern const char kChromeUIExploreSitesInternalsHost[];
@@ -263,11 +261,6 @@ bool IsSystemWebUIHost(base::StringPiece host);
 
 #endif  // defined(OS_CHROMEOS)
 
-#if defined(OS_WIN)
-extern const char kChromeUIMetroFlowHost[];
-extern const char kChromeUIMetroFlowURL[];
-#endif
-
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_CHROMEOS)
 extern const char kChromeUICastHost[];
 #endif
@@ -300,6 +293,11 @@ extern const char kChromeUITabModalConfirmDialogHost[];
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
 extern const char kChromeUIPrintHost[];
+#endif
+
+#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+extern const char kChromeUITabStripHost[];
+extern const char kChromeUITabStripURL[];
 #endif
 
 extern const char kChromeUIWebRtcLogsHost[];
@@ -343,6 +341,7 @@ extern const char kBluetoothSubPage[];
 extern const char kChangePictureSubPage[];
 extern const char kConnectedDevicesSubPage[];
 extern const char kCrostiniSharedUsbDevicesSubPage[];
+extern const char kCrostiniExportImportSubPage[];
 extern const char kDateTimeSubPage[];
 extern const char kDisplaySubPage[];
 extern const char kHelpSubPage[];
@@ -356,7 +355,7 @@ extern const char kNativePrintingSettingsSubPage[];
 extern const char kNetworkDetailSubPage[];
 extern const char kNetworksSubPage[];
 extern const char kPluginVmDetailsSubPage[];
-extern const char kPluginVmSharedPathSubPage[];
+extern const char kPluginVmSharedPathsSubPage[];
 extern const char kPointerOverlaySubPage[];
 extern const char kPowerSubPage[];
 extern const char kResetSubPage[];

@@ -18,12 +18,11 @@
 #import "ios/chrome/browser/ui/autofill/manual_fill/credit_card_form.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/full_card_request_result_delegate_bridge.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_card_cell.h"
-#import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_content_delegate.h"
+#import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_content_injector.h"
 #import "ios/chrome/browser/ui/list_model/list_model.h"
 #import "ios/chrome/browser/ui/settings/autofill/features.h"
 #import "ios/chrome/browser/ui/table_view/table_view_model.h"
 #include "ios/chrome/grit/ios_strings.h"
-#import "ios/web/public/web_state/web_state.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "url/gurl.h"
@@ -102,7 +101,7 @@ NSString* const ManageCardsAccessibilityIdentifier =
         [[ManualFillCreditCard alloc] initWithCreditCard:*card];
     auto item =
         [[ManualFillCardItem alloc] initWithCreditCard:manualFillCreditCard
-                                       contentDelegate:self.contentDelegate
+                                       contentInjector:self.contentInjector
                                     navigationDelegate:self.navigationDelegate];
     [items addObject:item];
   }
@@ -154,7 +153,7 @@ NSString* const ManageCardsAccessibilityIdentifier =
       [[ManualFillCreditCard alloc] initWithCreditCard:card];
   // Don't replace the locked card with the unlocked one, so the user will
   // have to unlock it again, if needed.
-  [self.contentDelegate userDidPickContent:manualFillCreditCard.number
+  [self.contentInjector userDidPickContent:manualFillCreditCard.number
                              passwordField:NO
                              requiresHTTPS:YES];
 }

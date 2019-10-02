@@ -32,11 +32,15 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/feature_list.h"
 #include "base/time/time.h"
 #include "services/network/public/cpp/request_mode.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/loader/request_destination.h"
 #include "third_party/blink/public/common/mime_util/mime_util.h"
+#include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
+#include "third_party/blink/public/mojom/web_feature/web_feature.mojom-blink.h"
 #include "third_party/blink/public/platform/interface_provider.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/web_scoped_virtual_time_pauser.h"
@@ -252,6 +256,11 @@ ResourceLoadPriority AdjustPriorityWithDeferScriptIntervention(
     const ResourceRequest& resource_request,
     FetchParameters::DeferOption defer_option,
     bool is_link_preload) {
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kLowerJavaScriptPriorityWhenForceDeferred)) {
+    return priority_so_far;
+  }
+
   WebURLRequest::PreviewsState context_previews_state =
       fetch_context.previews_state();
 
@@ -308,35 +317,21 @@ void SetReferrer(
     if (referrer_policy_to_use == network::mojom::ReferrerPolicy::kDefault)
       referrer_policy_to_use = fetch_client_settings_object.GetReferrerPolicy();
 
-    request.SetReferrerString(
-        referrer_to_use,
-        ResourceRequest::SetReferrerStringLocation::kResourceFetcher);
-    request.SetReferrerPolicy(
-        referrer_policy_to_use,
-        ResourceRequest::SetReferrerPolicyLocation::kResourceFetcher);
+    request.SetReferrerString(referrer_to_use);
+    request.SetReferrerPolicy(referrer_policy_to_use);
     // TODO(domfarolino): Stop storing ResourceRequest's referrer as a header
     // and store it elsewhere. See https://crbug.com/850813.
-    request.SetHttpReferrer(
-        SecurityPolicy::GenerateReferrer(referrer_policy_to_use, request.Url(),
-                                         referrer_to_use),
-        ResourceRequest::SetHttpReferrerLocation::kResourceFetcher);
+    request.SetHttpReferrer(SecurityPolicy::GenerateReferrer(
+        referrer_policy_to_use, request.Url(), referrer_to_use));
   } else {
     // In the case of stale requests that are being revalidated, these requests
     // will already have their HttpReferrer set, and we will end up here. We
     // won't regenerate the referrer, but instead check that it's still correct.
-    Referrer generated_referrer = SecurityPolicy::GenerateReferrer(
-        request.GetReferrerPolicy(), request.Url(), request.ReferrerString());
-    if (generated_referrer.referrer != request.HttpReferrer()) {
-      const auto set_http_referrer_location = request.HttpReferrerLocation();
-      const auto set_referrer_string_location =
-          request.ReferrerStringLocation();
-      const auto set_referrer_policy_location =
-          request.ReferrerPolicyLocation();
-      base::debug::Alias(&set_http_referrer_location);
-      base::debug::Alias(&set_referrer_string_location);
-      base::debug::Alias(&set_referrer_policy_location);
-      CHECK(false);
-    }
+    CHECK_EQ(SecurityPolicy::GenerateReferrer(request.GetReferrerPolicy(),
+                                              request.Url(),
+                                              request.ReferrerString())
+                 .referrer,
+             request.HttpReferrer());
   }
 }
 
@@ -345,8 +340,9 @@ void SetSecFetchHeaders(
     const FetchClientSettingsObject& fetch_client_settings_object) {
   scoped_refptr<SecurityOrigin> url_origin =
       SecurityOrigin::Create(request.Url());
-  if (blink::RuntimeEnabledFeatures::FetchMetadataEnabled() &&
-      url_origin->IsPotentiallyTrustworthy()) {
+  // TODO(964053, 989502): These headers ought to be restricted to secure
+  // transport.
+  if (blink::RuntimeEnabledFeatures::FetchMetadataEnabled()) {
     const char* destination_value =
         GetRequestDestinationFromContext(request.GetRequestContext());
 
@@ -362,13 +358,10 @@ void SetSecFetchHeaders(
         request.SetHttpHeaderField("Sec-Fetch-Dest", destination_value);
       }
 
-      request.SetHttpHeaderField(
-          "Sec-Fetch-Mode", network::RequestModeToString(request.GetMode()));
-
       // Note that the `Sec-Fetch-User` header is always false (and therefore
       // omitted) for subresource requests. Likewise, note that we rely on
       // Blink's embedder to set `Sec-Fetch-Site`, as we don't want to trust the
-      // renderer to assert its own origin.
+      // renderer to assert its own origin. Ditto for `Sec-Fetch-Mode`.
     }
   }
 }
@@ -698,7 +691,8 @@ Resource* ResourceFetcher::ResourceForStaticData(
   scoped_refptr<SharedBuffer> data;
   if (url.ProtocolIsData()) {
     int result;
-    std::tie(result, response, data) = network_utils::ParseDataURL(url);
+    std::tie(result, response, data) = network_utils::ParseDataURL(
+        url, params.GetResourceRequest().HttpMethod());
     if (result != net::OK) {
       return nullptr;
     }
@@ -1762,14 +1756,11 @@ Vector<KURL> ResourceFetcher::GetUrlsOfUnusedPreloads() {
   return urls;
 }
 
-void ResourceFetcher::HandleLoaderFinish(
-    Resource* resource,
-    base::TimeTicks response_end,
-    LoaderFinishType type,
-    uint32_t inflight_keepalive_bytes,
-    bool should_report_corb_blocking,
-    const WebVector<network::cors::PreflightTimingInfo>&
-        cors_preflight_timing_info) {
+void ResourceFetcher::HandleLoaderFinish(Resource* resource,
+                                         base::TimeTicks response_end,
+                                         LoaderFinishType type,
+                                         uint32_t inflight_keepalive_bytes,
+                                         bool should_report_corb_blocking) {
   DCHECK(resource);
 
   DCHECK_LE(inflight_keepalive_bytes, inflight_keepalive_bytes_);
@@ -1811,31 +1802,6 @@ void ResourceFetcher::HandleLoaderFinish(
       if (resource->Options().request_initiator_context == kDocumentContext)
         Context().AddResourceTiming(*info);
       resource->ReportResourceTimingToClients(*info);
-    }
-
-    // Store additional timing info if CORS preflights are performed.
-    for (const auto& timing_info : cors_preflight_timing_info) {
-      // InitiatorType and InitialURL should be the same with each of the
-      // original request.
-      scoped_refptr<ResourceTimingInfo> preflight_info =
-          ResourceTimingInfo::Create(info->InitiatorType(),
-                                     timing_info.start_time);
-      preflight_info->SetInitialURL(info->InitialURL());
-      preflight_info->SetLoadResponseEnd(timing_info.response_end);
-      preflight_info->AddFinalTransferSize(timing_info.transfer_size);
-
-      // Set a provisional response to provide possible other information.
-      ResourceResponse response(info->InitialURL());
-      response.SetAlpnNegotiatedProtocol(
-          WebString::FromUTF8(timing_info.alpn_negotiated_protocol));
-      response.SetConnectionInfo(timing_info.connection_info);
-      response.SetHttpHeaderField(
-          http_names::kTimingAllowOrigin,
-          WebString::FromUTF8(timing_info.timing_allow_origin));
-      response.SetEncodedDataLength(timing_info.transfer_size);
-      preflight_info->SetFinalResponse(response);
-
-      Context().AddResourceTiming(*preflight_info);
     }
   }
 
@@ -1888,11 +1854,12 @@ void ResourceFetcher::HandleLoaderError(Resource* resource,
   resource->FinishAsError(error, task_runner_.get());
   if (resource_load_observer_) {
     DCHECK(!IsDetached());
-    const bool is_internal_request = resource->Options().initiator_info.name ==
-                                     fetch_initiator_type_names::kInternal;
     resource_load_observer_->DidFailLoading(
         resource->LastResourceRequest().Url(), resource->InspectorId(), error,
-        resource->GetResponse().EncodedDataLength(), is_internal_request);
+        resource->GetResponse().EncodedDataLength(),
+        ResourceLoadObserver::IsInternalRequest(
+            resource->Options().initiator_info.name ==
+            fetch_initiator_type_names::kInternal));
   }
   resource->ReloadIfLoFiOrPlaceholderImage(this, Resource::kReloadIfNeeded);
 }
@@ -2081,6 +2048,14 @@ void ResourceFetcher::EmulateLoadStartedForInspector(
     return;
   ResourceRequest resource_request(url);
   resource_request.SetRequestContext(request_context);
+  if (!resource_request.PriorityHasBeenSet()) {
+    resource_request.SetPriority(ComputeLoadPriority(
+        resource->GetType(), resource_request, ResourcePriority::kNotVisible,
+        FetchParameters::DeferOption::kNoDefer,
+        FetchParameters::SpeculativePreloadType::kNotSpeculative,
+        false /* is_link_preload */));
+  }
+
   ResourceLoaderOptions options = resource->Options();
   options.initiator_info.name = initiator_name;
   FetchParameters params(resource_request, options);
@@ -2159,11 +2134,11 @@ void ResourceFetcher::RevalidateStaleResource(Resource* stale_resource) {
 }
 
 mojom::blink::BlobRegistry* ResourceFetcher::GetBlobRegistry() {
-  if (!blob_registry_ptr_) {
+  if (!blob_registry_remote_) {
     Platform::Current()->GetInterfaceProvider()->GetInterface(
-        MakeRequest(&blob_registry_ptr_, task_runner_));
+        blob_registry_remote_.BindNewPipeAndPassReceiver(task_runner_));
   }
-  return blob_registry_ptr_.get();
+  return blob_registry_remote_.get();
 }
 
 FrameScheduler* ResourceFetcher::GetFrameScheduler() {

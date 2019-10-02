@@ -18,7 +18,6 @@
 #import "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/sync/driver/sync_user_settings.h"
-#include "components/unified_consent/feature.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "ios/chrome/browser/crash_report/breakpad_helper.h"
 #include "ios/chrome/browser/pref_names.h"
@@ -59,8 +58,8 @@ std::string ChromeIdentityToAccountID(signin::IdentityManager* identity_manager,
                                       ChromeIdentity* identity) {
   std::string gaia_id = base::SysNSStringToUTF8([identity gaiaID]);
   auto maybe_account =
-      identity_manager->FindAccountInfoForAccountWithRefreshTokenByGaiaId(
-          gaia_id);
+      identity_manager
+          ->FindExtendedAccountInfoForAccountWithRefreshTokenByGaiaId(gaia_id);
   AccountInfo account_info =
       maybe_account.has_value() ? maybe_account.value() : AccountInfo();
   return account_info.account_id;
@@ -110,16 +109,7 @@ void AuthenticationService::Initialize(
 
   HandleForgottenIdentity(nil, true /* should_prompt */);
 
-  bool is_signed_in = IsAuthenticated();
-  if (is_signed_in && !unified_consent::IsUnifiedConsentFeatureEnabled() &&
-      !sync_setup_service_->HasFinishedInitialSetup()) {
-    // Sign out the user if sync was not configured after signing
-    // in (see PM comments in http://crbug.com/339831 ).
-    SignOut(signin_metrics::ABORT_SIGNIN, nil);
-    SetPromptForSignIn();
-    is_signed_in = false;
-  }
-  breakpad_helper::SetCurrentlySignedIn(is_signed_in);
+  breakpad_helper::SetCurrentlySignedIn(IsAuthenticated());
 
   identity_service_observer_.Add(
       ios::GetChromeBrowserProvider()->GetChromeIdentityService());
@@ -311,8 +301,9 @@ void AuthenticationService::SignIn(ChromeIdentity* identity) {
   // from the SSO library and that hosted_domain is set (should be the proper
   // hosted domain or kNoHostedDomainFound that are both non-empty strings).
   const base::Optional<AccountInfo> account_info =
-      identity_manager_->FindAccountInfoForAccountWithRefreshTokenByAccountId(
-          account_id);
+      identity_manager_
+          ->FindExtendedAccountInfoForAccountWithRefreshTokenByAccountId(
+              account_id);
   CHECK(account_info.has_value());
   CHECK(!account_info->hosted_domain.empty());
 
@@ -547,7 +538,7 @@ bool AuthenticationService::IsAuthenticated() const {
 
 bool AuthenticationService::IsAuthenticatedIdentityManaged() const {
   base::Optional<AccountInfo> primary_account_info =
-      identity_manager_->FindExtendedAccountInfoForAccount(
+      identity_manager_->FindExtendedAccountInfoForAccountWithRefreshToken(
           identity_manager_->GetPrimaryAccountInfo());
   if (!primary_account_info)
     return false;

@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="ta">
+<translation id="1036550831858290950">தற்போதைய தாவலை புக்மார்க்காகச் சேமிக்கும்</translation>
 <translation id="104962181688258143">கோப்புகள் பயன்பாட்டைத் திறக்கும்</translation>
 <translation id="1098295134904615027">விர்ச்சுவல் டெஸ்க்கை வலதுபுறத்தில் இயக்கும்</translation>
 <translation id="1122869341872663659"><ph name="QUERY" />க்கான <ph name="N" /> தேடல் முடிவுகளைக் காட்டுகிறது</translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">பக்கத்தில், இயல்பான அளவிற்குக் காட்சியை மீட்டமைக்கும்</translation>
 <translation id="2596078834055697711">சாளரத்தை ஸ்கிரீன்ஷாட் எடுக்கும்</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, பின்னர் <ph name="TAB" /> அல்லது <ph name="RIGHT" />ஐ அழுத்தவும்</translation>
-<translation id="2699509451653686398">உங்கள் தற்போதைய இணையப் பக்கத்தை புக்மார்க்காகச் சேமிக்கும்</translation>
 <translation id="2750942583782703988">உங்கள் தற்போதைய பக்கத்தை மீண்டும் ஏற்றும்</translation>
 <translation id="2764005613199379871">தேடல் முகவரிப் பட்டியில் ஃபோகஸ் செய்யும்</translation>
 <translation id="2789868185375229787">பக்கத்தைச் சிறிதாக்கிக் காட்டும்</translation>

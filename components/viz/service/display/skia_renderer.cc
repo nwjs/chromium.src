@@ -33,7 +33,6 @@
 #include "components/viz/service/display/output_surface_frame.h"
 #include "components/viz/service/display/renderer_utils.h"
 #include "components/viz/service/display/resource_fence.h"
-#include "components/viz/service/display/resource_metadata.h"
 #include "components/viz/service/display/skia_output_surface.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
 #include "skia/ext/opacity_filter_canvas.h"
@@ -269,6 +268,12 @@ bool IsAAForcedOff(const DrawQuad* quad) {
       return SolidColorDrawQuad::MaterialCast(quad)->force_anti_aliasing_off;
     case DrawQuad::Material::kTiledContent:
       return TileDrawQuad::MaterialCast(quad)->force_anti_aliasing_off;
+    case DrawQuad::Material::kYuvVideoContent:
+    case DrawQuad::Material::kStreamVideoContent:
+    case DrawQuad::Material::kTextureContent:
+      // This is done to match the behaviour of GLRenderer and we can revisit it
+      // later.
+      return true;
     default:
       return false;
   }
@@ -487,27 +492,28 @@ SkiaRenderer::ScopedSkImageBuilder::ScopedSkImageBuilder(
   if (!resource_id)
     return;
   auto* resource_provider = skia_renderer->resource_provider_;
-  if (!skia_renderer->is_using_ddl() ||
-      !IsTextureResource(resource_provider, resource_id)) {
+  DCHECK(IsTextureResource(resource_provider, resource_id));
+  if (!skia_renderer->is_using_ddl()) {
     // TODO(penghuang): remove this code when DDL is used everywhere.
     lock_.emplace(resource_provider, resource_id, alpha_type, origin);
     sk_image_ = lock_->sk_image();
   } else {
-    // Look up the image from promise_images_by resource_id and return the
-    // reference. If the resource_id doesn't exist, this statement will
-    // allocate it and return reference of it, and the reference will be used
-    // to store the new created image later.
-    auto& image = skia_renderer->promise_images_[resource_id];
-    if (!image) {
-      auto metadata =
-          skia_renderer->lock_set_for_external_use_->LockResource(resource_id);
-      metadata.alpha_type = alpha_type;
-      metadata.origin = origin;
-      metadata.ycbcr_info = ycbcr_info;
-      image = skia_renderer->skia_output_surface_->MakePromiseSkImage(metadata);
-      LOG_IF(ERROR, !image) << "Failed to create the promise sk image.";
+    auto* image_context =
+        skia_renderer->lock_set_for_external_use_->LockResource(resource_id);
+    // |ImageContext::image| provides thread safety: (a) this ImageContext is
+    // only accessed by GPU thread after |image| is set and (b) the fields of
+    // ImageContext that are accessed by both compositor and GPU thread are no
+    // longer modified after |image| is set.
+    if (!image_context->has_image()) {
+      image_context->set_alpha_type(alpha_type);
+      image_context->set_origin(origin);
+      if (ycbcr_info)
+        image_context->set_ycbcr_info(*ycbcr_info);
+      skia_renderer->skia_output_surface_->MakePromiseSkImage(image_context);
+      LOG_IF(ERROR, !image_context->has_image())
+          << "Failed to create the promise sk image.";
     }
-    sk_image_ = image.get();
+    sk_image_ = image_context->image().get();
   }
 }
 
@@ -528,59 +534,52 @@ class SkiaRenderer::ScopedYUVSkImageBuilder {
            IsTextureResource(skia_renderer->resource_provider_,
                              quad->a_plane_resource_id()));
 
-    YUVIds ids(quad->y_plane_resource_id(), quad->u_plane_resource_id(),
-               quad->v_plane_resource_id(), quad->a_plane_resource_id());
-    auto& image = skia_renderer->yuv_promise_images_[std::move(ids)];
-
-    if (!image) {
-      SkYUVColorSpace yuv_color_space;
-      if (has_color_conversion_filter) {
-        yuv_color_space = kIdentity_SkYUVColorSpace;
-      } else {
-        yuv_color_space = kRec601_SkYUVColorSpace;
-        quad->video_color_space.ToSkYUVColorSpace(&yuv_color_space);
-      }
-
-      const bool is_i420 =
-          quad->u_plane_resource_id() != quad->v_plane_resource_id();
-      const bool has_alpha = quad->a_plane_resource_id() != kInvalidResourceId;
-      const size_t number_of_textures = (is_i420 ? 3 : 2) + (has_alpha ? 1 : 0);
-      std::vector<ResourceMetadata> metadatas;
-      metadatas.reserve(number_of_textures);
-      auto y_metadata = skia_renderer->lock_set_for_external_use_->LockResource(
-          quad->y_plane_resource_id());
-      metadatas.push_back(std::move(y_metadata));
-      auto u_metadata = skia_renderer->lock_set_for_external_use_->LockResource(
-          quad->u_plane_resource_id());
-      metadatas.push_back(std::move(u_metadata));
-      if (is_i420) {
-        auto v_metadata =
-            skia_renderer->lock_set_for_external_use_->LockResource(
-                quad->v_plane_resource_id());
-        metadatas.push_back(std::move(v_metadata));
-      }
-
-      if (has_alpha) {
-        auto a_metadata =
-            skia_renderer->lock_set_for_external_use_->LockResource(
-                quad->a_plane_resource_id());
-        metadatas.push_back(std::move(a_metadata));
-      }
-
-      image = skia_renderer->skia_output_surface_->MakePromiseSkImageFromYUV(
-          std::move(metadatas), yuv_color_space, dst_color_space, has_alpha);
-      LOG_IF(ERROR, !image) << "Failed to create the promise sk yuva image.";
+    SkYUVColorSpace yuv_color_space;
+    if (has_color_conversion_filter) {
+      yuv_color_space = kIdentity_SkYUVColorSpace;
+    } else {
+      yuv_color_space = kRec601_SkYUVColorSpace;
+      quad->video_color_space.ToSkYUVColorSpace(&yuv_color_space);
     }
-    sk_image_ = image.get();
+
+    const bool is_i420 =
+        quad->u_plane_resource_id() != quad->v_plane_resource_id();
+    const bool has_alpha = quad->a_plane_resource_id() != kInvalidResourceId;
+    const size_t number_of_textures = (is_i420 ? 3 : 2) + (has_alpha ? 1 : 0);
+    std::vector<ExternalUseClient::ImageContext*> contexts;
+    contexts.reserve(number_of_textures);
+    // Skia API ignores the color space information on the individual planes.
+    // Dropping them here avoids some LOG spam.
+    auto* y_context = skia_renderer->lock_set_for_external_use_->LockResource(
+        quad->y_plane_resource_id(), true /* is_video_plane */);
+    contexts.push_back(std::move(y_context));
+    auto* u_context = skia_renderer->lock_set_for_external_use_->LockResource(
+        quad->u_plane_resource_id(), true /* is_video_plane */);
+    contexts.push_back(std::move(u_context));
+    if (is_i420) {
+      auto* v_context = skia_renderer->lock_set_for_external_use_->LockResource(
+          quad->v_plane_resource_id(), true /* is_video_plane */);
+      contexts.push_back(std::move(v_context));
+    }
+
+    if (has_alpha) {
+      auto* a_context = skia_renderer->lock_set_for_external_use_->LockResource(
+          quad->a_plane_resource_id(), true /* is_video_plane */);
+      contexts.push_back(std::move(a_context));
+    }
+
+    sk_image_ = skia_renderer->skia_output_surface_->MakePromiseSkImageFromYUV(
+        std::move(contexts), yuv_color_space, dst_color_space, has_alpha);
+    LOG_IF(ERROR, !sk_image_) << "Failed to create the promise sk yuva image.";
   }
 
   ~ScopedYUVSkImageBuilder() = default;
 
-  const SkImage* sk_image() const { return sk_image_; }
+  const SkImage* sk_image() const { return sk_image_.get(); }
 
  private:
   std::unique_ptr<DisplayResourceProvider::ScopedReadLockSkImage> lock_;
-  SkImage* sk_image_ = nullptr;
+  sk_sp<SkImage> sk_image_;
 
   DISALLOW_COPY_AND_ASSIGN(ScopedYUVSkImageBuilder);
 };
@@ -615,16 +614,22 @@ SkiaRenderer::SkiaRenderer(const RendererSettings* settings,
 
 SkiaRenderer::~SkiaRenderer() = default;
 
-class FrameResourceFence : public ResourceFence {
+class SkiaRenderer::FrameResourceFence : public ResourceFence {
  public:
   FrameResourceFence() = default;
 
   // ResourceFence implementation.
-  void Set() override { event_.Signal(); }
+  void Set() override { set_ = true; }
   bool HasPassed() override { return event_.IsSignaled(); }
+
+  bool WasSet() { return set_; }
+  void Signal() { event_.Signal(); }
 
  private:
   ~FrameResourceFence() override = default;
+
+  // Accessed only from compositor thread.
+  bool set_ = false;
 
   base::WaitableEvent event_;
 
@@ -656,8 +661,8 @@ void SkiaRenderer::BeginDrawingFrame() {
     read_lock_fence = sync_queries_->StartNewFrame();
     current_frame_resource_fence_ = nullptr;
   } else {
-    read_lock_fence = base::MakeRefCounted<FrameResourceFence>();
-    current_frame_resource_fence_ = read_lock_fence;
+    current_frame_resource_fence_ = base::MakeRefCounted<FrameResourceFence>();
+    read_lock_fence = current_frame_resource_fence_;
   }
   resource_provider_->SetReadLockFence(read_lock_fence.get());
 
@@ -680,6 +685,7 @@ void SkiaRenderer::FinishDrawingFrame() {
   if (sync_queries_) {
     sync_queries_->EndCurrentFrame();
   }
+  current_frame_resource_fence_ = nullptr;
   current_canvas_ = nullptr;
   current_surface_ = nullptr;
 
@@ -688,8 +694,10 @@ void SkiaRenderer::FinishDrawingFrame() {
   if (use_swap_with_bounds_)
     swap_content_bounds_ = current_frame()->root_content_bounds;
 
-  skia_output_surface_->ScheduleOverlays(
-      std::move(current_frame()->overlay_list));
+  // TODO(weiliangc): Remove this once OverlayProcessor schedules overlays.
+  if (current_frame()->output_surface_plane)
+    skia_output_surface_->ScheduleOutputSurfaceAsOverlay(
+        current_frame()->output_surface_plane.value());
 }
 
 void SkiaRenderer::SwapBuffers(std::vector<ui::LatencyInfo> latency_info) {
@@ -1509,8 +1517,9 @@ sk_sp<SkColorFilter> SkiaRenderer::GetColorFilter(const gfx::ColorSpace& src,
                                                   const gfx::ColorSpace& dst,
                                                   float resource_offset,
                                                   float resource_multiplier) {
-  sk_sp<SkColorFilter>& color_filter = color_filter_cache_[dst][src];
-  if (!color_filter) {
+  std::unique_ptr<SkRuntimeColorFilterFactory>& factory =
+      color_filter_cache_[dst][src];
+  if (!factory) {
     std::unique_ptr<gfx::ColorTransform> transform =
         gfx::ColorTransform::NewColorTransform(
             src, dst, gfx::ColorTransform::Intent::INTENT_PERCEPTUAL);
@@ -1518,11 +1527,6 @@ sk_sp<SkColorFilter> SkiaRenderer::GetColorFilter(const gfx::ColorSpace& src,
     // COLOR_CONVERSION_MODE_LUT).
     if (!transform->CanGetShaderSource())
       return nullptr;
-
-    YUVInput input;
-    input.offset = resource_offset;
-    input.multiplier = resource_multiplier;
-    sk_sp<SkData> data = SkData::MakeWithCopy(&input, sizeof(input));
 
     const char* hdr = R"(
 layout(ctype=float) in uniform half offset;
@@ -1544,11 +1548,16 @@ void main(inout half4 color) {
 
     std::string shader = hdr + transform->GetSkShaderSource() + ftr;
 
-    color_filter =
-        SkRuntimeColorFilterFactory(SkString(shader.c_str(), shader.size()))
-            .make(data);
+    factory.reset(new SkRuntimeColorFilterFactory(
+        SkString(shader.c_str(), shader.size())));
   }
-  return color_filter;
+
+  YUVInput input;
+  input.offset = resource_offset;
+  input.multiplier = resource_multiplier;
+  sk_sp<SkData> data = SkData::MakeWithCopy(&input, sizeof(input));
+
+  return factory->make(std::move(data));
 }
 
 SkiaRenderer::DrawRPDQParams SkiaRenderer::CalculateRPDQParams(
@@ -1558,9 +1567,7 @@ SkiaRenderer::DrawRPDQParams SkiaRenderer::CalculateRPDQParams(
   DrawRPDQParams rpdq_params(params->visible_rect);
 
   // Prepare mask.
-  ResourceId mask_resource_id = quad->mask_applies_to_backdrop
-                                    ? kInvalidResourceId
-                                    : quad->mask_resource_id();
+  ResourceId mask_resource_id = quad->mask_resource_id();
   ScopedSkImageBuilder mask_image_builder(this, mask_resource_id);
   const SkImage* mask_image = mask_image_builder.sk_image();
   DCHECK_EQ(!!mask_resource_id, !!mask_image);
@@ -1904,21 +1911,17 @@ void SkiaRenderer::FinishDrawingQuadList() {
     FlushBatchedQuads();
   switch (draw_mode_) {
     case DrawMode::DDL: {
-      // Skia doesn't support releasing the last promise image ref on the DDL
-      // recordering thread. So we clear all cached promise images before
-      // SubmitPaint to the GPU thread.
-      promise_images_.clear();
-      yuv_promise_images_.clear();
-
       base::OnceClosure on_finished_callback;
 
       // Signal |current_frame_resource_fence_| when the root render pass is
       // finished.
       if (current_frame_resource_fence_ &&
+          current_frame_resource_fence_->WasSet() &&
           current_frame()->current_render_pass ==
               current_frame()->root_render_pass) {
-        on_finished_callback = base::BindOnce(
-            &ResourceFence::Set, std::move(current_frame_resource_fence_));
+        on_finished_callback =
+            base::BindOnce(&FrameResourceFence::Signal,
+                           std::move(current_frame_resource_fence_));
       }
       gpu::SyncToken sync_token =
           skia_output_surface_->SubmitPaint(std::move(on_finished_callback));

@@ -35,6 +35,15 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator {
   using SurfaceIndexMap = base::flat_map<SurfaceId, uint64_t>;
   using FrameSinkIdMap = base::flat_map<FrameSinkId, LocalSurfaceId>;
 
+  // Interface that can modify the aggregated CompositorFrame to annotate it.
+  // For example it could add extra quads.
+  class FrameAnnotator {
+   public:
+    virtual ~FrameAnnotator() = default;
+
+    virtual void AnnotateAggregatedFrame(CompositorFrame* frame) = 0;
+  };
+
   SurfaceAggregator(SurfaceManager* manager,
                     DisplayResourceProvider* provider,
                     bool aggregate_only_damaged,
@@ -63,26 +72,14 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator {
 
   bool NotifySurfaceDamageAndCheckForDisplayDamage(const SurfaceId& surface_id);
 
+  void SetFrameAnnotator(std::unique_ptr<FrameAnnotator> frame_annotator);
+
  private:
-  struct ClipData {
-    ClipData() : is_clipped(false) {}
-    ClipData(bool is_clipped, const gfx::Rect& rect)
-        : is_clipped(is_clipped), rect(rect) {}
-
-    std::string ToString() const;
-
-    bool is_clipped;
-    gfx::Rect rect;
-  };
-
-  struct PrewalkResult {
-    PrewalkResult();
-    ~PrewalkResult();
-    // This is the set of Surfaces that were referenced by another Surface, but
-    // not included in a SurfaceDrawQuad.
-    base::flat_set<SurfaceId> undrawn_surfaces;
-    bool may_contain_video = false;
-  };
+  struct ClipData;
+  struct PrewalkResult;
+  struct RoundedCornerInfo;
+  struct ChildSurfaceInfo;
+  struct RenderPassMapEntry;
 
   struct RenderPassInfo {
     // This is the id the pass is mapped to.
@@ -91,19 +88,11 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator {
     bool in_use = true;
   };
 
-  struct RoundedCornerInfo {
-    RoundedCornerInfo() : is_fast_rounded_corner(false) {}
-    // |target_transform| is the transform that maps |bounds| from its current
-    // space into the desired target space. It must be a scale+translation
-    // matrix.
-    RoundedCornerInfo(const gfx::RRectF& bounds,
-                      bool is_fast_rounded_corner,
-                      const gfx::Transform target_transform);
-
-    bool IsEmpty() const { return bounds.IsEmpty(); }
-    gfx::RRectF bounds;
-    bool is_fast_rounded_corner;
-  };
+  // Helper function that gets a list of render passes and returns a map from
+  // render pass ids to render passes.
+  static base::flat_map<RenderPassId, RenderPassMapEntry> GenerateRenderPassMap(
+      const RenderPassList& render_pass_list,
+      bool is_root_surface);
 
   ClipData CalculateClipRect(const ClipData& surface_clip,
                              const ClipData& quad_clip,
@@ -135,7 +124,8 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator {
                           gfx::Rect* damage_rect_in_quad_space,
                           bool* damage_rect_in_quad_space_valid,
                           const RoundedCornerInfo& rounded_corner_info,
-                          bool is_reflection);
+                          bool is_reflection,
+                          bool allow_merge);
 
   void EmitDefaultBackgroundColorQuad(
       const SurfaceDrawQuad* surface_quad,
@@ -187,6 +177,33 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator {
       const RoundedCornerInfo& rounded_corner_info,
       const gfx::Rect& occluding_damage_rect,
       bool occluding_damage_rect_valid);
+
+  // Helper function that uses backtracking on the render pass tree of a surface
+  // to find all surfaces embedded in it. If a surface is embedded multiple
+  // times (due to use of a MirrorLayer), it will be reachable via multiple
+  // paths from the root render pass. For each such a path the appropriate
+  // transform is calculated.
+  //  - |surface_id| specifies the surface to find all child surfaces of.
+  //  - |render_pass_map| is a pre-computed map from render pass id to some info
+  //    about the render pass, including the render pass itself and whether it
+  //    has pixel moving backdrop filter.
+  //  - |current_pass_entry| is the info about the current render pass to
+  //    process.
+  //  - |transform_to_root_target| is the accumulated transform of all render
+  //    passes along the way to the current render pass.
+  //  - |child_surfaces| is the main output of the function containing all child
+  //    surfaces found in the process.
+  //  - |pixel_moving_backdrop_filters_rect| is another output that is union of
+  //    bounds of render passes that have a pixel moving backdrop filter.
+  // TODO(mohsen): Consider refactoring this backtracking algorithm into a
+  // self-contained class.
+  void FindChildSurfaces(
+      SurfaceId surface_id,
+      base::flat_map<RenderPassId, RenderPassMapEntry>* render_pass_map,
+      RenderPassMapEntry* current_pass_entry,
+      const gfx::Transform& transform_to_root_target,
+      base::flat_map<SurfaceRange, ChildSurfaceInfo>* child_surfaces,
+      gfx::Rect* pixel_moving_backdrop_filters_rect);
 
   gfx::Rect PrewalkTree(Surface* surface,
                         bool in_moved_pixel_surface,
@@ -325,6 +342,9 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator {
   // For each FrameSinkId, contains a vector of SurfaceRanges that will damage
   // the display if they're damaged.
   base::flat_map<FrameSinkId, std::vector<SurfaceRange>> damage_ranges_;
+
+  // Used to annotate the aggregated frame for debugging.
+  std::unique_ptr<FrameAnnotator> frame_annotator_;
 
   int64_t display_trace_id_ = -1;
   base::flat_set<SurfaceId> undrawn_surfaces_;

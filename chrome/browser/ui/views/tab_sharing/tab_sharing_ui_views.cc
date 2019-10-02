@@ -31,7 +31,6 @@
 
 namespace {
 
-#if !defined(OS_MACOSX)
 const int kContentsBorderThickness = 10;
 const float kContentsBorderOpacity = 0.24;
 const SkColor kContentsBorderColor = gfx::kGoogleBlue500;
@@ -70,7 +69,6 @@ void InitContentsBorderWidget(content::WebContents* contents) {
 
   browser_view->set_contents_border_widget(widget);
 }
-#endif
 
 void SetContentsBorderVisible(content::WebContents* contents, bool visible) {
   if (!contents)
@@ -113,10 +111,7 @@ TabSharingUIViews::TabSharingUIViews(const content::DesktopMediaID& media_id,
           media_id.web_contents_id.main_render_frame_id));
   shared_tab_name_ = GetTabName(shared_tab_);
   profile_ = ProfileManager::GetLastUsedProfileAllowedByPolicy();
-#if !defined(OS_MACOSX)
-  // TODO(https://crbug.com/991896) fix contents border on Mac.
   InitContentsBorderWidget(shared_tab_);
-#endif
 }
 
 TabSharingUIViews::~TabSharingUIViews() {
@@ -167,7 +162,7 @@ void TabSharingUIViews::StopSharing() {
 
 void TabSharingUIViews::OnBrowserAdded(Browser* browser) {
   if (browser->profile()->GetOriginalProfile() == profile_)
-    tab_strip_models_observer_.Add(browser->tab_strip_model());
+    browser->tab_strip_model()->AddObserver(this);
 }
 
 void TabSharingUIViews::OnBrowserRemoved(Browser* browser) {
@@ -175,9 +170,7 @@ void TabSharingUIViews::OnBrowserRemoved(Browser* browser) {
   if (browser_list->empty())
     browser_list->RemoveObserver(this);
 
-  TabStripModel* tab_strip_model = browser->tab_strip_model();
-  if (tab_strip_models_observer_.IsObserving(tab_strip_model))
-    tab_strip_models_observer_.Remove(tab_strip_model);
+  browser->tab_strip_model()->RemoveObserver(this);
 }
 
 void TabSharingUIViews::OnTabStripModelChanged(
@@ -263,7 +256,7 @@ void TabSharingUIViews::CreateInfobarForWebContents(
 
 void TabSharingUIViews::RemoveInfobarsForAllTabs() {
   BrowserList::GetInstance()->RemoveObserver(this);
-  tab_strip_models_observer_.RemoveAll();
+  TabStripModelObserver::StopObservingAll(this);
 
   for (const auto& infobars_entry : infobars_) {
     infobars_entry.second->owner()->RemoveObserver(this);

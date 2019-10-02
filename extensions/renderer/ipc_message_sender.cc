@@ -60,29 +60,21 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
   MainThreadIPCMessageSender() : render_thread_(content::RenderThread::Get()) {}
   ~MainThreadIPCMessageSender() override {}
 
-  void SendRequestIPC(ScriptContext* context,
+  void SendRequestIPC(
+      ScriptContext* context,
                       std::unique_ptr<ExtensionHostMsg_Request_Params> params,
-                      binding::RequestThread thread,
                       bool sync, bool* success, base::ListValue* response,
                       std::string* error) override {
     content::RenderFrame* frame = context->GetRenderFrame();
     if (!frame)
       return;
 
-    switch (thread) {
-      case binding::RequestThread::UI:
-        if (!sync)
-        frame->Send(
-            new ExtensionHostMsg_Request(frame->GetRoutingID(), *params));
-        else
-        frame->Send(
-            new ExtensionHostMsg_RequestSync(frame->GetRoutingID(), *params, success, response, error));
-        break;
-      case binding::RequestThread::IO:
-        frame->Send(new ExtensionHostMsg_RequestForIOThread(
-            frame->GetRoutingID(), *params));
-        break;
-    }
+    if (!sync)
+      frame->Send(
+                  new ExtensionHostMsg_Request(frame->GetRoutingID(), *params));
+    else
+      frame->Send(
+                  new ExtensionHostMsg_RequestSync(frame->GetRoutingID(), *params, success, response, error));
   }
 
   void SendOnRequestResponseReceivedIPC(int request_id) override {}
@@ -233,7 +225,6 @@ class WorkerThreadIPCMessageSender : public IPCMessageSender {
 
   void SendRequestIPC(ScriptContext* context,
                       std::unique_ptr<ExtensionHostMsg_Request_Params> params,
-                      binding::RequestThread thread,
                       bool sync, bool* success, base::ListValue* response,
                       std::string* error) override {
     DCHECK(!context->GetRenderFrame());
@@ -251,16 +242,7 @@ class WorkerThreadIPCMessageSender : public IPCMessageSender {
     // HandleWorkerResponse().
     dispatcher_->Send(new ExtensionHostMsg_IncrementServiceWorkerActivity(
         service_worker_version_id_, guid));
-
-    switch (thread) {
-      case binding::RequestThread::UI:
-        dispatcher_->Send(new ExtensionHostMsg_RequestWorker(*params));
-        break;
-      case binding::RequestThread::IO:
-        dispatcher_->Send(
-            new ExtensionHostMsg_RequestWorkerForIOThread(*params));
-        break;
-    }
+    dispatcher_->Send(new ExtensionHostMsg_RequestWorker(*params));
   }
 
   void SendOnRequestResponseReceivedIPC(int request_id) override {

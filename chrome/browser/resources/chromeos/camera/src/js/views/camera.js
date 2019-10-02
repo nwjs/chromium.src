@@ -16,28 +16,28 @@ cca.views = cca.views || {};
 
 /**
  * Creates the camera-view controller.
- * @param {cca.models.Gallery} model Model object.
+ * @param {cca.mojo.MojoConnector} mojoConnector
+ * @param {cca.models.ResultSaver} resultSaver
  * @param {cca.device.DeviceInfoUpdater} infoUpdater
  * @param {cca.device.PhotoResolPreferrer} photoPreferrer
  * @param {cca.device.VideoConstraintsPreferrer} videoPreferrer
  * @constructor
  */
 cca.views.Camera = function(
-    model, infoUpdater, photoPreferrer, videoPreferrer) {
+    mojoConnector, resultSaver, infoUpdater, photoPreferrer, videoPreferrer) {
   cca.views.View.call(this, '#camera');
-
-  /**
-   * Gallery model used to save taken pictures.
-   * @type {cca.models.Gallery}
-   * @private
-   */
-  this.model_ = model;
 
   /**
    * @type {cca.device.DeviceInfoUpdater}
    * @private
    */
   this.infoUpdater_ = infoUpdater;
+
+  /**
+   * @type {cca.mojo.MojoConnector}
+   * @private
+   */
+  this.mojoConnector_ = mojoConnector;
 
   /**
    * Layout handler for the camera view.
@@ -51,7 +51,8 @@ cca.views.Camera = function(
    * @type {cca.views.camera.Preview}
    * @private
    */
-  this.preview_ = new cca.views.camera.Preview(this.restart.bind(this));
+  this.preview_ =
+      new cca.views.camera.Preview(mojoConnector, this.restart.bind(this));
 
   /**
    * Options for the camera.
@@ -71,36 +72,37 @@ cca.views.Camera = function(
    */
   this.bannerLearnMore_ = document.querySelector('#banner-learn-more');
 
+  const doSavePhoto = async (result, name) => {
+    cca.metrics.log(
+        cca.metrics.Type.CAPTURE, this.facingMode_, 0, result.resolution);
+    try {
+      await resultSaver.savePhoto(result.blob, name);
+    } catch (e) {
+      cca.toast.show('error_msg_save_file_failed');
+      throw e;
+    }
+  };
+  const createVideoSaver = async () => resultSaver.startSaveVideo();
+  const doSaveVideo = async (result, name) => {
+    cca.metrics.log(
+        cca.metrics.Type.CAPTURE, this.facingMode_, result.duration,
+        result.resolution);
+    try {
+      await resultSaver.finishSaveVideo(result.videoSaver, name);
+    } catch (e) {
+      cca.toast.show('error_msg_save_file_failed');
+      throw e;
+    }
+  };
+
   /**
    * Modes for the camera.
    * @type {cca.views.camera.Modes}
    * @private
    */
   this.modes_ = new cca.views.camera.Modes(
-      photoPreferrer, videoPreferrer, this.restart.bind(this),
-      async (result, filename) => {
-        if (result.blob) {
-          cca.metrics.log(
-              cca.metrics.Type.CAPTURE, this.facingMode_, 0, result.resolution);
-          try {
-            await this.model_.savePhoto(result.blob, filename);
-          } catch (e) {
-            cca.toast.show('error_msg_save_file_failed');
-            throw e;
-          }
-        }
-      },
-      async (result, filename) => {
-        cca.metrics.log(
-            cca.metrics.Type.CAPTURE, this.facingMode_, result.duration,
-            result.resolution);
-        try {
-          await this.model_.saveVideo(result.chunkfile, filename);
-        } catch (e) {
-          cca.toast.show('error_msg_save_file_failed');
-          throw e;
-        }
-      });
+      mojoConnector, photoPreferrer, videoPreferrer, this.restart.bind(this),
+      doSavePhoto, createVideoSaver, doSaveVideo);
 
   /**
    * @type {?string}
@@ -258,8 +260,11 @@ cca.views.Camera.prototype.restart = function() {
         this.started_,
         Promise.resolve(!cca.state.get('taking') || this.endTake_()),
       ])
-      .finally(() => {
+      .finally(async () => {
+        // We should close all mojo connections since any communication to a
+        // closed stream should be avoided.
         this.preview_.stop();
+        await this.mojoConnector_.reset();
         this.start_();
         return this.started_;
       });
@@ -273,6 +278,7 @@ cca.views.Camera.prototype.restart = function() {
  */
 cca.views.Camera.prototype.startWithDevice_ = async function(deviceId) {
   let supportedModes = null;
+  const deviceOperator = await this.mojoConnector_.getDeviceOperator();
   for (const mode of this.modes_.getModeCandidates()) {
     try {
       if (!deviceId) {
@@ -298,7 +304,12 @@ cca.views.Camera.prototype.startWithDevice_ = async function(deviceId) {
       }
       for (const constraints of previewCandidates) {
         try {
-          const stream = await cca.mojo.getUserMedia(deviceId, constraints);
+          if (deviceOperator) {
+            await deviceOperator.setFpsRange(deviceId, constraints);
+            await deviceOperator.setCaptureIntent(
+                deviceId, this.modes_.getCaptureIntent(mode));
+          }
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
           if (!supportedModes) {
             supportedModes = await this.modes_.getSupportedModes(stream);
             if (!supportedModes.includes(mode)) {

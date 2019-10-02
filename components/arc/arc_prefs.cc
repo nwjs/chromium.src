@@ -40,8 +40,14 @@ const char kArcDataRemoveRequested[] = "arc.data.remove_requested";
 // SetArcPlayStoreEnabledForProfile()) in chrome/browser/chromeos/arc/arc_util.
 const char kArcEnabled[] = "arc.enabled";
 // A preference to control if ARC can access removable media on the host side.
+// TODO(fukino): Remove this pref once "Play Store applications can't access
+// this device" toast in Files app becomes aware of kArcVisibleExternalStorages.
+// crbug.com/998512.
 const char kArcHasAccessToRemovableMedia[] =
     "arc.has_access_to_removable_media";
+// A preference to keep list of external storages which are visible to Android
+// apps. (i.e. can be read/written by Android apps.)
+const char kArcVisibleExternalStorages[] = "arc.visible_external_storages";
 // A preference that indicates that initial settings need to be applied. Initial
 // settings are applied only once per new OptIn once mojo settings instance is
 // ready. Each OptOut resets this preference. Note, its sense is close to
@@ -118,19 +124,6 @@ const char kEngagementTimeOsVersion[] =
 // engagement time was last recorded. Accumulated results are sent to UMA if day
 // ID has changed.
 const char kEngagementTimeDayId[] = "arc.metrics.engagement_time.day_id";
-// A preference that indicates the user has allowed voice interaction services
-// to access the "context" (text and graphic content that is currently on
-// screen). This preference can be overridden by the
-// VoiceInteractionContextEnabled administrator policy.
-const char kVoiceInteractionContextEnabled[] =
-    "settings.voice_interaction.context.enabled";
-// A preference that indicates the user has enabled voice interaction services.
-const char kVoiceInteractionEnabled[] = "settings.voice_interaction.enabled";
-// A preference that indicates the user has allowed voice interaction services
-// to use hotword listening. This preference can be overridden by the
-// VoiceInteractionHotwordEnabled administrator policy.
-const char kVoiceInteractionHotwordEnabled[] =
-    "settings.voice_interaction.hotword.enabled";
 
 // ======== LOCAL STATE PREFS ========
 
@@ -182,14 +175,12 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(kArcSkippedReportingNotice, false);
   registry->RegisterBooleanPref(kArcTermsAccepted, false);
   registry->RegisterBooleanPref(kArcTermsShownInOobe, false);
+  registry->RegisterListPref(kArcVisibleExternalStorages);
   registry->RegisterTimeDeltaPref(kEngagementTimeBackground, base::TimeDelta());
   registry->RegisterIntegerPref(kEngagementTimeDayId, 0);
   registry->RegisterTimeDeltaPref(kEngagementTimeForeground, base::TimeDelta());
   registry->RegisterStringPref(kEngagementTimeOsVersion, "");
   registry->RegisterTimeDeltaPref(kEngagementTimeTotal, base::TimeDelta());
-  registry->RegisterBooleanPref(kVoiceInteractionContextEnabled, false);
-  registry->RegisterBooleanPref(kVoiceInteractionEnabled, false);
-  registry->RegisterBooleanPref(kVoiceInteractionHotwordEnabled, false);
 }
 
 }  // namespace prefs

@@ -12,7 +12,7 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
-#include "components/arc/common/file_system.mojom.h"
+#include "components/arc/mojom/file_system.mojom.h"
 #include "components/arc/session/connection_observer.h"
 #include "components/keyed_service/core/keyed_service.h"
 
@@ -78,7 +78,7 @@ class ArcFileSystemWatcherService
 
   // Note: This should remain the last member so it'll be destroyed and
   // invalidate the weak pointers before any other members are destroyed.
-  base::WeakPtrFactory<ArcFileSystemWatcherService> weak_ptr_factory_;
+  base::WeakPtrFactory<ArcFileSystemWatcherService> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(ArcFileSystemWatcherService);
 };

@@ -7,6 +7,9 @@
 #import "base/logging.h"
 #import "ios/chrome/browser/ui/badges/badge_button.h"
 #import "ios/chrome/browser/ui/badges/badge_button_action_handler.h"
+#import "ios/chrome/browser/ui/badges/badge_constants.h"
+#include "ios/chrome/grit/ios_strings.h"
+#include "ui/base/l10n/l10n_util.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -24,7 +27,7 @@
 - (instancetype)initWithActionHandler:(BadgeButtonActionHandler*)actionHandler {
   self = [super init];
   if (self) {
-    _actionHandler = self.actionHandler;
+    _actionHandler = actionHandler;
   }
   return self;
 }
@@ -36,6 +39,8 @@
       break;
     case BadgeType::kBadgeTypePasswordUpdate:
       return [self passwordsUpdateBadgeButton];
+    case BadgeType::kBadgeTypeIncognito:
+      return [self incognitoBadgeButton];
     case BadgeType::kBadgeTypeNone:
       NOTREACHED() << "A badge should not have kBadgeTypeNone";
       return nil;
@@ -51,6 +56,10 @@
   [button addTarget:self.actionHandler
                 action:@selector(passwordsBadgeButtonTapped:)
       forControlEvents:UIControlEventTouchUpInside];
+  button.accessibilityIdentifier =
+      kBadgeButtonSavePasswordAccessibilityIdentifier;
+  button.accessibilityLabel =
+      l10n_util::GetNSString(IDS_IOS_INFOBAR_BADGES_PASSWORD_HINT);
   return button;
 }
 
@@ -61,6 +70,24 @@
   [button addTarget:self.actionHandler
                 action:@selector(passwordsBadgeButtonTapped:)
       forControlEvents:UIControlEventTouchUpInside];
+  button.accessibilityIdentifier =
+      kBadgeButtonUpdatePasswordAccessibilityIdentifier;
+  button.accessibilityLabel =
+      l10n_util::GetNSString(IDS_IOS_INFOBAR_BADGES_PASSWORD_HINT);
+  return button;
+}
+
+- (BadgeButton*)incognitoBadgeButton {
+  BadgeButton* button = [self createButtonForType:BadgeType::kBadgeTypeIncognito
+                                       imageNamed:@"incognito_badge"];
+  UIImage* image = [[UIImage imageNamed:@"incognito_badge"]
+      imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+  [button setImage:image forState:UIControlStateDisabled];
+  button.accessibilityTraits &= ~UIAccessibilityTraitButton;
+  button.enabled = NO;
+  button.accessibilityIdentifier = kBadgeButtonIncognitoAccessibilityIdentifier;
+  button.accessibilityLabel =
+      l10n_util::GetNSString(IDS_IOS_BADGE_INCOGNITO_HINT);
   return button;
 }
 
@@ -70,8 +97,10 @@
   UIImage* image = [[UIImage imageNamed:imageName]
       imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
   [button setImage:image forState:UIControlStateNormal];
-  button.translatesAutoresizingMaskIntoConstraints = NO;
   button.imageView.contentMode = UIViewContentModeScaleAspectFit;
+  [NSLayoutConstraint
+      activateConstraints:@[ [button.widthAnchor
+                              constraintEqualToAnchor:button.heightAnchor] ]];
   return button;
 }
 

@@ -260,6 +260,10 @@ const base::Feature kD3D11VideoDecoder{"D3D11VideoDecoder",
 const base::Feature kD3D11VideoDecoderIgnoreWorkarounds{
     "D3D11VideoDecoderIgnoreWorkarounds", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Don't allow use of 11.1 devices, even if supported. They might be more crashy
+const base::Feature kD3D11LimitTo11_0{"D3D11VideoDecoderLimitTo11_0",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Falls back to other decoders after audio/video decode error happens. The
 // implementation may choose different strategies on when to fallback. See
 // DecoderStream for details. When disabled, playback will fail immediately
@@ -269,8 +273,15 @@ const base::Feature kFallbackAfterDecodeError{"FallbackAfterDecodeError",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Show toolbar button that opens dialog for controlling media sessions.
-const base::Feature kGlobalMediaControls{"GlobalMediaControls",
-                                         base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kGlobalMediaControls {
+  "GlobalMediaControls",
+#if defined(OS_WIN) || defined(OS_MACOSX) || \
+    (defined(OS_LINUX) && !defined(OS_CHROMEOS))
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+};
 
 // Enable new cpu load estimator. Intended for evaluation in local
 // testing and origin-trial.
@@ -317,9 +328,11 @@ const base::Feature kVaapiVP8Encoder{"VaapiVP8Encoder",
 const base::Feature kVaapiVP9Encoder{"VaapiVP9Encoder",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
+#if defined(ARCH_CPU_X86_FAMILY) && defined(OS_CHROMEOS)
 // Enable VP9 k-SVC decoding with HW decoder for webrtc use case on ChromeOS.
 const base::Feature kVp9kSVCHWDecoding{"Vp9kSVCHWDecoding",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
+#endif  //  defined(ARCH_CPU_X86_FAMILY) && defined(OS_CHROMEOS)
 
 // Inform video blitter of video color space.
 const base::Feature kVideoBlitColorAccuracy{"video-blit-color-accuracy",
@@ -351,6 +364,12 @@ const base::Feature kHardwareSecureDecryption{
 // served by the player regardless of the query result.
 const base::Feature kWidevineAv1{"WidevineAv1",
                                  base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Forces to support encrypted AV1 in EME requestMediaKeySystemAccess() query by
+// Widevine key system even if the underlying Widevine CDM doesn't support it.
+// No effect if "WidevineAv1" feature is disabled.
+const base::Feature kWidevineAv1ForceSupportForTesting{
+    "WidevineAv1ForceSupportForTesting", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables handling of hardware media keys for controlling media.
 const base::Feature kHardwareMediaKeyHandling{
@@ -418,7 +437,7 @@ const base::Feature kDisableSurfaceLayerForVideo{
 
 // Enable picture in picture web api for android.
 const base::Feature kPictureInPictureAPI{"PictureInPictureAPI",
-                                         base::FEATURE_DISABLED_BY_DEFAULT};
+                                         base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables CanPlayType() (and other queries) for HLS MIME types. Note that
 // disabling this also causes navigation to .m3u8 files to trigger downloading
@@ -428,6 +447,12 @@ const base::Feature kCanPlayHls{"CanPlayHls", base::FEATURE_ENABLED_BY_DEFAULT};
 // Enables the use of MediaPlayerRenderer for HLS playback. When disabled,
 // HLS manifests will fail to load (triggering source fallback or load error).
 const base::Feature kHlsPlayer{"HlsPlayer", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Use the (hacky) AudioManager.getOutputLatency() call to get the estimated
+// hardware latency for a stream for OpenSLES playback.  This is normally not
+// needed, except for some Android TV devices.
+const base::Feature kUseAudioLatencyFromHAL{"UseAudioLatencyFromHAL",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
 #endif  // defined(OS_ANDROID)
 
@@ -505,10 +530,19 @@ const base::Feature kPreloadMediaEngagementData{
 const base::Feature kMediaEngagementHTTPSOnly{
     "MediaEngagementHTTPSOnly", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enables experimental local learning for media.  Adds reporting only; does not
-// change media behavior.
+// Send events to devtools rather than to chrome://media-internals
+const base::Feature kMediaInspectorLogging{"MediaInspectorLogging",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables experimental local learning for media. Used in the context of media
+// capabilities only. Adds reporting only; does not change media behavior.
 const base::Feature kMediaLearningExperiment{"MediaLearningExperiment",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables the general purpose media machine learning framework. Adds reporting
+// only; does not change media behavior.
+const base::Feature kMediaLearningFramework{"MediaLearningFramework",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables flash to be ducked by audio focus. This is enabled on Chrome OS which
 // has audio focus enabled.
@@ -538,6 +572,9 @@ const base::Feature kInternalMediaSession {
       base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 };
+
+const base::Feature kUseFakeDeviceForMediaStream{
+    "use-fake-device-for-media-stream", base::FEATURE_DISABLED_BY_DEFAULT};
 
 bool IsVideoCaptureAcceleratedJpegDecodingEnabled() {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(

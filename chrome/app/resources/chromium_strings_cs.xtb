@@ -17,6 +17,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="1524282610922162960">Sdílet kartu prohlížeče Chromium</translation>
 <translation id="1668054258064581266">Odebrání účtu z aplikace Chromium se může projevit až po opětovném načtení otevřených karet.</translation>
 <translation id="1688750314291223739">Chcete-li uložit personalizované funkce prohlížeče na web a získat k nim přístup z prohlížeče Chromium v libovolném prohlížeči, nastavte synchronizaci.</translation>
+<translation id="1705503634486268204">Prohlížeč Chromium vám může pomoci tím, že si bude pamatovat hesla za vás.</translation>
 <translation id="1708666629004767631">K dispozici je nová, bezpečnější verze prohlížeče Chromium.</translation>
 <translation id="1766096484055239003">Váš administrátor vyžaduje, abyste kvůli použití této aktualizace Chromium restartovali</translation>
 <translation id="1774152462503052664">Nechat prohlížeč Chromium spuštěný na pozadí</translation>
@@ -127,9 +128,6 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="5634636535844844681">Chromium vyžaduje systém Windows 7 nebo vyšší.</translation>
 <translation id="5680901439334282664">přihlaste se do prohlížeče Chromium</translation>
 <translation id="5698481217667032250">Zobrazit Chromium v tomto jazyce</translation>
-<translation id="5756484659843248772">V tomto jazyce se zobrazuje uživatelské rozhraní systému Chromium OS</translation>
-<translation id="5768914737813585044">Zobrazit Chromium OS v tomto jazyce</translation>
-<translation id="5796460469508169315">Prohlížeč Chromium je téměř připraven.</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5862307444128926510">Vítejte v prohlížeči Chromium</translation>
 <translation id="5877064549588274448">Verze byla změněna. Změny se projeví po restartování zařízení.</translation>
@@ -145,6 +143,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="6096348254544841612">Přizpůsobte si prohlížeč Chromium a ovládejte jej. Je k dispozici aktualizace.</translation>
 <translation id="6120345080069858279">Chromium vám toto heslo uloží do účtu Google. Nebudete si ho muset pamatovat.</translation>
 <translation id="6129621093834146363">Soubor <ph name="FILE_NAME" /> je nebezpečný, proto jej prohlížeč Chromium zablokoval.</translation>
+<translation id="6173098285107411678">Pokud některé nastavení na této stránce není zobrazeno, podívejte se do <ph name="LINK_BEGIN" />nastavení prohlížeče Chromium<ph name="LINK_END" /></translation>
 <translation id="6212496753309875659">V tomto počítači je již nainstalována novější verze prohlížeče Chromium. Jestliže tento software nefunguje, odinstalujte Chromium a zkuste to znovu.</translation>
 <translation id="6219195342503754812">{0,plural, =0{Chromium se nyní restartuje}=1{Chromium se za 1 sekundu restartuje}few{Chromium se za # sekundy restartuje}many{Chromium se za # sekundy restartuje}other{Chromium se za # sekund restartuje}}</translation>
 <translation id="6248213926982192922">Nastavit Chromium jako výchozí prohlížeč</translation>
@@ -192,12 +191,6 @@ Chromium nemůže vaše nastavení obnovit.</translation>
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7339898014177206373">Nové okno</translation>
 <translation id="734373864078049451">Zde jsou k dispozici vaše weby, záložky a další obsah prohlížeče Chromium.</translation>
-<translation id="7344413941077984497">Chcete-li nastavit, které weby může uživatel <ph name="NEW_PROFILE_NAME" /> zobrazit, nakonfigurujte omezení a nastavení na stránce <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" />. Pokud nezměníte výchozí nastavení, uživatel <ph name="NEW_PROFILE_NAME" /> na internetu bude moci prohlížet vše.
-
-Abyste uživateli <ph name="NEW_PROFILE_NAME" /> zabránili v přístupu k vašemu účtu, když Chromium nepoužíváte, nezapomeňte svůj profil uzamknout. Provedete to tak, že v pravém horním rohu prohlížeče kliknete na název svého profilu a vyberete Ukončit a použít rodičovský zámek.
-<ph name="BEGIN_LINK_2" />Další informace<ph name="END_LINK_2" />
-
-Další pokyny naleznete v e-mailu ve svém účtu <ph name="ACCOUNT_EMAIL" />.</translation>
 <translation id="7349591376906416160">Administrátor systému nakonfiguroval prohlížeč Chromium tak, aby pro přístup k adrese <ph name="TARGET_URL_HOSTNAME" /> otevřel prohlížeč <ph name="ALTERNATIVE_BROWSER_NAME" />.</translation>
 <translation id="7448255348454382571">Restartujte Chromium OS</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> – Chromium Dev</translation>
@@ -231,7 +224,6 @@ Další pokyny naleznete v e-mailu ve svém účtu <ph name="ACCOUNT_EMAIL" />.
 <translation id="8290862415967981663">Tento soubor může být nebezpečný, proto jej prohlížeč Chromium zablokoval.</translation>
 <translation id="8330519371938183845">Po přihlášení si budete moci Chromium synchronizovat a upravit na různých zařízeních</translation>
 <translation id="8340674089072921962">Před vámi prohlížeč Chromium používal uživatel <ph name="USER_EMAIL_ADDRESS" /></translation>
-<translation id="8375950122744241554">Profily dozorovaných uživatelů již od verze Chromium 70 nebudou k dispozici.</translation>
 <translation id="8417404458978023919">{0,plural, =1{Do jednoho dne Chromium restartujte}few{Do # dní Chromium restartujte}many{Do # dne Chromium restartujte}other{Do # dní Chromium restartujte}}</translation>
 <translation id="8453117565092476964">Archiv instalačního programu je poškozený nebo neplatný. Stáhněte prosím Chromium znovu.</translation>
 <translation id="8493179195440786826">Prohlížeč Chromium je zastaralý</translation>

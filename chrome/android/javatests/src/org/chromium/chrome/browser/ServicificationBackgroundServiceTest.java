@@ -134,7 +134,6 @@ public final class ServicificationBackgroundServiceTest {
     @Test
     @MediumTest
     @Feature({"ServicificationStartup"})
-    @CommandLineFlags.Add({"enable-features=NetworkService"})
     public void testFullBrowserStartsAfterServiceManager() {
         startServiceAndWaitForNative(mServicificationBackgroundService);
         ServicificationBackgroundService.assertOnlyServiceManagerStarted();

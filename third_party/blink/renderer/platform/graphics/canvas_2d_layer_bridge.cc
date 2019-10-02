@@ -240,6 +240,10 @@ void Canvas2DLayerBridge::Hibernate() {
   copy_paint.setBlendMode(SkBlendMode::kSrc);
   scoped_refptr<StaticBitmapImage> snapshot =
       resource_host_->ResourceProvider()->Snapshot();
+  if (!snapshot) {
+    logger_->ReportHibernationEvent(kHibernationAbortedDueSnapshotFailure);
+    return;
+  }
   temp_hibernation_surface->getCanvas()->drawImage(
       snapshot->PaintImageForCurrentFrame().GetSkImage(), 0, 0, &copy_paint);
   hibernation_image_ = temp_hibernation_surface->makeImageSnapshot();
@@ -347,7 +351,7 @@ CanvasResourceProvider* Canvas2DLayerBridge::GetOrCreateResourceProvider(
   return resource_provider;
 }
 
-cc::PaintCanvas* Canvas2DLayerBridge::Canvas() {
+cc::PaintCanvas* Canvas2DLayerBridge::DrawingCanvas() {
   DCHECK(resource_host_);
   if (is_deferral_enabled_)
     return recorder_->getRecordingCanvas();
@@ -419,7 +423,7 @@ void Canvas2DLayerBridge::SetIsHidden(bool hidden) {
 }
 
 void Canvas2DLayerBridge::DrawFullImage(const cc::PaintImage& image) {
-  Canvas()->drawImage(image, 0, 0);
+  DrawingCanvas()->drawImage(image, 0, 0);
 }
 
 bool Canvas2DLayerBridge::WritePixels(const SkImageInfo& orig_info,

@@ -25,17 +25,6 @@
 namespace base {
 
 #if !defined(OS_NACL_NONSFI)
-namespace {
-
-// The maximum number of 'uniquified' files we will try to create.
-// This is used when the filename we're trying to download is already in use,
-// so we create a new unique filename by appending " (nnn)" before the
-// extension, where 1 <= nnn <= kMaxUniqueFiles.
-// Also used by code that cleans up said files.
-static const int kMaxUniqueFiles = 100;
-
-}  // namespace
-
 int64_t ComputeDirectorySize(const FilePath& root_path) {
   int64_t running_size = 0;
   FileEnumerator file_iter(root_path, true, FileEnumerator::FILES);
@@ -280,34 +269,28 @@ bool TruncateFile(FILE* file) {
   return true;
 }
 
-int GetUniquePathNumber(const FilePath& path,
-                        const FilePath::StringType& suffix) {
-  bool have_suffix = !suffix.empty();
-  if (!PathExists(path) &&
-      (!have_suffix || !PathExists(FilePath(path.value() + suffix)))) {
+int GetUniquePathNumber(const FilePath& path) {
+  DCHECK(!path.empty());
+  if (!PathExists(path))
     return 0;
-  }
 
-  FilePath new_path;
+  std::string number;
   for (int count = 1; count <= kMaxUniqueFiles; ++count) {
-    new_path = path.InsertBeforeExtensionASCII(StringPrintf(" (%d)", count));
-    if (!PathExists(new_path) &&
-        (!have_suffix || !PathExists(FilePath(new_path.value() + suffix)))) {
+    StringAppendF(&number, " (%d)", count);
+    if (!PathExists(path.InsertBeforeExtensionASCII(number)))
       return count;
-    }
+    number.clear();
   }
 
   return -1;
 }
 
 FilePath GetUniquePath(const FilePath& path) {
-  FilePath unique_path = path;
-  int uniquifier = GetUniquePathNumber(path, FilePath::StringType());
-  if (uniquifier > 0) {
-    unique_path = unique_path.InsertBeforeExtensionASCII(
-        StringPrintf(" (%d)", uniquifier));
-  }
-  return unique_path;
+  DCHECK(!path.empty());
+  const int uniquifier = GetUniquePathNumber(path);
+  if (uniquifier > 0)
+    return path.InsertBeforeExtensionASCII(StringPrintf(" (%d)", uniquifier));
+  return uniquifier == 0 ? path : base::FilePath();
 }
 #endif  // !defined(OS_NACL_NONSFI)
 

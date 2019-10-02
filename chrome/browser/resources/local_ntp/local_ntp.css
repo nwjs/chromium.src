@@ -36,7 +36,6 @@ html {
   /* These can be overridden by themes. */
   --text-color: #000;
   --text-color-light: #fff;
-  --text-color-link: rgb(17, 85, 204);
 
   height: 100%;
 }
@@ -46,7 +45,6 @@ html {
     /* These can be overridden by themes. */
     --text-color: rgb(var(--GG200-rgb));
     --text-color-light: rgb(var(--GG200-rgb));
-    --text-color-link: rgb(var(--GB400-dark-rgb));
   }
 }
 
@@ -73,7 +71,7 @@ body {
   min-height: 100%;
 }
 
-body.inited {
+html.inited body {
   display: block;
 }
 
@@ -200,6 +198,7 @@ html[dir=rtl] #fakebox-search-icon {
   text-align: initial;
   text-overflow: ellipsis;
   top: 0;
+  user-select: none;
   vertical-align: middle;
   visibility: inherit;
   white-space: nowrap;
@@ -831,7 +830,7 @@ html[dir=rtl] .menu-option {
   height: 32px;
   line-height: 32px;
   margin-inline-start: 16px;
-  max-width: 126px;
+  max-width: 125px;
   overflow: hidden;
   text-overflow: ellipsis;
   user-select: none;
@@ -892,6 +891,7 @@ html[dir=rtl] .menu-option {
   margin-inline-start: 40px;
   position: relative;
   width: 568px;
+  z-index: 1;
 }
 
 .menu-panel {
@@ -1766,6 +1766,12 @@ html[dir=rtl] #left-semicircle {
   border-bottom-right-radius: var(--tile-size);
   border-top-left-radius: 0;
   border-top-right-radius: var(--tile-size);
+}
+
+#colors-theme-info {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #refresh-daily-wrapper {

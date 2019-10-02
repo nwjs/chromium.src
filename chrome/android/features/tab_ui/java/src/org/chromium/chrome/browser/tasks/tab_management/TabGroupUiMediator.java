@@ -21,6 +21,8 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
+import org.chromium.chrome.browser.tasks.tab_groups.EmptyTabGroupModelFilterObserver;
+import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator;
 import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.util.UrlConstants;
@@ -72,6 +74,7 @@ public class TabGroupUiMediator {
     private final TabModelSelectorObserver mTabModelSelectorObserver;
     private boolean mIsTabGroupUiVisible;
     private boolean mIsShowingOverViewMode;
+    private final TabGroupModelFilter.Observer mTabGroupModelFilterObserver;
 
     TabGroupUiMediator(
             BottomControlsCoordinator.BottomControlsVisibilityController visibilityController,
@@ -110,8 +113,10 @@ public class TabGroupUiMediator {
 
             @Override
             public void didAddTab(Tab tab, int type) {
-                if (type == TabLaunchType.FROM_CHROME_UI || type == TabLaunchType.FROM_RESTORE)
+                if (type == TabLaunchType.FROM_CHROME_UI || type == TabLaunchType.FROM_RESTORE
+                        || type == TabLaunchType.FROM_STARTUP) {
                     return;
+                }
                 resetTabStripWithRelatedTabsForId(tab.getId());
             }
 
@@ -124,8 +129,9 @@ public class TabGroupUiMediator {
 
             @Override
             public void tabClosureUndone(Tab tab) {
-                if (!mIsTabGroupUiVisible && !mIsShowingOverViewMode)
+                if (!mIsTabGroupUiVisible && !mIsShowingOverViewMode) {
                     resetTabStripWithRelatedTabsForId(tab.getId());
+                }
             }
         };
         mOverviewModeObserver = new EmptyOverviewModeObserver() {
@@ -165,6 +171,24 @@ public class TabGroupUiMediator {
                 }
             }
         };
+
+        mTabGroupModelFilterObserver = new EmptyTabGroupModelFilterObserver() {
+            @Override
+            public void didMoveTabOutOfGroup(Tab movedTab, int prevFilterIndex) {
+                if (mIsTabGroupUiVisible && movedTab == mTabModelSelector.getCurrentTab()) {
+                    resetTabStripWithRelatedTabsForId(movedTab.getId());
+                }
+            }
+        };
+
+        // TODO(995951): Add observer similar to TabModelSelectorTabModelObserver for
+        // TabModelFilter.
+        ((TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider().getTabModelFilter(
+                 false))
+                .addTabGroupObserver(mTabGroupModelFilterObserver);
+        ((TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider().getTabModelFilter(
+                 true))
+                .addTabGroupObserver(mTabGroupModelFilterObserver);
 
         mThemeColorObserver = (color, shouldAnimate)
                 -> mToolbarPropertyModel.set(TabStripToolbarViewProperties.PRIMARY_COLOR, color);
@@ -233,14 +257,20 @@ public class TabGroupUiMediator {
     }
 
     public void destroy() {
-        if (mTabModelObserver != null && mTabModelSelector != null) {
+        if (mTabModelSelector != null) {
             mTabModelSelector.getTabModelFilterProvider().removeTabModelFilterObserver(
                     mTabModelObserver);
+            ((TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider().getTabModelFilter(
+                     false))
+                    .removeTabGroupObserver(mTabGroupModelFilterObserver);
+            ((TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider().getTabModelFilter(
+                     true))
+                    .removeTabGroupObserver(mTabGroupModelFilterObserver);
+            mTabModelSelector.removeObserver(mTabModelSelectorObserver);
         }
         mOverviewModeBehavior.removeOverviewModeObserver(mOverviewModeObserver);
         mThemeColorProvider.removeThemeColorObserver(mThemeColorObserver);
         mThemeColorProvider.removeTintObserver(mTintObserver);
-        mTabModelSelector.removeObserver(mTabModelSelectorObserver);
         mTabModelSelectorTabObserver.destroy();
     }
 

@@ -36,7 +36,7 @@ class IPCMessageSender {
   virtual void SendRequestIPC(
       ScriptContext* context,
       std::unique_ptr<ExtensionHostMsg_Request_Params> params,
-      binding::RequestThread thread, bool sync = false,
+      bool sync = false,
       bool* success = nullptr, base::ListValue* response = nullptr,
       std::string* error = nullptr) = 0;
 

@@ -15,6 +15,7 @@
 <translation id="1524282610922162960">Chromium cilnes kopīgošana</translation>
 <translation id="1668054258064581266">Kad konts būs noņemts no Chromium, iespējams, būs atkārtoti jāielādē atvērtās cilnes, lai izmaiņas stātos spēkā.</translation>
 <translation id="1688750314291223739">Iestatiet sinhronizāciju, lai saglabātu savas personalizētās pārlūka funkcijas tīmeklī un piekļūtu tām no Chromium jebkurā datorā.</translation>
+<translation id="1705503634486268204">Chromium var palīdzēt jums atcerēties paroles, lai jums tas nebūtu jādara.</translation>
 <translation id="1708666629004767631">Ir pieejama jauna un drošāka Chromium versija.</translation>
 <translation id="1766096484055239003">Lai lietotu atjauninājumu, administrators pieprasa restartēt pārlūku Chromium.</translation>
 <translation id="1774152462503052664">Ļaut Chromium darboties fonā</translation>
@@ -125,9 +126,6 @@
 <translation id="5634636535844844681">Pārlūka Chromium izmantošanai nepieciešama operētājsistēma Windows 7 vai jaunāka versija.</translation>
 <translation id="5680901439334282664">pierakstieties pārlūkā Chromium</translation>
 <translation id="5698481217667032250">Rādīt Chromium šajā valodā</translation>
-<translation id="5756484659843248772">Šī valoda tiek izmantota, lai attēlotu Chromium OS lietotāja saskarni</translation>
-<translation id="5768914737813585044">Rādīt Chromium OS šajā valodā</translation>
-<translation id="5796460469508169315">Chromium ir gandrīz gatavs!</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5862307444128926510">Laipni lūdzam pārlūkā Chromium!</translation>
 <translation id="5877064549588274448">Kanāls tika mainīts. Lai lietotu izmaiņas, restartējiet ierīci.</translation>
@@ -143,6 +141,7 @@
 <translation id="6096348254544841612">Pielāgojiet un pārvaldiet pārlūku Chromium. Ir pieejams atjauninājums.</translation>
 <translation id="6120345080069858279">Pārlūks Chromium saglabās šo paroli jūsu Google kontā. To nav nepieciešams iegaumēt.</translation>
 <translation id="6129621093834146363">Fails <ph name="FILE_NAME" /> ir bīstams, tādēļ Chromium to bloķēja.</translation>
+<translation id="6173098285107411678">Ja šajā lapā iestatījums nav pieejams, skatiet to sadaļā <ph name="LINK_BEGIN" />Pārlūka Chromium iestatījumi<ph name="LINK_END" />.</translation>
 <translation id="6212496753309875659">Šim datoram jau ir jaunākā Chromium versija. Ja programmatūra nedarbojas, atinstalējiet pārlūku Chromium un mēģiniet vēlreiz.</translation>
 <translation id="6219195342503754812">{0,plural, =0{Pārlūks Chromium tūlīt tiks restartēts}=1{Pārlūks Chromium pēc 1 sekundes tiks restartēts}zero{Pārlūks Chromium pēc # sekundēm tiks restartēts}one{Pārlūks Chromium pēc # sekundes tiks restartēts}other{Pārlūks Chromium pēc # sekundēm tiks restartēts}}</translation>
 <translation id="6248213926982192922">Padarīt Chromium par noklusējuma pārlūku</translation>
@@ -188,12 +187,6 @@ Dažas funkcijas var nebūt pieejamas. Norādiet citu profila direktoriju vai iz
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7339898014177206373">Jauns logs</translation>
 <translation id="734373864078049451">Šeit atrodas jūsu tīmekļa saturs, grāmatzīmes un cits Chromium saturs.</translation>
-<translation id="7344413941077984497">Lai iestatītu, kuras vietnes var skatīt lietotājs <ph name="NEW_PROFILE_NAME" />, varat konfigurēt ierobežojumus un iestatījumus vietnē <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" />. Ja nemainīsiet noklusējuma iestatījumus, <ph name="NEW_PROFILE_NAME" /> varēs pārlūkot visu tīmekļa saturu.
-
-Lai <ph name="NEW_PROFILE_NAME" /> nevarētu piekļūt jūsu kontam, noteikti bloķējiet savu profilu, kad neizmantojat Chromium. Lai to izdarītu, pārlūka augšējā labajā stūrī noklikšķiniet uz sava profila vārda un atlasiet vienumu “Iziet un bloķēt”.
-<ph name="BEGIN_LINK_2" />Uzziniet vairāk<ph name="END_LINK_2" />.
-
-Papildu norādījumus skatiet e-pasta ziņojumā šeit: <ph name="ACCOUNT_EMAIL" />.</translation>
 <translation id="7349591376906416160">Jūsu sistēmas administrators ir konfigurējis Chromium atvērt <ph name="ALTERNATIVE_BROWSER_NAME" />, lai piekļūtu <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="7448255348454382571">Chromium OS restartēšana</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> — Chromium izstrādātāju versija</translation>
@@ -227,7 +220,6 @@ Papildu norādījumus skatiet e-pasta ziņojumā šeit: <ph name="ACCOUNT_EMAIL"
 <translation id="8290862415967981663">Šis fails var būt bīstams, tāpēc Chromium to bloķēja.</translation>
 <translation id="8330519371938183845">Pierakstieties, lai sinhronizētu un personalizētu pārlūku Chromium visās savās ierīcēs.</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> iepriekš izmantoja Chromium</translation>
-<translation id="8375950122744241554">Pārlūkā Chromium 70 un jaunākās versijās vairs nebūs pieejami uzraudzīto lietotāju profili.</translation>
 <translation id="8417404458978023919">{0,plural, =1{Restartējiet pārlūku Chromium vienas dienas laikā}zero{Restartējiet pārlūku Chromium # dienu laikā}one{Restartējiet pārlūku Chromium # dienas laikā}other{Restartējiet pārlūku Chromium # dienu laikā}}</translation>
 <translation id="8453117565092476964">Instalēšanas programmas arhīvs ir bojāts vai nav derīgs. Lejupielādējiet Chromium vēlreiz.</translation>
 <translation id="8493179195440786826">Chromium versija ir novecojusi</translation>

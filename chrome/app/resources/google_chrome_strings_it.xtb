@@ -85,13 +85,6 @@ Se esegui comunque l'accesso, le informazioni di Chrome come Preferiti, cronolog
 <translation id="3080151273017101988">Continua a eseguire applicazioni in background dopo la chiusura di Google Chrome</translation>
 <translation id="3089968997497233615">È disponibile una nuova versione più sicura di Google Chrome.</translation>
 <translation id="3149510190863420837">Applicazioni Chrome</translation>
-<translation id="3251381707915721925">Per impostare i siti web che <ph name="NEW_PROFILE_NAME" /> potrà visitare, puoi configurare limitazioni e impostazioni visitando la pagina <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" />. Se non cambi le impostazioni predefinite, <ph name="NEW_PROFILE_NAME" /> potrà visitare qualsiasi sito web.
-
-
-Per impedire a <ph name="NEW_PROFILE_NAME" /> di accedere al tuo account, assicurati di bloccare il tuo profilo quando non utilizzi Chromium. A tale scopo, fai clic sul nome del tuo profilo nell'angolo in alto a destra del browser e seleziona "Esci e blocca".
-<ph name="BEGIN_LINK_2" />Ulteriori informazioni<ph name="END_LINK_2" />
-
-Per ulteriori informazioni, controlla l'email all'indirizzo <ph name="ACCOUNT_EMAIL" />.</translation>
 <translation id="3282568296779691940">Accedi a Chrome</translation>
 <translation id="3340978935015468852">impostazioni</translation>
 <translation id="3360895254066713204">Supporto Chrome</translation>
@@ -151,7 +144,6 @@ Per ulteriori informazioni, controlla l'email all'indirizzo <ph name="ACCOUNT_EM
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Impossibile sincronizzare i dati in Google Chrome. Aggiorna la passphrase di sincronizzazione.</translation>
 <translation id="5062123544085870375">Riavvia Chrome OS</translation>
-<translation id="5090044601776247154">I profili utente supervisionati non saranno più disponibili a partire da Google Chrome 70.</translation>
 <translation id="5132929315877954718">Scopri applicazioni, giochi, estensioni e temi straordinari per Google Chrome.</translation>
 <translation id="5170938038195470297">Non è possibile utilizzare il tuo profilo perché è associato a una versione di Google Chrome più recente. Alcune funzioni potrebbero non essere disponibili. Specifica una directory del profilo diversa o utilizza una versione di Chrome più recente.</translation>
 <translation id="5193136243808726294">Google Chrome OS non è in grado di aprire la pagina.</translation>
@@ -176,9 +168,12 @@ Per ulteriori informazioni, controlla l'email all'indirizzo <ph name="ACCOUNT_EM
 <translation id="5906655207909574370">Aggiornamento quasi completato. Riavvia il dispositivo per terminare l'aggiornamento.</translation>
 <translation id="5940385492829620908">Il tuoi siti web, i tuoi segnalibri e gli altri contenuti Chrome sempre disponibili e aggiornati qui.</translation>
 <translation id="5941830788786076944">Imposta Google Chrome come browser predefinito</translation>
+<translation id="5977372243443849142">Chrome può aiutarti a ricordare le password in modo che tu non debba memorizzarle.</translation>
 <translation id="6014844626092547096">Hai eseguito l'accesso a Chrome. La sincronizzazione è stata disattivata dall'amministratore.</translation>
 <translation id="6040143037577758943">Chiudi</translation>
 <translation id="6070348360322141662">Per maggiore sicurezza, Google Chrome cripterà i tuoi dati</translation>
+<translation id="6102256037460917300">Se un'impostazione non viene mostrata su questa pagina, guarda nelle <ph name="LINK_BEGIN" />
+    impostazioni del browser Chrome<ph name="LINK_END" /></translation>
 <translation id="6113794647360055231">Da oggi Chrome è ancora meglio</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome Beta</translation>
@@ -220,7 +215,6 @@ Per ulteriori informazioni, controlla l'email all'indirizzo <ph name="ACCOUNT_EM
 <translation id="7486227612705979895">Chrome accederà al tuo Drive per inserire suggerimenti nella barra degli indirizzi</translation>
 <translation id="7531671357096394523">Esci da tutte le copie di Chrome.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
-<translation id="7552219221109926349">Visualizza Chrome OS in questa lingua</translation>
 <translation id="7589360514048265910">Questo computer non riceverà più gli aggiornamenti di Google Chrome perché Mac OS X 10.9 non è più supportato.</translation>
 <translation id="7592736734348559088">Impossibile sincronizzare i dati in Google Chrome perché i dati di accesso dell'account sono obsoleti.</translation>
 <translation id="7626032353295482388">Benvenuto in Chrome</translation>
@@ -238,7 +232,6 @@ Per ulteriori informazioni, controlla l'email all'indirizzo <ph name="ACCOUNT_EM
 <translation id="7896673875602241923">Qualcuno ha già eseguito l'accesso a Chrome su questo computer come <ph name="ACCOUNT_EMAIL_LAST" />. Crea un nuovo utente Chrome per tenere separate le tue informazioni.</translation>
 <translation id="7908168227788431038">Aggiornamento quasi completato. Riavvia Google Chrome per terminare l'aggiornamento.</translation>
 <translation id="7962410387636238736">Questo computer non riceverà più gli aggiornamenti di Google Chrome perché Windows XP e Windows Vista non sono più supportati.</translation>
-<translation id="8005540215158006229">Chrome è quasi pronto.</translation>
 <translation id="8008534537613507642">Reinstalla Chrome</translation>
 <translation id="8013993649590906847">Se un'immagine è senza descrizione utile, Chrome proverà a fornirne una. Per la creazione delle descrizioni, le immagini vengono inviate a Google.</translation>
 <translation id="8030318113982266900">Aggiornamento del dispositivo al canale <ph name="CHANNEL_NAME" />...</translation>
@@ -271,7 +264,6 @@ Per ulteriori informazioni, controlla l'email all'indirizzo <ph name="ACCOUNT_EM
 <translation id="870251953148363156">Aggiorna &amp;Google Chrome</translation>
 <translation id="873133009373065397">Google Chrome non è in grado di determinare o impostare il browser predefinito</translation>
 <translation id="8736674169840206667">L'amministratore richiede il riavvio di Chrome per installare un aggiornamento</translation>
-<translation id="8788264404293392165">Questa lingua è utilizzata per mostrare l'UI di Chrome OS</translation>
 <translation id="8823341990149967727">Chrome non è aggiornato</translation>
 <translation id="884296878221830158">Controlla anche la pagina visualizzata all'avvio di Chrome o quando fai clic sul pulsante Pagina iniziale.</translation>
 <translation id="8862326446509486874">Non disponi dei diritti appropriati per l'installazione a livello di sistema. Prova a eseguire nuovamente il programma di installazione come Amministratore.</translation>

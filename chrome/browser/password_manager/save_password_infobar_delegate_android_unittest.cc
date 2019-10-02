@@ -13,10 +13,10 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
+#include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/password_form.h"
 #include "components/password_manager/core/browser/fake_form_fetcher.h"
 #include "components/password_manager/core/browser/password_form_manager.h"
-#include "components/password_manager/core/browser/password_manager.h"
 #include "components/password_manager/core/browser/stub_form_saver.h"
 #include "components/password_manager/core/browser/stub_password_manager_client.h"
 #include "components/password_manager/core/browser/stub_password_manager_driver.h"
@@ -29,28 +29,40 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
 
+using password_manager::PasswordFormManager;
 using password_manager::PasswordFormMetricsRecorder;
 
 namespace {
 
-class MockPasswordFormManager : public password_manager::PasswordFormManager {
+class MockPasswordFormManager : public PasswordFormManager {
  public:
   MOCK_METHOD0(PermanentlyBlacklist, void());
 
   MockPasswordFormManager(
-      password_manager::PasswordManager* password_manager,
       password_manager::PasswordManagerClient* client,
       base::WeakPtr<password_manager::PasswordManagerDriver> driver,
-      const autofill::PasswordForm& form,
-      password_manager::FormFetcher* form_fetcher)
-      : PasswordFormManager(password_manager,
-                            client,
+      const autofill::FormData& form,
+      password_manager::FormFetcher* form_fetcher,
+      scoped_refptr<PasswordFormMetricsRecorder> metrics_recorder)
+      : PasswordFormManager(client,
                             driver,
                             form,
+                            form_fetcher,
                             std::make_unique<password_manager::StubFormSaver>(),
-                            form_fetcher) {}
+                            metrics_recorder) {}
 
-  ~MockPasswordFormManager() override {}
+  // Constructor for federation credentials.
+  MockPasswordFormManager(password_manager::PasswordManagerClient* client,
+                          const autofill::PasswordForm& form)
+      : PasswordFormManager(
+            client,
+            std::make_unique<autofill::PasswordForm>(form),
+            std::make_unique<password_manager::FakeFormFetcher>(),
+            std::make_unique<password_manager::StubFormSaver>()) {
+    CreatePendingCredentials();
+  }
+
+  ~MockPasswordFormManager() override = default;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockPasswordFormManager);
@@ -74,7 +86,7 @@ class TestSavePasswordInfoBarDelegate : public SavePasswordInfoBarDelegate {
 class SavePasswordInfoBarDelegateTest : public ChromeRenderViewHostTestHarness {
  public:
   SavePasswordInfoBarDelegateTest();
-  ~SavePasswordInfoBarDelegateTest() override {}
+  ~SavePasswordInfoBarDelegateTest() override = default;
 
   void SetUp() override;
   void TearDown() override;
@@ -93,9 +105,9 @@ class SavePasswordInfoBarDelegateTest : public ChromeRenderViewHostTestHarness {
 
   password_manager::StubPasswordManagerClient client_;
   password_manager::StubPasswordManagerDriver driver_;
-  password_manager::PasswordManager password_manager_;
 
   autofill::PasswordForm test_form_;
+  autofill::FormData observed_form_;
 
  private:
   password_manager::FakeFormFetcher fetcher_;
@@ -103,11 +115,24 @@ class SavePasswordInfoBarDelegateTest : public ChromeRenderViewHostTestHarness {
   DISALLOW_COPY_AND_ASSIGN(SavePasswordInfoBarDelegateTest);
 };
 
-SavePasswordInfoBarDelegateTest::SavePasswordInfoBarDelegateTest()
-    : password_manager_(&client_) {
+SavePasswordInfoBarDelegateTest::SavePasswordInfoBarDelegateTest() {
   test_form_.origin = GURL("https://example.com");
   test_form_.username_value = base::ASCIIToUTF16("username");
   test_form_.password_value = base::ASCIIToUTF16("12345");
+
+  // Create a simple sign-in form.
+  observed_form_.url = test_form_.origin;
+  autofill::FormFieldData field;
+  field.form_control_type = "text";
+  field.value = test_form_.username_value;
+  observed_form_.fields.push_back(field);
+  field.form_control_type = "password";
+  field.value = test_form_.password_value;
+  observed_form_.fields.push_back(field);
+
+  // Turn off waiting for server predictions in order to avoid dealing with
+  // posted tasks in PasswordFormManager.
+  PasswordFormManager::set_wait_for_server_predictions_for_filling(false);
 }
 
 PrefService* SavePasswordInfoBarDelegateTest::prefs() {
@@ -120,16 +145,16 @@ std::unique_ptr<MockPasswordFormManager>
 SavePasswordInfoBarDelegateTest::CreateMockFormManager(
     scoped_refptr<PasswordFormMetricsRecorder> metrics_recorder,
     bool with_federation_origin) {
-  auto password_form = test_form();
   if (with_federation_origin) {
+    auto password_form = test_form();
     password_form.federation_origin =
         url::Origin::Create(GURL("https://example.com"));
+    return std::make_unique<MockPasswordFormManager>(&client_, password_form);
   }
   auto manager = std::make_unique<MockPasswordFormManager>(
-      &password_manager_, &client_, driver_.AsWeakPtr(), password_form,
-      &fetcher_);
-  manager->Init(metrics_recorder);
-  manager->ProvisionallySave(password_form);
+      &client_, driver_.AsWeakPtr(), observed_form_, &fetcher_,
+      metrics_recorder);
+  manager->ProvisionallySave(observed_form_, &driver_);
   return manager;
 }
 

@@ -14,18 +14,16 @@
 namespace {
 // Duration of button animations, in seconds.
 const CGFloat kButtonAnimationDuration = 0.2;
-// Edge insets of button.
-const CGFloat kButtonEdgeInset = 6;
 // To achieve a circular corner radius, divide length of a side by 2.
 const CGFloat kButtonCircularCornerRadiusDivisor = 2.0;
-// Alpha value of button in an inactive state.
-const CGFloat kButtonInactiveAlpha = 0.38;
 }  // namespace
 
 @interface BadgeButton ()
 
 // Read/Write override.
 @property(nonatomic, assign, readwrite) BadgeType badgeType;
+// Read/Write override.
+@property(nonatomic, assign, readwrite) BOOL accepted;
 
 @end
 
@@ -38,12 +36,6 @@ const CGFloat kButtonInactiveAlpha = 0.38;
   return button;
 }
 
-- (void)willMoveToSuperview:(UIView*)newSuperview {
-  self.imageEdgeInsets = UIEdgeInsetsMake(kButtonEdgeInset, kButtonEdgeInset,
-                                          kButtonEdgeInset, kButtonEdgeInset);
-  [super willMoveToSuperview:newSuperview];
-}
-
 - (void)layoutSubviews {
   [super layoutSubviews];
   self.layer.cornerRadius =
@@ -51,10 +43,9 @@ const CGFloat kButtonInactiveAlpha = 0.38;
 }
 
 - (void)setAccepted:(BOOL)accepted animated:(BOOL)animated {
+  self.accepted = accepted;
   void (^changeTintColor)() = ^{
-    self.tintColor = accepted ? [UIColor colorNamed:kTintColor]
-                              : [UIColor colorWithWhite:0
-                                                  alpha:kButtonInactiveAlpha];
+    self.tintColor = accepted ? nil : [UIColor colorNamed:kToolbarButtonColor];
   };
   if (animated) {
     [UIView animateWithDuration:kButtonAnimationDuration

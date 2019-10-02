@@ -157,26 +157,50 @@ void MoveAllTransientChildrenToNewRoot(aura::Window* window) {
 }
 
 void CollectPipEnterExitMetrics(aura::Window* window, bool enter) {
-  const bool is_android = window->GetProperty(aura::client::kAppType) ==
-                          static_cast<int>(ash::AppType::ARC_APP);
+  const bool is_arc = window_util::IsArcWindow(window);
   if (enter) {
     UMA_HISTOGRAM_ENUMERATION(kAshPipEventsHistogramName,
                               AshPipEvents::PIP_START);
     UMA_HISTOGRAM_ENUMERATION(kAshPipEventsHistogramName,
-                              is_android ? AshPipEvents::ANDROID_PIP_START
-                                         : AshPipEvents::CHROME_PIP_START);
+                              is_arc ? AshPipEvents::ANDROID_PIP_START
+                                     : AshPipEvents::CHROME_PIP_START);
   } else {
     UMA_HISTOGRAM_ENUMERATION(kAshPipEventsHistogramName,
                               AshPipEvents::PIP_END);
-    UMA_HISTOGRAM_ENUMERATION(kAshPipEventsHistogramName,
-                              is_android ? AshPipEvents::ANDROID_PIP_END
-                                         : AshPipEvents::CHROME_PIP_END);
+    UMA_HISTOGRAM_ENUMERATION(
+        kAshPipEventsHistogramName,
+        is_arc ? AshPipEvents::ANDROID_PIP_END : AshPipEvents::CHROME_PIP_END);
   }
 }
 
 }  // namespace
 
 constexpr base::TimeDelta WindowState::kBoundsChangeSlideDuration;
+
+WindowState::ScopedBoundsChangeAnimation::ScopedBoundsChangeAnimation(
+    aura::Window* window,
+    BoundsChangeAnimationType bounds_animation_type)
+    : window_(window) {
+  window_->AddObserver(this);
+  previous_bounds_animation_type_ =
+      WindowState::Get(window_)->bounds_animation_type_;
+  WindowState::Get(window_)->bounds_animation_type_ = bounds_animation_type;
+}
+
+WindowState::ScopedBoundsChangeAnimation::~ScopedBoundsChangeAnimation() {
+  if (window_) {
+    WindowState::Get(window_)->bounds_animation_type_ =
+        previous_bounds_animation_type_;
+    window_->RemoveObserver(this);
+    window_ = nullptr;
+  }
+}
+
+void WindowState::ScopedBoundsChangeAnimation::OnWindowDestroying(
+    aura::Window* window) {
+  window_->RemoveObserver(this);
+  window_ = nullptr;
+}
 
 WindowState::~WindowState() {
   // WindowState is registered as an owned property of |window_|, and window

@@ -89,12 +89,6 @@
 <translation id="3080151273017101988">Chrome 종료 후에도 백그라운드 앱을 계속 실행</translation>
 <translation id="3089968997497233615">새롭고 안전한 Chrome의 새 버전을 사용할 수 있습니다.</translation>
 <translation id="3149510190863420837">Chrome 앱</translation>
-<translation id="3251381707915721925"><ph name="NEW_PROFILE_NAME" />님이 볼 수 있는 웹사이트를 설정하려면 <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" />을(를) 방문하여 제한사항 및 설정을 지정하세요. 기본 설정을 변경하지 않으면 <ph name="NEW_PROFILE_NAME" />님이 웹에서 모든 사이트를 탐색할 수 있습니다.
-
-<ph name="NEW_PROFILE_NAME" />님이 내 계정에 액세스하지 못하도록 하려면 Chrome을 사용하지 않을 때 프로필을 잠그세요. 이렇게 하려면 브라우저 오른쪽 상단에서 프로필 이름을 클릭하고 '종료 및 자녀 보호 잠금'을 선택하면 됩니다.
-<ph name="BEGIN_LINK_2" />자세히 알아보기<ph name="END_LINK_2" />
-
-자세한 안내를 보려면 <ph name="ACCOUNT_EMAIL" />에서 이메일을 확인하세요.</translation>
 <translation id="3282568296779691940">Chrome에 로그인</translation>
 <translation id="3340978935015468852">설정</translation>
 <translation id="3360895254066713204">Chrome 도우미</translation>
@@ -154,7 +148,6 @@
 <translation id="4990567037958725628">Chrome 카나리아</translation>
 <translation id="5028489144783860647">Chrome에서 데이터를 동기화하지 못했습니다. 동기화 암호를 업데이트하시기 바랍니다.</translation>
 <translation id="5062123544085870375">Chrome OS 다시 시작</translation>
-<translation id="5090044601776247154">Chrome 70부터는 관리 대상 사용자 프로필을 사용할 수 없습니다.</translation>
 <translation id="5132929315877954718">Chrome에 사용할 유용한 애플리케이션, 게임, 확장 프로그램 및 테마를 찾아보세요.</translation>
 <translation id="5170938038195470297">최신 버전의 Chrome에서 가져온 사용자 프로필이기 때문에 사용할 수 없습니다.
 
@@ -183,6 +176,7 @@ Chrome에서 설정을 복구할 수 없습니다.</translation>
 <translation id="5906655207909574370">업데이트가 거의 완료되었습니다. 업데이트를 완료하려면 기기를 다시 시작하세요.</translation>
 <translation id="5940385492829620908">웹, 북마크 및 기타 Chrome 콘텐츠가 여기에 저장됩니다.</translation>
 <translation id="5941830788786076944">Chrome을 기본 브라우저로</translation>
+<translation id="5977372243443849142">Chrome에서는 사용자가 기억하지 않아도 되도록 비밀번호를 저장할 수 있습니다.</translation>
 <translation id="6014844626092547096">Chrome에 로그인했습니다. 관리자가 동기화를 사용 중지했습니다.</translation>
 <translation id="6040143037577758943">닫기</translation>
 <translation id="6070348360322141662">보안 강화를 위해 Chrome에서 사용자 데이터를 암호화합니다.</translation>
@@ -227,7 +221,6 @@ Chrome에서 설정을 복구할 수 없습니다.</translation>
 <translation id="7486227612705979895">Chrome에서 내 드라이브에 액세스하여 주소 표시줄에 추천 검색어를 표시합니다.</translation>
 <translation id="7531671357096394523">모든 Chrome 버전 종료</translation>
 <translation id="7535429826459677826">Chrome 개발자</translation>
-<translation id="7552219221109926349">이 언어로 Chrome OS 표시</translation>
 <translation id="7589360514048265910">Mac OS X 10.9가 더 이상 지원되지 않으므로 이 컴퓨터에서 Chrome 업데이트를 받을 수 없게 됩니다.</translation>
 <translation id="7592736734348559088">계정의 로그인 세부정보가 오래되어 Chrome에서 데이터를 동기화하지 못했습니다.</translation>
 <translation id="7626032353295482388">Chrome에 오신 것을 환영합니다</translation>
@@ -245,7 +238,6 @@ Chrome에서 설정을 복구할 수 없습니다.</translation>
 <translation id="7896673875602241923">다른 사용자가 이전에 이 컴퓨터에서 <ph name="ACCOUNT_EMAIL_LAST" />(으)로 Chrome에 로그인했습니다. 새 Chrome 사용자를 만들어 정보를 별도로 관리하세요.</translation>
 <translation id="7908168227788431038">업데이트가 거의 완료되었습니다. 업데이트를 완료하려면 Chrome을 다시 시작하세요.</translation>
 <translation id="7962410387636238736">Windows XP와 Windows Vista가 더 이상 지원되지 않으므로 이 컴퓨터에서 Chrome 업데이트를 받을 수 없게 됩니다</translation>
-<translation id="8005540215158006229">Chrome을 사용할 준비가 되었습니다.</translation>
 <translation id="8008534537613507642">Chrome 재설치</translation>
 <translation id="8013993649590906847">이미지에 유용한 설명이 없으면 Chrome에서 자동으로 설명을 제공하려고 시도합니다. 설명을 생성하기 위해 이미지가 Google로 전송됩니다.</translation>
 <translation id="8030318113982266900">기기를 <ph name="CHANNEL_NAME" /> 채널로 업데이트하는 중...</translation>
@@ -278,7 +270,6 @@ Chrome에서 설정을 복구할 수 없습니다.</translation>
 <translation id="870251953148363156">Chrome 업데이트(&amp;G)</translation>
 <translation id="873133009373065397">Chrome에서 기본 브라우저를 확인하거나 설정할 수 없습니다.</translation>
 <translation id="8736674169840206667">관리자가 업데이트를 적용하려면 사용자가 Chrome을 다시 시작하도록 설정했습니다.</translation>
-<translation id="8788264404293392165">Chrome OS UI가 이 언어로 표시됩니다.</translation>
 <translation id="8823341990149967727">Chrome이 이전 버전임</translation>
 <translation id="884296878221830158">또한 Chrome을 시작하거나 홈 버튼을 클릭할 때 표시되는 페이지를 설정합니다.</translation>
 <translation id="8862326446509486874">시스템 수준의 설치 권한이 없습니다. 관리자 권한으로 설치 프로그램을 다시 실행해 보세요.</translation>

@@ -46,6 +46,8 @@ class ModulatorImplBase : public Modulator {
   void BuiltInModuleUseCount(layered_api::Module) const override;
   void AddToMap(const KURL& url, ModuleScript* script) override;
 
+  static bool BuiltInModuleRequireSecureContext(layered_api::Module);
+
   ModuleRecordResolver* GetModuleRecordResolver() override {
     return module_record_resolver_.Get();
   }
@@ -78,12 +80,18 @@ class ModulatorImplBase : public Modulator {
                           const KURL&,
                           const ReferrerScriptInfo&,
                           ScriptPromiseResolver*) override;
-  void RegisterImportMap(const ImportMap*) final;
+  const ImportMap* GetImportMapForTest() const final { return import_map_; }
+
+  ScriptValue CreateTypeError(const String& message) const override;
+  ScriptValue CreateSyntaxError(const String& message) const override;
+  void RegisterImportMap(const ImportMap*, ScriptValue error_to_rethrow) final;
   bool IsAcquiringImportMaps() const final { return acquiring_import_maps_; }
   void ClearIsAcquiringImportMaps() final { acquiring_import_maps_ = false; }
-  ModuleImportMeta HostGetImportMetaProperties(ModuleRecord) const override;
-  ScriptValue InstantiateModule(ModuleRecord) override;
-  Vector<ModuleRequest> ModuleRequestsFromModuleRecord(ModuleRecord) override;
+  ModuleImportMeta HostGetImportMetaProperties(
+      v8::Local<v8::Module>) const override;
+  ScriptValue InstantiateModule(v8::Local<v8::Module>, const KURL&) override;
+  Vector<ModuleRequest> ModuleRequestsFromModuleRecord(
+      v8::Local<v8::Module>) override;
   ScriptValue ExecuteModule(ModuleScript*, CaptureEvalErrorFlag) override;
 
   // Populates |reason| and returns true if the dynamic import is disallowed on

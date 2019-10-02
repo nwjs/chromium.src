@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMediator.INITIAL_SCROLL_INDEX_OFFSET;
+
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.support.annotation.Nullable;
@@ -18,12 +20,11 @@ import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
-import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.widget.ScrimView;
 import org.chromium.chrome.tab_ui.R;
@@ -65,10 +66,10 @@ public class TabGridDialogMediator {
         /**
          * Provide a {@link TabGridDialogParent.AnimationParams} to setup the animation.
          *
-         * @param index Index in GridTabSwitcher of the tab whose position is requested.
+         * @param tabId The id of the tab whose position is requested.
          * @return A {@link TabGridDialogParent.AnimationParams} used to setup the animation.
          */
-        TabGridDialogParent.AnimationParams getAnimationParamsForIndex(int index);
+        TabGridDialogParent.AnimationParams getAnimationParamsForTab(int tabId);
     }
 
     private final Context mContext;
@@ -124,7 +125,6 @@ public class TabGridDialogMediator {
                 List<Tab> relatedTabs = getRelatedTabs(tab.getId());
                 // If the group is empty, update the animation and hide the dialog.
                 if (relatedTabs.size() == 0) {
-                    mCurrentTabId = Tab.INVALID_TAB_ID;
                     hideDialog(false);
                     return;
                 }
@@ -184,33 +184,31 @@ public class TabGridDialogMediator {
         if (!showAnimation) {
             mModel.set(TabGridSheetProperties.ANIMATION_PARAMS, null);
         } else {
-            TabGroupModelFilter filter =
-                    (TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider()
-                            .getCurrentTabModelFilter();
-            int index = filter.indexOf(
-                    TabModelUtils.getTabById(mTabModelSelector.getCurrentModel(), mCurrentTabId));
-            if (mAnimationParamsProvider != null && index != TabModel.INVALID_TAB_INDEX) {
+            if (mAnimationParamsProvider != null && mCurrentTabId != Tab.INVALID_TAB_ID) {
                 mModel.set(TabGridSheetProperties.ANIMATION_PARAMS,
-                        mAnimationParamsProvider.getAnimationParamsForIndex(index));
+                        mAnimationParamsProvider.getAnimationParamsForTab(mCurrentTabId));
             }
         }
         mDialogResetHandler.resetWithListOfTabs(null);
     }
 
-    void onReset(Integer tabId) {
-        TabGroupModelFilter filter =
-                (TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider()
-                        .getCurrentTabModelFilter();
-        if (tabId != null) {
-            mCurrentTabId = tabId;
-            int index = filter.indexOf(
-                    TabModelUtils.getTabById(mTabModelSelector.getCurrentModel(), tabId));
+    void onReset(@Nullable List<Tab> tabs) {
+        if (tabs == null) {
+            mCurrentTabId = Tab.INVALID_TAB_ID;
+        } else {
+            TabModelFilter filter =
+                    mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter();
+            mCurrentTabId = filter.getTabAt(filter.indexOf(tabs.get(0))).getId();
+        }
+
+        if (mCurrentTabId != Tab.INVALID_TAB_ID) {
             if (mAnimationParamsProvider != null) {
                 TabGridDialogParent.AnimationParams params =
-                        mAnimationParamsProvider.getAnimationParamsForIndex(index);
+                        mAnimationParamsProvider.getAnimationParamsForTab(mCurrentTabId);
                 mModel.set(TabGridSheetProperties.ANIMATION_PARAMS, params);
             }
             updateDialog();
+            updateDialogScrollPosition();
             mModel.set(TabGridSheetProperties.IS_DIALOG_VISIBLE, true);
         } else {
             mModel.set(TabGridSheetProperties.IS_DIALOG_VISIBLE, false);
@@ -235,7 +233,8 @@ public class TabGridDialogMediator {
     private void updateGridTabSwitcher() {
         if (!isVisible() || mTabSwitcherResetHandler == null) return;
         mTabSwitcherResetHandler.resetWithTabList(
-                mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(), false);
+                mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(), false,
+                false);
     }
 
     private void updateDialog() {
@@ -248,8 +247,20 @@ public class TabGridDialogMediator {
         }
         mModel.set(TabGridSheetProperties.HEADER_TITLE,
                 mContext.getResources().getQuantityString(
-                        org.chromium.chrome.R.plurals.bottom_tab_grid_title_placeholder, tabsCount,
-                        tabsCount));
+                        R.plurals.bottom_tab_grid_title_placeholder, tabsCount, tabsCount));
+    }
+
+    private void updateDialogScrollPosition() {
+        // If current selected tab is not within this dialog, always scroll to the top.
+        if (mCurrentTabId != mTabModelSelector.getCurrentTabId()) {
+            mModel.set(TabGridSheetProperties.INITIAL_SCROLL_INDEX, 0);
+            return;
+        }
+        List<Tab> relatedTabs = getRelatedTabs(mCurrentTabId);
+        Tab currentTab = mTabModelSelector.getTabById(mCurrentTabId);
+        int initialPosition =
+                Math.max(relatedTabs.indexOf(currentTab) - INITIAL_SCROLL_INDEX_OFFSET, 0);
+        mModel.set(TabGridSheetProperties.INITIAL_SCROLL_INDEX, initialPosition);
     }
 
     private void setupToolbarClickHandlers() {
@@ -280,8 +291,10 @@ public class TabGridDialogMediator {
 
     private View.OnClickListener getAddButtonClickListener() {
         return view -> {
-            hideDialog(false);
+            // Get the current Tab first since hideDialog causes mCurrentTabId to be
+            // Tab.INVALID_TAB_ID.
             Tab currentTab = mTabModelSelector.getTabById(mCurrentTabId);
+            hideDialog(false);
             if (currentTab == null) {
                 mTabCreatorManager.getTabCreator(mTabModelSelector.isIncognitoSelected())
                         .launchNTP();

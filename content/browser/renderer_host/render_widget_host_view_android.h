@@ -152,7 +152,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   BrowserAccessibilityManager* CreateBrowserAccessibilityManager(
       BrowserAccessibilityDelegate* delegate,
       bool for_root_frame) override;
-  bool LockMouse() override;
+  bool LockMouse(bool request_unadjusted_movement) override;
   void UnlockMouse() override;
   void DidCreateNewRendererCompositorFrameSink(
       viz::mojom::CompositorFrameSinkClient* renderer_compositor_frame_sink)
@@ -162,7 +162,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       viz::CompositorFrame frame,
       base::Optional<viz::HitTestRegionList> hit_test_region_list) override;
   void OnDidNotProduceFrame(const viz::BeginFrameAck& ack) override;
-  void ClearCompositorFrame() override;
   void ResetFallbackToFirstNavigationSurface() override;
   bool RequestRepaintForTesting() override;
   void SetIsInVR(bool is_in_vr) override;
@@ -202,7 +201,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   bool OnMouseEvent(const ui::MotionEventAndroid& m) override;
   bool OnMouseWheelEvent(const ui::MotionEventAndroid& event) override;
   bool OnGestureEvent(const ui::GestureEventAndroid& event) override;
-  void OnSizeChanged() override;
   void OnPhysicalBackingSizeChanged() override;
 
   // ui::ViewAndroidObserver implementation:
@@ -297,14 +295,12 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   bool HasValidFrame() const;
 
   void MoveCaret(const gfx::Point& point);
-  void ShowContextMenuAtPoint(const gfx::Point& point, ui::MenuSourceType);
   void DismissTextHandles();
   void SetTextHandlesTemporarilyHidden(bool hide_handles);
   void SelectWordAroundCaretAck(bool did_select,
                                 int start_adjust,
                                 int end_adjust);
 
-  void SynchronousFrameMetadata(viz::CompositorFrameMetadata frame_metadata);
   // TODO(ericrk): Ideally we'd reemove |root_scroll_offset| from this function
   // once we have a reliable way to get it through RenderFrameMetadata.
   void FrameTokenChangedForSynchronousCompositor(
@@ -347,6 +343,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   // RenderFrameMetadataProvider::Observer
   void OnRenderFrameMetadataChangedBeforeActivation(
       const cc::RenderFrameMetadata& metadata) override;
+  void OnRenderFrameMetadataChangedAfterActivation() override;
 
   void WasEvicted();
 
@@ -372,13 +369,10 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       jint x,
       jint y);
 
-  // Insets the Visual Viewport's bottom by the amount given.  The adjustment
-  // is specified in pixels and should not be negative.  An adjustment of 0
-  // returns the Visual Viewport to a non-inset viewport that matches the
-  // Layout Viewport.
-  void InsetViewportBottom(JNIEnv* env,
-                           const base::android::JavaParamRef<jobject>& obj,
-                           jint bottom_adjust_px);
+  // Notifies that the Visual Viewport's inset bottom has changed.
+  void OnViewportInsetBottomChanged(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& obj);
 
   void WriteContentBitmapToDiskAsync(
       JNIEnv* env,
@@ -405,10 +399,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void EvictDelegatedFrame();
 
   bool ShouldRouteEvents() const;
-
-  void OnFrameMetadataUpdated(
-      const viz::CompositorFrameMetadata& frame_metadata,
-      bool is_transparent);
 
   void UpdateTouchSelectionController(
       const viz::Selection<gfx::SelectionBound>& selection,
@@ -571,8 +561,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   gfx::Point prev_mousedown_point_;
   int left_click_count_ = 0;
 
-  gfx::Insets insets_;
-
   viz::mojom::CompositorFrameSinkClient* renderer_compositor_frame_sink_ =
       nullptr;
 
@@ -601,7 +589,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
 
   base::android::ScopedJavaGlobalRef<jobject> obj_;
 
-  base::WeakPtrFactory<RenderWidgetHostViewAndroid> weak_ptr_factory_;
+  base::WeakPtrFactory<RenderWidgetHostViewAndroid> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewAndroid);
 };

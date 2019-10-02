@@ -69,7 +69,6 @@ Une fois le tutoriel terminé, utilisez ChromeVox pour accéder au bouton de fer
 <translation id="1383876407941801731">Rechercher</translation>
 <translation id="1385214448885562192">Appuyez sur Entrée pour accepter ou Échap pour annuler. Passez au résultat suivant à l'aide de la flèche vers le bas et revenez au résultat précédent à l'aide de la flèche vers le haut.</translation>
 <translation id="1396114365388024581">tablst</translation>
-<translation id="139902759009894363">Annoncer les attributs du texte enrichi</translation>
 <translation id="1405567553485452995">Vert clair</translation>
 <translation id="1417889266572670458">Bleu marine</translation>
 <translation id="1431911867058218151">Prune</translation>
@@ -485,6 +484,7 @@ Une fois le tutoriel terminé, utilisez ChromeVox pour accéder au bouton de fer
 <translation id="4372705107434148843">Arrêter la diffusion vocale</translation>
 <translation id="4373197658375206385">Aucun élément précédent autre qu'un lien</translation>
 <translation id="4376316291247992553">Consulter une image en braille</translation>
+<translation id="437809255587011096">Annoncer le style du texte</translation>
 <translation id="4378308539633073595">Faire défiler vers l'avant</translation>
 <translation id="4384583879834880242">Questions/Réponses</translation>
 <translation id="4391478986194775161">cntntinfo</translation>
@@ -761,7 +761,6 @@ Une fois le tutoriel terminé, utilisez ChromeVox pour accéder au bouton de fer
 <translation id="6348869651006731065">Gris tamisé</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{puce}one{# puce}other{# puces}}</translation>
 <translation id="6355910664415701303">Aucun élément de liste précédent</translation>
-<translation id="6360318852623800555">Attributs du texte enrichi</translation>
 <translation id="6364795331201459219">h6</translation>
 <translation id="6368143427468974988">En-tête précédent</translation>
 <translation id="6376999910001533545">Bordeaux</translation>
@@ -1087,7 +1086,6 @@ Pour ouvrir le menu du navigateur Chrome, appuyez sur Alt+F.</translation>
 <translation id="8153880621934657047">Hors du tableau</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{trait de soulignement}one{# trait de soulignement}other{# traits de soulignement}}</translation>
 <translation id="8179976553408161302">Entrée</translation>
-<translation id="8183813379996435469">Détecter et modifier automatiquement la langue utilisée avec ChromeVox</translation>
 <translation id="8184828902145951186">ligne</translation>
 <translation id="8186185314313222077">activer/désactiver le mode plein écran</translation>
 <translation id="8199231515320852133">Énoncer les en-têtes de la cellule actuelle</translation>
@@ -1124,6 +1122,7 @@ Pour ouvrir le menu du navigateur Chrome, appuyez sur Alt+F.</translation>
 <translation id="8503360654911991865">Diminuer la granularité de la navigation</translation>
 <translation id="8504695234784218301">Fin de l'erreur grammaticale</translation>
 <translation id="8520472399088452386">Bouton Toupie</translation>
+<translation id="8534394844575788431">Formatage</translation>
 <translation id="8538744478902126321">Tenter de détecter l'en-tête de ligne de la cellule actuelle</translation>
 <translation id="8540054775867439484">Revenir au début</translation>
 <translation id="8542271685829952264">Pour découvrir l'ensemble des commandes et des raccourcis ChromeVox, appuyez sur la touche de recherche+point, puis utilisez les touches fléchées pour parcourir les menus, et la touche Entrée pour activer une commande. Pour revenir ici, appuyez sur la touche de recherche+o, puis sur t.</translation>
@@ -1203,6 +1202,7 @@ Pour ouvrir le menu du navigateur Chrome, appuyez sur Alt+F.</translation>
 <translation id="9149560530563164529">sctn</translation>
 <translation id="9150735707954472829">Onglet</translation>
 <translation id="9151211641321628915">Énonce une brève description de la position actuelle.</translation>
+<translation id="9151249085738989067">Changer automatiquement de voix ChromeVox en fonction de la langue</translation>
 <translation id="9153606228985488238">Timbre de voix : <ph name="PERCENT" /> %</translation>
 <translation id="9160096769946561184">Accéder à la fin de la colonne actuelle</translation>
 <translation id="9173115498289768110">Volume : <ph name="PERCENT" /> %</translation>

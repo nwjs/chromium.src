@@ -69,7 +69,6 @@
 <translation id="1383876407941801731">搜索</translation>
 <translation id="1385214448885562192">按回车键可接受，按退出键可取消；按向下箭头键可移至下一条搜索结果，按向上箭头键可移至上一条搜索结果。</translation>
 <translation id="1396114365388024581">tablst</translation>
-<translation id="139902759009894363">播报富文本属性</translation>
 <translation id="1405567553485452995">浅绿色</translation>
 <translation id="1417889266572670458">海军蓝</translation>
 <translation id="1431911867058218151">梅红色</translation>
@@ -484,6 +483,7 @@
 <translation id="4372705107434148843">关闭语音</translation>
 <translation id="4373197658375206385">不存在上一个非链接项。</translation>
 <translation id="4376316291247992553">以盲文的形式查看图形</translation>
+<translation id="437809255587011096">播报文本样式</translation>
 <translation id="4378308539633073595">向前滚动</translation>
 <translation id="4384583879834880242">问答</translation>
 <translation id="4391478986194775161">cntntinfo</translation>
@@ -760,7 +760,6 @@
 <translation id="6348869651006731065">暗灰色</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{1 个项目符号}other{# 个项目符号}}</translation>
 <translation id="6355910664415701303">不存在上一个列表项。</translation>
-<translation id="6360318852623800555">富文本属性</translation>
 <translation id="6364795331201459219">6级标题标记</translation>
 <translation id="6368143427468974988">上一个标题</translation>
 <translation id="6376999910001533545">栗色</translation>
@@ -1086,7 +1085,6 @@
 <translation id="8153880621934657047">不在表格内。</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{1个下划线}other{#个下划线}}</translation>
 <translation id="8179976553408161302">Enter</translation>
-<translation id="8183813379996435469">自动检测和切换 ChromeVox 语言。</translation>
 <translation id="8184828902145951186">行</translation>
 <translation id="8186185314313222077">切换全屏模式</translation>
 <translation id="8199231515320852133">读出当前单元格的标题</translation>
@@ -1123,6 +1121,7 @@
 <translation id="8503360654911991865">降低导航精细度</translation>
 <translation id="8504695234784218301">语法错误的末尾</translation>
 <translation id="8520472399088452386">数值调节按钮</translation>
+<translation id="8534394844575788431">格式化</translation>
 <translation id="8538744478902126321">推测当前单元格的行标题</translation>
 <translation id="8540054775867439484">转至顶部</translation>
 <translation id="8542271685829952264">要想了解所有 ChromeVox 命令和快捷键，请按“Search+句点”组合键，然后使用箭头键浏览菜单中的内容，并按 Enter 键启动相应命令。若想返回此处，请先按 Search+O 组合键，然后按 T 键。</translation>
@@ -1202,6 +1201,7 @@
 <translation id="9149560530563164529">sctn</translation>
 <translation id="9150735707954472829">标签</translation>
 <translation id="9151211641321628915">读出关于当前位置的简短说明</translation>
+<translation id="9151249085738989067">根据语言自动切换 ChromeVox 语音</translation>
 <translation id="9153606228985488238">音高为<ph name="PERCENT" />%</translation>
 <translation id="9160096769946561184">转到当前列的末尾</translation>
 <translation id="9173115498289768110">音量：<ph name="PERCENT" />%</translation>

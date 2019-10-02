@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="iw">
+<translation id="1036550831858290950">שמירת הכרטיסייה הנוכחית כסימנייה</translation>
 <translation id="104962181688258143">פתיחת האפליקציה 'קבצים'</translation>
 <translation id="1098295134904615027">הפעלת שולחן העבודה הווירטואלי בצד ימין</translation>
 <translation id="1122869341872663659">מוצגות <ph name="N" /> תוצאות חיפוש לגבי <ph name="QUERY" /></translation>
@@ -48,7 +49,6 @@
 <translation id="2574014812750545982">איפוס רמת הזום בדף</translation>
 <translation id="2596078834055697711">צילום מסך של חלון</translation>
 <translation id="2685170433750953446"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, ואז <ph name="TAB" /> או <ph name="RIGHT" /></translation>
-<translation id="2699509451653686398">שמירת דף האינטרנט הנוכחי כסימנייה</translation>
 <translation id="2750942583782703988">טעינה מחדש של הדף הנוכחי</translation>
 <translation id="2764005613199379871">העברת המיקוד לשורת כתובת האתר</translation>
 <translation id="2789868185375229787">התרחקות מהדף</translation>

@@ -233,10 +233,8 @@ void PermissionRequestManager::OnVisibilityChanged(
     return;
 
   if (tab_is_hidden_) {
-#if !defined(OS_ANDROID)
-    if (view_)
+    if (view_ && view_->ShouldDestroyOnTabSwitching())
       DeleteBubble();
-#endif
     return;
   }
 
@@ -248,12 +246,12 @@ void PermissionRequestManager::OnVisibilityChanged(
     return;
   }
 
-#if defined(OS_ANDROID)
-  // We switched tabs away and back while a prompt was active.
-  DCHECK(view_);
-#else
-  ShowBubble(/*is_reshow=*/true);
-#endif
+  if (view_) {
+    // We switched tabs away and back while a prompt was active.
+    DCHECK(!view_->ShouldDestroyOnTabSwitching());
+  } else {
+    ShowBubble(/*is_reshow=*/true);
+  }
 }
 
 const std::vector<PermissionRequest*>& PermissionRequestManager::Requests() {
@@ -339,7 +337,7 @@ void PermissionRequestManager::ScheduleShowBubble() {
   if (!main_frame_has_fully_loaded_)
     return;
 
-  base::PostTaskWithTraits(
+  base::PostTask(
       FROM_HERE, {content::BrowserThread::UI},
       base::BindOnce(&PermissionRequestManager::DequeueRequestsAndShowBubble,
                      weak_factory_.GetWeakPtr()));

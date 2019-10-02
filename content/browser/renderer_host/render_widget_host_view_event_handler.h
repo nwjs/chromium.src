@@ -131,6 +131,9 @@ class CONTENT_EXPORT RenderWidgetHostViewEventHandler
 
   bool accept_return_character() { return accept_return_character_; }
   bool mouse_locked() { return mouse_locked_; }
+  bool mouse_locked_unadjusted_movement() {
+    return mouse_locked_ && mouse_locked_unadjusted_movement_;
+  }
   const ui::MotionEventAura& pointer_state() const { return pointer_state_; }
   void set_focus_on_mouse_down_or_key_event(
       bool focus_on_mouse_down_or_key_event) {
@@ -139,7 +142,7 @@ class CONTENT_EXPORT RenderWidgetHostViewEventHandler
   void set_window(aura::Window* window) { window_ = window; }
 
   // Lock/Unlock processing of future mouse events.
-  bool LockMouse();
+  bool LockMouse(bool request_unadjusted_movement);
   void UnlockMouse();
 
   // Start/Stop processing of future system keyboard events.
@@ -160,6 +163,14 @@ class CONTENT_EXPORT RenderWidgetHostViewEventHandler
   // Used to set the mouse_wheel_phase_handler_ timer timeout for testing.
   void set_mouse_wheel_wheel_phase_handler_timeout(base::TimeDelta timeout) {
     mouse_wheel_phase_handler_.set_mouse_wheel_end_dispatch_timeout(timeout);
+  }
+
+  // Used in testing for setting the max time to wait for momentum phase began
+  // after a scroll phase end.
+  void set_max_time_between_phase_ended_and_momentum_phase_began(
+      base::TimeDelta timeout) {
+    mouse_wheel_phase_handler_
+        .set_max_time_between_phase_ended_and_momentum_phase_began(timeout);
   }
 
  private:
@@ -217,6 +228,9 @@ class CONTENT_EXPORT RenderWidgetHostViewEventHandler
   // moved to center.
   bool ShouldMoveToCenter(gfx::PointF mouse_screen_position);
 
+  // Return whether the event is a synthesized move from |MoveCursorTo|.
+  bool MatchesSynthesizedMovePosition(const blink::WebMouseEvent& event);
+
   // Returns true when we can hit test input events with location data to be
   // sent to the targeted RenderWidgetHost.
   bool ShouldRouteEvents() const;
@@ -245,6 +259,10 @@ class CONTENT_EXPORT RenderWidgetHostViewEventHandler
   // locked.
   bool mouse_locked_;
 
+  // True if mouse is locked and we are reporting the unadjusted movement
+  // value (without mouse accelerations) from OS, i.e. WM_INPUT on Windows.
+  bool mouse_locked_unadjusted_movement_;
+
   // Whether pinch-to-zoom should be enabled and pinch events forwarded to the
   // renderer.
   bool pinch_zoom_enabled_;
@@ -268,12 +286,11 @@ class CONTENT_EXPORT RenderWidgetHostViewEventHandler
   gfx::PointF global_mouse_position_;
   // In mouse locked mode, we synthetically move the mouse cursor to the center
   // of the window when it reaches the window borders to avoid it going outside.
-  // This flag is used to differentiate between these synthetic mouse move
+  // This value is used to differentiate between these synthetic mouse move
   // events vs. normal mouse move events.
-  bool synthetic_move_sent_;
+  base::Optional<gfx::Point> synthetic_move_position_;
 
   bool enable_consolidated_movement_;
-  base::Optional<gfx::Point> synthetic_move_position_;
 
   // Stores the current state of the active pointers targeting this
   // object.

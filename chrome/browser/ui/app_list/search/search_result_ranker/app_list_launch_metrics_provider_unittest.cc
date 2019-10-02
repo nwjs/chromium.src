@@ -16,7 +16,7 @@
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/scoped_task_environment.h"
+#include "base/test/task_environment.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -28,7 +28,7 @@
 #include "components/metrics/client_info.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/metrics/metrics_service.h"
-#include "content/public/test/test_browser_thread_bundle.h"
+#include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/metrics_proto/chrome_os_app_list_launch_event.pb.h"
@@ -203,10 +203,10 @@ class AppListLaunchMetricsProviderTest : public testing::Test {
     histogram_tester_.ExpectTotalCount("Apps.AppListLaunchRecorderError", 0);
   }
 
-  void Wait() { scoped_task_environment_.RunUntilIdle(); }
+  void Wait() { task_environment_.RunUntilIdle(); }
 
   base::HistogramTester histogram_tester_;
-  base::test::ScopedTaskEnvironment scoped_task_environment_;
+  base::test::TaskEnvironment task_environment_;
   base::ScopedTempDir temp_dir_;
 
   std::unique_ptr<AppListLaunchMetricsProvider> provider_;

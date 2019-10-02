@@ -15,6 +15,7 @@
 <translation id="1524282610922162960">Partilhe um separador do Chromium</translation>
 <translation id="1668054258064581266">Depois de remover a sua conta do Chromium, poderá ter de recarregar os separadores abertos para que as alterações tenham efeito.</translation>
 <translation id="1688750314291223739">Configure a Sincronização para guardar as suas funcionalidades personalizadas do navegador para a Web e aceder às mesmas a partir do Chromium em qualquer computador.</translation>
+<translation id="1705503634486268204">O Chromium pode memorizar as suas palavras-passe para que não tenha de o fazer.</translation>
 <translation id="1708666629004767631">Está disponível uma versão nova e mais segura do Chromium.</translation>
 <translation id="1766096484055239003">O seu administrador necessita que reinicie o Chromium para aplicar uma atualização.</translation>
 <translation id="1774152462503052664">Permitir que o Chromium seja executado em segundo plano</translation>
@@ -125,9 +126,6 @@
 <translation id="5634636535844844681">O Chromium requer o Windows 7 ou superior.</translation>
 <translation id="5680901439334282664">inicie sessão no Chromium</translation>
 <translation id="5698481217667032250">Apresentar o Chromium neste idioma</translation>
-<translation id="5756484659843248772">Este idioma é utilizado para apresentar a IU do Chromium OS</translation>
-<translation id="5768914737813585044">Apresentar o SO Chromium neste idioma</translation>
-<translation id="5796460469508169315">O Chromium está quase pronto.</translation>
 <translation id="5820394555380036790">SO Chromium</translation>
 <translation id="5862307444128926510">Bem-vindo ao Chromium</translation>
 <translation id="5877064549588274448">Canal alterado. Reinicie o dispositivo para aplicar as alterações.</translation>
@@ -143,6 +141,8 @@
 <translation id="6096348254544841612">Personalize e controle o Chromium. Está disponível uma atualização.</translation>
 <translation id="6120345080069858279">O Chromium vai guardar esta palavra-passe na sua Conta Google. Não tem de a memorizar.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> é perigoso, por isso o Chromium bloqueou-o.</translation>
+<translation id="6173098285107411678">Se não encontrar uma definição nesta página, procure nas suas <ph name="LINK_BEGIN" />
+    Definições do navegador Chromium<ph name="LINK_END" /></translation>
 <translation id="6212496753309875659">Este computador já tem uma versão mais recente do Chromium. Se o software não estiver a funcionar, desinstale o Chromium e tente novamente.</translation>
 <translation id="6219195342503754812">{0,plural, =0{O Chromium será reiniciado agora}=1{O Chromium será reiniciado dentro de 1 segundo}other{O Chromium será reiniciado dentro de # segundos}}</translation>
 <translation id="6248213926982192922">Definir o Chromium como navegador predefinido</translation>
@@ -190,12 +190,6 @@ O Chromium não consegue recuperar as suas definições.</translation>
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7339898014177206373">Nova janela</translation>
 <translation id="734373864078049451">A sua Web, os seus marcadores e os seus outros itens do Chromium estão aqui.</translation>
-<translation id="7344413941077984497">Para definir que Sites <ph name="NEW_PROFILE_NAME" /> pode ver, pode configurar restrições e definições ao aceder a <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" />. Se não alterar as predefinições, <ph name="NEW_PROFILE_NAME" /> pode procurar tudo na Web.
-
-Para evitar que <ph name="NEW_PROFILE_NAME" /> aceda à sua conta, certifique-se de que bloqueia o seu perfil quando não estiver a utilizar o Chromium. Para o fazer, clique no seu nome de perfil no canto superior direito do navegador e selecione "Sair e bloqueio para criança".
-<ph name="BEGIN_LINK_2" />Saber mais<ph name="END_LINK_2" />
-
-Para obter mais instruções, verifique o seu email em <ph name="ACCOUNT_EMAIL" />.</translation>
 <translation id="7349591376906416160">O administrador do sistema configurou o Chromium para abrir o <ph name="ALTERNATIVE_BROWSER_NAME" /> e aceder a <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="7448255348454382571">Reiniciar o Chromium OS</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> – Chromium Dev</translation>
@@ -229,7 +223,6 @@ Para obter mais instruções, verifique o seu email em <ph name="ACCOUNT_EMAIL" 
 <translation id="8290862415967981663">Este ficheiro pode ser perigoso. Como tal, o Chromium bloqueou-o.</translation>
 <translation id="8330519371938183845">Inicie sessão para sincronizar e personalizar o Chromium em todos os dispositivos.</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> estava a utilizar o Chromium</translation>
-<translation id="8375950122744241554">Os perfis de utilizadores supervisionados vão deixar de estar disponíveis a partir do Chromium 70.</translation>
 <translation id="8417404458978023919">{0,plural, =1{Reinicie o Chromium dentro de um dia}other{Reinicie o Chromium dentro de # dias}}</translation>
 <translation id="8453117565092476964">O arquivo do programa de instalação está corrompido ou não é válido. Transfira novamente o Chromium.</translation>
 <translation id="8493179195440786826">O Chromium Está Desatualizado</translation>
