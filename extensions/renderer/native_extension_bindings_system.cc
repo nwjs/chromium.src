@@ -777,9 +777,9 @@ void NativeExtensionBindingsSystem::OnExtensionRemoved(const ExtensionId& id) {
 
 v8::Local<v8::Object> NativeExtensionBindingsSystem::GetAPIObjectForTesting(
     ScriptContext* context,
-    const std::string& api_name) {
+    const std::string& api_name, bool hidden) {
   return GetAPIHelper(context->v8_context(),
-                      gin::StringToSymbol(context->isolate(), api_name));
+                      gin::StringToSymbol(context->isolate(), api_name), hidden);
 }
 
 void NativeExtensionBindingsSystem::BindingAccessor(

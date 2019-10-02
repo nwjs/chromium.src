@@ -69,6 +69,7 @@ class EventEmitter final : public gin::Wrappable<EventEmitter> {
   void RemoveListener(gin::Arguments* arguments);
   bool HasListener(v8::Local<v8::Function> function);
   bool HasListeners();
+  void GetListeners(gin::Arguments* arguments);
   void Dispatch(gin::Arguments* arguments);
   void DispatchNW(gin::Arguments* arguments);
 

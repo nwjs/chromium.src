@@ -2275,6 +2275,8 @@ gfx::ImageSkia BrowserView::GetWindowIcon() {
     if (devtools_window) {
       WebContents* inspected_contents =
           devtools_window->GetInspectedWebContents();
+      if (!inspected_contents)
+        return gfx::ImageSkia();
       Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
       if (browser && !browser->icon_override().IsEmpty())
         return *browser->icon_override().ToImageSkia();
