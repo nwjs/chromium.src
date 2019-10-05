@@ -45,6 +45,7 @@ target(_libcxx_target_type, "libc++") {
   visibility = [
     "//build/config:common_deps",
     "//third_party/catapult/devil:devil",
+    ":*",
   ]
   if (is_linux) {
     # This target packages libc++.so, so must have an explicit dependency on
@@ -179,4 +180,9 @@ target(_libcxx_target_type, "libc++") {
       ]
     }
   }
+}
+
+static_library("libcpp") {
+   complete_static_lib = true
+   deps = [":libc++"]
 }

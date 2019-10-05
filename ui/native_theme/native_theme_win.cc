@@ -496,7 +496,7 @@ SkColor NativeThemeWin::GetSystemColor(ColorId color_id,
 
     // Menu
     case kColorId_MenuBackgroundColor:
-      return system_colors_[COLOR_MENU];
+      return SK_ColorWHITE;
 
     // Label
     case kColorId_LabelEnabledColor:
