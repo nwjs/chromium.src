@@ -71,6 +71,7 @@ class MockMediaNotificationController : public MediaNotificationController {
   scoped_refptr<base::SequencedTaskRunner> GetTaskRunner() const override {
     return nullptr;
   }
+  MOCK_METHOD1(LogMediaSessionActionButtonPressed, void(const std::string& id));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockMediaNotificationController);
@@ -83,6 +84,9 @@ class MockMediaNotificationContainer : public MediaNotificationContainer {
 
   // MediaNotificationContainer implementation.
   MOCK_METHOD1(OnExpanded, void(bool expanded));
+  MOCK_METHOD1(OnVisibleActionsChanged,
+               void(const std::set<MediaSessionAction>& actions));
+  MOCK_METHOD1(OnMediaArtworkChanged, void(const gfx::ImageSkia& image));
 
   MediaNotificationView* view() const { return view_.get(); }
   void SetView(std::unique_ptr<MediaNotificationView> view) {
@@ -178,6 +182,8 @@ class MediaNotificationViewTest : public views::ViewsTestBase {
   }
 
   MockMediaNotificationContainer& container() { return container_; }
+
+  MockMediaNotificationController& controller() { return controller_; }
 
   MediaNotificationView* view() const { return container_.view(); }
 
@@ -389,6 +395,7 @@ TEST_F(MediaNotificationViewTest, PlayPauseButtonTooltipCheck) {
 }
 
 TEST_F(MediaNotificationViewTest, NextTrackButtonClick) {
+  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(_));
   EnableAction(MediaSessionAction::kNextTrack);
 
   EXPECT_EQ(0, media_controller()->next_track_count());
@@ -401,6 +408,7 @@ TEST_F(MediaNotificationViewTest, NextTrackButtonClick) {
 }
 
 TEST_F(MediaNotificationViewTest, PlayButtonClick) {
+  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(_));
   EnableAction(MediaSessionAction::kPlay);
 
   EXPECT_EQ(0, media_controller()->resume_count());
@@ -413,6 +421,7 @@ TEST_F(MediaNotificationViewTest, PlayButtonClick) {
 }
 
 TEST_F(MediaNotificationViewTest, PauseButtonClick) {
+  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(_));
   EnableAction(MediaSessionAction::kPause);
 
   EXPECT_EQ(0, media_controller()->suspend_count());
@@ -432,6 +441,7 @@ TEST_F(MediaNotificationViewTest, PauseButtonClick) {
 }
 
 TEST_F(MediaNotificationViewTest, PreviousTrackButtonClick) {
+  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(_));
   EnableAction(MediaSessionAction::kPreviousTrack);
 
   EXPECT_EQ(0, media_controller()->previous_track_count());
@@ -444,6 +454,7 @@ TEST_F(MediaNotificationViewTest, PreviousTrackButtonClick) {
 }
 
 TEST_F(MediaNotificationViewTest, SeekBackwardButtonClick) {
+  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(_));
   EnableAction(MediaSessionAction::kSeekBackward);
 
   EXPECT_EQ(0, media_controller()->seek_backward_count());
@@ -456,6 +467,7 @@ TEST_F(MediaNotificationViewTest, SeekBackwardButtonClick) {
 }
 
 TEST_F(MediaNotificationViewTest, SeekForwardButtonClick) {
+  EXPECT_CALL(controller(), LogMediaSessionActionButtonPressed(_));
   EnableAction(MediaSessionAction::kSeekForward);
 
   EXPECT_EQ(0, media_controller()->seek_forward_count());
@@ -605,9 +617,13 @@ TEST_F(MediaNotificationViewTest, UpdateMetadata_AppName) {
 }
 
 TEST_F(MediaNotificationViewTest, Buttons_WhenCollapsed) {
+  EXPECT_CALL(container(), OnVisibleActionsChanged(std::set<MediaSessionAction>(
+                               {MediaSessionAction::kPlay,
+                                MediaSessionAction::kPreviousTrack,
+                                MediaSessionAction::kNextTrack})));
   EnableAllActions();
-
   view()->SetExpanded(false);
+  testing::Mock::VerifyAndClearExpectations(&container());
 
   EXPECT_FALSE(IsActuallyExpanded());
 
@@ -617,23 +633,55 @@ TEST_F(MediaNotificationViewTest, Buttons_WhenCollapsed) {
   EXPECT_FALSE(IsActionButtonVisible(MediaSessionAction::kSeekBackward));
   EXPECT_FALSE(IsActionButtonVisible(MediaSessionAction::kSeekForward));
 
+  EXPECT_CALL(container(),
+              OnVisibleActionsChanged(std::set<MediaSessionAction>(
+                  {MediaSessionAction::kPlay, MediaSessionAction::kSeekBackward,
+                   MediaSessionAction::kNextTrack})));
   DisableAction(MediaSessionAction::kPreviousTrack);
+  testing::Mock::VerifyAndClearExpectations(&container());
   EXPECT_FALSE(IsActionButtonVisible(MediaSessionAction::kPreviousTrack));
 
+  EXPECT_CALL(container(), OnVisibleActionsChanged(std::set<MediaSessionAction>(
+                               {MediaSessionAction::kPlay,
+                                MediaSessionAction::kPreviousTrack,
+                                MediaSessionAction::kNextTrack})));
   EnableAction(MediaSessionAction::kPreviousTrack);
+  testing::Mock::VerifyAndClearExpectations(&container());
   EXPECT_TRUE(IsActionButtonVisible(MediaSessionAction::kPreviousTrack));
 
+  EXPECT_CALL(container(), OnVisibleActionsChanged(std::set<MediaSessionAction>(
+                               {MediaSessionAction::kPlay,
+                                MediaSessionAction::kPreviousTrack,
+                                MediaSessionAction::kNextTrack})));
   DisableAction(MediaSessionAction::kSeekForward);
+  testing::Mock::VerifyAndClearExpectations(&container());
   EXPECT_FALSE(IsActionButtonVisible(MediaSessionAction::kSeekForward));
 
+  EXPECT_CALL(container(), OnVisibleActionsChanged(std::set<MediaSessionAction>(
+                               {MediaSessionAction::kPlay,
+                                MediaSessionAction::kPreviousTrack,
+                                MediaSessionAction::kNextTrack})));
   EnableAction(MediaSessionAction::kSeekForward);
+  testing::Mock::VerifyAndClearExpectations(&container());
   EXPECT_FALSE(IsActionButtonVisible(MediaSessionAction::kSeekForward));
 }
 
 TEST_F(MediaNotificationViewTest, Buttons_WhenExpanded) {
+  EXPECT_CALL(container(), OnVisibleActionsChanged(std::set<MediaSessionAction>(
+                               {MediaSessionAction::kPlay,
+                                MediaSessionAction::kPreviousTrack,
+                                MediaSessionAction::kNextTrack})));
   EnableAllActions();
+  testing::Mock::VerifyAndClearExpectations(&container());
 
+  EXPECT_CALL(
+      container(),
+      OnVisibleActionsChanged(std::set<MediaSessionAction>(
+          {MediaSessionAction::kPlay, MediaSessionAction::kPreviousTrack,
+           MediaSessionAction::kNextTrack, MediaSessionAction::kSeekBackward,
+           MediaSessionAction::kSeekForward})));
   view()->SetExpanded(true);
+  testing::Mock::VerifyAndClearExpectations(&container());
 
   EXPECT_TRUE(IsActuallyExpanded());
 
@@ -683,6 +731,7 @@ TEST_F(MediaNotificationViewTest, UpdateArtworkFromItem) {
   int title_artist_width = title_artist_row()->width();
   const SkColor accent = header_row()->accent_color_for_testing();
   gfx::Size size = view()->size();
+  EXPECT_CALL(container(), OnMediaArtworkChanged(_)).Times(2);
 
   SkBitmap image;
   image.allocN32Pixels(10, 10);
@@ -891,6 +940,7 @@ TEST_F(MediaNotificationViewTest, Freezing_DoNotUpdateImage) {
   SkBitmap image;
   image.allocN32Pixels(10, 10);
   image.eraseColor(SK_ColorMAGENTA);
+  EXPECT_CALL(container(), OnMediaArtworkChanged(_)).Times(0);
 
   GetItem()->Freeze();
   GetItem()->MediaControllerImageChanged(
@@ -990,6 +1040,39 @@ TEST_F(MediaNotificationViewTest, UnfreezingDoesntMissUpdates) {
   EXPECT_TRUE(GetButtonForAction(MediaSessionAction::kPause));
   EXPECT_EQ(base::ASCIIToUTF16("title2"), title_label()->GetText());
   EXPECT_EQ(base::ASCIIToUTF16("artist2"), artist_label()->GetText());
+}
+
+TEST_F(MediaNotificationViewTest, ForcedExpandedState) {
+  // Make the view expandable.
+  EnableAllActions();
+
+  // Force it to be expanded.
+  bool expanded_state = true;
+  view()->SetForcedExpandedState(&expanded_state);
+  EXPECT_TRUE(IsActuallyExpanded());
+
+  // Since it's forced, clicking on the header should not toggle the expanded
+  // state.
+  SimulateHeaderClick();
+  EXPECT_TRUE(IsActuallyExpanded());
+
+  // Force it to be not expanded.
+  expanded_state = false;
+  view()->SetForcedExpandedState(&expanded_state);
+  EXPECT_FALSE(IsActuallyExpanded());
+
+  // Since it's forced, clicking on the header should not toggle the expanded
+  // state.
+  SimulateHeaderClick();
+  EXPECT_FALSE(IsActuallyExpanded());
+
+  // Stop forcing expanded state.
+  view()->SetForcedExpandedState(nullptr);
+  EXPECT_FALSE(IsActuallyExpanded());
+
+  // Clicking on the header should toggle the expanded state.
+  SimulateHeaderClick();
+  EXPECT_TRUE(IsActuallyExpanded());
 }
 
 }  // namespace media_message_center

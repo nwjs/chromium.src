@@ -312,15 +312,19 @@ Polymer({
 
   /** CrosNetworkConfigObserver impl */
   onNetworkStateListChanged: function() {
+    if (!this.guid || !this.managedProperties_) {
+      return;
+    }
     this.checkNetworkExists_();
   },
 
   /** CrosNetworkConfigObserver impl */
   onDeviceStateListChanged: function() {
-    this.getDeviceState_();
-    if (this.guid) {
-      this.getNetworkDetails_();
+    if (!this.guid || !this.managedProperties_) {
+      return;
     }
+    this.getDeviceState_();
+    this.getNetworkDetails_();
   },
 
   /** @private */
@@ -518,10 +522,11 @@ Polymer({
       this.close();
       return;
     }
-    this.managedProperties_ = OncMojo.getDefaultManagedProperties(
+    const managedProperties = OncMojo.getDefaultManagedProperties(
         networkState.type, networkState.guid, networkState.name);
-    this.managedProperties_.connectable = networkState.connectable;
-    this.managedProperties_.connectionState = networkState.connectionState;
+    managedProperties.connectable = networkState.connectable;
+    managedProperties.connectionState = networkState.connectionState;
+    this.managedProperties_ = managedProperties;
 
     this.propertiesReceived_ = true;
     this.outOfRange_ = false;
@@ -558,12 +563,13 @@ Polymer({
 
   /**
    * @param {!mojom.ManagedProperties} managedProperties
+   * @param {boolean} propertiesReceived
    * @param {boolean} outOfRange
    * @return {string} The text to display for the network connection state.
    * @private
    */
-  getStateText_: function(managedProperties, outOfRange) {
-    if (!managedProperties) {
+  getStateText_: function(managedProperties, propertiesReceived, outOfRange) {
+    if (!managedProperties || !propertiesReceived) {
       return '';
     }
 
@@ -571,6 +577,17 @@ Polymer({
       return managedProperties.type == mojom.NetworkType.kTether ?
           this.i18n('tetherPhoneOutOfRange') :
           this.i18n('networkOutOfRange');
+    }
+
+    if (managedProperties.type == mojom.NetworkType.kCellular &&
+        !managedProperties.connectable) {
+      if (managedProperties.cellular.homeProvider &&
+          managedProperties.cellular.homeProvider.name) {
+        return this.i18n(
+            'cellularContactSpecificCarrier',
+            managedProperties.cellular.homeProvider.name);
+      }
+      return this.i18n('cellularContactDefaultCarrier');
     }
 
     return this.i18n(
@@ -614,6 +631,29 @@ Polymer({
   isConnectedState_: function(managedProperties) {
     return !!managedProperties &&
         OncMojo.connectionStateIsConnected(managedProperties.connectionState);
+  },
+
+  /**
+   * @param {!mojom.ManagedProperties|undefined} managedProperties
+   * @param {boolean} outOfRange
+   * @return {boolean} True if the network shown cannot initiate a connection.
+   * @private
+   */
+  isConnectionErrorState_: function(managedProperties, outOfRange) {
+    if (outOfRange) {
+      return true;
+    }
+
+    if (!managedProperties) {
+      return false;
+    }
+
+    // It's still possible to initiate a connection to a network if it is not
+    // connectable as long as the network has an associated configuration flow.
+    // Cellular networks do not have a configuration flow, so a Cellular network
+    // that is not connectable represents an error state.
+    return managedProperties.type == mojom.NetworkType.kCellular &&
+        !managedProperties.connectable;
   },
 
   /**
@@ -705,9 +745,9 @@ Polymer({
         mojom.ConnectionStateType.kNotConnected) {
       return false;
     }
-    // Cellular is not configurable, so we show a disabled connect button of
-    // connectable is false.
-    if (managedProperties.type != mojom.NetworkType.kCellular) {
+    // Cellular is not configurable, so we always show the connect button, and
+    // disable it if 'connectable' is false.
+    if (managedProperties.type == mojom.NetworkType.kCellular) {
       return true;
     }
     // If 'connectable' is false we show the configure button.
@@ -970,7 +1010,8 @@ Polymer({
    * @private
    */
   getTetherDialog_: function() {
-    return /** @type {!TetherConnectionDialogElement} */ (this.$.tetherDialog);
+    return /** @type {!TetherConnectionDialogElement} */ (
+        this.$$('#tetherDialog'));
   },
 
   /** @private */
@@ -1277,9 +1318,10 @@ Polymer({
     /** @type {!Array<string>} */ const fields = [];
     const type = this.managedProperties_.type;
     if (type == mojom.NetworkType.kCellular) {
-      fields.push(
-          'cellular.activationState', 'restrictedConnectivity',
-          'cellular.servingOperator.name');
+      fields.push('cellular.activationState', 'cellular.servingOperator.name');
+      if (this.managedProperties_.restrictedConnectivity) {
+        fields.push('restrictedConnectivity');
+      }
     } else if (type == mojom.NetworkType.kTether) {
       fields.push(
           'tether.batteryPercentage', 'tether.signalStrength',
@@ -1303,7 +1345,9 @@ Polymer({
           break;
       }
     } else if (type == mojom.NetworkType.kWiFi) {
-      fields.push('restrictedConnectivity');
+      if (this.managedProperties_.restrictedConnectivity) {
+        fields.push('restrictedConnectivity');
+      }
     }
     return fields;
   },
@@ -1346,9 +1390,6 @@ Polymer({
 
     /** @type {!Array<string>} */ const fields = [];
     const type = this.managedProperties_.type;
-    if (type != mojom.NetworkType.kTether) {
-      fields.push('macAddress');
-    }
     if (type == mojom.NetworkType.kCellular) {
       fields.push(
           'cellular.family', 'cellular.networkTechnology',
@@ -1383,12 +1424,15 @@ Polymer({
 
   /**
    * @param {!mojom.ManagedProperties} managedProperties
+   * @param {boolean} propertiesReceived
    * @return {boolean}
    * @private
    */
-  showAdvanced_: function(managedProperties) {
-    if (!managedProperties ||
-        managedProperties.type == mojom.NetworkType.kTether) {
+  showAdvanced_: function(managedProperties, propertiesReceived) {
+    if (!managedProperties || !propertiesReceived) {
+      return false;
+    }
+    if (managedProperties.type == mojom.NetworkType.kTether) {
       // These settings apply to the underlying WiFi network, not the Tether
       // network.
       return false;
@@ -1479,14 +1523,15 @@ Polymer({
   },
 
   /**
-   * @param {!mojom.ManagedProperties} managedProperties
    * @return {boolean}
    * @private
    */
-  showScanningSpinner_: function(managedProperties) {
-    return !!managedProperties &&
-        managedProperties.type == mojom.NetworkType.kCellular &&
-        managedProperties.cellular.scanning;
+  showScanningSpinner_: function() {
+    if (!this.managedProperties_ ||
+        this.managedProperties_.type != mojom.NetworkType.kCellular) {
+      return false;
+    }
+    return !!this.deviceState_ && this.deviceState_.scanning;
   },
 
   /**

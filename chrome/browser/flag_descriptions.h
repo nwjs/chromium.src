@@ -62,6 +62,12 @@ extern const char kAllowPopupsDuringPageUnloadDescription[];
 extern const char kAllowSignedHTTPExchangeCertsWithoutExtensionName[];
 extern const char kAllowSignedHTTPExchangeCertsWithoutExtensionDescription[];
 
+extern const char kAllowSyncXHRInPageDismissalName[];
+extern const char kAllowSyncXHRInPageDismissalDescription[];
+
+extern const char kEnableClipboardProviderTextSuggestionsName[];
+extern const char kEnableClipboardProviderTextSuggestionsDescription[];
+
 extern const char kEnableSignedExchangeSubresourcePrefetchName[];
 extern const char kEnableSignedExchangeSubresourcePrefetchDescription[];
 
@@ -649,9 +655,6 @@ extern const char kFillOnAccountSelectHttpDescription[];
 extern const char kFocusMode[];
 extern const char kFocusModeDescription[];
 
-extern const char kForbidSyncXHRInPageDismissalName[];
-extern const char kForbidSyncXHRInPageDismissalDescription[];
-
 extern const char kForceTextDirectionName[];
 extern const char kForceTextDirectionDescription[];
 extern const char kForceDirectionLtr[];
@@ -952,6 +955,9 @@ extern const char kPeriodicBackgroundSyncDescription[];
 extern const char kPerMethodCanMakePaymentQuotaName[];
 extern const char kPerMethodCanMakePaymentQuotaDescription[];
 
+extern const char kPointerLockOptionsName[];
+extern const char kPointerLockOptionsDescription[];
+
 extern const char kPolicyAtomicGroupsEnabledName[];
 extern const char kPolicyAtomicGroupsEnabledDescription[];
 
@@ -973,6 +979,9 @@ extern const char kQueryInOmniboxDescription[];
 
 extern const char kQuicName[];
 extern const char kQuicDescription[];
+
+extern const char kQuietNotificationPromptsName[];
+extern const char kQuietNotificationPromptsDescription[];
 
 extern const char kReducedReferrerGranularityName[];
 extern const char kReducedReferrerGranularityDescription[];
@@ -1328,6 +1337,9 @@ extern const char kAllowRemoteContextForNotificationsDescription[];
 extern const char kAndroidAutofillAccessibilityName[];
 extern const char kAndroidAutofillAccessibilityDescription[];
 
+extern const char kAndroidSetupSearchEngineName[];
+extern const char kAndroidSetupSearchEngineDescription[];
+
 extern const char kAndroidSurfaceControl[];
 extern const char kAndroidSurfaceControlDescription[];
 
@@ -1549,9 +1561,6 @@ extern const char kProcessSharingWithDefaultSiteInstancesDescription[];
 
 extern const char kProcessSharingWithStrictSiteInstancesName[];
 extern const char kProcessSharingWithStrictSiteInstancesDescription[];
-
-extern const char kQuietNotificationPromptsName[];
-extern const char kQuietNotificationPromptsDescription[];
 
 extern const char kReaderModeHeuristicsName[];
 extern const char kReaderModeHeuristicsDescription[];
@@ -2002,6 +2011,9 @@ extern const char kEnableVideoPlayerNativeControlsDescription[];
 
 extern const char kEnableVirtualDesksName[];
 extern const char kEnableVirtualDesksDescription[];
+
+extern const char kEnableVirtualDesksGesturesName[];
+extern const char kEnableVirtualDesksGesturesDescription[];
 
 extern const char kTrimOnFreezeName[];
 extern const char kTrimOnFreezeDescription[];

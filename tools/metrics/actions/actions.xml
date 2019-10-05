@@ -1395,6 +1395,51 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="AddSupervisionDialog_AttemptedSignoutAfterEnrollment">
+  <owner>tobyhuang@chromium.org</owner>
+  <owner>michaelpg@chromium.org</owner>
+  <owner>danan@chromium.org</owner>
+  <description>
+    Emitted when the user clicks &quot;Sign out&quot; to complete the Add
+    Supervision process.
+  </description>
+</action>
+
+<action name="AddSupervisionDialog_Closed">
+  <owner>tobyhuang@chromium.org</owner>
+  <owner>michaelpg@chromium.org</owner>
+  <owner>danan@chromium.org</owner>
+  <description>
+    Emitted when the Add Supervision dialog is closed, excluding sign out.
+  </description>
+</action>
+
+<action name="AddSupervisionDialog_EnrollmentCompleted">
+  <owner>tobyhuang@chromium.org</owner>
+  <owner>michaelpg@chromium.org</owner>
+  <owner>danan@chromium.org</owner>
+  <description>
+    Emitted when the user's account is successfully enrolled in supervision.
+  </description>
+</action>
+
+<action name="AddSupervisionDialog_Launched">
+  <owner>tobyhuang@chromium.org</owner>
+  <owner>michaelpg@chromium.org</owner>
+  <owner>danan@chromium.org</owner>
+  <description>Emitted when the Add Supervision dialog is opened.</description>
+</action>
+
+<action name="AddSupervisionDialog_SwitchedAccounts">
+  <owner>tobyhuang@chromium.org</owner>
+  <owner>michaelpg@chromium.org</owner>
+  <owner>danan@chromium.org</owner>
+  <description>
+    Emitted when the user signs out from within the Add Supervision dialog to
+    switch accounts before enrollment is completed.
+  </description>
+</action>
+
 <action name="AlertIndicatorButton_Dragged">
   <owner>miu@chromium.org</owner>
   <description>
@@ -21495,9 +21540,10 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="TabContextMenu_NewTab">
-  <obsolete>Deprecated due to removal.</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <description>
+    User selected New Tab to the Right from the tabstrip context menu.
+  </description>
 </action>
 
 <action name="TabContextMenu_OpenTabsLeftToRight">
@@ -23078,6 +23124,7 @@ should be able to be added at any place in this file.
       label="For DownloadPageScreenshot feature."/>
   <suffix name="ExploreSitesTile" label="For Explore Sites feature."/>
   <suffix name="FeedCardMenu" label="For FeedCardMenu feature."/>
+  <suffix name="GlobalMediaControls" label="For GlobalMediaControls feature."/>
   <suffix name="HomePageButton" label="For HomePageButton feature."/>
   <suffix name="HomepageTile" label="For HomepageTile feature."/>
   <suffix name="IncognitoWindow" label="For IncognitoWindow feature."/>

@@ -300,7 +300,6 @@
 <translation id="2479410451996844060">శోధన URL చెల్లదు.</translation>
 <translation id="2482878487686419369">ప్రకటనలు</translation>
 <translation id="248348093745724435">మెషీన్ విధానాలు</translation>
-<translation id="2485387744899240041">మీ పరికరం, బ్రౌజర్‌ల వినియోగదారు పేర్లు</translation>
 <translation id="2491120439723279231">సర్వర్ యొక్క ప్రమాణపత్రంలో లోపాలు ఉన్నాయి.</translation>
 <translation id="2493640343870896922">లెటర్-ప్లస్</translation>
 <translation id="2495083838625180221">JSON పార్సర్</translation>
@@ -583,6 +582,7 @@
 <translation id="4103249731201008433">పరికరం క్రమ సంఖ్య చెల్లదు</translation>
 <translation id="410351446219883937">స్వీయ ప్లే</translation>
 <translation id="4103763322291513355">బ్లాక్‌లిస్ట్‌లో ఉన్న URLల జాబితాను మరియు మీ సిస్టమ్ నిర్వాహకుని ద్వారా అమలు చేయబడిన ఇతర విధానాలను చూడటానికి &lt;strong&gt;chrome://policy&lt;/strong&gt;ని సందర్శించండి.</translation>
+<translation id="4108231218301530806">తర్వాతిసారి ఈ కార్డ్‌ను ధృవీకరించడానికి వేలిముద్రను ఉపయోగించండి.</translation>
 <translation id="4110652170750985508">మీ చెల్లింపును సమీక్షించండి</translation>
 <translation id="4112140312785995938">వెనుకకు జరుపు</translation>
 <translation id="4116663294526079822">ఈ సైట్‌లో ఎల్లప్పుడూ అనుమతించు</translation>
@@ -1012,7 +1012,6 @@
 <translation id="6406765186087300643">C0 (ఎన్వలప్)</translation>
 <translation id="6410264514553301377"><ph name="CREDIT_CARD" /> గడువు ముగింపు తేదీ మరియు CVCని నమోదు చేయండి</translation>
 <translation id="6415778972515849510">మీ Google ఖాతాను సంరక్షించుకోవడంలో, మీ పాస్‌వర్డ్‌ను మార్చడంలో Chromium మీకు సహాయపడగలదు.</translation>
-<translation id="6417515091412812850">ప్రమాణపత్రం రద్దు చెయ్యబడిందా అని తనిఖీ చెయ్యడం సాధ్యం కాలేదు.</translation>
 <translation id="6431585503458005759">నిల్వ చేయవద్దు</translation>
 <translation id="6433490469411711332">సంప్రదింపు సమాచారాన్ని సవరించండి</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> కనెక్ట్ కావడానికి నిరాకరించింది.</translation>
@@ -1410,7 +1409,6 @@
 <translation id="8564985650692024650">మీరు మీ <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" /> పాస్‌వర్డ్‌ని ఇతర సైట్‌లలో తిరిగి ఉపయోగించినట్లయితే దీనిని రీసెట్ చేయాల్సిందిగా Chromium సిఫార్సు చేస్తోంది.</translation>
 <translation id="8571890674111243710">పేజీని <ph name="LANGUAGE" />కు అనువదిస్తోంది...</translation>
 <translation id="858637041960032120">ఫోన్ నం. జోడిం.</translation>
-<translation id="859285277496340001">ఇది రద్దు చెయ్యబడిందా అని తనిఖీ చెయ్యడానికి ప్రమాణపత్రం విధానాన్ని పేర్కొనలేదు.</translation>
 <translation id="860043288473659153">కార్డుదారుని పేరు</translation>
 <translation id="861775596732816396">పరిమాణం 4</translation>
 <translation id="8622948367223941507">చట్ట సంబంధితం-అదనం</translation>

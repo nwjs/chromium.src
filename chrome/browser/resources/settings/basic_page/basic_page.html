@@ -87,11 +87,14 @@
 
       #toggleContainer {
         align-items: center;
+        color: var(--cr-primary-text-color);
         display: flex;
         font: inherit;
         justify-content: center;
         margin-bottom: 0;
         margin-top: 0;
+        padding-bottom: 0;
+        padding-top: 0;
       }
 
       #toggleSpacer {
@@ -112,7 +115,7 @@
 <if expr="chromeos">
         <template is="dom-if" if="[[showOSSettingsBanner_]]">
           <div id="osSettingsBanner" class="settings-box">
-            <div class="start">
+            <div class="start" on-click="onOSSettingsBannerClick_">
               $i18nRaw{osSettingsBannerText}
             </div>
             <cr-icon-button class="icon-clear"

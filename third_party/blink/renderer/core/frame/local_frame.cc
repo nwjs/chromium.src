@@ -1298,6 +1298,12 @@ LocalFrame::LazyLoadImageSetting LocalFrame::GetLazyLoadImageSetting() const {
       !GetSettings()->GetLazyLoadEnabled()) {
     return LocalFrame::LazyLoadImageSetting::kDisabled;
   }
+  // Disable explicit and automatic lazyload for backgrounded or prerendered
+  // pages.
+  if (!GetDocument()->IsPageVisible() || GetDocument()->IsPrefetchOnly()) {
+    return LocalFrame::LazyLoadImageSetting::kDisabled;
+  }
+
   if (!RuntimeEnabledFeatures::AutomaticLazyImageLoadingEnabled())
     return LocalFrame::LazyLoadImageSetting::kEnabledExplicit;
   if (RuntimeEnabledFeatures::
@@ -1746,13 +1752,21 @@ void LocalFrame::SetLifecycleState(mojom::FrameLifecycleState state) {
   lifecycle_state_ = state;
 
   if (freeze) {
-    if (lifecycle_state_ != mojom::FrameLifecycleState::kPaused)
+    if (lifecycle_state_ != mojom::FrameLifecycleState::kPaused) {
       DidFreeze();
+      // DidFreeze can dispatch JS events, causing |this| to be detached.
+      if (!IsAttached())
+        return;
+    }
     PauseContext();
   } else {
     UnpauseContext();
-    if (old_state != mojom::FrameLifecycleState::kPaused)
+    if (old_state != mojom::FrameLifecycleState::kPaused) {
       DidResume();
+      // DidResume can dispatch JS events, causing |this| to be detached.
+      if (!IsAttached())
+        return;
+    }
   }
   if (Client())
     Client()->LifecycleStateChanged(state);

@@ -59,6 +59,7 @@
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/extensions/api/chrome_extensions_api_client.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
+#include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/extension_management_constants.h"
 #include "chrome/browser/extensions/extension_management_test_util.h"
@@ -214,6 +215,7 @@
 #include "extensions/browser/scoped_ignore_content_verifier_for_test.h"
 #include "extensions/browser/test_extension_registry_observer.h"
 #include "extensions/browser/uninstall_reason.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
 #include "extensions/common/features/feature_channel.h"
@@ -228,6 +230,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/http/http_stream_factory.h"
 #include "net/http/transport_security_state.h"
+#include "net/http/transport_security_state_test_util.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
@@ -2144,6 +2147,49 @@ INSTANTIATE_TEST_SUITE_P(DrivePolicyTestInstance,
                          DrivePolicyTest,
                          testing::Bool());
 
+// Check that component extension can't be blacklisted, besides the camera app
+// that can be disabled by extension policy. This is a temporary solution until
+// there's a dedicated policy to disable the camera, at which point the special
+// check should be removed.
+// TODO(http://crbug.com/1002935)
+IN_PROC_BROWSER_TEST_F(PolicyTest,
+                       ExtensionInstallBlacklistComponentApps) {
+  extensions::ExtensionPrefs* extension_prefs =
+      extensions::ExtensionPrefs::Get(browser()->profile());
+
+  // Load all component extensions.
+  extensions::ComponentLoader::EnableBackgroundExtensionsForTesting();
+  extension_service()->component_loader()->AddDefaultComponentExtensions(false);
+  base::RunLoop().RunUntilIdle();
+
+  extensions::ExtensionRegistry* registry = extension_registry();
+  ASSERT_TRUE(
+      registry->enabled_extensions().GetByID(extension_misc::kCameraAppId));
+  ASSERT_TRUE(
+      registry->enabled_extensions().GetByID(extensions::kWebStoreAppId));
+  const size_t enabled_count = registry->enabled_extensions().size();
+
+  // Verify that only Camera app can be blacklisted.
+  base::ListValue blacklist;
+  blacklist.AppendString(extension_misc::kCameraAppId);
+  blacklist.AppendString(extensions::kWebStoreAppId);
+  PolicyMap policies;
+  policies.Set(key::kExtensionInstallBlacklist, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, POLICY_SOURCE_CLOUD,
+               blacklist.CreateDeepCopy(), nullptr);
+  UpdateProviderPolicy(policies);
+
+  ASSERT_FALSE(
+      registry->enabled_extensions().GetByID(extension_misc::kCameraAppId));
+  ASSERT_TRUE(
+      registry->disabled_extensions().GetByID(extension_misc::kCameraAppId));
+  EXPECT_EQ(1u, registry->disabled_extensions().size());
+  EXPECT_EQ(extensions::disable_reason::DISABLE_BLOCKED_BY_POLICY,
+            extension_prefs->GetDisableReasons(extension_misc::kCameraAppId));
+  ASSERT_TRUE(
+      registry->enabled_extensions().GetByID(extensions::kWebStoreAppId));
+  EXPECT_EQ(enabled_count - 1, registry->enabled_extensions().size());
+}
 #endif  // !defined(OS_CHROMEOS)
 
 IN_PROC_BROWSER_TEST_F(PolicyTest, ExtensionInstallBlacklistSelective) {
@@ -7300,6 +7346,87 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, CheckURLsInRealTime) {
   UpdateProviderPolicy(policies);
 
   EXPECT_TRUE(safe_browsing::RealTimePolicyEngine::CanPerformFullURLLookup());
+}
+
+class HSTSPolicyTest : public PolicyTest {
+  void SetUpInProcessBrowserTestFixture() override {
+    PolicyTest::SetUpInProcessBrowserTestFixture();
+    PolicyMap policies;
+    std::vector<base::Value> bypass_list;
+    bypass_list.push_back(base::Value("example"));
+    SetPolicy(&policies, key::kHSTSPolicyBypassList,
+              std::make_unique<base::ListValue>(bypass_list));
+    provider_.UpdateChromePolicy(policies);
+  }
+
+ private:
+  net::ScopedTransportSecurityStateSource hsts_source_;
+};
+
+IN_PROC_BROWSER_TEST_F(HSTSPolicyTest, HSTSPolicyBypassList) {
+  if (content::IsOutOfProcessNetworkService()) {
+    network::mojom::NetworkServiceTestPtr network_service_test;
+    content::GetSystemConnector()->BindInterface(
+        content::mojom::kNetworkServiceName, &network_service_test);
+    mojo::ScopedAllowSyncCallForTesting allow_sync_call;
+    // The port number 1234 here doesn't matter - it just needs to be a non-zero
+    // value so that we use the unittest_default preload list.
+    network_service_test->SetTransportSecurityStateSource(1234);
+  }
+
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url("http://example/");
+  ui_test_utils::NavigateToURL(browser(), url);
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  // If the policy didn't take effect, the request to http://example would be
+  // upgraded to https://example. This checks that the HSTS upgrade to https
+  // didn't happen.
+  EXPECT_EQ(url, contents->GetURL());
+}
+
+class PolicyTestSyncXHR : public PolicyTest {
+  void SetUpInProcessBrowserTestFixture() override {
+    PolicyTest::SetUpInProcessBrowserTestFixture();
+    PolicyMap policies;
+    policies.Set(policy::key::kAllowSyncXHRInPageDismissal,
+                 policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER,
+                 policy::POLICY_SOURCE_CLOUD,
+                 std::make_unique<base::Value>(true), nullptr);
+    provider_.UpdateChromePolicy(policies);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(PolicyTestSyncXHR, CheckAllowSyncXHRInPageDismissal) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kAllowSyncXHRInPageDismissal);
+  PrefService* prefs = browser()->profile()->GetPrefs();
+  EXPECT_TRUE(prefs->GetBoolean(prefs::kAllowSyncXHRInPageDismissal));
+
+  GURL url(embedded_test_server()->GetURL("/empty.html"));
+  ui_test_utils::NavigateToURL(browser(), url);
+  constexpr char kScript[] =
+      R"({
+           window.addEventListener('unload', function() {
+             var xhr = new XMLHttpRequest();
+             xhr.open('GET', '', false);
+             try { xhr.send(); } catch(err) {
+               window.domAutomationController.send(false);
+             }
+             window.domAutomationController.send(xhr.status === 200);
+           });
+           window.location.href='about:blank';
+         })";
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  content::DOMMessageQueue message_queue;
+  content::ExecuteScriptAsync(web_contents, kScript);
+  std::string message;
+  EXPECT_TRUE(message_queue.WaitForMessage(&message));
+  EXPECT_EQ("true", message);
 }
 
 }  // namespace policy

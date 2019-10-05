@@ -87,6 +87,7 @@
 <translation id="2127372758936585790">Маломощное зарядное устройство</translation>
 <translation id="2135456203358955318">Закрепленная лупа</translation>
 <translation id="2144487987174258011">Перезагрузите, чтобы обновить Adobe Flash Player</translation>
+<translation id="2148902151539191989">НАЗАД</translation>
 <translation id="2208323208084708176">Единый рабочий стол</translation>
 <translation id="2220572644011485463">PIN-код или пароль</translation>
 <translation id="225680501294068881">Поиск устройств…</translation>
@@ -223,6 +224,7 @@
 <translation id="4181841719683918333">Языки</translation>
 <translation id="4195877955194704651">Меню "Автоматическое нажатие"</translation>
 <translation id="4217571870635786043">Голосовой ввод</translation>
+<translation id="421885205185866088">PIN-код для смарт-карты пользователя <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="4239069858505860023">GPRS</translation>
 <translation id="4261870227682513959">Показать настройки уведомлений. Уведомления отключены.</translation>
 <translation id="4269883910223712419">Администратор этого устройства имеет возможность:</translation>
@@ -559,5 +561,5 @@
 <translation id="938963181863597773">Что у меня запланировано?</translation>
 <translation id="945522503751344254">Отправить отзыв</translation>
 <translation id="98515147261107953">Альбомная</translation>
-<translation id="990277280839877440">Окно <ph name="WINDOW_TITILE" /> закрыто.</translation>
+<translation id="990277280839877440">Окно "<ph name="WINDOW_TITILE" />" закрыто.</translation>
 </translationbundle>

@@ -175,6 +175,7 @@
 #import "ios/chrome/browser/webui/net_export_tab_helper.h"
 #import "ios/chrome/browser/webui/net_export_tab_helper_delegate.h"
 #import "ios/chrome/browser/webui/show_mail_composer_context.h"
+#import "ios/chrome/common/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui_util/constraints_ui_util.h"
 #include "ios/chrome/grit/ios_strings.h"
 #include "ios/public/provider/chrome/browser/chrome_browser_provider.h"
@@ -960,8 +961,8 @@ NSString* const kBrowserViewControllerSnackbarCategory =
 
     fullscreenController->SetWebStateList(self.tabModel.webStateList);
 
-    _fullscreenUIUpdater = std::make_unique<FullscreenUIUpdater>(self);
-    fullscreenController->AddObserver(_fullscreenUIUpdater.get());
+    _fullscreenUIUpdater =
+        std::make_unique<FullscreenUIUpdater>(fullscreenController, self);
     [self updateForFullscreenProgress:fullscreenController->GetProgress()];
   } else {
     StopBroadcastingToolbarUI(broadcaster);
@@ -972,7 +973,6 @@ NSString* const kBrowserViewControllerSnackbarCategory =
     [_webMainContentUIForwarder disconnect];
     _webMainContentUIForwarder = nil;
 
-    fullscreenController->RemoveObserver(_fullscreenUIUpdater.get());
     _fullscreenUIUpdater = nullptr;
 
     fullscreenController->SetWebStateList(nullptr);
@@ -1236,14 +1236,7 @@ NSString* const kBrowserViewControllerSnackbarCategory =
   // prevent interaction with the web page.
   // TODO(crbug.com/637093): This coordinator should be managed by the
   // coordinator used to present BrowserViewController, when implemented.
-  if (active) {
-    [self.activityOverlayCoordinator stop];
-    self.activityOverlayCoordinator = nil;
-  } else if (!self.activityOverlayCoordinator) {
-    self.activityOverlayCoordinator =
-        [[ActivityOverlayCoordinator alloc] initWithBaseViewController:self];
-    [self.activityOverlayCoordinator start];
-  }
+  [self showActivityOverlay:!active];
 
   if (self.browserState) {
     ActiveStateManager* active_state_manager =
@@ -1510,7 +1503,7 @@ NSString* const kBrowserViewControllerSnackbarCategory =
                         action:@selector(shieldWasTapped:)
               forControlEvents:UIControlEventTouchUpInside];
   self.view.autoresizingMask = initialViewAutoresizing;
-  self.view.backgroundColor = [UIColor colorWithWhite:0.75 alpha:1.0];
+  self.view.backgroundColor = [UIColor colorNamed:kBackgroundColor];
 
   [self addChildViewController:self.browserContainerViewController];
   [self.view addSubview:self.contentArea];
@@ -3539,11 +3532,11 @@ NSString* const kBrowserViewControllerSnackbarCategory =
   // Stop any Find in Page searches and close the find bar when navigating to a
   // new page.
   [self closeFindInPage];
+  [self.tabModel saveSessionImmediately:NO];
 }
 
 - (void)webState:(web::WebState*)webState didLoadPageWithSuccess:(BOOL)success {
   [_toolbarUIUpdater updateState];
-  [self.tabModel saveSessionImmediately:NO];
   if ([self canShowTabStrip]) {
     UIUserInterfaceSizeClass sizeClass =
         self.view.window.traitCollection.horizontalSizeClass;
@@ -4385,6 +4378,17 @@ NSString* const kBrowserViewControllerSnackbarCategory =
 - (void)sendTabToSelf:(SendTabToSelfCommand*)command {
   [self sendTabToSelfTargetDeviceID:[command targetDeviceID]
                    targetDeviceName:[command targetDeviceName]];
+}
+
+- (void)showActivityOverlay:(BOOL)shown {
+  if (!shown) {
+    [self.activityOverlayCoordinator stop];
+    self.activityOverlayCoordinator = nil;
+  } else if (!self.activityOverlayCoordinator) {
+    self.activityOverlayCoordinator =
+        [[ActivityOverlayCoordinator alloc] initWithBaseViewController:self];
+    [self.activityOverlayCoordinator start];
+  }
 }
 
 #pragma mark - FindInPageResponseDelegate

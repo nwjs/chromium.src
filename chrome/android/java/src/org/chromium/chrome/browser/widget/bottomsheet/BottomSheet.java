@@ -9,7 +9,6 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Color;
-import android.graphics.PorterDuff.Mode;
 import android.graphics.Rect;
 import android.os.Build;
 import android.support.annotation.IntDef;
@@ -22,7 +21,6 @@ import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.widget.FrameLayout;
 
-import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ObserverList;
 import org.chromium.base.Supplier;
 import org.chromium.base.VisibleForTesting;
@@ -123,6 +121,9 @@ public class BottomSheet
 
     /** The desired height of a content that has just been shown or whose height was invalidated. */
     private static final float HEIGHT_UNSPECIFIED = -1.0f;
+
+    /** Invalid height ratio. When specified, a default value is used. */
+    private static final float INVALID_HEIGHT_RATIO = -1.0f;
 
     /** The interpolator that the height animator uses. */
     private final Interpolator mInterpolator = new DecelerateInterpolator(1.0f);
@@ -291,6 +292,26 @@ public class BottomSheet
          */
         default boolean hasCustomScrimLifecycle() {
             return false;
+        }
+
+        /**
+         * TODO(jinsukkim): Revise the API in favor of those specifying the height and its behavior
+         *         for each state.
+         * @return Height of the sheet in half state with respect to the container height.
+         *         This is INVALID_HEIGHT_RATIO by default, which lets the BottomSheet use
+         *         a predefined value ({@link #HALF_HEIGHT_RATIO}).
+         */
+        default float getCustomHalfRatio() {
+            return INVALID_HEIGHT_RATIO;
+        }
+
+        /**
+         * @return Height of the sheet in full state with respect to container height.
+         *         This is -1 by default, which lets the BottomSheet use the container height
+         *         minus the top shadow height.
+         */
+        default float getCustomFullRatio() {
+            return INVALID_HEIGHT_RATIO;
         }
 
         /**
@@ -485,7 +506,7 @@ public class BottomSheet
 
         mToolbarHolder =
                 (TouchRestrictingFrameLayout) findViewById(R.id.bottom_sheet_toolbar_container);
-        setBackground(mToolbarHolder);
+        mToolbarHolder.setBackgroundResource(R.drawable.top_round);
 
         mDefaultToolbarView = mToolbarHolder.findViewById(R.id.bottom_sheet_toolbar);
 
@@ -496,7 +517,7 @@ public class BottomSheet
         mBottomSheetContentContainer =
                 (TouchRestrictingFrameLayout) findViewById(R.id.bottom_sheet_content);
         mBottomSheetContentContainer.setBottomSheet(this);
-        setBackground(mBottomSheetContentContainer);
+        mBottomSheetContentContainer.setBackgroundResource(R.drawable.top_round);
 
         // Listen to height changes on the root.
         root.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
@@ -624,18 +645,6 @@ public class BottomSheet
 
         mSheetContainer = (ViewGroup) this.getParent();
         mSheetContainer.removeView(this);
-    }
-
-    /**
-     * Sets the background with round corner drawable, adjusts the color for dark mode.
-     * @param view View in BottomSheet to set the drawable to.
-     */
-    private static void setBackground(View view) {
-        view.setBackgroundResource(R.drawable.top_round);
-        view.getBackground().setColorFilter(
-                ApiCompatibilityUtils.getColor(
-                        view.getContext().getResources(), org.chromium.ui.R.color.sheet_bg_color),
-                Mode.MULTIPLY);
     }
 
     @Override
@@ -918,6 +927,7 @@ public class BottomSheet
     @Override
     public void setSheetOffset(float offset, boolean shouldAnimate) {
         cancelAnimation();
+        if (mSheetContent == null) return;
 
         if (shouldAnimate) {
             float velocityY = getCurrentOffsetPx() - offset;
@@ -1003,7 +1013,9 @@ public class BottomSheet
     @VisibleForTesting
     float getHalfRatio() {
         if (mContainerHeight <= 0) return 0;
-        return HALF_HEIGHT_RATIO;
+        float customHalfRatio =
+                mSheetContent != null ? mSheetContent.getCustomHalfRatio() : INVALID_HEIGHT_RATIO;
+        return customHalfRatio < 0 ? HALF_HEIGHT_RATIO : customHalfRatio;
     }
 
     /**
@@ -1012,7 +1024,10 @@ public class BottomSheet
     @VisibleForTesting
     float getFullRatio() {
         if (mContainerHeight <= 0) return 0;
-        return (mContainerHeight + mToolbarShadowHeight) / mContainerHeight;
+        float customFullRatio =
+                mSheetContent != null ? mSheetContent.getCustomFullRatio() : INVALID_HEIGHT_RATIO;
+        return customFullRatio < 0 ? (mContainerHeight + mToolbarShadowHeight) / mContainerHeight
+                                   : customFullRatio;
     }
 
     /**
@@ -1304,7 +1319,8 @@ public class BottomSheet
 
     public boolean isSmallScreen() {
         // A small screen is defined by there being less than 160dp between half and full states.
-        float fullToHalfDiff = (getFullRatio() - getHalfRatio()) * mContainerHeight;
+        float fullHeightRatio = (mContainerHeight + mToolbarShadowHeight) / mContainerHeight;
+        float fullToHalfDiff = (fullHeightRatio - HALF_HEIGHT_RATIO) * mContainerHeight;
         return fullToHalfDiff < mMinHalfFullDistance;
     }
 

@@ -11,6 +11,7 @@
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/policy/browser_dm_token_storage.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
+#include "chrome/browser/policy/machine_level_user_cloud_policy_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
@@ -30,7 +31,7 @@
 namespace extensions {
 
 const base::Feature SafeBrowsingPrivateEventRouter::kRealtimeReportingFeature{
-    "SafeBrowsingRealtimeReporting", base::FEATURE_DISABLED_BY_DEFAULT};
+    "SafeBrowsingRealtimeReporting", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Key names used with when building the dictionary to pass to the real-time
 // reporting API.
@@ -49,6 +50,7 @@ const char SafeBrowsingPrivateEventRouter::kKeyClickedThrough[] =
     "clickedThrough";
 const char SafeBrowsingPrivateEventRouter::kKeyTriggeredRules[] =
     "triggeredRules";
+const char SafeBrowsingPrivateEventRouter::kKeyThreatType[] = "threatType";
 
 const char SafeBrowsingPrivateEventRouter::kKeyPasswordReuseEvent[] =
     "passwordReuseEvent";
@@ -263,7 +265,8 @@ void SafeBrowsingPrivateEventRouter::OnSecurityInterstitialProceeded(
 void SafeBrowsingPrivateEventRouter::OnDangerousDeepScanningResult(
     const GURL& url,
     const std::string& file_name,
-    const std::string& download_digest_sha256) {
+    const std::string& download_digest_sha256,
+    const std::string& threat_type) {
   if (client_) {
     // Create a real-time event dictionary from the arguments and report it.
     base::Value event(base::Value::Type::DICTIONARY);
@@ -271,6 +274,7 @@ void SafeBrowsingPrivateEventRouter::OnDangerousDeepScanningResult(
     event.SetStringKey(kKeyFileName, file_name);
     event.SetStringKey(kKeyDownloadDigestSha256, download_digest_sha256);
     event.SetStringKey(kKeyProfileUserName, GetProfileUserName());
+    event.SetStringKey(kKeyThreatType, threat_type);
     ReportRealtimeEvent(kKeyDangerousDownloadEvent, std::move(event));
   }
 }
@@ -319,6 +323,17 @@ void SafeBrowsingPrivateEventRouter::SetCloudPolicyClientForTesting(
 }
 
 void SafeBrowsingPrivateEventRouter::InitRealtimeReportingClient() {
+#if !defined(OS_CHROMEOS)
+  // This method is not compiled on chromeos because
+  // MachineLevelUserCloudPolicyController does not exist.  Also,
+  // policy::BrowserDMTokenStorage::Get()->RetrieveDMToken() does return a
+  // valid token either.  Once these are fixed the #if !define can be removed.
+
+  if (!policy::MachineLevelUserCloudPolicyController::
+          IsMachineLevelUserCloudPolicyEnabled()) {
+    return;
+  }
+
   if (!base::FeatureList::IsEnabled(kRealtimeReportingFeature))
     return;
 
@@ -372,6 +387,7 @@ void SafeBrowsingPrivateEventRouter::InitRealtimeReportingClient() {
         dm_token, client_id,
         /*user_affiliation_ids=*/std::vector<std::string>());
   }
+#endif
 }
 
 void SafeBrowsingPrivateEventRouter::ReportRealtimeEvent(const char* name,

@@ -73,6 +73,11 @@
     "expiry_milestone": 83
   },
   {
+    "name": "allow-sync-xhr-in-page-dismissal",
+    "owners": [ "kdillon@chromium.org" ],
+    "expiry_milestone": 82
+  },
+  {
     "name": "android-files-in-files-app",
     "owners": [ "fukino" ],
     "expiry_milestone": 76
@@ -81,6 +86,11 @@
     "name": "android-picture-in-picture-api",
     "owners": [ "beccahughes", "jazzhsu" ],
     "expiry_milestone": 78
+  },
+  {
+    "name": "android-setup-search-engine",
+    "owners": [ "pavely", "wylieb" ],
+    "expiry_milestone": 83
   },
   {
     "name": "android-site-settings-ui-refresh",
@@ -1040,6 +1050,11 @@
     "expiry_milestone": 79
   },
   {
+    "name": "enable-clipboard-provider-text-suggestions",
+    "owners": [ "gangwu", "chromium-omnibox-team"],
+    "expiry_milestone": 84
+  },
+  {
     "name": "enable-close-tab-suggestions-stale",
     "owners": [ "memex-team@google.com" ],
     "expiry_milestone": 82
@@ -1047,12 +1062,12 @@
   {
     "name": "enable-cloud-print-xps",
     "owners": [ "//printing/OWNERS" ],
-    "expiry_milestone": 76
+    "expiry_milestone": 79
   },
   {
     "name": "enable-cloud-printer-handler",
     "owners": [ "//printing/OWNERS" ],
-    "expiry_milestone": 76
+    "expiry_milestone": 82
   },
   {
     "name": "enable-command-line-on-non-rooted-devices",
@@ -1088,8 +1103,8 @@
   },
   {
     "name": "enable-custom-mac-paper-sizes",
-    "owners": [ "//printing/OWNERS" ],
-    "expiry_milestone": 76
+    "owners": [ "thestig" ],
+    "expiry_milestone": 82
   },
   {
     "name": "enable-data-reduction-proxy-server-experiment",
@@ -1216,11 +1231,6 @@
     "name": "enable-filtering-scroll-events",
     "owners": [ "axantoine", "eirage", "nzolghadr", "input-dev" ],
     "expiry_milestone": 80
-  },
-  {
-    "name": "enable-forbid-sync-xhr-in-page-dismissal",
-    "owners": [ "kdillon@chromium.org" ],
-    "expiry_milestone": 82
   },
   {
     "name": "enable-force-dark",
@@ -1502,6 +1512,11 @@
     "name": "enable-play-store-search",
     "owners": [ "jennyz", "kaznacheev" ],
     "expiry_milestone": 78
+  },
+  {
+    "name" : "enable-pointer-lock-options",
+    "owners" : [ "eirage", "nzolghadr", "input-dev" ],
+    "expiry_milestone" : 85
   },
   {
     "name": "enable-portals",
@@ -1835,7 +1850,12 @@
     "name": "enable-virtual-desks",
     "owners": [ "afakhry" ],
     // This is a flag to enable or disable the Virtual Desks feature.
-    "expiry_milestone": 79
+    "expiry_milestone": 81
+  },
+  {
+    "name": "enable-virtual-desks-gestures",
+    "owners": [ "afakhry" ],
+    "expiry_milestone": 81
   },
   {
     "name": "enable-virtual-keyboard",
@@ -2176,7 +2196,7 @@
   {
     "name": "gdi-text-printing",
     "owners": [ "//printing/OWNERS" ],
-    "expiry_milestone": 76
+    "expiry_milestone": 84
   },
   {
     "name": "gesture-properties-dbus-service",
@@ -2798,7 +2818,7 @@
   {
     "name": "pdf-form-save",
     "owners": [ "thestig" ],
-    "expiry_milestone": 78
+    "expiry_milestone": 82
   },
   {
     "name": "pdf-isolation",
@@ -3303,7 +3323,7 @@
   {
     "name": "use-pdf-compositor-service-for-print",
     "owners": [ "//printing/OWNERS" ],
-    "expiry_milestone": 76
+    "expiry_milestone": 79
   },
   {
     "name": "use-search-click-for-right-click",

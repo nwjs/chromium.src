@@ -20,7 +20,7 @@ const base::Feature kBlockingDownloadsInAdFrameWithoutUserActivation{
 
 // Enable defer commits a bit to avoid flash.
 const base::Feature kAvoidFlashBetweenNavigation{
-    "AvoidFlashBetweenNavigation", base::FEATURE_DISABLED_BY_DEFAULT};
+    "AvoidFlashBetweenNavigation", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enable eagerly setting up a CacheStorage interface pointer and
 // passing it to service workers on startup as an optimization.
@@ -59,18 +59,8 @@ const base::Feature kFreezeUserAgent{"FreezeUserAgent",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable a new CSS property called backdrop-filter.
-const base::Feature kCSSBackdropFilter {
-  "CSSBackdropFilter",
-#if defined(OS_ANDROID)
-      // There are two bugs in the backdrop-filter feature for Android Webview
-      // only (crbug.com/990535 and crbug.com/991869). Because there is no
-      // compile-time flag for Webview, this disables all of Android, and the
-      // feature will be re-enabled for non-Webview Android by Finch.
-      base::FEATURE_DISABLED_BY_DEFAULT
-#else
-      base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-};
+const base::Feature kCSSBackdropFilter{"CSSBackdropFilter",
+                                       base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enable Display Locking JavaScript APIs.
 const base::Feature kDisplayLocking{"DisplayLocking",
@@ -262,8 +252,8 @@ const base::Feature kFileHandlingAPI{"FileHandlingAPI",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Allows for synchronous XHR requests during page dismissal
-const base::Feature kForbidSyncXHRInPageDismissal{
-    "ForbidSyncXHRInPageDismissal", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kAllowSyncXHRInPageDismissal{
+    "AllowSyncXHRInPageDismissal", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Prefetch request properties are updated to be privacy-preserving. See
 // crbug.com/988956.

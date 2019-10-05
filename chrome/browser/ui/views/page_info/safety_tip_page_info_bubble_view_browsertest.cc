@@ -8,6 +8,8 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/run_loop.h"
+#include "base/task/post_task.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/engagement/site_engagement_score.h"
@@ -166,7 +168,9 @@ class SafetyTipPageInfoBubbleViewBrowserTest
         break;
       case UIStatus::kEnabledWithEditDistance:
         feature_list_.InitWithFeaturesAndParameters(
-            {{features::kSafetyTipUI, {{"editdistance", "true"}}},
+            {{features::kSafetyTipUI,
+              {{"editdistance", "true"},
+               {"editdistance_siteengagement", "true"}}},
              {features::kLookalikeUrlNavigationSuggestionsUI,
               {{"topsites", "true"}}}},
             {});
@@ -497,4 +501,97 @@ IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
         kHistogramPrefix + "SafetyTip_BadReputation",
         safety_tips::SafetyTipInteraction::kDismiss, 1);
   }
+}
+
+// Tests that the histograms recording how long the Safety Tip is open are
+// recorded properly.
+IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
+                       TimeOpenHistogram) {
+  if (ui_status() == UIStatus::kDisabled) {
+    return;
+  }
+  const base::TimeDelta kMinWarningTime = base::TimeDelta::FromMilliseconds(10);
+
+  // Test the histogram for no user action taken.
+  {
+    base::HistogramTester histograms;
+    auto kNavigatedUrl = GetURL("site1.com");
+    TriggerWarning(browser(), kNavigatedUrl,
+                   WindowOpenDisposition::CURRENT_TAB);
+    // Ensure that the tab is open for more than 0 ms, even in the face of bots
+    // with bad clocks.
+    base::RunLoop run_loop;
+    base::PostDelayedTask(FROM_HERE, run_loop.QuitClosure(), kMinWarningTime);
+    run_loop.Run();
+    NavigateToURL(browser(), GURL("about:blank"),
+                  WindowOpenDisposition::CURRENT_TAB);
+    auto samples = histograms.GetAllSamples(
+        "Security.SafetyTips.OpenTime.NoAction.SafetyTip_BadReputation");
+    ASSERT_EQ(1u, samples.size());
+    EXPECT_LE(kMinWarningTime.InMilliseconds(), samples.front().min);
+  }
+
+  // Test the histogram for when the user adheres to the warning.
+  {
+    base::HistogramTester histograms;
+    auto kNavigatedUrl = GetURL("site1.com");
+    TriggerWarning(browser(), kNavigatedUrl,
+                   WindowOpenDisposition::CURRENT_TAB);
+    base::RunLoop run_loop;
+    base::PostDelayedTask(FROM_HERE, run_loop.QuitClosure(), kMinWarningTime);
+    run_loop.Run();
+    CloseWarningLeaveSite(browser());
+    auto samples = histograms.GetAllSamples(
+        "Security.SafetyTips.OpenTime.LeaveSite.SafetyTip_BadReputation");
+    ASSERT_EQ(1u, samples.size());
+    EXPECT_LE(kMinWarningTime.InMilliseconds(), samples.front().min);
+  }
+
+  // Test the histogram for when the user dismisses the warning.
+  {
+    base::HistogramTester histograms;
+    auto kNavigatedUrl = GetURL("site1.com");
+    TriggerWarning(browser(), kNavigatedUrl,
+                   WindowOpenDisposition::CURRENT_TAB);
+    base::RunLoop run_loop;
+    base::PostDelayedTask(FROM_HERE, run_loop.QuitClosure(), kMinWarningTime);
+    run_loop.Run();
+    CloseWarningIgnore();
+    auto samples = histograms.GetAllSamples(
+        "Security.SafetyTips.OpenTime.Dismiss.SafetyTip_BadReputation");
+    ASSERT_EQ(1u, samples.size());
+    EXPECT_LE(kMinWarningTime.InMilliseconds(), samples.front().min);
+  }
+}
+
+// Tests that Safety Tips aren't triggered on 'unknown' flag types from the
+// component updater. This permits us to add new flag types to the component
+// without breaking this release.
+IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
+                       NotShownOnUnknownFlag) {
+  auto kNavigatedUrl = GetURL("site1.com");
+  SetSafetyTipPatternsWithFlagType(
+      {"site1.com/"}, chrome_browser_safety_tips::FlaggedPage::UNKNOWN);
+
+  SetEngagementScore(browser(), kNavigatedUrl, kLowEngagement);
+  NavigateToURL(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
+  EXPECT_FALSE(IsUIShowing());
+
+  ASSERT_NO_FATAL_FAILURE(CheckPageInfoDoesNotShowSafetyTipInfo(browser()));
+}
+
+// Tests that Safety Tips aren't triggered on domains flagged as 'YOUNG_DOMAIN'
+// in the component. This permits us to use this flag in the component without
+// breaking this release.
+IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
+                       NotShownOnYoungDomain) {
+  auto kNavigatedUrl = GetURL("site1.com");
+  SetSafetyTipPatternsWithFlagType(
+      {"site1.com/"}, chrome_browser_safety_tips::FlaggedPage::YOUNG_DOMAIN);
+
+  SetEngagementScore(browser(), kNavigatedUrl, kLowEngagement);
+  NavigateToURL(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
+  EXPECT_FALSE(IsUIShowing());
+
+  ASSERT_NO_FATAL_FAILURE(CheckPageInfoDoesNotShowSafetyTipInfo(browser()));
 }

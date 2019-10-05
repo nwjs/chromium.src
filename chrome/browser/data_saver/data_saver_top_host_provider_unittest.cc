@@ -4,6 +4,8 @@
 
 #include "chrome/browser/data_saver/data_saver_top_host_provider.h"
 
+#include "base/test/simple_test_clock.h"
+#include "base/time/default_clock.h"
 #include "base/values.h"
 #include "chrome/browser/engagement/site_engagement_score.h"
 #include "chrome/browser/engagement/site_engagement_service.h"
@@ -28,8 +30,12 @@ class DataSaverTopHostProviderTest : public ChromeRenderViewHostTestHarness {
  public:
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
+    // Advance by 1-day to avoid running into null checks.
+    test_clock_.Advance(base::TimeDelta::FromDays(1));
 
-    top_host_provider_ = std::make_unique<DataSaverTopHostProvider>(profile());
+    top_host_provider_ =
+        std::make_unique<DataSaverTopHostProvider>(profile(), &test_clock_);
+
     service_ = SiteEngagementService::Get(profile());
     pref_service_ = profile()->GetPrefs();
 
@@ -58,16 +64,30 @@ class DataSaverTopHostProviderTest : public ChromeRenderViewHostTestHarness {
     }
   }
 
+  void AddEngagedHostsWithPoints(size_t num_hosts, int num_points) {
+    for (size_t i = 1; i <= num_hosts; i++) {
+      AddEngagedHost(GURL(base::StringPrintf("https://domain%zu.com", i)),
+                     num_points);
+    }
+  }
+
   void AddEngagedHost(GURL url, int num_points) {
     service_->AddPointsForTesting(url, num_points);
   }
 
-  bool IsHostBlacklisted(const std::string& host) {
+  bool IsHostBlacklisted(const std::string& host) const {
     const base::DictionaryValue* top_host_blacklist =
         pref_service_->GetDictionary(
             optimization_guide::prefs::kHintsFetcherDataSaverTopHostBlacklist);
     return top_host_blacklist->FindKey(
         optimization_guide::HashHostForDictionary(host));
+  }
+
+  double GetHintsFetcherDataSaverTopHostBlacklistMinimumEngagementScore()
+      const {
+    return pref_service_->GetDouble(
+        optimization_guide::prefs::
+            kHintsFetcherDataSaverTopHostBlacklistMinimumEngagementScore);
   }
 
   void PopulateTopHostBlacklist(size_t num_hosts) {
@@ -148,6 +168,8 @@ class DataSaverTopHostProviderTest : public ChromeRenderViewHostTestHarness {
   DataSaverTopHostProvider* top_host_provider() {
     return top_host_provider_.get();
   }
+
+  base::SimpleTestClock test_clock_;
 
  private:
   std::unique_ptr<DataSaverTopHostProvider> top_host_provider_;
@@ -395,33 +417,140 @@ TEST_F(DataSaverTopHostProviderTest, IntializeTopHostBlacklistWithMaxTopSites) {
 TEST_F(DataSaverTopHostProviderTest, TopHostsFilteredByEngagementThreshold) {
   size_t engaged_hosts =
       optimization_guide::features::MaxHintsFetcherTopHostBlacklistSize() + 1;
-  size_t max_top_hosts =
-      optimization_guide::features::MaxHintsFetcherTopHostBlacklistSize() + 1;
+
+  // Set the count of maximum hosts requested to a large number so that the
+  // count itself does not prevent top_host_provider() from returning hosts that
+  // it would have otherwise returned.
+  static const size_t kMaxHostsRequested = INT16_MAX;
 
   AddEngagedHosts(engaged_hosts);
   // Add two hosts with very low engagement scores that should not be returned
   // by the top host provider.
-  AddEngagedHost(GURL("https://lowengagement.com"), 1);
+  AddEngagedHost(GURL("https://lowengagement1.com"), 1);
   AddEngagedHost(GURL("https://lowengagement2.com"), 1);
 
-  // Blacklist should be populated on the first request.
+  // Blacklist should be populated on the first request. Set the count of
+  // desired
   std::vector<std::string> hosts =
-      top_host_provider()->GetTopHosts(max_top_hosts);
+      top_host_provider()->GetTopHosts(kMaxHostsRequested);
   EXPECT_EQ(hosts.size(), 0u);
 
-  hosts = top_host_provider()->GetTopHosts(max_top_hosts);
-  EXPECT_EQ(
-      hosts.size(),
-      engaged_hosts -
-          optimization_guide::features::MaxHintsFetcherTopHostBlacklistSize());
+  hosts = top_host_provider()->GetTopHosts(kMaxHostsRequested);
+  EXPECT_EQ(1u, hosts.size());
   EXPECT_EQ(GetCurrentTopHostBlacklistState(),
             optimization_guide::prefs::HintsFetcherTopHostBlacklistState::
                 kInitialized);
 
   // The hosts with engagement scores below the minimum threshold should not be
   // returned.
-  EXPECT_EQ(std::find(hosts.begin(), hosts.end(), "lowengagement.com"),
+  EXPECT_EQ(std::find(hosts.begin(), hosts.end(), "lowengagement1.com"),
             hosts.end());
   EXPECT_EQ(std::find(hosts.begin(), hosts.end(), "lowengagement2.com"),
+            hosts.end());
+
+  // Advance the clock by more than DurationApplyLowEngagementScoreThreshold().
+  // top_host_provider() should also return hosts with low engagement score.
+  test_clock_.Advance(
+      optimization_guide::features::DurationApplyLowEngagementScoreThreshold() +
+      base::TimeDelta::FromDays(1));
+  AddEngagedHost(GURL("https://lowengagement3.com"), 1);
+  AddEngagedHost(GURL("https://lowengagement4.com"), 1);
+
+  hosts = top_host_provider()->GetTopHosts(kMaxHostsRequested);
+  // Four hosts lowengagement[1-4] should now be present in |hosts|.
+  EXPECT_EQ(
+      engaged_hosts + 4 -
+          optimization_guide::features::MaxHintsFetcherTopHostBlacklistSize(),
+      hosts.size());
+  EXPECT_EQ(GetCurrentTopHostBlacklistState(),
+            optimization_guide::prefs::HintsFetcherTopHostBlacklistState::
+                kInitialized);
+
+  // The hosts with engagement scores below the minimum threshold should not be
+  // returned.
+  EXPECT_NE(std::find(hosts.begin(), hosts.end(), "lowengagement1.com"),
+            hosts.end());
+  EXPECT_NE(std::find(hosts.begin(), hosts.end(), "lowengagement2.com"),
+            hosts.end());
+  EXPECT_NE(std::find(hosts.begin(), hosts.end(), "lowengagement3.com"),
+            hosts.end());
+  EXPECT_NE(std::find(hosts.begin(), hosts.end(), "lowengagement4.com"),
+            hosts.end());
+}
+
+TEST_F(DataSaverTopHostProviderTest,
+       TopHostsFilteredByEngagementThreshold_NumPoints) {
+  size_t engaged_hosts =
+      optimization_guide::features::MaxHintsFetcherTopHostBlacklistSize() + 1;
+
+  // Set the count of maximum hosts requested to a large number so that the
+  // count itself does not prevent top_host_provider() from returning hosts that
+  // it would have otherwise returned.
+  static const size_t kMaxHostsRequested = INT16_MAX;
+
+  AddEngagedHostsWithPoints(engaged_hosts, 15);
+  // Add two hosts with engagement scores less than 15. These hosts should not
+  // be returned by the top host provider because the minimum engagement score
+  // threshold is set to a value larger than 5.
+  AddEngagedHost(GURL("https://lowengagement1.com"), 5);
+  AddEngagedHost(GURL("https://lowengagement2.com"), 5);
+
+  // Before the blacklist is populated, the threshold should have a default
+  // value.
+  EXPECT_EQ(3,
+            GetHintsFetcherDataSaverTopHostBlacklistMinimumEngagementScore());
+
+  // Blacklist should be populated on the first request.
+  std::vector<std::string> hosts =
+      top_host_provider()->GetTopHosts(kMaxHostsRequested);
+  EXPECT_EQ(hosts.size(), 0u);
+
+  hosts = top_host_provider()->GetTopHosts(kMaxHostsRequested);
+  EXPECT_NEAR(GetHintsFetcherDataSaverTopHostBlacklistMinimumEngagementScore(),
+              GetHintsFetcherDataSaverTopHostBlacklistMinimumEngagementScore(),
+              1);
+  EXPECT_EQ(3u, hosts.size());
+  EXPECT_EQ(GetCurrentTopHostBlacklistState(),
+            optimization_guide::prefs::HintsFetcherTopHostBlacklistState::
+                kInitialized);
+  EXPECT_NE(std::find(hosts.begin(), hosts.end(), "lowengagement1.com"),
+            hosts.end());
+  EXPECT_NE(std::find(hosts.begin(), hosts.end(), "lowengagement2.com"),
+            hosts.end());
+}
+
+TEST_F(DataSaverTopHostProviderTest,
+       TopHostsFilteredByEngagementThreshold_LowScore) {
+  size_t engaged_hosts =
+      optimization_guide::features::MaxHintsFetcherTopHostBlacklistSize() - 2;
+
+  // Set the count of maximum hosts requested to a large number so that the
+  // count itself does not prevent top_host_provider() from returning hosts that
+  // it would have otherwise returned.
+  static const size_t kMaxHostsRequested = INT16_MAX;
+
+  AddEngagedHostsWithPoints(engaged_hosts, 2);
+
+  // Blacklist should be populated on the first request. Set the count of
+  // desired
+  std::vector<std::string> hosts =
+      top_host_provider()->GetTopHosts(kMaxHostsRequested);
+  EXPECT_EQ(hosts.size(), 0u);
+
+  // Add two hosts with very low engagement scores. These hosts should be
+  // returned by top_host_provider() even with low score.
+  EXPECT_EQ(-1,
+            GetHintsFetcherDataSaverTopHostBlacklistMinimumEngagementScore());
+  AddEngagedHost(GURL("https://lowengagement1.com"), 1);
+  AddEngagedHost(GURL("https://lowengagement2.com"), 1);
+
+  hosts = top_host_provider()->GetTopHosts(kMaxHostsRequested);
+  EXPECT_EQ(2u, hosts.size());
+  EXPECT_EQ(GetCurrentTopHostBlacklistState(),
+            optimization_guide::prefs::HintsFetcherTopHostBlacklistState::
+                kInitialized);
+  EXPECT_NE(std::find(hosts.begin(), hosts.end(), "lowengagement1.com"),
+            hosts.end());
+  EXPECT_NE(std::find(hosts.begin(), hosts.end(), "lowengagement2.com"),
             hosts.end());
 }

@@ -18,6 +18,7 @@
 #include "base/compiler_specific.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/macros.h"
@@ -27,7 +28,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/trace_event.h"
-#include "base/win/file_pre_reader.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/shlwapi.h"
 #include "base/win/windows_version.h"
@@ -64,7 +64,7 @@ HMODULE LoadModuleWithDirectory(const base::FilePath& module) {
     restore_directory = true;
   }
   ::SetCurrentDirectoryW(module.DirName().value().c_str());
-  base::win::PreReadFile(module, true);
+  base::PreReadFile(module, /*is_executable=*/true);
   HMODULE ret = ::LoadLibraryExW(module.value().c_str(), nullptr,
                           LOAD_WITH_ALTERED_SEARCH_PATH);
   if (restore_directory)

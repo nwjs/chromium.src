@@ -39,17 +39,28 @@
 NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
 
 @interface SettingsNavigationController () <
-    GoogleServicesSettingsCoordinatorDelegate>
+    GoogleServicesSettingsCoordinatorDelegate,
+    UIAdaptivePresentationControllerDelegate,
+    UINavigationControllerDelegate>
 
 // Google services settings coordinator.
 @property(nonatomic, strong)
     GoogleServicesSettingsCoordinator* googleServicesSettingsCoordinator;
 
+// Current SettingsViewController being presented by this Navigation Controller.
+// If nil it means the Navigation Controller is not presenting anything, or the
+// VC being presented is not a SettingsRootTableViewController.
+@property(nonatomic, weak)
+    SettingsRootTableViewController* currentPresentedSettingsViewController;
+
+// The SettingsNavigationControllerDelegate for this NavigationController.
+@property(nonatomic, weak) id<SettingsNavigationControllerDelegate>
+    settingsNavigationDelegate;
+
 @end
 
 @implementation SettingsNavigationController {
   ios::ChromeBrowserState* mainBrowserState_;  // weak
-  __weak id<SettingsNavigationControllerDelegate> delegate_;
 }
 
 #pragma mark - SettingsNavigationController methods.
@@ -235,14 +246,9 @@ initWithRootViewController:(UIViewController*)rootViewController
   self = [super initWithRootViewController:rootViewController];
   if (self) {
     mainBrowserState_ = browserState;
-    delegate_ = delegate;
+    _settingsNavigationDelegate = delegate;
     [self setModalPresentationStyle:UIModalPresentationFormSheet];
     [self setModalTransitionStyle:UIModalTransitionStyleCoverVertical];
-    // TODO(crbug.com/980037) Remove this and properly handle swipe to dismiss
-    // settings.
-    if (@available(iOS 13, *)) {
-      self.modalInPresentation = YES;
-    }
   }
   return self;
 }
@@ -254,6 +260,13 @@ initWithRootViewController:(UIViewController*)rootViewController
   }
   self.navigationBar.prefersLargeTitles = YES;
   self.navigationBar.accessibilityIdentifier = @"SettingNavigationBar";
+  // Set the presentationController delegate. This is used for swipe down to
+  // dismiss.
+  if (@available(iOS 13, *)) {
+    self.presentationController.delegate = self;
+  }
+  // Set the NavigationController delegate.
+  self.delegate = self;
 }
 
 #pragma mark - Public
@@ -267,8 +280,8 @@ initWithRootViewController:(UIViewController*)rootViewController
   return item;
 }
 
-- (void)settingsWillBeDismissed {
-  // Notify all controllers that settings are about to be dismissed.
+- (void)cleanUpSettings {
+  // Notify all controllers of a Settings dismissal.
   for (UIViewController* controller in [self viewControllers]) {
     if ([controller respondsToSelector:@selector(settingsWillBeDismissed)]) {
       [controller performSelector:@selector(settingsWillBeDismissed)];
@@ -281,11 +294,11 @@ initWithRootViewController:(UIViewController*)rootViewController
 
   // Reset the delegate to prevent any queued transitions from attempting to
   // close the settings.
-  delegate_ = nil;
+  self.settingsNavigationDelegate = nil;
 }
 
 - (void)closeSettings {
-  [delegate_ closeSettings];
+  [self.settingsNavigationDelegate closeSettings];
 }
 
 - (void)popViewControllerOrCloseSettingsAnimated:(BOOL)animated {
@@ -337,7 +350,7 @@ initWithRootViewController:(UIViewController*)rootViewController
                         browserState:mainBrowserState_
                                 mode:GoogleServicesSettingsModeSettings];
   self.googleServicesSettingsCoordinator.dispatcher =
-      [delegate_ dispatcherForSettings];
+      [self.settingsNavigationDelegate dispatcherForSettings];
   self.googleServicesSettingsCoordinator.navigationController = self;
   self.googleServicesSettingsCoordinator.delegate = self;
   [self.googleServicesSettingsCoordinator start];
@@ -357,6 +370,20 @@ initWithRootViewController:(UIViewController*)rootViewController
   [self stopGoogleServicesSettingsCoordinator];
 }
 
+#pragma mark - UIAdaptivePresentationControllerDelegate
+
+- (BOOL)presentationControllerShouldDismiss:
+    (UIPresentationController*)presentationController {
+  return [self.currentPresentedSettingsViewController
+              shouldDismissViewControllerBySwipeDown];
+}
+
+- (void)presentationControllerDidDismiss:
+    (UIPresentationController*)presentationController {
+  // Call settingsWasDismissed to make sure any necessary cleanup is performed.
+  [self.settingsNavigationDelegate settingsWasDismissed];
+}
+
 #pragma mark - Accessibility
 
 - (BOOL)accessibilityPerformEscape {
@@ -371,6 +398,15 @@ initWithRootViewController:(UIViewController*)rootViewController
 // Ensures that the keyboard is always dismissed during a navigation transition.
 - (BOOL)disablesAutomaticKeyboardDismissal {
   return NO;
+}
+
+#pragma mark - UINavigationControllerDelegate
+
+- (void)navigationController:(UINavigationController*)navigationController
+      willShowViewController:(UIViewController*)viewController
+                    animated:(BOOL)animated {
+  self.currentPresentedSettingsViewController =
+      base::mac::ObjCCast<SettingsRootTableViewController>(viewController);
 }
 
 #pragma mark - UIResponder
@@ -398,7 +434,8 @@ initWithRootViewController:(UIViewController*)rootViewController
   AccountsTableViewController* controller = [[AccountsTableViewController alloc]
            initWithBrowserState:mainBrowserState_
       closeSettingsOnAddAccount:NO];
-  controller.dispatcher = [delegate_ dispatcherForSettings];
+  controller.dispatcher =
+      [self.settingsNavigationDelegate dispatcherForSettings];
   [self pushViewController:controller animated:YES];
 }
 
@@ -414,7 +451,8 @@ initWithRootViewController:(UIViewController*)rootViewController
   SyncEncryptionPassphraseTableViewController* controller =
       [[SyncEncryptionPassphraseTableViewController alloc]
           initWithBrowserState:mainBrowserState_];
-  controller.dispatcher = [delegate_ dispatcherForSettings];
+  controller.dispatcher =
+      [self.settingsNavigationDelegate dispatcherForSettings];
   [self pushViewController:controller animated:YES];
 }
 
@@ -424,7 +462,8 @@ initWithRootViewController:(UIViewController*)rootViewController
   PasswordsTableViewController* controller =
       [[PasswordsTableViewController alloc]
           initWithBrowserState:mainBrowserState_];
-  controller.dispatcher = [delegate_ dispatcherForSettings];
+  controller.dispatcher =
+      [self.settingsNavigationDelegate dispatcherForSettings];
   [self pushViewController:controller animated:YES];
 }
 
@@ -434,7 +473,8 @@ initWithRootViewController:(UIViewController*)rootViewController
   AutofillProfileTableViewController* controller =
       [[AutofillProfileTableViewController alloc]
           initWithBrowserState:mainBrowserState_];
-  controller.dispatcher = [delegate_ dispatcherForSettings];
+  controller.dispatcher =
+      [self.settingsNavigationDelegate dispatcherForSettings];
   [self pushViewController:controller animated:YES];
 }
 
@@ -444,7 +484,8 @@ initWithRootViewController:(UIViewController*)rootViewController
   AutofillCreditCardTableViewController* controller =
       [[AutofillCreditCardTableViewController alloc]
           initWithBrowserState:mainBrowserState_];
-  controller.dispatcher = [delegate_ dispatcherForSettings];
+  controller.dispatcher =
+      [self.settingsNavigationDelegate dispatcherForSettings];
   [self pushViewController:controller animated:YES];
 }
 

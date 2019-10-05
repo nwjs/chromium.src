@@ -4,13 +4,64 @@
 
 #include "chrome/browser/ui/global_media_controls/media_toolbar_button_controller.h"
 
+#include "base/metrics/histogram_functions.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/global_media_controls/media_dialog_delegate.h"
 #include "chrome/browser/ui/global_media_controls/media_toolbar_button_controller_delegate.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/media_message_center/media_notification_item.h"
 #include "components/media_message_center/media_notification_util.h"
+#include "content/public/browser/media_session.h"
 #include "services/media_session/public/mojom/constants.mojom.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
 #include "services/service_manager/public/cpp/connector.h"
+
+namespace {
+
+// Here we check to see if the WebContents is focused. Note that since Session
+// is a WebContentsObserver, we could in theory listen for
+// |OnWebContentsFocused()| and |OnWebContentsLostFocus()|. However, this won't
+// actually work since focusing the MediaDialogView causes the WebContents to
+// "lose focus", so we'd never be focused.
+bool IsWebContentsFocused(content::WebContents* web_contents) {
+  DCHECK(web_contents);
+  Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
+  if (!browser)
+    return false;
+
+  // If the given WebContents is not in the focused window, then it's not
+  // focused. Note that we know a Browser is focused because otherwise the user
+  // could not interact with the MediaDialogView.
+  if (BrowserList::GetInstance()->GetLastActive() != browser)
+    return false;
+
+  return browser->tab_strip_model()->GetActiveWebContents() == web_contents;
+}
+
+}  // anonymous namespace
+
+MediaToolbarButtonController::Session::Session(
+    MediaToolbarButtonController* owner,
+    const std::string& id,
+    std::unique_ptr<media_message_center::MediaNotificationItem> item,
+    content::WebContents* web_contents)
+    : content::WebContentsObserver(web_contents),
+      owner_(owner),
+      id_(id),
+      item_(std::move(item)) {
+  DCHECK(owner_);
+  DCHECK(item_);
+}
+
+MediaToolbarButtonController::Session::~Session() = default;
+
+void MediaToolbarButtonController::Session::WebContentsDestroyed() {
+  // If the WebContents is destroyed, then we should just remove the item
+  // instead of freezing it.
+  owner_->RemoveItem(id_);
+}
 
 MediaToolbarButtonController::MediaToolbarButtonController(
     const base::UnguessableToken& source_id,
@@ -50,7 +101,7 @@ void MediaToolbarButtonController::OnFocusGained(
   // If we have an existing unfrozen item then this is a duplicate call and
   // we should ignore it.
   auto it = sessions_.find(id);
-  if (it != sessions_.end() && !it->second.frozen())
+  if (it != sessions_.end() && !it->second.item()->frozen())
     return;
 
   mojo::Remote<media_session::mojom::MediaController> controller;
@@ -65,8 +116,8 @@ void MediaToolbarButtonController::OnFocusGained(
   if (it != sessions_.end()) {
     // If the notification was previously frozen then we should reset the
     // controller because the mojo pipe would have been reset.
-    it->second.SetController(std::move(controller),
-                             std::move(session->session_info));
+    it->second.item()->SetController(std::move(controller),
+                                     std::move(session->session_info));
     active_controllable_session_ids_.insert(id);
     frozen_session_ids_.erase(id);
     UpdateToolbarButtonState();
@@ -74,8 +125,12 @@ void MediaToolbarButtonController::OnFocusGained(
     sessions_.emplace(
         std::piecewise_construct, std::forward_as_tuple(id),
         std::forward_as_tuple(
-            this, id, session->source_name.value_or(std::string()),
-            std::move(controller), std::move(session->session_info)));
+            this, id,
+            std::make_unique<media_message_center::MediaNotificationItem>(
+                this, id, session->source_name.value_or(std::string()),
+                std::move(controller), std::move(session->session_info)),
+            content::MediaSession::GetWebContentsFromRequestId(
+                *session->request_id)));
   }
 }
 
@@ -87,7 +142,7 @@ void MediaToolbarButtonController::OnFocusLost(
   if (it == sessions_.end())
     return;
 
-  it->second.Freeze();
+  it->second.item()->Freeze();
   active_controllable_session_ids_.erase(id);
   frozen_session_ids_.insert(id);
   UpdateToolbarButtonState();
@@ -104,7 +159,7 @@ void MediaToolbarButtonController::ShowNotification(const std::string& id) {
 
   auto it = sessions_.find(id);
   if (it != sessions_.end())
-    item = it->second.GetWeakPtr();
+    item = it->second.item()->GetWeakPtr();
 
   dialog_delegate_->ShowMediaSession(id, item);
 }
@@ -133,6 +188,20 @@ void MediaToolbarButtonController::RemoveItem(const std::string& id) {
   UpdateToolbarButtonState();
 }
 
+void MediaToolbarButtonController::LogMediaSessionActionButtonPressed(
+    const std::string& id) {
+  auto it = sessions_.find(id);
+  if (it == sessions_.end())
+    return;
+
+  content::WebContents* web_contents = it->second.web_contents();
+  if (!web_contents)
+    return;
+
+  base::UmaHistogramBoolean("Media.GlobalMediaControls.UserActionFocus",
+                            IsWebContentsFocused(web_contents));
+}
+
 void MediaToolbarButtonController::SetDialogDelegate(
     MediaDialogDelegate* delegate) {
   DCHECK(!delegate || !dialog_delegate_);
@@ -148,7 +217,7 @@ void MediaToolbarButtonController::SetDialogDelegate(
 
     auto it = sessions_.find(id);
     if (it != sessions_.end())
-      item = it->second.GetWeakPtr();
+      item = it->second.item()->GetWeakPtr();
 
     dialog_delegate_->ShowMediaSession(id, item);
   }

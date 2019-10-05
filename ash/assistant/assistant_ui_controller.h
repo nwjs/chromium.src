@@ -48,6 +48,12 @@ class AssistantContainerView;
 class AssistantController;
 class ProactiveSuggestionsView;
 
+namespace assistant {
+namespace metrics {
+enum class ProactiveSuggestionsShowResult;
+}  // namespace metrics
+}  // namespace assistant
+
 class ASH_EXPORT AssistantUiController
     : public views::WidgetObserver,
       public AssistantControllerObserver,
@@ -87,7 +93,9 @@ class ASH_EXPORT AssistantUiController
 
   // AssistantSuggestionsModelObserver:
   void OnProactiveSuggestionsChanged(
-      scoped_refptr<const ProactiveSuggestions> proactive_suggestions) override;
+      scoped_refptr<const ProactiveSuggestions> proactive_suggestions,
+      scoped_refptr<const ProactiveSuggestions> old_proactive_suggestions)
+      override;
 
   // AssistantScreenContextModelObserver:
   void OnScreenContextRequestStateChanged(
@@ -100,6 +108,7 @@ class ASH_EXPORT AssistantUiController
   void OnDialogPlateButtonPressed(AssistantButtonId id) override;
   void OnMiniViewPressed() override;
   void OnProactiveSuggestionsCloseButtonPressed() override;
+  void OnProactiveSuggestionsViewHoverChanged(bool is_hovering) override;
   void OnProactiveSuggestionsViewPressed() override;
 
   // HighlighterController::Observer:
@@ -156,7 +165,9 @@ class ASH_EXPORT AssistantUiController
 
   // Constructs/resets |proactive_suggestions_view_|.
   void CreateProactiveSuggestionsView();
-  void ResetProactiveSuggestionsView();
+  void ResetProactiveSuggestionsView(
+      int category,
+      assistant::metrics::ProactiveSuggestionsShowResult result);
 
   // Returns the root window for |container_view_| if it exists, otherwise
   // |proactive_suggestions_view_|. Note that this method may only be called
@@ -187,7 +198,7 @@ class ASH_EXPORT AssistantUiController
 
   // When shown, the proactive suggestions widget will automatically be closed
   // if the user doesn't interact with it within a fixed interval.
-  base::OneShotTimer auto_close_proactive_suggestions_timer_;
+  base::RetainingOneShotTimer auto_close_proactive_suggestions_timer_;
 
   // Whether the UI controller is observing changes to the usable work area.
   bool is_observing_usable_work_area_ = false;

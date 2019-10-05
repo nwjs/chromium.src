@@ -405,11 +405,10 @@ class ProgressCenterPanel {
     let panelItem = this.feedbackHost_.findPanelItemById(item.id);
     if (newItem) {
       if (!panelItem) {
-        panelItem = this.feedbackHost_.addPanelItem(item.id);
-        panelItem.hidden = true;
+        panelItem = this.feedbackHost_.createPanelItem(item.id);
         // Show the panel only for long running operations.
         setTimeout(() => {
-          panelItem.hidden = false;
+          this.feedbackHost_.attachPanelItem(panelItem);
         }, this.PENDING_TIME_MS_);
         panelItem.panelType = panelItem.panelTypeProgress;
         panelItem.userData = {
@@ -453,11 +452,11 @@ class ProgressCenterPanel {
                 this.completedHost_.removePanelItem(donePanelItem);
               }
             };
-            // Delete after 7 seconds, doesn't matter if it's manually deleted
+            // Delete after 4 seconds, doesn't matter if it's manually deleted
             // before the timer fires, as removePanelItem handles that case.
             setTimeout(() => {
               this.completedHost_.removePanelItem(donePanelItem);
-            }, 7000);
+            }, 4000);
           }
           // Drop through to remove the progress panel.
         case 'canceled':

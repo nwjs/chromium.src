@@ -169,6 +169,7 @@
 <translation id="2220529011494928058">דיווח על בעיה</translation>
 <translation id="2223693656926968778">נקוט פעולה לגבי הפריט הנוכחי</translation>
 <translation id="225732394367814946">הגבר את קצב הדיבור</translation>
+<translation id="2267538686624070261">יציאה משגיאת איות</translation>
 <translation id="2267945578749931355">התו הבא</translation>
 <translation id="2278490101488436824">החלקה שמאלה עם שלוש אצבעות</translation>
 <translation id="2281234842553884450">המחוון הקודם</translation>
@@ -207,6 +208,7 @@
 <translation id="257674075312929031">קבוצה</translation>
 <translation id="2582407057977008361">בצד</translation>
 <translation id="2592212930811759050">לחיצה פעמיים מפעילה עריכה</translation>
+<translation id="2598495320872286378">שגיאת דקדוק</translation>
 <translation id="2606210917827248971">עם {COUNT,plural, =1{פריט אחד}two{שני פריטים}many{# פריטים}other{# פריטים}}</translation>
 <translation id="2614981083756825552">‏פריסת Math ML</translation>
 <translation id="2624431853467395961">פתח מצב למידה</translation>
@@ -422,7 +424,6 @@
 <translation id="4039983576244166038">כותרת שורה ריקה</translation>
 <translation id="4042843249978639960">אין כותרת הבאה של רמה 2.</translation>
 <translation id="4043348641337972076">‏אין ציון דרך קודם מסוג ARIA.</translation>
-<translation id="4045764028670444336">תחילת איות שגוי</translation>
 <translation id="4047216625641135770">סימון</translation>
 <translation id="404803211695627272"><ph name="V1" />-<ph name="V2" /></translation>
 <translation id="4053520724192563562">ירוק ליים</translation>
@@ -505,7 +506,6 @@
 <translation id="4547556996012970016">הכותרת הבאה של רמה 5</translation>
 <translation id="4562381607973973258">כותרת עליונה</translation>
 <translation id="4569941707103739422">‏מנווטים על-ידי הקשה על החיצים הפונים מעלה או מטה. מפעילים על-ידי הקשה על Enter.</translation>
-<translation id="4570424871453628777">סוף איות שגוי</translation>
 <translation id="4591507479202817876">, מסומן</translation>
 <translation id="4597532268155981612">טופס</translation>
 <translation id="4597896406374528575">אפריל</translation>
@@ -728,7 +728,6 @@
 <translation id="6037602951055904232">הזז קדימה</translation>
 <translation id="6042826534790431634">כדי להפעיל, יש להקיש על המקשים חיפוש+רווח.</translation>
 <translation id="6044160928851315051">החשך את המסך</translation>
-<translation id="6065293622157674001">תחילת שגיאת דקדוק</translation>
 <translation id="6082768461603900813">ניווט בסיסי</translation>
 <translation id="6118126368611144850">‏אפליקציות Android ל-Chrome. אם במכשיר מותקנת האפליקציה של חנות Play, אפשר לקבל הצצה אל ChromeVox עם אפליקציות Android. ניתן לנסות את התמיכה הניסיונית על-ידי הורדת Google Chrome Canary מחנות Play.</translation>
 <translation id="611827076493383239">vtd</translation>
@@ -824,6 +823,7 @@
 <translation id="6833103209700200188">כותרת תחתונה</translation>
 <translation id="6858047746862060282">פרולוג</translation>
 <translation id="6859876496651143278">החלקה שמאלה עם אצבע אחת</translation>
+<translation id="6865519907510167493">שגיאת איות</translation>
 <translation id="6871161210040114857">ללא תלות ברישיות.</translation>
 <translation id="6877435256196695200">אין עוד פריט גרפיקה.</translation>
 <translation id="6897341342232909480">העבר שמאלה</translation>
@@ -869,7 +869,6 @@
 <translation id="7143207342074048698">מתחבר</translation>
 <translation id="7153618581592392745">לבנדר</translation>
 <translation id="7157306005867877619">תקציר</translation>
-<translation id="7161425887892204659">סוף התאמת טקסט</translation>
 <translation id="7161771961008409533">לחצן קופץ</translation>
 <translation id="7165714724802225287">התצוגה הנוכחית היא משולבת.</translation>
 <translation id="7167657087543110">הד תו</translation>
@@ -907,7 +906,6 @@
 <translation id="737396357417333429">clk</translation>
 <translation id="7374104575779636480">יציאה מהטבלה.</translation>
 <translation id="738899727977260036">כחול סגלגל</translation>
-<translation id="7392145451309930991">תחילת התאמת טקסט</translation>
 <translation id="739763518212184081">השורה הקודמת</translation>
 <translation id="7400575256015741911">זוהתה טעות באיות</translation>
 <translation id="7408482676469142474">tbl</translation>
@@ -1116,11 +1114,11 @@
 <translation id="8446884382197647889">למידע נוסף</translation>
 <translation id="8455868257606149352">מקסימום <ph name="X" /></translation>
 <translation id="84575901236241018">כולל מקש גישה, <ph name="KEY" /></translation>
+<translation id="8463645336674919227">יציאה משגיאת דקדוק</translation>
 <translation id="847154984256717791">עסוק</translation>
 <translation id="8476408756881832830">‏השהה את ההשמעה כשתוסף ה-ChromeVox מקריא</translation>
 <translation id="8476508772960940536">סקירת חלון</translation>
 <translation id="8503360654911991865">הקטן רמת פירוט של ניווט</translation>
-<translation id="8504695234784218301">סוף שגיאת דקדוק</translation>
 <translation id="8520472399088452386">לחצן סיבוב</translation>
 <translation id="8534394844575788431">עיצוב</translation>
 <translation id="8538744478902126321">נחש מהי כותרת השורה של התא הנוכחי</translation>

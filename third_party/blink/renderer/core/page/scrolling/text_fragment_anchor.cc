@@ -25,12 +25,8 @@ namespace blink {
 
 namespace {
 
-constexpr char kFragmentDirectivePrefix[] = "##";
 constexpr char kTextFragmentIdentifierPrefix[] = "targetText=";
-
 // Subtract 1 because base::size includes the \0 string terminator.
-constexpr size_t kFragmentDirectivePrefixStringLength =
-    base::size(kFragmentDirectivePrefix) - 1;
 constexpr size_t kTextFragmentIdentifierPrefixStringLength =
     base::size(kTextFragmentIdentifierPrefix) - 1;
 
@@ -58,17 +54,6 @@ bool ParseTargetTextIdentifier(const String& fragment,
   }
 
   return true;
-}
-
-// For fragment directive style text fragment anchors, we strip the directive
-// from the fragment string to avoid breaking pages that rely on the fragment.
-// E.g. "#id##targetText=a" --> "#id"
-String StripFragmentDirective(const String& fragment) {
-  size_t start_pos = fragment.Find(kFragmentDirectivePrefix);
-  if (start_pos == kNotFound)
-    return fragment;
-
-  return fragment.Substring(0, start_pos);
 }
 
 bool CheckSecurityRestrictions(LocalFrame& frame,
@@ -119,26 +104,14 @@ TextFragmentAnchor* TextFragmentAnchor::TryCreateFragmentDirective(
   if (!CheckSecurityRestrictions(frame, same_document_navigation))
     return nullptr;
 
+  if (!frame.GetDocument()->GetFragmentDirective())
+    return nullptr;
+
   Vector<TextFragmentSelector> selectors;
 
-  // Add the hash to the beginning of the fragment identifier as it is
-  // part of parsing the ##targetText= prefix but is not included by
-  // KURL::FragmentIdentifier().
-  String fragment = "#" + url.FragmentIdentifier();
-  size_t directive_pos = fragment.Find(kFragmentDirectivePrefix);
-  if (directive_pos == kNotFound)
+  if (!ParseTargetTextIdentifier(frame.GetDocument()->GetFragmentDirective(),
+                                 &selectors))
     return nullptr;
-
-  size_t start_pos = directive_pos + kFragmentDirectivePrefixStringLength;
-  if (!ParseTargetTextIdentifier(fragment.Substring(start_pos), &selectors))
-    return nullptr;
-
-  // Strip the fragment directive from the document URL so that the page cannot
-  // see the directive, to avoid breaking pages that rely on the fragment.
-  String stripped_fragment = StripFragmentDirective(fragment).Substring(1);
-  KURL stripped_url(url);
-  stripped_url.SetFragmentIdentifier(stripped_fragment);
-  frame.GetDocument()->SetURL(std::move(stripped_url));
 
   return MakeGarbageCollected<TextFragmentAnchor>(
       selectors, frame, TextFragmentFormat::FragmentDirective);
@@ -170,8 +143,10 @@ bool TextFragmentAnchor::Invoke() {
     return true;
   }
 
+  // If we're done searching, return true if this hasn't been dismissed yet so
+  // that this is kept alive.
   if (search_finished_)
-    return false;
+    return !dismissed_;
 
   frame_->GetDocument()->Markers().RemoveMarkersOfTypes(
       DocumentMarker::MarkerTypes::TextMatch());
@@ -194,9 +169,9 @@ bool TextFragmentAnchor::Invoke() {
   if (frame_->GetDocument()->IsLoadCompleted())
     DidFinishSearch();
 
-  // We need another Invoke if we're not finished searching or if we're proxying
-  // an element fragment anchor.
-  return !search_finished_ || element_fragment_anchor_;
+  // We return true to keep this anchor alive as long as we need another invoke,
+  // are waiting to be dismissed, or are proxying an element fragment anchor.
+  return !search_finished_ || !dismissed_ || element_fragment_anchor_;
 }
 
 void TextFragmentAnchor::Installed() {}
@@ -306,6 +281,9 @@ void TextFragmentAnchor::DidFinishSearch() {
 
   metrics_->ReportMetrics();
 
+  if (!did_find_match_)
+    dismissed_ = true;
+
   if (!did_find_match_ &&
       fragment_format_ == TextFragmentFormat::FragmentDirective) {
     DCHECK(!element_fragment_anchor_);
@@ -317,6 +295,28 @@ void TextFragmentAnchor::DidFinishSearch() {
       frame_->GetPage()->GetChromeClient().ScheduleAnimation(frame_->View());
     }
   }
+}
+
+bool TextFragmentAnchor::Dismiss() {
+  // To decrease the likelihood of the user dismissing the highlight before
+  // seeing it, we only dismiss the anchor after search_finished_, at which
+  // point we've scrolled it into view or the user has started scrolling the
+  // page.
+  if (!search_finished_)
+    return false;
+
+  if (!did_find_match_ || dismissed_)
+    return true;
+
+  DCHECK(did_scroll_into_view_ || user_scrolled_);
+
+  frame_->GetDocument()->Markers().RemoveMarkersOfTypes(
+      DocumentMarker::MarkerTypes::TextMatch());
+  frame_->GetEditor().SetMarkedTextMatchesAreHighlighted(false);
+  dismissed_ = true;
+  metrics_->Dismissed();
+
+  return dismissed_;
 }
 
 }  // namespace blink

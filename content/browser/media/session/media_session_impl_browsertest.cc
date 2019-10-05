@@ -85,6 +85,8 @@ class MockAudioFocusDelegate : public AudioFocusDelegate {
   void MediaSessionInfoChanged(
       media_session::mojom::MediaSessionInfoPtr session_info) override {}
 
+  MOCK_CONST_METHOD0(request_id, const base::UnguessableToken&());
+
   void ResolveRequest(bool result) {
     if (!async_mode_)
       return;
@@ -2209,7 +2211,7 @@ IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
 
   media_session::MediaMetadata expected_metadata;
   expected_metadata.title = shell()->web_contents()->GetTitle();
-  expected_metadata.artist = GetExpectedSourceTitle();
+  expected_metadata.source_title = GetExpectedSourceTitle();
   observer.WaitForExpectedMetadata(expected_metadata);
 }
 
@@ -2480,7 +2482,7 @@ IN_PROC_BROWSER_TEST_F(MediaSessionImplBrowserTest, MetadataWhenFileUrlScheme) {
 
   media_session::MediaMetadata expected_metadata;
   expected_metadata.title = shell()->web_contents()->GetTitle();
-  expected_metadata.artist = base::ASCIIToUTF16("Local File");
+  expected_metadata.source_title = base::ASCIIToUTF16("Local File");
   observer.WaitForExpectedMetadata(expected_metadata);
 }
 

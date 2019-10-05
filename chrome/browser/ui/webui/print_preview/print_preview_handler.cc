@@ -1002,7 +1002,7 @@ void PrintPreviewHandler::HandleClosePreviewDialog(
 void PrintPreviewHandler::HandleOpenPrinterSettings(
     const base::ListValue* args) {
   chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(
-      Profile::FromWebUI(web_ui()), chrome::kPrintingSettingsSubPage);
+      Profile::FromWebUI(web_ui()), chrome::kNativePrintingSettingsSubPage);
 }
 #endif
 

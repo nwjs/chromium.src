@@ -47,12 +47,17 @@
 <translation id="1873233029667955273">Google Chrome നിങ്ങളുടെ ഡിഫോൾട്ട് ബ്രൗസറല്ല</translation>
 <translation id="1874309113135274312">Google Chrome ബീറ്റ (mDNS-In)</translation>
 <translation id="1877026089748256423">Chrome കാലഹരണപ്പെട്ടതാണ്</translation>
+<translation id="1900795423379050516">ഈ പേജിൽ ക്രമീകരണം കാണിക്കുന്നില്ലെങ്കിൽ <ph name="LINK_BEGIN" />
+      Chrome ബ്രൗസർ ക്രമീകരണത്തിൽ<ph name="LINK_END" /> പരിശോധിക്കുക</translation>
 <translation id="1915828456209461693">Chrome-നായുള്ള പുതിയൊരു അപ്ഡേറ്റ് ലഭ്യമാണ്, നിങ്ങൾ വീണ്ടും സമാരംഭിക്കുമ്പോൾ ഉടൻ അത് പ്രാബല്യത്തിലാകും.</translation>
 <translation id="1919130412786645364">Chrome-ലേക്ക് സൈൻ ഇൻ ചെയ്യാൻ അനുവദിക്കുക</translation>
 <translation id="2063848847527508675">അപ്‌ഡേറ്റ് പ്രയോഗത്തിൽ വരുത്താൻ Chrome OS പുനരാരംഭിക്കേണ്ടതുണ്ട്.</translation>
 <translation id="2094919256425865063">എന്തായാലും Chrome-ൽ നിന്ന് പുറത്തുകടക്കണോ?</translation>
 <translation id="2120620239521071941">ഇത് ഈ ഉപകരണത്തിൽ നിന്ന് <ph name="ITEMS_COUNT" /> ഇനങ്ങൾ ഇല്ലാതാക്കും. പിന്നീട് നിങ്ങളുടെ വിവരങ്ങൾ വീണ്ടെടുക്കാൻ, <ph name="USER_EMAIL" /> എന്നയാളായി Chrome‌-ൽ സൈൻ ഇൻ ചെയ്യുക.</translation>
 <translation id="2123055963409958220"><ph name="BEGIN_LINK" />നിലവിലെ ക്രമീകരണം<ph name="END_LINK" /> റിപ്പോർട്ട് ചെയ്‌തുകൊണ്ട് Chrome മികച്ചതാക്കാൻ സഹായിക്കുക</translation>
+<translation id="2128103434102193461">Chrome OS-ന്റെ വിശദാംശങ്ങൾക്ക് <ph name="LINK_BEGIN" />
+      Chrome OS-നെക്കുറിച്ച്<ph name="LINK_END" /> എന്ന പേജ് കാണുക</translation>
+<translation id="2151406531797534936">Chrome ഇപ്പോൾ റീസ്‌റ്റാർട്ട് ചെയ്യുക</translation>
 <translation id="216054706567564023">നിങ്ങളുടെ ഫോണിൽ Chrome ഇൻസ്‌റ്റാൾ ചെയ്യുക. അക്കൗണ്ട് വീണ്ടെടുക്കൽ ഫോൺ നമ്പറിലേക്ക് ഞങ്ങളൊരു SMS അയയ്‌ക്കും.</translation>
 <translation id="2246246234298806438">ബിൽറ്റ്-ഇൻ PDF വ്യൂവർ കാണുന്നില്ലെങ്കിൽ Google Chrome-ന് പ്രിന്റ് പ്രിവ്യു കാണിക്കാൻ കഴിയില്ല.</translation>
 <translation id="2252923619938421629">നിലവിലെ ക്രമീകരണങ്ങൾ റിപ്പോർട്ട് ചെയ്യുന്നതിലൂടെ Google Chrome-നെ മികച്ചതാക്കാൻ സഹായിക്കുക</translation>
@@ -164,6 +169,8 @@
 <translation id="5543953544073077331">Chrome-ൻ്റെ മറ്റ് പകർപ്പുകൾ റൺ ചെയ്യുന്നു. അപ്ഡേറ്റ് ചെയ്യാൻ അവ അടയ്ക്കുക.</translation>
 <translation id="556024056938947818">Google Chrome പാസ്‌വേഡുകൾ ദൃശ്യമാക്കാൻ ശ്രമിക്കുന്നു.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
+<translation id="5657226924540934362">ഈ പേജിൽ ക്രമീകരണം കാണിക്കുന്നില്ലെങ്കിൽ, <ph name="LINK_BEGIN" />
+      Chrome OS ക്രമീകരണത്തിൽ<ph name="LINK_END" /> പരിശോധിക്കുക</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> അപകടകരമാകാൻ ഇടയുള്ളതിനാൽ, Chrome ഇതിനെ ബ്ലോക്കുചെയ്‌തു.</translation>
 <translation id="5686916850681061684">Google Chrome ഇഷ്‌ടാനുസൃതമാക്കുക, നിയന്ത്രിക്കുക. എന്തോ ഒന്നിന് നിങ്ങളുടെ ശ്രദ്ധ വേണം -വിശദാംശങ്ങൾക്ക് ക്ലിക്ക് ചെയ്യുക.</translation>
 <translation id="5690427481109656848">Google LLC</translation>
@@ -176,12 +183,9 @@
 <translation id="5906655207909574370">എകദേശം അപ് റ്റു ഡേറ്റാണ്! അപ്‌ഡേറ്റ് ചെയ്യൽ പൂർത്തിയാക്കാൻ ഉപകരണം പുനരാരംഭിക്കുക.</translation>
 <translation id="5940385492829620908">നിങ്ങളുടെ വെബും ബുക്ക്മാർക്കുകളും മറ്റ് Chrome ഫയലും ഇവിടെ തത്സമയമാണ്.</translation>
 <translation id="5941830788786076944">Google Chrome-നെ ഡിഫോൾട്ട് ബ്രൗസർ ആക്കുക</translation>
-<translation id="5977372243443849142">പാസ്‌വേഡുകൾ ഓർത്ത് വെയ്ക്കാൻ Chromium-ത്തിനാകും, നിങ്ങളത് ചെയ്യേണ്ടതില്ല.</translation>
 <translation id="6014844626092547096">നിങ്ങൾ ഇപ്പോൾ Chrome-ലേക്ക് സൈൻ ഇൻ ചെയ്‌തു! നിങ്ങളുടെ അഡ്‌മിനിസ്‌ട്രേറ്റർ സമന്വയം പ്രവർത്തനരഹിതമാക്കി.</translation>
 <translation id="6040143037577758943">അടയ്ക്കുക</translation>
 <translation id="6070348360322141662">കൂടുതൽ സുരക്ഷ ലഭ്യമാക്കാൻ, Google Chrome നിങ്ങളുടെ ഡാറ്റ എന്‍‌ക്രിപ്‌റ്റുചെയ്യും</translation>
-<translation id="6102256037460917300">ഈ പേജിൽ ക്രമീകരണം കാണിക്കുന്നില്ലെങ്കിൽ <ph name="LINK_BEGIN" />
-    Chrome ബ്രൗസർ ക്രമീകരണത്തിൽ<ph name="LINK_END" /> പരിശോധിക്കുക</translation>
 <translation id="6113794647360055231">Chrome കൂടുതൽ മികച്ചതായി</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome ബീറ്റ</translation>
@@ -226,6 +230,7 @@
 <translation id="7589360514048265910">Mac OS X 10.9 ഇനി പിന്തുണയ്‌ക്കാത്തതിനാൽ ഈ കമ്പ്യൂട്ടറിന് ഇനി Google Chrome അപ്‌ഡേറ്റുകൾ സ്വീകരിക്കാനാവില്ല.</translation>
 <translation id="7592736734348559088">നിങ്ങളുടെ അക്കൗണ്ടിന്റെ സൈൻ ഇൻ വിശദാംശങ്ങൾ കാലഹരണപ്പെട്ടതിനാൽ Google Chrome-ന് നിങ്ങളുടെ ഡാറ്റ സമന്വയിപ്പിക്കാനായില്ല.</translation>
 <translation id="7626032353295482388">Chrome-ലേക്ക് സ്വാഗതം</translation>
+<translation id="7629695634924605473">നിങ്ങളുടെ പാസ്‌വേഡുകൾ എപ്പോഴെങ്കിലും അപഹരിക്കപ്പെട്ടിട്ടുണ്ടെങ്കിൽ അക്കാര്യം Chrome നിങ്ങളെ അറിയിക്കും</translation>
 <translation id="7641148173327520642"><ph name="TARGET_URL_HOSTNAME" /> ആക്‌സസ് ചെയ്യാൻ <ph name="ALTERNATIVE_BROWSER_NAME" /> തുറക്കുന്നതിനായി നിങ്ങളുടെ സിസ്‌റ്റം അഡ്‌മിൻ Google Chrome കോൺഫിഗർ ചെയ്‌തു.</translation>
 <translation id="7651907282515937834">Chrome എന്റർപ്രൈസ് ലോഗോ</translation>
 <translation id="7747138024166251722">ഇൻസ്റ്റാളറിന് താൽക്കാലിക ഡയറക്റ്ററി സൃഷ്‌ടിക്കാനായില്ല. ശൂന്യമായ ഡിസ്‍ക് സ്പെയിസും സോഫ്റ്റ്‌വെയർ ഇൻസ്റ്റാൾ ചെയ്യാനുള്ള അനുമതിയും പരിശോധിക്കുക.</translation>
@@ -254,7 +259,6 @@
 <translation id="8370517070665726704">പകർപ്പവകാശം <ph name="YEAR" /> Google LLC. എല്ലാ അവകാശങ്ങളും നിക്ഷിപ്‍തം.</translation>
 <translation id="840084489713044809">നിങ്ങളുടെ പാസ്‌വേഡുകൾ എക്‌സ്‌പോർട്ട് ചെയ്യാൻ Google Chrome ആഗ്രഹിക്കുന്നു.</translation>
 <translation id="8406086379114794905">Chrome-നെ മികച്ചതാക്കാൻ സഹായിക്കുക</translation>
-<translation id="8432724323949790809">നിങ്ങൾ ഇപ്പോൾ Google Chrome റീസ്‌റ്റാർട്ട് ചെയ്യേണ്ടതുണ്ട്</translation>
 <translation id="8455999171311319804">ഓപ്‌ഷണൽ: ഡയഗണോസ്‌റ്റിക്, ഉപയോഗ വിവരങ്ങൾ Google-ന് സ്വയം അയച്ചുകൊണ്ട് Chrome OS മെച്ചപ്പെടുത്താൻ സഹായിക്കുക.</translation>
 <translation id="8478823064122749032">നിങ്ങളുടെ ഫോണിൽ Chrome ഇൻസ്‌റ്റാൾ ചെയ്യുക. അക്കൗണ്ട് വീണ്ടെടുക്കൽ ഫോൺ നമ്പറിലേക്ക് ഞങ്ങളൊരു SMS അയയ്‌ക്കും: <ph name="PHONE_NUMBER" /></translation>
 <translation id="8498858610309223613">Google Chrome-നുള്ള ഒരു പ്രത്യേക സുരക്ഷാ അപ്ഡേറ്റ് പ്രയോഗിച്ചിരിക്കുന്നു. ഇപ്പോൾ റീസ്‌റ്റാർട്ട് ചെയ്യുക, ഞങ്ങൾ നിങ്ങളുടെ ടാബുകൾ പുനഃസ്ഥാപിക്കും.</translation>

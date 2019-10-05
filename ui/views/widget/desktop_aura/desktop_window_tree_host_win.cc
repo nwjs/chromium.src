@@ -638,6 +638,11 @@ void DesktopWindowTreeHostWin::MoveCursorToScreenLocationInPixels(
   ::SetCursorPos(cursor_location.x, cursor_location.y);
 }
 
+std::unique_ptr<aura::ScopedEnableUnadjustedMouseEvents>
+DesktopWindowTreeHostWin::RequestUnadjustedMovement() {
+  return message_handler_->RegisterUnadjustedMouseEvent();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // DesktopWindowTreeHostWin, wm::AnimationHost implementation:
 
@@ -927,6 +932,7 @@ bool DesktopWindowTreeHostWin::HandleMouseEvent(ui::MouseEvent* event) {
   // with the event.
   if (window()->occlusion_state() == aura::Window::OcclusionState::OCCLUDED)
     UMA_HISTOGRAM_BOOLEAN("OccludedWindowMouseEvents", true);
+
   SendEventToSink(event);
   return event->handled();
 }
@@ -938,7 +944,9 @@ void DesktopWindowTreeHostWin::HandleKeyEvent(ui::KeyEvent* event) {
   // WM_SYSCHAR would trigger a beep when processed by the native event handler.
   if ((event->type() == ui::ET_KEY_PRESSED) &&
       (event->key_code() == ui::VKEY_SPACE) &&
-      (event->flags() & ui::EF_ALT_DOWN) && GetWidget()->non_client_view()) {
+      (event->flags() & ui::EF_ALT_DOWN) &&
+      !(event->flags() & ui::EF_CONTROL_DOWN) &&
+      GetWidget()->non_client_view()) {
     return;
   }
 

@@ -334,6 +334,12 @@ bool AXNodeObject::ComputeAccessibilityIsIgnored(
   // it's been initialized.
   DCHECK(initialized_);
 #endif
+
+  // All nodes must have an unignored parent within their tree under
+  // kRootWebArea, so force kRootWebArea to always be unignored.
+  if (role_ == ax::mojom::Role::kRootWebArea)
+    return false;
+
   if (GetLayoutObject()) {
     if (role_ == ax::mojom::Role::kUnknown) {
       if (ignored_reasons)
@@ -1596,7 +1602,11 @@ String AXNodeObject::GetText() const {
 
   if (IsNativeTextControl() &&
       (IsHTMLTextAreaElement(*node) || IsHTMLInputElement(*node))) {
-    return ToTextControl(*node).value();
+    // We should not simply return the "value" attribute because it might be
+    // sanitized in some input control types, e.g. email fields. If we do that,
+    // then "selectionStart" and "selectionEnd" indices will not match with the
+    // text in the sanitized value.
+    return ToTextControl(*node).InnerEditorValue();
   }
 
   auto* element = DynamicTo<Element>(node);
@@ -2946,7 +2956,7 @@ String AXNodeObject::NativeTextAlternative(
 
   // 5.2 input type="button", input type="submit" and input type="reset"
   if (input_element && input_element->IsTextButton()) {
-    // value attribue
+    // value attribute.
     name_from = ax::mojom::NameFrom::kValue;
     if (name_sources) {
       name_sources->push_back(NameSource(*found_text_alternative, kValueAttr));
@@ -3012,7 +3022,7 @@ String AXNodeObject::NativeTextAlternative(
       }
     }
 
-    // value attr
+    // value attribute.
     if (name_sources) {
       name_sources->push_back(NameSource(*found_text_alternative, kValueAttr));
       name_sources->back().type = name_from;

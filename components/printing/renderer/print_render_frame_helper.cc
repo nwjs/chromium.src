@@ -713,6 +713,8 @@ void PrintRenderFrameHelper::PrintHeaderAndFooter(
   options->SetDouble("height", page_size.height);
   options->SetDouble("topMargin", page_layout.margin_top);
   options->SetDouble("bottomMargin", page_layout.margin_bottom);
+  options->SetDouble("leftMargin", page_layout.margin_left);
+  options->SetDouble("rightMargin", page_layout.margin_right);
   options->SetInteger("pageNumber", page_number);
   options->SetInteger("totalPages", total_pages);
   options->SetString("url", params.url);
@@ -884,10 +886,8 @@ void PrepareFrameAndViewForPrint::ResizeForPrinting() {
       prev_scroll_offset_ = web_frame->ToWebLocalFrame()->GetScrollOffset();
   }
 
-  // It doesn't make sense to print a detached WebView without a Widget.
-  CHECK(web_view->MainFrameWidget());
-  prev_view_size_ = web_view->MainFrameWidget()->Size();
-  web_view->MainFrameWidget()->Resize(print_layout_size);
+  prev_view_size_ = frame()->LocalRoot()->FrameWidget()->Size();
+  frame()->LocalRoot()->FrameWidget()->Resize(print_layout_size);
 }
 
 void PrepareFrameAndViewForPrint::StartPrinting() {
@@ -1014,10 +1014,8 @@ void PrepareFrameAndViewForPrint::RestoreSize() {
   if (IsPrintingNodeOrPdfFrame(frame(), node_to_print_))
     return;
 
+  frame()->LocalRoot()->FrameWidget()->Resize(prev_view_size_);
   blink::WebView* web_view = frame_.GetFrame()->View();
-  // It doesn't make sense to print a detached WebView without a Widget.
-  CHECK(web_view->MainFrameWidget());
-  web_view->MainFrameWidget()->Resize(prev_view_size_);
   if (blink::WebFrame* web_frame = web_view->MainFrame()) {
     // TODO(lukasza, weili): Support restoring scroll offset of a remote main
     // frame - https://crbug.com/734815.

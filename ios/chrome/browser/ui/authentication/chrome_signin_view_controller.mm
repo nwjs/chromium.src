@@ -200,7 +200,6 @@ enum AuthenticationState {
     _currentState = NULL_STATE;
 
     self.modalPresentationStyle = UIModalPresentationFormSheet;
-    self.presentationController.delegate = self;
   }
   return self;
 }
@@ -308,7 +307,7 @@ enum AuthenticationState {
 }
 
 - (void)setPrimaryButtonStyling:(MDCButton*)button {
-  UIColor* hintColor = UIColor.cr_systemBackgroundColor;
+  UIColor* hintColor = self.backgroundColor;
   UIColor* backgroundColor = [UIColor colorNamed:kBlueColor];
   UIColor* titleColor = [UIColor colorNamed:kSolidButtonTextColor];
 
@@ -331,8 +330,8 @@ enum AuthenticationState {
 }
 
 - (void)setSecondaryButtonStyling:(MDCButton*)button {
-  UIColor* hintColor = UIColor.cr_systemBackgroundColor;
-  UIColor* backgroundColor = UIColor.cr_systemBackgroundColor;
+  UIColor* hintColor = self.backgroundColor;
+  UIColor* backgroundColor = self.backgroundColor;
   UIColor* titleColor = [UIColor colorNamed:kBlueColor];
 
   if (@available(iOS 13, *)) {
@@ -451,7 +450,7 @@ enum AuthenticationState {
 }
 
 - (void)updateGradientColors {
-  UIColor* backgroundColor = UIColor.cr_systemBackgroundColor;
+  UIColor* backgroundColor = self.backgroundColor;
 
   if (@available(iOS 13, *)) {
     backgroundColor =
@@ -503,6 +502,10 @@ enum AuthenticationState {
 
 - (NSString*)skipSigninButtonTitle {
   return l10n_util::GetNSString(IDS_IOS_ACCOUNT_CONSISTENCY_SETUP_SKIP_BUTTON);
+}
+
+- (UIColor*)backgroundColor {
+  return UIColor.cr_systemBackgroundColor;
 }
 
 - (UIButton*)primaryButton {
@@ -695,6 +698,7 @@ enum AuthenticationState {
   DCHECK_EQ(_embeddedView, _unifiedConsentCoordinator.viewController.view);
 
   // Update the button title.
+  _unifiedConsentCoordinator.uiDisabled = NO;
   [self updatePrimaryButtonForIdentityPickerState];
   [_secondaryButton setTitle:self.skipSigninButtonTitle
                     forState:UIControlStateNormal];
@@ -749,6 +753,7 @@ enum AuthenticationState {
 #pragma mark - SigninPendingState
 
 - (void)enterSigninPendingState {
+  _unifiedConsentCoordinator.uiDisabled = YES;
   [_secondaryButton setTitle:l10n_util::GetNSString(IDS_CANCEL)
                     forState:UIControlStateNormal];
   [self.view setNeedsLayout];
@@ -815,7 +820,7 @@ enum AuthenticationState {
 
 - (void)viewDidLoad {
   [super viewDidLoad];
-  self.view.backgroundColor = UIColor.cr_systemBackgroundColor;
+  self.view.backgroundColor = self.backgroundColor;
 
   _primaryButton = [[MDCFlatButton alloc] init];
   [self setPrimaryButtonStyling:_primaryButton];
@@ -849,6 +854,18 @@ enum AuthenticationState {
   [self updateGradientColors];
   [[_gradientView layer] insertSublayer:_gradientLayer atIndex:0];
   [self.view addSubview:_gradientView];
+  if (!self.navigationController) {
+    // If the view controller is part of a navigation controller, there is no
+    // need to be the presentation delegate. The point to be the delegate is to
+    // receive notification when the view is swiped to be dismissed.
+    // The view cannot be swiped away if it is inside a navigation controller.
+    // In that case, the ChromeSigninViewController is leaked because of some
+    // iOS bug. See crbug.com/1004695.
+    // This view controller is presented by itself for signin-in, and it is
+    // presented inside a navigation view controller when being part of the
+    // first run.
+    self.presentationController.delegate = self;
+  }
 }
 
 - (void)viewWillAppear:(BOOL)animated {

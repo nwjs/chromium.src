@@ -9,10 +9,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.view.View;
+import android.view.animation.AnimationUtils;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ListView;
-import android.widget.TextView;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
@@ -21,9 +21,13 @@ import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.init.AsyncInitializationActivity;
+import org.chromium.chrome.browser.preferences.PreferencesLauncher;
 import org.chromium.chrome.browser.sharing.SharingAdapter;
 import org.chromium.chrome.browser.sharing.SharingDeviceCapability;
+import org.chromium.chrome.browser.sharing.SharingServiceProxy;
 import org.chromium.chrome.browser.sharing.SharingServiceProxy.DeviceInfo;
+import org.chromium.components.sync.AndroidSyncSettings;
+import org.chromium.ui.widget.ButtonCompat;
 
 /**
  * Activity to display device targets to share text.
@@ -31,7 +35,6 @@ import org.chromium.chrome.browser.sharing.SharingServiceProxy.DeviceInfo;
 public class SharedClipboardShareActivity
         extends AsyncInitializationActivity implements OnItemClickListener {
     private SharingAdapter mAdapter;
-    private ListView mListView;
 
     /**
      * Checks whether sending shared clipboard message is enabled for the user and enables/disables
@@ -71,15 +74,21 @@ public class SharedClipboardShareActivity
         View mask = findViewById(R.id.mask);
         mask.setOnClickListener(v -> finish());
 
-        TextView toolbarText = findViewById(R.id.device_picker_toolbar);
-        toolbarText.setText(R.string.send_tab_to_self_sheet_toolbar);
-
-        mListView = findViewById(R.id.device_picker_list);
-        mListView.setAdapter(mAdapter);
-        mListView.setOnItemClickListener(this);
-        mListView.setEmptyView(findViewById(android.R.id.empty));
+        ButtonCompat chromeSettingsButton = findViewById(R.id.chrome_settings);
+        if (!AndroidSyncSettings.get().isChromeSyncEnabled()) {
+            chromeSettingsButton.setVisibility(View.VISIBLE);
+            chromeSettingsButton.setOnClickListener(view -> {
+                PreferencesLauncher.launchSettingsPage(ContextUtils.getApplicationContext(), null);
+            });
+        }
 
         onInitialLayoutInflationComplete();
+    }
+
+    @Override
+    public void startNativeInitialization() {
+        SharingServiceProxy.getInstance().addDeviceCandidatesInitializedObserver(
+                this::finishNativeInitialization);
     }
 
     @Override
@@ -87,7 +96,20 @@ public class SharedClipboardShareActivity
         super.finishNativeInitialization();
 
         mAdapter = new SharingAdapter(SharingDeviceCapability.SHARED_CLIPBOARD);
-        mListView.setAdapter(mAdapter);
+        if (!mAdapter.isEmpty()) {
+            findViewById(R.id.device_picker_toolbar).setVisibility(View.VISIBLE);
+            SharedClipboardMetrics.recordShowDeviceList();
+        } else {
+            SharedClipboardMetrics.recordShowEducationalDialog();
+        }
+
+        ListView listView = findViewById(R.id.device_picker_list);
+        listView.setAdapter(mAdapter);
+        listView.setOnItemClickListener(this);
+        listView.setEmptyView(findViewById(R.id.empty_state));
+
+        View content = findViewById(R.id.device_picker_content);
+        content.startAnimation(AnimationUtils.loadAnimation(this, R.anim.slide_in_up));
     }
 
     @Override
@@ -98,15 +120,13 @@ public class SharedClipboardShareActivity
     @Override
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
         DeviceInfo device = mAdapter.getItem(position);
-        SharedClipboardMessageHandler.showSendingNotification(
-                device.guid, device.clientName, getIntent().getStringExtra(Intent.EXTRA_TEXT));
-        finish();
-    }
+        String text = getIntent().getStringExtra(Intent.EXTRA_TEXT);
 
-    @Override
-    public void finish() {
-        super.finish();
-        // TODO(alexchau): Handle animations.
-        overridePendingTransition(R.anim.no_anim, R.anim.no_anim);
+        // Log metrics for device click and text size.
+        SharedClipboardMetrics.recordDeviceClick(position);
+        SharedClipboardMetrics.recordTextSize(text.length());
+
+        SharedClipboardMessageHandler.showSendingNotification(device.guid, device.clientName, text);
+        finish();
     }
 }

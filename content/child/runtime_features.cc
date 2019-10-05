@@ -456,8 +456,9 @@ void SetIndividualRuntimeFeatures(
   }
 
   if (base::FeatureList::IsEnabled(
-          blink::features::kForbidSyncXHRInPageDismissal)) {
-    WebRuntimeFeatures::EnableForbidSyncXHRInPageDismissal(true);
+          blink::features::kAllowSyncXHRInPageDismissal) ||
+      command_line.HasSwitch(switches::kAllowSyncXHRInPageDismissal)) {
+    WebRuntimeFeatures::EnableAllowSyncXHRInPageDismissal(true);
   }
 
   WebRuntimeFeatures::EnableAutoplayIgnoresWebAudio(

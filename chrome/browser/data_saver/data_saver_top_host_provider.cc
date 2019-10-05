@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "base/metrics/histogram_macros.h"
+#include "base/time/default_clock.h"
 #include "base/values.h"
 #include "chrome/browser/engagement/site_engagement_details.mojom.h"
 #include "chrome/browser/engagement/site_engagement_score.h"
@@ -25,6 +26,7 @@
 
 namespace {
 
+// Returns true if hints can't be fetched for |host|.
 bool IsHostBlacklisted(const base::DictionaryValue* top_host_blacklist,
                        const std::string& host) {
   if (!top_host_blacklist)
@@ -58,14 +60,18 @@ bool IsPermittedToUseTopHostProvider(content::BrowserContext* browser_context) {
 std::unique_ptr<DataSaverTopHostProvider>
 DataSaverTopHostProvider::CreateIfAllowed(
     content::BrowserContext* browser_context) {
-  if (IsPermittedToUseTopHostProvider(browser_context))
-    return std::make_unique<DataSaverTopHostProvider>(browser_context);
+  if (IsPermittedToUseTopHostProvider(browser_context)) {
+    return std::make_unique<DataSaverTopHostProvider>(
+        browser_context, base::DefaultClock::GetInstance());
+  }
   return nullptr;
 }
 
 DataSaverTopHostProvider::DataSaverTopHostProvider(
-    content::BrowserContext* browser_context)
+    content::BrowserContext* browser_context,
+    base::Clock* time_clock)
     : browser_context_(browser_context),
+      time_clock_(time_clock),
       pref_service_(Profile::FromBrowserContext(browser_context_)->GetPrefs()) {
 }
 
@@ -100,16 +106,38 @@ void DataSaverTopHostProvider::InitializeHintsFetcherTopHostBlacklist() {
               return lhs.total_score > rhs.total_score;
             });
 
+  pref_service_->SetDouble(
+      optimization_guide::prefs::kTimeBlacklistLastInitialized,
+      time_clock_->Now().ToDeltaSinceWindowsEpoch().InSecondsF());
+
+  // Set the minimum engagement score to -1.0f. This ensures that in the default
+  // case (where the blacklist size is enough to accommodate all hosts from the
+  // site engagement service), a threshold on the minimum site engagement score
+  // does not disqualify |this| from requesting hints for any host.
+  pref_service_->SetDouble(
+      optimization_guide::prefs::
+          kHintsFetcherDataSaverTopHostBlacklistMinimumEngagementScore,
+      -1.0f);
+
   for (const auto& detail : engagement_details) {
+    if (!detail.origin.SchemeIsHTTPOrHTTPS())
+      continue;
     if (top_host_blacklist->size() >=
         optimization_guide::features::MaxHintsFetcherTopHostBlacklistSize()) {
+      // Set the minimum engagement score to the score of the host that
+      // could not be added to  |top_host_blacklist|. Add a small epsilon value
+      // to the threshold so that any host with score equal to or less than
+      // the threshold is not included in the hints fetcher request.
+      pref_service_->SetDouble(
+          optimization_guide::prefs::
+              kHintsFetcherDataSaverTopHostBlacklistMinimumEngagementScore,
+          std::min(detail.total_score + 0.001f,
+                   optimization_guide::features::
+                       MinTopHostEngagementScoreThreshold()));
       break;
     }
-    if (detail.origin.SchemeIsHTTPOrHTTPS()) {
-      top_host_blacklist->SetBoolKey(
-          optimization_guide::HashHostForDictionary(detail.origin.host()),
-          true);
-    }
+    top_host_blacklist->SetBoolKey(
+        optimization_guide::HashHostForDictionary(detail.origin.host()), true);
   }
 
   UMA_HISTOGRAM_COUNTS_1000(
@@ -217,6 +245,18 @@ std::vector<std::string> DataSaverTopHostProvider::GetTopHosts(
   DCHECK(browser_context_);
   DCHECK(pref_service_);
 
+  // It's possible that the blacklist is initialized but
+  // kTimeBlacklistLastInitialized pref is not populated. This may happen since
+  // the logic to populate kTimeBlacklistLastInitialized pref was added in a
+  // later Chrome version. In that case, set kTimeBlacklistLastInitialized to
+  // the conservative value of current time.
+  if (pref_service_->GetDouble(
+          optimization_guide::prefs::kTimeBlacklistLastInitialized) == 0) {
+    pref_service_->SetDouble(
+        optimization_guide::prefs::kTimeBlacklistLastInitialized,
+        time_clock_->Now().ToDeltaSinceWindowsEpoch().InSecondsF());
+  }
+
   if (GetCurrentBlacklistState() ==
       optimization_guide::prefs::HintsFetcherTopHostBlacklistState::
           kNotInitialized) {
@@ -263,21 +303,40 @@ std::vector<std::string> DataSaverTopHostProvider::GetTopHosts(
               return lhs.total_score > rhs.total_score;
             });
 
+  base::Time blacklist_initialized_time =
+      base::Time::FromDeltaSinceWindowsEpoch(
+          base::TimeDelta::FromSecondsD(pref_service_->GetDouble(
+              optimization_guide::prefs::kTimeBlacklistLastInitialized)));
+
+  base::TimeDelta duration_since_blacklist_initialized =
+      (time_clock_->Now() - blacklist_initialized_time);
+
   for (const auto& detail : engagement_details) {
     if (top_hosts.size() >= max_sites)
       return top_hosts;
+    // TODO(b/968542): Skip origins that are local hosts (e.g., IP addresses,
+    // localhost:8080 etc.).
+    if (!detail.origin.SchemeIs(url::kHttpsScheme))
+      continue;
     // Once the engagement score is less than the initial engagement score for a
     // newly navigated host, return the current set of top hosts. This threshold
     // prevents hosts that have not been engaged recently from having hints
     // requested for them. The engagement_details are sorted above in descending
     // order by engagement score.
-    if (detail.total_score <
-        optimization_guide::features::MinTopHostEngagementScoreThreshold())
+    // This filtering is applied only if the the blacklist was initialized
+    // recently. If the blacklist was initialized too far back in time, hosts
+    // that could not make it to blacklist should have either been navigated to
+    // or would have fallen off the blacklist.
+    if (duration_since_blacklist_initialized <=
+            optimization_guide::features::
+                DurationApplyLowEngagementScoreThreshold() &&
+        detail.total_score <
+            pref_service_->GetDouble(
+                optimization_guide::prefs::
+                    kHintsFetcherDataSaverTopHostBlacklistMinimumEngagementScore)) {
       return top_hosts;
-    // TODO(b/968542): Skip origins that are local hosts (e.g., IP addresses,
-    // localhost:8080 etc.).
-    if (detail.origin.SchemeIs(url::kHttpsScheme) &&
-        !IsHostBlacklisted(top_host_blacklist, detail.origin.host())) {
+    }
+    if (!IsHostBlacklisted(top_host_blacklist, detail.origin.host())) {
       top_hosts.push_back(detail.origin.host());
     }
   }

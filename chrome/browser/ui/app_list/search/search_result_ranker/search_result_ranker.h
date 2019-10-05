@@ -109,6 +109,10 @@ class SearchResultRanker : file_manager::file_tasks::FileTasksObserver,
       RankingItemType type,
       base::flat_map<RankingItemType, int>* type_counts) const;
 
+  // Logs the result score received from a zero state search provider. Results
+  // of other types are ignored.
+  void LogZeroStateResultScore(RankingItemType type, float score);
+
   // Records the time of the last call to FetchRankings() and is used to
   // limit the number of queries to the models within a short timespan.
   base::Time time_of_last_fetch_;
@@ -134,6 +138,7 @@ class SearchResultRanker : file_manager::file_tasks::FileTasksObserver,
   // these are local files and omnibox results.
   std::unique_ptr<RecurrenceRanker> query_based_mixed_types_ranker_;
   std::map<std::string, float> query_mixed_ranks_;
+  std::unique_ptr<JsonConfigConverter> query_mixed_config_converter_;
   // Flag set when a delayed task to save the model is created. This is used to
   // prevent several delayed tasks from being created.
   bool query_mixed_ranker_save_queued_ = false;
@@ -141,6 +146,7 @@ class SearchResultRanker : file_manager::file_tasks::FileTasksObserver,
   // Ranks the kinds of results possible in the zero state results list.
   std::unique_ptr<RecurrenceRanker> zero_state_group_ranker_;
   std::map<std::string, float> zero_state_group_ranks_;
+  std::unique_ptr<JsonConfigConverter> zero_state_config_converter_;
   // Stores the id of the most recent highest-scoring zero state result from
   // each relevant provider, along with how many times it has been shown to the
   // user.
@@ -157,15 +163,21 @@ class SearchResultRanker : file_manager::file_tasks::FileTasksObserver,
   std::unique_ptr<RecurrenceRanker> app_ranker_;
   std::map<std::string, float> app_ranks_;
 
-  // Converts JSON config strings to RecurrenceRankerConfigProtos.
-  JsonConfigConverter config_converter_;
-
+  service_manager::Connector* connector_;
   // Testing-only closure to inform tests once a JSON config has been parsed.
   base::OnceClosure json_config_parsed_for_testing_;
 
   // Logs launch events and stores feature data for aggregated model.
   std::unique_ptr<app_list::AppLaunchEventLogger> app_launch_event_logger_;
   bool using_aggregated_app_inference_ = false;
+
+  // Stores the time of the last histogram logging event for each zero state
+  // search provider. Used to prevent scores from being logged multiple times
+  // for each user action.
+  // TODO(959679): Remove these timers once the multiple-call issue is fixed.
+  base::Time time_of_last_omnibox_log_;
+  base::Time time_of_last_local_file_log_;
+  base::Time time_of_last_drive_log_;
 
   ScopedObserver<history::HistoryService, history::HistoryServiceObserver>
       history_service_observer_;

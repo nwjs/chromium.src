@@ -94,7 +94,6 @@
 <translation id="4201051445878709314">แสดงเดือนที่ผ่านมา</translation>
 <translation id="421884353938374759">ตัวเลือกสี</translation>
 <translation id="4248100235867064564">แถบเมนู</translation>
-<translation id="4254339807215791271">ข้อมูลเนื้อหา</translation>
 <translation id="4360991593054037559">โปรดป้อนค่าที่ถูกต้อง ค่าใกล้เคียงที่สุดที่ถูกต้องสองรายการคือ <ph name="VALID_VALUE_LOW" /> และ <ph name="VALID_VALUE_HIGHER" /></translation>
 <translation id="4384583879834880242">ถามและตอบ</translation>
 <translation id="4413860115965805769">ปุ่มเมนู</translation>
@@ -187,6 +186,7 @@
 <translation id="709897737746224366">โปรดจับคู่รูปแบบที่ร้องขอ</translation>
 <translation id="7118469954320184356">ไม่มีคำอธิบาย</translation>
 <translation id="7139483182332611405">ส่วนนำ</translation>
+<translation id="7214187073215825913">ข้อมูลเกี่ยวกับเนื้อหา</translation>
 <translation id="7263440858009898357">โปรดเลือกรายการจากหน้ารายการ</translation>
 <translation id="727747134524199931">ส่วนหัวคอลัมน์</translation>
 <translation id="7320576522385648310">กำลังบัฟเฟอร์</translation>

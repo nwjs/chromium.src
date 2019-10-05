@@ -186,6 +186,20 @@ const base::UnguessableToken& MediaSession::GetSourceId(
 }
 
 // static
+WebContents* MediaSession::GetWebContentsFromRequestId(
+    const base::UnguessableToken& request_id) {
+  DCHECK_NE(base::UnguessableToken::Null(), request_id);
+  for (WebContentsImpl* web_contents : WebContentsImpl::GetAllWebContents()) {
+    MediaSessionImpl* session = MediaSessionImpl::FromWebContents(web_contents);
+    if (!session)
+      continue;
+    if (session->GetRequestId() == request_id)
+      return web_contents;
+  }
+  return nullptr;
+}
+
+// static
 MediaSessionImpl* MediaSessionImpl::Get(WebContents* web_contents) {
   MediaSessionImpl* session = FromWebContents(web_contents);
   if (!session) {
@@ -1263,6 +1277,10 @@ const base::UnguessableToken& MediaSessionImpl::GetSourceId() const {
       ->source_id();
 }
 
+const base::UnguessableToken& MediaSessionImpl::GetRequestId() const {
+  return delegate_->request_id();
+}
+
 void MediaSessionImpl::RebuildAndNotifyActionsChanged() {
   std::set<media_session::mojom::MediaSessionAction> actions =
       routed_service_ ? routed_service_->actions()
@@ -1324,12 +1342,7 @@ void MediaSessionImpl::RebuildAndNotifyMetadataChanged() {
           ? content_client->GetLocalizedString(IDS_MEDIA_SESSION_FILE_SOURCE)
           : url_formatter::FormatOriginForSecurityDisplay(
                 url::Origin::Create(url));
-
-  if (metadata.artist.empty()) {
-    metadata.artist = formatted_origin;
-  } else {
-    metadata.source_title = formatted_origin;
-  }
+  metadata.source_title = formatted_origin;
 
   // If we have no artwork in |images_| or the arwork has changed then we should
   // update it with the latest artwork from the routed service.

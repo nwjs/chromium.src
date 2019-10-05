@@ -67,12 +67,12 @@
       }
 
       #sync-status.no-error {
-        --icon-color: var(--google-green-refresh-700);
+        --cr-link-row-start-icon-color: var(--google-green-refresh-700);
       }
 
       @media (prefers-color-scheme: dark) {
         #sync-status.no-error {
-          --icon-color: var(--google-green-refresh-300);
+          --cr-link-row-start-icon-color: var(--google-green-refresh-300);
         }
       }
 
@@ -83,12 +83,12 @@
       }
 
       #sync-status[actionable].auth-error {
-        --icon-color: var(--google-blue-500);
+        --cr-link-row-start-icon-color: var(--google-blue-500);
       }
 
       @media (prefers-color-scheme: dark) {
         #sync-status[actionable].auth-error {
-          --icon-color: var(--google-blue-refresh-300);
+          --cr-link-row-start-icon-color: var(--google-blue-refresh-300);
         }
       }
 
@@ -102,7 +102,7 @@
       }
 
       #sync-status[actionable].sync-error {
-        --icon-color: var(--settings-error-color);
+        --cr-link-row-start-icon-color: var(--settings-error-color);
         --cr-secondary-text: {
           color: var(--settings-error-color);
         }
@@ -161,12 +161,14 @@
           <div id="picture-subpage-trigger" class="settings-box first two-line">
             <template is="dom-if" if="[[syncStatus]]">
               <div id="profile-icon" on-click="onProfileTap_"
-                  actionable$="[[allowChangePicture_]]"
+                  actionable$="[[isProfileActionable_]]"
                   style="background-image: [[getIconImageSet_(
                       profileIconUrl_)]]">
               </div>
               <div class="middle two-line no-min-width"
-                  on-click="onProfileTap_" actionable>
+                  id="profile-row"
+                  on-click="onProfileTap_"
+                  actionable$="[[isProfileActionable_]]">
                 <div class="flex text-elide settings-box-text">
                   <span id="profile-name">[[profileName_]]</span>
                   <div class="secondary" hidden="[[!syncStatus.signedIn]]">
@@ -179,10 +181,10 @@
                     aria-describedby="profile-name"></cr-icon-button>
 </if>
 <if expr="chromeos">
-                <cr-icon-button class="subpage-arrow"
+                <cr-icon-button class$="[[profileRowIconClass_]]"
                     id="profile-subpage-arrow"
-                    hidden="[[!allowChangePicture_]]"
-                    aria-label="$i18n{changePictureTitle}"
+                    hidden="[[!isProfileActionable_]]"
+                    aria-label$="[[profileRowIconAriaLabel_]]"
                     aria-describedby="profile-name"></cr-icon-button>
 </if>
               </div>

@@ -20,6 +20,17 @@ namespace blink {
 class LocalFrame;
 class KURL;
 
+constexpr char kFragmentDirectivePrefix[] = "##";
+// Subtract 1 because base::size includes the \0 string terminator.
+constexpr size_t kFragmentDirectivePrefixStringLength =
+    base::size(kFragmentDirectivePrefix) - 1;
+// TODO(crbug/1007016): Remove support for the old prefix once we confirm the
+// new prefix choice.
+constexpr char kFragmentDirectiveNewPrefix[] = ":~:";
+// Subtract 1 because base::size includes the \0 string terminator.
+constexpr size_t kFragmentDirectiveNewPrefixStringLength =
+    base::size(kFragmentDirectiveNewPrefix) - 1;
+
 enum class TextFragmentFormat { PlainFragment, FragmentDirective };
 
 class CORE_EXPORT TextFragmentAnchor final : public FragmentAnchor,
@@ -49,6 +60,9 @@ class CORE_EXPORT TextFragmentAnchor final : public FragmentAnchor,
   void PerformPreRafActions() override;
 
   void DidCompleteLoad() override;
+
+  // Removes text match highlights if any highlight is in view.
+  bool Dismiss() override;
 
   void Trace(blink::Visitor*) override;
 
@@ -84,6 +98,9 @@ class CORE_EXPORT TextFragmentAnchor final : public FragmentAnchor,
   // If the text fragment anchor is defined as a fragment directive and we don't
   // find a match, we fall back to the element anchor if it is present.
   Member<ElementFragmentAnchor> element_fragment_anchor_;
+  // Whether the text fragment anchor has been dismissed yet. This should be
+  // kept alive until dismissed so we can remove text highlighting.
+  bool dismissed_ = false;
 
   Member<TextFragmentAnchorMetrics> metrics_;
 

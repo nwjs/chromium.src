@@ -22,7 +22,7 @@
   <template>
     <style include="internet-shared cr-hidden-style iron-flex
         iron-flex-alignment">
-      cr-policy-network-indicator {
+      cr-policy-network-indicator-mojo {
         margin-inline-end: 10px;
       }
 
@@ -62,8 +62,7 @@
 
     <!-- Allow shared proxies -->
     <settings-toggle-button id="allowShared" class="continuation indented"
-        hidden$="[[!shouldShowAllowShared_(
-            managedProperties.proxySettings.type)]]"
+        hidden$="[[!shouldShowAllowShared_(managedProperties.source)]]"
         pref="{{prefs.settings.use_shared_proxies}}"
         label="$i18n{networkProxyAllowShared}"
         on-settings-boolean-control-change="onAllowSharedProxiesChange_"

@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="da">
-<translation id="100812568230599391">Skift visningsformat for at sammenflette.</translation>
+<translation id="100812568230599391">Skift til visning med sammenfletning.</translation>
 <translation id="1011903154582639569">Find en tast, og løft fingeren for at skrive</translation>
 <translation id="1012173283529841972">Punkt på listen</translation>
 <translation id="1013742170491673792">srched</translation>
@@ -20,7 +20,7 @@
 <translation id="1087788677726983142">Skjul filtre for begivenhedsstreaming</translation>
 <translation id="1088219014394087294">Ingen overskrifter.</translation>
 <translation id="1106741348836243114">Slå lydfeedback (earcons) til eller fra.</translation>
-<translation id="1120743664840974483">{"a": "alpha", "b": "bravo", "c": "charlie", "d": "delta", "e": "echo", "f": "foxtrot", "g": "golf", "h": "hotel", "i": "india", "j": "juliet","k": "kilo", "l": "lima", "m": "mike", "n": "november", "o": "oscar","p": "papa", "q": "quebec", "r": "romeo", "s": "sierra", "t": "tango", "u": "uniform", "v": "victor", "w": "whiskey","x": "xray", "y": "yankee", "z": "zulu"}</translation>
+<translation id="1120743664840974483">{"a": "Adam", "b": "bravo", "c": "celcius", "d": "delta", "e": "Egon", "f": "foxtrot", "g": "golf", "h": "hotel", "i": "Ida", "j": "Julie","k": "kilo", "l": "lima", "m": "Mia", "n": "november", "o": "Ole","p": "pappa", "q": "quiz", "r": "Robert", "s": "Sigurd", "t": "tango", "u": "uniform", "v": "Viktor", "w": "whiskey","x": "Xerxes", "y": "ymer", "z": "zulu", "æ": "æble", "ø": "øre", "å": "Åse"}</translation>
 <translation id="1120938014254001895">Stryg opad med to fingre</translation>
 <translation id="1124771028211010580">Aktuelt visningsformat er side om side.</translation>
 <translation id="1126928665165112660">Ikke kursiv</translation>
@@ -169,6 +169,7 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="2220529011494928058">Rapportér et problem</translation>
 <translation id="2223693656926968778">Foretag handling på aktuelt element</translation>
 <translation id="225732394367814946">Skru op for talehastigheden</translation>
+<translation id="2267538686624070261">Går væk fra stavefejlen</translation>
 <translation id="2267945578749931355">Næste tegn</translation>
 <translation id="2278490101488436824">Stryg til venstre med tre fingre</translation>
 <translation id="2281234842553884450">Forrige skyder</translation>
@@ -207,6 +208,7 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="257674075312929031">Gruppe</translation>
 <translation id="2582407057977008361">Uden for</translation>
 <translation id="2592212930811759050">Tryk to gange for at redigere</translation>
+<translation id="2598495320872286378">Grammatikfejl</translation>
 <translation id="2606210917827248971">med {COUNT,plural, =1{# element}one{# element}other{# elementer}}</translation>
 <translation id="2614981083756825552">Math ML-layout</translation>
 <translation id="2624431853467395961">Åbn indlæringstilstanden</translation>
@@ -422,7 +424,6 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="4039983576244166038">Tom rækkeoverskrift</translation>
 <translation id="4042843249978639960">Ikke flere niveau 2-overskrifter.</translation>
 <translation id="4043348641337972076">Ingen tidligere ARIA-orienteringspunkter.</translation>
-<translation id="4045764028670444336">Start på stavefejl</translation>
 <translation id="4047216625641135770">Marker</translation>
 <translation id="404803211695627272"><ph name="V1" />-<ph name="V2" /></translation>
 <translation id="4053520724192563562">Limegrøn</translation>
@@ -505,7 +506,6 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="4547556996012970016">Næste niveau 5-overskrift</translation>
 <translation id="4562381607973973258">Overskrift</translation>
 <translation id="4569941707103739422">Tryk på pil op eller pil ned for at navigere. Tryk på Enter for at aktivere.</translation>
-<translation id="4570424871453628777">Slut på stavefejl</translation>
 <translation id="4591507479202817876">, valgt</translation>
 <translation id="4597532268155981612">formular</translation>
 <translation id="4597896406374528575">April</translation>
@@ -728,7 +728,6 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="6037602951055904232">Panorer fremad</translation>
 <translation id="6042826534790431634">Tryk på søgetasten+mellemrumstasten for at aktivere.</translation>
 <translation id="6044160928851315051">Gør skærmen mørk</translation>
-<translation id="6065293622157674001">Start på grammatisk fejl</translation>
 <translation id="6082768461603900813">Grundlæggende navigation</translation>
 <translation id="6118126368611144850">Android-apps til Chrome. Hvis du har Google Play Butik på din enhed, kan du få et smugkig på ChromeVox med Android-apps. Prøv eksperimentel understøttelse ved at downloade Google Chrome Canary i Play Butik.</translation>
 <translation id="611827076493383239">vtd</translation>
@@ -824,6 +823,7 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="6833103209700200188">Sidefod</translation>
 <translation id="6858047746862060282">Prolog</translation>
 <translation id="6859876496651143278">Stryg til venstre med én finger</translation>
+<translation id="6865519907510167493">Stavefejl</translation>
 <translation id="6871161210040114857">Der tages ikke højde for store og små bogstaver.</translation>
 <translation id="6877435256196695200">Ikke flere grafikker.</translation>
 <translation id="6897341342232909480">Flyt til venstre</translation>
@@ -869,7 +869,6 @@ Tryk på Alt+F for at åbne browsermenuen i Chrome.</translation>
 <translation id="7143207342074048698">Opretter forbindelse</translation>
 <translation id="7153618581592392745">Lavendelblå</translation>
 <translation id="7157306005867877619">Abstrakt</translation>
-<translation id="7161425887892204659">Slut på tekstmatch</translation>
 <translation id="7161771961008409533">Pop op-knap</translation>
 <translation id="7165714724802225287">Aktuelt visningsformat er sammenflet.</translation>
 <translation id="7167657087543110">tegnekko</translation>
@@ -907,7 +906,6 @@ Tryk på Alt+F for at åbne browsermenuen i Chrome.</translation>
 <translation id="737396357417333429">clk</translation>
 <translation id="7374104575779636480">Forlader tabel.</translation>
 <translation id="738899727977260036">Skiferblå</translation>
-<translation id="7392145451309930991">Start på tekstmatch</translation>
 <translation id="739763518212184081">Forrige linje</translation>
 <translation id="7400575256015741911">Der blev fundet en stavefejl</translation>
 <translation id="7408482676469142474">tbl</translation>
@@ -1116,11 +1114,11 @@ Tryk på Alt+F for at åbne browsermenuen i Chrome.</translation>
 <translation id="8446884382197647889">Få flere oplysninger</translation>
 <translation id="8455868257606149352">Maksimum <ph name="X" /></translation>
 <translation id="84575901236241018">har hurtigtasten <ph name="KEY" /></translation>
+<translation id="8463645336674919227">Går væk fra grammatikfejlen</translation>
 <translation id="847154984256717791">optaget</translation>
 <translation id="8476408756881832830">Sæt afspilning på pause, når ChromeVox taler</translation>
 <translation id="8476508772960940536">vinduesoversigt</translation>
 <translation id="8503360654911991865">Mindsk detaljegraden for navigation</translation>
-<translation id="8504695234784218301">Slut på grammatisk fejl</translation>
 <translation id="8520472399088452386">Skalafelt</translation>
 <translation id="8534394844575788431">Formatering</translation>
 <translation id="8538744478902126321">Giv et bud på rækkeoverskriften for den aktuelle celle</translation>

@@ -168,7 +168,7 @@
         android:label="@string/shared_clipboard_share_activity_title"
         android:name="org.chromium.chrome.browser.sharing.shared_clipboard.SharedClipboardShareActivity"
         android:noHistory="true"
-        android:theme="@style/Theme.Chromium.Activity.Translucent">
+        android:theme="@style/Theme.Chromium.Activity.TranslucentNoAnimations">
       <intent-filter>
         <action android:name="android.intent.action.SEND"/>
         <category android:name="android.intent.category.DEFAULT"/>
@@ -981,10 +981,6 @@
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>
     </activity>
-    <activity
-        android:label="@string/crashes_list_activity_title"
-        android:name="org.chromium.android_webview.ui.CrashesListActivity"
-        android:process=":webview_apk"/>
     <activity
         android:label="@string/license_activity_title"
         android:name="com.android.webview.chromium.LicenseActivity"

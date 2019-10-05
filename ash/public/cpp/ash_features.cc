@@ -30,7 +30,7 @@ const base::Feature kLockScreenHideSensitiveNotificationsSupport{
     base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kLockScreenMediaControls{"LockScreenMediaControls",
-                                             base::FEATURE_ENABLED_BY_DEFAULT};
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kHideArcMediaNotifications{
     "HideArcMediaNotifications", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -71,6 +71,9 @@ const base::Feature kViewsLogin{"ViewsLogin", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kVirtualDesks{"VirtualDesks",
                                   base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kVirtualDesksGestures{"VirtualDesksGestures",
+                                          base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kUseBluetoothSystemInAsh{"UseBluetoothSystemInAsh",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
@@ -133,6 +136,10 @@ bool IsTrilinearFilteringEnabled() {
 
 bool IsVirtualDesksEnabled() {
   return base::FeatureList::IsEnabled(kVirtualDesks);
+}
+
+bool IsVirtualDesksGesturesEnabled() {
+  return base::FeatureList::IsEnabled(kVirtualDesksGestures);
 }
 
 bool IsViewsLoginEnabled() {

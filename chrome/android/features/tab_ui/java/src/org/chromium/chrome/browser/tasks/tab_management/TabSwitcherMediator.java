@@ -87,7 +87,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
     private final TabModelSelectorObserver mTabModelSelectorObserver;
     private final ObserverList<TabSwitcher.OverviewModeObserver> mObservers = new ObserverList<>();
     private final ChromeFullscreenManager mFullscreenManager;
-    private TabGridDialogMediator.ResetHandler mTabGridDialogResetHandler;
+    private TabGridDialogMediator.DialogController mTabGridDialogController;
     private final ChromeFullscreenManager.FullscreenListener mFullscreenListener =
             new ChromeFullscreenManager.FullscreenListener() {
                 @Override
@@ -119,7 +119,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
     private boolean mShouldIgnoreNextSelect;
 
     private int mModelIndexWhenShown;
-    private int mTabIdwhenShown;
+    private int mTabIdWhenShown;
     private int mIndexInNewModelWhenSwitched;
     private boolean mIsSelectingInTabSwitcher;
 
@@ -147,7 +147,13 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
     /**
      * An interface to control whether to show IPH on grid tab switcher.
      */
-    public interface IphProvider { void maybeShowIPH(); }
+    public interface IphProvider {
+        /**
+         * Shows IPH on grid tab switcher based on incognito mode.
+         * @param isIncognito Whether IPH is shown for incognito mode.
+         */
+        void maybeShowIPH(boolean isIncognito);
+    }
 
     /**
      * Basic constructor for the Mediator.
@@ -181,8 +187,11 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
                         mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter();
                 mResetHandler.resetWithTabList(currentTabModelFilter, false, mShowTabsInMruOrder);
                 mContainerViewModel.set(IS_INCOGNITO, currentTabModelFilter.isIncognito());
-                if (mTabGridDialogResetHandler != null) {
-                    mTabGridDialogResetHandler.hideDialog(false);
+                if (mTabGridDialogController != null) {
+                    mTabGridDialogController.hideDialog(false);
+                }
+                if (mIphProvider != null) {
+                    mIphProvider.maybeShowIPH(mTabModelSelector.isIncognitoSelected());
                 }
             }
         };
@@ -215,6 +224,15 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
                 if (mContainerViewModel.get(IS_VISIBLE)) {
                     onTabSelecting(tab.getId());
                 }
+            }
+
+            @Override
+            public void restoreCompleted() {
+                if (!mContainerViewModel.get(IS_VISIBLE)) return;
+
+                mResetHandler.resetWithTabList(
+                        mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(),
+                        false, mShowTabsInMruOrder);
             }
         };
 
@@ -263,12 +281,12 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
     }
 
     /**
-     * Set the handler of the Grid Dialog so that it can be directly controlled.
-     * @param tabGridDialogResetHandler The handler of the Grid Dialog
+     * Set the controller of the TabGridDialog so that it can be directly controlled.
+     * @param tabGridDialogController The handler of the Grid Dialog
      */
-    void setTabGridDialogResetHandler(
-            TabGridDialogMediator.ResetHandler tabGridDialogResetHandler) {
-        mTabGridDialogResetHandler = tabGridDialogResetHandler;
+    void setTabGridDialogController(
+            TabGridDialogMediator.DialogController tabGridDialogController) {
+        mTabGridDialogController = tabGridDialogController;
     }
 
     @VisibleForTesting
@@ -328,7 +346,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         Tab fromTab = TabModelUtils.getTabById(mTabModelSelector.getCurrentModel(), lastId);
         assert fromTab != null;
         if (mModelIndexWhenShown == mTabModelSelector.getCurrentModelIndex()) {
-            if (tab.getId() == mTabIdwhenShown) {
+            if (tab.getId() == mTabIdWhenShown) {
                 RecordUserAction.record("MobileTabReturnedToCurrentTab");
                 RecordHistogram.recordSparseHistogram(
                         "Tabs.TabOffsetOfSwitch." + TabSwitcherCoordinator.COMPONENT_NAME, 0);
@@ -393,10 +411,10 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         setVisibility(false);
         mContainerViewModel.set(ANIMATE_VISIBILITY_CHANGES, true);
 
-        if (mTabGridDialogResetHandler != null) {
+        if (mTabGridDialogController != null) {
             // Don't wait until didSelectTab(), which is after the GTS animation.
             // We need to hide the dialog immediately.
-            mTabGridDialogResetHandler.hideDialog(false);
+            mTabGridDialogController.hideDialog(false);
         }
     }
 
@@ -404,7 +422,10 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         mHandler.removeCallbacks(mSoftClearTabListRunnable);
         mHandler.removeCallbacks(mClearTabListRunnable);
         boolean quick = false;
-        if (FeatureUtilities.isTabToGtsAnimationEnabled()) {
+        if (FeatureUtilities.isTabToGtsAnimationEnabled()
+                && mTabModelSelector.getTabModelFilterProvider()
+                           .getCurrentTabModelFilter()
+                           .isTabModelRestored()) {
             quick = mResetHandler.resetWithTabList(
                     mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(), false,
                     mShowTabsInMruOrder);
@@ -422,16 +443,20 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
 
     @Override
     public void showOverview(boolean animate) {
-        mResetHandler.resetWithTabList(
-                mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(),
-                FeatureUtilities.isTabToGtsAnimationEnabled(), mShowTabsInMruOrder);
+        if (mTabModelSelector.getTabModelFilterProvider()
+                        .getCurrentTabModelFilter()
+                        .isTabModelRestored()) {
+            mResetHandler.resetWithTabList(
+                    mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(),
+                    FeatureUtilities.isTabToGtsAnimationEnabled(), mShowTabsInMruOrder);
+        }
         if (!animate) mContainerViewModel.set(ANIMATE_VISIBILITY_CHANGES, false);
         setVisibility(true);
         mModelIndexWhenShown = mTabModelSelector.getCurrentModelIndex();
-        mTabIdwhenShown = mTabModelSelector.getCurrentTabId();
+        mTabIdWhenShown = mTabModelSelector.getCurrentTabId();
         mContainerViewModel.set(ANIMATE_VISIBILITY_CHANGES, true);
         if (mIphProvider != null) {
-            mIphProvider.maybeShowIPH();
+            mIphProvider.maybeShowIPH(mTabModelSelector.isIncognitoSelected());
         }
 
         recordTabCounts();
@@ -469,6 +494,9 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
     public boolean onBackPressed() {
         if (!mContainerViewModel.get(IS_VISIBLE)) return false;
         if (mTabSelectionEditorController.handleBackPressed()) return true;
+        if (mTabGridDialogController != null && mTabGridDialogController.handleBackPressed()) {
+            return true;
+        }
         if (mTabModelSelector.getCurrentTab() == null) return false;
 
         recordUserSwitchedTab(
@@ -536,13 +564,13 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         if (!FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled()) return null;
         if (!ableToOpenDialog(tab)) return null;
         assert getRelatedTabs(tab.getId()).size() != 1;
-        assert mTabGridDialogResetHandler != null;
+        assert mTabGridDialogController != null;
         return tabId -> {
             List<Tab> relatedTabs = getRelatedTabs(tabId);
             if (relatedTabs.size() == 0) {
                 relatedTabs = null;
             }
-            mTabGridDialogResetHandler.resetWithListOfTabs(relatedTabs);
+            mTabGridDialogController.resetWithListOfTabs(relatedTabs);
             RecordUserAction.record("TabGridDialog.ExpandedFromSwitcher");
         };
     }
@@ -555,8 +583,9 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
 
     @Nullable
     TabListMediator.TabActionListener getCreateGroupButtonOnClickListener(Tab tab) {
-        if (!ableToCreateGroup(tab) || FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled())
+        if (!ableToCreateGroup(tab) || FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled()) {
             return null;
+        }
 
         return tabId -> {
             Tab parentTab = TabModelUtils.getTabById(mTabModelSelector.getCurrentModel(), tabId);

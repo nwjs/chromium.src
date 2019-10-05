@@ -251,7 +251,7 @@ void ToolbarView::Init() {
     const base::UnguessableToken& source_id =
         content::MediaSession::GetSourceId(browser_->profile());
     media_button = std::make_unique<MediaToolbarButtonView>(
-        source_id, content::GetSystemConnector());
+        source_id, content::GetSystemConnector(), browser_);
   }
 
   std::unique_ptr<ToolbarPageActionIconContainerView>
@@ -803,8 +803,13 @@ BrowserActionsContainer* ToolbarView::GetBrowserActionsContainer() {
 
 ToolbarActionView* ToolbarView::GetToolbarActionViewForId(
     const std::string& id) {
-  if (extensions_container_)
+  if (display_mode_ != DisplayMode::NORMAL)
+    return nullptr;
+  if (base::FeatureList::IsEnabled(features::kExtensionsToolbarMenu)) {
+    DCHECK(extensions_container_);
     return extensions_container_->GetViewForId(id);
+  }
+  DCHECK(GetBrowserActionsContainer());
   return GetBrowserActionsContainer()->GetViewForId(id);
 }
 

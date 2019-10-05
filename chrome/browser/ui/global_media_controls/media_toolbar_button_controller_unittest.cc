@@ -134,7 +134,7 @@ class MediaToolbarButtonControllerTest : public testing::Test {
     media_session::MediaMetadata metadata;
     metadata.title = base::ASCIIToUTF16("title");
     metadata.artist = base::ASCIIToUTF16("artist");
-    item_itr->second.MediaSessionMetadataChanged(std::move(metadata));
+    item_itr->second.item()->MediaSessionMetadataChanged(std::move(metadata));
   }
 
   void SimulateReceivedAudioFocusRequests(
@@ -145,11 +145,23 @@ class MediaToolbarButtonControllerTest : public testing::Test {
   bool IsSessionFrozen(const base::UnguessableToken& id) const {
     auto item_itr = controller_->sessions_.find(id.ToString());
     EXPECT_NE(controller_->sessions_.end(), item_itr);
-    return item_itr->second.frozen();
+    return item_itr->second.item()->frozen();
   }
 
   void SimulateDialogOpened(MockMediaDialogDelegate* delegate) {
     delegate->Open(controller_.get());
+  }
+
+  void SimulateTabClosed(const base::UnguessableToken& id) {
+    // When a tab is closing, audio focus will be lost before the WebContents is
+    // destroyed, so to simulate closer to reality we will also simulate audio
+    // focus lost here.
+    SimulateFocusLost(id);
+
+    // Now, close the tab.
+    auto item_itr = controller_->sessions_.find(id.ToString());
+    EXPECT_NE(controller_->sessions_.end(), item_itr);
+    item_itr->second.WebContentsDestroyed();
   }
 
   void ExpectHistogramCountRecorded(int count, int size) {
@@ -351,4 +363,17 @@ TEST_F(MediaToolbarButtonControllerTest, NewMediaSessionWhileDialogOpen) {
   SimulateDialogOpened(&new_dialog);
   ExpectHistogramCountRecorded(1, 1);
   ExpectHistogramCountRecorded(2, 1);
+}
+
+TEST_F(MediaToolbarButtonControllerTest,
+       SessionIsRemovedImmediatelyWhenATabCloses) {
+  // First, show the button.
+  EXPECT_CALL(delegate(), Show());
+  base::UnguessableToken id = SimulatePlayingControllableMedia();
+  testing::Mock::VerifyAndClearExpectations(&delegate());
+
+  // Then, close the tab. The button should immediately hide.
+  EXPECT_CALL(delegate(), Hide());
+  SimulateTabClosed(id);
+  testing::Mock::VerifyAndClearExpectations(&delegate());
 }

@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.gesturenav;
 
 import android.content.Context;
 import android.os.Handler;
+import android.support.annotation.IdRes;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
@@ -39,16 +40,24 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
     static final int NAVIGATION_LIST_ITEM_TYPE_ID = 0;
 
     // Amount of time to hold the finger still to trigger navigation bottom sheet.
-    // This ensures fling gestures from edge won't invoke the  sheet.
-    private final static int PEEK_HOLD_DELAY_MS = 50;
+    // with a long swipe. This ensures fling gestures from edge won't invoke the  sheet.
+    private static final int LONG_SWIPE_HOLD_DELAY_MS = 50;
 
-    // Navigation sheet is triggered into peek state if swiped by this much or more from an edge.
+    // Amount of time to hold the finger still to trigger navigation bottom sheet
+    // with a short swipe.
+    private static final int SHORT_SWIPE_HOLD_DELAY_MS = 400;
+
+    // Amount of distance to trigger navigation sheet with a long swipe.
     // Actual amount is capped so it is at most half the screen width.
-    private static final int PEEK_THRESHOLD_DP = 224;
+    private static final int LONG_SWIPE_PEEK_THRESHOLD_DP = 224;
 
     // The history item count in the navigation sheet. If the count is equal or smaller,
     // the sheet skips peek state and fully expands right away.
     private static final int SKIP_PEEK_COUNT = 3;
+
+    // Delta for touch events that can happen even when users doesn't intend to move
+    // his finger. Any delta smaller than (or equal to) than this are ignored.
+    private static final float DELTA_IGNORE = 2.f;
 
     private final NavigationSheetView mContentView;
     private final View mToolbarView;
@@ -65,10 +74,14 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
 
     private final Handler mHandler = new Handler();
     private final Runnable mOpenSheetRunnable;
-    private final float mPeekSheetThreshold;
+    private final float mLongSwipePeekThreshold;
 
     private final ModelList mModelList = new ModelList();
     private final ModelListAdapter mModelAdapter = new ModelListAdapter(mModelList);
+
+    private final int mItemHeight;
+    private final int mContentPadding;
+    private final View mParentView;
 
     private static class NavigationItemViewBinder {
         public static void bind(PropertyModel model, View view, PropertyKey propertyKey) {
@@ -91,11 +104,16 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
     // Metrics. True if sheet has ever been triggered (in peeked state) for an edge swipe.
     private boolean mSheetTriggered;
 
+    // Set to {@code true} for each trigger when the sheet should fully expand with
+    // no peek/half state.
+    private boolean mFullyExpand;
+
     /**
      * Construct a new NavigationSheet.
      */
     NavigationSheetCoordinator(
             View parent, Supplier<BottomSheetController> bottomSheetController, Delegate delegate) {
+        mParentView = parent;
         mBottomSheetController = bottomSheetController;
         mDelegate = delegate;
         Context context = parent.getContext();
@@ -119,21 +137,31 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
         ListView listview = (ListView) mContentView.findViewById(R.id.navigation_entries);
         listview.setAdapter(mModelAdapter);
         mOpenSheetRunnable = () -> {
-            if (isHidden()) openSheet();
+            if (isHidden()) openSheet(false, true);
         };
-        mPeekSheetThreshold =
-                Math.min(context.getResources().getDisplayMetrics().density * PEEK_THRESHOLD_DP,
-                        parent.getWidth() / 2);
+        mLongSwipePeekThreshold = Math.min(
+                context.getResources().getDisplayMetrics().density * LONG_SWIPE_PEEK_THRESHOLD_DP,
+                parent.getWidth() / 2);
+        mItemHeight = getSizePx(context, R.dimen.navigation_popup_item_height);
+        mContentPadding = getSizePx(context, R.dimen.navigation_sheet_content_top_padding)
+                + getSizePx(context, R.dimen.navigation_sheet_content_bottom_padding)
+                + getSizePx(context, R.dimen.navigation_sheet_content_wrap_padding);
+    }
+
+    private static int getSizePx(Context context, @IdRes int id) {
+        return context.getResources().getDimensionPixelSize(id);
     }
 
     // Transition to either peeked or expanded state.
-    private void openSheet() {
+    private void openSheet(boolean fullyExpand, boolean animate) {
         NavigationHistory history = mDelegate.getHistory(mForward);
         mMediator.populateEntries(history);
+        mContentView.requestListViewLayout();
         mBottomSheetController.get().requestShowContent(this, true);
         mBottomSheetController.get().getBottomSheet().addObserver(mSheetObserver);
         mSheetTriggered = true;
-        if (history.getEntryCount() <= SKIP_PEEK_COUNT) expandSheet();
+        mFullyExpand = fullyExpand;
+        if (fullyExpand || history.getEntryCount() <= SKIP_PEEK_COUNT) expandSheet();
     }
 
     private void expandSheet() {
@@ -152,16 +180,30 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
     }
 
     @Override
-    public void onScroll(float delta, float overscroll) {
+    public void startAndExpand(boolean forward, boolean animate) {
+        start(forward, /* showCloseIndicator= */ false);
+        openSheet(/* fullyExpand= */ true, animate);
+    }
+
+    @Override
+    public void onScroll(float delta, float overscroll, boolean willNavigate) {
         if (mBottomSheetController.get() == null) return;
         if (mShowCloseIndicator) return;
-        if (overscroll > mPeekSheetThreshold) {
-            if (isHidden() && Math.abs(delta) > 2.f) {
-                mHandler.removeCallbacks(mOpenSheetRunnable);
-                mHandler.postDelayed(mOpenSheetRunnable, PEEK_HOLD_DELAY_MS);
-            }
+        if (overscroll > mLongSwipePeekThreshold) {
+            triggerSheetWithSwipeAndHold(delta, LONG_SWIPE_HOLD_DELAY_MS);
+        } else if (willNavigate) {
+            triggerSheetWithSwipeAndHold(delta, SHORT_SWIPE_HOLD_DELAY_MS);
         } else if (isPeeked()) {
             close(true);
+        } else {
+            mHandler.removeCallbacks(mOpenSheetRunnable);
+        }
+    }
+
+    private void triggerSheetWithSwipeAndHold(float delta, long delay) {
+        if (isHidden() && Math.abs(delta) > DELTA_IGNORE) {
+            mHandler.removeCallbacks(mOpenSheetRunnable);
+            mHandler.postDelayed(mOpenSheetRunnable, delay);
         }
     }
 
@@ -189,6 +231,7 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
 
     @Override
     public boolean isHidden() {
+        if (mBottomSheetController.get() == null) return true;
         return getTargetOrCurrentState() == SheetState.HIDDEN;
     }
 
@@ -255,7 +298,24 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
 
     @Override
     public boolean wrapContentEnabled() {
-        return true;
+        return false;
+    }
+
+    @Override
+    public float getCustomHalfRatio() {
+        return mFullyExpand ? getCustomFullRatio()
+                            : getCappedHeightRatio(mParentView.getHeight() / 2 + mItemHeight / 2);
+    }
+
+    @Override
+    public float getCustomFullRatio() {
+        return getCappedHeightRatio(mParentView.getHeight());
+    }
+
+    private float getCappedHeightRatio(float maxHeight) {
+        int entryCount = mModelAdapter.getCount();
+        return Math.min(maxHeight, entryCount * mItemHeight + mContentPadding)
+                / mParentView.getHeight();
     }
 
     @Override
@@ -275,8 +335,7 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
 
     @Override
     public int getSheetHalfHeightAccessibilityStringId() {
-        assert false : "No half state exists. Should not be invoked.";
-        return -1;
+        return R.string.overscroll_navigation_sheet_opened_half;
     }
 
     @Override

@@ -41,6 +41,17 @@ const char kAllowSignedHTTPExchangeCertsWithoutExtensionDescription[] =
     "that do not have CanSignHttpExchangesDraft extension. Warning: Enabling "
     "this may pose a security risk.";
 
+const char kAllowSyncXHRInPageDismissalName[] =
+    "Allows synchronous XHR requests in page dismissal";
+const char kAllowSyncXHRInPageDismissalDescription[] =
+    "Allows synchronous XHR requests during page dismissal when the page is "
+    "being navigated away or closed by the user.";
+
+const char kEnableClipboardProviderTextSuggestionsName[] =
+    "Omnibox clipboard text search suggestions";
+const char kEnableClipboardProviderTextSuggestionsDescription[] =
+    "Enables search suggestions in omnibox";
+
 const char kEnableSignedExchangeSubresourcePrefetchName[] =
     "Enable Signed Exchange subresource prefetching";
 const char kEnableSignedExchangeSubresourcePrefetchDescription[] =
@@ -1076,12 +1087,6 @@ const char kFillOnAccountSelectHttpDescription[] =
     "Filling of passwords when an account is explicitly selected by the user "
     "rather than autofilling credentials on page load on HTTP origins.";
 
-const char kForbidSyncXHRInPageDismissalName[] =
-    "Forbid synchronous XHR requests in page dismissal";
-const char kForbidSyncXHRInPageDismissalDescription[] =
-    "Disallow synchronous XHR requests during page dismissal when the page is "
-    "being navigated away or closed by the user.";
-
 const char kForceTextDirectionName[] = "Force text direction";
 const char kForceTextDirectionDescription[] =
     "Explicitly force the per-character directionality of UI text to "
@@ -1577,6 +1582,12 @@ const char kPerMethodCanMakePaymentQuotaDescription[] =
     "Allow calling canMakePayment() for different payment methods, as long as "
     "method-specific parameters remain unchanged.";
 
+const char kPointerLockOptionsName[] = "Enables pointer lock options";
+const char kPointerLockOptionsDescription[] =
+    "Enables pointer lock unadjustedMovement. When unadjustedMovement is set "
+    "to true, pointer movements wil not be affected by the underlying platform "
+    "modications such as mouse accelaration.";
+
 const char kPolicyAtomicGroupsEnabledName[] = "Policy Atomic Groups Enabled";
 const char kPolicyAtomicGroupsEnabledDescription[] =
     "Enables the concept of policy atomic groups that makes policies of an "
@@ -1611,6 +1622,13 @@ const char kQueryInOmniboxDescription[] =
 
 const char kQuicName[] = "Experimental QUIC protocol";
 const char kQuicDescription[] = "Enable experimental QUIC protocol support.";
+
+const char kQuietNotificationPromptsName[] =
+    "Quieter notification permission prompts";
+const char kQuietNotificationPromptsDescription[] =
+    "Enables quieter permission prompts for notification permission requests. "
+    "When a site wishes to show notifications, the usual modal dialog is "
+    "replaced with a quieter version.";
 
 const char kReducedReferrerGranularityName[] =
     "Reduce default 'referer' header granularity.";
@@ -2237,6 +2255,10 @@ const char kAndroidAutofillAccessibilityName[] = "Autofill Accessibility";
 const char kAndroidAutofillAccessibilityDescription[] =
     "Enable accessibility for autofill popup.";
 
+const char kAndroidSetupSearchEngineName[] = "Android setup search engine";
+const char kAndroidSetupSearchEngineDescription[] =
+    "Enables search engine selection at Android setup.";
+
 const char kAndroidSurfaceControl[] = "Use Android SurfaceControl";
 const char kAndroidSurfaceControlDescription[] =
     "Use the SurfaceControl API for supporting overlays on Android";
@@ -2624,13 +2646,6 @@ extern const char kProcessSharingWithStrictSiteInstancesDescription[] =
     "instance. This mode adds a third way: site instances are strictly "
     "separated like strict site isolation, but process selection puts multiple "
     "site instances in a single process.";
-
-const char kQuietNotificationPromptsName[] =
-    "Quieter notification permission prompts";
-const char kQuietNotificationPromptsDescription[] =
-    "Enables quieter permission prompts for notification permission requests. "
-    "When a site wishes to show notifications, the usual modal dialog is "
-    "replaced with a quieter version.";
 
 const char kReaderModeHeuristicsName[] = "Reader Mode triggering";
 const char kReaderModeHeuristicsDescription[] =
@@ -3353,6 +3368,10 @@ const char kEnableVideoPlayerNativeControlsDescription[] =
 const char kEnableVirtualDesksName[] = "Enable Virtual Desks";
 const char kEnableVirtualDesksDescription[] =
     "A preview of the upcoming Virtual Desks features on Chrome OS devices.";
+
+const char kEnableVirtualDesksGesturesName[] = "Enable Virtual Desks gestures";
+const char kEnableVirtualDesksGesturesDescription[] =
+    "Enables touchpad gestures for Virtual Desks.";
 
 const char kTrimOnFreezeName[] = "Trim Working Set on freeze";
 const char kTrimOnFreezeDescription[] = "Trim Working Set on all frames frozen";

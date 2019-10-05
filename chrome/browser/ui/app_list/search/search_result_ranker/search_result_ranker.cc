@@ -18,6 +18,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/threading/sequenced_task_runner_handle.h"
+#include "base/time/time.h"
 #include "chrome/browser/chromeos/file_manager/file_tasks_notifier.h"
 #include "chrome/browser/chromeos/file_manager/file_tasks_notifier_factory.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
@@ -26,6 +27,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/app_list/search/chrome_search_result.h"
 #include "chrome/browser/ui/app_list/search/search_result_ranker/app_search_result_ranker.h"
+#include "chrome/browser/ui/app_list/search/search_result_ranker/histogram_util.h"
 #include "chrome/browser/ui/app_list/search/search_result_ranker/ranking_item_util.h"
 #include "chrome/browser/ui/app_list/search/search_result_ranker/recurrence_ranker.h"
 #include "url/gurl.h"
@@ -39,6 +41,10 @@ using file_manager::file_tasks::FileTasksObserver;
 
 // Limits how frequently models are queried for ranking results.
 constexpr TimeDelta kMinSecondsBetweenFetches = TimeDelta::FromSeconds(1);
+
+// Limits how frequently results are logged, due to the possibility of multiple
+// ranking events occurring for each user action.
+constexpr TimeDelta kMinTimeBetweenLogs = TimeDelta::FromSeconds(2);
 
 constexpr char kLogFileOpenType[] = "RecurrenceRanker.LogFileOpenType";
 
@@ -153,7 +159,7 @@ float ReRange(const float score, const float min, const float max) {
 SearchResultRanker::SearchResultRanker(Profile* profile,
                                        history::HistoryService* history_service,
                                        service_manager::Connector* connector)
-    : config_converter_(connector),
+    : connector_(connector),
       history_service_observer_(this),
       profile_(profile),
       weak_factory_(this) {
@@ -206,12 +212,13 @@ void SearchResultRanker::InitializeRankers() {
       // Item ranker model.
       const std::string config_json = GetFieldTrialParamValueByFeature(
           app_list_features::kEnableQueryBasedMixedTypesRanker, "config");
-      config_converter_.Convert(
-          config_json, "QueryBasedMixedTypes",
+      query_mixed_config_converter_ = JsonConfigConverter::Convert(
+          connector_, config_json, "QueryBasedMixedTypes",
           base::BindOnce(
               [](SearchResultRanker* ranker,
                  const RecurrenceRankerConfigProto& default_config,
                  base::Optional<RecurrenceRankerConfigProto> parsed_config) {
+                ranker->query_mixed_config_converter_.reset();
                 if (ranker->json_config_parsed_for_testing_)
                   std::move(ranker->json_config_parsed_for_testing_).Run();
                 ranker->query_based_mixed_types_ranker_ =
@@ -251,12 +258,14 @@ void SearchResultRanker::InitializeRankers() {
 
     const std::string config_json = GetFieldTrialParamValueByFeature(
         app_list_features::kEnableZeroStateMixedTypesRanker, "config");
-    config_converter_.Convert(
-        config_json, "ZeroStateGroups",
+
+    zero_state_config_converter_ = JsonConfigConverter::Convert(
+        connector_, config_json, "ZeroStateGroups",
         base::BindOnce(
             [](SearchResultRanker* ranker,
                const RecurrenceRankerConfigProto& default_config,
                base::Optional<RecurrenceRankerConfigProto> parsed_config) {
+              ranker->zero_state_config_converter_.reset();
               if (ranker->json_config_parsed_for_testing_)
                 std::move(ranker->json_config_parsed_for_testing_).Run();
               ranker->zero_state_group_ranker_ =
@@ -359,6 +368,7 @@ void SearchResultRanker::Rank(Mixer::SortedResults* results) {
 
     if (model == Model::MIXED_TYPES) {
       if (last_query_.empty() && zero_state_group_ranker_) {
+        LogZeroStateResultScore(type, result.score);
         ScoreZeroStateItem(&result, type, &zero_state_type_counts);
       } else if (results_list_group_ranker_) {
         const auto& rank_it =
@@ -464,6 +474,7 @@ void SearchResultRanker::Train(const AppLaunchData& app_launch_data) {
   auto model = ModelForType(app_launch_data.ranking_item_type);
   if (model == Model::MIXED_TYPES) {
     if (app_launch_data.query.empty() && zero_state_group_ranker_) {
+      LogZeroStateLaunchType(app_launch_data.ranking_item_type);
       zero_state_group_ranker_->Record(base::NumberToString(
           static_cast<int>(app_launch_data.ranking_item_type)));
     } else if (results_list_group_ranker_) {
@@ -595,6 +606,28 @@ void SearchResultRanker::OnURLsDeleted(
 void SearchResultRanker::SaveQueryMixedRankerAfterDelete() {
   query_based_mixed_types_ranker_->SaveToDisk();
   query_mixed_ranker_save_queued_ = false;
+}
+
+void SearchResultRanker::LogZeroStateResultScore(RankingItemType type,
+                                                 float score) {
+  const auto& now = Time::Now();
+  if (type == RankingItemType::kOmniboxGeneric ||
+      type == RankingItemType::kOmniboxSearch) {
+    if (now - time_of_last_omnibox_log_ < kMinTimeBetweenLogs)
+      return;
+    time_of_last_omnibox_log_ = now;
+    LogZeroStateReceivedScore("OmniboxSearch", score);
+  } else if (type == RankingItemType::kZeroStateFile) {
+    if (now - time_of_last_local_file_log_ < kMinTimeBetweenLogs)
+      return;
+    time_of_last_local_file_log_ = now;
+    LogZeroStateReceivedScore("ZeroStateFile", score);
+  } else if (type == RankingItemType::kDriveQuickAccess) {
+    if (now - time_of_last_drive_log_ < kMinTimeBetweenLogs)
+      return;
+    time_of_last_drive_log_ = now;
+    LogZeroStateReceivedScore("DriveQuickAccess", score);
+  }
 }
 
 }  // namespace app_list

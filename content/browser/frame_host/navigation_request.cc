@@ -287,10 +287,7 @@ void AddAdditionalRequestHeaders(net::HttpRequestHeaders* headers,
 
   // TODO(mkwst): Extract this logic out somewhere that can be shared between
   // Blink and //content.
-  //
-  // TODO(964053, 989502): These headers ought to be restricted to secure
-  // transport.
-  if (IsFetchMetadataEnabled()) {
+  if (IsFetchMetadataEnabled() && IsOriginSecure(url)) {
     // Navigations that aren't triggerable from the web (e.g. typing in the
     // address bar, or clicking a bookmark) are labeled as user-initiated.
     std::string user_value = has_user_gesture ? "?1" : std::string();
@@ -454,51 +451,71 @@ void RecordStartToCommitMetrics(base::TimeTicks navigation_start_time,
   }
 }
 
-void RecordReadyToCommitMetrics(base::TimeTicks navigation_start_time,
-                                ui::PageTransition transition,
-                                const base::TimeTicks& ready_to_commit_time,
-                                bool is_same_process,
-                                bool is_main_frame) {
-  constexpr base::Optional<bool> kIsBackground = base::nullopt;
-  base::TimeDelta delta = ready_to_commit_time - navigation_start_time;
-  LOG_NAVIGATION_TIMING_HISTOGRAM("TimeToReadyToCommit2", transition,
-                                  kIsBackground, delta);
-  if (is_main_frame) {
-    LOG_NAVIGATION_TIMING_HISTOGRAM("TimeToReadyToCommit2.MainFrame",
-                                    transition, kIsBackground, delta);
+void RecordReadyToCommitMetrics(
+    RenderFrameHostImpl* old_rfh,
+    RenderFrameHostImpl* new_rfh,
+    const mojom::CommonNavigationParams& common_params,
+    base::TimeTicks ready_to_commit_time) {
+  bool is_same_process =
+      old_rfh->GetProcess()->GetID() == new_rfh->GetProcess()->GetID();
+
+  bool is_same_browsing_instance =
+      old_rfh->GetSiteInstance()->IsRelatedSiteInstance(
+          new_rfh->GetSiteInstance());
+
+  bool is_same_site_instance =
+      old_rfh->GetSiteInstance() == new_rfh->GetSiteInstance();
+
+  // Log overall value, then log specific value per type of navigation.
+  UMA_HISTOGRAM_BOOLEAN("Navigation.IsSameProcess", is_same_process);
+  UMA_HISTOGRAM_BOOLEAN("Navigation.IsSameSiteInstance", is_same_site_instance);
+  UMA_HISTOGRAM_BOOLEAN("Navigation.IsSameBrowsingInstance",
+                        is_same_browsing_instance);
+
+  UMA_HISTOGRAM_BOOLEAN("Navigation.RequiresDedicatedProcess",
+                        new_rfh->GetSiteInstance()->RequiresDedicatedProcess());
+
+  ChildProcessSecurityPolicyImpl* policy =
+      ChildProcessSecurityPolicyImpl::GetInstance();
+  GURL process_lock = policy->GetOriginLock(new_rfh->GetProcess()->GetID());
+  UMA_HISTOGRAM_BOOLEAN("Navigation.IsLockedProcess", !process_lock.is_empty());
+
+  if (common_params.transition & ui::PAGE_TRANSITION_FORWARD_BACK) {
+    UMA_HISTOGRAM_BOOLEAN("Navigation.IsSameProcess.BackForward",
+                          is_same_process);
+  } else if (ui::PageTransitionCoreTypeIs(common_params.transition,
+                                          ui::PAGE_TRANSITION_RELOAD)) {
+    UMA_HISTOGRAM_BOOLEAN("Navigation.IsSameProcess.Reload", is_same_process);
+  } else if (ui::PageTransitionIsNewNavigation(common_params.transition)) {
+    UMA_HISTOGRAM_BOOLEAN("Navigation.IsSameProcess.NewNavigation",
+                          is_same_process);
   } else {
-    LOG_NAVIGATION_TIMING_HISTOGRAM("TimeToReadyToCommit2.Subframe", transition,
-                                    kIsBackground, delta);
+    NOTREACHED() << "Invalid page transition: " << common_params.transition;
+  }
+
+  constexpr base::Optional<bool> kIsBackground = base::nullopt;
+  base::TimeDelta delta = ready_to_commit_time - common_params.navigation_start;
+
+  LOG_NAVIGATION_TIMING_HISTOGRAM(
+      "TimeToReadyToCommit2", common_params.transition, kIsBackground, delta);
+  if (!old_rfh->GetParent()) {
+    LOG_NAVIGATION_TIMING_HISTOGRAM("TimeToReadyToCommit2.MainFrame",
+                                    common_params.transition, kIsBackground,
+                                    delta);
+  } else {
+    LOG_NAVIGATION_TIMING_HISTOGRAM("TimeToReadyToCommit2.Subframe",
+                                    common_params.transition, kIsBackground,
+                                    delta);
   }
   if (is_same_process) {
     LOG_NAVIGATION_TIMING_HISTOGRAM("TimeToReadyToCommit2.SameProcess",
-                                    transition, kIsBackground, delta);
+                                    common_params.transition, kIsBackground,
+                                    delta);
   } else {
     LOG_NAVIGATION_TIMING_HISTOGRAM("TimeToReadyToCommit2.CrossProcess",
-                                    transition, kIsBackground, delta);
+                                    common_params.transition, kIsBackground,
+                                    delta);
   }
-}
-
-void RecordIsSameProcessMetrics(ui::PageTransition transition,
-                                bool is_same_process) {
-  // Log overall value, then log specific value per type of navigation.
-  UMA_HISTOGRAM_BOOLEAN("Navigation.IsSameProcess", is_same_process);
-
-  if (transition & ui::PAGE_TRANSITION_FORWARD_BACK) {
-    UMA_HISTOGRAM_BOOLEAN("Navigation.IsSameProcess.BackForward",
-                          is_same_process);
-    return;
-  }
-  if (ui::PageTransitionCoreTypeIs(transition, ui::PAGE_TRANSITION_RELOAD)) {
-    UMA_HISTOGRAM_BOOLEAN("Navigation.IsSameProcess.Reload", is_same_process);
-    return;
-  }
-  if (ui::PageTransitionIsNewNavigation(transition)) {
-    UMA_HISTOGRAM_BOOLEAN("Navigation.IsSameProcess.NewNavigation",
-                          is_same_process);
-    return;
-  }
-  NOTREACHED() << "Invalid page transition: " << transition;
 }
 
 // Use this to get a new unique ID for a NavigationHandle during construction.
@@ -3149,12 +3166,9 @@ void NavigationRequest::ReadyToCommitNavigation(bool is_error) {
         render_frame_host_->GetProcess()->GetID() ==
         frame_tree_node_->current_frame_host()->GetProcess()->GetID();
 
-    RecordIsSameProcessMetrics(common_params_->transition, is_same_process_);
-
-    RecordReadyToCommitMetrics(common_params_->navigation_start,
-                               common_params_->transition,
-                               ready_to_commit_time_, is_same_process_,
-                               frame_tree_node_->IsMainFrame());
+    RecordReadyToCommitMetrics(frame_tree_node_->current_frame_host(),
+                               render_frame_host_, *common_params_.get(),
+                               ready_to_commit_time_);
   }
 
   SetExpectedProcess(render_frame_host_->GetProcess());
@@ -3231,7 +3245,7 @@ void NavigationRequest::OnCommitTimeout() {
   // reports.
   // TODO(http://crbug.com/934317): Remove this once done debugging renderer
   // hangs.
-  if (base::RandDouble() < 0.1) {
+  if (base::RandDouble() < 0.001) {
     static base::debug::CrashKeyString* url_key =
         base::debug::AllocateCrashKeyString("commit_timeout_url",
                                             base::debug::CrashKeySize::Size256);

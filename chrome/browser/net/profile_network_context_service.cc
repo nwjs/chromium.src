@@ -12,7 +12,9 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
+#include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/strings/string_split.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
@@ -35,12 +37,14 @@
 #include "components/language/core/browser/pref_names.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
+#include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/shared_cors_origin_access_list.h"
 #include "content/public/browser/storage_partition.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/service_names.mojom.h"
 #include "content/public/common/url_constants.h"
 #include "net/base/features.h"
@@ -278,6 +282,12 @@ void ProfileNetworkContextService::RegisterProfilePrefs(
 #endif
 }
 
+// static
+void ProfileNetworkContextService::RegisterLocalStatePrefs(
+    PrefRegistrySimple* registry) {
+  registry->RegisterListPref(prefs::kHSTSPolicyBypassList);
+}
+
 void ProfileNetworkContextService::DisableQuicIfNotAllowed() {
   if (!quic_allowed_.IsManaged())
     return;
@@ -440,6 +450,12 @@ ProfileNetworkContextService::CreateNetworkContextParams(
         base::TimeDelta::FromMilliseconds(100);
   }
 
+  network_context_params->cors_extra_safelisted_request_header_names =
+      SplitString(base::GetFieldTrialParamValueByFeature(
+                      features::kExtraSafelistedRequestHeadersForOutOfBlinkCors,
+                      "extra-safelisted-request-headers"),
+                  ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+
   // Always enable the HTTP cache.
   network_context_params->http_cache_enabled = true;
 
@@ -504,6 +520,15 @@ ProfileNetworkContextService::CreateNetworkContextParams(
     }
 
     network_context_params->transport_security_persister_path = path;
+  }
+  const base::ListValue* hsts_policy_bypass_list =
+      g_browser_process->local_state()->GetList(prefs::kHSTSPolicyBypassList);
+  for (const auto& value : *hsts_policy_bypass_list) {
+    std::string string_value;
+    if (!value.GetAsString(&string_value)) {
+      continue;
+    }
+    network_context_params->hsts_policy_bypass_list.push_back(string_value);
   }
 
   // NOTE(mmenke): Keep these protocol handlers and

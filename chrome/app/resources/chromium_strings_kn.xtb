@@ -15,7 +15,6 @@
 <translation id="1524282610922162960">Chromium ಟ್ಯಾಬ್ ಹಂಚಿಕೊಳ್ಳಿ</translation>
 <translation id="1668054258064581266">Chromium ನಿಂದ ನಿಮ್ಮ ಖಾತೆಯನ್ನು ತೆಗೆದುಹಾಕಿದ ನಂತರ, ಪರಿಣಾಮಕಾರಿಯಾಗಲು ನಿಮ್ಮ ತೆರೆದ ಟ್ಯಾಬ್‌ಗಳನ್ನು ನೀವು ಮರುಲೋಡ್‌ ಮಾಡುವ ಅಗತ್ಯವಿದೆ.</translation>
 <translation id="1688750314291223739">ವೆಬ್‌ಗೆ ನಿಮ್ಮ ವೈಯಕ್ತಿಕಗೊಳಿಸಿದ ಬ್ರೌಸರ್ ವೈಶಿಷ್ಟ್ಯಗಳನ್ನು ಉಳಿಸಲು ಸಿಂಕ್ ಅನ್ನು ಹೊಂದಿಸಿ ಮತ್ತು ಯಾವುದೇ ಕಂಪ್ಯೂಟರ್‌ನಲ್ಲಿ Chromium ನಿಂದ ಅವುಗಳನ್ನು ಪ್ರವೇಶಿಸಿ.</translation>
-<translation id="1705503634486268204">ನಿಮ್ಮ ಪಾಸ್‌ವರ್ಡ್ ಅನ್ನು ನೆನಪಿಟ್ಟುಕೊಳ್ಳಲು Chromium ನಿಮಗೆ ಸಹಾಯ ಮಾಡುತ್ತದೆ ಆದ್ದರಿಂದ ನೀವು ಅದನ್ನು ನೆನಪಿಟ್ಟುಕೊಳ್ಳುವ ಅಗತ್ಯವಿಲ್ಲ.</translation>
 <translation id="1708666629004767631">ಹೊಸದಾದ, ಸುರಕ್ಷಿತವಾದ Chromium ನ ಆವೃತ್ತಿ ಲಭ್ಯವಿದೆ.</translation>
 <translation id="1766096484055239003">ಅಪ್‌ಡೇಟ್‌ ಅನ್ವಯಿಸಲು ನೀವು Chrome ಅನ್ನು ಮರುಪ್ರಾರಂಭಿಸಬೇಕೆಂದು ನಿಮ್ಮ ನಿರ್ವಾಹಕರು ಕೋರುತ್ತಿದ್ದಾರೆ</translation>
 <translation id="1774152462503052664">Chromium ಹಿನ್ನೆಲೆಯಲ್ಲಿ ಚಾಲನೆಗೊಳ್ಳಲು ಅನುಮತಿಸಿ</translation>
@@ -29,7 +28,6 @@
 <translation id="2008474315282236005">ಈ ಸಾಧನದಿಂದ 1 ಐಟಂ ಅನ್ನು ಇದು ಅಳಿಸುತ್ತದೆ. ನಂತರ ನಿಮ್ಮ ಡೇಟಾವನ್ನು ಮರುಪಡೆಯಲು, <ph name="USER_EMAIL" /> ನಂತೆ Chromium ಗೆ ಸೈನ್‌ಇನ್ ಮಾಡಿ.</translation>
 <translation id="2117378023188580026">ಈ ಅಪ್‌ಡೇಟ್‌ ಅನ್ವಯಿಸಲು ನೀವು Chrome ಅನ್ನು ಮರುಪ್ರಾರಂಭಿಸಬೇಕೆಂದು ನಿಮ್ಮ ನಿರ್ವಾಹಕರು ಕೋರುತ್ತಿದ್ದಾರೆ</translation>
 <translation id="2119636228670142020">&amp;Chromium OS ಕುರಿತು</translation>
-<translation id="2178765360243863853">ಇದೀಗ ನೀವು Chromium ಅನ್ನು ಮರುಪ್ರಾರಂಭಿಸಬೇಕು</translation>
 <translation id="2241627712206172106">ನೀವು ಕಂಪ್ಯೂಟರ್ ಅನ್ನು ಹಂಚಿಕೊಂಡರೆ, ಸ್ನೇಹಿತರು ಮತ್ತು ಕುಟುಂಬದವರು ಪ್ರತ್ಯೇಕವಾಗಿ ಬ್ರೌಸ್ ಮಾಡಬಹುದು ಮತ್ತು Chromium ಅನ್ನು ಅವರಿಗೆ ಬೇಕಾದಂತೆ ಹೊಂದಿಸಿಕೊಳ್ಳಬಹುದು.</translation>
 <translation id="2265088490657775772">ನಿಮ್ಮ iPhone ನಲ್ಲಿ Chromium ಪಡೆದುಕೊಳ್ಳಿ</translation>
 <translation id="2347108572062610441">ನೀವು Chromium ಪ್ರಾರಂಭಿಸಿದಾಗ ಯಾವ ಪುಟ ತೋರಿಸಬೇಕೆಂಬುದನ್ನು ಈ ವಿಸ್ತರಣೆಯು ಬದಲಾಯಿಸಿದೆ.</translation>
@@ -90,6 +88,7 @@
 <translation id="4230135487732243613">ಈ ಖಾತೆಗೆ ನಿಮ್ಮ Chromium ಡೇಟಾವನ್ನು ಲಿಂಕ್ ಮಾಡುವುದೇ?</translation>
 <translation id="4271805377592243930">Chromium ಜೊತೆಗೆ ಸಹಾಯ ಪಡೆಯಿರಿ</translation>
 <translation id="4285930937574705105">ಅನಿರ್ದಿಷ್ಟ ದೋಷದಿಂದಾಗಿ ಸ್ಥಾಪನೆಯು ವಿಫಲಗೊಂಡಿದೆ. Chromium ಪ್ರಸ್ತುತ ಚಾಲನೆಯಲ್ಲಿದ್ದರೆ, ದಯವಿಟ್ಟು ಅದನ್ನು ಮುಚ್ಚಿರಿ ಮತ್ತು ಪುನಃ ಪ್ರಯತ್ನಿಸಿ.</translation>
+<translation id="4371648796594901282">Chromium OS ವಿವರಗಳಿಗಾಗಿ,  <ph name="LINK_BEGIN" />Chromium OS ಬಗ್ಗೆ<ph name="LINK_END" /> ನೋಡಿ</translation>
 <translation id="4407044323746248786">ಹೇಗಿದ್ದರೂ Chromium ನಿಂದ ನಿರ್ಗಮಿಸುವುದೇ?</translation>
 <translation id="4415566066719264597">Chromium ಹಿನ್ನೆಲೆಯಲ್ಲಿ ರನ್ ಆಗಲು ಅನುಮತಿಸಿ</translation>
 <translation id="4423735387467980091">Chromium ಅನ್ನು ಕಸ್ಟಮೈಸ್ ಮಾಡಿ ಮತ್ತು ನಿಯಂತ್ರಿಸಿ</translation>
@@ -122,6 +121,7 @@
 <translation id="5623402015214259806">{0,plural, =0{Chromium ಅಪ್‌ಡೇಟ್ ಲಭ್ಯವಿದೆ}=1{Chromium ಅಪ್‌ಡೇಟ್ ಲಭ್ಯವಿದೆ}one{# ದಿನಗಳ ಮಟ್ಟಿಗೆ Chromium ಅಪ್‌ಡೇಟ್ ಲಭ್ಯವಿದೆ}other{# ದಿನಗಳ ಮಟ್ಟಿಗೆ Chromium ಅಪ್‌ಡೇಟ್ ಲಭ್ಯವಿದೆ}}</translation>
 <translation id="5631814766731275228">Chromium ಹೆಸರು ಮತ್ತು ಚಿತ್ರ</translation>
 <translation id="5634636535844844681">Chromium ಗೆ Windows 7 ಅಥವಾ ಹೆಚ್ಚಿನ ಆವೃತ್ತಿ ಅಗತ್ಯವಿರುತ್ತದೆ.</translation>
+<translation id="5653831366781983928">ಇದೀಗ Chromium ಅನ್ನು ಮರುಪ್ರಾರಂಭಿಸಿ</translation>
 <translation id="5680901439334282664">Chromium ಗೆ ಸೈನ್ ಇನ್ ಆಗಿ</translation>
 <translation id="5698481217667032250">ಈ ಭಾಷೆಯಲ್ಲಿ Chromium ಪ್ರದರ್ಶಿಸು</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
@@ -139,9 +139,6 @@
 <translation id="6096348254544841612">Chromium ಅನ್ನು ಕಸ್ಟಮೈಸ್ ಮಾಡಿ ಮತ್ತು ನಿಯಂತ್ರಿಸಿ. ಅಪ್‌ಡೇಟ್ ಲಭ್ಯವಿದೆ.</translation>
 <translation id="6120345080069858279">Chromium, ನಿಮ್ಮ Google ಖಾತೆಯಲ್ಲಿ ಈ ಪಾಸ್‌ವರ್ಡ್ ಅನ್ನು ಉಳಿಸುತ್ತದೆ. ನೀವು ಅದನ್ನು ನೆನಪಿಡುವ ಅಗತ್ಯವಿರುವುದಿಲ್ಲ.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> ಅಪಾಯಕಾರಿಯಾಗಿದೆ, ಹಾಗಾಗಿ Chromium ಅದನ್ನು ನಿರ್ಬಂಧಿಸಿದೆ.</translation>
-<translation id="6173098285107411678">ಈ ಪುಟದಲ್ಲಿ ಯಾವುದಾದರೂ ಸೆಟ್ಟಿಂಗ್ ಕಾಣಿಸದಿದ್ದರೆ, ನಿಮ್ಮ,
-<ph name="LINK_BEGIN" />
-    Chromium ಬ್ರೌಸರ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು<ph name="LINK_END" /> ನೋಡಿ</translation>
 <translation id="6212496753309875659">ಈ ಕಂಪ್ಯೂಟರ್ Chromium ನ ಇತ್ತೀಚಿನ ಹೆಚ್ಚಿನ ಆವೃತ್ತಿಯನ್ನು ಹೊಂದಿದೆ. ಸಾಫ್ಟ್‌ವೇರ್ ಕಾರ್ಯನಿರ್ವಹಿಸದಿದ್ದರೆ, ದಯವಿಟ್ಟು Chromium ಅನ್ನು ಅನ್‌ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಿ ಮತ್ತು ಪುನಃ ಪ್ರಯತ್ನಿಸಿ.</translation>
 <translation id="6219195342503754812">{0,plural, =0{ಇದೀಗ Chromium ಮರುಪ್ರಾರಂಭಗೊಳ್ಳುತ್ತದೆ}=1{1 ಸೆಕೆಂಡಿನಲ್ಲಿ Chromium ಮರುಪ್ರಾರಂಭಗೊಳ್ಳುತ್ತದೆ}one{# ಸೆಕೆಂಡುಗಳಲ್ಲಿ Chromium ಮರುಪ್ರಾರಂಭಗೊಳ್ಳುತ್ತದೆ}other{# ಸೆಕೆಂಡುಗಳಲ್ಲಿ Chromium ಮರುಪ್ರಾರಂಭಗೊಳ್ಳುತ್ತದೆ}}</translation>
 <translation id="6248213926982192922">Chromium ಅನ್ನು ಡಿಫಾಲ್ಟ್ ಬ್ರೌಸರ್ ಮಾಡಿ</translation>
@@ -165,6 +162,7 @@
 <translation id="6734080038664603509">&amp;Chromium ಅಪ್‌ಡೇಟ್‌ ಮಾಡಿ</translation>
 <translation id="6734291798041940871">ನಿಮ್ಮ ಕಂಪ್ಯೂಟರ್‌ನಲ್ಲಿನ ಎಲ್ಲ ಬಳಕೆದಾರರಿಗೆ ಈಗಾಗಲೇ Chromium ಸ್ಥಾಪಿತವಾಗಿದೆ.</translation>
 <translation id="6810143991807788455">ಪ್ರಸ್ತುತ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ವರದಿ ಮಾಡುವುದರ ಮೂಲಕ Chromium ಅನ್ನು ಉತ್ತಮಗೊಳಿಸಲು ಸಹಾಯಮಾಡಿ</translation>
+<translation id="6847869444787758381">ನಿಮ್ಮ ಪಾಸ್‌ವರ್ಡ್‌ಗಳು ಎಂದಾದರೂ ಹ್ಯಾಕ್‌ ಆಗಿವೆಯೇ ಎಂಬುದನ್ನು Chromium ನಿಮಗೆ ತಿಳಿಸುತ್ತದೆ</translation>
 <translation id="6857782730669500492">Chromium - <ph name="PAGE_TITLE" /></translation>
 <translation id="6863361426438995919">Google Pay (Chromium ಗೆ ನಕಲಿಸಲಾಗಿದೆ)</translation>
 <translation id="6868056391275687737">Chromium ನ ಇತರ ನಕಲುಗಳು ರನ್ ಆಗುತ್ತಿವೆ. ಅಪ್‌ಡೇಟ್ ಮಾಡಲು, ಅವುಗಳನ್ನು ಮುಚ್ಚಿರಿ.</translation>
@@ -193,6 +191,7 @@
 <translation id="753534427205733210">{0,plural, =1{1 ನಿಮಿಷದಲ್ಲಿ Chromium ಮರುಪ್ರಾರಂಭಗೊಳ್ಳುತ್ತದೆ}one{# ನಿಮಿಷಗಳಲ್ಲಿ Chromium ಮರುಪ್ರಾರಂಭಗೊಳ್ಳುತ್ತದೆ}other{# ನಿಮಿಷಗಳಲ್ಲಿ Chromium ಮರುಪ್ರಾರಂಭಗೊಳ್ಳುತ್ತದೆ}}</translation>
 <translation id="7549178288319965365">Chromium OS ಕುರಿತು</translation>
 <translation id="7561906087460245826">Chromium ನಿಂದಲೂ ಡೇಟಾವನ್ನು ತೆರವುಗೊಳಿಸಿ (<ph name="URL" />)</translation>
+<translation id="7585853947355360626">ಈ ಪುಟದಲ್ಲಿ ಸೆಟ್ಟಿಂಗ್ ಒಂದು ಕಾಣಿಸದಿದ್ದರೆ, ನಿಮ್ಮ <ph name="LINK_BEGIN" />Chromium OS ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ<ph name="LINK_END" /> ನೋಡಿರಿ</translation>
 <translation id="761356813943268536">Chromium ನಿಮ್ಮ ಕ್ಯಾಮರಾ ಮತ್ತು ಮೈಕ್ರೋಫೋನ್ ಬಳಸುತ್ತಿದೆ.</translation>
 <translation id="7617377681829253106">Chromium ಇದೀಗ ಉತ್ತಮಗೊಂಡಿದೆ</translation>
 <translation id="7686590090926151193">Chromium ನಿಮ್ಮ ಡೀಫಾಲ್ಟ್ ಬ್ರೌಸರ್ ಅಲ್ಲ</translation>
@@ -226,6 +225,7 @@
 <translation id="8619360774459241877">Chromium ಅನ್ನು ಪ್ರಾರಂಭಿಸಲಾಗುತ್ತಿದೆ...</translation>
 <translation id="8621669128220841554">ಅನಿರ್ದಿಷ್ಟ ದೋಷದಿಂದಾಗಿ ಸ್ಥಾಪನೆ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೊಮ್ಮೆ Chromium ಅನ್ನು ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ.</translation>
 <translation id="8667808506758191620">ನಿಮ್ಮ <ph name="DEVICE_TYPE" /> ನವೀಕೃತವಾಗಿದೆ.</translation>
+<translation id="8682540261359803721">ಈ ಪುಟದಲ್ಲಿ ಸೆಟ್ಟಿಂಗ್ ಒಂದು ಕಾಣಿಸದಿದ್ದರೆ, ನಿಮ್ಮ <ph name="LINK_BEGIN" />Chromium ಬ್ರೌಸರ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ<ph name="LINK_END" /> ನೋಡಿರಿ</translation>
 <translation id="8697124171261953979">ನೀವು Chromium ಪ್ರಾರಂಭಿಸಿದಾಗ ಅಥವಾ ಓಮ್ನಿಬಾಕ್ಸ್‌ನಿಂದ ಹುಡುಕಿದಾಗ ತೋರಿಸಬೇಕಾದ ಪುಟವನ್ನು ಕೂಡಾ ಇದು ನಿಯಂತ್ರಿಸುತ್ತದೆ.</translation>
 <translation id="8704119203788522458">ಇದು ನಿಮ್ಮ Chromium</translation>
 <translation id="8739167630197873875">Chromium ನಿಂದ ನಿರ್ಗಮಿಸಿದಾಗ ಕುಕೀಗಳನ್ನು ನೀವು ತೆರವುಗೊಳಿಸುತ್ತೀರಿ. ಸಿಂಕ್ ಮಾಡುವುದನ್ನು ಮುಂದುವರಿಸಲು, ಈ <ph name="COOKIE_SETTINGS_LINK" /> ಅನ್ನು ಬದಲಾಯಿಸಿ.</translation>

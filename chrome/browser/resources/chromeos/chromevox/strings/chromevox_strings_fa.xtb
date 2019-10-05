@@ -169,6 +169,7 @@
 <translation id="2220529011494928058">گزارش یک مشکل</translation>
 <translation id="2223693656926968778">در خصوص مورد کنونی اقدامی انجام دهید</translation>
 <translation id="225732394367814946">افزایش سرعت گفتار</translation>
+<translation id="2267538686624070261">خارج شدن از کلمه با غلط املایی</translation>
 <translation id="2267945578749931355">نویسه بعدی</translation>
 <translation id="2278490101488436824">تند کشیدن سه انگشت به راست</translation>
 <translation id="2281234842553884450">اسلایدر قبلی</translation>
@@ -207,6 +208,7 @@
 <translation id="257674075312929031">گروه</translation>
 <translation id="2582407057977008361">جدا</translation>
 <translation id="2592212930811759050">برای شروع ویرایش، دو ضربه سریع بزنید</translation>
+<translation id="2598495320872286378">خطای دستور زبانی</translation>
 <translation id="2606210917827248971">با {COUNT,plural, =1{# مورد}one{# مورد}other{# مورد}}</translation>
 <translation id="2614981083756825552">‏چیدمان ML ریاضی</translation>
 <translation id="2624431853467395961">باز کردن حالت یادگیری</translation>
@@ -422,7 +424,6 @@
 <translation id="4039983576244166038">عنوان ردیف خالی است</translation>
 <translation id="4042843249978639960">عنوان سطح ۲ بعدی وجود ندارد.</translation>
 <translation id="4043348641337972076">‏علامت مشخصه ARIA قبلی وجود ندارد.</translation>
-<translation id="4045764028670444336">شروع اشتباه املایی</translation>
 <translation id="4047216625641135770">علامت</translation>
 <translation id="404803211695627272"><ph name="V1" />-<ph name="V2" /></translation>
 <translation id="4053520724192563562">سبز مغزپسته‌ای</translation>
@@ -505,7 +506,6 @@
 <translation id="4547556996012970016">عنوان بعدی سطح ۵</translation>
 <translation id="4562381607973973258">Header</translation>
 <translation id="4569941707103739422">‏پیکان بالا یا پایین را برای پیمایش فشار دهید؛ برای فعال کردن enter را فشار دهید.</translation>
-<translation id="4570424871453628777">پایان اشتباه املایی</translation>
 <translation id="4591507479202817876">، انتخاب شد</translation>
 <translation id="4597532268155981612">فرم</translation>
 <translation id="4597896406374528575">آوریل</translation>
@@ -728,7 +728,6 @@
 <translation id="6037602951055904232">حرکت به جلو</translation>
 <translation id="6042826534790431634">‏Search+Space را برای فعال کردن فشار دهید.</translation>
 <translation id="6044160928851315051">تاریک کردن صفحه</translation>
-<translation id="6065293622157674001">شروع اشتباه دستور زبانی</translation>
 <translation id="6082768461603900813">پیمایش ساده</translation>
 <translation id="6118126368611144850">‏برنامه‌های Android برای Chrome. اگر در دستگاهتان «فروشگاه Play» دارید، پیش‌نمایش استفاده از ChromeVox با برنامه‌های Android را ببینید. با بارگیری Google Chrome Canary از «فروشگاه Play»، پشتیبانی آزمایشی را امتحان کنید.</translation>
 <translation id="611827076493383239">vtd</translation>
@@ -824,6 +823,7 @@
 <translation id="6833103209700200188">پاورقی</translation>
 <translation id="6858047746862060282">گفتار آغازین</translation>
 <translation id="6859876496651143278">تند کشیدن یک انگشت به راست</translation>
+<translation id="6865519907510167493">غلط املایی</translation>
 <translation id="6871161210040114857">بزرگی و کوچکی حروف نادیده گرفته شود.</translation>
 <translation id="6877435256196695200">گرافیک بعدی موجود نیست.</translation>
 <translation id="6897341342232909480">حرکت به چپ</translation>
@@ -869,7 +869,6 @@
 <translation id="7143207342074048698">در حال اتصال</translation>
 <translation id="7153618581592392745">نیلی کم‌رنگ</translation>
 <translation id="7157306005867877619">انتزاعی</translation>
-<translation id="7161425887892204659">پایان مطابقت نوشتار</translation>
 <translation id="7161771961008409533">دکمه بازشو</translation>
 <translation id="7165714724802225287">سبک نمایش کنونی، جاگذاری است.</translation>
 <translation id="7167657087543110">بازگویی نویسه</translation>
@@ -907,7 +906,6 @@
 <translation id="737396357417333429">clk</translation>
 <translation id="7374104575779636480">در حال خروج از جدول.</translation>
 <translation id="738899727977260036">آبی کربنی</translation>
-<translation id="7392145451309930991">شروع مطابقت نوشتار</translation>
 <translation id="739763518212184081">خط قبلی</translation>
 <translation id="7400575256015741911">غلط املایی شناسایی شد</translation>
 <translation id="7408482676469142474">tbl</translation>
@@ -1116,11 +1114,11 @@
 <translation id="8446884382197647889">بیشتر بیاموزید</translation>
 <translation id="8455868257606149352">حداکثر <ph name="X" /></translation>
 <translation id="84575901236241018">کلید دسترسی دارد، <ph name="KEY" /></translation>
+<translation id="8463645336674919227">خارج شدن از اشتباه دستور زبانی</translation>
 <translation id="847154984256717791">مشغول</translation>
 <translation id="8476408756881832830">‏توقف بازپخش هنگامی که ChromeVox درحال صحبت کردن است</translation>
 <translation id="8476508772960940536">نمای کلی پنجره</translation>
 <translation id="8503360654911991865">کاهش جزئیات پیمایش</translation>
-<translation id="8504695234784218301">پایان اشتباه دستور زبانی</translation>
 <translation id="8520472399088452386">دکمه چرخش</translation>
 <translation id="8534394844575788431">قالب‌بندی</translation>
 <translation id="8538744478902126321">حدس در مورد عنوان ردیف سلول کنونی</translation>

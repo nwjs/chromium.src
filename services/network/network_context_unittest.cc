@@ -80,6 +80,7 @@
 #include "net/http/http_transaction_factory.h"
 #include "net/http/http_transaction_test_util.h"
 #include "net/http/mock_http_cache.h"
+#include "net/http/transport_security_state.h"
 #include "net/http/transport_security_state_test_util.h"
 #include "net/nqe/network_quality_estimator_test_util.h"
 #include "net/proxy_resolution/proxy_config.h"
@@ -137,6 +138,10 @@
 #include "net/reporting/reporting_service.h"
 #include "net/reporting/reporting_test_util.h"
 #endif  // BUILDFLAG(ENABLE_REPORTING)
+
+#if defined(OS_CHROMEOS)
+#include "services/network/mock_mojo_dhcp_wpad_url_client.h"
+#endif  // defined(OS_CHROMEOS)
 
 namespace network {
 
@@ -4408,6 +4413,13 @@ TEST_F(NetworkContextTest, ProxyErrorClientNotifiedOfPacError) {
       mojom::NetworkContextParams::New();
   context_params->proxy_error_client =
       proxy_error_client.CreateInterfacePtrInfo();
+
+#if defined(OS_CHROMEOS)
+  context_params->dhcp_wpad_url_client =
+      network::MockMojoDhcpWpadUrlClient::CreateWithSelfOwnedReceiver(
+          std::string());
+#endif  // defined(OS_CHROMEOS)
+
   // The PAC URL doesn't matter, since the test is configured to use a
   // mock ProxyResolverFactory which doesn't actually evaluate it. It just
   // needs to be a data: URL to ensure the network fetch doesn't fail.
@@ -5835,6 +5847,23 @@ TEST_F(NetworkContextTest, AddHttpAuthCacheEntry) {
   EXPECT_EQ(net::HttpAuth::StringToScheme(challenge.scheme), entry->scheme());
   EXPECT_EQ(base::ASCIIToUTF16(kUsername), entry->credentials().username());
   EXPECT_EQ(base::ASCIIToUTF16(kPassword), entry->credentials().password());
+}
+
+TEST_F(NetworkContextTest, HSTSPolicyBypassList) {
+  // The default test preload list includes "example" as a preloaded TLD
+  // (including subdomains).
+  net::ScopedTransportSecurityStateSource scoped_security_state_source;
+
+  mojom::NetworkContextParamsPtr params = CreateContextParams();
+  params->hsts_policy_bypass_list.push_back("example");
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(std::move(params));
+  net::TransportSecurityState* transport_security_state =
+      network_context->url_request_context()->transport_security_state();
+  // With the policy set, example should no longer upgrade to HTTPS.
+  EXPECT_FALSE(transport_security_state->ShouldUpgradeToSSL("example"));
+  // But the policy shouldn't apply to subdomains.
+  EXPECT_TRUE(transport_security_state->ShouldUpgradeToSSL("sub.example"));
 }
 
 static ResourceRequest CreateResourceRequest(const char* method,

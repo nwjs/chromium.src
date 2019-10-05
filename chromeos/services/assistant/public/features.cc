@@ -25,12 +25,20 @@ const base::Feature kAssistantAppSupport{"AssistantAppSupport",
 const base::Feature kAssistantProactiveSuggestions{
     "AssistantProactiveSuggestions", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// The maximum width (in dip) for the proactive suggestions chip.
+const base::FeatureParam<int> kAssistantProactiveSuggestionsMaxWidth{
+    &kAssistantProactiveSuggestions, "max-width", 280};
+
 const base::FeatureParam<std::string>
     kAssistantProactiveSuggestionsServerExperimentIds{
         &kAssistantProactiveSuggestions, "server-experiment-ids", ""};
 
 const base::FeatureParam<bool> kAssistantProactiveSuggestionsSuppressDuplicates{
     &kAssistantProactiveSuggestions, "suppress-duplicates", true};
+
+const base::FeatureParam<int>
+    kAssistantProactiveSuggestionsTimeoutThresholdMillis{
+        &kAssistantProactiveSuggestions, "timeout-threshold-millis", 15 * 1000};
 
 const base::Feature kAssistantRoutines{"AssistantRoutines",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
@@ -73,8 +81,17 @@ const base::Feature kEnableMediaSessionIntegration{
     "AssistantEnableMediaSessionIntegration",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
+int GetProactiveSuggestionsMaxWidth() {
+  return kAssistantProactiveSuggestionsMaxWidth.Get();
+}
+
 std::string GetProactiveSuggestionsServerExperimentIds() {
   return kAssistantProactiveSuggestionsServerExperimentIds.Get();
+}
+
+base::TimeDelta GetProactiveSuggestionsTimeoutThreshold() {
+  return base::TimeDelta::FromMilliseconds(
+      kAssistantProactiveSuggestionsTimeoutThresholdMillis.Get());
 }
 
 bool IsAlarmTimerManagerEnabled() {

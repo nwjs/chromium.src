@@ -94,7 +94,6 @@
 <translation id="4201051445878709314">Mostrar mes anterior</translation>
 <translation id="421884353938374759">selector de color</translation>
 <translation id="4248100235867064564">barra de menús</translation>
-<translation id="4254339807215791271">información del contenido</translation>
 <translation id="4360991593054037559">Introduce un valor válido. Los dos valores válidos más aproximados son <ph name="VALID_VALUE_LOW" /> y <ph name="VALID_VALUE_HIGHER" />.</translation>
 <translation id="4384583879834880242">Preguntas</translation>
 <translation id="4413860115965805769">botón de menú</translation>
@@ -187,6 +186,7 @@
 <translation id="709897737746224366">Utiliza un formato que coincida con el solicitado</translation>
 <translation id="7118469954320184356">No hay ninguna descripción disponible.</translation>
 <translation id="7139483182332611405">prefacio</translation>
+<translation id="7214187073215825913">información sobre el contenido</translation>
 <translation id="7263440858009898357">Selecciona un elemento de la lista</translation>
 <translation id="727747134524199931">encabezado de columna</translation>
 <translation id="7320576522385648310">almacenando en búfer</translation>

@@ -101,12 +101,14 @@ IndexedDBTransaction::IndexedDBTransaction(
     const std::set<int64_t>& object_store_ids,
     blink::mojom::IDBTransactionMode mode,
     TasksAvailableCallback tasks_available_callback,
+    TearDownCallback tear_down_callback,
     IndexedDBBackingStore::Transaction* backing_store_transaction)
     : id_(id),
       object_store_ids_(object_store_ids),
       mode_(mode),
       connection_(connection->GetWeakPtr()),
       run_tasks_callback_(std::move(tasks_available_callback)),
+      tear_down_callback_(std::move(tear_down_callback)),
       transaction_(backing_store_transaction) {
   IDB_ASYNC_TRACE_BEGIN("IndexedDBTransaction::lifetime", this);
   callbacks_ = connection_->callbacks();
@@ -159,9 +161,10 @@ void IndexedDBTransaction::ScheduleAbortTask(AbortOperation abort_task) {
   abort_task_stack_.push(std::move(abort_task));
 }
 
-bool IndexedDBTransaction::Abort(const IndexedDBDatabaseError& error) {
+leveldb::Status IndexedDBTransaction::Abort(
+    const IndexedDBDatabaseError& error) {
   if (state_ == FINISHED)
-    return false;
+    return leveldb::Status::OK();
 
   UMA_HISTOGRAM_ENUMERATION("WebCore.IndexedDB.TransactionAbortReason",
                             ExceptionCodeToUmaEnum(error.code()),
@@ -172,12 +175,11 @@ bool IndexedDBTransaction::Abort(const IndexedDBDatabaseError& error) {
 
   state_ = FINISHED;
 
-  // Save a WeakPtr in case the RollbackAndMaybeTearDown tears the system down.
-  base::WeakPtr<IndexedDBTransaction> weak_ptr = ptr_factory_.GetWeakPtr();
-  if (backing_store_transaction_begun_)
-    transaction_->RollbackAndMaybeTearDown();
-  if (!weak_ptr)
-    return true;
+  if (backing_store_transaction_begun_) {
+    leveldb::Status status = transaction_->Rollback();
+    if (!status.ok())
+      return status;
+  }
 
   // Run the abort tasks, if any.
   while (!abort_task_stack_.empty())
@@ -207,6 +209,7 @@ bool IndexedDBTransaction::Abort(const IndexedDBDatabaseError& error) {
   // front-end is notified, as the transaction completion unblocks
   // operations like closing connections.
   locks_receiver_.locks.clear();
+  locks_receiver_.AbortLockRequest();
 
   if (callbacks_.get())
     callbacks_->OnAbort(*this, error);
@@ -214,7 +217,7 @@ bool IndexedDBTransaction::Abort(const IndexedDBDatabaseError& error) {
   if (database_)
     database_->TransactionFinished(mode_, false);
   run_tasks_callback_.Run();
-  return true;
+  return leveldb::Status::OK();
 }
 
 // static
@@ -262,10 +265,14 @@ leveldb::Status IndexedDBTransaction::BlobWriteComplete(
   DCHECK_EQ(state_, COMMITTING);
 
   switch (result) {
-    case IndexedDBBackingStore::BlobWriteResult::kFailure:
-      Abort(IndexedDBDatabaseError(blink::kWebIDBDatabaseExceptionDataError,
-                                   "Failed to write blobs."));
+    case IndexedDBBackingStore::BlobWriteResult::kFailure: {
+      leveldb::Status status = Abort(IndexedDBDatabaseError(
+          blink::kWebIDBDatabaseExceptionDataError, "Failed to write blobs."));
+      if (!status.ok())
+        tear_down_callback_.Run(status);
+      // The result is ignored.
       return leveldb::Status::OK();
+    }
     case IndexedDBBackingStore::BlobWriteResult::kRunPhaseTwoAsync:
       ScheduleTask(base::BindOnce(&CommitPhaseTwoProxy));
       run_tasks_callback_.Run();
@@ -309,8 +316,8 @@ leveldb::Status IndexedDBTransaction::Commit() {
   // properly handled.
   if (num_errors_sent_ != num_errors_handled_) {
     is_commit_pending_ = false;
-    Abort(IndexedDBDatabaseError(blink::kWebIDBDatabaseExceptionUnknownError));
-    return leveldb::Status::OK();
+    return Abort(
+        IndexedDBDatabaseError(blink::kWebIDBDatabaseExceptionUnknownError));
   }
 
   state_ = COMMITTING;
@@ -516,9 +523,11 @@ base::TimeDelta IndexedDBTransaction::GetInactivityTimeout() const {
 }
 
 void IndexedDBTransaction::Timeout() {
-  Abort(IndexedDBDatabaseError(
+  leveldb::Status result = Abort(IndexedDBDatabaseError(
       blink::kWebIDBDatabaseExceptionTimeoutError,
       base::ASCIIToUTF16("Transaction timed out due to inactivity.")));
+  if (!result.ok())
+    tear_down_callback_.Run(result);
 }
 
 void IndexedDBTransaction::CloseOpenCursorBindings() {
@@ -531,9 +540,13 @@ void IndexedDBTransaction::CloseOpenCursorBindings() {
 
 void IndexedDBTransaction::CloseOpenCursors() {
   IDB_TRACE1("IndexedDBTransaction::CloseOpenCursors", "txn.id", id());
-  for (auto* cursor : open_cursors_)
-    cursor->Close();
+
+  // IndexedDBCursor::Close() indirectly mutates |open_cursors_|, when it calls
+  // IndexedDBTransaction::UnregisterOpenCursor().
+  std::set<IndexedDBCursor*> open_cursors = std::move(open_cursors_);
   open_cursors_.clear();
+  for (auto* cursor : open_cursors)
+    cursor->Close();
 }
 
 void IndexedDBTransaction::AddPendingObserver(

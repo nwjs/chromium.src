@@ -66,7 +66,6 @@
 #include "components/arc/session/arc_bridge_service.h"
 #include "components/arc/test/connection_holder_util.h"
 #include "components/arc/test/fake_file_system_instance.h"
-#include "components/arc/volume_mounter/arc_volume_mounter_bridge.h"
 #include "components/drive/chromeos/file_system_interface.h"
 #include "components/drive/drive_pref_names.h"
 #include "components/drive/service/fake_drive_service.h"
@@ -1522,6 +1521,7 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
   std::vector<base::Feature> disabled_features;
 
   enabled_features.emplace_back(features::kCrostiniAdvancedAccessControls);
+  enabled_features.emplace_back(chromeos::features::kCrostiniBackup);
 
   if (!IsGuestModeTest()) {
     enabled_features.emplace_back(features::kCrostini);
@@ -1622,6 +1622,8 @@ void FileManagerBrowserTestBase::SetUpOnMainThread() {
     profile()->GetPrefs()->SetBoolean(crostini::prefs::kCrostiniEnabled, true);
     profile()->GetPrefs()->SetBoolean(
         crostini::prefs::kUserCrostiniRootAccessAllowedByPolicy, true);
+    profile()->GetPrefs()->SetBoolean(
+        crostini::prefs::kUserCrostiniExportImportUIAllowedByPolicy, true);
     crostini::CrostiniManager* crostini_manager =
         crostini::CrostiniManager::GetForProfile(
             profile()->GetOriginalProfile());
@@ -1758,7 +1760,6 @@ void FileManagerBrowserTestBase::StartTest() {
   static const base::FilePath test_extension_dir =
       base::FilePath(FILE_PATH_LITERAL("ui/file_manager/integration_tests"));
   LaunchExtension(test_extension_dir, GetTestExtensionManifestName());
-  CreateArcServices();
   RunTestMessageLoop();
 }
 
@@ -2112,6 +2113,14 @@ void FileManagerBrowserTestBase::OnCommand(const std::string& name,
     return;
   }
 
+  if (name == "setCrostiniExportImportAllowed") {
+    bool enabled;
+    ASSERT_TRUE(value.GetBoolean("enabled", &enabled));
+    profile()->GetPrefs()->SetBoolean(
+        crostini::prefs::kUserCrostiniExportImportUIAllowedByPolicy, enabled);
+    return;
+  }
+
   if (name == "useCellularNetwork") {
     net::NetworkChangeNotifier::NotifyObserversOfMaxBandwidthChangeForTests(
         net::NetworkChangeNotifier::GetMaxBandwidthMbpsForConnectionSubtype(
@@ -2414,14 +2423,6 @@ base::FilePath FileManagerBrowserTestBase::MaybeMountCrostini(
 void FileManagerBrowserTestBase::EnableVirtualKeyboard() {
   CHECK(IsTabletModeTest());
   ash::ShellTestApi().EnableVirtualKeyboard();
-}
-
-void FileManagerBrowserTestBase::CreateArcServices() {
-  // Instantiate testing version of the services.
-
-  // chrome.fileManagerPrivate relies on ArcVolumeMounterBridge, and our tests
-  // call the chrome.fileManagerPrivate interface.
-  arc::ArcVolumeMounterBridge::GetForBrowserContextForTesting(profile());
 }
 
 }  // namespace file_manager

@@ -297,7 +297,7 @@ Node* AXLayoutObject::GetNodeOrContainingBlockNode() const {
     return nullptr;
   }
 
-  if (layout_object_->IsAnonymousBlock() && layout_object_->ContainingBlock()) {
+  if (layout_object_->IsAnonymous() && layout_object_->ContainingBlock()) {
     return layout_object_->ContainingBlock()->GetNode();
   }
 
@@ -626,6 +626,11 @@ bool AXLayoutObject::ComputeAccessibilityIsIgnored(
 #if DCHECK_IS_ON()
   DCHECK(initialized_);
 #endif
+
+  // All nodes must have an unignored parent within their tree under
+  // kRootWebArea, so force kRootWebArea to always be unignored.
+  if (role_ == ax::mojom::Role::kRootWebArea)
+    return false;
 
   if (!layout_object_) {
     if (ignored_reasons)

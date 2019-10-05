@@ -18,6 +18,7 @@
 #include "ash/public/cpp/app_list/app_list_features.h"
 #include "ash/public/cpp/assistant/assistant_setup.h"
 #include "ash/public/cpp/assistant/proactive_suggestions.h"
+#include "ash/public/cpp/assistant/util/histogram_util.h"
 #include "ash/public/cpp/toast_data.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
@@ -36,11 +37,6 @@ namespace {
 
 // When hidden, Assistant will automatically close after |kAutoCloseThreshold|.
 constexpr base::TimeDelta kAutoCloseThreshold = base::TimeDelta::FromMinutes(5);
-
-// When shown, the proactive suggestions widget will automatically close if the
-// user doesn't interact with it within a fixed interval.
-constexpr base::TimeDelta kAutoCloseProactiveSuggestionsThreshold =
-    base::TimeDelta::FromSeconds(15);
 
 // Toast -----------------------------------------------------------------------
 
@@ -152,7 +148,11 @@ void AssistantUiController::OnMicStateChanged(MicState mic_state) {
 }
 
 void AssistantUiController::OnProactiveSuggestionsChanged(
-    scoped_refptr<const ProactiveSuggestions> proactive_suggestions) {
+    scoped_refptr<const ProactiveSuggestions> proactive_suggestions,
+    scoped_refptr<const ProactiveSuggestions> old_proactive_suggestions) {
+  using assistant::metrics::ProactiveSuggestionsShowAttempt;
+  using assistant::metrics::ProactiveSuggestionsShowResult;
+
   const bool should_suppress_duplicates = chromeos::assistant::features::
       IsProactiveSuggestionsSuppressDuplicatesEnabled();
 
@@ -171,6 +171,13 @@ void AssistantUiController::OnProactiveSuggestionsChanged(
   if (should_show && should_suppress_duplicates) {
     should_show = !base::Contains(shown_proactive_suggestions_,
                                   proactive_suggestions_hash);
+    if (!should_show) {
+      // If this code is reached then the new proactive suggestion is not being
+      // shown due to duplicate suppression. We need to record that event.
+      assistant::metrics::RecordProactiveSuggestionsShowAttempt(
+          proactive_suggestions->category(),
+          ProactiveSuggestionsShowAttempt::kAbortedByDuplicateSuppression);
+    }
   }
 
   // When proactive suggestions need to be shown, we show the associated view if
@@ -179,6 +186,12 @@ void AssistantUiController::OnProactiveSuggestionsChanged(
     if (!proactive_suggestions_view_) {
       CreateProactiveSuggestionsView();
       proactive_suggestions_view_->GetWidget()->ShowInactive();
+    } else {
+      // Since the view was previously shown, we can infer that the previously
+      // shown proactive suggestion was replaced due to a context change.
+      assistant::metrics::RecordProactiveSuggestionsShowResult(
+          old_proactive_suggestions->category(),
+          ProactiveSuggestionsShowResult::kCloseByContextChange);
     }
 
     // When suppressing duplicates, we need to cache the hash for the proactive
@@ -186,19 +199,34 @@ void AssistantUiController::OnProactiveSuggestionsChanged(
     if (should_suppress_duplicates)
       shown_proactive_suggestions_.emplace(proactive_suggestions_hash);
 
+    // Nothing has prevented the proactive suggestion from being shown so we can
+    // record a successful show attempt.
+    assistant::metrics::RecordProactiveSuggestionsShowAttempt(
+        proactive_suggestions->category(),
+        ProactiveSuggestionsShowAttempt::kSuccess);
+
     // The proactive suggestions widget will automatically be closed if the user
     // doesn't interact with it within a fixed interval.
     auto_close_proactive_suggestions_timer_.Start(
-        FROM_HERE, kAutoCloseProactiveSuggestionsThreshold,
+        FROM_HERE,
+        chromeos::assistant::features::
+            GetProactiveSuggestionsTimeoutThreshold(),
         base::BindRepeating(
             &AssistantUiController::ResetProactiveSuggestionsView,
-            weak_factory_.GetWeakPtr()));
+            weak_factory_.GetWeakPtr(), proactive_suggestions->category(),
+            assistant::metrics::ProactiveSuggestionsShowResult::
+                kCloseByTimeout));
     return;
   }
+
   // When proactive suggestions should not be shown, we need to ensure that the
   // associated view is absent if it isn't already.
   if (proactive_suggestions_view_) {
-    ResetProactiveSuggestionsView();
+    // Since the view was previously shown, we can infer that the previously
+    // shown proactive suggestion was closed due to a context change.
+    ResetProactiveSuggestionsView(
+        old_proactive_suggestions->category(),
+        ProactiveSuggestionsShowResult::kCloseByContextChange);
     DCHECK(!proactive_suggestions_view_);
   }
 }
@@ -261,12 +289,59 @@ void AssistantUiController::OnMiniViewPressed() {
 }
 
 void AssistantUiController::OnProactiveSuggestionsCloseButtonPressed() {
-  ResetProactiveSuggestionsView();
+  ResetProactiveSuggestionsView(
+      assistant_controller_->suggestions_controller()
+          ->model()
+          ->GetProactiveSuggestions()
+          ->category(),
+      assistant::metrics::ProactiveSuggestionsShowResult::kCloseByUser);
   DCHECK(!proactive_suggestions_view_);
 }
 
+void AssistantUiController::OnProactiveSuggestionsViewHoverChanged(
+    bool is_hovering) {
+  if (!proactive_suggestions_view_ ||
+      !proactive_suggestions_view_->GetWidget() ||
+      proactive_suggestions_view_->GetWidget()->IsClosed()) {
+    // Hover changed events may occur during the proactive suggestions widget's
+    // close sequence. When this occurs, we quit early as the proactive
+    // suggestions view is being destroyed.
+    return;
+  }
+
+  if (!is_hovering) {
+    // When the user is no longer hovering over the proactive suggestions view
+    // we need to reset the timer so that it will auto-close appropriately.
+    auto_close_proactive_suggestions_timer_.Reset();
+    return;
+  }
+
+  const base::TimeDelta remaining_time =
+      auto_close_proactive_suggestions_timer_.desired_run_time() -
+      base::TimeTicks::Now();
+
+  // The user is now hovering over the proactive suggestions view so we need to
+  // pause the auto-close timer until we are no longer in a hovering state. Once
+  // we leave hovering state, we will resume the auto-close timer with whatever
+  // |remaining_time| is left on the timer. To accomplish this, we schedule the
+  // auto-close timer to fire in the future...
+  auto_close_proactive_suggestions_timer_.Start(
+      FROM_HERE, remaining_time,
+      auto_close_proactive_suggestions_timer_.user_task());
+
+  // ...but immediately stop it so that when we reset the auto-close timer upon
+  // leaving hovering state, the timer will appriopriately fire only after the
+  // |remaining_time| has elapsed.
+  auto_close_proactive_suggestions_timer_.Stop();
+}
+
 void AssistantUiController::OnProactiveSuggestionsViewPressed() {
-  ResetProactiveSuggestionsView();
+  ResetProactiveSuggestionsView(
+      assistant_controller_->suggestions_controller()
+          ->model()
+          ->GetProactiveSuggestions()
+          ->category(),
+      assistant::metrics::ProactiveSuggestionsShowResult::kClick);
   DCHECK(!proactive_suggestions_view_);
 
   ShowUi(AssistantEntryPoint::kProactiveSuggestions);
@@ -696,13 +771,17 @@ void AssistantUiController::CreateProactiveSuggestionsView() {
   UpdateUsableWorkAreaObservers();
 }
 
-void AssistantUiController::ResetProactiveSuggestionsView() {
+void AssistantUiController::ResetProactiveSuggestionsView(
+    int category,
+    assistant::metrics::ProactiveSuggestionsShowResult result) {
   DCHECK(proactive_suggestions_view_);
 
   auto_close_proactive_suggestions_timer_.Stop();
 
   proactive_suggestions_view_->GetWidget()->Close();
   proactive_suggestions_view_ = nullptr;
+
+  assistant::metrics::RecordProactiveSuggestionsShowResult(category, result);
 
   UpdateUsableWorkAreaObservers();
 }

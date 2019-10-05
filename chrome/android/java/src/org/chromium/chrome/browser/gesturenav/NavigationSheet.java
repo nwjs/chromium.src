@@ -4,13 +4,18 @@
 
 package org.chromium.chrome.browser.gesturenav;
 
+import android.view.View;
+
+import org.chromium.base.Supplier;
 import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
 import org.chromium.content_public.browser.NavigationHistory;
 
 /**
  * Interface that defines the methods for controlling Navigation sheet.
  */
-interface NavigationSheet {
+public interface NavigationSheet {
     // Field trial variation key that enables navigation sheet.
     static final String NAVIGATION_SHEET_ENABLED_KEY = "overscroll_history_navigation_bottom_sheet";
 
@@ -31,12 +36,36 @@ interface NavigationSheet {
     }
 
     /**
+     * Create {@link NavigationSheet} object.
+     * @param rootView Root view whose dimension is used for the sheet.
+     * @param bottomSheetController {@link BottomSheetController} object.
+     * @param delegate Delegate used by navigation sheet to perform actions.
+     * @return NavigationSheet object.
+     */
+    public static NavigationSheet create(View rootView,
+            Supplier<BottomSheetController> bottomSheetController,
+            NavigationSheet.Delegate delegate) {
+        return new NavigationSheetCoordinator(rootView, bottomSheetController, delegate);
+    }
+
+    /**
      * @return {@code true} if navigation sheet is enabled.
      */
     static boolean isEnabled() {
-        return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
-                ChromeFeatureList.OVERSCROLL_HISTORY_NAVIGATION, NAVIGATION_SHEET_ENABLED_KEY,
-                false);
+        return ChromeFeatureList.isInitialized()
+                && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                        ChromeFeatureList.OVERSCROLL_HISTORY_NAVIGATION,
+                        NAVIGATION_SHEET_ENABLED_KEY, false);
+    }
+
+    /**
+     * @return {@code true} if another instance of NavigationSheet is already showing.
+     */
+    public static boolean isInstanceShowing(BottomSheetController controller) {
+        if (controller == null) return false;
+        BottomSheet sheet = controller.getBottomSheet();
+        return (sheet.getCurrentSheetContent() instanceof NavigationSheetCoordinator)
+                && sheet.isSheetOpen();
     }
 
     /**
@@ -47,7 +76,10 @@ interface NavigationSheet {
         public void start(boolean forward, boolean showCloseIndicator) {}
 
         @Override
-        public void onScroll(float delta, float overscroll) {}
+        public void startAndExpand(boolean forward, boolean animate) {}
+
+        @Override
+        public void onScroll(float delta, float overscroll, boolean willNavigate) {}
 
         @Override
         public void release() {}
@@ -72,11 +104,19 @@ interface NavigationSheet {
     void start(boolean forward, boolean showCloseIndicator);
 
     /**
+     * Fully expand the navigation sheet from the beginning.
+     * @param forward {@code true} if this is for forward navigation.
+     * @param animate {@code true} to enable animation.
+     */
+    void startAndExpand(boolean forward, boolean animate);
+
+    /**
      * Process swipe gesture and update the navigation sheet state.
      * @param delta Scroll delta from the previous scroll.
      * @param overscroll Total amount of scroll since the dragging started.
+     * @param willNavigate {@code true} if navgation will be triggered upon release.
      */
-    void onScroll(float delta, float overscroll);
+    void onScroll(float delta, float overscroll, boolean willNavigate);
 
     /**
      * Process release events.

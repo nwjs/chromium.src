@@ -95,6 +95,10 @@
       status: "stable",
     },
     {
+      name: "AcceleratedSmallCanvases",
+      status: "stable",
+    },
+    {
       name: "AccessibilityObjectModel",
       status: "experimental",
     },
@@ -114,6 +118,11 @@
     {
       name: "AllowContentInitiatedDataUrlNavigations",
       status: "stable",
+    },
+    {
+      name: "AllowSyncXHRInPageDismissal",
+      origin_trial_feature_name: "AllowSyncXHRInPageDismissal",
+      status: "experimental",
     },
     {
       name: "AnimationWorklet",
@@ -183,7 +192,7 @@
     },
     {
       name: "Badging",
-      origin_trial_feature_name: "BadgingV2",
+      origin_trial_feature_name: "Badging",
       status: "experimental",
     },
     {
@@ -690,10 +699,6 @@
       // a Chromium level feature.
     },
     // For simulating Android's overlay fullscreen video in web tests on Linux.
-    {
-      name: "ForbidSyncXHRInPageDismissal",
-      status: "test",
-    },
     {
       name: "ForcedColors",
     },
@@ -1536,7 +1541,7 @@
     },
     {
       name: "SignedExchangeSubresourcePrefetch",
-      origin_trial_feature_name: "SignedExchangeSubresourcePrefetchM78",
+      origin_trial_feature_name: "SignedExchangeSubresourcePrefetch",
       status: "experimental",
     },
     {
@@ -1700,6 +1705,7 @@
     },
     {
       name: "WakeLock",
+      origin_trial_feature_name: "WakeLock",
       status: "experimental",
     },
     {

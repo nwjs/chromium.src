@@ -168,6 +168,7 @@ Ak ste už s návodom skončili, prejdite pomocou čítačky ChromeVox na tlač
 <translation id="2220529011494928058">Nahlásiť problém</translation>
 <translation id="2223693656926968778">Prejsť na aktuálnu položku</translation>
 <translation id="225732394367814946">Zvýšiť rýchlosť reči</translation>
+<translation id="2267538686624070261">Preklep nebol opravený</translation>
 <translation id="2267945578749931355">Ďalší znak</translation>
 <translation id="2278490101488436824">Potiahnite troma prstami doľava</translation>
 <translation id="2281234842553884450">Predchádzajúci posúvač</translation>
@@ -206,6 +207,7 @@ Ak ste už s návodom skončili, prejdite pomocou čítačky ChromeVox na tlač
 <translation id="257674075312929031">Skupina</translation>
 <translation id="2582407057977008361">Vedľa</translation>
 <translation id="2592212930811759050">Začnite upravovať dvojitým klepnutím</translation>
+<translation id="2598495320872286378">Gramatická chyba</translation>
 <translation id="2606210917827248971">s {COUNT,plural, =1{# položkou}few{# položkami}many{# položkami}other{# položkami}}</translation>
 <translation id="2614981083756825552">Rozloženie jazyka Math ML</translation>
 <translation id="2624431853467395961">Otvoriť režim učenia</translation>
@@ -421,7 +423,6 @@ Ak ste už s návodom skončili, prejdite pomocou čítačky ChromeVox na tlač
 <translation id="4039983576244166038">Prázdna hlavička riadka</translation>
 <translation id="4042843249978639960">Žiadny ďalší nadpis 2. úrovne</translation>
 <translation id="4043348641337972076">Žiadny predchádzajúci orientačný bod ARIA</translation>
-<translation id="4045764028670444336">Začiatok pravopisnej chyby</translation>
 <translation id="4047216625641135770">Značka</translation>
 <translation id="404803211695627272"><ph name="V1" /> – <ph name="V2" /></translation>
 <translation id="4053520724192563562">Limetková zelená</translation>
@@ -504,7 +505,6 @@ Ak ste už s návodom skončili, prejdite pomocou čítačky ChromeVox na tlač
 <translation id="4547556996012970016">Ďalší nadpis 5. úrovne</translation>
 <translation id="4562381607973973258">Hlavička</translation>
 <translation id="4569941707103739422">Prechádzajte pomocou šípky nahor alebo nadol. Aktivujete zadaním textu.</translation>
-<translation id="4570424871453628777">Koniec pravopisnej chyby</translation>
 <translation id="4591507479202817876">, vybrané</translation>
 <translation id="4597532268155981612">formulár</translation>
 <translation id="4597896406374528575">apríl</translation>
@@ -727,7 +727,6 @@ Ak ste už s návodom skončili, prejdite pomocou čítačky ChromeVox na tlač
 <translation id="6037602951055904232">Posunúť zobrazenie dopredu</translation>
 <translation id="6042826534790431634">Aktivujete stlačením klávesa Hľadať a medzerníka.</translation>
 <translation id="6044160928851315051">Stmaviť obrazovku</translation>
-<translation id="6065293622157674001">Začiatok gramatickej chyby</translation>
 <translation id="6082768461603900813">Základná navigácia</translation>
 <translation id="6118126368611144850">Aplikácie Android pre Chrome. Ak máte v zariadení Obchod Play, vyskúšajte ChromeVox s aplikáciami pre Android. Vyskúšajte experimentálnu podporu stiahnutím prehliadača Google Chrome Canary z Obchodu Play.</translation>
 <translation id="611827076493383239">vtd</translation>
@@ -823,6 +822,7 @@ Ak ste už s návodom skončili, prejdite pomocou čítačky ChromeVox na tlač
 <translation id="6833103209700200188">Päta</translation>
 <translation id="6858047746862060282">Prológ</translation>
 <translation id="6859876496651143278">Potiahnite prstom doľava</translation>
+<translation id="6865519907510167493">Preklep</translation>
 <translation id="6871161210040114857">Malé a veľké písmená sa ignorujú.</translation>
 <translation id="6877435256196695200">Žiadna ďalšia grafika</translation>
 <translation id="6897341342232909480">Posunúť doľava</translation>
@@ -868,7 +868,6 @@ Ak chcete otvoriť ponuku prehliadača Chrome, stlačte kombináciu klávesov Al
 <translation id="7143207342074048698">Pripája sa</translation>
 <translation id="7153618581592392745">Levanduľová</translation>
 <translation id="7157306005867877619">Abstrakt</translation>
-<translation id="7161425887892204659">Koniec zhody textu</translation>
 <translation id="7161771961008409533">Kontextové tlačidlo</translation>
 <translation id="7165714724802225287">Aktuálny štýl zobrazenia je prekladaný.</translation>
 <translation id="7167657087543110">zvuková odozva na znaky</translation>
@@ -906,7 +905,6 @@ Ak chcete otvoriť ponuku prehliadača Chrome, stlačte kombináciu klávesov Al
 <translation id="737396357417333429">clk</translation>
 <translation id="7374104575779636480">Opúšťate tabuľku</translation>
 <translation id="738899727977260036">Bridlicovomodrá</translation>
-<translation id="7392145451309930991">Začiatok zhody textu</translation>
 <translation id="739763518212184081">Predchádzajúci riadok</translation>
 <translation id="7400575256015741911">Zistila sa pravopisná chyba</translation>
 <translation id="7408482676469142474">tabuľka</translation>
@@ -1115,11 +1113,11 @@ Ak chcete otvoriť ponuku prehliadača Chrome, stlačte kombináciu klávesov Al
 <translation id="8446884382197647889">Ďalšie informácie</translation>
 <translation id="8455868257606149352">Max. <ph name="X" /></translation>
 <translation id="84575901236241018">má prístupový kľúč <ph name="KEY" /></translation>
+<translation id="8463645336674919227">Gramatická chyba sa neopraví</translation>
 <translation id="847154984256717791">zaneprázdnené</translation>
 <translation id="8476408756881832830">Pri hlasovej odozve ChromeVox pozastaviť prehrávanie</translation>
 <translation id="8476508772960940536">prehľad okien</translation>
 <translation id="8503360654911991865">Znížiť podrobnosť navigácie</translation>
-<translation id="8504695234784218301">Koniec gramatickej chyby</translation>
 <translation id="8520472399088452386">Tlačidlo otáčania</translation>
 <translation id="8534394844575788431">Formátovanie</translation>
 <translation id="8538744478902126321">Vykonať odhad v hlavičke riadka aktuálnej bunky</translation>

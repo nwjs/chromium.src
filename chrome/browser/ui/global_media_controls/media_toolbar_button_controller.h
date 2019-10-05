@@ -12,10 +12,15 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "components/media_message_center/media_notification_controller.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/media_session/public/mojom/audio_focus.mojom.h"
 #include "services/media_session/public/mojom/media_controller.mojom.h"
+
+namespace content {
+class WebContents;
+}  // namespace content
 
 namespace media_message_center {
 class MediaNotificationItem;
@@ -51,6 +56,7 @@ class MediaToolbarButtonController
   void HideNotification(const std::string& id) override;
   void RemoveItem(const std::string& id) override;
   scoped_refptr<base::SequencedTaskRunner> GetTaskRunner() const override;
+  void LogMediaSessionActionButtonPressed(const std::string& id) override;
 
   void SetDialogDelegate(MediaDialogDelegate* delegate);
 
@@ -62,6 +68,27 @@ class MediaToolbarButtonController
     kShown,
     kDisabled,
     kHidden,
+  };
+
+  class Session : public content::WebContentsObserver {
+   public:
+    Session(MediaToolbarButtonController* owner,
+            const std::string& id,
+            std::unique_ptr<media_message_center::MediaNotificationItem> item,
+            content::WebContents* web_contents);
+    ~Session() override;
+
+    // content::WebContentsObserver implementation.
+    void WebContentsDestroyed() override;
+
+    media_message_center::MediaNotificationItem* item() { return item_.get(); }
+
+   private:
+    MediaToolbarButtonController* owner_;
+    const std::string id_;
+    std::unique_ptr<media_message_center::MediaNotificationItem> item_;
+
+    DISALLOW_COPY_AND_ASSIGN(Session);
   };
 
   void OnReceivedAudioFocusRequests(
@@ -85,10 +112,9 @@ class MediaToolbarButtonController
   // sessions, we will disable the toolbar icon and wait to hide it.
   std::unordered_set<std::string> frozen_session_ids_;
 
-  // Stores a |media_message_center::MediaNotificationItem| for each media
-  // session keyed by its |request_id| in string format.
-  std::map<const std::string, media_message_center::MediaNotificationItem>
-      sessions_;
+  // Stores a Session for each media session keyed by its |request_id| in string
+  // format.
+  std::map<const std::string, Session> sessions_;
 
   // Connections with the media session service to listen for audio focus
   // updates and control media sessions.

@@ -20,7 +20,7 @@
 <translation id="1087788677726983142">إخفاء فلاتر بث الحدث</translation>
 <translation id="1088219014394087294">ليست هناك عناوين.</translation>
 <translation id="1106741348836243114">‏تشغيل التعليقات الصوتية (earcons) أو إيقافها.</translation>
-<translation id="1120743664840974483">{"a": "alpha", "b": "bravo", "c": "charlie", "d": "delta", "e": "echo", "f": "foxtrot", "g": "golf", "h": "hotel", "i": "india", "j": "juliet","k": "kilo", "l": "lima", "m": "mike", "n": "november", "o": "oscar","p": "papa", "q": "quebec", "r": "romeo", "s": "sierra", "t": "tango", "u": "uniform", "v": "victor", "w": "whiskey","x": "xray", "y": "yankee", "z": "zulu"}</translation>
+<translation id="1120743664840974483">{"أ": "أرنب"، "ب": "بيت"، "ت": "تفاحة"، "ث": "ثعلب"، "ج": "جزر"، "ح": "حصان"، "خ": "خوخ"، "د": "دراجة"، "ذ": "ذهب"، "ر": "ريشة"، "ز": "زرافة"، "س": "سمكة"، "ش": "شمس"، "ص": "صوص"، "ض"، "ضوء"، "ط": "طائرة"، "ظ": "ظرف"، "ع": "عصفور"، "غ": "غيمة"، "ف": "فراشة"، "ق": "قمر"، "ك": "كرة"، "ل": "ليمون"، "م": "موز"، "ن": "نجمة"، "ه": "هدية"، "و": "وردة"، "ي": "يد"}</translation>
 <translation id="1120938014254001895">التمرير السريع بإصبعين إلى الأعلى</translation>
 <translation id="1124771028211010580">نمط العرض الحالي هو جنبًا إلى جنب.</translation>
 <translation id="1126928665165112660">غير مائل</translation>
@@ -169,6 +169,7 @@
 <translation id="2220529011494928058">الإبلاغ عن مشكلة</translation>
 <translation id="2223693656926968778">اتخاذ إجراء للعنصر الحالي</translation>
 <translation id="225732394367814946">زيادة تقييم النطق</translation>
+<translation id="2267538686624070261">جارٍ تجاهل الخطأ الإملائي</translation>
 <translation id="2267945578749931355">الحرف التالي</translation>
 <translation id="2278490101488436824">التمرير السريع بثلاثة أصابع إلى يمين الشاشة</translation>
 <translation id="2281234842553884450">شريط التمرير السابق</translation>
@@ -207,6 +208,7 @@
 <translation id="257674075312929031">مجموعة</translation>
 <translation id="2582407057977008361">جانبًا</translation>
 <translation id="2592212930811759050">انقر مرّتين لبدء التعديل</translation>
+<translation id="2598495320872286378">خطأ في قاعدة نحوية</translation>
 <translation id="2606210917827248971">مع {COUNT,plural, =1{عنصر واحد (#)}zero{# عنصر}two{عنصران (#)}few{# عناصر}many{# عنصرًا}other{# عنصر}}</translation>
 <translation id="2614981083756825552">تخطيط لغة التوصيف الرياضية</translation>
 <translation id="2624431853467395961">فتح وضع التعلّم</translation>
@@ -422,7 +424,6 @@
 <translation id="4039983576244166038">عنوان صف فارغ</translation>
 <translation id="4042843249978639960">ليس هناك عنوان تالٍ من المستوى الثاني.</translation>
 <translation id="4043348641337972076">‏ليس هناك مَعلم ARIA سابق.</translation>
-<translation id="4045764028670444336">بداية الخطأ الإملائي</translation>
 <translation id="4047216625641135770">علامة</translation>
 <translation id="404803211695627272"><ph name="V1" />-‏<ph name="V2" /></translation>
 <translation id="4053520724192563562">أخضر ليموني</translation>
@@ -505,7 +506,6 @@
 <translation id="4547556996012970016">عنوان المستوى الخامس التالي</translation>
 <translation id="4562381607973973258">رأس صفحة</translation>
 <translation id="4569941707103739422">‏يُرجى الضغط على السهم المتجه للأعلى أو للأسفل للتنقل، والضغط على Enter للتفعيل.</translation>
-<translation id="4570424871453628777">نهاية الخطأ الإملائي</translation>
 <translation id="4591507479202817876">، محدد</translation>
 <translation id="4597532268155981612">نموذج</translation>
 <translation id="4597896406374528575">نيسان (أبريل)</translation>
@@ -614,7 +614,7 @@
 <translation id="5304943142864553931">علامة التبويب <ph name="TITLE" /></translation>
 <translation id="5308380583665731573">اتصال</translation>
 <translation id="5310788376443009632">تمت إزالة:</translation>
-<translation id="5320727453979144100">تم تفعيل الوضع الثابت</translation>
+<translation id="5320727453979144100">تم تفعيل وضع التثبيت</translation>
 <translation id="5321085947096604457">{COUNT,plural, =1{فاصلة واحدة}zero{# commas}two{فاصلتان (#)}few{# فواصل}many{# فاصلة}other{# من الفواصل}}</translation>
 <translation id="532371086589123547"><ph name="VALUE" />، مربع النص</translation>
 <translation id="5330443287809544590">الرابط <ph name="NAME" /></translation>
@@ -728,7 +728,6 @@
 <translation id="6037602951055904232">تحريك للأمام</translation>
 <translation id="6042826534790431634">يُرجى الضغط على "بحث" + "مسافة" للتفعيل.</translation>
 <translation id="6044160928851315051">تعتيم الشاشة</translation>
-<translation id="6065293622157674001">بداية الخطأ النحوي</translation>
 <translation id="6082768461603900813">التنقل الأساسي</translation>
 <translation id="6118126368611144850">‏تطبيقات Android في متصفح Chrome. إذا كان لديك متجر Play على جهازك، يمكنك إلقاء نظرة سريعة على ChromeVox مع تطبيقات Android، كما يمكنك تجربة الدعم التجريبي من خلال تنزيل Google Chrome Canary من متجر Play.</translation>
 <translation id="611827076493383239">vtd</translation>
@@ -824,6 +823,7 @@
 <translation id="6833103209700200188">تذييل</translation>
 <translation id="6858047746862060282">فاتحة</translation>
 <translation id="6859876496651143278">التمرير السريع بإصبع واحد إلى يمين الشاشة</translation>
+<translation id="6865519907510167493">خطأ إملائي</translation>
 <translation id="6871161210040114857">تجاهل حالة الأحرف.</translation>
 <translation id="6877435256196695200">ليس هناك رسم تالٍ.</translation>
 <translation id="6897341342232909480">الانتقال يسارًا</translation>
@@ -869,7 +869,6 @@
 <translation id="7143207342074048698">اتصال</translation>
 <translation id="7153618581592392745">بنفسجي فاتح</translation>
 <translation id="7157306005867877619">نبذة مختصرة</translation>
-<translation id="7161425887892204659">نهاية مطابقة النص</translation>
 <translation id="7161771961008409533">زر بقائمة منبثقة</translation>
 <translation id="7165714724802225287">نمط العرض الحالي هو تضمين النص.</translation>
 <translation id="7167657087543110">صدى الحرف</translation>
@@ -907,7 +906,6 @@
 <translation id="737396357417333429">clk</translation>
 <translation id="7374104575779636480">جارٍ مغادرة الجدول.</translation>
 <translation id="738899727977260036">أزرق مائل إلى الرمادي</translation>
-<translation id="7392145451309930991">بداية مطابقة النص</translation>
 <translation id="739763518212184081">السطر السابق</translation>
 <translation id="7400575256015741911">تم اكتشاف خطأ إملائي</translation>
 <translation id="7408482676469142474">tbl</translation>
@@ -1116,11 +1114,11 @@
 <translation id="8446884382197647889">مزيد من المعلومات</translation>
 <translation id="8455868257606149352">الحد الأقصى <ph name="X" /></translation>
 <translation id="84575901236241018">لديه مفتاح دخول، <ph name="KEY" /></translation>
+<translation id="8463645336674919227">جارٍ تجاهل الخطأ النحوي</translation>
 <translation id="847154984256717791">مشغول</translation>
 <translation id="8476408756881832830">‏إيقاف التشغيل مؤقتًا أثناء تحدُّث ChromeVox</translation>
 <translation id="8476508772960940536">نظرة عامة للنافذة</translation>
 <translation id="8503360654911991865">خفض دقة التنقل</translation>
-<translation id="8504695234784218301">نهاية الخطأ النحوي</translation>
 <translation id="8520472399088452386">زر الدوران</translation>
 <translation id="8534394844575788431">التنسيق</translation>
 <translation id="8538744478902126321">إجراء تخمين في عنوان الصف للخلية الحالية</translation>

@@ -20,7 +20,7 @@
 <translation id="1087788677726983142">ഇവന്റ് സ്‌ട്രീം ഫിൽട്ടറുകൾ അദൃശ്യമാക്കുക</translation>
 <translation id="1088219014394087294">ശീർഷകങ്ങളൊന്നുമില്ല.</translation>
 <translation id="1106741348836243114">ശബ്‌ദ ഫീഡ്‌ബാക്ക് (ഇയർകോൺസ്) ഓണാക്കുക അല്ലെങ്കിൽ ഓഫാക്കുക.</translation>
-<translation id="1120743664840974483">{"a": "alpha", "b": "bravo", "c": "charlie", "d": "delta", "e": "echo", "f": "foxtrot", "g": "golf", "h": "hotel", "i": "india", "j": "juliet","k": "kilo", "l": "lima", "m": "mike", "n": "november", "o": "oscar","p": "papa", "q": "quebec", "r": "romeo", "s": "sierra", "t": "tango", "u": "uniform", "v": "victor", "w": "whiskey","x": "xray", "y": "yankee", "z": "zulu"}</translation>
+<translation id="1120743664840974483">{"a": "ആൽഫ", "b": "ബ്രാവോ", "c": "ചാർലി", "d": "ഡെൽറ്റ", "e": "എക്കോ", "f": "ഫോക്സ്ട്രോറ്റ്", "g": "ഗോൾഫ്", "h": "ഹോട്ടൽ", "i": "ഇന്ത്യ", "j": "ജൂലിയറ്റ്","k": "കിലോ", "l": "ലിമ", "m": "മൈക്ക്", "n": "നവംബർ", "o": "ഓസ്കാർ","p": "പപ്പ", "q": "ക്വബാക്", "r": "റോമിയോ", "s": "സീറ", "t": "ടാങ്കോ", "u": "യൂണിഫോം", "v": "വിക്ടർ", "w": "വിസ്കി","x": "എക്സ്റേ", "y": "യാങ്കി", "z": "സുളു"}</translation>
 <translation id="1120938014254001895">രണ്ട് വിരലുകൾ ഉപയോഗിച്ച് മുകളിലോട്ട് സ്വൈപ്പ് ചെയ്യുക</translation>
 <translation id="1124771028211010580">നിലവിലുള്ള ഡിസ്‌പ്ലേ ശൈലി വശങ്ങളിൽ കാണിക്കുന്ന തരത്തിലാണ്.</translation>
 <translation id="1126928665165112660">ഇറ്റാലിക്ക് അല്ല</translation>
@@ -168,6 +168,7 @@
 <translation id="2220529011494928058">ഒരു പ്രശ്‌നം റിപ്പോർട്ടുചെയ്യുക</translation>
 <translation id="2223693656926968778">നിലവിലുള്ള ഇനത്തിൽ പ്രവർത്തനം നടത്തുക</translation>
 <translation id="225732394367814946">സംഭാഷണ റേറ്റ് വർദ്ധിപ്പിക്കുക</translation>
+<translation id="2267538686624070261">അക്ഷരപ്പിശകായി തന്നെ വിടുന്നു</translation>
 <translation id="2267945578749931355">അടുത്ത പ്രതീകം</translation>
 <translation id="2278490101488436824">മൂന്ന് വിരലുകൾ ഉപയോഗിച്ച് ഇടത്തോട്ട് സ്വൈ‌പ്പ് ചെയ്യുക</translation>
 <translation id="2281234842553884450">മുൻ സ്ലൈഡർ</translation>
@@ -206,6 +207,7 @@
 <translation id="257674075312929031">ഗ്രൂപ്പ്</translation>
 <translation id="2582407057977008361">അരികിൽ</translation>
 <translation id="2592212930811759050">എഡിറ്റിംഗ് ആരംഭിക്കാൻ രണ്ടുതവണ ടാപ്പ് ചെയ്യുക</translation>
+<translation id="2598495320872286378">വ്യാകരണ പിശക്</translation>
 <translation id="2606210917827248971">ഇവ ഉൾപ്പെടുന്നു {COUNT,plural, =1{# ഇനം}other{# ഇനങ്ങൾ}}</translation>
 <translation id="2614981083756825552">മാത്ത് ML ലേഔട്ട്</translation>
 <translation id="2624431853467395961">"അറിയുക" മോഡ് തുറക്കുക</translation>
@@ -421,7 +423,6 @@
 <translation id="4039983576244166038">ശൂന്യമായ വരി ശീർഷകം</translation>
 <translation id="4042843249978639960">അടുത്ത നില 2 ശീർഷകം ഒന്നുമില്ല.</translation>
 <translation id="4043348641337972076">മുൻ ARIA ലാൻഡ്‌മാർക്ക് ഒന്നുമില്ല.</translation>
-<translation id="4045764028670444336">അക്ഷരപ്പിശക് തുടങ്ങുന്നു</translation>
 <translation id="4047216625641135770">അടയാളപ്പെടുത്തൽ</translation>
 <translation id="404803211695627272"><ph name="V1" />-<ph name="V2" /></translation>
 <translation id="4053520724192563562">ലൈം ഗ്രീൻ</translation>
@@ -483,7 +484,7 @@
 <translation id="4372705107434148843">സംഭാഷണം അവസാനിപ്പിക്കുക</translation>
 <translation id="4373197658375206385">ഒരു ലിങ്ക് അല്ലാത്ത മുൻ ഇനം ഒന്നുമില്ല.</translation>
 <translation id="4376316291247992553">ഗ്രാഫിക്കിനെ ബ്രെയ്‌ലിയായി കാണുക</translation>
-<translation id="437809255587011096">പ്രഖ്യാപന ടെക്‌സ്‌റ്റ് ഭംഗിയാക്കൽ</translation>
+<translation id="437809255587011096">ടെക്‌സ്‌റ്റ് ഭംഗിയാക്കൽ പ്രഖ്യാപിക്കുക</translation>
 <translation id="4378308539633073595">മുമ്പിലേക്ക് സ്‌ക്രോൾ ചെയ്യുക</translation>
 <translation id="4384583879834880242">ചോദ്യോത്തരം</translation>
 <translation id="4391478986194775161">cntntinfo</translation>
@@ -504,7 +505,6 @@
 <translation id="4547556996012970016">അടുത്ത നില 5 ശീർഷകം</translation>
 <translation id="4562381607973973258">ശീർഷകം</translation>
 <translation id="4569941707103739422">നാവിഗേറ്റ് ചെയ്യാൻ മുകളിലേക്കോ താഴേക്കോ ഉള്ള അമ്പടയാള കീകൾ അമർത്തുക; സജീവമാക്കാൻ എന്റർ അമർത്തുക.</translation>
-<translation id="4570424871453628777">അക്ഷരപ്പിശക് അവസാനിക്കുന്നു</translation>
 <translation id="4591507479202817876">, തിരഞ്ഞെടുത്തു</translation>
 <translation id="4597532268155981612">ഫോം</translation>
 <translation id="4597896406374528575">ഏപ്രിൽ</translation>
@@ -727,7 +727,6 @@
 <translation id="6037602951055904232">മുന്നിലേക്ക് പാൻ ചെയ്യുക</translation>
 <translation id="6042826534790431634">സജീവമാക്കാൻ തിരയൽ+സ്‌പെയ്‌സ് അമർത്തുക.</translation>
 <translation id="6044160928851315051">സ്‌ക്രീൻ ഓഫാക്കുക</translation>
-<translation id="6065293622157674001">വ്യാകരണ പിശക് തുടങ്ങുന്നു</translation>
 <translation id="6082768461603900813">അടിസ്ഥാന നാവിഗേഷൻ</translation>
 <translation id="6118126368611144850">Chrome-നായുള്ള Android ആപ്പുകൾ. ഉപകരണത്തിൽ Play സ്റ്റോർ ഉണ്ടെങ്കിൽ, Android ആപ്പുകൾ ഉപയോഗിച്ച് ChromeVox-ന്‍റെ ആദ്യ അനുഭവം അറിയൂ. Play സ്റ്റോറിൽ നിന്ന് Google Chrome Canary ഡൗൺലോഡ് ചെയ്‌ത്, പരീക്ഷണാത്മക പിന്തുണ പരീക്ഷിച്ച് നോക്കുക.</translation>
 <translation id="611827076493383239">vtd</translation>
@@ -823,6 +822,7 @@
 <translation id="6833103209700200188">അടിക്കുറിപ്പ്</translation>
 <translation id="6858047746862060282">ആമുഖം</translation>
 <translation id="6859876496651143278">ഒരു വിരൽ ഉപയോഗിച്ച് ഇടത്തോട്ട് സ്വൈപ്പ് ചെയ്യുക</translation>
+<translation id="6865519907510167493">അക്ഷരത്തെറ്റ്</translation>
 <translation id="6871161210040114857">കേസ് സെൻസിറ്റീവല്ല.</translation>
 <translation id="6877435256196695200">അടുത്ത ഗ്രാഫിക് ഒന്നുമില്ല.</translation>
 <translation id="6897341342232909480">ഇടതുവശത്തേക്ക് നീക്കുക</translation>
@@ -868,7 +868,6 @@ Chrome ബ്രൗസർ മെനു തുറക്കാൻ, ആൾട്ട
 <translation id="7143207342074048698">കണക്റ്റുചെയ്യുന്നു</translation>
 <translation id="7153618581592392745">ലാവെൻഡർ</translation>
 <translation id="7157306005867877619">സംക്ഷേപം</translation>
-<translation id="7161425887892204659">വാചക പൊരുത്തം അവസാനിക്കുന്നു</translation>
 <translation id="7161771961008409533">പോപ്പ്-അപ്പ് ബട്ടൺ</translation>
 <translation id="7165714724802225287">നിലവിലുള്ളത് ഇടകലർന്ന ഡിസ്‌പ്ലേ ശൈലിയാണ്.</translation>
 <translation id="7167657087543110">പ്രതീക എക്കൊ</translation>
@@ -906,7 +905,6 @@ Chrome ബ്രൗസർ മെനു തുറക്കാൻ, ആൾട്ട
 <translation id="737396357417333429">clk</translation>
 <translation id="7374104575779636480">പട്ടിക ഉപേക്ഷിക്കുന്നു.</translation>
 <translation id="738899727977260036">സ്ലേറ്റ് ബ്ലൂ</translation>
-<translation id="7392145451309930991">വാചക പൊരുത്തം തുടങ്ങുന്നു</translation>
 <translation id="739763518212184081">മുമ്പത്തെ വരി</translation>
 <translation id="7400575256015741911">അക്ഷരത്തെറ്റ് കണ്ടെത്തി</translation>
 <translation id="7408482676469142474">tbl</translation>
@@ -1115,11 +1113,11 @@ Chrome ബ്രൗസർ മെനു തുറക്കാൻ, ആൾട്ട
 <translation id="8446884382197647889">കൂടുതലറിയുക</translation>
 <translation id="8455868257606149352">പരമാവധി <ph name="X" /></translation>
 <translation id="84575901236241018">ഇതിന് ആക്‌സസ് കീ <ph name="KEY" /> ഉണ്ട്</translation>
+<translation id="8463645336674919227">വ്യാകരണ പിശകായി തന്നെ വിടുന്നു</translation>
 <translation id="847154984256717791">തിരക്കിൽ</translation>
 <translation id="8476408756881832830">ChromeVox സംസാരിക്കുമ്പോൾ പ്ലേബാക്ക് താൽക്കാലികമായി നിർത്തുക</translation>
 <translation id="8476508772960940536">വിൻഡോ ചുരുക്കവിവരണം</translation>
 <translation id="8503360654911991865">നാവിഗേഷൻ ഗ്രാനുലാരിറ്റി കുറയ്ക്കുക</translation>
-<translation id="8504695234784218301">വ്യാകരണ പിശക് അവസാനിക്കുന്നു</translation>
 <translation id="8520472399088452386">സ്‌പിൻ ബട്ടൺ</translation>
 <translation id="8534394844575788431">ഫോർമാറ്റിംഗ്</translation>
 <translation id="8538744478902126321">നിലവിലുള്ള സെല്ലിന്റെ വരി ശീർഷകത്തിൽ ഒരു ഊഹം നടത്തുക</translation>

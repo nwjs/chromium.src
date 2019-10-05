@@ -60,7 +60,6 @@
 #include "chromeos/settings/timezone_settings.h"
 #include "components/account_id/account_id.h"
 #include "components/arc/arc_prefs.h"
-#include "components/arc/volume_mounter/arc_volume_mounter_bridge.h"
 #include "components/drive/drive_pref_names.h"
 #include "components/drive/event_logger.h"
 #include "components/prefs/pref_service.h"
@@ -266,18 +265,6 @@ FileManagerPrivateSetPreferencesFunction::Run() {
   }
 
   return RespondNow(NoArguments());
-}
-
-ExtensionFunction::ResponseAction
-FileManagerPrivateSetArcStorageToastShownFlagFunction::Run() {
-  const ChromeExtensionFunctionDetails chrome_details(this);
-  auto* volume_mounter = arc::ArcVolumeMounterBridge::GetForBrowserContext(
-      chrome_details.GetProfile());
-  DCHECK(volume_mounter);
-
-  const bool result = volume_mounter->files_app_toast_shown();
-  volume_mounter->set_files_app_toast_shown(true);
-  return RespondNow(OneArgument(std::make_unique<base::Value>(result)));
 }
 
 FileManagerPrivateInternalZipSelectionFunction::
@@ -736,7 +723,15 @@ FileManagerPrivateInternalImportCrostiniImageFunction::Run() {
   crostini::CrostiniExportImport::GetForProfile(profile)->ImportContainer(
       crostini::ContainerId{crostini::kCrostiniDefaultVmName,
                             crostini::kCrostiniDefaultContainerName},
-      path, base::DoNothing());
+      path,
+      base::BindOnce(
+          [](base::FilePath path, crostini::CrostiniResult result) {
+            if (result != crostini::CrostiniResult::SUCCESS) {
+              LOG(ERROR) << "Error importing crostini image " << path.value()
+                         << ": " << (int)result;
+            }
+          },
+          path));
   return RespondNow(NoArguments());
 }
 

@@ -20,7 +20,7 @@
 <translation id="1087788677726983142">Nascondi i filtri del flusso di eventi</translation>
 <translation id="1088219014394087294">Nessuna intestazione.</translation>
 <translation id="1106741348836243114">Attiva o disattiva feedback audio (icone audio).</translation>
-<translation id="1120743664840974483">{"a": "alfa", "b": "bravo", "c": "charlie", "d": "delta", "e": "echo", "f": "foxtrot", "g": "golf", "h": "hotel", "i": "india", "j": "juliet","k": "kilo", "l": "lima", "m": "mike", "n": "november", "o": "oscar","p": "papa", "q": "quebec", "r": "romeo", "s": "sierra", "t": "tango", "u": "uniform", "v": "victor", "w": "whiskey","x": "x-ray", "y": "yankee", "z": "zulu"}</translation>
+<translation id="1120743664840974483">{"a": "alfa", "b": "bravo", "c": "charlie", "d": "delta", "e": "echo", "f": "foxtrot", "g": "golf", "h": "hotel", "i": "india", "j": "juliett","k": "kilo", "l": "lima", "m": "mike", "n": "november", "o": "oscar","p": "papa", "q": "quebec", "r": "romeo", "s": "sierra", "t": "tango", "u": "uniform", "v": "victor", "w": "whiskey","x": "x-ray", "y": "yankee", "z": "zulu"}</translation>
 <translation id="1120938014254001895">Scorri verso l'alto con due dita</translation>
 <translation id="1124771028211010580">È attivo lo stile del display affiancato.</translation>
 <translation id="1126928665165112660">Non corsivo</translation>
@@ -168,6 +168,7 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="2220529011494928058">Segnala un problema</translation>
 <translation id="2223693656926968778">Agisci su voce corrente</translation>
 <translation id="225732394367814946">Aumenta velocità comandi vocali</translation>
+<translation id="2267538686624070261">Ignoro errore ortografico</translation>
 <translation id="2267945578749931355">Carattere successivo</translation>
 <translation id="2278490101488436824">Scorri verso sinistra con tre dita</translation>
 <translation id="2281234842553884450">Dispositivo di scorrimento precedente</translation>
@@ -206,6 +207,7 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="257674075312929031">Gruppo</translation>
 <translation id="2582407057977008361">Di lato</translation>
 <translation id="2592212930811759050">Tocca due volte per iniziare la modifica</translation>
+<translation id="2598495320872286378">Errore grammaticale</translation>
 <translation id="2606210917827248971">con {COUNT,plural, =1{# voce}other{# voci}}</translation>
 <translation id="2614981083756825552">Layout MathML</translation>
 <translation id="2624431853467395961">Apri la modalità di apprendimento</translation>
@@ -421,7 +423,6 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="4039983576244166038">Intestazione di riga vuota</translation>
 <translation id="4042843249978639960">Nessuna intestazione livello 2 successiva.</translation>
 <translation id="4043348641337972076">Nessun landmark ARIA precedente.</translation>
-<translation id="4045764028670444336">Inizio della parola con errori di ortografia</translation>
 <translation id="4047216625641135770">Contrassegno</translation>
 <translation id="404803211695627272"><ph name="V1" />-<ph name="V2" /></translation>
 <translation id="4053520724192563562">Verde limetta</translation>
@@ -504,7 +505,6 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="4547556996012970016">Intestazione livello 5 successiva</translation>
 <translation id="4562381607973973258">Intestazione</translation>
 <translation id="4569941707103739422">Premi la freccia su o giù per spostarti e INVIO per attivare.</translation>
-<translation id="4570424871453628777">Fine della parola con errori di ortografia</translation>
 <translation id="4591507479202817876">, selezionato</translation>
 <translation id="4597532268155981612">modulo</translation>
 <translation id="4597896406374528575">Aprile</translation>
@@ -727,7 +727,6 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="6037602951055904232">Panoramica avanti</translation>
 <translation id="6042826534790431634">Premi il tasto per la ricerca + barra spaziatrice per attivare.</translation>
 <translation id="6044160928851315051">Disattiva accessibilità schermo</translation>
-<translation id="6065293622157674001">Inizio dell'errore grammaticale</translation>
 <translation id="6082768461603900813">Navigazione di base</translation>
 <translation id="6118126368611144850">App Android per Chrome. Se hai Play Store sul tuo dispositivo, dai un'occhiata a ChromeVox con le app Android. Prova il supporto sperimentale scaricando Google Chrome Canary dal Play Store.</translation>
 <translation id="611827076493383239">vtd</translation>
@@ -823,6 +822,7 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="6833103209700200188">Piè di pagina</translation>
 <translation id="6858047746862060282">Prologo</translation>
 <translation id="6859876496651143278">Scorri verso sinistra con un dito</translation>
+<translation id="6865519907510167493">Errore ortografico</translation>
 <translation id="6871161210040114857">Le maiuscole/minuscole vengono ignorate.</translation>
 <translation id="6877435256196695200">Nessuna immagine successiva.</translation>
 <translation id="6897341342232909480">Sposta a sinistra</translation>
@@ -868,7 +868,6 @@ Per aprire il menu del browser Chrome premi ALT + F.</translation>
 <translation id="7143207342074048698">Connessione</translation>
 <translation id="7153618581592392745">Lavanda</translation>
 <translation id="7157306005867877619">Abstract</translation>
-<translation id="7161425887892204659">Fine della corrispondenza di testo</translation>
 <translation id="7161771961008409533">Pulsante popup</translation>
 <translation id="7165714724802225287">È attivo lo stile del display interfoliazione.</translation>
 <translation id="7167657087543110">eco caratteri</translation>
@@ -906,7 +905,6 @@ Per aprire il menu del browser Chrome premi ALT + F.</translation>
 <translation id="737396357417333429">clk</translation>
 <translation id="7374104575779636480">Stai uscendo dalla tabella.</translation>
 <translation id="738899727977260036">Blu ardesia</translation>
-<translation id="7392145451309930991">Inizio della corrispondenza di testo</translation>
 <translation id="739763518212184081">Riga precedente</translation>
 <translation id="7400575256015741911">Errore di ortografia rilevato</translation>
 <translation id="7408482676469142474">tbl</translation>
@@ -1115,11 +1113,11 @@ Per aprire il menu del browser Chrome premi ALT + F.</translation>
 <translation id="8446884382197647889">Ulteriori informazioni</translation>
 <translation id="8455868257606149352">Massimo: <ph name="X" /></translation>
 <translation id="84575901236241018">dispone di tasto di accesso, <ph name="KEY" /></translation>
+<translation id="8463645336674919227">Ignoro errore grammaticale</translation>
 <translation id="847154984256717791">occupato</translation>
 <translation id="8476408756881832830">Interrompi la riproduzione durante la lettura vocale di ChromeVox</translation>
 <translation id="8476508772960940536">panoramica finestra</translation>
 <translation id="8503360654911991865">Riduci livello di dettaglio navigazione</translation>
-<translation id="8504695234784218301">Fine dell'errore grammaticale</translation>
 <translation id="8520472399088452386">Pulsante di selezione</translation>
 <translation id="8534394844575788431">Formattazione</translation>
 <translation id="8538744478902126321">Fai un'ipotesi per l'intestazione di riga della cella corrente</translation>

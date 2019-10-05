@@ -15,7 +15,6 @@
 <translation id="1524282610922162960">Споделяне на раздел в Chromium</translation>
 <translation id="1668054258064581266">За да влезе в сила премахването на профила ви от Chromium, може да се наложи да презаредите отворените си раздели.</translation>
 <translation id="1688750314291223739">Настройте синхронизирането, за да запазите онлайн персонализираните функции на браузъра си и да осъществявате достъп до тях от Chromium на всеки компютър.</translation>
-<translation id="1705503634486268204">Chromium може да запамети паролите ви, за да не се налага да ги помните.</translation>
 <translation id="1708666629004767631">Налице е нова, по-сигурна версия на Chromium.</translation>
 <translation id="1766096484055239003">Администраторът ви изисква да рестартирате Chromium, за да се приложи актуализация</translation>
 <translation id="1774152462503052664">Нека Chromium да се изпълнява на заден план</translation>
@@ -29,7 +28,6 @@
 <translation id="2008474315282236005">1 елемент ще се изтрие от това устройство. За да извлечете данните си по-късно, влезте в Chromium като <ph name="USER_EMAIL" />.</translation>
 <translation id="2117378023188580026">Администраторът ви моли да рестартирате Chromium, за да се приложи тази актуализация</translation>
 <translation id="2119636228670142020">Всичко за &amp;Chromium OS</translation>
-<translation id="2178765360243863853">Трябва да рестартирате Chromium сега</translation>
 <translation id="2241627712206172106">Ако споделяте компютър, близките и приятелите ви могат да сърфират отделно и да настроят Chromium точно така, както искат.</translation>
 <translation id="2265088490657775772">Изтеглете Chromium за своя iPhone</translation>
 <translation id="2347108572062610441">Това разширение промени страницата, която се показва при стартиране на Chromium.</translation>
@@ -90,6 +88,8 @@
 <translation id="4230135487732243613">Да се свържат ли данните ви в Chromium с този профил?</translation>
 <translation id="4271805377592243930">Получаване на помощ за Chromium</translation>
 <translation id="4285930937574705105">Инсталирането не бе успешно поради неизвестна грешка. Ако Chromium понастоящем се изпълнява, моля, затворете го и опитайте отново.</translation>
+<translation id="4371648796594901282">За подробности относно Chromium OS, моля, вижте
+<ph name="LINK_BEGIN" />Всичко за Chromium OS<ph name="LINK_END" /></translation>
 <translation id="4407044323746248786">Искате ли да излезете от Chromium въпреки това?</translation>
 <translation id="4415566066719264597">Разрешаване на Chromium да се изпълнява на заден план</translation>
 <translation id="4423735387467980091">Персонализиране и контролиране на Chromium</translation>
@@ -122,6 +122,7 @@
 <translation id="5623402015214259806">{0,plural, =0{Налице е актуализация за Chromium}=1{Налице е актуализация за Chromium}other{Налице е актуализация за Chromium от # дни}}</translation>
 <translation id="5631814766731275228">Име и снимка за Chromium</translation>
 <translation id="5634636535844844681">За Chromium се изисква Windows 7 или по-нова версия.</translation>
+<translation id="5653831366781983928">Моля, рестартирайте Chromium сега</translation>
 <translation id="5680901439334282664">Влезте в Chromium</translation>
 <translation id="5698481217667032250">Показване на Chromium на този език</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
@@ -139,7 +140,6 @@
 <translation id="6096348254544841612">Персонализиране и управление на Chromium. Налице е актуализация.</translation>
 <translation id="6120345080069858279">Chromium ще запази тази парола в профила ви в Google. Няма да се налага да я помните.</translation>
 <translation id="6129621093834146363">Chromium блокира „<ph name="FILE_NAME" />“, тъй като файлът е опасен.</translation>
-<translation id="6173098285107411678">Ако дадена настройка не се показва на тази страница, потърсете в <ph name="LINK_BEGIN" />настройките на браузъра Chromium<ph name="LINK_END" /></translation>
 <translation id="6212496753309875659">На този компютър вече има по-скорошна версия на Chromium. Ако софтуерът не работи, моля, деинсталирайте Chromium и опитайте отново.</translation>
 <translation id="6219195342503754812">{0,plural, =0{Chromium ще се стартира отново сега}=1{Chromium ще се стартира отново след 1 секунда}other{Chromium ще се стартира отново след # секунди}}</translation>
 <translation id="6248213926982192922">Нека Chromium да е браузърът по подразбиране</translation>
@@ -163,6 +163,7 @@
 <translation id="6734080038664603509">Актуализиране на &amp;Chromium</translation>
 <translation id="6734291798041940871">Chromium вече е инсталиран за всички потребители на компютъра ви.</translation>
 <translation id="6810143991807788455">Помогнете за подобряването на Chromium, като подадете сигнал за текущите настройки</translation>
+<translation id="6847869444787758381">Chromium ви уведомява, ако паролите ви бъдат компрометирани</translation>
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6863361426438995919">Google Pay (копирано в Chromium)</translation>
 <translation id="6868056391275687737">Изпълняват се други копия на Chromium. Затворете ги, за да актуализирате.</translation>
@@ -191,6 +192,7 @@
 <translation id="753534427205733210">{0,plural, =1{Chromium ще се стартира отново след 1 минута}other{Chromium ще се стартира отново след # минути}}</translation>
 <translation id="7549178288319965365">Всичко за Chromium OS</translation>
 <translation id="7561906087460245826">Да се изчистят и данните от Chromium (<ph name="URL" />)</translation>
+<translation id="7585853947355360626">Ако дадена настройка не се показва на тази страница, потърсете в <ph name="LINK_BEGIN" />настройките на Chromium OS<ph name="LINK_END" /></translation>
 <translation id="761356813943268536">Chromium използва камерата и микрофона ви.</translation>
 <translation id="7617377681829253106">Chromium се подобри</translation>
 <translation id="7686590090926151193">Chromium не е браузърът ви по подразбиране</translation>
@@ -224,6 +226,7 @@
 <translation id="8619360774459241877">Chromium стартира…</translation>
 <translation id="8621669128220841554">Инсталирането не бе успешно поради неизвестна грешка. Моля, изтеглете отново Chromium.</translation>
 <translation id="8667808506758191620">Устройството ви <ph name="DEVICE_TYPE" /> е актуално.</translation>
+<translation id="8682540261359803721">Ако дадена настройка не се показва на тази страница, потърсете в <ph name="LINK_BEGIN" />настройките на браузъра Chromium<ph name="LINK_END" /></translation>
 <translation id="8697124171261953979">То също контролира коя страница се показва при стартиране на Chromium или при търсене от полето за всичко.</translation>
 <translation id="8704119203788522458">Това е вашият Chromium</translation>
 <translation id="8739167630197873875">„Бисквитките“ ви се изчистват, когато излизате от Chromium. За да продължи синхронизирането, променете тази <ph name="COOKIE_SETTINGS_LINK" />.</translation>

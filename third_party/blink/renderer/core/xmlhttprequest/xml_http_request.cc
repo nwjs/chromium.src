@@ -1145,9 +1145,10 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
       // Update histogram for usage of sync xhr within pagedismissal.
       auto pagedismissal = GetDocument()->PageDismissalEventBeingDispatched();
       if (pagedismissal != Document::kNoDismissal) {
-        // Disallow synchronous requests on page dismissal
-        if (base::FeatureList::IsEnabled(
-                features::kForbidSyncXHRInPageDismissal)) {
+        // Disallow synchronous requests on page dismissal unless enabled by
+        // origin trial or enterprise policy.
+        if (!RuntimeEnabledFeatures::AllowSyncXHRInPageDismissalEnabled(
+                &execution_context)) {
           UseCounter::Count(&execution_context,
                             WebFeature::kForbiddenSyncXhrInPageDismissal);
           DEFINE_STATIC_LOCAL(EnumerationHistogram,

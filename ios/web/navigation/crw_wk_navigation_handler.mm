@@ -556,6 +556,8 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
     }
 
     self.webStateImpl->OnNavigationStarted(context);
+    self.webStateImpl->GetNavigationManagerImpl().OnNavigationStarted(
+        webViewURL);
     return;
   }
 
@@ -606,8 +608,7 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
     return;
   }
 
-  self.webStateImpl->GetNavigationManagerImpl()
-      .OnRendererInitiatedNavigationStarted(webViewURL);
+  self.webStateImpl->GetNavigationManagerImpl().OnNavigationStarted(webViewURL);
 
   // When a client-side redirect occurs while an interstitial warning is
   // displayed, clear the warning and its navigation item, so that a new
@@ -1623,6 +1624,22 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
 
   web::NavigationContextImpl* navigationContext =
       [self.navigationStates contextForNavigation:navigation];
+
+  if (@available(iOS 13, *)) {
+  } else {
+    if (provisionalLoad && !navigationContext &&
+        web::RequiresProvisionalNavigationFailureWorkaround()) {
+      // It is likely that |navigationContext| is null because
+      // didStartProvisionalNavigation: was not called with this WKNavigation
+      // object. Log UMA to know when this workaround can be removed and
+      // do not call OnNavigationFinished() to avoid crash on null pointer
+      // dereferencing. See crbug.com/973653 and crbug.com/1004634 for details.
+      UMA_HISTOGRAM_BOOLEAN(
+          "Navigation.IOSNullContextInDidFailProvisionalNavigation", true);
+      return;
+    }
+  }
+
   navigationContext->SetError(error);
   navigationContext->SetIsPost([self isCurrentNavigationItemPOST]);
   // TODO(crbug.com/803631) DCHECK that self.currentNavItem is the navigation
@@ -1930,11 +1947,18 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
         // Remove this once navigation refactor is done.
         GURL itemURL = item->GetURL();
         self.navigationManagerImpl->CommitPendingItem(context->ReleaseItem());
-        web::NavigationItem* lastCommittedItem =
-            self.navigationManagerImpl->GetLastCommittedItem();
-        [self.delegate navigationHandler:self
-                          setDocumentURL:lastCommittedItem->GetURL()
-                                 context:context];
+        if (web::GetWebClient()->IsSlimNavigationManagerEnabled()) {
+          [self.delegate navigationHandler:self
+                            setDocumentURL:itemURL
+                                   context:context];
+        } else {
+          web::NavigationItem* lastCommittedItem =
+              self.navigationManagerImpl->GetLastCommittedItem();
+          DCHECK_EQ(itemURL, lastCommittedItem->GetURL());
+          [self.delegate navigationHandler:self
+                            setDocumentURL:lastCommittedItem->GetURL()
+                                   context:context];
+        }
 
         // If |context| is a placeholder navigation, this is the second part of
         // the error page load for a provisional load failure. Rewrite the

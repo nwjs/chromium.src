@@ -1275,6 +1275,12 @@ const FeatureEntry::Choice kNotificationSchedulerChoices[] = {
 };
 
 #if defined(OS_ANDROID)
+const FeatureEntry::FeatureParam kAndroidNightModeDefaultToLightConstant[] = {
+    {"default_light_theme", "true"}};
+const FeatureEntry::FeatureVariation kAndroidNightModeFeatureVariations[] = {
+    {"(default to light theme)", kAndroidNightModeDefaultToLightConstant,
+     base::size(kAndroidNightModeDefaultToLightConstant), nullptr}};
+
 const FeatureEntry::FeatureParam
     kOmniboxSearchEngineLogoRoundedEdgesVariationConstant[] = {
         {"rounded_edges", "true"}};
@@ -1307,8 +1313,19 @@ const FeatureEntry::FeatureVariation kQuietNotificationPromptsVariations[] = {
      1, nullptr},
     {"(mini-infobars)", &kQuietNotificationPromptsMiniInfobars, 1, nullptr},
 };
-
-#endif  // OS_ANDROID
+#else   // OS_ANDROID
+const FeatureEntry::FeatureParam kQuietNotificationPromptsStaticIcons = {
+    kQuietNotificationPromptsUIFlavourParameterName,
+    kQuietNotificationPromptsStaticIcon};
+const FeatureEntry::FeatureParam kQuietNotificationPromptsAnimatedIcons = {
+    kQuietNotificationPromptsUIFlavourParameterName,
+    kQuietNotificationPromptsAnimatedIcon};
+// The "default" option that only shows "Enabled" will be the static icon.
+const FeatureEntry::FeatureVariation kQuietNotificationPromptsVariations[] = {
+    {"(static-icon)", &kQuietNotificationPromptsStaticIcons, 1, nullptr},
+    {"(animated-icon)", &kQuietNotificationPromptsAnimatedIcons, 1, nullptr},
+};
+#endif  // !OS_ANDROID
 
 // RECORDING USER METRICS FOR FLAGS:
 // -----------------------------------------------------------------------------
@@ -1703,6 +1720,10 @@ const FeatureEntry kFeatureEntries[] = {
     {"enable-virtual-desks", flag_descriptions::kEnableVirtualDesksName,
      flag_descriptions::kEnableVirtualDesksDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(ash::features::kVirtualDesks)},
+    {"enable-virtual-desks-gestures",
+     flag_descriptions::kEnableVirtualDesksGesturesName,
+     flag_descriptions::kEnableVirtualDesksGesturesDescription, kOsCrOS,
+     FEATURE_VALUE_TYPE(ash::features::kVirtualDesksGestures)},
     {"trim-on-all-frames-frozen", flag_descriptions::kTrimOnFreezeName,
      flag_descriptions::kTrimOnFreezeDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(performance_manager::features::kTrimOnFreeze)},
@@ -2401,7 +2422,9 @@ const FeatureEntry kFeatureEntries[] = {
 #if BUILDFLAG(ENABLE_ANDROID_NIGHT_MODE)
     {"enable-android-night-mode", flag_descriptions::kAndroidNightModeName,
      flag_descriptions::kAndroidNightModeDescription, kOsAndroid,
-     FEATURE_VALUE_TYPE(chrome::android::kAndroidNightMode)},
+     FEATURE_WITH_PARAMS_VALUE_TYPE(chrome::android::kAndroidNightMode,
+                                    kAndroidNightModeFeatureVariations,
+                                    "AndroidNightMode")},
 #endif  // BUILDFLAG(ENABLE_ANDROID_NIGHT_MODE)
 #endif  // OS_ANDROID
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
@@ -3056,6 +3079,10 @@ const FeatureEntry kFeatureEntries[] = {
     {"enable-parallel-downloading", flag_descriptions::kParallelDownloadingName,
      flag_descriptions::kParallelDownloadingDescription, kOsAll,
      FEATURE_VALUE_TYPE(download::features::kParallelDownloading)},
+
+    {"enable-pointer-lock-options", flag_descriptions::kPointerLockOptionsName,
+     flag_descriptions::kPointerLockOptionsDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(features::kPointerLockOptions)},
 
 #if defined(OS_ANDROID)
     {"enable-async-dns", flag_descriptions::kAsyncDnsName,
@@ -4191,10 +4218,11 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_VALUE_TYPE(printing::kAdvancedPpdAttributes)},
 #endif  // defined(OS_CHROMEOS)
 
-    {"enable-forbid-sync-xhr-in-page-dismissal",
-     flag_descriptions::kForbidSyncXHRInPageDismissalName,
-     flag_descriptions::kForbidSyncXHRInPageDismissalDescription, kOsAll,
-     FEATURE_VALUE_TYPE(blink::features::kForbidSyncXHRInPageDismissal)},
+    {"allow-sync-xhr-in-page-dismissal",
+     flag_descriptions::kAllowSyncXHRInPageDismissalName,
+     flag_descriptions::kAllowSyncXHRInPageDismissalDescription,
+     kOsAll | kDeprecated,
+     FEATURE_VALUE_TYPE(blink::features::kAllowSyncXHRInPageDismissal)},
 
     {"form-controls-refresh", flag_descriptions::kFormControlsRefreshName,
      flag_descriptions::kFormControlsRefreshDescription, kOsAll,
@@ -4464,14 +4492,14 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kPasswordLeakDetectionDescription, kOsAll,
      FEATURE_VALUE_TYPE(password_manager::features::kLeakDetection)},
 
-#if defined(OS_ANDROID)
     {"quiet-notification-prompts",
      flag_descriptions::kQuietNotificationPromptsName,
-     flag_descriptions::kQuietNotificationPromptsDescription, kOsAndroid,
+     flag_descriptions::kQuietNotificationPromptsDescription, kOsAll,
      FEATURE_WITH_PARAMS_VALUE_TYPE(features::kQuietNotificationPrompts,
                                     kQuietNotificationPromptsVariations,
                                     "QuietNotificationPrompts")},
 
+#if defined(OS_ANDROID)
     {"context-menu-search-with-google-lens",
      flag_descriptions::kContextMenuSearchWithGoogleLensName,
      flag_descriptions::kContextMenuSearchWithGoogleLensDescription, kOsAndroid,
@@ -4517,6 +4545,21 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kSyncClipboardServiceDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(features::kSyncClipboardServiceFeature)},
 #endif  // OS_WIN || OS_MACOSX || OS_LINUX
+
+#if defined(OS_ANDROID)
+    {"enable-clipboard-provider-text-suggestions",
+     flag_descriptions::kEnableClipboardProviderTextSuggestionsName,
+     flag_descriptions::kEnableClipboardProviderTextSuggestionsDescription,
+     kOsAndroid,
+     FEATURE_VALUE_TYPE(omnibox::kEnableClipboardProviderTextSuggestions)},
+#endif  // defined(OS_ANDROID)
+
+#if defined(OS_ANDROID)
+    {"android-setup-search-engine",
+     flag_descriptions::kAndroidSetupSearchEngineName,
+     flag_descriptions::kAndroidSetupSearchEngineDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(chrome::android::kAndroidSetupSearchEngine)},
+#endif  // defined(OS_ANDROID)
 
     // NOTE: Adding a new flag requires adding a corresponding entry to enum
     // "LoginCustomFlags" in tools/metrics/histograms/enums.xml. See "Flag

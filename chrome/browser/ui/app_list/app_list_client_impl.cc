@@ -169,8 +169,6 @@ void AppListClientImpl::ViewShown(int64_t display_id) {
                              current_model_updater_->BadgedItemCount());
   }
   display_id_ = display_id;
-  if (search_controller_)
-    search_controller_->AppListShown();
 }
 
 void AppListClientImpl::ActivateItem(int profile_id,
@@ -226,6 +224,8 @@ void AppListClientImpl::OnAppListTargetVisibilityChanged(bool visible) {
 
 void AppListClientImpl::OnAppListVisibilityChanged(bool visible) {
   app_list_visible_ = visible;
+  if (visible && search_controller_)
+    search_controller_->AppListShown();
 }
 
 void AppListClientImpl::OnFolderCreated(
@@ -374,6 +374,10 @@ void AppListClientImpl::SetUpSearchUI() {
   search_ranking_event_logger_ =
       std::make_unique<app_list::SearchRankingEventLogger>(
           profile_, search_controller_.get());
+
+  // Refresh the results used for the suggestion chips with empty query.
+  // This fixes crbug.com/999287.
+  StartSearch(base::string16());
 }
 
 app_list::SearchController* AppListClientImpl::search_controller() {

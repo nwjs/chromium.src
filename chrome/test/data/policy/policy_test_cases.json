@@ -404,13 +404,7 @@
   },
 
   "ExternalPrintServers": {
-    "os": ["chromeos"],
-    "test_policy": {
-      "ExternalPrintServers": {
-        "url": "https://example.com/policyfile",
-        "hash": "deadbeefdeadbeefdeadbeef"
-      }
-    }
+    "note": "This policy will be added in R-79"
   },
 
   "NativePrinters": {
@@ -2794,6 +2788,12 @@
     ]
   },
 
+  "AllowSyncXHRInPageDismissal": {
+    "os": ["win", "linux", "mac", "chromeos", "android"],
+    "test_policy": { "AllowSyncXHRInPageDismissal": true },
+    "pref_mappings": [{ "pref": "allow_sync_xhr_in_page_dismissal" }]
+  },
+
   "----- Chrome OS policies ------------------------------------------------": {},
 
   "ChromeOsLockOnIdleSuspend": {
@@ -5138,6 +5138,14 @@
       { "pref": "renderer_code_integrity_enabled",
         "local_state": true
       }
+    ]
+  },
+
+  "HSTSPolicyBypassList": {
+    "os": ["win", "linux", "mac", "chromeos", "android"],
+    "test_policy": { "HSTSPolicyBypassList": ["example"] },
+    "pref_mappings": [
+      { "pref": "hsts.policy.upgrade_bypass_list", "local_state": true }
     ]
   }
 }

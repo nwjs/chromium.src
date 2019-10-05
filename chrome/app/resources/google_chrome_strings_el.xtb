@@ -45,12 +45,17 @@
 <translation id="1873233029667955273">Το Google Chrome δεν είναι το προεπιλεγμένο πρόγραμμα περιήγησης</translation>
 <translation id="1874309113135274312">Google Chrome Beta (mDNS-In)</translation>
 <translation id="1877026089748256423">Το Chrome δεν είναι ενημερωμένο</translation>
+<translation id="1900795423379050516">Εάν μια ρύθμιση δεν εμφανίζεται σε αυτήν τη σελίδα, αναζητήστε την στις <ph name="LINK_BEGIN" />
+      ρυθμίσεις του προγράμματος περιήγησης Chrome<ph name="LINK_END" /></translation>
 <translation id="1915828456209461693">Υπάρχει νέα διαθέσιμη ενημέρωση για το Chrome και θα εφαρμοστεί μόλις κάνετε επανεκκίνηση.</translation>
 <translation id="1919130412786645364">Να επιτρέπεται η σύνδεση στο Chrome</translation>
 <translation id="2063848847527508675">Για να εφαρμοστεί η ενημέρωση, πρέπει να γίνει επανεκκίνηση του Chrome OS.</translation>
 <translation id="2094919256425865063">Να τερματιστεί η λειτουργία του Chrome ούτως ή άλλως;</translation>
 <translation id="2120620239521071941">Με αυτήν την ενέργεια θα διαγραφούν <ph name="ITEMS_COUNT" /> στοιχεία από αυτήν τη συσκευή. Για να ανακτήσετε τα δεδομένα σας αργότερα, συνδεθείτε στο Chrome ως <ph name="USER_EMAIL" />.</translation>
 <translation id="2123055963409958220">Συμβάλετε στη βελτίωση του Chrome, αναφέροντας τις <ph name="BEGIN_LINK" />τρέχουσες ρυθμίσεις<ph name="END_LINK" /></translation>
+<translation id="2128103434102193461">Για λεπτομέρειες σχετικά με το Chrome OS, ανατρέξτε στην ενότητα <ph name="LINK_BEGIN" />
+      Σχετικά με το Chrome OS<ph name="LINK_END" /></translation>
+<translation id="2151406531797534936">Επανεκκινήστε το Chrome τώρα</translation>
 <translation id="216054706567564023">Εγκαταστήστε το Chrome στο τηλέφωνό σας. Θα στείλουμε ένα SMS στον αριθμό τηλεφώνου ανάκτησης του λογαριασμού σας.</translation>
 <translation id="2246246234298806438">Το Google Chrome δεν είναι δυνατό να εμφανίσει την προεπισκόπηση εκτύπωσης όταν λείπει το ενσωματωμένο πρόγραμμα προβολής PDF.</translation>
 <translation id="2252923619938421629">Συμβάλετε στη βελτίωση του Google Chrome αναφέροντας τις τρέχουσες ρυθμίσεις</translation>
@@ -160,6 +165,8 @@
 <translation id="5543953544073077331">Εκτελούνται άλλα αντίγραφα του Chrome. Για να τα ενημερώσετε, κλείστε τα.</translation>
 <translation id="556024056938947818">Το Google Chrome επιχειρεί να εμφανίσει κωδικούς πρόσβασης.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
+<translation id="5657226924540934362">Εάν μια ρύθμιση δεν εμφανίζεται σε αυτήν τη σελίδα, αναζητήστε την στις <ph name="LINK_BEGIN" />
+      ρυθμίσεις του Chrome OS<ph name="LINK_END" /></translation>
 <translation id="565744775970812598">Το αρχείο <ph name="FILE_NAME" /> μπορεί να είναι επικίνδυνο, επομένως έχει αποκλειστεί από το Chrome.</translation>
 <translation id="5686916850681061684">Προσαρμογή και έλεγχος του Google Chrome. Θα πρέπει να ελέγξετε μια ειδοποίηση, κάντε κλικ για λεπτομέρειες.</translation>
 <translation id="5690427481109656848">Google LLC</translation>
@@ -172,12 +179,9 @@
 <translation id="5906655207909574370">Η ενημέρωση σχεδόν ολοκληρώθηκε! Επανεκκινήστε τη συσκευή σας για να ολοκληρωθεί η ενημέρωση.</translation>
 <translation id="5940385492829620908">Εδώ μπορείτε να βρείτε τις ιστοσελίδες, τους σελιδοδείκτες σας και άλλα δεδομένα του Chrome.</translation>
 <translation id="5941830788786076944">Ορισμός Google Chrome ως προεπιλεγμένο πρόγραμμα περιήγησης</translation>
-<translation id="5977372243443849142">Το Chrome μπορεί να σας βοηθήσει να απομνημονεύσετε τους κωδικούς πρόσβασής σας έτσι ώστε να μην χρειάζεται να το κάνετε εσείς.</translation>
 <translation id="6014844626092547096">Έχετε πλέον συνδεθεί στο Chrome! Ο συγχρονισμός έχει απενεργοποιηθεί από το διαχειριστή σας.</translation>
 <translation id="6040143037577758943">Κλείσιμο</translation>
 <translation id="6070348360322141662">Για επιπλέον ασφάλεια, το Google Chrome θα κρυπτογραφήσει τα δεδομένα σας</translation>
-<translation id="6102256037460917300">Εάν μια ρύθμιση δεν εμφανίζεται σε αυτήν τη σελίδα, αναζητήστε τη στις <ph name="LINK_BEGIN" />
-    ρυθμίσεις του προγράμματος περιήγησης Chrome<ph name="LINK_END" /></translation>
 <translation id="6113794647360055231">Το Chrome έγινε ακόμα καλύτερο</translation>
 <translation id="6169866489629082767"><ph name="PAGE_TITLE" /> - Google Chrome</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome Beta</translation>
@@ -222,6 +226,7 @@
 <translation id="7589360514048265910">Αυτός ο υπολογιστής δεν θα λαμβάνει πλέον ενημερώσεις του Google Chrome επειδή το Mac OS X 10.9 δεν υποστηρίζεται πλέον.</translation>
 <translation id="7592736734348559088">Το Google Chrome δεν κατάφερε να συγχρονίσει τα δεδομένα σας επειδή τα στοιχεία σύνδεσης στο λογαριασμό σας δεν έχουν ενημερωθεί.</translation>
 <translation id="7626032353295482388">Καλώς ήρθατε στο Chrome</translation>
+<translation id="7629695634924605473">Το Chrome σας ενημερώνει σε περίπτωση παραβίασης των κωδικών πρόσβασής σας.</translation>
 <translation id="7641148173327520642">Ο διαχειριστής συστήματος έχει διαμορφώσει το Google Chrome έτσι ώστε να ανοίγει <ph name="ALTERNATIVE_BROWSER_NAME" /> για πρόσβαση σε <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="7651907282515937834">Λογότυπο Chrome Enterprise</translation>
 <translation id="7747138024166251722">Δεν ήταν δυνατή η δημιουργία ενός προσωρινού καταλόγου από το πρόγραμμα εγκατάστασης. Ελέγξτε τον κενό χώρο του δίσκου και το δικαίωμα εγκατάστασης του λογισμικού.</translation>
@@ -250,7 +255,6 @@
 <translation id="8370517070665726704">Πνευματικά δικαιώματα <ph name="YEAR" /> Google LLC. Με την επιφύλαξη παντός δικαιώματος.</translation>
 <translation id="840084489713044809">Το Google Chrome θέλει να εξαγάγει τους κωδικούς πρόσβασής σας.</translation>
 <translation id="8406086379114794905">Βοηθήστε μας να κάνουμε καλύτερο το Chrome</translation>
-<translation id="8432724323949790809">Τώρα θα πρέπει να επανεκκινήσετε το Google Chrome</translation>
 <translation id="8455999171311319804">Προαιρετικό: Συμβάλετε στη βελτίωση του Chrome OS στέλνοντας αυτόματα στην Google διαγνωστικά και δεδομένα χρήσης.</translation>
 <translation id="8478823064122749032">Εγκαταστήστε το Chrome στο τηλέφωνό σας. Θα στείλουμε ένα SMS στον αριθμό τηλεφώνου ανάκτησης του λογαριασμού σας: <ph name="PHONE_NUMBER" />.</translation>
 <translation id="8498858610309223613">Μόλις εφαρμόστηκε μια ειδική ενημέρωση ασφαλείας για το Google Chrome. Επανεκκινήστε τώρα και θα γίνει επαναφορά των καρτελών σας.</translation>

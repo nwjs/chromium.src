@@ -82,8 +82,10 @@
         </cr-network-icon>
         <div id="networkState" class="title settings-box-text"
             connected$="[[isConnectedState_(managedProperties_)]]"
-            error$="[[outOfRange_]]">
-          [[getStateText_(managedProperties_, outOfRange_)]]
+            error$="[[isConnectionErrorState_(
+                managedProperties_, outOfRange_)]]">
+          [[getStateText_(managedProperties_, propertiesReceived_,
+              outOfRange_)]]
         </div>
         <template is="dom-if"
             if="[[isPolicySource(managedProperties_.source))]]">
@@ -243,7 +245,8 @@
         </div>
       </template>
 
-      <template is="dom-if" if="[[showAdvanced_(managedProperties_)]]">
+      <template is="dom-if"
+          if="[[showAdvanced_(managedProperties_, propertiesReceived_)]]">
         <!-- Advanced toggle. -->
         <cr-expand-button
             alt="$i18n{networkSectionAdvancedA11yLabel}"
@@ -284,7 +287,7 @@
               $i18n{networkSectionNetwork}
             </div>
             <template is="dom-if"
-                if="[[showScanningSpinner_(managedProperties_)]]">
+                if="[[showScanningSpinner_(managedProperties_, deviceState_)]]">
               <paper-spinner-lite active></paper-spinner-lite>
             </template>
           </div>
@@ -317,6 +320,13 @@
                   managed-properties="[[managedProperties_]]">
               </network-nameservers>
             </template>
+          </div>
+
+          <!-- MAC Address. -->
+          <div class="settings-box two-line single-column stretch indented"
+              hidden$="[[!deviceState_.macAddress]]">
+            <div>$i18n{OncMacAddress}</div>
+            <div class="secondary">[[deviceState_.macAddress]]</div>
           </div>
         </iron-collapse>
       </template>

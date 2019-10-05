@@ -4,7 +4,9 @@
 
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
+#include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
@@ -30,6 +32,15 @@ class TextFragmentAnchorMetricsTest : public SimTest {
     blink::scheduler::RunIdleTasksForTesting(scheduler,
                                              base::BindOnce([]() {}));
     RunPendingTasks();
+  }
+
+  void SimulateClick(int x, int y) {
+    WebMouseEvent event(
+        WebInputEvent::kMouseDown, WebFloatPoint(x, y), WebFloatPoint(x, y),
+        WebPointerProperties::Button::kLeft, 0,
+        WebInputEvent::Modifiers::kLeftButtonDown, base::TimeTicks::Now());
+    event.SetFrameScale(1);
+    GetDocument().GetFrame()->GetEventHandler().HandleMousePressEvent(event);
   }
 
   HistogramTester histogram_tester_;
@@ -243,6 +254,40 @@ TEST_F(TextFragmentAnchorMetricsTest, ScrollCancelled) {
                                      0);
 }
 
+// Test that the TapToDismiss feature gets use counted when the user taps to
+// dismiss the text highlight
+TEST_F(TextFragmentAnchorMetricsTest, TapToDismiss) {
+  SimRequest request("https://example.com/test.html#targetText=test%20page",
+                     "text/html");
+  LoadURL("https://example.com/test.html#targetText=test%20page");
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <style>
+      body {
+        height: 2200px;
+      }
+      p {
+        position: absolute;
+        top: 1000px;
+      }
+    </style>
+    <p>This is a test page</p>
+  )HTML");
+  Compositor().BeginFrame();
+  RunAsyncMatchingTasks();
+
+  EXPECT_TRUE(GetDocument().IsUseCounted(WebFeature::kTextFragmentAnchor));
+  EXPECT_TRUE(
+      GetDocument().IsUseCounted(WebFeature::kTextFragmentAnchorMatchFound));
+  EXPECT_FALSE(
+      GetDocument().IsUseCounted(WebFeature::kTextFragmentAnchorTapToDismiss));
+
+  SimulateClick(100, 100);
+
+  EXPECT_TRUE(
+      GetDocument().IsUseCounted(WebFeature::kTextFragmentAnchorTapToDismiss));
+}
+
 class TextFragmentRelatedMetricTest : public TextFragmentAnchorMetricsTest,
                                       public testing::WithParamInterface<bool> {
  public:
@@ -273,13 +318,17 @@ TEST_P(TextFragmentRelatedMetricTest, ElementIdSuccessFailureCounts) {
   const int kUncountedOrNotFound = GetParam() ? kUncounted : kNotFound;
   const int kUncountedOrFound = GetParam() ? kUncounted : kFound;
 
+  // When the TextFragmentAnchors feature is on, we'll strip the fragment
+  // directive (i.e. anything after ##) leaving just the element anchor.
+  const int kFoundIfDirectiveStripped = GetParam() ? kFound : kNotFound;
+
   Vector<std::pair<String, int>> test_cases = {
       {"", kUncounted},
       {"#element", kFound},
       {"#doesntExist", kNotFound},
-      {"#element##foo", kNotFound},
+      {"#element##foo", kFoundIfDirectiveStripped},
       {"#doesntexist##foo", kNotFound},
-      {"##element", kNotFound},
+      {"##element", kUncountedOrNotFound},
       {"#element##targetText=doesntexist", kUncountedOrNotFound},
       {"#element##targetText=page", kUncountedOrNotFound},
       {"#targetText=doesntexist", kUncountedOrNotFound},
@@ -356,13 +405,18 @@ TEST_P(TextFragmentRelatedMetricTest, DoubleHashUseCounter) {
   const int kUncounted = 0;
   const int kCounted = 1;
 
+  // When the TextFragmentAnchors feature is on, the fragment directive is
+  // stripped and we won't count it as a double-hash use case. When it's
+  // off, we expect to count it.
+  const int kCountedOnlyIfDisabled = GetParam() ? kUncounted : kCounted;
+
   Vector<std::pair<String, int>> test_cases = {
       {"", kUncounted},
       {"#element", kUncounted},
       {"#doesntExist", kUncounted},
-      {"#element##foo", kCounted},
-      {"#doesntexist##foo", kCounted},
-      {"##element", kCounted},
+      {"#element##foo", kCountedOnlyIfDisabled},
+      {"#doesntexist##foo", kCountedOnlyIfDisabled},
+      {"##element", kCountedOnlyIfDisabled},
       {"#element#", kCounted},
       {"#foo#bar#", kCounted},
       {"#foo%23", kUncounted},

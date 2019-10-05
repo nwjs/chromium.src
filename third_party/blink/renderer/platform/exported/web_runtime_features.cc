@@ -641,8 +641,8 @@ void WebRuntimeFeatures::EnableGetDisplayMedia(bool enable) {
   RuntimeEnabledFeatures::SetGetDisplayMediaEnabled(enable);
 }
 
-void WebRuntimeFeatures::EnableForbidSyncXHRInPageDismissal(bool enable) {
-  RuntimeEnabledFeatures::SetForbidSyncXHRInPageDismissalEnabled(enable);
+void WebRuntimeFeatures::EnableAllowSyncXHRInPageDismissal(bool enable) {
+  RuntimeEnabledFeatures::SetAllowSyncXHRInPageDismissalEnabled(enable);
 }
 
 void WebRuntimeFeatures::EnableShadowDOMV0(bool enable) {
@@ -716,6 +716,10 @@ void WebRuntimeFeatures::EnableBackForwardCache(bool enable) {
 
 void WebRuntimeFeatures::EnableSurfaceEmbeddingFeatures(bool enable) {
   RuntimeEnabledFeatures::SetSurfaceEmbeddingFeaturesEnabled(enable);
+}
+
+void WebRuntimeFeatures::EnableAcceleratedSmallCanvases(bool enable) {
+  RuntimeEnabledFeatures::SetAcceleratedSmallCanvasesEnabled(enable);
 }
 
 }  // namespace blink

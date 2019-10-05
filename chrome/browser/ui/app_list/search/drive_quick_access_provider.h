@@ -10,7 +10,9 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
+#include "base/sequenced_task_runner.h"
 #include "base/strings/string16.h"
+#include "base/time/time.h"
 #include "chrome/browser/chromeos/drive/drive_integration_service.h"
 #include "chrome/browser/ui/app_list/search/search_provider.h"
 
@@ -33,14 +35,20 @@ class DriveQuickAccessProvider : public SearchProvider {
   void GetQuickAccessItems();
   void OnGetQuickAccessItems(drive::FileError error,
                              std::vector<drive::QuickAccessItem> drive_results);
+  void SetResultsCache(
+      const std::vector<drive::QuickAccessItem>& drive_results);
 
   Profile* const profile_;
   drive::DriveIntegrationService* const drive_service_;
   // Stores the last-returned results from the QuickAccess API.
   std::vector<drive::QuickAccessItem> results_cache_;
 
+  base::TimeTicks query_start_time_;
+  base::TimeTicks latest_fetch_start_time_;
+
   SEQUENCE_CHECKER(sequence_checker_);
 
+  scoped_refptr<base::SequencedTaskRunner> task_runner_;
   base::WeakPtrFactory<DriveQuickAccessProvider> weak_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(DriveQuickAccessProvider);

@@ -152,9 +152,8 @@ bool MediaNotificationItem::ShouldShowNotification() const {
   if (!session_info_ || !session_info_->is_controllable)
     return false;
 
-  // If we do not have a title and an artist then we should hide the
-  // notification.
-  if (session_metadata_.title.empty() || session_metadata_.artist.empty())
+  // If we do not have a title then we should hide the notification.
+  if (session_metadata_.title.empty())
     return false;
 
   return true;
@@ -195,6 +194,7 @@ void MediaNotificationItem::OnMediaSessionActionButtonPressed(
   if (frozen_)
     return;
 
+  controller_->LogMediaSessionActionButtonPressed(request_id_);
   media_session::PerformMediaSessionAction(action, media_controller_remote_);
 }
 

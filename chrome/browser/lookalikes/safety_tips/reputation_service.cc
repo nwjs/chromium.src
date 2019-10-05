@@ -34,6 +34,8 @@ using safety_tips::ReputationService;
 
 const base::FeatureParam<bool> kEnableLookalikeEditDistance{
     &features::kSafetyTipUI, "editdistance", false};
+const base::FeatureParam<bool> kEnableLookalikeEditDistanceSiteEngagement{
+    &features::kSafetyTipUI, "editdistance_siteengagement", false};
 
 bool ShouldTriggerSafetyTipFromLookalike(
     const GURL& url,
@@ -54,9 +56,11 @@ bool ShouldTriggerSafetyTipFromLookalike(
   }
 
   // Edit distance has higher false positives, so it gets its own feature param
-  if (match_type == LookalikeMatchType::kEditDistance ||
-      match_type == LookalikeMatchType::kEditDistanceSiteEngagement) {
+  if (match_type == LookalikeMatchType::kEditDistance) {
     return kEnableLookalikeEditDistance.Get();
+  }
+  if (match_type == LookalikeMatchType::kEditDistanceSiteEngagement) {
+    return kEnableLookalikeEditDistanceSiteEngagement.Get();
   }
 
   return true;
@@ -135,8 +139,9 @@ security_state::SafetyTipStatus FlagTypeToSafetyTipStatus(
   switch (type) {
     case FlaggedPage::FlagType::FlaggedPage_FlagType_UNKNOWN:
     case FlaggedPage::FlagType::FlaggedPage_FlagType_YOUNG_DOMAIN:
-      NOTREACHED();
-      break;
+      // Reached if component includes these flags, which might happen to
+      // support newer Chrome releases.
+      return security_state::SafetyTipStatus::kNone;
     case FlaggedPage::FlagType::FlaggedPage_FlagType_BAD_REP:
       return security_state::SafetyTipStatus::kBadReputation;
   }
@@ -260,8 +265,15 @@ security_state::SafetyTipStatus GetUrlBlockType(const GURL& url) {
           return a.pattern() < b.pattern();
         });
 
-    if (lower != flagged_pages.end() && pattern == lower->pattern()) {
-      return FlagTypeToSafetyTipStatus(lower->type());
+    while (lower != flagged_pages.end() && pattern == lower->pattern()) {
+      // Skip over sites with unexpected flag types and keep looking for other
+      // matches. This allows components to include flag types not handled by
+      // this release.
+      auto type = FlagTypeToSafetyTipStatus(lower->type());
+      if (type != security_state::SafetyTipStatus::kNone) {
+        return type;
+      }
+      ++lower;
     }
   }
 

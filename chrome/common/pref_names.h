@@ -727,6 +727,7 @@ extern const char kSSLVersionMin[];
 extern const char kSSLVersionMax[];
 extern const char kCipherSuiteBlacklist[];
 extern const char kH2ClientCertCoalescingHosts[];
+extern const char kHSTSPolicyBypassList[];
 
 extern const char kBuiltInDnsClientEnabled[];
 extern const char kDnsOverHttpsMode[];
@@ -955,6 +956,8 @@ extern const char kEnterpriseHardwarePlatformAPIEnabled[];
 extern const char kSignedHTTPExchangeEnabled[];
 
 extern const char kAllowPopupsDuringPageUnload[];
+
+extern const char kAllowSyncXHRInPageDismissal[];
 
 #if defined(OS_ANDROID)
 extern const char kUsageStatsEnabled[];
