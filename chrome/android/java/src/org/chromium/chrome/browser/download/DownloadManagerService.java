@@ -380,6 +380,7 @@ public class DownloadManagerService
         downloadItem.setSystemDownloadId(
                 DownloadManagerBridge.getDownloadIdForDownloadGuid(downloadInfo.getDownloadGuid()));
         updateDownloadProgress(downloadItem, status);
+        updateDownloadInfoBar(downloadItem);
     }
 
     @Override
@@ -390,14 +391,19 @@ public class DownloadManagerService
             removeAutoResumableDownload(item.getId());
         }
         updateDownloadProgress(item, DownloadStatus.IN_PROGRESS);
+        updateDownloadInfoBar(item);
         scheduleUpdateIfNeeded();
     }
 
     @Override
     public void onDownloadCancelled(final DownloadInfo downloadInfo) {
-        DownloadItem item = new DownloadItem(false, downloadInfo);
+        DownloadInfo newInfo = DownloadInfo.Builder.fromDownloadInfo(downloadInfo)
+                                       .setState(DownloadState.CANCELLED)
+                                       .build();
+        DownloadItem item = new DownloadItem(false, newInfo);
         removeAutoResumableDownload(item.getId());
         updateDownloadProgress(new DownloadItem(false, downloadInfo), DownloadStatus.CANCELLED);
+        updateDownloadInfoBar(item);
     }
 
     @Override
@@ -418,6 +424,7 @@ public class DownloadManagerService
                     UmaBackgroundDownload.INTERRUPTED, downloadInfo.getDownloadGuid());
         }
         updateDownloadProgress(item, status);
+        updateDownloadInfoBar(item);
 
         if (FeatureUtilities.isDownloadAutoResumptionEnabledInNative()) return;
         DownloadProgress progress = mDownloadProgressMap.get(item.getId());
@@ -466,6 +473,12 @@ public class DownloadManagerService
                     /*isOffTheRecord=*/false);
             mActivityLaunched = true;
         }
+    }
+
+    private void updateDownloadInfoBar(DownloadItem item) {
+        DownloadInfoBarController infobarController =
+                getInfoBarController(item.getDownloadInfo().isOffTheRecord());
+        if (infobarController != null) infobarController.onDownloadItemUpdated(item);
     }
 
     /**
@@ -1128,6 +1141,8 @@ public class DownloadManagerService
             removeDownloadProgress(id.id);
         } else {
             mDownloadNotifier.notifyDownloadCanceled(id);
+            DownloadInfoBarController infoBarController = getInfoBarController(isOffTheRecord);
+            if (infoBarController != null) infoBarController.onDownloadItemRemoved(id);
         }
         recordDownloadFinishedUMA(DownloadStatus.CANCELLED, id.id, 0);
         maybeRecordBackgroundDownload(UmaBackgroundDownload.CANCELLED, id.id);
@@ -1776,9 +1791,6 @@ public class DownloadManagerService
         for (DownloadObserver adapter : mDownloadObservers) {
             adapter.onDownloadItemCreated(item);
         }
-        DownloadInfoBarController infobarController =
-                getInfoBarController(item.getDownloadInfo().isOffTheRecord());
-        if (infobarController != null) infobarController.onDownloadItemUpdated(item);
     }
 
     @CalledByNative
@@ -1786,10 +1798,6 @@ public class DownloadManagerService
         for (DownloadObserver adapter : mDownloadObservers) {
             adapter.onDownloadItemUpdated(item);
         }
-
-        DownloadInfoBarController infobarController =
-                getInfoBarController(item.getDownloadInfo().isOffTheRecord());
-        if (infobarController != null) infobarController.onDownloadItemUpdated(item);
     }
 
     @CalledByNative
