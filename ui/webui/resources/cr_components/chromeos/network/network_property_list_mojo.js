@@ -248,31 +248,15 @@ Polymer({
   getProperty_: function(key, propertyDict) {
     const property = this.get(key, this.propertyDict);
     if (property === undefined || property === null) {
-<<<<<<< HEAD   (a791f9 Internet > Details: Restore MAC address)
-      // If the dictionary is policy controlled, provide an empty property
-      // object with the network policy source. See https://crbug.com/819837 for
-      // more info.
-      const source = propertyDict.source;
-      if (source == chromeos.networkConfig.mojom.OncSource.kUserPolicy) {
-=======
       const policySource =
           OncMojo.getEnforcedPolicySourceFromOncSource(propertyDict.source);
       if (policySource != chromeos.networkConfig.mojom.PolicySource.kNone) {
         // If the dictionary is policy controlled, provide an empty property
         // object with the network policy source. See https://crbug.com/819837
         // for more info.
->>>>>>> CHANGE (c82367 cros_network_config fixes to required properties and policy )
         return /** @type{!OncMojo.ManagedProperty} */ ({
           activeValue: '',
-          policySource:
-              chromeos.networkConfig.mojom.PolicySource.kUserPolicyEnforced,
-        });
-      }
-      if (source == chromeos.networkConfig.mojom.OncSource.kDevicePolicy) {
-        return /** @type{!OncMojo.ManagedProperty} */ ({
-          activeValue: '',
-          policySource:
-              chromeos.networkConfig.mojom.PolicySource.kDevicePolicyEnforced,
+          policySource: policySource,
         });
       }
       // Otherwise just return undefined.

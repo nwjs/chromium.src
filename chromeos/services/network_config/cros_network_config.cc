@@ -1254,21 +1254,6 @@ mojom::ManagedPropertiesPtr ManagedPropertiesToMojo(
       vpn->auto_connect = GetManagedBoolean(vpn_dict, ::onc::vpn::kAutoConnect);
       vpn->host = GetManagedString(vpn_dict, ::onc::vpn::kHost);
 
-<<<<<<< HEAD   (a791f9 Internet > Details: Restore MAC address)
-      const base::Value* third_party_dict =
-          vpn_dict->FindKey(::onc::vpn::kThirdPartyVpn);
-      if (third_party_dict) {
-        vpn->provider_id = GetManagedString(
-            third_party_dict, ::onc::third_party_vpn::kExtensionID);
-        base::Optional<std::string> provider_name =
-            GetString(third_party_dict, ::onc::third_party_vpn::kProviderName);
-        if (provider_name)
-          vpn->provider_name = *provider_name;
-        if (vpn->provider_id && vpn->provider_name.empty()) {
-          vpn->provider_name =
-              GetVpnProviderName(vpn_providers, vpn->provider_id->active_value);
-        }
-=======
       switch (vpn->type) {
         case mojom::VpnType::kL2TPIPsec:
           vpn->ip_sec = GetManagedIPSecProperties(vpn_dict, ::onc::vpn::kIPsec);
@@ -1305,7 +1290,6 @@ mojom::ManagedPropertiesPtr ManagedPropertiesToMojo(
             }
           }
           break;
->>>>>>> CHANGE (c82367 cros_network_config fixes to required properties and policy )
       }
       mojom::ManagedStringPtr managed_type =
           GetManagedString(vpn_dict, ::onc::vpn::kType);

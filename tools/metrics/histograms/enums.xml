@@ -3607,6 +3607,13 @@ Unknown properties are collapsed to zero. -->
   <int value="20" label="Installing the feature module failed"/>
 </enum>
 
+<enum name="AutofillAssistantFeatureModuleInstallation">
+  <int value="0" label="Background installation requested"/>
+  <int value="1" label="Foreground installation succeeded"/>
+  <int value="2" label="Foreground installation failed"/>
+  <int value="3" label="Already installed"/>
+</enum>
+
 <enum name="AutofillAssistantOnBoarding">
   <int value="0" label="Shown"/>
   <int value="1" label="Not shown (returning user)"/>
@@ -3619,6 +3626,14 @@ Unknown properties are collapsed to zero. -->
   <int value="1" label="Not changed &amp; Success"/>
   <int value="2" label="Changed &amp; Failure"/>
   <int value="3" label="Not changed &amp; Failure"/>
+</enum>
+
+<enum name="AutofillAssistantPaymentRequestMandatoryPostalCode">
+  <int value="0" label="Required &amp; initially wrong &amp; success"/>
+  <int value="1" label="Required &amp; initially wrong &amp; failure"/>
+  <int value="2" label="Required &amp; initially right &amp; success"/>
+  <int value="3" label="Required &amp; initially right &amp; failure"/>
+  <int value="4" label="Not required"/>
 </enum>
 
 <enum name="AutofillAssistantPaymentRequestPrefilled">
@@ -24620,6 +24635,11 @@ Called by update_net_error_codes.py.-->
   <int value="3027" label="PointerLockUnadjustedMovement"/>
   <int value="3029" label="QuotaRead"/>
   <int value="3035" label="TextFragmentAnchorTapToDismiss"/>
+  <int value="3039" label="FragmentHasTildeAmpersandTilde"/>
+  <int value="3040" label="FragmentHasColonTildeColon"/>
+  <int value="3041" label="FragmentHasTildeAtTilde"/>
+  <int value="3042" label="FragmentHasAmpersandDelimiterQuestion"/>
+  <int value="3043" label="InvalidFragmentDirective"/>
 </enum>
 
 <enum name="FeaturePolicyAllowlistType">

@@ -1028,9 +1028,6 @@ bool HWNDMessageHandler::HasChildRenderingWindow() {
 
 std::unique_ptr<aura::ScopedEnableUnadjustedMouseEvents>
 HWNDMessageHandler::RegisterUnadjustedMouseEvent() {
-  if (!base::FeatureList::IsEnabled(::features::kPointerLockOptions))
-    return nullptr;
-
   std::unique_ptr<ScopedEnableUnadjustedMouseEventsWin> scoped_enable =
       ScopedEnableUnadjustedMouseEventsWin::StartMonitor(this);
 
