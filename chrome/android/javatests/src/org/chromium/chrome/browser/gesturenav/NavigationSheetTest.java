@@ -107,6 +107,9 @@ public class NavigationSheetTest {
         public void navigateToIndex(int index) {
             mNavigationController.goToNavigationIndex(index);
         }
+
+        @Override
+        public void setTabCloseRunnable(Runnable runnable) {}
     }
 
     @Test
@@ -192,9 +195,10 @@ public class NavigationSheetTest {
     private NavigationSheet showPopup(NavigationController controller) throws ExecutionException {
         return TestThreadUtils.runOnUiThreadBlocking(() -> {
             Tab tab = mActivityTestRule.getActivity().getActivityTabProvider().get();
-            NavigationSheet navigationSheet = NavigationSheet.create(tab.getContentView(),
-                    mActivityTestRule.getActivity()::getBottomSheetController,
-                    new TestSheetDelegate(controller));
+            NavigationSheet navigationSheet =
+                    NavigationSheet.create(tab.getContentView(), mActivityTestRule.getActivity(),
+                            mActivityTestRule.getActivity()::getBottomSheetController,
+                            new TestSheetDelegate(controller));
             navigationSheet.startAndExpand(false, false);
             return navigationSheet;
         });

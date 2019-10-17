@@ -15,7 +15,6 @@ Polymer({
     settings.MainPageBehavior,
     settings.RouteObserverBehavior,
     I18nBehavior,
-    PrefsBehavior,
   ],
 
   properties: {
@@ -43,13 +42,6 @@ Polymer({
     },
 
     // <if expr="chromeos">
-    /** @private */
-    showAboutOSBanner_: {
-      type: Boolean,
-      computed: 'computeShowAboutOSBanner_(' +
-          'prefs.settings.cros.show_about_os_banner.value)',
-    },
-
     /** @private */
     hasCheckedForUpdates_: {
       type: Boolean,
@@ -569,21 +561,6 @@ Polymer({
    * @return {boolean}
    * @private
    */
-  computeShowAboutOSBanner_: function() {
-    // Show when SplitSettings is off and the user hasn't closed it.
-    return !this.showOsSettings_ && /** @type {boolean} */
-        (this.getPref('settings.cros.show_about_os_banner').value);
-  },
-
-  /** @private */
-  onAboutOSBannerClosed_: function() {
-    this.setPrefValue('settings.cros.show_about_os_banner', false);
-  },
-
-  /**
-   * @return {boolean}
-   * @private
-   */
   isRollback_: function() {
     assert(this.currentChannel_.length > 0);
     assert(this.targetChannel_.length > 0);
@@ -654,6 +631,20 @@ Polymer({
         this.i18nAdvanced('aboutProductOsWithLinuxLicense') :
         this.i18nAdvanced('aboutProductOsLicense');
   },
+
+  // <if expr="chromeos">
+  /**
+   * @return {string}
+   * @private
+   */
+  getUpdateOsSettingsLink_: function() {
+    // Note: This string contains raw HTML and thus requires i18nAdvanced().
+    // Since the i18n template syntax (e.g., $i18n{}) does not include an
+    // "advanced" version, it's not possible to inline this link directly in the
+    // HTML.
+    return this.i18nAdvanced('aboutUpdateOsSettingsLink');
+  },
+  // </if>
 
   /**
    * @param {boolean} enabled True if Crostini is enabled.
