@@ -63,11 +63,11 @@ void MessagePumpUV::Run(Delegate* delegate) {
   ctx.wakeup_events = &wakeup_events_;
 
   if (nesting_level_ > 1) {
+    wakeup_events_.push_back(wakeup_event_);
     g_msg_pump_nest_enter_fn(&ctx);
     wakeup_event_ = ctx.wakeup_event;
     // loop = uv_loop_new();
 
-    // wakeup_events_.push_back(wakeup_event_);
     // wakeup_event_ = new uv_async_t;
     // uv_async_init(loop, wakeup_event_, wakeup_callback);
   }
@@ -148,10 +148,10 @@ void MessagePumpUV::Run(Delegate* delegate) {
 
     // // Restore previous async handle.
     // delete wakeup_event_;
-    // wakeup_event_ = wakeup_events_.back();
-    // wakeup_events_.pop_back();
     g_msg_pump_nest_leave_fn(&ctx);
-    wakeup_event_ = ctx.wakeup_event;
+    wakeup_event_ = wakeup_events_.back();
+    wakeup_events_.pop_back();
+    // wakeup_event_ = ctx.wakeup_event;
   }
 
   keep_running_ = true;
