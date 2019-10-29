@@ -183,7 +183,7 @@ base::FilePath WebRtcEventLogManager::GetRemoteBoundWebRtcEventLogsDir(
 WebRtcEventLogManager::WebRtcEventLogManager()
     : task_runner_(base::CreateSequencedTaskRunner(
           {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::BEST_EFFORT,
+           base::TaskPriority::USER_VISIBLE,
            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN})),
       remote_logging_feature_enabled_(IsRemoteLoggingFeatureEnabled()),
       local_logs_observer_(nullptr),
