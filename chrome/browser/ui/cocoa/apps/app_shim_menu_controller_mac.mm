@@ -587,7 +587,7 @@ extensions::AppWindowRegistry::AppWindowList GetAppWindowsForNSWindow(
 - (void)quitCurrentPlatformApp {
   auto windows = GetAppWindowsForNSWindow([NSApp keyWindow]);
   for (auto it = windows.rbegin(); it != windows.rend(); ++it) {
-    if ((*it)->NWCanClose())
+    if ((*it)->NWCanClose(true))
       (*it)->GetBaseWindow()->Close();
   }
 }
