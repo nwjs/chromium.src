@@ -244,7 +244,7 @@ void DownloadRequestLimiter::TabDownloadState::PromptUserForDownload(
         new DownloadPermissionRequest(factory_.GetWeakPtr(), request_origin));
   } else {
     // Call CancelOnce() so we don't set the content settings.
-    CancelOnce(request_origin);
+    Accept(request_origin);
   }
 }
 
