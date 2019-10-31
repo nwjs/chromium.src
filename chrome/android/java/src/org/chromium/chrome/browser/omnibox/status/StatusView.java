@@ -12,30 +12,47 @@ import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.TransitionDrawable;
-import android.support.annotation.ColorRes;
-import android.support.annotation.DrawableRes;
-import android.support.annotation.Nullable;
-import android.support.annotation.StringRes;
-import android.support.v4.view.ViewCompat;
 import android.support.v7.content.res.AppCompatResources;
 import android.util.AttributeSet;
 import android.view.TouchDelegate;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.annotation.ColorRes;
+import androidx.annotation.DrawableRes;
+import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
+
 import org.chromium.base.ApiCompatibilityUtils;
+import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.omnibox.SearchEngineLogoUtils;
+import org.chromium.chrome.browser.toolbar.ToolbarCommonPropertiesModel;
 import org.chromium.chrome.browser.ui.widget.CompositeTouchDelegate;
-import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.ui.UiUtils;
+import org.chromium.ui.widget.Toast;
 
 /**
  * StatusView is a location bar's view displaying status (icons and/or text).
  */
 public class StatusView extends LinearLayout {
+    @VisibleForTesting
+    class StatusViewDelegate {
+        /** @see {@link SearchEngineLogoUtils#shouldShowSearchEngineLogo} */
+        boolean shouldShowSearchEngineLogo(boolean isIncognito) {
+            return SearchEngineLogoUtils.shouldShowSearchEngineLogo(isIncognito);
+        }
+
+        /** @see {@link SearchEngineLogoUtils#isSearchEngineLogoEnabled()} */
+        boolean isSearchEngineLogoEnabled() {
+            return SearchEngineLogoUtils.isSearchEngineLogoEnabled();
+        }
+    }
+
     private @Nullable View mIncognitoBadge;
     private int mIncognitoBadgeEndPaddingWithIcon;
     private int mIncognitoBadgeEndPaddingWithoutIcon;
@@ -59,12 +76,16 @@ public class StatusView extends LinearLayout {
 
     private TouchDelegate mTouchDelegate;
     private CompositeTouchDelegate mCompositeTouchDelegate;
+    private StatusViewDelegate mDelegate;
 
     private boolean mLastTouchDelegateRtlness;
     private Rect mLastTouchDelegateRect;
 
+    private ToolbarCommonPropertiesModel mToolbarCommonPropertiesModel;
+
     public StatusView(Context context, AttributeSet attributes) {
         super(context, attributes);
+        mDelegate = new StatusViewDelegate();
     }
 
     @Override
@@ -77,6 +98,32 @@ public class StatusView extends LinearLayout {
         mStatusExtraSpace = findViewById(R.id.location_bar_verbose_status_extra_space);
 
         configureAccessibilityDescriptions();
+    }
+
+    void setToolbarCommonPropertiesModel(
+            ToolbarCommonPropertiesModel toolbarCommonPropertiesModel) {
+        mToolbarCommonPropertiesModel = toolbarCommonPropertiesModel;
+    }
+
+    /**
+     * @see {@link org.chromium.chrome.browser.omnibox.LocationBar#updateSearchEngineStatusIcon}.
+     */
+    public void updateSearchEngineStatusIcon(boolean shouldShowSearchEngineLogo,
+            boolean isSearchEngineGoogle, String searchEngineUrl) {
+        if (mToolbarCommonPropertiesModel != null
+                && mDelegate.shouldShowSearchEngineLogo(
+                        mToolbarCommonPropertiesModel.isIncognito())) {
+            LinearLayout.LayoutParams layoutParams =
+                    new LinearLayout.LayoutParams(mIconView.getLayoutParams());
+            layoutParams.setMarginEnd(0);
+            layoutParams.width =
+                    getResources().getDimensionPixelSize(R.dimen.location_bar_status_icon_width);
+            mIconView.setLayoutParams(layoutParams);
+            // Setup the padding once we're loaded, the other padding changes will happen with post-
+            // layout positioning.
+            setPaddingRelative(getPaddingStart(), getPaddingTop(),
+                    getEndPaddingPixelSizeForState(false), getPaddingBottom());
+        }
     }
 
     /**
@@ -129,7 +176,7 @@ public class StatusView extends LinearLayout {
         //
         // Note: this will be compacted once we start using LayoutTransition with StatusView.
 
-        boolean isIconHidden = mIconView.getVisibility() == View.GONE;
+        boolean isIconHidden = mIconView.getVisibility() == View.GONE || mIconView.getAlpha() == 0f;
 
         if (!wantIconHidden && (isIconHidden || mAnimatingStatusIconHide)) {
             // Action 1: animate showing, if icon was either hidden or hiding.
@@ -221,7 +268,7 @@ public class StatusView extends LinearLayout {
             public boolean onLongClick(View view) {
                 if (mAccessibilityToast == 0) return false;
                 Context context = getContext();
-                return AccessibilityUtil.showAccessibilityToast(
+                return Toast.showAnchoredToast(
                         context, view, context.getResources().getString(mAccessibilityToast));
             }
         };
@@ -270,6 +317,13 @@ public class StatusView extends LinearLayout {
         animateStatusIcon();
     }
 
+    /** Specify the status icon alpha. */
+    void setStatusIconAlpha(float alpha) {
+        if (mIconView == null) return;
+        mIconView.setAlpha(alpha);
+        mIconView.setVisibility(alpha > 0f ? VISIBLE : GONE);
+    }
+
     /**
      * Specify accessibility string presented to user upon long click.
      */
@@ -282,10 +336,13 @@ public class StatusView extends LinearLayout {
      */
     void setStatusIconDescription(@StringRes int descriptionRes) {
         String description = null;
+        int importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO;
         if (descriptionRes != 0) {
             description = getResources().getString(descriptionRes);
+            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES;
         }
         mIconView.setContentDescription(description);
+        mIconView.setImportantForAccessibility(importantForAccessibility);
     }
 
     /**
@@ -353,11 +410,28 @@ public class StatusView extends LinearLayout {
     private void updateIncognitoBadgeEndPadding() {
         if (mIncognitoBadge == null) return;
 
-        ViewCompat.setPaddingRelative(mIncognitoBadge, ViewCompat.getPaddingStart(mIncognitoBadge),
-                mIncognitoBadge.getPaddingTop(),
-                mIconRes != 0 ? mIncognitoBadgeEndPaddingWithIcon
-                              : mIncognitoBadgeEndPaddingWithoutIcon,
-                mIncognitoBadge.getPaddingBottom());
+        int endPadding = -1;
+        if (mDelegate.isSearchEngineLogoEnabled()) {
+            endPadding = 0;
+        } else {
+            endPadding = mIconRes != 0 ? mIncognitoBadgeEndPaddingWithIcon
+                                       : mIncognitoBadgeEndPaddingWithoutIcon;
+        }
+        mIncognitoBadge.setPaddingRelative(mIncognitoBadge.getPaddingStart(),
+                mIncognitoBadge.getPaddingTop(), endPadding, mIncognitoBadge.getPaddingBottom());
+    }
+
+    /**
+     * @returns The end padding for the given state.
+     */
+    public int getEndPaddingPixelSizeForState(boolean hasFocus) {
+        if (hasFocus) {
+            return getResources().getDimensionPixelOffset(
+                    R.dimen.sei_location_bar_icon_end_padding_focused);
+        } else {
+            return getResources().getDimensionPixelOffset(
+                    R.dimen.sei_location_bar_icon_end_padding);
+        }
     }
 
     /**
@@ -422,6 +496,14 @@ public class StatusView extends LinearLayout {
         return mIconView;
     }
 
+    /**
+     * @return The width of the status icon including start/end margins.
+     */
+    int getStatusIconWidth() {
+        ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) getLayoutParams();
+        return lp.getMarginStart() + getMeasuredWidth() + lp.getMarginEnd();
+    }
+
     /** @return True if the status icon is currently visible. */
     private boolean isIconVisible() {
         return (mIconRes != 0 || mIconBitmap != null) && mIconView.getVisibility() != GONE
@@ -430,5 +512,9 @@ public class StatusView extends LinearLayout {
 
     TouchDelegate getTouchDelegateForTesting() {
         return mTouchDelegate;
+    }
+
+    void setDelegateForTesting(StatusViewDelegate delegate) {
+        mDelegate = delegate;
     }
 }

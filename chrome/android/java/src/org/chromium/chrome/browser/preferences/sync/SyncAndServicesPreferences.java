@@ -7,12 +7,9 @@ package org.chromium.chrome.browser.preferences.sync;
 import android.accounts.Account;
 import android.app.Dialog;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.annotation.IntDef;
-import android.support.annotation.Nullable;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
@@ -30,6 +27,9 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
+
 import org.chromium.base.BuildInfo;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.VisibleForTesting;
@@ -37,9 +37,9 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.SyncFirstSetupCompleteSource;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchFieldTrial;
 import org.chromium.chrome.browser.help.HelpAndFeedback;
-import org.chromium.chrome.browser.invalidation.InvalidationController;
 import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.preferences.ChromeBasePreference;
 import org.chromium.chrome.browser.preferences.ChromeSwitchPreference;
@@ -51,7 +51,6 @@ import org.chromium.chrome.browser.preferences.Preferences;
 import org.chromium.chrome.browser.preferences.privacy.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.IdentityServicesProvider;
-import org.chromium.chrome.browser.signin.SignoutReason;
 import org.chromium.chrome.browser.signin.UnifiedConsentServiceBridge;
 import org.chromium.chrome.browser.sync.GoogleServiceAuthError;
 import org.chromium.chrome.browser.sync.ProfileSyncService;
@@ -59,6 +58,7 @@ import org.chromium.chrome.browser.sync.ui.PassphraseDialogFragment;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.ChromeSigninController;
+import org.chromium.components.signin.metrics.SignoutReason;
 import org.chromium.components.sync.AndroidSyncSettings;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.ui.UiUtils;
@@ -170,6 +170,7 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
             assert actionBar != null;
             actionBar.setHomeActionContentDescription(
                     R.string.prefs_sync_and_services_content_description);
+            RecordUserAction.record("Signin_Signin_ShowAdvancedSyncSettings");
         }
 
         PreferenceUtils.addPreferencesFromResource(this, R.xml.sync_and_services_preferences);
@@ -241,10 +242,6 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
     public void onDestroy() {
         super.onDestroy();
         mSyncSetupInProgressHandle.close();
-
-        if (mProfileSyncService.isSyncRequested()) {
-            InvalidationController.get().ensureStartedAndUpdateRegisteredTypes();
-        }
     }
 
     @Override
@@ -262,9 +259,9 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
             showCancelSyncDialog();
             return true;
         } else if (item.getItemId() == R.id.menu_id_targeted_help) {
-            HelpAndFeedback.getInstance(getActivity())
-                    .show(getActivity(), getString(R.string.help_context_sync_and_services),
-                            Profile.getLastUsedProfile(), null);
+            HelpAndFeedback.getInstance().show(getActivity(),
+                    getString(R.string.help_context_sync_and_services),
+                    Profile.getLastUsedProfile(), null);
             return true;
         }
         return false;
@@ -332,7 +329,8 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
                     && wasSigninFlowInterrupted()) {
                 // This flow should only be reached when user toggles sync on.
                 assert (boolean) newValue;
-                mProfileSyncService.setFirstSetupComplete();
+                mProfileSyncService.setFirstSetupComplete(
+                        SyncFirstSetupCompleteSource.ADVANCED_FLOW_INTERRUPTED_TURN_SYNC_ON);
             }
             PostTask.postTask(UiThreadTaskTraits.DEFAULT, this::updatePreferences);
         } else if (PREF_SEARCH_SUGGESTIONS.equals(key)) {
@@ -403,7 +401,7 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
     @Override
     public boolean onPassphraseEntered(String passphrase) {
         if (!mProfileSyncService.isEngineInitialized()
-                || !mProfileSyncService.isPassphraseRequiredForDecryption()) {
+                || !mProfileSyncService.isPassphraseRequiredForPreferredDataTypes()) {
             // If the engine was shut down since the dialog was opened, or the passphrase isn't
             // required anymore, do nothing.
             return false;
@@ -440,7 +438,7 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
         }
 
         if (mProfileSyncService.isEngineInitialized()
-                && mProfileSyncService.isPassphraseRequiredForDecryption()) {
+                && mProfileSyncService.isPassphraseRequiredForPreferredDataTypes()) {
             return SyncError.PASSPHRASE_REQUIRED;
         }
 
@@ -457,13 +455,12 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
      * @param error The sync error.
      */
     private String getSyncErrorTitle(@SyncError int error) {
-        Resources res = getActivity().getResources();
         switch (error) {
             case SyncError.SYNC_SETUP_INCOMPLETE:
                 assert ChromeFeatureList.isEnabled(ChromeFeatureList.SYNC_MANUAL_START_ANDROID);
-                return res.getString(R.string.sync_settings_not_confirmed_title);
+                return getString(R.string.sync_settings_not_confirmed_title);
             default:
-                return res.getString(R.string.sync_error_card_title);
+                return getString(R.string.sync_error_card_title);
         }
     }
 
@@ -472,22 +469,21 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
      * @param error The sync error.
      */
     private String getSyncErrorHint(@SyncError int error) {
-        Resources res = getActivity().getResources();
         switch (error) {
             case SyncError.ANDROID_SYNC_DISABLED:
-                return res.getString(R.string.hint_android_sync_disabled);
+                return getString(R.string.hint_android_sync_disabled);
             case SyncError.AUTH_ERROR:
-                return res.getString(R.string.hint_sync_auth_error);
+                return getString(R.string.hint_sync_auth_error);
             case SyncError.CLIENT_OUT_OF_DATE:
-                return res.getString(
+                return getString(
                         R.string.hint_client_out_of_date, BuildInfo.getInstance().hostPackageLabel);
             case SyncError.OTHER_ERRORS:
-                return res.getString(R.string.hint_other_sync_errors);
+                return getString(R.string.hint_other_sync_errors);
             case SyncError.PASSPHRASE_REQUIRED:
-                return res.getString(R.string.hint_passphrase_required);
+                return getString(R.string.hint_passphrase_required);
             case SyncError.SYNC_SETUP_INCOMPLETE:
                 assert ChromeFeatureList.isEnabled(ChromeFeatureList.SYNC_MANUAL_START_ANDROID);
-                return res.getString(R.string.hint_sync_settings_not_confirmed_description);
+                return getString(R.string.hint_sync_settings_not_confirmed_description);
             case SyncError.NO_ERROR:
             default:
                 return null;
@@ -524,7 +520,7 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
             // TODO(https://crbug.com/873116): Pass the correct reason for the signout.
             IdentityServicesProvider.getSigninManager().signOut(
                     SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS,
-                    () -> IdentityServicesProvider.getSigninManager().signIn(account, null, null));
+                    () -> IdentityServicesProvider.getSigninManager().signIn(account, null), false);
             return;
         }
 
@@ -561,7 +557,7 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
 
     private void updateSyncPreferences() {
         if (!mProfileSyncService.isEngineInitialized()
-                || !mProfileSyncService.isPassphraseRequiredForDecryption()) {
+                || !mProfileSyncService.isPassphraseRequiredForPreferredDataTypes()) {
             closeDialogIfOpen(FRAGMENT_ENTER_PASSPHRASE);
         }
 
@@ -637,7 +633,8 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
             // error again), but turn sync off.
             assert !mSyncRequested.isChecked();
             SyncPreferenceUtils.enableSync(false);
-            mProfileSyncService.setFirstSetupComplete();
+            mProfileSyncService.setFirstSetupComplete(
+                    SyncFirstSetupCompleteSource.ADVANCED_FLOW_INTERRUPTED_LEAVE_SYNC_OFF);
         }
         if (!mIsFromSigninScreen) return false; // Let parent activity handle it.
         showCancelSyncDialog();
@@ -654,7 +651,8 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
     private void confirmSettings() {
         RecordUserAction.record("Signin_Signin_ConfirmAdvancedSyncSettings");
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.SYNC_MANUAL_START_ANDROID)) {
-            ProfileSyncService.get().setFirstSetupComplete();
+            ProfileSyncService.get().setFirstSetupComplete(
+                    SyncFirstSetupCompleteSource.ADVANCED_FLOW_CONFIRM);
         }
         UnifiedConsentServiceBridge.recordSyncSetupDataTypesHistogram();
         // Settings will be applied when mSyncSetupInProgressHandle is released in onDestroy.

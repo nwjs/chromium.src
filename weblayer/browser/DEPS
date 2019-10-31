@@ -2,8 +2,11 @@ include_rules = [
   "+cc",
   "+components/embedder_support",
   "+content/public",
+  "+mojo/public",
   "+net",
   "+sandbox",
+  "+services/network/network_service.h",
+  "+services/network/public",
   "+services/service_manager",
   "+third_party/blink/public/common",
   "+ui/aura",
@@ -12,5 +15,6 @@ include_rules = [
   "+ui/events",
   "+ui/gfx",
   "+ui/views",
+  "+ui/webui",
   "+ui/wm",
 ]

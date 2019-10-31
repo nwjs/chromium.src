@@ -91,8 +91,11 @@ class CreditCardAccessManager : public CreditCardCVCAuthenticator::Requester,
   // If |opt_in| = true, opts the user into using FIDO authentication for card
   // unmasking. Otherwise, opts the user out. If |creation_options| is set,
   // WebAuthn registration prompt will be invoked to create a new credential.
-  void FIDOAuthOptChange(bool opt_in,
-                         base::Value creation_options = base::Value());
+  void FIDOAuthOptChange(bool opt_in);
+
+  // Makes a call to FIDOAuthOptChange() with |opt_in|.
+  // TODO(crbug/949269): Add a rate limiter to counter spam clicking.
+  void OnSettingsPageFIDOAuthToggled(bool opt_in);
 
   CreditCardCVCAuthenticator* GetOrCreateCVCAuthenticator();
 
@@ -177,6 +180,9 @@ class CreditCardAccessManager : public CreditCardCVCAuthenticator::Requester,
 
   // For logging metrics. May be NULL for tests.
   CreditCardFormEventLogger* form_event_logger_;
+
+  // Timestamp used for metrics.
+  base::TimeTicks preflight_call_timestamp_;
 
   // Meant for histograms recorded in FullCardRequest.
   base::TimeTicks form_parsed_timestamp_;

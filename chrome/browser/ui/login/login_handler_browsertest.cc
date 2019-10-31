@@ -177,12 +177,13 @@ class LoginPromptBrowserTest : public InProcessBrowserTest {
     auth_map_["foo"] = AuthInfo("testuser", "foopassword");
     auth_map_["bar"] = AuthInfo("testuser", "barpassword");
     auth_map_["testrealm"] = AuthInfo(username_basic_, password_);
+
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kHTTPAuthCommittedInterstitials);
   }
 
   void SetUpOnMainThread() override {
     host_resolver()->AddRule("*", "127.0.0.1");
-    scoped_feature_list.InitAndEnableFeature(
-        features::kHTTPAuthCommittedInterstitials);
   }
 
  protected:
@@ -207,7 +208,9 @@ class LoginPromptBrowserTest : public InProcessBrowserTest {
   std::string password_;
   std::string username_basic_;
   std::string username_digest_;
-  base::test::ScopedFeatureList scoped_feature_list;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 void LoginPromptBrowserTest::SetAuthFor(LoginHandler* handler) {
@@ -1694,6 +1697,52 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
   EXPECT_EQ(expected_title, auth_supplied_title_watcher.WaitAndGetTitle());
 }
 
+// Tests that when HTTP Auth committed interstitials are enabled, showing a
+// login prompt in a new window opened from window.open() does not
+// crash. Regression test for https://crbug.com/1005096.
+IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, PromptWithNoVisibleEntry) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  ui_test_utils::NavigateToURL(browser(), GURL("about:blank"));
+
+  // Open a new window via JavaScript and navigate it to a page that delivers an
+  // auth prompt.
+  GURL test_page = embedded_test_server()->GetURL(kAuthBasicPage);
+  ASSERT_NE(false, content::EvalJs(contents, "w = window.open();"));
+  content::WebContents* opened_contents =
+      browser()->tab_strip_model()->GetWebContentsAt(1);
+  NavigationController* opened_controller = &opened_contents->GetController();
+  ASSERT_FALSE(opened_controller->GetVisibleEntry());
+  LoginPromptBrowserTestObserver observer;
+  observer.Register(content::Source<NavigationController>(opened_controller));
+  WindowedAuthNeededObserver auth_needed_waiter(opened_controller);
+  ASSERT_NE(false, content::EvalJs(contents, "w.location.href = '" +
+                                                 test_page.spec() + "';"));
+
+  // Test that the login prompt displays above an empty page.
+  EXPECT_EQ(
+      "<head></head><body></body>",
+      content::EvalJs(opened_contents, "document.documentElement.innerHTML"));
+
+  auth_needed_waiter.Wait();
+  ASSERT_EQ(1u, observer.handlers().size());
+
+  // Test that credentials are handled correctly.
+  WindowedAuthSuppliedObserver auth_supplied_waiter(opened_controller);
+  LoginHandler* handler = *observer.handlers().begin();
+  SetAuthFor(handler);
+  auth_supplied_waiter.Wait();
+
+  base::string16 expected_title = ExpectedTitleFromAuth(
+      base::ASCIIToUTF16("basicuser"), base::ASCIIToUTF16("secret"));
+  content::TitleWatcher auth_supplied_title_watcher(opened_contents,
+                                                    expected_title);
+  EXPECT_EQ(expected_title, auth_supplied_title_watcher.WaitAndGetTitle());
+}
+
 // Tests that FTP auth challenges appear over a blank committed interstitial.
 IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, FtpAuth) {
   net::SpawnedTestServer ftp_server(
@@ -1765,6 +1814,18 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, FtpAuthWithCache) {
   EXPECT_EQ(0u, observer.handlers().size());
 }
 
+class ProxyBrowserTestWithHttpAuthCommittedInterstitials
+    : public ProxyBrowserTest {
+ public:
+  ProxyBrowserTestWithHttpAuthCommittedInterstitials() {
+    feature_list_.InitAndEnableFeature(
+        features::kHTTPAuthCommittedInterstitials);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
 // Tests that basic proxy auth works as expected, for HTTPS pages.
 #if defined(OS_MACOSX)
 // TODO(https://crbug.com/1000446): Re-enable this test.
@@ -1772,10 +1833,8 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, FtpAuthWithCache) {
 #else
 #define MAYBE_ProxyAuthHTTPS ProxyAuthHTTPS
 #endif
-IN_PROC_BROWSER_TEST_F(ProxyBrowserTest, MAYBE_ProxyAuthHTTPS) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      features::kHTTPAuthCommittedInterstitials);
+IN_PROC_BROWSER_TEST_F(ProxyBrowserTestWithHttpAuthCommittedInterstitials,
+                       MAYBE_ProxyAuthHTTPS) {
   net::EmbeddedTestServer https_server(net::EmbeddedTestServer::TYPE_HTTPS);
   https_server.AddDefaultHandlers(GetChromeTestDataDir());
   ASSERT_TRUE(https_server.Start());
@@ -1784,10 +1843,8 @@ IN_PROC_BROWSER_TEST_F(ProxyBrowserTest, MAYBE_ProxyAuthHTTPS) {
 }
 
 // Tests that basic proxy auth works as expected, for HTTP pages.
-IN_PROC_BROWSER_TEST_F(ProxyBrowserTest, ProxyAuthHTTP) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      features::kHTTPAuthCommittedInterstitials);
+IN_PROC_BROWSER_TEST_F(ProxyBrowserTestWithHttpAuthCommittedInterstitials,
+                       ProxyAuthHTTP) {
   ASSERT_TRUE(embedded_test_server()->Start());
   ASSERT_NO_FATAL_FAILURE(
       TestProxyAuth(browser(), embedded_test_server()->GetURL("/simple.html")));

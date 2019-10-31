@@ -22,6 +22,7 @@ class ExternalProtocolDialogTestApi;
 
 namespace views {
 class Checkbox;
+class MessageBoxView;
 }
 
 class ExternalProtocolDialog : public views::DialogDelegateView {
@@ -35,11 +36,10 @@ class ExternalProtocolDialog : public views::DialogDelegateView {
   // views::DialogDelegateView:
   gfx::Size CalculatePreferredSize() const override;
   bool ShouldShowCloseButton() const override;
-  int GetDefaultDialogButton() const override;
-  base::string16 GetDialogButtonLabel(ui::DialogButton button) const override;
   base::string16 GetWindowTitle() const override;
   bool Cancel() override;
   bool Accept() override;
+  views::View* GetContentsView() override;
   ui::ModalType GetModalType() const override;
 
  private:
@@ -48,6 +48,9 @@ class ExternalProtocolDialog : public views::DialogDelegateView {
   const std::unique_ptr<const ProtocolDialogDelegate> delegate_;
 
   views::Checkbox* remember_decision_checkbox_;
+
+  // The message box whose commands we handle.
+  views::MessageBoxView* message_box_view_;
 
   // The time at which this dialog was created.
   base::TimeTicks creation_time_;

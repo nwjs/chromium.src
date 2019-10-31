@@ -61,7 +61,9 @@ void CookieSettings::RegisterProfilePrefs(
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterIntegerPref(
       prefs::kCookieControlsMode,
-      static_cast<int>(CookieControlsMode::kIncognitoOnly),
+      static_cast<int>(kImprovedCookieControlsDefaultInIncognito.Get()
+                           ? CookieControlsMode::kIncognitoOnly
+                           : CookieControlsMode::kOff),
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 }
 
@@ -183,6 +185,13 @@ CookieSettings::~CookieSettings() {
 }
 
 bool CookieSettings::IsCookieControlsEnabled() {
+  if (base::FeatureList::IsEnabled(
+          kImprovedCookieControlsForThirdPartyCookieBlocking) &&
+      pref_change_registrar_.prefs()->GetBoolean(
+          prefs::kBlockThirdPartyCookies)) {
+    return true;
+  }
+
   if (!base::FeatureList::IsEnabled(kImprovedCookieControls))
     return false;
 

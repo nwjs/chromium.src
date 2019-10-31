@@ -33,7 +33,7 @@
 #include "build/build_config.h"
 #include "mojo/public/c/system/data_pipe.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
-#include "mojo/public/cpp/bindings/strong_binding.h"
+#include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "mojo/public/cpp/system/data_pipe_utils.h"
 #include "mojo/public/cpp/system/wait.h"
 #include "net/base/escape.h"
@@ -119,9 +119,12 @@ static ResourceRequest CreateResourceRequest(const char* method,
   request.method = std::string(method);
   request.url = url;
   request.site_for_cookies = url;  // bypass third-party cookie blocking
-  request.request_initiator =
-      url::Origin::Create(url);  // ensure initiator is set
+  url::Origin origin = url::Origin::Create(url);
+  request.request_initiator = origin;  // ensure initiator is set
   request.is_main_frame = true;
+  request.trusted_params = network::ResourceRequest::TrustedParams();
+  request.trusted_params->network_isolation_key =
+      net::NetworkIsolationKey(origin, origin);
   return request;
 }
 
@@ -385,8 +388,7 @@ void StopMonitorBodyReadFromNetBeforePausedHistogram() {
 class URLLoaderTest : public testing::Test {
  public:
   URLLoaderTest()
-      : task_environment_(base::test::TaskEnvironment::MainThreadType::IO),
-        resource_scheduler_(true) {
+      : task_environment_(base::test::TaskEnvironment::MainThreadType::IO) {
     net::TestRootCerts* root_certs = net::TestRootCerts::GetInstance();
     root_certs->AddFromFile(
         net::GetTestCertsDirectory().AppendASCII("quic-root.pem"));
@@ -469,6 +471,9 @@ class URLLoaderTest : public testing::Test {
     static mojom::URLLoaderFactoryParams params;
     params.process_id = mojom::kBrowserProcessId;
     params.is_corb_enabled = false;
+    url::Origin origin = url::Origin::Create(url);
+    params.network_isolation_key = net::NetworkIsolationKey(origin, origin);
+    params.is_trusted = true;
     url_loader = std::make_unique<URLLoader>(
         context(), nullptr /* network_service_client */,
         network_context_client.get(),
@@ -643,12 +648,12 @@ class URLLoaderTest : public testing::Test {
   // Convenience methods after calling Load();
   std::string mime_type() const {
     DCHECK(ran_);
-    return client_.response_head().mime_type;
+    return client_.response_head()->mime_type;
   }
 
   bool did_mime_sniff() const {
     DCHECK(ran_);
-    return client_.response_head().did_mime_sniff;
+    return client_.response_head()->did_mime_sniff;
   }
 
   const base::Optional<net::SSLInfo>& ssl_info() const {
@@ -806,15 +811,16 @@ TEST_F(URLLoaderTest, SSLSentOnlyWhenRequested) {
 TEST_F(URLLoaderTest, AuthChallengeInfo) {
   GURL url = test_server()->GetURL("/auth-basic");
   EXPECT_EQ(net::OK, Load(url));
-  ASSERT_TRUE(client()->response_head().auth_challenge_info.has_value());
-  EXPECT_FALSE(client()->response_head().auth_challenge_info->is_proxy);
+  ASSERT_TRUE(client()->response_head()->auth_challenge_info.has_value());
+  EXPECT_FALSE(client()->response_head()->auth_challenge_info->is_proxy);
   EXPECT_EQ(url::Origin::Create(url),
-            client()->response_head().auth_challenge_info->challenger);
-  EXPECT_EQ("basic", client()->response_head().auth_challenge_info->scheme);
-  EXPECT_EQ("testrealm", client()->response_head().auth_challenge_info->realm);
+            client()->response_head()->auth_challenge_info->challenger);
+  EXPECT_EQ("basic", client()->response_head()->auth_challenge_info->scheme);
+  EXPECT_EQ("testrealm", client()->response_head()->auth_challenge_info->realm);
   EXPECT_EQ("Basic realm=\"testrealm\"",
-            client()->response_head().auth_challenge_info->challenge);
-  EXPECT_EQ("/auth-basic", client()->response_head().auth_challenge_info->path);
+            client()->response_head()->auth_challenge_info->challenge);
+  EXPECT_EQ("/auth-basic",
+            client()->response_head()->auth_challenge_info->path);
 }
 
 // Tests that no auth challenge info is present on the response when a request
@@ -822,7 +828,7 @@ TEST_F(URLLoaderTest, AuthChallengeInfo) {
 TEST_F(URLLoaderTest, NoAuthChallengeInfo) {
   GURL url = test_server()->GetURL("/");
   EXPECT_EQ(net::OK, Load(url));
-  EXPECT_FALSE(client()->response_head().auth_challenge_info.has_value());
+  EXPECT_FALSE(client()->response_head()->auth_challenge_info.has_value());
 }
 
 // Test decoded_body_length / encoded_body_length when they're different.
@@ -1672,12 +1678,12 @@ TEST_F(URLLoaderTest, UploadRawFileWithRange) {
 TEST_F(URLLoaderTest, UploadDataPipe) {
   const std::string kRequestBody = "Request Body";
 
-  mojom::DataPipeGetterPtr data_pipe_getter_ptr;
+  mojo::PendingRemote<mojom::DataPipeGetter> data_pipe_getter_remote;
   auto data_pipe_getter = std::make_unique<TestDataPipeGetter>(
-      kRequestBody, mojo::MakeRequest(&data_pipe_getter_ptr));
+      kRequestBody, data_pipe_getter_remote.InitWithNewPipeAndPassReceiver());
 
   auto resource_request_body = base::MakeRefCounted<ResourceRequestBody>();
-  resource_request_body->AppendDataPipe(std::move(data_pipe_getter_ptr));
+  resource_request_body->AppendDataPipe(std::move(data_pipe_getter_remote));
   set_request_body(std::move(resource_request_body));
 
   std::string response_body;
@@ -1689,12 +1695,12 @@ TEST_F(URLLoaderTest, UploadDataPipe) {
 TEST_F(URLLoaderTest, UploadDataPipe_Redirect307) {
   const std::string kRequestBody = "Request Body";
 
-  mojom::DataPipeGetterPtr data_pipe_getter_ptr;
+  mojo::PendingRemote<mojom::DataPipeGetter> data_pipe_getter_remote;
   auto data_pipe_getter = std::make_unique<TestDataPipeGetter>(
-      kRequestBody, mojo::MakeRequest(&data_pipe_getter_ptr));
+      kRequestBody, data_pipe_getter_remote.InitWithNewPipeAndPassReceiver());
 
   auto resource_request_body = base::MakeRefCounted<ResourceRequestBody>();
-  resource_request_body->AppendDataPipe(std::move(data_pipe_getter_ptr));
+  resource_request_body->AppendDataPipe(std::move(data_pipe_getter_remote));
   set_request_body(std::move(resource_request_body));
   set_expect_redirect();
 
@@ -1714,12 +1720,12 @@ TEST_F(URLLoaderTest, UploadDataPipeWithLotsOfData) {
   while (request_body.size() < 5 * 1024 * 1024)
     request_body.append("foppity");
 
-  mojom::DataPipeGetterPtr data_pipe_getter_ptr;
+  mojo::PendingRemote<mojom::DataPipeGetter> data_pipe_getter_remote;
   auto data_pipe_getter = std::make_unique<TestDataPipeGetter>(
-      request_body, mojo::MakeRequest(&data_pipe_getter_ptr));
+      request_body, data_pipe_getter_remote.InitWithNewPipeAndPassReceiver());
 
   auto resource_request_body = base::MakeRefCounted<ResourceRequestBody>();
-  resource_request_body->AppendDataPipe(std::move(data_pipe_getter_ptr));
+  resource_request_body->AppendDataPipe(std::move(data_pipe_getter_remote));
   set_request_body(std::move(resource_request_body));
 
   std::string response_body;
@@ -1730,13 +1736,13 @@ TEST_F(URLLoaderTest, UploadDataPipeWithLotsOfData) {
 TEST_F(URLLoaderTest, UploadDataPipeError) {
   const std::string kRequestBody = "Request Body";
 
-  mojom::DataPipeGetterPtr data_pipe_getter_ptr;
+  mojo::PendingRemote<mojom::DataPipeGetter> data_pipe_getter_remote;
   auto data_pipe_getter = std::make_unique<TestDataPipeGetter>(
-      kRequestBody, mojo::MakeRequest(&data_pipe_getter_ptr));
+      kRequestBody, data_pipe_getter_remote.InitWithNewPipeAndPassReceiver());
   data_pipe_getter->set_start_error(net::ERR_ACCESS_DENIED);
 
   auto resource_request_body = base::MakeRefCounted<ResourceRequestBody>();
-  resource_request_body->AppendDataPipe(std::move(data_pipe_getter_ptr));
+  resource_request_body->AppendDataPipe(std::move(data_pipe_getter_remote));
   set_request_body(std::move(resource_request_body));
 
   EXPECT_EQ(net::ERR_ACCESS_DENIED, Load(test_server()->GetURL("/echo")));
@@ -1745,13 +1751,13 @@ TEST_F(URLLoaderTest, UploadDataPipeError) {
 TEST_F(URLLoaderTest, UploadDataPipeClosedEarly) {
   const std::string kRequestBody = "Request Body";
 
-  mojom::DataPipeGetterPtr data_pipe_getter_ptr;
+  mojo::PendingRemote<mojom::DataPipeGetter> data_pipe_getter_remote;
   auto data_pipe_getter = std::make_unique<TestDataPipeGetter>(
-      kRequestBody, mojo::MakeRequest(&data_pipe_getter_ptr));
+      kRequestBody, data_pipe_getter_remote.InitWithNewPipeAndPassReceiver());
   data_pipe_getter->set_pipe_closed_early(true);
 
   auto resource_request_body = base::MakeRefCounted<ResourceRequestBody>();
-  resource_request_body->AppendDataPipe(std::move(data_pipe_getter_ptr));
+  resource_request_body->AppendDataPipe(std::move(data_pipe_getter_remote));
   set_request_body(std::move(resource_request_body));
 
   std::string response_body;
@@ -1789,7 +1795,7 @@ TEST_F(URLLoaderTest, UploadChunkedDataPipe) {
       CreateResourceRequest("POST", test_server()->GetURL("/echo"));
   request.request_body = base::MakeRefCounted<ResourceRequestBody>();
   request.request_body->SetToChunkedDataPipe(
-      data_pipe_getter.GetDataPipeGetterPtr());
+      data_pipe_getter.GetDataPipeGetterRemote());
 
   base::RunLoop delete_run_loop;
   mojom::URLLoaderPtr loader;
@@ -1974,7 +1980,7 @@ TEST_F(URLLoaderTest, RedirectLogsModifiedConcerningHeader) {
   net::HttpRequestHeaders redirect_headers;
   redirect_headers.SetHeader(net::HttpRequestHeaders::kReferer,
                              "https://somewhere.test/");
-  redirect_headers.SetHeader(net::HttpRequestHeaders::kTransferEncoding, "Hat");
+  redirect_headers.SetHeader("Via", "Albuquerque");
   loader->FollowRedirect({}, redirect_headers, base::nullopt);
 
   client.RunUntilComplete();
@@ -1989,7 +1995,7 @@ TEST_F(URLLoaderTest, RedirectLogsModifiedConcerningHeader) {
       "NetworkService.ConcerningRequestHeader.AddedOnRedirect", false, 0);
   for (int i = 0; i < static_cast<int>(ConcerningHeaderId::kMaxValue); ++i) {
     if (i == static_cast<int>(ConcerningHeaderId::kReferer) ||
-        i == static_cast<int>(ConcerningHeaderId::kTransferEncoding)) {
+        i == static_cast<int>(ConcerningHeaderId::kVia)) {
       histograms.ExpectBucketCount(
           "NetworkService.ConcerningRequestHeader.HeaderAddedOnRedirect", i, 1);
     } else {
@@ -2311,7 +2317,7 @@ TEST_F(URLLoaderTest, CertStatusOnResponse) {
 
   EXPECT_EQ(net::OK, Load(GURL("https://example.test/")));
   EXPECT_EQ(net::CERT_STATUS_DATE_INVALID,
-            client()->response_head().cert_status);
+            client()->response_head()->cert_status);
 }
 
 // Verifies if URLLoader works well with ResourceScheduler.
@@ -2642,7 +2648,7 @@ class MockNetworkContextClient : public TestNetworkContextClient {
       case CertificateResponse::INVALID_CERTIFICATE_SIGNATURE:
         client_cert_responder->ContinueWithCertificate(
             std::move(certificate_), provider_name_, algorithm_preferences_,
-            std::move(ssl_private_key_ptr_));
+            std::move(ssl_private_key_remote_));
         break;
       case CertificateResponse::DESTROY_CLIENT_CERT_RESPONDER:
         // Send no response and let the local variable be destroyed.
@@ -2727,10 +2733,9 @@ class MockNetworkContextClient : public TestNetworkContextClient {
     ssl_private_key_ = std::move(ssl_private_key);
     provider_name_ = ssl_private_key_->GetProviderName();
     algorithm_preferences_ = ssl_private_key_->GetAlgorithmPreferences();
-    auto ssl_private_key_request = mojo::MakeRequest(&ssl_private_key_ptr_);
-    mojo::MakeStrongBinding(
+    mojo::MakeSelfOwnedReceiver(
         std::make_unique<FakeSSLPrivateKeyImpl>(std::move(ssl_private_key_)),
-        std::move(ssl_private_key_request));
+        ssl_private_key_remote_.InitWithNewPipeAndPassReceiver());
   }
 
   void set_certificate(scoped_refptr<net::X509Certificate> certificate) {
@@ -2762,7 +2767,7 @@ class MockNetworkContextClient : public TestNetworkContextClient {
   CertificateResponse certificate_response_ = CertificateResponse::INVALID;
   scoped_refptr<net::SSLPrivateKey> ssl_private_key_;
   scoped_refptr<net::X509Certificate> certificate_;
-  network::mojom::SSLPrivateKeyPtr ssl_private_key_ptr_;
+  mojo::PendingRemote<network::mojom::SSLPrivateKey> ssl_private_key_remote_;
   std::string provider_name_;
   std::vector<uint16_t> algorithm_preferences_;
   int on_certificate_requested_counter_ = 0;
@@ -2813,12 +2818,12 @@ TEST_F(URLLoaderTest, SetAuth) {
   client()->RunUntilComplete();
   EXPECT_TRUE(client()->has_received_completion());
   scoped_refptr<net::HttpResponseHeaders> headers =
-      client()->response_head().headers;
+      client()->response_head()->headers;
   ASSERT_TRUE(headers);
   EXPECT_EQ(200, headers->response_code());
   EXPECT_EQ(1, network_context_client.on_auth_required_call_counter());
   ASSERT_FALSE(url_loader);
-  EXPECT_FALSE(client()->response_head().auth_challenge_info.has_value());
+  EXPECT_FALSE(client()->response_head()->auth_challenge_info.has_value());
 }
 
 TEST_F(URLLoaderTest, CancelAuth) {
@@ -2857,7 +2862,7 @@ TEST_F(URLLoaderTest, CancelAuth) {
   client()->RunUntilComplete();
   EXPECT_TRUE(client()->has_received_completion());
   scoped_refptr<net::HttpResponseHeaders> headers =
-      client()->response_head().headers;
+      client()->response_head()->headers;
   ASSERT_TRUE(headers);
   EXPECT_EQ(401, headers->response_code());
   EXPECT_EQ(1, network_context_client.on_auth_required_call_counter());
@@ -2901,7 +2906,7 @@ TEST_F(URLLoaderTest, TwoChallenges) {
   client()->RunUntilComplete();
   EXPECT_TRUE(client()->has_received_completion());
   scoped_refptr<net::HttpResponseHeaders> headers =
-      client()->response_head().headers;
+      client()->response_head()->headers;
   ASSERT_TRUE(headers);
   EXPECT_EQ(200, headers->response_code());
   EXPECT_EQ(2, network_context_client.on_auth_required_call_counter());
@@ -2946,7 +2951,7 @@ TEST_F(URLLoaderTest, NoAuthRequiredForFavicon) {
   client()->RunUntilComplete();
   EXPECT_TRUE(client()->has_received_completion());
   scoped_refptr<net::HttpResponseHeaders> headers =
-      client()->response_head().headers;
+      client()->response_head()->headers;
   ASSERT_TRUE(headers);
   EXPECT_EQ(200, headers->response_code());
   // No auth required for favicon.
@@ -4391,11 +4396,11 @@ TEST_F(URLLoaderTest, OriginPolicyManagerCalled) {
 
     EXPECT_EQ("policy=policy-1", mock_origin_policy_manager.header_value());
     EXPECT_TRUE(mock_origin_policy_manager.retrieve_origin_policy_called());
-    EXPECT_TRUE(loader_client.response_head().origin_policy.has_value());
+    EXPECT_TRUE(loader_client.response_head()->origin_policy.has_value());
     EXPECT_EQ(OriginPolicyState::kLoaded,
-              loader_client.response_head().origin_policy.value().state);
+              loader_client.response_head()->origin_policy.value().state);
     EXPECT_EQ(server.base_url(),
-              loader_client.response_head().origin_policy.value().policy_url);
+              loader_client.response_head()->origin_policy.value().policy_url);
   }
 
   // If the "Sec-Origin-Policy" header is not present in the response, still
@@ -4428,11 +4433,11 @@ TEST_F(URLLoaderTest, OriginPolicyManagerCalled) {
 
     EXPECT_EQ("", mock_origin_policy_manager.header_value());
     EXPECT_TRUE(mock_origin_policy_manager.retrieve_origin_policy_called());
-    EXPECT_TRUE(loader_client.response_head().origin_policy.has_value());
+    EXPECT_TRUE(loader_client.response_head()->origin_policy.has_value());
     EXPECT_EQ(OriginPolicyState::kLoaded,
-              loader_client.response_head().origin_policy.value().state);
+              loader_client.response_head()->origin_policy.value().state);
     EXPECT_EQ(server.base_url(),
-              loader_client.response_head().origin_policy.value().policy_url);
+              loader_client.response_head()->origin_policy.value().policy_url);
   }
 
   // If "obey_origin_policy" is not set, don't call the origin policy manager
@@ -4464,7 +4469,7 @@ TEST_F(URLLoaderTest, OriginPolicyManagerCalled) {
     delete_run_loop.Run();
 
     EXPECT_FALSE(mock_origin_policy_manager.retrieve_origin_policy_called());
-    EXPECT_FALSE(loader_client.response_head().origin_policy.has_value());
+    EXPECT_FALSE(loader_client.response_head()->origin_policy.has_value());
   }
 }
 

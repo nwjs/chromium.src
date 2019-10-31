@@ -25,9 +25,10 @@ class BrowserObserverProxy : public BrowserObserver {
   ~BrowserObserverProxy() override;
 
   // BrowserObserver:
-  void DisplayedURLChanged(const GURL& url) override;
+  void DisplayedUrlChanged(const GURL& url) override;
   void LoadingStateChanged(bool is_loading,
                            bool to_different_document) override;
+  void LoadProgressChanged(double progress) override;
   void FirstContentfulPaint() override;
 
  private:

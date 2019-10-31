@@ -669,10 +669,17 @@ bool CanvasRenderingContext2D::CanCreateCanvas2dResourceProvider() const {
 }
 
 scoped_refptr<StaticBitmapImage> blink::CanvasRenderingContext2D::GetImage(
-    AccelerationHint hint) const {
+    AccelerationHint hint) {
   if (!IsPaintable())
     return nullptr;
   return canvas()->GetCanvas2DLayerBridge()->NewImageSnapshot(hint);
+}
+
+void CanvasRenderingContext2D::FinalizeFrame() {
+  TRACE_EVENT0("blink", "CanvasRenderingContext2D::FinalizeFrame");
+  if (canvas() && canvas()->GetCanvas2DLayerBridge())
+    canvas()->GetCanvas2DLayerBridge()->FinalizeFrame();
+  usage_counters_.num_frames_since_reset++;
 }
 
 bool CanvasRenderingContext2D::ParseColorOrCurrentColor(

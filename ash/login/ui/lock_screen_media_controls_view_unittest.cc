@@ -17,6 +17,7 @@
 #include "components/media_message_center/media_controls_progress_view.h"
 #include "services/media_session/public/cpp/test/test_media_controller.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/paint_vector_icon.h"
@@ -177,16 +178,16 @@ class LockScreenMediaControlsViewTest : public LoginTestBase {
   }
 
   views::Button* GetButtonForAction(MediaSessionAction action) const {
-    const auto& children = button_row()->children();
-    const auto it = std::find_if(
-        children.begin(), children.end(), [action](const views::View* v) {
-          return views::Button::AsButton(v)->tag() == static_cast<int>(action);
-        });
+    const auto& buttons = media_action_buttons();
+    const auto it = std::find_if(buttons.begin(), buttons.end(),
+                                 [action](const views::Button* b) {
+                                   return b->tag() == static_cast<int>(action);
+                                 });
 
-    if (it == children.end())
+    if (it == buttons.end())
       return nullptr;
 
-    return views::Button::AsButton(*it);
+    return *it;
   }
 
   TestMediaController* media_controller() const {
@@ -223,6 +224,10 @@ class LockScreenMediaControlsViewTest : public LoginTestBase {
 
   views::ImageButton* close_button() const {
     return header_row()->close_button_for_testing();
+  }
+
+  std::vector<views::Button*>& media_action_buttons() const {
+    return media_controls_view_->media_action_buttons_;
   }
 
   bool CloseButtonHasImage() const {
@@ -341,10 +346,10 @@ TEST_F(LockScreenMediaControlsViewTest, ButtonsSanityCheck) {
   EnableAllActions();
 
   EXPECT_TRUE(button_row()->GetVisible());
-  EXPECT_EQ(5u, button_row()->children().size());
+  EXPECT_EQ(5u, media_action_buttons().size());
 
   for (int i = 0; i < 5; /* size of |button_row| */ i++) {
-    auto* child = button_row()->children()[i];
+    auto* child = media_action_buttons()[i];
 
     ASSERT_TRUE(IsMediaButtonType(child->GetClassName()));
 

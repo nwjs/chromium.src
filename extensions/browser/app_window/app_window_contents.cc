@@ -55,7 +55,7 @@ void AppWindowContentsImpl::Initialize(content::BrowserContext* context,
   std::string user_agent;
   if (nw::GetUserAgentFromManifest(&user_agent))
     render_prefs->user_agent_override = user_agent;
-  web_contents_->GetRenderViewHost()->SyncRendererPrefs();
+  web_contents_->SyncRendererPrefs();
 }
 
 void AppWindowContentsImpl::LoadContents(int32_t creator_process_id) {

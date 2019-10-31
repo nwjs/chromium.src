@@ -21,6 +21,7 @@
 #include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test_utils.h"
@@ -38,6 +39,7 @@
 #include "media/base/media_switches.h"
 #include "media/base/test_data_util.h"
 #include "media/mojo/buildflags.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
@@ -58,9 +60,13 @@ std::unique_ptr<net::test_server::HttpResponse> HandleBeacon(
 }
 
 std::unique_ptr<net::test_server::HttpResponse> HandleHungBeacon(
+    const base::RepeatingClosure& on_called,
     const net::test_server::HttpRequest& request) {
   if (request.relative_url != "/beacon")
     return nullptr;
+  if (on_called) {
+    on_called.Run();
+  }
   return std::make_unique<net::test_server::HungResponse>();
 }
 
@@ -235,9 +241,9 @@ IN_PROC_BROWSER_TEST_F(RenderProcessHostTest, SpareRenderProcessHostKilled) {
 
   RenderProcessHost* spare_renderer =
       RenderProcessHostImpl::GetSpareRenderProcessHostForTesting();
-  mojom::TestServicePtr service;
+  mojo::Remote<mojom::TestService> service;
   ASSERT_NE(nullptr, spare_renderer);
-  BindInterface(spare_renderer, &service);
+  BindInterface(spare_renderer, service.BindNewPipeAndPassReceiver());
 
   base::RunLoop run_loop;
   set_process_exit_callback(run_loop.QuitClosure());
@@ -673,8 +679,8 @@ IN_PROC_BROWSER_TEST_F(RenderProcessHostTest, KillProcessOnBadMojoMessage) {
   process_exits_ = 0;
   rph->AddObserver(this);
 
-  mojom::TestServicePtr service;
-  BindInterface(rph, &service);
+  mojo::Remote<mojom::TestService> service;
+  BindInterface(rph, service.BindNewPipeAndPassReceiver());
 
   base::RunLoop run_loop;
   set_process_exit_callback(run_loop.QuitClosure());
@@ -752,8 +758,8 @@ IN_PROC_BROWSER_TEST_F(RenderProcessHostTest, KillProcessZerosAudioStreams) {
   process_exits_ = 0;
   rph->AddObserver(this);
 
-  mojom::TestServicePtr service;
-  BindInterface(rph, &service);
+  mojo::Remote<mojom::TestService> service;
+  BindInterface(rph, service.BindNewPipeAndPassReceiver());
 
   {
     // Force a bad message event to occur which will terminate the renderer.
@@ -855,8 +861,8 @@ IN_PROC_BROWSER_TEST_F(CaptureStreamRenderProcessHostTest,
   process_exits_ = 0;
   rph->AddObserver(this);
 
-  mojom::TestServicePtr service;
-  BindInterface(rph, &service);
+  mojo::Remote<mojom::TestService> service;
+  BindInterface(rph, service.BindNewPipeAndPassReceiver());
 
   {
     // Force a bad message event to occur which will terminate the renderer.
@@ -921,8 +927,8 @@ IN_PROC_BROWSER_TEST_F(CaptureStreamRenderProcessHostTest,
   process_exits_ = 0;
   rph->AddObserver(this);
 
-  mojom::TestServicePtr service;
-  BindInterface(rph, &service);
+  mojo::Remote<mojom::TestService> service;
+  BindInterface(rph, service.BindNewPipeAndPassReceiver());
 
   {
     // Force a bad message event to occur which will terminate the renderer.
@@ -986,6 +992,35 @@ IN_PROC_BROWSER_TEST_F(RenderProcessHostTest, KeepAliveRendererProcess) {
     rph->RemoveObserver(this);
 }
 
+IN_PROC_BROWSER_TEST_F(RenderProcessHostTest,
+                       KeepAliveRendererProcessWithServiceWorker) {
+  base::RunLoop run_loop;
+  embedded_test_server()->RegisterRequestHandler(
+      base::BindRepeating(HandleHungBeacon, run_loop.QuitClosure()));
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  EXPECT_TRUE(NavigateToURL(
+      shell(),
+      embedded_test_server()->GetURL("/workers/service_worker_setup.html")));
+  EXPECT_EQ("ok", EvalJs(shell(), "setup();"));
+
+  RenderProcessHostImpl* rph = static_cast<RenderProcessHostImpl*>(
+      shell()->web_contents()->GetMainFrame()->GetProcess());
+  // 1 for the service worker.
+  EXPECT_EQ(rph->keep_alive_ref_count(), 1u);
+
+  // We use /workers/send-beacon.html, not send-beacon.html, due to the
+  // service worker scope rule.
+  EXPECT_TRUE(NavigateToURL(
+      shell(), embedded_test_server()->GetURL("/workers/send-beacon.html")));
+
+  run_loop.Run();
+  // We are still using the same process.
+  ASSERT_EQ(shell()->web_contents()->GetMainFrame()->GetProcess(), rph);
+  // 1 for the service worker, 1 for the keepalive fetch.
+  EXPECT_EQ(rph->keep_alive_ref_count(), 2u);
+}
+
 // Test is flaky on Android builders: https://crbug.com/875179
 #if defined(OS_ANDROID)
 #define MAYBE_KeepAliveRendererProcess_Hung \
@@ -996,7 +1031,7 @@ IN_PROC_BROWSER_TEST_F(RenderProcessHostTest, KeepAliveRendererProcess) {
 IN_PROC_BROWSER_TEST_F(RenderProcessHostTest,
                        MAYBE_KeepAliveRendererProcess_Hung) {
   embedded_test_server()->RegisterRequestHandler(
-      base::BindRepeating(HandleHungBeacon));
+      base::BindRepeating(HandleHungBeacon, base::RepeatingClosure()));
   ASSERT_TRUE(embedded_test_server()->Start());
 
   EXPECT_TRUE(NavigateToURL(
@@ -1033,7 +1068,7 @@ IN_PROC_BROWSER_TEST_F(RenderProcessHostTest,
 IN_PROC_BROWSER_TEST_F(RenderProcessHostTest,
                        MAYBE_FetchKeepAliveRendererProcess_Hung) {
   embedded_test_server()->RegisterRequestHandler(
-      base::BindRepeating(HandleHungBeacon));
+      base::BindRepeating(HandleHungBeacon, base::RepeatingClosure()));
   ASSERT_TRUE(embedded_test_server()->Start());
 
   EXPECT_TRUE(NavigateToURL(

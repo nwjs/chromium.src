@@ -16,6 +16,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/rand_util.h"
+#include "base/threading/sequenced_task_runner_handle.h"
 #include "base/time/clock.h"
 #include "base/time/default_clock.h"
 #include "base/time/default_tick_clock.h"
@@ -260,14 +261,15 @@ void UpgradeDetectorChromeos::OnRelaunchNotificationPeriodPrefChanged() {
 }
 
 void UpgradeDetectorChromeos::UpdateStatusChanged(
-    const UpdateEngineClient::Status& status) {
-  if (status.status == UpdateEngineClient::UPDATE_STATUS_UPDATED_NEED_REBOOT) {
+    const update_engine::StatusResult& status) {
+  if (status.current_operation() ==
+      update_engine::Operation::UPDATED_NEED_REBOOT) {
     if (upgrade_detected_time().is_null()) {
       set_upgrade_detected_time(clock()->Now());
       CalculateDeadlines();
     }
 
-    if (status.is_rollback) {
+    if (status.is_enterprise_rollback()) {
       // Powerwash will be required, determine what kind of notification to show
       // based on the channel.
       ChannelsRequester::Begin(
@@ -280,8 +282,8 @@ void UpgradeDetectorChromeos::UpdateStatusChanged(
       set_is_factory_reset_required(false);
       NotifyOnUpgrade();
     }
-  } else if (status.status ==
-             UpdateEngineClient::UPDATE_STATUS_NEED_PERMISSION_TO_UPDATE) {
+  } else if (status.current_operation() ==
+             update_engine::Operation::NEED_PERMISSION_TO_UPDATE) {
     // Update engine broadcasts this state only when update is available but
     // downloading over cellular connection requires user's agreement.
     NotifyUpdateOverCellularAvailable();

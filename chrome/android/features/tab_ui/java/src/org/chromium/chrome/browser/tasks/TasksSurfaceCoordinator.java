@@ -4,12 +4,12 @@
 
 package org.chromium.chrome.browser.tasks;
 
-import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_TAB_CAROUSEL;
-
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 
 import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.ntp.FakeboxDelegate;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementModuleProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
 import org.chromium.chrome.tab_ui.R;
@@ -24,22 +24,30 @@ public class TasksSurfaceCoordinator implements TasksSurface {
     private final TabSwitcher mTabSwitcher;
     private final TasksView mView;
     private final PropertyModelChangeProcessor mPropertyModelChangeProcessor;
+    private final MostVisitedListCoordinator mMostVisitedList;
+    private final TasksSurfaceMediator mMediator;
 
-    public TasksSurfaceCoordinator(
-            ChromeActivity activity, boolean isTabCarousel, PropertyModel propertyModel) {
+    public TasksSurfaceCoordinator(ChromeActivity activity, PropertyModel propertyModel,
+            FakeboxDelegate fakeboxDelegate, boolean isTabCarousel) {
         mView = (TasksView) LayoutInflater.from(activity).inflate(R.layout.tasks_view_layout, null);
         mPropertyModelChangeProcessor =
                 PropertyModelChangeProcessor.create(propertyModel, mView, TasksViewBinder::bind);
         if (isTabCarousel) {
-            propertyModel.set(IS_TAB_CAROUSEL, true);
             mTabSwitcher = TabManagementModuleProvider.getDelegate().createCarouselTabSwitcher(
                     activity, mView.getTabSwitcherContainer());
         } else {
             mTabSwitcher = TabManagementModuleProvider.getDelegate().createGridTabSwitcher(
                     activity, mView.getTabSwitcherContainer());
         }
+
+        mMediator =
+                new TasksSurfaceMediator(activity, propertyModel, fakeboxDelegate, isTabCarousel);
+
+        LinearLayout mvTilesLayout = mView.findViewById(R.id.mv_tiles_layout);
+        mMostVisitedList = new MostVisitedListCoordinator(activity, mvTilesLayout, propertyModel);
     }
 
+    /** TasksSurface implementation. */
     @Override
     public void setOnTabSelectingListener(TabSwitcher.OnTabSelectingListener listener) {
         mTabSwitcher.setOnTabSelectingListener(listener);

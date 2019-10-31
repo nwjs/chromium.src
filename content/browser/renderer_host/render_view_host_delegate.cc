@@ -69,7 +69,7 @@ bool RenderViewHostDelegate::IsSpatialNavigationDisabled() const {
   return false;
 }
 
-RenderFrameHost* RenderViewHostDelegate::GetPendingMainFrame() {
+RenderFrameHostImpl* RenderViewHostDelegate::GetPendingMainFrame() {
   return nullptr;
 }
 

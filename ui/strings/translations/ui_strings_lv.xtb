@@ -81,7 +81,6 @@
 <translation id="3295886253693811851">Veiciet zvanu, izmantojot:</translation>
 <translation id="335581015389089642">Runa</translation>
 <translation id="3389286852084373014">Teksts ir pārāk liels</translation>
-<translation id="3443810440409579745">Saņemta cilne.</translation>
 <translation id="3479552764303398839">Vēlāk</translation>
 <translation id="348799646910989694">Plaukts tiek automātiski paslēpts</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{Atlikusi 1 diena}zero{Atlikušas # dienas}one{Atlikusi # diena}other{Atlikušas # dienas}}</translation>
@@ -111,14 +110,11 @@
 <translation id="4724120544754982507">Paziņojumu centrs, <ph name="UNREAD_NOTIFICATION_COUNT" /> nelasīts(-i) paziņojums(-i)</translation>
 <translation id="4730374152663651037">BIEŽI IZMANTOTĀS</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{Atlicis 1 mēnesis}zero{Atlikuši # mēneši}one{Atlicis # mēnesis}other{Atlikuši # mēneši}}</translation>
-<translation id="4841881773802181781">Ievietošana</translation>
-<translation id="4881695831933465202">Atvērt</translation>
 <translation id="4888938634149558681">Zvanīt</translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 sekunde}zero{# sekundes}one{# sekunde}other{# sekundes}}</translation>
 <translation id="4971687151119236543">Multivide — iepriekšējā dziesma</translation>
 <translation id="5046499563572181734">Pieskarieties šeit</translation>
 <translation id="5076340679995252485">&amp;Ielīmēt</translation>
-<translation id="5137751499640340777">Palaist Google asistentu</translation>
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5266161281976477809">Atklāšanas trijstūris</translation>
 <translation id="5278860589123563674">Neizdevās nosūtīt</translation>
@@ -155,6 +151,7 @@
 <translation id="6394627529324717982">Komats</translation>
 <translation id="6397363302884558537">Pārtraukt runāt</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{Pirms 1 s}zero{Pirms # s}one{Pirms # s}other{Pirms # s}}</translation>
+<translation id="6417265370957905582">Google asistents</translation>
 <translation id="6430678249303439055">Bloķēt visus paziņojumus no šīs lietotnes</translation>
 <translation id="6483402905448010557">{SECONDS,plural, =1{Pirms 1 sekundes}zero{Pirms # sekundēm}one{Pirms # sekundes}other{Pirms # sekundēm}}</translation>
 <translation id="6539092367496845964">Radās kļūda. Vēlāk mēģiniet vēlreiz.</translation>
@@ -165,7 +162,6 @@
 <translation id="6620110761915583480">Saglabāt failu</translation>
 <translation id="6656912866303152668">Gādājiet, lai ierīces <ph name="TARGET_DEVICE_NAME" /> pārlūkprogrammā Chrome ir ieslēgta sinhronizācija, un pēc tam mēģiniet nosūtīt saturu vēlreiz.</translation>
 <translation id="6699343763173986273">Multivide — nākamā dziesma</translation>
-<translation id="673773751041746814">Dzēšana</translation>
 <translation id="6779314412797872738">Lai no šejienes uz Android tālruni nosūtītu numuru, <ph name="TROUBLESHOOT_LINK" /> abām iestatījumos esošajām ierīcēm.</translation>
 <translation id="6786750046913594791">Aizvērt mapi</translation>
 <translation id="6808150112686056157">Multivide — pārtraukt</translation>
@@ -198,7 +194,6 @@
 <translation id="8074552109918343525">{MAX_UNREAD_NOTIFICATIONS,plural, =1{Vairāk nekā 1 nelasīts paziņojums}zero{Vairāk nekā # nelasīti paziņojumi}one{Vairāk nekā # nelasīts paziņojums}other{Vairāk nekā # nelasīti paziņojumi}}</translation>
 <translation id="8086866675552927481">{MINUTES,plural, =1{pēc 1 min}zero{pēc # min}one{pēc # min}other{pēc # min}}</translation>
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
-<translation id="8098075892845277643">Sākt Google asistenta balss vaicājumu</translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{Pirms 1 stundas}zero{Pirms # stundām}one{Pirms # stundas}other{Pirms # stundām}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{Atlikusi 1 s}zero{Atlikušas # s}one{Atlikusi # s}other{Atlikušas # s}}</translation>
 <translation id="8144660977431427332">Jūsu meklēšanas vaicājumus nodrošina Google asistents. <ph name="LEARN_MORE" /></translation>

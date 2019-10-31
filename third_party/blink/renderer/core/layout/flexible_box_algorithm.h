@@ -65,25 +65,46 @@ enum class TransformedWritingMode {
 
 typedef Vector<FlexItem, 8> FlexItemVector;
 
-class AutoClearOverrideHeight {
+class AutoClearOverrideLogicalHeight {
  public:
-  explicit AutoClearOverrideHeight(LayoutBlock* block)
-      : block_(block), old_override_height_(-1) {
-    if (block_ && block_->HasOverrideLogicalHeight()) {
-      old_override_height_ = block_->OverrideLogicalHeight();
-      block_->ClearOverrideLogicalHeight();
+  explicit AutoClearOverrideLogicalHeight(LayoutBox* box)
+      : box_(box), old_override_height_(-1) {
+    if (box_ && box_->HasOverrideLogicalHeight()) {
+      old_override_height_ = box_->OverrideLogicalHeight();
+      box_->ClearOverrideLogicalHeight();
     }
   }
-  ~AutoClearOverrideHeight() {
+  ~AutoClearOverrideLogicalHeight() {
     if (old_override_height_ != LayoutUnit(-1)) {
-      DCHECK(block_);
-      block_->SetOverrideLogicalHeight(old_override_height_);
+      DCHECK(box_);
+      box_->SetOverrideLogicalHeight(old_override_height_);
     }
   }
 
  private:
-  LayoutBlock* block_;
+  LayoutBox* box_;
   LayoutUnit old_override_height_;
+};
+
+class AutoClearOverrideLogicalWidth {
+ public:
+  explicit AutoClearOverrideLogicalWidth(LayoutBox* box)
+      : box_(box), old_override_width_(-1) {
+    if (box_ && box_->HasOverrideLogicalWidth()) {
+      old_override_width_ = box_->OverrideLogicalWidth();
+      box_->ClearOverrideLogicalWidth();
+    }
+  }
+  ~AutoClearOverrideLogicalWidth() {
+    if (old_override_width_ != LayoutUnit(-1)) {
+      DCHECK(box_);
+      box_->SetOverrideLogicalWidth(old_override_width_);
+    }
+  }
+
+ private:
+  LayoutBox* box_;
+  LayoutUnit old_override_width_;
 };
 
 class FlexItem {
@@ -149,6 +170,13 @@ class FlexItem {
   bool UpdateAutoMarginsInCrossAxis(LayoutUnit available_alignment_space);
 
   inline const FlexLine* Line() const;
+
+  static LayoutUnit AlignmentOffset(LayoutUnit available_free_space,
+                                    ItemPosition position,
+                                    LayoutUnit ascent,
+                                    LayoutUnit max_ascent,
+                                    bool is_wrap_reverse,
+                                    bool is_deprecated_webkit_box);
 
   FlexLayoutAlgorithm* algorithm;
   wtf_size_t line_number;
@@ -356,6 +384,13 @@ class FlexLayoutAlgorithm {
   // FlexItem::desired_position. When lines stretch, also modifies
   // FlexLine::cross_axis_extent.
   void AlignFlexLines(LayoutUnit cross_axis_content_extent);
+
+  // Positions flex items by modifying FlexItem::desired_location.
+  // When lines stretch, also modifies FlexItem::cross_axis_size.
+  void AlignChildren();
+
+  void FlipForWrapReverse(LayoutUnit cross_axis_start_edge,
+                          LayoutUnit cross_axis_content_size);
 
   static TransformedWritingMode GetTransformedWritingMode(const ComputedStyle&);
 

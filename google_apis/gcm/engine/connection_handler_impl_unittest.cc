@@ -25,6 +25,8 @@
 #include "google_apis/gcm/base/mcs_util.h"
 #include "google_apis/gcm/base/socket_stream.h"
 #include "google_apis/gcm/protocol/mcs.pb.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/ip_address.h"
 #include "net/base/test_completion_callback.h"
 #include "net/log/net_log_source.h"
@@ -172,7 +174,7 @@ class GCMConnectionHandlerImplTest : public testing::Test {
   // Runs the message loop until a message is received.
   void WaitForMessage();
 
-  network::mojom::ProxyResolvingSocketPtr mojo_socket_ptr_;
+  mojo::Remote<network::mojom::ProxyResolvingSocket> mojo_socket_remote_;
 
  private:
   void ReadContinuation(ScopedMessage* dst_proto, ScopedMessage new_proto);
@@ -194,7 +196,7 @@ class GCMConnectionHandlerImplTest : public testing::Test {
   std::unique_ptr<base::RunLoop> run_loop_;
   std::unique_ptr<net::NetworkChangeNotifier> network_change_notifier_;
   std::unique_ptr<network::NetworkService> network_service_;
-  network::mojom::NetworkContextPtr network_context_ptr_;
+  mojo::Remote<network::mojom::NetworkContext> network_context_remote_;
   net::MockClientSocketFactory socket_factory_;
   net::TestURLRequestContext url_request_context_;
   std::unique_ptr<network::NetworkContext> network_context_;
@@ -216,7 +218,8 @@ GCMConnectionHandlerImplTest::GCMConnectionHandlerImplTest()
   url_request_context_.Init();
 
   network_context_ = std::make_unique<network::NetworkContext>(
-      network_service_.get(), mojo::MakeRequest(&network_context_ptr_),
+      network_service_.get(),
+      network_context_remote_.BindNewPipeAndPassReceiver(),
       &url_request_context_,
       /*cors_exempt_header_list=*/std::vector<std::string>());
 }
@@ -243,10 +246,12 @@ void GCMConnectionHandlerImplTest::BuildSocket(const ReadList& read_list,
   network::mojom::ProxyResolvingSocketOptionsPtr options =
       network::mojom::ProxyResolvingSocketOptions::New();
   options->use_tls = true;
+  mojo_socket_remote_.reset();
   mojo_socket_factory_ptr_->CreateProxyResolvingSocket(
       kDestination, std::move(options),
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS),
-      mojo::MakeRequest(&mojo_socket_ptr_), nullptr /* observer */,
+      mojo_socket_remote_.BindNewPipeAndPassReceiver(),
+      mojo::NullRemote() /* observer */,
       base::BindLambdaForTesting(
           [&](int result, const base::Optional<net::IPEndPoint>& local_addr,
               const base::Optional<net::IPEndPoint>& peer_addr,
@@ -752,7 +757,7 @@ TEST_F(GCMConnectionHandlerImplTest, SendMsgSocketDisconnected) {
   WaitForMessage();  // The login send.
   WaitForMessage();  // The login response.
   EXPECT_TRUE(connection_handler()->CanSendMessage());
-  mojo_socket_ptr_.reset();
+  mojo_socket_remote_.reset();
   mcs_proto::DataMessageStanza data_message;
   data_message.set_from(kDataMsgFrom);
   data_message.set_category(kDataMsgCategory);

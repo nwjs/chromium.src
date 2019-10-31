@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/autofill/payments/save_card_bubble_controller_impl.h"
 
 #include <stddef.h>
+#include <string>
 #include <utility>
 
 #include "base/metrics/field_trial_params.h"
@@ -16,7 +17,7 @@
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
-#include "chrome/browser/ui/autofill/payments/autofill_ui_util.h"
+#include "chrome/browser/ui/autofill/autofill_bubble_handler.h"
 #include "chrome/browser/ui/autofill/payments/payments_ui_constants.h"
 #include "chrome/browser/ui/autofill/payments/save_card_bubble_view.h"
 #include "chrome/browser/ui/autofill/payments/save_card_ui.h"
@@ -25,7 +26,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
-#include "chrome/browser/ui/page_action/page_action_icon_container.h"
+#include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/sync/sync_promo_ui.h"
 #include "chrome/common/url_constants.h"
 #include "components/autofill/core/browser/autofill_experiments.h"
@@ -115,7 +116,7 @@ void SaveCardBubbleControllerImpl::OfferLocalSave(
 
 void SaveCardBubbleControllerImpl::OfferUploadSave(
     const CreditCard& card,
-    std::unique_ptr<base::DictionaryValue> legal_message,
+    const LegalMessageLines& legal_message_lines,
     AutofillClient::SaveCreditCardOptions options,
     AutofillClient::UploadSaveCardPromptCallback save_card_prompt_callback) {
   // Don't show the bubble if it's already visible.
@@ -140,20 +141,10 @@ void SaveCardBubbleControllerImpl::OfferUploadSave(
         GetSecurityLevel(), GetSyncState());
   }
 
-  if (!LegalMessageLine::Parse(*legal_message, &legal_message_lines_,
-                               /*escape_apostrophes=*/true)) {
-    AutofillMetrics::LogSaveCardPromptMetric(
-        AutofillMetrics::SAVE_CARD_PROMPT_END_INVALID_LEGAL_MESSAGE,
-        is_upload_save_, is_reshow_, options_,
-        pref_service_->GetInteger(
-            prefs::kAutofillAcceptSaveCreditCardPromptState),
-        GetSecurityLevel(), GetSyncState());
-    return;
-  }
-
   card_ = card;
   upload_save_card_prompt_callback_ = std::move(save_card_prompt_callback);
   current_bubble_type_ = BubbleType::UPLOAD_SAVE;
+  legal_message_lines_ = legal_message_lines;
 
   if (options_.show_prompt)
     ShowBubble();
@@ -183,8 +174,8 @@ void SaveCardBubbleControllerImpl::ShowBubbleForManageCardsForTesting(
 }
 
 void SaveCardBubbleControllerImpl::UpdateIconForSaveCardSuccess() {
-  // TODO(crbug.com/964127): Dismisses the icon and triggers a highlight
-  // animation of the avatar button.
+  current_bubble_type_ = BubbleType::INACTIVE;
+  UpdateSaveCardIcon();
 }
 
 void SaveCardBubbleControllerImpl::UpdateIconForSaveCardFailure() {
@@ -280,6 +271,7 @@ base::string16 SaveCardBubbleControllerImpl::GetWindowTitle() const {
       return l10n_util::GetStringUTF16(IDS_AUTOFILL_CARD_SAVED);
     case BubbleType::FAILURE:
       return l10n_util::GetStringUTF16(IDS_AUTOFILL_FAILURE_BUBBLE_TITLE);
+    case BubbleType::UPLOAD_IN_PROGRESS:
     case BubbleType::INACTIVE:
       NOTREACHED();
       return base::string16();
@@ -382,10 +374,10 @@ base::string16 SaveCardBubbleControllerImpl::GetAcceptButtonText() const {
     }
     case BubbleType::MANAGE_CARDS:
       return l10n_util::GetStringUTF16(IDS_AUTOFILL_DONE);
+    case BubbleType::UPLOAD_IN_PROGRESS:
     case BubbleType::SIGN_IN_PROMO:
     case BubbleType::FAILURE:
     case BubbleType::INACTIVE:
-      NOTREACHED();
       return base::string16();
   }
 }
@@ -420,11 +412,11 @@ base::string16 SaveCardBubbleControllerImpl::GetDeclineButtonText() const {
       return l10n_util::GetStringUTF16(
           IDS_AUTOFILL_NO_THANKS_DESKTOP_UPLOAD_SAVE);
     }
+    case BubbleType::UPLOAD_IN_PROGRESS:
     case BubbleType::MANAGE_CARDS:
     case BubbleType::SIGN_IN_PROMO:
     case BubbleType::FAILURE:
     case BubbleType::INACTIVE:
-      NOTREACHED();
       return base::string16();
   }
 }
@@ -470,8 +462,16 @@ bool SaveCardBubbleControllerImpl::ShouldShowSignInPromo() const {
              syncer::SyncService::DISABLE_REASON_USER_CHOICE);
 }
 
-bool SaveCardBubbleControllerImpl::ShouldShowCardSavedAnimation() const {
-  return should_show_card_saved_animation_;
+bool SaveCardBubbleControllerImpl::ShouldShowSavingCardAnimation() const {
+  return current_bubble_type_ == BubbleType::UPLOAD_IN_PROGRESS;
+}
+
+bool SaveCardBubbleControllerImpl::ShouldShowCardSavedLabelAnimation() const {
+  return should_show_card_saved_label_animation_;
+}
+
+bool SaveCardBubbleControllerImpl::ShouldShowSaveFailureBadge() const {
+  return current_bubble_type_ == BubbleType::FAILURE;
 }
 
 void SaveCardBubbleControllerImpl::OnSyncPromoAccepted(
@@ -514,7 +514,7 @@ void SaveCardBubbleControllerImpl::OnSaveButton(
       DCHECK(!local_save_card_prompt_callback_.is_null());
       // Show an animated card saved confirmation message next time
       // UpdateSaveCardIcon() is called.
-      should_show_card_saved_animation_ = true;
+      should_show_card_saved_label_animation_ = true;
 
       std::move(local_save_card_prompt_callback_).Run(AutofillClient::ACCEPTED);
       break;
@@ -522,6 +522,7 @@ void SaveCardBubbleControllerImpl::OnSaveButton(
       AutofillMetrics::LogManageCardsPromptMetric(
           AutofillMetrics::MANAGE_CARDS_DONE, is_upload_save_);
       return;
+    case BubbleType::UPLOAD_IN_PROGRESS:
     case BubbleType::SIGN_IN_PROMO:
     case BubbleType::FAILURE:
     case BubbleType::INACTIVE:
@@ -529,7 +530,18 @@ void SaveCardBubbleControllerImpl::OnSaveButton(
   }
 
   const BubbleType previous_bubble_type = current_bubble_type_;
-  current_bubble_type_ = BubbleType::INACTIVE;
+
+  // If experiment is disabled or bubble type is not BubbleType::UPLOAD_SAVE, we
+  // change it to BubbleType::INACTIVE to dismiss the icon. Otherwise,
+  // |current_bubble_type_| will remain BubbleType::UPLOAD_SAVE, so that the
+  // icon is still visible during the credit card upload process.
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillCreditCardUploadFeedback) &&
+      previous_bubble_type == BubbleType::UPLOAD_SAVE) {
+    current_bubble_type_ = BubbleType::UPLOAD_IN_PROGRESS;
+  } else {
+    current_bubble_type_ = BubbleType::INACTIVE;
+  }
 
   // If user just saved a card locally, the next bubble can either be a sign-in
   // promo or a manage cards view. If we need to show a sign-in promo, that
@@ -607,6 +619,13 @@ void SaveCardBubbleControllerImpl::OnBubbleClosed() {
   // reopening the bubble will show the card management bubble.
   if (current_bubble_type_ == BubbleType::SIGN_IN_PROMO)
     current_bubble_type_ = BubbleType::MANAGE_CARDS;
+
+  // Unlike other bubbles, the save failure bubble should not be reshown. If the
+  // save card failure bubble is closed, the credit card icon should be
+  // dismissed as well.
+  if (current_bubble_type_ == BubbleType::FAILURE)
+    current_bubble_type_ = BubbleType::INACTIVE;
+
   UpdateSaveCardIcon();
   if (observer_for_testing_)
     observer_for_testing_->OnBubbleClosed();
@@ -615,7 +634,7 @@ void SaveCardBubbleControllerImpl::OnBubbleClosed() {
 void SaveCardBubbleControllerImpl::OnAnimationEnded() {
   // Do not repeat the animation next time UpdateSaveCardIcon() is called,
   // unless explicitly set somewhere else.
-  should_show_card_saved_animation_ = false;
+  should_show_card_saved_label_animation_ = false;
 
   // We do not want to show the promo if the user clicked on the icon and the
   // manage cards bubble started to show.
@@ -741,8 +760,9 @@ void SaveCardBubbleControllerImpl::ShowBubble() {
   UpdateSaveCardIcon();
 
   Browser* browser = chrome::FindBrowserWithWebContents(web_contents());
-  save_card_bubble_view_ = browser->window()->ShowSaveCreditCardBubble(
-      web_contents(), this, is_reshow_);
+  save_card_bubble_view_ =
+      browser->window()->GetAutofillBubbleHandler()->ShowSaveCreditCardBubble(
+          web_contents(), this, is_reshow_);
   DCHECK(save_card_bubble_view_);
 
   // Update icon after creating |save_card_bubble_view_| so that icon will show
@@ -770,6 +790,7 @@ void SaveCardBubbleControllerImpl::ShowBubble() {
     case BubbleType::FAILURE:
       // TODO(crbug.com/964127): Add metrics.
       break;
+    case BubbleType::UPLOAD_IN_PROGRESS:
     case BubbleType::INACTIVE:
       NOTREACHED();
   }
@@ -808,6 +829,7 @@ void SaveCardBubbleControllerImpl::ShowIconOnly() {
     case BubbleType::FAILURE:
       // TODO(crbug.com/964127): Add metrics.
       break;
+    case BubbleType::UPLOAD_IN_PROGRESS:
     case BubbleType::MANAGE_CARDS:
     case BubbleType::SIGN_IN_PROMO:
     case BubbleType::INACTIVE:
@@ -816,8 +838,9 @@ void SaveCardBubbleControllerImpl::ShowIconOnly() {
 }
 
 void SaveCardBubbleControllerImpl::UpdateSaveCardIcon() {
-  ::autofill::UpdatePageActionIcon(PageActionIconType::kSaveCard,
-                                   web_contents());
+  Browser* browser = chrome::FindBrowserWithWebContents(web_contents());
+  if (browser)
+    browser->window()->UpdatePageActionIcon(PageActionIconType::kSaveCard);
 }
 
 void SaveCardBubbleControllerImpl::OpenUrl(const GURL& url) {

@@ -7,15 +7,19 @@ package org.chromium.chrome.browser.tasks.tab_management;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView.ViewHolder;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.chromium.base.Callback;
 import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.MenuOrKeyboardActionController;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
@@ -54,6 +58,7 @@ public class TabSwitcherCoordinator implements Destroyable, TabSwitcher,
     private final TabGridDialogCoordinator mTabGridDialogCoordinator;
     private final TabSelectionEditorCoordinator mTabSelectionEditorCoordinator;
     private final UndoGroupSnackbarController mUndoGroupSnackbarController;
+    private final TabModelSelector mTabModelSelector;
 
     private final MenuOrKeyboardActionController
             .MenuOrKeyboardActionHandler mTabSwitcherMenuActionHandler =
@@ -61,7 +66,10 @@ public class TabSwitcherCoordinator implements Destroyable, TabSwitcher,
                 @Override
                 public boolean handleMenuOrKeyboardAction(int id, boolean fromMenu) {
                     if (id == R.id.menu_group_tabs) {
-                        mTabSelectionEditorCoordinator.getController().show();
+                        mTabSelectionEditorCoordinator.getController().show(
+                                mTabModelSelector.getTabModelFilterProvider()
+                                        .getCurrentTabModelFilter()
+                                        .getTabsWithNoOtherRelatedTabs());
                         RecordUserAction.record("MobileMenuGroupTabs");
                         return true;
                     }
@@ -77,27 +85,16 @@ public class TabSwitcherCoordinator implements Destroyable, TabSwitcher,
             MenuOrKeyboardActionController menuOrKeyboardActionController,
             SnackbarManager.SnackbarManageable snackbarManageable, ViewGroup container,
             @TabListCoordinator.TabListMode int mode) {
+        mTabModelSelector = tabModelSelector;
+
         PropertyModel containerViewModel = new PropertyModel(TabListContainerProperties.ALL_KEYS);
 
         mTabSelectionEditorCoordinator = new TabSelectionEditorCoordinator(
-                context, container, tabModelSelector, tabContentManager);
+                context, container, tabModelSelector, tabContentManager, null);
 
         mMediator = new TabSwitcherMediator(this, containerViewModel, tabModelSelector,
                 fullscreenManager, container, mTabSelectionEditorCoordinator.getController(), mode);
 
-        if (FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled()) {
-            mTabGridDialogCoordinator = new TabGridDialogCoordinator(context, tabModelSelector,
-                    tabContentManager, tabCreatorManager, container, this, mMediator,
-                    this::getTabGridDialogAnimationParams);
-
-            mUndoGroupSnackbarController =
-                    new UndoGroupSnackbarController(context, tabModelSelector, snackbarManageable);
-
-            mMediator.setTabGridDialogController(mTabGridDialogCoordinator.getDialogController());
-        } else {
-            mTabGridDialogCoordinator = null;
-            mUndoGroupSnackbarController = null;
-        }
         mMultiThumbnailCardProvider =
                 new MultiThumbnailCardProvider(context, tabContentManager, tabModelSelector);
 
@@ -119,11 +116,53 @@ public class TabSwitcherCoordinator implements Destroyable, TabSwitcher,
         mContainerViewChangeProcessor = PropertyModelChangeProcessor.create(containerViewModel,
                 mTabListCoordinator.getContainerView(), TabListContainerViewBinder::bind);
 
+        if (FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled()) {
+            mTabGridDialogCoordinator = new TabGridDialogCoordinator(context, tabModelSelector,
+                    tabContentManager, tabCreatorManager, container, this, mMediator,
+                    this::getTabGridDialogAnimationParams,
+                    mTabListCoordinator.getTabGroupTitleEditor());
+
+            mUndoGroupSnackbarController =
+                    new UndoGroupSnackbarController(context, tabModelSelector, snackbarManageable);
+
+            mMediator.setTabGridDialogController(mTabGridDialogCoordinator.getDialogController());
+        } else {
+            mTabGridDialogCoordinator = null;
+            mUndoGroupSnackbarController = null;
+        }
+
         if (FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled()
-                && mode == TabListCoordinator.TabListMode.GRID) {
+                && mode == TabListCoordinator.TabListMode.GRID
+                && !FeatureUtilities.isStartSurfaceEnabled()) {
             mTabGridIphItemCoordinator = new TabGridIphItemCoordinator(
                     context, mTabListCoordinator.getContainerView(), container);
             mMediator.setIphProvider(mTabGridIphItemCoordinator.getIphProvider());
+        }
+
+        if (mode == TabListCoordinator.TabListMode.GRID) {
+            if (ChromeFeatureList.isEnabled(ChromeFeatureList.CLOSE_TAB_SUGGESTIONS)) {
+                mTabListCoordinator.registerItemType(TabProperties.UiType.SUGGESTION, () -> {
+                    return (ViewGroup) LayoutInflater.from(context).inflate(
+                            R.layout.tab_suggestion_card_item, container, false);
+                }, TabGridMessageCardViewBinder::bind);
+            }
+
+            assert mTabListCoordinator.getContainerView().getLayoutManager()
+                            instanceof GridLayoutManager;
+
+            // TODO(1004570): Have a flexible approach for span size look up for each UiType.
+            ((GridLayoutManager) mTabListCoordinator.getContainerView().getLayoutManager())
+                    .setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+                        @Override
+                        public int getSpanSize(int position) {
+                            int itemType = mTabListCoordinator.getContainerView()
+                                                   .getAdapter()
+                                                   .getItemViewType(position);
+
+                            if (itemType == TabProperties.UiType.SUGGESTION) return 2;
+                            return 1;
+                        }
+                    });
         }
 
         mMenuOrKeyboardActionController = menuOrKeyboardActionController;

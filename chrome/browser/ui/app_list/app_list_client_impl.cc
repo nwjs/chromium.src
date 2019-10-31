@@ -54,7 +54,7 @@ bool IsTabletMode() {
 }  // namespace
 
 AppListClientImpl::AppListClientImpl()
-    : app_list_controller_(app_list::AppListController::Get()) {
+    : app_list_controller_(ash::AppListController::Get()) {
   app_list_controller_->SetClient(this);
   user_manager::UserManager::Get()->AddSessionStateObserver(this);
 
@@ -218,7 +218,7 @@ void AppListClientImpl::GetContextMenuModel(
               std::move(callback)));
 }
 
-void AppListClientImpl::OnAppListTargetVisibilityChanged(bool visible) {
+void AppListClientImpl::OnAppListVisibilityWillChange(bool visible) {
   app_list_target_visibility_ = visible;
 }
 
@@ -371,9 +371,6 @@ void AppListClientImpl::SetUpSearchUI() {
 
   search_controller_ =
       app_list::CreateSearchController(profile_, current_model_updater_, this);
-  search_ranking_event_logger_ =
-      std::make_unique<app_list::SearchRankingEventLogger>(
-          profile_, search_controller_.get());
 
   // Refresh the results used for the suggestion chips with empty query.
   // This fixes crbug.com/999287.
@@ -403,12 +400,6 @@ void AppListClientImpl::OnTemplateURLServiceChanged() {
   current_model_updater_->SetSearchEngineIsGoogle(is_google);
 }
 
-void AppListClientImpl::ShowAndSwitchToState(ash::AppListState state) {
-  if (!app_list_controller_)
-    return;
-  app_list_controller_->ShowAppListAndSwitchToState(state);
-}
-
 void AppListClientImpl::ShowAppList() {
   // This may not work correctly if the profile passed in is different from the
   // one the ash Shell is currently using.
@@ -421,7 +412,7 @@ Profile* AppListClientImpl::GetCurrentAppListProfile() const {
   return ChromeLauncherController::instance()->profile();
 }
 
-app_list::AppListController* AppListClientImpl::GetAppListController() const {
+ash::AppListController* AppListClientImpl::GetAppListController() const {
   return app_list_controller_;
 }
 
@@ -523,8 +514,6 @@ void AppListClientImpl::NotifySearchResultsForLogging(
     const base::string16& trimmed_query,
     const ash::SearchResultIdWithPositionIndices& results,
     int position_index) {
-  if (search_ranking_event_logger_)
-    search_ranking_event_logger_->Log(trimmed_query, results, position_index);
   if (search_controller_) {
     search_controller_->OnSearchResultsDisplayed(trimmed_query, results,
                                                  position_index);

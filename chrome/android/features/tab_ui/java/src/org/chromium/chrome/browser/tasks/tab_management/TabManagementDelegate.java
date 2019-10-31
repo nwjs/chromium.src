@@ -12,11 +12,13 @@ import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
 import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
+import org.chromium.chrome.browser.ntp.FakeboxDelegate;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.TasksSurface;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
+import org.chromium.chrome.browser.tasks.tab_management.suggestions.TabSuggestions;
 import org.chromium.chrome.features.start_surface.StartSurface;
-import org.chromium.components.module_installer.ModuleInterface;
+import org.chromium.components.module_installer.builder.ModuleInterface;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /**
@@ -29,13 +31,14 @@ public interface TabManagementDelegate {
     /**
      * Create the {@link TasksSurface}
      * @param activity The {@link ChromeActivity} that creates this surface.
-     * @param isTabCarousel Whether show the Tabs in carousel mode.
      * @param propertyModel The {@link PropertyModel} contains the {@link TasksSurfaceProperties} to
      *         communicate with this surface.
+     * @param fakeboxDelegate The delegate of the fake search box.
+     * @param isTabCarousel Whether show the Tabs in carousel mode.
      * @return The {@TasksSurface}.
      */
-    TasksSurface createTasksSurface(
-            ChromeActivity activity, boolean isTabCarousel, PropertyModel propertyModel);
+    TasksSurface createTasksSurface(ChromeActivity activity, PropertyModel propertyModel,
+            FakeboxDelegate fakeboxDelegate, boolean isTabCarousel);
 
     /**
      * Create the {@link TabSwitcher} to display Tabs in grid.
@@ -84,4 +87,11 @@ public interface TabManagementDelegate {
      * @return The {@link TabGroupModelFilter}.
      */
     TabGroupModelFilter createTabGroupModelFilter(TabModel tabModel);
+
+    /**
+     * Create a {@link TabSuggestions} for the given {@link ChromeActivity}
+     * @param activity the {@link ChromeActivity} creates this {@link TabSuggestions}.
+     * @return the {@link TabSuggestions} for the activity
+     */
+    TabSuggestions createTabSuggestions(ChromeActivity activity);
 }

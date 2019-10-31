@@ -91,7 +91,7 @@ UkmService::UkmService(PrefService* pref_service,
   // MetricsServiceClient outlives UkmService, and
   // MetricsReportingScheduler is tied to the lifetime of |this|.
   const base::Callback<base::TimeDelta(void)>& get_upload_interval_callback =
-      base::Bind(&metrics::MetricsServiceClient::GetStandardUploadInterval,
+      base::Bind(&metrics::MetricsServiceClient::GetUploadInterval,
                  base::Unretained(client_));
   scheduler_.reset(new ukm::UkmRotationScheduler(rotate_callback,
                                                  get_upload_interval_callback));
@@ -225,6 +225,9 @@ void UkmService::FinishedInitTask() {
   DVLOG(1) << "UkmService::FinishedInitTask";
   initialize_complete_ = true;
   scheduler_->InitTaskComplete();
+  if (initialization_complete_callback_) {
+    std::move(initialization_complete_callback_).Run();
+  }
 }
 
 void UkmService::RotateLog() {
@@ -266,6 +269,15 @@ void UkmService::BuildAndStoreLog() {
 
 bool UkmService::ShouldRestrictToWhitelistedEntries() const {
   return restrict_to_whitelist_entries_;
+}
+
+void UkmService::SetInitializationCompleteCallbackForTesting(base::OnceClosure callback) {
+  if (initialize_complete_) {
+    std::move(callback).Run();
+  } else {
+    // Store the callback to be invoked when initialization is complete later.
+    initialization_complete_callback_ = std::move(callback);
+  }
 }
 
 }  // namespace ukm

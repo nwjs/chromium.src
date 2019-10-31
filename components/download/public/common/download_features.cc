@@ -30,16 +30,13 @@ const base::Feature kParallelDownloading {
 #endif
 };
 
-const base::Feature kDownloadDBForNewDownloads{
-    "DownloadDBForNewDownloads", base::FEATURE_ENABLED_BY_DEFAULT};
-
 #if defined(OS_ANDROID)
 const base::Feature kRefreshExpirationDate{"RefreshExpirationDate",
                                            base::FEATURE_ENABLED_BY_DEFAULT};
 #endif
 
 const base::Feature kPreventDownloadsWithSamePath{
-    "PreventDownloadsWithSamePath", base::FEATURE_DISABLED_BY_DEFAULT};
+    "PreventDownloadsWithSamePath", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kUseInProgressDownloadManagerForDownloadService{
     "UseInProgressDownloadManagerForDownloadService",
@@ -58,6 +55,10 @@ const base::Feature kUseParallelRequestsForHTTP2{
 
 const base::Feature kUseParallelRequestsForQUIC{
     "UseParallelRequestsForQUIC", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kDeleteExpiredDownloads{"DeleteExpiredDownloads",
+                                            base::FEATURE_ENABLED_BY_DEFAULT};
+
 }  // namespace features
 
 }  // namespace download

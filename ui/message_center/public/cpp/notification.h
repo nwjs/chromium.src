@@ -402,6 +402,10 @@ class MESSAGE_CENTER_PUBLIC_EXPORT Notification {
     return false;
   }
 
+  void set_settings_button_handler(SettingsButtonHandler handler) {
+    optional_fields_.settings_button_handler = handler;
+  }
+
   bool should_show_snooze_button() const {
     return optional_fields_.should_show_snooze_button;
   }

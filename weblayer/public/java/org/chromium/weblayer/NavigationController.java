@@ -6,25 +6,20 @@ package org.chromium.weblayer;
 
 import android.net.Uri;
 import android.os.RemoteException;
-import android.util.AndroidRuntimeException;
-import android.util.Log;
 
+import org.chromium.weblayer_private.aidl.APICallException;
 import org.chromium.weblayer_private.aidl.IBrowserController;
 import org.chromium.weblayer_private.aidl.IClientNavigation;
 import org.chromium.weblayer_private.aidl.INavigation;
 import org.chromium.weblayer_private.aidl.INavigationController;
 import org.chromium.weblayer_private.aidl.INavigationControllerClient;
 
-import java.util.concurrent.CopyOnWriteArrayList;
-
 /**
  * Provides methods to control navigation, along with maintaining the current list of navigations.
  */
 public final class NavigationController {
-    private static final String TAG = "WebLayer";
     private INavigationController mNavigationController;
-    // TODO(sky): copy ObserverList from base and use it instead.
-    private final CopyOnWriteArrayList<NavigationObserver> mObservers;
+    private final ObserverList<NavigationObserver> mObservers;
 
     static NavigationController create(IBrowserController browserController) {
         NavigationController navigationController = new NavigationController();
@@ -33,22 +28,20 @@ public final class NavigationController {
                     browserController.createNavigationController(
                             navigationController.new NavigationControllerClientImpl());
         } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call createNavigationController.", e);
-            throw new AndroidRuntimeException(e);
+            throw new APICallException(e);
         }
         return navigationController;
     }
 
     private NavigationController() {
-        mObservers = new CopyOnWriteArrayList<NavigationObserver>();
+        mObservers = new ObserverList<NavigationObserver>();
     }
 
     public void navigate(Uri uri) {
         try {
             mNavigationController.navigate(uri.toString());
         } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call navigate.", e);
-            throw new AndroidRuntimeException(e);
+            throw new APICallException(e);
         }
     }
 
@@ -56,8 +49,7 @@ public final class NavigationController {
         try {
             mNavigationController.goBack();
         } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call goBack.", e);
-            throw new AndroidRuntimeException(e);
+            throw new APICallException(e);
         }
     }
 
@@ -65,8 +57,23 @@ public final class NavigationController {
         try {
             mNavigationController.goForward();
         } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call goForward.", e);
-            throw new AndroidRuntimeException(e);
+            throw new APICallException(e);
+        }
+    }
+
+    public boolean canGoBack() {
+        try {
+            return mNavigationController.canGoBack();
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+    }
+
+    public boolean canGoForward() {
+        try {
+            return mNavigationController.canGoForward();
+        } catch (RemoteException e) {
+            throw new APICallException(e);
         }
     }
 
@@ -74,8 +81,7 @@ public final class NavigationController {
         try {
             mNavigationController.reload();
         } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call reload.", e);
-            throw new AndroidRuntimeException(e);
+            throw new APICallException(e);
         }
     }
 
@@ -83,8 +89,7 @@ public final class NavigationController {
         try {
             mNavigationController.stop();
         } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call stop.", e);
-            throw new AndroidRuntimeException(e);
+            throw new APICallException(e);
         }
     }
 
@@ -92,8 +97,7 @@ public final class NavigationController {
         try {
             return mNavigationController.getNavigationListSize();
         } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call getNavigationListSize.", e);
-            throw new AndroidRuntimeException(e);
+            throw new APICallException(e);
         }
     }
 
@@ -101,8 +105,7 @@ public final class NavigationController {
         try {
             return mNavigationController.getNavigationListCurrentIndex();
         } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call getNavigationListCurrentIndex.", e);
-            throw new AndroidRuntimeException(e);
+            throw new APICallException(e);
         }
     }
 
@@ -110,17 +113,16 @@ public final class NavigationController {
         try {
             return Uri.parse(mNavigationController.getNavigationEntryDisplayUri(index));
         } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call getNavigationEntryDisplayUri.", e);
-            throw new AndroidRuntimeException(e);
+            throw new APICallException(e);
         }
     }
 
     public void addObserver(NavigationObserver observer) {
-        mObservers.add(observer);
+        mObservers.addObserver(observer);
     }
 
     public void removeObserver(NavigationObserver observer) {
-        mObservers.remove(observer);
+        mObservers.removeObserver(observer);
     }
 
     private final class NavigationControllerClientImpl extends INavigationControllerClient.Stub {

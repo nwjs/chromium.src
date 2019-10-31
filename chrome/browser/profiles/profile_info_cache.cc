@@ -40,9 +40,6 @@
 
 namespace {
 
-const char kNameKey[] = "name";
-const char kGAIANameKey[] = "gaia_name";
-const char kGAIAGivenNameKey[] = "gaia_given_name";
 const char kGAIAIdKey[] = "gaia_id";
 const char kIsUsingDefaultNameKey[] = "is_using_default_name";
 const char kIsUsingDefaultAvatarKey[] = "is_using_default_avatar";
@@ -60,6 +57,9 @@ void DeleteBitmap(const base::FilePath& image_path) {
 }
 
 }  // namespace
+const char ProfileInfoCache::kNameKey[] = "name";
+const char ProfileInfoCache::kGAIANameKey[] = "gaia_name";
+const char ProfileInfoCache::kGAIAGivenNameKey[] = "gaia_given_name";
 
 ProfileInfoCache::ProfileInfoCache(PrefService* prefs,
                                    const base::FilePath& user_data_dir)
@@ -106,6 +106,8 @@ ProfileInfoCache::ProfileInfoCache(PrefService* prefs,
   // profile names.
   if (!disable_avatar_download_for_testing_)
     MigrateLegacyProfileNamesAndDownloadAvatars();
+
+  RecomputeProfileNamesIfNeeded();
 }
 
 ProfileInfoCache::~ProfileInfoCache() {
@@ -115,6 +117,7 @@ void ProfileInfoCache::AddProfileToCache(const base::FilePath& profile_path,
                                          const base::string16& name,
                                          const std::string& gaia_id,
                                          const base::string16& user_name,
+                                         bool is_consented_primary_account,
                                          size_t icon_index,
                                          const std::string& supervised_user_id,
                                          const AccountId& account_id) {
@@ -134,6 +137,10 @@ void ProfileInfoCache::AddProfileToCache(const base::FilePath& profile_path,
   info->SetString(kNameKey, name);
   info->SetString(kGAIAIdKey, gaia_id);
   info->SetString(ProfileAttributesEntry::kUserNameKey, user_name);
+  DCHECK(!is_consented_primary_account || !gaia_id.empty() ||
+         !user_name.empty());
+  info->SetBoolean(ProfileAttributesEntry::kIsConsentedPrimaryAccountKey,
+                   is_consented_primary_account);
   info->SetString(ProfileAttributesEntry::kAvatarIconKey,
                   profiles::GetDefaultAvatarIconUrl(icon_index));
   // Default value for whether background apps are running is false.
@@ -148,15 +155,34 @@ void ProfileInfoCache::AddProfileToCache(const base::FilePath& profile_path,
     info->SetString(kAccountIdKey, account_id.GetAccountIdKey());
   cache->SetWithoutPathExpansion(key, std::move(info));
 
+  // Switching from single profile to multi-profile might change the existing
+  // profile display name. We append the profile name to GAIA name only in case
+  // of multi-profile.
+  ProfileAttributesEntry* entry = nullptr;
+  base::string16 old_single_profile_name;
+  if (GetNumberOfProfiles() == 1 &&
+      base::FeatureList::IsEnabled(kConcatenateGaiaAndProfileName)) {
+    std::vector<ProfileAttributesEntry*> entries = GetAllProfilesAttributes();
+    entry = entries[0];
+    old_single_profile_name = entry->GetName();
+  }
+
   sorted_keys_.insert(FindPositionForProfile(key, name), key);
   profile_attributes_entries_[user_data_dir_.AppendASCII(key).value()] =
       std::unique_ptr<ProfileAttributesEntry>();
 
+  bool single_profile_name_changed =
+      entry && (entry->GetName() != old_single_profile_name);
+
   if (!disable_avatar_download_for_testing_)
     DownloadHighResAvatarIfNeeded(icon_index, profile_path);
 
-  for (auto& observer : observer_list_)
+  for (auto& observer : observer_list_) {
     observer.OnProfileAdded(profile_path);
+    if (single_profile_name_changed) {
+      observer.OnProfileNameChanged(entry->GetPath(), old_single_profile_name);
+    }
+  }
 }
 
 void ProfileInfoCache::DeleteProfileFromCache(
@@ -166,6 +192,24 @@ void ProfileInfoCache::DeleteProfileFromCache(
     NOTREACHED();
     return;
   }
+  // Switching from multi-profile to single profile might change the profile
+  // display name for the single profile left after deletion of the profile with
+  // |profile_path|. We append the profile name to GAIA name only in case of
+  // multi-profile.
+  size_t number_of_profiles = GetNumberOfProfiles();
+  ProfileAttributesEntry* single_profile_entry = nullptr;
+  base::string16 old_single_profile_name;
+  if (number_of_profiles == 2 &&
+      base::FeatureList::IsEnabled(kConcatenateGaiaAndProfileName)) {
+    for (auto& it : profile_attributes_entries_) {
+      base::FilePath path(it.first);
+      if (it.first != profile_path.value()) {
+        GetProfileAttributesWithPath(path, &single_profile_entry);
+        old_single_profile_name = single_profile_entry->GetName();
+      }
+    }
+  }
+
   base::string16 name = entry->GetName();
 
   for (auto& observer : observer_list_)
@@ -178,8 +222,17 @@ void ProfileInfoCache::DeleteProfileFromCache(
   sorted_keys_.erase(std::find(sorted_keys_.begin(), sorted_keys_.end(), key));
   profile_attributes_entries_.erase(profile_path.value());
 
-  for (auto& observer : observer_list_)
+  bool single_profile_name_changed =
+      single_profile_entry &&
+      single_profile_entry->GetName() != old_single_profile_name;
+
+  for (auto& observer : observer_list_) {
     observer.OnProfileWasRemoved(profile_path, name);
+    if (single_profile_name_changed) {
+      observer.OnProfileNameChanged(single_profile_entry->GetPath(),
+                                    old_single_profile_name);
+    }
+  }
 }
 
 size_t ProfileInfoCache::GetNumberOfProfiles() const {
@@ -198,7 +251,21 @@ size_t ProfileInfoCache::GetIndexOfProfileWithPath(
   return std::string::npos;
 }
 
+base::string16 ProfileInfoCache::GetNameToDisplayOfProfileAtIndex(
+    size_t index) {
+  base::FilePath profile_path = GetPathOfProfileAtIndex(index);
+  ProfileAttributesEntry* entry;
+  GetProfileAttributesWithPath(profile_path, &entry);
+  if (!entry) {
+    DLOG(ERROR) << "No entry found for this profile!";
+    return base::string16();
+  }
+
+  return entry->GetName();
+}
+
 base::string16 ProfileInfoCache::GetNameOfProfileAtIndex(size_t index) const {
+  DCHECK(!base::FeatureList::IsEnabled(kConcatenateGaiaAndProfileName));
   base::string16 name;
   // Unless the user has customized the profile name, we should use the
   // profile's Gaia given name, if it's available.
@@ -371,8 +438,9 @@ size_t ProfileInfoCache::GetAvatarIconIndexOfProfileAtIndex(size_t index)
   return icon_index;
 }
 
-void ProfileInfoCache::SetNameOfProfileAtIndex(size_t index,
-                                               const base::string16& name) {
+void ProfileInfoCache::SetLocalProfileNameOfProfileAtIndex(
+    size_t index,
+    const base::string16& name) {
   std::unique_ptr<base::DictionaryValue> info(
       GetInfoForProfileAtIndex(index)->DeepCopy());
   base::string16 current_name;
@@ -380,12 +448,12 @@ void ProfileInfoCache::SetNameOfProfileAtIndex(size_t index,
   if (name == current_name)
     return;
 
-  base::string16 old_display_name = GetNameOfProfileAtIndex(index);
+  base::string16 old_display_name = GetNameToDisplayOfProfileAtIndex(index);
   info->SetString(kNameKey, name);
 
   SetInfoForProfileAtIndex(index, std::move(info));
 
-  base::string16 new_display_name = GetNameOfProfileAtIndex(index);
+  base::string16 new_display_name = GetNameToDisplayOfProfileAtIndex(index);
   base::FilePath profile_path = GetPathOfProfileAtIndex(index);
   UpdateSortForProfileIndex(index);
 
@@ -398,9 +466,16 @@ void ProfileInfoCache::SetNameOfProfileAtIndex(size_t index,
 void ProfileInfoCache::SetAuthInfoOfProfileAtIndex(
     size_t index,
     const std::string& gaia_id,
-    const base::string16& user_name) {
-  // If both gaia_id and username are unchanged, abort early.
-  if (gaia_id == GetGAIAIdOfProfileAtIndex(index) &&
+    const base::string16& user_name,
+    bool is_consented_primary_account) {
+  bool is_consented_primary_account_state;
+  GetInfoForProfileAtIndex(index)->GetBoolean(
+      ProfileAttributesEntry::kIsConsentedPrimaryAccountKey,
+      &is_consented_primary_account_state);
+
+  // If gaia_id, username and consent state are unchanged, abort early.
+  if (is_consented_primary_account_state == is_consented_primary_account &&
+      gaia_id == GetGAIAIdOfProfileAtIndex(index) &&
       user_name == GetUserNameOfProfileAtIndex(index)) {
     return;
   }
@@ -410,6 +485,10 @@ void ProfileInfoCache::SetAuthInfoOfProfileAtIndex(
 
   info->SetString(kGAIAIdKey, gaia_id);
   info->SetString(ProfileAttributesEntry::kUserNameKey, user_name);
+  DCHECK(!is_consented_primary_account || !gaia_id.empty() ||
+         !user_name.empty());
+  info->SetBoolean(ProfileAttributesEntry::kIsConsentedPrimaryAccountKey,
+                   is_consented_primary_account);
 
   SetInfoForProfileAtIndex(index, std::move(info));
 
@@ -486,12 +565,12 @@ void ProfileInfoCache::SetGAIANameOfProfileAtIndex(size_t index,
   if (name == GetGAIANameOfProfileAtIndex(index))
     return;
 
-  base::string16 old_display_name = GetNameOfProfileAtIndex(index);
+  base::string16 old_display_name = GetNameToDisplayOfProfileAtIndex(index);
   std::unique_ptr<base::DictionaryValue> info(
       GetInfoForProfileAtIndex(index)->DeepCopy());
   info->SetString(kGAIANameKey, name);
   SetInfoForProfileAtIndex(index, std::move(info));
-  base::string16 new_display_name = GetNameOfProfileAtIndex(index);
+  base::string16 new_display_name = GetNameToDisplayOfProfileAtIndex(index);
   base::FilePath profile_path = GetPathOfProfileAtIndex(index);
   UpdateSortForProfileIndex(index);
 
@@ -507,12 +586,12 @@ void ProfileInfoCache::SetGAIAGivenNameOfProfileAtIndex(
   if (name == GetGAIAGivenNameOfProfileAtIndex(index))
     return;
 
-  base::string16 old_display_name = GetNameOfProfileAtIndex(index);
+  base::string16 old_display_name = GetNameToDisplayOfProfileAtIndex(index);
   std::unique_ptr<base::DictionaryValue> info(
       GetInfoForProfileAtIndex(index)->DeepCopy());
   info->SetString(kGAIAGivenNameKey, name);
   SetInfoForProfileAtIndex(index, std::move(info));
-  base::string16 new_display_name = GetNameOfProfileAtIndex(index);
+  base::string16 new_display_name = GetNameToDisplayOfProfileAtIndex(index);
   base::FilePath profile_path = GetPathOfProfileAtIndex(index);
   UpdateSortForProfileIndex(index);
 
@@ -596,14 +675,14 @@ void ProfileInfoCache::SetProfileIsUsingDefaultNameAtIndex(
   if (value == ProfileIsUsingDefaultNameAtIndex(index))
     return;
 
-  base::string16 old_display_name = GetNameOfProfileAtIndex(index);
+  base::string16 old_display_name = GetNameToDisplayOfProfileAtIndex(index);
 
   std::unique_ptr<base::DictionaryValue> info(
       GetInfoForProfileAtIndex(index)->DeepCopy());
   info->SetBoolean(kIsUsingDefaultNameKey, value);
   SetInfoForProfileAtIndex(index, std::move(info));
 
-  base::string16 new_display_name = GetNameOfProfileAtIndex(index);
+  base::string16 new_display_name = GetNameToDisplayOfProfileAtIndex(index);
   const base::FilePath profile_path = GetPathOfProfileAtIndex(index);
 
   if (old_display_name != new_display_name) {
@@ -668,7 +747,8 @@ std::vector<std::string>::iterator ProfileInfoCache::FindPositionForProfile(
     const base::string16& search_name) {
   base::string16 search_name_l = base::i18n::ToLower(search_name);
   for (size_t i = 0; i < GetNumberOfProfiles(); ++i) {
-    base::string16 name_l = base::i18n::ToLower(GetNameOfProfileAtIndex(i));
+    base::string16 name_l =
+        base::i18n::ToLower(GetNameToDisplayOfProfileAtIndex(i));
     int name_compare = search_name_l.compare(name_l);
     if (name_compare < 0)
       return sorted_keys_.begin() + i;
@@ -682,7 +762,7 @@ std::vector<std::string>::iterator ProfileInfoCache::FindPositionForProfile(
 }
 
 void ProfileInfoCache::UpdateSortForProfileIndex(size_t index) {
-  base::string16 name = GetNameOfProfileAtIndex(index);
+  base::string16 name = GetNameToDisplayOfProfileAtIndex(index);
 
   // Remove and reinsert key in |sorted_keys_| to alphasort.
   std::string key = CacheKeyFromProfilePath(GetPathOfProfileAtIndex(index));
@@ -711,6 +791,28 @@ const gfx::Image* ProfileInfoCache::GetHighResAvatarOfProfileAtIndex(
                                    image_path);
 }
 
+void ProfileInfoCache::RecomputeProfileNamesIfNeeded() {
+#if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
+  std::vector<ProfileAttributesEntry*> entries = GetAllProfilesAttributes();
+  if (entries.size() < 2)
+    return;
+
+  for (size_t i = 0; i < entries.size() - 1; i++) {
+    base::string16 name = entries[i]->GetLocalProfileName();
+    if (!IsDefaultProfileName(name))
+      continue;
+
+    for (size_t j = i + 1; j < entries.size(); j++) {
+      if (name == entries[j]->GetLocalProfileName()) {
+        entries[j]->SetLocalProfileName(
+            ChooseNameForNewProfile(entries[j]->GetAvatarIconIndex()));
+        UpdateSortForProfileIndex(entries[j]->profile_index());
+      }
+    }
+  }
+#endif
+}
+
 void ProfileInfoCache::MigrateLegacyProfileNamesAndDownloadAvatars() {
   // Only do this on desktop platforms.
 #if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
@@ -727,10 +829,11 @@ void ProfileInfoCache::MigrateLegacyProfileNamesAndDownloadAvatars() {
                                   entry->GetPath());
 
     // Rename the necessary profiles.
-    base::string16 name = base::i18n::ToLower(entry->GetName());
+    base::string16 name = base::i18n::ToLower(entry->GetLocalProfileName());
     if (name == default_profile_name || name == default_legacy_profile_name) {
       entry->SetIsUsingDefaultName(true);
-      entry->SetName(ChooseNameForNewProfile(entry->GetAvatarIconIndex()));
+      entry->SetLocalProfileName(
+          ChooseNameForNewProfile(entry->GetAvatarIconIndex()));
     }
   }
 #endif
@@ -740,10 +843,12 @@ void ProfileInfoCache::AddProfile(const base::FilePath& profile_path,
                                   const base::string16& name,
                                   const std::string& gaia_id,
                                   const base::string16& user_name,
+                                  bool is_consented_primary_account,
                                   size_t icon_index,
                                   const std::string& supervised_user_id,
                                   const AccountId& account_id) {
-  AddProfileToCache(profile_path, name, gaia_id, user_name, icon_index,
+  AddProfileToCache(profile_path, name, gaia_id, user_name,
+                    is_consented_primary_account, icon_index,
                     supervised_user_id, account_id);
 }
 

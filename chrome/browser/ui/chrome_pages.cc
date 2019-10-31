@@ -55,9 +55,11 @@
 #include "net/base/url_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/window_open_disposition.h"
+#include "url/url_util.h"
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/version_info/version_info.h"
 #include "extensions/browser/extension_registry.h"
@@ -94,11 +96,6 @@ void OpenBookmarkManagerForNode(Browser* browser, int64_t node_id) {
 }
 
 #if defined(OS_CHROMEOS) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
-void LaunchReleaseNotesInTab(Profile* profile) {
-  GURL url(kChromeReleaseNotesURL);
-  auto displayer = std::make_unique<ScopedTabbedBrowserDisplayer>(profile);
-  ShowSingletonTab(displayer->browser(), url);
-}
 
 const std::string BuildQueryString(Profile* profile) {
   const std::string board_name = base::SysInfo::GetLsbReleaseBoard();
@@ -129,9 +126,13 @@ const std::string BuildQueryString(Profile* profile) {
        ",", region, ",", language, ",", channel_name, ",", user_type});
   return query_string;
 }
-#endif
 
-#if defined(OS_CHROMEOS) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+void LaunchReleaseNotesInTab(Profile* profile) {
+  GURL url(BuildQueryString(profile));
+  auto displayer = std::make_unique<ScopedTabbedBrowserDisplayer>(profile);
+  ShowSingletonTab(displayer->browser(), url);
+}
+
 void LaunchReleaseNotesImpl(Profile* profile) {
   base::RecordAction(UserMetricsAction("ReleaseNotes.ShowReleaseNotes"));
   const extensions::Extension* extension =
@@ -139,7 +140,7 @@ void LaunchReleaseNotesImpl(Profile* profile) {
           chromeos::default_web_apps::kReleaseNotesAppId,
           extensions::ExtensionRegistry::EVERYTHING);
   if (extension) {
-    AppLaunchParams params = CreateAppLaunchParamsWithEventFlags(
+    apps::AppLaunchParams params = CreateAppLaunchParamsWithEventFlags(
         profile, extension, 0, apps::mojom::AppLaunchSource::kSourceUntracked,
         -1);
     params.override_url = GURL(BuildQueryString(profile));
@@ -149,6 +150,7 @@ void LaunchReleaseNotesImpl(Profile* profile) {
   DVLOG(1) << "ReleaseNotes App Not Found";
   LaunchReleaseNotesInTab(profile);
 }
+
 #endif
 
 // Shows either the help app or the appropriate help page for |source|. If
@@ -183,8 +185,8 @@ void ShowHelpImpl(Browser* browser, Profile* profile, HelpSource source) {
     default:
       NOTREACHED() << "Unhandled help source" << source;
   }
-  apps::LaunchService::Get(profile)->OpenApplication(AppLaunchParams(
-      profile, extension_misc::kGeniusAppId,
+  apps::LaunchService::Get(profile)->OpenApplication(apps::AppLaunchParams(
+      extension_misc::kGeniusAppId,
       extensions::GetLaunchContainer(extensions::ExtensionPrefs::Get(profile),
                                      extension),
       WindowOpenDisposition::NEW_FOREGROUND_TAB, app_launch_source, true));
@@ -504,10 +506,11 @@ void ShowManagementPageForProfile(Profile* profile) {
 
 void ShowAppManagementPage(Profile* profile, const std::string& app_id) {
   DCHECK(base::FeatureList::IsEnabled(features::kAppManagement));
-  constexpr char kAppManagementSubPagePrefix[] = "app-management/detail?id=";
+  std::string sub_page =
+      base::StrCat({chrome::kAppManagementDetailSubPage, "?id=", app_id});
   base::RecordAction(base::UserMetricsAction("ShowAppManagementDetailPage"));
-  chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(
-      profile, kAppManagementSubPagePrefix + app_id);
+  chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(profile,
+                                                               sub_page);
 }
 
 GURL GetOSSettingsUrl(const std::string& sub_page) {

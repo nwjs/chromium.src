@@ -70,6 +70,72 @@ std::vector<float> ToFloatVector(const std::vector<RectF>& areas) {
   return flattened;
 }
 
+base::android::ScopedJavaLocalRef<jobject> CreateJavaDateTime(
+    JNIEnv* env,
+    const DateTimeProto& proto) {
+  return Java_AssistantCollectUserDataModel_createAssistantDateTime(
+      env, (int)proto.date().year(), proto.date().month(), proto.date().day(),
+      proto.time().hour(), proto.time().minute(), proto.time().second());
+}
+
+// Creates the java equivalent to the text inputs specified in |section|.
+base::android::ScopedJavaLocalRef<jobject> CreateJavaTextInputsForSection(
+    JNIEnv* env,
+    const TextInputSectionProto& section) {
+  auto jinput_list =
+      Java_AssistantCollectUserDataModel_createTextInputList(env);
+  for (const auto& input : section.input_fields()) {
+    TextInputType type;
+    switch (input.input_type()) {
+      case TextInputProto::INPUT_TEXT:
+        type = TextInputType::INPUT_TEXT;
+        break;
+      case TextInputProto::INPUT_ALPHANUMERIC:
+        type = TextInputType::INPUT_ALPHANUMERIC;
+        break;
+      case TextInputProto::UNDEFINED:
+        NOTREACHED();
+        continue;
+    }
+    Java_AssistantCollectUserDataModel_appendTextInput(
+        env, jinput_list, type,
+        base::android::ConvertUTF8ToJavaString(env, input.hint()),
+        base::android::ConvertUTF8ToJavaString(env, input.value()),
+        base::android::ConvertUTF8ToJavaString(env, input.client_memory_key()));
+  }
+  return jinput_list;
+}
+
+// Creates the java equivalent to |sections|.
+base::android::ScopedJavaLocalRef<jobject> CreateJavaAdditionalSections(
+    JNIEnv* env,
+    const std::vector<UserFormSectionProto>& sections) {
+  auto jsection_list =
+      Java_AssistantCollectUserDataModel_createAdditionalSectionsList(env);
+  for (const auto& section : sections) {
+    switch (section.section_case()) {
+      case UserFormSectionProto::kStaticTextSection:
+        Java_AssistantCollectUserDataModel_appendStaticTextSection(
+            env, jsection_list,
+            base::android::ConvertUTF8ToJavaString(env, section.title()),
+            base::android::ConvertUTF8ToJavaString(
+                env, section.static_text_section().text()));
+        break;
+      case UserFormSectionProto::kTextInputSection: {
+        Java_AssistantCollectUserDataModel_appendTextInputSection(
+            env, jsection_list,
+            base::android::ConvertUTF8ToJavaString(env, section.title()),
+            CreateJavaTextInputsForSection(env, section.text_input_section()));
+        break;
+      }
+      case UserFormSectionProto::SECTION_NOT_SET:
+        NOTREACHED();
+        break;
+    }
+  }
+  return jsection_list;
+}
+
 }  // namespace
 
 // static
@@ -251,23 +317,8 @@ void UiControllerAndroid::SetupForState() {
       AllowShowingSoftKeyboard(true);
       SetSpinPoodle(false);
 
-      // make sure user sees the error message.
+      // Make sure the user sees the error message.
       ExpandBottomSheet();
-      {
-        const ClientSettings& settings = ui_delegate_->GetClientSettings();
-        if (settings.enable_graceful_shutdown) {
-          // Keep showing the current UI for a while, without getting updates
-          // from the controller, then shut down the UI portion.
-          //
-          // A controller might still get attached while the timer is running,
-          // canceling the destruction.
-          destroy_timer_ = std::make_unique<base::OneShotTimer>();
-          destroy_timer_->Start(
-              FROM_HERE, settings.graceful_shutdown_delay,
-              base::BindOnce(&UiControllerAndroid::DestroySelf,
-                             weak_ptr_factory_.GetWeakPtr()));
-        }
-      }
       Detach();
       return;
 
@@ -550,7 +601,14 @@ void UiControllerAndroid::OnCancelButtonClicked(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& jcaller,
     jint index) {
-  CloseOrCancel(index, TriggerContext::CreateEmpty());
+  // If the keyboard is currently shown, clicking the cancel button should
+  // hide the keyboard rather than close autofill assistant, because the cancel
+  // chip will be displayed right above the keyboard.
+  if (Java_AutofillAssistantUiController_isKeyboardShown(env, java_object_)) {
+    Java_AutofillAssistantUiController_hideKeyboard(env, java_object_);
+  } else {
+    CloseOrCancel(index, TriggerContext::CreateEmpty());
+  }
 }
 
 void UiControllerAndroid::OnCloseButtonClicked(
@@ -706,8 +764,9 @@ void UiControllerAndroid::OnContactInfoChanged(
 }
 
 void UiControllerAndroid::OnCreditCardChanged(
-    std::unique_ptr<autofill::CreditCard> card) {
-  ui_delegate_->SetCreditCard(std::move(card));
+    std::unique_ptr<autofill::CreditCard> card,
+    std::unique_ptr<autofill::AutofillProfile> billing_profile) {
+  ui_delegate_->SetCreditCard(std::move(card), std::move(billing_profile));
 }
 
 void UiControllerAndroid::OnTermsAndConditionsChanged(
@@ -721,6 +780,29 @@ void UiControllerAndroid::OnLoginChoiceChanged(std::string identifier) {
 
 void UiControllerAndroid::OnTermsAndConditionsLinkClicked(int link) {
   ui_delegate_->OnTermsAndConditionsLinkClicked(link);
+}
+
+void UiControllerAndroid::OnDateTimeRangeStartChanged(int year,
+                                                      int month,
+                                                      int day,
+                                                      int hour,
+                                                      int minute,
+                                                      int second) {
+  ui_delegate_->SetDateTimeRangeStart(year, month, day, hour, minute, second);
+}
+
+void UiControllerAndroid::OnDateTimeRangeEndChanged(int year,
+                                                    int month,
+                                                    int day,
+                                                    int hour,
+                                                    int minute,
+                                                    int second) {
+  ui_delegate_->SetDateTimeRangeEnd(year, month, day, hour, minute, second);
+}
+
+void UiControllerAndroid::OnKeyValueChanged(const std::string& key,
+                                            const std::string& value) {
+  ui_delegate_->SetAdditionalValue(key, value);
 }
 
 void UiControllerAndroid::OnCollectUserDataOptionsChanged(
@@ -775,6 +857,39 @@ void UiControllerAndroid::OnCollectUserDataOptionsChanged(
     }
     Java_AssistantCollectUserDataModel_setLoginChoices(env, jmodel, jlist);
   }
+  Java_AssistantCollectUserDataModel_setRequestDateRange(
+      env, jmodel, collect_user_data_options->request_date_time_range);
+  if (collect_user_data_options->request_date_time_range) {
+    auto jstart_date = CreateJavaDateTime(
+        env, collect_user_data_options->date_time_range.start());
+    auto jend_date = CreateJavaDateTime(
+        env, collect_user_data_options->date_time_range.end());
+    auto jmin_date = CreateJavaDateTime(
+        env, collect_user_data_options->date_time_range.min());
+    auto jmax_date = CreateJavaDateTime(
+        env, collect_user_data_options->date_time_range.max());
+    Java_AssistantCollectUserDataModel_setDateTimeRangeStart(
+        env, jmodel, jstart_date, jmin_date, jmax_date);
+    Java_AssistantCollectUserDataModel_setDateTimeRangeEnd(
+        env, jmodel, jend_date, jmin_date, jmax_date);
+    Java_AssistantCollectUserDataModel_setDateTimeRangeStartLabel(
+        env, jmodel,
+        base::android::ConvertUTF8ToJavaString(
+            env, collect_user_data_options->date_time_range.start_label()));
+    Java_AssistantCollectUserDataModel_setDateTimeRangeEndLabel(
+        env, jmodel,
+        base::android::ConvertUTF8ToJavaString(
+            env, collect_user_data_options->date_time_range.end_label()));
+  }
+
+  Java_AssistantCollectUserDataModel_setPrependedSections(
+      env, jmodel,
+      CreateJavaAdditionalSections(
+          env, collect_user_data_options->additional_prepended_sections));
+  Java_AssistantCollectUserDataModel_setAppendedSections(
+      env, jmodel,
+      CreateJavaAdditionalSections(
+          env, collect_user_data_options->additional_appended_sections));
 
   Java_AssistantCollectUserDataModel_setVisible(env, jmodel, true);
 }
@@ -918,34 +1033,26 @@ void UiControllerAndroid::OnDetailsChanged(const Details* details) {
     return;
   }
 
-  const DetailsProto& proto = details->details_proto();
-  const DetailsChangesProto& changes = details->changes();
-
   auto jdetails = Java_AssistantDetails_create(
-      env, base::android::ConvertUTF8ToJavaString(env, proto.title()),
-      base::android::ConvertUTF8ToJavaString(env, proto.image_url()),
-      proto.image_clickthrough_data().allow_clickthrough(),
-      base::android::ConvertUTF8ToJavaString(
-          env, proto.image_clickthrough_data().description()),
-      base::android::ConvertUTF8ToJavaString(
-          env, proto.image_clickthrough_data().positive_text()),
-      base::android::ConvertUTF8ToJavaString(
-          env, proto.image_clickthrough_data().negative_text()),
-      base::android::ConvertUTF8ToJavaString(
-          env, proto.image_clickthrough_data().clickthrough_url()),
-      proto.show_image_placeholder(),
-      base::android::ConvertUTF8ToJavaString(env, proto.total_price_label()),
-      base::android::ConvertUTF8ToJavaString(env, proto.total_price()),
-      base::android::ConvertUTF8ToJavaString(env, details->datetime()),
-      proto.datetime().date().year(), proto.datetime().date().month(),
-      proto.datetime().date().day(), proto.datetime().time().hour(),
-      proto.datetime().time().minute(), proto.datetime().time().second(),
-      base::android::ConvertUTF8ToJavaString(env, proto.description_line_1()),
-      base::android::ConvertUTF8ToJavaString(env, proto.description_line_2()),
-      base::android::ConvertUTF8ToJavaString(env, proto.description_line_3()),
-      changes.user_approval_required(), changes.highlight_title(),
-      changes.highlight_line1(), changes.highlight_line2(),
-      changes.highlight_line3(), proto.animate_placeholders());
+      env, base::android::ConvertUTF8ToJavaString(env, details->title()),
+      details->titleMaxLines(),
+      base::android::ConvertUTF8ToJavaString(env, details->imageUrl()),
+      details->imageAllowClickthrough(),
+      base::android::ConvertUTF8ToJavaString(env, details->imageDescription()),
+      base::android::ConvertUTF8ToJavaString(env, details->imagePositiveText()),
+      base::android::ConvertUTF8ToJavaString(env, details->imageNegativeText()),
+      base::android::ConvertUTF8ToJavaString(env,
+                                             details->imageClickthroughUrl()),
+      details->showImagePlaceholder(),
+      base::android::ConvertUTF8ToJavaString(env, details->totalPriceLabel()),
+      base::android::ConvertUTF8ToJavaString(env, details->totalPrice()),
+      base::android::ConvertUTF8ToJavaString(env, details->descriptionLine1()),
+      base::android::ConvertUTF8ToJavaString(env, details->descriptionLine2()),
+      base::android::ConvertUTF8ToJavaString(env, details->descriptionLine3()),
+      base::android::ConvertUTF8ToJavaString(env, details->priceAttribution()),
+      details->userApprovalRequired(), details->highlightTitle(),
+      details->highlightLine1(), details->highlightLine2(),
+      details->highlightLine3(), details->animatePlaceholders());
   Java_AssistantDetailsModel_setDetails(env, jmodel, jdetails);
 }
 
@@ -988,4 +1095,4 @@ void UiControllerAndroid::OnFatalError(
       base::android::ConvertJavaStringToUTF8(env, jmessage),
       static_cast<Metrics::DropOutReason>(jreason));
 }
-}  // namespace autofill_assistant.
+}  // namespace autofill_assistant

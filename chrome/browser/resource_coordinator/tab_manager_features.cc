@@ -28,12 +28,6 @@ const base::Feature kProactiveTabFreezeAndDiscard{
     resource_coordinator::kProactiveTabFreezeAndDiscardFeatureName,
     base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enables prioritization of sites that communicate with the user while in the
-// background (email, chat, calendar, etc) during session restore.
-const base::Feature kSessionRestorePrioritizesBackgroundUseCases{
-    "SessionRestorePrioritizesBackgroundUseCases",
-    base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Enables the site characteristics database.
 const base::Feature kSiteCharacteristicsDatabase{
     "SiteCharacteristicsDatabase", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -84,6 +78,8 @@ const char kProactiveTabFreezeAndDiscardFeatureName[] =
     "ProactiveTabFreezeAndDiscard";
 const char kProactiveTabFreezeAndDiscard_ShouldProactivelyDiscardParam[] =
     "ShouldProactivelyDiscard";
+const char kProactiveTabFreezeAndDiscard_ShouldPeriodicallyUnfreezeParam[] =
+    "ShouldPeriodicallyUnfreeze";
 const char kProactiveTabFreezeAndDiscard_DisableHeuristicsParam[] =
     "DisableHeuristicsProtections";
 
@@ -259,7 +255,7 @@ GetStaticSiteCharacteristicsDatabaseParams() {
 int GetNumOldestTabsToScoreWithTabRanker() {
   return base::GetFieldTrialParamByFeatureAsInt(
       features::kTabRanker, "number_of_oldest_tabs_to_score_with_TabRanker",
-      std::numeric_limits<int>::max());
+      20);
 }
 
 int GetProcessTypeToScoreWithTabRanker() {

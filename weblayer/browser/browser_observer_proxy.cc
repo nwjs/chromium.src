@@ -27,19 +27,28 @@ BrowserObserverProxy::~BrowserObserverProxy() {
   browser_controller_->RemoveObserver(this);
 }
 
-void BrowserObserverProxy::DisplayedURLChanged(const GURL& url) {
+void BrowserObserverProxy::DisplayedUrlChanged(const GURL& url) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jstring> jstring_url(
       ConvertUTF8ToJavaString(env, url.spec()));
-  Java_BrowserObserverProxy_displayURLChanged(env, java_observer_, jstring_url);
+  Java_BrowserObserverProxy_visibleUrlChanged(env, java_observer_, jstring_url);
 }
 
 void BrowserObserverProxy::LoadingStateChanged(bool is_loading,
-                                               bool to_different_document) {}
+                                               bool to_different_document) {
+  JNIEnv* env = AttachCurrentThread();
+  Java_BrowserObserverProxy_loadingStateChanged(env, java_observer_, is_loading,
+                                                to_different_document);
+}
+
+void BrowserObserverProxy::LoadProgressChanged(double progress) {
+  JNIEnv* env = AttachCurrentThread();
+  Java_BrowserObserverProxy_loadProgressChanged(env, java_observer_, progress);
+}
 
 void BrowserObserverProxy::FirstContentfulPaint() {}
 
-static jlong JNI_BrowserObserverProxy_CreateBrowserObsererProxy(
+static jlong JNI_BrowserObserverProxy_CreateBrowserObserverProxy(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& proxy,
     jlong browser_controller) {

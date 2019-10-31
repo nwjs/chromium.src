@@ -56,6 +56,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieManager
 
   // mojom::CookieManager
   void GetAllCookies(GetAllCookiesCallback callback) override;
+  void GetAllCookiesWithAccessSemantics(
+      GetAllCookiesWithAccessSemanticsCallback callback) override;
   void GetCookieList(const GURL& url,
                      const net::CookieOptions& cookie_options,
                      GetCookieListCallback callback) override;
@@ -126,7 +128,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieManager
   scoped_refptr<SessionCleanupCookieStore> session_cleanup_cookie_store_;
   mojo::ReceiverSet<mojom::CookieManager> receivers_;
   std::vector<std::unique_ptr<ListenerRegistration>> listener_registrations_;
-  // Note: RestrictedCookieManager stores pointers to |cookie_settings_|.
+  // Note: RestrictedCookieManager and CookieAccessDelegate store pointers to
+  // |cookie_settings_|.
   CookieSettings cookie_settings_;
 
   DISALLOW_COPY_AND_ASSIGN(CookieManager);

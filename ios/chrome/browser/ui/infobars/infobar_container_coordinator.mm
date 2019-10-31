@@ -21,6 +21,7 @@
 #import "ios/chrome/browser/ui/infobars/infobar_positioner.h"
 #include "ios/chrome/browser/ui/infobars/legacy_infobar_container_view_controller.h"
 #include "ios/chrome/browser/upgrade/upgrade_center.h"
+#import "ios/chrome/browser/web_state_list/web_state_list.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -47,7 +48,7 @@
 // infobarCoordinators holds all InfobarCoordinators this ContainerCoordinator
 // can display.
 @property(nonatomic, strong)
-    NSMutableDictionary<NSNumber*, InfobarCoordinator*>* infobarCoordinators;
+    NSMutableArray<InfobarCoordinator*>* infobarCoordinators;
 // Array of Coordinators which banners haven't been presented yet. Once a
 // Coordinator banner is presented it should be removed from this Array. If
 // empty then it means there are no banners queued to be presented.
@@ -66,7 +67,7 @@
                               browserState:browserState];
   if (self) {
     _webStateList = webStateList;
-    _infobarCoordinators = [NSMutableDictionary dictionary];
+    _infobarCoordinators = [NSMutableArray array];
     _infobarCoordinatorsToPresent = [NSMutableArray array];
   }
   return self;
@@ -147,8 +148,7 @@
                           completion:(void (^)())completion {
   DCHECK(IsInfobarUIRebootEnabled());
 
-  for (InfobarCoordinator* infobarCoordinator in
-       [self.infobarCoordinators allValues]) {
+  for (InfobarCoordinator* infobarCoordinator in self.infobarCoordinators) {
     if (infobarCoordinator.infobarBannerState !=
         InfobarBannerPresentationState::NotPresented) {
       // Since only one Banner can be presented at any time, dismiss it.
@@ -172,8 +172,7 @@
 #pragma mark - ChromeCoordinator
 
 - (MutableCoordinatorArray*)childCoordinators {
-  return static_cast<MutableCoordinatorArray*>(
-      [self.infobarCoordinators allValues]);
+  return static_cast<MutableCoordinatorArray*>(self.infobarCoordinators);
 }
 
 #pragma mark - Accessors
@@ -195,8 +194,7 @@
 
 - (InfobarBannerPresentationState)infobarBannerState {
   DCHECK(IsInfobarUIRebootEnabled());
-  for (InfobarCoordinator* infobarCoordinator in
-       [self.infobarCoordinators allValues]) {
+  for (InfobarCoordinator* infobarCoordinator in self.infobarCoordinators) {
     if (infobarCoordinator.infobarBannerState !=
         InfobarBannerPresentationState::NotPresented) {
       // Since only one Banner can be presented at any time, early return.
@@ -215,14 +213,16 @@
   InfobarCoordinator* infobarCoordinator =
       static_cast<InfobarCoordinator*>(infoBarDelegate);
 
-  NSNumber* infobarKey =
-      [NSNumber numberWithInt:static_cast<int>(infoBarDelegate.infobarType)];
-  self.infobarCoordinators[infobarKey] = infobarCoordinator;
+  [self.infobarCoordinators addObject:infobarCoordinator];
 
-  // Present the InfobarBanner, and set the Coordinator and View hierarchies.
+  // Configure the Coordinator and try to present the Banner afterwards.
   [infobarCoordinator start];
-  infobarCoordinator.badgeDelegate = self.mediator;
+  // Only set the infobarCoordinator's badgeDelegate if it supports a badge. Not
+  // doing so might cause undefined behavior since no badge was added.
+  if (infobarCoordinator.hasBadge)
+    infobarCoordinator.badgeDelegate = self.mediator;
   infobarCoordinator.browserState = self.browserState;
+  infobarCoordinator.webState = self.webStateList->GetActiveWebState();
   infobarCoordinator.baseViewController = self.baseViewController;
   infobarCoordinator.dispatcher = self.dispatcher;
   infobarCoordinator.infobarContainer = self;
@@ -230,7 +230,7 @@
 }
 
 - (void)infobarManagerWillChange {
-  self.infobarCoordinators = [NSMutableDictionary dictionary];
+  self.infobarCoordinators = [NSMutableArray array];
   self.infobarCoordinatorsToPresent = [NSMutableArray array];
 }
 
@@ -246,24 +246,28 @@
 
 #pragma mark InfobarContainer
 
-- (void)childCoordinatorBannerWasDismissed:(InfobarType)infobarType {
+- (void)childCoordinatorBannerWasDismissed:
+    (InfobarCoordinator*)infobarCoordinator {
   InfobarCoordinator* coordinator =
       [self.infobarCoordinatorsToPresent firstObject];
   if (coordinator)
     [self presentBannerForInfobarCoordinator:coordinator];
 }
 
-- (void)childCoordinatorStopped:(InfobarType)infobarType {
-  DCHECK(IsInfobarUIRebootEnabled());
-  NSNumber* infobarKey = [NSNumber numberWithInt:static_cast<int>(infobarType)];
-  [self.infobarCoordinators removeObjectForKey:infobarKey];
+- (void)childCoordinatorStopped:(InfobarCoordinator*)infobarCoordinator {
+  [self.infobarCoordinators removeObject:infobarCoordinator];
+  // Also remove it from |infobarCoordinatorsToPresent| in case it was queued
+  // for a presentation.
+  [self.infobarCoordinatorsToPresent removeObject:infobarCoordinator];
 }
 
 #pragma mark InfobarCommands
 
 - (void)displayModalInfobar:(InfobarType)infobarType {
-  NSArray* allCoordinators = [self.infobarCoordinators allValues];
-  InfobarCoordinator* infobarCoordinator = [allCoordinators lastObject];
+  InfobarCoordinator* infobarCoordinator =
+      [self infobarCoordinatorForInfobarTye:infobarType];
+  DCHECK(infobarCoordinator);
+  DCHECK(infobarCoordinator.infobarType != InfobarType::kInfobarTypeConfirm);
   [infobarCoordinator presentInfobarModal];
 }
 
@@ -283,8 +287,7 @@
   if (!(self.infobarBannerState ==
         InfobarBannerPresentationState::NotPresented) ||
       (!self.baseViewController.view.window)) {
-    if (![self.infobarCoordinatorsToPresent containsObject:infobarCoordinator])
-      [self.infobarCoordinatorsToPresent addObject:infobarCoordinator];
+    [self queueInfobarCoordinatorForPresentation:infobarCoordinator];
     return;
   }
 
@@ -296,12 +299,41 @@
   // Dismisses the presented InfobarCoordinator banner after
   // kInfobarBannerPresentationDurationInSeconds seconds.
   if (!UIAccessibilityIsVoiceOverRunning()) {
-    dispatch_time_t popTime = dispatch_time(
-        DISPATCH_TIME_NOW,
-        kInfobarBannerPresentationDurationInSeconds * NSEC_PER_SEC);
+    NSTimeInterval timeInterval =
+        infobarCoordinator.highPriorityPresentation
+            ? kInfobarBannerLongPresentationDurationInSeconds
+            : kInfobarBannerDefaultPresentationDurationInSeconds;
+    dispatch_time_t popTime =
+        dispatch_time(DISPATCH_TIME_NOW, timeInterval * NSEC_PER_SEC);
     dispatch_after(popTime, dispatch_get_main_queue(), ^(void) {
       [infobarCoordinator dismissInfobarBannerAfterInteraction];
     });
+  }
+}
+
+// Returns the InfobarCoordinator for |infobarType|. If there's more than one
+// (e.g. kInfobarTypeConfirm) it will return the first one that was added. If no
+// InfobarCoordinator returns nil.
+- (InfobarCoordinator*)infobarCoordinatorForInfobarTye:
+    (InfobarType)infobarType {
+  for (InfobarCoordinator* coordinator in self.infobarCoordinators) {
+    if (coordinator.infobarType == infobarType) {
+      return coordinator;
+    }
+  }
+  return nil;
+}
+
+// Queues an InfobarBanner for presentation. If it has already been queued it
+// won't be added again.
+- (void)queueInfobarCoordinatorForPresentation:
+    (InfobarCoordinator*)coordinator {
+  if (![self.infobarCoordinatorsToPresent containsObject:coordinator]) {
+    if (coordinator.highPriorityPresentation) {
+      [self.infobarCoordinatorsToPresent insertObject:coordinator atIndex:0];
+    } else {
+      [self.infobarCoordinatorsToPresent addObject:coordinator];
+    }
   }
 }
 

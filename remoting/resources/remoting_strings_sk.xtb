@@ -48,7 +48,6 @@
 <translation id="2314101195544969792">Relácia vašej aplikácie <ph name="APPLICATION_NAME" /> je už istý čas neaktívna a čoskoro bude odpojená.</translation>
 <translation id="2317666076142640974">Vyskúšajte novú <ph name="LINK_BEGIN" />webovú aplikáciu Vzdialená plocha Chrome<ph name="LINK_END" />. Radi by sme počuli vašu spätnú väzbu.</translation>
 <translation id="2320166752086256636">Skryť klávesnicu</translation>
-<translation id="2332192922827071008">Otvoriť predvoľby</translation>
 <translation id="2353140552984634198">K tomuto počítaču môžete bezpečne pristupovať pomocou aplikácie Chromoting.</translation>
 <translation id="2359808026110333948">Pokračovať</translation>
 <translation id="2366718077645204424">Hostiteľa sa nepodarilo nájsť. Pravdepodobne je to spôsobené konfiguráciou siete, ktorú používate.</translation>
@@ -58,7 +57,6 @@
 <translation id="2509394361235492552">Pripojené k zariadeniu <ph name="HOSTNAME" /></translation>
 <translation id="2512228156274966424">POZNÁMKA: Ak chcete mať k dispozícii všetky klávesové skratky, povoľte v konfigurácii Vzdialenej plochy Chrome možnosť Otvoriť ako okno.</translation>
 <translation id="2540992418118313681">Chcete tento počítač zdieľať s ďalším používateľom, aby ho mohol zobraziť a ovládať?</translation>
-<translation id="254771646005658629">Povolenie vzdialeným používateľom ovládať tento Mac</translation>
 <translation id="2579271889603567289">Hostiteľ zlyhal alebo sa ho nepodarilo spustiť.</translation>
 <translation id="2599300881200251572">Táto služba povoľuje prichádzajúce pripojenia od klientov Vzdialenej plochy Chrome.</translation>
 <translation id="2647232381348739934">Služba Chromoting</translation>
@@ -136,6 +134,7 @@
 <translation id="4405930547258349619">Základná knižnica</translation>
 <translation id="4430435636878359009">Zakázať vzdialené pripojenia k tomuto počítaču</translation>
 <translation id="4430915108080446161">Prebieha generovanie prístupového kódu...</translation>
+<translation id="4450893287417543264">Nabudúce nezobrazovať</translation>
 <translation id="4472575034687746823">Začíname</translation>
 <translation id="4481276415609939789">Nie sú zaregistrované žiadne počítače. Ak chcete povoliť vzdialené pripojenie k inému počítaču, nainštalujte na ňom aplikáciu Chromoting a potom kliknite na tlačidlo <ph name="BUTTON_NAME" />.</translation>
 <translation id="4513946894732546136">Spätná väzba</translation>
@@ -173,6 +172,7 @@
 <translation id="518094545883702183">K týmto informáciám, ktoré sa používajú iba na diagnostiku vami nahláseného problému, má prístup výhradne osoba prešetrujúca vaše hlásenie. Tieto informácie budú uchovávané maximálne 30 dní.</translation>
 <translation id="5204575267916639804">Časté otázky</translation>
 <translation id="5222676887888702881">Odhlásiť sa</translation>
+<translation id="5234764350956374838">Zatvoriť</translation>
 <translation id="5254120496627797685">Ak opustíte túto stránku, relácia Vzdialenej plochy Chrome sa ukončí.</translation>
 <translation id="5308380583665731573">Pripojenie</translation>
 <translation id="5327248766486351172">Názov</translation>
@@ -183,11 +183,6 @@
 <translation id="5419185025274123272">Aplikáciu sa nepodarilo resetovať. Stále však môžete odoslať hlásenie o chybách.</translation>
 <translation id="5419418238395129586">Naposledy online: <ph name="DATE" /></translation>
 <translation id="544077782045763683">Hostiteľ je vypnutý</translation>
-<translation id="5463789431147491241">Ak chcete používať <ph name="PRODUCT_NAME" /> v tomto Macu, postupujte nasledovne:
-
-Vyberte tlačidlo <ph name="BUTTON_NAME" /> nižšie. V nastaveniach zabezpečenia a ochrany súkromia začiarknite políčko vedľa možnosti <ph name="SERVICE_SCRIPT_NAME" />.
-
-Ak je políčko <ph name="SERVICE_SCRIPT_NAME" /> už začiarknuté, zrušte jeho začiarknutie a začiarknite ho znova.</translation>
 <translation id="5510035215749041527">Odpojiť</translation>
 <translation id="5593560073513909978">Služba je dočasne nedostupná. Skúste to znova neskôr.</translation>
 <translation id="5601503069213153581">Kód PIN</translation>

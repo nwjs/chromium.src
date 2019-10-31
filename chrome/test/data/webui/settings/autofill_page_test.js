@@ -55,6 +55,11 @@ cr.define('settings_autofill_page', function() {
             type: chrome.settingsPrivate.PrefType.BOOLEAN,
             value: true,
           },
+          {
+            key: 'profile.password_manager_leak_detection',
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: true,
+          },
         ]));
 
         CrSettingsPrefs.initialized.then(function() {
@@ -212,12 +217,15 @@ cr.define('settings_autofill_page', function() {
       return createPrefs(true, true).then(function(prefs) {
         const element = createAutofillElement(prefs);
 
-        const list =
+        const addressList =
             [FakeDataMaker.addressEntry(), FakeDataMaker.addressEntry()];
-        autofillManager.lastCallback.addAddressListChangedListener(list);
+        const cardList =
+            [FakeDataMaker.creditCardEntry(), FakeDataMaker.creditCardEntry()];
+        autofillManager.lastCallback.setPersonalDataManagerListener(
+            addressList, cardList);
         Polymer.dom.flush();
 
-        assertEquals(list, element.$$('#autofillSection').addresses);
+        assertEquals(addressList, element.$$('#autofillSection').addresses);
 
         // The callback is coming from the manager, so the element shouldn't
         // have additional calls to the manager after the base expectations.
@@ -233,12 +241,15 @@ cr.define('settings_autofill_page', function() {
       return createPrefs(true, true).then(function(prefs) {
         const element = createAutofillElement(prefs);
 
-        const list =
+        const addressList =
+            [FakeDataMaker.addressEntry(), FakeDataMaker.addressEntry()];
+        const cardList =
             [FakeDataMaker.creditCardEntry(), FakeDataMaker.creditCardEntry()];
-        paymentsManager.lastCallback.addCreditCardListChangedListener(list);
+        paymentsManager.lastCallback.setPersonalDataManagerListener(
+            addressList, cardList);
         Polymer.dom.flush();
 
-        assertEquals(list, element.$$('#paymentsSection').creditCards);
+        assertEquals(cardList, element.$$('#paymentsSection').creditCards);
 
         // The callback is coming from the manager, so the element shouldn't
         // have additional calls to the manager after the base expectations.

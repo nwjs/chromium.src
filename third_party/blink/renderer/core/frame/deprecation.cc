@@ -338,7 +338,8 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
 
     case WebFeature::kCSSDeepCombinator:
       return {"CSSDeepCombinator", kM65,
-              "/deep/ combinator is no longer supported in CSS dynamic profile."
+              "/deep/ combinator is no longer supported in CSS dynamic "
+              "profile. "
               "It is now effectively no-op, acting as if it were a descendant "
               "combinator. /deep/ combinator will be removed, and will be "
               "invalid at M65. You should remove it. See "
@@ -472,16 +473,6 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
               "Creating a MediaStreamAudioSourceNode on an OfflineAudioContext",
               kM71, "5258622686724096")};
 
-    case WebFeature::kGridRowTrackPercentIndefiniteHeight:
-      return {"GridRowTrackPercentIndefiniteHeight", kM70,
-              String::Format("Percentages row tracks and gutters for "
-                             "indefinite height grid containers will be "
-                             "resolved against the intrinsic height instead of "
-                             "being treated as auto and zero respectively. "
-                             "This change will happen in %s. See "
-                             "https://www.chromestatus.com/feature/"
-                             "6708326821789696 for more details.",
-                             MilestoneString(kM70))};
     case WebFeature::kTextToSpeech_SpeakDisallowedByAutoplay:
       return {
           "TextToSpeech_DisallowedByAutoplay", kM71,
@@ -674,6 +665,25 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
               WillBeRemoved("'-webkit-appearance: textarea' for "
                             "elements other than textarea",
                             kM79, "5070237827334144")};
+    case WebFeature::kARIAHelpAttribute:
+      return {"ARIAHelpAttribute", kM80,
+              WillBeRemoved("'aria-help'", kM80, "5645050857914368")};
+
+    case WebFeature::kXRSupportsSession:
+      return {"XRSupportsSession", kM80,
+              ReplacedBy(
+                  "supportsSession()",
+                  "isSessionSupported() and check the resolved boolean value")};
+
+    case WebFeature::kCSSValueAppearanceButtonForBootstrapLooseSelectorRendered:
+    case WebFeature::kCSSValueAppearanceButtonForOthers2Rendered:
+      // The below DeprecationInfo::id doesn't match to WebFeature enums
+      // intentionally.
+      return {"CSSValueAppearanceButtonForOthersRendered", kM80,
+              WillBeRemoved("'-webkit-appearance: button' for "
+                            "elements other than <button> and <input "
+                            "type=button/color/reset/submit>",
+                            kM80, "4867142128238592")};
 
     // Features that aren't deprecated don't have a deprecation message.
     default:

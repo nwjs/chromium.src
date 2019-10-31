@@ -8,6 +8,7 @@ Polymer({
 
   behaviors: [
     app_management.StoreClient,
+    settings.RouteObserverBehavior,
   ],
 
   properties: {
@@ -15,26 +16,52 @@ Polymer({
      * @type {App}
      * @private
      */
-    app_: Object,
+    app_: {
+      type: Object,
+      observer: 'appChanged_',
+    }
   },
 
   attached: function() {
-    if (!this.app_) {
-      const appId = settings.getQueryParameters().get('id');
-      // TODO(crbug.com/999443): move this changePage call to router.js
-      this.dispatch(app_management.actions.changePage(PageType.DETAIL, appId));
-    }
     this.watch('app_', state => app_management.util.getSelectedApp(state));
-    this.watch('currentPage_', state => state.currentPage);
     this.updateFromStore();
   },
 
+  detached: function() {
+    this.dispatch(app_management.actions.updateSelectedAppId(null));
+  },
+
   /**
+   * Updates selected app ID based on the URL query params.
+   *
+   * settings.RouteObserverBehavior
+   * @param {!settings.Route} currentRoute
+   * @protected
+   */
+  currentRouteChanged: function(currentRoute) {
+    if (currentRoute !== settings.routes.APP_MANAGEMENT_DETAIL) {
+      return;
+    }
+
+    const appId = settings.getQueryParameters().get('id');
+
+    if (!this.getState().apps[appId]) {
+      // TODO(crbug.com/1010398): this call does not open the main page.
+      app_management.util.openMainPage();
+      return;
+    }
+
+    this.dispatch(app_management.actions.updateSelectedAppId(appId));
+  },
+
+  /**
+   * @param {?App} app
+   * @return {?string}
    * @private
    */
   getSelectedRouteId_: function(app) {
     if (!app) {
-      return;
+      return null;
     }
 
     const selectedAppType = app.type;
@@ -49,4 +76,14 @@ Polymer({
         assertNotReached();
     }
   },
+
+  /**
+   * @param {?App} app
+   * @private
+   */
+  appChanged_: function(app) {
+    if (app === null) {
+      app_management.util.openMainPage();
+    }
+  }
 });

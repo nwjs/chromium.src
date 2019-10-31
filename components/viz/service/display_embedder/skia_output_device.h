@@ -5,6 +5,9 @@
 #ifndef COMPONENTS_VIZ_SERVICE_DISPLAY_EMBEDDER_SKIA_OUTPUT_DEVICE_H_
 #define COMPONENTS_VIZ_SERVICE_DISPLAY_EMBEDDER_SKIA_OUTPUT_DEVICE_H_
 
+#include <memory>
+#include <vector>
+
 #include "base/callback.h"
 #include "base/containers/queue.h"
 #include "base/macros.h"
@@ -26,7 +29,12 @@ class Size;
 struct PresentationFeedback;
 }  // namespace gfx
 
+namespace gl {
+class GLImage;
+}
+
 namespace viz {
+class DCLayerOverlay;
 
 class SkiaOutputDevice {
  public:
@@ -82,6 +90,10 @@ class SkiaOutputDevice {
 
   // Set the rectangle that will be drawn into on the surface.
   virtual void SetDrawRectangle(const gfx::Rect& draw_rectangle);
+
+  virtual void SetGpuVSyncEnabled(bool enabled);
+  virtual void SetEnableDCLayers(bool enabled);
+  virtual void ScheduleDCLayers(std::vector<DCLayerOverlay> dc_layers);
 
   const OutputSurface::Capabilities& capabilities() const {
     return capabilities_;

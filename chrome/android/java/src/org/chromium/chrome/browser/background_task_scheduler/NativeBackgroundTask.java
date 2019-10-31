@@ -5,7 +5,8 @@
 package org.chromium.chrome.browser.background_task_scheduler;
 
 import android.content.Context;
-import android.support.annotation.IntDef;
+
+import androidx.annotation.IntDef;
 
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
@@ -172,9 +173,8 @@ public abstract class NativeBackgroundTask implements BackgroundTask {
                     ChromeBrowserInitializer.getInstance(context).handlePostNativeStartup(
                             true /* isAsync */, parts);
                 } catch (ProcessInitException e) {
-                    Log.e(TAG, "ProcessInitException while starting the browser process.");
+                    Log.e(TAG, "Background Launch Error", e);
                     rescheduleRunnable.run();
-                    return;
                 }
             }
         });

@@ -240,7 +240,7 @@ class PeopleHandlerTest : public ChromeRenderViewHostTestHarness {
         .WillByDefault(Return(true));
 
     ON_CALL(*mock_sync_service_->GetMockUserSettings(), GetPassphraseType())
-        .WillByDefault(Return(syncer::PassphraseType::IMPLICIT_PASSPHRASE));
+        .WillByDefault(Return(syncer::PassphraseType::kImplicitPassphrase));
     ON_CALL(*mock_sync_service_->GetMockUserSettings(),
             GetExplicitPassphraseTime())
         .WillByDefault(Return(base::Time()));
@@ -816,7 +816,7 @@ TEST_F(PeopleHandlerTest, TestSyncEverything) {
   list_args.AppendString(kTestCallbackId);
   list_args.AppendString(args);
   ON_CALL(*mock_sync_service_->GetMockUserSettings(),
-          IsPassphraseRequiredForDecryption())
+          IsPassphraseRequiredForPreferredDataTypes())
       .WillByDefault(Return(false));
   ON_CALL(*mock_sync_service_->GetMockUserSettings(), IsPassphraseRequired())
       .WillByDefault(Return(false));
@@ -835,7 +835,7 @@ TEST_F(PeopleHandlerTest, TestPassphraseStillRequired) {
   list_args.AppendString(kTestCallbackId);
   list_args.AppendString(args);
   ON_CALL(*mock_sync_service_->GetMockUserSettings(),
-          IsPassphraseRequiredForDecryption())
+          IsPassphraseRequiredForPreferredDataTypes())
       .WillByDefault(Return(true));
   ON_CALL(*mock_sync_service_->GetMockUserSettings(), IsPassphraseRequired())
       .WillByDefault(Return(true));
@@ -864,7 +864,7 @@ TEST_F(PeopleHandlerTest, EnterExistingFrozenImplicitPassword) {
               IsPassphraseRequired())
       .WillOnce(Return(true));
   ON_CALL(*mock_sync_service_->GetMockUserSettings(),
-          IsPassphraseRequiredForDecryption())
+          IsPassphraseRequiredForPreferredDataTypes())
       .WillByDefault(Return(false));
   ON_CALL(*mock_sync_service_->GetMockUserSettings(),
           IsUsingSecondaryPassphrase())
@@ -890,7 +890,7 @@ TEST_F(PeopleHandlerTest, SetNewCustomPassphrase) {
           IsEncryptEverythingAllowed())
       .WillByDefault(Return(true));
   ON_CALL(*mock_sync_service_->GetMockUserSettings(),
-          IsPassphraseRequiredForDecryption())
+          IsPassphraseRequiredForPreferredDataTypes())
       .WillByDefault(Return(false));
   ON_CALL(*mock_sync_service_->GetMockUserSettings(), IsPassphraseRequired())
       .WillByDefault(Return(false));
@@ -914,7 +914,7 @@ TEST_F(PeopleHandlerTest, EnterWrongExistingPassphrase) {
   list_args.AppendString(kTestCallbackId);
   list_args.AppendString(args);
   ON_CALL(*mock_sync_service_->GetMockUserSettings(),
-          IsPassphraseRequiredForDecryption())
+          IsPassphraseRequiredForPreferredDataTypes())
       .WillByDefault(Return(true));
   ON_CALL(*mock_sync_service_->GetMockUserSettings(), IsPassphraseRequired())
       .WillByDefault(Return(true));
@@ -945,7 +945,7 @@ TEST_F(PeopleHandlerTest, EnterBlankExistingPassphrase) {
   list_args.AppendString(kTestCallbackId);
   list_args.AppendString(args);
   ON_CALL(*mock_sync_service_->GetMockUserSettings(),
-          IsPassphraseRequiredForDecryption())
+          IsPassphraseRequiredForPreferredDataTypes())
       .WillByDefault(Return(true));
   ON_CALL(*mock_sync_service_->GetMockUserSettings(), IsPassphraseRequired())
       .WillByDefault(Return(true));
@@ -976,7 +976,7 @@ TEST_F(PeopleHandlerTest, TestSyncIndividualTypes) {
     list_args.AppendString(kTestCallbackId);
     list_args.AppendString(args);
     ON_CALL(*mock_sync_service_->GetMockUserSettings(),
-            IsPassphraseRequiredForDecryption())
+            IsPassphraseRequiredForPreferredDataTypes())
         .WillByDefault(Return(false));
     ON_CALL(*mock_sync_service_->GetMockUserSettings(), IsPassphraseRequired())
         .WillByDefault(Return(false));
@@ -1001,7 +1001,7 @@ TEST_F(PeopleHandlerTest, TestSyncAllManually) {
   list_args.AppendString(kTestCallbackId);
   list_args.AppendString(args);
   ON_CALL(*mock_sync_service_->GetMockUserSettings(),
-          IsPassphraseRequiredForDecryption())
+          IsPassphraseRequiredForPreferredDataTypes())
       .WillByDefault(Return(false));
   ON_CALL(*mock_sync_service_->GetMockUserSettings(), IsPassphraseRequired())
       .WillByDefault(Return(false));
@@ -1171,8 +1171,7 @@ TEST_F(PeopleHandlerTest, ShowSetupOldGaiaPassphraseRequired) {
   ON_CALL(*mock_sync_service_->GetMockUserSettings(), IsPassphraseRequired())
       .WillByDefault(Return(true));
   ON_CALL(*mock_sync_service_->GetMockUserSettings(), GetPassphraseType())
-      .WillByDefault(
-          Return(syncer::PassphraseType::FROZEN_IMPLICIT_PASSPHRASE));
+      .WillByDefault(Return(syncer::PassphraseType::kFrozenImplicitPassphrase));
   SetupInitializedSyncService();
   SetDefaultExpectationsForConfigPage();
 
@@ -1188,7 +1187,7 @@ TEST_F(PeopleHandlerTest, ShowSetupCustomPassphraseRequired) {
   ON_CALL(*mock_sync_service_->GetMockUserSettings(), IsPassphraseRequired())
       .WillByDefault(Return(true));
   ON_CALL(*mock_sync_service_->GetMockUserSettings(), GetPassphraseType())
-      .WillByDefault(Return(syncer::PassphraseType::CUSTOM_PASSPHRASE));
+      .WillByDefault(Return(syncer::PassphraseType::kCustomPassphrase));
   SetupInitializedSyncService();
   SetDefaultExpectationsForConfigPage();
 
@@ -1241,7 +1240,7 @@ TEST_F(PeopleHandlerTest, ShowSetupEncryptAllDisallowed) {
 
 TEST_F(PeopleHandlerTest, TurnOnEncryptAllDisallowed) {
   ON_CALL(*mock_sync_service_->GetMockUserSettings(),
-          IsPassphraseRequiredForDecryption())
+          IsPassphraseRequiredForPreferredDataTypes())
       .WillByDefault(Return(false));
   ON_CALL(*mock_sync_service_->GetMockUserSettings(), IsPassphraseRequired())
       .WillByDefault(Return(false));
@@ -1309,8 +1308,9 @@ TEST_F(PeopleHandlerTest, DashboardClearWhileSettingsOpen_ConfirmSoon) {
         NotifySyncStateChanged();
       });
   EXPECT_CALL(*mock_sync_service_->GetMockUserSettings(),
-              SetFirstSetupComplete())
-      .WillOnce([&]() {
+              SetFirstSetupComplete(
+                  syncer::SyncFirstSetupCompleteSource::ADVANCED_FLOW_CONFIRM))
+      .WillOnce([&](syncer::SyncFirstSetupCompleteSource) {
         ON_CALL(*mock_sync_service_->GetMockUserSettings(),
                 IsFirstSetupComplete())
             .WillByDefault(Return(true));
@@ -1318,7 +1318,7 @@ TEST_F(PeopleHandlerTest, DashboardClearWhileSettingsOpen_ConfirmSoon) {
       });
 
   base::ListValue did_abort;
-  did_abort.GetList().push_back(base::Value(false));
+  did_abort.Append(base::Value(false));
   handler_->OnDidClosePage(&did_abort);
 }
 
@@ -1374,9 +1374,11 @@ TEST_F(PeopleHandlerTest, DashboardClearWhileSettingsOpen_ConfirmLater) {
         NotifySyncStateChanged();
       });
   if (!browser_defaults::kSyncAutoStarts) {
-    EXPECT_CALL(*mock_sync_service_->GetMockUserSettings(),
-                SetFirstSetupComplete())
-        .WillOnce([&]() {
+    EXPECT_CALL(
+        *mock_sync_service_->GetMockUserSettings(),
+        SetFirstSetupComplete(
+            syncer::SyncFirstSetupCompleteSource::ADVANCED_FLOW_CONFIRM))
+        .WillOnce([&](syncer::SyncFirstSetupCompleteSource) {
           ON_CALL(*mock_sync_service_->GetMockUserSettings(),
                   IsFirstSetupComplete())
               .WillByDefault(Return(true));
@@ -1385,7 +1387,7 @@ TEST_F(PeopleHandlerTest, DashboardClearWhileSettingsOpen_ConfirmLater) {
   }
 
   base::ListValue did_abort;
-  did_abort.GetList().push_back(base::Value(false));
+  did_abort.Append(base::Value(false));
   handler_->OnDidClosePage(&did_abort);
 }
 
@@ -1438,7 +1440,7 @@ TEST_P(PeopleHandlerDiceUnifiedConsentTest, StoredAccountsList) {
   base::Value accounts = handler.GetStoredAccountsList();
 
   ASSERT_TRUE(accounts.is_list());
-  const base::Value::ListStorage& accounts_list = accounts.GetList();
+  base::span<const base::Value> accounts_list = accounts.GetList();
 
   if (dice_enabled) {
     ASSERT_EQ(2u, accounts_list.size());

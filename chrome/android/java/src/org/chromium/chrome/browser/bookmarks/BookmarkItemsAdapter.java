@@ -5,13 +5,14 @@
 package org.chromium.chrome.browser.bookmarks;
 
 import android.content.Context;
-import android.support.annotation.IntDef;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.RecyclerView.ViewHolder;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.annotation.IntDef;
 
 import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
@@ -145,7 +146,8 @@ class BookmarkItemsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     /**
      * @return The position of the given bookmark in adapter. Will return -1 if not found.
      */
-    private int getPositionForBookmark(BookmarkId bookmark) {
+    @Override
+    public int getPositionForBookmark(BookmarkId bookmark) {
         assert bookmark != null;
         int position = -1;
         for (int i = 0; i < getItemCount(); i++) {

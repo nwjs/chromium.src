@@ -2068,6 +2068,71 @@ TEST_F(DisplayManagerTest, ResolutionChangeInUnifiedMode) {
   EXPECT_EQ("1200x600", active_mode.size().ToString());
 }
 
+TEST_F(DisplayManagerTest, RotateExternalDisplayWithNonNativeMode) {
+  const int64_t internal_display_id = 5;
+  const int64_t external_id = 11;
+  const display::ManagedDisplayInfo internal_display_info =
+      display::ManagedDisplayInfo::CreateFromSpecWithID(
+          "1920x1080#1280x720|640x480%60", internal_display_id);
+  // Create an external display with a different origin to avoid triggering HW
+  // mirroring.
+  display::ManagedDisplayInfo external_display_info =
+      display::ManagedDisplayInfo::CreateFromSpecWithID(
+          "1+1-1280x720#1280x720|640x480%60", external_id);
+
+  std::vector<display::ManagedDisplayInfo> display_info_list;
+
+  display_info_list.push_back(internal_display_info);
+  display_info_list.push_back(external_display_info);
+  display_manager()->OnNativeDisplaysChanged(display_info_list);
+
+  display::test::DisplayManagerTestApi(display_manager())
+      .SetFirstDisplayAsInternalDisplay();
+
+  EXPECT_EQ(2U, display_manager()->num_connected_displays());
+  EXPECT_EQ(internal_display_id,
+            display::Screen::GetScreen()->GetPrimaryDisplay().id());
+
+  display::ManagedDisplayMode active_mode;
+  EXPECT_TRUE(
+      display_manager()->GetActiveModeForDisplayId(external_id, &active_mode));
+  EXPECT_TRUE(active_mode.native());
+
+  const auto& modes = external_display_info.display_modes();
+  EXPECT_TRUE(display::test::SetDisplayResolution(
+      display_manager(), external_id, modes[0].size()));
+  display_manager()->UpdateDisplays();
+
+  EXPECT_TRUE(
+      display_manager()->GetActiveModeForDisplayId(external_id, &active_mode));
+  EXPECT_FALSE(active_mode.native());
+
+  // Rotate the display.
+  display_manager()->SetDisplayRotation(
+      external_id, display::Display::ROTATE_90,
+      display::Display::RotationSource::ACTIVE);
+
+  // Refresh |external_display_info| since we have rotated the display.
+  external_display_info = display_manager()->GetDisplayInfo(external_id);
+
+  // Disconnect the external display.
+  display_info_list.clear();
+  display_info_list.push_back(internal_display_info);
+  display_manager()->OnNativeDisplaysChanged(display_info_list);
+
+  EXPECT_EQ(1U, display_manager()->num_connected_displays());
+
+  // Reconnect the external display.
+  display_info_list.push_back(external_display_info);
+  display_manager()->OnNativeDisplaysChanged(display_info_list);
+
+  EXPECT_EQ(2U, display_manager()->num_connected_displays());
+
+  // Verify the display maintains the rotation.
+  auto external_info = display_manager()->GetDisplayInfo(external_id);
+  EXPECT_EQ(display::Display::ROTATE_90, external_info.GetActiveRotation());
+}
+
 TEST_F(DisplayManagerTest, UpdateMouseCursorAfterRotateZoom) {
   // Make sure just rotating will not change native location.
   UpdateDisplay("300x200,200x150");
@@ -4365,7 +4430,8 @@ TEST_F(DisplayManagerTest, MirrorModeRestoreAfterResume) {
   EXPECT_TRUE(display_manager()->IsInMirrorMode());
 }
 
-TEST_F(DisplayManagerTest, SoftwareMirrorRotationForTablet) {
+// crbug.com/1003339
+TEST_F(DisplayManagerTest, DISABLED_SoftwareMirrorRotationForTablet) {
   UpdateDisplay("400x300,800x800");
   base::RunLoop().RunUntilIdle();
 
@@ -4432,7 +4498,8 @@ TEST_F(DisplayManagerTest, SoftwareMirrorRotationForTablet) {
   EXPECT_EQ(gfx::RectF(0.0f, 100.0f, 800.0f, 600.0f), transformed_rect3);
 }
 
-TEST_F(DisplayManagerTest, SoftwareMirrorRotationForNonTablet) {
+// crbug.com/1003339
+TEST_F(DisplayManagerTest, DISABLED_SoftwareMirrorRotationForNonTablet) {
   MirrorWindowTestApi test_api;
   UpdateDisplay("400x300,800x800");
 
@@ -4490,6 +4557,66 @@ TEST_F(DisplayManagerTest, SoftwareMirrorRotationForNonTablet) {
       &transformed_rect3);
   host_list[0]->window()->transform().TransformRect(&transformed_rect3);
   EXPECT_EQ(gfx::RectF(100.0f, 0.0f, 600.0f, 800.0f), transformed_rect3);
+}
+
+TEST_F(DisplayManagerTest, DPSizeTest) {
+  display::test::DisplayManagerTestApi(display_manager())
+      .SetFirstDisplayAsInternalDisplay();
+  UpdateDisplay("3840x2160*2.66666");
+  EXPECT_EQ(gfx::Size(1440, 810),
+            display::Screen::GetScreen()->GetPrimaryDisplay().size());
+
+  UpdateDisplay("1920x1200*1.77777");
+  EXPECT_EQ(gfx::Size(1080, 675),
+            display::Screen::GetScreen()->GetPrimaryDisplay().size());
+}
+
+TEST_F(DisplayManagerTest, PanelOrientation) {
+  int64_t display_id = display::Screen::GetScreen()->GetPrimaryDisplay().id();
+
+  display::test::ScopedSetInternalDisplayId set_internal(display_manager(),
+                                                         display_id);
+
+  // The panel is portrait but its orientation is landscape.
+  display::ManagedDisplayInfo native_display_info =
+      display::CreateDisplayInfo(display_id, gfx::Rect(0, 0, 1920, 1080));
+  native_display_info.set_panel_orientation(
+      display::PanelOrientation::kRightUp);
+  const display::ManagedDisplayMode base_mode(gfx::Size(1920, 1080), 60.0f,
+                                              false, false);
+  display::ManagedDisplayInfo::ManagedDisplayModeList mode_list =
+      CreateInternalManagedDisplayModeList(base_mode);
+  native_display_info.SetManagedDisplayModes(mode_list);
+
+  std::vector<display::ManagedDisplayInfo> display_info_list;
+  display_info_list.push_back(native_display_info);
+  display_manager()->OnNativeDisplaysChanged(display_info_list);
+  // Check display is landscape at ROTATE_0.
+  EXPECT_EQ(gfx::Size(1080, 1920),
+            display::Screen::GetScreen()->GetPrimaryDisplay().GetSizeInPixel());
+  EXPECT_EQ(display::Display::ROTATE_0,
+            display::Screen::GetScreen()->GetPrimaryDisplay().rotation());
+
+  // Check the orientation controller reports correct orientation.
+  auto* screen_orientation_controller =
+      Shell::Get()->screen_orientation_controller();
+  EXPECT_EQ(OrientationLockType::kLandscape,
+            screen_orientation_controller->natural_orientation());
+  EXPECT_EQ(OrientationLockType::kLandscapePrimary,
+            screen_orientation_controller->GetCurrentOrientation());
+
+  // Test if changing rotation works as if it's landscape panel.
+  DisplayConfigurationController::DisableAnimatorForTest();
+  ScreenOrientationControllerTestApi(screen_orientation_controller)
+      .SetDisplayRotation(display::Display::ROTATE_270,
+                          display::Display::RotationSource::USER);
+
+  EXPECT_EQ(gfx::Size(1920, 1080),
+            display::Screen::GetScreen()->GetPrimaryDisplay().GetSizeInPixel());
+  EXPECT_EQ(display::Display::ROTATE_270,
+            display::Screen::GetScreen()->GetPrimaryDisplay().rotation());
+  EXPECT_EQ(OrientationLockType::kPortraitPrimary,
+            screen_orientation_controller->GetCurrentOrientation());
 }
 
 }  // namespace ash

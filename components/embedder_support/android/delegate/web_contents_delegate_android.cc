@@ -22,6 +22,7 @@
 #include "content/public/common/referrer.h"
 #include "content/public/common/resource_request_body_android.h"
 #include "third_party/blink/public/common/frame/blocked_navigation_types.h"
+#include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
 #include "url/gurl.h"
@@ -111,6 +112,7 @@ WebContents* WebContentsDelegateAndroid::OpenURLFromTab(
       params.should_replace_current_entry;
   load_params.is_renderer_initiated = params.is_renderer_initiated;
   load_params.has_user_gesture = params.user_gesture;
+  load_params.initiator_origin = params.initiator_origin;
 
   if (params.uses_post) {
     load_params.load_type = content::NavigationController::LOAD_TYPE_HTTP_POST;
@@ -189,27 +191,20 @@ void WebContentsDelegateAndroid::RendererResponsive(
   Java_WebContentsDelegateAndroid_rendererResponsive(env, obj);
 }
 
-bool WebContentsDelegateAndroid::ShouldCreateWebContents(
-    content::WebContents* web_contents,
-    content::RenderFrameHost* opener,
+bool WebContentsDelegateAndroid::IsWebContentsCreationOverridden(
     content::SiteInstance* source_site_instance,
-    int32_t route_id,
-    int32_t main_frame_route_id,
-    int32_t main_frame_widget_route_id,
     content::mojom::WindowContainerType window_container_type,
     const GURL& opener_url,
     const std::string& frame_name,
-    const GURL& target_url,
-    const std::string& partition_id,
-    content::SessionStorageNamespace* session_storage_namespace) {
+    const GURL& target_url) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
   if (obj.is_null())
-    return true;
+    return false;
   ScopedJavaLocalRef<jstring> java_url =
       ConvertUTF8ToJavaString(env, target_url.spec());
-  return Java_WebContentsDelegateAndroid_shouldCreateWebContents(env, obj,
-                                                                 java_url);
+  return !Java_WebContentsDelegateAndroid_shouldCreateWebContents(env, obj,
+                                                                  java_url);
 }
 
 void WebContentsDelegateAndroid::WebContentsCreated(
@@ -349,7 +344,7 @@ bool WebContentsDelegateAndroid::ShouldBlockMediaRequest(const GURL& url) {
 void WebContentsDelegateAndroid::EnterFullscreenModeForTab(
     WebContents* web_contents,
     const GURL& origin,
-    const blink::WebFullscreenOptions& options) {
+    const blink::mojom::FullscreenOptions& options) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
   if (obj.is_null())

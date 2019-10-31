@@ -95,7 +95,7 @@ struct FrameVisualProperties;
 class FrameTreeNode;
 class InterstitialPage;
 class NavigationHandle;
-class NavigationHandleImpl;
+class NavigationRequest;
 class RenderFrameMetadataProviderImpl;
 class RenderWidgetHost;
 class RenderWidgetHostView;
@@ -332,6 +332,12 @@ void MaybeSendSyntheticTapGesture(WebContents* guest_web_contents);
 // Spins a run loop until effects of previously forwarded input are fully
 // realized.
 void RunUntilInputProcessed(RenderWidgetHost* host);
+
+// Returns a string representation of a given |referrer_policy|. This is used to
+// setup <meta name=referrer> tags in documents used for referrer-policy-based
+// tests. The value `no-meta` indicates no tag should be created.
+std::string ReferrerPolicyToString(
+    network::mojom::ReferrerPolicy referrer_policy);
 
 // Holds down modifier keys for the duration of its lifetime and releases them
 // upon destruction. This allows simulating multiple input events without
@@ -1024,10 +1030,11 @@ class TitleWatcher : public WebContentsObserver {
   DISALLOW_COPY_AND_ASSIGN(TitleWatcher);
 };
 
-// Watches a RenderProcessHost and waits for specified destruction events.
+// Watches a RenderProcessHost and waits for a specified lifecycle event.
 class RenderProcessHostWatcher : public RenderProcessHostObserver {
  public:
   enum WatchType {
+    WATCH_FOR_PROCESS_READY,
     WATCH_FOR_PROCESS_EXIT,
     WATCH_FOR_HOST_DESTRUCTION
   };
@@ -1038,7 +1045,7 @@ class RenderProcessHostWatcher : public RenderProcessHostObserver {
   RenderProcessHostWatcher(WebContents* web_contents, WatchType type);
   ~RenderProcessHostWatcher() override;
 
-  // Waits until the renderer process exits.
+  // Waits until the expected event is triggered.
   void Wait();
 
   // Returns true if a renderer process exited cleanly (without hitting
@@ -1048,6 +1055,7 @@ class RenderProcessHostWatcher : public RenderProcessHostObserver {
 
  private:
   // Overridden RenderProcessHost::LifecycleObserver methods.
+  void RenderProcessReady(RenderProcessHost* host) override;
   void RenderProcessExited(RenderProcessHost* host,
                            const ChildProcessTerminationInfo& info) override;
   void RenderProcessHostDestroyed(RenderProcessHost* host) override;
@@ -1482,7 +1490,7 @@ class TestNavigationManager : public WebContentsObserver {
   void OnNavigationStateChanged();
 
   const GURL url_;
-  NavigationHandleImpl* handle_;
+  NavigationRequest* request_;
   bool navigation_paused_;
   NavigationState current_state_;
   NavigationState desired_state_;

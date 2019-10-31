@@ -26,12 +26,13 @@ CredentialManagerPasswordFormManager::CredentialManagerPasswordFormManager(
     CredentialManagerPasswordFormManagerDelegate* delegate,
     std::unique_ptr<FormSaver> form_saver,
     std::unique_ptr<FormFetcher> form_fetcher)
-    : PasswordFormManager(client,
-                          std::move(saved_form),
-                          std::move(form_fetcher),
-                          (form_saver ? std::move(form_saver)
-                                      : std::make_unique<FormSaverImpl>(
-                                            client->GetPasswordStore()))),
+    : PasswordFormManager(
+          client,
+          std::move(saved_form),
+          std::move(form_fetcher),
+          (form_saver ? std::move(form_saver)
+                      : std::make_unique<FormSaverImpl>(
+                            client->GetProfilePasswordStore()))),
       delegate_(delegate) {}
 
 CredentialManagerPasswordFormManager::~CredentialManagerPasswordFormManager() =
@@ -53,7 +54,7 @@ void CredentialManagerPasswordFormManager::OnFetchCompleted() {
 }
 
 metrics_util::CredentialSourceType
-CredentialManagerPasswordFormManager::GetCredentialSource() {
+CredentialManagerPasswordFormManager::GetCredentialSource() const {
   return metrics_util::CredentialSourceType::kCredentialManagementAPI;
 }
 

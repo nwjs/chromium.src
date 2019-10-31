@@ -594,7 +594,8 @@ bool SessionService::ShouldRestoreWindowOfType(
     return true;
 #endif
 
-  return window_type == sessions::SessionWindow::TYPE_NORMAL;
+  return (window_type == sessions::SessionWindow::TYPE_NORMAL) ||
+         (window_type == sessions::SessionWindow::TYPE_POPUP);
 }
 
 void SessionService::RemoveUnusedRestoreWindows(

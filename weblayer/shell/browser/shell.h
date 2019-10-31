@@ -38,6 +38,9 @@ class Profile;
 
 // This represents one window of the Web Shell, i.e. all the UI including
 // buttons and url bar, as well as the web content area.
+// On desktop this is used for the demo Shell application and also
+// weblayer_browsertests. On Android this is only used for
+// weblayer_browsertests.
 class Shell : public BrowserObserver {
  public:
   ~Shell() override;
@@ -56,6 +59,9 @@ class Shell : public BrowserObserver {
                                 const GURL& url,
                                 const gfx::Size& initial_size);
 
+  // Returns the currently open windows.
+  static std::vector<Shell*>& windows() { return windows_; }
+
   // Closes all windows, pumps teardown tasks, then returns. The main message
   // loop will be signalled to quit, before the call returns.
   static void CloseAllWindows();
@@ -63,6 +69,8 @@ class Shell : public BrowserObserver {
   // Stores the supplied |quit_closure|, to be run when the last Shell
   // instance is destroyed.
   static void SetMainMessageLoopQuitClosure(base::OnceClosure quit_closure);
+
+  BrowserController* browser_controller();
 
   gfx::NativeWindow window() { return window_; }
 
@@ -76,7 +84,8 @@ class Shell : public BrowserObserver {
   // BrowserObserver implementation:
   void LoadingStateChanged(bool is_loading,
                            bool to_different_document) override;
-  void DisplayedURLChanged(const GURL& url) override;
+  void LoadProgressChanged(double progress) override;
+  void DisplayedUrlChanged(const GURL& url) override;
 
   // Helper to create a new Shell.
   static Shell* CreateShell(
@@ -113,8 +122,8 @@ class Shell : public BrowserObserver {
   // Updates the url in the url bar.
   void PlatformSetAddressBarURL(const GURL& url);
 
-  // Sets whether the spinner is spinning.
-  void PlatformSetIsLoading(bool loading);
+  // Sets the load progress indicator in the UI.
+  void PlatformSetLoadProgress(double progress);
 
   // Set the title of shell window
   void PlatformSetTitle(const base::string16& title);

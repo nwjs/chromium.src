@@ -241,9 +241,7 @@ bool FillVP8DataStructures(const scoped_refptr<VaapiWrapper>& vaapi_wrapper,
       }
     }
 
-    // Clamp to [0..63] range.
-    lf_level = std::min(std::max(lf_level, 0), 63);
-    pic_param.loop_filter_level[i] = lf_level;
+    pic_param.loop_filter_level[i] = base::ClampToRange(lf_level, 0, 63);
   }
 
   static_assert(
@@ -302,5 +300,4 @@ bool FillVP8DataStructures(const scoped_refptr<VaapiWrapper>& vaapi_wrapper,
   return vaapi_wrapper->SubmitBuffer(
       VASliceDataBufferType, frame_header.frame_size, frame_header.data);
 }
-
 }  // namespace media

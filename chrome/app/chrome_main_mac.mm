@@ -12,7 +12,6 @@
 #include "base/logging.h"
 #import "base/mac/bundle_locations.h"
 #import "base/mac/foundation_util.h"
-#import "base/mac/scoped_nsautorelease_pool.h"
 #include "base/path_service.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/common/chrome_constants.h"
@@ -22,11 +21,10 @@
 #include "content/nw/src/nw_base.h"
 
 void SetUpBundleOverrides() {
-  base::mac::ScopedNSAutoreleasePool pool;
+  @autoreleasepool {
+    base::mac::SetOverrideFrameworkBundlePath(chrome::GetFrameworkBundlePath());
 
-  base::mac::SetOverrideFrameworkBundlePath(chrome::GetFrameworkBundlePath());
-
-  NSBundle* base_bundle = chrome::OuterAppBundle();
-  base::mac::SetBaseBundleID([[base_bundle bundleIdentifier] UTF8String]);
+    NSBundle* base_bundle = chrome::OuterAppBundle();
+    base::mac::SetBaseBundleID([[base_bundle bundleIdentifier] UTF8String]);
 
 }

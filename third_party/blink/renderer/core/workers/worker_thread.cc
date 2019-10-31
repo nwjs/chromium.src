@@ -85,6 +85,18 @@ namespace {
 constexpr base::TimeDelta kForcibleTerminationDelay =
     base::TimeDelta::FromSeconds(2);
 
+void TerminateThreadsInSet(HashSet<WorkerThread*> threads) {
+  for (WorkerThread* thread : threads)
+    thread->TerminateForTesting();
+
+  for (WorkerThread* thread : threads)
+    thread->WaitForShutdownForTesting();
+
+  // Destruct base::Thread and join the underlying system threads.
+  for (WorkerThread* thread : threads)
+    thread->ClearWorkerBackingThread();
+}
+
 }  // namespace
 
 Mutex& WorkerThread::ThreadSetMutex() {
@@ -151,7 +163,9 @@ class WorkerThread::InterruptData {
 WorkerThread::~WorkerThread() {
   DCHECK_CALLED_ON_VALID_THREAD(parent_thread_checker_);
   MutexLocker lock(ThreadSetMutex());
-  DCHECK(WorkerThreads().Contains(this));
+  DCHECK(InitializingWorkerThreads().Contains(this) ||
+         WorkerThreads().Contains(this));
+  InitializingWorkerThreads().erase(this);
   WorkerThreads().erase(this);
 
   DCHECK(child_threads_.IsEmpty());
@@ -300,18 +314,8 @@ void WorkerThread::TerminateAllWorkersForTesting() {
 
   // Keep this lock to prevent WorkerThread instances from being destroyed.
   MutexLocker lock(ThreadSetMutex());
-  HashSet<WorkerThread*> threads = WorkerThreads();
-
-  for (WorkerThread* thread : threads) {
-    thread->TerminateForTesting();
-  }
-
-  for (WorkerThread* thread : threads)
-    thread->WaitForShutdownForTesting();
-
-  // Destruct base::Thread and join the underlying system threads.
-  for (WorkerThread* thread : threads)
-    thread->ClearWorkerBackingThread();
+  TerminateThreadsInSet(InitializingWorkerThreads());
+  TerminateThreadsInSet(WorkerThreads());
 }
 
 void WorkerThread::WillProcessTask(const base::PendingTask& pending_task) {
@@ -385,7 +389,12 @@ WorkerInspectorController* WorkerThread::GetWorkerInspectorController() {
 
 unsigned WorkerThread::WorkerThreadCount() {
   MutexLocker lock(ThreadSetMutex());
-  return WorkerThreads().size();
+  return InitializingWorkerThreads().size() + WorkerThreads().size();
+}
+
+HashSet<WorkerThread*>& WorkerThread::InitializingWorkerThreads() {
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(HashSet<WorkerThread*>, threads, ());
+  return threads;
 }
 
 HashSet<WorkerThread*>& WorkerThread::WorkerThreads() {
@@ -464,7 +473,7 @@ WorkerThread::WorkerThread(WorkerReportingProxy& worker_reporting_proxy,
       shutdown_event_(RefCountedWaitableEvent::Create()) {
   DCHECK_CALLED_ON_VALID_THREAD(parent_thread_checker_);
   MutexLocker lock(ThreadSetMutex());
-  WorkerThreads().insert(this);
+  InitializingWorkerThreads().insert(this);
 }
 
 void WorkerThread::ScheduleToTerminateScriptExecution() {
@@ -597,6 +606,14 @@ void WorkerThread::InitializeOnWorkerThread(
     // PerformShutdownOnWorkerThread() will be called soon.
     PrepareForShutdownOnWorkerThread();
     return;
+  }
+
+  {
+    MutexLocker lock(ThreadSetMutex());
+    DCHECK(InitializingWorkerThreads().Contains(this));
+    DCHECK(!WorkerThreads().Contains(this));
+    InitializingWorkerThreads().erase(this);
+    WorkerThreads().insert(this);
   }
 
   // It is important that no code is run on the Isolate between

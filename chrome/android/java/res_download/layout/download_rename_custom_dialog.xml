@@ -34,10 +34,10 @@
                 app:tint="@color/default_icon_color"
                 style="@style/ListItemStartIcon" />
 
-            <org.chromium.chrome.browser.widget.AlertDialogEditText
+            <org.chromium.chrome.browser.ui.widget.text.AlertDialogEditText
                 android:id="@+id/file_name"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:cursorVisible="true"
                 android:singleLine="true" />
 

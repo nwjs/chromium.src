@@ -54,6 +54,7 @@ class FakeServiceWorker : public blink::mojom::ServiceWorker {
       mojo::PendingAssociatedRemote<blink::mojom::ServiceWorkerHost>
           service_worker_host,
       blink::mojom::ServiceWorkerRegistrationObjectInfoPtr registration_info,
+      blink::mojom::ServiceWorkerObjectInfoPtr service_worker_info,
       FetchHandlerExistence fetch_handler_existence) override;
   void DispatchInstallEvent(DispatchInstallEventCallback callback) override;
   void DispatchActivateEvent(DispatchActivateEventCallback callback) override;
@@ -119,11 +120,6 @@ class FakeServiceWorker : public blink::mojom::ServiceWorker {
   void DispatchExtendableMessageEvent(
       blink::mojom::ExtendableMessageEventPtr event,
       DispatchExtendableMessageEventCallback callback) override;
-  void DispatchExtendableMessageEventWithCustomTimeout(
-      blink::mojom::ExtendableMessageEventPtr event,
-      base::TimeDelta timeout,
-      DispatchExtendableMessageEventWithCustomTimeoutCallback callback)
-      override;
   void DispatchContentDeleteEvent(
       const std::string& id,
       DispatchContentDeleteEventCallback callback) override;
@@ -142,6 +138,7 @@ class FakeServiceWorker : public blink::mojom::ServiceWorker {
 
   mojo::AssociatedRemote<blink::mojom::ServiceWorkerHost> host_;
   blink::mojom::ServiceWorkerRegistrationObjectInfoPtr registration_info_;
+  blink::mojom::ServiceWorkerObjectInfoPtr service_worker_info_;
   FetchHandlerExistence fetch_handler_existence_ =
       FetchHandlerExistence::UNKNOWN;
   base::OnceClosure quit_closure_for_initialize_global_scope_;

@@ -89,9 +89,15 @@ bool BlockLengthUnresolvable(
     const Length& length,
     LengthResolvePhase phase,
     const LayoutUnit* opt_percentage_resolution_block_size_for_min_max) {
+  if (length.IsAuto() || length.IsMinContent() || length.IsMaxContent() ||
+      length.IsFitContent() || length.IsMaxSizeNone())
+    return true;
   if (length.IsPercentOrCalc()) {
     if (phase == LengthResolvePhase::kIntrinsic)
       return true;
+
+    // TODO(dgrogan): Make this account for constraint_space.IsFixedSizeBlock &&
+    // constraint_space.IsFixedBlockSizeIndefinite?
 
     LayoutUnit percentage_resolution_block_size =
         opt_percentage_resolution_block_size_for_min_max
@@ -543,11 +549,15 @@ LayoutUnit ComputeBlockSizeForFragment(
 }
 
 // Computes size for a replaced element.
-LogicalSize ComputeReplacedSize(
-    const NGLayoutInputNode& node,
-    const NGConstraintSpace& space,
-    const base::Optional<MinMaxSize>& child_minmax) {
+void ComputeReplacedSize(const NGLayoutInputNode& node,
+                         const NGConstraintSpace& space,
+                         const base::Optional<MinMaxSize>& child_minmax,
+                         base::Optional<LogicalSize>* out_replaced_size,
+                         base::Optional<LogicalSize>* out_aspect_ratio) {
   DCHECK(node.IsReplaced());
+  DCHECK(!out_replaced_size->has_value());
+  DCHECK(!out_aspect_ratio->has_value());
+
   const ComputedStyle& style = node.Style();
 
   NGBoxStrut border_padding =
@@ -581,8 +591,10 @@ LogicalSize ComputeReplacedSize(
         space.AvailableSize().block_size, LengthResolvePhase::kLayout);
     replaced_block = ConstrainByMinMax(*replaced_block, block_min, block_max);
   }
-  if (replaced_inline && replaced_block)
-    return LogicalSize(*replaced_inline, *replaced_block);
+  if (replaced_inline && replaced_block) {
+    out_replaced_size->emplace(*replaced_inline, *replaced_block);
+    return;
+  }
 
   base::Optional<LayoutUnit> intrinsic_inline;
   base::Optional<LayoutUnit> intrinsic_block;
@@ -607,7 +619,8 @@ LogicalSize ComputeReplacedSize(
                           aspect_ratio.inline_size / aspect_ratio.block_size) +
                          border_padding.InlineSum();
     } else {
-      intrinsic_inline = space.AvailableSize().inline_size;
+      *out_aspect_ratio = aspect_ratio;
+      return;
     }
   }
   if (!intrinsic_block) {
@@ -703,7 +716,8 @@ LogicalSize ComputeReplacedSize(
       }
     }
   }
-  return LogicalSize(*replaced_inline, *replaced_block);
+  out_replaced_size->emplace(*replaced_inline, *replaced_block);
+  return;
 }
 
 int ResolveUsedColumnCount(int computed_count,
@@ -1220,14 +1234,6 @@ LayoutUnit ClampIntrinsicBlockSize(const NGBlockNode& node,
     return node.ContentBlockSizeForSizeContainment() +
            border_scrollbar_padding.BlockSum();
   }
-
-  // If display locking induces size containment, then we replace its content
-  // size with the locked content size.
-  if (node.DisplayLockInducesSizeContainment()) {
-    return node.GetDisplayLockContext().GetLockedContentLogicalHeight() +
-           border_scrollbar_padding.BlockSum();
-  }
-
   return current_intrinsic_block_size;
 }
 
@@ -1242,14 +1248,6 @@ base::Optional<MinMaxSize> CalculateMinMaxSizesIgnoringChildren(
   // Size contained elements don't consider children for intrinsic sizing.
   if (node.ShouldApplySizeContainment()) {
     sizes += node.ContentInlineSizeForSizeContainment();
-    return sizes;
-  }
-
-  // Display locked elements override the content size, without considering
-  // children. Note that contain: size (above) takes precedence over display
-  // locking.
-  if (node.DisplayLockInducesSizeContainment()) {
-    sizes += node.GetDisplayLockContext().GetLockedContentLogicalWidth();
     return sizes;
   }
 

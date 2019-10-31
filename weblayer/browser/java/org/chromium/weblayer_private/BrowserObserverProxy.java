@@ -5,11 +5,11 @@
 package org.chromium.weblayer_private;
 
 import android.os.RemoteException;
-import android.util.AndroidRuntimeException;
 
-import org.chromium.base.Log;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
+import org.chromium.base.annotations.NativeMethods;
+import org.chromium.weblayer_private.aidl.APICallException;
 import org.chromium.weblayer_private.aidl.IBrowserControllerClient;
 
 /**
@@ -19,32 +19,50 @@ import org.chromium.weblayer_private.aidl.IBrowserControllerClient;
  */
 @JNINamespace("weblayer")
 public final class BrowserObserverProxy {
-    private static final String TAG = "WL_BObserverProxy";
-
     private long mNativeBrowserObserverProxy;
     private IBrowserControllerClient mClient;
 
     BrowserObserverProxy(long browserController, IBrowserControllerClient client) {
         mClient = client;
-        mNativeBrowserObserverProxy = nativeCreateBrowserObsererProxy(this, browserController);
+        mNativeBrowserObserverProxy =
+                BrowserObserverProxyJni.get().createBrowserObserverProxy(this, browserController);
     }
 
     public void destroy() {
-        nativeDeleteBrowserObserverProxy(mNativeBrowserObserverProxy);
+        BrowserObserverProxyJni.get().deleteBrowserObserverProxy(mNativeBrowserObserverProxy);
         mNativeBrowserObserverProxy = 0;
     }
 
     @CalledByNative
-    private void displayURLChanged(String string) {
+    private void visibleUrlChanged(String string) {
         try {
-            mClient.displayURLChanged(string);
+            mClient.visibleUrlChanged(string);
         } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call displayURLChanged.", e);
-            throw new AndroidRuntimeException(e);
+            throw new APICallException(e);
         }
     }
 
-    private static native long nativeCreateBrowserObsererProxy(
-            BrowserObserverProxy proxy, long browserController);
-    private static native void nativeDeleteBrowserObserverProxy(long proxy);
+    @CalledByNative
+    private void loadingStateChanged(boolean isLoading, boolean toDifferentDocument) {
+        try {
+            mClient.loadingStateChanged(isLoading, toDifferentDocument);
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+    }
+
+    @CalledByNative
+    private void loadProgressChanged(double progress) {
+        try {
+            mClient.loadProgressChanged(progress);
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+    }
+
+    @NativeMethods
+    interface Natives {
+        long createBrowserObserverProxy(BrowserObserverProxy proxy, long browserController);
+        void deleteBrowserObserverProxy(long proxy);
+    }
 }

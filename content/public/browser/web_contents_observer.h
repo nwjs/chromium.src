@@ -234,7 +234,7 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener {
   // This method is invoked when the document in the given frame finished
   // loading. At this point, scripts marked as defer were executed, and
   // content scripts marked "document_end" get injected into the frame.
-  virtual void DocumentLoadedInFrame(RenderFrameHost* render_frame_host) {}
+  virtual void DOMContentLoaded(RenderFrameHost* render_frame_host) {}
 
   // This method is invoked when the load is done, i.e. the spinner of the tab
   // will stop spinning, and the onload event was dispatched.
@@ -338,12 +338,6 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener {
   // invokes this method. If there are ongoing navigations, their respective
   // failure methods will also be invoked.
   virtual void NavigationStopped() {}
-
-  // This method is invoked when the WebContents reloads all the LoFi images in
-  // the frame. LoFi is a type of Preview where Chrome shows gray boxes in place
-  // of the images on a webpage in order to conserve data for data-sensitive
-  // users. See http://bit.ly/LoFiPublicDoc.
-  virtual void DidReloadLoFiImages() {}
 
   // Called when there has been direct user interaction with the WebContents.
   // The type argument specifies the kind of interaction. Direct user input
@@ -567,11 +561,6 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener {
       RenderFrameHost* render_frame_host,
       const std::string& interface_name,
       mojo::ScopedMessagePipeHandle* interface_pipe) {}
-
-  // Notifies that the RenderWidgetCompositor has issued a draw command. An
-  // observer can use this method to detect when Chrome visually updated a
-  // tab.
-  virtual void DidCommitAndDrawCompositorFrame() {}
 
   // Called when "audible" playback starts or stops on a WebAudio AudioContext.
   using AudioContextId = std::pair<RenderFrameHost*, int>;

@@ -8,12 +8,12 @@
 #include <memory>
 #include <vector>
 
+#include "base/android/scoped_java_ref.h"
 #include "base/containers/circular_deque.h"
 #include "base/lazy_instance.h"
 #include "base/threading/thread.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "net/cookies/canonical_cookie.h"
 #include "services/network/public/mojom/cookie_manager.mojom-forward.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
 
@@ -25,10 +25,7 @@ class SingleThreadTaskRunner;
 
 namespace net {
 class CookieStore;
-}
-
-namespace network {
-class CookieManager;
+class CanonicalCookie;
 }
 
 namespace android_webview {

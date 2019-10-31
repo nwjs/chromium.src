@@ -1918,7 +1918,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, CertificateExplanations) {
   std::unique_ptr<base::DictionaryValue> params(new base::DictionaryValue());
   params = WaitForMatchingNotification(
       "Security.securityStateChanged",
-      base::Bind(&SecurityStateChangedHasCertificateExplanation));
+      base::BindRepeating(&SecurityStateChangedHasCertificateExplanation));
 
   // There should be one explanation containing the server's certificate chain.
   net::SHA256HashValue cert_chain_fingerprint =
@@ -2182,8 +2182,8 @@ class DevToolsDownloadContentTest : public DevToolsProtocolTest {
 
   void WaitForCompletion(download::DownloadItem* download) {
     DownloadUpdatedObserver(
-        download,
-        base::Bind(&IsDownloadInState, download::DownloadItem::COMPLETE))
+        download, base::BindRepeating(&IsDownloadInState,
+                                      download::DownloadItem::COMPLETE))
         .WaitForEvent();
   }
 
@@ -2408,9 +2408,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsDownloadContentTest, MAYBE_MultiDownload) {
 
   // Allow the first request to finish.
   std::unique_ptr<DownloadTestObserver> observer2(CreateWaiter(shell(), 1));
-  NavigateToURL(shell(),
-                embedded_test_server()->GetURL(
-                    content::SlowDownloadHttpResponse::kFinishDownloadUrl));
+  EXPECT_TRUE(NavigateToURL(
+      shell(), embedded_test_server()->GetURL(
+                   content::SlowDownloadHttpResponse::kFinishDownloadUrl)));
   observer2->WaitForFinished();  // Wait for the third request.
   EXPECT_EQ(
       1u, observer2->NumDownloadsSeenInState(download::DownloadItem::COMPLETE));

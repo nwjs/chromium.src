@@ -197,6 +197,11 @@ public class OverlayPanelContent {
             }
 
             @Override
+            public void visibleSSLStateChanged() {
+                mContentDelegate.onSSLStateUpdated();
+            }
+
+            @Override
             public void enterFullscreenModeForTab(boolean prefersNavigationBar) {
                 mIsFullscreen = true;
             }
@@ -488,11 +493,17 @@ public class OverlayPanelContent {
         mNativeOverlayPanelContentPtr = 0;
     }
 
-    protected WebContents getWebContents() {
+    /**
+     * @return The associated {@link WebContents}.
+     */
+    public WebContents getWebContents() {
         return mWebContents;
     }
 
-    ViewGroup getContainerView() {
+    /**
+     * @return The associated {@link ContentView}.
+     */
+    public ViewGroup getContainerView() {
         return mContainerView;
     }
 

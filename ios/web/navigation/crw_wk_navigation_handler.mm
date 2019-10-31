@@ -211,7 +211,12 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
 
   // If this is a placeholder navigation, pass through.
   if (IsPlaceholderUrl(requestURL)) {
-    decisionHandler(WKNavigationActionPolicyAllow);
+    if (action.sourceFrame.mainFrame) {
+      // Disallow renderer initiated navigations to placeholder URLs.
+      decisionHandler(WKNavigationActionPolicyCancel);
+    } else {
+      decisionHandler(WKNavigationActionPolicyAllow);
+    }
     return;
   }
 
@@ -1580,7 +1585,7 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
   // Ask web client if this cert error should be allowed.
   web::GetWebClient()->AllowCertificateError(
       self.webStateImpl, net::MapCertStatusToNetError(info.cert_status), info,
-      net::GURLWithNSURL(requestURL), recoverable,
+      net::GURLWithNSURL(requestURL), recoverable, context->GetNavigationId(),
       base::BindRepeating(^(bool proceed) {
         if (proceed) {
           DCHECK(recoverable);
@@ -1783,19 +1788,19 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
 - (void)handleCancelledError:(NSError*)error
                forNavigation:(WKNavigation*)navigation
              provisionalLoad:(BOOL)provisionalLoad {
-  web::NavigationContextImpl* navigationContext =
-      [self.navigationStates contextForNavigation:navigation];
   if ([self shouldCancelLoadForCancelledError:error
                               provisionalLoad:provisionalLoad]) {
+    std::unique_ptr<web::NavigationContextImpl> navigationContext =
+        [self.navigationStates removeNavigation:navigation];
     [self loadCancelled];
-    web::NavigationItemImpl* item =
-        web::GetItemWithUniqueID(self.navigationManagerImpl, navigationContext);
+    web::NavigationItemImpl* item = web::GetItemWithUniqueID(
+        self.navigationManagerImpl, navigationContext.get());
     if (self.navigationManagerImpl->GetPendingItem() == item) {
       self.navigationManagerImpl->DiscardNonCommittedItems();
     }
 
     [self.legacyNativeContentController
-        handleCancelledErrorForContext:navigationContext];
+        handleCancelledErrorForContext:navigationContext.get()];
 
     if (provisionalLoad) {
       if (!navigationContext &&
@@ -1808,10 +1813,12 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
         UMA_HISTOGRAM_BOOLEAN(
             "Navigation.IOSNullContextInDidFailProvisionalNavigation", true);
       } else {
-        self.webStateImpl->OnNavigationFinished(navigationContext);
+        self.webStateImpl->OnNavigationFinished(navigationContext.get());
       }
     }
   } else if (!provisionalLoad) {
+    web::NavigationContextImpl* navigationContext =
+        [self.navigationStates contextForNavigation:navigation];
     web::NavigationItemImpl* item =
         web::GetItemWithUniqueID(self.navigationManagerImpl, navigationContext);
     if (item) {

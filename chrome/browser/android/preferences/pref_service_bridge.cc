@@ -150,6 +150,14 @@ static void JNI_PrefServiceBridge_SetBoolean(JNIEnv* env,
       PrefServiceBridge::GetPrefNameExposedToJava(j_pref_index), j_value);
 }
 
+static void JNI_PrefServiceBridge_SetInteger(JNIEnv* env,
+                                             const JavaParamRef<jobject>& obj,
+                                             const jint j_pref_index,
+                                             const jint j_value) {
+  GetPrefService()->SetInteger(
+      PrefServiceBridge::GetPrefNameExposedToJava(j_pref_index), j_value);
+}
+
 static jboolean JNI_PrefServiceBridge_IsContentSettingManaged(
     JNIEnv* env,
     const JavaParamRef<jobject>& obj,
@@ -1394,4 +1402,11 @@ const char* PrefServiceBridge::GetPrefNameExposedToJava(int pref_index) {
   DCHECK_GE(pref_index, 0);
   DCHECK_LT(pref_index, Pref::PREF_NUM_PREFS);
   return kPrefsExposedToJava[pref_index];
+}
+
+static void JNI_PrefServiceBridge_SetForceWebContentsDarkModeEnabled(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& obj,
+    jboolean enabled) {
+  GetPrefService()->SetBoolean(prefs::kWebKitForceDarkModeEnabled, enabled);
 }

@@ -35,8 +35,10 @@ RealTimeUrlLookupService::RealTimeUrlLookupService(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory)
     : url_loader_factory_(url_loader_factory) {}
 
-void RealTimeUrlLookupService::StartLookup(const GURL& url,
-                                           RTLookupResponseCallback callback) {
+void RealTimeUrlLookupService::StartLookup(
+    const GURL& url,
+    RTLookupRequestCallback request_callback,
+    RTLookupResponseCallback response_callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   DCHECK(url.is_valid());
 
@@ -98,7 +100,9 @@ void RealTimeUrlLookupService::StartLookup(const GURL& url,
       base::BindOnce(&RealTimeUrlLookupService::OnURLLoaderComplete,
                      GetWeakPtr(), loader));
 
-  pending_requests_[owned_loader.release()] = std::move(callback);
+  pending_requests_[owned_loader.release()] = std::move(response_callback);
+
+  std::move(request_callback).Run(std::make_unique<RTLookupRequest>(request));
 }
 
 RealTimeUrlLookupService::~RealTimeUrlLookupService() {
@@ -171,6 +175,24 @@ void RealTimeUrlLookupService::ResetFailures() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   consecutive_failures_ = 0;
   reset_backoff_timer_.Stop();
+}
+
+// static
+SBThreatType RealTimeUrlLookupService::GetSBThreatTypeForRTThreatType(
+    RTLookupResponse::ThreatInfo::ThreatType rt_threat_type) {
+  switch (rt_threat_type) {
+    case RTLookupResponse::ThreatInfo::WEB_MALWARE:
+      return SB_THREAT_TYPE_URL_MALWARE;
+    case RTLookupResponse::ThreatInfo::SOCIAL_ENGINEERING:
+      return SB_THREAT_TYPE_URL_PHISHING;
+    case RTLookupResponse::ThreatInfo::UNWANTED_SOFTWARE:
+      return SB_THREAT_TYPE_URL_UNWANTED;
+    case RTLookupResponse::ThreatInfo::UNCLEAR_BILLING:
+      return SB_THREAT_TYPE_BILLING;
+    case RTLookupResponse::ThreatInfo::THREAT_TYPE_UNSPECIFIED:
+      NOTREACHED() << "Unexpected RTLookupResponse::ThreatType encountered";
+      return SB_THREAT_TYPE_SAFE;
+  }
 }
 
 base::WeakPtr<RealTimeUrlLookupService> RealTimeUrlLookupService::GetWeakPtr() {

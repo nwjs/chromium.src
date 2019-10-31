@@ -6,12 +6,13 @@ package org.chromium.chrome.browser.toolbar.top;
 
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import android.support.annotation.Nullable;
-import android.support.annotation.StringRes;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.View.OnLongClickListener;
 import android.widget.ImageButton;
+
+import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 
 import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
@@ -19,6 +20,7 @@ import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.appmenu.AppMenuButtonHelper;
 import org.chromium.chrome.browser.compositor.Invalidator;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
+import org.chromium.chrome.browser.findinpage.FindToolbar;
 import org.chromium.chrome.browser.fullscreen.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.partnercustomizations.HomepageManager;
@@ -27,9 +29,8 @@ import org.chromium.chrome.browser.toolbar.IncognitoStateProvider;
 import org.chromium.chrome.browser.toolbar.MenuButton;
 import org.chromium.chrome.browser.toolbar.TabCountProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
+import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
-import org.chromium.chrome.browser.util.FeatureUtilities;
-import org.chromium.chrome.browser.widget.ToolbarProgressBar;
 
 /**
  * A coordinator for the top toolbar component.
@@ -63,8 +64,7 @@ public class TopToolbarCoordinator implements Toolbar {
             new HomepageManager.HomepageStateListener() {
                 @Override
                 public void onHomepageStateUpdated() {
-                    mToolbarLayout.onHomeButtonUpdate(HomepageManager.isHomepageEnabled()
-                            || FeatureUtilities.isNewTabPageButtonEnabled());
+                    mToolbarLayout.onHomeButtonUpdate(HomepageManager.isHomepageEnabled());
                 }
             };
 
@@ -211,6 +211,17 @@ public class TopToolbarCoordinator implements Toolbar {
     }
 
     @Override
+    public void updateTabSwitcherToolbarState(boolean requestToShow) {
+        if (mTabSwitcherModeCoordinatorPhone == null
+                || mToolbarLayout.getToolbarDataProvider() == null
+                || !mToolbarLayout.getToolbarDataProvider().isInOverviewAndShowingOmnibox()) {
+            return;
+        }
+
+        mTabSwitcherModeCoordinatorPhone.setTabSwitcherToolbarVisibility(requestToShow);
+    }
+
+    @Override
     public void getPositionRelativeToContainer(View containerView, int[] position) {
         mToolbarLayout.getPositionRelativeToContainer(containerView, position);
     }
@@ -227,7 +238,7 @@ public class TopToolbarCoordinator implements Toolbar {
 
     /**
      * Gives inheriting classes the chance to respond to
-     * {@link org.chromium.chrome.browser.widget.findinpage.FindToolbar} state changes.
+     * {@link FindToolbar} state changes.
      * @param showing Whether or not the {@code FindToolbar} will be showing.
      */
     public void handleFindLocationBarStateChange(boolean showing) {
@@ -482,12 +493,6 @@ public class TopToolbarCoordinator implements Toolbar {
      */
     public void onUrlFocusChange(boolean hasFocus) {
         mToolbarLayout.onUrlFocusChange(hasFocus);
-
-        if (mToolbarLayout.getToolbarDataProvider() != null
-                && mToolbarLayout.getToolbarDataProvider().isInOverviewAndShowingOmnibox()
-                && mTabSwitcherModeCoordinatorPhone != null) {
-            mTabSwitcherModeCoordinatorPhone.setTabSwitcherToolbarVisibility(!hasFocus);
-        }
     }
 
     /**

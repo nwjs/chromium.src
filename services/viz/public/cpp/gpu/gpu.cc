@@ -11,6 +11,7 @@
 #include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/threading/thread_checker.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
@@ -30,16 +31,16 @@ class Gpu::GpuPtrIO {
   GpuPtrIO() { DETACH_FROM_THREAD(thread_checker_); }
   ~GpuPtrIO() { DCHECK_CALLED_ON_VALID_THREAD(thread_checker_); }
 
-  void Initialize(
-      mojom::GpuPtrInfo ptr_info,
-      mojom::GpuMemoryBufferFactoryRequest memory_buffer_factory_request) {
+  void Initialize(mojom::GpuPtrInfo ptr_info,
+                  mojo::PendingReceiver<mojom::GpuMemoryBufferFactory>
+                      memory_buffer_factory_receiver) {
     DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
     gpu_ptr_.Bind(std::move(ptr_info));
     gpu_ptr_.set_connection_error_handler(
         base::BindOnce(&GpuPtrIO::ConnectionError, base::Unretained(this)));
     gpu_ptr_->CreateGpuMemoryBufferFactory(
-        std::move(memory_buffer_factory_request));
+        std::move(memory_buffer_factory_receiver));
   }
 
   void EstablishGpuChannel(scoped_refptr<EstablishRequest> establish_request) {
@@ -57,16 +58,18 @@ class Gpu::GpuPtrIO {
 
 #if defined(OS_CHROMEOS)
   void CreateJpegDecodeAccelerator(
-      chromeos_camera::mojom::MjpegDecodeAcceleratorRequest request) {
+      mojo::PendingReceiver<chromeos_camera::mojom::MjpegDecodeAccelerator>
+          receiver) {
     DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-    gpu_ptr_->CreateJpegDecodeAccelerator(std::move(request));
+    gpu_ptr_->CreateJpegDecodeAccelerator(std::move(receiver));
   }
 #endif  // defined(OS_CHROMEOS)
 
   void CreateVideoEncodeAcceleratorProvider(
-      media::mojom::VideoEncodeAcceleratorProviderRequest request) {
+      mojo::PendingReceiver<media::mojom::VideoEncodeAcceleratorProvider>
+          receiver) {
     DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-    gpu_ptr_->CreateVideoEncodeAcceleratorProvider(std::move(request));
+    gpu_ptr_->CreateVideoEncodeAcceleratorProvider(std::move(receiver));
   }
 
  private:
@@ -286,22 +289,24 @@ std::unique_ptr<Gpu> Gpu::Create(
 
 #if defined(OS_CHROMEOS)
 void Gpu::CreateJpegDecodeAccelerator(
-    chromeos_camera::mojom::MjpegDecodeAcceleratorRequest jda_request) {
+    mojo::PendingReceiver<chromeos_camera::mojom::MjpegDecodeAccelerator>
+        jda_receiver) {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
   io_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&GpuPtrIO::CreateJpegDecodeAccelerator,
-                     base::Unretained(gpu_.get()), std::move(jda_request)));
+                     base::Unretained(gpu_.get()), std::move(jda_receiver)));
 }
 #endif  // defined(OS_CHROMEOS)
 
 void Gpu::CreateVideoEncodeAcceleratorProvider(
-    media::mojom::VideoEncodeAcceleratorProviderRequest vea_provider_request) {
+    mojo::PendingReceiver<media::mojom::VideoEncodeAcceleratorProvider>
+        vea_provider_receiver) {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
   io_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&GpuPtrIO::CreateVideoEncodeAcceleratorProvider,
                                 base::Unretained(gpu_.get()),
-                                std::move(vea_provider_request)));
+                                std::move(vea_provider_receiver)));
 }
 
 void Gpu::EstablishGpuChannel(gpu::GpuChannelEstablishedCallback callback) {

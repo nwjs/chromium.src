@@ -4,6 +4,7 @@
 
 #include "ui/views/controls/separator.h"
 
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/gfx/canvas.h"
 #include "ui/native_theme/native_theme.h"
@@ -51,10 +52,6 @@ gfx::Size Separator::CalculatePreferredSize() const {
   gfx::Insets insets = GetInsets();
   size.Enlarge(insets.width(), insets.height());
   return size;
-}
-
-void Separator::GetAccessibleNodeData(ui::AXNodeData* node_data) {
-  node_data->role = ax::mojom::Role::kSplitter;
 }
 
 void Separator::OnPaint(gfx::Canvas* canvas) {

@@ -99,9 +99,6 @@ public class PrivacyPreferences
     public void updateSummaries() {
         PrefServiceBridge prefServiceBridge = PrefServiceBridge.getInstance();
 
-        CharSequence textOn = getActivity().getResources().getText(R.string.text_on);
-        CharSequence textOff = getActivity().getResources().getText(R.string.text_off);
-
         CheckBoxPreference canMakePaymentPref =
                 (CheckBoxPreference) findPreference(PREF_CAN_MAKE_PAYMENT);
         if (canMakePaymentPref != null) {
@@ -111,7 +108,8 @@ public class PrivacyPreferences
 
         Preference doNotTrackPref = findPreference(PREF_DO_NOT_TRACK);
         if (doNotTrackPref != null) {
-            doNotTrackPref.setSummary(prefServiceBridge.isDoNotTrackEnabled() ? textOn : textOff);
+            doNotTrackPref.setSummary(
+                    prefServiceBridge.isDoNotTrackEnabled() ? R.string.text_on : R.string.text_off);
         }
 
         Preference usageStatsPref = findPreference(PREF_USAGE_STATS);
@@ -157,9 +155,8 @@ public class PrivacyPreferences
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.menu_id_targeted_help) {
-            HelpAndFeedback.getInstance(getActivity())
-                    .show(getActivity(), getString(R.string.help_context_privacy),
-                            Profile.getLastUsedProfile(), null);
+            HelpAndFeedback.getInstance().show(getActivity(),
+                    getString(R.string.help_context_privacy), Profile.getLastUsedProfile(), null);
             return true;
         }
         return false;

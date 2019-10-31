@@ -20,11 +20,13 @@
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/crash_report/breakpad_helper.h"
 #include "ios/chrome/browser/infobars/infobar_manager_impl.h"
+#include "ios/chrome/browser/infobars/infobar_utils.h"
 #include "ios/chrome/browser/sessions/ios_chrome_tab_restore_service_factory.h"
 #import "ios/chrome/browser/sessions/session_ios.h"
 #import "ios/chrome/browser/sessions/session_service_ios.h"
 #import "ios/chrome/browser/sessions/session_window_ios.h"
 #import "ios/chrome/browser/sessions/session_window_restoring.h"
+#import "ios/chrome/browser/ui/infobars/infobar_feature.h"
 #include "ios/chrome/browser/web_state_list/web_state_list.h"
 #include "ios/chrome/grit/ios_theme_resources.h"
 #import "ios/web/public/web_state.h"
@@ -57,14 +59,13 @@ namespace {
 
 class InfoBarManagerObserverBridge : infobars::InfoBarManager::Observer {
  public:
-  InfoBarManagerObserverBridge(
-      infobars::InfoBarManager* infoBarManager,
-      id<InfoBarManagerObserverBridgeProtocol> observer)
+  InfoBarManagerObserverBridge(infobars::InfoBarManager* infoBarManager,
+                               id<InfoBarManagerObserverBridgeProtocol> owner)
       : infobars::InfoBarManager::Observer(),
         manager_(infoBarManager),
-        observer_(observer) {
+        owner_(owner) {
     DCHECK(infoBarManager);
-    DCHECK(observer);
+    DCHECK(owner);
     manager_->AddObserver(this);
   }
 
@@ -74,12 +75,12 @@ class InfoBarManagerObserverBridge : infobars::InfoBarManager::Observer {
   }
 
   void OnInfoBarRemoved(infobars::InfoBar* infobar, bool animate) override {
-    [observer_ infoBarRemoved:infobar];
+    [owner_ infoBarRemoved:infobar];
   }
 
   void OnInfoBarReplaced(infobars::InfoBar* old_infobar,
                          infobars::InfoBar* new_infobar) override {
-    [observer_ infoBarRemoved:old_infobar];
+    [owner_ infoBarRemoved:old_infobar];
   }
 
   void OnManagerShuttingDown(infobars::InfoBarManager* manager) override {
@@ -89,7 +90,7 @@ class InfoBarManagerObserverBridge : infobars::InfoBarManager::Observer {
 
  private:
   infobars::InfoBarManager* manager_;
-  id<InfoBarManagerObserverBridgeProtocol> observer_;
+  __weak id<InfoBarManagerObserverBridgeProtocol> owner_;
 };
 
 // SessionCrashedInfoBarDelegate ----------------------------------------------
@@ -134,8 +135,14 @@ bool SessionCrashedInfoBarDelegate::Create(
   DCHECK(infobar_manager);
   std::unique_ptr<ConfirmInfoBarDelegate> delegate(
       new SessionCrashedInfoBarDelegate(crash_restore_helper));
-  return !!infobar_manager->AddInfoBar(
-      infobar_manager->CreateConfirmInfoBar(std::move(delegate)));
+
+  if (IsConfirmInfobarMessagesUIEnabled()) {
+    return !!infobar_manager->AddInfoBar(
+        ::CreateHighPriorityConfirmInfoBar(std::move(delegate)));
+  } else {
+    return !!infobar_manager->AddInfoBar(
+        ::CreateConfirmInfoBar(std::move(delegate)));
+  }
 }
 
 infobars::InfoBarDelegate::InfoBarIdentifier

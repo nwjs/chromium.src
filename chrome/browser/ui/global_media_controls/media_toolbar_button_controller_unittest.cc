@@ -62,8 +62,9 @@ class MockMediaDialogDelegate : public MediaDialogDelegate {
   // MediaDialogDelegate implementation.
   MOCK_METHOD2(
       ShowMediaSession,
-      void(const std::string& id,
-           base::WeakPtr<media_message_center::MediaNotificationItem> item));
+      MediaNotificationContainerImpl*(
+          const std::string& id,
+          base::WeakPtr<media_message_center::MediaNotificationItem> item));
   MOCK_METHOD1(HideMediaSession, void(const std::string& id));
 
  private:
@@ -162,6 +163,10 @@ class MediaToolbarButtonControllerTest : public testing::Test {
     auto item_itr = controller_->sessions_.find(id.ToString());
     EXPECT_NE(controller_->sessions_.end(), item_itr);
     item_itr->second.WebContentsDestroyed();
+  }
+
+  void SimulateDismissButtonClicked(const base::UnguessableToken& id) {
+    controller_->OnContainerDismissed(id.ToString());
   }
 
   void ExpectHistogramCountRecorded(int count, int size) {
@@ -375,5 +380,22 @@ TEST_F(MediaToolbarButtonControllerTest,
   // Then, close the tab. The button should immediately hide.
   EXPECT_CALL(delegate(), Hide());
   SimulateTabClosed(id);
+  testing::Mock::VerifyAndClearExpectations(&delegate());
+}
+
+TEST_F(MediaToolbarButtonControllerTest, DismissesMediaSession) {
+  // First, show the button.
+  EXPECT_CALL(delegate(), Show());
+  base::UnguessableToken id = SimulatePlayingControllableMedia();
+  testing::Mock::VerifyAndClearExpectations(&delegate());
+
+  // Then, open a dialog.
+  MockMediaDialogDelegate dialog_delegate;
+  EXPECT_CALL(dialog_delegate, ShowMediaSession(id.ToString(), _));
+  SimulateDialogOpened(&dialog_delegate);
+
+  // Then, click the dismiss button. This should stop and hide the session.
+  EXPECT_CALL(dialog_delegate, HideMediaSession(id.ToString()));
+  SimulateDismissButtonClicked(id);
   testing::Mock::VerifyAndClearExpectations(&delegate());
 }

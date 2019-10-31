@@ -144,11 +144,12 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   ScriptPromise ready(ScriptState*);
 
   bool Paused() const {
-    return GetPlayState() == kPaused && !is_paused_for_testing_;
+    return CalculateAnimationPlayState() == kPaused && !is_paused_for_testing_;
   }
 
   bool Playing() const override {
-    return GetPlayState() == kRunning && !Limited() && !is_paused_for_testing_;
+    return CalculateAnimationPlayState() == kRunning && !Limited() &&
+           !is_paused_for_testing_;
   }
 
   // Indicates if the animation is out of sync with the compositor. A change to
@@ -244,6 +245,7 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   void Trace(blink::Visitor*) override;
 
   bool CompositorPendingForTesting() const { return compositor_pending_; }
+  void CommitAllUpdatesForTesting();
 
  protected:
   DispatchEventResult DispatchEventInternal(Event&) override;
@@ -257,8 +259,8 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   AnimationPlayState PlayStateInternal() const;
 
   double CurrentTimeInternal() const;
-  void SetCurrentTimeInternal(double new_current_time,
-                              TimingUpdateReason = kTimingUpdateOnDemand);
+  void SetCurrentTimeInternal(double new_current_time);
+  void SetCurrentTimeInternal(double new_current_time, TimingUpdateReason);
 
   void ClearOutdated();
   void ForceServiceOnNextFrame();
@@ -270,6 +272,7 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   // If there are no pending tasks, then the effective playback rate equals the
   // active playback rate.
   double EffectivePlaybackRate() const;
+  void ApplyPendingPlaybackRate();
   void ResolvePendingPlaybackRate();
 
   // https://drafts.csswg.org/web-animations/#play-states
@@ -316,17 +319,42 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   void RejectAndResetPromise(AnimationPromise*);
   void RejectAndResetPromiseMaybeAsync(AnimationPromise*);
 
+  // Updates the finished state of the animation. If the update is the result of
+  // a discontinuous time change then the value for current time is not bound by
+  // the limits of the animation. The finished notification may be synchronous
+  // or asynchronous. A synchronous notification is used in the case of
+  // explicitly calling finish on an animation.
+  enum class UpdateType { kContinuous, kDiscontinuous };
+  enum class NotificationType { kAsync, kSync };
+  void UpdateFinishedState(UpdateType update_context,
+                           NotificationType notification_type);
   void QueueFinishedEvent();
 
   void ResetPendingTasks();
   double TimelineTime() const;
   DocumentTimeline& TickingTimeline();
 
+  void ScheduleAsyncFinish();
+  void AsyncFinishMicrotask();
+  void CommitFinishNotification();
+  void CommitPendingPause(double ready_time);
+  void CommitPendingPlay(double ready_time);
+  void ApplyUpdates(double ready_time);
+
+  // Tracking the state of animations in dev tools.
+  void NotifyProbe();
+
   String id_;
 
   // Extended play state with additional pending state for managing timing of
   // micro-tasks.
+  // TODO(crbug.com/958433): Phase out this version of the play state. Should
+  // just need the reported play state.
   AnimationPlayState internal_play_state_;
+  // Extended play state reported to dev tools. This play state has an
+  // additional pending state that is not part of the spec by expected by dev
+  // tools.
+  AnimationPlayState reported_play_state_;
   // Web exposed play state, which does not have pending state.
   AnimationPlayState animation_play_state_;
   double playback_rate_;
@@ -340,6 +368,7 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   base::Optional<double> active_playback_rate_;
   base::Optional<double> start_time_;
   base::Optional<double> hold_time_;
+  base::Optional<double> previous_current_time_;
 
   unsigned sequence_number_;
 
@@ -362,6 +391,8 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   // control.
   bool pending_pause_;
   bool pending_play_;
+  bool pending_finish_notification_;
+  bool has_queued_microtask_;
 
   // This indicates timing information relevant to the animation's effect
   // has changed by means other than the ordinary progression of time
@@ -421,8 +452,8 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   // CompositorAnimation objects need to eagerly sever their connection to their
   // Animation delegate; use a separate 'holder' on-heap object to accomplish
   // that.
-  class CompositorAnimationHolder
-      : public GarbageCollectedFinalized<CompositorAnimationHolder> {
+  class CompositorAnimationHolder final
+      : public GarbageCollected<CompositorAnimationHolder> {
     USING_PRE_FINALIZER(CompositorAnimationHolder, Dispose);
 
    public:
@@ -461,6 +492,8 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
 
   FRIEND_TEST_ALL_PREFIXES(AnimationAnimationTestCompositeAfterPaint,
                            NoCompositeWithoutCompositedElementId);
+  FRIEND_TEST_ALL_PREFIXES(AnimationAnimationTestNoCompositing,
+                           PendingActivityWithFinishedEventListener);
 };
 
 }  // namespace blink

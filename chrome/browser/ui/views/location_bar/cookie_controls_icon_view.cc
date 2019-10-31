@@ -40,12 +40,14 @@ bool CookieControlsIconView::Update() {
 }
 
 void CookieControlsIconView::OnStatusChanged(
-    CookieControlsController::Status status) {
+    CookieControlsController::Status status,
+    int blocked_cookies) {
   if (status_ != status) {
     status_ = status;
     SetVisible(ShouldBeVisible());
     UpdateIconImage();
   }
+  OnBlockedCookiesCountChanged(blocked_cookies);
 }
 
 void CookieControlsIconView::OnBlockedCookiesCountChanged(int blocked_cookies) {
@@ -94,8 +96,8 @@ views::BubbleDialogDelegateView* CookieControlsIconView::GetBubble() const {
 
 const gfx::VectorIcon& CookieControlsIconView::GetVectorIcon() const {
   if (status_ == CookieControlsController::Status::kDisabledForSite)
-    return kShieldOffIcon;
-  return has_blocked_cookies_ ? kShieldDotIcon : kShieldOutlineIcon;
+    return kEyeIcon;
+  return has_blocked_cookies_ ? kEyeCrossedDotIcon : kEyeCrossedIcon;
 }
 
 base::string16 CookieControlsIconView::GetTextForTooltipAndAccessibleName()

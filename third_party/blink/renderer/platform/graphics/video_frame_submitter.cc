@@ -31,7 +31,8 @@ VideoFrameSubmitter::VideoFrameSubmitter(
     std::unique_ptr<VideoFrameResourceProvider> resource_provider)
     : context_provider_callback_(context_provider_callback),
       resource_provider_(std::move(resource_provider)),
-      rotation_(media::VIDEO_ROTATION_0) {
+      rotation_(media::VIDEO_ROTATION_0),
+      frame_trackers_(false, nullptr) {
   DETACH_FROM_THREAD(thread_checker_);
 }
 
@@ -175,7 +176,6 @@ void VideoFrameSubmitter::OnBeginFrame(
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   TRACE_EVENT0("media", "VideoFrameSubmitter::OnBeginFrame");
 
-  frame_trackers_.NotifyBeginImplFrame(args);
   last_begin_frame_args_ = args;
 
   for (const auto& pair : timing_details) {
@@ -185,21 +185,27 @@ void VideoFrameSubmitter::OnBeginFrame(
     if (base::Contains(frame_token_to_timestamp_map_, pair.key) &&
         !(pair.value->presentation_feedback->flags &
           gfx::PresentationFeedback::kFailure)) {
-      frame_trackers_.NotifyFramePresented(
-          pair.key, gfx::PresentationFeedback(
-                        pair.value->presentation_feedback->timestamp,
-                        pair.value->presentation_feedback->interval,
-                        pair.value->presentation_feedback->flags));
+      if (!ignorable_submitted_frames_.contains(pair.key)) {
+        frame_trackers_.NotifyFramePresented(
+            pair.key, gfx::PresentationFeedback(
+                          pair.value->presentation_feedback->timestamp,
+                          pair.value->presentation_feedback->interval,
+                          pair.value->presentation_feedback->flags));
+      }
       UMA_HISTOGRAM_TIMES("Media.VideoFrameSubmitter",
                           pair.value->presentation_feedback->timestamp -
                               frame_token_to_timestamp_map_[pair.key]);
       frame_token_to_timestamp_map_.erase(pair.key);
     }
 
+    ignorable_submitted_frames_.erase(pair.key);
+
     TRACE_EVENT_ASYNC_END_WITH_TIMESTAMP0(
         "media", "VideoFrameSubmitter", pair.key,
         pair.value->presentation_feedback->timestamp);
   }
+
+  frame_trackers_.NotifyBeginImplFrame(args);
 
   // Don't call UpdateCurrentFrame() for MISSED BeginFrames. Also don't call it
   // after StopRendering() has been called (forbidden by API contract).
@@ -316,15 +322,15 @@ void VideoFrameSubmitter::StartSubmitting() {
 
   provider->CreateCompositorFrameSink(
       frame_sink_id_, receiver_.BindNewPipeAndPassRemote(),
-      mojo::MakeRequest(&compositor_frame_sink_));
+      compositor_frame_sink_.BindNewPipeAndPassReceiver());
   if (!surface_embedder_.is_bound()) {
     provider->ConnectToEmbedder(frame_sink_id_,
-                                mojo::MakeRequest(&surface_embedder_));
+                                surface_embedder_.BindNewPipeAndPassReceiver());
   } else {
     GenerateNewSurfaceId();
   }
 
-  compositor_frame_sink_.set_connection_error_handler(base::BindOnce(
+  compositor_frame_sink_.set_disconnect_handler(base::BindOnce(
       &VideoFrameSubmitter::OnContextLost, base::Unretained(this)));
 
   UpdateSubmissionState();
@@ -438,13 +444,13 @@ bool VideoFrameSubmitter::SubmitFrame(
 
   // We can pass nullptr for the HitTestData as the CompositorFram will not
   // contain any SurfaceDrawQuads.
-  frame_trackers_.NotifySubmitFrame(compositor_frame.metadata.frame_token,
-                                    false, begin_frame_ack,
-                                    last_begin_frame_args_);
+  auto frame_token = compositor_frame.metadata.frame_token;
   compositor_frame_sink_->SubmitCompositorFrame(
       child_local_surface_id_allocator_.GetCurrentLocalSurfaceIdAllocation()
           .local_surface_id(),
       std::move(compositor_frame), nullptr, 0);
+  frame_trackers_.NotifySubmitFrame(frame_token, false, begin_frame_ack,
+                                    last_begin_frame_args_);
   resource_provider_->ReleaseFrameResources();
 
   waiting_for_compositor_ack_ = true;
@@ -465,13 +471,14 @@ void VideoFrameSubmitter::SubmitEmptyFrame() {
   last_frame_id_.reset();
   auto begin_frame_ack = viz::BeginFrameAck::CreateManualAckWithDamage();
   auto compositor_frame = CreateCompositorFrame(begin_frame_ack, nullptr);
-  frame_trackers_.NotifySubmitFrame(compositor_frame.metadata.frame_token,
-                                    false, begin_frame_ack,
-                                    last_begin_frame_args_);
+
+  auto frame_token = compositor_frame.metadata.frame_token;
   compositor_frame_sink_->SubmitCompositorFrame(
       child_local_surface_id_allocator_.GetCurrentLocalSurfaceIdAllocation()
           .local_surface_id(),
       std::move(compositor_frame), nullptr, 0);
+  frame_trackers_.NotifySubmitFrame(frame_token, false, begin_frame_ack,
+                                    last_begin_frame_args_);
 
   // We don't set |waiting_for_compositor_ack_| here since we want to allow a
   // subsequent real frame to replace it at any time if needed.
@@ -525,6 +532,10 @@ viz::CompositorFrame VideoFrameSubmitter::CreateCompositorFrame(
                                  *next_frame_token_, "Pre-submit buffering");
 
     frame_token_to_timestamp_map_[*next_frame_token_] = value;
+
+    if (begin_frame_ack.source_id == viz::BeginFrameArgs::kManualSourceId)
+      ignorable_submitted_frames_.insert(*next_frame_token_);
+
     UMA_HISTOGRAM_TIMES("Media.VideoFrameSubmitter.PreSubmitBuffering",
                         base::TimeTicks::Now() - value);
   } else {

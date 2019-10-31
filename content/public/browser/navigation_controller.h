@@ -39,6 +39,7 @@ class RefCountedString;
 
 namespace content {
 
+class BackForwardCache;
 class BrowserContext;
 class NavigationEntry;
 class RenderFrameHost;
@@ -373,13 +374,17 @@ class NavigationController {
   // explicitly requested using SetNeedsReload().
   virtual void LoadIfNecessary() = 0;
 
-  // Navigates directly to an error page, with |error_page_html| as the
-  // contents, and |url| as the url. |error| is the code that will be used
-  // when triggering the error page.
-  virtual void LoadErrorPage(RenderFrameHost* render_frame_host,
-                             const GURL& url,
-                             const std::string& error_page_html,
-                             net::Error error) = 0;
+  // Navigates directly to an error page in response to an event on the last
+  // committed page (e.g., triggered by a subresource), with |error_page_html|
+  // as the contents and |url| as the URL.
+
+  // The error page will create a NavigationEntry that temporarily replaces the
+  // original page's entry. The original entry will be put back into the entry
+  // list after any other navigation.
+  virtual void LoadPostCommitErrorPage(RenderFrameHost* render_frame_host,
+                                       const GURL& url,
+                                       const std::string& error_page_html,
+                                       net::Error error) = 0;
 
   // Renavigation --------------------------------------------------------------
 
@@ -412,6 +417,10 @@ class NavigationController {
   // committed index or the pending entry, this does nothing and returns false.
   // Otherwise this call discards any transient or pending entries.
   virtual bool RemoveEntryAtIndex(int index) = 0;
+
+  // Discards any transient or pending entries, then discards all entries after
+  // the current entry index.
+  virtual void PruneForwardEntries() = 0;
 
   // Random --------------------------------------------------------------------
 
@@ -512,6 +521,9 @@ class NavigationController {
   // such that the user is not able to use the back button to go to the previous
   // page they interacted with.
   virtual bool IsEntryMarkedToBeSkipped(int index) = 0;
+
+  // Gets the BackForwardCache for this NavigationController.
+  virtual BackForwardCache& GetBackForwardCache() = 0;
 
  private:
   // This interface should only be implemented inside content.

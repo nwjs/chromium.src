@@ -281,15 +281,15 @@ class CookieStoreManagerTest
     network_context->GetCookieManager(
         cookie_manager_.BindNewPipeAndPassReceiver());
 
-    cookie_store_context_->CreateService(
-        example_service_remote_.BindNewPipeAndPassReceiver(),
-        url::Origin::Create(GURL(kExampleScope)));
+    cookie_store_context_->CreateServiceForTesting(
+        url::Origin::Create(GURL(kExampleScope)),
+        example_service_remote_.BindNewPipeAndPassReceiver());
     example_service_ =
         std::make_unique<CookieStoreSync>(example_service_remote_.get());
 
-    cookie_store_context_->CreateService(
-        google_service_remote_.BindNewPipeAndPassReceiver(),
-        url::Origin::Create(GURL(kGoogleScope)));
+    cookie_store_context_->CreateServiceForTesting(
+        url::Origin::Create(GURL(kGoogleScope)),
+        google_service_remote_.BindNewPipeAndPassReceiver());
     google_service_ =
         std::make_unique<CookieStoreSync>(google_service_remote_.get());
   }
@@ -968,7 +968,7 @@ TEST_P(CookieStoreManagerTest, GetSubscriptionsFromWrongOrigin) {
   EXPECT_FALSE(wrong_subscriptions_opt.has_value());
 }
 
-INSTANTIATE_TEST_SUITE_P(CookieStoreManagerTest,
+INSTANTIATE_TEST_SUITE_P(,
                          CookieStoreManagerTest,
                          testing::Bool() /* reset_storage_during_test */);
 

@@ -6,6 +6,7 @@
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_AUTOFILL_METRICS_H_
 
 #include <stddef.h>
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
@@ -119,6 +120,8 @@ class AutofillMetrics {
     // All the required conditions were satisfied even though the form is
     // dynamic changed.
     UPLOAD_OFFERED_FROM_DYNAMIC_CHANGE_FORM = 1 << 17,
+    // The legal message was invalid.
+    UPLOAD_NOT_OFFERED_INVALID_LEGAL_MESSAGE = 1 << 18,
     // Update |kNumCardUploadDecisionMetrics| when adding new enum here.
   };
 
@@ -492,7 +495,9 @@ class AutofillMetrics {
     NOT_OFFERED_SINGLE_LOCAL_CARD = 7,
     // User used an unsupported local card, we will abort the migration.
     NOT_OFFERED_USE_UNSUPPORTED_LOCAL_CARD = 8,
-    kMaxValue = NOT_OFFERED_USE_UNSUPPORTED_LOCAL_CARD,
+    // Legal message was invalid, we will abort the migration.
+    NOT_OFFERED_INVALID_LEGAL_MESSAGE = 9,
+    kMaxValue = NOT_OFFERED_INVALID_LEGAL_MESSAGE,
   };
 
   // Metrics to track events when local credit card migration is offered.
@@ -1028,6 +1033,14 @@ class AutofillMetrics {
   static void LogUserHappinessByProfileFormType(UserHappinessMetric metric,
                                                 uint32_t profile_form_bitmask);
 
+  // Logs the count of calls to PaymentsClient::GetUnmaskDetails() (aka
+  // GetDetailsForGetRealPan).
+  static void LogCardUnmaskPreflightCalled();
+
+  // Logs the duration of the PaymentsClient::GetUnmaskDetails() call (aka
+  // GetDetailsForGetRealPan).
+  static void LogCardUnmaskPreflightDuration(const base::TimeDelta& duration);
+
   // Logs |event| to the unmask prompt events histogram.
   static void LogUnmaskPromptEvent(UnmaskPromptEvent event);
 
@@ -1258,13 +1271,6 @@ class AutofillMetrics {
   // autofilled to support synthetic fields.
   static void LogHiddenOrPresentationalSelectFieldsFilled();
 
-  // Logs the the |ukm_entry_name| with the specified |url| and the specified
-  // |metrics|. Returns whether the ukm was sucessfully logged.
-  static bool LogUkm(ukm::UkmRecorder* ukm_recorder,
-                     const GURL& url,
-                     const std::string& ukm_entry_name,
-                     const std::vector<std::pair<const char*, int>>& metrics);
-
   // Converts form type to bit vector to store in UKM.
   static int64_t FormTypesToBitVector(const std::set<FormType>& form_types);
 
@@ -1288,7 +1294,7 @@ class AutofillMetrics {
  private:
   static void Log(AutocompleteEvent event);
 
-  static const int kNumCardUploadDecisionMetrics = 18;
+  static const int kNumCardUploadDecisionMetrics = 19;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(AutofillMetrics);
 };

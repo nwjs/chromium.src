@@ -53,7 +53,7 @@ class WebLocalFrame;
 MODULES_EXPORT void fix_gamepad_nw(WebLocalFrame*);
 
 class MODULES_EXPORT NavigatorGamepad final
-    : public GarbageCollectedFinalized<NavigatorGamepad>,
+    : public GarbageCollected<NavigatorGamepad>,
       public Supplement<Navigator>,
       public DOMWindowClient,
       public PlatformEventController,

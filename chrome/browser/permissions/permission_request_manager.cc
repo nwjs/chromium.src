@@ -24,6 +24,7 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/url_formatter/elide_url.h"
+#include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
@@ -79,7 +80,6 @@ PermissionRequestManager::~PermissionRequestManager() {
 }
 
 void PermissionRequestManager::AddRequest(PermissionRequest* request) {
-
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDenyPermissionPrompts)) {
     request->PermissionDenied();
@@ -139,6 +139,12 @@ void PermissionRequestManager::AddRequest(PermissionRequest* request) {
   }
   queued_requests_.push_back(request);
 
+  // If we're displaying a quiet permission request, kill it in favor of this
+  // permission request.
+  if (ShouldShowQuietPermissionPrompt()) {
+    FinalizeBubble(PermissionAction::IGNORED);
+  }
+
   if (!IsBubbleVisible())
     ScheduleShowBubble();
 }
@@ -185,6 +191,20 @@ void PermissionRequestManager::DidFinishNavigation(
     return;
   }
 
+  if (!queued_requests_.empty() || !requests_.empty()) {
+    // |queued_requests_| and |requests_| will be deleted below, which
+    // might be a problem for back-forward cache — the page might be restored
+    // later, but the requests won't be.
+    // Disable bfcache here if we have any requests here to prevent this
+    // from happening.
+    web_contents()
+        ->GetController()
+        .GetBackForwardCache()
+        .DisableForRenderFrameHost(
+            navigation_handle->GetPreviousRenderFrameHostId(),
+            "PermissionRequestManager");
+  }
+
   CleanUpRequests();
   main_frame_has_fully_loaded_ = false;
 }
@@ -199,7 +219,7 @@ void PermissionRequestManager::DocumentOnLoadCompletedInMainFrame() {
   ScheduleShowBubble();
 }
 
-void PermissionRequestManager::DocumentLoadedInFrame(
+void PermissionRequestManager::DOMContentLoaded(
     content::RenderFrameHost* render_frame_host) {
   ScheduleShowBubble();
 }
@@ -224,8 +244,21 @@ void PermissionRequestManager::OnVisibilityChanged(
     return;
 
   if (tab_is_hidden_) {
-    if (view_ && view_->ShouldDestroyOnTabSwitching())
-      DeleteBubble();
+    if (view_) {
+      switch (view_->GetTabSwitchingBehavior()) {
+        case PermissionPrompt::TabSwitchingBehavior::
+            kDestroyPromptButKeepRequestPending:
+          DeleteBubble();
+          break;
+        case PermissionPrompt::TabSwitchingBehavior::
+            kDestroyPromptAndIgnoreRequest:
+          FinalizeBubble(PermissionAction::IGNORED);
+          break;
+        case PermissionPrompt::TabSwitchingBehavior::kKeepPromptAlive:
+          break;
+      }
+    }
+
     return;
   }
 
@@ -239,7 +272,8 @@ void PermissionRequestManager::OnVisibilityChanged(
 
   if (view_) {
     // We switched tabs away and back while a prompt was active.
-    DCHECK(!view_->ShouldDestroyOnTabSwitching());
+    DCHECK_EQ(view_->GetTabSwitchingBehavior(),
+              PermissionPrompt::TabSwitchingBehavior::kKeepPromptAlive);
   } else {
     ShowBubble(/*is_reshow=*/true);
   }
@@ -524,17 +558,21 @@ void PermissionRequestManager::RemoveObserver(Observer* observer) {
 }
 
 bool PermissionRequestManager::ShouldShowQuietPermissionPrompt() {
-  if (!requests_.size())
+  if (!requests_.size() ||
+      requests_.front()->GetPermissionRequestType() !=
+          PermissionRequestType::PERMISSION_NOTIFICATIONS) {
     return false;
+  }
 
-#if !defined(OS_ANDROID)
   const auto ui_flavor = QuietNotificationsPromptConfig::UIFlavorToUse();
-  return (requests_.front()->GetPermissionRequestType() ==
-              PermissionRequestType::PERMISSION_NOTIFICATIONS &&
-          (ui_flavor == QuietNotificationsPromptConfig::STATIC_ICON ||
-           ui_flavor == QuietNotificationsPromptConfig::ANIMATED_ICON));
+#if !defined(OS_ANDROID)
+  return ui_flavor == QuietNotificationsPromptConfig::STATIC_ICON ||
+         ui_flavor == QuietNotificationsPromptConfig::ANIMATED_ICON;
 #else   // OS_ANDROID
-  return false;
+  return ui_flavor == QuietNotificationsPromptConfig::QUIET_NOTIFICATION ||
+         ui_flavor == QuietNotificationsPromptConfig::HEADS_UP_NOTIFICATION ||
+         ui_flavor == QuietNotificationsPromptConfig::MINI_INFOBAR;
+
 #endif  // OS_ANDROID
 }
 

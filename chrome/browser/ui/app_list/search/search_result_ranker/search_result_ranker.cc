@@ -14,6 +14,7 @@
 #include "base/macros.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
@@ -26,6 +27,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/app_list/search/chrome_search_result.h"
+#include "chrome/browser/ui/app_list/search/cros_action_history/cros_action_recorder.h"
 #include "chrome/browser/ui/app_list/search/search_result_ranker/app_search_result_ranker.h"
 #include "chrome/browser/ui/app_list/search/search_result_ranker/histogram_util.h"
 #include "chrome/browser/ui/app_list/search/search_result_ranker/ranking_item_util.h"
@@ -181,7 +183,8 @@ SearchResultRanker::~SearchResultRanker() {
   }
 }
 
-void SearchResultRanker::InitializeRankers() {
+void SearchResultRanker::InitializeRankers(
+    SearchController* search_controller) {
   if (app_list_features::IsQueryBasedMixedTypesRankerEnabled()) {
     results_list_boost_coefficient_ = base::GetFieldTrialParamByFeatureAsDouble(
         app_list_features::kEnableQueryBasedMixedTypesRanker,
@@ -207,7 +210,11 @@ void SearchResultRanker::InitializeRankers() {
           "QueryBasedMixedTypesGroup",
           profile_->GetPath().AppendASCII("results_list_group_ranker.pb"),
           config, chromeos::ProfileHelper::IsEphemeralUserProfile(profile_));
-
+    } else if (GetFieldTrialParamByFeatureAsBool(
+                   app_list_features::kEnableQueryBasedMixedTypesRanker,
+                   "use_aggregated_model", false) ||
+               app_list_features::IsAggregatedMlSearchRankingEnabled()) {
+      use_aggregated_search_ranking_inference_ = true;
     } else {
       // Item ranker model.
       const std::string config_json = GetFieldTrialParamValueByFeature(
@@ -279,6 +286,9 @@ void SearchResultRanker::InitializeRankers() {
             },
             base::Unretained(this), default_config));
   }
+
+  search_ranking_event_logger_ =
+      std::make_unique<SearchRankingEventLogger>(profile_, search_controller);
 
   app_launch_event_logger_ = std::make_unique<app_list::AppLaunchEventLogger>();
 
@@ -352,6 +362,11 @@ void SearchResultRanker::Rank(Mixer::SortedResults* results) {
             [](const Mixer::SortData& a, const Mixer::SortData& b) {
               return a.score > b.score;
             });
+  std::map<std::string, float> search_ranker_score_map;
+  if (!last_query_.empty() && use_aggregated_search_ranking_inference_) {
+    search_ranking_event_logger_->CreateRankings(results, last_query_.size());
+    search_ranker_score_map = search_ranking_event_logger_->RetrieveRankings();
+  }
 
   std::map<std::string, float> ranking_map;
   if (using_aggregated_app_inference_)
@@ -392,6 +407,9 @@ void SearchResultRanker::Rank(Mixer::SortedResults* results) {
               result.score + rank_it->second * results_list_boost_coefficient_,
               3.0);
         }
+      } else if (!last_query_.empty() &&
+                 use_aggregated_search_ranking_inference_) {
+        result.score = search_ranker_score_map[result.result->id()];
       }
     } else if (model == Model::APPS) {
       if (using_aggregated_app_inference_) {
@@ -488,6 +506,23 @@ void SearchResultRanker::Train(const AppLaunchData& app_launch_data) {
   } else if (model == Model::APPS && app_ranker_) {
     app_ranker_->Record(NormalizeAppId(app_launch_data.id));
   }
+
+  if (model == Model::MIXED_TYPES && app_launch_data.query.empty() &&
+      zero_state_group_ranker_) {
+    std::vector<std::string> weights;
+    for (const auto& pair : *zero_state_group_ranker_->GetTargetData())
+      weights.push_back(base::StrCat(
+          {pair.first, ":", base::NumberToString(pair.second.last_score)}));
+    VLOG(1) << "Zero state files model weights: ["
+            << base::JoinString(weights, ", ") << "]";
+  }
+}
+
+void SearchResultRanker::LogSearchResults(
+    const base::string16& trimmed_query,
+    const ash::SearchResultIdWithPositionIndices& results,
+    int launched_index) {
+  search_ranking_event_logger_->Log(trimmed_query, results, launched_index);
 }
 
 void SearchResultRanker::ZeroStateResultsDisplayed(
@@ -563,9 +598,25 @@ void SearchResultRanker::OverrideZeroStateResults(
 void SearchResultRanker::OnFilesOpened(
     const std::vector<FileOpenEvent>& file_opens) {
   // Log the open type of file open events
-  for (const auto& file_open : file_opens)
+  for (const auto& file_open : file_opens) {
     UMA_HISTOGRAM_ENUMERATION(kLogFileOpenType,
                               GetTypeFromFileTaskNotifier(file_open.open_type));
+    // TODO(chareszhao): move this outside of SearchResultRanker.
+    CrOSActionRecorder::GetCrosActionRecorder()->RecordAction(
+        {base::StrCat({"FileOpened-", file_open.path.value()})},
+        {{"open_type", static_cast<int>(file_open.open_type)}});
+  }
+}
+
+void SearchResultRanker::OnURLVisited(history::HistoryService* history_service,
+                                      ui::PageTransition transition,
+                                      const history::URLRow& row,
+                                      const history::RedirectList& redirects,
+                                      base::Time visit_time) {
+  // TODO(chareszhao): move this outside of SearchResultRanker.
+  CrOSActionRecorder::GetCrosActionRecorder()->RecordAction(
+      {base::StrCat({"URLVisited-", row.url().spec()})},
+      {{"PageTransition", static_cast<int>(transition)}});
 }
 
 void SearchResultRanker::OnURLsDeleted(

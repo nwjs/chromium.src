@@ -106,15 +106,6 @@ class InfobarContainerCoordinatorTest : public PlatformTest {
         YES;
     [infobar_container_coordinator_ start];
 
-    // Setup the InfobarCoordinator and InfobarDelegate.
-    TestInfoBarDelegate* test_infobar_delegate =
-        new TestInfoBarDelegate(@"Title");
-    coordinator_ = [[InfobarConfirmCoordinator alloc]
-        initWithInfoBarDelegate:test_infobar_delegate
-                           type:InfobarType::kInfobarTypeConfirm];
-    infobar_delegate_ =
-        std::unique_ptr<ConfirmInfoBarDelegate>(test_infobar_delegate);
-
     // Setup the Legacy InfobarController and InfobarDelegate.
     TestInfoBarDelegate* test_legacy_infobar_delegate =
         new TestInfoBarDelegate(@"Legacy Infobar");
@@ -141,20 +132,33 @@ class InfobarContainerCoordinatorTest : public PlatformTest {
 
   // Adds an Infobar to the InfobarManager, triggering an InfobarBanner
   // presentation.
-  void AddInfobar() {
+  void AddInfobar(bool high_priority_presentation) {
+    // Setup the InfobarCoordinator and InfobarDelegate.
+    TestInfoBarDelegate* test_infobar_delegate =
+        new TestInfoBarDelegate(@"Title");
+    coordinator_ = [[InfobarConfirmCoordinator alloc]
+        initWithInfoBarDelegate:test_infobar_delegate
+                   badgeSupport:YES
+                           type:InfobarType::kInfobarTypeConfirm];
+    coordinator_.highPriorityPresentation = high_priority_presentation;
+    infobar_delegate_ =
+        std::unique_ptr<ConfirmInfoBarDelegate>(test_infobar_delegate);
+
     GetInfobarManager()->AddInfoBar(std::make_unique<InfoBarIOS>(
         coordinator_, std::move(infobar_delegate_)));
   }
 
   // Adds an Infobar to the InfobarManager, triggering an InfobarBanner
   // presentation.
-  void AddSecondInfobar() {
+  void AddSecondInfobar(bool high_priority_presentation) {
     // Setup the InfobarCoordinator and InfobarDelegate.
     TestInfoBarDelegate* test_infobar_delegate =
         new TestInfoBarDelegate(@"Title 2");
     second_coordinator_ = [[InfobarConfirmCoordinator alloc]
         initWithInfoBarDelegate:test_infobar_delegate
+                   badgeSupport:YES
                            type:InfobarType::kInfobarTypePasswordSave];
+    second_coordinator_.highPriorityPresentation = high_priority_presentation;
     std::unique_ptr<ConfirmInfoBarDelegate> infobar_delegate =
         std::unique_ptr<ConfirmInfoBarDelegate>(test_infobar_delegate);
 
@@ -207,7 +211,7 @@ TEST_F(InfobarContainerCoordinatorTest,
        InfobarBannerPresentationStatePresented) {
   EXPECT_NE(infobar_container_coordinator_.infobarBannerState,
             InfobarBannerPresentationState::Presented);
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
   ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForUIElementTimeout, ^bool {
         return infobar_container_coordinator_.infobarBannerState ==
@@ -223,7 +227,7 @@ TEST_F(InfobarContainerCoordinatorTest, TestAutomaticInfobarBannerDismissal) {
   EXPECT_NE(infobar_container_coordinator_.infobarBannerState,
             InfobarBannerPresentationState::Presented);
 
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
 
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForUIElementTimeout, ^bool {
@@ -234,7 +238,7 @@ TEST_F(InfobarContainerCoordinatorTest, TestAutomaticInfobarBannerDismissal) {
   ASSERT_EQ(infobar_container_coordinator_.infobarBannerState,
             InfobarBannerPresentationState::Presented);
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
-      kInfobarBannerPresentationDurationInSeconds, ^bool {
+      kInfobarBannerDefaultPresentationDurationInSeconds, ^bool {
         return infobar_container_coordinator_.infobarBannerState ==
                InfobarBannerPresentationState::NotPresented;
       }));
@@ -248,7 +252,7 @@ TEST_F(InfobarContainerCoordinatorTest, TestInfobarBannerDismissal) {
   EXPECT_FALSE(infobar_container_coordinator_.infobarBannerState ==
                InfobarBannerPresentationState::Presented);
 
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
 
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForUIElementTimeout, ^bool {
@@ -289,7 +293,7 @@ TEST_F(InfobarContainerCoordinatorTest,
        TestInfobarBannerPresentationBeforeLegacyPresentation) {
   EXPECT_NE(infobar_container_coordinator_.infobarBannerState,
             InfobarBannerPresentationState::Presented);
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
   ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForUIElementTimeout, ^bool {
         return infobar_container_coordinator_.infobarBannerState ==
@@ -313,7 +317,7 @@ TEST_F(InfobarContainerCoordinatorTest,
       isInfobarPresentingForWebState:web_state_list_->GetActiveWebState()]);
   ASSERT_NE(infobar_container_coordinator_.infobarBannerState,
             InfobarBannerPresentationState::Presented);
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
   ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForUIElementTimeout, ^bool {
         return infobar_container_coordinator_.infobarBannerState ==
@@ -326,7 +330,7 @@ TEST_F(InfobarContainerCoordinatorTest,
 // Tests that the InfobarBanner is dismissed when changing Webstates.
 TEST_F(InfobarContainerCoordinatorTest,
        TestInfobarBannerDismissAtWebStateChange) {
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
   AddSecondWebstate();
 
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
@@ -352,7 +356,7 @@ TEST_F(InfobarContainerCoordinatorTest,
 // different Webstate.
 TEST_F(InfobarContainerCoordinatorTest,
        TestInfobarBannerNotPresentAfterWebStateChange) {
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
   AddSecondWebstate();
 
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
@@ -387,7 +391,7 @@ TEST_F(InfobarContainerCoordinatorTest,
 // Tests infobarBannerState is NotPresented once an InfobarBanner has been
 // dismissed directly by its base VC.
 TEST_F(InfobarContainerCoordinatorTest, TestInfobarBannerDismissalByBaseVC) {
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForUIElementTimeout, ^bool {
         return infobar_container_coordinator_.infobarBannerState ==
@@ -409,7 +413,7 @@ TEST_F(InfobarContainerCoordinatorTest, TestInfobarBannerDismissalByBaseVC) {
 // Tests that the Infobar is dismissed before its presentation is completed.
 TEST_F(InfobarContainerCoordinatorTest,
        TestInfobarBannerDismissalMidPresentation) {
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
   // Call dismiss without calling WaitUntilConditionOrTimeout before.
   [base_view_controller_ dismissViewControllerAnimated:NO completion:nil];
 
@@ -426,7 +430,7 @@ TEST_F(InfobarContainerCoordinatorTest,
 // presentation is completed.
 TEST_F(InfobarContainerCoordinatorTest,
        TestInfobarBannerDismissedClosingWebstate) {
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
   // Close the Webstate without calling WaitUntilConditionOrTimeout.
   web_state_list_->CloseWebStateAt(0, 0);
   ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
@@ -440,7 +444,7 @@ TEST_F(InfobarContainerCoordinatorTest,
 
 // Tests that the Infobar is dismissed when both the VC and Webstate are closed.
 TEST_F(InfobarContainerCoordinatorTest, TestDismissingAndClosingWebstate) {
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
   ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForUIElementTimeout, ^bool {
         return infobar_container_coordinator_.infobarBannerState ==
@@ -465,7 +469,7 @@ TEST_F(InfobarContainerCoordinatorTest, TestDismissingAndClosingWebstate) {
 // and there's more than one webstate.
 TEST_F(InfobarContainerCoordinatorTest,
        TestDismissingAndClosingWebstateSecondWebstate) {
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
   AddSecondWebstate();
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForUIElementTimeout, ^bool {
@@ -490,7 +494,7 @@ TEST_F(InfobarContainerCoordinatorTest,
 // Tests that the ChildCoordinators are deleted once the Webstate is closed.
 TEST_F(InfobarContainerCoordinatorTest,
        TestInfobarChildCoordinatorCountWebstate) {
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
 
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForUIElementTimeout, ^bool {
@@ -513,7 +517,7 @@ TEST_F(InfobarContainerCoordinatorTest,
                InfobarBannerPresentationState::NotPresented;
       }));
 
-  AddSecondInfobar();
+  AddSecondInfobar(/*high_priority_presentation=*/false);
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForUIElementTimeout, ^bool {
         return infobar_container_coordinator_.infobarBannerState ==
@@ -547,7 +551,7 @@ TEST_F(InfobarContainerCoordinatorTest,
 
 // Tests that the ChildCoordinators are deleted once they stop.
 TEST_F(InfobarContainerCoordinatorTest, TestInfobarChildCoordinatorCountStop) {
-  AddInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
 
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForUIElementTimeout, ^bool {
@@ -570,7 +574,7 @@ TEST_F(InfobarContainerCoordinatorTest, TestInfobarChildCoordinatorCountStop) {
                InfobarBannerPresentationState::NotPresented;
       }));
 
-  AddSecondInfobar();
+  AddSecondInfobar(/*high_priority_presentation=*/false);
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForUIElementTimeout, ^bool {
         return infobar_container_coordinator_.infobarBannerState ==
@@ -603,8 +607,8 @@ TEST_F(InfobarContainerCoordinatorTest, TestInfobarChildCoordinatorCountStop) {
 // Tests that that a second Infobar (added right after the first one) is
 // displayed after the first one has been dismissed.
 TEST_F(InfobarContainerCoordinatorTest, TestInfobarQueueAndDisplay) {
-  AddInfobar();
-  AddSecondInfobar();
+  AddInfobar(/*high_priority_presentation=*/false);
+  AddSecondInfobar(/*high_priority_presentation=*/false);
   ASSERT_EQ(NSUInteger(2),
             infobar_container_coordinator_.childCoordinators.count);
 
@@ -637,12 +641,13 @@ TEST_F(InfobarContainerCoordinatorTest, TestInfobarQueueAndDisplay) {
 }
 
 // Tests that Infobars added while the baseVC is not in window will be displayed
-// once the baseVC moves to it.
+// once the baseVC moves to it. Also tests that a non high-priority Infobar
+// added after a high priority one will appear first.
 TEST_F(InfobarContainerCoordinatorTest,
        TestInfobarQueueAndDisplayWhenAppeared) {
   [scoped_key_window_.Get() setRootViewController:nil];
-  AddInfobar();
-  AddSecondInfobar();
+  AddInfobar(/*high_priority_presentation=*/true);
+  AddSecondInfobar(/*high_priority_presentation=*/false);
 
   ASSERT_EQ(infobar_container_coordinator_.infobarBannerState,
             InfobarBannerPresentationState::NotPresented);
@@ -678,3 +683,121 @@ TEST_F(InfobarContainerCoordinatorTest,
   ASSERT_EQ(NSUInteger(2),
             infobar_container_coordinator_.childCoordinators.count);
 }
+
+// Tests that that a second Infobar (added right after the first one) is
+// not displayed if its destroyed before presentation.
+TEST_F(InfobarContainerCoordinatorTest, TestInfobarQueueStoppedNoDisplay) {
+  AddInfobar(/*high_priority_presentation=*/false);
+  AddSecondInfobar(/*high_priority_presentation=*/false);
+  ASSERT_EQ(NSUInteger(2),
+            infobar_container_coordinator_.childCoordinators.count);
+
+  EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, ^bool {
+        return coordinator_.infobarBannerState ==
+               InfobarBannerPresentationState::Presented;
+      }));
+  ASSERT_EQ(infobar_container_coordinator_.infobarBannerState,
+            InfobarBannerPresentationState::Presented);
+
+  [second_coordinator_ stop];
+  [infobar_container_coordinator_ dismissInfobarBannerAnimated:NO
+                                                    completion:nil];
+  ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, ^bool {
+        return coordinator_.infobarBannerState ==
+               InfobarBannerPresentationState::NotPresented;
+      }));
+
+  ASSERT_EQ(infobar_container_coordinator_.infobarBannerState,
+            InfobarBannerPresentationState::NotPresented);
+  ASSERT_EQ(NSUInteger(1),
+            infobar_container_coordinator_.childCoordinators.count);
+}
+
+// Tests that a High Priority Presentation Infobar added after a non High
+// Priority Presentation Infobar is presented first.
+TEST_F(InfobarContainerCoordinatorTest, TestInfobarQueuePriority) {
+  [scoped_key_window_.Get() setRootViewController:nil];
+  AddInfobar(/*high_priority_presentation=*/false);
+  AddSecondInfobar(/*high_priority_presentation=*/true);
+
+  ASSERT_EQ(infobar_container_coordinator_.infobarBannerState,
+            InfobarBannerPresentationState::NotPresented);
+  ASSERT_EQ(NSUInteger(2),
+            infobar_container_coordinator_.childCoordinators.count);
+
+  [scoped_key_window_.Get() setRootViewController:base_view_controller_];
+
+  EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, ^bool {
+        return second_coordinator_.infobarBannerState ==
+               InfobarBannerPresentationState::Presented;
+      }));
+  ASSERT_EQ(second_coordinator_.infobarBannerState,
+            InfobarBannerPresentationState::Presented);
+
+  [infobar_container_coordinator_ dismissInfobarBannerAnimated:NO
+                                                    completion:nil];
+  ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, ^bool {
+        return second_coordinator_.infobarBannerState ==
+               InfobarBannerPresentationState::NotPresented;
+      }));
+
+  EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, ^bool {
+        return coordinator_.infobarBannerState ==
+               InfobarBannerPresentationState::Presented;
+      }));
+  ASSERT_EQ(infobar_container_coordinator_.infobarBannerState,
+            InfobarBannerPresentationState::Presented);
+
+  ASSERT_EQ(NSUInteger(2),
+            infobar_container_coordinator_.childCoordinators.count);
+}
+
+// Tests that a High Priority Presentation Infobar added after a High
+// Priority Presentation Infobar is presented first.
+TEST_F(InfobarContainerCoordinatorTest, TestInfobarQueueHighPriority) {
+  [scoped_key_window_.Get() setRootViewController:nil];
+  AddInfobar(/*high_priority_presentation=*/true);
+  AddSecondInfobar(/*high_priority_presentation=*/true);
+
+  ASSERT_EQ(infobar_container_coordinator_.infobarBannerState,
+            InfobarBannerPresentationState::NotPresented);
+  ASSERT_EQ(NSUInteger(2),
+            infobar_container_coordinator_.childCoordinators.count);
+
+  [scoped_key_window_.Get() setRootViewController:base_view_controller_];
+
+  EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, ^bool {
+        return second_coordinator_.infobarBannerState ==
+               InfobarBannerPresentationState::Presented;
+      }));
+  ASSERT_EQ(second_coordinator_.infobarBannerState,
+            InfobarBannerPresentationState::Presented);
+
+  [infobar_container_coordinator_ dismissInfobarBannerAnimated:NO
+                                                    completion:nil];
+  ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, ^bool {
+        return second_coordinator_.infobarBannerState ==
+               InfobarBannerPresentationState::NotPresented;
+      }));
+
+  EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, ^bool {
+        return coordinator_.infobarBannerState ==
+               InfobarBannerPresentationState::Presented;
+      }));
+  ASSERT_EQ(infobar_container_coordinator_.infobarBannerState,
+            InfobarBannerPresentationState::Presented);
+
+  ASSERT_EQ(NSUInteger(2),
+            infobar_container_coordinator_.childCoordinators.count);
+}
+
+// TODO(crbug.com/961343): Add tests that use a BadgedInfobar, in order to do
+// this a new TestInfoBarDelegate needs to be created.

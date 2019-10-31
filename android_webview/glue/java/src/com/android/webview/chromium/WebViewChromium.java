@@ -24,7 +24,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import android.print.PrintDocumentAdapter;
-import android.support.annotation.IntDef;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.DragEvent;
@@ -54,6 +53,8 @@ import android.webkit.WebView.VisualStateCallback;
 import android.webkit.WebViewClient;
 import android.webkit.WebViewProvider;
 import android.widget.TextView;
+
+import androidx.annotation.IntDef;
 
 import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.AwContentsStatics;
@@ -957,6 +958,7 @@ class WebViewChromium implements WebViewProvider, WebViewProvider.ScrollDelegate
     public void insertVisualStateCallback(
             final long requestId, final VisualStateCallback callback) {
         sWebViewApiCallSample.record(ApiCall.INSERT_VISUAL_STATE_CALLBACK);
+        if (callback == null) return;
         mSharedWebViewChromium.insertVisualStateCallback(
                 requestId, new AwContents.VisualStateCallback() {
                     @Override

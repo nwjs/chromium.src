@@ -48,7 +48,6 @@
 <translation id="2314101195544969792">La vostra sessió de <ph name="APPLICATION_NAME" /> ha estat inactiva durant una estona i es desconnectarà aviat.</translation>
 <translation id="2317666076142640974">Dona un cop d'ull a la nova <ph name="LINK_BEGIN" />aplicació web Escriptori remot de Chrome<ph name="LINK_END" />. Ens agradaria saber la teva opinió.</translation>
 <translation id="2320166752086256636">Amaga el teclat</translation>
-<translation id="2332192922827071008">Obre les preferències</translation>
 <translation id="2353140552984634198">Podeu accedir de manera segura a aquest ordinador mitjançant Chromoting.</translation>
 <translation id="2359808026110333948">Continua</translation>
 <translation id="2366718077645204424">No es pot connectar amb l'amfitrió. Probablement, això passa a causa de la configuració de la xarxa que esteu fent servir.</translation>
@@ -58,7 +57,6 @@
 <translation id="2509394361235492552">Connectat a <ph name="HOSTNAME" /></translation>
 <translation id="2512228156274966424">NOTA: Per assegurar-vos que totes les tecles de drecera estiguin disponibles, podeu configurar l'escriptori remot de Chrome amb l'opció "Obre com a finestra".</translation>
 <translation id="2540992418118313681">Voleu compartir aquest ordinador perquè un altre usuari el pugui veure i controlar?</translation>
-<translation id="254771646005658629">Permet que els usuaris remots controlin aquest Mac</translation>
 <translation id="2579271889603567289">L'amfitrió s'ha bloquejat o no s'ha pogut iniciar.</translation>
 <translation id="2599300881200251572">Aquest servei permet les connexions entrants de clients de l'escriptori remot de Chrome.</translation>
 <translation id="2647232381348739934">Servei de Chromoting</translation>
@@ -136,6 +134,7 @@
 <translation id="4405930547258349619">Biblioteca principal</translation>
 <translation id="4430435636878359009">Desactiva les connexions remotes a aquest ordinador</translation>
 <translation id="4430915108080446161">S'està generant el codi d'accés...</translation>
+<translation id="4450893287417543264">No ho tornis a mostrar</translation>
 <translation id="4472575034687746823">Comença</translation>
 <translation id="4481276415609939789">No teniu cap ordinador registrat. Per activar les connexions remotes a un ordinador, instal·leu-hi Chromoting i feu clic a <ph name="BUTTON_NAME" />.</translation>
 <translation id="4513946894732546136">Comentaris</translation>
@@ -173,6 +172,7 @@
 <translation id="518094545883702183">Aquesta informació només s'utilitza per diagnosticar el problema de què esteu informant. Només hi poden accedir les persones que analitzen l'informe i es conserva com a màxim durant 30 dies.</translation>
 <translation id="5204575267916639804">Preguntes freqüents</translation>
 <translation id="5222676887888702881">Tanca la sessió</translation>
+<translation id="5234764350956374838">Omet</translation>
 <translation id="5254120496627797685">Si sortiu d'aquesta pàgina, la sessió de l'escriptori remot de Chrome finalitzarà.</translation>
 <translation id="5308380583665731573">Connecta</translation>
 <translation id="5327248766486351172">Nom</translation>
@@ -183,11 +183,6 @@
 <translation id="5419185025274123272">No es pot restablir l'aplicació. Podeu enviar un informe d'errors.</translation>
 <translation id="5419418238395129586">Última connexió: <ph name="DATE" /></translation>
 <translation id="544077782045763683">L'amfitrió s'ha tancat.</translation>
-<translation id="5463789431147491241">Per fer servir <ph name="PRODUCT_NAME" /> en aquest Mac, segueix aquests passos:
-
-Selecciona <ph name="BUTTON_NAME" /> més avall. A les preferències de Seguretat i privadesa, marca la casella corresponent a <ph name="SERVICE_SCRIPT_NAME" />.
-
-Si l'opció <ph name="SERVICE_SCRIPT_NAME" /> ja està marcada, desmarca-la i torna-la a marcar.</translation>
 <translation id="5510035215749041527">Desconnecta ara</translation>
 <translation id="5593560073513909978">El servei està temporalment no disponible. Torneu-ho a provar més tard.</translation>
 <translation id="5601503069213153581">PIN</translation>

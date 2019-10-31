@@ -166,12 +166,9 @@ bool ExecuteCodeFunction::Execute(const std::string& code_string,
   else if (details_->css_origin == api::extension_types::CSS_ORIGIN_AUTHOR)
     css_origin = CSS_ORIGIN_AUTHOR;
 
-  ScriptExecutor::WorldType world_type = details_->main_world.get() && *details_->main_world
-    ? ScriptExecutor::MAIN_WORLD : ScriptExecutor::ISOLATED_WORLD;
-
   executor->ExecuteScript(
       host_id_, script_type, code_string, frame_scope, frame_id,
-      match_about_blank, run_at, world_type,
+      match_about_blank, run_at,
       IsWebView() ? ScriptExecutor::WEB_VIEW_PROCESS
                   : ScriptExecutor::DEFAULT_PROCESS,
       GetWebViewSrc(), file_url_, user_gesture(), css_origin,

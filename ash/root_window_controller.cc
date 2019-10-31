@@ -58,6 +58,8 @@
 #include "ash/wm/lock_layout_manager.h"
 #include "ash/wm/overlay_layout_manager.h"
 #include "ash/wm/root_window_layout_manager.h"
+#include "ash/wm/splitview/split_view_controller.h"
+#include "ash/wm/splitview/split_view_utils.h"
 #include "ash/wm/stacking_controller.h"
 #include "ash/wm/switchable_windows.h"
 #include "ash/wm/system_modal_container_layout_manager.h"
@@ -72,6 +74,7 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/numerics/ranges.h"
 #include "base/stl_util.h"
 #include "base/time/time.h"
 #include "chromeos/constants/chromeos_switches.h"
@@ -347,8 +350,8 @@ class RootWindowTargeter : public aura::WindowTargeter {
 
   gfx::Point FitPointToBounds(const gfx::Point p, const gfx::Rect& bounds) {
     return gfx::Point(
-        std::min(std::max(bounds.x(), p.x()), bounds.right() - 1),
-        std::min(std::max(bounds.y(), p.y()), bounds.bottom() - 1));
+        base::ClampToRange(p.x(), bounds.x(), bounds.right() - 1),
+        base::ClampToRange(p.y(), bounds.y(), bounds.bottom() - 1));
   }
 
   ui::EventType last_mouse_event_type_ = ui::ET_UNKNOWN;
@@ -657,11 +660,13 @@ void RootWindowController::CloseChildWindows() {
 }
 
 void RootWindowController::MoveWindowsTo(aura::Window* dst) {
-  // Suspend unnecessary updates of the shelf visibility.
-  shelf_->SetSuspendVisibilityUpdate(true);
+  // Suspend unnecessary updates of the shelf visibility indefinitely since it
+  // is going away.
+  if (GetShelfLayoutManager())
+    GetShelfLayoutManager()->SuspendVisibilityUpdate();
 
-  // Clear the workspace controller to avoid a lot of unnessary operations when
-  // window are removed.
+  // Clear the workspace controller to avoid a lot of unnecessary operations
+  // when window are removed.
   // TODO(afakhry): Should we also clear the WorkspaceLayoutManagers of the pip,
   // always-on-top, and other containers?
   aura::Window* root = GetRootWindow();
@@ -779,6 +784,15 @@ RootWindowController::RootWindowController(
 
 void RootWindowController::Init(RootWindowType root_window_type) {
   aura::Window* root_window = GetRootWindow();
+  // If the |ash::features::kMultiDisplayOverviewAndSplitView| feature flag is
+  // enabled, create |split_view_controller_| for every display. Otherwise,
+  // create |split_view_controller_| for the primary display only.
+  display::Screen* screen = display::Screen::GetScreen();
+  if (AreMultiDisplayOverviewAndSplitViewEnabled() ||
+      screen->GetDisplayNearestWindow(root_window).id() ==
+          screen->GetPrimaryDisplay().id()) {
+    split_view_controller_ = std::make_unique<SplitViewController>(root_window);
+  }
   Shell* shell = Shell::Get();
   shell->InitRootWindow(root_window);
   auto old_targeter =

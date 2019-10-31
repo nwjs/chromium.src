@@ -64,7 +64,7 @@ class DownloadManagerCoordinatorImpl
                 mSelectionDelegate, this::notifyFilterChanged, createDateOrderedListObserver(),
                 modalDialogManager);
         mToolbarCoordinator = new ToolbarCoordinator(mActivity, this, mListCoordinator,
-                mSelectionDelegate, config.isSeparateActivity, profile);
+                mSelectionDelegate, config.showOfflineHome, config.isSeparateActivity, profile);
 
         initializeView();
         RecordUserAction.record("Android.DownloadManager.Open");
@@ -138,11 +138,6 @@ class DownloadManagerCoordinatorImpl
         try (FilterChangeBlock block = new FilterChangeBlock()) {
             mListCoordinator.setSelectedFilter(Filters.fromUrl(url));
         }
-    }
-
-    @Override
-    public void showPrefetchSection() {
-        updateForUrl(Filters.toUrl(Filters.FilterType.PREFETCHED));
     }
 
     @Override

@@ -8,11 +8,10 @@
 #include <unordered_map>
 
 #include "base/scoped_observer.h"
-#import "ios/web/public/web_state/web_state_user_data.h"
-
 #include "components/infobars/core/infobar_manager.h"
 #import "ios/chrome/browser/infobars/infobar_type.h"
 #import "ios/chrome/browser/ui/badges/badge_item.h"
+#import "ios/web/public/web_state_user_data.h"
 
 namespace web {
 class WebState;
@@ -35,6 +34,12 @@ class InfobarBadgeTabHelper
   // Updates Infobar badge for the case where Infobar of |infobar_type| was
   // accepted.
   void UpdateBadgeForInfobarAccepted(InfobarType infobar_type);
+  // Updates Infobar badge for the case where an Infobar banner of
+  // |infobar_type| was presented.
+  void UpdateBadgeForInfobarBannerPresented(InfobarType infobar_type);
+  // Updates Infobar badge for the case where an Infobar banner of
+  // |infobar_type| was dismissed.
+  void UpdateBadgeForInfobarBannerDismissed(InfobarType infobar_type);
 
   // Returns all BadgeItems for the TabHelper Webstate.
   std::vector<id<BadgeItem>> GetInfobarBadgeItems();

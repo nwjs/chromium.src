@@ -48,7 +48,6 @@
 <translation id="2314101195544969792">Phiên <ph name="APPLICATION_NAME" /> của bạn đã không hoạt động một thời gian và sẽ sớm bị ngắt kết nối.</translation>
 <translation id="2317666076142640974">Hãy xem trước <ph name="LINK_BEGIN" />ứng dụng web Chrome Remote Desktop<ph name="LINK_END" /> mới. Chúng tôi rất mong nhận được ý kiến phản hồi của bạn.</translation>
 <translation id="2320166752086256636">Ẩn bàn phím</translation>
-<translation id="2332192922827071008">Mở Tùy chọn</translation>
 <translation id="2353140552984634198">Bạn có thể truy cập an toàn vào máy tính này bằng Kết nối từ xa trên Chrome.</translation>
 <translation id="2359808026110333948">Tiếp tục</translation>
 <translation id="2366718077645204424">Không thể kết nối với máy chủ. Điều này có thể do cấu hình của mạng bạn đang sử dụng.</translation>
@@ -58,7 +57,6 @@
 <translation id="2509394361235492552">Đã kết nối với <ph name="HOSTNAME" /></translation>
 <translation id="2512228156274966424">LƯU Ý: Nhằm đảm bảo rằng tất cả các phím tắt đều khả dụng, bạn có thể định cấu hình Chrome Remote Desktop để ‘Mở dưới dạng cửa sổ’.</translation>
 <translation id="2540992418118313681">Bạn có muốn chia sẻ máy tính này cho một người dùng khác xem và kiểm soát không?</translation>
-<translation id="254771646005658629">Cho phép người dùng từ xa điều khiển máy Mac này</translation>
 <translation id="2579271889603567289">Máy chủ đã bị lỗi hoặc không khởi động được.</translation>
 <translation id="2599300881200251572">Dịch vụ này kích hoạt các kết nối đến từ ứng dụng khách Chrome Remote Desktop.</translation>
 <translation id="2647232381348739934">Dịch vụ kết nối từ xa trên Chrome</translation>
@@ -136,6 +134,7 @@
 <translation id="4405930547258349619">Thư viện trung tâm</translation>
 <translation id="4430435636878359009">Tắt kết nối từ xa với máy tính này</translation>
 <translation id="4430915108080446161">Đang tạo mã truy cập…</translation>
+<translation id="4450893287417543264">Không hiển thị lại</translation>
 <translation id="4472575034687746823">Bắt đầu</translation>
 <translation id="4481276415609939789">Bạn chưa đăng ký máy tính nào. Để bật kết nối từ xa với một máy tính, hãy cài đặt Kết nối từ xa trên Chrome trên máy tính đó và nhấp “<ph name="BUTTON_NAME" />”.</translation>
 <translation id="4513946894732546136">Phản hồi</translation>
@@ -173,6 +172,7 @@
 <translation id="518094545883702183">Thông tin này chỉ được sử dụng để chẩn đoán sự cố bạn đang báo cáo, chỉ khả dụng đối với người điều tra báo cáo của bạn và được giữ lại tối đa 30 ngày.</translation>
 <translation id="5204575267916639804">Câu hỏi thường gặp</translation>
 <translation id="5222676887888702881">Đăng xuất</translation>
+<translation id="5234764350956374838">Loại bỏ</translation>
 <translation id="5254120496627797685">Thoát khỏi trang này sẽ kết thúc phiên Chrome Remote Desktop của bạn.</translation>
 <translation id="5308380583665731573">Kết nối</translation>
 <translation id="5327248766486351172">Tên</translation>
@@ -183,11 +183,6 @@
 <translation id="5419185025274123272">Không thể đặt lại ứng dụng. Bạn sẽ vẫn có thể gửi báo cáo lỗi.</translation>
 <translation id="5419418238395129586">Lần trực tuyến gần đây nhất: <ph name="DATE" /></translation>
 <translation id="544077782045763683">Máy chủ đã tắt.</translation>
-<translation id="5463789431147491241">Để sử dụng <ph name="PRODUCT_NAME" /> trên máy Mac này, hãy làm theo các bước sau:
-
-Chọn nút '<ph name="BUTTON_NAME" />' dưới đây. Trong phần tùy chọn Bảo mật và quyền riêng tư, hãy chọn hộp bên cạnh '<ph name="SERVICE_SCRIPT_NAME" />'.
-
-Nếu bạn đã chọn '<ph name="SERVICE_SCRIPT_NAME" />', hãy bỏ chọn hộp này rồi chọn lại.</translation>
 <translation id="5510035215749041527">Ngắt kết nối ngay bây giờ</translation>
 <translation id="5593560073513909978">Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.</translation>
 <translation id="5601503069213153581">Mã PIN</translation>

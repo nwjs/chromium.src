@@ -154,11 +154,6 @@ bool BubbleDialogDelegateView::ShouldShowCloseButton() const {
   return false;
 }
 
-ClientView* BubbleDialogDelegateView::CreateClientView(Widget* widget) {
-  DialogClientView* client = new DialogClientView(widget, GetContentsView());
-  return client;
-}
-
 NonClientFrameView* BubbleDialogDelegateView::CreateNonClientFrameView(
     Widget* widget) {
   BubbleFrameView* frame = new BubbleDialogFrameView(title_margins_);
@@ -170,7 +165,7 @@ NonClientFrameView* BubbleDialogDelegateView::CreateNonClientFrameView(
 
   std::unique_ptr<BubbleBorder> border =
       std::make_unique<BubbleBorder>(arrow(), GetShadow(), color());
-  if (CustomShadowsSupported() && ShouldHaveRoundCorners()) {
+  if (CustomShadowsSupported() && GetParams().round_corners) {
     border->SetCornerRadius(
         base::FeatureList::IsEnabled(features::kEnableMDRoundedCornersOnDialogs)
             ? provider->GetCornerRadiusMetric(views::EMPHASIS_HIGH)
@@ -307,8 +302,7 @@ void BubbleDialogDelegateView::OnBeforeBubbleWidgetInit(
     Widget* widget) const {}
 
 void BubbleDialogDelegateView::UseCompactMargins() {
-  const int kCompactMargin = 6;
-  set_margins(gfx::Insets(kCompactMargin));
+  set_margins(gfx::Insets(6));
 }
 
 void BubbleDialogDelegateView::OnAnchorBoundsChanged() {

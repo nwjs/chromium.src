@@ -10,11 +10,16 @@
 
 #include "base/callback.h"
 #include "base/macros.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/observer_list.h"
 #include "base/optional.h"
 #include "chromeos/components/multidevice/remote_device_ref.h"
 #include "chromeos/components/multidevice/software_feature.h"
 #include "chromeos/services/device_sync/public/mojom/device_sync.mojom.h"
+
+namespace base {
+class TaskRunner;
+}  // namespace base
 
 namespace chromeos {
 
@@ -47,6 +52,13 @@ class DeviceSyncClient {
   DeviceSyncClient();
   virtual ~DeviceSyncClient();
 
+  // Completes initialization. Must be called after connecting the DeviceSync
+  // mojo interface pointer to the implementation.
+  virtual void Initialize(scoped_refptr<base::TaskRunner> task_runner) {}
+
+  // Returns the DeviceSync mojo interface pointer.
+  virtual mojom::DeviceSyncPtr* GetDeviceSyncPtr();
+
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
@@ -75,6 +87,8 @@ class DeviceSyncClient {
   virtual void FindEligibleDevices(
       multidevice::SoftwareFeature software_feature,
       FindEligibleDevicesCallback callback) = 0;
+  virtual void GetDevicesActivityStatus(
+      mojom::DeviceSync::GetDevicesActivityStatusCallback callback) = 0;
   virtual void GetDebugInfo(
       mojom::DeviceSync::GetDebugInfoCallback callback) = 0;
 

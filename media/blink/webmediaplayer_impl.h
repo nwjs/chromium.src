@@ -35,6 +35,7 @@
 #include "media/base/simple_watch_timer.h"
 #include "media/base/text_track.h"
 #include "media/blink/buffered_data_source_host_impl.h"
+#include "media/blink/learning_experiment_helper.h"
 #include "media/blink/media_blink_export.h"
 #include "media/blink/multibuffer_data_source.h"
 #include "media/blink/video_frame_compositor.h"
@@ -283,6 +284,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   bool IsOpaque() const override;
   int GetDelegateId() override;
   base::Optional<viz::SurfaceId> GetSurfaceId() override;
+  GURL GetSrcAfterRedirects() override;
 
   base::WeakPtr<blink::WebMediaPlayer> AsWeakPtr() override;
 
@@ -1013,6 +1015,8 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   // State for simplified watch time reporting.
   RendererFactorySelector::FactoryType reported_renderer_type_;
   SimpleWatchTimer simple_watch_timer_;
+
+  LearningExperimentHelper will_play_helper_;
 
   base::WeakPtr<WebMediaPlayerImpl> weak_this_;
   base::WeakPtrFactory<WebMediaPlayerImpl> weak_factory_{this};

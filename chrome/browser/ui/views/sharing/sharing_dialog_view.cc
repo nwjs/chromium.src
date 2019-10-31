@@ -4,9 +4,11 @@
 
 #include "chrome/browser/ui/views/sharing/sharing_dialog_view.h"
 
+#include "base/optional.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/sharing/sharing_app.h"
 #include "chrome/browser/sharing/sharing_metrics.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/views/accessibility/non_accessible_image_view.h"
@@ -15,28 +17,28 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/hover_button.h"
-#include "chrome/browser/ui/views/page_action/omnibox_page_action_icon_container_view.h"
 #include "components/sync_device_info/device_info.h"
+#include "components/url_formatter/elide_url.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/gfx/color_utils.h"
+#include "ui/gfx/font_list.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/strings/grit/ui_strings.h"
+#include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/styled_label.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
+#include "url/origin.h"
 
 #if defined(OS_CHROMEOS)
+#include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/views/intent_picker_bubble_view.h"
 #endif
 
 namespace {
-
-// Icon sizes in DIP.
-constexpr int kPrimaryIconSize = 20;
-constexpr int kPrimaryIconBorderWidth = 8;
-constexpr int kHeaderImageHeight = 100;
 
 SkColor GetColorFromTheme() {
   const ui::NativeTheme* native_theme =
@@ -48,12 +50,13 @@ SkColor GetColorFromTheme() {
 std::unique_ptr<views::ImageView> CreateIconView(const gfx::ImageSkia& icon) {
   auto icon_view = std::make_unique<views::ImageView>();
   icon_view->SetImage(icon);
-  icon_view->SetBorder(
-      views::CreateEmptyBorder(gfx::Insets(kPrimaryIconBorderWidth)));
+  constexpr auto kPrimaryIconBorder = gfx::Insets(8);
+  icon_view->SetBorder(views::CreateEmptyBorder(kPrimaryIconBorder));
   return icon_view;
 }
 
 gfx::ImageSkia CreateVectorIcon(const gfx::VectorIcon& vector_icon) {
+  constexpr int kPrimaryIconSize = 20;
   return gfx::CreateVectorIcon(vector_icon, kPrimaryIconSize,
                                GetColorFromTheme());
 }
@@ -65,26 +68,9 @@ gfx::ImageSkia CreateDeviceIcon(
                               : kHardwareSmartphoneIcon);
 }
 
-gfx::ImageSkia CreateAppIcon(const SharingUiController::App& app) {
+gfx::ImageSkia CreateAppIcon(const SharingApp& app) {
   return app.vector_icon ? CreateVectorIcon(*app.vector_icon)
                          : app.image.AsImageSkia();
-}
-
-std::unique_ptr<views::StyledLabel> CreateHelpText(
-    views::StyledLabelListener* listener) {
-  const base::string16 link = l10n_util::GetStringUTF16(
-      // TODO(yasmo): rename to IDS_BROWSER_SHARING_DIALOG_TROUBLESHOOT_LINK
-      IDS_BROWSER_SHARING_CLICK_TO_CALL_DIALOG_TROUBLESHOOT_LINK);
-  size_t offset;
-  const base::string16 text = l10n_util::GetStringFUTF16(
-      // TODO(yasmo): rename to IDS_BROWSER_SHARING_DIALOG_HELP_TEXT_NO_DEVICES
-      IDS_BROWSER_SHARING_CLICK_TO_CALL_DIALOG_HELP_TEXT_NO_DEVICES, link,
-      &offset);
-  auto label = std::make_unique<views::StyledLabel>(text, listener);
-  views::StyledLabel::RangeStyleInfo link_style =
-      views::StyledLabel::RangeStyleInfo::CreateForLink();
-  label->AddStyleRange(gfx::Range(offset, offset + link.length()), link_style);
-  return label;
 }
 
 // TODO(himanshujaju): This is almost same as self share, we could unify these
@@ -96,14 +82,84 @@ base::string16 GetLastUpdatedTimeInDays(base::Time last_updated_timestamp) {
       time_in_days);
 }
 
+std::unique_ptr<views::StyledLabel> CreateHelpText(
+    const SharingDialogData& data,
+    views::StyledLabelListener* listener) {
+  DCHECK_NE(0, data.help_text_id);
+  DCHECK_NE(0, data.help_link_text_id);
+  const base::string16 link = l10n_util::GetStringUTF16(data.help_link_text_id);
+  size_t offset;
+  const base::string16 text =
+      l10n_util::GetStringFUTF16(data.help_text_id, link, &offset);
+  auto label = std::make_unique<views::StyledLabel>(text, listener);
+  views::StyledLabel::RangeStyleInfo link_style =
+      views::StyledLabel::RangeStyleInfo::CreateForLink();
+  label->AddStyleRange(gfx::Range(offset, offset + link.length()), link_style);
+  return label;
+}
+
+std::unique_ptr<views::View> MaybeCreateOriginView(
+    const SharingDialogData& data) {
+  if (!data.initiating_origin || !data.origin_text_id)
+    return nullptr;
+
+  auto label = std::make_unique<views::Label>(
+      l10n_util::GetStringFUTF16(data.origin_text_id,
+                                 url_formatter::FormatOriginForSecurityDisplay(
+                                     *data.initiating_origin)),
+      views::style::CONTEXT_LABEL, views::style::STYLE_SECONDARY);
+  label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  label->SetElideBehavior(gfx::ELIDE_HEAD);
+  label->SetMultiLine(false);
+  label->SetFontList(label->font_list().DeriveWithSizeDelta(-2));
+
+  auto background_color =
+      ui::NativeTheme::GetInstanceForNativeUi()->GetSystemColor(
+          ui::NativeTheme::kColorId_BubbleFooterBackground);
+  label->SetBackgroundColor(background_color);
+  label->SetBackground(
+      views::CreateRoundedRectBackground(background_color, /*radius=*/8));
+
+  gfx::Insets insets =
+      ChromeLayoutProvider::Get()->GetDialogInsetsForContentType(views::TEXT,
+                                                                 views::TEXT);
+  gfx::Insets border_insets(4, insets.width() / 4, 4, insets.width() / 4);
+  gfx::Insets container_insets(insets.top(),
+                               insets.left() - border_insets.left(), 0,
+                               insets.right() - border_insets.right());
+  label->SetBorder(views::CreateEmptyBorder(border_insets));
+
+  auto container = std::make_unique<views::View>();
+  container->SetLayoutManager(std::make_unique<views::BoxLayout>(
+      views::BoxLayout::Orientation::kVertical, container_insets));
+  container->AddChildView(std::move(label));
+  return container;
+}
+
+std::unique_ptr<views::View> MaybeCreateImageView(int image_id) {
+  if (!image_id)
+    return nullptr;
+
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+  const gfx::ImageSkia* image = rb.GetNativeImageNamed(image_id).ToImageSkia();
+  gfx::Size image_size(image->width(), image->height());
+  constexpr int kHeaderImageHeight = 100;
+  const int image_width = image->width() * kHeaderImageHeight / image->height();
+  image_size.SetToMin(gfx::Size(image_width, kHeaderImageHeight));
+
+  auto image_view = std::make_unique<NonAccessibleImageView>();
+  image_view->SetImageSize(image_size);
+  image_view->SetImage(*image);
+  return image_view;
+}
+
 }  // namespace
 
 SharingDialogView::SharingDialogView(views::View* anchor_view,
                                      content::WebContents* web_contents,
-                                     SharingUiController* controller)
+                                     SharingDialogData data)
     : LocationBarBubbleDelegateView(anchor_view, web_contents),
-      controller_(controller),
-      send_failed_(controller->HasSendFailed()) {}
+      data_(std::move(data)) {}
 
 SharingDialogView::~SharingDialogView() = default;
 
@@ -119,27 +175,18 @@ std::unique_ptr<views::View> SharingDialogView::CreateFootnoteView() {
   if (GetDialogType() != SharingDialogType::kDialogWithoutDevicesWithApp)
     return nullptr;
 
-  return CreateHelpText(this);
+  return CreateHelpText(data_, this);
 }
 
 void SharingDialogView::StyledLabelLinkClicked(views::StyledLabel* label,
                                                const gfx::Range& range,
                                                int event_flags) {
-  controller_->OnHelpTextClicked(GetDialogType());
+  std::move(data_.help_callback).Run(GetDialogType());
+  CloseBubble();
 }
 
 SharingDialogType SharingDialogView::GetDialogType() const {
-  if (send_failed_)
-    return SharingDialogType::kErrorDialog;
-
-  bool has_devices = !controller_->devices().empty();
-  bool has_apps = !controller_->apps().empty();
-
-  if (has_devices)
-    return SharingDialogType::kDialogWithDevicesMaybeApps;
-
-  return has_apps ? SharingDialogType::kDialogWithoutDevicesWithApp
-                  : SharingDialogType::kEducationalDialog;
+  return data_.type;
 }
 
 void SharingDialogView::Init() {
@@ -152,7 +199,7 @@ void SharingDialogView::Init() {
       provider->GetDialogInsetsForContentType(views::TEXT, views::TEXT);
 
   SharingDialogType type = GetDialogType();
-  LogSharingDialogShown(controller_->GetFeatureMetricsPrefix(), type);
+  LogSharingDialogShown(data_.prefix, type);
 
   switch (type) {
     case SharingDialogType::kErrorDialog:
@@ -176,35 +223,30 @@ void SharingDialogView::Init() {
   set_margins(gfx::Insets(insets.top(), 0, insets.bottom(), 0));
   SetBorder(views::CreateEmptyBorder(0, insets.left(), 0, insets.right()));
 
-  // TODO(yasmo): See if GetWidget can be not null:
   if (GetWidget())
     SizeToContents();
 }
 
 void SharingDialogView::ButtonPressed(views::Button* sender,
                                       const ui::Event& event) {
+  DCHECK(data_.device_callback);
+  DCHECK(data_.app_callback);
   if (!sender || sender->tag() < 0)
     return;
-  size_t index = static_cast<size_t>(sender->tag());
-  const std::vector<std::unique_ptr<syncer::DeviceInfo>>& devices =
-      controller_->devices();
-  const std::vector<SharingUiController::App>& apps = controller_->apps();
-  DCHECK(index < devices.size() + apps.size());
+  size_t index{sender->tag()};
 
-  if (index < devices.size()) {
-    LogSharingSelectedDeviceIndex(controller_->GetFeatureMetricsPrefix(),
-                                  kSharingUiDialog, index);
-    controller_->OnDeviceChosen(*devices[index]);
+  if (index < data_.devices.size()) {
+    LogSharingSelectedDeviceIndex(data_.prefix, kSharingUiDialog, index);
+    std::move(data_.device_callback).Run(*data_.devices[index]);
     CloseBubble();
     return;
   }
 
-  index -= devices.size();
+  index -= data_.devices.size();
 
-  if (index < apps.size()) {
-    LogSharingSelectedAppIndex(controller_->GetFeatureMetricsPrefix(),
-                               kSharingUiDialog, index);
-    controller_->OnAppChosen(apps[index]);
+  if (index < data_.apps.size()) {
+    LogSharingSelectedAppIndex(data_.prefix, kSharingUiDialog, index);
+    std::move(data_.app_callback).Run(data_.apps[index]);
     CloseBubble();
   }
 }
@@ -214,24 +256,26 @@ void SharingDialogView::MaybeShowHeaderImage() {
   if (!frame_view)
     return;
 
-  int image_id = controller_->GetHeaderImageId();
-  if (!image_id) {
-    // Clear any previously set header image.
-    frame_view->SetHeaderView(nullptr);
-    return;
-  }
+  int image_id = color_utils::IsDark(frame_view->GetBackgroundColor())
+                     ? data_.header_image_dark
+                     : data_.header_image_light;
 
-  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-  const gfx::ImageSkia* image = rb.GetNativeImageNamed(image_id).ToImageSkia();
-  gfx::Size image_size(image->width(), image->height());
-  const int image_width = image->width() * kHeaderImageHeight / image->height();
-  image_size.SetToMin(gfx::Size(image_width, kHeaderImageHeight));
+  std::unique_ptr<views::View> image_view = MaybeCreateImageView(image_id);
+  std::unique_ptr<views::View> origin_view = MaybeCreateOriginView(data_);
+  std::unique_ptr<views::View> header_view = std::make_unique<views::View>();
+  header_view->SetLayoutManager(std::make_unique<views::BoxLayout>(
+      views::BoxLayout::Orientation::kVertical));
 
-  auto image_view = std::make_unique<NonAccessibleImageView>();
-  image_view->SetImageSize(image_size);
-  image_view->SetImage(*image);
+  if (image_view)
+    header_view->AddChildView(std::move(image_view));
+  if (origin_view)
+    header_view->AddChildView(std::move(origin_view));
 
-  frame_view->SetHeaderView(std::move(image_view));
+  // Clear header if it has no content.
+  if (header_view->children().empty())
+    header_view = nullptr;
+
+  frame_view->SetHeaderView(std::move(header_view));
 }
 
 void SharingDialogView::AddedToWidget() {
@@ -245,33 +289,26 @@ void SharingDialogView::OnThemeChanged() {
   if (!button_icons_.size())
     return;
 
-  const std::vector<std::unique_ptr<syncer::DeviceInfo>>& devices =
-      controller_->devices();
-  const std::vector<SharingUiController::App>& apps = controller_->apps();
-  DCHECK_EQ(devices.size() + apps.size(), button_icons_.size());
+  DCHECK_EQ(data_.devices.size() + data_.apps.size(), button_icons_.size());
 
   size_t button_index = 0;
-  for (const auto& device : devices) {
+  for (const auto& device : data_.devices) {
     button_icons_[button_index]->SetImage(
         CreateDeviceIcon(device->device_type()));
     button_index++;
   }
-  for (const auto& app : apps) {
+  for (const auto& app : data_.apps) {
     button_icons_[button_index]->SetImage(CreateAppIcon(app));
     button_index++;
   }
 }
 
 void SharingDialogView::InitListView() {
-  const std::vector<std::unique_ptr<syncer::DeviceInfo>>& devices =
-      controller_->devices();
-  const std::vector<SharingUiController::App>& apps = controller_->apps();
   int tag = 0;
 
   // Devices:
-  LogSharingDevicesToShow(controller_->GetFeatureMetricsPrefix(),
-                          kSharingUiDialog, devices.size());
-  for (const auto& device : devices) {
+  LogSharingDevicesToShow(data_.prefix, kSharingUiDialog, data_.devices.size());
+  for (const auto& device : data_.devices) {
     auto icon = CreateIconView(CreateDeviceIcon(device->device_type()));
     button_icons_.push_back(icon.get());
     auto dialog_button = std::make_unique<HoverButton>(
@@ -283,9 +320,8 @@ void SharingDialogView::InitListView() {
   }
 
   // Apps:
-  LogSharingAppsToShow(controller_->GetFeatureMetricsPrefix(), kSharingUiDialog,
-                       apps.size());
-  for (const auto& app : apps) {
+  LogSharingAppsToShow(data_.prefix, kSharingUiDialog, data_.apps.size());
+  for (const auto& app : data_.apps) {
     auto icon = CreateIconView(CreateAppIcon(app));
     button_icons_.push_back(icon.get());
     auto dialog_button =
@@ -298,11 +334,11 @@ void SharingDialogView::InitListView() {
 }
 
 void SharingDialogView::InitEmptyView() {
-  AddChildView(CreateHelpText(this));
+  AddChildView(CreateHelpText(data_, this));
 }
 
 void SharingDialogView::InitErrorView() {
-  auto label = std::make_unique<views::Label>(controller_->GetErrorDialogText(),
+  auto label = std::make_unique<views::Label>(data_.error_text,
                                               views::style::CONTEXT_LABEL,
                                               views::style::STYLE_SECONDARY);
   label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
@@ -321,28 +357,36 @@ bool SharingDialogView::ShouldShowCloseButton() const {
 }
 
 base::string16 SharingDialogView::GetWindowTitle() const {
-  switch (GetDialogType()) {
-    case SharingDialogType::kErrorDialog:
-      return controller_->GetErrorDialogTitle();
-    case SharingDialogType::kEducationalDialog:
-      return controller_->GetEducationWindowTitleText();
-    case SharingDialogType::kDialogWithoutDevicesWithApp:
-    case SharingDialogType::kDialogWithDevicesMaybeApps:
-      return controller_->GetTitle();
-  }
+  return data_.title;
+}
+
+void SharingDialogView::WebContentsDestroyed() {
+  LocationBarBubbleDelegateView::WebContentsDestroyed();
+  // Call the close callback here already so we can log metrics for closed
+  // dialogs before the controller is destroyed.
+  WindowClosing();
 }
 
 void SharingDialogView::WindowClosing() {
-  if (web_contents())
-    controller_->OnDialogClosed(this);
+  if (data_.close_callback)
+    std::move(data_.close_callback).Run(this);
 }
 
 // static
 views::BubbleDialogDelegateView* SharingDialogView::GetAsBubble(
     SharingDialog* dialog) {
+  return static_cast<SharingDialogView*>(dialog);
+}
+
+// static
+views::BubbleDialogDelegateView* SharingDialogView::GetAsBubbleForClickToCall(
+    SharingDialog* dialog) {
 #if defined(OS_CHROMEOS)
-  if (!dialog)
-    return IntentPickerBubbleView::intent_picker_bubble();
+  if (!dialog) {
+    auto* bubble = IntentPickerBubbleView::intent_picker_bubble();
+    if (bubble && bubble->icon_type() == PageActionIconType::kClickToCall)
+      return bubble;
+  }
 #endif
   return static_cast<SharingDialogView*>(dialog);
 }

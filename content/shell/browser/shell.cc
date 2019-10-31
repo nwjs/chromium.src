@@ -31,7 +31,6 @@
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/webrtc_ip_handling_policy.h"
 #include "content/shell/browser/shell_browser_main_parts.h"
 #include "content/shell/browser/shell_content_browser_client.h"
 #include "content/shell/browser/shell_devtools_frontend.h"
@@ -45,8 +44,9 @@
 #include "content/shell/common/shell_switches.h"
 #include "content/shell/common/web_test/web_test_switches.h"
 #include "media/media_buildflags.h"
+#include "third_party/blink/public/common/peerconnection/webrtc_ip_handling_policy.h"
+#include "third_party/blink/public/common/presentation/presentation_receiver_flags.h"
 #include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
-#include "third_party/blink/public/web/web_presentation_receiver_flags.h"
 
 namespace content {
 
@@ -157,7 +157,7 @@ Shell* Shell::CreateShell(std::unique_ptr<WebContents> web_contents,
   // RenderFrameCreated or RenderViewCreated instead.
   if (switches::IsRunWebTestsSwitchPresent()) {
     raw_web_contents->GetMutableRendererPrefs()->use_custom_colors = false;
-    raw_web_contents->GetRenderViewHost()->SyncRendererPrefs();
+    raw_web_contents->SyncRendererPrefs();
   }
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
@@ -231,11 +231,10 @@ Shell* Shell::CreateNewWindow(BrowserContext* browser_context,
     create_params.starting_sandbox_flags =
         blink::kPresentationReceiverSandboxFlags;
   }
-  create_params.initial_size = AdjustWindowSize(initial_size);
   std::unique_ptr<WebContents> web_contents =
       WebContents::Create(create_params);
   Shell* shell =
-      CreateShell(std::move(web_contents), create_params.initial_size,
+      CreateShell(std::move(web_contents), AdjustWindowSize(initial_size),
                   true /* should_set_delegate */);
   if (!url.is_empty())
     shell->LoadURL(url);
@@ -254,14 +253,13 @@ Shell* Shell::CreateNewWindowWithSessionStorageNamespace(
     create_params.starting_sandbox_flags =
         blink::kPresentationReceiverSandboxFlags;
   }
-  create_params.initial_size = AdjustWindowSize(initial_size);
   std::map<std::string, scoped_refptr<SessionStorageNamespace>>
       session_storages;
   session_storages[""] = session_storage_namespace;
   std::unique_ptr<WebContents> web_contents =
       WebContents::CreateWithSessionStorage(create_params, session_storages);
   Shell* shell =
-      CreateShell(std::move(web_contents), create_params.initial_size,
+      CreateShell(std::move(web_contents), AdjustWindowSize(initial_size),
                   true /* should_set_delegate */);
   if (!url.is_empty())
     shell->LoadURL(url);
@@ -476,7 +474,7 @@ void Shell::LoadingStateChanged(WebContents* source,
 void Shell::EnterFullscreenModeForTab(
     WebContents* web_contents,
     const GURL& origin,
-    const blink::WebFullscreenOptions& options) {
+    const blink::mojom::FullscreenOptions& options) {
   ToggleFullscreenModeForTab(web_contents, true);
 }
 
@@ -505,13 +503,14 @@ bool Shell::IsFullscreenForTabOrPending(const WebContents* web_contents) {
 #endif
 }
 
-blink::WebDisplayMode Shell::GetDisplayMode(const WebContents* web_contents) {
-  // TODO: should return blink::WebDisplayModeFullscreen wherever user puts
+blink::mojom::DisplayMode Shell::GetDisplayMode(
+    const WebContents* web_contents) {
+  // TODO: should return blink::mojom::DisplayModeFullscreen wherever user puts
   // a browser window into fullscreen (not only in case of renderer-initiated
   // fullscreen mode): crbug.com/476874.
   return IsFullscreenForTabOrPending(web_contents)
-             ? blink::kWebDisplayModeFullscreen
-             : blink::kWebDisplayModeBrowser;
+             ? blink::mojom::DisplayMode::kFullscreen
+             : blink::mojom::DisplayMode::kBrowser;
 }
 
 void Shell::RequestToLockMouse(WebContents* web_contents,
@@ -595,6 +594,10 @@ std::unique_ptr<WebContents> Shell::SwapWebContents(
   DCHECK_EQ(old_contents, web_contents_.get());
   new_contents->SetDelegate(this);
   web_contents_->SetDelegate(nullptr);
+  for (auto* shell_devtools_bindings :
+       ShellDevToolsBindings::GetInstancesForWebContents(old_contents)) {
+    shell_devtools_bindings->UpdateInspectedWebContents(new_contents.get());
+  }
   std::swap(web_contents_, new_contents);
   PlatformSetContents();
   PlatformSetAddressBarURL(web_contents_->GetVisibleURL());

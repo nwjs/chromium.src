@@ -69,12 +69,13 @@ const CGFloat kiPadBannerOverlapWithOmnibox = 10.0;
 
 - (instancetype)initWithInfoBarDelegate:
                     (infobars::InfoBarDelegate*)infoBarDelegate
+                           badgeSupport:(BOOL)badgeSupport
                                    type:(InfobarType)infobarType {
   self = [super initWithBaseViewController:nil browserState:nil];
   if (self) {
     _infobarDelegate = infoBarDelegate;
     _presented = YES;
-    _hasBadge = YES;
+    _hasBadge = badgeSupport;
     _infobarType = infobarType;
   }
   return self;
@@ -92,6 +93,7 @@ const CGFloat kiPadBannerOverlapWithOmnibox = 10.0;
   DCHECK(self.browserState);
   DCHECK(self.baseViewController);
   DCHECK(self.bannerViewController);
+  DCHECK(self.started);
 
   // If |self.baseViewController| is not part of the ViewHierarchy the banner
   // shouldn't be presented.
@@ -132,6 +134,9 @@ const CGFloat kiPadBannerOverlapWithOmnibox = 10.0;
                    weakSelf.bannerWasPresented = YES;
                    weakSelf.infobarBannerState =
                        InfobarBannerPresentationState::Presented;
+                   [weakSelf.badgeDelegate
+                       infobarBannerWasPresented:self.infobarType
+                                     forWebState:self.webState];
                    [weakSelf infobarBannerWasPresented];
                    if (completion)
                      completion();
@@ -139,6 +144,7 @@ const CGFloat kiPadBannerOverlapWithOmnibox = 10.0;
 }
 
 - (void)presentInfobarModal {
+  DCHECK(self.started);
   ProceduralBlock modalPresentation = ^{
     DCHECK(self.infobarBannerState !=
            InfobarBannerPresentationState::Presented);
@@ -193,7 +199,8 @@ const CGFloat kiPadBannerOverlapWithOmnibox = 10.0;
 
 - (void)bannerInfobarButtonWasPressed:(id)sender {
   [self performInfobarAction];
-  [self.badgeDelegate infobarWasAccepted:self.infobarType];
+  [self.badgeDelegate infobarWasAccepted:self.infobarType
+                             forWebState:self.webState];
   [self dismissInfobarBanner:sender animated:YES completion:nil];
 }
 
@@ -238,10 +245,12 @@ const CGFloat kiPadBannerOverlapWithOmnibox = 10.0;
   self.infobarBannerState = InfobarBannerPresentationState::NotPresented;
   [self configureAccessibilityForBannerInViewController:self.baseViewController
                                              presenting:NO];
+  [self.badgeDelegate infobarBannerWasDismissed:self.infobarType
+                                    forWebState:self.webState];
   self.bannerTransitionDriver = nil;
   animatedFullscreenDisabler_ = nullptr;
   [self infobarWasDismissed];
-  [self.infobarContainer childCoordinatorBannerWasDismissed:self.infobarType];
+  [self.infobarContainer childCoordinatorBannerWasDismissed:self];
 }
 
 #pragma mark InfobarBannerPositioner
@@ -277,7 +286,8 @@ const CGFloat kiPadBannerOverlapWithOmnibox = 10.0;
 
 - (void)modalInfobarButtonWasAccepted:(id)sender {
   [self performInfobarAction];
-  [self.badgeDelegate infobarWasAccepted:self.infobarType];
+  [self.badgeDelegate infobarWasAccepted:self.infobarType
+                             forWebState:self.webState];
   [self dismissInfobarModal:sender animated:YES completion:nil];
 }
 

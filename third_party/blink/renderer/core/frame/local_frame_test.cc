@@ -17,12 +17,6 @@ namespace blink {
 
 namespace {
 
-void MaybeAllowImagePlaceholder(DummyPageHolder* page_holder,
-                                FetchParameters& params) {
-  if (page_holder->GetFrame().IsClientLoFiAllowed(params.GetResourceRequest()))
-    params.SetClientLoFiPlaceholder();
-}
-
 void DisableLazyLoadAndDisableDataSaverHoldbackInSettings(Settings& settings) {
   settings.SetLazyLoadEnabled(false);
   settings.SetDataSaverHoldbackWebApi(false);
@@ -38,21 +32,6 @@ void EnableLazyLoadAndEnableDataSaverHoldbackInSettings(Settings& settings) {
 
 }  // namespace
 
-class TestLocalFrameClient : public EmptyLocalFrameClient {
- public:
-  explicit TestLocalFrameClient(
-      WebURLRequest::PreviewsState frame_previews_state)
-      : frame_previews_state_(frame_previews_state) {}
-  ~TestLocalFrameClient() override = default;
-
-  WebURLRequest::PreviewsState GetPreviewsStateForFrame() const override {
-    return frame_previews_state_;
-  }
-
- private:
-  const WebURLRequest::PreviewsState frame_previews_state_;
-};
-
 class LocalFrameTest : public testing::Test {
  public:
   void TearDown() override {
@@ -60,95 +39,6 @@ class LocalFrameTest : public testing::Test {
     GetNetworkStateNotifier().SetSaveDataEnabled(false);
   }
 };
-
-TEST_F(LocalFrameTest, MaybeAllowPlaceholderImageUsesSpecifiedRequestValue) {
-  ResourceRequest request1;
-  request1.SetUrl(KURL("http://insecure.com"));
-  request1.SetPreviewsState(WebURLRequest::kClientLoFiOn);
-  FetchParameters params1(request1);
-  auto page_holder = std::make_unique<DummyPageHolder>(
-      IntSize(800, 600), nullptr,
-      MakeGarbageCollected<TestLocalFrameClient>(WebURLRequest::kPreviewsOff));
-  MaybeAllowImagePlaceholder(page_holder.get(), params1);
-  EXPECT_EQ(FetchParameters::kAllowPlaceholder,
-            params1.GetImageRequestOptimization());
-
-  ResourceRequest request2;
-  request2.SetUrl(KURL("https://secure.com"));
-  request2.SetPreviewsState(WebURLRequest::kPreviewsOff);
-  FetchParameters params2(request2);
-  auto page_holder2 = std::make_unique<DummyPageHolder>(
-      IntSize(800, 600), nullptr,
-      MakeGarbageCollected<TestLocalFrameClient>(WebURLRequest::kClientLoFiOn));
-  MaybeAllowImagePlaceholder(page_holder2.get(), params2);
-  EXPECT_EQ(FetchParameters::kNone, params2.GetImageRequestOptimization());
-}
-
-TEST_F(LocalFrameTest, MaybeAllowPlaceholderImageUsesFramePreviewsState) {
-  ResourceRequest request1;
-  request1.SetUrl(KURL("http://insecure.com"));
-  request1.SetPreviewsState(WebURLRequest::kPreviewsUnspecified);
-  FetchParameters params1(request1);
-  auto page_holder = std::make_unique<DummyPageHolder>(
-      IntSize(800, 600), nullptr,
-      MakeGarbageCollected<TestLocalFrameClient>(WebURLRequest::kClientLoFiOn));
-  MaybeAllowImagePlaceholder(page_holder.get(), params1);
-  EXPECT_EQ(FetchParameters::kAllowPlaceholder,
-            params1.GetImageRequestOptimization());
-  EXPECT_TRUE(page_holder->GetFrame().IsUsingDataSavingPreview());
-
-  ResourceRequest request2;
-  request2.SetUrl(KURL("http://insecure.com"));
-  request2.SetPreviewsState(WebURLRequest::kPreviewsUnspecified);
-  FetchParameters params2(request2);
-  auto page_holder2 = std::make_unique<DummyPageHolder>(
-      IntSize(800, 600), nullptr,
-      MakeGarbageCollected<TestLocalFrameClient>(
-          WebURLRequest::kServerLitePageOn));
-  MaybeAllowImagePlaceholder(page_holder2.get(), params2);
-  EXPECT_EQ(FetchParameters::kNone, params2.GetImageRequestOptimization());
-  EXPECT_FALSE(page_holder2->GetFrame().IsUsingDataSavingPreview());
-}
-
-TEST_F(LocalFrameTest, IsUsingDataSavingPreview) {
-  EXPECT_TRUE(std::make_unique<DummyPageHolder>(
-                  IntSize(800, 600), nullptr,
-                  MakeGarbageCollected<TestLocalFrameClient>(
-                      WebURLRequest::kClientLoFiOn))
-                  ->GetFrame()
-                  .IsUsingDataSavingPreview());
-  EXPECT_TRUE(std::make_unique<DummyPageHolder>(
-                  IntSize(800, 600), nullptr,
-                  MakeGarbageCollected<TestLocalFrameClient>(
-                      WebURLRequest::kNoScriptOn))
-                  ->GetFrame()
-                  .IsUsingDataSavingPreview());
-
-  EXPECT_FALSE(std::make_unique<DummyPageHolder>(
-                   IntSize(800, 600), nullptr,
-                   MakeGarbageCollected<TestLocalFrameClient>(
-                       WebURLRequest::kPreviewsUnspecified))
-                   ->GetFrame()
-                   .IsUsingDataSavingPreview());
-  EXPECT_FALSE(std::make_unique<DummyPageHolder>(
-                   IntSize(800, 600), nullptr,
-                   MakeGarbageCollected<TestLocalFrameClient>(
-                       WebURLRequest::kPreviewsOff))
-                   ->GetFrame()
-                   .IsUsingDataSavingPreview());
-  EXPECT_FALSE(std::make_unique<DummyPageHolder>(
-                   IntSize(800, 600), nullptr,
-                   MakeGarbageCollected<TestLocalFrameClient>(
-                       WebURLRequest::kPreviewsNoTransform))
-                   ->GetFrame()
-                   .IsUsingDataSavingPreview());
-  EXPECT_FALSE(std::make_unique<DummyPageHolder>(
-                   IntSize(800, 600), nullptr,
-                   MakeGarbageCollected<TestLocalFrameClient>(
-                       WebURLRequest::kServerLitePageOn))
-                   ->GetFrame()
-                   .IsUsingDataSavingPreview());
-}
 
 TEST_F(LocalFrameTest, IsLazyLoadingImageAllowedWithFeatureDisabled) {
   ScopedLazyImageLoadingForTest scoped_lazy_image_loading_for_test(false);

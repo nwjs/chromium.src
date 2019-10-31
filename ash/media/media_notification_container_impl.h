@@ -39,10 +39,14 @@ class ASH_EXPORT MediaNotificationContainerImpl
 
   // media_message_center::MediaNotificationContainer:
   void OnExpanded(bool expanded) override;
+  void OnMediaSessionInfoChanged(
+      const media_session::mojom::MediaSessionInfoPtr& session_info) override {}
+  void OnMediaSessionMetadataChanged() override {}
   void OnVisibleActionsChanged(
       const std::set<media_session::mojom::MediaSessionAction>& actions)
       override {}
   void OnMediaArtworkChanged(const gfx::ImageSkia& image) override {}
+  void OnColorsChanged(SkColor foreground, SkColor background) override {}
 
   // views::View:
   void OnMouseEvent(ui::MouseEvent* event) override;

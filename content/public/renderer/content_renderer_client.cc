@@ -109,14 +109,6 @@ bool ContentRendererClient::HandleNavigation(
 }
 #endif
 
-bool ContentRendererClient::ShouldFork(blink::WebLocalFrame* frame,
-                                       const GURL& url,
-                                       const std::string& http_method,
-                                       bool is_initial_navigation,
-                                       bool is_server_redirect) {
-  return false;
-}
-
 void ContentRendererClient::WillSendRequest(blink::WebLocalFrame* frame,
                                             ui::PageTransition transition_type,
                                             const blink::WebURL& url,
@@ -229,10 +221,6 @@ GURL ContentRendererClient::OverrideFlashEmbedWithHTML(const GURL& url) {
 
 bool ContentRendererClient::IsIdleMediaSuspendEnabled() {
   return true;
-}
-
-bool ContentRendererClient::SuppressLegacyTLSVersionConsoleMessage() {
-  return false;
 }
 
 std::unique_ptr<URLLoaderThrottleProvider>

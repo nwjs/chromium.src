@@ -296,12 +296,6 @@ void AccountReconcilor::SetConsistencyCookieManager(
   consistency_cookie_manager_ = std::move(consistency_cookie_manager);
 }
 
-#if defined(OS_IOS)
-void AccountReconcilor::SetIsWKHTTPSystemCookieStoreEnabled(bool is_enabled) {
-  is_wkhttp_system_cookie_store_enabled_ = is_enabled;
-}
-#endif  // defined(OS_IOS)
-
 void AccountReconcilor::EnableReconcile() {
   SetState(AccountReconcilorState::ACCOUNT_RECONCILOR_SCHEDULED);
   RegisterWithAllDependencies();
@@ -719,14 +713,14 @@ AccountReconcilor::LoadValidAccountsFromTokenService() const {
 
   std::vector<CoreAccountId> chrome_account_ids;
 
-  // Remove any accounts that have an error.  There is no point in trying to
-  // reconcile them, since it won't work anyway.  If the list ends up being
+  // Remove any accounts that have an error. There is no point in trying to
+  // reconcile them, since it won't work anyway. If the list ends up being
   // empty then don't reconcile any accounts.
   for (const auto& chrome_account_with_refresh_tokens :
        chrome_accounts_with_refresh_tokens) {
     if (identity_manager_->HasAccountWithRefreshTokenInPersistentErrorState(
             chrome_account_with_refresh_tokens.account_id)) {
-      VLOG(1) << "AccountReconcilor::ValidateAccountsFromTokenService: "
+      VLOG(1) << "AccountReconcilor::LoadValidAccountsFromTokenService: "
               << chrome_account_with_refresh_tokens.account_id
               << " has error, don't reconcile";
       continue;
@@ -734,7 +728,7 @@ AccountReconcilor::LoadValidAccountsFromTokenService() const {
     chrome_account_ids.push_back(chrome_account_with_refresh_tokens.account_id);
   }
 
-  VLOG(1) << "AccountReconcilor::ValidateAccountsFromTokenService: "
+  VLOG(1) << "AccountReconcilor::LoadValidAccountsFromTokenService: "
           << "Chrome " << chrome_account_ids.size() << " accounts";
 
   return chrome_account_ids;
@@ -790,9 +784,12 @@ void AccountReconcilor::FinishReconcile(
 
   if (first_account.empty()) {
     DCHECK(!delegate_->ShouldAbortReconcileIfPrimaryHasError());
+    auto revoke_option =
+        delegate_->ShouldRevokeTokensIfNoPrimaryAccount()
+            ? AccountReconcilorDelegate::RevokeTokenOption::kRevoke
+            : AccountReconcilorDelegate::RevokeTokenOption::kDoNotRevoke;
     reconcile_is_noop_ = !RevokeAllSecondaryTokens(
-        identity_manager_,
-        AccountReconcilorDelegate::RevokeTokenOption::kRevoke, primary_account,
+        identity_manager_, revoke_option, primary_account,
         delegate_->IsAccountConsistencyEnforced(),
         signin_metrics::SourceForRefreshTokenOperation::
             kAccountReconcilor_Reconcile);
@@ -1030,14 +1027,6 @@ void AccountReconcilor::HandleReconcileTimeout() {
 }
 
 bool AccountReconcilor::IsMultiloginEndpointEnabled() const {
-#if defined(OS_IOS)
-  // kUseMultiloginEndpoint feature should not be used if
-  // kWKHTTPSystemCookieStore feature is disabbled.
-  // See http://crbug.com/902584.
-  if (!is_wkhttp_system_cookie_store_enabled_)
-    return false;
-#endif  // defined(OS_IOS)
-
 #if defined(OS_ANDROID)
   if (base::FeatureList::IsEnabled(signin::kMiceFeature))
     return true;  // Mice is only implemented with multilogin.

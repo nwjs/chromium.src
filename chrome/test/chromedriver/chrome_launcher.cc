@@ -71,10 +71,9 @@
 
 namespace {
 
-// TODO(eseckler): Remove --ignore-certificate-errors for newer Chrome versions
-// that support the Security DevTools domain on the browser target.
 const char* const kCommonSwitches[] = {
-    "disable-popup-blocking", "enable-automation", "ignore-certificate-errors",
+    "disable-popup-blocking",
+    "enable-automation",
 };
 
 #if 0
@@ -91,10 +90,6 @@ const char* const kDesktopSwitches[] = {
     "password-store=basic",
     "use-mock-keychain",
     "test-type=webdriver",
-    // In theory the following switch should have no effects, but its absence
-    // would cause VizHitTestSurfaceLayer feature to be enabled on Chromium
-    // builds, causing a test failure due to https://crbug.com/996865.
-    "force-fieldtrials",
     // TODO(yoichio): This is temporary switch to support chrome internal
     // components migration from the old web APIs.
     // After completion of the migration, we should remove this.
@@ -257,9 +252,10 @@ Status WaitForDevToolsAndCheckVersion(
         std::move(window_types), capabilities->page_load_strategy));
   }
 
-  base::TimeTicks deadline =
-      base::TimeTicks::Now() + base::TimeDelta::FromSeconds(wait_time);
-  Status status = client->Init(deadline - base::TimeTicks::Now());
+  const base::TimeTicks initial = base::TimeTicks::Now();
+  const base::TimeTicks deadline =
+      initial + base::TimeDelta::FromSeconds(wait_time);
+  Status status = client->Init(deadline - initial);
   if (status.IsError())
     return status;
 
@@ -301,9 +297,13 @@ Status WaitForDevToolsAndCheckVersion(
     }
   }
 
-  while (base::TimeTicks::Now() < deadline) {
+  // Always try GetWebViewsInfo at least once if the client
+  // initialized successfully.
+  do {
     WebViewsInfo views_info;
-    client->GetWebViewsInfo(&views_info);
+    status = client->GetWebViewsInfo(&views_info);
+    if (status.IsError())
+      return status;
     for (size_t i = 0; i < views_info.GetSize(); ++i) {
       if (views_info.Get(i).type == WebViewInfo::kPage ||
           views_info.Get(i).type == WebViewInfo::kApp
@@ -314,7 +314,8 @@ Status WaitForDevToolsAndCheckVersion(
       }
     }
     base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(50));
-  }
+  } while (base::TimeTicks::Now() < deadline);
+
   return Status(kUnknownError, "unable to discover open pages");
 }
 

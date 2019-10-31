@@ -47,6 +47,7 @@ jumbo_static_library("renderer") {
     "benchmarking_extension.h",
     "chrome_content_renderer_client.cc",
     "chrome_content_renderer_client.h",
+    "chrome_content_renderer_client_receiver_bindings.cc",
     "chrome_render_frame_observer.cc",
     "chrome_render_frame_observer.h",
     "chrome_render_thread_observer.cc",
@@ -101,8 +102,8 @@ jumbo_static_library("renderer") {
     "subresource_redirect/subresource_redirect_url_loader_throttle.h",
     "subresource_redirect/subresource_redirect_util.cc",
     "subresource_redirect/subresource_redirect_util.h",
-    "supervised_user/supervised_user_error_page_controller.cc",
-    "supervised_user/supervised_user_error_page_controller.h",
+    "sync_encryption_keys_extension.cc",
+    "sync_encryption_keys_extension.h",
     "url_loader_throttle_provider_impl.cc",
     "url_loader_throttle_provider_impl.h",
     "v8_unwinder.cc",
@@ -114,6 +115,16 @@ jumbo_static_library("renderer") {
     "worker_content_settings_client.cc",
     "worker_content_settings_client.h",
   ]
+
+  if (enable_supervised_users) {
+    sources += [
+      "supervised_user/supervised_user_error_page_controller.cc",
+      "supervised_user/supervised_user_error_page_controller.h",
+      "supervised_user/supervised_user_error_page_controller_delegate.h",
+      "supervised_user/supervised_user_error_page_controller_delegate_impl.cc",
+      "supervised_user/supervised_user_error_page_controller_delegate_impl.h",
+    ]
+  }
 
   defines = []
 
@@ -154,7 +165,6 @@ jumbo_static_library("renderer") {
     "//components/visitedlink/renderer",
     "//components/web_cache/renderer",
     "//content/app/resources",
-    "//content/app/strings",
     "//content/public/common",
     "//content/public/renderer",
     "//extensions/buildflags",
@@ -173,6 +183,7 @@ jumbo_static_library("renderer") {
     "//third_party/blink/public:blink",
     "//third_party/blink/public:resources",
     "//third_party/blink/public:scaled_resources",
+    "//third_party/blink/public/strings",
     "//third_party/icu",
     "//third_party/re2",
     "//third_party/widevine/cdm:buildflags",

@@ -12,6 +12,7 @@
 #include "extensions/common/draggable_region.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/views/controls/webview/webview.h"
+#include "ui/views/layout/fill_layout.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/non_client_view.h"
 
@@ -49,19 +50,24 @@ bool NativeAppWindowViews::ExecuteAppCommand(int command_id) {
   }
   return false;
 }
-  
-NativeAppWindowViews::NativeAppWindowViews()
-    : app_window_(NULL),
-      web_view_(NULL),
-      widget_(NULL),
-      frameless_(false),
-      resizable_(false) {
+
+NativeAppWindowViews::NativeAppWindowViews() {
+#if defined(OS_LINUX) || defined(OS_WIN)
+  //const extensions::Extension* extension = app_window_->GetExtension();
+  if (true) { //extension && extension->is_nwjs_app()) {
+      auto layout = std::make_unique<BrowserViewLayout>();
+      SetLayoutManager(std::move(layout));
+      return;
+    }
+#endif
+  SetLayoutManager(std::make_unique<views::FillLayout>());
 }
 
-void NativeAppWindowViews::Init(AppWindow* app_window,
-                                const AppWindow::CreateParams& create_params) {
+void NativeAppWindowViews::Init(
+    extensions::AppWindow* app_window,
+    const extensions::AppWindow::CreateParams& create_params) {
   app_window_ = app_window;
-  frameless_ = create_params.frame == AppWindow::FRAME_NONE;
+  frameless_ = create_params.frame == extensions::AppWindow::FRAME_NONE;
   resizable_ = create_params.resizable;
   size_constraints_.set_minimum_size(
       create_params.GetContentMinimumSize(gfx::Insets()));
@@ -78,7 +84,7 @@ void NativeAppWindowViews::Init(AppWindow* app_window,
 }
 
 NativeAppWindowViews::~NativeAppWindowViews() {
-  web_view_->SetWebContents(NULL);
+  web_view_->SetWebContents(nullptr);
 }
 
 void NativeAppWindowViews::OnCanHaveAlphaEnabledChanged() {
@@ -86,8 +92,8 @@ void NativeAppWindowViews::OnCanHaveAlphaEnabledChanged() {
 }
 
 void NativeAppWindowViews::InitializeWindow(
-    AppWindow* app_window,
-    const AppWindow::CreateParams& create_params) {
+    extensions::AppWindow* app_window,
+    const extensions::AppWindow::CreateParams& create_params) {
   // Stub implementation. See also ChromeNativeAppWindowViews.
   views::Widget::InitParams init_params(views::Widget::InitParams::TYPE_WINDOW);
   init_params.delegate = this;
@@ -211,8 +217,8 @@ gfx::NativeView NativeAppWindowViews::GetHostView() const {
 
 gfx::Point NativeAppWindowViews::GetDialogPosition(const gfx::Size& size) {
   gfx::Size app_window_size = widget_->GetWindowBoundsInScreen().size();
-  return gfx::Point(app_window_size.width() / 2 - size.width() / 2,
-                    app_window_size.height() / 2 - size.height() / 2);
+  return gfx::Point((app_window_size.width() - size.width()) / 2,
+                    (app_window_size.height() - size.height()) / 2);
 }
 
 gfx::Size NativeAppWindowViews::GetMaximumDialogSize() {
@@ -350,33 +356,14 @@ void NativeAppWindowViews::RenderViewHostChanged(
 
 // views::View implementation.
 
-void NativeAppWindowViews::Layout() {
-#if defined(OS_LINUX) || defined(OS_WIN)
-  const extensions::Extension* extension = app_window_->GetExtension();
-  if (extension && extension->is_nwjs_app()) {
-    views::WidgetDelegateView::Layout();
-    return;
-  }
-#endif
-  DCHECK(web_view_);
-  web_view_->SetBounds(0, 0, width(), height());
-  OnViewWasResized();
-}
-
 void NativeAppWindowViews::ViewHierarchyChanged(
     const views::ViewHierarchyChangedDetails& details) {
   if (details.is_add && details.child == this) {
-#if defined(OS_LINUX) || defined(OS_WIN)
-    const extensions::Extension* extension = app_window_->GetExtension();
-    if (extension && extension->is_nwjs_app()) {
-      auto layout = std::make_unique<BrowserViewLayout>();
-      SetLayoutManager(std::move(layout));
-    }
-#endif
-    web_view_ = new views::WebView(NULL);
-    AddChildView(web_view_);
+    DCHECK(!web_view_);
+    web_view_ = AddChildView(std::make_unique<views::WebView>(nullptr));
     web_view_->SetWebContents(app_window_->web_contents());
 #if defined(OS_LINUX) || defined(OS_WIN)
+    const extensions::Extension* extension = app_window_->GetExtension();
     if (extension && extension->is_nwjs_app()) {
       ((BrowserViewLayout*)GetLayoutManager())->set_web_view(web_view_);
     }
@@ -390,6 +377,10 @@ gfx::Size NativeAppWindowViews::GetMinimumSize() const {
 
 gfx::Size NativeAppWindowViews::GetMaximumSize() const {
   return size_constraints_.GetMaximumSize();
+}
+
+void NativeAppWindowViews::OnBoundsChanged(const gfx::Rect& previous_bounds) {
+  OnViewWasResized();
 }
 
 void NativeAppWindowViews::OnFocus() {
@@ -426,7 +417,8 @@ bool NativeAppWindowViews::IsResizable() const {
 
 void NativeAppWindowViews::SetFullscreen(int fullscreen_types) {
   // Stub implementation. See also ChromeNativeAppWindowViews.
-  widget_->SetFullscreen(fullscreen_types != AppWindow::FULLSCREEN_TYPE_NONE);
+  widget_->SetFullscreen(fullscreen_types !=
+                         extensions::AppWindow::FULLSCREEN_TYPE_NONE);
 }
 
 bool NativeAppWindowViews::IsFullscreenOrPending() const {
@@ -448,7 +440,8 @@ void NativeAppWindowViews::UpdateDraggableRegions(
   if (!frameless_)
     return;
 
-  draggable_region_.reset(AppWindow::RawDraggableRegionsToSkRegion(regions));
+  draggable_region_.reset(
+      extensions::AppWindow::RawDraggableRegionsToSkRegion(regions));
   OnViewWasResized();
 }
 

@@ -14,9 +14,9 @@ import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.os.SystemClock;
 
+import org.chromium.android_webview.common.ServiceNames;
 import org.chromium.android_webview.common.variations.VariationsUtils;
 import org.chromium.android_webview.services.IVariationsSeedServer;
-import org.chromium.android_webview.services.VariationsSeedServer;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.VisibleForTesting;
@@ -28,7 +28,6 @@ import org.chromium.components.variations.firstrun.VariationsSeedFetcher.SeedInf
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.text.ParseException;
 import java.util.Date;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -148,13 +147,7 @@ public class VariationsSeedLoader {
 
             // Note the date field of whatever seed was loaded, if any.
             if (seed != null) {
-                try {
-                    mCurrentSeedDate = seed.parseDate().getTime();
-                } catch (ParseException e) {
-                    // Should never happen, as date was already verified by readSeedFile.
-                    assert false;
-                    return null;
-                }
+                mCurrentSeedDate = seed.date;
             }
 
             return seed;
@@ -255,9 +248,10 @@ public class VariationsSeedLoader {
 
     @VisibleForTesting // and non-static for overriding by tests
     protected Intent getServerIntent() throws NameNotFoundException {
-        Context c = ContextUtils.getApplicationContext()
-                .createPackageContext(AwBrowserProcess.getWebViewPackageName(), /*flags=*/0);
-        return new Intent(c, VariationsSeedServer.class);
+        Intent intent = new Intent();
+        intent.setClassName(
+                AwBrowserProcess.getWebViewPackageName(), ServiceNames.VARIATIONS_SEED_SERVER);
+        return intent;
     }
 
     @VisibleForTesting

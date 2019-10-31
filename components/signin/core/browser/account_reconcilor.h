@@ -107,11 +107,6 @@ class AccountReconcilor : public KeyedService,
       std::unique_ptr<signin::ConsistencyCookieManagerBase>
           consistency_cookie_manager);
 
-#if defined(OS_IOS)
-  // Sets the WKHTTPSystemCookieStore flag value.
-  void SetIsWKHTTPSystemCookieStoreEnabled(bool is_enabled);
-#endif  // defined(OS_IOS)
-
   // Enables and disables the reconciliation.
   void EnableReconcile();
   void DisableReconcile(bool logout_all_gaia_accounts);
@@ -242,6 +237,10 @@ class AccountReconcilor : public KeyedService,
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, MultiloginLogout);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTestForceDiceMigration,
                            TableRowTest);
+  FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTestActiveDirectory,
+                           TableRowTestMergeSession);
+  FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTestActiveDirectory,
+                           TableRowTestMultilogin);
 
   void set_timer_for_testing(std::unique_ptr<base::OneShotTimer> timer);
 
@@ -254,8 +253,6 @@ class AccountReconcilor : public KeyedService,
   void UnregisterWithAllDependencies();
   void RegisterWithIdentityManager();
   void UnregisterWithIdentityManager();
-  void RegisterWithCookieManagerService();
-  void UnregisterWithCookieManagerService();
   void RegisterWithContentSettings();
   void UnregisterWithContentSettings();
 
@@ -395,11 +392,6 @@ class AccountReconcilor : public KeyedService,
   int synced_data_deletion_in_progress_count_ = 0;
 
   signin_metrics::AccountReconcilorState state_;
-
-#if defined(OS_IOS)
-  // Stores the WKHTTPSystemCookieStore flag value.
-  bool is_wkhttp_system_cookie_store_enabled_ = false;
-#endif  // defined(OS_IOS)
 
   std::unique_ptr<signin::ConsistencyCookieManagerBase>
       consistency_cookie_manager_;

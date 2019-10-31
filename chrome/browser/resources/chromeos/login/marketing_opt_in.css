@@ -2,7 +2,7 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file. */
 
-:root {
+:host {
   --marketing-opt-in-dialog-list-item-border: 1px solid var(--google-grey-200);
 }
 
@@ -24,8 +24,3 @@
   --iron-icon-fill-color: var(--google-blue-600);
   padding-inline-end: 16px;
 }
-
-.bottom-buttons {
-  padding: 0 24px;
-}
-

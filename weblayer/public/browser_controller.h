@@ -9,10 +9,6 @@
 
 #include "build/build_config.h"
 
-namespace gfx {
-class Size;
-}
-
 #if !defined(OS_ANDROID)
 namespace views {
 class WebView;
@@ -21,18 +17,24 @@ class WebView;
 
 namespace weblayer {
 class BrowserObserver;
+class FullscreenDelegate;
 class Profile;
 class NavigationController;
 
 // Represents a browser window that is navigable.
 class BrowserController {
  public:
-  // Pass an empty |path| for an in-memory profile.
-  static std::unique_ptr<BrowserController> Create(
-      Profile* profile,
-      const gfx::Size& initial_size);
+  static std::unique_ptr<BrowserController> Create(Profile* profile);
+
+#if defined(OS_ANDROID)
+  static BrowserController* GetLastControllerForTesting();
+#endif
 
   virtual ~BrowserController() {}
+
+  // Sets the FullscreenDelegate. Setting a non-null value implicitly enables
+  // fullscreen.
+  virtual void SetFullscreenDelegate(FullscreenDelegate* delegate) = 0;
 
   virtual void AddObserver(BrowserObserver* observer) = 0;
 

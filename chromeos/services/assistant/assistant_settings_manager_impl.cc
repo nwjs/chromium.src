@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "ash/public/cpp/assistant/assistant_state_base.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "chromeos/dbus/util/version_loader.h"
@@ -14,7 +15,7 @@
 #include "chromeos/services/assistant/public/features.h"
 #include "chromeos/services/assistant/public/proto/assistant_device_settings_ui.pb.h"
 #include "chromeos/services/assistant/public/proto/settings_ui.pb.h"
-#include "chromeos/services/assistant/service.h"
+#include "chromeos/services/assistant/service_context.h"
 #include "libassistant/shared/internal_api/assistant_manager_internal.h"
 
 using SpeakerIdEnrollmentState =
@@ -23,10 +24,21 @@ using SpeakerIdEnrollmentState =
 namespace chromeos {
 namespace assistant {
 
+namespace {
+
+bool HasStarted(const AssistantManagerService* assistant_manager_service) {
+  return (assistant_manager_service->GetState() ==
+              AssistantManagerService::STARTED ||
+          assistant_manager_service->GetState() ==
+              AssistantManagerService::RUNNING);
+}
+
+}  // namespace
+
 AssistantSettingsManagerImpl::AssistantSettingsManagerImpl(
-    Service* service,
+    ServiceContext* context,
     AssistantManagerServiceImpl* assistant_manager_service)
-    : service_(service),
+    : context_(context),
       assistant_manager_service_(assistant_manager_service),
       weak_factory_(this) {}
 
@@ -39,9 +51,8 @@ void AssistantSettingsManagerImpl::BindRequest(
 
 void AssistantSettingsManagerImpl::GetSettings(const std::string& selector,
                                                GetSettingsCallback callback) {
-  DCHECK(assistant_manager_service_->GetState() ==
-         AssistantManagerService::State::RUNNING);
-  DCHECK(service_->main_task_runner()->RunsTasksInCurrentSequence());
+  DCHECK(HasStarted(assistant_manager_service_));
+  DCHECK(main_task_runner()->RunsTasksInCurrentSequence());
 
   // TODO(xiaohuic): libassistant could be restarting for various reasons. In
   // this case the remote side may not know or care and continues to send
@@ -60,7 +71,7 @@ void AssistantSettingsManagerImpl::GetSettings(const std::string& selector,
           serialized_proto, std::string(),
           [repeating_callback =
                base::AdaptCallbackForRepeating(std::move(callback)),
-           task_runner = service_->main_task_runner()](
+           task_runner = main_task_runner()](
               const assistant_client::VoicelessResponse& response) {
             // This callback may be called from server multiple times. We should
             // only process non-empty response.
@@ -78,9 +89,8 @@ void AssistantSettingsManagerImpl::GetSettings(const std::string& selector,
 void AssistantSettingsManagerImpl::UpdateSettings(
     const std::string& update,
     GetSettingsCallback callback) {
-  DCHECK(assistant_manager_service_->GetState() ==
-         AssistantManagerService::State::RUNNING);
-  DCHECK(service_->main_task_runner()->RunsTasksInCurrentSequence());
+  DCHECK(HasStarted(assistant_manager_service_));
+  DCHECK(main_task_runner()->RunsTasksInCurrentSequence());
 
   if (!assistant_manager_service_->assistant_manager_internal()) {
     std::move(callback).Run(std::string());
@@ -95,7 +105,7 @@ void AssistantSettingsManagerImpl::UpdateSettings(
           serialized_proto, std::string(),
           [repeating_callback =
                base::AdaptCallbackForRepeating(std::move(callback)),
-           task_runner = service_->main_task_runner()](
+           task_runner = main_task_runner()](
               const assistant_client::VoicelessResponse& response) {
             // This callback may be called from server multiple times. We should
             // only process non-empty response.
@@ -113,9 +123,8 @@ void AssistantSettingsManagerImpl::UpdateSettings(
 void AssistantSettingsManagerImpl::StartSpeakerIdEnrollment(
     bool skip_cloud_enrollment,
     mojom::SpeakerIdEnrollmentClientPtr client) {
-  DCHECK(assistant_manager_service_->GetState() ==
-         AssistantManagerService::State::RUNNING);
-  DCHECK(service_->main_task_runner()->RunsTasksInCurrentSequence());
+  DCHECK(HasStarted(assistant_manager_service_));
+  DCHECK(main_task_runner()->RunsTasksInCurrentSequence());
 
   if (!assistant_manager_service_->assistant_manager_internal())
     return;
@@ -130,7 +139,7 @@ void AssistantSettingsManagerImpl::StartSpeakerIdEnrollment(
       ->StartSpeakerIdEnrollment(
           client_config,
           [weak_ptr = weak_factory_.GetWeakPtr(),
-           task_runner = service_->main_task_runner()](
+           task_runner = main_task_runner()](
               const assistant_client::SpeakerIdEnrollmentUpdate& update) {
             task_runner->PostTask(
                 FROM_HERE, base::BindOnce(&AssistantSettingsManagerImpl::
@@ -141,9 +150,8 @@ void AssistantSettingsManagerImpl::StartSpeakerIdEnrollment(
 
 void AssistantSettingsManagerImpl::StopSpeakerIdEnrollment(
     StopSpeakerIdEnrollmentCallback callback) {
-  DCHECK(assistant_manager_service_->GetState() ==
-         AssistantManagerService::State::RUNNING);
-  DCHECK(service_->main_task_runner()->RunsTasksInCurrentSequence());
+  DCHECK(HasStarted(assistant_manager_service_));
+  DCHECK(main_task_runner()->RunsTasksInCurrentSequence());
 
   if (!assistant_manager_service_->assistant_manager_internal()) {
     std::move(callback).Run();
@@ -154,7 +162,7 @@ void AssistantSettingsManagerImpl::StopSpeakerIdEnrollment(
       ->StopSpeakerIdEnrollment([repeating_callback =
                                      base::AdaptCallbackForRepeating(
                                          std::move(callback)),
-                                 task_runner = service_->main_task_runner(),
+                                 task_runner = main_task_runner(),
                                  weak_ptr = weak_factory_.GetWeakPtr()]() {
         task_runner->PostTask(
             FROM_HERE,
@@ -165,10 +173,11 @@ void AssistantSettingsManagerImpl::StopSpeakerIdEnrollment(
 }
 
 void AssistantSettingsManagerImpl::SyncSpeakerIdEnrollmentStatus() {
-  DCHECK(service_->main_task_runner()->RunsTasksInCurrentSequence());
+  DCHECK(main_task_runner()->RunsTasksInCurrentSequence());
 
-  if (service_->assistant_state()->allowed_state() !=
-      ash::mojom::AssistantAllowedState::ALLOWED) {
+  if (assistant_state()->allowed_state() !=
+          ash::mojom::AssistantAllowedState::ALLOWED ||
+      features::IsVoiceMatchDisabled()) {
     return;
   }
 
@@ -176,7 +185,7 @@ void AssistantSettingsManagerImpl::SyncSpeakerIdEnrollmentStatus() {
       ->GetSpeakerIdEnrollmentStatus(
           kUserID,
           [weak_ptr = weak_factory_.GetWeakPtr(),
-           task_runner = service_->main_task_runner()](
+           task_runner = main_task_runner()](
               const assistant_client::SpeakerIdEnrollmentStatus& status) {
             task_runner->PostTask(
                 FROM_HERE,
@@ -188,7 +197,7 @@ void AssistantSettingsManagerImpl::SyncSpeakerIdEnrollmentStatus() {
 
 void AssistantSettingsManagerImpl::HandleSpeakerIdEnrollmentUpdate(
     const assistant_client::SpeakerIdEnrollmentUpdate& update) {
-  DCHECK(service_->main_task_runner()->RunsTasksInCurrentSequence());
+  DCHECK(main_task_runner()->RunsTasksInCurrentSequence());
   switch (update.state) {
     case SpeakerIdEnrollmentState::LISTEN:
       speaker_id_enrollment_client_->OnListeningHotword();
@@ -217,7 +226,7 @@ void AssistantSettingsManagerImpl::HandleSpeakerIdEnrollmentUpdate(
 
 void AssistantSettingsManagerImpl::HandleSpeakerIdEnrollmentStatusSync(
     const assistant_client::SpeakerIdEnrollmentStatus& status) {
-  DCHECK(service_->main_task_runner()->RunsTasksInCurrentSequence());
+  DCHECK(main_task_runner()->RunsTasksInCurrentSequence());
 
   speaker_id_enrollment_done_ = status.user_model_exists;
 
@@ -228,20 +237,34 @@ void AssistantSettingsManagerImpl::HandleSpeakerIdEnrollmentStatusSync(
   } else {
     // If hotword is enabled but there is no voice model found, launch the
     // enrollment flow.
-    if (service_->assistant_state()->hotword_enabled().value())
-      service_->assistant_controller()->StartSpeakerIdEnrollmentFlow();
+    if (assistant_state()->hotword_enabled().value())
+      assistant_controller()->StartSpeakerIdEnrollmentFlow();
   }
+}
+
+ash::AssistantStateBase* AssistantSettingsManagerImpl::assistant_state() {
+  return context_->assistant_state();
+}
+
+mojom::AssistantController*
+AssistantSettingsManagerImpl::assistant_controller() {
+  return context_->assistant_controller();
+}
+
+scoped_refptr<base::SequencedTaskRunner>
+AssistantSettingsManagerImpl::main_task_runner() {
+  return context_->main_task_runner();
 }
 
 void AssistantSettingsManagerImpl::HandleStopSpeakerIdEnrollment(
     base::RepeatingCallback<void()> callback) {
-  DCHECK(service_->main_task_runner()->RunsTasksInCurrentSequence());
+  DCHECK(main_task_runner()->RunsTasksInCurrentSequence());
   speaker_id_enrollment_client_.reset();
   callback.Run();
 }
 
 void AssistantSettingsManagerImpl::UpdateServerDeviceSettings() {
-  DCHECK(service_->main_task_runner()->RunsTasksInCurrentSequence());
+  DCHECK(main_task_runner()->RunsTasksInCurrentSequence());
 
   const std::string device_id =
       assistant_manager_service_->assistant_manager()->GetDeviceId();
@@ -257,15 +280,15 @@ void AssistantSettingsManagerImpl::UpdateServerDeviceSettings() {
   device_settings_update->set_assistant_device_type(
       assistant::AssistantDevice::CROS);
 
-  if (service_->assistant_state()->hotword_enabled().value()) {
+  if (assistant_state()->hotword_enabled().value()) {
     device_settings_update->mutable_device_settings()->set_speaker_id_enabled(
         true);
   }
 
   VLOG(1) << "Update assistant device locale: "
-          << service_->assistant_state()->locale().value();
+          << assistant_state()->locale().value();
   device_settings_update->mutable_device_settings()->set_locale(
-      service_->assistant_state()->locale().value());
+      assistant_state()->locale().value());
 
   // Enable personal readout to grant permission for personal features.
   device_settings_update->mutable_device_settings()->set_personal_readout(

@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_AUTOFILL_ASSISTANT_BROWSER_USER_DATA_H_
 #define COMPONENTS_AUTOFILL_ASSISTANT_BROWSER_USER_DATA_H_
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -28,6 +29,11 @@ enum TermsAndConditionsState {
   ACCEPTED = 1,
   REQUIRES_REVIEW = 2,
 };
+
+// GENERATED_JAVA_ENUM_PACKAGE: (
+// org.chromium.chrome.browser.autofill_assistant.user_data.additional_sections)
+// GENERATED_JAVA_CLASS_NAME_OVERRIDE: AssistantTextInputType
+enum TextInputType { INPUT_TEXT = 0, INPUT_ALPHANUMERIC = 1 };
 
 // Represents a concrete login choice in the UI, e.g., 'Guest checkout' or
 // a particular Chrome PWM login account.
@@ -55,6 +61,11 @@ struct UserData {
   std::unique_ptr<autofill::AutofillProfile> billing_address;
   std::string login_choice_identifier;
   TermsAndConditionsState terms_and_conditions = NOT_SELECTED;
+  DateTimeProto date_time_range_start;
+  DateTimeProto date_time_range_end;
+
+  // A set of additional key/value pairs to be stored in client_memory.
+  std::map<std::string, std::string> additional_values_to_store;
 };
 
 // Struct for holding the payment request options.
@@ -68,6 +79,7 @@ struct CollectUserDataOptions {
   bool request_shipping = false;
   bool request_payment_method = false;
   bool request_login_choice = false;
+  bool request_date_time_range = false;
 
   bool require_billing_postal_code = false;
   std::string billing_postal_code_missing_text;
@@ -83,6 +95,9 @@ struct CollectUserDataOptions {
   UserActionProto confirm_action;
   std::vector<UserActionProto> additional_actions;
   TermsAndConditionsState initial_terms_and_conditions = NOT_SELECTED;
+  DateTimeRangeProto date_time_range;
+  std::vector<UserFormSectionProto> additional_prepended_sections;
+  std::vector<UserFormSectionProto> additional_appended_sections;
 
   base::OnceCallback<void(std::unique_ptr<UserData>)> confirm_callback;
   base::OnceCallback<void(int)> additional_actions_callback;

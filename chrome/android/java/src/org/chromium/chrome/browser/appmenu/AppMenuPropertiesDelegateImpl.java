@@ -10,13 +10,14 @@ import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.support.annotation.Nullable;
 import android.support.v4.graphics.drawable.DrawableCompat;
 import android.support.v7.content.res.AppCompatResources;
 import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+
+import androidx.annotation.Nullable;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CommandLine;
@@ -40,7 +41,7 @@ import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
-import org.chromium.chrome.browser.translate.TranslateBridge;
+import org.chromium.chrome.browser.translate.TranslateUtils;
 import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
@@ -62,7 +63,9 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
     protected final ToolbarManager mToolbarManager;
     protected final View mDecorView;
     private final @Nullable ObservableSupplier<OverviewModeBehavior> mOverviewModeBehaviorSupplier;
+    private final ObservableSupplier<BookmarkBridge> mBookmarkBridgeSupplier;
     private @Nullable Callback<OverviewModeBehavior> mOverviewModeSupplierCallback;
+    private Callback<BookmarkBridge> mBookmarkBridgeSupplierCallback;
 
     protected @Nullable OverviewModeBehavior mOverviewModeBehavior;
     protected BookmarkBridge mBookmarkBridge;
@@ -79,11 +82,14 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
      *         activity.
      * @param overviewModeBehaviorSupplier An {@link ObservableSupplier} for the
      *         {@link OverviewModeBehavior} associated with the containing activity.
+     * @param bookmarkBridgeSupplier An {@link ObservableSupplier} for the {@link BookmarkBridge}
+     *         associated with the containing activity.
      */
     public AppMenuPropertiesDelegateImpl(Context context, ActivityTabProvider activityTabProvider,
             MultiWindowModeStateDispatcher multiWindowModeStateDispatcher,
             TabModelSelector tabModelSelector, ToolbarManager toolbarManager, View decorView,
-            @Nullable ObservableSupplier<OverviewModeBehavior> overviewModeBehaviorSupplier) {
+            @Nullable ObservableSupplier<OverviewModeBehavior> overviewModeBehaviorSupplier,
+            ObservableSupplier<BookmarkBridge> bookmarkBridgeSupplier) {
         mContext = context;
         mIsTablet = DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext);
         mActivityTabProvider = activityTabProvider;
@@ -99,6 +105,10 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
             };
             mOverviewModeBehaviorSupplier.addObserver(mOverviewModeSupplierCallback);
         }
+
+        mBookmarkBridgeSupplier = bookmarkBridgeSupplier;
+        mBookmarkBridgeSupplierCallback = (bookmarkBridge) -> mBookmarkBridge = bookmarkBridge;
+        mBookmarkBridgeSupplier.addObserver(mBookmarkBridgeSupplierCallback);
     }
 
     @Override
@@ -106,6 +116,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         if (mOverviewModeBehaviorSupplier != null) {
             mOverviewModeBehaviorSupplier.removeObserver(mOverviewModeSupplierCallback);
         }
+        mBookmarkBridgeSupplier.removeObserver(mBookmarkBridgeSupplierCallback);
     }
 
     @Override
@@ -341,7 +352,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
      * Sets the visibility of the "Translate" menu item.
      */
     protected void prepareTranslateMenuItem(Menu menu, Tab currentTab) {
-        boolean isTranslateVisible = isTranslateMenuItemVisible(currentTab);
+        boolean isTranslateVisible = TranslateUtils.canTranslateCurrentTab(currentTab);
         RecordHistogram.recordBooleanHistogram(
                 "Translate.MobileMenuTranslate.Shown", isTranslateVisible);
         menu.findItem(R.id.translate_id).setVisible(isTranslateVisible);
@@ -408,11 +419,6 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
     @Override
     public void onHeaderViewInflated(AppMenuHandler appMenuHandler, View view) {}
 
-    @Override
-    public void setBookmarkBridge(BookmarkBridge bookmarkBridge) {
-        mBookmarkBridge = bookmarkBridge;
-    }
-
     /**
      * Updates the bookmark item's visibility.
      *
@@ -421,7 +427,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
      */
     protected void updateBookmarkMenuItem(MenuItem bookmarkMenuItem, Tab currentTab) {
         bookmarkMenuItem.setEnabled(mBookmarkBridge.isEditBookmarksEnabled());
-        if (currentTab.getBookmarkId() != Tab.INVALID_BOOKMARK_ID) {
+        if (BookmarkBridge.hasBookmarkIdForTab(currentTab)) {
             bookmarkMenuItem.setIcon(R.drawable.btn_star_filled);
             bookmarkMenuItem.setChecked(true);
             bookmarkMenuItem.setTitleCondensed(mContext.getString(R.string.edit_bookmark));
@@ -466,16 +472,5 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         requestMenuLabel.setTitleCondensed(isRds
                         ? mContext.getString(R.string.menu_request_desktop_site_on)
                         : mContext.getString(R.string.menu_request_desktop_site_off));
-    }
-
-    @Override
-    public boolean isTranslateMenuItemVisible(Tab tab) {
-        String url = tab.getUrl();
-        boolean isChromeScheme = url.startsWith(UrlConstants.CHROME_URL_PREFIX)
-                || url.startsWith(UrlConstants.CHROME_NATIVE_URL_PREFIX);
-        boolean isFileScheme = url.startsWith(UrlConstants.FILE_URL_PREFIX);
-        boolean isContentScheme = url.startsWith(UrlConstants.CONTENT_URL_PREFIX);
-        return !isChromeScheme && !isFileScheme && !isContentScheme && !TextUtils.isEmpty(url)
-                && tab.getWebContents() != null && TranslateBridge.canManuallyTranslate(tab);
     }
 }

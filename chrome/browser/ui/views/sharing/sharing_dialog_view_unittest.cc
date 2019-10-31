@@ -4,47 +4,36 @@
 
 #include "chrome/browser/ui/views/sharing/sharing_dialog_view.h"
 
-#include <map>
 #include <memory>
 #include <string>
 
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/test/simple_test_clock.h"
-#include "chrome/browser/sharing/click_to_call/click_to_call_ui_controller.h"
+#include "base/test/bind_test_util.h"
+#include "chrome/browser/sharing/sharing_app.h"
 #include "chrome/browser/sharing/sharing_metrics.h"
 #include "chrome/browser/ui/views/hover_button.h"
-#include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
-#include "components/send_tab_to_self/target_device_info.h"
 #include "components/sync_device_info/device_info.h"
 #include "components/vector_icons/vector_icons.h"
-#include "content/public/test/web_contents_tester.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/events/event_utils.h"
-
-using namespace testing;
+#include "ui/strings/grit/ui_strings.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
+#include "ui/views/bubble/bubble_frame_view.h"
+#include "ui/views/test/widget_test.h"
+#include "url/gurl.h"
+#include "url/origin.h"
 
 namespace {
-
-class ClickToCallUiControllerMock : public ClickToCallUiController {
- public:
-  explicit ClickToCallUiControllerMock(content::WebContents* web_contents)
-      : ClickToCallUiController(web_contents) {}
-  ~ClickToCallUiControllerMock() override = default;
-
-  MOCK_METHOD1(OnDeviceChosen, void(const syncer::DeviceInfo& device));
-  MOCK_METHOD1(OnAppChosen, void(const App& app));
-  MOCK_METHOD1(OnHelpTextClicked, void(SharingDialogType dialog_type));
-};
 
 class SharingDialogViewMock : public SharingDialogView {
  public:
   SharingDialogViewMock(views::View* anchor_view,
                         content::WebContents* web_contents,
-                        ClickToCallUiController* controller)
-      : SharingDialogView(anchor_view, web_contents, controller) {}
+                        SharingDialogData data)
+      : SharingDialogView(anchor_view, web_contents, std::move(data)) {}
   ~SharingDialogViewMock() override = default;
 
   // The delegate cannot find widget since it is created from a null profile.
@@ -68,19 +57,12 @@ class SharingDialogViewTest : public ChromeViewsTestBase {
   void SetUp() override {
     ChromeViewsTestBase::SetUp();
 
-    profile_ = std::make_unique<TestingProfile>();
-    web_contents_ = content::WebContentsTester::CreateTestWebContents(
-        profile_.get(), nullptr);
-
     // Create an anchor for the bubble.
     views::Widget::InitParams params =
         CreateParams(views::Widget::InitParams::TYPE_WINDOW);
     params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
     anchor_widget_ = std::make_unique<views::Widget>();
     anchor_widget_->Init(std::move(params));
-
-    controller_ =
-        std::make_unique<ClickToCallUiControllerMock>(web_contents_.get());
   }
 
   void TearDown() override {
@@ -95,14 +77,16 @@ class SharingDialogViewTest : public ChromeViewsTestBase {
           base::StrCat({"device_guid_", base::NumberToString(i)}),
           base::StrCat({"device", base::NumberToString(i)}), "chrome_version",
           "user_agent", sync_pb::SyncEnums_DeviceType_TYPE_PHONE, "device_id",
-          /* last_updated_timestamp= */ base::Time::Now(),
-          /* send_tab_to_self_receiving_enabled= */ false));
+          base::SysInfo::HardwareInfo(),
+          /*last_updated_timestamp=*/base::Time::Now(),
+          /*send_tab_to_self_receiving_enabled=*/false,
+          /*sharing_info=*/base::nullopt));
     }
     return devices;
   }
 
-  std::vector<ClickToCallUiController::App> CreateApps(int count) {
-    std::vector<ClickToCallUiController::App> apps;
+  std::vector<SharingApp> CreateApps(int count) {
+    std::vector<SharingApp> apps;
     for (int i = 0; i < count; i++) {
       apps.emplace_back(
           &vector_icons::kOpenInNewIcon, gfx::Image(),
@@ -112,38 +96,71 @@ class SharingDialogViewTest : public ChromeViewsTestBase {
     return apps;
   }
 
-  std::unique_ptr<SharingDialogView> CreateDialogView(int devices, int apps) {
-    controller_->set_devices_for_testing(CreateDevices(devices));
-    controller_->set_apps_for_testing(CreateApps(apps));
-
+  std::unique_ptr<SharingDialogView> CreateDialogView(
+      SharingDialogData dialog_data) {
     auto dialog = std::make_unique<SharingDialogViewMock>(
         anchor_widget_->GetContentsView(), /*web_contents=*/nullptr,
-        controller_.get());
+        std::move(dialog_data));
     dialog->Init();
     return dialog;
   }
 
-  std::unique_ptr<TestingProfile> profile_;
-  std::unique_ptr<content::WebContents> web_contents_;
+  SharingDialogData CreateDialogData(int devices, int apps) {
+    SharingDialogData data;
+
+    if (devices)
+      data.type = SharingDialogType::kDialogWithDevicesMaybeApps;
+    else if (apps)
+      data.type = SharingDialogType::kDialogWithoutDevicesWithApp;
+    else
+      data.type = SharingDialogType::kEducationalDialog;
+
+    data.prefix = SharingFeatureName::kClickToCall;
+    data.devices = CreateDevices(devices);
+    data.apps = CreateApps(apps);
+
+    data.help_text_id =
+        IDS_BROWSER_SHARING_CLICK_TO_CALL_DIALOG_HELP_TEXT_NO_DEVICES;
+    data.help_link_text_id =
+        IDS_BROWSER_SHARING_CLICK_TO_CALL_DIALOG_TROUBLESHOOT_LINK;
+
+    data.help_callback = base::BindLambdaForTesting(
+        [&](SharingDialogType type) { help_callback.Call(type); });
+    data.device_callback =
+        base::BindLambdaForTesting([&](const syncer::DeviceInfo& device) {
+          device_callback.Call(device);
+        });
+    data.app_callback = base::BindLambdaForTesting(
+        [&](const SharingApp& app) { app_callback.Call(app); });
+
+    return data;
+  }
+
   std::unique_ptr<views::Widget> anchor_widget_;
-  std::unique_ptr<ClickToCallUiControllerMock> controller_;
+  testing::MockFunction<void(SharingDialogType)> help_callback;
+  testing::MockFunction<void(const syncer::DeviceInfo&)> device_callback;
+  testing::MockFunction<void(const SharingApp&)> app_callback;
 };
 
 TEST_F(SharingDialogViewTest, PopulateDialogView) {
-  auto dialog = CreateDialogView(/*devices=*/3, /*apps=*/2);
+  auto dialog_data = CreateDialogData(/*devices=*/3, /*apps=*/2);
+  auto dialog = CreateDialogView(std::move(dialog_data));
 
   EXPECT_EQ(5UL, dialog->dialog_buttons_.size());
 }
 
 TEST_F(SharingDialogViewTest, DevicePressed) {
-  syncer::DeviceInfo device_info(
-      "device_guid_1", "device1", "chrome_version", "user_agent",
-      sync_pb::SyncEnums_DeviceType_TYPE_PHONE, "device_id",
-      /* last_updated_timestamp= */ base::Time::Now(),
-      /* send_tab_to_self_receiving_enabled= */ false);
-  EXPECT_CALL(*controller_.get(), OnDeviceChosen(DeviceEquals(&device_info)));
+  syncer::DeviceInfo device_info("device_guid_1", "device1", "chrome_version",
+                                 "user_agent",
+                                 sync_pb::SyncEnums_DeviceType_TYPE_PHONE,
+                                 "device_id", base::SysInfo::HardwareInfo(),
+                                 /*last_updated_timestamp=*/base::Time::Now(),
+                                 /*send_tab_to_self_receiving_enabled=*/false,
+                                 /*sharing_info=*/base::nullopt);
+  EXPECT_CALL(device_callback, Call(DeviceEquals(&device_info)));
 
-  auto dialog = CreateDialogView(/*devices=*/3, /*apps=*/2);
+  auto dialog_data = CreateDialogData(/*devices=*/3, /*apps=*/2);
+  auto dialog = CreateDialogView(std::move(dialog_data));
 
   const ui::MouseEvent event(ui::ET_MOUSE_PRESSED, gfx::Point(), gfx::Point(),
                              ui::EventTimeForNow(), 0, 0);
@@ -153,11 +170,12 @@ TEST_F(SharingDialogViewTest, DevicePressed) {
 }
 
 TEST_F(SharingDialogViewTest, AppPressed) {
-  ClickToCallUiController::App app(&vector_icons::kOpenInNewIcon, gfx::Image(),
-                                   base::UTF8ToUTF16("app0"), std::string());
-  EXPECT_CALL(*controller_.get(), OnAppChosen(AppEquals(&app)));
+  SharingApp app(&vector_icons::kOpenInNewIcon, gfx::Image(),
+                 base::UTF8ToUTF16("app0"), std::string());
+  EXPECT_CALL(app_callback, Call(AppEquals(&app)));
 
-  auto dialog = CreateDialogView(/*devices=*/3, /*apps=*/2);
+  auto dialog_data = CreateDialogData(/*devices=*/3, /*apps=*/2);
+  auto dialog = CreateDialogView(std::move(dialog_data));
 
   const ui::MouseEvent event(ui::ET_MOUSE_PRESSED, gfx::Point(), gfx::Point(),
                              ui::EventTimeForNow(), 0, 0);
@@ -168,33 +186,84 @@ TEST_F(SharingDialogViewTest, AppPressed) {
 }
 
 TEST_F(SharingDialogViewTest, HelpTextClickedEmpty) {
-  EXPECT_CALL(*controller_.get(),
-              OnHelpTextClicked(SharingDialogType::kEducationalDialog));
+  EXPECT_CALL(help_callback, Call(SharingDialogType::kEducationalDialog));
 
-  auto dialog = CreateDialogView(/*devices=*/0, /*apps=*/0);
+  auto dialog_data = CreateDialogData(/*devices=*/0, /*apps=*/0);
+  auto dialog = CreateDialogView(std::move(dialog_data));
 
   dialog->StyledLabelLinkClicked(/*label=*/nullptr, /*range=*/{},
                                  /*event_flags=*/0);
 }
 
 TEST_F(SharingDialogViewTest, HelpTextClickedOnlyApps) {
-  EXPECT_CALL(
-      *controller_.get(),
-      OnHelpTextClicked(SharingDialogType::kDialogWithoutDevicesWithApp));
+  EXPECT_CALL(help_callback,
+              Call(SharingDialogType::kDialogWithoutDevicesWithApp));
 
-  auto dialog = CreateDialogView(/*devices=*/0, /*apps=*/1);
+  auto dialog_data = CreateDialogData(/*devices=*/0, /*apps=*/1);
+  auto dialog = CreateDialogView(std::move(dialog_data));
 
   dialog->StyledLabelLinkClicked(/*label=*/nullptr, /*range=*/{},
                                  /*event_flags=*/0);
 }
 
 TEST_F(SharingDialogViewTest, ThemeChangedEmptyList) {
-  controller_->set_send_result_for_testing(
-      SharingSendMessageResult::kDeviceNotFound);
-  auto dialog = CreateDialogView(/*devices=*/1, /*apps=*/1);
+  auto dialog_data = CreateDialogData(/*devices=*/1, /*apps=*/1);
+  dialog_data.type = SharingDialogType::kErrorDialog;
+  auto dialog = CreateDialogView(std::move(dialog_data));
 
   EXPECT_EQ(SharingDialogType::kErrorDialog, dialog->GetDialogType());
 
   // Regression test for crbug.com/1001112
   dialog->OnThemeChanged();
+}
+
+TEST_F(SharingDialogViewTest, OriginViewShown) {
+  auto dialog_data = CreateDialogData(/*devices=*/1, /*apps=*/1);
+  dialog_data.origin_text_id =
+      IDS_BROWSER_SHARING_CLICK_TO_CALL_DIALOG_INITIATING_ORIGIN;
+  dialog_data.initiating_origin =
+      url::Origin::Create(GURL("https://example.com"));
+
+  views::test::WidgetTest::WidgetAutoclosePtr bubble_widget(
+      views::BubbleDialogDelegateView::CreateBubble(
+          CreateDialogView(std::move(dialog_data)).release()));
+
+  auto* frame_view = static_cast<views::BubbleFrameView*>(
+      bubble_widget->non_client_view()->frame_view());
+
+  EXPECT_NE(nullptr, frame_view->GetHeaderViewForTesting());
+}
+
+TEST_F(SharingDialogViewTest, OriginViewHiddenIfNoOrigin) {
+  auto dialog_data = CreateDialogData(/*devices=*/1, /*apps=*/1);
+  dialog_data.origin_text_id =
+      IDS_BROWSER_SHARING_CLICK_TO_CALL_DIALOG_INITIATING_ORIGIN;
+  // Do not set an origin.
+  dialog_data.initiating_origin = base::nullopt;
+
+  views::test::WidgetTest::WidgetAutoclosePtr bubble_widget(
+      views::BubbleDialogDelegateView::CreateBubble(
+          CreateDialogView(std::move(dialog_data)).release()));
+
+  auto* frame_view = static_cast<views::BubbleFrameView*>(
+      bubble_widget->non_client_view()->frame_view());
+
+  EXPECT_EQ(nullptr, frame_view->GetHeaderViewForTesting());
+}
+
+TEST_F(SharingDialogViewTest, OriginViewHiddenIfNoOriginText) {
+  auto dialog_data = CreateDialogData(/*devices=*/1, /*apps=*/1);
+  // Do not set an origin text.
+  dialog_data.origin_text_id = 0;
+  dialog_data.initiating_origin =
+      url::Origin::Create(GURL("https://example.com"));
+
+  views::test::WidgetTest::WidgetAutoclosePtr bubble_widget(
+      views::BubbleDialogDelegateView::CreateBubble(
+          CreateDialogView(std::move(dialog_data)).release()));
+
+  auto* frame_view = static_cast<views::BubbleFrameView*>(
+      bubble_widget->non_client_view()->frame_view());
+
+  EXPECT_EQ(nullptr, frame_view->GetHeaderViewForTesting());
 }

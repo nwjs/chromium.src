@@ -81,7 +81,6 @@
 <translation id="3295886253693811851">Buat panggilan dari</translation>
 <translation id="335581015389089642">Ucapan</translation>
 <translation id="3389286852084373014">Teks terlalu besar</translation>
-<translation id="3443810440409579745">Tab diterima.</translation>
 <translation id="3479552764303398839">Jangan sekarang</translation>
 <translation id="348799646910989694">Rak otomatis disembunyikan</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{1 hari lagi}other{# hari lagi}}</translation>
@@ -111,14 +110,11 @@
 <translation id="4724120544754982507">Pusat Notifikasi, <ph name="UNREAD_NOTIFICATION_COUNT" /> notifikasi belum dibaca</translation>
 <translation id="4730374152663651037">SERING DIGUNAKAN</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{1 bulan lagi}other{# bulan lagi}}</translation>
-<translation id="4841881773802181781">Penyisipan</translation>
-<translation id="4881695831933465202">Buka</translation>
 <translation id="4888938634149558681">Telepon</translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 detik}other{# detik}}</translation>
 <translation id="4971687151119236543">Lacak Media Sebelumnya</translation>
 <translation id="5046499563572181734">Ketuk di sini</translation>
 <translation id="5076340679995252485">Tem&amp;pel</translation>
-<translation id="5137751499640340777">Mulai Asisten Google</translation>
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5266161281976477809">Segitiga aksesibilitas</translation>
 <translation id="5278860589123563674">Gagal mengirim</translation>
@@ -155,6 +151,7 @@
 <translation id="6394627529324717982">Koma</translation>
 <translation id="6397363302884558537">Berhenti Berbicara</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1 dtk yang lalu}other{# dtk yang lalu}}</translation>
+<translation id="6417265370957905582">Asisten Google</translation>
 <translation id="6430678249303439055">Blokir semua notifikasi dari aplikasi ini</translation>
 <translation id="6483402905448010557">{SECONDS,plural, =1{1 detik yang lalu}other{# detik yang lalu}}</translation>
 <translation id="6539092367496845964">Terjadi masalah. Coba lagi nanti.</translation>
@@ -165,7 +162,6 @@
 <translation id="6620110761915583480">Simpan File</translation>
 <translation id="6656912866303152668">Pastikan <ph name="TARGET_DEVICE_NAME" /> telah mengaktifkan sinkronisasi di Chrome, dan coba kirim lagi.</translation>
 <translation id="6699343763173986273">Lacak Media Berikutnya</translation>
-<translation id="673773751041746814">Penghapusan</translation>
 <translation id="6779314412797872738">Untuk mengirim nomor dari sini ke ponsel Android Anda, <ph name="TROUBLESHOOT_LINK" /> untuk kedua perangkat di setelan.</translation>
 <translation id="6786750046913594791">Tutup folder</translation>
 <translation id="6808150112686056157">Hentikan Media</translation>
@@ -198,7 +194,6 @@
 <translation id="8074552109918343525">{MAX_UNREAD_NOTIFICATIONS,plural, =1{Lebih dari 1 notifikasi belum dibaca}other{Lebih dari # notifikasi belum dibaca}}</translation>
 <translation id="8086866675552927481">{MINUTES,plural, =1{dalam 1 m}other{dalam # m}}</translation>
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
-<translation id="8098075892845277643">Mulai kueri suara Asisten Google</translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{1 jam yang lalu}other{# jam yang lalu}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{1 dtk lagi}other{# dtk lagi}}</translation>
 <translation id="8144660977431427332">Penelusuran Anda difasilitasi oleh Asisten Google. <ph name="LEARN_MORE" /></translation>

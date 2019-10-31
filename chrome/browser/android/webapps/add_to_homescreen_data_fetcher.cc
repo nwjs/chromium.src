@@ -45,16 +45,11 @@ GURL GetShortcutUrl(content::WebContents* web_contents) {
       web_contents->GetVisibleURL());
 }
 
-bool DoesAndroidSupportMaskableIconsForHomescreen() {
-  // TODO(crbug.com/977173): re-enable maskable icon support once server support
-  // is ready.
-  return false;
-}
-
 InstallableParams ParamsToPerformManifestAndIconFetch() {
   InstallableParams params;
   params.valid_primary_icon = true;
-  params.prefer_maskable_icon = DoesAndroidSupportMaskableIconsForHomescreen();
+  params.prefer_maskable_icon =
+      ShortcutHelper::DoesAndroidSupportMaskableIcons();
   params.valid_badge_icon = true;
   params.wait_for_worker = true;
   return params;
@@ -66,7 +61,8 @@ InstallableParams ParamsToPerformInstallableCheck() {
   params.valid_manifest = true;
   params.has_worker = true;
   params.valid_primary_icon = true;
-  params.prefer_maskable_icon = DoesAndroidSupportMaskableIconsForHomescreen();
+  params.prefer_maskable_icon =
+      ShortcutHelper::DoesAndroidSupportMaskableIcons();
   params.wait_for_worker = true;
   return params;
 }
@@ -123,7 +119,7 @@ AddToHomescreenDataFetcher::AddToHomescreenDataFetcher(
   DCHECK(shortcut_info_.url.is_valid());
 
   // Send a message to the renderer to retrieve information about the page.
-  chrome::mojom::ChromeRenderFrameAssociatedPtr chrome_render_frame;
+  mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame> chrome_render_frame;
   web_contents->GetMainFrame()->GetRemoteAssociatedInterfaces()->GetInterface(
       &chrome_render_frame);
   // Bind the InterfacePtr into the callback so that it's kept alive
@@ -137,7 +133,8 @@ AddToHomescreenDataFetcher::AddToHomescreenDataFetcher(
 AddToHomescreenDataFetcher::~AddToHomescreenDataFetcher() {}
 
 void AddToHomescreenDataFetcher::OnDidGetWebApplicationInfo(
-    chrome::mojom::ChromeRenderFrameAssociatedPtr chrome_render_frame,
+    mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame>
+        chrome_render_frame,
     const WebApplicationInfo& received_web_app_info) {
   if (!web_contents())
     return;
@@ -156,7 +153,7 @@ void AddToHomescreenDataFetcher::OnDidGetWebApplicationInfo(
 
   if (web_app_info.mobile_capable == WebApplicationInfo::MOBILE_CAPABLE ||
       web_app_info.mobile_capable == WebApplicationInfo::MOBILE_CAPABLE_APPLE) {
-    shortcut_info_.display = blink::kWebDisplayModeStandalone;
+    shortcut_info_.display = blink::mojom::DisplayMode::kStandalone;
     shortcut_info_.UpdateSource(
         ShortcutInfo::SOURCE_ADD_TO_HOMESCREEN_STANDALONE);
   }

@@ -206,15 +206,8 @@ public class MainPreferences extends PreferenceFragmentCompat
         updateSyncAndServicesPreference();
         updateSearchEnginePreference();
 
-        if (HomepageManager.shouldShowHomepageSetting()) {
-            Preference homepagePref = addPreferenceIfAbsent(PREF_HOMEPAGE);
-            if (FeatureUtilities.isNewTabPageButtonEnabled()) {
-                homepagePref.setTitle(R.string.options_startup_page_title);
-            }
-            setOnOffSummary(homepagePref, HomepageManager.getInstance().getPrefHomepageEnabled());
-        } else {
-            removePreferenceIfPresent(PREF_HOMEPAGE);
-        }
+        Preference homepagePref = addPreferenceIfAbsent(PREF_HOMEPAGE);
+        setOnOffSummary(homepagePref, HomepageManager.getInstance().getPrefHomepageEnabled());
 
         if (NightModeUtils.isNightModeSupported() && FeatureUtilities.isNightModeAvailable()) {
             addPreferenceIfAbsent(PREF_UI_THEME);
@@ -279,7 +272,7 @@ public class MainPreferences extends PreferenceFragmentCompat
     }
 
     private void setOnOffSummary(Preference pref, boolean isOn) {
-        pref.setSummary(getResources().getString(isOn ? R.string.text_on : R.string.text_off));
+        pref.setSummary(isOn ? R.string.text_on : R.string.text_off);
     }
 
     // SigninManager.SignInStateObserver implementation.

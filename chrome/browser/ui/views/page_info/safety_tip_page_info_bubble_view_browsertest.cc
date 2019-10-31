@@ -32,6 +32,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/safe_browsing/db/v4_protocol_manager_util.h"
+#include "components/security_state/core/features.h"
 #include "components/security_state/core/security_state.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
@@ -41,8 +42,10 @@
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "ui/accessibility/ax_action_data.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/gfx/range/range.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
@@ -95,14 +98,14 @@ bool IsUIShowing() {
          PageInfoBubbleViewBase::GetShownBubbleType();
 }
 
-void CloseWarningIgnore() {
+void CloseWarningIgnore(views::Widget::ClosedReason reason) {
   if (!PageInfoBubbleViewBase::GetPageInfoBubbleForTesting()) {
     return;
   }
   auto* widget =
       PageInfoBubbleViewBase::GetPageInfoBubbleForTesting()->GetWidget();
   views::test::WidgetDestroyedWaiter waiter(widget);
-  widget->CloseWithReason(views::Widget::ClosedReason::kCloseButtonClicked);
+  widget->CloseWithReason(reason);
   waiter.Wait();
 }
 
@@ -157,18 +160,19 @@ class SafetyTipPageInfoBubbleViewBrowserTest
   void SetUp() override {
     switch (ui_status()) {
       case UIStatus::kDisabled:
-        feature_list_.InitAndDisableFeature(features::kSafetyTipUI);
+        feature_list_.InitAndDisableFeature(
+            security_state::features::kSafetyTipUI);
         break;
       case UIStatus::kEnabled:
         feature_list_.InitWithFeaturesAndParameters(
-            {{features::kSafetyTipUI, {}},
+            {{security_state::features::kSafetyTipUI, {}},
              {features::kLookalikeUrlNavigationSuggestionsUI,
               {{"topsites", "true"}}}},
             {});
         break;
       case UIStatus::kEnabledWithEditDistance:
         feature_list_.InitWithFeaturesAndParameters(
-            {{features::kSafetyTipUI,
+            {{security_state::features::kSafetyTipUI,
               {{"editdistance", "true"},
                {"editdistance_siteengagement", "true"}}},
              {features::kLookalikeUrlNavigationSuggestionsUI,
@@ -176,6 +180,7 @@ class SafetyTipPageInfoBubbleViewBrowserTest
             {});
     }
 
+    InitializeSafetyTipConfig();
     InProcessBrowserTest::SetUp();
   }
 
@@ -197,6 +202,14 @@ class SafetyTipPageInfoBubbleViewBrowserTest
     auto* bubble = static_cast<SafetyTipPageInfoBubbleView*>(
         PageInfoBubbleViewBase::GetPageInfoBubbleForTesting());
     PerformMouseClickOnView(bubble->GetLeaveButtonForTesting());
+  }
+
+  void ClickLearnMoreLink() {
+    // This class is a friend to SafetyTipPageInfoBubbleView.
+    auto* bubble = static_cast<SafetyTipPageInfoBubbleView*>(
+        PageInfoBubbleViewBase::GetPageInfoBubbleForTesting());
+    bubble->StyledLabelLinkClicked(bubble->GetLearnMoreLinkForTesting(),
+                                   gfx::Range(), 0);
   }
 
   void CloseWarningLeaveSite(Browser* browser) {
@@ -223,7 +236,8 @@ class SafetyTipPageInfoBubbleViewBrowserTest
         PageInfoBubbleViewBase::GetPageInfoBubbleForTesting();
     ASSERT_TRUE(page_info);
     EXPECT_EQ(page_info->GetWindowTitle(),
-              l10n_util::GetStringUTF16(IDS_PAGE_INFO_SAFETY_TIP_SUMMARY));
+              l10n_util::GetStringUTF16(
+                  IDS_PAGE_INFO_SAFETY_TIP_BAD_REPUTATION_TITLE));
   }
 
   void CheckPageInfoDoesNotShowSafetyTipInfo(Browser* browser) {
@@ -232,7 +246,8 @@ class SafetyTipPageInfoBubbleViewBrowserTest
         PageInfoBubbleViewBase::GetPageInfoBubbleForTesting();
     ASSERT_TRUE(page_info);
     EXPECT_NE(page_info->GetWindowTitle(),
-              l10n_util::GetStringUTF16(IDS_PAGE_INFO_SAFETY_TIP_SUMMARY));
+              l10n_util::GetStringUTF16(
+                  IDS_PAGE_INFO_SAFETY_TIP_BAD_REPUTATION_TITLE));
   }
 
  private:
@@ -280,6 +295,25 @@ IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest, ShowOnBlock) {
   ASSERT_NO_FATAL_FAILURE(CheckPageInfoShowsSafetyTipInfo(browser()));
 }
 
+// Ensure explicitly-allowed sites don't get blocked when the site is otherwise
+// blocked server-side.
+IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
+                       NoShowOnAllowlist) {
+  auto kNavigatedUrl = GetURL("site1.com");
+
+  // Ensure a Safety Tip is triggered initially...
+  SetSafetyTipBadRepPatterns({"site1.com/"});
+  NavigateToURL(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
+  EXPECT_TRUE(IsUIShowingIfEnabled());
+  ASSERT_NO_FATAL_FAILURE(CheckPageInfoShowsSafetyTipInfo(browser()));
+
+  // ...but suppressed by the allowlist.
+  SetSafetyTipAllowlistPatterns({"site1.com/"});
+  NavigateToURL(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
+  EXPECT_FALSE(IsUIShowing());
+  ASSERT_NO_FATAL_FAILURE(CheckPageInfoDoesNotShowSafetyTipInfo(browser()));
+}
+
 // After the user clicks 'leave site', the user should end up on a safe domain.
 IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
                        LeaveSiteLeavesSite) {
@@ -296,6 +330,21 @@ IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
             browser()->tab_strip_model()->GetActiveWebContents()->GetURL());
 
   ASSERT_NO_FATAL_FAILURE(CheckPageInfoDoesNotShowSafetyTipInfo(browser()));
+}
+
+// Test that clicking 'learn more' opens a help center article.
+IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
+                       LearnMoreOpensHelpCenter) {
+  if (ui_status() == UIStatus::kDisabled) {
+    return;
+  }
+
+  auto kNavigatedUrl = GetURL("site1.com");
+  TriggerWarning(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
+
+  content::WebContentsAddedObserver new_tab_observer;
+  ClickLearnMoreLink();
+  EXPECT_NE(kNavigatedUrl, new_tab_observer.GetWebContents()->GetURL());
 }
 
 // If the user clicks 'leave site', the warning should re-appear when the user
@@ -325,7 +374,7 @@ IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
   auto kNavigatedUrl = GetURL("site1.com");
   TriggerWarning(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
 
-  CloseWarningIgnore();
+  CloseWarningIgnore(views::Widget::ClosedReason::kCloseButtonClicked);
   EXPECT_FALSE(IsUIShowing());
   EXPECT_EQ(kNavigatedUrl,
             browser()->tab_strip_model()->GetActiveWebContents()->GetURL());
@@ -343,7 +392,7 @@ IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
   auto kNavigatedUrl = GetURL("site1.com");
   TriggerWarning(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
 
-  CloseWarningIgnore();
+  CloseWarningIgnore(views::Widget::ClosedReason::kCloseButtonClicked);
 
   NavigateToURL(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
 
@@ -397,14 +446,34 @@ IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
 }
 
 // Tests that Safety Tips trigger on lookalike domains that don't qualify for an
-// interstitial.
+// interstitial, but do not impact Page Info.
 IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
                        TriggersOnLookalike) {
-  // This domain is a top domain, but not top 500.
+  // This domain is a lookalike of a top domain not in the top 500.
   const GURL kNavigatedUrl = GetURL("googlé.sk");
   SetEngagementScore(browser(), kNavigatedUrl, kLowEngagement);
   NavigateToURL(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
   EXPECT_TRUE(IsUIShowingIfEnabled());
+  ASSERT_NO_FATAL_FAILURE(CheckPageInfoDoesNotShowSafetyTipInfo(browser()));
+}
+
+// Tests that Safety Tips don't trigger on lookalike domains that are explicitly
+// allowed by the allowlist.
+IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
+                       NoTriggersOnLookalikeAllowlist) {
+  // This domain is a lookalike of a top domain not in the top 500.
+  const GURL kNavigatedUrl = GetURL("googlé.sk");
+
+  // Ensure a Safety Tip is triggered initially...
+  SetEngagementScore(browser(), kNavigatedUrl, kLowEngagement);
+  NavigateToURL(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
+  EXPECT_TRUE(IsUIShowingIfEnabled());
+
+  // ...but suppressed by the allowlist.
+  SetSafetyTipAllowlistPatterns({"xn--googl-fsa.sk/"});
+  SetEngagementScore(browser(), kNavigatedUrl, kLowEngagement);
+  NavigateToURL(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
+  EXPECT_FALSE(IsUIShowing());
 }
 
 // Tests that Safety Tips trigger (or not) on lookalike domains with edit
@@ -453,7 +522,7 @@ IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
   base::HistogramTester histograms;
   auto kNavigatedUrl = GetURL("site1.com");
   TriggerWarning(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
-  CloseWarningIgnore();
+  CloseWarningIgnore(views::Widget::ClosedReason::kCloseButtonClicked);
   NavigateToURL(browser(), kNavigatedUrl, WindowOpenDisposition::CURRENT_TAB);
   histograms.ExpectBucketCount("Security.SafetyTips.SafetyTipIgnoredPageLoad",
                                security_state::SafetyTipStatus::kBadReputation,
@@ -496,10 +565,42 @@ IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
     // the safety tip.
     histogram_tester.ExpectTotalCount(
         kHistogramPrefix + "SafetyTip_BadReputation", 0);
-    CloseWarningIgnore();
-    histogram_tester.ExpectUniqueSample(
+    CloseWarningIgnore(views::Widget::ClosedReason::kCloseButtonClicked);
+    histogram_tester.ExpectBucketCount(
         kHistogramPrefix + "SafetyTip_BadReputation",
         safety_tips::SafetyTipInteraction::kDismiss, 1);
+    histogram_tester.ExpectBucketCount(
+        kHistogramPrefix + "SafetyTip_BadReputation",
+        safety_tips::SafetyTipInteraction::kDismissWithClose, 1);
+  }
+
+  // Test that the specific dismissal type is recorded correctly.
+  {
+    base::HistogramTester histogram_tester;
+    auto kNavigatedUrl = GetURL("site2.com");
+    TriggerWarning(browser(), kNavigatedUrl,
+                   WindowOpenDisposition::CURRENT_TAB);
+    CloseWarningIgnore(views::Widget::ClosedReason::kEscKeyPressed);
+    histogram_tester.ExpectBucketCount(
+        kHistogramPrefix + "SafetyTip_BadReputation",
+        safety_tips::SafetyTipInteraction::kDismiss, 1);
+    histogram_tester.ExpectBucketCount(
+        kHistogramPrefix + "SafetyTip_BadReputation",
+        safety_tips::SafetyTipInteraction::kDismissWithEsc, 1);
+  }
+
+  {
+    base::HistogramTester histogram_tester;
+    auto kNavigatedUrl = GetURL("site3.com");
+    TriggerWarning(browser(), kNavigatedUrl,
+                   WindowOpenDisposition::CURRENT_TAB);
+    CloseWarningIgnore(views::Widget::ClosedReason::kCancelButtonClicked);
+    histogram_tester.ExpectBucketCount(
+        kHistogramPrefix + "SafetyTip_BadReputation",
+        safety_tips::SafetyTipInteraction::kDismiss, 1);
+    histogram_tester.ExpectBucketCount(
+        kHistogramPrefix + "SafetyTip_BadReputation",
+        safety_tips::SafetyTipInteraction::kDismissWithIgnore, 1);
   }
 }
 
@@ -556,9 +657,57 @@ IN_PROC_BROWSER_TEST_P(SafetyTipPageInfoBubbleViewBrowserTest,
     base::RunLoop run_loop;
     base::PostDelayedTask(FROM_HERE, run_loop.QuitClosure(), kMinWarningTime);
     run_loop.Run();
-    CloseWarningIgnore();
+    CloseWarningIgnore(views::Widget::ClosedReason::kCloseButtonClicked);
+    auto base_samples = histograms.GetAllSamples(
+        "Security.SafetyTips.OpenTime.Dismiss.SafetyTip_"
+        "BadReputation");
+    ASSERT_EQ(1u, base_samples.size());
+    EXPECT_LE(kMinWarningTime.InMilliseconds(), base_samples.front().min);
     auto samples = histograms.GetAllSamples(
-        "Security.SafetyTips.OpenTime.Dismiss.SafetyTip_BadReputation");
+        "Security.SafetyTips.OpenTime.DismissWithClose.SafetyTip_"
+        "BadReputation");
+    ASSERT_EQ(1u, samples.size());
+    EXPECT_LE(kMinWarningTime.InMilliseconds(), samples.front().min);
+  }
+
+  {
+    base::HistogramTester histograms;
+    auto kNavigatedUrl = GetURL("site2.com");
+    TriggerWarning(browser(), kNavigatedUrl,
+                   WindowOpenDisposition::CURRENT_TAB);
+    base::RunLoop run_loop;
+    base::PostDelayedTask(FROM_HERE, run_loop.QuitClosure(), kMinWarningTime);
+    run_loop.Run();
+    CloseWarningIgnore(views::Widget::ClosedReason::kEscKeyPressed);
+    auto base_samples = histograms.GetAllSamples(
+        "Security.SafetyTips.OpenTime.Dismiss.SafetyTip_"
+        "BadReputation");
+    ASSERT_EQ(1u, base_samples.size());
+    EXPECT_LE(kMinWarningTime.InMilliseconds(), base_samples.front().min);
+    auto samples = histograms.GetAllSamples(
+        "Security.SafetyTips.OpenTime.DismissWithEsc.SafetyTip_"
+        "BadReputation");
+    ASSERT_EQ(1u, samples.size());
+    EXPECT_LE(kMinWarningTime.InMilliseconds(), samples.front().min);
+  }
+
+  {
+    base::HistogramTester histograms;
+    auto kNavigatedUrl = GetURL("site3.com");
+    TriggerWarning(browser(), kNavigatedUrl,
+                   WindowOpenDisposition::CURRENT_TAB);
+    base::RunLoop run_loop;
+    base::PostDelayedTask(FROM_HERE, run_loop.QuitClosure(), kMinWarningTime);
+    run_loop.Run();
+    CloseWarningIgnore(views::Widget::ClosedReason::kCancelButtonClicked);
+    auto base_samples = histograms.GetAllSamples(
+        "Security.SafetyTips.OpenTime.Dismiss.SafetyTip_"
+        "BadReputation");
+    ASSERT_EQ(1u, base_samples.size());
+    EXPECT_LE(kMinWarningTime.InMilliseconds(), base_samples.front().min);
+    auto samples = histograms.GetAllSamples(
+        "Security.SafetyTips.OpenTime.DismissWithIgnore.SafetyTip_"
+        "BadReputation");
     ASSERT_EQ(1u, samples.size());
     EXPECT_LE(kMinWarningTime.InMilliseconds(), samples.front().min);
   }

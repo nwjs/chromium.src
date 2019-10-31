@@ -23,7 +23,7 @@
 #include "extensions/browser/app_window/native_app_window.h"
 
 #if defined(OS_ANDROID)
-#include "chrome/browser/android/download/download_controller_base.h"
+#include "chrome/browser/download/android/download_controller_base.h"
 #else
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -114,13 +114,9 @@ void DownloadShelfUIControllerDelegate::OnNewDownloadReady(
 DownloadUIController::Delegate::~Delegate() {
 }
 
-DownloadUIController::DownloadUIController(
-    content::DownloadManager* manager,
-    std::unique_ptr<Delegate> delegate,
-    DownloadOfflineContentProvider* provider)
-    : download_notifier_(manager, this),
-      delegate_(std::move(delegate)),
-      download_provider_(provider) {
+DownloadUIController::DownloadUIController(content::DownloadManager* manager,
+                                           std::unique_ptr<Delegate> delegate)
+    : download_notifier_(manager, this), delegate_(std::move(delegate)) {
 #if defined(OS_ANDROID)
   if (!delegate_)
     delegate_.reset(new AndroidUIControllerDelegate());
@@ -225,6 +221,4 @@ void DownloadUIController::OnDownloadUpdated(content::DownloadManager* manager,
 
   DownloadItemModel(item).SetWasUINotified(true);
   delegate_->OnNewDownloadReady(item);
-  if (download_provider_)
-    download_provider_->OnDownloadStarted(item);
 }

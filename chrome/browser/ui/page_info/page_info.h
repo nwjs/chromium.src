@@ -46,8 +46,7 @@ using password_manager::metrics_util::PasswordType;
 // information and allows users to change the permissions. |PageInfo|
 // objects must be created on the heap. They destroy themselves after the UI is
 // closed.
-class PageInfo : public TabSpecificContentSettings::SiteDataObserver,
-                 public content::WebContentsObserver {
+class PageInfo : public content::WebContentsObserver {
  public:
   // TODO(palmer): Figure out if it is possible to unify SiteConnectionStatus
   // and SiteIdentityStatus.
@@ -65,6 +64,7 @@ class PageInfo : public TabSpecificContentSettings::SiteDataObserver,
     SITE_CONNECTION_STATUS_UNENCRYPTED,      // Connection is not encrypted.
     SITE_CONNECTION_STATUS_ENCRYPTED_ERROR,  // Connection error occurred.
     SITE_CONNECTION_STATUS_INTERNAL_PAGE,    // Internal site.
+    SITE_CONNECTION_STATUS_LEGACY_TLS,  // Connection used a legacy TLS version.
   };
 
   // Validation status of a website's identity.
@@ -99,6 +99,7 @@ class PageInfo : public TabSpecificContentSettings::SiteDataObserver,
     SAFE_BROWSING_STATUS_MALWARE,
     SAFE_BROWSING_STATUS_SOCIAL_ENGINEERING,
     SAFE_BROWSING_STATUS_UNWANTED_SOFTWARE,
+    SAFE_BROWSING_STATUS_SAVED_PASSWORD_REUSE,
     SAFE_BROWSING_STATUS_SIGNED_IN_SYNC_PASSWORD_REUSE,
     SAFE_BROWSING_STATUS_SIGNED_IN_NON_SYNC_PASSWORD_REUSE,
     SAFE_BROWSING_STATUS_ENTERPRISE_PASSWORD_REUSE,
@@ -206,11 +207,6 @@ class PageInfo : public TabSpecificContentSettings::SiteDataObserver,
   const base::string16& site_details_message() const {
     return site_details_message_;
   }
-
-  const base::string16& organization_name() const { return organization_name_; }
-
-  // SiteDataObserver implementation.
-  void OnSiteDataAccessed() override;
 
  private:
   FRIEND_TEST_ALL_PREFIXES(PageInfoTest,
@@ -320,6 +316,12 @@ class PageInfo : public TabSpecificContentSettings::SiteDataObserver,
   // Service for managing SSL error page bypasses. Used to revoke bypass
   // decisions by users.
   ChromeSSLHostStateDelegate* chrome_ssl_host_state_delegate_;
+
+  // The TabSpecificContentSettings for this site, used to propagate changes
+  // from the UI back to the model. This is held as a raw pointer because the
+  // lifetime of TabSpecificContentSettings is tightly bound to that of the
+  // observed WebContents.
+  TabSpecificContentSettings* tab_specific_content_settings_;
 
   bool did_revoke_user_ssl_decisions_;
 

@@ -36,7 +36,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
-#include "chromeos/dbus/debug_daemon_client.h"
+#include "chromeos/dbus/debug_daemon/debug_daemon_client.h"
 #include "chromeos/printing/ppd_cache.h"
 #include "chromeos/printing/ppd_line_reader.h"
 #include "chromeos/printing/ppd_provider.h"
@@ -116,7 +116,7 @@ base::Value BuildCupsPrintersList(const std::vector<Printer>& printers) {
   for (const Printer& printer : printers) {
     // Some of these printers could be invalid but we want to allow the user
     // to edit them. crbug.com/778383
-    printers_list.GetList().push_back(
+    printers_list.Append(
         base::Value::FromUniquePtrValue(GetCupsPrinterInfo(printer)));
   }
 
@@ -966,6 +966,7 @@ void CupsPrintersHandler::VerifyPpdContents(const base::FilePath& path,
 
 void CupsPrintersHandler::HandleStartDiscovery(const base::ListValue* args) {
   PRINTER_LOG(DEBUG) << "Start printer discovery";
+  AllowJavascript();
   discovery_active_ = true;
   OnPrintersChanged(PrinterClass::kAutomatic,
                     printers_manager_->GetPrinters(PrinterClass::kAutomatic));

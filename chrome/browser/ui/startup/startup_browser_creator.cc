@@ -807,8 +807,8 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
         LOG(FATAL) << "Failed to load default app";
         return false;
       }
-      OpenApplication(
-                      AppLaunchParams(last_used_profile, extension->id(), extensions::LaunchContainer::kLaunchContainerWindow,
+      OpenApplication(last_used_profile,
+                      apps::AppLaunchParams(extension->id(), extensions::LaunchContainer::kLaunchContainerWindow,
                                       WindowOpenDisposition::NEW_WINDOW, extensions::AppLaunchSource::kSourceChromeInternal));
       return true;
     }

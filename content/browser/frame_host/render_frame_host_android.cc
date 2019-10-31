@@ -15,7 +15,9 @@
 #include "content/browser/frame_host/render_frame_host_impl.h"
 #include "content/public/android/content_jni_headers/RenderFrameHostImpl_jni.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/site_instance.h"
+#include "url/origin.h"
 
 using base::android::AttachCurrentThread;
 using base::android::ConvertUTF8ToJavaString;
@@ -78,6 +80,12 @@ ScopedJavaLocalRef<jstring> RenderFrameHostAndroid::GetLastCommittedURL(
       env, render_frame_host_->GetLastCommittedURL().spec());
 }
 
+ScopedJavaLocalRef<jobject> RenderFrameHostAndroid::GetLastCommittedOrigin(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& obj) {
+  return render_frame_host_->GetLastCommittedOrigin().CreateJavaObject();
+}
+
 void RenderFrameHostAndroid::GetCanonicalUrlForSharing(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>&,
@@ -105,6 +113,12 @@ jboolean RenderFrameHostAndroid::IsRenderFrameCreated(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>&) const {
   return render_frame_host_->IsRenderFrameCreated();
+}
+
+jboolean RenderFrameHostAndroid::IsProcessBlocked(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>&) const {
+  return render_frame_host_->GetProcess()->IsBlocked();
 }
 
 }  // namespace content

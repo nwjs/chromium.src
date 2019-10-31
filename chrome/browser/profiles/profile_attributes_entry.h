@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
@@ -25,6 +26,15 @@ class PrefRegistrySimple;
 class PrefService;
 class ProfileInfoCache;
 
+enum class SigninState {
+  kNotSignedIn,
+  kSignedInWithUnconsentedPrimaryAccount,
+  kSignedInWithConsentedPrimaryAccount,
+};
+
+extern const base::Feature kPersistUPAInProfileInfoCache;
+extern const base::Feature kConcatenateGaiaAndProfileName;
+
 class ProfileAttributesEntry {
  public:
   static void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
@@ -32,8 +42,11 @@ class ProfileAttributesEntry {
   ProfileAttributesEntry();
   virtual ~ProfileAttributesEntry() {}
 
-  // Gets the name of the profile, which is the one displayed in the User Menu.
+  // Gets the name of the profile to be displayed in the User Menu. The name can
+  // be the GAIA name, local profile name or a combination of them.
   base::string16 GetName() const;
+  // Gets the local profile name.
+  base::string16 GetLocalProfileName() const;
 
   base::string16 GetShortcutName() const;
   // Gets the path to the profile. Should correspond to the path passed to
@@ -86,6 +99,8 @@ class ProfileAttributesEntry {
   // Returns true if the profile is using a default name, typically of the
   // format "Person %d".
   bool IsUsingDefaultName() const;
+  // Returns Signin state.
+  SigninState GetSigninState() const;
   // Returns true if the profile is signed in.
   bool IsAuthenticated() const;
   // Returns true if the Profile is using the default avatar, which is one of
@@ -101,7 +116,7 @@ class ProfileAttributesEntry {
   // reserved for the guest profile.
   size_t GetMetricsBucketIndex();
 
-  void SetName(const base::string16& name);
+  void SetLocalProfileName(const base::string16& name);
   void SetShortcutName(const base::string16& name);
   void SetActiveTimeToNow();
   void SetIsOmitted(bool is_omitted);
@@ -120,7 +135,9 @@ class ProfileAttributesEntry {
   void SetIsAuthError(bool value);
   void SetAvatarIconIndex(size_t icon_index);
 
-  void SetAuthInfo(const std::string& gaia_id, const base::string16& user_name);
+  void SetAuthInfo(const std::string& gaia_id,
+                   const base::string16& user_name,
+                   bool is_consented_primary_account);
 
   // Lock/Unlock the profile, should be called only if force-sign-in is enabled.
   void LockForceSigninProfile(bool is_lock);
@@ -129,6 +146,7 @@ class ProfileAttributesEntry {
   static const char kBackgroundAppsKey[];
   static const char kProfileIsEphemeral[];
   static const char kUserNameKey[];
+  static const char kIsConsentedPrimaryAccountKey[];
 
  private:
   friend class ProfileInfoCache;
@@ -141,6 +159,10 @@ class ProfileAttributesEntry {
   void Initialize(ProfileInfoCache* cache,
                   const base::FilePath& path,
                   PrefService* prefs);
+
+  // Gets the name of the profile as the concatenation of the Gaia name and the
+  // profile name, which is the one displayed in the User Menu.
+  base::string16 GetNameToDisplay() const;
 
   // Loads or uses an already loaded high resolution image of the generic
   // profile avatar.

@@ -6,12 +6,13 @@ package org.chromium.chrome.browser.autofill_assistant.user_data;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.annotation.Nullable;
 
 import org.chromium.chrome.autofill_assistant.R;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
@@ -173,12 +174,8 @@ public class AssistantPaymentMethodSection
             return true;
         }
 
-        // TODO: Inject the PersonalDataManager instance.
-        PersonalDataManager personalDataManager = PersonalDataManager.getInstance();
-        String billingAddressId = method.getCard().getBillingAddressId();
-        PersonalDataManager.AutofillProfile profile =
-                personalDataManager.getProfile(billingAddressId);
-        if (profile == null || TextUtils.isEmpty(profile.getPostalCode())) {
+        if (method.getBillingProfile() == null
+                || TextUtils.isEmpty(method.getBillingProfile().getPostalCode())) {
             return false;
         }
 

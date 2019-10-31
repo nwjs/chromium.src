@@ -120,11 +120,11 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
                              content::RenderViewHost* new_host) override;
 
   // views::View implementation.
-  void Layout() override;
   void ViewHierarchyChanged(
       const views::ViewHierarchyChangedDetails& details) override;
   gfx::Size GetMinimumSize() const override;
   gfx::Size GetMaximumSize() const override;
+  void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   void OnFocus() override;
 
   // NativeAppWindow implementation.
@@ -165,14 +165,14 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
   // Informs modal dialogs that they need to update their positions.
   void OnViewWasResized();
 
-  extensions::AppWindow* app_window_;  // Not owned.
-  views::WebView* web_view_;
-  views::Widget* widget_;
+  extensions::AppWindow* app_window_ = nullptr;  // Not owned.
+  views::WebView* web_view_ = nullptr;
+  views::Widget* widget_ = nullptr;
 
   std::unique_ptr<SkRegion> draggable_region_;
 
-  bool frameless_;
-  bool resizable_;
+  bool frameless_ = false;
+  bool resizable_ = false;
   extensions::SizeConstraints size_constraints_;
   extensions::SizeConstraints saved_size_constraints_;
 

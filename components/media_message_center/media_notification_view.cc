@@ -14,11 +14,11 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/font_list.h"
-#include "ui/message_center/public/cpp/message_center_constants.h"
 #include "ui/message_center/views/notification_header_view.h"
 #include "ui/views/controls/button/image_button_factory.h"
 #include "ui/views/layout/box_layout.h"
@@ -30,13 +30,6 @@ namespace media_message_center {
 using media_session::mojom::MediaSessionAction;
 
 namespace {
-
-// The right padding is 1/5th the size of the notification.
-constexpr int kRightMarginSize = message_center::kNotificationWidth / 5;
-
-// The right padding is 1/3rd the size of the notification when the
-// notification is expanded.
-constexpr int kRightMarginExpandedSize = message_center::kNotificationWidth / 4;
 
 // The number of actions supported when the notification is expanded or not.
 constexpr size_t kMediaNotificationActionsCount = 3;
@@ -106,11 +99,13 @@ MediaNotificationView::MediaNotificationView(
     MediaNotificationContainer* container,
     base::WeakPtr<MediaNotificationItem> item,
     views::View* header_row_controls_view,
-    const base::string16& default_app_name)
+    const base::string16& default_app_name,
+    int notification_width)
     : container_(container),
       item_(std::move(item)),
       header_row_controls_view_(header_row_controls_view),
-      default_app_name_(default_app_name) {
+      default_app_name_(default_app_name),
+      notification_width_(notification_width) {
   DCHECK(container_);
 
   SetLayoutManager(std::make_unique<views::BoxLayout>(
@@ -298,6 +293,8 @@ void MediaNotificationView::UpdateWithMediaSessionInfo(
 
   UpdateActionButtonsVisibility();
 
+  container_->OnMediaSessionInfoChanged(session_info);
+
   PreferredSizeChanged();
   Layout();
   SchedulePaint();
@@ -324,6 +321,8 @@ void MediaNotificationView::UpdateWithMediaMetadata(
     RecordMetadataHistogram(Metadata::kAlbum);
 
   RecordMetadataHistogram(Metadata::kCount);
+
+  container_->OnMediaSessionMetadataChanged();
 
   PreferredSizeChanged();
   Layout();
@@ -380,7 +379,11 @@ void MediaNotificationView::UpdateActionButtonsVisibility() {
       action_button->InvalidateLayout();
   }
 
-  container_->OnVisibleActionsChanged(visible_actions);
+  // We want to give the container a list of all possibly visible actions, and
+  // not just currently visible actions so it can make a decision on whether or
+  // not to force an expanded state.
+  container_->OnVisibleActionsChanged(GetTopVisibleActions(
+      enabled_actions_, ignored_actions, GetMaxNumActions(true)));
 }
 
 void MediaNotificationView::UpdateViewForExpandedState() {
@@ -398,7 +401,9 @@ void MediaNotificationView::UpdateViewForExpandedState() {
             views::BoxLayout::Orientation::kVertical,
             gfx::Insets(
                 kDefaultMarginSize, kDefaultMarginSize, kDefaultMarginSize,
-                has_artwork_ ? kRightMarginExpandedSize : kDefaultMarginSize),
+                has_artwork_
+                    ? (notification_width_ * kMediaImageMaxWidthExpandedPct)
+                    : kDefaultMarginSize),
             kDefaultMarginSize))
         ->SetDefaultFlex(1);
   } else {
@@ -409,7 +414,9 @@ void MediaNotificationView::UpdateViewForExpandedState() {
         ->SetLayoutManager(std::make_unique<views::BoxLayout>(
             views::BoxLayout::Orientation::kHorizontal,
             gfx::Insets(0, kDefaultMarginSize, 14,
-                        has_artwork_ ? kRightMarginSize : kDefaultMarginSize),
+                        has_artwork_
+                            ? (notification_width_ * kMediaImageMaxWidthPct)
+                            : kDefaultMarginSize),
             kDefaultMarginSize, true))
         ->SetFlexForView(title_artist_row_, 1);
   }
@@ -422,10 +429,9 @@ void MediaNotificationView::UpdateViewForExpandedState() {
   }
 
   header_row_->SetExpanded(expanded);
+  container_->OnExpanded(expanded);
 
   UpdateActionButtonsVisibility();
-
-  container_->OnExpanded(expanded);
 }
 
 void MediaNotificationView::CreateMediaButton(
@@ -479,11 +485,11 @@ void MediaNotificationView::UpdateForegroundColor() {
   header_row_->SetBackgroundColor(background);
 
   // Update play/pause button images.
-  views::SetImageFromVectorIcon(
+  views::SetImageFromVectorIconWithColor(
       play_pause_button_,
       *GetVectorIconForMediaAction(MediaSessionAction::kPlay),
       kMediaButtonIconSize, foreground);
-  views::SetToggledImageFromVectorIcon(
+  views::SetToggledImageFromVectorIconWithColor(
       play_pause_button_,
       *GetVectorIconForMediaAction(MediaSessionAction::kPause),
       kMediaButtonIconSize, foreground);
@@ -500,12 +506,14 @@ void MediaNotificationView::UpdateForegroundColor() {
 
     views::ImageButton* button = static_cast<views::ImageButton*>(child);
 
-    views::SetImageFromVectorIcon(
+    views::SetImageFromVectorIconWithColor(
         button, *GetVectorIconForMediaAction(GetActionFromButtonTag(*button)),
         kMediaButtonIconSize, foreground);
 
     button->SchedulePaint();
   }
+
+  container_->OnColorsChanged(foreground, background);
 }
 
 }  // namespace media_message_center

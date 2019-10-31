@@ -9,18 +9,17 @@
 
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/metrics/tab_count_metrics.h"
 #include "chrome/browser/themes/theme_properties.h"
+#include "chrome/browser/ui/tabs/tab_renderer_data.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/thumbnails/thumbnail_image.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
-#include "chrome/browser/ui/views/tabs/tab_renderer_data.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/tab_count_metrics/tab_count_metrics.h"
 #include "components/url_formatter/url_formatter.h"
@@ -214,8 +213,7 @@ class TabHoverCardBubbleView::WidgetSlideAnimationDelegate
       : AnimationDelegateViews(hover_card_delegate),
         bubble_delegate_(hover_card_delegate),
         slide_animation_(std::make_unique<gfx::SlideAnimation>(this)) {
-    constexpr int kSlideDuration = 75;
-    slide_animation_->SetSlideDuration(kSlideDuration);
+    slide_animation_->SetSlideDuration(base::TimeDelta::FromMilliseconds(75));
   }
   ~WidgetSlideAnimationDelegate() override {}
 
@@ -342,19 +340,19 @@ TabHoverCardBubbleView::TabHoverCardBubbleView(Tab* tab)
   layout->SetCrossAxisAlignment(views::LayoutAlignment::kStretch);
   layout->SetCollapseMargins(true);
 
-  constexpr int kHorizontalMargin = 12;
-  constexpr int kVerticalMargin = 18;
+  constexpr int kVerticalMargin = 10;
+  constexpr int kHorizontalMargin = 18;
   constexpr int kLineSpacing = 0;
   title_label_->SetProperty(views::kMarginsKey,
-                            gfx::Insets(kHorizontalMargin, kVerticalMargin,
-                                        kLineSpacing, kVerticalMargin));
+                            gfx::Insets(kVerticalMargin, kHorizontalMargin,
+                                        kLineSpacing, kHorizontalMargin));
   title_label_->SetProperty(views::kFlexBehaviorKey,
                             views::FlexSpecification::ForSizeRule(
                                 views::MinimumFlexSizeRule::kScaleToMinimum,
                                 views::MaximumFlexSizeRule::kPreferred));
   domain_label_->SetProperty(views::kMarginsKey,
-                             gfx::Insets(kLineSpacing, kVerticalMargin,
-                                         kHorizontalMargin, kVerticalMargin));
+                             gfx::Insets(kLineSpacing, kHorizontalMargin,
+                                         kVerticalMargin, kHorizontalMargin));
 
   widget_ = views::BubbleDialogDelegateView::CreateBubble(this);
   set_adjust_if_offscreen(true);
@@ -364,6 +362,10 @@ TabHoverCardBubbleView::TabHoverCardBubbleView(Tab* tab)
   fade_animation_delegate_ =
       std::make_unique<WidgetFadeAnimationDelegate>(widget_);
 
+  constexpr int kFootnoteVerticalMargin = 8;
+  GetBubbleFrameView()->set_footnote_margins(
+      gfx::Insets(kFootnoteVerticalMargin, kHorizontalMargin,
+                  kFootnoteVerticalMargin, kHorizontalMargin));
   GetBubbleFrameView()->set_preferred_arrow_adjustment(
       views::BubbleFrameView::PreferredArrowAdjustment::kOffset);
   GetBubbleFrameView()->set_hit_test_transparent(true);
@@ -500,8 +502,27 @@ void TabHoverCardBubbleView::OnWidgetVisibilityChanged(views::Widget* widget,
     ++hover_cards_seen_count_;
 }
 
+ax::mojom::Role TabHoverCardBubbleView::GetAccessibleWindowRole() {
+  // Override the role so that hover cards are not read when they appear because
+  // tabs handle accessibility text.
+  return ax::mojom::Role::kIgnored;
+}
+
 int TabHoverCardBubbleView::GetDialogButtons() const {
   return ui::DIALOG_BUTTON_NONE;
+}
+
+std::unique_ptr<views::View> TabHoverCardBubbleView::CreateFootnoteView() {
+  if (!alert_state_.has_value())
+    return nullptr;
+
+  auto alert_state_label = std::make_unique<views::Label>(
+      base::string16(), CONTEXT_BODY_TEXT_LARGE, views::style::STYLE_PRIMARY);
+  alert_state_label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  alert_state_label->SetMultiLine(true);
+  alert_state_label->SetVisible(true);
+  alert_state_label->SetText(chrome::GetTabAlertStateText(*alert_state_));
+  return alert_state_label;
 }
 
 base::TimeDelta TabHoverCardBubbleView::GetDelay(int tab_width) const {
@@ -543,6 +564,7 @@ void TabHoverCardBubbleView::FadeInToShow() {
 
 void TabHoverCardBubbleView::UpdateCardContent(const Tab* tab) {
   base::string16 title;
+  base::Optional<TabAlertState> old_alert_state = alert_state_;
   GURL domain_url;
   // Use committed URL to determine if no page has yet loaded, since the title
   // can be blank for some web pages.
@@ -551,9 +573,11 @@ void TabHoverCardBubbleView::UpdateCardContent(const Tab* tab) {
     title = tab->data().IsCrashed()
                 ? l10n_util::GetStringUTF16(IDS_HOVER_CARD_CRASHED_TITLE)
                 : l10n_util::GetStringUTF16(IDS_TAB_LOADING_TITLE);
+    alert_state_ = base::nullopt;
   } else {
     domain_url = tab->data().last_committed_url;
     title = tab->data().title;
+    alert_state_ = tab->data().alert_state;
   }
   base::string16 domain;
   if (domain_url.SchemeIsFile()) {
@@ -572,6 +596,10 @@ void TabHoverCardBubbleView::UpdateCardContent(const Tab* tab) {
         net::UnescapeRule::NORMAL, nullptr, nullptr, nullptr);
   }
   title_label_->SetText(title);
+
+  if (alert_state_ != old_alert_state)
+    GetBubbleFrameView()->SetFootnoteView(CreateFootnoteView());
+
   domain_label_->SetText(domain);
 
   // If the preview image feature is not enabled, |preview_image_| will be null.

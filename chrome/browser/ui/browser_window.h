@@ -15,6 +15,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/apps/intent_helper/apps_navigation_types.h"
 #include "chrome/browser/lifetime/browser_close_manager.h"
+#include "chrome/browser/sharing/sharing_dialog_data.h"
 #include "chrome/browser/signin/chrome_signin_helper.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar.h"
@@ -22,7 +23,7 @@
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_bubble_type.h"
 #include "chrome/browser/ui/in_product_help/in_product_help.h"
-#include "chrome/browser/ui/page_action/page_action_icon_container.h"
+#include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/common/buildflags.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/translate/core/common/translate_errors.h"
@@ -44,16 +45,11 @@ class ExtensionsContainer;
 class FindBar;
 class GURL;
 class LocationBar;
-class PageActionIconContainer;
-class SharingUiController;
 class StatusBubble;
 class ToolbarActionsBar;
 
 namespace autofill {
-class LocalCardMigrationBubbleController;
-class LocalCardMigrationBubble;
-class SaveCardBubbleController;
-class SaveCardBubbleView;
+class AutofillBubbleHandler;
 }  // namespace autofill
 
 namespace content {
@@ -70,6 +66,11 @@ class Extension;
 namespace gfx {
 class Size;
 }
+
+namespace qrcode_generator {
+class QRCodeGeneratorBubbleController;
+class QRCodeGeneratorBubbleView;
+}  // namespace qrcode_generator
 
 namespace signin_metrics {
 enum class AccessPoint;
@@ -138,6 +139,14 @@ class BrowserWindow : public ui::BaseWindow {
                                       const std::vector<extensions::DraggableRegion>& regions) = 0;
   virtual SkRegion* GetDraggableRegion() = 0;
   virtual void NativeWindowChanged() = 0;
+
+  // Returns true if the browser window is on the current workspace (a.k.a.
+  // virtual desktop) or if we can't tell. False otherwise.
+  //
+  // On Windows, it must not be called while application is dispatching an input
+  // synchronous call like SendMessage, because IsWindowOnCurrentVirtualDesktop
+  // will return an error.
+  virtual bool IsOnCurrentWorkspace() const = 0;
 
   // Sets the shown |ratio| of the browser's top controls (a.k.a. top-chrome) as
   // a result of gesture scrolling in |web_contents|.
@@ -258,14 +267,16 @@ class BrowserWindow : public ui::BaseWindow {
   // be called after the TabStripModel has an active tab.
   virtual void SetContentsSize(const gfx::Size& size) = 0;
 
-  // Returns the container of page action icons.
-  virtual PageActionIconContainer* GetOmniboxPageActionIconContainer() = 0;
+  // Updates the visual state of the specified page action icon if present on
+  // the window. Returns whether any change occurred.
+  virtual bool UpdatePageActionIcon(PageActionIconType type) = 0;
 
-  // Returns the container of toolbar page action icons. The page action icon
-  // container above is in the omnibox. The toolbar page action icon container
-  // is in the toolbar which contains user-account-related data icons and the
-  // profile avatar icon.
-  virtual PageActionIconContainer* GetToolbarPageActionIconContainer() = 0;
+  // Returns the AutofillBubbleHandler responsible for handling all
+  // Autofill-related bubbles.
+  virtual autofill::AutofillBubbleHandler* GetAutofillBubbleHandler() = 0;
+
+  // Executes the action for the specified page action icon.
+  virtual void ExecutePageActionIconForTesting(PageActionIconType type) = 0;
 
   // Returns the location bar.
   virtual LocationBar* GetLocationBar() const = 0;
@@ -343,7 +354,7 @@ class BrowserWindow : public ui::BaseWindow {
 
   // Shows the dialog for a sharing feature.
   virtual SharingDialog* ShowSharingDialog(content::WebContents* contents,
-                                           SharingUiController* controller) = 0;
+                                           SharingDialogData data) = 0;
 
   // Shows the Update Recommended dialog box.
   virtual void ShowUpdateChromeDialog() = 0;
@@ -366,22 +377,17 @@ class BrowserWindow : public ui::BaseWindow {
   // |already_bookmarked| is true if the url is already bookmarked.
   virtual void ShowBookmarkBubble(const GURL& url, bool already_bookmarked) = 0;
 
-  // Shows the "Save credit card" bubble.
-  virtual autofill::SaveCardBubbleView* ShowSaveCreditCardBubble(
+  // Shows the QR Code generator bubble. |url| is the URL for the initial code.
+  virtual qrcode_generator::QRCodeGeneratorBubbleView*
+  ShowQRCodeGeneratorBubble(
       content::WebContents* contents,
-      autofill::SaveCardBubbleController* controller,
-      bool is_user_gesture) = 0;
+      qrcode_generator::QRCodeGeneratorBubbleController* controller,
+      const GURL& url) = 0;
 
   // Shows the "send tab to self" bubble.
   virtual send_tab_to_self::SendTabToSelfBubbleView* ShowSendTabToSelfBubble(
       content::WebContents* contents,
       send_tab_to_self::SendTabToSelfBubbleController* controller,
-      bool is_user_gesture) = 0;
-
-  // Shows the local card migration bubble.
-  virtual autofill::LocalCardMigrationBubble* ShowLocalCardMigrationBubble(
-      content::WebContents* contents,
-      autofill::LocalCardMigrationBubbleController* controller,
       bool is_user_gesture) = 0;
 
   // Shows the translate bubble.

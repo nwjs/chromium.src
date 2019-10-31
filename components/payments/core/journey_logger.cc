@@ -481,12 +481,6 @@ void JourneyLogger::ValidateEventBits() const {
   if (events_ & EVENT_SKIPPED_SHOW) {
     // Built in autofill payment handler for basic card should not skip UI show.
     DCHECK(!(events_ & EVENT_SELECTED_CREDIT_CARD));
-    // Payment sheet should not get skipped when any of the following info is
-    // required.
-    DCHECK(!(events_ & EVENT_REQUEST_SHIPPING));
-    DCHECK(!(events_ & EVENT_REQUEST_PAYER_NAME));
-    DCHECK(!(events_ & EVENT_REQUEST_PAYER_EMAIL));
-    DCHECK(!(events_ & EVENT_REQUEST_PAYER_PHONE));
   }
 
   // Check that the two bits are not set at the same time.

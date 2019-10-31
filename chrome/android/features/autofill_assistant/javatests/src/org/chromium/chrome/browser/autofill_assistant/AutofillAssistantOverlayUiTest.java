@@ -53,10 +53,10 @@ public class AutofillAssistantOverlayUiTest {
 
     // TODO(crbug.com/806868): Create a more specific test site for overlay testing.
     private static final String TEST_PAGE =
-            "/components/test/data/autofill_assistant/autofill_assistant_target_website.html";
+            "/components/test/data/autofill_assistant/html/autofill_assistant_target_website.html";
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         mTestRule.startCustomTabActivityWithIntent(CustomTabsTestUtils.createMinimalCustomTabIntent(
                 InstrumentationRegistry.getTargetContext(),
                 mTestRule.getTestServer().getURL(TEST_PAGE)));

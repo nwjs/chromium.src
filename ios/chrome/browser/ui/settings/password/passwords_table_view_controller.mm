@@ -20,6 +20,7 @@
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_store.h"
 #include "components/password_manager/core/browser/password_ui_utils.h"
+#include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_member.h"
 #include "components/prefs/pref_service.h"
@@ -29,6 +30,9 @@
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/passwords/ios_chrome_password_store_factory.h"
 #import "ios/chrome/browser/passwords/save_passwords_consumer.h"
+#import "ios/chrome/browser/signin/authentication_service.h"
+#include "ios/chrome/browser/signin/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/chrome_identity_service_observer_bridge.h"
 #include "ios/chrome/browser/system_flags.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_cells_constants.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_switch_cell.h"
@@ -77,6 +81,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   ItemTypeLinkHeader = kItemTypeEnumZero,
   ItemTypeHeader,
   ItemTypeSavePasswordsSwitch,
+  ItemTypePasswordLeakCheckSwitch,
   ItemTypeSavedPassword,  // This is a repeated item type.
   ItemTypeBlacklisted,    // This is a repeated item type.
   ItemTypeExportPasswordsButton,
@@ -151,6 +156,7 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
 
 @interface PasswordsTableViewController () <
     BooleanObserver,
+    ChromeIdentityServiceObserver,
     PasswordDetailsTableViewControllerDelegate,
     PasswordExporterDelegate,
     PasswordExportActivityViewControllerDelegate,
@@ -161,10 +167,16 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
   // The observable boolean that binds to the password manager setting state.
   // Saved passwords are only on if the password manager is enabled.
   PrefBackedBoolean* passwordManagerEnabled_;
+  // The observable boolean that binds to the password leak check settings
+  // state.
+  PrefBackedBoolean* passwordLeakCheckEnabled_;
   // The header for save passwords switch section.
   TableViewLinkHeaderFooterItem* manageAccountLinkItem_;
   // The item related to the switch for the password manager setting.
   SettingsSwitchItem* savePasswordsItem_;
+  // The item related to the switch for the automatic password leak detection
+  // setting.
+  SettingsSwitchItem* leakCheckItem_;
   // The item related to the button for exporting passwords.
   TableViewTextItem* exportPasswordsItem_;
   // The interface for getting and manipulating a user's saved passwords.
@@ -182,6 +194,8 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
   password_manager::DuplicatesMap blacklistedPasswordDuplicates_;
   // The current Chrome browser state.
   ios::ChromeBrowserState* browserState_;
+  // Authentication Service Observer.
+  std::unique_ptr<ChromeIdentityServiceObserverBridge> identityServiceObserver_;
   // Object storing the time of the previous successful re-authentication.
   // This is meant to be used by the |ReauthenticationModule| for keeping
   // re-authentications valid for a certain time interval within the scope
@@ -243,6 +257,16 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
         initWithPrefService:browserState_->GetPrefs()
                    prefName:password_manager::prefs::kCredentialsEnableService];
     [passwordManagerEnabled_ setObserver:self];
+    if (base::FeatureList::IsEnabled(
+            password_manager::features::kLeakDetection)) {
+      passwordLeakCheckEnabled_ = [[PrefBackedBoolean alloc]
+          initWithPrefService:browserState_->GetPrefs()
+                     prefName:password_manager::prefs::
+                                  kPasswordLeakDetectionEnabled];
+      [passwordLeakCheckEnabled_ setObserver:self];
+      identityServiceObserver_.reset(
+          new ChromeIdentityServiceObserverBridge(self));
+    }
     [self getLoginsFromPasswordStore];
     [self updateUIForEditState];
     [self updateExportPasswordsButton];
@@ -322,10 +346,12 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
   [super setEditing:editing animated:animated];
   if (editing) {
     [self setSavePasswordsSwitchItemEnabled:NO];
+    [self setLeakCheckSwitchItemEnabled:NO];
     [self setExportPasswordsButtonEnabled:NO];
     [self setSearchBarEnabled:NO];
   } else {
     [self setSavePasswordsSwitchItemEnabled:YES];
+    [self setLeakCheckSwitchItemEnabled:YES];
     if (exportReady_) {
       [self setExportPasswordsButtonEnabled:YES];
     }
@@ -346,6 +372,13 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
     savePasswordsItem_ = [self savePasswordsItem];
     [model addItem:savePasswordsItem_
         toSectionWithIdentifier:SectionIdentifierSavePasswordsSwitch];
+    if (base::FeatureList::IsEnabled(
+            password_manager::features::kLeakDetection)) {
+      leakCheckItem_ = [self leakCheckItem];
+      [self updateDetailTextLeakCheckItem];
+      [model addItem:leakCheckItem_
+          toSectionWithIdentifier:SectionIdentifierSavePasswordsSwitch];
+    }
     manageAccountLinkItem_ = [self manageAccountLinkItem];
     [model setHeader:manageAccountLinkItem_
         forSectionWithIdentifier:SectionIdentifierSavePasswordsSwitch];
@@ -434,6 +467,20 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
   return savePasswordsItem;
 }
 
+- (SettingsSwitchItem*)leakCheckItem {
+  SettingsSwitchItem* leakCheckItem =
+      [[SettingsSwitchItem alloc] initWithType:ItemTypePasswordLeakCheckSwitch];
+  leakCheckItem.text = l10n_util::GetNSString(IDS_IOS_LEAK_CHECK_SWITCH);
+  leakCheckItem.on = [passwordLeakCheckEnabled_ value];
+  leakCheckItem.accessibilityIdentifier = @"leakCheckItem_switch";
+
+  AuthenticationService* authService =
+      AuthenticationServiceFactory::GetForBrowserState(browserState_);
+  leakCheckItem.enabled = authService->IsAuthenticated();
+
+  return leakCheckItem;
+}
+
 - (TableViewTextItem*)exportPasswordsItem {
   TableViewTextItem* exportPasswordsItem =
       [[TableViewTextItem alloc] initWithType:ItemTypeExportPasswordsButton];
@@ -472,16 +519,31 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
 #pragma mark - BooleanObserver
 
 - (void)booleanDidChange:(id<ObservableBoolean>)observableBoolean {
-  DCHECK_EQ(observableBoolean, passwordManagerEnabled_);
+  if (observableBoolean == passwordManagerEnabled_) {
+    // Update the item.
+    savePasswordsItem_.on = [passwordManagerEnabled_ value];
 
-  // Update the item.
-  savePasswordsItem_.on = [passwordManagerEnabled_ value];
+    // Update the cell if it's not removed by presenting search controller.
+    if ([self.tableViewModel
+            hasItemForItemType:ItemTypeSavePasswordsSwitch
+             sectionIdentifier:SectionIdentifierSavePasswordsSwitch]) {
+      [self reconfigureCellsForItems:@[ savePasswordsItem_ ]];
+    }
+  } else if (observableBoolean == passwordLeakCheckEnabled_) {
+    DCHECK(base::FeatureList::IsEnabled(
+        password_manager::features::kLeakDetection));
+    // Update the item.
+    leakCheckItem_.on = [passwordLeakCheckEnabled_ value];
 
-  // Update the cell if it's not removed by presenting search controller.
-  if ([self.tableViewModel
-          hasItemForItemType:ItemTypeSavePasswordsSwitch
-           sectionIdentifier:SectionIdentifierSavePasswordsSwitch]) {
-    [self reconfigureCellsForItems:@[ savePasswordsItem_ ]];
+    // Update the cell if it's not removed by presenting search controller.
+    if ([self.tableViewModel
+            hasItemForItemType:ItemTypePasswordLeakCheckSwitch
+             sectionIdentifier:SectionIdentifierSavePasswordsSwitch]) {
+      [self updateDetailTextLeakCheckItem];
+      [self reconfigureCellsForItems:@[ leakCheckItem_ ]];
+    }
+  } else {
+    NOTREACHED();
   }
 }
 
@@ -493,6 +555,16 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
 
   // Update the item.
   savePasswordsItem_.on = [passwordManagerEnabled_ value];
+}
+
+- (void)passwordLeakCheckSwitchChanged:(UISwitch*)switchView {
+  // Update the setting.
+  [passwordLeakCheckEnabled_ setValue:switchView.on];
+
+  // Update the item.
+  leakCheckItem_.on = [passwordLeakCheckEnabled_ value];
+  [self updateDetailTextLeakCheckItem];
+  [self reconfigureCellsForItems:@[ leakCheckItem_ ]];
 }
 
 #pragma mark - SavePasswordsConsumerDelegate
@@ -585,6 +657,11 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
                       withRowAnimation:UITableViewRowAnimationTop];
         [model addItem:savePasswordsItem_
             toSectionWithIdentifier:SectionIdentifierSavePasswordsSwitch];
+        if (base::FeatureList::IsEnabled(
+                password_manager::features::kLeakDetection)) {
+          [model addItem:leakCheckItem_
+              toSectionWithIdentifier:SectionIdentifierSavePasswordsSwitch];
+        }
         [self.tableView
             insertRowsAtIndexPaths:@[ [NSIndexPath indexPathForRow:0
                                                          inSection:0] ]
@@ -623,6 +700,7 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
     // a scrollView and it seems that we get an empty frame when attaching to
     // it.
     AddSameConstraints(self.scrimView, self.view.superview);
+    self.tableView.accessibilityElementsHidden = YES;
     self.tableView.scrollEnabled = NO;
     [UIView animateWithDuration:kTableViewNavigationScrimFadeDuration
                      animations:^{
@@ -641,6 +719,7 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
         }
         completion:^(BOOL finished) {
           [self.scrimView removeFromSuperview];
+          self.tableView.accessibilityElementsHidden = NO;
           self.tableView.scrollEnabled = YES;
         }];
   }
@@ -663,10 +742,11 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
     [indexSet addIndex:blacklistedSection];
   }
   if (indexSet.count > 0) {
+    BOOL animationsWereEnabled = [UIView areAnimationsEnabled];
     [UIView setAnimationsEnabled:NO];
     [self.tableView reloadSections:indexSet
                   withRowAnimation:UITableViewRowAnimationAutomatic];
-    [UIView setAnimationsEnabled:YES];
+    [UIView setAnimationsEnabled:animationsWereEnabled];
   }
 }
 
@@ -907,6 +987,7 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
     case ItemTypeLinkHeader:
     case ItemTypeHeader:
     case ItemTypeSavePasswordsSwitch:
+    case ItemTypePasswordLeakCheckSwitch:
       break;
     case ItemTypeSavedPassword: {
       DCHECK_EQ(SectionIdentifierSavedPasswords,
@@ -984,6 +1065,17 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
       [switchCell.switchView addTarget:self
                                 action:@selector(savePasswordsSwitchChanged:)
                       forControlEvents:UIControlEventValueChanged];
+      break;
+    }
+    case ItemTypePasswordLeakCheckSwitch: {
+      DCHECK(base::FeatureList::IsEnabled(
+          password_manager::features::kLeakDetection));
+      SettingsSwitchCell* switchCell =
+          base::mac::ObjCCastStrict<SettingsSwitchCell>(cell);
+      [switchCell.switchView
+                 addTarget:self
+                    action:@selector(passwordLeakCheckSwitchChanged:)
+          forControlEvents:UIControlEventValueChanged];
       break;
     }
   }
@@ -1167,6 +1259,19 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
   [self reconfigureCellsForItems:@[ savePasswordsItem_ ]];
 }
 
+// Sets the leak check switch item's enabled status to |enabled| and
+// reconfigures the corresponding cell. If the user is not sign in, |enabled| is
+// overriden with |NO|.
+- (void)setLeakCheckSwitchItemEnabled:(BOOL)enabled {
+  if (!base::FeatureList::IsEnabled(password_manager::features::kLeakDetection))
+    return;
+  AuthenticationService* authService =
+      AuthenticationServiceFactory::GetForBrowserState(browserState_);
+  [leakCheckItem_ setEnabled:enabled && authService->IsAuthenticated()];
+  [self updateDetailTextLeakCheckItem];
+  [self reconfigureCellsForItems:@[ leakCheckItem_ ]];
+}
+
 // Enables/disables search bar.
 - (void)setSearchBarEnabled:(BOOL)enabled {
   if (enabled) {
@@ -1177,6 +1282,29 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
     self.navigationItem.searchController.searchBar.alpha =
         kTableViewNavigationAlphaForDisabledSearchBar;
   }
+}
+
+// Updates the detail text of the leak check item based on the state.
+- (void)updateDetailTextLeakCheckItem {
+  if (!leakCheckItem_) {
+    return;
+  }
+  if (self.editing) {
+    // When editing keep the current detail text.
+    return;
+  }
+  if (leakCheckItem_.enabled) {
+    leakCheckItem_.detailText =
+        l10n_util::GetNSString(IDS_IOS_LEAK_CHECK_SIGNED_IN_DESC);
+    return;
+  }
+  if (leakCheckItem_.on) {
+    leakCheckItem_.detailText =
+        l10n_util::GetNSString(IDS_IOS_LEAK_CHECK_SIGNED_OUT_ENABLED_DESC);
+    return;
+  }
+  leakCheckItem_.detailText =
+      l10n_util::GetNSString(IDS_IOS_LEAK_CHECK_SIGNED_OUT_DISABLED_DESC);
 }
 
 #pragma mark - Testing
@@ -1190,6 +1318,16 @@ std::vector<std::unique_ptr<autofill::PasswordForm>> CopyOf(
 
 - (PasswordExporter*)getPasswordExporter {
   return _passwordExporter;
+}
+
+#pragma mark - ChromeIdentityServiceObserver
+
+- (void)identityListChanged {
+  [self reloadData];
+}
+
+- (void)chromeIdentityServiceWillBeDestroyed {
+  identityServiceObserver_.reset();
 }
 
 @end

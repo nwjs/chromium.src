@@ -84,6 +84,9 @@ class PaymentRequest : public mojom::PaymentRequest,
   // PaymentHandlerHost::Delegate
   bool ChangePaymentMethod(const std::string& method_name,
                            const std::string& stringified_data) override;
+  bool ChangeShippingOption(const std::string& shipping_option_id) override;
+  bool ChangeShippingAddress(
+      mojom::PaymentAddressPtr shipping_address) override;
 
   // PaymentRequestSpec::Observer:
   void OnSpecUpdated() override {}
@@ -125,6 +128,7 @@ class PaymentRequest : public mojom::PaymentRequest,
   content::WebContents* web_contents() { return web_contents_; }
 
   bool skipped_payment_request_ui() { return skipped_payment_request_ui_; }
+  bool is_show_user_gesture() const { return is_show_user_gesture_; }
 
   PaymentRequestSpec* spec() { return spec_.get(); }
   PaymentRequestState* state() { return state_.get(); }

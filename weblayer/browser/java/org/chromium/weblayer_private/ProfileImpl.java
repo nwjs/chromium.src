@@ -4,45 +4,41 @@
 
 package org.chromium.weblayer_private;
 
-import android.content.Context;
-
 import org.chromium.base.annotations.JNINamespace;
-import org.chromium.weblayer_private.aidl.IBrowserController;
-import org.chromium.weblayer_private.aidl.IObjectWrapper;
+import org.chromium.base.annotations.NativeMethods;
 import org.chromium.weblayer_private.aidl.IProfile;
-import org.chromium.weblayer_private.aidl.ObjectWrapper;
 
 @JNINamespace("weblayer")
 public final class ProfileImpl extends IProfile.Stub {
     private long mNativeProfile;
+    private Runnable mOnDestroyCallback;
 
-    public ProfileImpl(String path) {
-        mNativeProfile = nativeCreateProfile(path);
+    ProfileImpl(String path, Runnable onDestroyCallback) {
+        mNativeProfile = ProfileImplJni.get().createProfile(path);
+        mOnDestroyCallback = onDestroyCallback;
     }
 
     @Override
     public void destroy() {
-        nativeDeleteProfile(mNativeProfile);
+        ProfileImplJni.get().deleteProfile(mNativeProfile);
         mNativeProfile = 0;
+        mOnDestroyCallback.run();
+        mOnDestroyCallback = null;
     }
 
     @Override
     public void clearBrowsingData() {
-        nativeClearBrowsingData(mNativeProfile);
-    }
-
-    @Override
-    public IBrowserController createBrowserController(IObjectWrapper context) {
-        return new BrowserControllerImpl(ObjectWrapper.unwrap(context, Context.class), this);
+        ProfileImplJni.get().clearBrowsingData(mNativeProfile);
     }
 
     long getNativeProfile() {
         return mNativeProfile;
     }
 
-    private static native long nativeCreateProfile(String path);
-
-    private static native void nativeDeleteProfile(long profile);
-
-    private static native void nativeClearBrowsingData(long nativeProfileImpl);
+    @NativeMethods
+    interface Natives {
+        long createProfile(String path);
+        void deleteProfile(long profile);
+        void clearBrowsingData(long nativeProfileImpl);
+    }
 }

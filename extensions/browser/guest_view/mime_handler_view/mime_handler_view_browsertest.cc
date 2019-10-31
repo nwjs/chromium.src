@@ -21,6 +21,7 @@
 #include "components/app_modal/javascript_app_modal_dialog.h"
 #include "components/app_modal/native_app_modal_dialog.h"
 #include "components/guest_view/browser/test_guest_view_manager.h"
+#include "components/printing/common/print_messages.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -39,6 +40,7 @@
 #include "extensions/common/guest_view/extensions_guest_view_messages.h"
 #include "extensions/common/mojom/guest_view.mojom.h"
 #include "extensions/test/result_catcher.h"
+#include "mojo/public/cpp/bindings/associated_remote.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
@@ -219,6 +221,60 @@ IN_PROC_BROWSER_TEST_P(MimeHandlerViewCrossProcessTest, Embedded) {
   EXPECT_EQ(1U, gv_manager->num_guests_created());
 }
 
+#if BUILDFLAG(ENABLE_PRINT_PREVIEW)
+class PrintPreviewWaiter : public content::BrowserMessageFilter {
+ public:
+  PrintPreviewWaiter() : BrowserMessageFilter(PrintMsgStart) {}
+
+  bool OnMessageReceived(const IPC::Message& message) override {
+    IPC_BEGIN_MESSAGE_MAP(PrintPreviewWaiter, message)
+      IPC_MESSAGE_HANDLER(PrintHostMsg_DidStartPreview, OnDidStartPreview)
+    IPC_END_MESSAGE_MAP()
+    return false;
+  }
+
+  void OnDidStartPreview(const PrintHostMsg_DidStartPreview_Params& params,
+                         const PrintHostMsg_PreviewIds& ids) {
+    // Expect that there is at least one page.
+    did_load_ = true;
+    run_loop_.Quit();
+
+    EXPECT_TRUE(params.page_count >= 1);
+  }
+
+  void Wait() {
+    if (!did_load_)
+      run_loop_.Run();
+  }
+
+ private:
+  ~PrintPreviewWaiter() override = default;
+
+  bool did_load_ = false;
+  base::RunLoop run_loop_;
+};
+
+IN_PROC_BROWSER_TEST_P(MimeHandlerViewCrossProcessTest, EmbeddedThenPrint) {
+  RunTest("test_embedded.html");
+  ui_test_utils::NavigateToURL(browser(), GURL(url::kAboutBlankURL));
+  auto* gv_manager = GetGuestViewManager();
+  gv_manager->WaitForAllGuestsDeleted();
+  EXPECT_EQ(1U, gv_manager->num_guests_created());
+
+  // Verify that print dialog comes up.
+  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* main_frame = web_contents->GetMainFrame();
+  auto print_preview_waiter = base::MakeRefCounted<PrintPreviewWaiter>();
+  web_contents->GetMainFrame()->GetProcess()->AddFilter(
+      print_preview_waiter.get());
+  // Use setTimeout() to prevent ExecuteScript() from blocking on the print
+  // dialog.
+  ASSERT_TRUE(content::ExecuteScript(
+      main_frame, "setTimeout(function() { window.print(); }, 0)"));
+  print_preview_waiter->Wait();
+}
+#endif  // BUILDFLAG(ENABLE_PRINT_PREVIEW)
+
 // This test start with an <object> that has a content frame. Then the content
 // frame (plugin frame) is navigated to a cross-origin target page. After the
 // navigation is completed, the <object> is set to render MimeHandlerView by
@@ -244,8 +300,10 @@ IN_PROC_BROWSER_TEST_P(MimeHandlerViewCrossProcessTest,
 // to load a MimeHandlerView. The test passes if MHV loads. This is to catch the
 // potential race between the cross-origin renderer initiated navigation and
 // the navigation to "about:blank" started from the browser.
+//
+// Disabled due to flakiness: https://crbug.com/1002788.
 IN_PROC_BROWSER_TEST_P(MimeHandlerViewCrossProcessTest,
-                       NavigationRaceFromEmbedder) {
+                       DISABLED_NavigationRaceFromEmbedder) {
   if (!is_cross_process_mode()) {
     // Note that this test would pass trivially with BrowserPlugin-based guests
     // because loading a plugin is quite independent from navigating a plugin.
@@ -322,7 +380,7 @@ IN_PROC_BROWSER_TEST_P(MimeHandlerViewCrossProcessTest,
   render_frame_observer.WaitUntilDeleted();
   // Send the IPC. During destruction MHVFC would cause a UaF since it was not
   // removed from the global map.
-  extensions::mojom::MimeHandlerViewContainerManagerAssociatedPtr
+  mojo::AssociatedRemote<extensions::mojom::MimeHandlerViewContainerManager>
       container_manager;
   embedder_web_contents->GetMainFrame()
       ->GetRemoteAssociatedInterfaces()

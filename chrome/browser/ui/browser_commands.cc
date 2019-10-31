@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/accelerator_utils.h"
 #include "chrome/browser/ui/autofill/payments/manage_migration_ui_controller.h"
 #include "chrome/browser/ui/autofill/payments/save_card_bubble_controller_impl.h"
+#include "chrome/browser/ui/bookmarks/bookmark_stats.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
 #include "chrome/browser/ui/browser.h"
@@ -598,7 +599,7 @@ void NewWindow(Browser* browser) {
         browser->profile(), extension, WindowOpenDisposition::NEW_WINDOW,
         extensions::AppLaunchSource::kSourceKeyboard);
     OpenApplicationWindow(
-        app_launch_params,
+        browser->profile(), app_launch_params,
         extensions::AppLaunchInfo::GetLaunchWebURL(extension));
     return;
   }
@@ -720,6 +721,12 @@ bool CanDuplicateTab(const Browser* browser) {
   return CanDuplicateTabAt(browser, browser->tab_strip_model()->active_index());
 }
 
+bool CanDuplicateKeyboardFocusedTab(const Browser* browser) {
+  if (!HasKeyboardFocusedTab(browser))
+    return false;
+  return CanDuplicateTabAt(browser, *GetKeyboardFocusedTabIndex(browser));
+}
+
 WebContents* DuplicateTabAt(Browser* browser, int index) {
   WebContents* contents = browser->tab_strip_model()->GetWebContentsAt(index);
   CHECK(contents);
@@ -794,6 +801,32 @@ void MuteSite(Browser* browser) {
       TabStripModel::ContextMenuCommand::CommandToggleSiteMuted);
 }
 
+void MuteSiteForKeyboardFocusedTab(Browser* browser) {
+  if (!HasKeyboardFocusedTab(browser))
+    return;
+  browser->tab_strip_model()->ExecuteContextMenuCommand(
+      *GetKeyboardFocusedTabIndex(browser),
+      TabStripModel::ContextMenuCommand::CommandToggleSiteMuted);
+}
+
+void PinKeyboardFocusedTab(Browser* browser) {
+  if (!HasKeyboardFocusedTab(browser))
+    return;
+  browser->tab_strip_model()->ExecuteContextMenuCommand(
+      *GetKeyboardFocusedTabIndex(browser),
+      TabStripModel::ContextMenuCommand::CommandTogglePinned);
+}
+
+void DuplicateKeyboardFocusedTab(Browser* browser) {
+  if (HasKeyboardFocusedTab(browser)) {
+    DuplicateTabAt(browser, *GetKeyboardFocusedTabIndex(browser));
+  }
+}
+
+bool HasKeyboardFocusedTab(const Browser* browser) {
+  return GetKeyboardFocusedTabIndex(browser).has_value();
+}
+
 void ConvertPopupToTabbedBrowser(Browser* browser) {
   base::RecordAction(UserMetricsAction("ShowAsTab"));
   TabStripModel* tab_strip = browser->tab_strip_model();
@@ -844,6 +877,9 @@ void BookmarkCurrentTabIgnoringExtensionOverrides(Browser* browser) {
     // weird situations where the bubble is deleted as soon as it is shown.
     browser->window()->ShowBookmarkBubble(url, was_bookmarked_by_user);
   }
+
+  if (!was_bookmarked_by_user && is_bookmarked_by_user)
+    RecordBookmarksAdded(browser->profile());
 }
 
 void BookmarkCurrentTabAllowingExtensionOverrides(Browser* browser) {
@@ -877,6 +913,10 @@ bool CanBookmarkCurrentTab(const Browser* browser) {
 
 void BookmarkAllTabs(Browser* browser) {
   base::RecordAction(UserMetricsAction("BookmarkAllTabs"));
+  RecordBookmarkAllTabsWithTabsCount(browser->profile(),
+                                     browser->tab_strip_model()->count());
+  // We record the profile that invoked this option.
+  RecordBookmarksAdded(browser->profile());
   chrome::ShowBookmarkAllTabsDialog(browser);
 }
 
@@ -977,7 +1017,7 @@ void Print(Browser* browser) {
 #if BUILDFLAG(ENABLE_PRINTING)
   auto* web_contents = browser->tab_strip_model()->GetActiveWebContents();
   printing::StartPrint(
-      web_contents,
+      web_contents, nullptr /* print_renderer */,
       browser->profile()->GetPrefs()->GetBoolean(prefs::kPrintPreviewDisabled),
       false /* has_selection? */);
 #endif
@@ -1328,5 +1368,11 @@ bool CanCreateBookmarkApp(const Browser* browser) {
   return web_app::CanCreateWebApp(browser);
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
+#if !defined(TOOLKIT_VIEWS)
+base::Optional<int> GetKeyboardFocusedTabIndex(const Browser* browser) {
+  return base::nullopt;
+}
+#endif
 
 }  // namespace chrome

@@ -543,7 +543,12 @@ MainThreadSchedulerImpl::AnyThread::AnyThread(
           "Scheduler.HaveSeenInputSinceNavigation",
           main_thread_scheduler_impl,
           &main_thread_scheduler_impl->tracing_controller_,
-          YesNoStateToString) {}
+          YesNoStateToString),
+      begin_main_frame_scheduled_count(
+          0,
+          "Scheduler.BeginMainFrameScheduledCount",
+          main_thread_scheduler_impl,
+          &main_thread_scheduler_impl->tracing_controller_) {}
 
 MainThreadSchedulerImpl::SchedulingSettings::SchedulingSettings() {
   high_priority_input =
@@ -786,7 +791,7 @@ scoped_refptr<MainThreadTaskQueue> MainThreadSchedulerImpl::NewTimerTaskQueue(
                           .SetCanBeDeferred(true)
                           .SetCanBeThrottled(true)
                           .SetFrameScheduler(frame_scheduler)
-                          .SetShouldUseVirtualTime(true));
+                          .SetCanRunWhenVirtualTimePaused(true));
 }
 
 std::unique_ptr<WebRenderWidgetSchedulingState>
@@ -1130,6 +1135,16 @@ void MainThreadSchedulerImpl::DidAnimateForInputOnCompositorThread() {
   any_thread().fling_compositor_escalation_deadline =
       helper_.NowTicks() +
       base::TimeDelta::FromMilliseconds(kFlingEscalationLimitMillis);
+}
+
+void MainThreadSchedulerImpl::DidScheduleBeginMainFrame() {
+  base::AutoLock lock(any_thread_lock_);
+  any_thread().begin_main_frame_scheduled_count += 1;
+}
+
+void MainThreadSchedulerImpl::DidRunBeginMainFrame() {
+  base::AutoLock lock(any_thread_lock_);
+  any_thread().begin_main_frame_scheduled_count -= 1;
 }
 
 void MainThreadSchedulerImpl::UpdateForInputEventOnCompositorThread(
@@ -2310,6 +2325,11 @@ MainThreadSchedulerImpl::CreateWebScopedVirtualTimePauser(
 PendingUserInputInfo MainThreadSchedulerImpl::GetPendingUserInputInfo() const {
   base::AutoLock lock(any_thread_lock_);
   return any_thread().pending_input_monitor.Info();
+}
+
+bool MainThreadSchedulerImpl::IsBeginMainFrameScheduled() const {
+  base::AutoLock lock(any_thread_lock_);
+  return any_thread().begin_main_frame_scheduled_count.value() > 0;
 }
 
 void MainThreadSchedulerImpl::RunIdleTask(Thread::IdleTask task,

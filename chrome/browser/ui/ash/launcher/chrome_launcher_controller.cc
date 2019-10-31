@@ -25,6 +25,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
+#include "chrome/browser/chromeos/crostini/crostini_features.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/extensions/chrome_app_icon_loader.h"
 #include "chrome/browser/extensions/extension_util.h"
@@ -33,7 +34,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/app_list/app_list_client_impl.h"
 #include "chrome/browser/ui/app_list/app_list_syncable_service_factory.h"
-#include "chrome/browser/ui/app_list/app_service_app_icon_loader.h"
+#include "chrome/browser/ui/app_list/app_service/app_service_app_icon_loader.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_icon_loader.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ui/app_list/crostini/crostini_app_icon_loader.h"
@@ -539,7 +540,7 @@ void ChromeLauncherController::UpdateV1AppState(const std::string& app_id) {
 ash::ShelfID ChromeLauncherController::GetShelfIDForWebContents(
     content::WebContents* contents) {
   std::string app_id = launcher_controller_helper_->GetAppID(contents);
-  if (app_id.empty() && crostini::IsCrostiniEnabled(profile()))
+  if (app_id.empty() && crostini::CrostiniFeatures::Get()->IsEnabled(profile()))
     app_id = GetCrostiniAppIdFromContents(contents);
   if (app_id.empty() && ContentCanBeHandledByGmailApp(contents))
     app_id = kGmailAppId;
@@ -789,6 +790,45 @@ void ChromeLauncherController::UnpinAppWithID(const std::string& app_id) {
   model_->UnpinAppWithID(app_id);
 }
 
+void ChromeLauncherController::ReplacePinnedItem(
+    const std::string& old_app_id,
+    const std::string& new_app_id) {
+  if (!model_->IsAppPinned(old_app_id) || model_->IsAppPinned(new_app_id))
+    return;
+  const int index = model_->ItemIndexByAppID(old_app_id);
+
+  const ash::ShelfID new_shelf_id(new_app_id);
+  ash::ShelfItem item;
+  item.type = ash::TYPE_PINNED_APP;
+  item.id = new_shelf_id;
+
+  // Remove old_app at index and replace with new app.
+  model_->RemoveItemAt(index);
+  model_->AddAt(index, item);
+}
+
+void ChromeLauncherController::PinAppAtIndex(const std::string& app_id,
+                                             int target_index) {
+  if (target_index < 0 || model_->IsAppPinned(app_id))
+    return;
+
+  const ash::ShelfID new_shelf_id(app_id);
+  ash::ShelfItem item;
+  item.type = ash::TYPE_PINNED_APP;
+  item.id = new_shelf_id;
+
+  model_->AddAt(target_index, item);
+}
+
+int ChromeLauncherController::PinnedItemIndexByAppID(
+    const std::string& app_id) {
+  if (model_->IsAppPinned(app_id)) {
+    ash::ShelfID shelf_id(app_id);
+    return model_->ItemIndexByID(shelf_id);
+  }
+  return kInvalidIndex;
+}
+
 AppIconLoader* ChromeLauncherController::GetAppIconLoaderForApp(
     const std::string& app_id) {
   for (const auto& app_icon_loader : app_icon_loaders_) {
@@ -842,6 +882,19 @@ void ChromeLauncherController::OnAppInstalled(
     if (app_icon_loader) {
       app_icon_loader->ClearImage(app_id);
       app_icon_loader->FetchImage(app_id);
+    }
+  }
+
+  // When the app is pinned to the shelf, or added to the shelf, the app
+  // probably isn't ready in AppService, so set the title again on
+  // callback when the app is ready in AppService.
+  int index = model_->ItemIndexByAppID(app_id);
+  if (index != kInvalidIndex) {
+    ash::ShelfItem item = model_->items()[index];
+    if ((item.type == ash::TYPE_APP || item.type == ash::TYPE_PINNED_APP) &&
+        item.title.empty()) {
+      item.title = LauncherControllerHelper::GetAppTitle(profile(), app_id);
+      model_->Set(index, item);
     }
   }
 
@@ -1264,6 +1317,7 @@ void ChromeLauncherController::AttachProfile(Profile* profile_to_attach) {
 
 void ChromeLauncherController::ReleaseProfile() {
   app_updaters_.clear();
+  app_icon_loaders_.clear();
 
   pref_change_registrar_.RemoveAll();
 

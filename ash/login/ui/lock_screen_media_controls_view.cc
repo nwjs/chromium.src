@@ -18,6 +18,7 @@
 #include "services/media_session/public/mojom/constants.mojom.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
 #include "services/service_manager/public/cpp/connector.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
@@ -42,13 +43,17 @@ namespace {
 
 constexpr SkColor kMediaControlsBackground = SkColorSetA(SK_ColorDKGRAY, 150);
 constexpr SkColor kMediaButtonColor = SK_ColorWHITE;
+constexpr SkColor kProgressBarForeground =
+    SkColorSetARGB(0xFF, 0x8A, 0xB4, 0xF8);
+constexpr SkColor kProgressBarBackground =
+    SkColorSetARGB(0x4C, 0x8A, 0xB4, 0xF8);
 
 // Maximum number of actions that should be displayed on |button_row_|.
 constexpr size_t kMaxActions = 5;
 
 // Dimensions.
 constexpr gfx::Insets kMediaControlsInsets = gfx::Insets(15, 15, 15, 15);
-constexpr int kMediaControlsCornerRadius = 8;
+constexpr int kMediaControlsCornerRadius = 16;
 constexpr int kMinimumIconSize = 16;
 constexpr int kDesiredIconSize = 20;
 constexpr int kIconSize = 20;
@@ -65,6 +70,9 @@ constexpr int kChangeTrackIconSize = 14;
 constexpr int kSeekingIconsSize = 26;
 constexpr gfx::Size kMediaControlsButtonRowSize =
     gfx::Size(300, kMediaButtonSize.height());
+constexpr gfx::Size kMediaButtonGroupSize =
+    gfx::Size(2 * kMediaButtonSize.width() + kMediaButtonRowSeparator,
+              kMediaButtonSize.height());
 constexpr int kArtworkCornerRadius = 4;
 constexpr int kMediaActionButtonCornerRadius = kMediaButtonSize.width() / 2;
 
@@ -267,13 +275,23 @@ LockScreenMediaControlsView::LockScreenMediaControlsView(
 
   contents_view_->AddChildView(std::move(artwork_row));
 
-  progress_ = contents_view_->AddChildView(
+  auto progress_view =
       std::make_unique<media_message_center::MediaControlsProgressView>(
           base::BindRepeating(&LockScreenMediaControlsView::SeekTo,
-                              base::Unretained(this))));
+                              base::Unretained(this)));
+  progress_view->SetForegroundColor(kProgressBarForeground);
+  progress_view->SetBackgroundColor(kProgressBarBackground);
+  progress_ = contents_view_->AddChildView(std::move(progress_view));
 
   // |button_row_| contains the buttons for controlling playback.
   auto button_row = std::make_unique<NonAccessibleView>();
+
+  // left_control_group contains previous_track_button and seek_backward_button.
+  auto left_control_group = std::make_unique<NonAccessibleView>();
+
+  // right_control_group contains next_track_button and seek_forward_button.
+  auto right_control_group = std::make_unique<NonAccessibleView>();
+
   auto* button_row_layout =
       button_row->SetLayoutManager(std::make_unique<views::BoxLayout>(
           views::BoxLayout::Orientation::kHorizontal, kButtonRowInsets,
@@ -282,18 +300,44 @@ LockScreenMediaControlsView::LockScreenMediaControlsView(
       views::BoxLayout::CrossAxisAlignment::kCenter);
   button_row_layout->set_main_axis_alignment(
       views::BoxLayout::MainAxisAlignment::kCenter);
+
+  auto* left_control_group_layout =
+      left_control_group->SetLayoutManager(std::make_unique<views::BoxLayout>(
+          views::BoxLayout::Orientation::kHorizontal, gfx::Insets(),
+          kMediaButtonRowSeparator));
+  left_control_group_layout->set_cross_axis_alignment(
+      views::BoxLayout::CrossAxisAlignment::kCenter);
+  left_control_group_layout->set_main_axis_alignment(
+      views::BoxLayout::MainAxisAlignment::kEnd);
+
+  auto* right_control_group_layout =
+      right_control_group->SetLayoutManager(std::make_unique<views::BoxLayout>(
+          views::BoxLayout::Orientation::kHorizontal, gfx::Insets(),
+          kMediaButtonRowSeparator));
+  right_control_group_layout->set_cross_axis_alignment(
+      views::BoxLayout::CrossAxisAlignment::kCenter);
+  right_control_group_layout->set_main_axis_alignment(
+      views::BoxLayout::MainAxisAlignment::kStart);
+
   button_row->SetPreferredSize(kMediaControlsButtonRowSize);
   button_row_ = contents_view_->AddChildView(std::move(button_row));
 
-  button_row_->AddChildView(std::make_unique<MediaActionButton>(
-      this, kChangeTrackIconSize, MediaSessionAction::kPreviousTrack,
-      l10n_util::GetStringUTF16(
-          IDS_ASH_LOCK_SCREEN_MEDIA_CONTROLS_ACTION_PREVIOUS_TRACK)));
+  left_control_group->SetPreferredSize(kMediaButtonGroupSize);
+  right_control_group->SetPreferredSize(kMediaButtonGroupSize);
 
-  button_row_->AddChildView(std::make_unique<MediaActionButton>(
-      this, kSeekingIconsSize, MediaSessionAction::kSeekBackward,
-      l10n_util::GetStringUTF16(
-          IDS_ASH_LOCK_SCREEN_MEDIA_CONTROLS_ACTION_SEEK_BACKWARD)));
+  media_action_buttons_.push_back(
+      left_control_group->AddChildView(std::make_unique<MediaActionButton>(
+          this, kChangeTrackIconSize, MediaSessionAction::kPreviousTrack,
+          l10n_util::GetStringUTF16(
+              IDS_ASH_LOCK_SCREEN_MEDIA_CONTROLS_ACTION_PREVIOUS_TRACK))));
+
+  media_action_buttons_.push_back(
+      left_control_group->AddChildView(std::make_unique<MediaActionButton>(
+          this, kSeekingIconsSize, MediaSessionAction::kSeekBackward,
+          l10n_util::GetStringUTF16(
+              IDS_ASH_LOCK_SCREEN_MEDIA_CONTROLS_ACTION_SEEK_BACKWARD))));
+
+  button_row_->AddChildView(std::move(left_control_group));
 
   // |play_pause_button_| toggles playback. If the current media is playing, the
   // tag will be |MediaSessionAction::kPause|. If the current media is paused,
@@ -303,16 +347,21 @@ LockScreenMediaControlsView::LockScreenMediaControlsView(
           this, kPlayPauseIconSize, MediaSessionAction::kPause,
           l10n_util::GetStringUTF16(
               IDS_ASH_LOCK_SCREEN_MEDIA_CONTROLS_ACTION_PAUSE)));
+  media_action_buttons_.push_back(play_pause_button_);
 
-  button_row_->AddChildView(std::make_unique<MediaActionButton>(
-      this, kSeekingIconsSize, MediaSessionAction::kSeekForward,
-      l10n_util::GetStringUTF16(
-          IDS_ASH_LOCK_SCREEN_MEDIA_CONTROLS_ACTION_SEEK_FORWARD)));
+  media_action_buttons_.push_back(
+      right_control_group->AddChildView(std::make_unique<MediaActionButton>(
+          this, kSeekingIconsSize, MediaSessionAction::kSeekForward,
+          l10n_util::GetStringUTF16(
+              IDS_ASH_LOCK_SCREEN_MEDIA_CONTROLS_ACTION_SEEK_FORWARD))));
 
-  button_row_->AddChildView(std::make_unique<MediaActionButton>(
-      this, kChangeTrackIconSize, MediaSessionAction::kNextTrack,
-      l10n_util::GetStringUTF16(
-          IDS_ASH_LOCK_SCREEN_MEDIA_CONTROLS_ACTION_NEXT_TRACK)));
+  media_action_buttons_.push_back(
+      right_control_group->AddChildView(std::make_unique<MediaActionButton>(
+          this, kChangeTrackIconSize, MediaSessionAction::kNextTrack,
+          l10n_util::GetStringUTF16(
+              IDS_ASH_LOCK_SCREEN_MEDIA_CONTROLS_ACTION_NEXT_TRACK))));
+
+  button_row_->AddChildView(std::move(right_control_group));
 
   // Set child view data to default values initially, until the media controller
   // observers are triggered by a change in media session state.
@@ -481,10 +530,8 @@ void LockScreenMediaControlsView::MediaSessionChanged(
   }
 
   // If |media_session_id_| resumed while waiting, don't hide the controls.
-  if (hide_controls_timer_->IsRunning() && request_id == media_session_id_) {
+  if (hide_controls_timer_->IsRunning() && request_id == media_session_id_)
     hide_controls_timer_->Stop();
-    enabled_actions_.clear();
-  }
 
   // If this session is different than the previous one, wait to see if the
   // previous one resumes before hiding the controls.
@@ -624,8 +671,7 @@ void LockScreenMediaControlsView::UpdateActionButtonsVisibility() {
                                                  ignored_actions, kMaxActions);
 
   bool should_invalidate = false;
-  for (auto* view : button_row_->children()) {
-    views::Button* action_button = views::Button::AsButton(view);
+  for (views::Button* action_button : media_action_buttons_) {
     bool should_show = base::Contains(
         visible_actions,
         media_message_center::GetActionFromButtonTag(*action_button));

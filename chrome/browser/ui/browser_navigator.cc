@@ -19,7 +19,7 @@
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
-#include "chrome/browser/previews/previews_lite_page_decider.h"
+#include "chrome/browser/previews/previews_lite_page_redirect_decider.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
 #include "chrome/browser/signin/signin_promo.h"
@@ -178,17 +178,12 @@ std::pair<Browser*, int> GetBrowserAndTabForDisposition(
   switch (params.disposition) {
     case WindowOpenDisposition::SWITCH_TO_TAB:
 #if !defined(OS_ANDROID)
-      for (auto browser_it = BrowserList::GetInstance()->begin_last_active();
-           browser_it != BrowserList::GetInstance()->end_last_active();
-           ++browser_it) {
-        Browser* browser = *browser_it;
-        // When tab switching, only look at same profile and anonymity level.
-        if (browser->profile()->IsSameProfileAndType(profile)) {
-          int index = GetIndexOfExistingTab(browser, params);
-          if (index >= 0)
-            return {browser, index};
-        }
-      }
+    {
+      std::pair<Browser*, int> index =
+          GetIndexAndBrowserOfExistingTab(profile, params);
+      if (index.first)
+        return index;
+    }
 #endif
       FALLTHROUGH;
     case WindowOpenDisposition::CURRENT_TAB:
@@ -201,6 +196,15 @@ std::pair<Browser*, int> GetBrowserAndTabForDisposition(
       int index = GetIndexOfExistingTab(params.browser, params);
       if (index >= 0)
         return {params.browser, index};
+      // If this window can't open tabs, then it would load in a random
+      // window, potentially opening a second copy. Instead, make an extra
+      // effort to see if there's an already open copy.
+      if (params.browser && !WindowCanOpenTabs(params.browser)) {
+        std::pair<Browser*, int> index =
+            GetIndexAndBrowserOfExistingTab(profile, params);
+        if (index.first)
+          return index;
+      }
     }
       FALLTHROUGH;
     case WindowOpenDisposition::NEW_FOREGROUND_TAB:
@@ -354,7 +358,7 @@ void LoadURLInContents(WebContents* target_contents,
     load_url_params.navigation_ui_data =
         ChromeNavigationUIData::CreateForMainFrameNavigation(
             target_contents, params->disposition,
-            PreviewsLitePageDecider::GeneratePageIdForProfile(
+            PreviewsLitePageRedirectDecider::GeneratePageIdForProfile(
                 GetSourceProfile(params)));
   }
 
@@ -422,8 +426,6 @@ std::unique_ptr<content::WebContents> CreateTargetContents(
         params.opener->GetProcess()->GetID();
   }
   if (params.source_contents) {
-    create_params.initial_size =
-        params.source_contents->GetContainerBounds().size();
     create_params.created_with_opener = params.created_with_opener;
   }
   if (params.disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB)
@@ -455,7 +457,7 @@ std::unique_ptr<content::WebContents> CreateTargetContents(
     package->root()->GetString(::switches::kmInjectJSDocEnd, &js_doc_end);
   target_contents->GetMutableRendererPrefs()->nw_inject_js_doc_end = js_doc_end;
   if (!js_doc_start.empty() || !js_doc_end.empty())
-    target_contents->GetRenderViewHost()->SyncRendererPrefs();
+    target_contents->SyncRendererPrefs();
 
   return target_contents;
 }
@@ -789,7 +791,6 @@ bool IsHostAllowedInIncognito(const GURL& url) {
   // chrome://extensions is on the list because it redirects to
   // chrome://settings.
   return host != chrome::kChromeUIAppLauncherPageHost &&
-         host != chrome::kChromeUIAppManagementHost &&
          host != chrome::kChromeUISettingsHost &&
 #if defined(OS_CHROMEOS)
          host != chrome::kChromeUIOSSettingsHost &&

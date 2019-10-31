@@ -15,7 +15,6 @@ namespace features {
 
 extern const base::Feature kCustomizedTabLoadTimeout;
 extern const base::Feature kProactiveTabFreezeAndDiscard;
-extern const base::Feature kSessionRestorePrioritizesBackgroundUseCases;
 extern const base::Feature kSiteCharacteristicsDatabase;
 extern const base::Feature kStaggeredBackgroundTabOpening;
 extern const base::Feature kStaggeredBackgroundTabOpeningExperiment;
@@ -31,6 +30,11 @@ extern const char kProactiveTabFreezeAndDiscardFeatureName[];
 // The name of the |ShouldProactivelyDiscard| parameter of the
 // ProactiveTabFreezeAndDiscard feature.
 extern const char kProactiveTabFreezeAndDiscard_ShouldProactivelyDiscardParam[];
+
+// The name of the |ShouldPeriodicallyUnfreeze| parameter of the
+// ProactiveTabFreezeAndDiscard feature.
+extern const char
+    kProactiveTabFreezeAndDiscard_ShouldPeriodicallyUnfreezeParam[];
 
 // The name of the |DisableHeuristicsProtections| parameter of the
 // ProactiveTabFreezeAndDiscard feature.
@@ -83,8 +87,8 @@ struct ProactiveTabFreezeAndDiscardParams {
       &features::kProactiveTabFreezeAndDiscard,
       kProactiveTabFreezeAndDiscard_ShouldProactivelyDiscardParam, false};
   static constexpr base::FeatureParam<bool> kShouldPeriodicallyUnfreeze{
-      &features::kProactiveTabFreezeAndDiscard, "ShouldPeriodicallyUnfreeze",
-      false};
+      &features::kProactiveTabFreezeAndDiscard,
+      kProactiveTabFreezeAndDiscard_ShouldPeriodicallyUnfreezeParam, false};
   static constexpr base::FeatureParam<bool>
       kShouldProtectTabsSharingBrowsingInstance{
           &features::kProactiveTabFreezeAndDiscard,
@@ -120,13 +124,12 @@ struct ProactiveTabFreezeAndDiscardParams {
       10 * base::Time::kSecondsPerMinute};
   static constexpr base::FeatureParam<int> kFreezeTimeout{
       &features::kProactiveTabFreezeAndDiscard, "FreezeTimeout",
-      10 * base::Time::kSecondsPerMinute};
+      5 * base::Time::kSecondsPerMinute};
   static constexpr base::FeatureParam<int> kUnfreezeTimeout{
       &features::kProactiveTabFreezeAndDiscard, "UnfreezeTimeout",
       15 * base::Time::kSecondsPerMinute};
   static constexpr base::FeatureParam<int> kRefreezeTimeout{
-      &features::kProactiveTabFreezeAndDiscard, "RefreezeTimeout",
-      10 * base::Time::kSecondsPerMinute};
+      &features::kProactiveTabFreezeAndDiscard, "RefreezeTimeout", 10};
 
   static constexpr base::FeatureParam<bool> kDisableHeuristicsProtections{
       &features::kProactiveTabFreezeAndDiscard,

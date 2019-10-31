@@ -6,6 +6,7 @@
 
 #include "ui/views/controls/menu/menu_controller.h"
 #include <commctrl.h>
+#include <wrl/client.h>
 
 #include <utility>
 
@@ -70,12 +71,9 @@ class StatusTrayStateChangerProxyImpl : public StatusTrayStateChangerProxy {
   // Must be called only on |worker_thread_|, to ensure the correct COM
   // apartment.
   static void EnqueueChangeOnWorkerThread(UINT icon_id, HWND window) {
-    // It appears that IUnknowns are coincidentally compatible with
-    // scoped_refptr.  Normally I wouldn't depend on that but it seems that
-    // base::win::IUnknownImpl itself depends on that coincidence so it's
-    // already being assumed elsewhere.
-    scoped_refptr<StatusTrayStateChangerWin> status_tray_state_changer(
-        new StatusTrayStateChangerWin(icon_id, window));
+    Microsoft::WRL::ComPtr<StatusTrayStateChangerWin>
+        status_tray_state_changer =
+            Microsoft::WRL::Make<StatusTrayStateChangerWin>(icon_id, window);
     status_tray_state_changer->EnsureTrayIconVisible();
   }
 

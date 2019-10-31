@@ -44,6 +44,7 @@ class ImageContextImpl final : public ExternalUseClient::ImageContext {
   ImageContextImpl(const gpu::MailboxHolder& mailbox_holder,
                    const gfx::Size& size,
                    ResourceFormat resource_format,
+                   const base::Optional<gpu::VulkanYCbCrInfo>& ycbcr_info,
                    sk_sp<SkColorSpace> color_space);
 
   // TODO(https://crbug.com/991659): The use of ImageContext for
@@ -79,6 +80,11 @@ class ImageContextImpl final : public ExternalUseClient::ImageContext {
 
  private:
   void CreateFallbackImage(gpu::SharedContextState* context_state);
+  bool BeginAccessIfNecessaryForSharedImage(
+      gpu::SharedContextState* context_state,
+      gpu::SharedImageRepresentationFactory* representation_factory,
+      std::vector<GrBackendSemaphore>* begin_semaphores,
+      std::vector<GrBackendSemaphore>* end_semaphores);
 
   // Returns true if |texture_base| is a gles2::Texture and all necessary
   // operations completed successfully. In this case, |*size| is the size of

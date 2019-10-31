@@ -35,6 +35,7 @@ class VIZ_SERVICE_EXPORT ExternalUseClient {
     ImageContext(const gpu::MailboxHolder& mailbox_holder,
                  const gfx::Size& size,
                  ResourceFormat resource_format,
+                 const base::Optional<gpu::VulkanYCbCrInfo>& ycbcr_info,
                  sk_sp<SkColorSpace> color_space);
     virtual ~ImageContext();
 
@@ -63,10 +64,6 @@ class VIZ_SERVICE_EXPORT ExternalUseClient {
     }
 
     base::Optional<gpu::VulkanYCbCrInfo> ycbcr_info() { return ycbcr_info_; }
-    void set_ycbcr_info(const gpu::VulkanYCbCrInfo& ycbcr_info) {
-      DCHECK(!image_);
-      *ycbcr_info_ = ycbcr_info;
-    }
 
     bool has_image() { return !!image_; }
     sk_sp<SkImage> image() { return image_; }
@@ -99,6 +96,7 @@ class VIZ_SERVICE_EXPORT ExternalUseClient {
       const gpu::MailboxHolder& holder,
       const gfx::Size& size,
       ResourceFormat format,
+      const base::Optional<gpu::VulkanYCbCrInfo>& ycbcr_info,
       sk_sp<SkColorSpace> color_space) = 0;
 
   virtual void ReleaseImageContexts(

@@ -484,7 +484,18 @@ enum class BackForwardNavigationType {
   } else {
     // There is another pending navigation, so the state is still loading.
   }
+
   self.webState->OnPageLoaded(currentURL, YES);
+
+  if (context) {
+    if (context->IsRendererInitiated()) {
+      UMA_HISTOGRAM_TIMES("PLT.iOS.RendererInitiatedPageLoadTime",
+                          context->GetElapsedTimeSinceCreation());
+    } else {
+      UMA_HISTOGRAM_TIMES("PLT.iOS.BrowserInitiatedPageLoadTime",
+                          context->GetElapsedTimeSinceCreation());
+    }
+  }
 }
 
 // Reports Navigation.IOSWKWebViewSlowFastBackForward UMA. No-op if pending
@@ -671,6 +682,10 @@ enum class BackForwardNavigationType {
 
     if (web::GetWebClient()->IsSlimNavigationManagerEnabled() &&
         self.navigationManagerImpl->IsRestoreSessionInProgress()) {
+      if (self.navigationManagerImpl->ShouldBlockUrlDuringRestore(
+              navigationURL)) {
+        return;
+      }
       [_delegate
           webRequestControllerDisableNavigationGesturesUntilFinishNavigation:
               self];

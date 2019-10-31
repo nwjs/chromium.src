@@ -130,7 +130,7 @@ static bool HasDolbyVisionSupport() {
 }
 
 static bool HasEac3Support() {
-#if BUILDFLAG(ENABLE_AC3_EAC3_AUDIO_DEMUXING)
+#if BUILDFLAG(ENABLE_PLATFORM_AC3_EAC3_AUDIO)
   return true;
 #else
   return false;
@@ -461,7 +461,7 @@ TEST(IsCodecSupportedOnAndroidTest, EncryptedCodecBehavior) {
             break;
 
           case MimeUtil::HEVC:
-#if BUILDFLAG(ENABLE_HEVC_DEMUXING)
+#if BUILDFLAG(ENABLE_PLATFORM_HEVC)
             EXPECT_EQ(info.has_platform_hevc_decoder, result);
 #else
             EXPECT_FALSE(result);
@@ -515,7 +515,7 @@ TEST(IsCodecSupportedOnAndroidTest, ClearCodecBehavior) {
 
           // These codecs are only supported if platform decoders are supported.
           case MimeUtil::HEVC:
-#if BUILDFLAG(ENABLE_HEVC_DEMUXING)
+#if BUILDFLAG(ENABLE_PLATFORM_HEVC)
             EXPECT_EQ(
                 info.has_platform_decoders && info.has_platform_hevc_decoder,
                 result);
@@ -550,7 +550,7 @@ TEST(IsCodecSupportedOnAndroidTest, OpusOggSupport) {
       });
 }
 
-#if BUILDFLAG(ENABLE_HEVC_DEMUXING)
+#if BUILDFLAG(ENABLE_PLATFORM_HEVC)
 TEST(IsCodecSupportedOnAndroidTest, HEVCSupport) {
   MimeUtil::PlatformInfo info;
   info.has_platform_decoders = false;

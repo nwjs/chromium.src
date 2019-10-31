@@ -6,35 +6,48 @@ package org.chromium.weblayer;
 
 import android.net.Uri;
 import android.os.RemoteException;
-import android.util.AndroidRuntimeException;
-import android.util.Log;
-import android.view.View;
+import android.webkit.ValueCallback;
 
+import org.chromium.weblayer_private.aidl.APICallException;
 import org.chromium.weblayer_private.aidl.IBrowserController;
 import org.chromium.weblayer_private.aidl.IBrowserControllerClient;
+import org.chromium.weblayer_private.aidl.IFullscreenDelegateClient;
+import org.chromium.weblayer_private.aidl.IObjectWrapper;
 import org.chromium.weblayer_private.aidl.ObjectWrapper;
 
-import java.util.concurrent.CopyOnWriteArrayList;
-
 public final class BrowserController {
-    private static final String TAG = "WL_BrowserController";
-
     private final IBrowserController mImpl;
+    private FullscreenDelegateClientImpl mFullscreenDelegateClient;
     private final NavigationController mNavigationController;
-    // TODO(sky): copy ObserverList from base and use it instead.
-    private final CopyOnWriteArrayList<BrowserObserver> mObservers;
+    private final ObserverList<BrowserObserver> mObservers;
 
-    public BrowserController(IBrowserController impl) {
+    BrowserController(IBrowserController impl) {
         mImpl = impl;
         try {
             mImpl.setClient(new BrowserClientImpl());
         } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call setClient.", e);
-            throw new AndroidRuntimeException(e);
+            throw new APICallException(e);
         }
 
-        mObservers = new CopyOnWriteArrayList<BrowserObserver>();
+        mObservers = new ObserverList<BrowserObserver>();
         mNavigationController = NavigationController.create(mImpl);
+    }
+
+    public void setFullscreenDelegate(FullscreenDelegate delegate) {
+        try {
+            if (delegate != null) {
+                mFullscreenDelegateClient = new FullscreenDelegateClientImpl(delegate);
+                mImpl.setFullscreenDelegateClient(mFullscreenDelegateClient);
+            } else {
+                mImpl.setFullscreenDelegateClient(null);
+            }
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+    }
+
+    public FullscreenDelegate getFullscreenDelegate() {
+        return mFullscreenDelegateClient != null ? mFullscreenDelegateClient.getDelegate() : null;
     }
 
     @Override
@@ -46,48 +59,63 @@ public final class BrowserController {
         return mNavigationController;
     }
 
-    public void setTopView(View view) {
-        try {
-            mImpl.setTopView(ObjectWrapper.wrap(view));
-        } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call setTopView.", e);
-            throw new AndroidRuntimeException(e);
-        }
-    }
-
     public void addObserver(BrowserObserver observer) {
-        mObservers.add(observer);
+        mObservers.addObserver(observer);
     }
 
     public void removeObserver(BrowserObserver observer) {
-        mObservers.remove(observer);
+        mObservers.removeObserver(observer);
     }
 
-    public void destroy() {
-        try {
-            mImpl.destroy();
-        } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call destroy.", e);
-            throw new AndroidRuntimeException(e);
-        }
-    }
-
-    public View onCreateView() {
-        try {
-            return ObjectWrapper.unwrap(mImpl.onCreateView(), View.class);
-        } catch (RemoteException e) {
-            Log.e(TAG, "Failed to call onCreateView.", e);
-            throw new AndroidRuntimeException(e);
-        }
+    IBrowserController getIBrowserController() {
+        return mImpl;
     }
 
     private final class BrowserClientImpl extends IBrowserControllerClient.Stub {
         @Override
-        public void displayURLChanged(String url) {
+        public void visibleUrlChanged(String url) {
             Uri uri = Uri.parse(url);
             for (BrowserObserver observer : mObservers) {
-                observer.displayURLChanged(uri);
+                observer.visibleUrlChanged(uri);
             }
+        }
+
+        @Override
+        public void loadingStateChanged(boolean isLoading, boolean toDifferentDocument) {
+            for (BrowserObserver observer : mObservers) {
+                observer.loadingStateChanged(isLoading, toDifferentDocument);
+            }
+        }
+
+        @Override
+        public void loadProgressChanged(double progress) {
+            for (BrowserObserver observer : mObservers) {
+                observer.loadProgressChanged(progress);
+            }
+        }
+    }
+
+    private final class FullscreenDelegateClientImpl extends IFullscreenDelegateClient.Stub {
+        private FullscreenDelegate mDelegate;
+
+        /* package */ FullscreenDelegateClientImpl(FullscreenDelegate delegate) {
+            mDelegate = delegate;
+        }
+
+        public FullscreenDelegate getDelegate() {
+            return mDelegate;
+        }
+
+        @Override
+        public void enterFullscreen(IObjectWrapper exitFullscreenWrapper) {
+            ValueCallback<Void> exitFullscreenCallback = (ValueCallback<Void>) ObjectWrapper.unwrap(
+                    exitFullscreenWrapper, ValueCallback.class);
+            mDelegate.enterFullscreen(() -> exitFullscreenCallback.onReceiveValue(null));
+        }
+
+        @Override
+        public void exitFullscreen() {
+            mDelegate.exitFullscreen();
         }
     }
 }

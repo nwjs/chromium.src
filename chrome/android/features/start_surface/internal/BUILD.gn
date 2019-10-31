@@ -89,12 +89,15 @@ android_library("java") {
     "java/src/org/chromium/chrome/features/start_surface/StartSurfaceLayout.java",
     "java/src/org/chromium/chrome/features/start_surface/StartSurfaceMediator.java",
     "java/src/org/chromium/chrome/features/start_surface/StartSurfaceProperties.java",
+    "java/src/org/chromium/chrome/features/start_surface/SecondaryTasksSurfaceViewBinder.java",
+    "java/src/org/chromium/chrome/features/start_surface/TasksSurfaceViewBinder.java",
   ]
 
   deps = [
     ":java_resources",
     "//base:base_java",
     "//chrome/android:chrome_java",
+    "//chrome/browser/ui/android/widget:java",
     "//third_party/android_deps:android_support_v7_appcompat_java",
     "//third_party/android_deps:com_android_support_design_java",
     "//ui/android:ui_full_java",

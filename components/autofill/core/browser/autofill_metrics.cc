@@ -22,6 +22,7 @@
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_prefs.h"
+#include "components/autofill/core/common/autofill_tick_clock.h"
 #include "components/autofill/core/common/form_data.h"
 #include "services/metrics/public/cpp/metrics_utils.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -767,10 +768,9 @@ void AutofillMetrics::LogSaveCardPromptMetricBySecurityLevel(
     histogram_name += "Local";
   }
 
-  base::UmaHistogramEnumeration(
-      security_state::GetSecurityLevelHistogramName(
-          histogram_name, security_level),
-      metric, NUM_SAVE_CARD_PROMPT_METRICS);
+  base::UmaHistogramEnumeration(security_state::GetSecurityLevelHistogramName(
+                                    histogram_name, security_level),
+                                metric, NUM_SAVE_CARD_PROMPT_METRICS);
 }
 
 // static
@@ -919,6 +919,18 @@ void AutofillMetrics::LogSaveCardWithFirstAndLastNameComplete(bool is_local) {
   std::string histogram_name = "Autofill.SaveCardWithFirstAndLastNameComplete.";
   histogram_name += is_local ? "Local" : "Server";
   base::UmaHistogramBoolean(histogram_name, true);
+}
+
+// static
+void AutofillMetrics::LogCardUnmaskPreflightCalled() {
+  UMA_HISTOGRAM_BOOLEAN("Autofill.BetterAuth.CardUnmaskPreflightCalled", true);
+}
+
+// static
+void AutofillMetrics::LogCardUnmaskPreflightDuration(
+    const base::TimeDelta& duration) {
+  base::UmaHistogramLongTimes("Autofill.BetterAuth.CardUnmaskPreflightDuration",
+                              duration);
 }
 
 // static
@@ -1186,10 +1198,9 @@ void AutofillMetrics::LogUserHappinessBySecurityLevel(
       return;
   }
 
-  base::UmaHistogramEnumeration(
-      security_state::GetSecurityLevelHistogramName(
-          histogram_name, security_level),
-      metric, NUM_USER_HAPPINESS_METRICS);
+  base::UmaHistogramEnumeration(security_state::GetSecurityLevelHistogramName(
+                                    histogram_name, security_level),
+                                metric, NUM_USER_HAPPINESS_METRICS);
 }
 
 // static
@@ -1974,8 +1985,9 @@ int64_t AutofillMetrics::FormInteractionsUkmLogger::MillisecondsSinceFormParsed(
     const base::TimeTicks& form_parsed_timestamp) const {
   DCHECK(!form_parsed_timestamp.is_null());
   // Use the pinned timestamp as the current time if it's set.
-  base::TimeTicks now =
-      pinned_timestamp_.is_null() ? base::TimeTicks::Now() : pinned_timestamp_;
+  base::TimeTicks now = pinned_timestamp_.is_null()
+                            ? AutofillTickClock::NowTicks()
+                            : pinned_timestamp_;
 
   return ukm::GetExponentialBucketMin(
       (now - form_parsed_timestamp).InMilliseconds(),
@@ -1987,7 +1999,7 @@ AutofillMetrics::UkmTimestampPin::UkmTimestampPin(
     : logger_(logger) {
   DCHECK(logger_);
   DCHECK(!logger_->has_pinned_timestamp());
-  logger_->set_pinned_timestamp(base::TimeTicks::Now());
+  logger_->set_pinned_timestamp(AutofillTickClock::NowTicks());
 }
 
 AutofillMetrics::UkmTimestampPin::~UkmTimestampPin() {

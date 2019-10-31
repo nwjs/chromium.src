@@ -69,6 +69,7 @@ group("gn_all") {
     "//base/util:base_util_unittests",
     "//chrome/installer",
     "//chrome/updater",
+    "//components:components_unittests",
     "//components/gwp_asan:gwp_asan_unittests",
     "//net:net_unittests",
     "//services:services_unittests",
@@ -89,10 +90,6 @@ group("gn_all") {
       "//crypto:crypto_unittests",
       "//google_apis/gcm:gcm_unit_tests",
     ]
-  }
-
-  if (!is_fuchsia) {
-    deps += [ "//components:components_unittests" ]
   }
 
   if (closure_compile) {
@@ -186,10 +183,12 @@ group("gn_all") {
       "//third_party/blink/renderer/platform/heap:blink_heap_unittests",
       "//third_party/blink/renderer/platform/wtf:wtf_unittests",
       "//tools/imagediff",
+      "//ui/color:color_unittests",
       "//ui/display:display_unittests",
       "//ui/events:events_unittests",
       "//ui/gl:gl_unittests",
       "//ui/latency:latency_unittests",
+      "//ui/native_theme:native_theme_unittests",
       "//ui/touch_selection:ui_touch_selection_unittests",
       "//url/ipc:url_ipc_unittests",
       "//v8:gn_all",
@@ -197,7 +196,10 @@ group("gn_all") {
   }
 
   if (is_win || (is_linux && !is_chromeos) || is_android) {
-    deps += [ "//weblayer/shell:weblayer_shell" ]
+    deps += [
+      "//weblayer/shell:weblayer_shell",
+      "//weblayer/test:weblayer_browsertests",
+    ]
   }
 
   #if (!is_ios && !is_android) {
@@ -325,6 +327,7 @@ group("gn_all") {
       "//content/public/android:content_junit_tests",
       "//content/shell/android:content_shell_apk",
       "//device:device_junit_tests",
+      "//weblayer/shell/android:weblayer_demo_apk",
       "//weblayer/shell/android:weblayer_shell_apk",
 
       # TODO(https://crbug.com/879065): remove once tests have been migrated to
@@ -704,7 +707,6 @@ group("gn_all") {
       "//components/metrics:serialization",
       "//components/rappor:unit_tests",
       "//components/services/filesystem:filesystem_service_unittests",
-      "//components/services/leveldb:leveldb_service_unittests",
       "//components/sessions:unit_tests",
       "//media/blink:media_blink_unittests",
       "//media/cast:udp_proxy",
@@ -811,6 +813,7 @@ if ((is_linux || is_win) && enable_remoting && !use_ozone) {
   group("shipped_binaries") {
     deps = [
       "//chrome:chrome",
+      "//remoting/client",
       "//remoting/host:host",
       "//tools/traffic_annotation/summary:annotations_xml",
     ]
@@ -842,6 +845,7 @@ if (is_win) {
       "//chrome/credential_provider",
       "//chrome/installer/gcapi",
       "//chrome/installer/mini_installer",
+      "//chrome/updater/win/installer",
       "//cloud_print",
       "//cloud_print/virtual_driver/win/port_monitor:copy_gcp_portmon_binaries",
       "//components/policy:pack_policy_templates",
@@ -891,6 +895,7 @@ if (is_chromeos) {
     testonly = true
     deps = [
       "//chrome",
+      "//chrome/browser/metrics/perf:profile_provider_unittest",
       "//chrome/test/chromedriver",
       "//components/chromeos_camera:jpeg_decode_accelerator_unittest",
       "//media:media_unittests",
@@ -928,7 +933,7 @@ group("gn_visibility") {
 
   if (!is_ios) {
     deps += [ "//v8:postmortem-metadata" ]
-    if (v8_use_snapshot && !v8_use_external_startup_data) {
+    if (!v8_use_external_startup_data) {
       deps += [ "//v8:v8_snapshot" ]
     }
   }
@@ -1040,6 +1045,7 @@ if (!is_ios) {
       "//media/midi:mojo_js_data_deps",
       "//mojo/public/interfaces/bindings/tests:test_data_deps",
       "//mojo/public/mojom/base:base_js_data_deps",
+      "//mojo/public/js/ts/bindings/tests:test_interfaces_js_data_deps",
       "//services/shape_detection/public/mojom:mojom_js_data_deps",
       "//services/device/public/mojom:mojom_js_data_deps",
       "//services/device/public/mojom:generic_sensor_js_data_deps",
@@ -1050,6 +1056,7 @@ if (!is_ios) {
       "//third_party/blink/public/mojom:mojom_platform_js_data_deps",
       "//third_party/blink/renderer/core/html:js_files_for_form_controls_web_tests",
       "//third_party/blink/renderer/core/script:js_files_for_web_tests",
+      "//third_party/catapult/third_party/typ",
       "//third_party/mesa_headers",
       "//tools/imagediff",
     ]

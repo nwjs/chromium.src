@@ -86,6 +86,43 @@ bool EnumTraits<network::mojom::CookieSameSite, net::CookieSameSite>::FromMojom(
   return false;
 }
 
+network::mojom::CookieAccessSemantics EnumTraits<
+    network::mojom::CookieAccessSemantics,
+    net::CookieAccessSemantics>::ToMojom(net::CookieAccessSemantics input) {
+  switch (input) {
+    case net::CookieAccessSemantics::UNKNOWN:
+      return network::mojom::CookieAccessSemantics::UNKNOWN;
+    case net::CookieAccessSemantics::NONLEGACY:
+      return network::mojom::CookieAccessSemantics::NONLEGACY;
+    case net::CookieAccessSemantics::LEGACY:
+      return network::mojom::CookieAccessSemantics::LEGACY;
+    default:
+      break;
+  }
+  NOTREACHED();
+  return static_cast<network::mojom::CookieAccessSemantics>(input);
+}
+
+bool EnumTraits<network::mojom::CookieAccessSemantics,
+                net::CookieAccessSemantics>::
+    FromMojom(network::mojom::CookieAccessSemantics input,
+              net::CookieAccessSemantics* output) {
+  switch (input) {
+    case network::mojom::CookieAccessSemantics::UNKNOWN:
+      *output = net::CookieAccessSemantics::UNKNOWN;
+      return true;
+    case network::mojom::CookieAccessSemantics::NONLEGACY:
+      *output = net::CookieAccessSemantics::NONLEGACY;
+      return true;
+    case network::mojom::CookieAccessSemantics::LEGACY:
+      *output = net::CookieAccessSemantics::LEGACY;
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 network::mojom::CookieInclusionStatusWarningReason
 EnumTraits<network::mojom::CookieInclusionStatusWarningReason,
            net::CanonicalCookie::CookieInclusionStatus::WarningReason>::
@@ -154,9 +191,10 @@ EnumTraits<network::mojom::CookieSameSiteContext,
       return network::mojom::CookieSameSiteContext::SAME_SITE_LAX_METHOD_UNSAFE;
     case net::CookieOptions::SameSiteCookieContext::CROSS_SITE:
       return network::mojom::CookieSameSiteContext::CROSS_SITE;
+    default:
+      NOTREACHED();
+      return network::mojom::CookieSameSiteContext::CROSS_SITE;
   }
-  NOTREACHED();
-  return network::mojom::CookieSameSiteContext::CROSS_SITE;
 }
 
 bool EnumTraits<network::mojom::CookieSameSiteContext,

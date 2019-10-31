@@ -74,7 +74,7 @@ enum class UserGestureStatus { kActive, kNone };
 // Frame is the base class of LocalFrame and RemoteFrame and should only contain
 // functionality shared between both. In particular, any method related to
 // input, layout, or painting probably belongs on LocalFrame.
-class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
+class CORE_EXPORT Frame : public GarbageCollected<Frame> {
  public:
   virtual ~Frame();
   void setNodeJS(bool node) { nodejs_ = node; }
@@ -95,8 +95,6 @@ class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
   void Detach(FrameDetachType);
   void DisconnectOwnerElement();
   virtual bool ShouldClose() = 0;
-  virtual void DidFreeze() = 0;
-  virtual void DidResume() = 0;
   virtual void HookBackForwardCacheEviction() = 0;
   virtual void RemoveBackForwardCacheEviction() = 0;
 
@@ -243,6 +241,9 @@ class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
     return *window_agent_factory_;
   }
 
+  bool GetVisibleToHitTesting() const { return visible_to_hit_testing_; }
+  void UpdateVisibleToHitTesting();
+
  protected:
   // |inheriting_agent_factory| should basically be set to the parent frame or
   // opener's WindowAgentFactory. Pass nullptr if the frame is isolated from
@@ -269,6 +270,8 @@ class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
     return lifecycle_.GetState() == FrameLifecycle::kDetached;
   }
 
+  virtual void DidChangeVisibleToHitTesting() = 0;
+
   mutable FrameTree tree_node_;
 
   Member<Page> page_;
@@ -287,6 +290,8 @@ class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
   bool is_inert_ = false;
 
   TouchAction inherited_effective_touch_action_ = TouchAction::kTouchActionAuto;
+
+  bool visible_to_hit_testing_ = true;
 
  private:
   Member<FrameClient> client_;

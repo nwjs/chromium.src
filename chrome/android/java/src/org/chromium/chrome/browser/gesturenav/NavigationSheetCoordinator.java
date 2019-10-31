@@ -82,8 +82,6 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
     private final int mContentPadding;
     private final View mParentView;
 
-    private final Runnable mCloseRunnable = () -> close(true);
-
     private static class NavigationItemViewBinder {
         public static void bind(PropertyModel model, View view, PropertyKey propertyKey) {
             if (ItemProperties.ICON == propertyKey) {
@@ -167,7 +165,6 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
 
     private void expandSheet() {
         mBottomSheetController.get().expandSheet();
-        mDelegate.setTabCloseRunnable(mCloseRunnable);
         GestureNavMetrics.recordHistogram("GestureNavigation.Sheet.Viewed", mForward);
     }
 
@@ -228,7 +225,6 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
     private void close(boolean animate) {
         if (!isHidden()) mBottomSheetController.get().hideContent(this, animate);
         mBottomSheetController.get().getBottomSheet().removeObserver(mSheetObserver);
-        mDelegate.setTabCloseRunnable(null);
         mMediator.clear();
     }
 
@@ -292,11 +288,13 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
     }
 
     @Override
-    public boolean isPeekStateEnabled() {
+    public int getPeekHeight() {
         // Makes peek state as 'not present' when bottom sheet is in expanded state (i.e. animating
         // from expanded to close state). It avoids the sheet animating in two distinct steps, which
         // looks awkward.
-        return !mBottomSheetController.get().getBottomSheet().isSheetOpen();
+        return !mBottomSheetController.get().getBottomSheet().isSheetOpen()
+                ? getSizePx(mParentView.getContext(), R.dimen.navigation_sheet_peek_height)
+                : BottomSheet.HeightMode.DISABLED;
     }
 
     @Override
@@ -319,11 +317,6 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
         int entryCount = mModelAdapter.getCount();
         return Math.min(maxHeight, entryCount * mItemHeight + mContentPadding)
                 / mParentView.getHeight();
-    }
-
-    @Override
-    public boolean hasCustomLifecycle() {
-        return true;
     }
 
     @Override

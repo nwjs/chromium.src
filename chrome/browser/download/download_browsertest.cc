@@ -58,6 +58,7 @@
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/lookalikes/safety_tips/safety_tip_test_utils.h"
+#include "chrome/browser/metrics/subprocess_metrics_provider.h"
 #include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_browsertest_util.h"
@@ -94,6 +95,7 @@
 #include "components/safe_browsing/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/proto/csd.pb.h"
 #include "components/safe_browsing/safe_browsing_service_interface.h"
+#include "components/security_state/core/features.h"
 #include "components/security_state/core/security_state.h"
 #include "components/services/quarantine/test_support.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -107,6 +109,7 @@
 #include "content/public/browser/resource_context.h"
 #include "content/public/browser/system_connector.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/context_menu_params.h"
@@ -116,6 +119,7 @@
 #include "content/public/test/test_download_http_response.h"
 #include "content/public/test/test_file_error_injector.h"
 #include "content/public/test/test_navigation_observer.h"
+#include "content/public/test/url_loader_interceptor.h"
 #include "extensions/browser/extension_dialog_auto_confirm.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
@@ -146,6 +150,7 @@
 using content::BrowserContext;
 using content::BrowserThread;
 using content::DownloadManager;
+using content::URLLoaderInterceptor;
 using content::WebContents;
 using download::DownloadItem;
 using download::DownloadUrlParameters;
@@ -1125,6 +1130,38 @@ class DownloadTest : public InProcessBrowserTest {
   extensions::ScopedInstallVerifierBypassForTest ignore_install_verification_;
 };
 
+class DownloadReferrerPolicyTest
+    : public DownloadTest,
+      public ::testing::WithParamInterface<network::mojom::ReferrerPolicy> {
+ public:
+  void SetUpOnMainThread() override {
+    referrer_policy_ = GetParam();
+    DownloadTest::SetUpOnMainThread();
+  }
+
+ protected:
+  const network::mojom::ReferrerPolicy& referrer_policy() const {
+    return referrer_policy_;
+  }
+
+ private:
+  network::mojom::ReferrerPolicy referrer_policy_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    /* no prefix */,
+    DownloadReferrerPolicyTest,
+    ::testing::Values(network::mojom::ReferrerPolicy::kAlways,
+                      network::mojom::ReferrerPolicy::kDefault,
+                      network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade,
+                      network::mojom::ReferrerPolicy::kNever,
+                      network::mojom::ReferrerPolicy::kOrigin,
+                      network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin,
+                      network::mojom::ReferrerPolicy::
+                          kNoReferrerWhenDowngradeOriginWhenCrossOrigin,
+                      network::mojom::ReferrerPolicy::kSameOrigin,
+                      network::mojom::ReferrerPolicy::kStrictOrigin));
+
 namespace {
 
 class FakeDownloadProtectionService
@@ -1135,7 +1172,7 @@ class FakeDownloadProtectionService
 
   void CheckClientDownload(
       DownloadItem* download_item,
-      safe_browsing::CheckDownloadCallback callback) override {
+      safe_browsing::CheckDownloadRepeatingCallback callback) override {
     std::move(callback).Run(safe_browsing::DownloadCheckResult::UNCOMMON);
   }
 };
@@ -2486,7 +2523,31 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, TransientDownload) {
   ASSERT_FALSE(downloads[0]->IsTemporary());
 }
 
-IN_PROC_BROWSER_TEST_F(DownloadTest, SavePageNonHTMLViaGet) {
+class DownloadTestWithHistogramTester : public DownloadTest {
+ public:
+  void SetUp() override {
+    // Drop the request for https://accounts.google.com/ListAccounts.... Whether
+    // this request exist can be platform-specific, so drop it for consistency
+    // in a histogram recording result.
+    url_loader_interceptor_ =
+        std::make_unique<URLLoaderInterceptor>(base::BindLambdaForTesting(
+            [&](URLLoaderInterceptor::RequestParams* params) {
+              return params->url_request.url.spec().find(
+                         "accounts.google.com") != std::string::npos;
+            }));
+    DownloadTest::SetUp();
+  }
+
+  void ResetURLLoaderInterceptor() { url_loader_interceptor_.reset(); }
+
+  base::HistogramTester& histogram_tester() { return histogram_tester_; }
+
+ private:
+  base::HistogramTester histogram_tester_;
+  std::unique_ptr<URLLoaderInterceptor> url_loader_interceptor_;
+};
+
+IN_PROC_BROWSER_TEST_F(DownloadTestWithHistogramTester, SavePageNonHTMLViaGet) {
   embedded_test_server()->ServeFilesFromDirectory(GetTestDataDirectory());
   ASSERT_TRUE(embedded_test_server()->Start());
   EnableFileChooser(true);
@@ -2547,6 +2608,16 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SavePageNonHTMLViaGet) {
   ASSERT_EQ(2u, download_items.size());
   ASSERT_EQ(url, download_items[0]->GetOriginalUrl());
   ASSERT_EQ(url, download_items[1]->GetOriginalUrl());
+
+  SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
+  // Assert that the NIK is populated for 4 requests:
+  // - Navigation: image.jpg
+  // - favicon.ico
+  // - SavePage: image.jpg
+  // - context menu: image.jpg
+  histogram_tester().ExpectBucketCount("HttpCache.NetworkIsolationKeyPresent2",
+                                       2 /*kPresent*/, 4 /*count*/);
+  ResetURLLoaderInterceptor();
 }
 
 // Times out often on debug ChromeOS because test is slow.
@@ -2934,7 +3005,8 @@ EchoReferrerRequestHandler(const net::test_server::HttpRequest& request) {
   return std::move(response);
 }
 
-IN_PROC_BROWSER_TEST_F(DownloadTest, AltClickDownloadReferrerPolicy) {
+IN_PROC_BROWSER_TEST_P(DownloadReferrerPolicyTest,
+                       AltClickDownloadReferrerPolicy) {
   embedded_test_server()->RegisterRequestHandler(
       base::Bind(&EchoReferrerRequestHandler));
   embedded_test_server()->ServeFilesFromDirectory(GetTestDataDirectory());
@@ -2946,7 +3018,12 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, AltClickDownloadReferrerPolicy) {
 
   // Navigate to a page with a referrer policy and a link on it. The link points
   // to /echoreferrer.
-  GURL url = embedded_test_server()->GetURL("/downloads/referrer_policy.html");
+  GURL url = embedded_test_server()->GetURL(
+      base::StringPrintf(
+          "/referrer_policy/referrer-policy-start.html?policy=%s",
+          content::ReferrerPolicyToString(referrer_policy()).c_str()) +
+      "&redirect=" + embedded_test_server()->GetURL("/echoreferrer").spec() +
+      "&link=true&target=");
   ASSERT_TRUE(url.is_valid());
   ui_test_utils::NavigateToURL(browser(), url);
 
@@ -2980,13 +3057,31 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, AltClickDownloadReferrerPolicy) {
 
   // Check that the file contains the expected referrer.
   base::FilePath file(download_items[0]->GetTargetFilePath());
-  std::string expected_contents = embedded_test_server()->GetURL("/").spec();
-  ASSERT_TRUE(VerifyFile(file, expected_contents, expected_contents.length()));
+  GURL origin = url::Origin::Create(url).GetURL();
+  switch (referrer_policy()) {
+    case network::mojom::ReferrerPolicy::kAlways:
+    case network::mojom::ReferrerPolicy::kDefault:
+    case network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade:
+    case network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::
+        kNoReferrerWhenDowngradeOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::kSameOrigin:
+      EXPECT_TRUE(VerifyFile(file, url.spec(), url.spec().length()));
+      break;
+    case network::mojom::ReferrerPolicy::kNever:
+      EXPECT_TRUE(VerifyFile(file, "", 0));
+      break;
+    case network::mojom::ReferrerPolicy::kOrigin:
+    case network::mojom::ReferrerPolicy::kStrictOrigin:
+      EXPECT_TRUE(VerifyFile(file, origin.spec(), origin.spec().length()));
+      break;
+  }
 }
 
 // This test ensures that the Referer header is properly sanitized when
-// Save Link As is chosen from the context menu.
-IN_PROC_BROWSER_TEST_F(DownloadTest, SaveLinkAsReferrerPolicyOrigin) {
+// Save Link As is chosen from the context menu from a page with all possible
+// referrer policies.
+IN_PROC_BROWSER_TEST_P(DownloadReferrerPolicyTest, SaveLinkAsReferrerPolicy) {
   embedded_test_server()->RegisterRequestHandler(
       base::Bind(&EchoReferrerRequestHandler));
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -2997,7 +3092,9 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SaveLinkAsReferrerPolicyOrigin) {
 
   // Navigate to the initial page, where Save Link As will be executed.
   GURL url = embedded_test_server()->GetURL(
-      std::string("/referrer_policy/referrer-policy-start.html?policy=origin") +
+      base::StringPrintf(
+          "/referrer_policy/referrer-policy-start.html?policy=%s",
+          content::ReferrerPolicyToString(referrer_policy()).c_str()) +
       "&redirect=" + embedded_test_server()->GetURL("/echoreferrer").spec() +
       "&link=true&target=");
   ASSERT_TRUE(url.is_valid());
@@ -3036,9 +3133,25 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SaveLinkAsReferrerPolicyOrigin) {
 
   // Check that the file contains the expected referrer.
   base::FilePath file(download_items[0]->GetTargetFilePath());
-  std::string expected_contents =
-      embedded_test_server()->GetURL(std::string("/")).spec();
-  EXPECT_TRUE(VerifyFile(file, expected_contents, expected_contents.length()));
+  GURL origin = url::Origin::Create(url).GetURL();
+  switch (referrer_policy()) {
+    case network::mojom::ReferrerPolicy::kAlways:
+    case network::mojom::ReferrerPolicy::kDefault:
+    case network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade:
+    case network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::
+        kNoReferrerWhenDowngradeOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::kSameOrigin:
+      EXPECT_TRUE(VerifyFile(file, url.spec(), url.spec().length()));
+      break;
+    case network::mojom::ReferrerPolicy::kNever:
+      EXPECT_TRUE(VerifyFile(file, "", 0));
+      break;
+    case network::mojom::ReferrerPolicy::kOrigin:
+    case network::mojom::ReferrerPolicy::kStrictOrigin:
+      EXPECT_TRUE(VerifyFile(file, origin.spec(), origin.spec().length()));
+      break;
+  }
 }
 
 // This test ensures that Cross-Origin-Resource-Policy response header doesn't
@@ -3110,7 +3223,8 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SaveLinkAsVsCrossOriginResourcePolicy) {
 
 // This test ensures that the Referer header is properly sanitized when
 // Save Image As is chosen from the context menu.
-IN_PROC_BROWSER_TEST_F(DownloadTest, SaveImageAsReferrerPolicyDefault) {
+IN_PROC_BROWSER_TEST_P(DownloadReferrerPolicyTest,
+                       DISABLED_SaveImageAsReferrerPolicy) {
   embedded_test_server()->RegisterRequestHandler(
       base::Bind(&EchoReferrerRequestHandler));
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -3124,7 +3238,12 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SaveImageAsReferrerPolicyDefault) {
   EmbeddedTestServer https_server(EmbeddedTestServer::TYPE_HTTPS);
   https_server.ServeFilesFromDirectory(GetTestDataDirectory());
   ASSERT_TRUE(https_server.Start());
-  GURL url = https_server.GetURL("/title1.html"); /* HTTPS */
+  GURL url = https_server.GetURL(
+      base::StringPrintf(
+          "/referrer_policy/referrer-policy-start.html?policy=%s",
+          content::ReferrerPolicyToString(referrer_policy()).c_str()) +
+      "&redirect=" + embedded_test_server()->GetURL("/echoreferrer").spec() +
+      "&link=true&target="); /* HTTPS */
   ASSERT_TRUE(url.is_valid());
   ui_test_utils::NavigateToURL(browser(), url);
 
@@ -3161,12 +3280,31 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SaveImageAsReferrerPolicyDefault) {
   // The contents of the file is the value of the Referer header if there was
   // one. Since the URL is downgraded from HTTPS to HTTP, the referrer is
   // removed.
-  EXPECT_TRUE(VerifyFile(file, "", 0));
+  GURL origin = url::Origin::Create(url).GetURL();
+  switch (referrer_policy()) {
+    case network::mojom::ReferrerPolicy::kAlways:
+      EXPECT_TRUE(VerifyFile(file, url.spec(), url.spec().length()));
+      break;
+    case network::mojom::ReferrerPolicy::kDefault:
+    case network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade:
+    case network::mojom::ReferrerPolicy::
+        kNoReferrerWhenDowngradeOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::kStrictOrigin:
+    case network::mojom::ReferrerPolicy::kSameOrigin:
+    case network::mojom::ReferrerPolicy::kNever:
+      EXPECT_TRUE(VerifyFile(file, "", 0));
+      break;
+    case network::mojom::ReferrerPolicy::kOrigin:
+    case network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin:
+      EXPECT_TRUE(VerifyFile(file, origin.spec(), origin.spec().length()));
+      break;
+  }
 }
 
 // This test ensures that a cross-domain download correctly sets the referrer
 // according to the referrer policy.
-IN_PROC_BROWSER_TEST_F(DownloadTest, DownloadCrossDomainReferrerPolicy) {
+IN_PROC_BROWSER_TEST_P(DownloadReferrerPolicyTest,
+                       DownloadCrossDomainReferrerPolicy) {
   embedded_test_server()->RegisterRequestHandler(
       base::Bind(&ServerRedirectRequestHandler));
   embedded_test_server()->RegisterRequestHandler(
@@ -3180,8 +3318,9 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, DownloadCrossDomainReferrerPolicy) {
 
   // Navigate to a page with a referrer policy and a link on it. The link points
   // to /echoreferrer.
-  GURL url = embedded_test_server()->GetURL(
-      "/downloads/download_cross_referrer_policy.html");
+  GURL url = embedded_test_server()->GetURL(base::StringPrintf(
+      "/downloads/download_cross_referrer_policy.html?policy=%s",
+      content::ReferrerPolicyToString(referrer_policy()).c_str()));
   ASSERT_TRUE(url.is_valid());
   ui_test_utils::NavigateToURL(browser(), url);
 
@@ -3213,10 +3352,30 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, DownloadCrossDomainReferrerPolicy) {
   ASSERT_EQ(embedded_test_server()->GetURL("www.a.com", "/echoreferrer"),
             download_items[0]->GetURL());
 
-  // Check that the file contains the expected referrer.
+  // Check that the file contains the expected referrer. The referrer is
+  // expected to be sent for policies kAlways, kDefault, and
+  // kNoReferrerWhenDowngrade. The referrer should not be sent for policies
+  // kNever, kSameOrigin, and kNoReferrerWhenDowngradeOriginWhenCrossOrigin.
   base::FilePath file(download_items[0]->GetTargetFilePath());
-  std::string expected_contents = embedded_test_server()->GetURL("/").spec();
-  ASSERT_TRUE(VerifyFile(file, expected_contents, expected_contents.length()));
+  GURL origin = url::Origin::Create(url).GetURL();
+  switch (referrer_policy()) {
+    case network::mojom::ReferrerPolicy::kAlways:
+    case network::mojom::ReferrerPolicy::kDefault:
+    case network::mojom::ReferrerPolicy::kNoReferrerWhenDowngrade:
+      EXPECT_TRUE(VerifyFile(file, url.spec(), url.spec().length()));
+      break;
+    case network::mojom::ReferrerPolicy::kSameOrigin:
+    case network::mojom::ReferrerPolicy::kNever:
+      EXPECT_TRUE(VerifyFile(file, "", 0));
+      break;
+    case network::mojom::ReferrerPolicy::kOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::
+        kNoReferrerWhenDowngradeOriginWhenCrossOrigin:
+    case network::mojom::ReferrerPolicy::kOrigin:
+    case network::mojom::ReferrerPolicy::kStrictOrigin:
+      EXPECT_TRUE(VerifyFile(file, origin.spec(), origin.spec().length()));
+      break;
+  }
 }
 
 IN_PROC_BROWSER_TEST_F(DownloadTest, TestMultipleDownloadsRequests) {
@@ -3725,10 +3884,27 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SecurityLevels) {
                                     2);
 }
 
+class DownloadTestWithOptionalSafetyTipsFeature
+    : public DownloadTest,
+      public ::testing::WithParamInterface<bool> {
+ public:
+  DownloadTestWithOptionalSafetyTipsFeature() {
+    if (GetParam())
+      feature_list_.InitAndEnableFeature(
+          security_state::features::kSafetyTipUI);
+    else
+      feature_list_.InitAndDisableFeature(
+          security_state::features::kSafetyTipUI);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
 // Tests that the Safety Tip status of the initiating page is used for the
 // histogram rather than the status of the download URL, and that downloads in
 // new tabs are not tracked.
-IN_PROC_BROWSER_TEST_F(DownloadTest, SafetyTips) {
+IN_PROC_BROWSER_TEST_P(DownloadTestWithOptionalSafetyTipsFeature, SafetyTips) {
   embedded_test_server()->ServeFilesFromDirectory(GetTestDataDirectory());
   ASSERT_TRUE(embedded_test_server()->Start());
   net::EmbeddedTestServer download_server;
@@ -3752,33 +3928,29 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SafetyTips) {
   // disabled. The same metrics should be recorded either way.
   SetSafetyTipBadRepPatterns(
       {embedded_test_server()->GetURL("/").host() + "/"});
-  for (const auto& enable_feature : {true, false}) {
-    base::test::ScopedFeatureList feature_list;
-    if (enable_feature) {
-      feature_list.InitAndEnableFeature(features::kSafetyTipUI);
-    } else {
-      feature_list.InitAndDisableFeature(features::kSafetyTipUI);
-    }
 
-    base::HistogramTester histogram_tester;
-    ui_test_utils::NavigateToURL(
-        browser(), embedded_test_server()->GetURL("/simple.html"));
-    DownloadAndWait(browser(), download_url);
-    histogram_tester.ExpectUniqueSample(
-        "Security.SafetyTips.DownloadStarted",
-        security_state::SafetyTipStatus::kBadReputation, 1);
+  base::HistogramTester histogram_tester;
+  ui_test_utils::NavigateToURL(browser(),
+                               embedded_test_server()->GetURL("/simple.html"));
+  DownloadAndWait(browser(), download_url);
+  histogram_tester.ExpectUniqueSample(
+      "Security.SafetyTips.DownloadStarted",
+      security_state::SafetyTipStatus::kBadReputation, 1);
 
-    // Test that no Safety Tip status is recorded for a download in a new tab.
-    ui_test_utils::NavigateToURL(
-        browser(), embedded_test_server()->GetURL("/simple.html"));
-    DownloadAndWaitWithDisposition(browser(), download_url,
-                                   WindowOpenDisposition::NEW_BACKGROUND_TAB,
-                                   ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB);
-    histogram_tester.ExpectUniqueSample(
-        "Security.SafetyTips.DownloadStarted",
-        security_state::SafetyTipStatus::kBadReputation, 1);
-  }
+  // Test that no Safety Tip status is recorded for a download in a new tab.
+  ui_test_utils::NavigateToURL(browser(),
+                               embedded_test_server()->GetURL("/simple.html"));
+  DownloadAndWaitWithDisposition(browser(), download_url,
+                                 WindowOpenDisposition::NEW_BACKGROUND_TAB,
+                                 ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB);
+  histogram_tester.ExpectUniqueSample(
+      "Security.SafetyTips.DownloadStarted",
+      security_state::SafetyTipStatus::kBadReputation, 1);
 }
+
+INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+                         DownloadTestWithOptionalSafetyTipsFeature,
+                         ::testing::Bool());
 
 // Tests that opening the downloads page will cause file existence check.
 IN_PROC_BROWSER_TEST_F(DownloadTest, FileExistenceCheckOpeningDownloadsPage) {
@@ -4014,7 +4186,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SafeSupportedFile) {
 
   DownloadItem* download = downloads[0];
   EXPECT_FALSE(download->IsDangerous());
-  EXPECT_EQ(download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT,
+  EXPECT_EQ(download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS,
             download->GetDangerType());
 
   download->Cancel(true);

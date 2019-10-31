@@ -298,7 +298,7 @@ TEST_F(GAIAInfoUpdateServiceTest, ProfileLockEnabledForWhitelist) {
 // of ProfileInfoCache is complete.
 TEST_F(GAIAInfoUpdateServiceTest, HandlesProfileReordering) {
   size_t index = GetCache()->GetIndexOfProfileWithPath(profile()->GetPath());
-  GetCache()->SetNameOfProfileAtIndex(index, FullName16("B"));
+  GetCache()->SetLocalProfileNameOfProfileAtIndex(index, FullName16("B"));
   GetCache()->SetProfileIsUsingDefaultNameAtIndex(index, true);
 
   CreateProfile(FullName("A"));
@@ -379,7 +379,7 @@ TEST_F(GAIAInfoUpdateServiceTest, LogOut) {
 
 TEST_F(GAIAInfoUpdateServiceTest, LogIn) {
   // Log in.
-  EXPECT_CALL(*service(), Update());
+  EXPECT_CALL(*service(), Update()).Times(testing::AtLeast(1));
   identity_test_env()->SetPrimaryAccount("pat@example.com");
 }
 

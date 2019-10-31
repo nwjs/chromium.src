@@ -478,12 +478,6 @@ void LocalFrameClientImpl::DispatchDidCommitLoad(
   CoreInitializer::GetInstance().DidCommitLoad(*web_frame_->GetFrame());
 }
 
-void LocalFrameClientImpl::DispatchDidFailProvisionalLoad(
-    const ResourceError& error,
-    const AtomicString& http_method) {
-  web_frame_->DidFailProvisionalLoad(error, http_method);
-}
-
 void LocalFrameClientImpl::DispatchDidFailLoad(
     const ResourceError& error,
     WebHistoryCommitType commit_type) {
@@ -509,7 +503,7 @@ void LocalFrameClientImpl::BeginNavigation(
     bool has_transient_activation,
     WebFrameLoadType frame_load_type,
     bool is_client_redirect,
-    WebTriggeringEventInfo triggering_event_info,
+    TriggeringEventInfo triggering_event_info,
     HTMLFormElement* form,
     ContentSecurityPolicyDisposition
         should_check_main_world_content_security_policy,
@@ -656,7 +650,7 @@ void LocalFrameClientImpl::ForwardResourceTimingToParent(
 
 void LocalFrameClientImpl::DownloadURL(
     const ResourceRequest& request,
-    DownloadCrossOriginRedirects cross_origin_redirect_behavior) {
+    network::mojom::RedirectMode cross_origin_redirect_behavior) {
   if (!web_frame_->Client())
     return;
   DCHECK(web_frame_->GetFrame()->GetDocument());
@@ -665,20 +659,12 @@ void LocalFrameClientImpl::DownloadURL(
     web_frame_->GetFrame()->GetDocument()->GetPublicURLManager().Resolve(
         request.Url(), blob_url_token.InitWithNewPipeAndPassReceiver());
   }
-  web_frame_->Client()->DownloadURL(
-      WrappedResourceRequest(request),
-      static_cast<WebLocalFrameClient::CrossOriginRedirects>(
-          cross_origin_redirect_behavior),
-      blob_url_token.PassPipe());
+  web_frame_->Client()->DownloadURL(WrappedResourceRequest(request),
+                                    cross_origin_redirect_behavior,
+                                    blob_url_token.PassPipe());
 }
 
-void LocalFrameClientImpl::LoadErrorPage(int reason) {
-  if (web_frame_->Client())
-    web_frame_->Client()->LoadErrorPage(reason);
-}
-
-bool LocalFrameClientImpl::NavigateBackForward(int offset,
-                                               bool from_script) const {
+bool LocalFrameClientImpl::NavigateBackForward(int offset) const {
   WebViewImpl* webview = web_frame_->ViewImpl();
   DCHECK(webview->Client());
   DCHECK(web_frame_->Client());
@@ -691,7 +677,7 @@ bool LocalFrameClientImpl::NavigateBackForward(int offset,
 
   bool has_user_gesture =
       LocalFrame::HasTransientUserActivation(web_frame_->GetFrame());
-  web_frame_->Client()->NavigateBackForwardSoon2(offset, has_user_gesture, from_script, web_frame_);
+  web_frame_->Client()->NavigateBackForwardSoon2(offset, has_user_gesture, web_frame_);
   return true;
 }
 
@@ -733,11 +719,6 @@ void LocalFrameClientImpl::DidRunContentWithCertificateErrors() {
     web_frame_->Client()->DidRunContentWithCertificateErrors();
 }
 
-void LocalFrameClientImpl::ReportLegacyTLSVersion(const KURL& url) {
-  if (web_frame_->Client())
-    web_frame_->Client()->ReportLegacyTLSVersion(url);
-}
-
 void LocalFrameClientImpl::DidChangePerformanceTiming() {
   if (web_frame_->Client())
     web_frame_->Client()->DidChangePerformanceTiming();
@@ -757,7 +738,7 @@ void LocalFrameClientImpl::DidChangeActiveSchedulerTrackedFeatures(
 }
 
 void LocalFrameClientImpl::DidObserveLoadingBehavior(
-    WebLoadingBehaviorFlag behavior) {
+    LoadingBehaviorFlag behavior) {
   if (web_frame_->Client())
     web_frame_->Client()->DidObserveLoadingBehavior(behavior);
 }
@@ -1037,7 +1018,7 @@ unsigned LocalFrameClientImpl::BackForwardLength() {
 
 void LocalFrameClientImpl::SuddenTerminationDisablerChanged(
     bool present,
-    WebSuddenTerminationDisablerType type) {
+    SuddenTerminationDisablerType type) {
   if (web_frame_->Client()) {
     web_frame_->Client()->SuddenTerminationDisablerChanged(present, type);
   }
@@ -1047,25 +1028,6 @@ BlameContext* LocalFrameClientImpl::GetFrameBlameContext() {
   if (WebLocalFrameClient* client = web_frame_->Client())
     return client->GetFrameBlameContext();
   return nullptr;
-}
-
-WebEffectiveConnectionType LocalFrameClientImpl::GetEffectiveConnectionType() {
-  if (web_frame_->Client())
-    return web_frame_->Client()->GetEffectiveConnectionType();
-  return WebEffectiveConnectionType::kTypeUnknown;
-}
-
-void LocalFrameClientImpl::SetEffectiveConnectionTypeForTesting(
-    WebEffectiveConnectionType type) {
-  if (web_frame_->Client())
-    return web_frame_->Client()->SetEffectiveConnectionTypeForTesting(type);
-}
-
-WebURLRequest::PreviewsState LocalFrameClientImpl::GetPreviewsStateForFrame()
-    const {
-  if (web_frame_->Client())
-    return web_frame_->Client()->GetPreviewsStateForFrame();
-  return WebURLRequest::kPreviewsUnspecified;
 }
 
 WebDevToolsAgentImpl* LocalFrameClientImpl::DevToolsAgent() {
@@ -1292,10 +1254,5 @@ void LocalFrameClientImpl::EvictFromBackForwardCache() {
   DCHECK(web_frame_->Client());
   return web_frame_->Client()->EvictFromBackForwardCache();
 }
-
-STATIC_ASSERT_ENUM(DownloadCrossOriginRedirects::kFollow,
-                   WebLocalFrameClient::CrossOriginRedirects::kFollow);
-STATIC_ASSERT_ENUM(DownloadCrossOriginRedirects::kNavigate,
-                   WebLocalFrameClient::CrossOriginRedirects::kNavigate);
 
 }  // namespace blink

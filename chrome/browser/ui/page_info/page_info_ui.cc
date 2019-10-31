@@ -35,7 +35,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
-#include "components/vector_icons/vector_icons.h"
 #include "media/base/media_switches.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/color_utils.h"
@@ -265,6 +264,7 @@ PageInfoUI::GetSecurityDescription(const IdentityInfo& identity_info) const {
       return CreateSecurityDescription(SecuritySummaryColor::RED,
                                        IDS_PAGE_INFO_UNWANTED_SOFTWARE_SUMMARY,
                                        IDS_PAGE_INFO_UNWANTED_SOFTWARE_DETAILS);
+    case PageInfo::SAFE_BROWSING_STATUS_SAVED_PASSWORD_REUSE:
     case PageInfo::SAFE_BROWSING_STATUS_SIGNED_IN_SYNC_PASSWORD_REUSE:
     case PageInfo::SAFE_BROWSING_STATUS_SIGNED_IN_NON_SYNC_PASSWORD_REUSE:
     case PageInfo::SAFE_BROWSING_STATUS_ENTERPRISE_PASSWORD_REUSE:
@@ -281,12 +281,16 @@ PageInfoUI::GetSecurityDescription(const IdentityInfo& identity_info) const {
 
   switch (identity_info.safety_tip_status) {
     case security_state::SafetyTipStatus::kBadReputation:
-    case security_state::SafetyTipStatus::kLookalike:
-      // TODO(jdeblasio): The BAD_REPUTATION string is generic enough to use for
-      // lookalikes too, but it probably deserves its own string.
       return CreateSecurityDescription(
-          SecuritySummaryColor::RED, IDS_PAGE_INFO_SAFETY_TIP_SUMMARY,
+          SecuritySummaryColor::RED,
+          IDS_PAGE_INFO_SAFETY_TIP_BAD_REPUTATION_TITLE,
           IDS_PAGE_INFO_SAFETY_TIP_BAD_REPUTATION_DESCRIPTION);
+    case security_state::SafetyTipStatus::kLookalike:
+      // Lookalikes have their own strings, but they're suggestions, not
+      // warnings, so we leave Page Info alone.
+    case security_state::SafetyTipStatus::kBadKeyword:
+      // Keyword safety tips are only used to collect metrics for now and are
+      // not visible to the user, so don't affect Page Info.
     case security_state::SafetyTipStatus::kNone:
     case security_state::SafetyTipStatus::kUnknown:
       break;
@@ -324,6 +328,10 @@ PageInfoUI::GetSecurityDescription(const IdentityInfo& identity_info) const {
           return CreateSecurityDescription(SecuritySummaryColor::RED,
                                            IDS_PAGE_INFO_MIXED_CONTENT_SUMMARY,
                                            IDS_PAGE_INFO_MIXED_CONTENT_DETAILS);
+        case PageInfo::SITE_CONNECTION_STATUS_LEGACY_TLS:
+          return CreateSecurityDescription(SecuritySummaryColor::RED,
+                                           IDS_PAGE_INFO_MIXED_CONTENT_SUMMARY,
+                                           IDS_PAGE_INFO_LEGACY_TLS_DETAILS);
         default:
           return CreateSecurityDescription(SecuritySummaryColor::GREEN,
                                            IDS_PAGE_INFO_SECURE_SUMMARY,
@@ -505,6 +513,7 @@ int PageInfoUI::GetConnectionIconID(PageInfo::SiteConnectionStatus status) {
       break;
     case PageInfo::SITE_CONNECTION_STATUS_INSECURE_PASSIVE_SUBRESOURCE:
     case PageInfo::SITE_CONNECTION_STATUS_INSECURE_FORM_ACTION:
+    case PageInfo::SITE_CONNECTION_STATUS_LEGACY_TLS:
       resource_id = IDR_PAGEINFO_WARNING_MINOR;
       break;
     case PageInfo::SITE_CONNECTION_STATUS_UNENCRYPTED:

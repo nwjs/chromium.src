@@ -8,8 +8,9 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.support.annotation.Nullable;
 import android.text.TextUtils;
+
+import androidx.annotation.Nullable;
 
 import org.chromium.base.Callback;
 import org.chromium.base.VisibleForTesting;
@@ -20,8 +21,8 @@ import org.chromium.chrome.browser.favicon.FaviconHelper;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
+import org.chromium.chrome.browser.ui.widget.RoundedIconGenerator;
 import org.chromium.chrome.browser.util.UrlUtilities;
-import org.chromium.chrome.browser.widget.RoundedIconGenerator;
 import org.chromium.content_public.browser.BrowserStartupController;
 
 import java.util.HashMap;
@@ -47,26 +48,50 @@ public class SearchEngineLogoUtils {
 
     /**
      * Encapsulates complicated boolean check for reuse and readability.
-     * @return True if we should show the search engine logo.
+     * @return True if the search engine logo is enabled, regardless of visibility.
      */
-    public static boolean shouldShowSearchEngineLogo() {
+    public static boolean isSearchEngineLogoEnabled() {
         return !LocaleManager.getInstance().needToCheckForSearchEnginePromo()
                 && ChromeFeatureList.isInitialized()
-                && ChromeFeatureList.isEnabled(ChromeFeatureList.OMNIBOX_SEARCH_ENGINE_LOGO)
-                // Using the profile now, so we need to pay attention to browser initialization.
-                && BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                           .isFullBrowserStarted()
-                && !Profile.getLastUsedProfile().isOffTheRecord();
+                && ChromeFeatureList.isEnabled(ChromeFeatureList.OMNIBOX_SEARCH_ENGINE_LOGO);
     }
 
-    public static boolean shouldRoundedSearchEngineLogo() {
-        return shouldShowSearchEngineLogo() && ChromeFeatureList.isInitialized()
+    /**
+     * Encapsulates complicated boolean check for reuse and readability.
+     * @param isOffTheRecord True if the user is currently using an incognito tab.
+     * @return True if we should show the search engine logo.
+     */
+    public static boolean shouldShowSearchEngineLogo(boolean isOffTheRecord) {
+        return !isOffTheRecord
+                && isSearchEngineLogoEnabled()
+                // Using the profile now, so we need to pay attention to browser initialization.
+                && BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
+                           .isFullBrowserStarted();
+    }
+
+    /**
+     * Encapsulates complicated boolean check for reuse and readability.
+     * @param isOffTheRecord True if the user is currently using an incognito tab.
+     * @return True if we should show the rounded search engine logo.
+     */
+    public static boolean shouldShowRoundedSearchEngineLogo(boolean isOffTheRecord) {
+        return shouldShowSearchEngineLogo(isOffTheRecord) && ChromeFeatureList.isInitialized()
                 && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                         ChromeFeatureList.OMNIBOX_SEARCH_ENGINE_LOGO, ROUNDED_EDGES_VARIANT, false);
     }
 
-    public static boolean shouldShowSearchLoupeEverywhere() {
-        return shouldShowSearchEngineLogo()
+    /** Ignores the incognito state for instances where a caller would otherwise pass "false". */
+    static boolean isRoundedSearchEngineLogoEnabled() {
+        return shouldShowRoundedSearchEngineLogo(false);
+    }
+
+    /**
+     * Encapsulates complicated boolean check for reuse and readability.
+     * @param isOffTheRecord True if the user is currently using an incognito tab.
+     * @return True if we should show the search engine logo as a loupe everywhere.
+     */
+    public static boolean shouldShowSearchLoupeEverywhere(boolean isOffTheRecord) {
+        return shouldShowSearchEngineLogo(isOffTheRecord)
                 && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                         ChromeFeatureList.OMNIBOX_SEARCH_ENGINE_LOGO, LOUPE_EVERYWHERE_VARIANT,
                         false);
@@ -107,7 +132,7 @@ public class SearchEngineLogoUtils {
      */
     public static int getSearchEngineLogoSizePixels(Resources resources) {
         if (sSearchEngineLogoTargetSizePixels == 0) {
-            if (shouldRoundedSearchEngineLogo()) {
+            if (isRoundedSearchEngineLogoEnabled()) {
                 sSearchEngineLogoTargetSizePixels = resources.getDimensionPixelSize(
                         R.dimen.omnibox_search_engine_logo_favicon_size);
             } else {
@@ -192,7 +217,7 @@ public class SearchEngineLogoUtils {
                 SearchEngineLogoUtils.getSearchEngineLogoSizePixels(resources), true);
 
         Bitmap composedIcon = scaledIcon;
-        if (shouldRoundedSearchEngineLogo()) {
+        if (isRoundedSearchEngineLogoEnabled()) {
             int composedSizePixels = getSearchEngineLogoComposedSizePixels(resources);
             if (sRoundedIconGenerator == null) {
                 sRoundedIconGenerator = new RoundedIconGenerator(composedSizePixels,

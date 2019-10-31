@@ -151,18 +151,15 @@ class CONTENT_EXPORT ContentRendererClient {
   // Note that |error_html| may be not written to in certain cases
   // (lack of information on the error code) so the caller should take care to
   // initialize it with a safe default before the call.
-  // TODO(dgozman): |ignoring_cache| is always false in these two methods.
   virtual void PrepareErrorPage(content::RenderFrame* render_frame,
                                 const blink::WebURLError& error,
                                 const std::string& http_method,
-                                bool ignoring_cache,
                                 std::string* error_html) {}
 
   virtual void PrepareErrorPageForHttpStatusError(
       content::RenderFrame* render_frame,
       const GURL& unreachable_url,
       const std::string& http_method,
-      bool ignoring_cache,
       int http_status,
       std::string* error_html) {}
 
@@ -224,13 +221,6 @@ class CONTENT_EXPORT ContentRendererClient {
                                 blink::WebNavigationPolicy default_policy,
                                 bool is_redirect);
 #endif
-
-  // Returns true if we should fork a new process for the given navigation.
-  virtual bool ShouldFork(blink::WebLocalFrame* frame,
-                          const GURL& url,
-                          const std::string& http_method,
-                          bool is_initial_navigation,
-                          bool is_server_redirect);
 
   // Notifies the embedder that the given frame is requesting the resource at
   // |url|. If the function returns a valid |new_url|, the request must be
@@ -337,6 +327,15 @@ class CONTENT_EXPORT ContentRendererClient {
   // function is called from the worker thread.
   virtual void WillInitializeServiceWorkerContextOnWorkerThread() {}
 
+  // Notifies that a service worker context has been created. This function is
+  // called from the worker thread.
+  // |context_proxy| is valid until
+  // WillDestroyServiceWorkerContextOnWorkerThread() is called.
+  virtual void DidInitializeServiceWorkerContextOnWorkerThread(
+      blink::WebServiceWorkerContextProxy* context_proxy,
+      const GURL& service_worker_scope,
+      const GURL& script_url) {}
+
   // Notifies that the main script of a service worker is about to evaluate.
   // This function is called from the worker thread.
   // |context_proxy| is valid until
@@ -394,12 +393,6 @@ class CONTENT_EXPORT ContentRendererClient {
   // Whether the renderer allows idle media players to be automatically
   // suspended after a period of inactivity.
   virtual bool IsIdleMediaSuspendEnabled();
-
-  // Returns true to suppress the warning for deprecated TLS versions.
-  //
-  // This is a workaround for an outdated test server used by Blink tests on
-  // macOS. See https://crbug.com/936515.
-  virtual bool SuppressLegacyTLSVersionConsoleMessage();
 
   // Allows the embedder to return a (possibly null) URLLoaderThrottleProvider
   // for a frame or worker. For frames this is called on the main thread, and

@@ -12,9 +12,10 @@
 #include <vector>
 
 #include "ash/ash_export.h"
-#include "ash/public/cpp/split_view.h"
 #include "ash/shell_observer.h"
 #include "ash/wm/overview/scoped_overview_hide_windows.h"
+#include "ash/wm/splitview/split_view_controller.h"
+#include "ash/wm/splitview/split_view_observer.h"
 #include "base/containers/flat_set.h"
 #include "base/macros.h"
 #include "base/time/time.h"
@@ -146,6 +147,8 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
                size_t index = 0);
 
   // Similar to the above function, but adds the window at the end of the grid.
+  // This will use the spawn-item animation.
+  // TODO(afakhry): Expose |use_spawn_animation| if needed.
   void AppendItem(aura::Window* window, bool reposition, bool animate);
 
   // Removes |overview_item| from the corresponding grid. No items are
@@ -166,7 +169,9 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
   void ResetDraggedWindowGesture();
 
   // Called when a window (either it's browser window or an app window)
-  // start/continue/end being dragged in tablet mode.
+  // start/continue/end being dragged in tablet mode by swiping from the top
+  // of the screen to drag from top or by swiping from the shelf to drag from
+  // bottom .
   // TODO(xdai): Currently it doesn't work for multi-display scenario.
   void OnWindowDragStarted(aura::Window* dragged_window, bool animate);
   void OnWindowDragContinued(aura::Window* dragged_window,
@@ -176,6 +181,11 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
                          const gfx::PointF& location_in_screen,
                          bool should_drop_window_into_overview,
                          bool snap);
+  // Shows or Hides all windows (including drop target window & desk widget) in
+  // overview. It's used when dragging a window from bottom, when the user slows
+  // down or stops dragging the window, shows overview windows and when the user
+  // resumes dragging, hides overview windows.
+  void SetVisibleDuringWindowDragging(bool visible);
 
   // Positions all overview items except those in |ignored_items|.
   void PositionWindows(bool animate,
@@ -238,6 +248,10 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
   // Returns true if all its window grids don't have any window item.
   bool IsEmpty() const;
 
+  // If |focus| is true, restores focus to |restore_focus_window_|. Sets
+  // |restore_focus_window_| to null regardless of |focus|.
+  void ResetFocusRestoreWindow(bool focus);
+
   // Handles requests to active or close the currently highlighted |item|.
   void OnHighlightedItemActivated(OverviewItem* item);
   void OnHighlightedItemClosed(OverviewItem* item);
@@ -260,8 +274,8 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
   void OnKeyEvent(ui::KeyEvent* event) override;
 
   // SplitViewObserver:
-  void OnSplitViewStateChanged(SplitViewState previous_state,
-                               SplitViewState state) override;
+  void OnSplitViewStateChanged(SplitViewController::State previous_state,
+                               SplitViewController::State state) override;
   void OnSplitViewDividerPositionChanged() override;
 
   OverviewDelegate* delegate() { return delegate_; }
@@ -304,9 +318,6 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
   friend class DesksAcceleratorsTest;
   friend class OverviewSessionTest;
 
-  // |focus|, restores focus to the stored window.
-  void ResetFocusRestoreWindow(bool focus);
-
   // Helper function that moves the selection widget to forward or backward on
   // the corresponding window grid.
   void Move(bool reverse);
@@ -318,9 +329,6 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
   // Removes all observers that were registered during construction and/or
   // initialization.
   void RemoveAllObservers();
-
-  // Called when the display area for the overview window grids changed.
-  void OnDisplayBoundsChanged();
 
   void UpdateNoWindowsWidget();
 

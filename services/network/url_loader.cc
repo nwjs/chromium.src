@@ -46,6 +46,7 @@
 #include "services/network/origin_policy/origin_policy_constants.h"
 #include "services/network/origin_policy/origin_policy_manager.h"
 #include "services/network/public/cpp/constants.h"
+#include "services/network/public/cpp/content_security_policy.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/header_util.h"
 #include "services/network/public/cpp/net_adapters.h"
@@ -94,8 +95,6 @@ void PopulateResourceResponse(net::URLRequest* request,
   response->head.was_in_prefetch_cache =
       !(request->load_flags() & net::LOAD_PREFETCH) &&
       response_info.unused_since_prefetch;
-  response->head.effective_connection_type =
-      net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN;
 
   if (is_load_timing_enabled)
     request->GetLoadTimingInfo(&response->head.load_timing);
@@ -202,9 +201,8 @@ std::unique_ptr<net::UploadDataStream> CreateUploadDataStream(
       body->elements()->begin()->type() ==
           network::mojom::DataElementType::kChunkedDataPipe) {
     return std::make_unique<ChunkedDataPipeUploadDataStream>(
-        body, mojom::ChunkedDataPipeGetterPtr(
-                  const_cast<DataElement&>(body->elements()->front())
-                      .ReleaseChunkedDataPipeGetter()));
+        body, const_cast<DataElement&>(body->elements()->front())
+                  .ReleaseChunkedDataPipeGetter());
   }
 
   auto opened_file = opened_files.begin();
@@ -252,13 +250,14 @@ std::unique_ptr<net::UploadDataStream> CreateUploadDataStream(
 
 class SSLPrivateKeyInternal : public net::SSLPrivateKey {
  public:
-  SSLPrivateKeyInternal(const std::string& provider_name,
-                        const std::vector<uint16_t>& algorithm_preferences,
-                        mojom::SSLPrivateKeyPtr ssl_private_key)
+  SSLPrivateKeyInternal(
+      const std::string& provider_name,
+      const std::vector<uint16_t>& algorithm_preferences,
+      mojo::PendingRemote<mojom::SSLPrivateKey> ssl_private_key)
       : provider_name_(provider_name),
         algorithm_preferences_(algorithm_preferences),
         ssl_private_key_(std::move(ssl_private_key)) {
-    ssl_private_key_.set_connection_error_handler(
+    ssl_private_key_.set_disconnect_handler(
         base::BindOnce(&SSLPrivateKeyInternal::HandleSSLPrivateKeyError,
                        base::Unretained(this)));
   }
@@ -274,7 +273,7 @@ class SSLPrivateKeyInternal : public net::SSLPrivateKey {
             base::span<const uint8_t> input,
             net::SSLPrivateKey::SignCallback callback) override {
     std::vector<uint8_t> input_vector(input.begin(), input.end());
-    if (!ssl_private_key_ || ssl_private_key_.encountered_error()) {
+    if (!ssl_private_key_ || !ssl_private_key_.is_connected()) {
       base::ThreadTaskRunnerHandle::Get()->PostTask(
           FROM_HERE,
           base::BindOnce(std::move(callback),
@@ -303,7 +302,7 @@ class SSLPrivateKeyInternal : public net::SSLPrivateKey {
 
   std::string provider_name_;
   std::vector<uint16_t> algorithm_preferences_;
-  mojom::SSLPrivateKeyPtr ssl_private_key_;
+  mojo::Remote<mojom::SSLPrivateKey> ssl_private_key_;
 
   DISALLOW_COPY_AND_ASSIGN(SSLPrivateKeyInternal);
 };
@@ -379,8 +378,13 @@ URLLoader::URLLoader(
   DCHECK(factory_params_);
   if (url_loader_header_client &&
       (options_ & mojom::kURLLoadOptionUseHeaderClient)) {
-    url_loader_header_client->OnLoaderCreated(
-        request_id_, header_client_.BindNewPipeAndPassReceiver());
+    if (options_ & mojom::kURLLoadOptionAsCorsPreflight) {
+      url_loader_header_client->OnLoaderForCorsPreflightCreated(
+          request, header_client_.BindNewPipeAndPassReceiver());
+    } else {
+      url_loader_header_client->OnLoaderCreated(
+          request_id_, header_client_.BindNewPipeAndPassReceiver());
+    }
     // Make sure the loader dies if |header_client_| has an error, otherwise
     // requests can hang.
     header_client_.set_disconnect_handler(
@@ -396,9 +400,8 @@ URLLoader::URLLoader(
       GURL(request.url), request.priority, this, traffic_annotation);
   url_request_->set_method(request.method);
   url_request_->set_site_for_cookies(request.site_for_cookies);
-  url_request_->set_top_frame_origin(request.top_frame_origin);
   url_request_->set_attach_same_site_cookies(request.attach_same_site_cookies);
-  url_request_->SetReferrer(ComputeReferrer(request.referrer));
+  url_request_->SetReferrer(request.referrer.GetAsReferrer().spec());
   url_request_->set_referrer_policy(request.referrer_policy);
   url_request_->set_upgrade_if_insecure(request.upgrade_if_insecure);
 
@@ -473,6 +476,20 @@ URLLoader::URLLoader(
 
   if (keepalive_ && keepalive_statistics_recorder_)
     keepalive_statistics_recorder_->OnLoadStarted(factory_params_->process_id);
+
+  if (keepalive_) {
+    const size_t url_size = request.url.spec().size();
+    size_t headers_size = 0;
+    for (const auto& pair : merged_headers.GetHeaderVector()) {
+      headers_size += (pair.key.size() + pair.value.size());
+    }
+
+    UMA_HISTOGRAM_COUNTS_10000("Net.KeepaliveRequest.UrlSize", url_size);
+    UMA_HISTOGRAM_COUNTS_10000("Net.KeepaliveRequest.HeadersSize",
+                               headers_size);
+    UMA_HISTOGRAM_COUNTS_10000("Net.KeepaliveRequest.UrlPlusHeadersSize",
+                               url_size + headers_size);
+  }
 
   // Resolve elements from request_body and prepare upload data.
   if (request.request_body.get()) {
@@ -670,12 +687,6 @@ const void* const URLLoader::kUserDataKey = &URLLoader::kUserDataKey;
 void URLLoader::FollowRedirect(const std::vector<std::string>& removed_headers,
                                const net::HttpRequestHeaders& modified_headers,
                                const base::Optional<GURL>& new_url) {
-  if (!url_request_) {
-    NotifyCompleted(net::ERR_UNEXPECTED);
-    // |this| may have been deleted.
-    return;
-  }
-
   if (!deferred_redirect_url_) {
     NOTREACHED();
     return;
@@ -736,9 +747,6 @@ void URLLoader::PauseReadingBodyFromNet() {
   DVLOG(1) << "URLLoader pauses fetching response body for "
            << (url_request_ ? url_request_->original_url().spec()
                             : "a URL that has completed loading or failed.");
-
-  if (!url_request_)
-    return;
 
   // Please note that we pause reading body in all cases. Even if the URL
   // request indicates that the response was cached, there could still be
@@ -993,6 +1001,14 @@ void URLLoader::OnResponseStarted(net::URLRequest* url_request, int net_error) {
     }
   }
 
+  if (base::FeatureList::IsEnabled(
+          network::features::kOutOfBlinkFrameAncestors)) {
+    // Parse the Content-Security-Policy headers.
+    ContentSecurityPolicy policy;
+    if (policy.Parse(*url_request_->response_headers()))
+      response_->head.content_security_policy = std::move(policy);
+  }
+
   // If necessary, retrieve the associated origin policy, before sending the
   // response to the client.
   if (origin_policy_manager_ && url_request_->response_headers()) {
@@ -1196,10 +1212,11 @@ int URLLoader::OnHeadersReceived(
     net::CompletionOnceCallback callback,
     const net::HttpResponseHeaders* original_response_headers,
     scoped_refptr<net::HttpResponseHeaders>* override_response_headers,
+    const net::IPEndPoint& endpoint,
     GURL* allowed_unsafe_redirect_url) {
   if (header_client_) {
     header_client_->OnHeadersReceived(
-        original_response_headers->raw_headers(),
+        original_response_headers->raw_headers(), endpoint,
         base::BindOnce(&URLLoader::OnHeadersReceivedComplete,
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback),
                        override_response_headers, allowed_unsafe_redirect_url));
@@ -1209,8 +1226,6 @@ int URLLoader::OnHeadersReceived(
 }
 
 net::LoadState URLLoader::GetLoadStateForTesting() const {
-  if (!url_request_)
-    return net::LOAD_STATE_IDLE;
   return url_request_->GetLoadState().state;
 }
 
@@ -1258,9 +1273,6 @@ void URLLoader::OnAuthCredentials(
     const base::Optional<net::AuthCredentials>& credentials) {
   auth_challenge_responder_receiver_.reset();
 
-  if (!url_request_)
-    return;
-
   if (!credentials.has_value()) {
     url_request_->CancelAuth();
   } else {
@@ -1275,7 +1287,7 @@ void URLLoader::ContinueWithCertificate(
     const scoped_refptr<net::X509Certificate>& x509_certificate,
     const std::string& provider_name,
     const std::vector<uint16_t>& algorithm_preferences,
-    mojom::SSLPrivateKeyPtr ssl_private_key) {
+    mojo::PendingRemote<mojom::SSLPrivateKey> ssl_private_key) {
   client_cert_responder_receiver_.reset();
   auto key = base::MakeRefCounted<SSLPrivateKeyInternal>(
       provider_name, algorithm_preferences, std::move(ssl_private_key));
@@ -1458,10 +1470,6 @@ void URLLoader::OnUploadProgressACK() {
 
 void URLLoader::OnSSLCertificateErrorResponse(const net::SSLInfo& ssl_info,
                                               int net_error) {
-  // The request can be NULL if it was cancelled by the client.
-  if (!url_request_ || !url_request_->is_pending())
-    return;
-
   if (net_error == net::OK) {
     url_request_->ContinueDespiteLastError();
     return;
@@ -1475,9 +1483,6 @@ bool URLLoader::HasDataPipe() const {
 }
 
 void URLLoader::RecordBodyReadFromNetBeforePausedIfNeeded() {
-  if (!url_request_)
-    return;
-
   if (update_body_read_before_paused_)
     body_read_before_paused_ = url_request_->GetRawBodyBytes();
   if (body_read_before_paused_ != -1) {

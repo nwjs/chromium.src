@@ -490,7 +490,8 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Retrieves the restored bounds for the window.
   gfx::Rect GetRestoredBounds() const;
 
-  // Retrieves the current workspace for the window.
+  // Retrieves the current workspace for the window. (On macOS: an opaque
+  // binary blob that encodes the workspace and other window state.)
   std::string GetWorkspace() const;
 
   // Sizes and/or places the widget to the specified bounds, size or position.
@@ -768,6 +769,8 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     return non_client_view_ ? non_client_view_->client_view() : nullptr;
   }
 
+  // Returns the compositor for this Widget, note that this may change during
+  // the Widget's lifetime (e.g. when switching monitors on Chrome OS).
   ui::Compositor* GetCompositor() {
     return const_cast<ui::Compositor*>(
         const_cast<const Widget*>(this)->GetCompositor());

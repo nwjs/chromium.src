@@ -88,7 +88,7 @@ void TestAutofillClient::ShowLocalCardMigrationDialog(
 }
 
 void TestAutofillClient::ConfirmMigrateLocalCardToCloud(
-    std::unique_ptr<base::DictionaryValue> legal_message,
+    const LegalMessageLines& legal_message_lines,
     const std::string& user_email,
     const std::vector<MigratableCreditCard>& migratable_credit_cards,
     LocalCardMigrationCallback start_migrating_cards_callback) {
@@ -110,6 +110,10 @@ void TestAutofillClient::ShowLocalCardMigrationResults(
 void TestAutofillClient::ShowWebauthnOfferDialog(
     WebauthnOfferDialogCallback callback) {}
 
+bool TestAutofillClient::CloseWebauthnOfferDialog() {
+  return true;
+}
+
 void TestAutofillClient::ConfirmSaveAutofillProfile(
     const AutofillProfile& profile,
     base::OnceClosure callback) {
@@ -128,13 +132,15 @@ void TestAutofillClient::ConfirmSaveCreditCardLocally(
   std::move(callback).Run(AutofillClient::ACCEPTED);
 }
 
-#if defined(OS_ANDROID)
+#if defined(OS_ANDROID) || defined(OS_IOS)
 void TestAutofillClient::ConfirmAccountNameFixFlow(
     base::OnceCallback<void(const base::string16&)> callback) {
   credit_card_name_fix_flow_bubble_was_shown_ = true;
   std::move(callback).Run(base::string16(base::ASCIIToUTF16("Gaia Name")));
 }
+#endif  // defined(OS_ANDROID) || defined(OS_IOS)
 
+#if defined(OS_ANDROID)
 void TestAutofillClient::ConfirmExpirationDateFixFlow(
     const CreditCard& card,
     base::OnceCallback<void(const base::string16&, const base::string16&)>
@@ -148,7 +154,7 @@ void TestAutofillClient::ConfirmExpirationDateFixFlow(
 
 void TestAutofillClient::ConfirmSaveCreditCardToCloud(
     const CreditCard& card,
-    std::unique_ptr<base::DictionaryValue> legal_message,
+    const LegalMessageLines& legal_message_lines,
     SaveCreditCardOptions options,
     UploadSaveCardPromptCallback callback) {
   offer_to_save_credit_card_bubble_was_shown_ = options.show_prompt;

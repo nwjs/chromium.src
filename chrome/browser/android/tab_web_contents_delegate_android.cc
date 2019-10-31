@@ -7,6 +7,9 @@
 #include <stddef.h>
 
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
@@ -204,15 +207,15 @@ bool TabWebContentsDelegateAndroid::ShouldFocusLocationBarByDefault(
   return false;
 }
 
-blink::WebDisplayMode TabWebContentsDelegateAndroid::GetDisplayMode(
+blink::mojom::DisplayMode TabWebContentsDelegateAndroid::GetDisplayMode(
     const WebContents* web_contents) {
   JNIEnv* env = base::android::AttachCurrentThread();
 
   ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
   if (obj.is_null())
-    return blink::kWebDisplayModeUndefined;
+    return blink::mojom::DisplayMode::kUndefined;
 
-  return static_cast<blink::WebDisplayMode>(
+  return static_cast<blink::mojom::DisplayMode>(
       Java_TabWebContentsDelegateAndroid_getDisplayMode(env, obj));
 }
 
@@ -274,7 +277,7 @@ TabWebContentsDelegateAndroid::GetJavaScriptDialogManager(
 void TabWebContentsDelegateAndroid::AdjustPreviewsStateForNavigation(
     content::WebContents* web_contents,
     content::PreviewsState* previews_state) {
-  if (GetDisplayMode(web_contents) != blink::kWebDisplayModeBrowser) {
+  if (GetDisplayMode(web_contents) != blink::mojom::DisplayMode::kBrowser) {
     *previews_state = content::PREVIEWS_OFF;
   }
 }
@@ -331,12 +334,8 @@ WebContents* TabWebContentsDelegateAndroid::OpenURLFromTab(
   nav_params.FillNavigateParamsFromOpenURLParams(params);
   nav_params.source_contents = source;
   nav_params.window_action = NavigateParams::SHOW_WINDOW;
-  nav_params.user_gesture = params.user_gesture;
-  if ((params.disposition == WindowOpenDisposition::NEW_POPUP ||
-       params.disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB ||
-       params.disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB ||
-       params.disposition == WindowOpenDisposition::NEW_WINDOW) &&
-      MaybeBlockPopup(source, base::Optional<GURL>(), &nav_params, &params,
+  if (ConsiderForPopupBlocking(params.disposition) &&
+      MaybeBlockPopup(source, nullptr, &nav_params, &params,
                       blink::mojom::WindowFeatures())) {
     return nullptr;
   }
@@ -415,7 +414,7 @@ void TabWebContentsDelegateAndroid::AddNewContents(
     new_contents.release();
 }
 
-blink::WebSecurityStyle TabWebContentsDelegateAndroid::GetSecurityStyle(
+blink::SecurityStyle TabWebContentsDelegateAndroid::GetSecurityStyle(
     WebContents* web_contents,
     content::SecurityStyleExplanations* security_style_explanations) {
   SecurityStateTabHelper* helper =

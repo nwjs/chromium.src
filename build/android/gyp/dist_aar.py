@@ -14,6 +14,7 @@ import sys
 import tempfile
 import zipfile
 
+from filter_zip import CreatePathTransform
 from util import build_utils
 
 
@@ -77,6 +78,12 @@ def main(args):
                       'ABI must be specified.')
   parser.add_argument('--abi',
                       help='ABI (e.g. armeabi-v7a) for native libraries.')
+  parser.add_argument(
+      '--jar-excluded-globs',
+      help='GN-list of globs for paths to exclude in jar.')
+  parser.add_argument(
+      '--jar-included-globs',
+      help='GN-list of globs for paths to include in jar.')
 
   options = parser.parse_args(args)
 
@@ -89,6 +96,10 @@ def main(args):
   options.r_text_files = build_utils.ParseGnList(options.r_text_files)
   options.proguard_configs = build_utils.ParseGnList(options.proguard_configs)
   options.native_libraries = build_utils.ParseGnList(options.native_libraries)
+  options.jar_excluded_globs = build_utils.ParseGnList(
+      options.jar_excluded_globs)
+  options.jar_included_globs = build_utils.ParseGnList(
+      options.jar_included_globs)
 
   with tempfile.NamedTemporaryFile(delete=False) as staging_file:
     try:
@@ -96,8 +107,11 @@ def main(args):
         build_utils.AddToZipHermetic(
             z, 'AndroidManifest.xml', src_path=options.android_manifest)
 
+        path_transform = CreatePathTransform(options.jar_excluded_globs,
+                                             options.jar_included_globs, [])
         with tempfile.NamedTemporaryFile() as jar_file:
-          build_utils.MergeZips(jar_file.name, options.jars)
+          build_utils.MergeZips(
+              jar_file.name, options.jars, path_transform=path_transform)
           build_utils.AddToZipHermetic(z, 'classes.jar', src_path=jar_file.name)
 
         build_utils.AddToZipHermetic(

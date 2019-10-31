@@ -20,6 +20,7 @@
 #include "base/single_thread_task_runner.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/test_file_util.h"
+#include "base/test/test_switches.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "chrome/browser/after_startup_task_utils.h"
@@ -125,8 +126,7 @@ class FakeDeviceSyncImplFactory
   std::unique_ptr<chromeos::device_sync::DeviceSyncBase> BuildInstance(
       signin::IdentityManager* identity_manager,
       gcm::GCMDriver* gcm_driver,
-      mojo::PendingRemote<prefs::mojom::PrefStoreConnector>
-          pref_store_connector,
+      PrefService* profile_prefs,
       const chromeos::device_sync::GcmDeviceInfoProvider*
           gcm_device_info_provider,
       chromeos::device_sync::ClientAppMetadataProvider*
@@ -163,6 +163,14 @@ InProcessBrowserTest::InProcessBrowserTest(
   views_delegate_ = std::move(views_delegate);
 }
 #endif
+
+std::unique_ptr<storage::QuotaSettings>
+InProcessBrowserTest::CreateQuotaSettings() {
+  // By default use hardcoded quota settings to have a consistent testing
+  // environment.
+  const int kQuota = 5 * 1024 * 1024;
+  return std::make_unique<storage::QuotaSettings>(kQuota * 5, kQuota, 0, 0);
+}
 
 void InProcessBrowserTest::Initialize() {
   CreateTestServer(GetChromeTestDataDir());
@@ -277,11 +285,9 @@ void InProcessBrowserTest::SetUp() {
   ash::ShellTestApi::SetTabletControllerUseScreenshotForTest(false);
 #endif  // defined(OS_CHROMEOS)
 
-  // Use hardcoded quota settings to have a consistent testing environment.
-  const int kQuota = 5 * 1024 * 1024;
-  quota_settings_ = storage::QuotaSettings(kQuota * 5, kQuota, 0, 0);
+  quota_settings_ = CreateQuotaSettings();
   ChromeContentBrowserClient::SetDefaultQuotaSettingsForTesting(
-      &quota_settings_);
+      quota_settings_.get());
 
   // Redirect the default download directory to a temporary directory.
   ASSERT_TRUE(default_download_dir_.CreateUniqueTempDir());
@@ -469,9 +475,9 @@ base::CommandLine InProcessBrowserTest::GetCommandLineForRelaunch() {
   base::CommandLine::SwitchMap switches =
       base::CommandLine::ForCurrentProcess()->GetSwitches();
   switches.erase(switches::kUserDataDir);
-  switches.erase(content::kSingleProcessTestsFlag);
+  switches.erase(switches::kSingleProcessTests);
   switches.erase(switches::kSingleProcess);
-  new_command_line.AppendSwitch(content::kLaunchAsBrowser);
+  new_command_line.AppendSwitch(switches::kLaunchAsBrowser);
 
   base::FilePath user_data_dir;
   base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);

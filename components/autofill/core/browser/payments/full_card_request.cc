@@ -13,6 +13,7 @@
 #include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/common/autofill_clock.h"
+#include "components/autofill/core/common/autofill_payments_features.h"
 
 namespace autofill {
 namespace payments {
@@ -110,10 +111,6 @@ void FullCardRequest::GetFullCard(const CreditCard& card,
   }
 }
 
-bool FullCardRequest::IsGettingFullCard() const {
-  return !!request_;
-}
-
 void FullCardRequest::OnUnmaskPromptAccepted(
     const UserProvidedUnmaskDetails& user_response) {
   if (!user_response.exp_month.empty())
@@ -204,9 +201,16 @@ void FullCardRequest::OnDidGetRealPan(
       // |response_details_| if |user_response.fido_opt_in| was not set to true
       // to avoid an unwanted registration prompt.
       unmask_response_details_ = response_details;
+
+      const base::string16 cvc =
+          base::FeatureList::IsEnabled(
+              features::kAutofillAlwaysReturnCloudTokenizedCard) &&
+                  !response_details.dcvv.empty()
+              ? base::UTF8ToUTF16(response_details.dcvv)
+              : request_->user_response.cvc;
       if (result_delegate_)
-        result_delegate_->OnFullCardRequestSucceeded(
-            *this, request_->card, request_->user_response.cvc);
+        result_delegate_->OnFullCardRequestSucceeded(*this, request_->card,
+                                                     cvc);
       Reset();
       break;
     }

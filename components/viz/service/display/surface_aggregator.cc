@@ -98,17 +98,15 @@ struct SurfaceAggregator::RoundedCornerInfo {
   RoundedCornerInfo() = default;
 
   // |target_transform| is the transform that maps |bounds_arg| from its current
-  // space into the desired target space. It must be a scale+translation matrix.
+  // space into the desired target space. It must be an axis aligned transform.
   RoundedCornerInfo(const gfx::RRectF& bounds_arg,
                     bool is_fast_rounded_corner,
                     const gfx::Transform target_transform)
       : bounds(bounds_arg), is_fast_rounded_corner(is_fast_rounded_corner) {
     if (bounds.IsEmpty())
       return;
-    DCHECK(target_transform.Preserves2dAxisAlignment());
-    SkMatrix matrix = target_transform.matrix();
-    bounds.Scale(matrix.getScaleX(), matrix.getScaleY());
-    bounds.Offset(target_transform.To2dTranslation());
+    bool success = target_transform.TransformRRectF(&bounds);
+    DCHECK(success);
   }
 
   gfx::RRectF bounds;
@@ -674,8 +672,7 @@ void SurfaceAggregator::EmitSurfaceContent(
     RenderPassId remapped_pass_id = RemapPassId(last_pass.id, surface_id);
     quad->SetNew(shared_quad_state, scaled_rect, scaled_visible_rect,
                  remapped_pass_id, 0, gfx::RectF(), gfx::Size(),
-                 /*mask_applies_to_backdrop=*/false, gfx::Vector2dF(),
-                 gfx::PointF(), gfx::RectF(scaled_rect),
+                 gfx::Vector2dF(), gfx::PointF(), gfx::RectF(scaled_rect),
                  /*force_anti_aliasing_off=*/false,
                  /* backdrop_filter_quality*/ 1.0f);
   }
@@ -806,8 +803,7 @@ void SurfaceAggregator::AddColorConversionPass() {
       color_conversion_pass->CreateAndAppendDrawQuad<RenderPassDrawQuad>();
   quad->SetNew(shared_quad_state, output_rect, output_rect,
                root_render_pass->id, 0, gfx::RectF(), gfx::Size(),
-               /*mask_applies_to_backdrop=*/false, gfx::Vector2dF(),
-               gfx::PointF(), gfx::RectF(output_rect),
+               gfx::Vector2dF(), gfx::PointF(), gfx::RectF(output_rect),
                /*force_anti_aliasing_off=*/false,
                /*backdrop_filter_quality*/ 1.0f);
   dest_pass_list_->push_back(std::move(color_conversion_pass));
@@ -857,8 +853,7 @@ void SurfaceAggregator::AddDisplayTransformPass() {
       display_transform_pass->CreateAndAppendDrawQuad<RenderPassDrawQuad>();
   quad->SetNew(shared_quad_state, output_rect, output_rect,
                root_render_pass->id, 0, gfx::RectF(), gfx::Size(),
-               /*mask_applies_to_backdrop=*/false, gfx::Vector2dF(),
-               gfx::PointF(), gfx::RectF(output_rect),
+               gfx::Vector2dF(), gfx::PointF(), gfx::RectF(output_rect),
                /*force_anti_aliasing_off=*/false,
                /*backdrop_filter_quality*/ 1.0f);
   dest_pass_list_->push_back(std::move(display_transform_pass));
@@ -1341,8 +1336,7 @@ gfx::Rect SurfaceAggregator::PrewalkTree(Surface* surface,
     return gfx::Rect();
   valid_surfaces_.insert(surface->surface_id());
 
-  ResourceIdSet resource_set(std::move(referenced_resources),
-                             base::KEEP_FIRST_OF_DUPES);
+  ResourceIdSet resource_set(std::move(referenced_resources));
   if (provider_)
     provider_->DeclareUsedResourcesFromChild(child_id, resource_set);
 
@@ -1975,8 +1969,8 @@ void SurfaceAggregator::AppendDeJellyRenderPass(
                     false, opacity, blend_mode, 0);
   auto* quad = root_pass->CreateAndAppendDrawQuad<RenderPassDrawQuad>();
   quad->SetNew(new_state, render_pass->output_rect, render_pass->output_rect,
-               render_pass->id, 0, gfx::RectF(), gfx::Size(), false,
-               gfx::Vector2dF(), gfx::PointF(),
+               render_pass->id, 0, gfx::RectF(), gfx::Size(), gfx::Vector2dF(),
+               gfx::PointF(),
                gfx::RectF(gfx::SizeF(render_pass->output_rect.size())), false,
                1.0f);
   gfx::Transform skew_transform;

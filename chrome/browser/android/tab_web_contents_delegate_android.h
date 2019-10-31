@@ -58,7 +58,7 @@ class TabWebContentsDelegateAndroid
       override;
   void CloseContents(content::WebContents* web_contents) override;
   bool ShouldFocusLocationBarByDefault(content::WebContents* source) override;
-  blink::WebDisplayMode GetDisplayMode(
+  blink::mojom::DisplayMode GetDisplayMode(
       const content::WebContents* web_contents) override;
   void FindReply(content::WebContents* web_contents,
                  int request_id,
@@ -98,7 +98,7 @@ class TabWebContentsDelegateAndroid
                       const gfx::Rect& initial_rect,
                       bool user_gesture,
                       bool* was_blocked) override;
-  blink::WebSecurityStyle GetSecurityStyle(
+  blink::SecurityStyle GetSecurityStyle(
       content::WebContents* web_contents,
       content::SecurityStyleExplanations* security_style_explanations) override;
   void OnDidBlockNavigation(content::WebContents* web_contents,

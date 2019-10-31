@@ -246,7 +246,6 @@ void CSPDirectiveList::ReportEvalViolation(
     const ContentSecurityPolicy::DirectiveType effective_type,
     const String& message,
     const KURL& blocked_url,
-    ScriptState* script_state,
     const ContentSecurityPolicy::ExceptionStatus exception_status,
     const String& content) const {
   String report_message = IsReportOnly() ? "[Report Only] " + message : message;
@@ -338,7 +337,7 @@ bool CSPDirectiveList::AllowTrustedTypeAssignmentFailure(
                       ContentSecurityPolicy::DirectiveType::kTrustedTypes),
                   ContentSecurityPolicy::DirectiveType::kTrustedTypes, message,
                   KURL(), RedirectStatus::kFollowedRedirect,
-                  ContentSecurityPolicy::kTrustedTypesViolation, sample);
+                  ContentSecurityPolicy::kTrustedTypesSinkViolation, sample);
   return IsReportOnly();
 }
 
@@ -464,7 +463,6 @@ bool CSPDirectiveList::CheckMediaType(MediaListDirective* directive,
 bool CSPDirectiveList::CheckEvalAndReportViolation(
     SourceListDirective* directive,
     const String& console_message,
-    ScriptState* script_state,
     ContentSecurityPolicy::ExceptionStatus exception_status,
     const String& content) const {
   if (CheckEval(directive))
@@ -479,7 +477,7 @@ bool CSPDirectiveList::CheckEvalAndReportViolation(
   ReportEvalViolation(
       directive->GetText(), ContentSecurityPolicy::DirectiveType::kScriptSrc,
       console_message + "\"" + directive->GetText() + "\"." + suffix + "\n",
-      KURL(), script_state, exception_status,
+      KURL(), exception_status,
       directive->AllowReportSample() ? content : g_empty_string);
   if (!IsReportOnly()) {
     policy_->ReportBlockedScriptExecutionToInspector(directive->GetText());
@@ -491,7 +489,6 @@ bool CSPDirectiveList::CheckEvalAndReportViolation(
 bool CSPDirectiveList::CheckWasmEvalAndReportViolation(
     SourceListDirective* directive,
     const String& console_message,
-    ScriptState* script_state,
     ContentSecurityPolicy::ExceptionStatus exception_status,
     const String& content) const {
   if (CheckWasmEval(directive))
@@ -507,7 +504,7 @@ bool CSPDirectiveList::CheckWasmEvalAndReportViolation(
   ReportEvalViolation(
       directive->GetText(), ContentSecurityPolicy::DirectiveType::kScriptSrc,
       console_message + "\"" + directive->GetText() + "\"." + suffix + "\n",
-      KURL(), script_state, exception_status,
+      KURL(), exception_status,
       directive->AllowReportSample() ? content : g_empty_string);
   if (!IsReportOnly()) {
     policy_->ReportBlockedScriptExecutionToInspector(directive->GetText());
@@ -746,7 +743,6 @@ bool CSPDirectiveList::AllowInline(
 }
 
 bool CSPDirectiveList::AllowEval(
-    ScriptState* script_state,
     SecurityViolationReportingPolicy reporting_policy,
     ContentSecurityPolicy::ExceptionStatus exception_status,
     const String& content) const {
@@ -756,7 +752,7 @@ bool CSPDirectiveList::AllowEval(
         "Refused to evaluate a string as JavaScript because 'unsafe-eval' is "
         "not an allowed source of script in the following Content Security "
         "Policy directive: ",
-        script_state, exception_status, content);
+        exception_status, content);
   }
   return IsReportOnly() ||
          CheckEval(OperativeDirective(
@@ -764,7 +760,6 @@ bool CSPDirectiveList::AllowEval(
 }
 
 bool CSPDirectiveList::AllowWasmEval(
-    ScriptState* script_state,
     SecurityViolationReportingPolicy reporting_policy,
     ContentSecurityPolicy::ExceptionStatus exception_status,
     const String& content) const {
@@ -774,7 +769,7 @@ bool CSPDirectiveList::AllowWasmEval(
         "Refused to compile or instantiate WebAssembly module because "
         "'wasm-eval' is not an allowed source of script in the following "
         "Content Security Policy directive: ",
-        script_state, exception_status, content);
+        exception_status, content);
   }
   return IsReportOnly() ||
          CheckWasmEval(OperativeDirective(
@@ -782,9 +777,9 @@ bool CSPDirectiveList::AllowWasmEval(
 }
 
 bool CSPDirectiveList::ShouldDisableEvalBecauseScriptSrc() const {
-  return !AllowEval(
-      nullptr, SecurityViolationReportingPolicy::kSuppressReporting,
-      ContentSecurityPolicy::kWillNotThrowException, g_empty_string);
+  return !AllowEval(SecurityViolationReportingPolicy::kSuppressReporting,
+                    ContentSecurityPolicy::kWillNotThrowException,
+                    g_empty_string);
 }
 
 bool CSPDirectiveList::ShouldDisableEvalBecauseTrustedTypes() const {
@@ -879,7 +874,8 @@ bool CSPDirectiveList::AllowTrustedTypePolicy(const String& policy_name) const {
           "\"%s\".",
           policy_name.Utf8().c_str(),
           trusted_types_.Get()->GetText().Utf8().c_str()),
-      KURL(), RedirectStatus::kNoRedirect);
+      KURL(), RedirectStatus::kNoRedirect,
+      ContentSecurityPolicy::kTrustedTypesPolicyViolation, policy_name);
 
   return DenyIfEnforcingPolicy();
 }

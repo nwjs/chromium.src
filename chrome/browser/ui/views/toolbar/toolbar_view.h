@@ -12,7 +12,7 @@
 #include "base/observer_list.h"
 #include "base/scoped_observer.h"
 #include "chrome/browser/command_observer.h"
-#include "chrome/browser/ui/page_action/page_action_icon_container.h"
+#include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/toolbar/app_menu_icon_controller.h"
 #include "chrome/browser/ui/toolbar/back_forward_menu_model.h"
 #include "chrome/browser/ui/views/frame/browser_root_view.h"
@@ -48,7 +48,7 @@ class HomeButton;
 class MediaToolbarButtonView;
 class ReloadButton;
 class ToolbarButton;
-class ToolbarPageActionIconContainerView;
+class ToolbarAccountIconContainerView;
 
 namespace bookmarks {
 class BookmarkBubbleObserver;
@@ -128,9 +128,6 @@ class ToolbarView : public views::AccessiblePaneView,
                           bool already_bookmarked,
                           bookmarks::BookmarkBubbleObserver* observer);
 
-  // Access to the avatar button.
-  AvatarToolbarButton* GetAvatarToolbarButton();
-
   // Accessors.
   Browser* browser() const { return browser_; }
   BrowserActionsContainer* browser_actions() const { return browser_actions_; }
@@ -144,8 +141,8 @@ class ToolbarView : public views::AccessiblePaneView,
   CustomTabBarView* custom_tab_bar() { return custom_tab_bar_; }
   media_router::CastToolbarButton* cast_button() const { return cast_; }
   MediaToolbarButtonView* media_button() const { return media_button_; }
-  ToolbarPageActionIconContainerView* toolbar_page_action_container() const {
-    return toolbar_page_action_container_;
+  ToolbarAccountIconContainerView* toolbar_account_icon_container() const {
+    return toolbar_account_icon_container_;
   }
   BrowserAppMenuButton* app_menu_button() const { return app_menu_button_; }
   HomeButton* home_button() const { return home_; }
@@ -192,7 +189,6 @@ class ToolbarView : public views::AccessiblePaneView,
   gfx::Size CalculatePreferredSize() const override;
   gfx::Size GetMinimumSize() const override;
   void Layout() override;
-  void OnPaintBackground(gfx::Canvas* canvas) override;
   void OnThemeChanged() override;
   const char* GetClassName() const override;
   bool AcceleratorPressed(const ui::Accelerator& acc) override;
@@ -231,13 +227,14 @@ class ToolbarView : public views::AccessiblePaneView,
   BrowserActionsContainer* GetBrowserActionsContainer() override;
   ToolbarActionView* GetToolbarActionViewForId(const std::string& id) override;
   views::View* GetDefaultExtensionDialogAnchorView() override;
-  OmniboxPageActionIconContainerView* GetOmniboxPageActionIconContainerView()
-      override;
+  PageActionIconView* GetPageActionIconView(PageActionIconType type) override;
   AppMenuButton* GetAppMenuButton() override;
   gfx::Rect GetFindBarBoundingBox(int contents_height) const override;
   void FocusToolbar() override;
   views::AccessiblePaneView* GetAsAccessiblePaneView() override;
-  views::View* GetAnchorView() override;
+  views::View* GetAnchorView(PageActionIconType type) override;
+  void ZoomChangedForActiveTab(bool can_show_bubble) override;
+  AvatarToolbarButton* GetAvatarToolbarButton() override;
 
   // BrowserRootView::DropTarget
   BrowserRootView::DropIndex GetDropIndex(
@@ -271,7 +268,9 @@ class ToolbarView : public views::AccessiblePaneView,
   BrowserActionsContainer* browser_actions_ = nullptr;
   ExtensionsToolbarContainer* extensions_container_ = nullptr;
   media_router::CastToolbarButton* cast_ = nullptr;
-  ToolbarPageActionIconContainerView* toolbar_page_action_container_ = nullptr;
+  ToolbarAccountIconContainerView* toolbar_account_icon_container_ = nullptr;
+  ToolbarButton* webui_new_tab_button_ = nullptr;
+  ToolbarButton* webui_toggle_button_ = nullptr;
   AvatarToolbarButton* avatar_ = nullptr;
   MediaToolbarButtonView* media_button_ = nullptr;
   BrowserAppMenuButton* app_menu_button_ = nullptr;

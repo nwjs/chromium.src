@@ -19,6 +19,7 @@
 #include "ui/gfx/text_elider.h"
 #include "ui/views/controls/button/checkbox.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/controls/message_box_view.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/widget/widget.h"
 
@@ -29,10 +30,11 @@ void ExternalProtocolHandler::RunExternalProtocolDialog(
     const GURL& url,
     WebContents* web_contents,
     ui::PageTransition page_transition,
-    bool has_user_gesture) {
+    bool has_user_gesture,
+    const base::Optional<url::Origin>& initiating_origin) {
   DCHECK(web_contents);
   std::unique_ptr<ExternalProtocolDialogDelegate> delegate(
-      new ExternalProtocolDialogDelegate(url, web_contents));
+      new ExternalProtocolDialogDelegate(url, web_contents, initiating_origin));
   if (delegate->program_name().empty()) {
     // ShellExecute won't do anything. Don't bother warning the user.
     return;
@@ -53,15 +55,6 @@ gfx::Size ExternalProtocolDialog::CalculatePreferredSize() const {
 
 bool ExternalProtocolDialog::ShouldShowCloseButton() const {
   return false;
-}
-
-int ExternalProtocolDialog::GetDefaultDialogButton() const {
-  return ui::DIALOG_BUTTON_CANCEL;
-}
-
-base::string16 ExternalProtocolDialog::GetDialogButtonLabel(
-    ui::DialogButton button) const {
-  return delegate_->GetDialogButtonLabel(button);
 }
 
 base::string16 ExternalProtocolDialog::GetWindowTitle() const {
@@ -93,6 +86,10 @@ bool ExternalProtocolDialog::Accept() {
   return true;
 }
 
+views::View* ExternalProtocolDialog::GetContentsView() {
+  return message_box_view_;
+}
+
 ui::ModalType ExternalProtocolDialog::GetModalType() const {
   return ui::MODAL_TYPE_CHILD;
 }
@@ -101,13 +98,23 @@ ExternalProtocolDialog::ExternalProtocolDialog(
     std::unique_ptr<const ProtocolDialogDelegate> delegate,
     WebContents* web_contents)
     : delegate_(std::move(delegate)), creation_time_(base::TimeTicks::Now()) {
+  DialogDelegate::set_default_button(ui::DIALOG_BUTTON_CANCEL);
+  DialogDelegate::set_button_label(
+      ui::DIALOG_BUTTON_OK,
+      delegate_->GetDialogButtonLabel(ui::DIALOG_BUTTON_OK));
+  DialogDelegate::set_button_label(
+      ui::DIALOG_BUTTON_CANCEL,
+      delegate_->GetDialogButtonLabel(ui::DIALOG_BUTTON_CANCEL));
+
+  views::MessageBoxView::InitParams params(delegate_->GetMessageText());
+  message_box_view_ = new views::MessageBoxView(params);
+
   ChromeLayoutProvider* provider = ChromeLayoutProvider::Get();
   set_margins(
       provider->GetDialogInsetsForContentType(views::TEXT, views::TEXT));
 
   SetLayoutManager(std::make_unique<views::FillLayout>());
 
-  DCHECK(delegate_->GetMessageText().empty());
   remember_decision_checkbox_ =
       new views::Checkbox(delegate_->GetCheckboxText());
   remember_decision_checkbox_->SetChecked(false);

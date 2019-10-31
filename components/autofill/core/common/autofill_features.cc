@@ -112,6 +112,11 @@ const base::Feature kAutofillProfileServerValidation{
 const base::Feature kAutofillRejectCompanyBirthyear{
     "AutofillRejectCompanyBirthyear", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Controls whether autofill rejects using non-verified company names that are
+// social titles (e.g., "Mrs.") in some languages.
+const base::Feature kAutofillRejectCompanySocialTitle{
+    "AutofillRejectCompanySocialTitle", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Controls whether or not a group of fields not enclosed in a form can be
 // considered a form. If this is enabled, unowned fields will only constitute
 // a form if there are signals to suggest that this might a checkout page.
@@ -125,6 +130,10 @@ const base::Feature kAutofillRestrictUnownedFieldsToFormlessCheckout{
 // models prior to a client-push.
 const base::Feature kAutofillRichMetadataQueries{
     "AutofillRichMetadataQueries", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Controls whether UPI/VPA values will be saved and filled into payment forms.
+const base::Feature kAutofillSaveAndFillVPA{"AutofillSaveAndFillVPA",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kAutofillSaveOnProbablySubmitted{
     "AutofillSaveOnProbablySubmitted", base::FEATURE_ENABLED_BY_DEFAULT};

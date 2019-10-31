@@ -13,7 +13,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string16.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom.h"
-#include "components/autofill/core/common/password_form_field_prediction_map.h"
 
 namespace autofill {
 class AutofillDriver;
@@ -35,6 +34,9 @@ class PasswordManagerDriver
   PasswordManagerDriver() = default;
   virtual ~PasswordManagerDriver() = default;
 
+  // Returns driver id which is unique in the current tab.
+  virtual int GetId() const = 0;
+
   // Fills forms matching |form_data|.
   virtual void FillPasswordForm(
       const autofill::PasswordFormFillData& form_data) = 0;
@@ -49,11 +51,6 @@ class PasswordManagerDriver
   virtual void FormEligibleForGenerationFound(
       const autofill::PasswordFormGenerationData& form) {}
 
-  // Notifies the driver that username and password predictions from autofill
-  // have been received.
-  virtual void AutofillDataReceived(
-      const autofill::FormsPredictionsMap& predictions) {}
-
   // Notifies the driver that the user has accepted a generated password.
   // TODO(crbug/936011): delete this method. The UI should call the one below.
   virtual void GeneratedPasswordAccepted(const base::string16& password) = 0;
@@ -64,6 +61,8 @@ class PasswordManagerDriver
   virtual void GeneratedPasswordAccepted(const autofill::FormData& form_data,
                                          uint32_t generation_element_id,
                                          const base::string16& password) {}
+
+  virtual void TouchToFillDismissed() {}
 
   // Tells the driver to fill the form with the |username| and |password|.
   virtual void FillSuggestion(const base::string16& username,
@@ -79,11 +78,6 @@ class PasswordManagerDriver
   // |password|.
   virtual void PreviewSuggestion(const base::string16& username,
                                  const base::string16& password) = 0;
-
-  // Tells the driver to show an initial set of accounts to suggest for the
-  // form.
-  virtual void ShowInitialPasswordAccountSuggestions(
-      const autofill::PasswordFormFillData& form_data) = 0;
 
   // Tells the driver to clear previewed password and username fields.
   virtual void ClearPreviewedForm() = 0;
@@ -109,6 +103,11 @@ class PasswordManagerDriver
 
   // Returns the last committed URL of the frame.
   virtual const GURL& GetLastCommittedURL() const = 0;
+
+  // Annotate password related (username, password) DOM input elements with
+  // corresponding HTML attributes. It is used only for debugging.
+  virtual void AnnotateFieldsWithParsingResult(
+      const autofill::ParsingResult& parsing_result) {}
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PasswordManagerDriver);

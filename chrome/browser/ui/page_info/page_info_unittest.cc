@@ -32,6 +32,7 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/infobars/core/infobar.h"
 #include "components/safe_browsing/buildflags.h"
+#include "components/security_state/core/features.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/ssl_host_state_delegate.h"
 #include "content/public/browser/ssl_status.h"
@@ -398,14 +399,6 @@ TEST_F(PageInfoTest, OnPermissionsChanged) {
   EXPECT_EQ(setting, CONTENT_SETTING_ALLOW);
 }
 
-TEST_F(PageInfoTest, OnSiteDataAccessed) {
-  EXPECT_CALL(*mock_ui(), SetPermissionInfoStub());
-  EXPECT_CALL(*mock_ui(), SetIdentityInfo(_));
-  EXPECT_CALL(*mock_ui(), SetCookieInfo(_)).Times(2);
-
-  page_info()->OnSiteDataAccessed();
-}
-
 TEST_F(PageInfoTest, OnChosenObjectDeleted) {
   // Connect the UsbChooserContext with FakeUsbDeviceManager.
   device::FakeUsbDeviceManager usb_device_manager;
@@ -486,6 +479,18 @@ TEST_F(PageInfoTest, SignInPasswordReuse) {
             page_info()->safe_browsing_status());
 }
 
+TEST_F(PageInfoTest, SavedPasswordReuse) {
+  security_level_ = security_state::DANGEROUS;
+  visible_security_state_.malicious_content_status =
+      security_state::MALICIOUS_CONTENT_STATUS_SAVED_PASSWORD_REUSE;
+  SetDefaultUIExpectations(mock_ui());
+
+  EXPECT_EQ(PageInfo::SITE_CONNECTION_STATUS_UNENCRYPTED,
+            page_info()->site_connection_status());
+  EXPECT_EQ(PageInfo::SAFE_BROWSING_STATUS_SAVED_PASSWORD_REUSE,
+            page_info()->safe_browsing_status());
+}
+
 TEST_F(PageInfoTest, EnterprisePasswordReuse) {
   security_level_ = security_state::DANGEROUS;
   visible_security_state_.malicious_content_status =
@@ -505,7 +510,6 @@ TEST_F(PageInfoTest, HTTPConnection) {
             page_info()->site_connection_status());
   EXPECT_EQ(PageInfo::SITE_IDENTITY_STATUS_NO_CERT,
             page_info()->site_identity_status());
-  EXPECT_EQ(base::string16(), page_info()->organization_name());
 }
 
 TEST_F(PageInfoTest, HTTPSConnection) {
@@ -525,7 +529,6 @@ TEST_F(PageInfoTest, HTTPSConnection) {
             page_info()->site_connection_status());
   EXPECT_EQ(PageInfo::SITE_IDENTITY_STATUS_CERT,
             page_info()->site_identity_status());
-  EXPECT_EQ(base::string16(), page_info()->organization_name());
 }
 
 // Define some dummy constants for Android-only resources.
@@ -740,7 +743,6 @@ TEST_F(PageInfoTest, InsecureContent) {
         test.expected_connection_icon_id,
         PageInfoUI::GetConnectionIconID(page_info()->site_connection_status()));
 #endif
-    EXPECT_EQ(base::string16(), page_info()->organization_name());
   }
 }
 
@@ -767,9 +769,6 @@ TEST_F(PageInfoTest, HTTPSEVCert) {
             page_info()->site_connection_status());
   EXPECT_EQ(PageInfo::SITE_IDENTITY_STATUS_EV_CERT,
             page_info()->site_identity_status());
-  EXPECT_EQ(base::UTF8ToUTF16("Google Inc"), page_info()->organization_name());
-  EXPECT_EQ(base::UTF8ToUTF16("Issued to: Google Inc [US]"),
-            page_info()->site_details_message());
 }
 
 TEST_F(PageInfoTest, HTTPSConnectionError) {
@@ -791,7 +790,6 @@ TEST_F(PageInfoTest, HTTPSConnectionError) {
             page_info()->site_connection_status());
   EXPECT_EQ(PageInfo::SITE_IDENTITY_STATUS_CERT,
             page_info()->site_identity_status());
-  EXPECT_EQ(base::string16(), page_info()->organization_name());
 }
 
 #if defined(OS_CHROMEOS)
@@ -812,7 +810,6 @@ TEST_F(PageInfoTest, HTTPSPolicyCertConnection) {
             page_info()->site_connection_status());
   EXPECT_EQ(PageInfo::SITE_IDENTITY_STATUS_ADMIN_PROVIDED_CERT,
             page_info()->site_identity_status());
-  EXPECT_EQ(base::string16(), page_info()->organization_name());
 }
 #endif
 
@@ -834,12 +831,68 @@ TEST_F(PageInfoTest, HTTPSSHA1) {
             page_info()->site_connection_status());
   EXPECT_EQ(PageInfo::SITE_IDENTITY_STATUS_DEPRECATED_SIGNATURE_ALGORITHM,
             page_info()->site_identity_status());
-  EXPECT_EQ(base::string16(), page_info()->organization_name());
 #if defined(OS_ANDROID)
   EXPECT_EQ(IDR_PAGEINFO_WARNING_MINOR,
             PageInfoUI::GetIdentityIconID(page_info()->site_identity_status()));
 #endif
 }
+
+#if !defined(OS_ANDROID)
+// Tests that the site connection status is correctly set for Legacy TLS sites
+// when the kLegacyTLSWarnings feature is enabled.
+TEST_F(PageInfoTest, LegacyTLS) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      security_state::features::kLegacyTLSWarnings);
+
+  security_level_ = security_state::WARNING;
+  visible_security_state_.url = GURL("https://scheme-is-cryptographic.test");
+  visible_security_state_.certificate = cert();
+  visible_security_state_.cert_status = 0;
+  int status = 0;
+  status = SetSSLVersion(status, net::SSL_CONNECTION_VERSION_TLS1);
+  status = SetSSLVersion(status, CR_TLS_RSA_WITH_AES_256_CBC_SHA256);
+  visible_security_state_.connection_status = status;
+  visible_security_state_.connection_info_initialized = true;
+  visible_security_state_.connection_used_legacy_tls = true;
+  visible_security_state_.should_suppress_legacy_tls_warning = false;
+
+  SetDefaultUIExpectations(mock_ui());
+
+  EXPECT_EQ(PageInfo::SITE_CONNECTION_STATUS_LEGACY_TLS,
+            page_info()->site_connection_status());
+  EXPECT_EQ(PageInfo::SITE_IDENTITY_STATUS_CERT,
+            page_info()->site_identity_status());
+}
+
+// Tests that the site connection status is not set to LEGACY_TLS when a site
+// using legacy TLS is marked as a control site in the visible security state,
+// when the kLegacyTLSWarnings feature is enabled.
+TEST_F(PageInfoTest, LegacyTLSControlSite) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      security_state::features::kLegacyTLSWarnings);
+
+  security_level_ = security_state::SECURE;
+  visible_security_state_.url = GURL("https://scheme-is-cryptographic.test");
+  visible_security_state_.certificate = cert();
+  visible_security_state_.cert_status = 0;
+  int status = 0;
+  status = SetSSLVersion(status, net::SSL_CONNECTION_VERSION_TLS1);
+  status = SetSSLVersion(status, CR_TLS_RSA_WITH_AES_256_CBC_SHA256);
+  visible_security_state_.connection_status = status;
+  visible_security_state_.connection_info_initialized = true;
+  visible_security_state_.connection_used_legacy_tls = true;
+  visible_security_state_.should_suppress_legacy_tls_warning = true;
+
+  SetDefaultUIExpectations(mock_ui());
+
+  EXPECT_EQ(PageInfo::SITE_CONNECTION_STATUS_ENCRYPTED,
+            page_info()->site_connection_status());
+  EXPECT_EQ(PageInfo::SITE_IDENTITY_STATUS_CERT,
+            page_info()->site_identity_status());
+}
+#endif
 
 #if !defined(OS_ANDROID)
 TEST_F(PageInfoTest, NoInfoBar) {
@@ -896,7 +949,6 @@ TEST_F(PageInfoTest, AboutBlankPage) {
             page_info()->site_connection_status());
   EXPECT_EQ(PageInfo::SITE_IDENTITY_STATUS_NO_CERT,
             page_info()->site_identity_status());
-  EXPECT_EQ(base::string16(), page_info()->organization_name());
 }
 
 // On desktop, internal URLs aren't handled by PageInfo class. Instead, a
@@ -909,7 +961,6 @@ TEST_F(PageInfoTest, InternalPage) {
             page_info()->site_connection_status());
   EXPECT_EQ(PageInfo::SITE_IDENTITY_STATUS_INTERNAL_PAGE,
             page_info()->site_identity_status());
-  EXPECT_EQ(base::string16(), page_info()->organization_name());
 }
 #endif
 
@@ -996,7 +1047,7 @@ TEST_F(PageInfoTest, SecurityLevelMetrics) {
        "Security.PageInfo.Action.HttpsUrl.Downgraded"},
       {"https://example.test", security_state::DANGEROUS,
        "Security.PageInfo.Action.HttpsUrl.Dangerous"},
-      {"http://example.test", security_state::HTTP_SHOW_WARNING,
+      {"http://example.test", security_state::WARNING,
        "Security.PageInfo.Action.HttpUrl.Warning"},
       {"http://example.test", security_state::DANGEROUS,
        "Security.PageInfo.Action.HttpUrl.Dangerous"},
@@ -1100,7 +1151,8 @@ TEST_F(PageInfoTest, TimeOpenMetrics) {
 // various Safety Tip statuses.
 TEST_F(PageInfoTest, SafetyTipMetrics) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kSafetyTipUI);
+  scoped_feature_list.InitAndEnableFeature(
+      security_state::features::kSafetyTipUI);
   struct TestCase {
     const security_state::SafetyTipStatus safety_tip_status;
     const std::string histogram_name;

@@ -582,10 +582,11 @@ class WebMediaPlayerMSTest
   void ActivateViewportIntersectionMonitoring(bool activate) override {}
   void MediaRemotingStarted(
       const WebString& remote_device_friendly_name) override {}
-  void MediaRemotingStopped(WebLocalizedString::Name error_msg) override {}
+  void MediaRemotingStopped(int error_code) override {}
   void RequestPlay() override {}
   void RequestPause() override {}
   void RequestMuted(bool muted) override {}
+  Features GetFeatures() override { return Features(); }
 
   // Implementation of cc::VideoFrameProvider::Client
   void StopUsingProvider() override;

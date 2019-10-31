@@ -321,7 +321,7 @@ void AppWindow::Init(const GURL& url,
     package->root()->GetString(::switches::kmInjectJSDocEnd, &js_doc_end);
   web_contents()->GetMutableRendererPrefs()->nw_inject_js_doc_end = js_doc_end;
   if (!js_doc_start.empty() || !js_doc_end.empty())
-    web_contents()->GetRenderViewHost()->SyncRendererPrefs();
+    web_contents()->SyncRendererPrefs();
 
   initial_url_ = url;
 
@@ -467,7 +467,7 @@ void AppWindow::AddNewContents(WebContents* source,
     nw_inject_js_doc_start = js_doc_start;
   new_contents->GetMutableRendererPrefs()->
     nw_inject_js_doc_end = js_doc_end;
-  new_contents->GetRenderViewHost()->SyncRendererPrefs();
+  new_contents->SyncRendererPrefs();
 
   if(initial_rect.width() != 0) {
     params.content_spec.bounds = initial_rect; //NWJS#5517
@@ -1094,7 +1094,7 @@ void AppWindow::NavigationStateChanged(content::WebContents* source,
 void AppWindow::EnterFullscreenModeForTab(
     content::WebContents* source,
     const GURL& origin,
-    const blink::WebFullscreenOptions& options) {
+    const blink::mojom::FullscreenOptions& options) {
   ToggleFullscreenModeForTab(source, true);
 }
 
@@ -1128,10 +1128,10 @@ bool AppWindow::IsFullscreenForTabOrPending(
   return IsHtmlApiFullscreen();
 }
 
-blink::WebDisplayMode AppWindow::GetDisplayMode(
+blink::mojom::DisplayMode AppWindow::GetDisplayMode(
     const content::WebContents* source) {
-  return IsFullscreen() ? blink::kWebDisplayModeFullscreen
-                        : blink::kWebDisplayModeStandalone;
+  return IsFullscreen() ? blink::mojom::DisplayMode::kFullscreen
+                        : blink::mojom::DisplayMode::kStandalone;
 }
 
 WindowController* AppWindow::GetExtensionWindowController() const {

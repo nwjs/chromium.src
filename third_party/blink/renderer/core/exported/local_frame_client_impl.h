@@ -110,8 +110,6 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   void DispatchDidCommitLoad(HistoryItem*,
                              WebHistoryCommitType,
                              GlobalObjectReusePolicy) override;
-  void DispatchDidFailProvisionalLoad(const ResourceError&,
-                                      const AtomicString& http_method) override;
   void DispatchDidFailLoad(const ResourceError&, WebHistoryCommitType) override;
   void DispatchDidFinishDocumentLoad() override;
   void DispatchDidFinishLoad() override;
@@ -127,7 +125,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
       bool has_transient_activation,
       WebFrameLoadType,
       bool is_client_redirect,
-      WebTriggeringEventInfo,
+      TriggeringEventInfo,
       HTMLFormElement*,
       ContentSecurityPolicyDisposition should_bypass_main_world_csp,
       mojo::PendingRemote<mojom::blink::BlobURLToken>,
@@ -142,9 +140,8 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   void ProgressEstimateChanged(double progress_estimate) override;
   void ForwardResourceTimingToParent(const WebResourceTimingInfo&) override;
   void DownloadURL(const ResourceRequest&,
-                   DownloadCrossOriginRedirects) override;
-  void LoadErrorPage(int reason) override;
-  bool NavigateBackForward(int offset, bool from_script) const override;
+                   network::mojom::RedirectMode) override;
+  bool NavigateBackForward(int offset) const override;
   void DidAccessInitialDocument() override;
   void DidDisplayInsecureContent() override;
   void DidContainInsecureFormAction() override;
@@ -153,11 +150,10 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   void DidDispatchPingLoader(const KURL&) override;
   void DidDisplayContentWithCertificateErrors() override;
   void DidRunContentWithCertificateErrors() override;
-  void ReportLegacyTLSVersion(const KURL&) override;
   void DidChangePerformanceTiming() override;
   void DidChangeCpuTiming(base::TimeDelta) override;
   void DidChangeActiveSchedulerTrackedFeatures(uint64_t features_mask) override;
-  void DidObserveLoadingBehavior(WebLoadingBehaviorFlag) override;
+  void DidObserveLoadingBehavior(LoadingBehaviorFlag) override;
   void DidObserveNewFeatureUsage(mojom::WebFeature) override;
   void DidObserveNewCssPropertyUsage(mojom::CSSSampleId, bool) override;
   void DidObserveLayoutShift(double score, bool after_input_or_scroll) override;
@@ -236,17 +232,10 @@ class LocalFrameClientImpl final : public LocalFrameClient {
 
   unsigned BackForwardLength() override;
 
-  void SuddenTerminationDisablerChanged(
-      bool present,
-      WebSuddenTerminationDisablerType) override;
+  void SuddenTerminationDisablerChanged(bool present,
+                                        SuddenTerminationDisablerType) override;
 
   BlameContext* GetFrameBlameContext() override;
-
-  WebEffectiveConnectionType GetEffectiveConnectionType() override;
-  void SetEffectiveConnectionTypeForTesting(
-      WebEffectiveConnectionType) override;
-
-  WebURLRequest::PreviewsState GetPreviewsStateForFrame() const override;
 
   KURL OverrideFlashEmbedWithHTML(const KURL&) override;
 

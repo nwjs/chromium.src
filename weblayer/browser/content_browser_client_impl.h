@@ -30,8 +30,17 @@ class ContentBrowserClientImpl : public content::ContentBrowserClient {
   std::string GetAcceptLangs(content::BrowserContext* context) override;
   content::WebContentsViewDelegate* GetWebContentsViewDelegate(
       content::WebContents* web_contents) override;
+  content::DevToolsManagerDelegate* GetDevToolsManagerDelegate() override;
+  base::Optional<service_manager::Manifest> GetServiceManifestOverlay(
+      base::StringPiece name) override;
   std::string GetUserAgent() override;
   blink::UserAgentMetadata GetUserAgentMetadata() override;
+  void OverrideWebkitPrefs(content::RenderViewHost* render_view_host,
+                           content::WebPreferences* prefs) override;
+  mojo::Remote<network::mojom::NetworkContext> CreateNetworkContext(
+      content::BrowserContext* context,
+      bool in_memory,
+      const base::FilePath& relative_partition_path) override;
 
 #if defined(OS_LINUX) || defined(OS_ANDROID)
   void GetAdditionalMappedFilesForChildProcess(

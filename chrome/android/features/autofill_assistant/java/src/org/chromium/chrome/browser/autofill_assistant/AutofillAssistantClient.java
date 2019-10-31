@@ -7,14 +7,16 @@ package org.chromium.chrome.browser.autofill_assistant;
 import android.accounts.Account;
 import android.content.Context;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
 import android.telephony.TelephonyManager;
+
+import androidx.annotation.Nullable;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
+import org.chromium.chrome.browser.signin.IdentityServicesProvider;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.OAuth2TokenService;
 import org.chromium.content_public.browser.WebContents;
@@ -267,7 +269,7 @@ class AutofillAssistantClient {
             return;
         }
 
-        OAuth2TokenService.getAccessToken(
+        IdentityServicesProvider.getOAuth2TokenService().getAccessToken(
                 mAccount, AUTH_TOKEN_TYPE, new OAuth2TokenService.GetAccessTokenCallback() {
                     @Override
                     public void onGetTokenSuccess(String token) {
@@ -293,7 +295,7 @@ class AutofillAssistantClient {
             return;
         }
 
-        OAuth2TokenService.invalidateAccessToken(accessToken);
+        IdentityServicesProvider.getOAuth2TokenService().invalidateAccessToken(accessToken);
     }
 
     /** Returns the e-mail address that corresponds to the access token or an empty string. */
@@ -315,8 +317,9 @@ class AutofillAssistantClient {
 
         // According to API, location for CDMA networks is unreliable
         if (telephonyManager != null
-                && telephonyManager.getPhoneType() != TelephonyManager.PHONE_TYPE_CDMA)
+                && telephonyManager.getPhoneType() != TelephonyManager.PHONE_TYPE_CDMA) {
             return telephonyManager.getNetworkCountryIso();
+        }
 
         return null;
     }

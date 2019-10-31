@@ -219,7 +219,7 @@ class AutocompleteChangeObserver : public OmniboxControllerEmitter::Observer {
 
   // OmniboxControllerEmitter::Observer:
   void OnOmniboxQuery(AutocompleteController* controller,
-                      const base::string16& input_text) override {}
+                      const AutocompleteInput& input) override {}
   void OnOmniboxResultChanged(bool default_match_changed,
                               AutocompleteController* controller) override {
     if (run_loop_.running())
@@ -517,10 +517,9 @@ void GetCookies(const GURL& url,
     base::RunLoop loop;
     auto* storage_partition =
         contents->GetMainFrame()->GetProcess()->GetStoragePartition();
-    net::CookieOptions options;
     net::CookieList cookie_list;
     storage_partition->GetCookieManagerForBrowserProcess()->GetCookieList(
-        url, options,
+        url, net::CookieOptions::MakeAllInclusive(),
         base::BindOnce(GetCookieCallback, loop.QuitClosure(), &cookie_list));
     loop.Run();
 

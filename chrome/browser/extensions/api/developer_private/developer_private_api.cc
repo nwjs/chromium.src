@@ -20,6 +20,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/extensions/api/developer_private/developer_private_mangle.h"
 #include "chrome/browser/extensions/api/developer_private/entry_picker.h"
@@ -46,7 +47,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/apps/app_info_dialog.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/extensions/app_launch_params.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/extensions/api/developer_private.h"
@@ -358,16 +358,7 @@ DeveloperPrivateAPI::DeveloperPrivateAPI(content::BrowserContext* context)
 }
 
 DeveloperPrivateEventRouter::DeveloperPrivateEventRouter(Profile* profile)
-    : extension_registry_observer_(this),
-      error_console_observer_(this),
-      process_manager_observer_(this),
-      app_window_registry_observer_(this),
-      warning_service_observer_(this),
-      extension_prefs_observer_(this),
-      extension_management_observer_(this),
-      command_service_observer_(this),
-      profile_(profile),
-      event_router_(EventRouter::Get(profile_)) {
+    : profile_(profile), event_router_(EventRouter::Get(profile_)) {
   extension_registry_observer_.Add(ExtensionRegistry::Get(profile_));
   error_console_observer_.Add(ErrorConsole::Get(profile));
   process_manager_observer_.Add(ProcessManager::Get(profile));
@@ -955,9 +946,8 @@ DeveloperPrivateUpdateExtensionConfigurationFunction::Run() {
   return RespondNow(NoArguments());
 }
 
-DeveloperPrivateReloadFunction::DeveloperPrivateReloadFunction()
-    : registry_observer_(this), error_reporter_observer_(this) {}
-DeveloperPrivateReloadFunction::~DeveloperPrivateReloadFunction() {}
+DeveloperPrivateReloadFunction::DeveloperPrivateReloadFunction() = default;
+DeveloperPrivateReloadFunction::~DeveloperPrivateReloadFunction() = default;
 
 ExtensionFunction::ResponseAction DeveloperPrivateReloadFunction::Run() {
   std::unique_ptr<Reload::Params> params(Reload::Params::Create(*args_));

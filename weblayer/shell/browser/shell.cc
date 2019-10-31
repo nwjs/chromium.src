@@ -32,11 +32,13 @@ std::vector<Shell*> Shell::windows_;
 Shell::Shell(std::unique_ptr<BrowserController> browser_controller)
     : browser_controller_(std::move(browser_controller)), window_(nullptr) {
   windows_.push_back(this);
-  browser_controller_->AddObserver(this);
+  if (browser_controller_)
+    browser_controller_->AddObserver(this);
 }
 
 Shell::~Shell() {
-  browser_controller_->RemoveObserver(this);
+  if (browser_controller_)
+    browser_controller_->RemoveObserver(this);
   PlatformCleanUp();
 
   for (size_t i = 0; i < windows_.size(); ++i) {
@@ -89,6 +91,15 @@ void Shell::SetMainMessageLoopQuitClosure(base::OnceClosure quit_closure) {
   *g_quit_main_message_loop = std::move(quit_closure);
 }
 
+BrowserController* Shell::browser_controller() {
+#if defined(OS_ANDROID)
+  // TODO(jam): this won't work if we need more than one Shell in a test.
+  return BrowserController::GetLastControllerForTesting();
+#else
+  return browser_controller_.get();
+#endif
+}
+
 void Shell::Initialize() {
   PlatformInitialize(GetShellDefaultSize());
 }
@@ -105,7 +116,11 @@ void Shell::LoadingStateChanged(bool is_loading, bool to_different_document) {
   PlatformEnableUIControl(STOP_BUTTON, to_different_document && is_loading);
 }
 
-void Shell::DisplayedURLChanged(const GURL& url) {
+void Shell::LoadProgressChanged(double progress) {
+  PlatformSetLoadProgress(progress);
+}
+
+void Shell::DisplayedUrlChanged(const GURL& url) {
   PlatformSetAddressBarURL(url);
 }
 
@@ -118,35 +133,38 @@ gfx::Size Shell::AdjustWindowSize(const gfx::Size& initial_size) {
 Shell* Shell::CreateNewWindow(weblayer::Profile* web_profile,
                               const GURL& url,
                               const gfx::Size& initial_size) {
-  auto adjusted_size = AdjustWindowSize(initial_size);
-  auto browser_controller =
-      BrowserController::Create(web_profile, adjusted_size);
+#if defined(OS_ANDROID)
+  std::unique_ptr<BrowserController> browser_controller;
+#else
+  auto browser_controller = BrowserController::Create(web_profile);
+#endif
 
-  Shell* shell = CreateShell(std::move(browser_controller), adjusted_size);
+  Shell* shell = CreateShell(std::move(browser_controller),
+                             AdjustWindowSize(initial_size));
   if (!url.is_empty())
     shell->LoadURL(url);
   return shell;
 }
 
 void Shell::LoadURL(const GURL& url) {
-  browser_controller_->GetNavigationController()->Navigate(url);
+  browser_controller()->GetNavigationController()->Navigate(url);
 }
 
 void Shell::GoBackOrForward(int offset) {
   if (offset == -1)
-    browser_controller_->GetNavigationController()->GoBack();
+    browser_controller()->GetNavigationController()->GoBack();
   else if (offset == 1)
-    browser_controller_->GetNavigationController()->GoForward();
+    browser_controller()->GetNavigationController()->GoForward();
 }
 
 void Shell::Reload() {
-  browser_controller_->GetNavigationController()->Reload();
+  browser_controller()->GetNavigationController()->Reload();
 }
 
 void Shell::ReloadBypassingCache() {}
 
 void Shell::Stop() {
-  browser_controller_->GetNavigationController()->Stop();
+  browser_controller()->GetNavigationController()->Stop();
 }
 
 gfx::Size Shell::GetShellDefaultSize() {

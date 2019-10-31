@@ -16,6 +16,7 @@
 #include "ui/accessibility/platform/ax_platform_node.h"
 #include "ui/accessibility/platform/ax_platform_node_base.h"
 #include "ui/accessibility/platform/ax_unique_id.h"
+#include "ui/base/layout.h"
 #include "ui/events/event_utils.h"
 #include "ui/views/accessibility/view_accessibility_utils.h"
 #include "ui/views/controls/native/native_view_host.h"
@@ -284,6 +285,11 @@ gfx::NativeViewAccessible ViewAXPlatformNodeDelegate::GetNSWindow() {
   return nullptr;
 }
 
+gfx::NativeViewAccessible
+ViewAXPlatformNodeDelegate::GetNativeViewAccessible() {
+  return GetNativeObject();
+}
+
 gfx::NativeViewAccessible ViewAXPlatformNodeDelegate::GetParent() {
   if (view()->parent())
     return view()->parent()->GetNativeViewAccessible();
@@ -320,6 +326,15 @@ gfx::NativeViewAccessible ViewAXPlatformNodeDelegate::HitTestSync(int x,
   if (IsLeaf())
     return GetNativeObject();
 
+  gfx::NativeView native_view = view()->GetWidget()->GetNativeView();
+  float scale_factor = 1.0;
+  if (native_view) {
+    scale_factor = ui::GetScaleFactorForNativeView(native_view);
+    scale_factor = scale_factor <= 0 ? 1.0 : scale_factor;
+  }
+  x /= scale_factor;
+  y /= scale_factor;
+
   // Search child widgets first, since they're on top in the z-order.
   for (Widget* child_widget : GetChildWidgets().child_widgets) {
     View* child_root_view = child_widget->GetRootView();
@@ -334,10 +349,15 @@ gfx::NativeViewAccessible ViewAXPlatformNodeDelegate::HitTestSync(int x,
   if (!view()->HitTestPoint(point))
     return nullptr;
 
+  // GetEventHandlerForPoint correctly handles overlapping views but it
+  // only returns views that handle events. For accessibility, we want to
+  // return the deepest child view. This is why we need to continue
+  // searching from here.
+  View* v = view()->GetEventHandlerForPoint(point);
+
   // Check if the point is within any of the immediate children of this
   // view. We don't have to search further because AXPlatformNode will
   // do a recursive hit test if we return anything other than |this| or NULL.
-  View* v = view();
   const auto is_point_in_child = [point, v](View* child) {
     if (!child->GetVisible())
       return false;
@@ -348,7 +368,7 @@ gfx::NativeViewAccessible ViewAXPlatformNodeDelegate::HitTestSync(int x,
   const auto i = std::find_if(v->children().rbegin(), v->children().rend(),
                               is_point_in_child);
   // If it's not inside any of our children, it's inside this view.
-  return (i == v->children().rend()) ? GetNativeObject()
+  return (i == v->children().rend()) ? v->GetNativeViewAccessible()
                                      : (*i)->GetNativeViewAccessible();
 }
 
@@ -372,6 +392,12 @@ gfx::NativeViewAccessible ViewAXPlatformNodeDelegate::GetFocus() {
 
 ui::AXPlatformNode* ViewAXPlatformNodeDelegate::GetFromNodeID(int32_t id) {
   return PlatformNodeFromNodeID(id);
+}
+
+ui::AXPlatformNode* ViewAXPlatformNodeDelegate::GetFromTreeIDAndNodeID(
+    const ui::AXTreeID& ax_tree_id,
+    int32_t id) {
+  return nullptr;
 }
 
 bool ViewAXPlatformNodeDelegate::AccessibilityPerformAction(

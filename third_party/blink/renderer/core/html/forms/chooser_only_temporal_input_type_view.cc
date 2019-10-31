@@ -152,4 +152,8 @@ void ChooserOnlyTemporalInputTypeView::CloseDateTimeChooser() {
     date_time_chooser_->EndChooser();
 }
 
+void ChooserOnlyTemporalInputTypeView::Blur() {
+  ClosePopupView();
+}
+
 }  // namespace blink
