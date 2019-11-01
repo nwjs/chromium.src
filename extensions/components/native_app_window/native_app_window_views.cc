@@ -24,6 +24,8 @@
 #include "content/nw/src/nw_content.h"
 
 #if defined(OS_WIN)
+#include <objbase.h>
+#include <wrl/client.h>
 #include <shobjidl.h>
 #include <dwmapi.h>
 
