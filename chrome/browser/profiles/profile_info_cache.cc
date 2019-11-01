@@ -83,7 +83,7 @@ ProfileInfoCache::ProfileInfoCache(PrefService* prefs,
 #endif
     base::string16 name;
     info->GetString(kNameKey, &name);
-    sorted_keys_.insert(FindPositionForProfile(it.key(), name), it.key());
+    keys_.push_back(it.key());
     profile_attributes_entries_[user_data_dir_.AppendASCII(it.key()).value()] =
         std::unique_ptr<ProfileAttributesEntry>(nullptr);
 
@@ -154,33 +154,25 @@ void ProfileInfoCache::AddProfileToCache(const base::FilePath& profile_path,
   if (account_id.HasAccountIdKey())
     info->SetString(kAccountIdKey, account_id.GetAccountIdKey());
   cache->SetWithoutPathExpansion(key, std::move(info));
-
-  // Switching from single profile to multi-profile might change the existing
-  // profile display name. We append the profile name to GAIA name only in case
-  // of multi-profile.
-  ProfileAttributesEntry* entry = nullptr;
-  base::string16 old_single_profile_name;
-  if (GetNumberOfProfiles() == 1 &&
-      base::FeatureList::IsEnabled(kConcatenateGaiaAndProfileName)) {
-    std::vector<ProfileAttributesEntry*> entries = GetAllProfilesAttributes();
-    entry = entries[0];
-    old_single_profile_name = entry->GetName();
-  }
-
-  sorted_keys_.insert(FindPositionForProfile(key, name), key);
+  keys_.push_back(key);
   profile_attributes_entries_[user_data_dir_.AppendASCII(key).value()] =
       std::unique_ptr<ProfileAttributesEntry>();
-
-  bool single_profile_name_changed =
-      entry && (entry->GetName() != old_single_profile_name);
 
   if (!disable_avatar_download_for_testing_)
     DownloadHighResAvatarIfNeeded(icon_index, profile_path);
 
-  for (auto& observer : observer_list_) {
+  NotifyIfProfileNamesHaveChanged();
+  for (auto& observer : observer_list_)
     observer.OnProfileAdded(profile_path);
-    if (single_profile_name_changed) {
-      observer.OnProfileNameChanged(entry->GetPath(), old_single_profile_name);
+}
+
+void ProfileInfoCache::NotifyIfProfileNamesHaveChanged() {
+  std::vector<ProfileAttributesEntry*> entries = GetAllProfilesAttributes();
+  for (ProfileAttributesEntry* entry : entries) {
+    base::string16 old_display_name = entry->GetLastNameToDisplay();
+    if (entry->HasProfileNameChanged()) {
+      for (auto& observer : observer_list_)
+        observer.OnProfileNameChanged(entry->GetPath(), old_display_name);
     }
   }
 }
@@ -192,23 +184,6 @@ void ProfileInfoCache::DeleteProfileFromCache(
     NOTREACHED();
     return;
   }
-  // Switching from multi-profile to single profile might change the profile
-  // display name for the single profile left after deletion of the profile with
-  // |profile_path|. We append the profile name to GAIA name only in case of
-  // multi-profile.
-  size_t number_of_profiles = GetNumberOfProfiles();
-  ProfileAttributesEntry* single_profile_entry = nullptr;
-  base::string16 old_single_profile_name;
-  if (number_of_profiles == 2 &&
-      base::FeatureList::IsEnabled(kConcatenateGaiaAndProfileName)) {
-    for (auto& it : profile_attributes_entries_) {
-      base::FilePath path(it.first);
-      if (it.first != profile_path.value()) {
-        GetProfileAttributesWithPath(path, &single_profile_entry);
-        old_single_profile_name = single_profile_entry->GetName();
-      }
-    }
-  }
 
   base::string16 name = entry->GetName();
 
@@ -219,24 +194,17 @@ void ProfileInfoCache::DeleteProfileFromCache(
   base::DictionaryValue* cache = update.Get();
   std::string key = CacheKeyFromProfilePath(profile_path);
   cache->Remove(key, NULL);
-  sorted_keys_.erase(std::find(sorted_keys_.begin(), sorted_keys_.end(), key));
+  keys_.erase(std::find(keys_.begin(), keys_.end(), key));
   profile_attributes_entries_.erase(profile_path.value());
 
-  bool single_profile_name_changed =
-      single_profile_entry &&
-      single_profile_entry->GetName() != old_single_profile_name;
-
+  NotifyIfProfileNamesHaveChanged();
   for (auto& observer : observer_list_) {
     observer.OnProfileWasRemoved(profile_path, name);
-    if (single_profile_name_changed) {
-      observer.OnProfileNameChanged(single_profile_entry->GetPath(),
-                                    old_single_profile_name);
-    }
   }
 }
 
 size_t ProfileInfoCache::GetNumberOfProfiles() const {
-  return sorted_keys_.size();
+  return keys_.size();
 }
 
 size_t ProfileInfoCache::GetIndexOfProfileWithPath(
@@ -244,8 +212,8 @@ size_t ProfileInfoCache::GetIndexOfProfileWithPath(
   if (profile_path.DirName() != user_data_dir_)
     return std::string::npos;
   std::string search_key = CacheKeyFromProfilePath(profile_path);
-  for (size_t i = 0; i < sorted_keys_.size(); ++i) {
-    if (sorted_keys_[i] == search_key)
+  for (size_t i = 0; i < keys_.size(); ++i) {
+    if (keys_[i] == search_key)
       return i;
   }
   return std::string::npos;
@@ -265,7 +233,7 @@ base::string16 ProfileInfoCache::GetNameToDisplayOfProfileAtIndex(
 }
 
 base::string16 ProfileInfoCache::GetNameOfProfileAtIndex(size_t index) const {
-  DCHECK(!base::FeatureList::IsEnabled(kConcatenateGaiaAndProfileName));
+  DCHECK(!ProfileAttributesEntry::ShouldConcatenateGaiaAndProfileName());
   base::string16 name;
   // Unless the user has customized the profile name, we should use the
   // profile's Gaia given name, if it's available.
@@ -279,7 +247,7 @@ base::string16 ProfileInfoCache::GetNameOfProfileAtIndex(size_t index) const {
 }
 
 base::FilePath ProfileInfoCache::GetPathOfProfileAtIndex(size_t index) const {
-  return user_data_dir_.AppendASCII(sorted_keys_[index]);
+  return user_data_dir_.AppendASCII(keys_[index]);
 }
 
 base::string16 ProfileInfoCache::GetUserNameOfProfileAtIndex(
@@ -448,19 +416,9 @@ void ProfileInfoCache::SetLocalProfileNameOfProfileAtIndex(
   if (name == current_name)
     return;
 
-  base::string16 old_display_name = GetNameToDisplayOfProfileAtIndex(index);
   info->SetString(kNameKey, name);
-
   SetInfoForProfileAtIndex(index, std::move(info));
-
-  base::string16 new_display_name = GetNameToDisplayOfProfileAtIndex(index);
-  base::FilePath profile_path = GetPathOfProfileAtIndex(index);
-  UpdateSortForProfileIndex(index);
-
-  if (old_display_name != new_display_name) {
-    for (auto& observer : observer_list_)
-      observer.OnProfileNameChanged(profile_path, old_display_name);
-  }
+  NotifyIfProfileNamesHaveChanged();
 }
 
 void ProfileInfoCache::SetAuthInfoOfProfileAtIndex(
@@ -565,19 +523,11 @@ void ProfileInfoCache::SetGAIANameOfProfileAtIndex(size_t index,
   if (name == GetGAIANameOfProfileAtIndex(index))
     return;
 
-  base::string16 old_display_name = GetNameToDisplayOfProfileAtIndex(index);
   std::unique_ptr<base::DictionaryValue> info(
       GetInfoForProfileAtIndex(index)->DeepCopy());
   info->SetString(kGAIANameKey, name);
   SetInfoForProfileAtIndex(index, std::move(info));
-  base::string16 new_display_name = GetNameToDisplayOfProfileAtIndex(index);
-  base::FilePath profile_path = GetPathOfProfileAtIndex(index);
-  UpdateSortForProfileIndex(index);
-
-  if (old_display_name != new_display_name) {
-    for (auto& observer : observer_list_)
-      observer.OnProfileNameChanged(profile_path, old_display_name);
-  }
+  NotifyIfProfileNamesHaveChanged();
 }
 
 void ProfileInfoCache::SetGAIAGivenNameOfProfileAtIndex(
@@ -586,19 +536,11 @@ void ProfileInfoCache::SetGAIAGivenNameOfProfileAtIndex(
   if (name == GetGAIAGivenNameOfProfileAtIndex(index))
     return;
 
-  base::string16 old_display_name = GetNameToDisplayOfProfileAtIndex(index);
   std::unique_ptr<base::DictionaryValue> info(
       GetInfoForProfileAtIndex(index)->DeepCopy());
   info->SetString(kGAIAGivenNameKey, name);
   SetInfoForProfileAtIndex(index, std::move(info));
-  base::string16 new_display_name = GetNameToDisplayOfProfileAtIndex(index);
-  base::FilePath profile_path = GetPathOfProfileAtIndex(index);
-  UpdateSortForProfileIndex(index);
-
-  if (old_display_name != new_display_name) {
-    for (auto& observer : observer_list_)
-      observer.OnProfileNameChanged(profile_path, old_display_name);
-  }
+  NotifyIfProfileNamesHaveChanged();
 }
 
 void ProfileInfoCache::SetGAIAPictureOfProfileAtIndex(size_t index,
@@ -675,20 +617,12 @@ void ProfileInfoCache::SetProfileIsUsingDefaultNameAtIndex(
   if (value == ProfileIsUsingDefaultNameAtIndex(index))
     return;
 
-  base::string16 old_display_name = GetNameToDisplayOfProfileAtIndex(index);
-
   std::unique_ptr<base::DictionaryValue> info(
       GetInfoForProfileAtIndex(index)->DeepCopy());
   info->SetBoolean(kIsUsingDefaultNameKey, value);
   SetInfoForProfileAtIndex(index, std::move(info));
 
-  base::string16 new_display_name = GetNameToDisplayOfProfileAtIndex(index);
-  const base::FilePath profile_path = GetPathOfProfileAtIndex(index);
-
-  if (old_display_name != new_display_name) {
-    for (auto& observer : observer_list_)
-      observer.OnProfileNameChanged(profile_path, old_display_name);
-  }
+  NotifyIfProfileNamesHaveChanged();
 }
 
 void ProfileInfoCache::SetProfileIsUsingDefaultAvatarAtIndex(
@@ -723,7 +657,7 @@ const base::DictionaryValue* ProfileInfoCache::GetInfoForProfileAtIndex(
   const base::DictionaryValue* cache =
       prefs_->GetDictionary(prefs::kProfileInfoCache);
   const base::DictionaryValue* info = NULL;
-  cache->GetDictionaryWithoutPathExpansion(sorted_keys_[index], &info);
+  cache->GetDictionaryWithoutPathExpansion(keys_[index], &info);
   return info;
 }
 
@@ -732,7 +666,7 @@ void ProfileInfoCache::SetInfoForProfileAtIndex(
     std::unique_ptr<base::DictionaryValue> info) {
   DictionaryPrefUpdate update(prefs_, prefs::kProfileInfoCache);
   base::DictionaryValue* cache = update.Get();
-  cache->SetWithoutPathExpansion(sorted_keys_[index], std::move(info));
+  cache->SetWithoutPathExpansion(keys_[index], std::move(info));
 }
 
 std::string ProfileInfoCache::CacheKeyFromProfilePath(
@@ -740,36 +674,6 @@ std::string ProfileInfoCache::CacheKeyFromProfilePath(
   DCHECK(user_data_dir_ == profile_path.DirName());
   base::FilePath base_name = profile_path.BaseName();
   return base_name.MaybeAsASCII();
-}
-
-std::vector<std::string>::iterator ProfileInfoCache::FindPositionForProfile(
-    const std::string& search_key,
-    const base::string16& search_name) {
-  base::string16 search_name_l = base::i18n::ToLower(search_name);
-  for (size_t i = 0; i < GetNumberOfProfiles(); ++i) {
-    base::string16 name_l =
-        base::i18n::ToLower(GetNameToDisplayOfProfileAtIndex(i));
-    int name_compare = search_name_l.compare(name_l);
-    if (name_compare < 0)
-      return sorted_keys_.begin() + i;
-    if (name_compare == 0) {
-      int key_compare = search_key.compare(sorted_keys_[i]);
-      if (key_compare < 0)
-        return sorted_keys_.begin() + i;
-    }
-  }
-  return sorted_keys_.end();
-}
-
-void ProfileInfoCache::UpdateSortForProfileIndex(size_t index) {
-  base::string16 name = GetNameToDisplayOfProfileAtIndex(index);
-
-  // Remove and reinsert key in |sorted_keys_| to alphasort.
-  std::string key = CacheKeyFromProfilePath(GetPathOfProfileAtIndex(index));
-  auto key_it = std::find(sorted_keys_.begin(), sorted_keys_.end(), key);
-  DCHECK(key_it != sorted_keys_.end());
-  sorted_keys_.erase(key_it);
-  sorted_keys_.insert(FindPositionForProfile(key, name), key);
 }
 
 const gfx::Image* ProfileInfoCache::GetHighResAvatarOfProfileAtIndex(
@@ -806,7 +710,6 @@ void ProfileInfoCache::RecomputeProfileNamesIfNeeded() {
       if (name == entries[j]->GetLocalProfileName()) {
         entries[j]->SetLocalProfileName(
             ChooseNameForNewProfile(entries[j]->GetAvatarIconIndex()));
-        UpdateSortForProfileIndex(entries[j]->profile_index());
       }
     }
   }

@@ -26,7 +26,6 @@
 #include "content/public/browser/notification_source.h"
 #include "content/public/common/service_manager_connection.h"
 #include "services/service_manager/public/cpp/connector.h"
-#include "ui/views/accessibility/ax_event_manager.h"
 
 namespace chromeos {
 
@@ -95,18 +94,6 @@ double MagnificationManager::GetSavedScreenMagnifierScale() const {
       ash::prefs::kAccessibilityScreenMagnifierScale);
 }
 
-void MagnificationManager::OnViewEvent(views::View* view,
-                                       ax::mojom::Event event_type) {
-  if (!fullscreen_magnifier_enabled_ && !IsDockedMagnifierEnabled())
-    return;
-
-  if (event_type != ax::mojom::Event::kFocus &&
-      event_type != ax::mojom::Event::kSelection)
-    return;
-
-  HandleFocusChanged(view->GetBoundsInScreen(), false);
-}
-
 void MagnificationManager::SetProfileForTest(Profile* profile) {
   SetProfile(profile);
 }
@@ -121,12 +108,10 @@ MagnificationManager::MagnificationManager() {
   registrar_.Add(this, content::NOTIFICATION_FOCUS_CHANGED_IN_PAGE,
                  content::NotificationService::AllSources());
   user_manager::UserManager::Get()->AddSessionStateObserver(this);
-  views::AXEventManager::Get()->AddObserver(this);
 }
 
 MagnificationManager::~MagnificationManager() {
   CHECK(this == g_magnification_manager);
-  views::AXEventManager::Get()->RemoveObserver(this);
   user_manager::UserManager::Get()->RemoveSessionStateObserver(this);
 }
 
@@ -295,22 +280,17 @@ void MagnificationManager::HandleFocusChangedInPage(
   if (node_details->is_editable_node)
     return;
 
-  HandleFocusChanged(node_details->node_bounds_in_screen,
-                     node_details->is_editable_node);
-}
-
-void MagnificationManager::HandleFocusChanged(const gfx::Rect& bounds_in_screen,
-                                              bool is_editable) {
+  const gfx::Rect& bounds_in_screen = node_details->node_bounds_in_screen;
   if (bounds_in_screen.IsEmpty())
     return;
 
   // Fullscreen magnifier and docked magnifier are mutually exclusive.
   if (fullscreen_magnifier_enabled_) {
     ash::Shell::Get()->magnification_controller()->HandleFocusedNodeChanged(
-        is_editable, bounds_in_screen);
+        node_details->is_editable_node, node_details->node_bounds_in_screen);
     return;
   }
-  DCHECK(IsDockedMagnifierEnabled());
+  DCHECK(docked_magnifier_enabled);
   ash::DockedMagnifierController::Get()->CenterOnPoint(
       bounds_in_screen.CenterPoint());
 }

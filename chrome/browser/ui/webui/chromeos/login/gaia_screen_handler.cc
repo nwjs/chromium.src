@@ -443,11 +443,7 @@ void GaiaScreenHandler::LoadGaiaWithPartition(
       GaiaUrls::GetInstance()->gaia_url(), gaps_cookie_value, base::Time::Now(),
       base::nullopt /* server_time */));
 
-  net::CookieOptions options;
-  options.set_include_httponly();
-  // Permit it to set a SameSite cookie if it wants to.
-  options.set_same_site_cookie_context(
-      net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
+  const net::CookieOptions options = net::CookieOptions::MakeAllInclusive();
   partition->GetCookieManagerForBrowserProcess()->SetCanonicalCookie(
       *cc.get(), "https", options, std::move(callback));
 }
@@ -716,8 +712,6 @@ void GaiaScreenHandler::RegisterMessages() {
   AddRawCallback("showAddUser", &GaiaScreenHandler::HandleShowAddUser);
   AddCallback("getIsSamlUserPasswordless",
               &GaiaScreenHandler::HandleGetIsSamlUserPasswordless);
-  AddCallback("updateOobeDialogSize",
-              &GaiaScreenHandler::HandleUpdateOobeDialogSize);
   AddCallback("hideOobeDialog", &GaiaScreenHandler::HandleHideOobeDialog);
   AddCallback("updateSigninUIState",
               &GaiaScreenHandler::HandleUpdateSigninUIState);
@@ -896,9 +890,8 @@ void GaiaScreenHandler::HandleCompleteAuthentication(
   if (!partition)
     return;
 
-  net::CookieOptions cookie_options;
-  cookie_options.set_include_httponly();
-
+  const net::CookieOptions cookie_options =
+      net::CookieOptions::MakeAllInclusive();
   partition->GetCookieManagerForBrowserProcess()->GetCookieList(
       GaiaUrls::GetInstance()->gaia_url(), cookie_options,
       base::BindOnce(&GaiaScreenHandler::OnGetCookiesForCompleteAuthentication,
@@ -1002,11 +995,6 @@ void GaiaScreenHandler::HandleGaiaUIReady() {
     // Used to debug crbug.com/902315. Feel free to remove after that is fixed.
     LOG(ERROR) << "HandleGaiaUIReady: There is no LoginDisplayHost";
   }
-}
-
-void GaiaScreenHandler::HandleUpdateOobeDialogSize(int width, int height) {
-  if (LoginDisplayHost::default_host())
-    LoginDisplayHost::default_host()->UpdateOobeDialogSize(width, height);
 }
 
 void GaiaScreenHandler::HandleHideOobeDialog() {

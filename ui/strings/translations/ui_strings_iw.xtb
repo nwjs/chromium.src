@@ -7,6 +7,7 @@
 <translation id="1156623771253174079">{SECONDS,plural, =1{לפני דקה אחת}two{לפני # דקות}many{לפני # דקות}other{לפני # דקות}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{דקה}two{# דק}many{# דק}other{# דק}}</translation>
 <translation id="1181037720776840403">הסרה</translation>
+<translation id="1201402288615127009">הבא</translation>
 <translation id="1243314992276662751">העלה</translation>
 <translation id="1266864766717917324">לא ניתן היה לשתף את ה<ph name="CONTENT_TYPE" /></translation>
 <translation id="1269641567813814718">Win</translation>
@@ -51,6 +52,7 @@
 <translation id="2289052229480071835">הקש על יעדי המגע במסך.</translation>
 <translation id="2295140143284145483">סקר</translation>
 <translation id="2297836609126180313"><ph name="QUANTITY" /> TB/s</translation>
+<translation id="2353636109065292463">בדיקת חיבור האינטרנט</translation>
 <translation id="2388990488038464401">להתקשר למספר הזה מהטלפון שלך?</translation>
 <translation id="24452542372838207">הרחבת ההודעה</translation>
 <translation id="2445449901874883781">שימוש בדחיסות גבוהה</translation>
@@ -136,6 +138,7 @@
 <translation id="5906667377645263094">{SECONDS,plural, =1{נותרה שנייה אחת}two{נותרו # שניות}many{נותרו # שניות}other{נותרו # שניות}}</translation>
 <translation id="5941711191222866238">מזער</translation>
 <translation id="5943826764092288734">{HOURS,plural, =1{שעה אחת}two{שעתיים}many{# שעות}other{# שעות}}</translation>
+<translation id="5946629889255121107">מספר מ-<ph name="ORIGIN" /></translation>
 <translation id="6012623610530968780">דף <ph name="SELECTED_PAGE" /> מתוך <ph name="TOTAL_PAGE_NUM" /></translation>
 <translation id="6022924867608035986">ניקוי הטקסט בתיבת החיפוש</translation>
 <translation id="6040143037577758943">סגור</translation>
@@ -162,6 +165,7 @@
 <translation id="6620110761915583480">שמור קובץ</translation>
 <translation id="6656912866303152668">‏יש לוודא שהסנכרון עם <ph name="TARGET_DEVICE_NAME" /> הופעל ב-Chrome, ולאחר מכן לנסות את השליחה שוב.</translation>
 <translation id="6699343763173986273">הרצועה הבאה במדיה</translation>
+<translation id="6710213216561001401">הקודם</translation>
 <translation id="6779314412797872738">‏כדי לשלוח מכאן מספר לטלפון ה-Android שלך, יש <ph name="TROUBLESHOOT_LINK" /> בהגדרות של שני המכשירים.</translation>
 <translation id="6786750046913594791">סגור את התיקייה</translation>
 <translation id="6808150112686056157">עצור מדיה</translation>
@@ -179,6 +183,7 @@
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{נותרה דק‘ אחת}two{נותרו # דק‘}many{נותרו # דק‘}other{נותרו # דק‘}}</translation>
 <translation id="7319740667687257810">מרכז האפליקציות, תצוגה חלקית</translation>
+<translation id="7352651011704765696">משהו השתבש</translation>
 <translation id="7365057348334984696">{MINUTES,plural, =1{לפני דק‘ אחת}two{לפני # דק‘}many{לפני # דק‘}other{לפני # דק‘}}</translation>
 <translation id="7389409599945284130">- <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{נותרה דקה אחת}two{נותרו # דקות}many{נותרו # דקות}other{נותרו # דקות}}</translation>
@@ -196,6 +201,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{לפני שעה אחת}two{לפני שעתיים}many{לפני # שעות}other{לפני # שעות}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{נותרה שנ‘ אחת}two{נותרו # שנ‘}many{נותרו # שנ‘}other{נותרו # שנ‘}}</translation>
+<translation id="8134065097954893699">טעינה מחדש של הדף הזה</translation>
 <translation id="8144660977431427332">‏החיפושים שלך מופעלים על ידי Google Assistant. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, השלמה אוטומטית</translation>
 <translation id="815598010540052116">גלול למטה</translation>

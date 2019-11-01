@@ -7,6 +7,7 @@
 <translation id="1156623771253174079">{SECONDS,plural, =1{1 ನಿಮಿಷದ ಹಿಂದೆ}one{# ನಿಮಿಷಗಳ ಹಿಂದೆ}other{# ನಿಮಿಷಗಳ ಹಿಂದೆ}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{1ಮೀ}one{#ಮೀ}other{#ಮೀ}}</translation>
 <translation id="1181037720776840403">ತೆಗೆದುಹಾಕು</translation>
+<translation id="1201402288615127009">ಮುಂದೆ</translation>
 <translation id="1243314992276662751">ಅಪ್‌ಲೋಡ್</translation>
 <translation id="1266864766717917324"><ph name="CONTENT_TYPE" /> ಅನ್ನು ಹಂಚಿಕೊಳ್ಳಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ</translation>
 <translation id="1269641567813814718">Win</translation>
@@ -51,6 +52,7 @@
 <translation id="2289052229480071835">ನಿಮ್ಮ ಪರದೆಯಲ್ಲಿ ಸ್ಪರ್ಶ ಟಾರ್ಗೆಟ್‌ಗಳನ್ನು ಟ್ಯಾಪ್ ಮಾಡಿ.</translation>
 <translation id="2295140143284145483">ಸಮೀಕ್ಷೆ</translation>
 <translation id="2297836609126180313"><ph name="QUANTITY" /> TB/s</translation>
+<translation id="2353636109065292463">ನಿಮ್ಮ ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕವನ್ನು ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ</translation>
 <translation id="2388990488038464401">ನಿಮ್ಮ ಫೋನ್‌ನಿಂದ ಈ ಸಂಖ್ಯೆಗೆ ಕರೆ ಮಾಡಬೇಕೇ?</translation>
 <translation id="24452542372838207">ವಿಸ್ತರಿಸುವ ಅಧಿಸೂಚನೆ</translation>
 <translation id="2445449901874883781">ಅಧಿಕ ಸಾಂದ್ರತೆಯನ್ನು ಬಳಸಿ</translation>
@@ -136,6 +138,7 @@
 <translation id="5906667377645263094">{SECONDS,plural, =1{1 ಸೆಕೆಂಡ್ ಬಾಕಿ ಉಳಿದಿದೆ}one{# ಸೆಕೆಂಡುಗಳು ಬಾಕಿ ಉಳಿದಿವೆ}other{# ಸೆಕೆಂಡುಗಳು ಬಾಕಿ ಉಳಿದಿವೆ}}</translation>
 <translation id="5941711191222866238">ಕುಗ್ಗಿಸು</translation>
 <translation id="5943826764092288734">{HOURS,plural, =1{1 ಗಂಟೆ}one{# ಗಂಟೆಗಳು}other{# ಗಂಟೆಗಳು}}</translation>
+<translation id="5946629889255121107"><ph name="ORIGIN" /> ನಿಂದ ಸಂಖ್ಯೆಯನ್ನು ಪ್ರಾರಂಭಿಸಲಾಗಿದೆ</translation>
 <translation id="6012623610530968780">ಪುಟ <ph name="SELECTED_PAGE" /> ರಲ್ಲಿ <ph name="TOTAL_PAGE_NUM" /></translation>
 <translation id="6022924867608035986">ಹುಡುಕಾಟ ಬಾಕ್ಸ್ ಪಠ್ಯವನ್ನು ತೆರವುಗೊಳಿಸಿ</translation>
 <translation id="6040143037577758943">ಮುಚ್ಚಿರಿ</translation>
@@ -162,6 +165,7 @@
 <translation id="6620110761915583480">ಫೈಲ್ ಉಳಿಸು</translation>
 <translation id="6656912866303152668">Chrome ನಲ್ಲಿ <ph name="TARGET_DEVICE_NAME" /> ಸಾಧನದ ಸಿಂಕ್ ಆನ್ ಆಗಿದೆಯೇ ಎಂದು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ, ತದನಂತರ ಮತ್ತೆ ಕಳುಹಿಸಲು ಪ್ರಯತ್ನಿಸಿ.</translation>
 <translation id="6699343763173986273">ಮೀಡಿಯಾದ ಮುಂದಿನ ಟ್ರ್ಯಾಕ್</translation>
+<translation id="6710213216561001401">ಹಿಂದೆ</translation>
 <translation id="6779314412797872738">ಇಲ್ಲಿಂದ ನಿಮ್ಮ Android ಫೋನ್‌ಗೆ ಒಂದು ಸಂಖ್ಯೆಯನ್ನು ಕಳುಹಿಸಲು, ಎರಡೂ ಸಾಧನಗಳಿಗಾಗಿ, ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ <ph name="TROUBLESHOOT_LINK" />.</translation>
 <translation id="6786750046913594791">ಫೋಲ್ಡರ್ ಮುಚ್ಚಿರಿ</translation>
 <translation id="6808150112686056157">ಮೀಡಿಯಾ ನಿಲುಗಡೆ</translation>
@@ -179,6 +183,7 @@
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{1 ನಿಮಿಷ ಬಾಕಿ ಉಳಿದಿದೆ}one{# ನಿಮಿಷಗಳು ಬಾಕಿ ಉಳಿದಿವೆ}other{# ನಿಮಿಷಗಳು ಬಾಕಿ ಉಳಿದಿವೆ}}</translation>
 <translation id="7319740667687257810">ಲಾಂಚರ್, ಭಾಗಶಃ ವೀಕ್ಷಣೆ</translation>
+<translation id="7352651011704765696">ಯಾವುದೋ ತಪ್ಪು ಸಂಭವಿಸಿದೆ</translation>
 <translation id="7365057348334984696">{MINUTES,plural, =1{1 ನಿಮಿ ಹಿಂದೆ}one{# ನಿಮಿಷಗಳ ಹಿಂದೆ}other{# ನಿಮಿಷಗಳ ಹಿಂದೆ}}</translation>
 <translation id="7389409599945284130"><ph name="MESSAGE" /> -</translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{1 ನಿಮಿಷ ಉಳಿದಿದೆ}one{# ನಿಮಿಷಗಳು ಉಳಿದಿವೆ}other{# ನಿಮಿಷಗಳು ಉಳಿದಿವೆ}}</translation>
@@ -196,6 +201,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{1 ಗಂಟೆ ಹಿಂದೆ}one{# ಗಂಟೆಗಳ ಹಿಂದೆ}other{# ಗಂಟೆಗಳ ಹಿಂದೆ}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{1 ಸೆಕೆಂಡ್ ಬಾಕಿ ಉಳಿದಿದೆ}one{# ಸೆಕೆಂಡುಗಳು ಬಾಕಿ ಉಳಿದಿವೆ}other{# ಸೆಕೆಂಡುಗಳು ಬಾಕಿ ಉಳಿದಿವೆ}}</translation>
+<translation id="8134065097954893699">ಈ ಪುಟ ಮರುಲೋಡ್ ಆಗುತ್ತಿದೆ</translation>
 <translation id="8144660977431427332">ನಿಮ್ಮ ಹುಡುಕಾಟಗಳು Google ಅಸಿಸ್ಟೆಂಟ್‌ನಿಂದ ಪ್ರಾಯೋಜಿತವಾಗಿವೆ. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, ಸ್ವಯಂಪೂರ್ಣಗೊಳಿಸುವಿಕೆ</translation>
 <translation id="815598010540052116">ಕೆಳಗೆ ಸ್ಕ್ರೋಲ್ ಮಾಡು</translation>

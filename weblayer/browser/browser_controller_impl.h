@@ -54,12 +54,17 @@ class BrowserControllerImpl : public BrowserController,
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& caller,
       jlong native_top_controls_container_view);
+  void ExecuteScript(JNIEnv* env,
+                     const base::android::JavaParamRef<jstring>& script,
+                     const base::android::JavaParamRef<jobject>& callback);
 #endif
 
+  DownloadDelegate* download_delegate() { return download_delegate_; }
   FullscreenDelegate* fullscreen_delegate() { return fullscreen_delegate_; }
 
  private:
-  // BrowserController implementation:
+  // BrowserController:
+  void SetDownloadDelegate(DownloadDelegate* delegate) override;
   void SetFullscreenDelegate(FullscreenDelegate* delegate) override;
   void AddObserver(BrowserObserver* observer) override;
   void RemoveObserver(BrowserObserver* observer) override;
@@ -68,13 +73,16 @@ class BrowserControllerImpl : public BrowserController,
   void AttachToView(views::WebView* web_view) override;
 #endif
 
-  // content::WebContentsDelegate implementation:
+  // content::WebContentsDelegate:
   void LoadingStateChanged(content::WebContents* source,
                            bool to_different_document) override;
   void LoadProgressChanged(content::WebContents* source,
                            double progress) override;
   void DidNavigateMainFramePostCommit(
       content::WebContents* web_contents) override;
+  void RunFileChooser(content::RenderFrameHost* render_frame_host,
+                      std::unique_ptr<content::FileSelectListener> listener,
+                      const blink::mojom::FileChooserParams& params) override;
   int GetTopControlsHeight() override;
   bool DoBrowserControlsShrinkRendererSize(
       const content::WebContents* web_contents) override;
@@ -89,14 +97,14 @@ class BrowserControllerImpl : public BrowserController,
   blink::mojom::DisplayMode GetDisplayMode(
       const content::WebContents* web_contents) override;
 
-  // content::WebContentsObserver implementation:
-  void DidFirstVisuallyNonEmptyPaint() override;
+  // content::WebContentsObserver:
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
 
   // Called from closure supplied to delegate to exit fullscreen.
   void OnExitFullscreen();
 
+  DownloadDelegate* download_delegate_ = nullptr;
   FullscreenDelegate* fullscreen_delegate_ = nullptr;
   ProfileImpl* profile_;
   std::unique_ptr<content::WebContents> web_contents_;

@@ -8,18 +8,33 @@ import android.net.Uri;
 import android.os.RemoteException;
 import android.webkit.ValueCallback;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import org.chromium.weblayer_private.aidl.APICallException;
 import org.chromium.weblayer_private.aidl.IBrowserController;
 import org.chromium.weblayer_private.aidl.IBrowserControllerClient;
+import org.chromium.weblayer_private.aidl.IDownloadDelegateClient;
 import org.chromium.weblayer_private.aidl.IFullscreenDelegateClient;
 import org.chromium.weblayer_private.aidl.IObjectWrapper;
 import org.chromium.weblayer_private.aidl.ObjectWrapper;
 
+/**
+ * Represents a web-browser. More specifically, owns a NavigationController, and allows configuring
+ * state of the browser, such as delegates and observers.
+ */
 public final class BrowserController {
+    /** The top level key of the JSON object returned by executeScript(). */
+    public static final String SCRIPT_RESULT_KEY = "result";
+
     private final IBrowserController mImpl;
     private FullscreenDelegateClientImpl mFullscreenDelegateClient;
     private final NavigationController mNavigationController;
     private final ObserverList<BrowserObserver> mObservers;
+    private DownloadDelegateClientImpl mDownloadDelegateClient;
 
     BrowserController(IBrowserController impl) {
         mImpl = impl;
@@ -33,19 +48,66 @@ public final class BrowserController {
         mNavigationController = NavigationController.create(mImpl);
     }
 
-    public void setFullscreenDelegate(FullscreenDelegate delegate) {
+    public void setDownloadDelegate(@Nullable DownloadDelegate delegate) {
         try {
             if (delegate != null) {
-                mFullscreenDelegateClient = new FullscreenDelegateClientImpl(delegate);
-                mImpl.setFullscreenDelegateClient(mFullscreenDelegateClient);
+                mDownloadDelegateClient = new DownloadDelegateClientImpl(delegate);
+                mImpl.setDownloadDelegateClient(mDownloadDelegateClient);
             } else {
-                mImpl.setFullscreenDelegateClient(null);
+                mDownloadDelegateClient = null;
+                mImpl.setDownloadDelegateClient(null);
             }
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
     }
 
+    public void setFullscreenDelegate(@Nullable FullscreenDelegate delegate) {
+        try {
+            if (delegate != null) {
+                mFullscreenDelegateClient = new FullscreenDelegateClientImpl(delegate);
+                mImpl.setFullscreenDelegateClient(mFullscreenDelegateClient);
+            } else {
+                mImpl.setFullscreenDelegateClient(null);
+                mFullscreenDelegateClient = null;
+            }
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+    }
+
+    public DownloadDelegate getDownloadDelegate() {
+        return mDownloadDelegateClient != null ? mDownloadDelegateClient.getDelegate() : null;
+    }
+
+    /**
+     * Executes the script in an isolated world, and returns the result as a JSON object to the
+     * callback if provided. The object passed to the callback will have a single key
+     * SCRIPT_RESULT_KEY which will hold the result of running the script.
+     */
+    public void executeScript(
+            @NonNull String script, @Nullable ValueCallback<JSONObject> callback) {
+        try {
+            ValueCallback<String> stringCallback = (String result) -> {
+                if (callback == null) {
+                    return;
+                }
+
+                try {
+                    callback.onReceiveValue(
+                            new JSONObject("{\"" + SCRIPT_RESULT_KEY + "\":" + result + "}"));
+                } catch (JSONException e) {
+                    // This should never happen since the result should be well formed.
+                    throw new RuntimeException(e);
+                }
+            };
+            mImpl.executeScript(script, ObjectWrapper.wrap(stringCallback));
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+    }
+
+    @Nullable
     public FullscreenDelegate getFullscreenDelegate() {
         return mFullscreenDelegateClient != null ? mFullscreenDelegateClient.getDelegate() : null;
     }
@@ -55,15 +117,16 @@ public final class BrowserController {
         // TODO(sky): figure out right assertion here if mProfile is non-null.
     }
 
+    @NonNull
     public NavigationController getNavigationController() {
         return mNavigationController;
     }
 
-    public void addObserver(BrowserObserver observer) {
+    public void addObserver(@Nullable BrowserObserver observer) {
         mObservers.addObserver(observer);
     }
 
-    public void removeObserver(BrowserObserver observer) {
+    public void removeObserver(@Nullable BrowserObserver observer) {
         mObservers.removeObserver(observer);
     }
 
@@ -92,6 +155,25 @@ public final class BrowserController {
             for (BrowserObserver observer : mObservers) {
                 observer.loadProgressChanged(progress);
             }
+        }
+    }
+
+    private final class DownloadDelegateClientImpl extends IDownloadDelegateClient.Stub {
+        private final DownloadDelegate mDelegate;
+
+        DownloadDelegateClientImpl(DownloadDelegate delegate) {
+            mDelegate = delegate;
+        }
+
+        public DownloadDelegate getDelegate() {
+            return mDelegate;
+        }
+
+        @Override
+        public void downloadRequested(String url, String userAgent, String contentDisposition,
+                String mimetype, long contentLength) {
+            mDelegate.downloadRequested(
+                    url, userAgent, contentDisposition, mimetype, contentLength);
         }
     }
 

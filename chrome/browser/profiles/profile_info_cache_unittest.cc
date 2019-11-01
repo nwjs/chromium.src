@@ -24,6 +24,7 @@
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/profiles/profile_info_cache.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -58,22 +59,21 @@ void ProfileNameVerifierObserver::OnProfileAdded(
     const base::FilePath& profile_path) {
   base::string16 profile_name = GetCache()->GetNameToDisplayOfProfileAtIndex(
       GetCache()->GetIndexOfProfileWithPath(profile_path));
-  EXPECT_TRUE(profile_names_.find(profile_name) == profile_names_.end());
-  profile_names_.insert(profile_name);
+  EXPECT_TRUE(profile_names_.find(profile_path) == profile_names_.end());
+  profile_names_.insert({profile_path, profile_name});
 }
 
 void ProfileNameVerifierObserver::OnProfileWillBeRemoved(
     const base::FilePath& profile_path) {
-  base::string16 profile_name = GetCache()->GetNameToDisplayOfProfileAtIndex(
-      GetCache()->GetIndexOfProfileWithPath(profile_path));
-  EXPECT_TRUE(profile_names_.find(profile_name) != profile_names_.end());
-  profile_names_.erase(profile_name);
+  auto it = profile_names_.find(profile_path);
+  EXPECT_TRUE(it != profile_names_.end());
+  profile_names_.erase(it);
 }
 
 void ProfileNameVerifierObserver::OnProfileWasRemoved(
     const base::FilePath& profile_path,
     const base::string16& profile_name) {
-  EXPECT_TRUE(profile_names_.find(profile_name) == profile_names_.end());
+  EXPECT_TRUE(profile_names_.find(profile_path) == profile_names_.end());
 }
 
 void ProfileNameVerifierObserver::OnProfileNameChanged(
@@ -82,17 +82,13 @@ void ProfileNameVerifierObserver::OnProfileNameChanged(
   base::string16 new_profile_name =
       GetCache()->GetNameToDisplayOfProfileAtIndex(
           GetCache()->GetIndexOfProfileWithPath(profile_path));
-  EXPECT_TRUE(profile_names_.find(old_profile_name) != profile_names_.end());
-  EXPECT_TRUE(profile_names_.find(new_profile_name) == profile_names_.end());
-  profile_names_.erase(old_profile_name);
-  profile_names_.insert(new_profile_name);
+  EXPECT_TRUE(profile_names_[profile_path] == old_profile_name);
+  profile_names_[profile_path] = new_profile_name;
 }
 
 void ProfileNameVerifierObserver::OnProfileAvatarChanged(
     const base::FilePath& profile_path) {
-  base::string16 profile_name = GetCache()->GetNameToDisplayOfProfileAtIndex(
-      GetCache()->GetIndexOfProfileWithPath(profile_path));
-  EXPECT_TRUE(profile_names_.find(profile_name) != profile_names_.end());
+  EXPECT_TRUE(profile_names_.find(profile_path) != profile_names_.end());
 }
 
 ProfileInfoCache* ProfileNameVerifierObserver::GetCache() {
@@ -109,11 +105,6 @@ ProfileInfoCacheTest::~ProfileInfoCacheTest() {
 void ProfileInfoCacheTest::SetUp() {
   ASSERT_TRUE(testing_profile_manager_.SetUp());
   testing_profile_manager_.profile_info_cache()->AddObserver(&name_observer_);
-}
-
-void ProfileInfoCacheTest::RemoveObserver() {
-  testing_profile_manager_.profile_info_cache()->RemoveObserver(
-      &name_observer_);
 }
 
 void ProfileInfoCacheTest::TearDown() {
@@ -143,34 +134,14 @@ class ProfileInfoCacheTestWithParam
   ProfileInfoCacheTestWithParam() : ProfileInfoCacheTest() {
     concatenate_enabled_ = GetParam();
     if (concatenate_enabled_) {
-      scoped_feature_list_.InitAndEnableFeature(kConcatenateGaiaAndProfileName);
+      scoped_feature_list_.InitAndEnableFeature(features::kProfileMenuRevamp);
     } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          kConcatenateGaiaAndProfileName);
+      scoped_feature_list_.InitAndDisableFeature(features::kProfileMenuRevamp);
     }
   }
 
-  base::string16 GetExpectedNameToDisplay(const base::string16& gaia_name,
-                                          const base::string16 profile_name,
-                                          bool is_using_default,
-                                          bool concatenate_enabled,
-                                          bool single_profile) {
-    if (gaia_name.empty() || profile_name.empty())
-      return gaia_name.empty() ? profile_name : gaia_name;
-
-    if (!concatenate_enabled)
-      return is_using_default ? gaia_name : profile_name;
-
-    if (single_profile)
-      return gaia_name;
-
-    auto it = std::search(gaia_name.begin(), gaia_name.end(),
-                          profile_name.begin(), profile_name.end(),
-                          base::CaseInsensitiveCompareASCII<char>());
-
-    if (it != gaia_name.end())
-      return gaia_name;
-
+  base::string16 GetConcatenation(const base::string16& gaia_name,
+                                  const base::string16 profile_name) {
     base::string16 name_to_display(gaia_name);
     name_to_display.append(base::UTF8ToUTF16(" ("));
     name_to_display.append(profile_name);
@@ -221,10 +192,13 @@ TEST_P(ProfileInfoCacheTestWithParam, AddProfiles) {
     GetCache()->SetGAIANameOfProfileAtIndex(i, gaia_name);
 
     EXPECT_EQ(i + 1, GetCache()->GetNumberOfProfiles());
-    EXPECT_EQ(GetExpectedNameToDisplay(gaia_name, profile_name, false,
-                                       concatenate_enabled_,
-                                       GetCache()->GetNumberOfProfiles() == 1),
+    base::string16 expected_profile_name =
+        concatenate_enabled_ ? GetConcatenation(gaia_name, profile_name)
+                             : profile_name;
+
+    EXPECT_EQ(expected_profile_name,
               GetCache()->GetNameToDisplayOfProfileAtIndex(i));
+
     EXPECT_EQ(profile_path, GetCache()->GetPathOfProfileAtIndex(i));
 #if !defined(OS_ANDROID)
     const SkBitmap* actual_icon =
@@ -254,8 +228,10 @@ TEST_P(ProfileInfoCacheTestWithParam, AddProfiles) {
     base::string16 profile_name =
         ASCIIToUTF16(base::StringPrintf("name_%ud", i));
     base::string16 gaia_name = ASCIIToUTF16(base::StringPrintf("gaia_%ud", i));
-    EXPECT_EQ(GetExpectedNameToDisplay(gaia_name, profile_name, false,
-                                       concatenate_enabled_, false),
+    base::string16 expected_profile_name =
+        concatenate_enabled_ ? GetConcatenation(gaia_name, profile_name)
+                             : profile_name;
+    EXPECT_EQ(expected_profile_name,
               GetCache()->GetNameToDisplayOfProfileAtIndex(i));
 #if !defined(OS_ANDROID)
     EXPECT_EQ(i, GetCache()->GetAvatarIconIndexOfProfileAtIndex(i));
@@ -281,38 +257,36 @@ TEST_P(ProfileInfoCacheTestWithParam, GAIAName) {
   EXPECT_TRUE(GetCache()->GetGAIANameOfProfileAtIndex(index1).empty());
   EXPECT_TRUE(GetCache()->GetGAIANameOfProfileAtIndex(index2).empty());
 
-  // Set GAIA name. This re-sorts the cache.
+  // Set GAIA name.
   base::string16 gaia_name(ASCIIToUTF16("Pat Smith"));
   GetCache()->SetGAIANameOfProfileAtIndex(index2, gaia_name);
-  index1 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_1"));
-  index2 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_2"));
-
   // Since there is a GAIA name, we use that as a display name.
   EXPECT_TRUE(GetCache()->GetGAIANameOfProfileAtIndex(index1).empty());
   EXPECT_EQ(gaia_name, GetCache()->GetGAIANameOfProfileAtIndex(index2));
-  EXPECT_EQ(GetExpectedNameToDisplay(gaia_name, profile_name, true,
-                                     concatenate_enabled_, false),
-            GetCache()->GetNameToDisplayOfProfileAtIndex(index2));
+  EXPECT_EQ(gaia_name, GetCache()->GetNameToDisplayOfProfileAtIndex(index2));
 
-  // This re-sorts the cache.
   base::string16 custom_name(ASCIIToUTF16("Custom name"));
   GetCache()->SetLocalProfileNameOfProfileAtIndex(index2, custom_name);
   GetCache()->SetProfileIsUsingDefaultNameAtIndex(index2, false);
 
-  index1 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_1"));
-  index2 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_2"));
-
-  EXPECT_EQ(GetExpectedNameToDisplay(gaia_name, custom_name, false,
-                                     concatenate_enabled_, false),
+  base::string16 expected_profile_name =
+      concatenate_enabled_ ? GetConcatenation(gaia_name, custom_name)
+                           : custom_name;
+  EXPECT_EQ(expected_profile_name,
             GetCache()->GetNameToDisplayOfProfileAtIndex(index2));
   EXPECT_EQ(gaia_name, GetCache()->GetGAIANameOfProfileAtIndex(index2));
 }
 
 TEST_F(ProfileInfoCacheTest, ConcatenateGaiaNameAndProfileName) {
+  // We should only append the profile name to the GAIA name if:
+  // - The user has chosen a profile name on purpose.
+  // - Two profiles has the sama GAIA name and we need to show it to
+  //   clear ambiguity.
+  // If one of the two conditions hold, we will show the profile name in this
+  // format |GAIA name (Profile local name)|
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(kConcatenateGaiaAndProfileName);
-
-  // Single profile should not append the profile name to Gaia name.
+  scoped_feature_list.InitAndEnableFeature(features::kProfileMenuRevamp);
+  // Single profile.
   GetCache()->AddProfileToCache(
       GetProfilePath("path_1"), ASCIIToUTF16("Person 1"), std::string(),
       base::string16(), false, 0, std::string(), EmptyAccountId());
@@ -326,57 +300,109 @@ TEST_F(ProfileInfoCacheTest, ConcatenateGaiaNameAndProfileName) {
   EXPECT_EQ(ASCIIToUTF16("Patt"),
             GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
 
+  // Set a custom profile name.
+  GetCache()->SetProfileIsUsingDefaultNameAtIndex(index1, false);
+  GetCache()->SetLocalProfileNameOfProfileAtIndex(index1, ASCIIToUTF16("Work"));
+  EXPECT_EQ(ASCIIToUTF16("Patt (Work)"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
+
+  // Set the profile name to be equal to GAIA name.
+  GetCache()->SetLocalProfileNameOfProfileAtIndex(index1, ASCIIToUTF16("patt"));
+  EXPECT_EQ(ASCIIToUTF16("Patt"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
   // Multiple profiles.
+  // Add another profile with the same GAIA name and a default profile name.
   GetCache()->AddProfileToCache(
       GetProfilePath("path_2"), ASCIIToUTF16("Person 2"), std::string(),
       base::string16(), false, 0, std::string(), EmptyAccountId());
-
-  index1 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_1"));
-  EXPECT_EQ(ASCIIToUTF16("Patt (Person 1)"),
-            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
-
   int index2 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_2"));
+  EXPECT_EQ(ASCIIToUTF16("Patt"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
   EXPECT_EQ(ASCIIToUTF16("Person 2"),
             GetCache()->GetNameToDisplayOfProfileAtIndex(index2));
-  // Set Gaia name.
-  GetCache()->SetGAIANameOfProfileAtIndex(index2, ASCIIToUTF16("Patti Smith"));
-  index2 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_2"));
-  // Profile name is a substring of Gaia name.
-  GetCache()->SetLocalProfileNameOfProfileAtIndex(index2,
-                                                  ASCIIToUTF16("patti"));
-  index2 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_2"));
-  EXPECT_EQ(ASCIIToUTF16("Patti Smith"),
-            GetCache()->GetNameToDisplayOfProfileAtIndex(index2));
-  // Profile name equals Gaia given name.
-  GetCache()->SetGAIAGivenNameOfProfileAtIndex(index2, ASCIIToUTF16("Patti"));
-  index2 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_2"));
-  EXPECT_EQ(ASCIIToUTF16("Patti"),
-            GetCache()->GetNameToDisplayOfProfileAtIndex(index2));
-  GetCache()->SetLocalProfileNameOfProfileAtIndex(index2, ASCIIToUTF16("Work"));
-  EXPECT_EQ(ASCIIToUTF16("Patti (Work)"),
+
+  GetCache()->SetLocalProfileNameOfProfileAtIndex(index1, ASCIIToUTF16("Work"));
+  EXPECT_EQ(ASCIIToUTF16("Patt (Work)"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
+  EXPECT_EQ(ASCIIToUTF16("Person 2"),
             GetCache()->GetNameToDisplayOfProfileAtIndex(index2));
 
-  // Empty profile name.
-  GetCache()->AddProfileToCache(GetProfilePath("path_3"), base::string16(),
-                                std::string(), base::string16(), false, 0,
-                                std::string(), EmptyAccountId());
+  // A second profile with a different GAIA name should not affect the first
+  // profile.
+  GetCache()->SetGAIAGivenNameOfProfileAtIndex(index2, ASCIIToUTF16("Olly"));
+  EXPECT_EQ(ASCIIToUTF16("Patt (Work)"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
+  EXPECT_EQ(ASCIIToUTF16("Olly"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index2));
+
+  // Mark profile name as default.
+  GetCache()->SetProfileIsUsingDefaultNameAtIndex(index1, true);
+  GetCache()->SetLocalProfileNameOfProfileAtIndex(index1,
+                                                  ASCIIToUTF16("Person 1"));
+  EXPECT_EQ(ASCIIToUTF16("Patt"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
+  EXPECT_EQ(ASCIIToUTF16("Olly"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index2));
+
+  // Add a third profile with the same GAIA name as the first.
+  // The two profiles are marked as using default profile names.
+  GetCache()->AddProfileToCache(
+      GetProfilePath("path_3"), ASCIIToUTF16("Person 3"), std::string(),
+      base::string16(), false, 0, std::string(), EmptyAccountId());
   int index3 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_3"));
-  GetCache()->SetGAIAGivenNameOfProfileAtIndex(index3, ASCIIToUTF16("Pat"));
-  index3 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_3"));
-  EXPECT_EQ(ASCIIToUTF16("Pat"),
-            GetCache()->GetNameToDisplayOfProfileAtIndex(index3));
-  GetCache()->SetGAIANameOfProfileAtIndex(index3, ASCIIToUTF16("Pat Smith"));
-  GetCache()->SetGAIAGivenNameOfProfileAtIndex(index3, ASCIIToUTF16(""));
-  index3 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_3"));
-  EXPECT_EQ(ASCIIToUTF16("Pat Smith"),
+  GetCache()->SetGAIANameOfProfileAtIndex(index3, ASCIIToUTF16("Patt Smith"));
+  EXPECT_EQ(ASCIIToUTF16("Patt"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
+  EXPECT_EQ(ASCIIToUTF16("Patt Smith"),
             GetCache()->GetNameToDisplayOfProfileAtIndex(index3));
 
-  // Single profile.
-  GetCache()->DeleteProfileFromCache(GetProfilePath("path_1"));
-  GetCache()->DeleteProfileFromCache(GetProfilePath("path_3"));
-  index2 = GetCache()->GetIndexOfProfileWithPath(GetProfilePath("path_2"));
-  EXPECT_EQ(ASCIIToUTF16("Patti"),
-            GetCache()->GetNameToDisplayOfProfileAtIndex(index2));
+  // Two profiles with same GAIA name and default profile name.
+  // Empty GAIA given name.
+  GetCache()->SetGAIANameOfProfileAtIndex(index3, ASCIIToUTF16("Patt"));
+  EXPECT_EQ(ASCIIToUTF16("Patt (Person 1)"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
+  EXPECT_EQ(ASCIIToUTF16("Patt (Person 3)"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index3));
+  // Set GAIA given name.
+  GetCache()->SetGAIAGivenNameOfProfileAtIndex(index3, ASCIIToUTF16("Patt"));
+  EXPECT_EQ(ASCIIToUTF16("Patt (Person 1)"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
+  EXPECT_EQ(ASCIIToUTF16("Patt (Person 3)"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index3));
+
+  // Customize the profile name for one of the two profiles.
+  GetCache()->SetProfileIsUsingDefaultNameAtIndex(index3, false);
+  GetCache()->SetLocalProfileNameOfProfileAtIndex(index3,
+                                                  ASCIIToUTF16("Personal"));
+  EXPECT_EQ(ASCIIToUTF16("Patt"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
+  EXPECT_EQ(ASCIIToUTF16("Patt (Personal)"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index3));
+
+  // Set one of the profile names to be equal to GAIA name, we should still show
+  // the profile name to clear ambiguity.
+  GetCache()->SetLocalProfileNameOfProfileAtIndex(index3, ASCIIToUTF16("patt"));
+  EXPECT_EQ(ASCIIToUTF16("Patt"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
+  EXPECT_EQ(ASCIIToUTF16("Patt (patt)"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index3));
+
+  // One profile with a custom name and another profile with a custom name equal
+  // to GAIA name.
+  GetCache()->SetProfileIsUsingDefaultNameAtIndex(index1, false);
+  GetCache()->SetLocalProfileNameOfProfileAtIndex(index1, ASCIIToUTF16("Work"));
+  EXPECT_EQ(ASCIIToUTF16("Patt (Work)"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
+  EXPECT_EQ(ASCIIToUTF16("Patt"),
+            GetCache()->GetNameToDisplayOfProfileAtIndex(index3));
+
+  GetCache()->SetLocalProfileNameOfProfileAtIndex(index1, ASCIIToUTF16("Patt"));
+  // EXPECT_EQ(ASCIIToUTF16("Patt (Patt)"),
+  //           GetCache()->GetNameToDisplayOfProfileAtIndex(index1));
+  // EXPECT_EQ(ASCIIToUTF16("Patt (patt)"),
+  //           GetCache()->GetNameToDisplayOfProfileAtIndex(index3));
+  // EXPECT_EQ(ASCIIToUTF16("Olly"),
+  //           GetCache()->GetNameToDisplayOfProfileAtIndex(index2));
 }
 
 TEST_F(ProfileInfoCacheTest, DeleteProfile) {
@@ -436,49 +462,6 @@ TEST_F(ProfileInfoCacheTest, MutateProfile) {
   EXPECT_EQ(generic_icon_index,
             GetCache()->GetAvatarIconIndexOfProfileAtIndex(1));
 #endif
-}
-
-TEST_F(ProfileInfoCacheTest, Sort) {
-  base::string16 name_a = ASCIIToUTF16("apple");
-  GetCache()->AddProfileToCache(GetProfilePath("path_a"), name_a, std::string(),
-                                base::string16(), false, 0, std::string(),
-                                EmptyAccountId());
-
-  base::string16 name_c = ASCIIToUTF16("cat");
-  GetCache()->AddProfileToCache(GetProfilePath("path_c"), name_c, std::string(),
-                                base::string16(), false, 0, std::string(),
-                                EmptyAccountId());
-
-  // Sanity check the initial order.
-  EXPECT_EQ(name_a, GetCache()->GetNameToDisplayOfProfileAtIndex(0));
-  EXPECT_EQ(name_c, GetCache()->GetNameToDisplayOfProfileAtIndex(1));
-
-  // Add a new profile (start with a capital to test case insensitive sorting.
-  base::string16 name_b = ASCIIToUTF16("Banana");
-  GetCache()->AddProfileToCache(GetProfilePath("path_b"), name_b, std::string(),
-                                base::string16(), false, 0, std::string(),
-                                EmptyAccountId());
-
-  // Verify the new order.
-  EXPECT_EQ(name_a, GetCache()->GetNameToDisplayOfProfileAtIndex(0));
-  EXPECT_EQ(name_b, GetCache()->GetNameToDisplayOfProfileAtIndex(1));
-  EXPECT_EQ(name_c, GetCache()->GetNameToDisplayOfProfileAtIndex(2));
-
-  // Change the name of an existing profile.
-  name_a = UTF8ToUTF16("dog");
-  GetCache()->SetLocalProfileNameOfProfileAtIndex(0, name_a);
-
-  // Verify the new order.
-  EXPECT_EQ(name_b, GetCache()->GetNameToDisplayOfProfileAtIndex(0));
-  EXPECT_EQ(name_c, GetCache()->GetNameToDisplayOfProfileAtIndex(1));
-  EXPECT_EQ(name_a, GetCache()->GetNameToDisplayOfProfileAtIndex(2));
-
-  // Delete a profile.
-  GetCache()->DeleteProfileFromCache(GetProfilePath("path_c"));
-
-  // Verify the new order.
-  EXPECT_EQ(name_b, GetCache()->GetNameToDisplayOfProfileAtIndex(0));
-  EXPECT_EQ(name_a, GetCache()->GetNameToDisplayOfProfileAtIndex(1));
 }
 
 // Will be removed SOON with ProfileInfoCache tests.
@@ -806,7 +789,6 @@ TEST_F(ProfileInfoCacheTest, EntriesInAttributesStorage) {
 #if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
 TEST_F(ProfileInfoCacheTest, RecomputeProfileNamesIfNeeded) {
   // Duplicate profile names causes the observer to crash.
-  RemoveObserver();
   EXPECT_EQ(0U, GetCache()->GetNumberOfProfiles());
 
   base::FilePath path_1 = GetProfilePath("path_1");

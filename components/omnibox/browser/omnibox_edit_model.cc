@@ -1055,7 +1055,8 @@ void OmniboxEditModel::ClearKeyword() {
   }
 }
 
-void OmniboxEditModel::OnSetFocus(bool control_down) {
+void OmniboxEditModel::OnSetFocus(bool control_down,
+                                  bool suppress_on_focus_suggestions) {
   last_omnibox_focus_ = base::TimeTicks::Now();
   user_input_since_focus_ = false;
 
@@ -1069,7 +1070,8 @@ void OmniboxEditModel::OnSetFocus(bool control_down) {
   // example, if the user presses ctrl-l to focus the omnibox.
   control_key_state_ = control_down ? DOWN_AND_CONSUMED : UP;
 
-  ShowOnFocusSuggestionsIfAutocompleteIdle();
+  if (!suppress_on_focus_suggestions)
+    ShowOnFocusSuggestionsIfAutocompleteIdle();
 
   if (user_input_in_progress_ || !in_revert_)
     client_->OnInputStateChanged();
@@ -1190,11 +1192,13 @@ void OmniboxEditModel::OnUpOrDownKeyPressed(int count) {
     // we should revert the temporary text same as what pressing escape would
     // have done.
     //
-    // This doesn't apply for on-focus suggestions, for which the first result
-    // can be completely distinct from the omnibox contents. We enforce that
-    // via user_input_in_progress_, which is false for ZeroSuggest.
+    // Reverting, however, does not make sense for on-focus suggestions
+    // (user_input_in_progress_ is false) unless the first result is a
+    // verbatim match of the omnibox input (on-focus query refinements on SERP).
     const size_t line_no = GetNewSelectedLine(count);
-    if (has_temporary_text_ && line_no == 0 && user_input_in_progress_) {
+    if (has_temporary_text_ && line_no == 0 &&
+        (user_input_in_progress_ ||
+         result().default_match()->IsVerbatimType())) {
       RevertTemporaryTextAndPopup();
     } else {
       popup_model()->MoveTo(line_no);
@@ -1287,7 +1291,7 @@ void OmniboxEditModel::OnPopupDataChanged(const base::string16& text,
     view_->OnInlineAutocompleteTextCleared();
 
   const base::string16& user_text =
-      user_input_in_progress_ ? user_text_ : view_->GetText();
+      user_input_in_progress_ ? user_text_ : input_.text();
   if (keyword_state_changed && is_keyword_selected() &&
       inline_autocomplete_text_.empty()) {
     // If we reach here, the user most likely entered keyword mode by inserting
@@ -1538,6 +1542,15 @@ void OmniboxEditModel::RevertTemporaryTextAndPopup() {
 
   if (popup_model())
     popup_model()->ResetToDefaultMatch();
+
+  // If user input is not in progress, we are reverting an on-focus suggestion.
+  // Set the window text back to the original input, rather than the top match.
+  // The original selection will be restored in OnRevertTemporaryText() below.
+  if (!user_input_in_progress_) {
+    view_->SetWindowTextAndCaretPos(input_.text(), /*caret_pos=*/0,
+                                    /*update_popup=*/false,
+                                    /*notify_text_changed=*/true);
+  }
 
   const AutocompleteMatch& match = CurrentMatch(nullptr);
   view_->OnRevertTemporaryText(match.fill_into_edit, match);

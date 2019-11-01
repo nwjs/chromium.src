@@ -7,6 +7,7 @@
 <translation id="1156623771253174079">{SECONDS,plural, =1{১ মিনিট আগে}one{# মিনিট আগে}other{# মিনিট আগে}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{১ মিনিট}one{# মিনিট}other{# মিনিট}}</translation>
 <translation id="1181037720776840403">সরান</translation>
+<translation id="1201402288615127009">পরবর্তী</translation>
 <translation id="1243314992276662751">আপলোড</translation>
 <translation id="1266864766717917324"><ph name="CONTENT_TYPE" /> শেয়ার করা যায়নি</translation>
 <translation id="1269641567813814718">Win</translation>
@@ -51,6 +52,7 @@
 <translation id="2289052229480071835">আপনার স্ক্রীনে স্পর্শ লক্ষ্যগুলি আলতা চাপুন।</translation>
 <translation id="2295140143284145483">সমীক্ষা</translation>
 <translation id="2297836609126180313"><ph name="QUANTITY" /> TB/s</translation>
+<translation id="2353636109065292463">আপনার ইন্টারনেট কানেকশন ঠিক আছে কিনা সেটি দেখা হচ্ছে</translation>
 <translation id="2388990488038464401">আপনার ফোন থেকে এই নম্বরে কল করতে চান?</translation>
 <translation id="24452542372838207">বিজ্ঞপ্তি প্রসারিত করুন</translation>
 <translation id="2445449901874883781">উচ্চ রেজোলিউশন ব্যবহার করুন</translation>
@@ -136,6 +138,7 @@
 <translation id="5906667377645263094">{SECONDS,plural, =1{১ সেকেন্ড বাকি}one{# সেকেন্ড বাকি}other{# সেকেন্ড বাকি}}</translation>
 <translation id="5941711191222866238">ছোট করুন</translation>
 <translation id="5943826764092288734">{HOURS,plural, =1{১ ঘণ্টা}one{# ঘণ্টা}other{# ঘণ্টা}}</translation>
+<translation id="5946629889255121107"><ph name="ORIGIN" /> থেকে নম্বর পাওয়া গেছে</translation>
 <translation id="6012623610530968780"><ph name="TOTAL_PAGE_NUM" />টি পৃষ্ঠার মধ্যে <ph name="SELECTED_PAGE" />টি পৃষ্ঠা</translation>
 <translation id="6022924867608035986">সার্চ বক্সের টেক্সট সাফ করুন</translation>
 <translation id="6040143037577758943">বন্ধ</translation>
@@ -162,6 +165,7 @@
 <translation id="6620110761915583480">ফাইল সেভ করুন</translation>
 <translation id="6656912866303152668"><ph name="TARGET_DEVICE_NAME" /> Chrome-এ সিঙ্ক করার ফিচার চালু করে রেখেছে কিনা দেখে নিন।</translation>
 <translation id="6699343763173986273">মিডিয়া পরবর্তী ট্র্যাক</translation>
+<translation id="6710213216561001401">পূর্ববর্তী</translation>
 <translation id="6779314412797872738">এখান থেকে আপনার Android ফোনে কোনও নম্বর পাঠাতে, সেটিংসে গিয়ে দুটি ডিভাইসের জন্য <ph name="TROUBLESHOOT_LINK" />।</translation>
 <translation id="6786750046913594791">ফোল্ডার বন্ধ করুন</translation>
 <translation id="6808150112686056157">মিডিয়া থামান</translation>
@@ -179,6 +183,7 @@
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{১ মিনিট বাকি}one{# মিনিট বাকি}other{# মিনিট বাকি}}</translation>
 <translation id="7319740667687257810">লঞ্চার, আংশিক দেখুন</translation>
+<translation id="7352651011704765696">কিছু সমস্যা হয়েছে</translation>
 <translation id="7365057348334984696">{MINUTES,plural, =1{১ মিনিট পূর্বে}one{# মিনিট পূর্বে}other{# মিনিট পূর্বে}}</translation>
 <translation id="7389409599945284130">- <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{১ মিনিট বাকি}one{# মিনিট বাকি}other{# মিনিট বাকি}}</translation>
@@ -196,6 +201,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{১ ঘণ্টা পূর্বে}one{# ঘণ্টা পূর্বে}other{# ঘণ্টা পূর্বে}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{১ সেকেন্ড বাকি}one{# সেকেন্ড বাকি}other{# সেকেন্ড বাকি}}</translation>
+<translation id="8134065097954893699">এই পৃষ্ঠা আবার লোড করা হচ্ছে</translation>
 <translation id="8144660977431427332">Google অ্যাসিস্ট্যান্ট আপনার সার্চ পরিচালনা করে। <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, নিজে থেকে সম্পূর্ন করা</translation>
 <translation id="815598010540052116">নিচে স্ক্রল করুন</translation>

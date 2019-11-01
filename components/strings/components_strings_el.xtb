@@ -5,8 +5,6 @@
 <translation id="1010200102790553230">Φόρτωση σελίδας αργότερα</translation>
 <translation id="1015730422737071372">Καταχωρίστε επιπλέον λεπτομέρειες</translation>
 <translation id="1021110881106174305">Αποδεκτές κάρτες</translation>
-<translation id="1023523064224774104">Το Chromium εντόπισε ότι μόλις καταχωρίσατε τον κωδικό πρόσβασής σας σε έναν ύποπτο
-          ιστότοπο. Επαναφέρετε άμεσα τον κωδικό πρόσβασής σας!</translation>
 <translation id="1032854598605920125">Περιστροφή προς τα δεξιά</translation>
 <translation id="1035334672863811645">σύνδεση στο Chrome</translation>
 <translation id="1036348656032585052">Απενεργοποίηση</translation>
@@ -123,6 +121,7 @@
 <translation id="1501859676467574491">Εμφάνιση καρτών από τον Λογαριασμό σας Google</translation>
 <translation id="1507202001669085618">&lt;p&gt;Αυτό το σφάλμα παρουσιάζεται εάν χρησιμοποιείτε μια πύλη Wi-Fi στην οποία πρέπει να συνδέεστε, για να μπορέσετε να περιηγηθείτε στο διαδίκτυο.&lt;/p&gt;
     &lt;p&gt;Για να διορθώσετε το σφάλμα, κάντε κλικ στο κουμπί &lt;strong&gt;Σύνδεση&lt;/strong&gt; στη σελίδα που προσπαθείτε να ανοίξετε.&lt;/p&gt;</translation>
+<translation id="1513706915089223971">Λίστα καταχωρίσεων ιστορικού</translation>
 <translation id="1517433312004943670">Απαιτείται αριθμός τηλεφώνου</translation>
 <translation id="1517500485252541695">Αποδεκτές πιστωτικές και χρεωστικές κάρτες</translation>
 <translation id="1519264250979466059">Ημερομηνία κατασκευής</translation>
@@ -283,6 +282,7 @@
 <translation id="2292556288342944218">Η πρόσβασή σας στο διαδίκτυο είναι αποκλεισμένη</translation>
 <translation id="2297722699537546652">B5 (Φάκελος)</translation>
 <translation id="2310021320168182093">Chou2 (Φάκελος)</translation>
+<translation id="2315864634253056100">Το όνομα αυτού του ιστοτόπου φαίνεται παρόμοιο με του ιστοτόπου <ph name="LOOKALIKE_DOMAIN" />. Οι υπεύθυνοι της επίθεσης απομιμούνται μερικές φορές ιστοτόπους κάνοντας δυσδιάκριτες αλλαγές στη διεύθυνση ιστού.</translation>
 <translation id="2316887270356262533">Απελευθερώνει λιγότερο από 1 MB. Ορισμένοι ιστότοποι μπορεί να φορτωθούν πιο αργά κατά την επόμενη επίσκεψή σας.</translation>
 <translation id="2317259163369394535">Ο τομέας <ph name="DOMAIN" /> απαιτεί ένα όνομα χρήστη και έναν κωδικό πρόσβασης.</translation>
 <translation id="2317583587496011522">Οι χρεωστικές κάρτες γίνονται δεκτές.</translation>
@@ -308,6 +308,7 @@
 <translation id="2410754574180102685">Government-Legal</translation>
 <translation id="2413528052993050574">Ο διακομιστής δεν κατάφερε να αποδείξει ότι είναι <ph name="DOMAIN" />. Το πιστοποιητικό ασφαλείας του μπορεί να έχει ανακληθεί. Αυτό μπορεί να οφείλεται σε λανθασμένη ρύθμιση ή σε κάποιον τρίτο που επιτίθεται στη σύνδεσή σας.</translation>
 <translation id="2438874542388153331">Τετραπλό τρύπημα στα δεξιά</translation>
+<translation id="245044156129055925">Μόλις καταχωρίσατε τον κωδικό πρόσβασής σας σε έναν παραπλανητικό ιστότοπο. Το Chromium συνιστά να αλλάξετε τον κωδικό πρόσβασής σας τώρα.</translation>
 <translation id="2463193859425327265">Αλλαγή αρχικής σελίδας</translation>
 <translation id="2463739503403862330">Συμπλήρωση</translation>
 <translation id="2465402087343596252">Architecture-E</translation>
@@ -476,6 +477,7 @@
 <translation id="3229041911291329567">Πληροφορίες έκδοσης σχετικά με τη συσκευή και το πρόγραμμα περιήγησης</translation>
 <translation id="323107829343500871">Εισαγάγετε τον κωδικό CVC για την πιστωτική κάρτα <ph name="CREDIT_CARD" /></translation>
 <translation id="3234666976984236645">Να εντοπίζεται πάντα σημαντικό περιεχόμενο σε αυτόν τον ιστότοπο</translation>
+<translation id="3262069459091978471">Ο τομέας <ph name="LOOKALIKE_DOMAIN" /> φαίνεται παρόμοιος με τον τομέα <ph name="SUGGESTED_DOMAIN" />. Οι υπεύθυνοι επίθεσης μιμούνται μερικές φορές ιστοτόπους χρησιμοποιώντας παρόμοια URL.</translation>
 <translation id="3270847123878663523">&amp;Αναίρεση αναδιάταξης</translation>
 <translation id="3274521967729236597">Pa-Kai</translation>
 <translation id="3281668902344226640">Χρησιμοποιήστε το Touch ID, για να επαληθεύσετε τους αποθηκευμένους τρόπους πληρωμής.</translation>
@@ -552,7 +554,6 @@
 <translation id="3655670868607891010">Αν αυτό το μήνυμα εμφανίζεται συχνά, μπορείτε να βρείτε βοήθεια εδώ <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Αναθεώρηση</translation>
 <translation id="366077651725703012">Ενημέρωση πιστωτικής κάρτας</translation>
-<translation id="3672525478985456967">Το όνομα αυτού του ιστοτόπου φαίνεται παρόμοιο με του ιστοτόπου <ph name="LOOKALIKE_DOMAIN" />. Οι εισβολείς απομιμούνται μερικές φορές ιστοτόπους κάνοντας μικρές, δυσδιάκριτες αλλαγές στο όνομα τομέα.</translation>
 <translation id="3676592649209844519">Αναγνωριστικό συσκευής:</translation>
 <translation id="3677008721441257057">Μήπως εννοούσατε &lt;a href="#" id="dont-proceed-link"&gt;<ph name="DOMAIN" />&lt;/a&gt;;</translation>
 <translation id="3678029195006412963">Δεν ήταν δυνατή η έγκριση του αιτήματος</translation>
@@ -618,6 +619,9 @@
 <translation id="397105322502079400">Υπολογισμός…</translation>
 <translation id="3973234410852337861">Ο κεντρικός υπολογιστής <ph name="HOST_NAME" /> είναι αποκλεισμένος</translation>
 <translation id="3981540111851280311">Ο τομέας <ph name="ENROLLMENT_DOMAIN" /> έχει ενεργοποιήσει την Προστασία από απειλές του Chrome για Επιχειρήσεις στο πρόγραμμά περιήγησής σας. Η Προστασία από απειλές του Chrome για Επιχειρήσεις έχει πρόσβαση σε ορισμένα από τα δεδομένα σας.</translation>
+<translation id="3987405730340719549">Το Chrome διαπίστωσε ότι αυτός ο ιστότοπος μπορεί να είναι ψεύτικος ή μη νόμιμος.
+
+    Εάν πιστεύετε ότι αυτό το μήνυμα εμφανίζεται κατά λάθος, επισκεφτείτε τη διεύθυνση https://bugs.chromium.org/p/chromium/issues/entry?template=Safety+Tips+Appeals.</translation>
 <translation id="3987940399970879459">Λιγότερα από 1 MB</translation>
 <translation id="3990250421422698716">Μετατόπιση στοίβας</translation>
 <translation id="40103911065039147">{URL_count,plural, =1{1 ιστοσελίδα σε κοντινή απόσταση}other{# ιστοσελίδες σε κοντινή απόσταση}}</translation>
@@ -877,7 +881,6 @@
 <translation id="5230733896359313003">Διεύθυνση αποστολής</translation>
 <translation id="5230815978613972521">B8</translation>
 <translation id="5233045608889518621">12x19</translation>
-<translation id="5234764350956374838">Παράβλεψη</translation>
 <translation id="5250209940322997802">"Σύνδεση σε δίκτυο"</translation>
 <translation id="5251803541071282808">Cloud</translation>
 <translation id="5252000469029418751">C7 (Φάκελος)</translation>
@@ -997,6 +1000,9 @@
 <translation id="5813119285467412249">&amp;Επανάληψη προσθήκης</translation>
 <translation id="583281660410589416">Άγνωστο</translation>
 <translation id="5838278095973806738">Δεν θα πρέπει να εισαγάγετε ευαίσθητες πληροφορίες σε αυτόν τον ιστότοπο (για παράδειγμα, κωδικούς πρόσβασης ή πιστωτικές κάρτες), επειδή ενδέχεται να υποκλαπούν από εισβολείς.</translation>
+<translation id="5855253129151731373">Το όνομα αυτού του κεντρικού υπολογιστή φαίνεται παρόμοιο με του ιστοτόπου <ph name="LOOKALIKE_DOMAIN" />. Οι εισβολείς απομιμούνται μερικές φορές ιστοτόπους κάνοντας μικρές, δυσδιάκριτες αλλαγές στο όνομα τομέα.
+
+    Εάν πιστεύετε ότι αυτό το μήνυμα εμφανίζεται κατά λάθος, επισκεφτείτε τη διεύθυνση https://bugs.chromium.org/p/chromium/issues/entry?template=Safety+Tips+Appeals.</translation>
 <translation id="5860033963881614850">Απενεργοποιημένη</translation>
 <translation id="5863847714970149516">Η σελίδα που ακολουθεί μπορεί να προσπαθήσει να σας χρεώσει</translation>
 <translation id="5866257070973731571">Προσθήκη αριθμού τηλεφώνου</translation>
@@ -1019,7 +1025,6 @@
 <translation id="5946937721014915347">Άνοιγμα <ph name="SITE_NAME" />…</translation>
 <translation id="5947933617628957894">Ναι, να προστεθεί</translation>
 <translation id="5951495562196540101">Δεν είναι δυνατή η εγγραφή με λογαριασμό καταναλωτή (διατίθεται σχετική άδεια).</translation>
-<translation id="5966900314707961320">Όταν είναι ενεργοποιημένο, οι ιστότοποι δεν μπορούν να χρησιμοποιήσουν cookie που σας παρακολουθούν στο ιστό.</translation>
 <translation id="5967592137238574583">Επεξεργασία στοιχείων επικοινωνίας</translation>
 <translation id="5967867314010545767">Κατάργηση από το ιστορικό</translation>
 <translation id="5975083100439434680">Σμίκρυνση</translation>
@@ -1108,6 +1113,7 @@
 <translation id="6401136357288658127">Αυτή η πολιτική έχει καταργηθεί. Θα πρέπει να χρησιμοποιήσετε εναλλακτικά την πολιτική <ph name="NEW_POLICY" />.</translation>
 <translation id="6404511346730675251">Επεξεργασία σελιδοδείκτη</translation>
 <translation id="6406765186087300643">C0 (Φάκελος)</translation>
+<translation id="6409754798200046165">Μόλις καταχωρίσατε τον κωδικό πρόσβασής σας σε έναν παραπλανητικό ιστότοπο. Το Chrome συνιστά να αλλάξετε τον κωδικό πρόσβασής σας τώρα.</translation>
 <translation id="6410264514553301377">Εισαγάγετε την ημερομηνία λήξης και τον κωδικό CVC για την κάρτα <ph name="CREDIT_CARD" /></translation>
 <translation id="6415778972515849510">Το Chromium μπορεί να σας βοηθήσει να προστατεύσετε τον Λογαριασμό σας Google και να αλλάξετε τον κωδικό πρόσβασής σας.</translation>
 <translation id="6427730057873428458">Δίπλωση παράθυρο</translation>
@@ -1405,6 +1411,7 @@
 <translation id="7932579305932748336">Επικάλυψη</translation>
 <translation id="79338296614623784">Εισαγάγετε έναν έγκυρο αριθμό τηλεφώνου</translation>
 <translation id="7934052535022478634">Η πληρωμή ολοκληρώθηκε</translation>
+<translation id="7935031712718413217">Πιθανή πλαστογράφηση URL</translation>
 <translation id="7935318582918952113">DOM Distiller</translation>
 <translation id="7937554595067888181">Λήγει στις <ph name="EXPIRATION_DATE_ABBR" /></translation>
 <translation id="7938958445268990899">Το πιστοποιητικό του διακομιστή δεν είναι ακόμα έγκυρο.</translation>
@@ -1459,7 +1466,6 @@
 <translation id="8184538546369750125">Χρήση καθολικής προεπιλεγμένης ρύθμισης (Επιτρέπεται)</translation>
 <translation id="8194797478851900357">&amp;Αναίρεση μετακίνησης</translation>
 <translation id="8197543752516192074">Μετάφραση σελίδας</translation>
-<translation id="8197899142098070286">Το Chrome εντόπισε ότι μόλις καταχωρίσατε τον κωδικό πρόσβασής σας έναν ύποπτο ιστότοπο. Επαναφέρετε άμεσα τον κωδικό πρόσβασής σας!</translation>
 <translation id="8201077131113104583">Η διεύθυνση URL ενημέρωσης για την επέκταση με αναγνωριστικό ID "<ph name="EXTENSION_ID" />", δεν είναι έγκυρη.</translation>
 <translation id="8202097416529803614">Σύνοψη παραγγελίας</translation>
 <translation id="8202370299023114387">Διένεξη</translation>
@@ -1490,6 +1496,7 @@
 <translation id="830498451218851433">Δίπλωση στη μέση</translation>
 <translation id="8307358339886459768">Small-Photo</translation>
 <translation id="8308427013383895095">Η μετάφραση απέτυχε λόγω προβλήματος με τη σύνδεση δικτύου.</translation>
+<translation id="831207732689920588">Αυτή η σελίδα είναι ύποπτη (έχει επισημανθεί από το Chrome).</translation>
 <translation id="8332188693563227489">Απορρίφθηκε η πρόσβαση στο κεντρικό υπολογιστή <ph name="HOST_NAME" /></translation>
 <translation id="8340095855084055290"><ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
 <translation id="834457929814110454">Εάν κατανοείτε τους κινδύνους για την ασφάλειά σας, μπορείτε να <ph name="BEGIN_LINK" />επισκεφτείτε αυτόν τον ιστότοπο<ph name="END_LINK" /> πριν από την κατάργηση των επικίνδυνων προγραμμάτων.</translation>
@@ -1581,6 +1588,7 @@
 <translation id="8903921497873541725">Μεγέθυνση</translation>
 <translation id="890485472659500557">Engineering-C</translation>
 <translation id="8912362522468806198">Λογαριασμός Google</translation>
+<translation id="8918231688545606538">Αυτή η σελίδα είναι ύποπτη.</translation>
 <translation id="892588693504540538">Τρύπημα επάνω δεξιά</translation>
 <translation id="8931333241327730545">Θέλετε να αποθηκεύσετε αυτήν την κάρτα στο Λογαριασμό σας Google;</translation>
 <translation id="8932102934695377596">Το ρολόι σας πάει πίσω</translation>

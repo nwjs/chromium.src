@@ -14,5 +14,9 @@ interface IBrowserController {
 
   INavigationController createNavigationController(in INavigationControllerClient client) = 1;
 
-  void setFullscreenDelegateClient(in IFullscreenDelegateClient client) = 2;
+  void setDownloadDelegateClient(IDownloadDelegateClient client) = 2;
+
+  void setFullscreenDelegateClient(in IFullscreenDelegateClient client) = 3;
+
+  void executeScript(in String script, in IObjectWrapper callback) = 4;
 }

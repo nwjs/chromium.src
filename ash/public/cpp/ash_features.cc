@@ -30,7 +30,7 @@ const base::Feature kLockScreenHideSensitiveNotificationsSupport{
     base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kLockScreenMediaControls{"LockScreenMediaControls",
-                                             base::FEATURE_DISABLED_BY_DEFAULT};
+                                             base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kHideArcMediaNotifications{
     "HideArcMediaNotifications", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -56,7 +56,7 @@ const base::Feature kNotificationScrollBar{"NotificationScrollBar",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kOverviewCrossFadeWallpaperBlur{
-    "OverviewCrossFadeWallpaperBlur", base::FEATURE_ENABLED_BY_DEFAULT};
+    "OverviewCrossFadeWallpaperBlur", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kPipRoundedCorners{"PipRoundedCorners",
                                        base::FEATURE_DISABLED_BY_DEFAULT};

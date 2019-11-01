@@ -143,6 +143,16 @@ int CountBrowsersFor(Profile* profile) {
   return browser_count;
 }
 
+SkColor GetSyncErrorBackgroundColor(bool sync_paused) {
+  constexpr int kAlpha = 16;
+  ui::NativeTheme::ColorId base_color_id =
+      sync_paused ? ui::NativeTheme::kColorId_ProminentButtonColor
+                  : ui::NativeTheme::kColorId_AlertSeverityHigh;
+  SkColor base_color =
+      ui::NativeTheme::GetInstanceForNativeUi()->GetSystemColor(base_color_id);
+  return SkColorSetA(base_color, kAlpha);
+}
+
 }  // namespace
 
 // ProfileMenuView ---------------------------------------------------------
@@ -426,11 +436,17 @@ void ProfileMenuView::BuildIdentity() {
           account);
   ProfileAttributesEntry* profile_attributes =
       GetProfileAttributesEntry(profile);
+  size_t num_of_profiles =
+      g_browser_process->profile_manager()->GetNumberOfProfiles();
 
-  base::string16 heading;
+  if (num_of_profiles > 1 || !profile_attributes->IsUsingDefaultName()) {
+    SetHeading(profile_attributes->GetLocalProfileName(),
+               l10n_util::GetStringUTF16(IDS_SETTINGS_EDIT_PERSON),
+               base::BindRepeating(&ProfileMenuView::OnEditProfileButtonClicked,
+                                   base::Unretained(this)));
+  }
 
   if (account_info.has_value()) {
-    heading = profile_attributes->GetLocalProfileName();
     SetIdentityInfo(account_info.value().account_image.AsImageSkia(),
                     GetSyncIcon(),
                     base::UTF8ToUTF16(account_info.value().full_name),
@@ -438,15 +454,9 @@ void ProfileMenuView::BuildIdentity() {
   } else {
     SetIdentityInfo(
         profile_attributes->GetAvatarIcon().AsImageSkia(), GetSyncIcon(),
-        profile_attributes->GetName(),
+        /*title=*/base::string16(),
         l10n_util::GetStringUTF16(IDS_PROFILES_LOCAL_PROFILE_STATE));
   }
-
-  SetHeading(heading,
-             ImageForMenu(vector_icons::kEditIcon, kShortcutIconToImageRatio),
-             l10n_util::GetStringUTF16(IDS_SETTINGS_EDIT_PERSON),
-             base::BindRepeating(&ProfileMenuView::OnEditProfileButtonClicked,
-                                 base::Unretained(this)));
 }
 
 void ProfileMenuView::BuildGuestIdentity() {
@@ -464,7 +474,7 @@ gfx::ImageSkia ProfileMenuView::GetSyncIcon() {
     return gfx::ImageSkia();
 
   if (!identity_manager->HasPrimaryAccount())
-    return ColoredImageForMenu(kSyncPausedIcon, gfx::kGoogleGrey500);
+    return ColoredImageForMenu(kSyncPausedCircleIcon, gfx::kGoogleGrey500);
 
   const gfx::VectorIcon* icon = nullptr;
   ui::NativeTheme::ColorId color_id;
@@ -472,11 +482,11 @@ gfx::ImageSkia ProfileMenuView::GetSyncIcon() {
   switch (
       sync_ui_util::GetMessagesForAvatarSyncError(profile, &unused, &unused)) {
     case sync_ui_util::NO_SYNC_ERROR:
-      icon = &kSyncIcon;
+      icon = &kSyncCircleIcon;
       color_id = ui::NativeTheme::kColorId_AlertSeverityLow;
       break;
     case sync_ui_util::AUTH_ERROR:
-      icon = &kSyncPausedIcon;
+      icon = &kSyncPausedCircleIcon;
       color_id = ui::NativeTheme::kColorId_ProminentButtonColor;
       break;
     case sync_ui_util::MANAGED_USER_UNRECOVERABLE_ERROR:
@@ -484,7 +494,7 @@ gfx::ImageSkia ProfileMenuView::GetSyncIcon() {
     case sync_ui_util::UPGRADE_CLIENT_ERROR:
     case sync_ui_util::PASSPHRASE_ERROR:
     case sync_ui_util::SETTINGS_UNCONFIRMED_ERROR:
-      icon = &kSyncPausedIcon;
+      icon = &kSyncPausedCircleIcon;
       color_id = ui::NativeTheme::kColorId_AlertSeverityHigh;
       break;
   }
@@ -530,16 +540,17 @@ void ProfileMenuView::BuildSyncInfo() {
           base::BindRepeating(&ProfileMenuView::OnSyncSettingsButtonClicked,
                               base::Unretained(this)));
     } else {
+      bool sync_paused = (error == sync_ui_util::AUTH_ERROR);
       // Overwrite error description with short version for the menu.
-      description_string_id = (error == sync_ui_util::AUTH_ERROR)
-                                  ? IDS_PROFILES_DICE_SYNC_PAUSED_TITLE
-                                  : IDS_SYNC_ERROR_USER_MENU_TITLE;
+      description_string_id = sync_paused ? IDS_PROFILES_DICE_SYNC_PAUSED_TITLE
+                                          : IDS_SYNC_ERROR_USER_MENU_TITLE;
 
       SetSyncInfo(
           GetSyncIcon(), l10n_util::GetStringUTF16(description_string_id),
           l10n_util::GetStringUTF16(button_string_id),
           base::BindRepeating(&ProfileMenuView::OnSyncErrorButtonClicked,
                               base::Unretained(this), error));
+      SetSyncInfoBackgroundColor(GetSyncErrorBackgroundColor(sync_paused));
     }
     return;
   }
@@ -565,6 +576,10 @@ void ProfileMenuView::BuildSyncInfo() {
                 base::BindRepeating(&ProfileMenuView::OnSigninButtonClicked,
                                     base::Unretained(this)));
   }
+
+  SetSyncInfoBackgroundColor(
+      ui::NativeTheme::GetInstanceForNativeUi()->GetSystemColor(
+          ui::NativeTheme::kColorId_HighlightedMenuItemBackgroundColor));
 }
 
 void ProfileMenuView::BuildFeatureButtons() {

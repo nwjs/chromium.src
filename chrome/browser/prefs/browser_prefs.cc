@@ -235,6 +235,7 @@
 #endif  // defined(OS_ANDROID)
 
 #if defined(OS_CHROMEOS)
+#include "ash/public/cpp/ash_pref_names.h"
 #include "ash/public/cpp/ash_prefs.h"
 #include "chrome/browser/chromeos/app_mode/arc/arc_kiosk_app_manager.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
@@ -309,7 +310,6 @@
 #include "chromeos/network/fast_transition_observer.h"
 #include "chromeos/network/proxy/proxy_config_handler.h"
 #include "chromeos/services/assistant/public/cpp/assistant_prefs.h"
-#include "chromeos/services/device_sync/device_sync_impl.h"
 #include "chromeos/services/multidevice_setup/multidevice_setup_service.h"
 #include "chromeos/timezone/timezone_resolver.h"
 #include "components/arc/arc_prefs.h"
@@ -502,6 +502,12 @@ const char kGoogleServicesUserAccountId[] = "google.services.user_account_id";
 const char kDataReductionProxySavingsClearedNegativeSystemClock[] =
     "data_reduction.savings_cleared_negative_system_clock";
 
+#if defined(OS_CHROMEOS)
+// Deprecated 10/2019
+const char kDisplayRotationAcceleratorDialogHasBeenAccepted[] =
+    "settings.a11y.display_rotation_accelerator_dialog_has_been_accepted";
+#endif  // defined(OS_CHROMEOS)
+
 // Register prefs used only for migration (clearing or moving to a new key).
 void RegisterProfilePrefsForMigration(
     user_prefs::PrefRegistrySyncable* registry) {
@@ -582,6 +588,11 @@ void RegisterProfilePrefsForMigration(
   registry->RegisterStringPref(kGoogleServicesUserAccountId, std::string());
   registry->RegisterInt64Pref(
       kDataReductionProxySavingsClearedNegativeSystemClock, 0);
+
+#if defined(OS_CHROMEOS)
+  registry->RegisterBooleanPref(
+      kDisplayRotationAcceleratorDialogHasBeenAccepted, false);
+#endif  // defined(OS_CHROMEOS)
 }
 
 }  // namespace
@@ -918,7 +929,6 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   chromeos::AccountManager::RegisterPrefs(registry);
   chromeos::assistant::prefs::RegisterProfilePrefsForBrowser(registry);
   chromeos::CupsPrintersManager::RegisterProfilePrefs(registry);
-  chromeos::device_sync::DeviceSyncImpl::RegisterProfilePrefs(registry);
   chromeos::first_run::RegisterProfilePrefs(registry);
   chromeos::file_system_provider::RegisterProfilePrefs(registry);
   chromeos::KerberosCredentialsManager::RegisterProfilePrefs(registry);
@@ -1210,4 +1220,8 @@ void MigrateObsoleteProfilePrefs(Profile* profile) {
 
   // Added 10/2019.
   syncer::DeviceInfoPrefs::MigrateRecentLocalCacheGuidsPref(profile_prefs);
+#if defined(OS_CHROMEOS)
+  // Added 10/2019.
+  profile_prefs->ClearPref(kDisplayRotationAcceleratorDialogHasBeenAccepted);
+#endif  // defined(OS_CHROMEOS)
 }

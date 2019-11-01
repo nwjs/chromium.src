@@ -11,6 +11,7 @@
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/profiles/profile_info_cache.h"
 #include "chrome/browser/signin/signin_util.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -45,8 +46,6 @@ int NextAvailableMetricsBucketIndex() {
 
 const base::Feature kPersistUPAInProfileInfoCache{
     "PersistUPAInProfileInfoCache", base::FEATURE_ENABLED_BY_DEFAULT};
-const base::Feature kConcatenateGaiaAndProfileName{
-    "ConcatenateGaiaAndProfileName", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const char ProfileAttributesEntry::kAvatarIconKey[] = "avatar_icon";
 const char ProfileAttributesEntry::kBackgroundAppsKey[] = "background_apps";
@@ -67,6 +66,11 @@ ProfileAttributesEntry::ProfileAttributesEntry()
     : profile_info_cache_(nullptr),
       prefs_(nullptr),
       profile_path_(base::FilePath()) {}
+
+// static
+bool ProfileAttributesEntry::ShouldConcatenateGaiaAndProfileName() {
+  return base::FeatureList::IsEnabled(features::kProfileMenuRevamp);
+}
 
 void ProfileAttributesEntry::Initialize(ProfileInfoCache* cache,
                                         const base::FilePath& path,
@@ -108,32 +112,84 @@ void ProfileAttributesEntry::Initialize(ProfileInfoCache* cache,
     SetIsSigninRequired(false);
 #endif
   }
+
+  DCHECK(last_name_to_display_.empty());
+  last_name_to_display_ = GetName();
 }
 
 base::string16 ProfileAttributesEntry::GetLocalProfileName() const {
   return GetString16(ProfileInfoCache::kNameKey);
 }
 
-base::string16 ProfileAttributesEntry::GetNameToDisplay() const {
-  DCHECK(base::FeatureList::IsEnabled(kConcatenateGaiaAndProfileName));
-  base::string16 name_to_display =
+base::string16 ProfileAttributesEntry::GetGAIANameToDisplay() const {
+  base::string16 gaia_given_name =
       GetString16(ProfileInfoCache::kGAIAGivenNameKey);
-  if (name_to_display.empty())
-    name_to_display = GetString16(ProfileInfoCache::kGAIANameKey);
+  return gaia_given_name.empty() ? GetString16(ProfileInfoCache::kGAIANameKey)
+                                 : gaia_given_name;
+}
+
+bool ProfileAttributesEntry::ShouldShowProfileLocalName(
+    const base::string16& gaia_name_to_display) const {
+  bool is_using_default_name = IsUsingDefaultName();
+
+  // Customized profile name that is not equal to Gaia name.
+  if (!is_using_default_name &&
+      !base::EqualsCaseInsensitiveASCII(gaia_name_to_display,
+                                        GetLocalProfileName())) {
+    return true;
+  }
+
+  std::vector<ProfileAttributesEntry*> entries =
+      profile_info_cache_->GetAllProfilesAttributes();
+
+  for (ProfileAttributesEntry* entry : entries) {
+    if (entry == this) {
+      continue;
+    }
+
+    base::string16 other_gaia_name_to_display = entry->GetGAIANameToDisplay();
+    if (other_gaia_name_to_display.empty() ||
+        other_gaia_name_to_display != gaia_name_to_display)
+      continue;
+
+    bool other_is_using_default_name = entry->IsUsingDefaultName();
+    if (is_using_default_name) {
+      // Both profiles have a default profile name.
+      if (other_is_using_default_name) {
+        return true;
+      }
+      // The other profile name will be shown, no need to show |Person %n|.
+      continue;
+    }
+
+    // Current profile has a custom profile name that is equal to GAIA name.
+    if (other_is_using_default_name) {
+      // The other profile has a default profile name (Person %n) that will not
+      // be shown. Show the profile name for this profile to clear ambiguity.
+      return true;
+    }
+
+    // The other profile has a custom name. If for both profiles, the profile
+    // name is equal to Gaia name, then the profile name must be shown for both
+    // of them.
+    base::string16 other_local_profile_name = entry->GetLocalProfileName();
+    if (base::EqualsCaseInsensitiveASCII(other_gaia_name_to_display,
+                                         other_local_profile_name)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+base::string16 ProfileAttributesEntry::GetNameToDisplay() const {
+  DCHECK(ProfileAttributesEntry::ShouldConcatenateGaiaAndProfileName);
+  base::string16 name_to_display = GetGAIANameToDisplay();
 
   base::string16 local_profile_name = GetLocalProfileName();
   if (name_to_display.empty())
     return local_profile_name;
 
-  size_t number_of_profiles = profile_info_cache_->GetNumberOfProfiles();
-  if (number_of_profiles == 1)
-    return name_to_display;
-
-  auto it = std::search(name_to_display.begin(), name_to_display.end(),
-                        local_profile_name.begin(), local_profile_name.end(),
-                        base::CaseInsensitiveCompareASCII<char>());
-
-  if (it != name_to_display.end())
+  if (!ShouldShowProfileLocalName(name_to_display))
     return name_to_display;
 
   name_to_display.append(base::UTF8ToUTF16(" ("));
@@ -142,11 +198,23 @@ base::string16 ProfileAttributesEntry::GetNameToDisplay() const {
   return name_to_display;
 }
 
-base::string16 ProfileAttributesEntry::GetName() const {
-  if (base::FeatureList::IsEnabled(kConcatenateGaiaAndProfileName))
-    return GetNameToDisplay();
+base::string16 ProfileAttributesEntry::GetLastNameToDisplay() const {
+  return last_name_to_display_;
+}
 
-  return profile_info_cache_->GetNameOfProfileAtIndex(profile_index());
+bool ProfileAttributesEntry::HasProfileNameChanged() {
+  base::string16 name = GetName();
+  if (last_name_to_display_ == name)
+    return false;
+
+  last_name_to_display_ = name;
+  return true;
+}
+
+base::string16 ProfileAttributesEntry::GetName() const {
+  return ShouldConcatenateGaiaAndProfileName()
+             ? GetNameToDisplay()
+             : profile_info_cache_->GetNameOfProfileAtIndex(profile_index());
 }
 
 base::string16 ProfileAttributesEntry::GetShortcutName() const {

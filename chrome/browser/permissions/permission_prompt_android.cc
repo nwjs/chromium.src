@@ -34,6 +34,7 @@ PermissionPromptAndroid::PermissionPromptAndroid(
           GetContentSettingType(0u /* position */))) {
     permission_infobar_ = GroupedPermissionInfoBarDelegate::Create(
         weak_factory_.GetWeakPtr(), infobar_service);
+    infobar_service->AddObserver(this);
     return;
   }
 
@@ -52,6 +53,9 @@ PermissionPromptAndroid::~PermissionPromptAndroid() {
     InfoBarService* infobar_service =
         InfoBarService::FromWebContents(web_contents_);
 
+    // RemoveObserver before RemoveInfoBar to not get notified about the removal
+    // of the `permission_infobar_` infobar.
+    infobar_service->RemoveObserver(this);
     infobar_service->RemoveInfoBar(permission_infobar_);
   }
 }
@@ -137,6 +141,17 @@ base::string16 PermissionPromptAndroid::GetMessageText() const {
       url_formatter::FormatUrlForSecurityDisplay(
           requests[0]->GetOrigin(),
           url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC));
+}
+
+void PermissionPromptAndroid::OnInfoBarRemoved(infobars::InfoBar* infobar,
+                                               bool animate) {
+  if (infobar != permission_infobar_)
+    return;
+
+  permission_infobar_ = nullptr;
+  InfoBarService* infobar_service =
+      InfoBarService::FromWebContents(web_contents_);
+  infobar_service->RemoveObserver(this);
 }
 
 // static

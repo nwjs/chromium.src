@@ -5,7 +5,6 @@
 <translation id="1010200102790553230">保存网页以供日后加载</translation>
 <translation id="1015730422737071372">提供其他详细信息</translation>
 <translation id="1021110881106174305">接受的信用卡</translation>
-<translation id="1023523064224774104">Chromium 检测到，您刚刚在一个可疑的网站中输入了密码。请立即重置您的密码！</translation>
 <translation id="1032854598605920125">顺时针旋转</translation>
 <translation id="1035334672863811645">登录 Chrome</translation>
 <translation id="1036348656032585052">关闭</translation>
@@ -122,6 +121,7 @@
 <translation id="1501859676467574491">显示您的 Google 帐号中保存的支付卡</translation>
 <translation id="1507202001669085618">&lt;p&gt;如果您使用的 Wi-Fi 门户网站必须登录才能连接网络，您就会看到这条错误消息。&lt;/p&gt;
     &lt;p&gt;要修正该错误，请在您尝试打开的网页上点击&lt;strong&gt;连接&lt;/strong&gt;。&lt;/p&gt;</translation>
+<translation id="1513706915089223971">历史记录条目列表</translation>
 <translation id="1517433312004943670">必须提供电话号码</translation>
 <translation id="1517500485252541695">接受的信用卡和借记卡</translation>
 <translation id="1519264250979466059">构建日期</translation>
@@ -307,6 +307,7 @@
 <translation id="2410754574180102685">Government-Legal</translation>
 <translation id="2413528052993050574">此服务器无法证明它是<ph name="DOMAIN" />；其安全证书可能已被撤消。出现此问题的原因可能是配置有误或您的连接被拦截了。</translation>
 <translation id="2438874542388153331">四孔（右侧）</translation>
+<translation id="245044156129055925">您刚刚在一个欺骗性网站中输入了密码。Chromium 建议您立即更改密码。</translation>
 <translation id="2463193859425327265">更改主页</translation>
 <translation id="2463739503403862330">填充</translation>
 <translation id="2465402087343596252">Architecture-E</translation>
@@ -529,7 +530,7 @@
 <translation id="361438452008624280">列表条目“<ph name="LANGUAGE_ID" />”：语言未知或不受支持。</translation>
 <translation id="3615877443314183785">请输入有效的失效日期</translation>
 <translation id="36224234498066874">清除浏览数据...</translation>
-<translation id="362276910939193118">显示所有历史记录</translation>
+<translation id="362276910939193118">显示全部历史记录</translation>
 <translation id="3630155396527302611">如果它已在可访问网络的程序列表中，请尝试将它从该列表中移除，然后重新添加到其中。</translation>
 <translation id="3631244953324577188">生物识别</translation>
 <translation id="3640766068866876100">Index-4x6-Ext</translation>
@@ -537,7 +538,6 @@
 <translation id="3655670868607891010">如果您频繁遇到此问题，请尝试这些<ph name="HELP_LINK" />。</translation>
 <translation id="3658742229777143148">修订版本</translation>
 <translation id="366077651725703012">更新信用卡</translation>
-<translation id="3672525478985456967">此网站的域名看起来和 <ph name="LOOKALIKE_DOMAIN" /> 很相似。攻击者有时会通过对域名进行一些难以发现的细微变更来仿冒网站。</translation>
 <translation id="3676592649209844519">设备 ID：</translation>
 <translation id="3677008721441257057">您是想访问 &lt;a href="#" id="dont-proceed-link"&gt;<ph name="DOMAIN" />&lt;/a&gt; 吧？</translation>
 <translation id="3678029195006412963">无法签署该请求</translation>
@@ -598,6 +598,9 @@
 <translation id="397105322502079400">正在计算...</translation>
 <translation id="3973234410852337861"><ph name="HOST_NAME" /> 已被屏蔽</translation>
 <translation id="3981540111851280311"><ph name="ENROLLMENT_DOMAIN" /> 已在您的浏览器中启用了 Chrome 企业版威胁防护功能。Chrome 企业版威胁防护功能可以访问您的部分数据。</translation>
+<translation id="3987405730340719549">Chrome 已确定此网站可能是虚假网站或欺诈性网站。
+
+    如果您认为系统不该向您显示这条提示，请访问 https://bugs.chromium.org/p/chromium/issues/entry?template=Safety+Tips+Appeals。</translation>
 <translation id="3987940399970879459">小于 1 MB</translation>
 <translation id="3990250421422698716">撞页偏移</translation>
 <translation id="40103911065039147">{URL_count,plural, =1{附近有 1 个网页}other{附近有 # 个网页}}</translation>
@@ -855,7 +858,6 @@
 <translation id="5230733896359313003">送货地址</translation>
 <translation id="5230815978613972521">B8</translation>
 <translation id="5233045608889518621">12x19</translation>
-<translation id="5234764350956374838">关闭</translation>
 <translation id="5250209940322997802">“连接到网络”</translation>
 <translation id="5251803541071282808">云端</translation>
 <translation id="5252000469029418751">C7 (Envelope)</translation>
@@ -975,6 +977,9 @@
 <translation id="5813119285467412249">恢复添加(&amp;R)</translation>
 <translation id="583281660410589416">未知</translation>
 <translation id="5838278095973806738">请勿在此网站上输入任何敏感信息（例如密码或信用卡信息），因为攻击者可能会盗取这些信息。</translation>
+<translation id="5855253129151731373">此网站的主机名看起来和 <ph name="LOOKALIKE_DOMAIN" /> 很相似。攻击者有时会对域名做些令人难以发现的细微更改来仿冒网站。
+
+    如果您认为系统不该向您显示这条提示，请访问 https://bugs.chromium.org/p/chromium/issues/entry?template=Safety+Tips+Appeals。</translation>
 <translation id="5860033963881614850">关闭</translation>
 <translation id="5863847714970149516">即将进入的页面可能会向您收取费用</translation>
 <translation id="5866257070973731571">添加电话号码</translation>
@@ -997,7 +1002,6 @@
 <translation id="5946937721014915347">正在打开 <ph name="SITE_NAME" />…</translation>
 <translation id="5947933617628957894">添加</translation>
 <translation id="5951495562196540101">无法通过消费者帐号注册（有封装的许可）。</translation>
-<translation id="5966900314707961320">此项处于开启状态时，网站无法使用 Cookie 来跟踪您在网上的活动</translation>
 <translation id="5967592137238574583">修改联系信息</translation>
 <translation id="5967867314010545767">从历史记录中移除</translation>
 <translation id="5975083100439434680">缩小</translation>
@@ -1085,6 +1089,7 @@
 <translation id="6401136357288658127">此政策已被弃用。您应改用 <ph name="NEW_POLICY" /> 政策。</translation>
 <translation id="6404511346730675251">修改书签</translation>
 <translation id="6406765186087300643">C0 (Envelope)</translation>
+<translation id="6409754798200046165">您刚刚在一个欺骗性网站中输入了密码。Chrome 建议您立即更改密码。</translation>
 <translation id="6410264514553301377">请输入“<ph name="CREDIT_CARD" />”的到期日期和银行卡验证码 (CVC)</translation>
 <translation id="6415778972515849510">Chromium 可以帮助您保护您的 Google 帐号和更改密码。</translation>
 <translation id="6427730057873428458">关门折</translation>
@@ -1382,6 +1387,7 @@
 <translation id="7932579305932748336">涂层</translation>
 <translation id="79338296614623784">请输入有效的电话号码</translation>
 <translation id="7934052535022478634">付款已完成</translation>
+<translation id="7935031712718413217">可能是仿冒网址</translation>
 <translation id="7935318582918952113">DOM Distiller</translation>
 <translation id="7937554595067888181">到期时间：<ph name="EXPIRATION_DATE_ABBR" /></translation>
 <translation id="7938958445268990899">服务器的证书尚未生效。</translation>
@@ -1436,7 +1442,6 @@
 <translation id="8184538546369750125">使用全局默认设置（允许）</translation>
 <translation id="8194797478851900357">撤消移动(&amp;U)</translation>
 <translation id="8197543752516192074">翻译网页</translation>
-<translation id="8197899142098070286">Chrome 检测到，您刚刚在一个可疑的网站中输入了密码。请立即重置您的密码！</translation>
 <translation id="8201077131113104583">ID 为“<ph name="EXTENSION_ID" />”的扩展程序的更新网址无效。</translation>
 <translation id="8202097416529803614">订单摘要</translation>
 <translation id="8202370299023114387">冲突</translation>

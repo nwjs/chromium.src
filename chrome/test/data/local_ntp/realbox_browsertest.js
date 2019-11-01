@@ -518,17 +518,10 @@ test.realbox.testUnsupportedDeletion = function() {
   });
   test.realbox.realboxEl.dispatchEvent(keyEvent);
   assertFalse(keyEvent.defaultPrevented);
+  assertEquals(0, test.realbox.deletedLines.length);
 
   const matchesEl = $(test.realbox.IDS.REALBOX_MATCHES);
   assertFalse(matchesEl.classList.contains(test.realbox.CLASSES.REMOVABLE));
-
-  // The below 2 statements shouldn't really happen in updated code but isn't
-  // terrible idea to keep testing for now. This is because SupportsDeletion()
-  // is now propagated to the client, so we shouldn't allow users (via the UI)
-  // to attempt to delete non-deletable things.
-  chrome.embeddedSearch.searchBox.ondeleteautocompletematch(
-      {success: false, matches: []});
-  assertEquals(1, $(test.realbox.IDS.REALBOX_MATCHES).children.length);
 };
 
 test.realbox.testSupportedDeletion = function() {
@@ -565,6 +558,14 @@ test.realbox.testSupportedDeletion = function() {
   });
   test.realbox.realboxEl.dispatchEvent(shiftDelete);
   assertTrue(shiftDelete.defaultPrevented);
+
+  // Pretend like the focused match gets removed from DOM when deleted.
+  matchesEl.children[1].dispatchEvent(new Event('focusout', {bubbles: true}));
+
+  // stopAutocomplete() should not be called if the focused match gets removed
+  // from the DOM (and focus gets dropped). There's explicit code in the
+  // focusout handler to deal with this case.
+  assertEquals(0, test.realbox.stops.length);
 
   assertEquals(1, test.realbox.deletedLines.length);
   assertEquals(1, test.realbox.deletedLines[0]);
@@ -717,4 +718,89 @@ test.realbox.testArrowDownMovesFocus = function() {
   // Arrow up/down while focus is in the matches should change focus.
   assertTrue(matchEls[1].classList.contains(test.realbox.CLASSES.SELECTED));
   assertEquals(document.activeElement, matchEls[1])
+};
+
+test.realbox.testPressEnterAfterFocusout = function() {
+  test.realbox.realboxEl.value = 'hello world';
+  test.realbox.realboxEl.dispatchEvent(new CustomEvent('input'));
+
+  chrome.embeddedSearch.searchBox.onqueryautocompletedone({
+    input: test.realbox.realboxEl.value,
+    matches: [test.realbox.getSearchMatch(), test.realbox.getUrlMatch()],
+  });
+
+  const downArrow = new KeyboardEvent('keydown', {
+    bubbles: true,
+    cancelable: true,
+    key: 'ArrowDown',
+  });
+  test.realbox.realboxEl.dispatchEvent(downArrow);
+  assertTrue(downArrow.defaultPrevented);
+
+  const matchEls = $(test.realbox.IDS.REALBOX_MATCHES).children;
+  assertEquals(2, matchEls.length);
+  assertTrue(matchEls[1].classList.contains(test.realbox.CLASSES.SELECTED));
+
+  test.realbox.realboxEl.dispatchEvent(new Event('focusout', {
+    bubbles: true,
+    cancelable: true,
+    target: test.realbox.realboxEl,
+    relatedTarget: document.body,
+  }));
+
+  test.realbox.realboxEl.dispatchEvent(new Event('focusin', {
+    bubbles: true,
+    cancelable: true,
+    target: test.realbox.realboxEl,
+  }));
+
+  let clicked = false;
+  matchEls[1].onclick = () => clicked = true;
+
+  const enter = new KeyboardEvent('keydown', {
+    bubbles: true,
+    cancelable: true,
+    key: 'Enter',
+  });
+  test.realbox.realboxEl.dispatchEvent(enter);
+  assertTrue(enter.defaultPrevented);
+
+  assertTrue(clicked);
+};
+
+test.realbox.testArrowUpDownShowsMatchesWhenHidden = function() {
+  test.realbox.realboxEl.value = 'hello world';
+  test.realbox.realboxEl.dispatchEvent(new CustomEvent('input'));
+
+  chrome.embeddedSearch.searchBox.onqueryautocompletedone({
+    input: test.realbox.realboxEl.value,
+    matches: [test.realbox.getSearchMatch(), test.realbox.getUrlMatch()],
+  });
+
+  test.realbox.realboxEl.dispatchEvent(new Event('focusout', {
+    bubbles: true,
+    cancelable: true,
+    target: test.realbox.realboxEl,
+    relatedTarget: document.body,
+  }));
+
+  assertFalse(test.realbox.wrapperEl.classList.contains(
+      test.realbox.CLASSES.SHOW_MATCHES));
+
+  test.realbox.realboxEl.dispatchEvent(new Event('focusin', {
+    bubbles: true,
+    cancelable: true,
+    target: test.realbox.realboxEl,
+  }));
+
+  const arrowDown = new KeyboardEvent('keydown', {
+    bubbles: true,
+    cancelable: true,
+    key: 'ArrowDown',
+  });
+  test.realbox.realboxEl.dispatchEvent(arrowDown);
+  assertTrue(arrowDown.defaultPrevented);
+
+  assertTrue(test.realbox.wrapperEl.classList.contains(
+      test.realbox.CLASSES.SHOW_MATCHES));
 };

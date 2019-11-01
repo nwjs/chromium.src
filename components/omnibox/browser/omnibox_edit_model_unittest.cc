@@ -279,6 +279,7 @@ TEST_F(OmniboxEditModelTest, RespectUnelisionInZeroSuggest) {
 
   // Test that we don't clobber the unelided text with inline autocomplete text.
   EXPECT_EQ(base::string16(), view()->inline_autocomplete_text());
+  model()->ShowOnFocusSuggestionsIfAutocompleteIdle();
   model()->OnPopupDataChanged(base::string16(), /*is_temporary_text=*/false,
                               base::string16(), false);
   EXPECT_EQ(base::ASCIIToUTF16("https://www.example.com/"), view()->GetText());
@@ -286,6 +287,28 @@ TEST_F(OmniboxEditModelTest, RespectUnelisionInZeroSuggest) {
   EXPECT_TRUE(view()->IsSelectAll());
 }
 #endif  // !defined(OS_IOS)
+
+TEST_F(OmniboxEditModelTest, RevertZeroSuggestTemporaryText) {
+  location_bar_model()->set_url(GURL("https://www.example.com/"));
+  location_bar_model()->set_url_for_display(
+      base::ASCIIToUTF16("https://www.example.com/"));
+
+  EXPECT_TRUE(model()->ResetDisplayTexts());
+  model()->Revert();
+
+  // Simulate getting ZeroSuggestions and arrowing to a different match.
+  view()->SelectAll(true);
+  model()->ShowOnFocusSuggestionsIfAutocompleteIdle();
+  model()->OnPopupDataChanged(base::ASCIIToUTF16("fake_temporary_text"),
+                              /*is_temporary_text=*/true, base::string16(),
+                              false);
+
+  // Test that reverting brings back the original input text.
+  EXPECT_TRUE(model()->OnEscapeKeyPressed());
+  EXPECT_EQ(base::ASCIIToUTF16("https://www.example.com/"), view()->GetText());
+  EXPECT_FALSE(model()->user_input_in_progress());
+  EXPECT_TRUE(view()->IsSelectAll());
+}
 
 // This verifies the fix for a bug where calling OpenMatch() with a valid
 // alternate nav URL would fail a DCHECK if the input began with "http://".
@@ -300,7 +323,7 @@ TEST_F(OmniboxEditModelTest, AlternateNavHasHTTP) {
       AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
   const GURL alternate_nav_url("http://abcd/");
 
-  model()->OnSetFocus(false);  // Avoids DCHECK in OpenMatch().
+  model()->OnSetFocus(false, false);  // Avoids DCHECK in OpenMatch().
   model()->SetUserText(base::ASCIIToUTF16("http://abcd"));
   model()->OpenMatch(match, WindowOpenDisposition::CURRENT_TAB,
                      alternate_nav_url, base::string16(), 0);
@@ -434,7 +457,7 @@ TEST_F(OmniboxEditModelTest, IgnoreInvalidSavedFocusStates) {
   ASSERT_EQ(OMNIBOX_FOCUS_NONE, state.focus_state);
 
   // Simulate the tab-switching system focusing the Omnibox.
-  model()->OnSetFocus(false);
+  model()->OnSetFocus(false, true);
 
   // Restoring the old saved state should not clobber the model's focus state.
   model()->RestoreState(&state);
@@ -460,9 +483,9 @@ TEST_F(OmniboxEditModelTest, ConsumeCtrlKey) {
 // Tests ctrl_key_state_ is set consumed if the ctrl key is down on focus.
 TEST_F(OmniboxEditModelTest, ConsumeCtrlKeyOnRequestFocus) {
   model()->control_key_state_ = TestOmniboxEditModel::DOWN;
-  model()->OnSetFocus(false);
+  model()->OnSetFocus(false, false);
   EXPECT_EQ(model()->control_key_state_, TestOmniboxEditModel::UP);
-  model()->OnSetFocus(true);
+  model()->OnSetFocus(true, false);
   EXPECT_EQ(model()->control_key_state_,
             TestOmniboxEditModel::DOWN_AND_CONSUMED);
 }

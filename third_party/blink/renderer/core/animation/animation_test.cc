@@ -167,8 +167,6 @@ class AnimationAnimationTestNoCompositing : public RenderingTest {
   }
 
   bool SimulateFrame(double time_ms) {
-    animation->CommitAllUpdatesForTesting();
-
     last_frame_time = time_ms;
     const auto* paint_artifact_compositor =
         GetDocument().GetFrame()->View()->GetPaintArtifactCompositor();
@@ -437,8 +435,7 @@ TEST_F(AnimationAnimationTestNoCompositing, StartTimeWithZeroPlaybackRate) {
   animation->setPlaybackRate(0);
   EXPECT_EQ("running", animation->playState());
   SimulateAwaitReady();
-  EXPECT_EQ("running", animation->playState());
-  EXPECT_EQ(0, animation->startTime());
+  EXPECT_FALSE(animation->startTime());
 
   SimulateFrame(10000);
   EXPECT_EQ("running", animation->playState());

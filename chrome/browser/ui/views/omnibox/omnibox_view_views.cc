@@ -418,7 +418,7 @@ void OmniboxViewViews::RevertAll() {
   OmniboxView::RevertAll();
 }
 
-void OmniboxViewViews::SetFocus() {
+void OmniboxViewViews::SetFocus(bool is_user_initiated) {
   // Temporarily reveal the top-of-window views (if not already revealed) so
   // that the location bar view is visible and is considered focusable. When it
   // actually receives focus, ImmersiveFocusWatcher will add another lock to
@@ -431,7 +431,10 @@ void OmniboxViewViews::SetFocus() {
             ->GetRevealedLock(ImmersiveModeController::ANIMATE_REVEAL_YES));
   }
 
+  suppress_on_focus_suggestions_ = !is_user_initiated;
   RequestFocus();
+  suppress_on_focus_suggestions_ = false;
+
   // Restore caret visibility if focus is explicitly requested. This is
   // necessary because if we already have invisible focus, the RequestFocus()
   // call above will short-circuit, preventing us from reaching
@@ -1305,8 +1308,15 @@ void OmniboxViewViews::OnFocus() {
   // TODO(tommycli): This does not seem like it should be necessary.
   // Investigate why it's needed and see if we can remove it.
   model()->ResetDisplayTexts();
+
+  bool suppress = suppress_on_focus_suggestions_;
+  if (GetFocusManager() &&
+      GetFocusManager()->focus_change_reason() !=
+          views::FocusManager::FocusChangeReason::kDirectFocusChange) {
+    suppress = true;
+  }
   // TODO(oshima): Get control key state.
-  model()->OnSetFocus(false);
+  model()->OnSetFocus(false, suppress);
   // Don't call controller()->OnSetFocus, this view has already acquired focus.
 
   // Restore the selection we saved in OnBlur() if it's still valid.

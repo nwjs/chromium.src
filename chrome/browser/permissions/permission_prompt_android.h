@@ -13,6 +13,7 @@
 #include "chrome/browser/permissions/permission_request_notification_android.h"
 #include "chrome/browser/ui/permission_bubble/permission_prompt.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/infobars/core/infobar_manager.h"
 
 namespace content {
 class WebContents;
@@ -22,7 +23,8 @@ class InfoBar;
 }
 class PermissionRequestNotificationAndroid;
 
-class PermissionPromptAndroid : public PermissionPrompt {
+class PermissionPromptAndroid : public PermissionPrompt,
+                                public infobars::InfoBarManager::Observer {
  public:
   PermissionPromptAndroid(content::WebContents* web_contents,
                           Delegate* delegate);
@@ -44,6 +46,9 @@ class PermissionPromptAndroid : public PermissionPrompt {
   int GetIconId() const;
   base::string16 GetTitleText() const;
   base::string16 GetMessageText() const;
+
+  // InfoBar::Manager:
+  void OnInfoBarRemoved(infobars::InfoBar* infobar, bool animate) override;
 
  private:
   // PermissionPromptAndroid is owned by PermissionRequestManager, so it should

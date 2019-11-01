@@ -226,6 +226,11 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kDefaultImagesSetting,
     prefs::kManagedDefaultImagesSetting,
     base::Value::Type::INTEGER },
+#if !defined(OS_ANDROID)
+  { key::kDefaultInsecureContentSetting,
+    prefs::kManagedDefaultInsecureContentSetting,
+    base::Value::Type::INTEGER },
+#endif  // !defined(OS_ANDROID)
   { key::kLegacySameSiteCookieBehaviorEnabled,
     prefs::kManagedDefaultLegacyCookieAccessSetting,
     base::Value::Type::INTEGER },
@@ -250,6 +255,14 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kImagesBlockedForUrls,
     prefs::kManagedImagesBlockedForUrls,
     base::Value::Type::LIST },
+#if !defined(OS_ANDROID)
+  { key::kInsecureContentAllowedForUrls,
+    prefs::kManagedInsecureContentAllowedForUrls,
+    base::Value::Type::LIST },
+  { key::kInsecureContentBlockedForUrls,
+    prefs::kManagedInsecureContentBlockedForUrls,
+    base::Value::Type::LIST },
+#endif  // !defined(OS_ANDROID)
   { key::kJavaScriptAllowedForUrls,
     prefs::kManagedJavaScriptAllowedForUrls,
     base::Value::Type::LIST },
@@ -1121,6 +1134,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     base::Value::Type::BOOLEAN },
   { key::kAllowSyncXHRInPageDismissal,
     prefs::kAllowSyncXHRInPageDismissal,
+    base::Value::Type::BOOLEAN },
+  { key::kExternalProtocolDialogShowAlwaysOpenCheckbox,
+    prefs::kExternalProtocolDialogShowAlwaysOpenCheckbox,
     base::Value::Type::BOOLEAN },
 
 #if defined(OS_WIN) || defined(OS_MACOSX) || \

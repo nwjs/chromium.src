@@ -263,6 +263,7 @@
 <translation id="2913331724188855103">Izinkan situs untuk menyimpan dan membaca data cookie (disarankan)</translation>
 <translation id="2923908459366352541">Nama tidak valid</translation>
 <translation id="2932150158123903946">Penyimpanan Google <ph name="APP_NAME" /></translation>
+<translation id="2942036813789421260">Tab pratinjau ditutup</translation>
 <translation id="2956410042958133412">Akun ini dikelola oleh <ph name="PARENT_NAME_1" /> dan <ph name="PARENT_NAME_2" />.</translation>
 <translation id="2962095958535813455">Beralih ke tab samaran</translation>
 <translation id="2968755619301702150">Penampil sertifikat</translation>
@@ -388,6 +389,7 @@
 <translation id="3988466920954086464">Lihat hasil penelusuran instan di panel ini</translation>
 <translation id="3991845972263764475"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> / ?</translation>
 <translation id="3997476611815694295">Penyimpanan tidak penting</translation>
+<translation id="4000212216660919741">Beranda Offline</translation>
 <translation id="4002066346123236978">Judul</translation>
 <translation id="4008040567710660924">Izinkan cookie untuk situs tertentu.</translation>
 <translation id="4034817413553209278">{HOURS,plural, =1{# jam}other{# jam}}</translation>
@@ -632,7 +634,7 @@ Pastikan Anda memercayai situs ini sebelum masuk ke VR.</translation>
 <translation id="5686790454216892815">Nama file terlalu panjang</translation>
 <translation id="5689516760719285838">Lokasi</translation>
 <translation id="569536719314091526">Terjemahkan halaman ini ke bahasa apa pun dari tombol Opsi lainnya</translation>
-<translation id="572328651809341494">Tab baru-baru ini</translation>
+<translation id="572328651809341494">Tab terbaru</translation>
 <translation id="5726692708398506830">Memperbesar semua yang ada di halaman</translation>
 <translation id="5748802427693696783">Beralih ke tab standar</translation>
 <translation id="5749068826913805084">Chrome memerlukan akses penyimpanan untuk mendownload file.</translation>
@@ -767,6 +769,7 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 <translation id="6697947395630195233">Chrome memerlukan akses ke lokasi Anda untuk berbagi lokasi dengan situs ini.</translation>
 <translation id="6698801883190606802">Kelola data yang disinkronkan</translation>
 <translation id="6699370405921460408">Server Google akan mengoptimalkan halaman yang Anda kunjungi.</translation>
+<translation id="6706288973712894588">Saat ini Anda sedang offline.\n<ph name="BEGIN_LINK" />Jelajahi feed offline Anda.<ph name="END_LINK" /></translation>
 <translation id="6709133671862442373">Berita</translation>
 <translation id="6710213216561001401">Sebelumnya</translation>
 <translation id="671481426037969117">Timer <ph name="FQDN" /> Anda telah berakhir. Timer akan dimulai lagi besok.</translation>
@@ -866,6 +869,7 @@ Situs TIDAK mendapatkan akses ke kamera. Gambar kamera hanya dapat dilihat oleh 
 <translation id="7475688122056506577">Kartu SD tidak ditemukan. Beberapa file Anda mungkin tidak tersimpan.</translation>
 <translation id="7479104141328977413">Pengelolaan tab</translation>
 <translation id="7481312909269577407">Maju</translation>
+<translation id="7482656565088326534">Tab pratinjau</translation>
 <translation id="7493994139787901920"><ph name="VERSION" /> (Diperbarui <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">data dihemat</translation>
 <translation id="7498271377022651285">Harap tunggu...</translation>
@@ -996,6 +1000,7 @@ Situs TIDAK mendapatkan akses ke kamera. Gambar kamera hanya dapat dilihat oleh 
 <translation id="8380167699614421159">Situs ini menampilkan iklan yang mengganggu atau menyesatkan</translation>
 <translation id="8393700583063109961">Kirim pesan</translation>
 <translation id="8413126021676339697">Tampilkan histori lengkap</translation>
+<translation id="8427875596167638501">Tab pratinjau terbuka setengah</translation>
 <translation id="8428213095426709021">Setelan</translation>
 <translation id="8438566539970814960">Jadikan penelusuran dan penjelajahan lebih baik</translation>
 <translation id="8441146129660941386">Cari mundur</translation>
@@ -1086,7 +1091,9 @@ Situs TIDAK mendapatkan akses ke kamera. Gambar kamera hanya dapat dilihat oleh 
 <translation id="9086455579313502267">Tidak dapat mengakses jaringan</translation>
 <translation id="9100505651305367705">Tawarkan untuk menampilkan artikel dalam tampilan sederhana, jika didukung</translation>
 <translation id="9100610230175265781">Frasa sandi diwajibkan</translation>
+<translation id="9102803872260866941">Tab pratinjau dibuka</translation>
 <translation id="9104217018994036254">Daftar perangkat yang dapat digunakan untuk berbagi tab.</translation>
+<translation id="9133397713400217035">Jelajahi Offline</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">Perlihatkan halaman asli</translation>
 <translation id="9139068048179869749">Tanya terlebih dahulu sebelum mengizinkan situs mengirimkan notifikasi (disarankan)</translation>

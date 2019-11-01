@@ -194,7 +194,7 @@ SecurityLevel GetSecurityLevel(
   // Downgrade the security level for pages that trigger a Safety Tip.
   SecurityLevel safety_tip_level;
   if (ShouldSetSecurityLevelFromSafetyTip(
-          visible_security_state.safety_tip_status, &safety_tip_level)) {
+          visible_security_state.safety_tip_info.status, &safety_tip_level)) {
     return safety_tip_level;
   }
 
@@ -250,7 +250,6 @@ bool HasMajorCertificateError(
 
 VisibleSecurityState::VisibleSecurityState()
     : malicious_content_status(MALICIOUS_CONTENT_STATUS_NONE),
-      safety_tip_status(security_state::SafetyTipStatus::kUnknown),
       connection_info_initialized(false),
       cert_status(0),
       connection_status(0),
@@ -267,6 +266,11 @@ VisibleSecurityState::VisibleSecurityState()
       is_devtools(false),
       connection_used_legacy_tls(false),
       should_suppress_legacy_tls_warning(false) {}
+
+VisibleSecurityState::VisibleSecurityState(const VisibleSecurityState& other) =
+    default;
+VisibleSecurityState& VisibleSecurityState::operator=(
+    const VisibleSecurityState& other) = default;
 
 VisibleSecurityState::~VisibleSecurityState() {}
 
@@ -292,6 +296,22 @@ std::string GetSecurityLevelHistogramName(
 std::string GetSafetyTipHistogramName(const std::string& prefix,
                                       SafetyTipStatus safety_tip_status) {
   return prefix + "." + GetHistogramSuffixForSafetyTipStatus(safety_tip_status);
+}
+
+bool GetLegacyTLSWarningStatus(
+    const VisibleSecurityState& visible_security_state) {
+  return visible_security_state.connection_used_legacy_tls &&
+         !visible_security_state.should_suppress_legacy_tls_warning;
+}
+
+std::string GetLegacyTLSHistogramName(
+    const std::string& prefix,
+    const VisibleSecurityState& visible_security_state) {
+  if (GetLegacyTLSWarningStatus(visible_security_state)) {
+    return prefix + "." + "LegacyTLS_Triggered";
+  } else {
+    return prefix + "." + "LegacyTLS_NotTriggered";
+  }
 }
 
 bool IsSHA1InChain(const VisibleSecurityState& visible_security_state) {

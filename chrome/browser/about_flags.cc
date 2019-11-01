@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "ash/public/cpp/app_list/app_list_features.h"
+#include "ash/public/cpp/app_list/app_list_switches.h"
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/keyboard/keyboard_switches.h"
 #include "base/base_switches.h"
@@ -854,6 +855,22 @@ const FeatureEntry::FeatureVariation kOmniboxDocumentProviderVariations[] = {
      base::size(kOmniboxDocumentProviderServerAndClientScoring), nullptr}};
 #endif  // defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_WIN)
 
+#ifdef OS_ANDROID
+const FeatureEntry::FeatureParam kOmniboxNTPZPSLocal[] = {
+    {"ZeroSuggestVariant:7:*", "Local"},
+    {"ZeroSuggestVariant:8:*", "Local"}};
+
+const FeatureEntry::FeatureParam kOmniboxNTPZPSRemote[] = {
+    {"ZeroSuggestVariant:7:*", "RemoteNoUrl"},
+    {"ZeroSuggestVariant:8:*", "RemoteNoUrl"}};
+
+const FeatureEntry::FeatureVariation kOmniboxOnFocusSuggestionsVariations[] = {
+    {"ZPS on NTP: Local History", kOmniboxNTPZPSLocal,
+     base::size(kOmniboxNTPZPSLocal), nullptr},
+    {"ZPS on NTP: Remote History", kOmniboxNTPZPSRemote,
+     base::size(kOmniboxNTPZPSRemote), "t3314248"},
+};
+#else
 const FeatureEntry::FeatureParam kOmniboxOnFocusSuggestionsParamSERP[] = {
     {"ZeroSuggestVariant:6:*", "RemoteSendUrl"}};
 const FeatureEntry::FeatureParam
@@ -883,6 +900,7 @@ const FeatureEntry::FeatureVariation kOmniboxOnFocusSuggestionsVariations[] = {
      base::size(kOmniboxOnFocusSuggestionsParamNTPOmniboxRealboxRemoteLocal),
      "t3316133" /* variation_id */},
 };
+#endif
 
 const FeatureEntry::FeatureParam kOmniboxUIMaxAutocompleteMatches3[] = {
     {OmniboxFieldTrial::kUIMaxAutocompleteMatchesParam, "3"}};
@@ -1357,15 +1375,15 @@ const FeatureEntry::FeatureVariation kBackForwardCacheVariations[] = {
 };
 
 #if defined(OS_CHROMEOS)
-const FeatureEntry::FeatureParam kCrOSActionRecorderLogWithHash[] = {
-    {"CrOSActionRecorderType", "1"}};
-const FeatureEntry::FeatureParam kCrOSActionRecorderLogWithoutHash[] = {
-    {"CrOSActionRecorderType", "2"}};
-const FeatureEntry::FeatureVariation kCrOSActionRecorderVariations[] = {
-    {"Log with Hash", kCrOSActionRecorderLogWithHash,
-     base::size(kCrOSActionRecorderLogWithHash), nullptr},
-    {"Log without Hash", kCrOSActionRecorderLogWithoutHash,
-     base::size(kCrOSActionRecorderLogWithoutHash), nullptr}};
+const FeatureEntry::Choice kEnableCrOSActionRecorderChoices[] = {
+    {flags_ui::kGenericExperimentChoiceDefault, "", ""},
+    {ash::switches::kCrOSActionRecorderWithHash,
+     ash::switches::kEnableCrOSActionRecorder,
+     ash::switches::kCrOSActionRecorderWithHash},
+    {ash::switches::kCrOSActionRecorderWithoutHash,
+     ash::switches::kEnableCrOSActionRecorder,
+     ash::switches::kCrOSActionRecorderWithoutHash},
+};
 #endif  // defined(OS_CHROMEOS)
 
 // RECORDING USER METRICS FOR FLAGS:
@@ -2487,10 +2505,6 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kImeInputLogicFstName,
      flag_descriptions::kImeInputLogicFstDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(chromeos::features::kImeInputLogicFst)},
-    {"enable-experimental-accessibility-autoclick",
-     flag_descriptions::kExperimentalAccessibilityAutoclickName,
-     flag_descriptions::kExperimentalAccessibilityAutoclickDescription, kOsCrOS,
-     SINGLE_VALUE_TYPE(::switches::kEnableExperimentalAccessibilityAutoclick)},
     {"enable-experimental-accessibility-switch-access",
      flag_descriptions::kExperimentalAccessibilitySwitchAccessName,
      flag_descriptions::kExperimentalAccessibilitySwitchAccessDescription,
@@ -3465,12 +3479,6 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kEnableSearchBoxSelectionDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(app_list_features::kEnableSearchBoxSelection)},
 #endif  // OS_CHROMEOS
-
-    {"enable-accessibility-image-descriptions",
-     flag_descriptions::kEnableAccessibilityImageDescriptionsName,
-     flag_descriptions::kEnableAccessibilityImageDescriptionsDescription,
-     kOsDesktop,
-     FEATURE_VALUE_TYPE(features::kExperimentalAccessibilityLabels)},
 
     {"enable-accessibility-expose-aria-annotations",
      flag_descriptions::kAccessibilityExposeARIAAnnotationsName,
@@ -4665,10 +4673,7 @@ const FeatureEntry kFeatureEntries[] = {
     {"enable-cros-action-recorder",
      flag_descriptions::kEnableCrOSActionRecorderName,
      flag_descriptions::kEnableCrOSActionRecorderDescription, kOsCrOS,
-     FEATURE_WITH_PARAMS_VALUE_TYPE(
-         app_list_features::kEnableCrOSActionRecorder,
-         kCrOSActionRecorderVariations,
-         "CrOSActionRecorderTypeVariations")},
+     MULTI_VALUE_TYPE(kEnableCrOSActionRecorderChoices)},
 #endif  // defined(OS_CHROMEOS)
 
     // NOTE: Adding a new flag requires adding a corresponding entry to enum
@@ -4680,19 +4685,32 @@ const FeatureEntry kFeatureEntries[] = {
 class FlagsStateSingleton {
  public:
   FlagsStateSingleton()
-      : flags_state_(kFeatureEntries, base::size(kFeatureEntries)) {}
+      : flags_state_(std::make_unique<flags_ui::FlagsState>(
+            kFeatureEntries,
+            base::size(kFeatureEntries),
+            base::Bind(&FlagsStateSingleton::IsFlagExpired))) {}
   ~FlagsStateSingleton() {}
+
+  static bool IsFlagExpired(const flags_ui::FeatureEntry& entry) {
+    return flags::IsFlagExpired(entry.internal_name);
+  }
 
   static FlagsStateSingleton* GetInstance() {
     return base::Singleton<FlagsStateSingleton>::get();
   }
 
   static flags_ui::FlagsState* GetFlagsState() {
-    return &GetInstance()->flags_state_;
+    return GetInstance()->flags_state_.get();
+  }
+
+  void RebuildState(const std::vector<flags_ui::FeatureEntry>& entries) {
+    flags_state_ = std::make_unique<flags_ui::FlagsState>(
+        entries.data(), entries.size(),
+        base::Bind(&FlagsStateSingleton::IsFlagExpired));
   }
 
  private:
-  flags_ui::FlagsState flags_state_;
+  std::unique_ptr<flags_ui::FlagsState> flags_state_;
 
   DISALLOW_COPY_AND_ASSIGN(FlagsStateSingleton);
 };

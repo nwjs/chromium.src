@@ -42,6 +42,9 @@ message ClientContextProto {
   // Assistant.
   optional bool is_cct = 8;
 
+  // True if the onboarding screen was shown to the user.
+  optional bool is_onboarding_shown = 10;
+
   // True if the script was triggered by a direct action.
   optional bool is_direct_action = 9;
 }
@@ -905,6 +908,8 @@ message UseCreditCardProto {
       CREDIT_CARD_EXP_MONTH = 2;
       CREDIT_CARD_EXP_2_DIGIT_YEAR = 3;
       CREDIT_CARD_EXP_4_DIGIT_YEAR = 4;
+      CREDIT_CARD_CARD_HOLDER_NAME = 5;
+      CREDIT_CARD_NUMBER = 6;
     }
 
     optional CardField card_field = 1;
@@ -1252,6 +1257,7 @@ message UserFormSectionProto {
 
 // Asks to provide the data used by UseAddressAction and
 // UseCreditCardAction.
+// Next: 22
 message CollectUserDataProto {
   enum TermsAndConditionsState {
     // No choice has been made yet.
@@ -1294,6 +1300,12 @@ message CollectUserDataProto {
   // that will finish this action and return the clicked link in the action
   // result.
   optional string accept_terms_and_conditions_text = 13;
+  // Message that indicates that the user wants to review the terms and
+  // conditions of a 3rd party's domain, e.g., 'example.com'.
+  optional string terms_require_review_text = 20;
+  // Privacy notice telling users that autofill assistant will send personal
+  // data to a third party’s website.
+  optional string thirdparty_privacy_notice_text = 21;
   // Optionally allows confiriming through the given direct actions.
   optional DirectActionProto confirm_direct_action = 10;
   // Additional actions available to the user. This can be used for instance to

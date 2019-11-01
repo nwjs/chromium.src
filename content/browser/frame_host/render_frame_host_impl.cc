@@ -982,6 +982,10 @@ RenderFrameHostImpl::RenderFrameHostImpl(
           frame_tree_->render_widget_delegate(), GetProcess(),
           widget_routing_id, std::move(widget), /*hidden=*/true);
       owned_render_widget_host_->set_owned_by_render_frame_host(true);
+#if defined(OS_ANDROID)
+      owned_render_widget_host_->SetForceEnableZoom(
+          render_view_host_->GetWebkitPreferences().force_enable_zoom);
+#endif  // defined(OS_ANDROID)
     }
 
     if (!frame_tree_node_->parent())
@@ -6365,6 +6369,12 @@ void RenderFrameHostImpl::AXContentTreeDataToAXTreeData(ui::AXTreeData* dst) {
   if (!focused_frame)
     return;
   dst->focused_tree_id = focused_frame->GetAXTreeID();
+}
+
+void RenderFrameHostImpl::CreatePaymentManager(
+    mojo::PendingReceiver<payments::mojom::PaymentManager> receiver) {
+  GetProcess()->CreatePaymentManagerForOrigin(GetLastCommittedOrigin(),
+                                              std::move(receiver));
 }
 
 void RenderFrameHostImpl::CreateWebBluetoothService(

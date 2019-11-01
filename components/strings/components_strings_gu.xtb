@@ -5,7 +5,6 @@
 <translation id="1010200102790553230">પેજ પછીથી લોડ કરો</translation>
 <translation id="1015730422737071372">અતિરિક્ત વિગતો પ્રદાન કરો</translation>
 <translation id="1021110881106174305">સ્વીકારેલ કાર્ડ</translation>
-<translation id="1023523064224774104">Chromiumને જાણવા મળ્યું કે તમે અત્યારે જે સાઇટમાં તમારો પાસવર્ડ દાખલ કર્યો તે શંકાસ્પદ છે. કૃપા કરીને તમારો પાસવર્ડ હમણાં જ રીસેટ કરો!</translation>
 <translation id="1032854598605920125">ઘડિયાળની દિશામાં ફેરવો</translation>
 <translation id="1035334672863811645">Chrome માં સાઇન ઇન કરો</translation>
 <translation id="1036348656032585052">બંધ કરો</translation>
@@ -122,6 +121,7 @@
 <translation id="1501859676467574491">તમારા Google એકાઉન્ટમાંથી કાર્ડ બતાવો</translation>
 <translation id="1507202001669085618">&lt;p&gt;જો તમે ઑનલાઇન થાઓ એ પહેલાં જ્યાં તમારે સાઇન ઇન કરવું જરૂરી હોય તેવા વાઇ-ફાઇ પોર્ટલનો ઉપયોગ કરી રહ્યા હો, તો તમને આ ભૂલ દેખાશે.&lt;/p&gt;
     &lt;p&gt;આ સમસ્યા ઉકેલવા માટે, તમે ખોલવાનો પ્રયાસ કરી રહ્યા છો એ પેજ પર &lt;strong&gt;કનેક્ટ કરો&lt;/strong&gt; પર ક્લિક કરો.&lt;/p&gt;</translation>
+<translation id="1513706915089223971">ઇતિહાસના એન્ટ્રીની સૂચિ</translation>
 <translation id="1517433312004943670">ફોન નંબર આવશ્યક</translation>
 <translation id="1517500485252541695">સ્વીકૃત ક્રેડિટ અને ડેબિટ કાર્ડ</translation>
 <translation id="1519264250979466059">નિર્માણ તારીખ</translation>
@@ -307,6 +307,7 @@
 <translation id="2410754574180102685">સરકારી-કાનૂની</translation>
 <translation id="2413528052993050574">આ સર્વર સાબિત કરી શક્યું નથી કે તે <ph name="DOMAIN" /> છે; તેનું સુરક્ષા પ્રમાણપત્ર રદબાતલ થયું હશે. આ કોઈ ખોટી ગોઠવણીને કારણે થયું હશે અથવા કોઈ હુમલાખોર તમારા કનેક્શનને અટકાવી રહ્યો છે.</translation>
 <translation id="2438874542388153331">જમણી બાજુએ ચતુષ્કોણ કાણું પાડો</translation>
+<translation id="245044156129055925">હમણાં જ કોઈ છેતરામણી સાઇટ પર તમે તમારો પાસવર્ડ દાખલ કર્યો. તરત જ તમારો પાસવર્ડ બદલવાનો સુઝાવ Chromium આપે છે.</translation>
 <translation id="2463193859425327265">હોમ પેજ બદલો</translation>
 <translation id="2463739503403862330">ભરો</translation>
 <translation id="2465402087343596252">સ્થાપત્ય-E</translation>
@@ -548,7 +549,6 @@
 <translation id="3655670868607891010">જો તમે આ વારંવાર જોઈ રહ્યાં છો, તો આ <ph name="HELP_LINK" /> અજમાવી જુઓ.</translation>
 <translation id="3658742229777143148">પુનરાવર્તન</translation>
 <translation id="366077651725703012">ક્રેડિટ કાર્ડ અપડેટ કરો</translation>
-<translation id="3672525478985456967">આ સાઇટનું નામ <ph name="LOOKALIKE_DOMAIN" /> જેવું લાગે છે. હુમલાખોરો ઘણી વાર ડોમેન નામમાં સરળતાથી જોઈ ન શકાય એવા મામૂલી ફેરફારો કરીને સાઇટની નકલ કરતા હોય છે.</translation>
 <translation id="3676592649209844519">ડિવાઇસ ID:</translation>
 <translation id="3677008721441257057">શું તમારો અર્થ &lt;a href="#" id="dont-proceed-link"&gt;<ph name="DOMAIN" />&lt;/a&gt; હતો?</translation>
 <translation id="3678029195006412963">વિનંતી પર સહી કરી શક્યાં નથી</translation>
@@ -613,6 +613,9 @@
 <translation id="397105322502079400">ગણના કરી રહ્યું છે...</translation>
 <translation id="3973234410852337861"><ph name="HOST_NAME" /> અવરોધિત છે</translation>
 <translation id="3981540111851280311"><ph name="ENROLLMENT_DOMAIN" />માં તમારા બ્રાઉઝર પર Chrome એન્ટરપ્રાઇઝ જોખમ સંરક્ષણ સેવા ચાલુ કરેલી છે. Chrome એન્ટરપ્રાઇઝ જોખમ સંરક્ષણ સેવાને તમારા અમુક ડેટાનો ઍક્સેસ છે.</translation>
+<translation id="3987405730340719549">Chromeની તપાસણીમાં આ સાઇટ બનાવટી અથવા કપટપૂર્ણ હોઈ શકવાનું જણાઈ આવ્યું છે.
+
+    જો તમે એમ માનતા હો કે આ ભૂલમાં બતાવવામાં આવ્યું છે, તો કૃપા કરીને https://bugs.chromium.org/p/chromium/issues/entry?template=Safety+Tips+Appealsની મુલાકાત લો.</translation>
 <translation id="3987940399970879459">1 MB કરતાં ઓછું</translation>
 <translation id="3990250421422698716">બહાર નીકળેલા ભાગને અંદર દબાવો</translation>
 <translation id="40103911065039147">{URL_count,plural, =1{નજીકમાં 1 વેબ પેજ}one{નજીકમાં # વેબ પેજ}other{નજીકમાં # વેબ પેજ}}</translation>
@@ -870,7 +873,6 @@
 <translation id="5230733896359313003">વિતરણ માટેનું સરનામું</translation>
 <translation id="5230815978613972521">B8</translation>
 <translation id="5233045608889518621">12x19</translation>
-<translation id="5234764350956374838">કાઢી નાખો</translation>
 <translation id="5250209940322997802">"નેટવર્ક સાથે કનેક્ટ કરો"</translation>
 <translation id="5251803541071282808">મેઘ</translation>
 <translation id="5252000469029418751">C7 (એન્વલપ)</translation>
@@ -990,6 +992,9 @@
 <translation id="5813119285467412249">&amp;ઉમેરવું ફરી કરો</translation>
 <translation id="583281660410589416">અજ્ઞાત</translation>
 <translation id="5838278095973806738">તમારે આ સાઇટ પર કોઈપણ સંવેદનશીલ માહિતી (ઉદાહરણ તરીકે, પાસવર્ડ્સ અથવા ક્રેડિટ કાર્ડ્સ) દાખલ કરવી જોઈએ નહીં, કારણ કે તે હુમલાખોર દ્વારા ચોરવામાં આવી શકે છે.</translation>
+<translation id="5855253129151731373">આ સાઇટના હોસ્ટનું નામ <ph name="LOOKALIKE_DOMAIN" /> જેવું જ લાગી રહ્યું છે. હુમલાખોરો ઘણી વાર ડોમેન નામમાં સરળતાથી જોઈ ન શકાય એવા મામૂલી ફેરફારો કરીને સાઇટની નકલ કરતા હોય છે.
+
+    જો તમે એમ માનતા હો કે આ ભૂલમાં બતાવવામાં આવ્યું છે, તો કૃપા કરીને https://bugs.chromium.org/p/chromium/issues/entry?template=Safety+Tips+Appealsની મુલાકાત લો.</translation>
 <translation id="5860033963881614850">બંધ</translation>
 <translation id="5863847714970149516">આગળનું પેજ તમને શુલ્ક લાગુ કરી શકે છે</translation>
 <translation id="5866257070973731571">ફોન નંબર ઉમેરો</translation>
@@ -1012,7 +1017,6 @@
 <translation id="5946937721014915347"><ph name="SITE_NAME" /> ખોલી રહ્યાં છે…</translation>
 <translation id="5947933617628957894">હા, ઉમેરો</translation>
 <translation id="5951495562196540101">ઉપભોક્તા એકાઉન્ટ સાથે નોંધણી કરાવી શકાતી નથી (પૅકેજમાં લાઇસન્સ ઉપલબ્ધ છે).</translation>
-<translation id="5966900314707961320">જ્યારે ચાલુ કરવામાં આવે, ત્યારે સાઇટ તમને વેબ પર બધે ટ્રૅક કરી શકે એવી કુકીનો ઉપયોગ કરી શકશે નહીં</translation>
 <translation id="5967592137238574583">સંપર્ક માહિતીમાં ફેરફાર કરો</translation>
 <translation id="5967867314010545767">ઇતિહાસમાંથી દૂર કરો</translation>
 <translation id="5975083100439434680">ઝૂમ ઘટાડો</translation>
@@ -1101,6 +1105,7 @@
 <translation id="6401136357288658127">આ પૉલિસી ટાળવામાં આવી છે. તેના બદલે તમારે <ph name="NEW_POLICY" /> પૉલિસીનો ઉપયોગ કરવો જોઈએ.</translation>
 <translation id="6404511346730675251">બુકમાર્કમાં ફેરફાર કરો</translation>
 <translation id="6406765186087300643">C0 (એન્વલપ)</translation>
+<translation id="6409754798200046165">હમણાં જ કોઈ છેતરામણી સાઇટ પર તમે તમારો પાસવર્ડ દાખલ કર્યો. તરત જ તમારો પાસવર્ડ બદલવાનો સુઝાવ Chrome આપે છે.</translation>
 <translation id="6410264514553301377"><ph name="CREDIT_CARD" /> માટે સમાપ્તિ તારીખ અને CVC દાખલ કરો</translation>
 <translation id="6415778972515849510">Chromium તમારા Google એકાઉન્ટને સુરક્ષિત કરવામાં અને તમારો પાસવર્ડ બદલવામાં તમારી સહાય કરી શકે છે.</translation>
 <translation id="6427730057873428458">ગેટ ફોલ્ડ</translation>
@@ -1398,6 +1403,7 @@
 <translation id="7932579305932748336">કોટ કરો</translation>
 <translation id="79338296614623784">એક માન્ય ફોન નંબર દાખલ કરો</translation>
 <translation id="7934052535022478634">ચૂકવણી પૂર્ણ</translation>
+<translation id="7935031712718413217">સંભવિત છેતરપિંડી કરતું URL</translation>
 <translation id="7935318582918952113">DOM Distiller</translation>
 <translation id="7937554595067888181"><ph name="EXPIRATION_DATE_ABBR" />ના રોજ સમાપ્ત થાય છે</translation>
 <translation id="7938958445268990899">સર્વરનું પ્રમાણપત્ર હજી માન્ય નથી.</translation>
@@ -1452,7 +1458,6 @@
 <translation id="8184538546369750125">વૈશ્વિક ડિફોલ્ટનો ઉપયોગ કરો (મંજૂરી આપો)</translation>
 <translation id="8194797478851900357">&amp;ખસેડવું પૂર્વવત્‌ કરો</translation>
 <translation id="8197543752516192074">પેજનો અનુવાદ કરો</translation>
-<translation id="8197899142098070286">Chromeને જાણવા મળ્યું કે તમે અત્યારે જે સાઇટમાં તમારો પાસવર્ડ દાખલ કર્યો તે શંકાસ્પદ છે. કૃપા કરીને તમારો પાસવર્ડ હમણાં જ રીસેટ કરો!</translation>
 <translation id="8201077131113104583">ID "<ph name="EXTENSION_ID" />" સાથેના એક્સટેન્શન માટે અમાન્ય અપડેટ URL.</translation>
 <translation id="8202097416529803614">ઓર્ડરનો સારાંશ</translation>
 <translation id="8202370299023114387">વિરોધ</translation>

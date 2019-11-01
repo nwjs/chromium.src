@@ -121,7 +121,6 @@ class ProfileMenuViewBase : public content::WebContentsDelegate,
 
   // API to build the profile menu.
   void SetHeading(const base::string16& heading,
-                  const gfx::ImageSkia& clickable_icon,
                   const base::string16& tooltip_text,
                   base::RepeatingClosure action);
   void SetIdentityInfo(const gfx::ImageSkia& image,
@@ -132,6 +131,7 @@ class ProfileMenuViewBase : public content::WebContentsDelegate,
                    const base::string16& description,
                    const base::string16& clickable_text,
                    base::RepeatingClosure action);
+  void SetSyncInfoBackgroundColor(SkColor bg_color);
   void AddShortcutFeatureButton(const gfx::ImageSkia& icon,
                                 const base::string16& text,
                                 base::RepeatingClosure action);
@@ -263,6 +263,7 @@ class ProfileMenuViewBase : public content::WebContentsDelegate,
   views::View* sync_info_container_ = nullptr;
   views::View* shortcut_features_container_ = nullptr;
   views::View* features_container_ = nullptr;
+  views::View* profile_mgmt_separator_container_ = nullptr;
   views::View* profile_mgmt_heading_container_ = nullptr;
   views::View* selectable_profiles_container_ = nullptr;
   views::View* profile_mgmt_shortcut_features_container_ = nullptr;

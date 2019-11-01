@@ -6,13 +6,16 @@
 
 #include "base/auto_reset.h"
 #include "base/logging.h"
+#include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/interstitial_page.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/browser_controls_state.h"
+#include "weblayer/browser/file_select_helper.h"
 #include "weblayer/browser/navigation_controller_impl.h"
 #include "weblayer/browser/profile_impl.h"
 #include "weblayer/public/browser_observer.h"
+#include "weblayer/public/download_delegate.h"
 #include "weblayer/public/fullscreen_delegate.h"
 
 #if !defined(OS_ANDROID)
@@ -20,7 +23,10 @@
 #endif
 
 #if defined(OS_ANDROID)
+#include "base/android/callback_android.h"
 #include "base/android/jni_string.h"
+#include "base/json/json_writer.h"
+#include "weblayer/browser/isolated_world_ids.h"
 #include "weblayer/browser/java/jni/BrowserControllerImpl_jni.h"
 #include "weblayer/browser/top_controls_container_view.h"
 #endif
@@ -39,6 +45,14 @@ struct UserData : public base::SupportsUserData::Data {
 
 #if defined(OS_ANDROID)
 BrowserController* g_last_browser_controller;
+
+void JavaScriptResultCallback(
+    const base::android::ScopedJavaGlobalRef<jobject>& callback,
+    base::Value result) {
+  std::string json;
+  base::JSONWriter::Write(result, &json);
+  base::android::RunStringCallbackAndroid(callback, json);
+}
 #endif
 
 }  // namespace
@@ -73,6 +87,10 @@ BrowserControllerImpl* BrowserControllerImpl::FromWebContents(
   return reinterpret_cast<UserData*>(
              web_contents->GetUserData(&kWebContentsUserDataKey))
       ->controller;
+}
+
+void BrowserControllerImpl::SetDownloadDelegate(DownloadDelegate* delegate) {
+  download_delegate_ = delegate;
 }
 
 void BrowserControllerImpl::SetFullscreenDelegate(
@@ -144,6 +162,17 @@ void BrowserControllerImpl::SetTopControlsContainerView(
       native_top_controls_container_view);
 }
 
+void BrowserControllerImpl::ExecuteScript(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jstring>& script,
+    const base::android::JavaParamRef<jobject>& callback) {
+  base::android::ScopedJavaGlobalRef<jobject> jcallback(env, callback);
+  web_contents_->GetMainFrame()->ExecuteJavaScriptInIsolatedWorld(
+      base::android::ConvertJavaStringToUTF16(script),
+      base::BindOnce(&JavaScriptResultCallback, jcallback),
+      ISOLATED_WORLD_ID_WEBLAYER);
+}
+
 #endif
 
 void BrowserControllerImpl::LoadingStateChanged(content::WebContents* source,
@@ -163,6 +192,14 @@ void BrowserControllerImpl::DidNavigateMainFramePostCommit(
     content::WebContents* web_contents) {
   for (auto& observer : observers_)
     observer.DisplayedUrlChanged(web_contents->GetVisibleURL());
+}
+
+void BrowserControllerImpl::RunFileChooser(
+    content::RenderFrameHost* render_frame_host,
+    std::unique_ptr<content::FileSelectListener> listener,
+    const blink::mojom::FileChooserParams& params) {
+  FileSelectHelper::RunFileChooser(render_frame_host, std::move(listener),
+                                   params);
 }
 
 int BrowserControllerImpl::GetTopControlsHeight() {
@@ -211,11 +248,6 @@ blink::mojom::DisplayMode BrowserControllerImpl::GetDisplayMode(
                         : blink::mojom::DisplayMode::kBrowser;
 }
 
-void BrowserControllerImpl::DidFirstVisuallyNonEmptyPaint() {
-  for (auto& observer : observers_)
-    observer.FirstContentfulPaint();
-}
-
 void BrowserControllerImpl::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
 #if defined(OS_ANDROID)
@@ -237,7 +269,7 @@ void BrowserControllerImpl::OnExitFullscreen() {
   // If |processing_enter_fullscreen_| is true, it means the callback is being
   // called while processing EnterFullscreenModeForTab(). WebContents doesn't
   // deal well with this. FATAL as Android generally doesn't run with DCHECKs.
-  LOG_IF(FATAL, !processing_enter_fullscreen_)
+  LOG_IF(FATAL, processing_enter_fullscreen_)
       << "exiting fullscreen while entering fullscreen is not supported";
   web_contents_->ExitFullscreen(/* will_cause_resize */ false);
 }

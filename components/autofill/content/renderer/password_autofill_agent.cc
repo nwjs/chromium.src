@@ -14,6 +14,7 @@
 
 #include "base/bind.h"
 #include "base/i18n/case_conversion.h"
+#include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/numerics/safe_conversions.h"
@@ -29,6 +30,7 @@
 #include "components/autofill/content/renderer/prefilled_values_detector.h"
 #include "components/autofill/content/renderer/renderer_save_password_progress_logger.h"
 #include "components/autofill/core/common/autofill_constants.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_util.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom.h"
@@ -781,6 +783,21 @@ bool PasswordAutofillAgent::ShouldSuppressKeyboard() {
 
 bool PasswordAutofillAgent::TryToShowTouchToFill(
     const WebFormControlElement& control_element) {
+#if defined(OS_ANDROID)
+  // Don't show Touch To Fill if it should only be enabled for insecure origins
+  // and we are currently on a potentially trustworthy origin.
+  if (base::GetFieldTrialParamByFeatureAsBool(features::kTouchToFillAndroid,
+                                              "insecure-origins-only",
+                                              /*default_value=*/false) &&
+      render_frame()
+          ->GetWebFrame()
+          ->GetDocument()
+          .GetSecurityOrigin()
+          .IsPotentiallyTrustworthy()) {
+    return false;
+  }
+#endif  // OS_ANDROID
+
   if (touch_to_fill_state_ != TouchToFillState::kShouldShow)
     return false;
 
@@ -848,6 +865,13 @@ bool PasswordAutofillAgent::ShowSuggestions(const WebInputElement& element,
 
   if (generation_popup_showing)
     return false;
+
+  // Don't call ShowSuggestionPopup if Touch To Fill is currently showing. Since
+  // Touch To Fill in spirit is very similar to a suggestion pop-up, return true
+  // so that the AutofillAgent does not try to show other autofill suggestions
+  // instead.
+  if (touch_to_fill_state_ == TouchToFillState::kIsShowing)
+    return true;
 
   // Chrome should never show more than one account for a password element since
   // this implies that the username element cannot be modified. Thus even if

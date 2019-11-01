@@ -184,14 +184,25 @@ constexpr TabletModeController::TabletModeBehavior kOnBySensor{
     /*force_physical_tablet_state=*/false,
 };
 
-// Defines the behavior that sticks to the current mode. Used to
-// implement --force-tablet-mode flag.
-constexpr TabletModeController::TabletModeBehavior kLockInCurrentMode{
+// Defines the behavior that sticks to tablet mode. Used to implement the
+// --force-tablet-mode=touch_view flag.
+constexpr TabletModeController::TabletModeBehavior kLockInTabletMode{
     /*use_sensor=*/false,
     /*observe_display_events=*/false,
     /*observe_external_pointer_device_events=*/false,
     /*block_internal_input_device=*/false,
     /*always_show_overview_button=*/true,
+    /*force_physical_tablet_state=*/false,
+};
+
+// Defines the behavior that sticks to tablet mode. Used to implement the
+// --force-tablet-mode=clamshell flag.
+constexpr TabletModeController::TabletModeBehavior kLockInClamshellMode{
+    /*use_sensor=*/false,
+    /*observe_display_events=*/false,
+    /*observe_external_pointer_device_events=*/false,
+    /*block_internal_input_device=*/false,
+    /*always_show_overview_button=*/false,
     /*force_physical_tablet_state=*/false,
 };
 
@@ -434,8 +445,12 @@ void TabletModeController::OnShellInitialized() {
   forced_ui_mode_ = GetUiMode();
   switch (forced_ui_mode_) {
     case UiMode::kTabletMode:
+      tablet_mode_behavior_ = kLockInTabletMode;
+      UpdateUiTabletState();
+      break;
+
     case UiMode::kClamshell:
-      tablet_mode_behavior_ = kLockInCurrentMode;
+      tablet_mode_behavior_ = kLockInClamshellMode;
       UpdateUiTabletState();
       break;
 
@@ -630,6 +645,7 @@ void TabletModeController::OnLayerAnimationScheduled(
 
 void TabletModeController::SetEnabledForDev(bool enabled) {
   tablet_mode_behavior_ = enabled ? kOnForDev : kDefault;
+  force_notify_events_blocking_changed_ = true;
 
   SetIsInTabletPhysicalState(enabled);
 }
@@ -682,14 +698,18 @@ void TabletModeController::SetTabletModeEnabledInternal(bool should_enable) {
   } else {
     state_ = State::kExitingTabletMode;
 
-    tablet_mode_window_manager_->SetIgnoreWmEventsForExit();
+    // We may have entered tablet mode, then tried to exit before the screenshot
+    // was taken. In this case |tablet_mode_window_manager_| will be null.
+    if (tablet_mode_window_manager_)
+      tablet_mode_window_manager_->SetIgnoreWmEventsForExit();
+
     for (auto& observer : tablet_mode_observers_)
       observer.OnTabletModeEnding();
-    // Make sure that calling `TabletModeController::InTabletMode()` returns
-    // false from now on.
-    std::unique_ptr<TabletModeWindowManager> to_be_removed_tablet_mode_wm =
-        std::move(tablet_mode_window_manager_);
-    to_be_removed_tablet_mode_wm->Shutdown();
+
+    if (tablet_mode_window_manager_)
+      tablet_mode_window_manager_->Shutdown();
+    tablet_mode_window_manager_.reset();
+
     base::RecordAction(base::UserMetricsAction("Touchview_Disabled"));
     RecordTabletModeUsageInterval(TABLET_MODE_INTERVAL_ACTIVE);
     state_ = State::kInClamshellMode;
@@ -902,8 +922,15 @@ void TabletModeController::UpdateInternalInputDevicesEventBlocker() {
       tablet_mode_behavior_.block_internal_input_device &&
       (InTabletMode() || is_in_tablet_physical_state_);
 
-  if (should_block_internal_events == AreInternalInputDeviceEventsBlocked())
+  if (should_block_internal_events == AreInternalInputDeviceEventsBlocked()) {
+    if (force_notify_events_blocking_changed_) {
+      for (auto& observer : tablet_mode_observers_)
+        observer.OnTabletModeEventsBlockingChanged();
+      force_notify_events_blocking_changed_ = false;
+    }
+
     return;
+  }
 
   event_blocker_->UpdateInternalInputDevices(should_block_internal_events);
   for (auto& observer : tablet_mode_observers_)
@@ -924,6 +951,8 @@ void TabletModeController::ResetPauser() {
 }
 
 void TabletModeController::FinishInitTabletMode() {
+  DCHECK_EQ(State::kEnteringTabletMode, state_);
+
   for (auto& observer : tablet_mode_observers_)
     observer.OnTabletModeStarting();
   tablet_mode_window_manager_ = std::make_unique<TabletModeWindowManager>();

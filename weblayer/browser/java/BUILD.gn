@@ -18,6 +18,7 @@ android_library("java") {
     "org/chromium/weblayer_private/BrowserObserverProxy.java",
     "org/chromium/weblayer_private/ContentView.java",
     "org/chromium/weblayer_private/ContentViewRenderView.java",
+    "org/chromium/weblayer_private/DownloadDelegateProxy.java",
     "org/chromium/weblayer_private/FullscreenDelegateProxy.java",
     "org/chromium/weblayer_private/NavigationControllerImpl.java",
     "org/chromium/weblayer_private/NavigationImpl.java",
@@ -35,6 +36,7 @@ android_library("java") {
     "//base:base_java",
     "//base:jni_java",
     "//content/public/android:content_java",
+    "//third_party/android_deps:com_android_support_support_compat_java",
     "//ui/android:ui_java",
   ]
   annotation_processor_deps = [ "//base/android/jni_generator:jni_processor" ]
@@ -45,6 +47,7 @@ generate_jni("jni") {
     "org/chromium/weblayer_private/BrowserControllerImpl.java",
     "org/chromium/weblayer_private/BrowserObserverProxy.java",
     "org/chromium/weblayer_private/ContentViewRenderView.java",
+    "org/chromium/weblayer_private/DownloadDelegateProxy.java",
     "org/chromium/weblayer_private/FullscreenDelegateProxy.java",
     "org/chromium/weblayer_private/NavigationControllerImpl.java",
     "org/chromium/weblayer_private/NavigationImpl.java",
@@ -73,6 +76,7 @@ android_aidl("aidl") {
     "org/chromium/weblayer_private/aidl/IBrowserFragmentController.aidl",
     "org/chromium/weblayer_private/aidl/IChildProcessService.aidl",
     "org/chromium/weblayer_private/aidl/IClientNavigation.aidl",
+    "org/chromium/weblayer_private/aidl/IDownloadDelegateClient.aidl",
     "org/chromium/weblayer_private/aidl/IFullscreenDelegateClient.aidl",
     "org/chromium/weblayer_private/aidl/INavigation.aidl",
     "org/chromium/weblayer_private/aidl/INavigationController.aidl",

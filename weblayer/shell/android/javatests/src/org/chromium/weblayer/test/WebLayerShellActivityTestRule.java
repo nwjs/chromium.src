@@ -14,13 +14,21 @@ import android.net.Uri;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.rule.ActivityTestRule;
 
-import org.chromium.content_public.browser.test.util.Criteria;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.junit.Assert;
+
+import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
-import org.chromium.weblayer.NavigationController;
+import org.chromium.weblayer.BrowserController;
+import org.chromium.weblayer.BrowserObserver;
+import org.chromium.weblayer.Navigation;
+import org.chromium.weblayer.NavigationObserver;
 import org.chromium.weblayer.shell.WebLayerShellActivity;
 
 import java.lang.reflect.Field;
+import java.util.concurrent.TimeoutException;
 
 /**
  * ActivityTestRule for WebLayerShellActivity.
@@ -28,47 +36,102 @@ import java.lang.reflect.Field;
  * Test can use this ActivityTestRule to launch or get WebLayerShellActivity.
  */
 public class WebLayerShellActivityTestRule extends ActivityTestRule<WebLayerShellActivity> {
-    private static final long WAIT_FOR_NAVIGATION_TIMEOUT = 10000L;
+    private static final class NavigationWaiter {
+        private String mUrl;
+        private BrowserController mController;
+        private boolean mNavigationComplete;
+        private boolean mDoneLoading;
+        private CallbackHelper mCallbackHelper = new CallbackHelper();
+
+        private NavigationObserver mNavigationObserver = new NavigationObserver() {
+            @Override
+            public void navigationCompleted(Navigation navigation) {
+                if (navigation.getUri().toString().equals(mUrl)) {
+                    mNavigationComplete = true;
+                    checkComplete();
+                }
+            }
+        };
+
+        private BrowserObserver mBrowserObserver = new BrowserObserver() {
+            @Override
+            public void loadingStateChanged(boolean isLoading, boolean toDifferentDocument) {
+                mDoneLoading = !isLoading;
+                checkComplete();
+            }
+        };
+
+        public NavigationWaiter(String url, BrowserController controller) {
+            mUrl = url;
+            mController = controller;
+        }
+
+        public void navigateAndWait() {
+            TestThreadUtils.runOnUiThreadBlocking(() -> {
+                mController.addObserver(mBrowserObserver);
+                mController.getNavigationController().addObserver(mNavigationObserver);
+                mController.getNavigationController().navigate(Uri.parse(mUrl));
+            });
+            try {
+                mCallbackHelper.waitForCallback(0);
+            } catch (TimeoutException e) {
+                throw new RuntimeException(e);
+            }
+            TestThreadUtils.runOnUiThreadBlocking(() -> {
+                mController.removeObserver(mBrowserObserver);
+                mController.getNavigationController().removeObserver(mNavigationObserver);
+            });
+        }
+
+        private void checkComplete() {
+            if (mNavigationComplete && mDoneLoading) {
+                mCallbackHelper.notifyCalled();
+            }
+        }
+    }
+
+    private static final class JSONCallbackHelper extends CallbackHelper {
+        private JSONObject mResult;
+
+        public JSONObject getResult() {
+            return mResult;
+        }
+
+        public void notifyCalled(JSONObject result) {
+            mResult = result;
+            notifyCalled();
+        }
+    }
 
     public WebLayerShellActivityTestRule() {
         super(WebLayerShellActivity.class, false, false);
     }
 
     /**
-     * Starts the WebLayer activity and loads the given URL.
+     * Starts the WebLayer activity and completely loads the given URL (this calls
+     * navigateAndWait()).
      */
     public WebLayerShellActivity launchShellWithUrl(String url) {
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.addCategory(Intent.CATEGORY_LAUNCHER);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        if (url != null) intent.setData(Uri.parse(url));
+        // Prevent URL from being loaded on start.
+        intent.putExtra(WebLayerShellActivity.EXTRA_NO_LOAD, true);
         intent.setComponent(
                 new ComponentName(InstrumentationRegistry.getInstrumentation().getTargetContext(),
                         WebLayerShellActivity.class));
-        return launchActivity(intent);
-    }
-
-    /**
-     * Waits for the shell to navigate to the given URI.
-     */
-    public void waitForNavigation(String uri) {
-        CriteriaHelper.pollUiThread(new Criteria() {
-            @Override
-            public boolean isSatisfied() {
-                NavigationController navigationController =
-                        getActivity().getBrowserController().getNavigationController();
-                Uri currentUri = navigationController.getNavigationEntryDisplayUri(
-                        navigationController.getNavigationListCurrentIndex());
-                return currentUri.toString().equals(uri);
-            }
-        }, WAIT_FOR_NAVIGATION_TIMEOUT, CriteriaHelper.DEFAULT_POLLING_INTERVAL);
+        WebLayerShellActivity activity = launchActivity(intent);
+        Assert.assertNotNull(activity);
+        if (url != null) navigateAndWait(url);
+        return activity;
     }
 
     /**
      * Loads the given URL in the shell.
      */
-    public void loadUrl(String url) {
-        TestThreadUtils.runOnUiThreadBlocking(() -> { getActivity().loadUrl(url); });
+    public void navigateAndWait(String url) {
+        NavigationWaiter waiter = new NavigationWaiter(url, getActivity().getBrowserController());
+        waiter.navigateAndWait();
     }
 
     /**
@@ -99,6 +162,48 @@ public class WebLayerShellActivityTestRule extends ActivityTestRule<WebLayerShel
             field.setAccessible(true);
             field.set(this, monitor.getLastActivity());
         } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Executes the script passed in and waits for the result.
+     */
+    public JSONObject executeScriptSync(String script) {
+        JSONCallbackHelper callbackHelper = new JSONCallbackHelper();
+        int count = callbackHelper.getCallCount();
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            getActivity().getBrowserController().executeScript(
+                    script, (JSONObject result) -> { callbackHelper.notifyCalled(result); });
+        });
+        try {
+            callbackHelper.waitForCallback(count);
+        } catch (TimeoutException e) {
+            throw new RuntimeException(e);
+        }
+        return callbackHelper.getResult();
+    }
+
+    public int executeScriptAndExtractInt(String script) {
+        try {
+            return executeScriptSync(script).getInt(BrowserController.SCRIPT_RESULT_KEY);
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public String executeScriptAndExtractString(String script) {
+        try {
+            return executeScriptSync(script).getString(BrowserController.SCRIPT_RESULT_KEY);
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public boolean executeScriptAndExtractBoolean(String script) {
+        try {
+            return executeScriptSync(script).getBoolean(BrowserController.SCRIPT_RESULT_KEY);
+        } catch (JSONException e) {
             throw new RuntimeException(e);
         }
     }

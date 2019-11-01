@@ -14,6 +14,7 @@
         <structure name="IDR_APP_LIST_START_PAGE_JS" file="resources\empty.js" flattenhtml="true" type="chrome_html" />
       </if>
       <if expr="not is_android">
+        <structure name="IDR_SIGNIN_SHARED_OLD_CSS_HTML" file="resources\signin\signin_shared_old_css.html" preprocess="true" allowexternalscript="true" type="chrome_html" />
         <structure name="IDR_DOWNLOADS_DOWNLOADS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="chrome_html" />
         <structure name="IDR_MD_DOWNLOADS_DOWNLOADS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="chrome_html" />
       </if>
@@ -358,9 +359,8 @@
         <include name="IDR_MANAGEMENT_HTML" file="resources\management\management.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
         <include name="IDR_MANAGEMENT_UI_HTML" file="resources\management\management_ui.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
         <include name="IDR_MANAGEMENT_UI_JS" file="resources\management\management_ui.js" type="BINDATA" compress="gzip" preprocess="true" />
-        <include name="IDR_MANAGEMENT_BROWSER_PROXY_HTML" file="resources\management\management_browser_proxy.html" allowexternalscript="true" type="BINDATA" compress="gzip" />
         <include name="IDR_MANAGEMENT_BROWSER_PROXY_JS" file="resources\management\management_browser_proxy.js" type="BINDATA" compress="gzip" preprocess="true" />
-        <include name="IDR_MANAGEMENT_ICONS_HTML" file="resources\management\icons.html" type="BINDATA" compress="gzip" preprocess="true" />
+        <include name="IDR_MANAGEMENT_ICONS_JS" file="${root_gen_dir}/chrome/browser/resources/management/icons.js" use_base_dir="false" type="BINDATA" compress="gzip" preprocess="true" />
       </if>
       <include name="IDR_PROFILER_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_PROFILER_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />

@@ -543,6 +543,8 @@ jumbo_static_library("browser") {
     "hang_monitor/hang_crash_dump_win.cc",
     "heavy_ad_intervention/heavy_ad_blocklist.cc",
     "heavy_ad_intervention/heavy_ad_blocklist.h",
+    "heavy_ad_intervention/heavy_ad_features.cc",
+    "heavy_ad_intervention/heavy_ad_features.h",
     "heavy_ad_intervention/heavy_ad_helper.cc",
     "heavy_ad_intervention/heavy_ad_helper.h",
     "heavy_ad_intervention/heavy_ad_service.cc",
@@ -5492,6 +5494,8 @@ static_library("test_support") {
     "signin/scoped_account_consistency.h",
     "ssl/ssl_client_auth_requestor_mock.cc",
     "ssl/ssl_client_auth_requestor_mock.h",
+    "ssl/tls_deprecation_test_utils.cc",
+    "ssl/tls_deprecation_test_utils.h",
     "translate/translate_test_utils.cc",
     "translate/translate_test_utils.h",
   ]

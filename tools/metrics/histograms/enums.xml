@@ -1141,6 +1141,15 @@ Unknown properties are collapsed to zero. -->
   <int value="2" label="Malformed response"/>
 </enum>
 
+<enum name="AggregatedSearchRankerError">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="LoadModelFailed"/>
+  <int value="2" label="CreateGraphFailed"/>
+  <int value="3" label="LoadExamplePreprocessorConfigFailed"/>
+  <int value="4" label="VectorizeFeaturesFailed"/>
+  <int value="5" label="InferenceExecutionFailed"/>
+</enum>
+
 <enum name="AlsaSampleFormatType">
   <int value="-1" label="SND_PCM_FORMAT_UNKNOWN"/>
   <int value="0" label="SND_PCM_FORMAT_S8"/>
@@ -1754,6 +1763,16 @@ Unknown properties are collapsed to zero. -->
   <int value="6"
       label="Previous attempt to persist search engine metadata failed"/>
   <int value="7" label="Request success"/>
+</enum>
+
+<enum name="AndroidSearchEngineLogoEvents">
+  <summary>Events related to Search Engine logo feature.</summary>
+  <int value="0" label="Fetch non-Google logo request"/>
+  <int value="1" label="Fetch failed, null logo url"/>
+  <int value="2" label="Fetch failed, favicon helper error"/>
+  <int value="3" label="Fetch failed, returned bitmap null"/>
+  <int value="4" label="Fetch success, cache hit"/>
+  <int value="5" label="Fetch from network success"/>
 </enum>
 
 <enum name="AndroidSeccompSandboxStatus">
@@ -2479,6 +2498,13 @@ Unknown properties are collapsed to zero. -->
   <int value="4" label="PROMO_SEEN"/>
 </enum>
 
+<enum name="AppSeedRequestState">
+  <int value="0" label="Unknown seed state"/>
+  <int value="1" label="Current seed fresh"/>
+  <int value="2" label="New seed requested from the service"/>
+  <int value="3" label="Seed request to service throttled by client"/>
+</enum>
+
 <enum name="AppsPageDragSource">
   <int value="0" label="Same apps pane"/>
   <int value="1" label="Different apps pane"/>
@@ -2504,6 +2530,18 @@ Unknown properties are collapsed to zero. -->
   <int value="2" label="Account needs reauth"/>
   <int value="3" label="Account has unknown state"/>
   <int value="4" label="Account check failed"/>
+</enum>
+
+<enum name="ArcAuthMainAccountResolutionStatus">
+  <int value="0" label="No hash code no account"/>
+  <int value="1" label="No hash code for single account"/>
+  <int value="2" label="No hash code for multiple accounts"/>
+  <int value="3" label="Hash code set but no account"/>
+  <int value="4" label="Hash code set but does not match single account"/>
+  <int value="5" label="Hash code set but does not any account"/>
+  <int value="6" label="Hash code set and matches single account"/>
+  <int value="7" label="Hash code set and matches one of multiple accounts"/>
+  <int value="8" label="Hash code collides with multiple accounts"/>
 </enum>
 
 <enum name="ArcBootContinueCodeInstallationResult">
@@ -3754,6 +3792,29 @@ Unknown properties are collapsed to zero. -->
   <int value="2" label="Denied"/>
   <int value="3" label="Ignored"/>
   <int value="4" label="NotShown, invalid legal message"/>
+</enum>
+
+<enum name="AutofillCreditCardPreflightCallEvent">
+  <int value="0" label="Preflight returned first"/>
+  <int value="1" label="Card chosen first"/>
+  <int value="2" label="Preflight call ignored"/>
+</enum>
+
+<enum name="AutofillCreditCardUnmaskDecisionMetric">
+  <int value="0" label="WebAuthn only"/>
+  <int value="1" label="CVC followed by WebAuthn"/>
+</enum>
+
+<enum name="AutofillCreditCardUploadFeedback">
+  <int value="0" label="Loading indicator shown"/>
+  <int value="1" label="Failure icon shown"/>
+  <int value="2" label="Failure bubble shown"/>
+</enum>
+
+<enum name="AutofillCreditCardWebauthnResultMetric">
+  <int value="0" label="Success"/>
+  <int value="1" label="Other error"/>
+  <int value="2" label="Not-Allowed error"/>
 </enum>
 
 <enum name="AutofillDeveloperEngagement">
@@ -10965,6 +11026,45 @@ Called by update_net_error_codes.py.-->
   <int value="3" label="Hash Mismatch"/>
 </enum>
 
+<enum name="CorsAccessCheckError">
+  <summary>The CORS check results for each request.</summary>
+  <int value="0" label="CORS request was permitted"/>
+  <int value="1" label="CORS request was not permitted"/>
+  <int value="2" label="CORS preflight permitted a CORS request"/>
+  <int value="3" label="CORS preflight didn't permit a CORS request"/>
+</enum>
+
+<enum name="CorsAccessCheckResult">
+  <summary>
+    The detailed error type for CORS check failures. See
+    services/network/public/mojom/cors.mojom for detailed information.
+  </summary>
+  <int value="0" label="kDisallowedByMode"/>
+  <int value="1" label="kInvalidResponse"/>
+  <int value="2" label="kWildcardOriginNotAllowed"/>
+  <int value="3" label="kMissingAllowOriginHeader"/>
+  <int value="4" label="kMultipleAllowOriginValues"/>
+  <int value="5" label="kInvalidAllowOriginValue"/>
+  <int value="6" label="kAllowOriginMismatch"/>
+  <int value="7" label="kInvalidAllowCredentials"/>
+  <int value="8" label="kCorsDisabledScheme"/>
+  <int value="9" label="kPreflightInvalidStatus"/>
+  <int value="10" label="kPreflightDisallowedRedirect"/>
+  <int value="11" label="kPreflightWildcardOriginNotAllowed"/>
+  <int value="12" label="kPreflightMissingAllowOriginHeader"/>
+  <int value="13" label="kPreflightMultipleAllowOriginValues"/>
+  <int value="14" label="kPreflightInvalidAllowOriginValue"/>
+  <int value="15" label="kPreflightAllowOriginMismatch"/>
+  <int value="16" label="kPreflightInvalidAllowCredentials"/>
+  <int value="17" label="kPreflightMissingAllowExternal"/>
+  <int value="18" label="kPreflightInvalidAllowExternal"/>
+  <int value="19" label="kInvalidAllowMethodsPreflightResponse"/>
+  <int value="20" label="kInvalidAllowHeadersPreflightResponse"/>
+  <int value="21" label="kMethodDisallowedByPreflightResponse"/>
+  <int value="22" label="kHeaderDisallowedByPreflightResponse"/>
+  <int value="23" label="kRedirectContainsCredentials"/>
+</enum>
+
 <enum name="CorsCompletionStatus">
   <summary>The completion status of CorsURLLoader request.</summary>
   <int value="0"
@@ -11557,6 +11657,16 @@ Called by update_net_error_codes.py.-->
 <enum name="CreditCardUploadDisallowedNetwork">
   <int value="0" label="Elo card"/>
   <int value="1" label="JCB card"/>
+</enum>
+
+<enum name="CrOSActionRecorderEvent">
+  <int value="0" label="Disabled"/>
+  <int value="1" label="RecordAction"/>
+  <int value="2" label="FlushToDisk"/>
+  <int value="3" label="ReadFromFileFail"/>
+  <int value="4" label="ParseFromStringFail"/>
+  <int value="5" label="CreateDirectoryFail"/>
+  <int value="6" label="WriteFileAtomicallyFail"/>
 </enum>
 
 <enum name="CrosBeamformingDeviceState">
@@ -18330,11 +18440,15 @@ Called by update_net_error_codes.py.-->
   <int value="624" label="LegacySameSiteCookieBehaviorEnabledForDomainList"/>
   <int value="625" label="PrintJobHistoryExpirationPeriod"/>
   <int value="626" label="TLS13HardeningForLocalAnchorsEnabled"/>
-  <int value="627" label="ForceDisableAudioSandbox"/>
+  <int value="627" label="AudioSandboxEnabled"/>
   <int value="628" label="DeviceLoginScreenScreenMagnifierType"/>
   <int value="629" label="CorsMitigationList"/>
   <int value="630" label="CorsLegacyModeEnabled"/>
   <int value="631" label="ExternalPrintServersWhitelist"/>
+  <int value="632" label="ExternalProtocolDialogShowAlwaysOpenCheckbox"/>
+  <int value="633" label="DefaultInsecureContentSetting"/>
+  <int value="634" label="InsecureContentAllowedForUrls"/>
+  <int value="635" label="InsecureContentBlockedForUrls"/>
 </enum>
 
 <enum name="EnterprisePolicyInvalidations">
@@ -25004,6 +25118,8 @@ Called by update_net_error_codes.py.-->
   <int value="3059" label="NonOriginCleanImageBitmapTransfer"/>
   <int value="3060" label="CompressionStreamConstructor"/>
   <int value="3061" label="DecompressionStreamConstructor"/>
+  <int value="3062" label="V8RTCRtpReceiver_PlayoutDelayHint_AttributeGetter"/>
+  <int value="3063" label="V8RTCRtpReceiver_PlayoutDelayHint_AttributeSetter"/>
 </enum>
 
 <enum name="FeaturePolicyAllowlistType">
@@ -36063,6 +36179,7 @@ from previous Chrome versions.
   <int value="-885601782" label="enable-contextual-search"/>
   <int value="-884864731" label="WebPaymentsSingleAppUiSkip:enabled"/>
   <int value="-883694393" label="SyncPseudoUSSSupervisedUsers:disabled"/>
+  <int value="-883608641" label="enable-cros-action-recorder"/>
   <int value="-882434910" label="EnableAggregatedMlSearchRanking:enabled"/>
   <int value="-881447505" label="ash-disable-shelf-model-synchronization"/>
   <int value="-881054479" label="WebAssemblyStreaming:disabled"/>
@@ -36799,7 +36916,6 @@ from previous Chrome versions.
   <int value="83422372"
       label="ChromeHomePersonalizedOmniboxSuggestions:enabled"/>
   <int value="84911198" label="ScanCardsInWebPayments:disabled"/>
-  <int value="88412508" label="EnableCrOSActionRecorder:enabled"/>
   <int value="88437020" label="FeaturePolicy:enabled"/>
   <int value="89785725"
       label="DataReductionProxyEnabledWithNetworkService:disabled"/>
@@ -36887,7 +37003,6 @@ from previous Chrome versions.
   <int value="217455219" label="SyncStandaloneTransport:enabled"/>
   <int value="218890378" label="ManualSaving:disabled"/>
   <int value="219117936" label="AllowReaderForAccessibility:enabled"/>
-  <int value="220418174" label="EnableCrOSActionRecorder:disabled"/>
   <int value="221212638" label="StartSurfaceAndroid:enabled"/>
   <int value="222184258"
       label="AutofillEnforceMinRequiredFieldsForHeuristics:disabled"/>
@@ -53980,6 +54095,18 @@ Called by update_net_trust_anchors.py.-->
   <int value="1" label="Lax method unsafe"/>
   <int value="2" label="Laxly same-site"/>
   <int value="3" label="Strictly same-site"/>
+  <int value="33"
+      label="Lax method unsafe insecure site-for-cookies to secure request"/>
+  <int value="34"
+      label="Laxly same-site insecure site-for-cookies to secure request"/>
+  <int value="35"
+      label="Strictly same-site insecure site-for-cookies to secure request"/>
+  <int value="65"
+      label="Lax method unsafe secure site-for-cookies to insecure request"/>
+  <int value="66"
+      label="Laxly same-site secure site-for-cookies to insecure request"/>
+  <int value="67"
+      label="Strictly same-site secure site-for-cookies to insecure request"/>
 </enum>
 
 <enum name="SamlInSessionPasswordChangeEvent">
@@ -54863,6 +54990,12 @@ Called by update_net_trust_anchors.py.-->
   <int value="7" label="Rollback: SBER2 on on implies SBER1 can turn on"/>
   <int value="8" label="Rollback: SBER2 off so SBER1 must be turned off"/>
   <int value="9" label="Rollback: SBER2 absent so SBER1 must be cleared"/>
+</enum>
+
+<enum name="ScreenRotationAcceleratorAction">
+  <int value="0" label="CancelledDialog"/>
+  <int value="1" label="AcceptedDialog"/>
+  <int value="2" label="AlreadyAcceptedDialog"/>
 </enum>
 
 <enum name="ScriptSchedulingType">
@@ -60881,6 +61014,12 @@ would be helpful to identify which type is being sent.
       label="Bubbling Root-scroller, scrollable document, handled application"/>
 </enum>
 
+<enum name="TouchToFill.UserAction">
+  <int value="0" label="Selected Credential"/>
+  <int value="1" label="Dismissed"/>
+  <int value="2" label="Selected Manage Passwords"/>
+</enum>
+
 <enum name="TPMFirmwareUpdateResult">
   <int value="0" label="Success"/>
   <int value="1" label="Success after retry"/>
@@ -63610,6 +63749,13 @@ Full version information for the fingerprint enum values:
     Chrome VR was started by an intent from another app. Most likely the user
     clicked the icon in Daydream home.
   </int>
+</enum>
+
+<enum name="VRStartReason">
+  <int value="1" label="Headset Activation"/>
+  <int value="2" label="Presentation Requset"/>
+  <int value="3" label="(obsolete) Deep linked app"/>
+  <int value="4" label="Intent Launch"/>
 </enum>
 
 <enum name="VRSuppressedElement">
@@ -67287,11 +67433,29 @@ Full version information for the fingerprint enum values:
   <int value="1" label="OpenVR"/>
 </enum>
 
+<enum name="XRSessionMode">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Inline"/>
+  <int value="2" label="Immersive VR"/>
+  <int value="3" label="Immersive AR"/>
+</enum>
+
+<enum name="XRSessionModeRequest">
+  <int value="0" label="Inline"/>
+  <int value="1" label="Immersive VR"/>
+  <int value="2" label="Immersive AR"/>
+</enum>
+
 <enum name="XRSessionRequestDialogAction">
   <int value="0" label="UserConsented"/>
   <int value="1" label="UserDenied"/>
   <int value="2" label="UserAbortedConsentFlow"/>
   <int value="3" label="UserConsentedAfterBounce"/>
+</enum>
+
+<enum name="XRSessionRequestStatus">
+  <int value="0" label="Success"/>
+  <int value="1" label="Error"/>
 </enum>
 
 <enum name="YoungGenerationHandling">

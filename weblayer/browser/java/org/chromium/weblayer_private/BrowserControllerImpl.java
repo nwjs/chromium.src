@@ -13,14 +13,16 @@ import android.view.ViewGroup.LayoutParams;
 import android.webkit.ValueCallback;
 import android.widget.FrameLayout;
 
+import org.chromium.base.Callback;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.content_public.browser.ViewEventSink;
 import org.chromium.content_public.browser.WebContents;
-import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.ViewAndroidDelegate;
+import org.chromium.ui.base.WindowAndroid;
 import org.chromium.weblayer_private.aidl.IBrowserController;
 import org.chromium.weblayer_private.aidl.IBrowserControllerClient;
+import org.chromium.weblayer_private.aidl.IDownloadDelegateClient;
 import org.chromium.weblayer_private.aidl.IFullscreenDelegateClient;
 import org.chromium.weblayer_private.aidl.INavigationControllerClient;
 import org.chromium.weblayer_private.aidl.IObjectWrapper;
@@ -30,9 +32,8 @@ import org.chromium.weblayer_private.aidl.ObjectWrapper;
 public final class BrowserControllerImpl extends IBrowserController.Stub {
     private long mNativeBrowserController;
 
-    // TODO: move mWindowAndroid, mContentViewRenderView, mContentView, mTopControlsContainerView to
+    // TODO: move mContentViewRenderView, mContentView, mTopControlsContainerView to
     // BrowserFragmentControllerImpl.
-    private ActivityWindowAndroid mWindowAndroid;
     // This view is the main view (returned from the fragment's onCreateView()).
     private ContentViewRenderView mContentViewRenderView;
     // One of these is needed per WebContents.
@@ -43,6 +44,7 @@ public final class BrowserControllerImpl extends IBrowserController.Stub {
     private WebContents mWebContents;
     private BrowserObserverProxy mBrowserObserverProxy;
     private NavigationControllerImpl mNavigationController;
+    private DownloadDelegateProxy mDownloadDelegateProxy;
     private FullscreenDelegateProxy mFullscreenDelegateProxy;
 
     private static class InternalAccessDelegateImpl
@@ -66,17 +68,14 @@ public final class BrowserControllerImpl extends IBrowserController.Stub {
         public void onScrollChanged(int lPix, int tPix, int oldlPix, int oldtPix) {}
     }
 
-    public BrowserControllerImpl(Context context, ProfileImpl profile) {
+    public BrowserControllerImpl(
+            Context context, ProfileImpl profile, WindowAndroid windowAndroid) {
         mProfile = profile;
 
-        // Use false to disable listening to activity state.
-        // TODO: this should *not* use ActivityWindowAndroid as that relies on Activity, and this
-        // code should not assume it is supplied an Activity.
-        mWindowAndroid = new ActivityWindowAndroid(context, false);
         mContentViewRenderView = new ContentViewRenderView(context);
 
         mContentViewRenderView.onNativeLibraryLoaded(
-                mWindowAndroid, ContentViewRenderView.MODE_SURFACE_VIEW);
+                windowAndroid, ContentViewRenderView.MODE_SURFACE_VIEW);
 
         mNativeBrowserController =
                 BrowserControllerImplJni.get().createBrowserController(profile.getNativeProfile());
@@ -94,7 +93,7 @@ public final class BrowserControllerImpl extends IBrowserController.Stub {
             }
         };
         mWebContents.initialize("", viewAndroidDelegate, new InternalAccessDelegateImpl(),
-                mWindowAndroid, WebContents.createDefaultInternalsHolder());
+                windowAndroid, WebContents.createDefaultInternalsHolder());
 
         mContentViewRenderView.setCurrentWebContents(mWebContents);
 
@@ -130,6 +129,21 @@ public final class BrowserControllerImpl extends IBrowserController.Stub {
     }
 
     @Override
+    public void setDownloadDelegateClient(IDownloadDelegateClient client) {
+        if (client != null) {
+            if (mDownloadDelegateProxy == null) {
+                mDownloadDelegateProxy =
+                        new DownloadDelegateProxy(mNativeBrowserController, client);
+            } else {
+                mDownloadDelegateProxy.setClient(client);
+            }
+        } else if (mDownloadDelegateProxy != null) {
+            mDownloadDelegateProxy.destroy();
+            mDownloadDelegateProxy = null;
+        }
+    }
+
+    @Override
     public void setFullscreenDelegateClient(IFullscreenDelegateClient client) {
         if (client != null) {
             if (mFullscreenDelegateProxy == null) {
@@ -144,6 +158,22 @@ public final class BrowserControllerImpl extends IBrowserController.Stub {
         }
     }
 
+    @Override
+    public void executeScript(String script, IObjectWrapper callback) {
+        Callback<String> nativeCallback = new Callback<String>() {
+            @Override
+            public void onResult(String result) {
+                ValueCallback<String> unwrappedCallback =
+                        (ValueCallback<String>) ObjectWrapper.unwrap(callback, ValueCallback.class);
+                if (unwrappedCallback != null) {
+                    unwrappedCallback.onReceiveValue(result);
+                }
+            }
+        };
+        BrowserControllerImplJni.get().executeScript(
+                mNativeBrowserController, script, nativeCallback);
+    }
+
     public void destroy() {
         BrowserControllerImplJni.get().setTopControlsContainerView(
                 mNativeBrowserController, BrowserControllerImpl.this, 0);
@@ -152,6 +182,10 @@ public final class BrowserControllerImpl extends IBrowserController.Stub {
         if (mBrowserObserverProxy != null) {
             mBrowserObserverProxy.destroy();
             mBrowserObserverProxy = null;
+        }
+        if (mDownloadDelegateProxy != null) {
+            mDownloadDelegateProxy.destroy();
+            mDownloadDelegateProxy = null;
         }
         if (mFullscreenDelegateProxy != null) {
             mFullscreenDelegateProxy.destroy();
@@ -185,5 +219,7 @@ public final class BrowserControllerImpl extends IBrowserController.Stub {
                 BrowserControllerImpl caller, long nativeTopControlsContainerView);
         void deleteBrowserController(long browserController);
         WebContents getWebContents(long nativeBrowserControllerImpl, BrowserControllerImpl caller);
+        void executeScript(
+                long nativeBrowserControllerImpl, String script, Callback<String> callback);
     }
 }

@@ -4,6 +4,7 @@
 
 package org.chromium.weblayer.shell;
 
+import android.app.DownloadManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -30,6 +31,7 @@ import org.chromium.weblayer.BrowserController;
 import org.chromium.weblayer.BrowserFragment;
 import org.chromium.weblayer.BrowserFragmentController;
 import org.chromium.weblayer.BrowserObserver;
+import org.chromium.weblayer.DownloadDelegate;
 import org.chromium.weblayer.FullscreenDelegate;
 import org.chromium.weblayer.NavigationController;
 import org.chromium.weblayer.Profile;
@@ -43,6 +45,8 @@ import java.util.List;
  * Activity for managing the Demo Shell.
  */
 public class WebLayerShellActivity extends FragmentActivity {
+    public static final String EXTRA_NO_LOAD = "extra_no_load";
+
     private static final String TAG = "WebLayerShell";
     private static final String KEY_MAIN_VIEW_ID = "mainViewId";
 
@@ -55,6 +59,7 @@ public class WebLayerShellActivity extends FragmentActivity {
     private int mMainViewId;
     private ViewGroup mTopContentsContainer;
     private BrowserFragment mFragment;
+    private IntentInterceptor mIntentInterceptor;
 
     public BrowserController getBrowserController() {
         return mBrowserController;
@@ -62,6 +67,25 @@ public class WebLayerShellActivity extends FragmentActivity {
 
     public BrowserFragmentController getBrowserFragmentController() {
         return mBrowserFragmentController;
+    }
+
+    /** Interface used to intercept intents for testing. */
+    public static interface IntentInterceptor {
+        void interceptIntent(Fragment fragment, Intent intent, int requestCode, Bundle options);
+    }
+
+    public void setIntentInterceptor(IntentInterceptor interceptor) {
+        mIntentInterceptor = interceptor;
+    }
+
+    @Override
+    public void startActivityFromFragment(
+            Fragment fragment, Intent intent, int requestCode, Bundle options) {
+        if (mIntentInterceptor != null) {
+            mIntentInterceptor.interceptIntent(fragment, intent, requestCode, options);
+            return;
+        }
+        super.startActivityFromFragment(fragment, intent, requestCode, options);
     }
 
     @Override
@@ -174,11 +198,15 @@ public class WebLayerShellActivity extends FragmentActivity {
         mBrowserFragmentController.setTopView(mTopContentsContainer);
 
         mBrowserController = mBrowserFragmentController.getBrowserController();
-        String startupUrl = getUrlFromIntent(getIntent());
-        if (TextUtils.isEmpty(startupUrl)) {
-            startupUrl = "http://google.com";
+        boolean blockFirstLoad = getIntent().getExtras() != null
+                && getIntent().getExtras().getBoolean(EXTRA_NO_LOAD, false);
+        if (!blockFirstLoad) {
+            String startupUrl = getUrlFromIntent(getIntent());
+            if (TextUtils.isEmpty(startupUrl)) {
+                startupUrl = "http://google.com";
+            }
+            loadUrl(startupUrl);
         }
-        loadUrl(startupUrl);
         mBrowserController.addObserver(new BrowserObserver() {
             @Override
             public void visibleUrlChanged(Uri uri) {
@@ -194,6 +222,16 @@ public class WebLayerShellActivity extends FragmentActivity {
             @Override
             public void loadProgressChanged(double progress) {
                 mLoadProgressBar.setProgress((int) Math.round(100 * progress));
+            }
+        });
+        mBrowserController.setDownloadDelegate(new DownloadDelegate() {
+            @Override
+            public void downloadRequested(String url, String userAgent, String contentDisposition,
+                    String mimetype, long contentLength) {
+                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                request.setNotificationVisibility(
+                        DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                getSystemService(DownloadManager.class).enqueue(request);
             }
         });
     }
