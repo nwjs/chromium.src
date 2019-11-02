@@ -26,5 +26,5 @@ void SetUpBundleOverrides() {
 
     NSBundle* base_bundle = chrome::OuterAppBundle();
     base::mac::SetBaseBundleID([[base_bundle bundleIdentifier] UTF8String]);
-
+  }
 }

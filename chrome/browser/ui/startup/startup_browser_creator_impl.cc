@@ -599,7 +599,7 @@ void StartupBrowserCreatorImpl::DetermineURLsAndLaunch(
         IncompatibleApplicationsUpdater::HasCachedApplications();
   }
 #endif
-  welcome::JoinOnboardingGroup(profile_);
+  //welcome::JoinOnboardingGroup(profile_);
 #endif
 
   // Presentation of promotional and/or educational tabs may be controlled via
