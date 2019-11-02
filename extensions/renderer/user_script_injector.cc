@@ -133,6 +133,10 @@ UserScript::InjectionType UserScriptInjector::script_type() const {
   return UserScript::CONTENT_SCRIPT;
 }
 
+bool UserScriptInjector::ShouldExecuteInMainWorld() const {
+  return script_->in_main_world();
+}
+
 bool UserScriptInjector::IsUserGesture() const {
   return false;
 }

@@ -39,6 +39,10 @@ UserScript::InjectionType ProgrammaticScriptInjector::script_type()
   return UserScript::PROGRAMMATIC_SCRIPT;
 }
 
+bool ProgrammaticScriptInjector::ShouldExecuteInMainWorld() const {
+  return params_->in_main_world;
+}
+
 bool ProgrammaticScriptInjector::IsUserGesture() const {
   return params_->user_gesture;
 }

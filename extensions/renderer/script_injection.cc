@@ -288,8 +288,11 @@ void ScriptInjection::InjectJs(std::set<std::string>* executing_scripts,
   std::vector<blink::WebScriptSource> sources = injector_->GetJsSources(
       run_location_, executing_scripts, num_injected_js_scripts);
   DCHECK(!sources.empty());
-  int world_id =
-      GetIsolatedWorldIdForInstance(injection_host_.get(), web_frame);
+  bool in_main_world = injector_->ShouldExecuteInMainWorld();
+  int world_id = in_main_world
+                     ? DOMActivityLogger::kMainWorldId
+                     : GetIsolatedWorldIdForInstance(injection_host_.get(),
+                                                     web_frame);
   bool is_user_gesture = injector_->IsUserGesture();
 
   std::unique_ptr<blink::WebScriptExecutionCallback> callback(
@@ -298,24 +301,31 @@ void ScriptInjection::InjectJs(std::set<std::string>* executing_scripts,
   base::ElapsedTimer exec_timer;
   if (injection_host_->id().type() == HostID::EXTENSIONS && log_activity_)
     DOMActivityLogger::AttachToWorld(world_id, injection_host_->id().id());
+  if (in_main_world) {
+    // We only inject in the main world for javascript: urls.
+    DCHECK_EQ(1u, sources.size());
 
-  blink::WebLocalFrame::ScriptExecutionType option;
-  if (injector_->script_type() == UserScript::CONTENT_SCRIPT) {
-    switch (run_location_) {
-      case UserScript::DOCUMENT_END:
-      case UserScript::DOCUMENT_IDLE:
-        option = blink::WebLocalFrame::kAsynchronousBlockingOnload;
-        break;
-      default:
-        option = blink::WebLocalFrame::kSynchronous;
-        break;
-    }
+    web_frame->RequestExecuteScriptAndReturnValue(
+        sources.front(), is_user_gesture, callback.release());
   } else {
-    option = blink::WebLocalFrame::kSynchronous;
+    blink::WebLocalFrame::ScriptExecutionType option;
+    if (injector_->script_type() == UserScript::CONTENT_SCRIPT) {
+      switch (run_location_) {
+        case UserScript::DOCUMENT_END:
+        case UserScript::DOCUMENT_IDLE:
+          option = blink::WebLocalFrame::kAsynchronousBlockingOnload;
+          break;
+        default:
+          option = blink::WebLocalFrame::kSynchronous;
+          break;
+      }
+    } else {
+      option = blink::WebLocalFrame::kSynchronous;
+    }
+    web_frame->RequestExecuteScriptInIsolatedWorld(
+        world_id, &sources.front(), sources.size(), is_user_gesture, option,
+        callback.release());
   }
-  web_frame->RequestExecuteScriptInIsolatedWorld(
-      world_id, &sources.front(), sources.size(), is_user_gesture, option,
-      callback.release());
 }
 
 void ScriptInjection::OnJsInjectionCompleted(
