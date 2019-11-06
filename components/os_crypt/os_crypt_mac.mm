@@ -143,7 +143,7 @@ std::string OSCrypt::GetRawEncryptionKey() {
 // static
 void OSCrypt::SetRawEncryptionKey(const std::string& raw_key) {
   base::AutoLock auto_lock(g_lock.Get());
-  DCHECK(!g_key_is_cached) << "Encryption key already set.";
+  //DCHECK(!g_key_is_cached) << "Encryption key already set.";
   if (!raw_key.empty()) {
     auto key = crypto::SymmetricKey::Import(crypto::SymmetricKey::AES, raw_key);
     g_cached_encryption_key = key.release();

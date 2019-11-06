@@ -242,6 +242,7 @@ void WindowSizer::GetDefaultWindowBounds(const display::Display& display,
 #endif
   gfx::Rect work_area = display.work_area();
 
+#if 0
   // The default size is either some reasonably wide width, or if the work
   // area is narrower, then the work area width less some aesthetic padding.
   int default_width = std::min(work_area.width() - 2 * kWindowTilePixels,
@@ -269,9 +270,11 @@ void WindowSizer::GetDefaultWindowBounds(const display::Display& display,
         1.5 * kWindowTilePixels);
   }
 #endif  // !defined(OS_MACOSX)
+#endif
+
   default_bounds->SetRect(kWindowTilePixels + work_area.x(),
                           kWindowTilePixels + work_area.y(),
-                          default_width, default_height);
+                          640, 480);
 }
 
 void WindowSizer::AdjustBoundsToBeVisibleOnDisplay(
