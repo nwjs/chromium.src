@@ -328,7 +328,7 @@ void ChromeClientImpl::Show(NavigationPolicy navigation_policy, WebString* manif
   // TODO(darin): Change caller to pass LocalFrame.
   DCHECK(web_view_->MainFrameImpl());
   web_view_->MainFrameImpl()->FrameWidgetImpl()->Client()->Show(
-      static_cast<WebNavigationPolicy>(navigation_policy));
+      static_cast<WebNavigationPolicy>(navigation_policy), manifest);
 }
 
 bool ChromeClientImpl::ShouldReportDetailedMessageForSource(
