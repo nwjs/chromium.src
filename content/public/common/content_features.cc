@@ -388,7 +388,7 @@ const base::Feature kPreferCompositingToLCDText = {
 // kProcessSharingWithStrictSiteInstances. Only one of these should be enabled
 // at a time.
 const base::Feature kProcessSharingWithDefaultSiteInstances{
-    "ProcessSharingWithDefaultSiteInstances", base::FEATURE_ENABLED_BY_DEFAULT};
+  "ProcessSharingWithDefaultSiteInstances", base::FEATURE_DISABLED_BY_DEFAULT}; //NWJS#7197
 
 // Whether cross-site frames should get their own SiteInstance even when
 // strict site isolation is disabled. These SiteInstances will still be
