@@ -129,8 +129,9 @@ bool SavedBoundsAreContentBounds(const Browser* browser) {
 
   // Pop ups such as devtools should behave as per other windows with persisted
   // sizes - treating the saved bounds as window bounds.
-  return !browser->is_type_normal() && !is_app_with_window_bounds &&
-         !browser->is_trusted_source();
+  return !browser->is_type_normal() && !is_app_with_window_bounds;
+  // bounds should be content bounds for NW.js apps
+         //!browser->is_trusted_source();
 }
 
 void SaveWindowPlacement(const Browser* browser,
