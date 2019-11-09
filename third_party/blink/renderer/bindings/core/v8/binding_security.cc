@@ -465,6 +465,9 @@ void BindingSecurity::FailedAccessCheckFor(v8::Isolate* isolate,
     return;
 
   auto* local_dom_window = CurrentDOMWindow(isolate);
+  auto* frame = local_dom_window->GetFrame();
+  if (frame && frame->isNodeJS())
+    return;
   DOMWindow::CrossDocumentAccessFeaturePolicy cross_document_access =
       (local_dom_window->document()->IsFeatureEnabled(
            mojom::FeaturePolicyFeature::kDocumentAccess) &&
