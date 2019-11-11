@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Never saved</translation>
 <translation id="1067922213147265141">Other Google services</translation>
 <translation id="1068672505746868501">Never translate pages in <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">If you change the file extension, the file may open in a different application and potentially be a hazard to your device.</translation>
 <translation id="1100066534610197918">Open in new tab in group</translation>
 <translation id="1105960400813249514">Screen Capture</translation>
 <translation id="1111673857033749125">Bookmarks saved on your other devices will appear here.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Open all</translation>
 <translation id="1409426117486808224">Simplified view for open tabs</translation>
 <translation id="1409879593029778104"><ph name="FILE_NAME" /> download prevented because file already exists.</translation>
-<translation id="1413136574162415971">Google can check if your passwords were part of a data breach. This will be turned on when you sign in with your Google account and turn on sync.</translation>
 <translation id="1414981605391750300">Contacting Google. This may take a minute…</translation>
 <translation id="1416550906796893042">Application version</translation>
 <translation id="1430915738399379752">Print</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">To let Chrome send you notifications, also turn on notifications in <ph name="BEGIN_LINK" />Android Settings<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> also has data in Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Changing the file extension may result in unexpected behaviour and be harmful to your device.</translation>
 <translation id="2056878612599315956">Site paused</translation>
 <translation id="2063713494490388661">Tap to Search</translation>
 <translation id="2067805253194386918">text</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Drag the slider until you can read this comfortably. Text should look at least this big after double-tapping on a paragraph.</translation>
 <translation id="2323763861024343754">Site storage</translation>
 <translation id="2328985652426384049">Can’t sign in</translation>
+<translation id="2330129964253841015">Warn you if passwords are compromised</translation>
 <translation id="2349710944427398404">Total data used by Chrome, including accounts, bookmarks and saved settings</translation>
 <translation id="2353636109065292463">Checking your Internet connection</translation>
 <translation id="2359808026110333948">Continue</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Text scaling</translation>
 <translation id="2394602618534698961">Files that you download appear here</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">When you sign in to your Google account, this feature is turned on</translation>
 <translation id="2410754283952462441">Choose an account</translation>
 <translation id="2414886740292270097">Dark</translation>
 <translation id="2416359993254398973">Chrome needs permission to access your camera for this site.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">You are currently customising your Sync and Google service settings. To finish turning on sync, tap the Confirm button near the bottom of the screen. Navigate up</translation>
 <translation id="3328801116991980348">Site information</translation>
 <translation id="3333961966071413176">All contacts</translation>
+<translation id="3334729583274622784">Change file extension?</translation>
 <translation id="3341058695485821946">See how much data you've saved</translation>
 <translation id="3350687908700087792">Close all incognito tabs</translation>
 <translation id="3353615205017136254">Lite page provided by Google. Tap the load original button to load the original page.</translation>
@@ -873,7 +875,6 @@ The site does NOT gain access to the camera. The camera images are only visible 
 <translation id="7493994139787901920"><ph name="VERSION" /> (Updated <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">data saved</translation>
 <translation id="7498271377022651285">Please wait…</translation>
-<translation id="7510943789645525906">Warns you if a password that you used was part of a data breach</translation>
 <translation id="7514365320538308">Download</translation>
 <translation id="751961395872307827">Can't connect to the site</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ The site does NOT gain access to the camera. The camera images are only visible 
 <translation id="7810647596859435254">Open with…</translation>
 <translation id="7821588508402923572">Your data savings will appear here</translation>
 <translation id="7837721118676387834">Allow auto-play of muted videos for a specific site.</translation>
-<translation id="7838340937077326045">Are you sure that you want to change the file extension?</translation>
 <translation id="7846076177841592234">Cancel selection</translation>
 <translation id="784934925303690534">Time range</translation>
 <translation id="7851858861565204677">Other devices</translation>
@@ -930,7 +930,6 @@ The site does NOT gain access to the camera. The camera images are only visible 
 <translation id="7886917304091689118">Running in Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Downloading file.}other{Downloading # files.}}</translation>
 <translation id="7929962904089429003">Opening the menu</translation>
-<translation id="7930681627240672853">Check password safety</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> is out of date.</translation>
 <translation id="7947953824732555851">Accept and sign in</translation>
 <translation id="7963646190083259054">Vendor:</translation>
@@ -946,7 +945,6 @@ The site does NOT gain access to the camera. The camera images are only visible 
 <translation id="8007176423574883786">Turned off for this device</translation>
 <translation id="8013372441983637696">Also clear your Chrome data from this device</translation>
 <translation id="8015452622527143194">Return everything on the page to default size</translation>
-<translation id="8015780634880457457">Google can check if your passwords were part of a data breach</translation>
 <translation id="802154636333426148">Download failed</translation>
 <translation id="8026334261755873520">Clear browsing data</translation>
 <translation id="8035133914807600019">New folder…</translation>

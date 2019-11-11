@@ -922,6 +922,7 @@
 <translation id="2326931316514688470">&amp;تازه‌سازی برنامه</translation>
 <translation id="2327492829706409234">فعال کردن برنامه</translation>
 <translation id="2329597144923131178">برای دریافت نشانک‌ها، سابقه، گذرواژه‌ها و سایر تنظیماتتان در همه دستگاه‌ها، وارد سیستم شوید.</translation>
+<translation id="2330129964253841015">اگر گذرواژه‌هایتان درمعرض خطر باشد، هشدار دریافت کنید</translation>
 <translation id="2332131598580221120">مشاهده در فروشگاه</translation>
 <translation id="2332192922827071008">باز کردن اولویت‌ها</translation>
 <translation id="2332742915001411729">بازنشانی روی موارد پیش‌فرض</translation>
@@ -970,6 +971,7 @@
 <translation id="2395616325548404795"><ph name="DEVICE_TYPE" /> شما باموفقیت برای مدیریت شرکت ثبت شد اما نتوانست اطلاعات مکان و دارایی‌اش را ارسال کند. لطفاً این اطلاعات را به‌صورت دستی از کنسول سرپرستتان برای این دستگاه وارد کنید.</translation>
 <translation id="2396783860772170191">پین ۴ رقمی را وارد کنید (۹۹۹۹-۰۰۰۰)</translation>
 <translation id="2399939490305346086">داده‌های ورود به سیستم کلید امنیتی</translation>
+<translation id="2407481962792080328">‏وقتی به «حساب Google» خود وارد می‌شوید، این ویژگی روشن می‌شود</translation>
 <translation id="2408955596600435184">پین را وارد کنید</translation>
 <translation id="241082044617551207">افزایه ناشناس</translation>
 <translation id="2412593942846481727">به‌روزرسانی دردسترس است</translation>
@@ -1424,6 +1426,7 @@
 <translation id="3038612606416062604">افزودن چاپگری به‌صورت دستی</translation>
 <translation id="3038675903128704560">به هیچ سایتی امکان داده نشود برای دسترسی به رایانه‌تان از افزایه استفاده کند</translation>
 <translation id="3039491566278747710">خط‌مشی آفلاین روی دستگاه نصب نشد.</translation>
+<translation id="3043581297103810752">از <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">این سایت چند فایل را به‌طور خودکار بارگیری کرد</translation>
 <translation id="3046910703532196514">صفحهٔ وب، کامل</translation>
 <translation id="304747341537320566">موتورهای گفتار</translation>
@@ -2290,6 +2293,7 @@
 <translation id="4316850752623536204">وب‌سایت برنامه‌نویس</translation>
 <translation id="4320177379694898372">اتصال اینترنتی ندارید</translation>
 <translation id="4321442524549817090">نمایش&amp; نشانی وب</translation>
+<translation id="4322394346347055525">بستن برگه‌های دیگر</translation>
 <translation id="4324577459193912240">فایل ناقص</translation>
 <translation id="4325237902968425115">درحال حذف نصب <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">آب یخ</translation>
@@ -2819,7 +2823,6 @@
 <translation id="5142961317498132443">احراز هویت</translation>
 <translation id="5143374789336132547">افزونه «<ph name="EXTENSION_NAME" />»، صفحه‌ای را با کلیک روی دکمه صفحه اصلی نمایش داده می‌شود، تغییر داده است.</translation>
 <translation id="5143712164865402236">رفتن به حالت تمام صفحه</translation>
-<translation id="5145461783043820456">مسدود کردن کوکی شخص ثالث فعال است</translation>
 <translation id="514575469079499857">‏از نشانی IP برای تعیین مکان (پیش‌فرض) استفاده شود</translation>
 <translation id="5146995429444047494">اعلان‌های مربوط به <ph name="ORIGIN" /> مسدود شده‌اند</translation>
 <translation id="5150254825601720210">‏نام سرور SSL گواهی Netscape</translation>
@@ -2955,7 +2958,6 @@
 <translation id="5360150013186312835">نمایش در نوار ابزار</translation>
 <translation id="5362741141255528695">فایل کلید خصوصی را انتخاب کنید.</translation>
 <translation id="5363109466694494651">‏Powerwash و برگرداندن</translation>
-<translation id="5365716706805792666">‏Google می‌تواند بررسی کند آیا گذرواژه‌هایتان بخشی از نقض داده‌ها بوده است یا نه. اگر با حساب Google به سیستم وارد شوید، این ویژگی روشن می‌شود.</translation>
 <translation id="5365881113273618889">پوشه‌ای که انتخاب کرده‌اید حاوی فایل‌های حساسی است. آیا مطمئنید می‌خواهید به «<ph name="APP_NAME" />» دسترسی دائم نوشتن این پوشه را بدهید؟</translation>
 <translation id="5367091008316207019">درحال خواندن فایل ...</translation>
 <translation id="5368720394188453070">تلفنتان قفل است. برای وارد شدن قفل آن را باز کنید.</translation>
@@ -3455,7 +3457,7 @@
 <translation id="6061882183774845124">ارسال پیوند به دستگاه‌هایتان</translation>
 <translation id="6064217302520318294">قفل صفحه</translation>
 <translation id="6065289257230303064">ویژگی‌های دایرکتوری موضوع گواهی</translation>
-<translation id="6069671174561668781">تنظیم تصویر زمینه</translation>
+<translation id="6069671174561668781">تنظیم کاغذدیواری</translation>
 <translation id="6071181508177083058">تأیید گذرواژه</translation>
 <translation id="6071576563962215370">این سیستم نتوانست قفل ویژگی‌های زمان نصب دستگاه را ایجاد کند.</translation>
 <translation id="6073451960410192870">توقف ضبط</translation>
@@ -3656,7 +3658,6 @@
 <translation id="63566973648609420">‏فقط فردی که عبارت عبور شما را دارد می‌تواند اطلاعات رمزگذاری‌شده‌تان را بخواند. این عبارت عبور به Google ارسال یا در سرورهای آن ذخیره نمی‌شود. اگر عبارت عبورتان را فراموش کنید، باید همگام‌سازی را بازنشانی کنید. <ph name="BEGIN_LINK" />بازنشانی همگام‌سازی<ph name="END_LINK" /></translation>
 <translation id="6357619544108132570">به خانواده <ph name="SHORT_PRODUCT_NAME" /> خوش آمدید. این یک رایانه معمولی نیست.</translation>
 <translation id="6358884629796491903">اژدها</translation>
-<translation id="6360079014182882594">این سایت فاقد کوکی‌هایی است که می‌توان از آن‌ها برای ردیابی شما در سراسر وب استفاده کرد.</translation>
 <translation id="6361850914223837199">جزئیات خطا:</translation>
 <translation id="6362853299801475928">&amp;گزارش یک مشکل...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3978,6 +3979,7 @@
 <translation id="6850286078059909152">رنگ نوشتار</translation>
 <translation id="6851497530878285708">برنامه فعال شد</translation>
 <translation id="6853388645642883916">به‌روزرسان در حالت خواب</translation>
+<translation id="68541483639528434">بستن برگه‌های دیگر</translation>
 <translation id="6856623341093082836">راه‌اندازی و تنظیم دقت صفحه لمسی</translation>
 <translation id="6857699260879628349">دریافت اطلاعات پیکربندی</translation>
 <translation id="6860097299815761905">تنظیمات پراکسی...</translation>
@@ -4426,7 +4428,6 @@
 <translation id="7506541170099744506"><ph name="DEVICE_TYPE" /> شما باموفقیت برای مدیریت شرکت ثبت شد.</translation>
 <translation id="7507930499305566459">گواهی وضعیت پاسخگو</translation>
 <translation id="7508054832109420082">ارائه دسترسی به چاپگرها</translation>
-<translation id="7510943789645525906">اگر گذرواژه مورداستفاده بخشی از نقض داده باشد، هشدار می‌دهد</translation>
 <translation id="7513029293694390567">با استفاده از اعتبارنامه‌های ذخیره‌شده، به‌طور خودکار به سیستم وب‌سایت‌ها وارد شوید. اگر این قابلیت غیرفعال باشد، هر بار قبل از وارد شدن به وب‌سایت از شما برای تأیید اطلاعات درخواست می‌شود.</translation>
 <translation id="7514239104543605883">کپی در دستگاه</translation>
 <translation id="7514365320538308">بارگیری</translation>
@@ -4728,7 +4729,6 @@
 <translation id="7926423016278357561">من نبودم.</translation>
 <translation id="7928836894214140642">تحت مدیریت <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">روش‌های پرداخت ذخیره‌شده در اینجا نشان داده می‌شود</translation>
-<translation id="7930681627240672853">بررسی امنیت گذرواژه</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> درحال اشتراک‌گذاری صفحه و صوت شماست.</translation>
 <translation id="7931318309563332511">ناشناس</translation>
 <translation id="793293630927785390">‏کادر گفتگوی شبکه Wi-Fi جدید</translation>
@@ -4801,7 +4801,6 @@
 <translation id="8014154204619229810">در حال حاضر به‌روزرسان در حال اجراست. برای بررسی دوباره، بعد از یک دقیقه بازخوانی کنید.</translation>
 <translation id="8014206674403687691">‏<ph name="IDS_SHORT_PRODUCT_NAME" /> قادر نیست به نسخه نصب شده قبلی بازگردد. لطفاً دوباره سعی کنید دستگاهتان را Powerwash کنید.</translation>
 <translation id="8014210335923519270">‏بهبود <ph name="IDS_SHORT_PRODUCT_NAME" /> و امنیت آن ازطریق ارسال اطلاعات و آمار استفاده سیستم به Google</translation>
-<translation id="8015780634880457457">‏Google می‌تواند بررسی کند که آیا گذرواژه‌هایتان بخشی از نقض داده بوده است یا نه</translation>
 <translation id="8016266267177410919">فضای ذخیره‌سازی موقت</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">میان‌بر ویرایش شد</translation>

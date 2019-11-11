@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Aldrig sparad</translation>
 <translation id="1067922213147265141">Andra Google-tjänster</translation>
 <translation id="1068672505746868501">Översätt aldrig sidor på <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">Om du ändrar filnamnstillägget kanske filen öppnas i ett annat program vilket kan utgöra en fara för enheten.</translation>
 <translation id="1100066534610197918">Öppna på en ny flik i gruppen</translation>
 <translation id="1105960400813249514">Skärmavbildning</translation>
 <translation id="1111673857033749125">Här visas bokmärken som du har sparat på andra enheter.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Öppna alla</translation>
 <translation id="1409426117486808224">Förenklad vy för öppna flikar</translation>
 <translation id="1409879593029778104">Nedladdningen av <ph name="FILE_NAME" /> hindrades eftersom filen redan finns.</translation>
-<translation id="1413136574162415971">Google kan kontrollera om dina lösenord har läckt ut vid ett dataintrång. Detta aktiveras när du är inloggad med ditt Google-konto och har aktiverat synkronisering.</translation>
 <translation id="1414981605391750300">Kontaktar Google. Det här kan ta någon minut …</translation>
 <translation id="1416550906796893042">Appversion</translation>
 <translation id="1430915738399379752">Skriv ut</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Om du vill få aviseringar från Chrome måste du även aktivera aviseringar i <ph name="BEGIN_LINK" />inställningarna för Android<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529">Data för <ph name="APP_NAME" /> finns även i Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Att ändra filnamnstillägg kan leda till oväntat beteende. Detta kan vara skadligt för enheten.</translation>
 <translation id="2056878612599315956">Webbplatsen har pausats</translation>
 <translation id="2063713494490388661">Tryck för att söka</translation>
 <translation id="2067805253194386918">text</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Flytta reglaget tills du kan läsa texten ordentligt. Texten bör bli åtminstone så här stor när du trycker två gånger på ett stycke.</translation>
 <translation id="2323763861024343754">Webbplatslagring</translation>
 <translation id="2328985652426384049">Det gick inte att logga in</translation>
+<translation id="2330129964253841015">En varning visas om lösenord har läckt ut</translation>
 <translation id="2349710944427398404">Total data som används av Chrome, inklusive konton, bokmärken och sparade inställningar</translation>
 <translation id="2353636109065292463">Kontrollera internetanslutningen</translation>
 <translation id="2359808026110333948">Fortsätt</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Textskalning</translation>
 <translation id="2394602618534698961">Filer som du laddar ned visas här</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Den här funktionen är aktiverad när du loggar in på Google-kontot</translation>
 <translation id="2410754283952462441">Välj ett konto</translation>
 <translation id="2414886740292270097">Mörk</translation>
 <translation id="2416359993254398973">Du behöver ge Chrome behörighet att använda kameran på den här webbplatsen.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Du anpassar nu dina inställningar för synkronisering och Google-tjänster. Aktivera synkroniseringen genom att trycka på Bekräfta längst ned på skärmen. Navigera uppåt</translation>
 <translation id="3328801116991980348">Platsinformation</translation>
 <translation id="3333961966071413176">Alla kontakter</translation>
+<translation id="3334729583274622784">Vill du ändra filnamnstillägget?</translation>
 <translation id="3341058695485821946">Se hur mycket data du har sparat</translation>
 <translation id="3350687908700087792">Stäng alla inkognitoflikar</translation>
 <translation id="3353615205017136254">Lite-sida tillhandahållen av Google. Tryck på knappen Läs in original för att läsa in den ursprungliga sidan.</translation>
@@ -873,7 +875,6 @@ Webbplatsen får INTE tillgång till kameran. Bara du kan se kamerabilderna.</tr
 <translation id="7493994139787901920"><ph name="VERSION" /> (uppdaterades <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">Sparad data</translation>
 <translation id="7498271377022651285">Vänta …</translation>
-<translation id="7510943789645525906">Varnar om ett lösenord du använder har identifierats i samband med ett dataintrång</translation>
 <translation id="7514365320538308">Ladda ned</translation>
 <translation id="751961395872307827">Det gick inte att ansluta till webbplatsen</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ Webbplatsen får INTE tillgång till kameran. Bara du kan se kamerabilderna.</tr
 <translation id="7810647596859435254">Öppna med …</translation>
 <translation id="7821588508402923572">Här visas hur mycket data du har sparat</translation>
 <translation id="7837721118676387834">Tillåt automatisk uppspelning av videor utan ljud för en specifik webbplats.</translation>
-<translation id="7838340937077326045">Vill du ändra filnamnstillägget?</translation>
 <translation id="7846076177841592234">Rensa val</translation>
 <translation id="784934925303690534">Tidsintervall</translation>
 <translation id="7851858861565204677">Andra enheter</translation>
@@ -930,7 +930,6 @@ Webbplatsen får INTE tillgång till kameran. Bara du kan se kamerabilderna.</tr
 <translation id="7886917304091689118">Körs i Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{En fil laddas ned.}other{# filer laddas ned.}}</translation>
 <translation id="7929962904089429003">Öppna menyn</translation>
-<translation id="7930681627240672853">Kontrollera om lösenordet är säkert</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> är inaktuell.</translation>
 <translation id="7947953824732555851">Godkänn och logga in</translation>
 <translation id="7963646190083259054">Leverantör:</translation>
@@ -946,7 +945,6 @@ Webbplatsen får INTE tillgång till kameran. Bara du kan se kamerabilderna.</tr
 <translation id="8007176423574883786">Inaktiverad för den här enheten</translation>
 <translation id="8013372441983637696">Rensa även Chrome-data från enheten</translation>
 <translation id="8015452622527143194">Återställ allt på sidan till standardstorlek</translation>
-<translation id="8015780634880457457">Google kan kontrollera om dina lösenord har läckt ut vid ett dataintrång</translation>
 <translation id="802154636333426148">Nedladdningen misslyckades</translation>
 <translation id="8026334261755873520">Rensa webbinformation</translation>
 <translation id="8035133914807600019">Ny mapp …</translation>

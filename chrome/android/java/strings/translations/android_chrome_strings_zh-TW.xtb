@@ -9,6 +9,7 @@
 <translation id="10614374240317010">一律不儲存</translation>
 <translation id="1067922213147265141">其他 Google 服務</translation>
 <translation id="1068672505746868501">一律不翻譯<ph name="SOURCE_LANGUAGE" />網頁</translation>
+<translation id="107147699690128016">如果變更副檔名，這個檔案可能會在其他應用程式中開啟，並可能對裝置造成損害。</translation>
 <translation id="1100066534610197918">在群組的新分頁中開啟</translation>
 <translation id="1105960400813249514">螢幕擷取</translation>
 <translation id="1111673857033749125">儲存在您其他裝置上的書籤會顯示在這裡。</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">全部開啟</translation>
 <translation id="1409426117486808224">使用簡易檢視模式查看開啟的分頁</translation>
 <translation id="1409879593029778104"><ph name="FILE_NAME" /> 檔案已存在，因此無法下載。</translation>
-<translation id="1413136574162415971">Google 可以檢查你的密碼資料是否外洩。當你使用 Google 帳戶登入並開啟同步功能時，系統會開啟這項功能。</translation>
 <translation id="1414981605391750300">正在連線至 Google。可能需要一分鐘…</translation>
 <translation id="1416550906796893042">應用程式版本</translation>
 <translation id="1430915738399379752">列印</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">如要讓 Chrome 傳送通知，請一併在 <ph name="BEGIN_LINK" />Android 設定<ph name="END_LINK" />中開啟通知功能。</translation>
 <translation id="204321170514947529">「<ph name="APP_NAME" />」在 Chrome 中也有資料</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">變更副檔名可能會造成未預期的問題，也可能會對裝置造成損害。</translation>
 <translation id="2056878612599315956">網站已暫停</translation>
 <translation id="2063713494490388661">輕觸搜尋</translation>
 <translation id="2067805253194386918">文字</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">拖曳滑桿，將文字調整到適當的字體大小。當你輕觸兩下文字段落時，瀏覽器至少應呈現這樣的字體大小。</translation>
 <translation id="2323763861024343754">網站儲存資料量</translation>
 <translation id="2328985652426384049">無法登入</translation>
+<translation id="2330129964253841015">當密碼遭到外洩時發出警告</translation>
 <translation id="2349710944427398404">Chrome 使用的資料總量，包括帳戶、書籤和儲存的設定</translation>
 <translation id="2353636109065292463">檢查你的網際網路連線</translation>
 <translation id="2359808026110333948">繼續</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">文字大小</translation>
 <translation id="2394602618534698961">你下載的檔案會顯示在這裡</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">登入 Google 帳戶時，系統會啟用這項功能</translation>
 <translation id="2410754283952462441">選擇帳戶</translation>
 <translation id="2414886740292270097">深色</translation>
 <translation id="2416359993254398973">Chrome 需要相關權限，才能讓這個網站使用你的攝影機。</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">你正在自訂同步功能和 Google 服務設定。如要完成開啟同步功能，請輕觸畫面底部附近的 [確認] 按鈕。向上瀏覽</translation>
 <translation id="3328801116991980348">網站資訊</translation>
 <translation id="3333961966071413176">所有聯絡人</translation>
+<translation id="3334729583274622784">是否要變更副檔名？</translation>
 <translation id="3341058695485821946">查看節省的數據用量</translation>
 <translation id="3350687908700087792">關閉所有無痕式分頁</translation>
 <translation id="3353615205017136254">由 Google 提供的精簡版網頁。輕觸 [載入原始頁面] 按鈕即可載入原始頁面。</translation>
@@ -873,7 +875,6 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (上次更新時間：<ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">(已節省的數據量)</translation>
 <translation id="7498271377022651285">請稍候…</translation>
-<translation id="7510943789645525906">在發生線上資料侵害事件時向你發出警告</translation>
 <translation id="7514365320538308">下載</translation>
 <translation id="751961395872307827">無法連線至網站</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@
 <translation id="7810647596859435254">選擇開啟工具…</translation>
 <translation id="7821588508402923572">你省下的數據流量會顯示在這裡</translation>
 <translation id="7837721118676387834">允許特定網站自動播放靜音的影片。</translation>
-<translation id="7838340937077326045">確定要變更副檔名嗎？</translation>
 <translation id="7846076177841592234">全部取消選取</translation>
 <translation id="784934925303690534">時間範圍</translation>
 <translation id="7851858861565204677">其他裝置</translation>
@@ -930,7 +930,6 @@
 <translation id="7886917304091689118">正在 Chrome 中執行</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{正在下載檔案。}other{正在下載 # 個檔案。}}</translation>
 <translation id="7929962904089429003">開啟選單</translation>
-<translation id="7930681627240672853">檢查密碼安全性</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> 版本過舊。</translation>
 <translation id="7947953824732555851">接受並登入</translation>
 <translation id="7963646190083259054">供應商：</translation>
@@ -946,7 +945,6 @@
 <translation id="8007176423574883786">已在這個裝置上關閉</translation>
 <translation id="8013372441983637696">一併清除你在這個裝置上的 Chrome 資料</translation>
 <translation id="8015452622527143194">將網頁上的所有內容都回復為預設大小</translation>
-<translation id="8015780634880457457">Google 可以檢查你的密碼資料是否外洩</translation>
 <translation id="802154636333426148">下載失敗</translation>
 <translation id="8026334261755873520">清除瀏覽資料</translation>
 <translation id="8035133914807600019">新資料夾…</translation>

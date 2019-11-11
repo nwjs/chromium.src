@@ -4,51 +4,81 @@
 
 import("//build/config/android/config.gni")
 import("//build/config/android/rules.gni")
+import("//weblayer/variables.gni")
 
 android_resources("weblayer_resources") {
   resource_dirs = []
   custom_package = "org.chromium.weblayer_private"
 }
 
+generate_locale_config_srcjar("weblayer_locale_config") {
+  java_package = weblayer_locale_config_java_package
+}
+
+java_cpp_enum("generated_enums") {
+  sources = [
+    "//weblayer/public/profile.h",
+  ]
+}
+
 android_library("java") {
   java_files = [
     "org/chromium/weblayer_private/BrowserControllerImpl.java",
     "org/chromium/weblayer_private/BrowserFragmentControllerImpl.java",
+    "org/chromium/weblayer_private/BrowserFragmentViewController.java",
     "org/chromium/weblayer_private/BrowserFragmentImpl.java",
-    "org/chromium/weblayer_private/BrowserObserverProxy.java",
+    "org/chromium/weblayer_private/BrowserCallbackProxy.java",
+    "org/chromium/weblayer_private/ChildProcessServiceImpl.java",
     "org/chromium/weblayer_private/ContentView.java",
     "org/chromium/weblayer_private/ContentViewRenderView.java",
-    "org/chromium/weblayer_private/DownloadDelegateProxy.java",
-    "org/chromium/weblayer_private/FullscreenDelegateProxy.java",
+    "org/chromium/weblayer_private/DownloadCallbackProxy.java",
+    "org/chromium/weblayer_private/FullscreenCallbackProxy.java",
     "org/chromium/weblayer_private/NavigationControllerImpl.java",
     "org/chromium/weblayer_private/NavigationImpl.java",
     "org/chromium/weblayer_private/ProfileImpl.java",
+    "org/chromium/weblayer_private/FragmentAndroidPermissionDelegate.java",
+    "org/chromium/weblayer_private/FragmentWindowAndroid.java",
     "org/chromium/weblayer_private/ProfileManager.java",
+    "org/chromium/weblayer_private/RemoteFragmentImpl.java",
+    "org/chromium/weblayer_private/WebContentsGestureStateTracker.java",
     "org/chromium/weblayer_private/TopControlsContainerView.java",
     "org/chromium/weblayer_private/WebLayerImpl.java",
-    "org/chromium/weblayer_private/ChildProcessServiceImpl.java",
-    "org/chromium/weblayer_private/RemoteFragmentImpl.java",
   ]
 
   deps = [
     ":client_java",
+    ":gms_bridge_java",
     ":weblayer_resources",
     "//base:base_java",
     "//base:jni_java",
+    "//components/crash/android:handler_java",
+    "//components/crash/android:java",
+    "//components/embedder_support/android:application_java",
+    "//components/embedder_support/android:web_contents_delegate_java",
+    "//components/version_info/android:version_constants_java",
     "//content/public/android:content_java",
     "//third_party/android_deps:com_android_support_support_compat_java",
     "//ui/android:ui_java",
   ]
+  srcjar_deps = [
+    ":weblayer_locale_config",
+    ":generated_enums",
+  ]
+  jar_excluded_patterns = [ "*/LocaleConfig.class" ]
   annotation_processor_deps = [ "//base/android/jni_generator:jni_processor" ]
+
+  # TODO(timvolodine): once the downstream implementation of GmsBridgeImpl.java
+  # lands make sure to exclude this when "enable_chrome_android_internal" is true.
+  deps += [ ":gms_bridge_upstream_impl_java" ]
 }
 
 generate_jni("jni") {
   sources = [
+    "org/chromium/weblayer_private/BrowserCallbackProxy.java",
     "org/chromium/weblayer_private/BrowserControllerImpl.java",
-    "org/chromium/weblayer_private/BrowserObserverProxy.java",
     "org/chromium/weblayer_private/ContentViewRenderView.java",
-    "org/chromium/weblayer_private/DownloadDelegateProxy.java",
-    "org/chromium/weblayer_private/FullscreenDelegateProxy.java",
+    "org/chromium/weblayer_private/DownloadCallbackProxy.java",
+    "org/chromium/weblayer_private/FullscreenCallbackProxy.java",
     "org/chromium/weblayer_private/NavigationControllerImpl.java",
     "org/chromium/weblayer_private/NavigationImpl.java",
     "org/chromium/weblayer_private/ProfileImpl.java",
@@ -62,9 +92,40 @@ android_library("client_java") {
     "org/chromium/weblayer_private/aidl/WebLayerVersion.java",
     "org/chromium/weblayer_private/aidl/APICallException.java",
     "org/chromium/weblayer_private/aidl/BrowserFragmentArgs.java",
+    "org/chromium/weblayer_private/aidl/BrowsingDataType.java",
+  ]
+
+  deps = [
+    "//third_party/android_deps:androidx_annotation_annotation_java",
   ]
 
   srcjar_deps = [ ":aidl" ]
+}
+
+# Separate target to allow for a dependency on GmsCore without pulling in all of
+# java classes. It compiles the abstract class; implementations are compiled
+# separately.
+android_library("gms_bridge_java") {
+  java_files = [
+    "org/chromium/weblayer_private/GmsBridge.java",
+    "org/chromium/weblayer_private/GmsBridgeImpl.java",
+  ]
+
+  deps = [
+    "//base:base_java",
+  ]
+
+  # The appropriate .class file will be loaded via a dependency to a library
+  # like :gms_bridge_upstream_impl_java below.
+  jar_excluded_patterns = [ "*/GmsBridgeImpl.class" ]
+}
+
+# This target compiles the implementation of GmsBridge for public targets.
+android_library("gms_bridge_upstream_impl_java") {
+  java_files = [ "org/chromium/weblayer_private/GmsBridgeImpl.java" ]
+  deps = [
+    ":gms_bridge_java",
+  ]
 }
 
 android_aidl("aidl") {
@@ -76,8 +137,8 @@ android_aidl("aidl") {
     "org/chromium/weblayer_private/aidl/IBrowserFragmentController.aidl",
     "org/chromium/weblayer_private/aidl/IChildProcessService.aidl",
     "org/chromium/weblayer_private/aidl/IClientNavigation.aidl",
-    "org/chromium/weblayer_private/aidl/IDownloadDelegateClient.aidl",
-    "org/chromium/weblayer_private/aidl/IFullscreenDelegateClient.aidl",
+    "org/chromium/weblayer_private/aidl/IDownloadCallbackClient.aidl",
+    "org/chromium/weblayer_private/aidl/IFullscreenCallbackClient.aidl",
     "org/chromium/weblayer_private/aidl/INavigation.aidl",
     "org/chromium/weblayer_private/aidl/INavigationController.aidl",
     "org/chromium/weblayer_private/aidl/INavigationControllerClient.aidl",

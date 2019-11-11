@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Gemmes aldrig</translation>
 <translation id="1067922213147265141">Andre Google-tjenester</translation>
 <translation id="1068672505746868501">Oversæt aldrig sider på <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">Hvis du ændrer filtypen, åbnes filen muligvis i en anden app og kan være skadelig for din enhed.</translation>
 <translation id="1100066534610197918">Åbn i en ny fane i en gruppe</translation>
 <translation id="1105960400813249514">Screenshot</translation>
 <translation id="1111673857033749125">Bogmærker, der er gemt på dine andre enheder, vises her.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Åbn alle</translation>
 <translation id="1409426117486808224">Enkel visning af åbne faner</translation>
 <translation id="1409879593029778104">Download af <ph name="FILE_NAME" /> blev forhindret, fordi filen allerede findes.</translation>
-<translation id="1413136574162415971">Google kan tjekke, om dine adgangskoder har været involveret i et brud på datasikkerheden. Denne funktion aktiveres, når du logger ind med din Google-konto og aktiverer synkronisering.</translation>
 <translation id="1414981605391750300">Kontakter Google. Dette kan tage et øjeblik…</translation>
 <translation id="1416550906796893042">Appversion</translation>
 <translation id="1430915738399379752">Udskriv</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Aktivér også notifikationer i <ph name="BEGIN_LINK" />Android-indstillingerne<ph name="END_LINK" /> for at give Chrome tilladelse til at sende dig notifikationer.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> har også data i Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Ændring af filtypen kan medføre uventet adfærd og være skadeligt for enheden.</translation>
 <translation id="2056878612599315956">Websitet er sat på pause</translation>
 <translation id="2063713494490388661">Tryk for at søge</translation>
 <translation id="2067805253194386918">tekst</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Træk i skyderen, indtil du kan nemt læse dette. Teksten som minimum have denne størrelse, når du har trykket to gange på et afsnit.</translation>
 <translation id="2323763861024343754">Websitelagerplads</translation>
 <translation id="2328985652426384049">Det er ikke muligt at logge ind</translation>
+<translation id="2330129964253841015">Få en underretning, hvis adgangskoder kompromitteres</translation>
 <translation id="2349710944427398404">Samlet mængde data, som Chrome anvender, herunder konti, bogmærker og gemte indstillinger</translation>
 <translation id="2353636109065292463">Tjekker din internetforbindelse</translation>
 <translation id="2359808026110333948">Fortsæt</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Tekststørrelse</translation>
 <translation id="2394602618534698961">Her vises de filer, du downloader</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Når du logger ind på din Google-konto, er denne funktion aktiveret</translation>
 <translation id="2410754283952462441">Vælg en konto</translation>
 <translation id="2414886740292270097">Mørk</translation>
 <translation id="2416359993254398973">Chrome skal have tilladelse til at bruge dit kamera på dette website.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Du tilpasser i øjeblikket dine indstillinger for Synkronisering og Google-tjenester. Afslut aktiveringen af synkronisering ved at trykke på knappen Bekræft nederst på skærmen. Gå op</translation>
 <translation id="3328801116991980348">Webstedoplysninger</translation>
 <translation id="3333961966071413176">Alle kontakter</translation>
+<translation id="3334729583274622784">Vil du ændre filtypen?</translation>
 <translation id="3341058695485821946">Se, hvor meget data du har sparet</translation>
 <translation id="3350687908700087792">Luk alle inkognitofaner</translation>
 <translation id="3353615205017136254">Lite-side leveret af Google. Tryk på knappen Indlæs original for at indlæse den originale side.</translation>
@@ -769,7 +771,7 @@ Nogle websites kan f.eks. reagere på denne anmodning ved at vise dig annoncer, 
 <translation id="6697947395630195233">Chrome skal have adgang til din placering for at dele din placering med dette website.</translation>
 <translation id="6698801883190606802">Administrer synkroniserede data</translation>
 <translation id="6699370405921460408">Google-serverne optimerer de sider, du besøger.</translation>
-<translation id="6706288973712894588">Du er i øjeblikket offline.\n<ph name="BEGIN_LINK" />Gå på opdagelse i dit offline feed<ph name="END_LINK" />.</translation>
+<translation id="6706288973712894588">Du er i øjeblikket offline.\n<ph name="BEGIN_LINK" />Gå på opdagelse i dit offlinefeed<ph name="END_LINK" />.</translation>
 <translation id="6709133671862442373">Nyheder</translation>
 <translation id="6710213216561001401">Forrige</translation>
 <translation id="671481426037969117">Din timer for <ph name="FQDN" /> udløb. Den starter igen i morgen.</translation>
@@ -873,7 +875,6 @@ Websitet får IKKE adgang til kameraet. Kameraets billeder kan kun ses af dig.</
 <translation id="7493994139787901920"><ph name="VERSION" /> (Opdateret <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">databesparelse</translation>
 <translation id="7498271377022651285">Vent…</translation>
-<translation id="7510943789645525906">Advarer dig, hvis en adgangskode, du bruger, har været berørt af et brud på datasikkerheden</translation>
 <translation id="7514365320538308">Download</translation>
 <translation id="751961395872307827">Der kunne ikke oprettes forbindelse til websitet</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ Websitet får IKKE adgang til kameraet. Kameraets billeder kan kun ses af dig.</
 <translation id="7810647596859435254">Åbn med…</translation>
 <translation id="7821588508402923572">Din databesparelse vises her</translation>
 <translation id="7837721118676387834">Tillad automatisk afspilning af videoer, hvor lyden er slået fra, for et bestemt website.</translation>
-<translation id="7838340937077326045">Er du sikker på, at du vil ændre filtypen?</translation>
 <translation id="7846076177841592234">Annuller valg</translation>
 <translation id="784934925303690534">Tidsinterval</translation>
 <translation id="7851858861565204677">Andre enheder</translation>
@@ -930,7 +930,6 @@ Websitet får IKKE adgang til kameraet. Kameraets billeder kan kun ses af dig.</
 <translation id="7886917304091689118">Kører i Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Downloader fil.}one{Downloader # fil.}other{Downloader # filer.}}</translation>
 <translation id="7929962904089429003">Åbn menuen</translation>
-<translation id="7930681627240672853">Tjek, om din adgangskode er blevet afsløret</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> er forældet.</translation>
 <translation id="7947953824732555851">Acceptér og log ind</translation>
 <translation id="7963646190083259054">Leverandør:</translation>
@@ -946,7 +945,6 @@ Websitet får IKKE adgang til kameraet. Kameraets billeder kan kun ses af dig.</
 <translation id="8007176423574883786">Deaktiveret på denne enhed</translation>
 <translation id="8013372441983637696">Ryd også dine Chrome-data fra enheden</translation>
 <translation id="8015452622527143194">Nulstil alt på siden til standardstørrelsen</translation>
-<translation id="8015780634880457457">Google kan tjekke, om dine adgangskoder har været involveret i et brud på datasikkerheden</translation>
 <translation id="802154636333426148">Download mislykkedes</translation>
 <translation id="8026334261755873520">Ryd browserdata</translation>
 <translation id="8035133914807600019">Ny mappe…</translation>

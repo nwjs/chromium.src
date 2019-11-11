@@ -330,11 +330,7 @@ void AssistantManagerServiceImpl::EnableHotword(bool enable) {
 }
 
 void AssistantManagerServiceImpl::SetArcPlayStoreEnabled(bool enable) {
-  if (GetState() != State::RUNNING) {
-    // Skip setting play store status if libassistant is not ready. The status
-    // will be set when it is ready.
-    return;
-  }
+  DCHECK(GetState() == State::RUNNING);
   // Both LibAssistant and Chrome threads may access |display_connection_|.
   // |display_connection_| is thread safe.
   if (assistant::features::IsAppSupportEnabled())
@@ -365,6 +361,12 @@ void AssistantManagerServiceImpl::AddAndFireStateObserver(
 void AssistantManagerServiceImpl::RemoveStateObserver(
     const StateObserver* observer) {
   state_observers_.RemoveObserver(observer);
+}
+
+void AssistantManagerServiceImpl::SyncDeviceAppsStatus() {
+  assistant_settings_manager_->SyncDeviceAppsStatus(
+      base::BindOnce(&AssistantManagerServiceImpl::OnDeviceAppsEnabled,
+                     weak_factory_.GetWeakPtr()));
 }
 
 void AssistantManagerServiceImpl::StartVoiceInteraction() {
@@ -1156,6 +1158,8 @@ void AssistantManagerServiceImpl::OnStartFinished() {
   if (!assistant_manager_ || (GetState() == State::RUNNING))
     return;
 
+  SetStateAndInformObservers(State::RUNNING);
+
   if (is_first_init) {
     is_first_init = false;
     // Only sync status at the first init to prevent unexpected corner cases.
@@ -1167,6 +1171,8 @@ void AssistantManagerServiceImpl::OnStartFinished() {
       base::TimeTicks::Now() - started_time_;
   UMA_HISTOGRAM_TIMES("Assistant.ServiceReadyTime", time_since_started);
 
+  SyncDeviceAppsStatus();
+
   RegisterFallbackMediaHandler();
   AddMediaControllerObserver();
 
@@ -1174,12 +1180,10 @@ void AssistantManagerServiceImpl::OnStartFinished() {
   if (media_manager)
     media_manager->AddListener(this);
 
-  if (assistant_state()->arc_play_store_enabled().has_value())
-    SetArcPlayStoreEnabled(assistant_state()->arc_play_store_enabled().value());
-
   RegisterAlarmsTimersListener();
 
-  SetStateAndInformObservers(State::RUNNING);
+  if (assistant_state()->arc_play_store_enabled().has_value())
+    SetArcPlayStoreEnabled(assistant_state()->arc_play_store_enabled().value());
 }
 
 void AssistantManagerServiceImpl::OnAndroidAppListRefreshed(
@@ -1506,6 +1510,12 @@ void AssistantManagerServiceImpl::OnAccessibilityStatusChanged(
   // options to turn on/off A11Y features in LibAssistant.
   if (assistant_manager_internal_)
     UpdateInternalOptions(assistant_manager_internal_);
+}
+
+void AssistantManagerServiceImpl::OnDeviceAppsEnabled(bool enabled) {
+  display_connection_->SetDeviceAppsEnabled(enabled);
+  action_module_->SetAppSupportEnabled(
+      assistant::features::IsAppSupportEnabled() && enabled);
 }
 
 void AssistantManagerServiceImpl::StopAlarmTimerRinging() {

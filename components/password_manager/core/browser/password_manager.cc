@@ -59,9 +59,13 @@ namespace {
 // already.
 using Logger = autofill::SavePasswordProgressLogger;
 
-bool AreAllFieldsEmpty(const PasswordForm& form) {
-  return form.username_value.empty() && form.password_value.empty() &&
-         form.new_password_value.empty();
+bool AreAllFieldsEmpty(const FormData& form_data) {
+  for (const auto& field : form_data.fields) {
+    if (!field.value.empty())
+      return false;
+  }
+
+  return true;
 }
 
 // Returns true if the user needs to be prompted before a password can be
@@ -409,8 +413,7 @@ void PasswordManager::ShowManualFallbackForSaving(
   if (!client_->GetProfilePasswordStore()->IsAbleToSavePasswords() ||
       !client_->IsSavingAndFillingEnabled(password_form.origin) ||
       ShouldBlockPasswordForSameOriginButDifferentScheme(
-          password_form.origin) ||
-      !client_->GetStoreResultFilter()->ShouldSave(password_form)) {
+          password_form.origin)) {
     return;
   }
 
@@ -422,6 +425,11 @@ void PasswordManager::ShowManualFallbackForSaving(
     client_->GetMetricsRecorder()->RecordFormManagerAvailable(availability);
   if (!manager)
     return;
+
+  if (!client_->GetStoreResultFilter()->ShouldSave(
+          *manager->GetSubmittedForm())) {
+    return;
+  }
 
   // Show the fallback if a prompt or a confirmation bubble should be available.
   bool has_generated_password = manager->HasGeneratedPassword();
@@ -737,8 +745,7 @@ void PasswordManager::OnPasswordFormsRendered(
   }
 
   // Record all visible forms from the frame.
-  all_visible_forms_.insert(all_visible_forms_.end(),
-                            visible_forms.begin(),
+  all_visible_forms_.insert(all_visible_forms_.end(), visible_forms.begin(),
                             visible_forms.end());
 
   if (!did_stop_loading &&
@@ -751,13 +758,20 @@ void PasswordManager::OnPasswordFormsRendered(
     return;
   }
 
+  if (!driver->IsMainFrame() &&
+      submitted_manager->driver_id() != driver->GetId()) {
+    // Frames different from the main frame and the frame of the submitted form
+    // are unlikely relevant to success of submission.
+    return;
+  }
+
   // If we see the login form again, then the login failed.
   if (submitted_manager->GetPendingCredentials().scheme ==
       PasswordForm::Scheme::kHtml) {
     for (const PasswordForm& form : all_visible_forms_) {
       if (submitted_manager->IsEqualToSubmittedForm(form.form_data)) {
         if (submitted_manager->IsPossibleChangePasswordFormWithoutUsername() &&
-            AreAllFieldsEmpty(form)) {
+            AreAllFieldsEmpty(form.form_data)) {
           continue;
         }
         submitted_manager->GetMetricsRecorder()->LogSubmitFailed();

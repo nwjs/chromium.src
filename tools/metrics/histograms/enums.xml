@@ -3811,6 +3811,12 @@ Unknown properties are collapsed to zero. -->
   <int value="2" label="Failure bubble shown"/>
 </enum>
 
+<enum name="AutofillCreditCardWebauthnOptInParameters">
+  <int value="0" label="Fetching challenge"/>
+  <int value="1" label="Creating new credential"/>
+  <int value="2" label="Using existing credential"/>
+</enum>
+
 <enum name="AutofillCreditCardWebauthnResultMetric">
   <int value="0" label="Success"/>
   <int value="1" label="Other error"/>
@@ -4664,6 +4670,12 @@ Unknown properties are collapsed to zero. -->
 <enum name="AutofillWalletAddressConversionType">
   <int value="0" label="Merged with existing local profile"/>
   <int value="1" label="Added as a new local profile"/>
+</enum>
+
+<enum name="AutofillWebauthnOptInPromoUserDecision">
+  <int value="0" label="Accepted"/>
+  <int value="1" label="Declined immediately"/>
+  <int value="2" label="Declined after accepting"/>
 </enum>
 
 <enum name="AutoLaunchState">
@@ -18449,6 +18461,7 @@ Called by update_net_error_codes.py.-->
   <int value="633" label="DefaultInsecureContentSetting"/>
   <int value="634" label="InsecureContentAllowedForUrls"/>
   <int value="635" label="InsecureContentBlockedForUrls"/>
+  <int value="636" label="WebRtcLocalIpsAllowedUrls"/>
 </enum>
 
 <enum name="EnterprisePolicyInvalidations">
@@ -33597,6 +33610,23 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
       label="Del Fail -MaxPathCheck Fail - MoveFileEx Fail - CopyDelDir Fail"/>
 </enum>
 
+<enum name="KeepaliveRequestBlockStatus">
+  <int value="0" label="Not Blocked"/>
+  <int value="1" label="Blocked due to NetworkContext::CanCreateLoader"/>
+  <int value="2" label="Blocked due to the number of requests per process"/>
+  <int value="3"
+      label="Blocked due to the number of requests per top-level frame"/>
+  <int value="4" label="Blocked due to the number of requests globally"/>
+  <int value="5"
+      label="Blocked due to the total size of URL and request headers"/>
+  <int value="6"
+      label="Not blocked but the total size of URL and request headers
+             exceeds 384kb"/>
+  <int value="7"
+      label="Not blocked but the total size of URL and request headers
+             exceeds 256kb"/>
+</enum>
+
 <enum name="KerberosConfigErrorCode">
   <int value="0" label="Valid"/>
   <int value="1" label="Section nested in group"/>
@@ -41290,6 +41320,12 @@ Called by update_use_counter_css.py.-->
   <int value="2" label="Dismissed"/>
   <int value="3" label="Presented"/>
   <int value="4" label="ReturnedToOrigin"/>
+</enum>
+
+<enum name="MobileMessagesConfirmInfobarEvents">
+  <int value="0" label="Presented"/>
+  <int value="1" label="Accepted"/>
+  <int value="2" label="Dismissed"/>
 </enum>
 
 <enum name="MobileMessagesModalEvent">

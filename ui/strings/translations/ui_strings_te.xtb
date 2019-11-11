@@ -138,7 +138,6 @@
 <translation id="5906667377645263094">{SECONDS,plural, =1{1 సెకను మిగిలి ఉంది}other{# సెకన్లు మిగిలి ఉన్నాయి}}</translation>
 <translation id="5941711191222866238">కనిష్టీకరించు</translation>
 <translation id="5943826764092288734">{HOURS,plural, =1{1 గంట}other{# గంటలు}}</translation>
-<translation id="5946629889255121107"><ph name="ORIGIN" /> నుండి నంబర్ ప్రవేశపెట్టబడింది</translation>
 <translation id="6012623610530968780"><ph name="TOTAL_PAGE_NUM" />లో <ph name="SELECTED_PAGE" />వ పేజీ</translation>
 <translation id="6022924867608035986">శోధన పెట్టె వచనాన్ని క్లియర్ చేయండి</translation>
 <translation id="6040143037577758943">మూసివేయి</translation>
@@ -199,6 +198,7 @@
 <translation id="8074552109918343525">{MAX_UNREAD_NOTIFICATIONS,plural, =1{1 కంటే ఎక్కువ చదవని నోటిఫికేషన్‌లు ఉన్నాయి}other{# కంటే ఎక్కువ చదవని నోటిఫికేషన్‌లు ఉన్నాయి}}</translation>
 <translation id="8086866675552927481">{MINUTES,plural, =1{1 నిమిషంలో}other{# నిమిషంలో}}</translation>
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
+<translation id="8090736967111090568"><ph name="ORIGIN" /> నుండి నంబర్</translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{1 గంట క్రితం}other{# గంటల క్రితం}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{1 సెక. మిగిలి ఉంది}other{# సెక. మిగిలి ఉన్నాయి}}</translation>
 <translation id="8134065097954893699">ఈ పేజీని మళ్లీ లోడ్ చేస్తోంది</translation>

@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">Imprimir</translation>
 <translation id="1442386063175183758">Plegado en ventana a la derecha</translation>
 <translation id="1442987760062738829">Perforar</translation>
-<translation id="1450011005989029586">Una quiebra de seguridad de datos en un sitio web o en una aplicación que usas ha expuesto tu contraseña. Chrome recomienda <ph name="BOLD" /> de <ph name="ORIGIN" /> ahora.</translation>
 <translation id="1455413310270022028">Borrador</translation>
 <translation id="1463543813647160932">5x7</translation>
 <translation id="1472675084647422956">Mostrar más</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">No se admite este tipo de tarjeta</translation>
 <translation id="1734864079702812349">American Express</translation>
 <translation id="1734878702283171397">Intenta ponerte en contacto con el administrador del sistema.</translation>
+<translation id="1739107442478692187">Se ha producido una quiebra de seguridad de datos en un sitio web o una aplicación que utilizas. Chrome te recomienda que revises las contraseñas guardadas y que cambies ahora la de <ph name="ORIGIN" />.</translation>
 <translation id="1740951997222943430">Introduce un mes de vencimiento válido</translation>
 <translation id="1743520634839655729">Para pagar más rápido la próxima vez, guarda tu tarjeta, tu nombre y tu dirección de facturación en tu cuenta de Google y en este dispositivo.</translation>
 <translation id="1743570585616704562">No se ha reconocido</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">El dominio no coincide</translation>
 <translation id="2096368010154057602">Departamento</translation>
 <translation id="2099652385553570808">Grapado triple en la parte izquierda</translation>
+<translation id="2100280972184758440">Tu contraseña está en riesgo</translation>
 <translation id="2102134110707549001">Sugerir contraseña segura…</translation>
 <translation id="2108755909498034140">Reinicia el ordenador</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">Se ha ignorado la política porque la anula <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Enviado a: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Perforado en la parte inferior derecha</translation>
+<translation id="2124528555835617522">Se ha producido una quiebra de seguridad de datos en un sitio web o una aplicación que utilizas. Chrome te recomienda que revises ahora tus contraseñas guardadas.</translation>
 <translation id="2129079103035905234">Sensores de movimiento</translation>
 <translation id="213826338245044447">Marcadores del móvil</translation>
 <translation id="214556005048008348">Cancelar pago</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">En estos momentos no se puede guardar tu tarjeta</translation>
 <translation id="2262243747453050782">Error de HTTP</translation>
 <translation id="2263079731045660823">Actualiza la información de autocompletar tarjetas de crédito en la configuración de Chrome</translation>
+<translation id="2267047181501709434">Verificando tu identidad...</translation>
 <translation id="2270484714375784793">Número de teléfono</translation>
 <translation id="2277103315734023688">Ir hacia delante</translation>
 <translation id="2283340219607151381">Guardar y autocompletar direcciones</translation>
@@ -484,6 +487,7 @@
 <translation id="3282497668470633863">Añadir un nombre de la tarjeta</translation>
 <translation id="3287510313208355388">Descargar cuando haya conexión</translation>
 <translation id="3293642807462928945">Más información sobre la política <ph name="POLICY_NAME" /></translation>
+<translation id="3295439534709115864">Se ha producido una quiebra de seguridad de datos en un sitio web o una aplicación que utilizas. Chrome te recomienda que cambies ahora tu contraseña de <ph name="ORIGIN" />.</translation>
 <translation id="3303855915957856445">No se han encontrado resultados de búsqueda</translation>
 <translation id="3320021301628644560">Añadir dirección de facturación</translation>
 <translation id="3324983252691184275">Carmesí</translation>
@@ -689,7 +693,6 @@
 <translation id="4258748452823770588">Firma errónea</translation>
 <translation id="4261046003697461417">No se pueden añadir anotaciones a los documentos protegidos</translation>
 <translation id="4265872034478892965">Permitido por el administrador</translation>
-<translation id="4270615291506829403">cambiar tu contraseña</translation>
 <translation id="4275830172053184480">Reiniciar tu dispositivo</translation>
 <translation id="4277028893293644418">Cambiar contraseña</translation>
 <translation id="4279811152705618813">Tu <ph name="DEVICE_TYPE" /> lo gestiona <ph name="ENROLLMENT_DOMAIN" /></translation>
@@ -769,7 +772,6 @@
 <translation id="4708268264240856090">Se ha interrumpido la conexión</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" />Ejecutar Diagnósticos de red de Windows<ph name="END_LINK" /></translation>
-<translation id="4725851834065990915">Una quiebra de seguridad de datos en un sitio web o en una aplicación que usas ha expuesto tu contraseña. Chrome te recomienda que compruebes las contraseñas guardadas lo antes posible.</translation>
 <translation id="4726672564094551039">Volver a cargar políticas</translation>
 <translation id="4728558894243024398">Plataforma</translation>
 <translation id="4731967714531604179">Prc2 (sobre)</translation>
@@ -1187,7 +1189,6 @@
 <translation id="679355240208270552">Se ha ignorado el valor porque se ha establecido una política que inhabilita la búsqueda predeterminada.</translation>
 <translation id="681021252041861472">Campo obligatorio</translation>
 <translation id="6810899417690483278">ID de personalización</translation>
-<translation id="6819440013020405090">Una quiebra de seguridad de datos en un sitio web o en una aplicación que usas ha expuesto tu contraseña. Chrome te recomienda que compruebes las contraseñas guardadas y que cambies la de <ph name="ORIGIN" />.</translation>
 <translation id="6825578344716086703">Has intentado acceder a <ph name="DOMAIN" />, pero el servidor ha presentado un certificado firmado con un algoritmo de firma no seguro (por ejemplo, SHA-1). Una posible causa de este problema es que se hayan falsificado las credenciales de seguridad presentadas por el servidor y que hayas accedido a la página de un atacante en lugar de establecer conexión con el servidor en cuestión.</translation>
 <translation id="6826370046007623921">Prevención de la pérdida de datos</translation>
 <translation id="6831043979455480757">Traducir</translation>
@@ -1230,7 +1231,6 @@
 <translation id="7064851114919012435">Información de contacto</translation>
 <translation id="7075452647191940183">La solicitud es demasiado grande</translation>
 <translation id="7079718277001814089">Este sitio web contiene software malicioso</translation>
-<translation id="70850504851191913">Se ha denunciado una quiebra de seguridad de datos</translation>
 <translation id="7087282848513945231">Condado</translation>
 <translation id="7090678807593890770">Busca <ph name="LINK" /> en Google</translation>
 <translation id="7108338896283013870">Ocultar</translation>
@@ -1552,7 +1552,6 @@ Más información:
 <translation id="8718314106902482036">El pago no se ha completado</translation>
 <translation id="8719263113926255150">Sugerencia de búsqueda: <ph name="ENTITY" />, <ph name="DESCRIPTION" /></translation>
 <translation id="8719528812645237045">Perforado múltiple en la parte superior</translation>
-<translation id="8723954843026426558">Acepto los términos y condiciones, la política de privacidad y el derecho de cancelación de <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /></translation>
 <translation id="8725066075913043281">Volver a intentarlo</translation>
 <translation id="8728672262656704056">Has iniciado una sesión de incógnito</translation>
 <translation id="8730621377337864115">Listo</translation>

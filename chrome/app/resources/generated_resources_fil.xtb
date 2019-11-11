@@ -925,6 +925,7 @@ Puwede mong pamahalaan ang mga setting ng account na ito sa pamamagitan ng pag-i
 <translation id="2326931316514688470">I-&amp;reload ang app</translation>
 <translation id="2327492829706409234">Paganahin ang app</translation>
 <translation id="2329597144923131178">Mag-sign in upang makuha ang iyong mga bookmark, history, password at ibang mga setting sa lahat ng iyong device.</translation>
+<translation id="2330129964253841015">Balaan ka kung makokompromiso ang mga password</translation>
 <translation id="2332131598580221120">Tingnan sa store</translation>
 <translation id="2332192922827071008">Buksan ang Mga Kagustuhan</translation>
 <translation id="2332742915001411729">I-reset sa default</translation>
@@ -973,6 +974,7 @@ Puwede mong pamahalaan ang mga setting ng account na ito sa pamamagitan ng pag-i
 <translation id="2395616325548404795">Matagumpay na na-enroll ang iyong <ph name="DEVICE_TYPE" /> para sa pamamahala ng enterprise, ngunit hindi naipadala ang impormasyon ng asset at lokasyon nito. Pakilagay nang manual ang impormasyong ito na mula sa iyong Admin console para sa device na ito.</translation>
 <translation id="2396783860772170191">Ilagay ang 4 na digit na pin (0000-9999)</translation>
 <translation id="2399939490305346086">Data ng pag-sign in ng security key</translation>
+<translation id="2407481962792080328">Kapag nag-sign in ka sa iyong Google Account, mao-on ang feature na ito</translation>
 <translation id="2408955596600435184">Ilagay ang iyong PIN</translation>
 <translation id="241082044617551207">Hindi kilalang plugin</translation>
 <translation id="2412593942846481727">May available na update</translation>
@@ -1427,6 +1429,7 @@ Puwede mong pamahalaan ang mga setting ng account na ito sa pamamagitan ng pag-i
 <translation id="3038612606416062604">Manual na magdagdag ng printer</translation>
 <translation id="3038675903128704560">Huwag payagan ang anumang site na gumamit ng plugin upang i-access ang iyong computer</translation>
 <translation id="3039491566278747710">Hindi na-install ang offline na patakaran sa device.</translation>
+<translation id="3043581297103810752">Mula sa <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Awtomatikong nag-download ng maraming file ang site na ito</translation>
 <translation id="3046910703532196514">Webpage, Kumpleto</translation>
 <translation id="304747341537320566">Mga Engine sa Pagsasalita</translation>
@@ -2293,6 +2296,7 @@ Puwede mong pamahalaan ang mga setting ng account na ito sa pamamagitan ng pag-i
 <translation id="4316850752623536204">Website ng Developer</translation>
 <translation id="4320177379694898372">Walang koneksyon sa internet</translation>
 <translation id="4321442524549817090">I&amp;pakita ang URL</translation>
+<translation id="4322394346347055525">Isara ang Ibang Mga Tab</translation>
 <translation id="4324577459193912240">Hindi kumpleto ang file</translation>
 <translation id="4325237902968425115">Ina-uninstall ang <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Icewater</translation>
@@ -2822,7 +2826,6 @@ Tiyaking pinagkakatiwalaan mo ang site na ito bago ka pumasok sa VR.</translatio
 <translation id="5142961317498132443">Pag-authenticate</translation>
 <translation id="5143374789336132547">Binago ng extension na "<ph name="EXTENSION_NAME" />" ang ipinapakitang page kapag na-click mo ang button ng Home.</translation>
 <translation id="5143712164865402236">Pumasok sa Full Screen</translation>
-<translation id="5145461783043820456">Naka-on ang pag-block sa cookie ng third party</translation>
 <translation id="514575469079499857">Gamitin ang iyong IP address upang matukoy ang lokasyon (default)</translation>
 <translation id="5146995429444047494">Naka-block ang mga notification para sa <ph name="ORIGIN" /></translation>
 <translation id="5150254825601720210">Pangalan ng Server ng Netscape Certificate SSL</translation>
@@ -2958,7 +2961,6 @@ Tiyaking pinagkakatiwalaan mo ang site na ito bago ka pumasok sa VR.</translatio
 <translation id="5360150013186312835">Ipakita sa Toolbar</translation>
 <translation id="5362741141255528695">Piliin ang file ng private na key.</translation>
 <translation id="5363109466694494651">I-Powerwash at I-revert</translation>
-<translation id="5365716706805792666">Matitingnan ng Google kung bahagi ng paglabag sa data ang iyong mga password. Io-on ito kapag nag-sign in ka gamit ang iyong Gogle Account.</translation>
 <translation id="5365881113273618889">Naglalaman ng mga sensitibong file ang pinili mong folder. Sigurado ka bang gusto mong bigyan ang "<ph name="APP_NAME" />" ng permanenteng access sa pag-write sa folder na ito?</translation>
 <translation id="5367091008316207019">Binabasa ang file..</translation>
 <translation id="5368720394188453070">Naka-lock ang iyong telepono. I-unlock ito upang makapasok.</translation>
@@ -3659,7 +3661,6 @@ Tiyaking pinagkakatiwalaan mo ang site na ito bago ka pumasok sa VR.</translatio
 <translation id="63566973648609420">Ang taong may alam ng passphrase mo lang ang makakabasa sa iyong naka-encrypt na data. Hindi ipinapadala sa o iniimbak ng Google ang passphrase. Kung makalimutan mo ang iyong passphrase o gusto mong baguhin ang setting na ito, kakailanganin mong <ph name="BEGIN_LINK" />i-reset ang pag-sync<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Welcome sa pamilya ng <ph name="SHORT_PRODUCT_NAME" />. Hindi ito ordinaryong computer.</translation>
 <translation id="6358884629796491903">Dragon</translation>
-<translation id="6360079014182882594">Walang cookies ang site na ito na magagamit para subaybayan ka sa buong web.</translation>
 <translation id="6361850914223837199">Mga detalye ng error:</translation>
 <translation id="6362853299801475928">&amp;Mag-ulat ng isang isyu...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3981,6 +3982,7 @@ Tiyaking pinagkakatiwalaan mo ang site na ito bago ka pumasok sa VR.</translatio
 <translation id="6850286078059909152">Kulay ng text</translation>
 <translation id="6851497530878285708">Naka-enable ang App</translation>
 <translation id="6853388645642883916">Naka-sleep ang updater</translation>
+<translation id="68541483639528434">Isara ang ibang mga tab</translation>
 <translation id="6856623341093082836">I-set up at isaayos ang katumpakan ng iyong touchscreen</translation>
 <translation id="6857699260879628349">Kunin ang impormasyon sa pag-configure</translation>
 <translation id="6860097299815761905">Mga setting ng proxy...</translation>
@@ -4429,7 +4431,6 @@ Tiyaking pinagkakatiwalaan mo ang site na ito bago ka pumasok sa VR.</translatio
 <translation id="7506541170099744506">Matagumpay na na-enroll ang iyong <ph name="DEVICE_TYPE" /> para sa pamamahala ng enterprise.</translation>
 <translation id="7507930499305566459">Certificate sa Katayuan ng Responder</translation>
 <translation id="7508054832109420082">Magbigay ng access sa mga printer</translation>
-<translation id="7510943789645525906">Nagbibigay sa iyo ng babala kung ang isang password na ginagamit mo ay bahagi ng isang paglabag sa data</translation>
 <translation id="7513029293694390567">Awtomatikong mag-sign in sa mga website gamit ang mga naka-store na kredensyal. Kung naka-disable, hihingan ka ng kumpirmasyon sa bawat pagkakataon bago ka mag-sign in sa isang website.</translation>
 <translation id="7514239104543605883">Kopyahin sa iyong device</translation>
 <translation id="7514365320538308">I-download</translation>
@@ -4731,7 +4732,6 @@ Tiyaking pinagkakatiwalaan mo ang site na ito bago ka pumasok sa VR.</translatio
 <translation id="7926423016278357561">Hindi ako ito.</translation>
 <translation id="7928836894214140642">Pinapamahalaan ng <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Lalabas dito ang mga naka-save na paraan ng pagbabayad</translation>
-<translation id="7930681627240672853">Suriin ang kaligtasan ng password</translation>
 <translation id="79312157130859720">Ibinabahagi ng <ph name="APP_NAME" /> ang iyong screen at audio.</translation>
 <translation id="7931318309563332511">Hindi Alam</translation>
 <translation id="793293630927785390">Bagong Dialog ng Wi-Fi Network</translation>
@@ -4804,7 +4804,6 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
 <translation id="8014154204619229810">Kasalukuyang tumatakbo ang updater. I-refresh pagkatapos ng isang minuto upang muling suriin.</translation>
 <translation id="8014206674403687691">Hindi ma-revert ang <ph name="IDS_SHORT_PRODUCT_NAME" /> sa dating naka-install na bersyon. Pakisubukang muli upang i-Powerwash ang iyong device.</translation>
 <translation id="8014210335923519270">Pahusayin ang <ph name="IDS_SHORT_PRODUCT_NAME" /> at ang seguridad nito sa pamamagitan ng pagpapadala ng impormasyon at paggamit ng system sa Google</translation>
-<translation id="8015780634880457457">Matitingnan ng Google kung bahagi ng paglabag sa data ang iyong mga password</translation>
 <translation id="8016266267177410919">Pansamantalang storage</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Na-edit ang shortcut</translation>
@@ -5582,6 +5581,7 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
 <translation id="9130015405878219958">Di-wastong mode ang ipinasok.</translation>
 <translation id="9131487537093447019">Magpadala ng mga mensahe sa at makatanggap ng mga mensahe mula sa mga Bluetooth device.</translation>
 <translation id="9134304429738380103">Oo, sumasang-ayon ako.</translation>
+<translation id="9135090785674039430">Kapag naka-on, hindi makakagamit ang mga site ng cookies na sumusubaybay sa iyo sa buong web. Posibleng hindi gumana ang ilang website.</translation>
 <translation id="9137013805542155359">Ipakita ang orihinal</translation>
 <translation id="9137157311132182254">Gustong search engine</translation>
 <translation id="9137248913990643158">Magsimula at mag-sign in sa Chrome bago gamitin ang app na ito.</translation>

@@ -925,6 +925,7 @@ Postavkama računa možete upravljati tako da instalirate aplikaciju Family Link
 <translation id="2326931316514688470">&amp;Ponovo učitaj aplikaciju</translation>
 <translation id="2327492829706409234">Omogući aplikaciju</translation>
 <translation id="2329597144923131178">Prijavite se da biste imali svoje oznake, povijest, zaporke i druge postavke na svim svojim uređajima.</translation>
+<translation id="2330129964253841015">Upozori ako su zaporke ugrožene</translation>
 <translation id="2332131598580221120">Pogledaj u web-trgovini</translation>
 <translation id="2332192922827071008">Otvori Postavke</translation>
 <translation id="2332742915001411729">Vrati na zadano</translation>
@@ -973,6 +974,7 @@ Postavkama računa možete upravljati tako da instalirate aplikaciju Family Link
 <translation id="2395616325548404795">Vaš <ph name="DEVICE_TYPE" /> uređaj uspješno je registriran za poslovno upravljanje, ali nije poslao podatke o uređaju i lokaciji. Unesite te podatke ručno putem Admin consolea za taj uređaj.</translation>
 <translation id="2396783860772170191">Unesite četveroznamenkasti PIN (0000 – 9999)</translation>
 <translation id="2399939490305346086">Podaci za prijavu na sigurnosnom ključu</translation>
+<translation id="2407481962792080328">Kad se prijavite na svoj Google račun, ova značajka je uključena</translation>
 <translation id="2408955596600435184">Unesite PIN</translation>
 <translation id="241082044617551207">Nepoznati dodatak</translation>
 <translation id="2412593942846481727">Dostupno je ažuriranje</translation>
@@ -1427,6 +1429,7 @@ Postavkama računa možete upravljati tako da instalirate aplikaciju Family Link
 <translation id="3038612606416062604">Ručno dodavanje pisača</translation>
 <translation id="3038675903128704560">Nemoj dopustiti nijednoj web-lokaciji upotrebu dodatka za pristup mom računalu</translation>
 <translation id="3039491566278747710">Instalacija izvanmrežnog pravila na uređaju nije uspjela.</translation>
+<translation id="3043581297103810752">S web-lokacije <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Ta je web-lokacija automatski preuzela više datoteka</translation>
 <translation id="3046910703532196514">Web-stranica, potpuna</translation>
 <translation id="304747341537320566">Alati za pretvaranje teksta u govor</translation>
@@ -2293,6 +2296,7 @@ Postavkama računa možete upravljati tako da instalirate aplikaciju Family Link
 <translation id="4316850752623536204">Web-lokacija razvojnog programera</translation>
 <translation id="4320177379694898372">Nema internetske veze</translation>
 <translation id="4321442524549817090">P&amp;rikaži URL</translation>
+<translation id="4322394346347055525">Zatvori ostale kartice</translation>
 <translation id="4324577459193912240">Nepotpuna datoteka</translation>
 <translation id="4325237902968425115">Deinstaliranje aplikacije <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Ledena voda</translation>
@@ -2822,7 +2826,6 @@ Prije nego što pokrenete VR, provjerite je li ta web-lokacija pouzdana.</transl
 <translation id="5142961317498132443">Autentifikacija</translation>
 <translation id="5143374789336132547">Proširenje "<ph name="EXTENSION_NAME" />" promijenilo je stranicu koja se prikazuje kada se klikne gumb Početna.</translation>
 <translation id="5143712164865402236">Otvori na cijelom zaslonu</translation>
-<translation id="5145461783043820456">Uključeno je blokiranje kolačića treće strane</translation>
 <translation id="514575469079499857">Za određivanje lokacije upotrebljava se vaša IP adresa (zadano)</translation>
 <translation id="5146995429444047494">Blokirane su obavijesti za <ph name="ORIGIN" /></translation>
 <translation id="5150254825601720210">Naziv certifikata SSL poslužitelja za Netscape</translation>
@@ -2958,7 +2961,6 @@ Prije nego što pokrenete VR, provjerite je li ta web-lokacija pouzdana.</transl
 <translation id="5360150013186312835">Prikaži na alatnoj traci</translation>
 <translation id="5362741141255528695">Odaberite datoteku s osobnim ključem.</translation>
 <translation id="5363109466694494651">Powerwash i vraćanje u prethodno stanje</translation>
-<translation id="5365716706805792666">Google može provjeriti jesu li vaše zaporke ugrožene zbog povrede podataka. Ta će se mogućnost uključiti kada se prijavite na svoj Google račun.</translation>
 <translation id="5365881113273618889">Mapa koju ste odabrali sadrži osjetljive datoteke. Jeste li sigurni da želite dodijeliti aplikaciji "<ph name="APP_NAME" />" trajni pristup za zapisivanje za tu mapu?</translation>
 <translation id="5367091008316207019">Čitanje datoteke...</translation>
 <translation id="5368720394188453070">Vaš je telefon zaključan. Otključajte ga da biste mu pristupili.</translation>
@@ -3659,7 +3661,6 @@ Prije nego što uđete u VR, provjerite je li ta web-lokacija pouzdana.</transla
 <translation id="63566973648609420">Samo osoba koja ima vašu šifru može čitati vaše kriptirane podatke. Šifra se ne šalje Googleu i ne pohranjuje na njemu. Ako zaboravite šifru ili želite promijeniti tu postavku, morat ćete <ph name="BEGIN_LINK" />poništiti sinkronizaciju<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Dobro došli u obitelj <ph name="SHORT_PRODUCT_NAME" />. To nije obično računalo.</translation>
 <translation id="6358884629796491903">Zmaj</translation>
-<translation id="6360079014182882594">Ova web-lokacija ne sadrži kolačiće kojima bi vas se moglo pratiti na webu</translation>
 <translation id="6361850914223837199">Detalji pogreške:</translation>
 <translation id="6362853299801475928">&amp;Prijavljivanje problema...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3981,6 +3982,7 @@ Prije nego što uđete u VR, provjerite je li ta web-lokacija pouzdana.</transla
 <translation id="6850286078059909152">Boja teksta</translation>
 <translation id="6851497530878285708">Aplikacija je omogućena</translation>
 <translation id="6853388645642883916">Alat za ažuriranje u mirovanju je</translation>
+<translation id="68541483639528434">Zatvori ostale kartice</translation>
 <translation id="6856623341093082836">Postavite i prilagodite preciznost dodirnog zaslona</translation>
 <translation id="6857699260879628349">Dohvatite podatke o konfiguraciji</translation>
 <translation id="6860097299815761905">Proxy postavke...</translation>
@@ -4429,7 +4431,6 @@ Prije nego što uđete u VR, provjerite je li ta web-lokacija pouzdana.</transla
 <translation id="7506541170099744506">Vaš je <ph name="DEVICE_TYPE" /> uređaj uspješno registriran za poslovno upravljanje.</translation>
 <translation id="7507930499305566459">Certifikat odgovora statusa</translation>
 <translation id="7508054832109420082">Pruža pristup pisačima</translation>
-<translation id="7510943789645525906">Upozorava ako je zaporka koju upotrebljavate ugrožena zbog povrede podataka</translation>
 <translation id="7513029293694390567">Automatski se prijavite na web-lokacije pomoću spremljenih vjerodajnica. Ako je ta značajka onemogućena, tražit će se potvrda prije svakog prijavljivanja na web-lokaciju.</translation>
 <translation id="7514239104543605883">Kopiraj na svoj uređaj</translation>
 <translation id="7514365320538308">Preuzmi</translation>
@@ -4731,7 +4732,6 @@ Prije nego što uđete u VR, provjerite je li ta web-lokacija pouzdana.</transla
 <translation id="7926423016278357561">To nisam bio ja.</translation>
 <translation id="7928836894214140642">Upravlja: <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Ovdje će se prikazivati spremljeni načini plaćanja</translation>
-<translation id="7930681627240672853">Provjerite sigurnost zaporke</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> dijeli zaslon i zvuk.</translation>
 <translation id="7931318309563332511">Nepoznato</translation>
 <translation id="793293630927785390">Dijaloški okvir za novu Wi-Fi mrežu</translation>
@@ -4804,7 +4804,6 @@ Ključnu datoteku čuvajte na sigurnom mjestu. Trebat će vam za stvaranje novih
 <translation id="8014154204619229810">U tijeku je izvođenje alata za ažuriranje. Osvježite za minutu i provjerite ponovo.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> ne može vratiti prethodno instaliranu verziju. Pokušajte ponovo pokrenuti Powerwash na svom uređaju.</translation>
 <translation id="8014210335923519270">Poboljšajte <ph name="IDS_SHORT_PRODUCT_NAME" /> i njegovu sigurnost slanjem podataka o sustavu i upotrebi Googleu</translation>
-<translation id="8015780634880457457">Google može provjeriti jesu li vaše zaporke ugrožene zbog povrede podataka</translation>
 <translation id="8016266267177410919">Privremena pohrana</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Prečac je uređen</translation>

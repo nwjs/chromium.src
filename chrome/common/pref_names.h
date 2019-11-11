@@ -473,6 +473,7 @@ extern const char kWebRTCNonProxiedUdpEnabled[];
 extern const char kWebRTCIPHandlingPolicy[];
 extern const char kWebRTCUDPPortRange[];
 extern const char kWebRtcEventLogCollectionAllowed[];
+extern const char kWebRtcLocalIpsAllowedUrls[];
 
 #if !defined(OS_ANDROID)
 extern const char kHasSeenWelcomePage[];
@@ -493,6 +494,9 @@ extern const char kProfileLastUsed[];
 extern const char kProfilesLastActive[];
 extern const char kProfilesNumCreated[];
 extern const char kProfileInfoCache[];
+#if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
+extern const char kLegacyProfileNamesMigrated[];
+#endif  // !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
 extern const char kProfileCreatedByVersion[];
 extern const char kProfilesDeleted[];
 

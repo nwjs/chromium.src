@@ -43,7 +43,8 @@ class NavigationControllerImpl : public NavigationController,
   bool CanGoBack(JNIEnv* env, const base::android::JavaParamRef<jobject>& obj) {
     return CanGoBack();
   }
-  bool CanGoForward(JNIEnv* env, const base::android::JavaParamRef<jobject>& obj) {
+  bool CanGoForward(JNIEnv* env,
+                    const base::android::JavaParamRef<jobject>& obj) {
     return CanGoForward();
   }
   void Reload(JNIEnv* env, const base::android::JavaParamRef<jobject>& obj) {
@@ -66,6 +67,11 @@ class NavigationControllerImpl : public NavigationController,
       const base::android::JavaParamRef<jobject>& obj,
       int index);
 #endif
+
+  // Called by BrowserControllerImpl when the loading progress has changed.
+  // TODO(estade): move LoadProgressChanged from WebContentsDelegate to
+  // WebContentsObserver to avoid this extra bounce.
+  void NotifyLoadProgressChanged(double progress);
 
  private:
   // NavigationController implementation:
@@ -91,9 +97,12 @@ class NavigationControllerImpl : public NavigationController,
       content::NavigationHandle* navigation_handle) override;
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
+  void DidStartLoading() override;
+  void DidStopLoading() override;
   void DidFirstVisuallyNonEmptyPaint() override;
 
-  BrowserControllerImpl* browser_controller_;
+  void NotifyLoadStateChanged();
+
   base::ObserverList<NavigationObserver>::Unchecked observers_;
   std::map<content::NavigationHandle*, std::unique_ptr<NavigationImpl>>
       navigation_map_;

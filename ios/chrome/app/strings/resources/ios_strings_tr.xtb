@@ -99,6 +99,7 @@
 <translation id="2273327106802955778">Diğer menüsü</translation>
 <translation id="2316709634732130529">Önerilen Şifreyi Kullan</translation>
 <translation id="2320166752086256636">Klavyeyi gizle</translation>
+<translation id="2330129964253841015">Şifrelerinizin güvenliği ihlal edilirse sizi uyarır</translation>
 <translation id="2339560363438331454">Senkronizasyon ve Google Hizmetleri</translation>
 <translation id="2351097562818989364">Çeviri ayarlarınız sıfırlandı.</translation>
 <translation id="2359043044084662842">Çevir</translation>
@@ -202,7 +203,6 @@
 <translation id="3783017676699494206">Resmi Kaydet</translation>
 <translation id="3789841737615482174">Yükle</translation>
 <translation id="385051799172605136">Geri</translation>
-<translation id="3886946236301294521">Kullandığınız şifre bir veri ihlaline dahilse sizi uyarır.</translation>
 <translation id="3897092660631435901">Menü</translation>
 <translation id="3915450441834151894">Site Bilgileri</translation>
 <translation id="3922310737605261887">Kopyalanan Metni Ara</translation>
@@ -253,6 +253,7 @@
 <translation id="4620246317052452550">Okumuş Olduğunuz Sayfalar</translation>
 <translation id="4630540211544979320">Sayfaları Çevir</translation>
 <translation id="4636930964841734540">Bilgi</translation>
+<translation id="4659126640776004816">Google Hesabınızda oturum açtığınızda bu özellik devreye girer.</translation>
 <translation id="4659667755519643272">Sekme Değiştirici'ye Geç</translation>
 <translation id="4666531726415300315"><ph name="EMAIL" /> olarak oturum açıldı.
 
@@ -301,7 +302,6 @@ Bu ayarı değiştirmek için <ph name="BEGIN_LINK" />senkronizasyonu sıfırlay
 <translation id="5300589172476337783">Göster</translation>
 <translation id="5317780077021120954">Kaydet</translation>
 <translation id="5327248766486351172">Ad</translation>
-<translation id="5365716706805792666">Google, şifrelerinizin bir veri ihlaline dahil olup olmadığını kontrol edebilir. Bu, Google Hesabınızla oturum açtığınızda etkinleştirilecektir.</translation>
 <translation id="5388358297987318779">Resmi Aç</translation>
 <translation id="5407969256130905701">Değişiklikleri Sil</translation>
 <translation id="5409365236829784218">Bu dosyayı açabilecek yüklü uygulama yok.</translation>
@@ -333,7 +333,6 @@ Handoff'un ayrıca, Ayarlar'ın Genel bölümünde de etkinleştirilmesi ve ciha
 <translation id="5854790677617711513">30 günden daha eski</translation>
 <translation id="5857090052475505287">Yeni Klasör</translation>
 <translation id="5857770089550859117">Senkronizasyonu başlatmak için parola gerekiyor.</translation>
-<translation id="5859444426865731878">Google, şifrelerinizin bir veri ihlaline dahil olup olmadığını kontrol edebilir.</translation>
 <translation id="5860033963881614850">Kapalı</translation>
 <translation id="5869029295770560994">Tamam, Anladım</translation>
 <translation id="5871497086027727873">1 öğe taşındı</translation>
@@ -482,7 +481,6 @@ Verileriniz <ph name="TIME" /> tarihinde senkronizasyon parolanızla şifrelendi
 <translation id="7859704718976024901">Tarama Geçmişi</translation>
 <translation id="7887198238286927132">Gizliliğinizi korumak için Chrome bu alanı otomatik olarak doldurmayacaktır.</translation>
 <translation id="7918293828610777738">Okuma listeniz çevrimdışı olarak kullanılabilir. Okuma listenize sayfa eklemek için önce <ph name="SHARE_OPENING_ICON" />, ardından <ph name="READ_LATER_TEXT" /> öğesine dokunun.</translation>
-<translation id="7930681627240672853">Şifre güvenliğini kontrol et</translation>
 <translation id="7938254975914653459">FaceTime</translation>
 <translation id="7939128259257418052">Şifreleri Dışa Aktar...</translation>
 <translation id="7947953824732555851">Kabul et ve oturum aç</translation>
@@ -497,7 +495,7 @@ Verileriniz <ph name="TIME" /> tarihinde senkronizasyon parolanızla şifrelendi
 <translation id="8059533439631660104">Bölümü daraltır.</translation>
 <translation id="806745655614357130">Verilerimi ayrı tut</translation>
 <translation id="8073670137947914548">İndirme tamamlandı</translation>
-<translation id="8073872304774253879">Aramaları ve Göz Atmayı İyileştir</translation>
+<translation id="8073872304774253879">Aramaları ve Göz Atmayı Daha İyi Yap</translation>
 <translation id="8076014560081431679">Kayıtlı site ayarları silinmez ve web'e göz atma alışkanlıklarınızı yansıtabilir. <ph name="BEGIN_LINK" />Daha fazla bilgi edinin<ph name="END_LINK" /></translation>
 <translation id="8114753159095730575">Dosya indirme işlevi kullanılabilir. Seçenekler ekranın alt tarafındadır.</translation>
 <translation id="8131740175452115882">Onayla</translation>

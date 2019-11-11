@@ -406,5 +406,10 @@ const base::Feature kHtmlImportsRequestInitiatorLock{
 const base::Feature kDisableDirectlyCompositedImages{
     "DisableDirectlyCompositedImages", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// When enabled, beacons (and friends) have ResourceLoadPriority::kLow,
+// not ResourceLoadPriority::kVeryLow.
+const base::Feature kSetLowPriorityForBeacon{"SetLowPriorityForBeacon",
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
+
 }  // namespace features
 }  // namespace blink

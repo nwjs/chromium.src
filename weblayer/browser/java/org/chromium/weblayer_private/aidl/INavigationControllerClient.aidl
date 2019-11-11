@@ -6,7 +6,7 @@ package org.chromium.weblayer_private.aidl;
 
 /**
  * Interface used by NavigationController to inform the client of changes. This largely duplicates
- * the NavigationObserver interface, but is a singleton to avoid unnecessary IPC.
+ * the NavigationCallback interface, but is a singleton to avoid unnecessary IPC.
  */
 interface INavigationControllerClient {
   IClientNavigation createClientNavigation(in INavigation impl) = 0;
@@ -15,11 +15,15 @@ interface INavigationControllerClient {
 
   void navigationRedirected(IClientNavigation navigation) = 2;
 
-  void navigationCommitted(IClientNavigation navigation) = 3;
+  void readyToCommitNavigation(IClientNavigation navigation) = 3;
 
   void navigationCompleted(IClientNavigation navigation) = 4;
 
   void navigationFailed(IClientNavigation navigation) = 5;
 
-  void onFirstContentfulPaint() = 6;
+  void loadStateChanged(boolean isLoading, boolean toDifferentDocument) = 6;
+
+  void loadProgressChanged(double progress) = 7;
+
+  void onFirstContentfulPaint() = 8;
 }

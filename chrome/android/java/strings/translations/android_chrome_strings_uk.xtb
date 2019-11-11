@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Ніколи не зберігалося</translation>
 <translation id="1067922213147265141">Інші сервіси Google</translation>
 <translation id="1068672505746868501">Ніколи не перекладати сторінки такою мовою: <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">Якщо ви зміните розширення файлу, він може відкритися в іншому додатку або зашкодити пристрою.</translation>
 <translation id="1100066534610197918">Відкрити нову вкладку в групі</translation>
 <translation id="1105960400813249514">Знімок екрана</translation>
 <translation id="1111673857033749125">Тут відображатимуться закладки, збережені на інших ваших пристроях.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Відкрити все</translation>
 <translation id="1409426117486808224">Спрощений перегляд відкритих вкладок</translation>
 <translation id="1409879593029778104">Файл <ph name="FILE_NAME" /> не завантажено, оскільки він уже є.</translation>
-<translation id="1413136574162415971">Ми можемо перевірити, чи ваші паролі не було розкрито внаслідок порушення безпеки даних. Цю функцію буде ввімкнено, коли ви ввійдете в обліковий запис Google і ввімкнете синхронізацію.</translation>
 <translation id="1414981605391750300">З’єднання з Google. Це може зайняти хвилину…</translation>
 <translation id="1416550906796893042">Версія додатка</translation>
 <translation id="1430915738399379752">Друк</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Щоб надати Chrome доступ до сповіщень, також увімкніть їх у <ph name="BEGIN_LINK" />налаштуваннях Android<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529">Дані додатка <ph name="APP_NAME" /> також містяться в Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Якщо змінити розширення файлу, це може спричинити неочікувану поведінку або зашкодити пристрою.</translation>
 <translation id="2056878612599315956">Роботу сайту призупинено</translation>
 <translation id="2063713494490388661">Торкніться, щоб шукати</translation>
 <translation id="2067805253194386918">SMS</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Перетягуйте повзунок, доки розмір тексту не стане зручним для читання. Якщо двічі торкнутись абзацу, розмір тексту має стати принаймні таким, як цей.</translation>
 <translation id="2323763861024343754">Дані сайтів</translation>
 <translation id="2328985652426384049">Не вдається ввійти</translation>
+<translation id="2330129964253841015">Попереджати, якщо паролі зламано</translation>
 <translation id="2349710944427398404">Усі дані, які використовує Chrome, зокрема облікові записи, закладки та збережені налаштування</translation>
 <translation id="2353636109065292463">Перевірка інтернет-з’єднання</translation>
 <translation id="2359808026110333948">Продовжити</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Масштаб тексту</translation>
 <translation id="2394602618534698961">Завантажені файли з’являться тут</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> МБ</translation>
+<translation id="2407481962792080328">Ця функція вмикається, коли ви входите в обліковий запис Google</translation>
 <translation id="2410754283952462441">Виберіть обліковий запис</translation>
 <translation id="2414886740292270097">Темна</translation>
 <translation id="2416359993254398973">Chrome потрібні дозволи, щоб використовувати камеру на цьому сайті.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Зараз ви налаштовуєте синхронізацію та сервіси Google. Щоб увімкнути синхронізацію, натисніть кнопку "Підтвердити" внизу екрана. Перейти вгору</translation>
 <translation id="3328801116991980348">Інформація про сайт</translation>
 <translation id="3333961966071413176">Усі контакти</translation>
+<translation id="3334729583274622784">Змінити розширення файлу?</translation>
 <translation id="3341058695485821946">Перевірте обсяг збережених даних</translation>
 <translation id="3350687908700087792">Закрити всі анонімні вікна</translation>
 <translation id="3353615205017136254">Спрощену сторінку надає Google. Торкніться кнопки завантаження оригіналу, щоб отримати вихідну сторінку.</translation>
@@ -873,7 +875,6 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (оновлено: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">заощаджений трафік</translation>
 <translation id="7498271377022651285">Зачекайте…</translation>
-<translation id="7510943789645525906">Попереджає вас, якщо пароль розкрито внаслідок порушення безпеки даних</translation>
 <translation id="7514365320538308">Завантажити</translation>
 <translation id="751961395872307827">Немає з’єднання із сайтом</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@
 <translation id="7810647596859435254">Відкрити за допомогою…</translation>
 <translation id="7821588508402923572">Тут буде вказано обсяг заощадженого трафіку</translation>
 <translation id="7837721118676387834">Дозволити автоматичне відтворення відео з вимкненим звуком для певних сайтів.</translation>
-<translation id="7838340937077326045">Змінити розширення файлу?</translation>
 <translation id="7846076177841592234">Скасувати вибір</translation>
 <translation id="784934925303690534">Період часу</translation>
 <translation id="7851858861565204677">Інші пристрої</translation>
@@ -930,7 +930,6 @@
 <translation id="7886917304091689118">Відкрито в Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Завантажується файл.}one{Завантажується # файл.}few{Завантажується # файли.}many{Завантажується # файлів.}other{Завантажується # файлу.}}</translation>
 <translation id="7929962904089429003">Відкрити меню</translation>
-<translation id="7930681627240672853">Перевіряти безпеку паролів</translation>
 <translation id="7942131818088350342">Застаріла версія <ph name="PRODUCT_NAME" />.</translation>
 <translation id="7947953824732555851">Прийняти й увійти</translation>
 <translation id="7963646190083259054">Постачальник:</translation>
@@ -946,7 +945,6 @@
 <translation id="8007176423574883786">Вимкнено для цього пристрою</translation>
 <translation id="8013372441983637696">Також видалити дані Chrome із цього пристрою</translation>
 <translation id="8015452622527143194">Відновити розміри всіх елементів за умовчанням</translation>
-<translation id="8015780634880457457">Ми можемо перевірити, чи не було ваші паролі розкрито внаслідок порушення безпеки даних</translation>
 <translation id="802154636333426148">Не вдалося завантажити</translation>
 <translation id="8026334261755873520">Очистити історію</translation>
 <translation id="8035133914807600019">Нова папка…</translation>

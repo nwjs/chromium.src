@@ -22,6 +22,7 @@
 #include "build/build_config.h"
 #include "components/signin/core/browser/account_reconcilor_delegate.h"
 #include "components/signin/core/browser/consistency_cookie_manager_base.h"
+#include "components/signin/core/browser/cookie_reminter.h"
 #include "components/signin/public/base/account_consistency_method.h"
 #include "components/signin/public/base/signin_client.h"
 #include "components/signin/public/base/signin_metrics.h"
@@ -347,6 +348,7 @@ void AccountReconcilor::RegisterWithIdentityManager() {
   if (registered_with_identity_manager_)
     return;
 
+  cookie_reminter_ = std::make_unique<CookieReminter>(identity_manager_);
   identity_manager_->AddObserver(this);
   registered_with_identity_manager_ = true;
 }
@@ -356,6 +358,7 @@ void AccountReconcilor::UnregisterWithIdentityManager() {
   if (!registered_with_identity_manager_)
     return;
 
+  cookie_reminter_.reset();
   identity_manager_->RemoveObserver(this);
   registered_with_identity_manager_ = false;
 }
@@ -367,6 +370,11 @@ AccountReconcilorState AccountReconcilor::GetState() {
 std::unique_ptr<AccountReconcilor::ScopedSyncedDataDeletion>
 AccountReconcilor::GetScopedSyncDataDeletion() {
   return base::WrapUnique(new ScopedSyncedDataDeletion(this));
+}
+
+void AccountReconcilor::ForceCookieRemintingOnNextTokenUpdate(
+    const CoreAccountInfo& account_info) {
+  cookie_reminter_->ForceCookieRemintingOnNextTokenUpdate(account_info);
 }
 
 void AccountReconcilor::AddObserver(Observer* observer) {
@@ -542,6 +550,13 @@ void AccountReconcilor::FinishReconcileWithMultiloginEndpoint(
   DCHECK(IsMultiloginEndpointEnabled());
   DCHECK(!set_accounts_in_progress_);
   DCHECK_EQ(AccountReconcilorState::ACCOUNT_RECONCILOR_RUNNING, state_);
+
+#if defined(OS_CHROMEOS)
+  // Cookie may need to be reminted on Chrome OS. See https://crbug.com/1012649
+  // for details.
+  if (cookie_reminter_->RemintCookieIfRequired())
+    gaia_accounts.clear();
+#endif
 
   bool primary_has_error =
       identity_manager_->HasAccountWithRefreshTokenInPersistentErrorState(
@@ -772,6 +787,14 @@ void AccountReconcilor::FinishReconcile(
       (number_gaia_accounts > 0) && (first_account != gaia_accounts[0].id);
 
   bool rebuild_cookie = first_account_mismatch || (removed_from_cookie > 0);
+
+#if defined(OS_CHROMEOS)
+  // Cookie may need to be reminted on Chrome OS. See https://crbug.com/1012649
+  // for details.
+  if (cookie_reminter_->RemintCookieIfRequired())
+    rebuild_cookie = true;
+#endif
+
   std::vector<gaia::ListedAccount> original_gaia_accounts = gaia_accounts;
   if (rebuild_cookie) {
     VLOG(1) << "AccountReconcilor::FinishReconcile: rebuild cookie";

@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Tidak pernah disimpan</translation>
 <translation id="1067922213147265141">Perkhidmatan Google yang lain</translation>
 <translation id="1068672505746868501">Jangan sekali-kali terjemahkan halaman dalam <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">Jika anda menukar sambungan fail, fail itu mungkin akan dibuka dalam aplikasi lain dan berkemungkinan mendatangkan bahaya kepada peranti anda.</translation>
 <translation id="1100066534610197918">Buka dlm tab baru dlm kumpulan</translation>
 <translation id="1105960400813249514">Tangkapan Skrin</translation>
 <translation id="1111673857033749125">Penanda halaman yang disimpan pada peranti anda yang lain akan dipaparkan di sini.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Buka semua</translation>
 <translation id="1409426117486808224">Paparan ringkas bagi tab terbuka</translation>
 <translation id="1409879593029778104">Muat turun <ph name="FILE_NAME" /> dihalang kerana fail ini sudah wujud.</translation>
-<translation id="1413136574162415971">Google boleh menyemak sama ada kata laluan anda terlibat dalam pelanggaran data. Semakan ini akan dihidupkan apabila anda log masuk dengan Akaun Google anda dan menghidupkan penyegerakan.</translation>
 <translation id="1414981605391750300">Menghubungi Google. Mungkin mengambil sedikit masa…</translation>
 <translation id="1416550906796893042">Versi aplikasi</translation>
 <translation id="1430915738399379752">Cetak</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Untuk membenarkan Chrome menghantar pemberitahuan kepada anda, hidupkan pemberitahuan dalam <ph name="BEGIN_LINK" />Tetapan Android<ph name="END_LINK" /> juga.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> juga mempunyai data dalam Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Menukar sambungan fail boleh mengakibatkan gelagat yang tidak dijangka dan boleh membahayakan peranti anda.</translation>
 <translation id="2056878612599315956">Tapak dijeda</translation>
 <translation id="2063713494490388661">Ketik untuk Mencari</translation>
 <translation id="2067805253194386918">teks</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Seret gelangsar sehingga anda selesa membaca teks ini. Teks harus kelihatan sekurang-kurangnya sebesar ini selepas mengetik dua kali pada perenggan.</translation>
 <translation id="2323763861024343754">Storan tapak</translation>
 <translation id="2328985652426384049">Tidak dapat log masuk</translation>
+<translation id="2330129964253841015">Beri amaran kepada anda jika kata laluan terjejas</translation>
 <translation id="2349710944427398404">Jumlah data yang digunakan oleh Chrome, termasuk akaun, penanda halaman dan tetapan yang disimpan</translation>
 <translation id="2353636109065292463">Memeriksa sambungan Internet anda</translation>
 <translation id="2359808026110333948">Teruskan</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Penskalaan teks</translation>
 <translation id="2394602618534698961">Fail yang anda muat turun dipaparkan di sini</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Apabila anda log masuk ke Akaun Google anda, ciri ini akan dihidupkan</translation>
 <translation id="2410754283952462441">Pilih akaun</translation>
 <translation id="2414886740292270097">Gelap</translation>
 <translation id="2416359993254398973">Chrome memerlukan kebenaran untuk mengakses kamera anda bagi tapak ini.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Anda sedang menyesuaikan tetapan Penyegerakan dan perkhidmatan Google anda. Untuk menyelesaikan tindakan menghidupkan penyegerakan, ketik butang Sahkan berdekatan bahagian bawah skrin. Navigasi ke atas</translation>
 <translation id="3328801116991980348">Maklumat tapak</translation>
 <translation id="3333961966071413176">Semua kenalan</translation>
+<translation id="3334729583274622784">Tukar sambungan fail?</translation>
 <translation id="3341058695485821946">Lihat jumlah data yang dapat dijimatkan</translation>
 <translation id="3350687908700087792">Tutup semua tab inkognito</translation>
 <translation id="3353615205017136254">Halaman Lite disediakan oleh Google. Ketik butang muatkan halaman asal untuk memuatkan halaman asal.</translation>
@@ -873,7 +875,6 @@ Tapak TIDAK memperoleh akses kepada kamera. Hanya anda dapat melihat imej kamera
 <translation id="7493994139787901920"><ph name="VERSION" /> (Dikemas kini <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">data disimpan</translation>
 <translation id="7498271377022651285">Sila tunggu…</translation>
-<translation id="7510943789645525906">Memberi anda amaran jika kata laluan yang anda gunakan adalah sebahagian daripada pelanggaran data</translation>
 <translation id="7514365320538308">Muat Turun</translation>
 <translation id="751961395872307827">Tidak dapat menyambung ke tapak</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ Tapak TIDAK memperoleh akses kepada kamera. Hanya anda dapat melihat imej kamera
 <translation id="7810647596859435254">Buka dengan...</translation>
 <translation id="7821588508402923572">Penjimatan data anda akan dipaparkan di sini</translation>
 <translation id="7837721118676387834">Benarkan video yang diredamkan dimainkan secara automatik untuk tapak web tertentu.</translation>
-<translation id="7838340937077326045">Adakah anda pasti mahu menukar sambungan fail?</translation>
 <translation id="7846076177841592234">Batalkan pilihan</translation>
 <translation id="784934925303690534">Julat masa</translation>
 <translation id="7851858861565204677">Peranti lain</translation>
@@ -930,7 +930,6 @@ Tapak TIDAK memperoleh akses kepada kamera. Hanya anda dapat melihat imej kamera
 <translation id="7886917304091689118">Sedang berjalan dalam Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Memuat turun fail.}other{Memuat turun # fail.}}</translation>
 <translation id="7929962904089429003">Buka menu</translation>
-<translation id="7930681627240672853">Semak keselamatan kata laluan</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> telah lapuk.</translation>
 <translation id="7947953824732555851">Terima dan log masuk</translation>
 <translation id="7963646190083259054">Vendor:</translation>
@@ -946,7 +945,6 @@ Tapak TIDAK memperoleh akses kepada kamera. Hanya anda dapat melihat imej kamera
 <translation id="8007176423574883786">Dimatikan untuk peranti ini</translation>
 <translation id="8013372441983637696">Selain itu, kosongkan data Chrome anda daripada peranti ini</translation>
 <translation id="8015452622527143194">Kembalikan semua yg ada pd halaman kpd saiz lalai</translation>
-<translation id="8015780634880457457">Google boleh menyemak sama ada kata laluan anda terlibat dalam pelanggaran data</translation>
 <translation id="802154636333426148">Muat turun gagal</translation>
 <translation id="8026334261755873520">Kosongkan data semakan imbas</translation>
 <translation id="8035133914807600019">Folder baharu...</translation>

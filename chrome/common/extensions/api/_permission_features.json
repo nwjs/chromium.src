@@ -591,7 +591,7 @@
     "extension_types": ["extension", "legacy_packaged_app"]
   },
   "printingMetrics": {
-    "channel": "dev",
+    "channel": "stable",
     "platforms": ["chromeos"],
     "extension_types": ["extension"],
     "location": "policy"

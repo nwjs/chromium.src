@@ -21,6 +21,7 @@ import androidx.annotation.NonNull;
 import org.chromium.weblayer_private.aidl.APICallException;
 import org.chromium.weblayer_private.aidl.IBrowserFragment;
 import org.chromium.weblayer_private.aidl.IObjectWrapper;
+import org.chromium.weblayer_private.aidl.IRemoteFragment;
 import org.chromium.weblayer_private.aidl.IRemoteFragmentClient;
 import org.chromium.weblayer_private.aidl.ObjectWrapper;
 
@@ -29,9 +30,14 @@ import java.util.concurrent.Future;
 /**
  * WebLayer's fragment implementation.
  *
+ * This class is an implementation detail and will eventually be hidden. Use
+ * {@link BrowserFragmentController#fromFragment} to get the BrowserFragmentController from a
+ * Fragment created by WebLayer.
+ *
  * All the browser APIs, such as loading pages can be accessed via
- * {@link BrowserFragmentController}, which can be retrieved with {@link #getController} after
- * the fragment received onCreate the call.
+ * {@link BrowserFragmentController}, which can be retrieved with {@link
+ * FragmentSupport#getBrowserFragmentControllerForFragment} after the fragment received onCreate the
+ * call.
  *
  * Attaching a BrowserFragment to an Activity requires WebLayer to be initialized, so
  * BrowserFragment will block the thread in onAttach until it's done. To prevent this,
@@ -130,10 +136,21 @@ public final class BrowserFragment extends Fragment {
             }
             return true;
         }
+
+        @Override
+        public boolean shouldShowRequestPermissionRationale(String permission) {
+            return BrowserFragment.this.shouldShowRequestPermissionRationale(permission);
+        }
+
+        @Override
+        public void requestPermissions(String[] permissions, int requestCode) {
+            BrowserFragment.this.requestPermissions(permissions, requestCode);
+        }
     };
 
     // Nonnull after first onAttach().
     private IBrowserFragment mImpl;
+    private IRemoteFragment mRemoteFragment;
     private WebLayer mWebLayer;
 
     // Nonnull between onCreate() and onDestroy().
@@ -145,6 +162,7 @@ public final class BrowserFragment extends Fragment {
      */
     public BrowserFragment() {
         super();
+        ThreadCheck.ensureOnUiThread();
     }
 
     /**
@@ -152,7 +170,8 @@ public final class BrowserFragment extends Fragment {
      * The controller is available only between BrowserFragment's onCreate() and onDestroy().
      */
     @NonNull
-    public BrowserFragmentController getController() {
+    BrowserFragmentController getController() {
+        ThreadCheck.ensureOnUiThread();
         if (mBrowserFragmentController == null) {
             throw new RuntimeException("BrowserFragmentController is available only between "
                     + "BrowserFragment's onCreate() and onDestroy().");
@@ -162,9 +181,22 @@ public final class BrowserFragment extends Fragment {
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        ThreadCheck.ensureOnUiThread();
         try {
-            mImpl.asRemoteFragment().handleOnActivityResult(
+            mRemoteFragment.handleOnActivityResult(
                     requestCode, resultCode, ObjectWrapper.wrap(data));
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+            int requestCode, String[] permissions, int[] grantResults) {
+        ThreadCheck.ensureOnUiThread();
+        try {
+            mRemoteFragment.handleOnRequestPermissionsResult(
+                    requestCode, permissions, grantResults);
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
@@ -173,12 +205,13 @@ public final class BrowserFragment extends Fragment {
     @SuppressWarnings("MissingSuperCall")
     @Override
     public void onAttach(Context context) {
+        ThreadCheck.ensureOnUiThread();
         // This is the first lifecycle event and also the first time we can get app context (unless
         // the embedder has already called getController). So it's the latest and at the same time
         // the earliest moment when we can initialize WebLayer without missing any lifecycle events.
         ensureConnectedToWebLayer(context.getApplicationContext());
         try {
-            mImpl.asRemoteFragment().handleOnAttach(ObjectWrapper.wrap(context));
+            mRemoteFragment.handleOnAttach(ObjectWrapper.wrap(context));
             // handleOnAttach results in creating BrowserFragmentControllerImpl on the other side.
             // Now we retrieve it, and build BrowserFragmentController on this side.
         } catch (RemoteException e) {
@@ -198,6 +231,7 @@ public final class BrowserFragment extends Fragment {
             Future<WebLayer> future = WebLayer.create(appContext);
             mWebLayer = future.get();
             mImpl = mWebLayer.connectFragment(mClientImpl, args);
+            mRemoteFragment = mImpl.asRemoteFragment();
         } catch (Exception e) {
             throw new RuntimeException("Failed to initialize WebLayer", e);
         }
@@ -206,10 +240,10 @@ public final class BrowserFragment extends Fragment {
     @SuppressWarnings("MissingSuperCall")
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        ThreadCheck.ensureOnUiThread();
         try {
-            mImpl.asRemoteFragment().handleOnCreate(ObjectWrapper.wrap(savedInstanceState));
-            mBrowserFragmentController = new BrowserFragmentController(mImpl.getController(),
-                    mWebLayer.getProfileManager());
+            mRemoteFragment.handleOnCreate(ObjectWrapper.wrap(savedInstanceState));
+            mBrowserFragmentController = new BrowserFragmentController(mImpl.getController());
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
@@ -218,8 +252,9 @@ public final class BrowserFragment extends Fragment {
     @Override
     public View onCreateView(
             LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        ThreadCheck.ensureOnUiThread();
         try {
-            return ObjectWrapper.unwrap(mImpl.asRemoteFragment().handleOnCreateView(), View.class);
+            return ObjectWrapper.unwrap(mRemoteFragment.handleOnCreateView(), View.class);
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
@@ -228,9 +263,9 @@ public final class BrowserFragment extends Fragment {
     @SuppressWarnings("MissingSuperCall")
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
+        ThreadCheck.ensureOnUiThread();
         try {
-            mImpl.asRemoteFragment().handleOnActivityCreated(
-                    ObjectWrapper.wrap(savedInstanceState));
+            mRemoteFragment.handleOnActivityCreated(ObjectWrapper.wrap(savedInstanceState));
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
@@ -239,8 +274,9 @@ public final class BrowserFragment extends Fragment {
     @SuppressWarnings("MissingSuperCall")
     @Override
     public void onStart() {
+        ThreadCheck.ensureOnUiThread();
         try {
-            mImpl.asRemoteFragment().handleOnStart();
+            mRemoteFragment.handleOnStart();
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
@@ -249,8 +285,9 @@ public final class BrowserFragment extends Fragment {
     @SuppressWarnings("MissingSuperCall")
     @Override
     public void onResume() {
+        ThreadCheck.ensureOnUiThread();
         try {
-            mImpl.asRemoteFragment().handleOnResume();
+            mRemoteFragment.handleOnResume();
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
@@ -259,8 +296,9 @@ public final class BrowserFragment extends Fragment {
     @SuppressWarnings("MissingSuperCall")
     @Override
     public void onSaveInstanceState(Bundle outState) {
+        ThreadCheck.ensureOnUiThread();
         try {
-            mImpl.asRemoteFragment().handleOnSaveInstanceState(ObjectWrapper.wrap(outState));
+            mRemoteFragment.handleOnSaveInstanceState(ObjectWrapper.wrap(outState));
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
@@ -269,8 +307,9 @@ public final class BrowserFragment extends Fragment {
     @SuppressWarnings("MissingSuperCall")
     @Override
     public void onPause() {
+        ThreadCheck.ensureOnUiThread();
         try {
-            mImpl.asRemoteFragment().handleOnPause();
+            mRemoteFragment.handleOnPause();
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
@@ -279,8 +318,9 @@ public final class BrowserFragment extends Fragment {
     @SuppressWarnings("MissingSuperCall")
     @Override
     public void onStop() {
+        ThreadCheck.ensureOnUiThread();
         try {
-            mImpl.asRemoteFragment().handleOnStop();
+            mRemoteFragment.handleOnStop();
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
@@ -289,8 +329,9 @@ public final class BrowserFragment extends Fragment {
     @SuppressWarnings("MissingSuperCall")
     @Override
     public void onDestroyView() {
+        ThreadCheck.ensureOnUiThread();
         try {
-            mImpl.asRemoteFragment().handleOnDestroyView();
+            mRemoteFragment.handleOnDestroyView();
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
@@ -299,8 +340,9 @@ public final class BrowserFragment extends Fragment {
     @SuppressWarnings("MissingSuperCall")
     @Override
     public void onDestroy() {
+        ThreadCheck.ensureOnUiThread();
         try {
-            mImpl.asRemoteFragment().handleOnDestroy();
+            mRemoteFragment.handleOnDestroy();
             // The other side does the clean up automatically in handleOnDestroy()
         } catch (RemoteException e) {
             throw new APICallException(e);
@@ -311,8 +353,9 @@ public final class BrowserFragment extends Fragment {
     @SuppressWarnings("MissingSuperCall")
     @Override
     public void onDetach() {
+        ThreadCheck.ensureOnUiThread();
         try {
-            mImpl.asRemoteFragment().handleOnDetach();
+            mRemoteFragment.handleOnDetach();
         } catch (RemoteException e) {
             throw new APICallException(e);
         }

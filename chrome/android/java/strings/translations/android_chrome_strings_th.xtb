@@ -9,6 +9,7 @@
 <translation id="10614374240317010">ไม่เคยบันทึก</translation>
 <translation id="1067922213147265141">บริการอื่นๆ ของ Google</translation>
 <translation id="1068672505746868501">ไม่ต้องแปลหน้าเว็บภาษา<ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">หากคุณเปลี่ยนนามสกุลไฟล์ ไฟล์นั้นอาจเปิดในแอปพลิเคชันอื่นและเป็นอันตรายต่ออุปกรณ์ของคุณ</translation>
 <translation id="1100066534610197918">เปิดในแท็บใหม่ในกลุ่ม</translation>
 <translation id="1105960400813249514">จับภาพหน้าจอ</translation>
 <translation id="1111673857033749125">บุ๊กมาร์กที่บันทึกไว้ในอุปกรณ์เครื่องอื่นๆ ของคุณจะปรากฏที่นี่</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">เปิดทั้งหมด</translation>
 <translation id="1409426117486808224">มุมมองอย่างง่ายสำหรับแท็บที่เปิดไว้</translation>
 <translation id="1409879593029778104">ระบบป้องกันการดาวน์โหลด <ph name="FILE_NAME" /> เพราะมีไฟล์นี้อยู่แล้ว</translation>
-<translation id="1413136574162415971">Google จะตรวจสอบได้ว่ารหัสผ่านของคุณรวมอยู่ในการละเมิดข้อมูลหรือไม่ ฟีเจอร์นี้จะเปิดขึ้นเมื่อคุณลงชื่อเข้าใช้ด้วยบัญชี Google และเปิดการซิงค์</translation>
 <translation id="1414981605391750300">กำลังติดต่อ Google อาจใช้เวลาประมาณ 1 นาที…</translation>
 <translation id="1416550906796893042">เวอร์ชันของแอปพลิเคชัน</translation>
 <translation id="1430915738399379752">พิมพ์</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">หากต้องการให้ Chrome ส่งการแจ้งเตือนให้คุณ ให้เปิดการแจ้งเตือนใน<ph name="BEGIN_LINK" />การตั้งค่า Android<ph name="END_LINK" /> ด้วย</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> มีข้อมูลอยู่ใน Chrome ด้วย</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">การเปลี่ยนนามสกุลไฟล์อาจทำให้เกิดการทำงานที่ไม่คาดคิดและเป็นอันตรายต่ออุปกรณ์</translation>
 <translation id="2056878612599315956">เว็บไซต์หยุดชั่วคราว</translation>
 <translation id="2063713494490388661">แตะเพื่อค้นหา</translation>
 <translation id="2067805253194386918">ข้อความ</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">ลากแถบเลื่อนจนกว่าคุณจะสามารถอ่านได้อย่างสะดวก ข้อความควรมีขนาดเท่านี้เป็นอย่างน้อยหลังจากแตะ 2 ครั้งบนย่อหน้า</translation>
 <translation id="2323763861024343754">พื้นที่เก็บข้อมูลเว็บไซต์</translation>
 <translation id="2328985652426384049">ลงชื่อเข้าใช้ไม่ได้</translation>
+<translation id="2330129964253841015">เตือนคุณหากรหัสผ่านถูกบุกรุก</translation>
 <translation id="2349710944427398404">ข้อมูลทั้งหมดที่ Chrome ใช้ รวมถึงบัญชี บุ๊กมาร์ก และการตั้งค่าที่บันทึกไว้</translation>
 <translation id="2353636109065292463">ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต</translation>
 <translation id="2359808026110333948">ต่อไป</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">อัตราส่วนข้อความ</translation>
 <translation id="2394602618534698961">ไฟล์ที่คุณดาวน์โหลดจะแสดงที่นี่</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">ฟีเจอร์นี้จะเปิดเมื่อคุณลงชื่อเข้าใช้บัญชี Google</translation>
 <translation id="2410754283952462441">เลือกบัญชี</translation>
 <translation id="2414886740292270097">มืด</translation>
 <translation id="2416359993254398973">Chrome ต้องการสิทธิ์เข้าถึงกล้องถ่ายรูปของคุณสำหรับไซต์นี้</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">ขณะนี้คุณกำลังปรับแต่งการตั้งค่าการซิงค์และบริการ Google แตะปุ่ม "ยืนยัน" ใกล้ด้านล่างของหน้าจอเพื่อเปิดการซิงค์ให้เสร็จสิ้น กลับ</translation>
 <translation id="3328801116991980348">ข้อมูลไซต์</translation>
 <translation id="3333961966071413176">รายชื่อติดต่อทั้งหมด</translation>
+<translation id="3334729583274622784">เปลี่ยนนามสกุลไฟล์ใช่ไหม</translation>
 <translation id="3341058695485821946">ดูปริมาณอินเทอร์เน็ตที่คุณประหยัดไปได้</translation>
 <translation id="3350687908700087792">ปิดแท็บไม่ระบุตัวตนทั้งหมด</translation>
 <translation id="3353615205017136254">หน้าเวอร์ชัน Lite ให้บริการโดย Google แตะปุ่มโหลดต้นฉบับเพื่อโหลดหน้าต้นฉบับ</translation>
@@ -873,7 +875,6 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (อัปเดตเมื่อ <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">อินเทอร์เน็ตที่ประหยัดได้</translation>
 <translation id="7498271377022651285">โปรดรอสักครู่…</translation>
-<translation id="7510943789645525906">เตือนคุณในกรณีที่รหัสผ่านที่ใช้รวมอยู่ในการละเมิดข้อมูล</translation>
 <translation id="7514365320538308">ดาวน์โหลด</translation>
 <translation id="751961395872307827">เชื่อมต่อเว็บไซต์ไม่ได้</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@
 <translation id="7810647596859435254">เปิดด้วย…</translation>
 <translation id="7821588508402923572">การประหยัดอินเทอร์เน็ตของคุณจะแสดงที่นี่</translation>
 <translation id="7837721118676387834">อนุญาตให้เล่นวิดีโอที่ปิดเสียงโดยอัตโนมัติสำหรับบางเว็บไซต์</translation>
-<translation id="7838340937077326045">แน่ใจไหมว่าต้องการเปลี่ยนนามสกุลไฟล์</translation>
 <translation id="7846076177841592234">ยกเลิกการเลือก</translation>
 <translation id="784934925303690534">ช่วงเวลา</translation>
 <translation id="7851858861565204677">อุปกรณ์อื่นๆ</translation>
@@ -930,7 +930,6 @@
 <translation id="7886917304091689118">กำลังทำงานใน Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{กำลังดาวน์โหลดไฟล์}other{กำลังดาวน์โหลด # ไฟล์}}</translation>
 <translation id="7929962904089429003">เปิดเมนู</translation>
-<translation id="7930681627240672853">ตรวจสอบความปลอดภัยของรหัสผ่าน</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> ล้าสมัย</translation>
 <translation id="7947953824732555851">ยอมรับและลงชื่อเข้าใช้</translation>
 <translation id="7963646190083259054">ผู้ขาย:</translation>
@@ -946,7 +945,6 @@
 <translation id="8007176423574883786">ปิดสำหรับอุปกรณ์นี้</translation>
 <translation id="8013372441983637696">ล้างข้อมูล Chrome ของคุณออกจากอุปกรณ์นี้ด้วย</translation>
 <translation id="8015452622527143194">เปลี่ยนทุกอย่างบนหน้ากลับไปเป็นขนาดเริ่มต้น</translation>
-<translation id="8015780634880457457">Google จะตรวจสอบได้ว่ารหัสผ่านของคุณรวมอยู่ในการละเมิดข้อมูลหรือไม่</translation>
 <translation id="802154636333426148">การดาวน์โหลดล้มเหลว</translation>
 <translation id="8026334261755873520">ล้างข้อมูลการท่องเว็บ</translation>
 <translation id="8035133914807600019">โฟลเดอร์ใหม่…</translation>

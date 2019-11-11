@@ -6,11 +6,10 @@ package org.chromium.weblayer_private;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentSender;
 import android.os.Bundle;
 import android.view.View;
 
-import org.chromium.ui.base.ActivityWindowAndroid;
+import org.chromium.components.embedder_support.application.ClassLoaderContextWrapperFactory;
 import org.chromium.weblayer_private.aidl.BrowserFragmentArgs;
 import org.chromium.weblayer_private.aidl.IBrowserFragment;
 import org.chromium.weblayer_private.aidl.IBrowserFragmentController;
@@ -18,48 +17,24 @@ import org.chromium.weblayer_private.aidl.IRemoteFragment;
 import org.chromium.weblayer_private.aidl.IRemoteFragmentClient;
 
 public class BrowserFragmentImpl extends RemoteFragmentImpl {
-
     private final ProfileImpl mProfile;
 
     private BrowserFragmentControllerImpl mController;
     private Context mContext;
 
-    // TODO(cduvall): Factor out the logic we need from ActivityWindowAndroid so we do not inherit
-    // directly from it.
-    private static class FragmentWindowAndroid extends ActivityWindowAndroid {
-        private BrowserFragmentImpl mFragment;
-
-        FragmentWindowAndroid(Context context, BrowserFragmentImpl fragment) {
-            // Use false to disable listening to activity state.
-            super(context, false);
-            mFragment = fragment;
-        }
-
-        @Override
-        protected boolean startIntentSenderForResult(IntentSender intentSender, int requestCode) {
-            return mFragment.startIntentSenderForResult(
-                    intentSender, requestCode, new Intent(), 0, 0, 0, null);
-        }
-
-        @Override
-        protected boolean startActivityForResult(Intent intent, int requestCode) {
-            return mFragment.startActivityForResult(intent, requestCode, null);
-        }
-    }
-
-    public BrowserFragmentImpl(ProfileManager profileManager, IRemoteFragmentClient client,
-            Bundle fragmentArgs) {
+    public BrowserFragmentImpl(
+            ProfileManager profileManager, IRemoteFragmentClient client, Bundle fragmentArgs) {
         super(client);
-        mProfile = profileManager.getProfile(fragmentArgs.getString(
-                BrowserFragmentArgs.PROFILE_PATH));
+        mProfile =
+                profileManager.getProfile(fragmentArgs.getString(BrowserFragmentArgs.PROFILE_PATH));
     }
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        mContext = context;
+        mContext = ClassLoaderContextWrapperFactory.get(context);
         if (mController != null) { // On first creation, onAttach is called before onCreate
-            mController.onFragmentAttached(context, new FragmentWindowAndroid(context, this));
+            mController.onFragmentAttached(mContext, new FragmentWindowAndroid(mContext, this));
         }
     }
 
@@ -80,6 +55,12 @@ public class BrowserFragmentImpl extends RemoteFragmentImpl {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         mController.onActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+            int requestCode, String[] permissions, int[] grantResults) {
+        mController.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
     @Override

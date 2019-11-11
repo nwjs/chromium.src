@@ -9,6 +9,7 @@
 <translation id="10614374240317010">هرگز ذخیره نمی‌شود</translation>
 <translation id="1067922213147265141">‏سایر سرویس‌های Google</translation>
 <translation id="1068672505746868501">هرگز صفحه‌های <ph name="SOURCE_LANGUAGE" /> ترجمه نشوند</translation>
+<translation id="107147699690128016">اگر پسوند فایل را تغییر دهید، ممکن است فایل در برنامه دیگری باز شود و به‌طور بالقوه برای دستگاه مضر باشد.</translation>
 <translation id="1100066534610197918">باز کردن در برگه جدید در گروه</translation>
 <translation id="1105960400813249514">گرفتن عکس از صفحه‌</translation>
 <translation id="1111673857033749125">نشانک‌های ذخیره‌شده در سایر دستگاه‌های شما در اینجا نشان داده می‌شوند.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">باز کردن همه</translation>
 <translation id="1409426117486808224">نمای ساده‌شده برای برگه‌های باز</translation>
 <translation id="1409879593029778104">بارگیری <ph name="FILE_NAME" /> انجام نشد زیرا فایل از قبل موجود است.</translation>
-<translation id="1413136574162415971">‏Google می‌تواند بررسی کند آیا گذرواژه‌هایتان بخشی از نقض داده‌ها بوده است یا نه. اگر با حساب Google به سیستم وارد شوید و همگام‌سازی را روشن کرده باشید، این ویژگی روشن خواهد شد.</translation>
 <translation id="1414981605391750300">‏درحال اتصال به Google. ممکن است یک دقیقه طول بکشد…</translation>
 <translation id="1416550906796893042">نسخه برنامه</translation>
 <translation id="1430915738399379752">چاپ</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">‏برای اینکه به Chrome امکان دهید برایتان اعلان ارسال کند، در <ph name="BEGIN_LINK" />تنظیمات Android<ph name="END_LINK" /> هم اعلان‌ها را روشن کنید.</translation>
 <translation id="204321170514947529">‏<ph name="APP_NAME" /> داده‌هایی در Chrome نیز دارد</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">ممکن است تغییر پسوند فایل موجب رفتار نامنتظری شود و برای دستگاه مضر باشد.</translation>
 <translation id="2056878612599315956">سایت موقتاً متوقف شد</translation>
 <translation id="2063713494490388661">ضربه برای جستجو</translation>
 <translation id="2067805253194386918">نوشتار</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">لغزنده را بکشید تا زمانی که بتوانید این متن را به راحتی بخوانید. بعد از دو ضربه متوالی روی یک پاراگراف، اندازه نوشتار حداقل باید به این بزرگی باشد.</translation>
 <translation id="2323763861024343754">فضای ذخیره‌سازی سایت</translation>
 <translation id="2328985652426384049">ورود به سیستم امکان‌پذیر نیست</translation>
+<translation id="2330129964253841015">اگر گذرواژه‌هایتان درمعرض خطر باشد، هشدار دریافت کنید</translation>
 <translation id="2349710944427398404">‏کل داده‌های استفاده‌شده توسط Chrome، شامل حساب‌ها، نشانک‌ها و تنظیمات ذخیره‌شده</translation>
 <translation id="2353636109065292463">بررسی اتصال اینترنت</translation>
 <translation id="2359808026110333948">ادامه</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">اندازه قلم نوشتار</translation>
 <translation id="2394602618534698961">فایل‌هایی که بارگیری می‌کنید، اینجا نشان داده می‌شود</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> مگابایت</translation>
+<translation id="2407481962792080328">‏وقتی به «حساب Google» خود وارد می‌شوید، این ویژگی روشن می‌شود</translation>
 <translation id="2410754283952462441">انتخاب حساب</translation>
 <translation id="2414886740292270097">تاریک</translation>
 <translation id="2416359993254398973">‏Chrome به مجوز دسترسی به دوربین برای این سایت نیاز دارد.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">‏شما درحال سفارشی کردن تنظیمات همگام‌سازی و سرویس‌های Google هستید. برای تکمیل روشن کردن همگام‌سازی، روی دکمه «تأیید» در پایین صفحه ضربه بزنید. پیمایش به بالا</translation>
 <translation id="3328801116991980348">اطلاعات سایت</translation>
 <translation id="3333961966071413176">همه مخاطبین</translation>
+<translation id="3334729583274622784">پسوند فایل تغییر کند؟</translation>
 <translation id="3341058695485821946">ببینید چه مقدار داده صرفه‌جویی کرده‌اید</translation>
 <translation id="3350687908700087792">بستن همه برگه‌های ناشناس</translation>
 <translation id="3353615205017136254">‏صفحه ساده‌شده را Google ارائه کرده است. برای بارگیری صفحه اصلی، روی دکمه بارگیری صفحه اصلی ضربه بزنید.</translation>
@@ -873,7 +875,6 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (زمان به‌روزرسانی <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">داده صرفه‌جویی‌شده</translation>
 <translation id="7498271377022651285">لطفاً صبر کنید...</translation>
-<translation id="7510943789645525906">اگر گذرواژه مورداستفاده بخشی از نقض داده باشد، هشدار می‌دهد</translation>
 <translation id="7514365320538308">بارگیری</translation>
 <translation id="751961395872307827">نمی‌توان به این سایت متصل شد</translation>
 <translation id="7521387064766892559">جاوا اسکریپت</translation>
@@ -919,7 +920,6 @@
 <translation id="7810647596859435254">باز کردن با…</translation>
 <translation id="7821588508402923572">میزان داده صرفه‌جویی‌شده اینجا نشان داده می‌شود</translation>
 <translation id="7837721118676387834">به پخش‌خودکار ویدیو‌های صامت‌شده برای سایتی خاص امکان دهید.</translation>
-<translation id="7838340937077326045">مطمئنید می‌خواهید پسوند فایل را تغییر دهید؟</translation>
 <translation id="7846076177841592234">لغو انتخاب</translation>
 <translation id="784934925303690534">محدوده زمانی</translation>
 <translation id="7851858861565204677">دستگاه‌های دیگر</translation>
@@ -930,7 +930,6 @@
 <translation id="7886917304091689118">‏درحال اجرا در Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{درحال بارگیری فایل.}one{درحال بارگیری # فایل.}other{درحال بارگیری # فایل.}}</translation>
 <translation id="7929962904089429003">باز کردن منو</translation>
-<translation id="7930681627240672853">بررسی امنیت گذرواژه</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> قدیمی است.</translation>
 <translation id="7947953824732555851">پذیرش و ورود به سیستم</translation>
 <translation id="7963646190083259054">ارائه‌دهنده:</translation>
@@ -946,7 +945,6 @@
 <translation id="8007176423574883786">برای این دستگاه غیرفعال شد</translation>
 <translation id="8013372441983637696">‏داده‌های این Chrome هم از این دستگاه پاک شود</translation>
 <translation id="8015452622527143194">برگرداندن همه‌چیز در صفحه به‌اندازه پیش‌فرض</translation>
-<translation id="8015780634880457457">‏Google می‌تواند بررسی کند که آیا گذرواژه‌هایتان بخشی از نقض داده بوده است یا نه</translation>
 <translation id="802154636333426148">بارگیری نشد</translation>
 <translation id="8026334261755873520">پاک کردن داده‌های مرور</translation>
 <translation id="8035133914807600019">پوشه جدید…</translation>

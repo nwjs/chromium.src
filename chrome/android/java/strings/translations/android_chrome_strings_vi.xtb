@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Không bao giờ lưu</translation>
 <translation id="1067922213147265141">Các dịch vụ khác của Google</translation>
 <translation id="1068672505746868501">Không bao giờ dịch các trang viết bằng <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">Nếu bạn thay đổi đuôi tệp, thì tệp có thể mở trong một ứng dụng khác và tiềm ẩn nguy cơ đối với thiết bị.</translation>
 <translation id="1100066534610197918">Mở trong tab mới trong nhóm</translation>
 <translation id="1105960400813249514">Chụp ảnh màn hình</translation>
 <translation id="1111673857033749125">Dấu trang được lưu trên thiết bị khác của bạn sẽ xuất hiện tại đây.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Mở tất cả</translation>
 <translation id="1409426117486808224">Chế độ xem đơn giản cho tab đang mở</translation>
 <translation id="1409879593029778104">Đã ngăn tải xuống <ph name="FILE_NAME" /> do tệp này đã tồn tại.</translation>
-<translation id="1413136574162415971">Google có thể kiểm tra xem mật khẩu của bạn có bị ảnh hưởng trong một vụ rò rỉ dữ liệu không. Tùy chọn này sẽ được bật khi bạn đăng nhập bằng Tài khoản Google của mình và bật tính năng đồng bộ hóa.</translation>
 <translation id="1414981605391750300">Đang liên hệ với Google. Quá trình này có thể mất ít phút…</translation>
 <translation id="1416550906796893042">Phiên bản ứng dụng</translation>
 <translation id="1430915738399379752">In</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Để Chrome có thể gửi cho bạn thông báo, hãy bật cả thông báo trong phần <ph name="BEGIN_LINK" />Cài đặt của Android<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> cũng có dữ liệu trong Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Việc thay đổi đuôi tệp có thể dẫn đến hành vi không mong muốn và gây hại cho thiết bị của bạn.</translation>
 <translation id="2056878612599315956">Đã tạm dừng trang web</translation>
 <translation id="2063713494490388661">Nhấn để tìm kiếm</translation>
 <translation id="2067805253194386918">văn bản</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Kéo thanh trượt cho đến khi bạn có thể đọc nội dung này thoải mái. Chữ tối thiểu phải to như này sau khi bấm đúp vào một đoạn.</translation>
 <translation id="2323763861024343754">Bộ nhớ trang web</translation>
 <translation id="2328985652426384049">Không thể đăng nhập</translation>
+<translation id="2330129964253841015">Cảnh báo bạn nếu mật khẩu bị lộ</translation>
 <translation id="2349710944427398404">Tổng số dữ liệu mà Chrome sử dụng, bao gồm tài khoản, dấu trang và cài đặt đã lưu</translation>
 <translation id="2353636109065292463">Kiểm tra kết nối Internet</translation>
 <translation id="2359808026110333948">Tiếp tục</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Chia tỷ lệ văn bản</translation>
 <translation id="2394602618534698961">Các tệp bạn tải xuống sẽ xuất hiện ở đây</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Khi bạn đăng nhập vào Tài khoản Google của mình, tính năng này sẽ được bật</translation>
 <translation id="2410754283952462441">Chọn một tài khoản</translation>
 <translation id="2414886740292270097">Tối</translation>
 <translation id="2416359993254398973">Chrome cần có quyền truy cập máy ảnh của bạn cho trang web này.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Bạn đang tùy chỉnh các tùy chọn cài đặt Đồng bộ hóa và dịch vụ của Google. Để hoàn tất thao tác bật tính năng đồng bộ hóa, hãy nhấn vào nút Xác nhận ở gần cuối màn hình. Di chuyển lên</translation>
 <translation id="3328801116991980348">Thông tin về trang web</translation>
 <translation id="3333961966071413176">Tất cả người liên hệ</translation>
+<translation id="3334729583274622784">Thay đổi đuôi tệp?</translation>
 <translation id="3341058695485821946">Xem lượng dữ liệu bạn đã tiết kiệm được</translation>
 <translation id="3350687908700087792">Đóng tất cả các tab ẩn danh</translation>
 <translation id="3353615205017136254">Trang phiên bản rút gọn do Google cung cấp. Nhấn vào nút tải bản gốc để tải trang gốc.</translation>
@@ -873,7 +875,6 @@ Trang web này KHÔNG có quyền truy cập vào máy ảnh. Chỉ bạn mới 
 <translation id="7493994139787901920"><ph name="VERSION" /> (Đã cập nhật <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">dữ liệu đã tiết kiệm</translation>
 <translation id="7498271377022651285">Vui lòng đợi…</translation>
-<translation id="7510943789645525906">Cảnh báo bạn nếu mật khẩu bạn sử dụng bị ảnh hưởng trong một vụ rò rỉ dữ liệu</translation>
 <translation id="7514365320538308">Tải xuống</translation>
 <translation id="751961395872307827">Không thể kết nối với trang web</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ Trang web này KHÔNG có quyền truy cập vào máy ảnh. Chỉ bạn mới 
 <translation id="7810647596859435254">Mở bằng…</translation>
 <translation id="7821588508402923572">Mức tiết kiệm dữ liệu sẽ hiển thị tại đây</translation>
 <translation id="7837721118676387834">Cho phép tự động phát video bị tắt tiếng cho trang web cụ thể.</translation>
-<translation id="7838340937077326045">Bạn có chắc muốn thay đổi đuôi tệp này không?</translation>
 <translation id="7846076177841592234">Hủy chọn</translation>
 <translation id="784934925303690534">Phạm vi thời gian</translation>
 <translation id="7851858861565204677">Thiết bị khác</translation>
@@ -930,7 +930,6 @@ Trang web này KHÔNG có quyền truy cập vào máy ảnh. Chỉ bạn mới 
 <translation id="7886917304091689118">Đang chạy trong Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Đang tải tệp xuống.}other{Đang tải # tệp xuống.}}</translation>
 <translation id="7929962904089429003">Mở menu</translation>
-<translation id="7930681627240672853">Kiểm tra độ an toàn của mật khẩu</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> đã lỗi thời.</translation>
 <translation id="7947953824732555851">Chấp nhận &amp; đăng nhập</translation>
 <translation id="7963646190083259054">Nhà cung cấp:</translation>
@@ -946,7 +945,6 @@ Trang web này KHÔNG có quyền truy cập vào máy ảnh. Chỉ bạn mới 
 <translation id="8007176423574883786">Tắt cho thiết bị này</translation>
 <translation id="8013372441983637696">Xóa cả dữ liệu của bạn trên Chrome khỏi thiết bị này</translation>
 <translation id="8015452622527143194">Trả lại mọi nội dung trên trang về kích thước mặc định</translation>
-<translation id="8015780634880457457">Google có thể kiểm tra xem mật khẩu của bạn có bị ảnh hưởng trong một vụ rò rỉ dữ liệu không</translation>
 <translation id="802154636333426148">Tải xuống không thành công</translation>
 <translation id="8026334261755873520">Xóa dữ liệu duyệt web</translation>
 <translation id="8035133914807600019">Thư mục mới...</translation>

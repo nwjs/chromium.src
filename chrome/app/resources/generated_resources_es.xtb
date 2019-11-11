@@ -925,6 +925,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="2326931316514688470">&amp;Volver a cargar aplicación</translation>
 <translation id="2327492829706409234">Habilitar aplicación</translation>
 <translation id="2329597144923131178">Accede para ver marcadores, historial, contraseñas y otros en dispos.</translation>
+<translation id="2330129964253841015">Avisar si las contraseñas están en riesgo</translation>
 <translation id="2332131598580221120">Ver en Chrome Web Store</translation>
 <translation id="2332192922827071008">Abrir las preferencias</translation>
 <translation id="2332742915001411729">Restablecer predeterminado</translation>
@@ -973,6 +974,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="2395616325548404795">El dispositivo <ph name="DEVICE_TYPE" /> se ha registrado correctamente para ser administrado por la empresa, pero no ha podido enviar la información de la ubicación ni del recurso. Introduce manualmente esta información en la consola de administración de este dispositivo.</translation>
 <translation id="2396783860772170191">Introduce el PIN de 4 dígitos (0000-9999)</translation>
 <translation id="2399939490305346086">Datos de inicio de sesión de la llave de seguridad</translation>
+<translation id="2407481962792080328">Esta función se activará cuando inicies sesión en tu cuenta de Google</translation>
 <translation id="2408955596600435184">Introduce tu PIN</translation>
 <translation id="241082044617551207">Complemento desconocido</translation>
 <translation id="2412593942846481727">Actualización disponible</translation>
@@ -1427,6 +1429,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="3038612606416062604">Añadir una impresora manualmente</translation>
 <translation id="3038675903128704560">No permitir que los sitios web utilicen un complemento para acceder a tu ordenador</translation>
 <translation id="3039491566278747710">Se ha producido un error al instalar la política sin conexión en el dispositivo.</translation>
+<translation id="3043581297103810752">De <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Este sitio web ha descargado varios archivos automáticamente</translation>
 <translation id="3046910703532196514">Página web (completa)</translation>
 <translation id="304747341537320566">Motores de voz</translation>
@@ -2292,6 +2295,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="4316850752623536204">Sitio web del desarrollador</translation>
 <translation id="4320177379694898372">No hay conexión a Internet</translation>
 <translation id="4321442524549817090">&amp;Mostrar URL</translation>
+<translation id="4322394346347055525">Cerrar las demás pestañas</translation>
 <translation id="4324577459193912240">Archivo incompleto</translation>
 <translation id="4325237902968425115">Desinstalando <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Agua helada</translation>
@@ -2821,7 +2825,6 @@ Asegúrate de que este sitio web sea de confianza antes de acceder al modo de re
 <translation id="5142961317498132443">Autenticación</translation>
 <translation id="5143374789336132547">La extensión <ph name="EXTENSION_NAME" /> ha cambiado la página que se muestra al hacer clic en el botón Página de inicio.</translation>
 <translation id="5143712164865402236">Activar pantalla completa</translation>
-<translation id="5145461783043820456">Las cookies de terceros están bloqueadas</translation>
 <translation id="514575469079499857">Usar tu dirección IP para determinar la ubicación (opción predeterminada)</translation>
 <translation id="5146995429444047494">Las notificaciones de <ph name="ORIGIN" /> están bloqueadas</translation>
 <translation id="5150254825601720210">Nombre de servidor SSL de certificado de Netscape</translation>
@@ -2957,7 +2960,6 @@ Asegúrate de que este sitio web sea de confianza antes de acceder al modo de re
 <translation id="5360150013186312835">Mostrar en la barra de herramientas</translation>
 <translation id="5362741141255528695">Selecciona un archivo de clave privada.</translation>
 <translation id="5363109466694494651">Powerwash y cambio a versión anterior</translation>
-<translation id="5365716706805792666">Google puede comprobar si tus contraseñas se han visto afectadas por una quiebra de seguridad de datos. Esta función se activará cuando inicies sesión con tu cuenta de Google.</translation>
 <translation id="5365881113273618889">La carpeta que has seleccionado contiene archivos confidenciales. ¿Seguro que quieres conceder a "<ph name="APP_NAME" />" acceso de escritura permanente a esta carpeta?</translation>
 <translation id="5367091008316207019">Leyendo archivo...</translation>
 <translation id="5368720394188453070">Tu teléfono está bloqueado. Desbloquéalo para acceder.</translation>
@@ -3658,7 +3660,6 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="63566973648609420">Solo alguien que tenga tu frase de contraseña puede leer tus datos cifrados. Google no envía ni almacena la frase de contraseña. Si la olvidas o quieres cambiar estos ajustes, debes <ph name="BEGIN_LINK" />restablecer la sincronización<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Te damos la bienvenida a la familia <ph name="SHORT_PRODUCT_NAME" />. Este no es un ordenador convencional.</translation>
 <translation id="6358884629796491903">Dragón</translation>
-<translation id="6360079014182882594">En este sitio web no hay cookies de terceros que se puedan utilizar para hacer un seguimiento de tu actividad en la web</translation>
 <translation id="6361850914223837199">Detalles del error:</translation>
 <translation id="6362853299801475928">&amp;Notificar un error...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3980,6 +3981,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6850286078059909152">Color del texto</translation>
 <translation id="6851497530878285708">Aplicación habilitada</translation>
 <translation id="6853388645642883916">Herramienta de actualización no disponible</translation>
+<translation id="68541483639528434">Cerrar las demás pestañas</translation>
 <translation id="6856623341093082836">Configurar y ajustar la precisión de la pantalla táctil</translation>
 <translation id="6857699260879628349">Obtener información de configuración</translation>
 <translation id="6860097299815761905">Configuración de proxy...</translation>
@@ -4131,7 +4133,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7077829361966535409">No se ha podido cargar la página de inicio de sesión con la configuración de proxy actual. <ph name="GAIA_RELOAD_LINK_START" />Intenta iniciar sesión de nuevo<ph name="GAIA_RELOAD_LINK_END" /> o utiliza otra <ph name="PROXY_SETTINGS_LINK_START" />configuración de proxy<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="7078120482318506217">Todas las redes</translation>
 <translation id="708060913198414444">C&amp;opiar dirección de audio</translation>
-<translation id="7081952801286122383">Estás en el modo de incógnito</translation>
+<translation id="7081952801286122383">Estás en modo de incógnito</translation>
 <translation id="708278670402572152">Desconectar para habilitar la búsqueda</translation>
 <translation id="7085389578340536476">¿Quieres permitir que Chrome grabe audio?</translation>
 <translation id="7088434364990739311">No se ha podido iniciar la comprobación de actualizaciones (código de error <ph name="ERROR" />).</translation>
@@ -4428,7 +4430,6 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7506541170099744506">El dispositivo <ph name="DEVICE_TYPE" /> se ha registrado correctamente para ser administrado por la empresa.</translation>
 <translation id="7507930499305566459">Certificado de respuesta de estado</translation>
 <translation id="7508054832109420082">Conceder acceso a impresoras</translation>
-<translation id="7510943789645525906">Te avisa si alguna de tus contraseñas se ha visto afectada por una quiebra de seguridad de datos</translation>
 <translation id="7513029293694390567">Permite iniciar sesión automáticamente en sitios web con credenciales almacenadas. Si esta función está inhabilitada, se te solicitará la confirmación cada vez que intentes iniciar sesión en un sitio web.</translation>
 <translation id="7514239104543605883">Copiar en el dispositivo</translation>
 <translation id="7514365320538308">Descargar</translation>
@@ -4730,7 +4731,6 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7926423016278357561">No es mi perfil</translation>
 <translation id="7928836894214140642">Gestionado por <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Los métodos de pago guardados aparecerán aquí</translation>
-<translation id="7930681627240672853">Comprobar la seguridad de la contraseña</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> está compartiendo la pantalla y el audio.</translation>
 <translation id="7931318309563332511">Desconocido</translation>
 <translation id="793293630927785390">Cuadro de diálogo para añadir una red Wi‑Fi</translation>
@@ -4803,7 +4803,6 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8014154204619229810">La herramienta de actualización se está ejecutando en este momento. Actualiza en un minuto para comprobarlo de nuevo.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> no puede volver a la versión instalada previamente. Vuelve a intentarlo para hacer un Powerwash del dispositivo.</translation>
 <translation id="8014210335923519270">Envía información y uso del sistema a Google para mejorar <ph name="IDS_SHORT_PRODUCT_NAME" /> y su seguridad</translation>
-<translation id="8015780634880457457">Google puede comprobar si tus contraseñas se han vistos afectadas por una quiebra de seguridad de datos</translation>
 <translation id="8016266267177410919">Almacenamiento temporal</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Se ha editado el acceso directo</translation>

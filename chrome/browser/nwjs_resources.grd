@@ -15,8 +15,8 @@
       </if>
       <if expr="not is_android">
         <structure name="IDR_SIGNIN_SHARED_OLD_CSS_HTML" file="resources\signin\signin_shared_old_css.html" preprocess="true" allowexternalscript="true" type="chrome_html" />
-        <structure name="IDR_DOWNLOADS_DOWNLOADS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="chrome_html" />
-        <structure name="IDR_MD_DOWNLOADS_DOWNLOADS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="chrome_html" />
+        <structure name="IDR_DOWNLOADS_CSS" file="resources\empty.css" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_DOWNLOADS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="chrome_html" />
       </if>
       <if expr="enable_extensions">
         <structure name="IDR_EXTENSIONS_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />

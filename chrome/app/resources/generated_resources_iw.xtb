@@ -922,6 +922,7 @@
 <translation id="2326931316514688470">&amp;טען אפליקציה מחדש</translation>
 <translation id="2327492829706409234">הפעל יישום</translation>
 <translation id="2329597144923131178">יש להיכנס כדי לקבל גישה אל הסימניות, ההיסטוריה, הסיסמאות והגדרות נוספות בכל המכשירים שברשותך.</translation>
+<translation id="2330129964253841015">הצגת אזהרות כשסיסמאות בסיכון</translation>
 <translation id="2332131598580221120">הצג בחנות</translation>
 <translation id="2332192922827071008">פתיחת ההעדפות</translation>
 <translation id="2332742915001411729">אפס לברירת המחדל</translation>
@@ -970,6 +971,7 @@
 <translation id="2395616325548404795">רישום המכשיר שלך <ph name="DEVICE_TYPE" /> לניהול ארגוני הסתיים בהצלחה, אך השליחה של פרטי הנכס והמיקום שלו נכשלה. יש להזין את המידע הזה ידנית במסוף הניהול של המכשיר.</translation>
 <translation id="2396783860772170191">יש להזין קוד אימות בן 4 ספרות (0000-9999)</translation>
 <translation id="2399939490305346086">נתוני כניסה במפתח אבטחה</translation>
+<translation id="2407481962792080328">‏התכונה הזו מופעלת בעת הכניסה לחשבון Google</translation>
 <translation id="2408955596600435184">‏הזן את מספר ה-PIN</translation>
 <translation id="241082044617551207">פלאגין לא ידוע</translation>
 <translation id="2412593942846481727">יש עדכון זמין</translation>
@@ -1424,6 +1426,7 @@
 <translation id="3038612606416062604">הוספה ידנית של מדפסת</translation>
 <translation id="3038675903128704560">אל תאפשר לאף אתר להשתמש בפלאגין כדי לגשת למחשב שלך</translation>
 <translation id="3039491566278747710">התקנת המדיניות הלא מקוונת במכשיר נכשלה.</translation>
+<translation id="3043581297103810752">מ-<ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">האתר הזה הוריד קבצים מרובים באופן אוטומטי</translation>
 <translation id="3046910703532196514">דף אינטרנט, שלם</translation>
 <translation id="304747341537320566">מנועי דיבור</translation>
@@ -2290,6 +2293,7 @@
 <translation id="4316850752623536204">אתר המפתח</translation>
 <translation id="4320177379694898372">אין חיבור לאינטרנט</translation>
 <translation id="4321442524549817090">‏ה&amp;צגת כתובת URL</translation>
+<translation id="4322394346347055525">סגור כרטיסיות אחרות</translation>
 <translation id="4324577459193912240">הקובץ לא הושלם</translation>
 <translation id="4325237902968425115">מסיר את ההתקנה של <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">מים עם קרח</translation>
@@ -2819,7 +2823,6 @@
 <translation id="5142961317498132443">אימות</translation>
 <translation id="5143374789336132547">התוסף "<ph name="EXTENSION_NAME" />" שינה את הדף שמוצג כשאתה לוחץ על הלחצן 'דף הבית'.</translation>
 <translation id="5143712164865402236">עבור למסך מלא</translation>
-<translation id="5145461783043820456">‏חסימת קובצי cookie של צד שלישי פועלת</translation>
 <translation id="514575469079499857">‏קביעת המיקום באמצעות כתובת ה-IP (ברירת מחדל)</translation>
 <translation id="5146995429444047494">התראות של <ph name="ORIGIN" /> נחסמו</translation>
 <translation id="5150254825601720210">‏שם שרת SSL של אישור Netscape</translation>
@@ -2955,7 +2958,6 @@
 <translation id="5360150013186312835">הצג בסרגל הכלים</translation>
 <translation id="5362741141255528695">בחר קובץ מפתח פרטי.</translation>
 <translation id="5363109466694494651">‏בצע Powerwash וחזור לגרסה הקודמת</translation>
-<translation id="5365716706805792666">‏Google יכולה לבדוק אם הייתה פרצה באבטחת מידע שכללה את הסיסמאות שלך. האפשרות הזו תופעל אחרי כניסה באמצעות חשבון Google שלך.</translation>
 <translation id="5365881113273618889">התיקייה שבחרת מכילה קבצים רגישים. האפליקציה <ph name="APP_NAME" /> תקבל הרשאת כתיבה קבועה לתיקייה הזו. להמשיך?</translation>
 <translation id="5367091008316207019">קורא את הקובץ..</translation>
 <translation id="5368720394188453070">הטלפון שלך נעול. בטל את הנעילה כדי להיכנס.</translation>
@@ -3656,7 +3658,6 @@
 <translation id="63566973648609420">‏רק מי שיודע את ביטוי הסיסמה יכול לקרוא את הנתונים המוצפנים. ביטוי הסיסמה לא נשלח אל Google והיא אינה מאחסנת אותו. אם תשכח את ביטוי הסיסמה או אם תרצה לשנות את ההגדרה הזו, יהיה עליך <ph name="BEGIN_LINK" />לאפס את הסנכרון<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">ברוכים הבאים אל משפחת <ph name="SHORT_PRODUCT_NAME" />. לא מדובר במחשב רגיל.</translation>
 <translation id="6358884629796491903">דרקון</translation>
-<translation id="6360079014182882594">‏אין באתר הזה קובצי cookie שבהם אפשר להשתמש כדי לעקוב אחריך באינטרנט</translation>
 <translation id="6361850914223837199">פרטי השגיאה:</translation>
 <translation id="6362853299801475928">&amp;דווח על בעיה...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3978,6 +3979,7 @@
 <translation id="6850286078059909152">צבע טקסט</translation>
 <translation id="6851497530878285708">האפליקציה הופעלה</translation>
 <translation id="6853388645642883916">המעדכן במצב שינה</translation>
+<translation id="68541483639528434">סגור כרטיסיות אחרות</translation>
 <translation id="6856623341093082836">הגדר והתאם את דיוק מסך המגע</translation>
 <translation id="6857699260879628349">קבלת פרטי תצורה</translation>
 <translation id="6860097299815761905">‏הגדרות שרת proxy...</translation>
@@ -4426,7 +4428,6 @@
 <translation id="7506541170099744506">הרישום של המכשיר שלך <ph name="DEVICE_TYPE" /> לניהול ארגוני הסתיים בהצלחה.</translation>
 <translation id="7507930499305566459">אישור מגיב סטטוס</translation>
 <translation id="7508054832109420082">הענקת גישה למדפסות</translation>
-<translation id="7510943789645525906">תוצג אזהרה אם סיסמה שלך דלפה עקב פרצה באבטחת מידע</translation>
 <translation id="7513029293694390567">היכנס באופן אוטומטי לאתרים באמצעות פרטי כניסה שמורים. כשהאפשרות הזו מושבתת, תתבקש לאשר לפני כל כניסה לאתר.</translation>
 <translation id="7514239104543605883">העתקה למכשיר שלך</translation>
 <translation id="7514365320538308">הורדה</translation>
@@ -4727,7 +4728,6 @@
 <translation id="7926423016278357561">זה לא הייתי אני.</translation>
 <translation id="7928836894214140642">מנוהל על-ידי <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">אמצעי תשלום שנשמרו יופיעו כאן</translation>
-<translation id="7930681627240672853">בדיקת אבטחה של הסיסמאות</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> משתף את המסך והאודיו שלך.</translation>
 <translation id="7931318309563332511">לא ידוע</translation>
 <translation id="793293630927785390">‏תיבת דו-שיח להוספת רשת Wi-Fi חדשה</translation>
@@ -4800,7 +4800,6 @@
 <translation id="8014154204619229810">המעדכן פועל כעת. רענן בעוד דקה כדי לבדוק שנית.</translation>
 <translation id="8014206674403687691">‏<ph name="IDS_SHORT_PRODUCT_NAME" /> אינו יכול לחזור לגרסה המותקנת הקודמת. נסה לבצע שוב Powerwash למכשיר.</translation>
 <translation id="8014210335923519270">‏שליחה של פרטי המערכת ונתוני שימוש אל Google תשפר את <ph name="IDS_SHORT_PRODUCT_NAME" /> ואת האבטחה שלו</translation>
-<translation id="8015780634880457457">‏Google יכולה לבדוק אם הסיסמאות שלך היו חלק מפרצה באבטחת המידע</translation>
 <translation id="8016266267177410919">אחסון זמני</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">קיצור הדרך עבר עריכה</translation>
@@ -5578,6 +5577,7 @@
 <translation id="9130015405878219958">הוזן מצב לא חוקי.</translation>
 <translation id="9131487537093447019">‏שליחת הודעות למכשירי Bluetooth וקבלת הודעות מהם.</translation>
 <translation id="9134304429738380103">כן, אני מסכים/ה.</translation>
+<translation id="9135090785674039430">‏כשהאפשרות מופעלת, אתרים לא יכולים להשתמש בקובצי cookie לניהול מעקב אחריך באינטרנט. ייתכנו תקלות בתפקוד של חלק מהאתרים.</translation>
 <translation id="9137013805542155359">הצג מקור</translation>
 <translation id="9137157311132182254">מנוע חיפוש מועדף</translation>
 <translation id="9137248913990643158">‏היכנס לחשבונך ב-Chrome לפני שתשתמש באפליקציה הזו.</translation>

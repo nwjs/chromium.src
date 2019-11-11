@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">Imprimer</translation>
 <translation id="1442386063175183758">Pli du volet droit</translation>
 <translation id="1442987760062738829">Perforer</translation>
-<translation id="1450011005989029586">Votre mot de passe a été compromis à la suite d'une violation de données affectant un site ou une application que vous utilisez. Chrome vous recommande de <ph name="BOLD" /> sur <ph name="ORIGIN" /> au plus tôt.</translation>
 <translation id="1455413310270022028">Gomme</translation>
 <translation id="1463543813647160932">5 x 7</translation>
 <translation id="1472675084647422956">Plus</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">Type de carte non accepté</translation>
 <translation id="1734864079702812349">American Express</translation>
 <translation id="1734878702283171397">Essayez de contacter l'administrateur système.</translation>
+<translation id="1739107442478692187">Une violation des données affecte un site ou une application que vous utilisez. Nous vous recommandons de vérifier vos mots de passe enregistrés et de modifier celui utilisé pour <ph name="ORIGIN" /> immédiatement.</translation>
 <translation id="1740951997222943430">Saisissez un mois d'expiration valide</translation>
 <translation id="1743520634839655729">Pour régler plus rapidement vos achats la prochaine fois, enregistrez votre carte, votre nom et votre adresse de facturation dans votre compte Google et sur cet appareil.</translation>
 <translation id="1743570585616704562">Non reconnu</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">Le domaine ne correspond pas</translation>
 <translation id="2096368010154057602">Département</translation>
 <translation id="2099652385553570808">Triple agrafe à gauche</translation>
+<translation id="2100280972184758440">Votre mot de passe a été piraté</translation>
 <translation id="2102134110707549001">Suggérer un mot de passe sécurisé…</translation>
 <translation id="2108755909498034140">Redémarrez l'ordinateur</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">Ignorée parce que remplacée par <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Émis pour : <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Perforation en bas à droite</translation>
+<translation id="2124528555835617522">Une violation des données affecte un site ou une application que vous utilisez. Nous vous recommandons de vérifier vos mots de passe enregistrés immédiatement.</translation>
 <translation id="2129079103035905234">Capteurs de mouvement</translation>
 <translation id="213826338245044447">Favoris sur mobile</translation>
 <translation id="214556005048008348">Annuler le paiement</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">Désolé, votre carte ne peut pas être enregistrée pour le moment</translation>
 <translation id="2262243747453050782">Erreur HTTP.</translation>
 <translation id="2263079731045660823">Mettre à jour la saisie automatique des informations de paiement dans les paramètres de Chrome</translation>
+<translation id="2267047181501709434">Vérification de votre identité…</translation>
 <translation id="2270484714375784793">N° de téléphone</translation>
 <translation id="2277103315734023688">Avance rapide</translation>
 <translation id="2283340219607151381">Enregistrer et renseigner les adresses</translation>
@@ -474,6 +477,7 @@
 <translation id="3282497668470633863">Ajouter le nom sur la carte</translation>
 <translation id="3287510313208355388">Télécharger une fois connecté</translation>
 <translation id="3293642807462928945">En savoir plus sur les règles <ph name="POLICY_NAME" />.</translation>
+<translation id="3295439534709115864">Une violation des données affecte un site ou une application que vous utilisez. Nous vous recommandons de changer votre mot de passe pour <ph name="ORIGIN" /> immédiatement.</translation>
 <translation id="3303855915957856445">Aucun résultat de recherche n'a été trouvé.</translation>
 <translation id="3320021301628644560">Ajouter une adresse de facturation</translation>
 <translation id="3324983252691184275">Pourpre</translation>
@@ -674,7 +678,6 @@
 <translation id="4258748452823770588">Signature incorrecte.</translation>
 <translation id="4261046003697461417">Impossible d'ajouter des annotations aux documents protégés</translation>
 <translation id="4265872034478892965">Autorisé par votre administrateur</translation>
-<translation id="4270615291506829403">modifier votre mot de passe</translation>
 <translation id="4275830172053184480">Redémarrer l'appareil</translation>
 <translation id="4277028893293644418">Réinitialiser le mot de passe</translation>
 <translation id="4279811152705618813">Votre <ph name="DEVICE_TYPE" /> est géré par <ph name="ENROLLMENT_DOMAIN" /></translation>
@@ -753,7 +756,6 @@
 <translation id="4708268264240856090">Votre connexion a été interrompue</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" />Exécutez les diagnostics réseau de Windows<ph name="END_LINK" /></translation>
-<translation id="4725851834065990915">Votre mot de passe a été compromis à la suite d'une violation de données affectant un site ou une application que vous utilisez. Nous vous recommandons de vérifier vos mots de passe enregistrés maintenant.</translation>
 <translation id="4726672564094551039">Actualiser les règles</translation>
 <translation id="4728558894243024398">Plate-forme</translation>
 <translation id="4731967714531604179">Prc2 (enveloppe)</translation>
@@ -1171,7 +1173,6 @@
 <translation id="679355240208270552">Règle ignorée, car le moteur de recherche par défaut n'est pas activé par une règle.</translation>
 <translation id="681021252041861472">Champ obligatoire</translation>
 <translation id="6810899417690483278">ID de la personnalisation</translation>
-<translation id="6819440013020405090">Votre mot de passe a été compromis à la suite d'une violation de données affectant un site ou une application que vous utilisez. Nous vous recommandons de vérifier vos mots de passe enregistrés et de modifier celui utilisé pour <ph name="ORIGIN" />.</translation>
 <translation id="6825578344716086703">Vous avez tenté d'accéder à <ph name="DOMAIN" />, mais le serveur a présenté un certificat signé à l'aide d'un algorithme de signature faible (par exemple, SHA-1). Il est possible que le certificat fourni par le serveur ait été falsifié. Il se peut donc que le serveur ne soit pas celui auquel vous souhaitez accéder, et qu'il s'agisse d'une tentative de piratage.</translation>
 <translation id="6826370046007623921">Protection contre la perte de données</translation>
 <translation id="6831043979455480757">Traduire</translation>
@@ -1214,7 +1215,6 @@
 <translation id="7064851114919012435">Coordonnées</translation>
 <translation id="7075452647191940183">Requête trop volumineuse</translation>
 <translation id="7079718277001814089">Ce site contient des logiciels malveillants</translation>
-<translation id="70850504851191913">Violation de données signalée</translation>
 <translation id="7087282848513945231">Comté</translation>
 <translation id="7090678807593890770">Effectuez une recherche Google sur <ph name="LINK" />.</translation>
 <translation id="7108338896283013870">Masquer</translation>
@@ -1536,7 +1536,6 @@ Informations supplémentaires :
 <translation id="8718314106902482036">Paiement non finalisé</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, suggestion de recherche</translation>
 <translation id="8719528812645237045">Multiple perforation en haut</translation>
-<translation id="8723954843026426558">J'accepte les conditions d'utilisation, les règles de confidentialité de <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />, et j'ai connaissance de mon droit de rétractation.</translation>
 <translation id="8725066075913043281">Réessayer</translation>
 <translation id="8728672262656704056">Vous êtes passé en mode navigation privée</translation>
 <translation id="8730621377337864115">OK</translation>

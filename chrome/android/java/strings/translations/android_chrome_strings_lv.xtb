@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Netiek saglabātas</translation>
 <translation id="1067922213147265141">Citi Google pakalpojumi</translation>
 <translation id="1068672505746868501">Nekad netulkot lapas šādā valodā: <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">Ja mainīsiet faila paplašinājumu, fails var tikt atvērts citā lietojumprogrammā un potenciāli apdraudēt jūsu ierīci.</translation>
 <translation id="1100066534610197918">Atvērt jaunu cilni grupā</translation>
 <translation id="1105960400813249514">Ekrāna tveršana</translation>
 <translation id="1111673857033749125">Šeit būs redzamas grāmatzīmes, kuras esat saglabājis citās ierīcēs.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Atvērt visas</translation>
 <translation id="1409426117486808224">Vienkāršots atvērtu ciļņu skatījums</translation>
 <translation id="1409879593029778104">Fails <ph name="FILE_NAME" /> netika lejupielādēts, jo tas jau pastāv.</translation>
-<translation id="1413136574162415971">Google var pārbaudīt, vai jūsu paroles ir nopludinātas datu pārkāpuma dēļ. Šī funkcija tiks ieslēgta, kad pierakstīsieties Google kontā un ieslēgsiet sinhronizāciju.</translation>
 <translation id="1414981605391750300">Notiek sazināšanās ar Google. Tas var ilgt kādu minūti...</translation>
 <translation id="1416550906796893042">Lietojumprogrammas versija</translation>
 <translation id="1430915738399379752">Drukāt</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Lai atļautu pārlūkprogrammai Chrome sūtīt jums paziņojumus, ieslēdziet paziņojumus arī <ph name="BEGIN_LINK" />Android iestatījumos<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529">Pārlūkā Chrome ir arī “<ph name="APP_NAME" />” dati</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Mainot faila paplašinājumu, var notikt neparedzētas darbības un rasties kaitējums jūsu ierīcei.</translation>
 <translation id="2056878612599315956">Vietne apturēta</translation>
 <translation id="2063713494490388661">Pieskarties, lai meklētu</translation>
 <translation id="2067805253194386918">teksts</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Velciet slīdni, kamēr varat ērti lasīt. Pēc dubultskāriena rindkopai tekstam ir jābūt vismaz šādā lielumā.</translation>
 <translation id="2323763861024343754">Vietnes krātuve</translation>
 <translation id="2328985652426384049">Nevar pierakstīties</translation>
+<translation id="2330129964253841015">Brīdināt, ja paroles tiek apdraudētas</translation>
 <translation id="2349710944427398404">Kopējais pārlūkā Chrome izmantoto datu apjoms, ieskaitot kontus, grāmatzīmes un saglabātos iestatījumus</translation>
 <translation id="2353636109065292463">Notiek interneta savienojuma pārbaude</translation>
 <translation id="2359808026110333948">Turpināt</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Teksta mērogošana</translation>
 <translation id="2394602618534698961">Šeit tiek rādīti jūsu lejupielādētie faili</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Kad pierakstāties savā Google kontā, šī funkcija ir ieslēgta.</translation>
 <translation id="2410754283952462441">Konta izvēle</translation>
 <translation id="2414886740292270097">Tumšs</translation>
 <translation id="2416359993254398973">Pārlūkam Chrome ir nepieciešama atļauja piekļūt jūsu kamerai šajā vietnē.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Šobrīd jūs pielāgojat sinhronizēšanas un Google pakalpojuma iestatījumus. Lai pabeigtu sinhronizēšanas ieslēgšanu, pieskarieties pogai Apstiprināt, kas atrodas ekrāna apakšdaļā. Pārvietoties augšup</translation>
 <translation id="3328801116991980348">Vietnes informācija</translation>
 <translation id="3333961966071413176">Visas kontaktpersonas</translation>
+<translation id="3334729583274622784">Vai mainīt faila paplašinājumu?</translation>
 <translation id="3341058695485821946">Uzziniet ietaupīto datu apjomu</translation>
 <translation id="3350687908700087792">Aizvērt visas inkognito režīma cilnes</translation>
 <translation id="3353615205017136254">Vienkāršota lapa, ko nodrošina Google. Pieskarieties pogai “Ielādēt sākotnējo”, lai ielādētu sākotnējo lapu.</translation>
@@ -873,7 +875,6 @@ Vietnei NAV piekļuves kamerai. Kameras attēli ir redzami tikai jums.</translat
 <translation id="7493994139787901920"><ph name="VERSION" /> (atjaunināts: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">Saglabātie dati</translation>
 <translation id="7498271377022651285">Lūdzu, uzgaidiet...</translation>
-<translation id="7510943789645525906">Tiek rādīts brīdinājums, ja izmantotā parole bija daļa no datu pārkāpuma.</translation>
 <translation id="7514365320538308">Lejupielādēt</translation>
 <translation id="751961395872307827">Nevar izveidot savienojumu ar vietni.</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ Vietnei NAV piekļuves kamerai. Kameras attēli ir redzami tikai jums.</translat
 <translation id="7810647596859435254">Atvērt ar…</translation>
 <translation id="7821588508402923572">Šeit tiks parādīts ietaupīto datu apjoms.</translation>
 <translation id="7837721118676387834">Atļaut automātisku atskaņošanu videoklipiem ar izslēgtu skaņu konkrētā vietnē.</translation>
-<translation id="7838340937077326045">Vai tiešām vēlaties mainīt faila paplašinājumu?</translation>
 <translation id="7846076177841592234">Atcelt atlasi</translation>
 <translation id="784934925303690534">Laika periods</translation>
 <translation id="7851858861565204677">Citas ierīces</translation>
@@ -930,7 +930,6 @@ Vietnei NAV piekļuves kamerai. Kameras attēli ir redzami tikai jums.</translat
 <translation id="7886917304091689118">Atvērta pārlūkā Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Notiek faila lejupielāde.}zero{Notiek # failu lejupielāde.}one{Notiek # faila lejupielāde.}other{Notiek # failu lejupielāde.}}</translation>
 <translation id="7929962904089429003">Atvērt izvēlni</translation>
-<translation id="7930681627240672853">Paroļu drošības pārbaude</translation>
 <translation id="7942131818088350342">Spraudnis <ph name="PRODUCT_NAME" /> ir novecojis.</translation>
 <translation id="7947953824732555851">Pieņemt un pierakst.</translation>
 <translation id="7963646190083259054">Nodrošina:</translation>
@@ -946,7 +945,6 @@ Vietnei NAV piekļuves kamerai. Kameras attēli ir redzami tikai jums.</translat
 <translation id="8007176423574883786">Izslēgts šai ierīcei</translation>
 <translation id="8013372441983637696">Arī noņemt jūsu Chrome datus no šīs ierīces</translation>
 <translation id="8015452622527143194">Atjaunot visam lapas saturam noklusējuma lielumu</translation>
-<translation id="8015780634880457457">Google var pārbaudīt, vai jūsu paroles ir nopludinātas datu pārkāpumā</translation>
 <translation id="802154636333426148">Lejupielāde neizdevās</translation>
 <translation id="8026334261755873520">Notīrīt pārlūkošanas datus</translation>
 <translation id="8035133914807600019">Jauna mape…</translation>

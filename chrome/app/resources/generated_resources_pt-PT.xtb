@@ -925,6 +925,7 @@ Pode gerir as definições desta conta ao instalar a aplicação Family Link no 
 <translation id="2326931316514688470">&amp;Recarregar aplicação</translation>
 <translation id="2327492829706409234">Ativar aplicação</translation>
 <translation id="2329597144923131178">Inicie sessão para aceder aos marcadores, ao histórico, às palavras-passe e a outras definições em todos os dispositivos.</translation>
+<translation id="2330129964253841015">Enviar-lhe um aviso se as palavras-passe forem comprometidas</translation>
 <translation id="2332131598580221120">Ver na loja</translation>
 <translation id="2332192922827071008">Abrir as Preferências</translation>
 <translation id="2332742915001411729">Repor predefinição</translation>
@@ -973,6 +974,7 @@ Pode gerir as definições desta conta ao instalar a aplicação Family Link no 
 <translation id="2395616325548404795">O seu <ph name="DEVICE_TYPE" /> foi inscrito com êxito para gestão empresarial, mas não enviou as respetivas informações de recurso e de localização. Introduza essas informações para este dispositivo manualmente a partir da Consola do gestor.</translation>
 <translation id="2396783860772170191">Introduza o PIN de 4 dígitos (0000-9999)</translation>
 <translation id="2399939490305346086">Dados de início de sessão da chave de segurança</translation>
+<translation id="2407481962792080328">Quando inicia sessão na sua Conta Google, esta funcionalidade está ativada.</translation>
 <translation id="2408955596600435184">Introduza o PIN</translation>
 <translation id="241082044617551207">Plug-in desconhecido</translation>
 <translation id="2412593942846481727">Atualização disponível</translation>
@@ -1427,6 +1429,7 @@ Pretende pará-lo?</translation>
 <translation id="3038612606416062604">Adicionar uma impressora manualmente</translation>
 <translation id="3038675903128704560">Não permitir que os sites utilizem plug-ins para aceder ao seu computador</translation>
 <translation id="3039491566278747710">Falha ao instalar a política offline no dispositivo.</translation>
+<translation id="3043581297103810752">De <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Este site transferiu vários ficheiros automaticamente</translation>
 <translation id="3046910703532196514">Página Web, Completa</translation>
 <translation id="304747341537320566">Motores de voz</translation>
@@ -2293,6 +2296,7 @@ Pretende pará-lo?</translation>
 <translation id="4316850752623536204">Website para programadores</translation>
 <translation id="4320177379694898372">Sem ligação à Internet</translation>
 <translation id="4321442524549817090">M&amp;ostrar URL</translation>
+<translation id="4322394346347055525">Fechar os Outros Separadores</translation>
 <translation id="4324577459193912240">Ficheiro incompleto</translation>
 <translation id="4325237902968425115">A desinstalar <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">Água gelada</translation>
@@ -2822,7 +2826,6 @@ Certifique-se de que confia neste site antes de entrar na RV.</translation>
 <translation id="5142961317498132443">Autenticação</translation>
 <translation id="5143374789336132547">A extensão "<ph name="EXTENSION_NAME" />" alterou a página apresentada quando clica no botão Página inicial.</translation>
 <translation id="5143712164865402236">Entrar no modo de ecrã inteiro</translation>
-<translation id="5145461783043820456">O bloqueio de cookies de terceiros está ativado</translation>
 <translation id="514575469079499857">Utilizar o seu endereço IP para determinar a localização (predefinição)</translation>
 <translation id="5146995429444047494">As notificações de <ph name="ORIGIN" /> estão bloqueadas</translation>
 <translation id="5150254825601720210">Nome do servidor SSL do certificado Netscape</translation>
@@ -2958,7 +2961,6 @@ Certifique-se de que confia neste site antes de entrar na RV.</translation>
 <translation id="5360150013186312835">Mostrar na Barra de ferramentas</translation>
 <translation id="5362741141255528695">Selecionar ficheiro de chave privada.</translation>
 <translation id="5363109466694494651">Powerwash e reverter</translation>
-<translation id="5365716706805792666">A Google pode verificar se as suas palavras-passe estiveram envolvidas numa violação de dados. Esta funcionalidade será ativada quando iniciar sessão com a sua Conta Google.</translation>
 <translation id="5365881113273618889">A pasta que selecionou contém ficheiros confidenciais. Tem a certeza de que pretende conceder à aplicação "<ph name="APP_NAME" />" acesso de escrita permanente a esta pasta?</translation>
 <translation id="5367091008316207019">A ler ficheiro...</translation>
 <translation id="5368720394188453070">O seu telemóvel está bloqueado. Desbloqueie-o para introduzir.</translation>
@@ -3660,7 +3662,6 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="63566973648609420">Apenas alguém que conheça a sua frase de acesso pode ler os seus dados encriptados. A frase de acesso não é enviada para a Google nem armazenada pela mesma. Se se esquecer da frase de acesso ou pretender alterar esta definição, tem de <ph name="BEGIN_LINK" />repor a sincronização<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Bem-vindo à família <ph name="SHORT_PRODUCT_NAME" />. Este não é um computador comum.</translation>
 <translation id="6358884629796491903">Dragão</translation>
-<translation id="6360079014182882594">Este site não contém cookies que podem ser utilizados para monitorizar o utilizador na Web.</translation>
 <translation id="6361850914223837199">Detalhes do erro:</translation>
 <translation id="6362853299801475928">&amp;Comunicar um problema...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3982,6 +3983,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6850286078059909152">Cor do texto</translation>
 <translation id="6851497530878285708">Aplicação ativada</translation>
 <translation id="6853388645642883916">Atualizador em suspensão</translation>
+<translation id="68541483639528434">Fechar os outros separadores</translation>
 <translation id="6856623341093082836">Configurar e ajustar a precisão do ecrã tátil</translation>
 <translation id="6857699260879628349">Obter informações de configuração</translation>
 <translation id="6860097299815761905">Definições de proxy...</translation>
@@ -4430,7 +4432,6 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="7506541170099744506">O seu <ph name="DEVICE_TYPE" /> foi inscrito com êxito para gestão empresarial.</translation>
 <translation id="7507930499305566459">Certificado do dispositivo de resposta do estado</translation>
 <translation id="7508054832109420082">Dar acesso a impressoras</translation>
-<translation id="7510943789645525906">Avisa se uma palavra-passe que utiliza esteve envolvida numa violação de dados.</translation>
 <translation id="7513029293694390567">Inicie sessão automaticamente nos Sites com as credenciais armazenadas. Se esta funcionalidade estiver desativada, é-lhe pedida sempre uma confirmação antes de iniciar sessão num Website.</translation>
 <translation id="7514239104543605883">Copiar para o dispositivo</translation>
 <translation id="7514365320538308">Transferir</translation>
@@ -4732,7 +4733,6 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="7926423016278357561">Não fui eu.</translation>
 <translation id="7928836894214140642">Gerido por <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Os métodos de pagamento guardados são apresentados aqui.</translation>
-<translation id="7930681627240672853">Verificar a segurança da palavra-passe</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> está a partilhar o ecrã e o áudio.</translation>
 <translation id="7931318309563332511">Desconhecido</translation>
 <translation id="793293630927785390">Caixa de diálogo Nova rede Wi-Fi</translation>
@@ -4805,7 +4805,6 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8014154204619229810">O atualizador está em execução atualmente. Atualize dentro de um minuto para verificar novamente.</translation>
 <translation id="8014206674403687691">Não é possível reverter para a versão anteriormente instalada do <ph name="IDS_SHORT_PRODUCT_NAME" />. Repita o processo de Powerwash do dispositivo.</translation>
 <translation id="8014210335923519270">Melhore o <ph name="IDS_SHORT_PRODUCT_NAME" /> e a sua segurança ao enviar informações do sistema e de utilização para a Google.</translation>
-<translation id="8015780634880457457">A Google pode verificar se as suas palavras-passe estiveram envolvidas numa violação de dados.</translation>
 <translation id="8016266267177410919">Armazenamento temporário</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Atalho editado</translation>

@@ -925,6 +925,7 @@ Możesz zarządzać ustawieniami konta, korzystając z aplikacji Family Link na
 <translation id="2326931316514688470">P&amp;rzeładuj aplikację</translation>
 <translation id="2327492829706409234">Włącz aplikację</translation>
 <translation id="2329597144923131178">Zaloguj się, by korzystać z zakładek, historii, haseł i innych ustawień na wszystkich swoich urządzeniach.</translation>
+<translation id="2330129964253841015">Ostrzegaj, jeśli hasła dostały się w niepowołane ręce</translation>
 <translation id="2332131598580221120">Wyświetl w sklepie</translation>
 <translation id="2332192922827071008">Otwórz Ustawienia</translation>
 <translation id="2332742915001411729">Przywróć domyślne</translation>
@@ -973,6 +974,7 @@ Możesz zarządzać ustawieniami konta, korzystając z aplikacji Family Link na
 <translation id="2395616325548404795">Urządzenie <ph name="DEVICE_TYPE" /> zostało zarejestrowane do zarządzania w firmie, ale nie wysłało informacji o zasobie ani lokalizacji. Wpisz te informacje ręcznie przy urządzeniu w konsoli administracyjnej.</translation>
 <translation id="2396783860772170191">Wpisz 4-cyfrowy kod PIN (0000–9999)</translation>
 <translation id="2399939490305346086">Dane logowania na kluczu bezpieczeństwa</translation>
+<translation id="2407481962792080328">Ta funkcja zostanie włączona, gdy zalogujesz się na swoje konto Google</translation>
 <translation id="2408955596600435184">Wpisz kod PIN</translation>
 <translation id="241082044617551207">Nieznana wtyczka</translation>
 <translation id="2412593942846481727">Dostępna aktualizacja</translation>
@@ -1427,6 +1429,7 @@ Możesz zarządzać ustawieniami konta, korzystając z aplikacji Family Link na
 <translation id="3038612606416062604">Dodaj drukarkę ręcznie</translation>
 <translation id="3038675903128704560">Nie zezwalaj żadnym stronom na dostęp do komputera przez wtyczkę</translation>
 <translation id="3039491566278747710">Nie udało się zainstalować zasad offline na urządzeniu.</translation>
+<translation id="3043581297103810752">Ze strony <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Ta strona automatycznie pobrała wiele plików</translation>
 <translation id="3046910703532196514">Strona internetowa, kompletna</translation>
 <translation id="304747341537320566">Mechanizmy syntezy mowy</translation>
@@ -2291,6 +2294,7 @@ Możesz zarządzać ustawieniami konta, korzystając z aplikacji Family Link na
 <translation id="4316850752623536204">Witryna dewelopera</translation>
 <translation id="4320177379694898372">Brak połączenia z internetem</translation>
 <translation id="4321442524549817090">P&amp;okaż URL</translation>
+<translation id="4322394346347055525">Zamknij inne karty</translation>
 <translation id="4324577459193912240">Plik niekompletny</translation>
 <translation id="4325237902968425115">Odinstalowuję aplikację <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Woda z lodem</translation>
@@ -2820,7 +2824,6 @@ Zanim włączysz VR na tej stronie, sprawdź, czy można uznać ją za zaufaną.
 <translation id="5142961317498132443">Uwierzytelnianie</translation>
 <translation id="5143374789336132547">Rozszerzenie „<ph name="EXTENSION_NAME" />” ustawiło inną stronę wyświetlaną po kliknięciu przycisku strony głównej.</translation>
 <translation id="5143712164865402236">Przejdź do pełnego ekranu</translation>
-<translation id="5145461783043820456">Blokowanie plików cookie innych firm jest włączone</translation>
 <translation id="514575469079499857">Użyj swojego adresu IP, by określić lokalizację (domyślnie)</translation>
 <translation id="5146995429444047494">Powiadomienia z <ph name="ORIGIN" /> są blokowane</translation>
 <translation id="5150254825601720210">Nazwa serwera SSL certyfikatu firmy Netscape</translation>
@@ -2956,7 +2959,6 @@ Zanim włączysz VR na tej stronie, sprawdź, czy można uznać ją za zaufaną.
 <translation id="5360150013186312835">Pokaż na pasku narzędzi</translation>
 <translation id="5362741141255528695">Wybierz plik kluczy prywatnych.</translation>
 <translation id="5363109466694494651">Wykonaj Powerwash i przywróć</translation>
-<translation id="5365716706805792666">Google może sprawdzić, czy bezpieczeństwo Twoich haseł zostało naruszone. Ta funkcja zostanie włączona, gdy zalogujesz się na swoje konto Google.</translation>
 <translation id="5365881113273618889">Wybrany folder zawiera poufne pliki. Czy na pewno chcesz, by aplikacja „<ph name="APP_NAME" />” miała do niego stały dostęp z uprawnieniami do zapisu?</translation>
 <translation id="5367091008316207019">Odczytuję plik..</translation>
 <translation id="5368720394188453070">Twój telefon jest zablokowany. Aby uzyskać do niego dostęp, odblokuj go.</translation>
@@ -3657,7 +3659,6 @@ Zanim włączysz VR na tej stronie, sprawdź, czy można uznać ją za zaufaną.
 <translation id="63566973648609420">Twoje zaszyfrowane dane może odczytać tylko ktoś znający hasło. Google nie otrzyma Twojego hasła ani nie będzie go przechowywać. Jeśli je zapomnisz lub zechcesz zmienić to ustawienie, musisz <ph name="BEGIN_LINK" />zresetować synchronizację<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Witamy w rodzinie <ph name="SHORT_PRODUCT_NAME" />. To nie jest zwyczajny komputer.</translation>
 <translation id="6358884629796491903">Smok</translation>
-<translation id="6360079014182882594">Ta strona nie zawiera plików cookie, które mogą śledzić Twoje działania w sieci</translation>
 <translation id="6361850914223837199">Szczegóły błędu:</translation>
 <translation id="6362853299801475928">&amp;Zgłoś problem</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3979,6 +3980,7 @@ Zanim włączysz VR na tej stronie, sprawdź, czy można uznać ją za zaufaną.
 <translation id="6850286078059909152">Kolor tekstu</translation>
 <translation id="6851497530878285708">Aplikacja włączona</translation>
 <translation id="6853388645642883916">Aktualizator jest uśpiony</translation>
+<translation id="68541483639528434">Zamknij inne karty</translation>
 <translation id="6856623341093082836">Skonfiguruj i dostosuj precyzję ekranu dotykowego</translation>
 <translation id="6857699260879628349">Uzyskaj dane do konfiguracji</translation>
 <translation id="6860097299815761905">Ustawienia serwera proxy...</translation>
@@ -4427,7 +4429,6 @@ Zanim włączysz VR na tej stronie, sprawdź, czy można uznać ją za zaufaną.
 <translation id="7506541170099744506">Urządzenie <ph name="DEVICE_TYPE" /> zostało zarejestrowane na potrzeby zarządzania w firmie.</translation>
 <translation id="7507930499305566459">Certyfikat obiektu odpowiadającego w zakresie stanu</translation>
 <translation id="7508054832109420082">Przyznaj dostęp do drukarek</translation>
-<translation id="7510943789645525906">Ostrzeżemy Cię, jeśli Twoje hasło zostało ujawnione w wyniku naruszenia bezpieczeństwa danych</translation>
 <translation id="7513029293694390567">Automatycznie loguj się na stronach, używając zapisanych danych logowania. Jeśli ta funkcja jest wyłączona, przed każdym zalogowaniem się zobaczysz prośbę o potwierdzenie.</translation>
 <translation id="7514239104543605883">Skopiuj na swoje urządzenie</translation>
 <translation id="7514365320538308">Pobierz</translation>
@@ -4729,7 +4730,6 @@ Zanim włączysz VR na tej stronie, sprawdź, czy można uznać ją za zaufaną.
 <translation id="7926423016278357561">To nie ja.</translation>
 <translation id="7928836894214140642">Zarządzane przez domenę <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Tutaj pojawią się zapisane formy płatności</translation>
-<translation id="7930681627240672853">Sprawdź bezpieczeństwo haseł</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> udostępnia ekran i dźwięk.</translation>
 <translation id="7931318309563332511">Nieznany</translation>
 <translation id="793293630927785390">Okno nowej sieci Wi-Fi</translation>
@@ -4802,7 +4802,6 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="8014154204619229810">Obecnie działa aktualizator. Odśwież za minutę, by sprawdzić ponownie.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> nie może przywrócić poprzednio zainstalowanej wersji. Spróbuj ponownie, by wykonać Powerwash na urządzeniu.</translation>
 <translation id="8014210335923519270">Pomóż nam ulepszyć działanie i zwiększyć bezpieczeństwo <ph name="IDS_SHORT_PRODUCT_NAME" />, wysyłając informacje o systemie i użytkowaniu do Google</translation>
-<translation id="8015780634880457457">Google może sprawdzić, czy bezpieczeństwo Twoich haseł zostało naruszone</translation>
 <translation id="8016266267177410919">Pamięć tymczasowa</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Skrót był edytowany</translation>

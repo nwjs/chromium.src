@@ -13,19 +13,20 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
-import org.chromium.weblayer.shell.WebLayerShellActivity;
+import org.chromium.weblayer.shell.InstrumentationActivity;
 
 import java.util.concurrent.CountDownLatch;
 
 @RunWith(BaseJUnit4ClassRunner.class)
 public class RenderingTest {
     @Rule
-    public WebLayerShellActivityTestRule mActivityTestRule = new WebLayerShellActivityTestRule();
+    public InstrumentationActivityTestRule mActivityTestRule =
+            new InstrumentationActivityTestRule();
 
     @Test
     @SmallTest
     public void testSetSupportEmbeddingFromCallback() {
-        WebLayerShellActivity activity = mActivityTestRule.launchShellWithUrl("about:blank");
+        InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl("about:blank");
 
         CountDownLatch latch = new CountDownLatch(1);
         String url = "data:text,foo";
@@ -34,7 +35,8 @@ public class RenderingTest {
             activity.getBrowserFragmentController().setSupportsEmbedding(true).addCallback(
                     (Boolean result) -> {
                         Assert.assertTrue(result);
-                        activity.getBrowserFragmentController().setSupportsEmbedding(false)
+                        activity.getBrowserFragmentController()
+                                .setSupportsEmbedding(false)
                                 .addCallback((Boolean result2) -> {
                                     Assert.assertTrue(result2);
                                     latch.countDown();
@@ -53,7 +55,7 @@ public class RenderingTest {
     @Test
     @SmallTest
     public void testRepeatSetSupportEmbeddingGeneratesCallback() {
-        WebLayerShellActivity activity = mActivityTestRule.launchShellWithUrl("about:blank");
+        InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl("about:blank");
 
         CountDownLatch latch = new CountDownLatch(2);
         String url = "data:text,foo";

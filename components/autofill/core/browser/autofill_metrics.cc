@@ -930,6 +930,32 @@ void AutofillMetrics::LogSaveCardWithFirstAndLastNameComplete(bool is_local) {
 }
 
 // static
+void AutofillMetrics::LogCardUnmaskDurationAfterWebauthn(
+    const base::TimeDelta& duration,
+    AutofillClient::PaymentsRpcResult result) {
+  std::string suffix;
+  switch (result) {
+    case AutofillClient::SUCCESS:
+      suffix = "Success";
+      break;
+    case AutofillClient::TRY_AGAIN_FAILURE:
+    case AutofillClient::PERMANENT_FAILURE:
+      suffix = "Failure";
+      break;
+    case AutofillClient::NETWORK_ERROR:
+      suffix = "NetworkError";
+      break;
+    case AutofillClient::NONE:
+      NOTREACHED();
+      return;
+  }
+  base::UmaHistogramLongTimes("Autofill.BetterAuth.CardUnmaskDuration.Fido",
+                              duration);
+  base::UmaHistogramLongTimes(
+      "Autofill.BetterAuth.CardUnmaskDuration.Fido." + suffix, duration);
+}
+
+// static
 void AutofillMetrics::LogCardUnmaskPreflightCalled() {
   UMA_HISTOGRAM_BOOLEAN("Autofill.BetterAuth.CardUnmaskPreflightCalled", true);
 }
@@ -939,6 +965,41 @@ void AutofillMetrics::LogCardUnmaskPreflightDuration(
     const base::TimeDelta& duration) {
   base::UmaHistogramLongTimes("Autofill.BetterAuth.CardUnmaskPreflightDuration",
                               duration);
+}
+
+// static
+void AutofillMetrics::LogWebauthnOptChangeCalled(
+    bool request_to_opt_in,
+    bool is_checkout_flow,
+    WebauthnOptInParameters metric) {
+  if (!request_to_opt_in) {
+    DCHECK(!is_checkout_flow);
+    base::UmaHistogramBoolean(
+        "Autofill.BetterAuth.OptOutCalled.FromSettingsPage", true);
+    return;
+  }
+
+  std::string histogram_name = "Autofill.BetterAuth.OptInCalled.";
+  histogram_name += is_checkout_flow ? "FromCheckoutFlow" : "FromSettingsPage";
+  base::UmaHistogramEnumeration(histogram_name, metric);
+}
+
+// static
+void AutofillMetrics::LogWebauthnOptInPromoShown(bool is_checkout_flow) {
+  std::string suffix =
+      is_checkout_flow ? "FromCheckoutFlow" : "FromSettingsPage";
+  base::UmaHistogramBoolean("Autofill.BetterAuth.OptInPromoShown." + suffix,
+                            true);
+}
+
+// static
+void AutofillMetrics::LogWebauthnOptInPromoUserDecision(
+    bool is_checkout_flow,
+    WebauthnOptInPromoUserDecisionMetric metric) {
+  std::string suffix =
+      (is_checkout_flow ? "FromCheckoutFlow" : "FromSettingsPage");
+  base::UmaHistogramEnumeration(
+      "Autofill.BetterAuth.OptInPromoUserDecision." + suffix, metric);
 }
 
 // static

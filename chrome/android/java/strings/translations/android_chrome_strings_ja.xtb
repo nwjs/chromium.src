@@ -9,6 +9,7 @@
 <translation id="10614374240317010">常に保存しない</translation>
 <translation id="1067922213147265141">他の Google サービス</translation>
 <translation id="1068672505746868501"><ph name="SOURCE_LANGUAGE" />のページを翻訳しない</translation>
+<translation id="107147699690128016">ファイル拡張子を変更すると、ファイルが別のアプリケーションで開かれる可能性があり、場合によってはデバイスに損害が生じます。</translation>
 <translation id="1100066534610197918">新しいタブをグループで開く</translation>
 <translation id="1105960400813249514">画面キャプチャ</translation>
 <translation id="1111673857033749125">他のデバイスに保存されているブックマークがここに表示されます。</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">すべて開く</translation>
 <translation id="1409426117486808224">開いているタブの簡易表示</translation>
 <translation id="1409879593029778104"><ph name="FILE_NAME" /> は既に存在しているためダウンロードできませんでした。</translation>
-<translation id="1413136574162415971">Google ではお使いのパスワードがデータ侵害の対象になっていたかを確認できます。この機能は、Google アカウントにログインして同期をオンにすると有効になります。</translation>
 <translation id="1414981605391750300">Google に問い合わせています。これには 1 分ほどかかる場合があります…</translation>
 <translation id="1416550906796893042">アプリケーションのバージョン</translation>
 <translation id="1430915738399379752">印刷</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Chrome に通知の送信を許可するには、<ph name="BEGIN_LINK" />Android 設定<ph name="END_LINK" />でも通知をオンにしてください。</translation>
 <translation id="204321170514947529">Chrome にも <ph name="APP_NAME" /> のデータがあります</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">ファイル拡張子を変更すると、予期しない動作が発生し、デバイスに損害を及ぼす可能性があります。</translation>
 <translation id="2056878612599315956">サイト一時停止中</translation>
 <translation id="2063713494490388661">タップして検索</translation>
 <translation id="2067805253194386918">テキスト</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">読みやすくなるまでスライダをドラッグしてください。段落をダブルタップするとテキストがこれより大きくなります。</translation>
 <translation id="2323763861024343754">サイトのストレージ</translation>
 <translation id="2328985652426384049">ログインできません</translation>
+<translation id="2330129964253841015">パスワードが危険にさらされた場合に警告する</translation>
 <translation id="2349710944427398404">Chrome が使用するデータ全体（アカウント、ブックマーク、保存済みの設定など）</translation>
 <translation id="2353636109065292463">インターネット接続を確認しています</translation>
 <translation id="2359808026110333948">続行</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">テキストの拡大と縮小</translation>
 <translation id="2394602618534698961">ダウンロードしたファイルがここに表示されます</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">この機能は Google アカウントにログインすると有効になります</translation>
 <translation id="2410754283952462441">アカウントの選択</translation>
 <translation id="2414886740292270097">暗</translation>
 <translation id="2416359993254398973">このサイトを利用するには、Chrome でカメラの使用を許可する必要があります。</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">[同期と Google サービス] の設定をカスタマイズしています。同期を有効にしたら、画面の下部にある [確認] をタップしてください。上へ移動</translation>
 <translation id="3328801116991980348">サイト情報</translation>
 <translation id="3333961966071413176">すべての連絡先</translation>
+<translation id="3334729583274622784">ファイル拡張子を変更しますか？</translation>
 <translation id="3341058695485821946">データ削減量を確認できます</translation>
 <translation id="3350687908700087792">すべてのシークレット タブを閉じます</translation>
 <translation id="3353615205017136254">Google から提供されている軽量版のページです。元のページを読み込むには [元のサイトを表示] をタップしてください。</translation>
@@ -873,7 +875,6 @@ VR を開始する前に、信頼できるサイトかどうかを確認して�
 <translation id="7493994139787901920"><ph name="VERSION" />（<ph name="TIME_SINCE_UPDATE" />に更新）</translation>
 <translation id="7494974237137038751">データ削減量</translation>
 <translation id="7498271377022651285">お待ちください…</translation>
-<translation id="7510943789645525906">使用しているパスワードがデータ侵害を受けた場合に警告する</translation>
 <translation id="7514365320538308">ダウンロード</translation>
 <translation id="751961395872307827">サイトに接続できません</translation>
 <translation id="7521387064766892559">Javascript</translation>
@@ -919,7 +920,6 @@ VR を開始する前に、信頼できるサイトかどうかを確認して�
 <translation id="7810647596859435254">アプリで開く…</translation>
 <translation id="7821588508402923572">データ節約量がここに表示されます</translation>
 <translation id="7837721118676387834">特定のサイトに対し、ミュートされた動画の自動再生を許可します。</translation>
-<translation id="7838340937077326045">ファイル拡張子を変更してもよろしいですか？</translation>
 <translation id="7846076177841592234">選択解除</translation>
 <translation id="784934925303690534">期間</translation>
 <translation id="7851858861565204677">他のデバイス</translation>
@@ -930,7 +930,6 @@ VR を開始する前に、信頼できるサイトかどうかを確認して�
 <translation id="7886917304091689118">Chrome で実行中です</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{ファイルをダウンロードしています。}other{# 件のファイルをダウンロードしています。}}</translation>
 <translation id="7929962904089429003">メニューを開く</translation>
-<translation id="7930681627240672853">パスワードの安全性を確認</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> は最新ではありません。</translation>
 <translation id="7947953824732555851">同意してログイン</translation>
 <translation id="7963646190083259054">ベンダー:</translation>
@@ -946,7 +945,6 @@ VR を開始する前に、信頼できるサイトかどうかを確認して�
 <translation id="8007176423574883786">このデバイスに対して無効</translation>
 <translation id="8013372441983637696">Chrome データもこのデバイスから削除する</translation>
 <translation id="8015452622527143194">ページ上のすべての要素をデフォルトのサイズに戻す</translation>
-<translation id="8015780634880457457">Google ではお使いのパスワードがデータ侵害の対象になっていたかを確認できます</translation>
 <translation id="802154636333426148">ダウンロード エラー</translation>
 <translation id="8026334261755873520">閲覧履歴データの削除</translation>
 <translation id="8035133914807600019">新しいフォルダ...</translation>

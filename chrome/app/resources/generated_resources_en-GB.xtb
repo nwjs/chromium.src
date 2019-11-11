@@ -925,6 +925,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="2326931316514688470">&amp;Reload app</translation>
 <translation id="2327492829706409234">Enable app</translation>
 <translation id="2329597144923131178">Sign in to get your bookmarks, history, passwords and other settings on all your devices</translation>
+<translation id="2330129964253841015">Warn you if passwords are compromised</translation>
 <translation id="2332131598580221120">View in store</translation>
 <translation id="2332192922827071008">Open preferences</translation>
 <translation id="2332742915001411729">Reset to default</translation>
@@ -973,6 +974,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="2395616325548404795">Your <ph name="DEVICE_TYPE" /> has successfully been enrolled for enterprise management, but failed to send its asset and location information. Please manually enter this information from your Admin console for this device.</translation>
 <translation id="2396783860772170191">Enter 4-digit pin (0000-9999)</translation>
 <translation id="2399939490305346086">Security key sign-in data</translation>
+<translation id="2407481962792080328">When you sign in to your Google account, this feature is turned on</translation>
 <translation id="2408955596600435184">Enter your PIN</translation>
 <translation id="241082044617551207">Unknown plug-in</translation>
 <translation id="2412593942846481727">Update available</translation>
@@ -1427,6 +1429,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="3038612606416062604">Add a printer manually</translation>
 <translation id="3038675903128704560">Do not allow any site to use a plug-in to access your computer</translation>
 <translation id="3039491566278747710">Failed to install offline policy on the device.</translation>
+<translation id="3043581297103810752">From <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">This site downloaded multiple files automatically</translation>
 <translation id="3046910703532196514">Web Page, Complete</translation>
 <translation id="304747341537320566">Speech Engines</translation>
@@ -2293,6 +2296,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="4316850752623536204">Developer Website</translation>
 <translation id="4320177379694898372">No internet connection</translation>
 <translation id="4321442524549817090">S&amp;how URL</translation>
+<translation id="4322394346347055525">Close Other Tabs</translation>
 <translation id="4324577459193912240">File incomplete</translation>
 <translation id="4325237902968425115">Uninstalling <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">Ice water</translation>
@@ -2822,7 +2826,6 @@ Make sure that you trust this site before entering VR.</translation>
 <translation id="5142961317498132443">Authentication</translation>
 <translation id="5143374789336132547">The extension "<ph name="EXTENSION_NAME" />" has changed the page that is shown when you click the Home button.</translation>
 <translation id="5143712164865402236">Enter Full Screen</translation>
-<translation id="5145461783043820456">Third-party cookie blocking is on</translation>
 <translation id="514575469079499857">Use your IP address to determine location (default)</translation>
 <translation id="5146995429444047494">Notifications for <ph name="ORIGIN" /> are blocked</translation>
 <translation id="5150254825601720210">Netscape Certificate SSL Server Name</translation>
@@ -2958,7 +2961,6 @@ Make sure that you trust this site before entering VR.</translation>
 <translation id="5360150013186312835">Show in Toolbar</translation>
 <translation id="5362741141255528695">Select private key file.</translation>
 <translation id="5363109466694494651">Powerwash and Revert</translation>
-<translation id="5365716706805792666">Google can check if your passwords were part of a data breach. This will be turned on when you sign in with your Google account.</translation>
 <translation id="5365881113273618889">The folder that you selected contains sensitive files. Are you sure that you want to grant '<ph name="APP_NAME" />' permanent write access to this folder?</translation>
 <translation id="5367091008316207019">Reading file..</translation>
 <translation id="5368720394188453070">Your phone is locked. Unlock it to enter.</translation>
@@ -3659,7 +3661,6 @@ Make sure that you trust this site before entering VR.</translation>
 <translation id="63566973648609420">Only someone with your passphrase can read your encrypted data. The passphrase is not sent to or stored by Google. If you forget your passphrase or want to change this setting, you'll need to <ph name="BEGIN_LINK" />reset sync<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Welcome to the <ph name="SHORT_PRODUCT_NAME" /> family. This is no ordinary computer.</translation>
 <translation id="6358884629796491903">Dragon</translation>
-<translation id="6360079014182882594">This site is free of cookies that can be used to track you across the web</translation>
 <translation id="6361850914223837199">Error details:</translation>
 <translation id="6362853299801475928">&amp;Report an issue...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3981,6 +3982,7 @@ Make sure that you trust this site before entering VR.</translation>
 <translation id="6850286078059909152">Text colour</translation>
 <translation id="6851497530878285708">App Enabled</translation>
 <translation id="6853388645642883916">Updater sleeping</translation>
+<translation id="68541483639528434">Close other tabs</translation>
 <translation id="6856623341093082836">Set up and adjust the accuracy of your touchscreen</translation>
 <translation id="6857699260879628349">Get configuration info</translation>
 <translation id="6860097299815761905">Proxy settings...</translation>
@@ -4429,7 +4431,6 @@ Make sure that you trust this site before entering VR.</translation>
 <translation id="7506541170099744506">Your <ph name="DEVICE_TYPE" /> has successfully been enrolled for enterprise management.</translation>
 <translation id="7507930499305566459">Status Responder Certificate</translation>
 <translation id="7508054832109420082">Give access to printers</translation>
-<translation id="7510943789645525906">Warns you if a password that you used was part of a data breach</translation>
 <translation id="7513029293694390567">Automatically sign in to websites using stored credentials. If disabled, you will be asked for confirmation every time before signing in to a website.</translation>
 <translation id="7514239104543605883">Copy to your device</translation>
 <translation id="7514365320538308">Download</translation>
@@ -4731,7 +4732,6 @@ Make sure that you trust this site before entering VR.</translation>
 <translation id="7926423016278357561">This wasn't me.</translation>
 <translation id="7928836894214140642">Managed by <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Saved payment methods will appear here</translation>
-<translation id="7930681627240672853">Check password safety</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> is sharing your screen and audio.</translation>
 <translation id="7931318309563332511">Unknown</translation>
 <translation id="793293630927785390">New Wi-Fi Network Dialogue</translation>
@@ -4804,7 +4804,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8014154204619229810">The updater is currently running. Refresh in a minute to check again.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> is unable to revert to the previously installed version. Please try again to Powerwash your device.</translation>
 <translation id="8014210335923519270">Improve <ph name="IDS_SHORT_PRODUCT_NAME" /> and its security by sending system information and usage to Google</translation>
-<translation id="8015780634880457457">Google can check if your passwords were part of a data breach</translation>
 <translation id="8016266267177410919">Temporary storage</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Shortcut edited</translation>

@@ -138,7 +138,6 @@
 <translation id="5906667377645263094">{SECONDS,plural, =1{1 sekund tilbage}one{# sekunder tilbage}other{# sekunder tilbage}}</translation>
 <translation id="5941711191222866238">Minimer</translation>
 <translation id="5943826764092288734">{HOURS,plural, =1{1 time}one{# timer}other{# timer}}</translation>
-<translation id="5946629889255121107">Nummeret kommer fra <ph name="ORIGIN" /></translation>
 <translation id="6012623610530968780">Side <ph name="SELECTED_PAGE" /> ud af <ph name="TOTAL_PAGE_NUM" /></translation>
 <translation id="6022924867608035986">Ryd teksten i søgefeltet</translation>
 <translation id="6040143037577758943">Luk</translation>
@@ -199,9 +198,10 @@
 <translation id="8074552109918343525">{MAX_UNREAD_NOTIFICATIONS,plural, =1{Der er mere end 1 ulæst notifikation}one{Der er mere end # ulæst notifikation}other{Der er mere end # ulæste notifikationer}}</translation>
 <translation id="8086866675552927481">{MINUTES,plural, =1{om 1 min}one{om # min}other{om # min}}</translation>
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
+<translation id="8090736967111090568">Nummer fra <ph name="ORIGIN" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{for 1 time siden}one{for # time siden}other{for # timer siden}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{1 sek. tilbage}one{# sek. tilbage}other{# sek. tilbage}}</translation>
-<translation id="8134065097954893699">Genindlæse denne side</translation>
+<translation id="8134065097954893699">Genindlæs siden</translation>
 <translation id="8144660977431427332">Dine søgninger leveres af Google Assistent. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, autofuldfør</translation>
 <translation id="815598010540052116">Scroll Down</translation>

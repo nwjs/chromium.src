@@ -55,6 +55,11 @@ SkColor ToolbarAccountIconContainerView::GetPageActionInkDropColor() const {
   return GetToolbarInkDropBaseColor(this);
 }
 
+float ToolbarAccountIconContainerView::GetPageActionInkDropVisibleOpacity()
+    const {
+  return kToolbarInkDropVisibleOpacity;
+}
+
 content::WebContents*
 ToolbarAccountIconContainerView::GetWebContentsForPageActionIconView() {
   return browser_->tab_strip_model()->GetActiveWebContents();
@@ -76,4 +81,8 @@ void ToolbarAccountIconContainerView::OnThemeChanged() {
 SkColor ToolbarAccountIconContainerView::GetIconColor() const {
   return GetThemeProvider()->GetColor(
       ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
+}
+
+const views::View::Views& ToolbarAccountIconContainerView::GetChildren() const {
+  return page_action_icon_container_view_->children();
 }

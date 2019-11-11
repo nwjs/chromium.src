@@ -75,12 +75,19 @@ MediaNotificationContainerImplView::MediaNotificationContainerImplView(
   swipeable_container_->layer()->SetFillsBoundsOpaquely(false);
   AddChildView(swipeable_container_.get());
 
+  dismiss_button_placeholder_ = std::make_unique<views::View>();
+  dismiss_button_placeholder_->set_owned_by_client();
+  dismiss_button_placeholder_->SetPreferredSize(kDismissButtonSize);
+  dismiss_button_placeholder_->SetLayoutManager(
+      std::make_unique<views::FillLayout>());
+
   dismiss_button_container_ = std::make_unique<views::View>();
   dismiss_button_container_->set_owned_by_client();
   dismiss_button_container_->SetPreferredSize(kDismissButtonSize);
   dismiss_button_container_->SetLayoutManager(
       std::make_unique<views::FillLayout>());
   dismiss_button_container_->SetVisible(false);
+  dismiss_button_placeholder_->AddChildView(dismiss_button_container_.get());
 
   auto dismiss_button = std::make_unique<DismissButton>(this);
   dismiss_button->SetPreferredSize(kDismissButtonSize);
@@ -92,8 +99,8 @@ MediaNotificationContainerImplView::MediaNotificationContainerImplView(
   UpdateDismissButtonIcon();
 
   view_ = std::make_unique<media_message_center::MediaNotificationView>(
-      this, std::move(item), dismiss_button_container_.get(), base::string16(),
-      kWidth, /*should_show_icon=*/false);
+      this, std::move(item), dismiss_button_placeholder_.get(),
+      base::string16(), kWidth, /*should_show_icon=*/false);
   view_->set_owned_by_client();
   ForceExpandedState();
 
@@ -173,6 +180,13 @@ void MediaNotificationContainerImplView::OnColorsChanged(SkColor foreground,
   }
 }
 
+void MediaNotificationContainerImplView::OnHeaderClicked() {
+  // Since we disable the expand button, nothing happens on the
+  // MediaNotificationView when the header is clicked. Treat the click as if we
+  // were clicked directly.
+  ContainerClicked();
+}
+
 ui::Layer* MediaNotificationContainerImplView::GetSlideOutLayer() {
   return swipeable_container_->layer();
 }
@@ -186,8 +200,7 @@ void MediaNotificationContainerImplView::ButtonPressed(views::Button* sender,
   if (sender == dismiss_button_) {
     DismissNotification();
   } else if (sender == this) {
-    for (auto& observer : observers_)
-      observer.OnContainerClicked(id_);
+    ContainerClicked();
   } else {
     NOTREACHED();
   }
@@ -245,4 +258,9 @@ void MediaNotificationContainerImplView::ForceExpandedState() {
     bool should_expand = has_many_actions_ || has_artwork_;
     view_->SetForcedExpandedState(&should_expand);
   }
+}
+
+void MediaNotificationContainerImplView::ContainerClicked() {
+  for (auto& observer : observers_)
+    observer.OnContainerClicked(id_);
 }

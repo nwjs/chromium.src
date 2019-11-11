@@ -9,6 +9,7 @@
 <translation id="10614374240317010">ક્યારેય ન સચવાયેલું</translation>
 <translation id="1067922213147265141">અન્ય Google સેવાઓ</translation>
 <translation id="1068672505746868501">પેજનો ક્યારેય પણ <ph name="SOURCE_LANGUAGE" />માં અનુવાદ કરશો નહીં</translation>
+<translation id="107147699690128016">જો તમે ફાઇલનું એક્સ્ટેંશન બદલશો, તો તે કોઈ અલગ ઍપ્લિકેશનમાં ખુલી શકે છે અને તમારા ડિવાઇસ માટે નુકસાનકારક હોવાનું સંભવિત હોય શકે.</translation>
 <translation id="1100066534610197918">ગ્રૂપમાં નવા ટૅબમાં ખોલો</translation>
 <translation id="1105960400813249514">સ્ક્રીન કૅપ્ચર</translation>
 <translation id="1111673857033749125">તમારા અન્ય ઉપકરણો પર સાચવેલા બુકમાર્ક્સ અહીં દેખાશે.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">બધું ખોલો</translation>
 <translation id="1409426117486808224">ખુલ્લી ટૅબ માટે સરળ દૃશ્ય</translation>
 <translation id="1409879593029778104"><ph name="FILE_NAME" /> ડાઉનલોડ રોકાયું કારણકે ફાઇલ પહેલેથી અસ્તિત્વ ધરાવે છે.</translation>
-<translation id="1413136574162415971">Google તમારા પાસવર્ડ ડેટા ઉલ્લંઘનનો ભાગ હતો કે નહીં તે ચેક કરી શકે છે. જ્યારે તમે તમારા Google એકાઉન્ટ વડે સાઇન ઇન કરશો અને સિંક ચાલુ કરેલું હોય ત્યારે આ ચાલુ થશે.</translation>
 <translation id="1414981605391750300">Googleનો સંપર્ક કરી રહ્યાં છીએ. આમાં એક મિનિટ લાગી શકે છે…</translation>
 <translation id="1416550906796893042">ઍપ્લિકેશન વર્ઝન</translation>
 <translation id="1430915738399379752">પ્રિન્ટ</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Chrome તમને નોટિફિકેશન મોકલી શકે તે માટે <ph name="BEGIN_LINK" />Android સેટિંગ<ph name="END_LINK" />માં પણ નોટિફિકેશન ચાલુ કરો.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> નો ડેટા Chromeમાં પણ છે</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">ફાઇલનું એક્સ્ટેંશન બદલવાથી અનપેક્ષિત વર્તણૂકનું કારણ બની શકે છે અને તમારા ડિવાઇસ માટે નુકસાનકારક હશે.</translation>
 <translation id="2056878612599315956">સાઇટ રોકવામાં આવી</translation>
 <translation id="2063713494490388661">શોધવા માટે ટેપ કરો</translation>
 <translation id="2067805253194386918">ટેક્સ્ટ</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">જ્યાં સુધી તમે આ અનુકૂળ રીતે વાંચી ન શકો ત્યાં સુધી સ્લાઇડર ખેંચો. ફકરા પર ડબલ-ટેપિંગ પછી ટેક્સ્ટ ઓછામાં ઓછી આટલી મોટી દેખાવી જોઈએ.</translation>
 <translation id="2323763861024343754">સાઇટ સ્ટોરેજ</translation>
 <translation id="2328985652426384049">સાઇન ઇન કરી શકાતું નથી</translation>
+<translation id="2330129964253841015">જો પાસવર્ડમાં ચેડાં થાય તો તમને ચેતવણી આપવામાં આવશે</translation>
 <translation id="2349710944427398404">Chrome દ્વારા ઉપયોગમાં લેવાયેલ કુલ સ્ટોરેજ, એકાઉન્ટ્સ, બુકમાર્ક્સ અને સાચવેલ સેટિંગ્સ સહિત</translation>
 <translation id="2353636109065292463">તમારું ઇન્ટરનેટ કનેક્શન તપાસી રહ્યાં છીએ</translation>
 <translation id="2359808026110333948">આગળ વધો</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">ટેક્સ્ટ માપન</translation>
 <translation id="2394602618534698961">તમે ડાઉનલોડ કરો તે ફાઇલો અહીં દેખાશે</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">જ્યારે તમે તમારા Google એકાઉન્ટમાં સાઇન ઇન કરો છો, ત્યારે આ સુવિધા ચાલુ કરવામાં આવે છે</translation>
 <translation id="2410754283952462441">એકાઉન્ટ પસંદ કરો</translation>
 <translation id="2414886740292270097">ઘાટું</translation>
 <translation id="2416359993254398973">Chromeને આ સાઇટ માટે તમારા કૅમેરાના ઍક્સેસની પરવાનગીની જરૂર પડે છે.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">તમે હાલમાં તમારા સિંક અને Google સેવા સેટિંગને કસ્ટમાઇઝ કરી રહ્યાં છો. સિંક ચાલુ કરવાનું પૂર્ણ કરવા માટે, સ્ક્રીનની નીચેની બાજુએ કન્ફર્મ કરો બટન પર ટૅપ કરો. ઉપર નૅવિગેટ કરો</translation>
 <translation id="3328801116991980348">સાઇટ માહિતી</translation>
 <translation id="3333961966071413176">બધા સંપર્કો</translation>
+<translation id="3334729583274622784">ફાઇલનું એક્સ્ટેંશન બદલવું છે?</translation>
 <translation id="3341058695485821946">તમે કેટલો ડેટા સાચવ્યો તે જુઓ</translation>
 <translation id="3350687908700087792">બધા છુપા ટેબ્સ બંધ કરો</translation>
 <translation id="3353615205017136254">Google દ્વારા પૂરું પાડવામાં આવેલું લાઇટ વર્ઝનનું પેજ. ઑરિજિનલ પેજ લોડ કરવા માટે ઑરિજિનલ લોડ કરો બટન ટૅપ કરો.</translation>
@@ -873,7 +875,6 @@ VR મોડમાં દાખલ થતા પહેલા ખાતરી ક
 <translation id="7493994139787901920"><ph name="VERSION" /> (અપડેટ કર્યું <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">ડેટા બચત</translation>
 <translation id="7498271377022651285">કૃપા કરીને રાહ જુઓ…</translation>
-<translation id="7510943789645525906">જો તમે ઉપયોગમાં લો છો તે પાસવર્ડ ડેટા ઉલ્લંઘનનો ભાગ હતો તો તમને ચેતવણી આપે છે</translation>
 <translation id="7514365320538308">ડાઉનલોડ કરો</translation>
 <translation id="751961395872307827">સાઇટ સાથે કનેક્ટ કરી શકાતું નથી</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ VR મોડમાં દાખલ થતા પહેલા ખાતરી ક
 <translation id="7810647596859435254">આની સાથે ખોલો…</translation>
 <translation id="7821588508402923572">તમારી ડેટા બચત અહીં દેખાશે</translation>
 <translation id="7837721118676387834">કોઈ ચોક્કસ સાઇટ માટે મ્યૂટ કરેલ વિડિઓઝને ઑટોપ્લેની મંજૂરી આપો.</translation>
-<translation id="7838340937077326045">શું તમે ખરેખર ફાઇલનું એક્સ્ટેંશન બદલવા માગો છો?</translation>
 <translation id="7846076177841592234">પસંદગી રદ કરો</translation>
 <translation id="784934925303690534">સમય શ્રેણી</translation>
 <translation id="7851858861565204677">અન્ય ઉપકરણો</translation>
@@ -930,7 +930,6 @@ VR મોડમાં દાખલ થતા પહેલા ખાતરી ક
 <translation id="7886917304091689118">Chromeમાં ચાલી રહ્યું છે</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{ફાઇલ ડાઉનલોડ કરી રહ્યાં છીએ.}one{# ફાઇલ ડાઉનલોડ કરી રહ્યાં છે.}other{# ફાઇલ ડાઉનલોડ કરી રહ્યાં છે.}}</translation>
 <translation id="7929962904089429003">મેનૂ ખોલો</translation>
-<translation id="7930681627240672853">પાસવર્ડ સુરક્ષા ચેક કરો</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> જૂનું થઈ ગયું છે.</translation>
 <translation id="7947953824732555851">સ્વીકારો અને સાઇન ઇન કરો</translation>
 <translation id="7963646190083259054">વિક્રેતા:</translation>
@@ -946,7 +945,6 @@ VR મોડમાં દાખલ થતા પહેલા ખાતરી ક
 <translation id="8007176423574883786">આ ઉપકરણ માટે બંધ કર્યું</translation>
 <translation id="8013372441983637696">આ ડિવાઇસમાંથી તમારો Chrome ડેટા પણ સાફ કરો</translation>
 <translation id="8015452622527143194">પેજ પરનું બધું કન્ટેન્ટ પાછું ડિફૉલ્ટ કદમાં બદલો</translation>
-<translation id="8015780634880457457">Google તમારા પાસવર્ડ ડેટા ઉલ્લંઘનનો ભાગ હતો કે નહીં તે ચેક કરી શકે છે</translation>
 <translation id="802154636333426148">ડાઉનલોડ નિષ્ફળ થયું</translation>
 <translation id="8026334261755873520">બ્રાઉઝિંગ ડેટા સાફ કરો</translation>
 <translation id="8035133914807600019">નવું ફોલ્ડર...</translation>

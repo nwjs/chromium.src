@@ -16,7 +16,6 @@
 #include "chrome/browser/printing/print_preview_dialog_controller.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
 #include "chrome/common/chrome_content_client.h"
-#include "components/printing/common/print.mojom.h"
 #include "components/printing/common/print_messages.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/plugin_service.h"
@@ -192,21 +191,24 @@ void PrintViewManager::RenderFrameDeleted(
   if (render_frame_host == print_preview_rfh_)
     PrintPreviewDone();
   PrintViewManagerBase::RenderFrameDeleted(render_frame_host);
+  print_render_frames_.erase(render_frame_host);
 }
 
 const mojo::AssociatedRemote<printing::mojom::PrintRenderFrame>&
 PrintViewManager::GetPrintRenderFrame(content::RenderFrameHost* rfh) {
-  if (!print_render_frame_.is_bound()) {
-    rfh->GetRemoteAssociatedInterfaces()->GetInterface(&print_render_frame_);
-    print_render_frame_.set_disconnect_handler(
-        base::BindOnce(&PrintViewManager::OnPrintRenderFrameDisconnected,
-                       base::Unretained(this)));
+  auto it = print_render_frames_.find(rfh);
+  if (it == print_render_frames_.end()) {
+    mojo::AssociatedRemote<printing::mojom::PrintRenderFrame> remote;
+    rfh->GetRemoteAssociatedInterfaces()->GetInterface(&remote);
+    it = print_render_frames_.insert({rfh, std::move(remote)}).first;
+  } else if (it->second.is_bound() && !it->second.is_connected()) {
+    // When print preview is closed, the remote is disconnected from the
+    // receiver. Reset and bind the remote before using it again.
+    it->second.reset();
+    rfh->GetRemoteAssociatedInterfaces()->GetInterface(&it->second);
   }
-  return print_render_frame_;
-}
 
-void PrintViewManager::OnPrintRenderFrameDisconnected() {
-  print_render_frame_.reset();
+  return it->second;
 }
 
 bool PrintViewManager::PrintPreview(

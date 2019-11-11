@@ -49,6 +49,13 @@ class ToolbarIconContainerView : public views::View,
 
   bool uses_highlight() { return uses_highlight_; }
 
+ protected:
+  // TODO(pbos): Remove this when PageActionIconContainerView is not nested
+  // inside ToolbarAccountIconContainerView. This would require making
+  // PageActionIconContainerView something that ToolbarAccountIconContainerView
+  // could inherit instead of nesting into the views hierarchy.
+  virtual const views::View::Views& GetChildren() const;
+
  private:
   friend class ToolbarAccountIconContainerViewBrowserTest;
 
@@ -73,8 +80,10 @@ class ToolbarIconContainerView : public views::View,
   // hierarchy.
   views::Button* main_button_ = nullptr;
 
-  // Points to the child view that is currently highlighted.
-  views::Button* highlighted_button_ = nullptr;
+  // Points to the child buttons that we know are currently highlighted.
+  // TODO(pbos): Consider observing buttons leaving our hierarchy and removing
+  // them from this set.
+  std::set<views::Button*> highlighted_buttons_;
 
   // Fade-in/out animation for the highlight border.
   gfx::SlideAnimation highlight_animation_{this};

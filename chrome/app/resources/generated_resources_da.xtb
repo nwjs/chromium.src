@@ -925,6 +925,7 @@ Du kan administrere indstillingerne for denne konto ved at installere Family Lin
 <translation id="2326931316514688470">&amp;Genindlæs app</translation>
 <translation id="2327492829706409234">Aktivér app</translation>
 <translation id="2329597144923131178">Log ind for at hente bogmærker, historik, adgangskoder og andre indstillinger på alle dine enheder.</translation>
+<translation id="2330129964253841015">Få en underretning, hvis adgangskoder kompromitteres</translation>
 <translation id="2332131598580221120">Vis i Webshop</translation>
 <translation id="2332192922827071008">Åbn præferencer</translation>
 <translation id="2332742915001411729">Nulstil til standard</translation>
@@ -973,6 +974,7 @@ Du kan administrere indstillingerne for denne konto ved at installere Family Lin
 <translation id="2395616325548404795">Din <ph name="DEVICE_TYPE" /> er tilmeldt virksomhedsadministration, men den har ikke tilsendt oplysninger om aktiver og placering. Angiv disse oplysninger manuelt i administrationskonsollen for denne enhed.</translation>
 <translation id="2396783860772170191">Angiv den firecifrede pinkode (0000-9999)</translation>
 <translation id="2399939490305346086">Logindata på sikkerhedsnøglen</translation>
+<translation id="2407481962792080328">Når du logger ind på din Google-konto, er denne funktion aktiveret</translation>
 <translation id="2408955596600435184">Angiv din pinkode</translation>
 <translation id="241082044617551207">Ukendt plugin</translation>
 <translation id="2412593942846481727">Der er en tilgængelig opdatering</translation>
@@ -1375,7 +1377,7 @@ Du kan administrere indstillingerne for denne konto ved at installere Family Lin
 <translation id="2963151496262057773">Følgende plugins svarer ikke: <ph name="PLUGIN_NAME" />Vil du stoppe det?</translation>
 <translation id="2966937470348689686">Administrer Android-præferencer</translation>
 <translation id="2972581237482394796">&amp;Annuller fortryd</translation>
-<translation id="2973324205039581528">Slå lyden fra på et website</translation>
+<translation id="2973324205039581528">Slå lyden fra på dette website</translation>
 <translation id="2977480621796371840">Fjern fra gruppe</translation>
 <translation id="2979639724566107830">Åbn i nyt vindue</translation>
 <translation id="2981113813906970160">Vis stor musemarkør</translation>
@@ -1427,6 +1429,7 @@ Du kan administrere indstillingerne for denne konto ved at installere Family Lin
 <translation id="3038612606416062604">Tilføj en printer manuelt</translation>
 <translation id="3038675903128704560">Tillad ikke, at websites anvender et plugin til at få adgang til din computer</translation>
 <translation id="3039491566278747710">Offlinepolitikken kunne ikke installeres på enheden.</translation>
+<translation id="3043581297103810752">Fra <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Dette website har downloadet flere filer automatisk</translation>
 <translation id="3046910703532196514">Webside, komplet</translation>
 <translation id="304747341537320566">Oplæsningsmaskiner</translation>
@@ -2293,6 +2296,7 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4316850752623536204">Udviklers website</translation>
 <translation id="4320177379694898372">Ingen internetforbindelse</translation>
 <translation id="4321442524549817090">V&amp;is webadresse</translation>
+<translation id="4322394346347055525">Luk alle andre faner</translation>
 <translation id="4324577459193912240">Filen er ufuldstændig</translation>
 <translation id="4325237902968425115">Afinstallerer <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Isvand</translation>
@@ -2557,7 +2561,7 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4739639199548674512">Billetter</translation>
 <translation id="4742746985488890273">Fastgør til hylde</translation>
 <translation id="4743260470722568160"><ph name="BEGIN_LINK" />Se, hvordan du opdaterer apps<ph name="END_LINK" /></translation>
-<translation id="4744981231093950366">{NUM_TABS,plural, =1{Slå lyden til på website}one{Slå lyden til på website}other{Slå lyden til på websites}}</translation>
+<translation id="4744981231093950366">{NUM_TABS,plural, =1{Slå lyden til på dette website}one{Slå lyden til på dette website}other{Slå lyden til på disse websites}}</translation>
 <translation id="4746351372139058112">Beskeder</translation>
 <translation id="4748762018725435655">Kræver en udvidelse fra Chrome Webshop</translation>
 <translation id="4750394297954878236">Forslag</translation>
@@ -2822,7 +2826,6 @@ Sørg for, at du har tillid til dette website, før du starter VR.</translation>
 <translation id="5142961317498132443">Godkendelse</translation>
 <translation id="5143374789336132547">Udvidelsen <ph name="EXTENSION_NAME" /> har ændret, hvilken side der vises, når du klikker på knappen Startside.</translation>
 <translation id="5143712164865402236">Åbn Fuld skærm</translation>
-<translation id="5145461783043820456">Blokering af cookies fra tredjeparter er aktiveret</translation>
 <translation id="514575469079499857">Brug din IP-adresse til at fastslå placeringen (standard)</translation>
 <translation id="5146995429444047494">Notifikationer for <ph name="ORIGIN" /> blokeres</translation>
 <translation id="5150254825601720210">SSL-servernavn for Netscape-certifikat</translation>
@@ -2958,7 +2961,6 @@ Sørg for, at du har tillid til dette website, før du starter VR.</translation>
 <translation id="5360150013186312835">Vis på værktøjslinjen</translation>
 <translation id="5362741141255528695">Vælg privat nøglefil.</translation>
 <translation id="5363109466694494651">Powerwash, og vend tilbage</translation>
-<translation id="5365716706805792666">Google kan tjekke, om dine adgangskoder har været involveret i et brud på datasikkerheden. Denne funktion aktiveres, når du logger ind med din Google-konto.</translation>
 <translation id="5365881113273618889">Den valgte mappe indeholder følsomme filer. Er du sikker på, at du vil give "<ph name="APP_NAME" />" permanent skriveadgang til denne mappe?</translation>
 <translation id="5367091008316207019">Læser fil...</translation>
 <translation id="5368720394188453070">Din telefon er låst. Lås den op for at få adgang.</translation>
@@ -3660,7 +3662,6 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="63566973648609420">Det er kun personer med din adgangssætning, der kan læse dine krypterede data. Adgangssætningen sendes ikke til og gemmes ikke af Google. Hvis du glemmer din adgangssætning eller vil ændre denne indstilling, skal du <ph name="BEGIN_LINK" />nulstille synkroniseringen<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Velkommen til <ph name="SHORT_PRODUCT_NAME" />-familien. Dette er ikke en almindelig computer.</translation>
 <translation id="6358884629796491903">Drage</translation>
-<translation id="6360079014182882594">Websitet har ingen cookies, der kan bruges til at spore din aktivitet på nettet</translation>
 <translation id="6361850914223837199">Info om fejl:</translation>
 <translation id="6362853299801475928">&amp;Rapporter et problem...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3982,6 +3983,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6850286078059909152">Tekstfarve</translation>
 <translation id="6851497530878285708">Appen er aktiveret</translation>
 <translation id="6853388645642883916">Opdateringsprogrammet er i dvale</translation>
+<translation id="68541483639528434">Luk alle andre faner</translation>
 <translation id="6856623341093082836">Konfigurer og juster nøjagtigheden af din touchskærm</translation>
 <translation id="6857699260879628349">Hent konfigurationsoplysninger</translation>
 <translation id="6860097299815761905">Indstillinger for proxy...</translation>
@@ -4430,7 +4432,6 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="7506541170099744506">Din <ph name="DEVICE_TYPE" /> er tilmeldt virksomhedsadministration.</translation>
 <translation id="7507930499305566459">Certifikat for statussvar</translation>
 <translation id="7508054832109420082">Giv adgang til printere</translation>
-<translation id="7510943789645525906">Advarer dig, hvis en adgangskode, du bruger, har været berørt af et brud på datasikkerheden</translation>
 <translation id="7513029293694390567">Log automatisk ind på websites ved hjælp af gemte loginoplysninger. Hvis funktionen er slået fra, bliver du bedt om bekræftelse, hver gang du vil logge ind på et website.</translation>
 <translation id="7514239104543605883">Kopiér til din enhed</translation>
 <translation id="7514365320538308">Download</translation>
@@ -4731,12 +4732,11 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="7926423016278357561">Det var ikke mig.</translation>
 <translation id="7928836894214140642">Administreret af <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Her kan du se dine gemte betalingsmetoder</translation>
-<translation id="7930681627240672853">Tjek, om din adgangskode er blevet afsløret</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> deler din skærm og lyd.</translation>
 <translation id="7931318309563332511">ukendt</translation>
 <translation id="793293630927785390">Dialogboks for nyt Wi-Fi-netværk</translation>
 <translation id="7932969338829957666">Delte mapper er tilgængelige i Linux på <ph name="BASE_DIR" />.</translation>
-<translation id="7933314993013528982">{NUM_TABS,plural, =1{Slå lyden til på website}one{Slå lyden til på website}other{Slå lyden til på websites}}</translation>
+<translation id="7933314993013528982">{NUM_TABS,plural, =1{Slå lyden til på dette website}one{Slå lyden til på dette website}other{Slå lyden til på disse websites}}</translation>
 <translation id="7933634003144813719">Administrer delte mapper</translation>
 <translation id="7934414805353235750"><ph name="URL" /> vil afspille beskyttet indhold. Din enheds identitet bekræftes af Google.</translation>
 <translation id="793531125873261495">Der opstod en fejl under forsøget på at downloade den virtuelle maskine. Prøv igen.</translation>
@@ -4804,7 +4804,6 @@ Opbevar din nøglefil på et sikkert sted. Du skal bruge den til at oprette nye 
 <translation id="8014154204619229810">Opdateringsprogrammet kører i øjeblikket. Opdater om et minut for at kontrollere igen.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> kan ikke vende tilbage til den tidligere version. Prøv Powerwash i stedet.</translation>
 <translation id="8014210335923519270">Gør <ph name="IDS_SHORT_PRODUCT_NAME" /> og dens sikkerhed bedre ved at sende systemoplysninger og brug til Google</translation>
-<translation id="8015780634880457457">Google kan tjekke, om dine adgangskoder har været involveret i et brud på datasikkerheden</translation>
 <translation id="8016266267177410919">Midlertidig lagring</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Genvejen blev redigeret</translation>
@@ -5548,7 +5547,7 @@ Opbevar din nøglefil på et sikkert sted. Du skal bruge den til at oprette nye 
 <translation id="9076283476770535406">Der er muligvis indhold for voksne på websitet</translation>
 <translation id="9076523132036239772">Din mail eller adgangskode blev ikke bekræftet. Prøv at oprette forbindelse til et netværk først.</translation>
 <translation id="9084064520949870008">Åbn som vindue</translation>
-<translation id="9085256200913095638">Dubliker den valgte fane</translation>
+<translation id="9085256200913095638">Dupliker den valgte fane</translation>
 <translation id="9088234649737575428"><ph name="PLUGIN_NAME" /> er blokeret af en virksomhedspolitik</translation>
 <translation id="9088917181875854783">Bekræft, at denne adgangsnøgle vises på "<ph name="DEVICE_NAME" />":</translation>
 <translation id="9094033019050270033">Opdater adgangskoden</translation>
@@ -5581,6 +5580,7 @@ Opbevar din nøglefil på et sikkert sted. Du skal bruge den til at oprette nye 
 <translation id="9130015405878219958">Den angivne tilstand er ugyldig.</translation>
 <translation id="9131487537093447019">Sende beskeder til og modtage beskeder fra Bluetooth-enheder.</translation>
 <translation id="9134304429738380103">Ja tak.</translation>
+<translation id="9135090785674039430">Når denne indstilling er aktiveret, kan websites ikke anvende cookies, der sporer din aktivitet på nettet. Nogle websites stopper muligvis med at fungere.</translation>
 <translation id="9137013805542155359">Vis oprindelig</translation>
 <translation id="9137157311132182254">Foretrukken søgemaskine</translation>
 <translation id="9137248913990643158">Start og log ind på Chrome, inden du bruger denne app.</translation>

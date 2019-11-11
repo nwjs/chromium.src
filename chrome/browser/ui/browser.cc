@@ -2771,7 +2771,7 @@ bool Browser::NormalBrowserSupportsWindowFeature(WindowFeature feature,
 
 bool Browser::PopupBrowserSupportsWindowFeature(WindowFeature feature,
                                                 bool check_can_support) const {
-  bool fullscreen = ShouldHideUIForFullscreen();
+  //bool fullscreen = ShouldHideUIForFullscreen();
 
   switch (feature) {
     case FEATURE_INFOBAR:
@@ -2779,7 +2779,7 @@ bool Browser::PopupBrowserSupportsWindowFeature(WindowFeature feature,
       return true;
     case FEATURE_TITLEBAR:
     case FEATURE_LOCATIONBAR:
-      return check_can_support || (!fullscreen && !is_trusted_source());
+      return false; //check_can_support || (!fullscreen && !is_trusted_source());
     case FEATURE_TABSTRIP:
     case FEATURE_TOOLBAR:
     case FEATURE_BOOKMARKBAR:

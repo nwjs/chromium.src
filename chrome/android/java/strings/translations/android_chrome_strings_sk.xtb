@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Nikdy neukladať</translation>
 <translation id="1067922213147265141">Ďalšie služby Googlu</translation>
 <translation id="1068672505746868501">Nikdy neprekladať stránky v jazyku <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">Ak zmeníte príponu súboru, súbor sa môže otvoriť v inej aplikácii a potenciálne ohroziť vaše zariadenie.</translation>
 <translation id="1100066534610197918">Otvoriť v skupine na novej karte</translation>
 <translation id="1105960400813249514">Snímanie obrazovky</translation>
 <translation id="1111673857033749125">Tu sa zobrazia záložky, ktoré ste uložili na iných zariadeniach.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Otvoriť všetko</translation>
 <translation id="1409426117486808224">Jednoduché zobrazenie otvorených kariet</translation>
 <translation id="1409879593029778104">Sťahovanie súboru <ph name="FILE_NAME" /> bolo zrušené, pretože daný súbor už existuje.</translation>
-<translation id="1413136574162415971">Google môže skontrolovať, či vaše heslá boli súčasťou porušenia ochrany údajov. Táto funkcia bude zapnutá, keď sa prihlásite pomocou svojho účtu Google a zapnete synchronizáciu.</translation>
 <translation id="1414981605391750300">Kontaktuje sa Google. Môže to chvíľu trvať…</translation>
 <translation id="1416550906796893042">Verzia aplikácie</translation>
 <translation id="1430915738399379752">Tlačiť</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Ak chcete povoliť Chromu odosielať vám upozornenia, zapnite ich aj v <ph name="BEGIN_LINK" />Nastaveniach Androidu<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529">V Chrome má údaje aj aplikácia <ph name="APP_NAME" />.</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Ak zmeníte príponu súboru, môže to viesť neočakávanému správaniu a poškodeniu zariadenia.</translation>
 <translation id="2056878612599315956">Web je pozastavený</translation>
 <translation id="2063713494490388661">Vyhľadávanie klepnutím</translation>
 <translation id="2067805253194386918">text</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Presúvajte posúvač, dokým nebude čítanie tohto textu pohodlné. Po dvojitom klepnutí na odsek by mal byť text aspoň takto veľký.</translation>
 <translation id="2323763861024343754">Úložisko webu</translation>
 <translation id="2328985652426384049">Nedá sa prihlásiť</translation>
+<translation id="2330129964253841015">Upozorňovať pri odhalení hesiel</translation>
 <translation id="2349710944427398404">Celkové dáta využívané Chromom vrátane účtov, záložiek a uložených nastavení</translation>
 <translation id="2353636109065292463">Kontroluje sa internetové pripojenie</translation>
 <translation id="2359808026110333948">Pokračovať</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Mierka textu</translation>
 <translation id="2394602618534698961">Tu sa zobrazia stiahnuté súbory</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Keď sa prihlásite do svojho účtu Google, táto funkcia je zapnutá</translation>
 <translation id="2410754283952462441">Výber účtu</translation>
 <translation id="2414886740292270097">Tmavý režim</translation>
 <translation id="2416359993254398973">Chrome potrebuje povolenie pre tento web na prístup k vášmu fotoaparátu.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Momentálne prispôsobujete nastavenia synchronizácie a služieb Googlu. Ak chcete dokončiť zapnutie synchronizácie, klepnite na tlačidlo Potvrdiť v dolnej časti obrazovky. Prejsť hore</translation>
 <translation id="3328801116991980348">Informácie o stránkach</translation>
 <translation id="3333961966071413176">Všetky kontakty</translation>
+<translation id="3334729583274622784">Chcete zmeniť príponu súboru?</translation>
 <translation id="3341058695485821946">Zistite, koľko dát ste ušetrili</translation>
 <translation id="3350687908700087792">Zavrieť všetky karty inkognito</translation>
 <translation id="3353615205017136254">Zjednodušenú verziu stránky poskytol Google. Ak chcete načítať pôvodnú verziu, klepnite na tlačidlo Načítať pôvodnú stránku.</translation>
@@ -873,7 +875,6 @@ Web NEZÍSKA prístup k fotoaparátu. Obrázky fotoaparátu sú viditeľné iba
 <translation id="7493994139787901920"><ph name="VERSION" /> (Aktualizované <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">uložené dáta</translation>
 <translation id="7498271377022651285">Čakajte…</translation>
-<translation id="7510943789645525906">Upozorní vás, ak heslo, ktoré používate, bolo súčasťou porušenia ochrany údajov</translation>
 <translation id="7514365320538308">Stiahnuť</translation>
 <translation id="751961395872307827">Nedá sa pripojiť k webu</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ Web NEZÍSKA prístup k fotoaparátu. Obrázky fotoaparátu sú viditeľné iba
 <translation id="7810647596859435254">Otvoriť pomocou…</translation>
 <translation id="7821588508402923572">Tu sa zobrazí úspora dát</translation>
 <translation id="7837721118676387834">Povoliť automatické prehrávanie stlmených videí pre konkrétny web.</translation>
-<translation id="7838340937077326045">Naozaj chcete zmeniť príponu súboru?</translation>
 <translation id="7846076177841592234">Zrušiť výber</translation>
 <translation id="784934925303690534">Obdobie</translation>
 <translation id="7851858861565204677">Ďalšie zariadenia</translation>
@@ -930,7 +930,6 @@ Web NEZÍSKA prístup k fotoaparátu. Obrázky fotoaparátu sú viditeľné iba
 <translation id="7886917304091689118">Spustená v Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Sťahuje sa súbor.}few{Sťahujú sa # súbory.}many{Downloading # files.}other{Sťahuje sa # súborov.}}</translation>
 <translation id="7929962904089429003">Otvorenie ponuky</translation>
-<translation id="7930681627240672853">Skontrolovať bezpečnosť hesla</translation>
 <translation id="7942131818088350342">Aplikácia <ph name="PRODUCT_NAME" /> je zastaraná.</translation>
 <translation id="7947953824732555851">Prijať a prihl. sa</translation>
 <translation id="7963646190083259054">Dodávateľ:</translation>
@@ -946,7 +945,6 @@ Web NEZÍSKA prístup k fotoaparátu. Obrázky fotoaparátu sú viditeľné iba
 <translation id="8007176423574883786">Vypnuté v tomto zariadení</translation>
 <translation id="8013372441983637696">Tiež vymazať údaje Chromu z tohto zariadenia</translation>
 <translation id="8015452622527143194">Vrátenie obsahu stránky na predvolenú veľkosť</translation>
-<translation id="8015780634880457457">Google môže skontrolovať, či vaše heslá boli súčasťou porušenia ochrany údajov.</translation>
 <translation id="802154636333426148">Stiahnutie zlyhalo</translation>
 <translation id="8026334261755873520">Vymazať dáta prehliadania</translation>
 <translation id="8035133914807600019">Nový priečinok…</translation>
@@ -1000,9 +998,9 @@ Web NEZÍSKA prístup k fotoaparátu. Obrázky fotoaparátu sú viditeľné iba
 <translation id="8380167699614421159">Tento web zobrazuje obťažujúce alebo zavádzajúce reklamy</translation>
 <translation id="8393700583063109961">Odoslať správu</translation>
 <translation id="8413126021676339697">Zobraziť celú históriu</translation>
-<translation id="8427875596167638501">Karta Ukážky je dopoly otvorená</translation>
+<translation id="8427875596167638501">Karta ukážky je dopoly otvorená</translation>
 <translation id="8428213095426709021">Nastavenia</translation>
-<translation id="8438566539970814960">Zlepšovať vyhľadávania a prehliadanie</translation>
+<translation id="8438566539970814960">Zlepšovať vyhľadávanie a prehliadanie</translation>
 <translation id="8441146129660941386">Pretočiť dozadu</translation>
 <translation id="8443209985646068659">Chrome sa nedá aktualizovať</translation>
 <translation id="8445448999790540984">Heslá sa nepodarilo exportovať</translation>

@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">Друк</translation>
 <translation id="1442386063175183758">Зігнути за типом "ворота праворуч"</translation>
 <translation id="1442987760062738829">Пробити отвір</translation>
-<translation id="1450011005989029586">Ваш пароль розкрито через порушення безпеки даних на сайті чи в додатку, якими ви користуєтеся. Chrome радить <ph name="BOLD" /> на сайті <ph name="ORIGIN" />.</translation>
 <translation id="1455413310270022028">Гумка</translation>
 <translation id="1463543813647160932">5x7</translation>
 <translation id="1472675084647422956">Показати більше</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">Цей тип картки не підтримується</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Зв’яжіться із системним адміністратором.</translation>
+<translation id="1739107442478692187">На сайті чи в додатку, якими ви користуєтеся, виявлено порушення безпеки даних. Chrome радить перевірити збережені паролі та негайно змінити їх на сайті <ph name="ORIGIN" />.</translation>
 <translation id="1740951997222943430">Введіть дійсний місяць закінчення терміну дії</translation>
 <translation id="1743520634839655729">Щоб наступного разу платити швидше, збережіть дані картки, ім’я та платіжну адресу в обліковому записі Google і на цьому пристрої.</translation>
 <translation id="1743570585616704562">Не розпізнано</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">Невідповідність домену</translation>
 <translation id="2096368010154057602">Департамент</translation>
 <translation id="2099652385553570808">Скріпити тричі ліворуч</translation>
+<translation id="2100280972184758440">Ваш пароль було зламано</translation>
 <translation id="2102134110707549001">Запропонувати надійний пароль…</translation>
 <translation id="2108755909498034140">Перезавантажте комп’ютер</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">Правило ігнорується, оскільки його замінено правилом <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Кому видано: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Пробити отвір унизу праворуч</translation>
+<translation id="2124528555835617522">На сайті чи в додатку, якими ви користуєтеся, виявлено порушення безпеки даних. Chrome радить негайно перевірити збережені паролі.</translation>
 <translation id="2129079103035905234">Датчики руху</translation>
 <translation id="213826338245044447">Закладки на мобільному</translation>
 <translation id="214556005048008348">Скасувати оплату</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">На жаль, зараз не вдається зберегти картку.</translation>
 <translation id="2262243747453050782">Помилка HTTP</translation>
 <translation id="2263079731045660823">Оновіть дані для автозаповнення кредитної картки в налаштуваннях Chrome</translation>
+<translation id="2267047181501709434">Підтвердження вашої особи…</translation>
 <translation id="2270484714375784793">Номер телефону</translation>
 <translation id="2277103315734023688">Перейти вперед</translation>
 <translation id="2283340219607151381">Зберігати й заповнювати адреси</translation>
@@ -474,6 +477,7 @@
 <translation id="3282497668470633863">Додати ім’я на кредитній картці</translation>
 <translation id="3287510313208355388">Завантажити після відновлення інтернет-з’єднання</translation>
 <translation id="3293642807462928945">Докладніше про правило <ph name="POLICY_NAME" /></translation>
+<translation id="3295439534709115864">На сайті чи в додатку, якими ви користуєтеся, виявлено порушення безпеки даних. Chrome радить негайно змінити пароль на сайті <ph name="ORIGIN" />.</translation>
 <translation id="3303855915957856445">Немає результатів</translation>
 <translation id="3320021301628644560">Додати платіжну адресу</translation>
 <translation id="3324983252691184275">Малиновий</translation>
@@ -674,7 +678,6 @@
 <translation id="4258748452823770588">Недійсний підпис</translation>
 <translation id="4261046003697461417">Для захищених документів створення приміток недоступне</translation>
 <translation id="4265872034478892965">Дозволено адміністратором</translation>
-<translation id="4270615291506829403">змінити пароль</translation>
 <translation id="4275830172053184480">Перезапустіть пристрій</translation>
 <translation id="4277028893293644418">Скинути пароль</translation>
 <translation id="4279811152705618813">Вашим пристроєм <ph name="DEVICE_TYPE" /> керує домен <ph name="ENROLLMENT_DOMAIN" /></translation>
@@ -753,7 +756,6 @@
 <translation id="4708268264240856090">З’єднання розірвано</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" />провести діагностику мережі Windows<ph name="END_LINK" /></translation>
-<translation id="4725851834065990915">Ваш пароль розкрито через порушення безпеки даних на сайті чи в додатку, якими ви користуєтеся. Chrome радить негайно перевірити збережені паролі.</translation>
 <translation id="4726672564094551039">Перезавантажити правила</translation>
 <translation id="4728558894243024398">Платформа</translation>
 <translation id="4731967714531604179">Prc2 (конверт)</translation>
@@ -1171,7 +1173,6 @@
 <translation id="679355240208270552">Ігнорується, оскільки пошукову систему за умовчанням вимкнено правилом.</translation>
 <translation id="681021252041861472">Обов’язкове поле</translation>
 <translation id="6810899417690483278">Ідентифікатор налаштування</translation>
-<translation id="6819440013020405090">Ваш пароль розкрито через порушення безпеки даних на сайті чи в додатку, якими ви користуєтеся. Chrome радить перевірити збережені паролі та змінити пароль на сайті <ph name="ORIGIN" />.</translation>
 <translation id="6825578344716086703">Ви спробували зв’язатися з доменом <ph name="DOMAIN" />, проте сервер надав сертифікат, підписаний із використанням слабкого алгоритму підпису (як-от SHA-1). Це означає, що облікові дані безпеки, надані сервером, можуть бути сфальсифікованими, а сервер – не тим, який вам потрібен (ви можете передавати свої дані зловмиснику).</translation>
 <translation id="6826370046007623921">Запобігання витокам даних</translation>
 <translation id="6831043979455480757">Перекласти</translation>
@@ -1214,7 +1215,6 @@
 <translation id="7064851114919012435">Контактна інформація</translation>
 <translation id="7075452647191940183">Запит завеликий</translation>
 <translation id="7079718277001814089">Цей сайт містить зловмисне програмне забезпечення</translation>
-<translation id="70850504851191913">Повідомлено про порушення безпеки даних</translation>
 <translation id="7087282848513945231">Країна</translation>
 <translation id="7090678807593890770">Пошукайте за запитом "<ph name="LINK" />" у Google</translation>
 <translation id="7108338896283013870">Сховати</translation>
@@ -1537,7 +1537,6 @@
 <translation id="8718314106902482036">Оплату не завершено</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, пропозиція пошуку</translation>
 <translation id="8719528812645237045">Пробити кілька отворів угорі</translation>
-<translation id="8723954843026426558">Я приймаю умови використання, політику конфіденційності й право на відмову від <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /></translation>
 <translation id="8725066075913043281">Повторити спробу</translation>
 <translation id="8728672262656704056">Ви перейшли в режим анонімного перегляду</translation>
 <translation id="8730621377337864115">Готово</translation>

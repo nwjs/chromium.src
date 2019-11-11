@@ -427,8 +427,13 @@ if (is_win || (is_linux && !is_component_build)) {
         "//services/service_manager/embedder",
         "//third_party/wtl",
         "//ui/views",
-        "//v8:v8_initializers",
     ]
+
+    if (!is_component_build) {
+      deps += [
+        "//v8:v8_initializers",
+      ]
+    }
     
     if (is_multi_dll_chrome) {
       configs += [ "//build/config/win:delayloads_not_for_child_dll" ]

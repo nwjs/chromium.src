@@ -2654,6 +2654,12 @@ enum class EnterTabSwitcherSnapshotResult {
   return YES;
 }
 
+- (BOOL)URLIsOpenedInRegularMode:(const GURL&)URL {
+  WebStateList* webStateList = self.mainTabModel.webStateList;
+  return webStateList && webStateList->GetIndexOfWebStateWithURL(URL) !=
+                             WebStateList::kInvalidIndex;
+}
+
 #pragma mark - SettingsNavigationControllerDelegate
 
 - (void)closeSettings {

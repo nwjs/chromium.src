@@ -47,6 +47,9 @@ const AutocompleteResultStatus = {
   SKIPPED: 1,
 };
 
+/** @type {string} */
+let lastInput;
+
 /** @typedef {{inline: string, text: string}} */
 let RealboxOutput;
 
@@ -1083,39 +1086,36 @@ function onDeleteAutocompleteMatch(result) {
     return;
   }
 
-  const matchEls = Array.from($(IDS.REALBOX_MATCHES).children);
-  const selected = matchEls.findIndex(matchEl => {
-    return matchEl.classList.contains(CLASSES.SELECTED);
-  });
-
-  const wasFocused = matchEls[selected].contains(document.activeElement);
+  $(IDS.REALBOX).focus();
 
   populateAutocompleteMatches(result.matches);
   matchElBeingDeleted = null;
 
   if (result.matches.length === 0) {
-    if (wasFocused) {
-      $(IDS.REALBOX).focus();
-    }
+    updateRealboxOutput({inline: '', text: ''});
     return;
   }
 
-  const newMatchEls = Array.from($(IDS.REALBOX_MATCHES).children);
-  const newSelected = Math.min(newMatchEls.length - 1, selected);
-  const newSelectedEl = newMatchEls[newSelected];
+  const firstMatch = autocompleteMatches[0];
+  if (firstMatch.allowedToBeDefaultMatch) {
+    const matchEls = Array.from($(IDS.REALBOX_MATCHES).children);
+    selectMatchEl(matchEls[0]);
 
-  selectMatchEl(newSelectedEl);
-
-  if (wasFocused) {
-    const removeIcon = newSelectedEl.querySelector(`.${CLASSES.REMOVE_ICON}`);
-    assert(removeIcon || newSelectedEl).focus();
+    const fill = firstMatch.fillIntoEdit;
+    const inline = firstMatch.inlineAutocompletion;
+    const textEnd = fill.length - inline.length;
+    updateRealboxOutput({
+      moveCursorToEnd: true,
+      inline: inline,
+      text: assert(fill.substr(0, textEnd)),
+    });
+  } else {
+    updateRealboxOutput({
+      moveCursorToEnd: true,
+      inline: '',
+      text: lastInput,
+    });
   }
-
-  updateRealboxOutput({
-    moveCursorToEnd: true,
-    inline: '',
-    text: assert(autocompleteMatches[newSelected].fillIntoEdit),
-  });
 }
 
 /**
@@ -1174,7 +1174,9 @@ function onQueryAutocompleteDone(result) {
     return;
   }
 
-  $(IDS.REALBOX_MATCHES).firstElementChild.classList.add(CLASSES.SELECTED);
+  if (result.matches[0].allowedToBeDefaultMatch) {
+    selectMatchEl(assert($(IDS.REALBOX_MATCHES).firstElementChild));
+  }
 
   // If the user is deleting content, don't quickly re-suggest the same
   // output.
@@ -1202,7 +1204,7 @@ function onRealboxCutCopy(e) {
   });
 
   const selectedMatch = autocompleteMatches[selected];
-  if (!selectedMatch.isSearchType) {
+  if (selectedMatch && !selectedMatch.isSearchType) {
     e.clipboardData.setData('text/plain', selectedMatch.destinationUrl);
     e.preventDefault();
     if (e.type === 'cut') {
@@ -1217,7 +1219,7 @@ function onRealboxInput() {
   updateRealboxOutput({inline: '', text: realboxValue});
 
   if (realboxValue.trim()) {
-    window.chrome.embeddedSearch.searchBox.queryAutocomplete(realboxValue);
+    queryAutocomplete(realboxValue);
   } else {
     setRealboxMatchesVisible(false);
     setRealboxWrapperListenForKeydown(false);
@@ -1228,7 +1230,7 @@ function onRealboxInput() {
 /** @param {Event} e */
 function onRealboxWrapperFocusIn(e) {
   if (e.target.matches(`#${IDS.REALBOX}`) && !$(IDS.REALBOX).value) {
-    window.chrome.embeddedSearch.searchBox.queryAutocomplete('');
+    queryAutocomplete('');
   } else if (e.target.matches(`#${IDS.REALBOX_MATCHES} *`)) {
     let target = e.target;
     while (target && target.nodeName !== 'A') {
@@ -1262,6 +1264,11 @@ function onRealboxWrapperFocusOut(e) {
     // Note: intentionally leaving keydown listening and match data intact.
     window.chrome.embeddedSearch.searchBox.stopAutocomplete(
         /*clearResult=*/ true);
+
+    // Clear the input if it was empty when displaying the matches.
+    if (lastInput === '') {
+      updateRealboxOutput({inline: '', text: ''});
+    }
   }
 }
 
@@ -1287,7 +1294,7 @@ function onRealboxWrapperKeydown(e) {
         inline: lastOutput.inline.substr(1),
         text: assert(lastOutput.text + key),
       });
-      window.chrome.embeddedSearch.searchBox.queryAutocomplete(lastOutput.text);
+      queryAutocomplete(lastOutput.text);
       e.preventDefault();
       return;
     }
@@ -1302,14 +1309,16 @@ function onRealboxWrapperKeydown(e) {
   const selected = matchEls.findIndex(matchEl => {
     return matchEl.classList.contains(CLASSES.SELECTED);
   });
-  assert(autocompleteMatches[selected]);
 
   if (key === 'Delete') {
-    if (e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey &&
-        autocompleteMatches[selected].supportsDeletion) {
-      matchElBeingDeleted = matchEls[selected];
-      window.chrome.embeddedSearch.searchBox.deleteAutocompleteMatch(selected);
-      e.preventDefault();
+    if (e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      const selectedMatch = autocompleteMatches[selected];
+      if (selectedMatch && selectedMatch.supportsDeletion) {
+        matchElBeingDeleted = matchEls[selected];
+        window.chrome.embeddedSearch.searchBox.deleteAutocompleteMatch(
+            selected);
+        e.preventDefault();
+      }
     }
     return;
   }
@@ -1449,13 +1458,13 @@ function overrideExecutableTimeoutForTesting(timeout) {
  */
 function populateAutocompleteMatches(matches) {
   const realboxMatchesEl = document.createElement('div');
-  realboxMatchesEl.role = 'listbox';
+  realboxMatchesEl.setAttribute('role', 'listbox');
 
   for (let i = 0; i < matches.length; ++i) {
     const match = matches[i];
     const matchEl = document.createElement('a');
     matchEl.href = match.destinationUrl;
-    matchEl.role = 'option';
+    matchEl.setAttribute('role', 'option');
 
     if (match.isSearchType) {
       const icon = document.createElement('div');
@@ -1476,13 +1485,19 @@ function populateAutocompleteMatches(matches) {
         renderMatchClassifications(match.contents, match.contentsClass);
     const descriptionEls = [];
     const separatorEls = [];
+    let separatorText = '';
 
     if (match.description) {
       descriptionEls.push(...renderMatchClassifications(
           match.description, match.descriptionClass));
-      separatorEls.push(document.createTextNode(
-          configData.translatedStrings.realboxSeparator));
+      separatorText = configData.translatedStrings.realboxSeparator;
+      separatorEls.push(document.createTextNode(separatorText));
     }
+
+    const ariaLabel = match.swapContentsAndDescription ?
+        match.description + separatorText + match.contents :
+        match.contents + separatorText + match.description;
+    matchEl.setAttribute('aria-label', ariaLabel);
 
     const layout = match.swapContentsAndDescription ?
         [descriptionEls, separatorEls, contentsEls] :
@@ -1496,10 +1511,13 @@ function populateAutocompleteMatches(matches) {
       const icon = document.createElement('button');
       icon.title = configData.translatedStrings.removeSuggestion;
       icon.classList.add(CLASSES.REMOVE_ICON);
+      icon.onmousedown = e => {
+        e.preventDefault();  // Stops default browser action (focus)
+      };
       icon.onclick = e => {
         matchElBeingDeleted = matchEl;
         window.chrome.embeddedSearch.searchBox.deleteAutocompleteMatch(i);
-        e.preventDefault();
+        e.preventDefault();  // Stops default browser action (navigation)
       };
 
       const remove = document.createElement('div');
@@ -1509,9 +1527,6 @@ function populateAutocompleteMatches(matches) {
       matchEl.appendChild(remove);
       realboxMatchesEl.classList.add(CLASSES.REMOVABLE);
     }
-
-    // TODO(crbug.com/1002689): set a more useful aria-label on |matchEl|, as
-    // "Remove suggestion" is now uttered when navigating through matches.
 
     realboxMatchesEl.append(matchEl);
   }
@@ -1525,6 +1540,14 @@ function populateAutocompleteMatches(matches) {
   setRealboxMatchesVisible(hasMatches);
   setRealboxWrapperListenForKeydown(hasMatches);
   setAutocompleteMatches(matches);
+}
+
+/**
+ * @param {string} input
+ */
+function queryAutocomplete(input) {
+  lastInput = input;
+  window.chrome.embeddedSearch.searchBox.queryAutocomplete(input);
 }
 
 /**
@@ -1745,6 +1768,7 @@ function selectMatchEl(elToSelect) {
   Array.from($(IDS.REALBOX_MATCHES).children).forEach((matchEl, i) => {
     const found = matchEl === elToSelect;
     matchEl.classList.toggle(CLASSES.SELECTED, found);
+    matchEl.setAttribute('aria-selected', found);
     if (found) {
       selectedIndex = i;
     }

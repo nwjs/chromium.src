@@ -4,25 +4,26 @@
 
 package org.chromium.weblayer;
 
-import android.content.ComponentCallbacks;
 import android.content.Context;
-import android.content.ContextWrapper;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.support.v4.app.Fragment;
 import android.util.AndroidRuntimeException;
 import android.webkit.ValueCallback;
 import android.webkit.WebViewDelegate;
 import android.webkit.WebViewFactory;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.chromium.weblayer_private.aidl.APICallException;
 import org.chromium.weblayer_private.aidl.BrowserFragmentArgs;
 import org.chromium.weblayer_private.aidl.IBrowserFragment;
+import org.chromium.weblayer_private.aidl.IProfile;
 import org.chromium.weblayer_private.aidl.IRemoteFragmentClient;
 import org.chromium.weblayer_private.aidl.IWebLayer;
 import org.chromium.weblayer_private.aidl.ObjectWrapper;
@@ -43,17 +44,16 @@ public final class WebLayer {
     private static ListenableFuture<WebLayer> sFuture;
 
     private final IWebLayer mImpl;
-    private final ProfileManager mProfileManager = new ProfileManager();
 
     /**
      * Loads the WebLayer implementation and returns the IWebLayer. This does *not* trigger the
      * implementation to start.
      */
-    private static IWebLayer connectToWebLayerImplementation(Context remoteContext)
+    private static IWebLayer connectToWebLayerImplementation(ClassLoader remoteClassLoader)
             throws UnsupportedVersionException {
         try {
-            Class webLayerClass = remoteContext.getClassLoader().loadClass(
-                    "org.chromium.weblayer_private.WebLayerImpl");
+            Class webLayerClass =
+                    remoteClassLoader.loadClass("org.chromium.weblayer_private.WebLayerImpl");
 
             // Check version before doing anything else on the implementation side.
             if (!(boolean) webLayerClass.getMethod("checkVersion", Integer.TYPE)
@@ -74,28 +74,21 @@ public final class WebLayer {
      * Loads assets for WebLayer and returns the package ID to use when calling
      * R.onResourcesLoaded().
      */
-    private static int loadAssets(Context appContext, Context remoteContext) {
+    private static int loadAssets(Context appContext, PackageInfo implPackageInfo)
+            throws ReflectiveOperationException {
         WebViewDelegate delegate;
-        PackageInfo implPackageInfo;
-        try {
-            // TODO: Make asset loading work on L, where WebViewDelegate doesn't exist.
-            // WebViewDelegate.addWebViewAssetPath() accesses the currently loaded package info from
-            // WebViewFactory, so we have to fake it.
-            implPackageInfo =
-                    appContext.getPackageManager().getPackageInfo(getImplPackageName(appContext),
-                            PackageManager.GET_SHARED_LIBRARY_FILES | PackageManager.GET_META_DATA);
-            Field packageInfo = WebViewFactory.class.getDeclaredField("sPackageInfo");
-            packageInfo.setAccessible(true);
-            packageInfo.set(null, implPackageInfo);
+        // TODO: Make asset loading work on L, where WebViewDelegate doesn't exist.
+        // WebViewDelegate.addWebViewAssetPath() accesses the currently loaded package info from
+        // WebViewFactory, so we have to fake it.
+        Field packageInfo = WebViewFactory.class.getDeclaredField("sPackageInfo");
+        packageInfo.setAccessible(true);
+        packageInfo.set(null, implPackageInfo);
 
-            // TODO(torne): Figure out how to load assets for production.
-            // Load assets using the WebViewDelegate.
-            Constructor constructor = WebViewDelegate.class.getDeclaredConstructor();
-            constructor.setAccessible(true);
-            delegate = (WebViewDelegate) constructor.newInstance();
-        } catch (Exception e) {
-            throw new AndroidRuntimeException(e);
-        }
+        // TODO(torne): Figure out how to load assets for production.
+        // Load assets using the WebViewDelegate.
+        Constructor constructor = WebViewDelegate.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        delegate = (WebViewDelegate) constructor.newInstance();
         delegate.addWebViewAssetPath(appContext);
         return delegate.getPackageId(appContext.getResources(), implPackageInfo.packageName);
     }
@@ -111,11 +104,22 @@ public final class WebLayer {
     @NonNull
     public static ListenableFuture<WebLayer> create(Context appContext)
             throws UnsupportedVersionException {
+        ThreadCheck.ensureOnUiThread();
         if (sFuture == null) {
-            Context remoteContext = createRemoteContext(appContext.getApplicationContext());
-            IWebLayer iWebLayer = connectToWebLayerImplementation(remoteContext);
-            int resourcesPackageId = loadAssets(appContext, remoteContext);
-            sFuture = new WebLayerLoadFuture(iWebLayer, remoteContext, resourcesPackageId);
+            try {
+                // Just in case the app passed an Activity context.
+                appContext = appContext.getApplicationContext();
+                ClassLoader remoteClassLoader = createRemoteClassLoader(appContext);
+                IWebLayer iWebLayer = connectToWebLayerImplementation(remoteClassLoader);
+                PackageInfo packageInfo = appContext.getPackageManager().getPackageInfo(
+                        getImplPackageName(appContext),
+                        PackageManager.GET_SHARED_LIBRARY_FILES | PackageManager.GET_META_DATA);
+                int resourcesPackageId = loadAssets(appContext, packageInfo);
+                sFuture = new WebLayerLoadFuture(
+                        iWebLayer, appContext, packageInfo, resourcesPackageId);
+            } catch (Exception e) {
+                throw new AndroidRuntimeException(e);
+            }
         }
         return sFuture;
     }
@@ -126,7 +130,8 @@ public final class WebLayer {
     private static final class WebLayerLoadFuture extends ListenableFuture<WebLayer> {
         private final IWebLayer mIWebLayer;
 
-        WebLayerLoadFuture(IWebLayer iWebLayer, Context remoteContext, int resourcesPackageId) {
+        WebLayerLoadFuture(IWebLayer iWebLayer, Context appContext, PackageInfo packageInfo,
+                int resourcesPackageId) {
             mIWebLayer = iWebLayer;
             ValueCallback<Boolean> loadCallback = new ValueCallback<Boolean>() {
                 @Override
@@ -137,8 +142,9 @@ public final class WebLayer {
                 }
             };
             try {
-                iWebLayer.initAndLoadAsync(ObjectWrapper.wrap(remoteContext),
-                        ObjectWrapper.wrap(loadCallback), resourcesPackageId);
+                iWebLayer.initAndLoadAsync(ObjectWrapper.wrap(appContext),
+                        ObjectWrapper.wrap(packageInfo), ObjectWrapper.wrap(loadCallback),
+                        resourcesPackageId);
             } catch (RemoteException e) {
                 throw new APICallException(e);
             }
@@ -157,7 +163,8 @@ public final class WebLayer {
         }
 
         @Override
-        public void onLoad() {
+        /* package */ void onLoad() {
+            ThreadCheck.ensureOnUiThread();
             try {
                 mIWebLayer.loadSync();
             } catch (RemoteException e) {
@@ -171,25 +178,31 @@ public final class WebLayer {
         }
     }
 
-    @Override
-    protected void finalize() {
-        // TODO(sky): figure out right assertion here if mImpl is non-null.
-    }
-
-    public void destroy() {
-        // TODO: implement me.
-        mProfileManager.destroy();
-    }
-
     private WebLayer(IWebLayer iWebLayer) {
         mImpl = iWebLayer;
     }
 
+    /**
+     * Get or create the profile for profilePath.
+     */
     @NonNull
-    public static BrowserFragment createBrowserFragment(String profilePath) {
+    public Profile getProfile(@Nullable String profilePath) {
+        ThreadCheck.ensureOnUiThread();
+        IProfile iprofile;
+        try {
+            iprofile = mImpl.getProfile(sanitizeProfilePath(profilePath));
+        } catch (RemoteException e) {
+            throw new APICallException(e);
+        }
+        return Profile.of(iprofile);
+    }
+
+    @NonNull
+    public static Fragment createBrowserFragment(@Nullable String profilePath) {
+        ThreadCheck.ensureOnUiThread();
         // TODO: use a profile id instead of the path to the actual file.
         Bundle args = new Bundle();
-        args.putString(BrowserFragmentArgs.PROFILE_PATH, profilePath == null ? "" : profilePath);
+        args.putString(BrowserFragmentArgs.PROFILE_PATH, sanitizeProfilePath(profilePath));
         BrowserFragment fragment = new BrowserFragment();
         fragment.setArguments(args);
         return fragment;
@@ -201,59 +214,34 @@ public final class WebLayer {
     /* package */ IBrowserFragment connectFragment(
             IRemoteFragmentClient remoteFragmentClient, Bundle fragmentArgs) {
         try {
-            return mImpl.createBrowserFragmentImpl(remoteFragmentClient,
-                    ObjectWrapper.wrap(fragmentArgs));
+            return mImpl.createBrowserFragmentImpl(
+                    remoteFragmentClient, ObjectWrapper.wrap(fragmentArgs));
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
     }
 
-    /* package */ ProfileManager getProfileManager() {
-        return mProfileManager;
-    }
-
     /**
-     * Creates a Context for the remote (weblayer implementation) side.
+     * Creates a ClassLoader for the remote (weblayer implementation) side.
      */
-    static Context createRemoteContext(Context localContext) {
-        Context remoteContext;
+    static ClassLoader createRemoteClassLoader(Context localContext) {
         try {
             // TODO(cduvall): Might want to cache the remote context so we don't need to call into
             // package manager more than we need to.
-            remoteContext = localContext.createPackageContext(getImplPackageName(localContext),
-                    Context.CONTEXT_IGNORE_SECURITY | Context.CONTEXT_INCLUDE_CODE);
+            Context remoteContext =
+                    localContext.createPackageContext(getImplPackageName(localContext),
+                            Context.CONTEXT_IGNORE_SECURITY | Context.CONTEXT_INCLUDE_CODE);
+            return remoteContext.getClassLoader();
         } catch (NameNotFoundException e) {
             throw new AndroidRuntimeException(e);
         }
-        return wrapContext(localContext, remoteContext);
     }
 
-    private static Context wrapContext(Context localContext, Context remoteContext) {
-        return new ContextWrapper(localContext) {
-            @Override
-            public Context getApplicationContext() {
-                if (getBaseContext().getApplicationContext() == getBaseContext()) return this;
-                return wrapContext(getBaseContext().getApplicationContext(), remoteContext);
-            }
-
-            @Override
-            public ClassLoader getClassLoader() {
-                return remoteContext.getClassLoader();
-            }
-
-            @Override
-            public void registerComponentCallbacks(ComponentCallbacks callback) {
-                // We have to override registerComponentCallbacks and unregisterComponentCallbacks
-                // since they call getApplicationContext().[un]registerComponentCallbacks()
-                // which causes us to go into a loop.
-                getBaseContext().registerComponentCallbacks(callback);
-            }
-
-            @Override
-            public void unregisterComponentCallbacks(ComponentCallbacks callback) {
-                getBaseContext().unregisterComponentCallbacks(callback);
-            }
-        };
+    private static String sanitizeProfilePath(String profilePath) {
+        if ("".equals(profilePath)) {
+            throw new AndroidRuntimeException("Profile path cannot be empty");
+        }
+        return profilePath == null ? "" : profilePath;
     }
 
     private static String getImplPackageName(Context localContext)

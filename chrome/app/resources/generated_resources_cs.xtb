@@ -925,6 +925,7 @@ Chcete-li spravovat nastavení tohoto účtu, nainstalujte si do zařízení apl
 <translation id="2326931316514688470">Znovu načíst &amp;aplikaci</translation>
 <translation id="2327492829706409234">Aktivovat aplikaci</translation>
 <translation id="2329597144923131178">Přihlaste se a synchronizujte záložky, historii, hesla a další nastavení do všech svých zařízení.</translation>
+<translation id="2330129964253841015">Upozorňovat v případě ohrožení hesel</translation>
 <translation id="2332131598580221120">Zobrazit v obchodu</translation>
 <translation id="2332192922827071008">Otevřít nastavení</translation>
 <translation id="2332742915001411729">Výchozí nastavení</translation>
@@ -973,6 +974,7 @@ Chcete-li spravovat nastavení tohoto účtu, nainstalujte si do zařízení apl
 <translation id="2395616325548404795">Vaše zařízení <ph name="DEVICE_TYPE" /> bylo úspěšně zaregistrováno do podnikové správy, ale neodeslalo informace o položce a umístění. Zadejte prosím tyto informace pro toto zařízení ručně z administrátorské konzole.</translation>
 <translation id="2396783860772170191">Zadejte čtyřmístný kód PIN (0000–9999)</translation>
 <translation id="2399939490305346086">Přihlašovací údaje na bezpečnostním klíči</translation>
+<translation id="2407481962792080328">Když se přihlásíte k účtu Google, je tato funkce zapnutá</translation>
 <translation id="2408955596600435184">Zadejte PIN</translation>
 <translation id="241082044617551207">Neznámý plugin</translation>
 <translation id="2412593942846481727">K dispozici je aktualizace</translation>
@@ -1426,6 +1428,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="3038612606416062604">Přidat tiskárnu ručně</translation>
 <translation id="3038675903128704560">Žádným webům přístup do počítače pomocí pluginu nepovolovat</translation>
 <translation id="3039491566278747710">Instalace offline zásady na zařízení se nezdařila.</translation>
+<translation id="3043581297103810752">Z webu <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Tento web automaticky stáhl několik souborů</translation>
 <translation id="3046910703532196514">Webová stránka, úplná</translation>
 <translation id="304747341537320566">Moduly převodu textu na řeč</translation>
@@ -2289,6 +2292,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="4316850752623536204">Webové stránky vývojáře</translation>
 <translation id="4320177379694898372">Žádné připojení k internetu</translation>
 <translation id="4321442524549817090">Z&amp;obrazit adresu URL</translation>
+<translation id="4322394346347055525">Zavřít ostatní karty</translation>
 <translation id="4324577459193912240">Soubor je neúplný</translation>
 <translation id="4325237902968425115">Odinstalace aplikace <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Ledová voda</translation>
@@ -2818,7 +2822,6 @@ Před přechodem do režimu virtuální reality zkontrolujte, zda tomuto webu d�
 <translation id="5142961317498132443">Ověření</translation>
 <translation id="5143374789336132547">Rozšíření <ph name="EXTENSION_NAME" /> změnilo stránku, která se zobrazí po kliknutí na tlačítko Domovská stránka.</translation>
 <translation id="5143712164865402236">Celá obrazovka</translation>
-<translation id="5145461783043820456">Blokování souborů cookie třetích stran je zapnuté</translation>
 <translation id="514575469079499857">Určit polohu podle IP adresy (výchozí)</translation>
 <translation id="5146995429444047494">Oznámení z webu <ph name="ORIGIN" /> jsou blokována</translation>
 <translation id="5150254825601720210">Název serveru SSL certifikátu Netscape</translation>
@@ -2954,7 +2957,6 @@ Před přechodem do režimu virtuální reality zkontrolujte, zda tomuto webu d�
 <translation id="5360150013186312835">Zobrazit na liště</translation>
 <translation id="5362741141255528695">Vyberte soubor soukromého klíče.</translation>
 <translation id="5363109466694494651">Obnovit pomocí funkce Powerwash a vrátit předchozí verzi</translation>
-<translation id="5365716706805792666">Google může kontrolovat, zda vaše hesla nebyla součástí úniku dat. Když se přihlásíte pomocí účtu Google, tato funkce se zapne.</translation>
 <translation id="5365881113273618889">Vybraná složka obsahuje citlivé soubory. Opravdu chcete aplikaci <ph name="APP_NAME" /> udělit trvalý přístup k zápisu do této složky?</translation>
 <translation id="5367091008316207019">Čtení souboru..</translation>
 <translation id="5368720394188453070">Telefon je uzamčen. Chcete-li pokračovat, odemkněte jej.</translation>
@@ -3655,7 +3657,6 @@ Před přechodem do režimu virtuální reality zkontrolujte, zda tomuto webu d�
 <translation id="63566973648609420">Vaše šifrovaná data mohou číst pouze uživatelé, kteří mají vaši heslovou frázi. Heslová fráze se neodesílá do Googlu a není na Googlu uložena. Pokud heslovou frázi zapomenete nebo toto nastavení budete chtít změnit, budete muset <ph name="BEGIN_LINK" />synchronizaci resetovat<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Vítejte v rodině produktů <ph name="SHORT_PRODUCT_NAME" />. Nejedná se o obyčejný počítač.</translation>
 <translation id="6358884629796491903">Drak</translation>
-<translation id="6360079014182882594">Na tomto webu se nevyskytují soubory cookie, pomocí nichž vás lze na internetu sledovat.</translation>
 <translation id="6361850914223837199">Podrobnosti o chybě:</translation>
 <translation id="6362853299801475928">&amp;Oznámení problému...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3977,6 +3978,7 @@ Před přechodem do režimu virtuální reality zkontrolujte, zda tomuto webu d�
 <translation id="6850286078059909152">Barva textu</translation>
 <translation id="6851497530878285708">Aplikace povolena</translation>
 <translation id="6853388645642883916">Nástroj na aktualizaci je v režimu spánku</translation>
+<translation id="68541483639528434">Zavřít ostatní karty</translation>
 <translation id="6856623341093082836">Nastavit a upravit přesnost dotykové obrazovky</translation>
 <translation id="6857699260879628349">Zobrazit konfigurační údaje</translation>
 <translation id="6860097299815761905">Nastavení proxy serveru...</translation>
@@ -4425,7 +4427,6 @@ Před přechodem do režimu virtuální reality zkontrolujte, zda tomuto webu d�
 <translation id="7506541170099744506">Vaše zařízení <ph name="DEVICE_TYPE" /> bylo úspěšně zaregistrováno do podnikové správy.</translation>
 <translation id="7507930499305566459">Certifikát stavového odpovídače</translation>
 <translation id="7508054832109420082">Udělit přístup k tiskárnám</translation>
-<translation id="7510943789645525906">Upozorní vás, pokud vaše heslo bylo součástí úniku dat</translation>
 <translation id="7513029293694390567">Přihlašovat se na weby automaticky pomocí uložených identifikačních údajů. Když je tato funkce vypnutá, budete před každým přihlášením na web požádáni o potvrzení.</translation>
 <translation id="7514239104543605883">Kopírovat do zařízení</translation>
 <translation id="7514365320538308">Stáhnout</translation>
@@ -4727,7 +4728,6 @@ V zařízení se systémem Chrome OS můžete aktivovat funkce ladění, abyste
 <translation id="7926423016278357561">To jsem nebyl(a) já.</translation>
 <translation id="7928836894214140642">Spravováno doménou <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Zde se budou zobrazovat uložené platební metody</translation>
-<translation id="7930681627240672853">Zkontrolovat bezpečnost hesla</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> sdílí vaši obrazovku a zvuk.</translation>
 <translation id="7931318309563332511">Neznámé</translation>
 <translation id="793293630927785390">Dialogové okno nové sítě Wi-Fi</translation>
@@ -4800,7 +4800,6 @@ Svůj soubor klíče uchovávejte na bezpečném místě. Budete jej potřebovat
 <translation id="8014154204619229810">Nástroj na aktualizaci je momentálně spuštěn. Za chvilku stránku obnovte a prohlédněte si stav.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> se nedokáže vrátit zpět na dříve nainstalovanou verzi. Zkuste zařízení znovu obnovit pomocí funkce Powerwash.</translation>
 <translation id="8014210335923519270">Vylepšete prohlížeč <ph name="IDS_SHORT_PRODUCT_NAME" /> a jeho zabezpečení tím, že do Googlu budete odesílat informace o systému a využití</translation>
-<translation id="8015780634880457457">Google může kontrolovat, zda vaše hesla nebyla součástí úniku dat</translation>
 <translation id="8016266267177410919">Dočasné úložiště</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Zkratka byla upravena</translation>
@@ -5154,7 +5153,7 @@ Svůj soubor klíče uchovávejte na bezpečném místě. Budete jej potřebovat
 <translation id="8546541260734613940">[*.]example.com</translation>
 <translation id="854655314928502177">Adresa URL automatického zjišťování webového proxy serveru:</translation>
 <translation id="8546930481464505581">Přizpůsobit dotykovou plochu</translation>
-<translation id="8547013269961688403">Zapnout lupu celé obrazovky</translation>
+<translation id="8547013269961688403">Povolit zvětšení obrazovky</translation>
 <translation id="85486688517848470">Podržením vyhledávacího tlačítka přepnete chování tlačítek v horním řádku</translation>
 <translation id="8549457076611407730">{NUM_ITEMS,plural, =1{1 položka}few{# položky}many{# položky}other{# položek}}</translation>
 <translation id="8551388862522347954">Licence</translation>

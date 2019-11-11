@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Nooit opgeslagen</translation>
 <translation id="1067922213147265141">Andere Google-services</translation>
 <translation id="1068672505746868501">Pagina's in het <ph name="SOURCE_LANGUAGE" /> nooit vertalen</translation>
+<translation id="107147699690128016">Als je de bestandsextensie wijzigt, wordt het bestand mogelijk in een andere app geopend. Daardoor kan het een gevaar vormen voor je apparaat.</translation>
 <translation id="1100066534610197918">Open in nieuw tabblad in groep</translation>
 <translation id="1105960400813249514">Schermopname</translation>
 <translation id="1111673857033749125">Bladwijzers die je op andere apparaten hebt opgeslagen, worden hier weergegeven.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Alles openen</translation>
 <translation id="1409426117486808224">Vereenvoudigde weergave voor geopende tabbladen</translation>
 <translation id="1409879593029778104">Downloaden van <ph name="FILE_NAME" /> is voorkomen omdat het bestand al bestaat.</translation>
-<translation id="1413136574162415971">Google kan controleren of je wachtwoorden betrokken waren bij een gegevenslek. Dit wordt ingeschakeld wanneer je inlogt met je Google-account en synchroniseren inschakelt.</translation>
 <translation id="1414981605391750300">Contact opnemen met Google. Dit kan even duren…</translation>
 <translation id="1416550906796893042">Appversie</translation>
 <translation id="1430915738399379752">Afdrukken</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Als je wilt dat Chrome je meldingen stuurt, moet je meldingen ook inschakelen via de <ph name="BEGIN_LINK" />Android-instellingen<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> heeft ook gegevens in Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Als je de bestandsextensie wijzigt, kan dit leiden tot onverwacht gedrag en schade aan je apparaat.</translation>
 <translation id="2056878612599315956">Site onderbroken</translation>
 <translation id="2063713494490388661">Tikken om te zoeken</translation>
 <translation id="2067805253194386918">sms</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Sleep de schuifknop tot je deze tekst prettig kunt lezen. De tekst moet minimaal deze grootte hebben nadat je op een alinea hebt gedubbeltikt.</translation>
 <translation id="2323763861024343754">Site-opslag</translation>
 <translation id="2328985652426384049">Kan niet inloggen</translation>
+<translation id="2330129964253841015">Waarschuwen als je wachtwoorden niet meer veilig zijn</translation>
 <translation id="2349710944427398404">Totale gegevens gebruikt door Chrome, inclusief accounts, bladwijzers en opgeslagen instellingen</translation>
 <translation id="2353636109065292463">Je internetverbinding controleren…</translation>
 <translation id="2359808026110333948">Doorgaan</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Tekstschaal</translation>
 <translation id="2394602618534698961">Bestanden die je downloadt, worden hier weergegeven</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Als je inlogt op je Google-account, wordt deze functie ingeschakeld</translation>
 <translation id="2410754283952462441">Een account selecteren</translation>
 <translation id="2414886740292270097">Donker</translation>
 <translation id="2416359993254398973">Chrome heeft toegangsrechten voor je camera nodig voor deze site.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Je past op dit moment je instellingen voor synchronisatie en Google-services aan. Als je synchronisatie wilt inschakelen, tik je op Bevestigen onderaan het scherm. Omhoog navigeren</translation>
 <translation id="3328801116991980348">Site-informatie</translation>
 <translation id="3333961966071413176">Alle contacten</translation>
+<translation id="3334729583274622784">Bestandsextensie wijzigen?</translation>
 <translation id="3341058695485821946">Bekijk hoeveel data je hebt bespaard</translation>
 <translation id="3350687908700087792">Alle incognitotabbladen sluiten</translation>
 <translation id="3353615205017136254">Lite-pagina geleverd door Google. Tik om de knop 'Origineel laden' om de originele pagina te laden.</translation>
@@ -873,7 +875,6 @@ De site krijgt GEEN toegang tot de camera. De camerabeelden zijn alleen zichtbaa
 <translation id="7493994139787901920"><ph name="VERSION" /> (geüpdatet: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">data bespaard</translation>
 <translation id="7498271377022651285">Een ogenblik geduld…</translation>
-<translation id="7510943789645525906">Je krijgt een waarschuwing als je wachtwoord betrokken was bij een gegevenslek</translation>
 <translation id="7514365320538308">Downloaden</translation>
 <translation id="751961395872307827">Kan geen verbinding maken met de site</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ De site krijgt GEEN toegang tot de camera. De camerabeelden zijn alleen zichtbaa
 <translation id="7810647596859435254">Openen met…</translation>
 <translation id="7821588508402923572">Hier wordt getoond hoeveel data je bespaart</translation>
 <translation id="7837721118676387834">Automatisch afspelen van gedempte video's toestaan voor een specifieke site.</translation>
-<translation id="7838340937077326045">Weet je zeker dat je de bestandsextensie wilt wijzigen?</translation>
 <translation id="7846076177841592234">Selectie opheffen</translation>
 <translation id="784934925303690534">Periode</translation>
 <translation id="7851858861565204677">Andere apparaten</translation>
@@ -930,7 +930,6 @@ De site krijgt GEEN toegang tot de camera. De camerabeelden zijn alleen zichtbaa
 <translation id="7886917304091689118">Actief in Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Bestand downloaden.}other{# bestanden downloaden.}}</translation>
 <translation id="7929962904089429003">Het menu openen</translation>
-<translation id="7930681627240672853">Wachtwoordveiligheid controleren</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> is verouderd.</translation>
 <translation id="7947953824732555851">Accepteren en inloggen</translation>
 <translation id="7963646190083259054">Leverancier:</translation>
@@ -946,7 +945,6 @@ De site krijgt GEEN toegang tot de camera. De camerabeelden zijn alleen zichtbaa
 <translation id="8007176423574883786">Uitgeschakeld voor dit apparaat</translation>
 <translation id="8013372441983637696">Je Chrome-gegevens ook wissen op dit apparaat</translation>
 <translation id="8015452622527143194">Standaardgrootte van alles op de pagina herstellen</translation>
-<translation id="8015780634880457457">Google kan controleren of je wachtwoorden betrokken waren bij een gegevenslek</translation>
 <translation id="802154636333426148">Downloaden mislukt</translation>
 <translation id="8026334261755873520">Browsegegevens wissen</translation>
 <translation id="8035133914807600019">Nieuwe map…</translation>

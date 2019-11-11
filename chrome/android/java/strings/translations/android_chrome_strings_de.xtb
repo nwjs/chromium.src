@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Nie speichern für…</translation>
 <translation id="1067922213147265141">Weitere Google-Dienste</translation>
 <translation id="1068672505746868501">Seiten auf <ph name="SOURCE_LANGUAGE" /> nie übersetzen</translation>
+<translation id="107147699690128016">Eine Änderung der Dateiendung kann zum Öffnen der Datei in einer anderen Anwendung führen und Schäden an Ihrem Gerät verursachen.</translation>
 <translation id="1100066534610197918">In neuem Tab in Gruppe öffnen</translation>
 <translation id="1105960400813249514">Bildschirmaufnahme</translation>
 <translation id="1111673857033749125">Hier werden die Lesezeichen angezeigt, die auf Ihren anderen Geräten gespeichert sind.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Alle öffnen</translation>
 <translation id="1409426117486808224">Vereinfachte Ansicht für geöffnete Tabs</translation>
 <translation id="1409879593029778104"><ph name="FILE_NAME" /> konnte nicht heruntergeladen werden, da die Datei bereits vorhanden ist.</translation>
-<translation id="1413136574162415971">Google kann prüfen, ob Ihre Passwörter von einer Datenpanne betroffen sind. Diese Funktion wird aktiviert, wenn Sie sich mit Ihrem Google-Konto anmelden und die Synchronisierung aktivieren.</translation>
 <translation id="1414981605391750300">Google wird kontaktiert. Das kann einen Moment dauern.</translation>
 <translation id="1416550906796893042">Anwendungsversion</translation>
 <translation id="1430915738399379752">Drucken</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Aktivieren Sie Benachrichtigungen auch in den <ph name="BEGIN_LINK" />Android-Einstellungen<ph name="END_LINK" />, damit Chrome Ihnen Benachrichtigungen senden kann.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> hat auch Daten in Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Eine Änderung der Dateiendung kann zu unerwartetem Verhalten führen und Schäden an Ihrem Gerät verursachen.</translation>
 <translation id="2056878612599315956">Website pausiert</translation>
 <translation id="2063713494490388661">Zum Suchen tippen</translation>
 <translation id="2067805253194386918">Text</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Ziehen Sie den Schieberegler, bis Sie diesen Text problemlos lesen können. Nach dem Doppeltippen auf einen Abschnitt sollte der Text mindestens so groß sein.</translation>
 <translation id="2323763861024343754">Websitespeicher</translation>
 <translation id="2328985652426384049">Anmeldung nicht möglich</translation>
+<translation id="2330129964253841015">Warnen, wenn Passwörter nicht mehr sicher sind</translation>
 <translation id="2349710944427398404">Gesamtdaten, die von Chrome verwendet werden, wie Konten, Lesezeichen und gespeicherte Einstellungen</translation>
 <translation id="2353636109065292463">Internetverbindung überprüfen</translation>
 <translation id="2359808026110333948">Weiter</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Text-Skalierung</translation>
 <translation id="2394602618534698961">Dateien, die Sie herunterladen, werden hier angezeigt</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Wenn Sie sich in Ihrem Google-Konto anmelden, ist diese Funktion eingeschaltet</translation>
 <translation id="2410754283952462441">Konto auswählen</translation>
 <translation id="2414886740292270097">Dunkel</translation>
 <translation id="2416359993254398973">Chrome benötigt für diese Website die Berechtigung, auf Ihre Kamera zuzugreifen.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Sie passen gerade die Einstellungen für "Synchronisierung und Google-Dienste" an Wenn Sie die Aktivierung der Synchronisierung abschließen möchten, tippen Sie unten auf dem Bildschirm auf "Bestätigen". Nach oben</translation>
 <translation id="3328801116991980348">Websiteinformationen</translation>
 <translation id="3333961966071413176">Alle Kontakte</translation>
+<translation id="3334729583274622784">Dateiendung ändern?</translation>
 <translation id="3341058695485821946">Erfahren Sie, wie viel Datenvolumen Sie eingespart haben</translation>
 <translation id="3350687908700087792">Alle Inkognito-Tabs schließen</translation>
 <translation id="3353615205017136254">Lite-Modus-Seite von Google bereitgestellt. Zum Laden der Originalseite auf die Schaltfläche "Original laden" tippen.</translation>
@@ -389,7 +391,7 @@
 <translation id="3988466920954086464">Instant-Suchergebnisse in diesem Feld ansehen</translation>
 <translation id="3991845972263764475"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> von ?</translation>
 <translation id="3997476611815694295">Speicher für unwichtige Websites</translation>
-<translation id="4000212216660919741">Zuhause ist offline</translation>
+<translation id="4000212216660919741">Offline-Startseite</translation>
 <translation id="4002066346123236978">Titel</translation>
 <translation id="4008040567710660924">Cookies für eine bestimmte Website werden zugelassen.</translation>
 <translation id="4034817413553209278">{HOURS,plural, =1{# h}other{# h}}</translation>
@@ -873,7 +875,6 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="7493994139787901920"><ph name="VERSION" /> (aktualisiert <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">eingesparte Datenmenge</translation>
 <translation id="7498271377022651285">Bitte warten...</translation>
-<translation id="7510943789645525906">Warnt Sie, wenn eines Ihrer Passwörter von einer Datenpanne betroffen ist</translation>
 <translation id="7514365320538308">Herunterladen</translation>
 <translation id="751961395872307827">Keine Verbindung zur Website möglich</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="7810647596859435254">Öffnen mit…</translation>
 <translation id="7821588508402923572">Ihre Einsparungen bei der Datennutzung werden hier angezeigt</translation>
 <translation id="7837721118676387834">Automatische Wiedergabe stummgeschalteter Videos für eine bestimmte Website zulassen.</translation>
-<translation id="7838340937077326045">Möchten Sie die Dateiendung wirklich ändern?</translation>
 <translation id="7846076177841592234">Auswahl aufheben</translation>
 <translation id="784934925303690534">Zeitraum</translation>
 <translation id="7851858861565204677">Andere Geräte</translation>
@@ -930,7 +930,6 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="7886917304091689118">Wird in Chrome ausgeführt</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Datei wird heruntergeladen.}other{# Dateien werden heruntergeladen.}}</translation>
 <translation id="7929962904089429003">Menü öffnen</translation>
-<translation id="7930681627240672853">Passwortsicherheit überprüfen</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> ist veraltet.</translation>
 <translation id="7947953824732555851">Akzeptieren und anmelden</translation>
 <translation id="7963646190083259054">Anbieter:</translation>
@@ -946,7 +945,6 @@ Die Website erhält KEINEN Zugriff auf die Kamera. Die Kamerabilder sind nur fü
 <translation id="8007176423574883786">Für dieses Gerät deaktiviert</translation>
 <translation id="8013372441983637696">Meine Chrome-Daten auch von diesem Gerät löschen</translation>
 <translation id="8015452622527143194">Gesamten Seiteninhalt auf Standardgröße zurücksetzen</translation>
-<translation id="8015780634880457457">Google kann prüfen, ob Ihre Passwörter von einer Datenpanne betroffen sind</translation>
 <translation id="802154636333426148">Downloadfehler</translation>
 <translation id="8026334261755873520">Browserdaten löschen</translation>
 <translation id="8035133914807600019">Neuer Ordner…</translation>

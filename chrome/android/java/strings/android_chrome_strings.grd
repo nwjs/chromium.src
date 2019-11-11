@@ -552,16 +552,10 @@ CHAR-LIMIT guidelines:
         Automatically sign in to websites using stored credentials. When the feature is off, you’ll be asked for verification every time before signing in to a website.
       </message>
       <message name="IDS_PASSWORDS_LEAK_DETECTION_SWITCH_TITLE" desc="Title for the switch toggling whether Chrome should check that entered credentials have been part of a leak.">
-        Check password safety
+        Warn you if passwords are compromised
       </message>
-      <message name="IDS_PASSWORDS_LEAK_DETECTION_SWITCH_SIGNED_IN_DESCRIPTION" desc="Description for the switch toggling whether Chrome should check that entered credentials have been part of a leak.">
-        Warns you if a password you use was part of a data breach
-      </message>
-      <message name="IDS_PASSWORDS_LEAK_DETECTION_SWITCH_SIGNED_OUT_FULL_DESCRIPTION" desc="Description for the switch toggling whether Chrome should check that entered credentials have been part of a leak. Displayed for users who are not signed in and syncing.">
-        Google can check if your passwords were part of a data breach. This will be turned on when you sign in with your Google Account and turn on sync.
-      </message>
-      <message name="IDS_PASSWORDS_LEAK_DETECTION_SWITCH_SIGNED_OUT_PARTIAL_DESCRIPTION" desc="Description for the switch toggling whether Chrome should check that entered credentials have been part of a leak. Displayed for users who are not signed in and syncing who have at some point in time disabled the feature manually">
-        Google can check if your passwords were part of a data breach
+      <message name="IDS_PASSWORDS_LEAK_DETECTION_SWITCH_SIGNED_OUT_ENABLE_DESCRIPTION" desc="Description for the switch toggling whether Chrome should check that entered credentials have been part of a leak. Displayed for users who are not signed in and syncing.">
+        When you sign in to your Google Account, this feature is turned on
       </message>
       <message name="IDS_SECTION_SAVED_PASSWORDS_EXCEPTIONS" desc="Header for the list of websites for which user selected to never save passwords. [CHAR-LIMIT=32]">
         Never saved
@@ -1465,10 +1459,10 @@ Your Google account may have other forms of browsing history like searches and a
        Rename unavailable
       </message>
       <message name="IDS_RENAME_EXTENSION_CONFIRMATION" desc="Subtitle for rename extension dialog in the case that user try to rename the file extension.">
-       Are you sure you want to change the file extension?
+        Change file extension?
       </message>
       <message name="IDS_RENAME_EXTENSION_MESSAGE" desc="Message to warn users the danger of changing file extension.">
-        Changing the file extension may result in unexpected behavior and be harmful to your device.
+        If you change the file extension, the file may open in a different application and potentially be a hazard to your device.
       </message>
 
       <!-- About Chrome preferences -->
@@ -3352,6 +3346,9 @@ To change this setting, <ph name="BEGIN_LINK">&lt;resetlink&gt;</ph>reset sync<p
       <!-- Overscroll Navigation -->
       <message name="IDS_OVERSCROLL_NAVIGATION_CLOSE_CHROME" desc="Message displayed on overscroll navigation UI widget when the back navigation is attempted at the beginning of navigation history stack. The widget only has an arrow icon but expands to display this message next to it.">
         Close <ph name="APP_NAME">%1$s<ex>Chrome</ex></ph>
+      </message>
+      <message name="IDS_OVERSCROLL_NAVIGATION_CLOSE_TAB" desc="Message displayed on overscroll navigation UI widget when the back navigation is attempted at the beginning of navigation history stack. The widget only has an arrow icon but expands to display this message next to it.">
+        Close tab
       </message>
       <message name="IDS_OVERSCROLL_NAVIGATION_SHEET_DESCRIPTION" desc="The content description of the navigation bottom sheet.">
         Navigation history

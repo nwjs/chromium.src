@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Hiç kaydedilmeyecekler</translation>
 <translation id="1067922213147265141">Diğer Google hizmetleri</translation>
 <translation id="1068672505746868501"><ph name="SOURCE_LANGUAGE" /> dilindeki sayfaları asla çevirme</translation>
+<translation id="107147699690128016">Dosya uzantısını değiştirirseniz dosya farklı bir uygulamada açılabilir ve cihazınız için tehlikeli olabilir.</translation>
 <translation id="1100066534610197918">Grupta yeni sekmede aç</translation>
 <translation id="1105960400813249514">Ekran Kaydediliyor</translation>
 <translation id="1111673857033749125">Diğer cihazlarınızda kaydedilmiş yer işaretleri burada görünür.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Tümünü aç</translation>
 <translation id="1409426117486808224">Açık sekmeler için basitleştirilmiş görünüm</translation>
 <translation id="1409879593029778104"><ph name="FILE_NAME" /> dosyası zaten var olduğu için indirme işlemi engellendi.</translation>
-<translation id="1413136574162415971">Google, şifrelerinizin bir veri ihlaline dahil olup olmadığını kontrol edebilir. Bu, Google Hesabınızla oturum açıp Chrome'da senkronizasyonu etkinleştirdiğinizde açılacaktır.</translation>
 <translation id="1414981605391750300">Google ile bağlantı kuruluyor. Bu işlem bir dakika sürebilir…</translation>
 <translation id="1416550906796893042">Uygulama sürümü</translation>
 <translation id="1430915738399379752">Yazdır</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Chrome'un size bildirim gönderebilmesi için <ph name="BEGIN_LINK" />Android Ayarları<ph name="END_LINK" />'nda da bildirimleri açın.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> uygulamasına ait veriler Chrome'da da mevcut</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Dosya uzantısını değiştirmek, beklenmedik bir davranışla sonuçlanabilir ve cihazınız için zararlı olabilir.</translation>
 <translation id="2056878612599315956">Site duraklatıldı</translation>
 <translation id="2063713494490388661">Dokun ve Ara</translation>
 <translation id="2067805253194386918">Kısa mesaj</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Bu yazıyı rahatça okuyana kadar kaydırma çubuğunu sürükleyin. Bir paragrafa iki kez hafifçe dokunduğunuzda metin en az bunun kadar büyük görünmelidir.</translation>
 <translation id="2323763861024343754">Site depolama alanı</translation>
 <translation id="2328985652426384049">Oturum açılamıyor</translation>
+<translation id="2330129964253841015">Şifrelerinizin güvenliği ihlal edilirse sizi uyarır</translation>
 <translation id="2349710944427398404">Hesaplar, yer işaretleri ve kayıtlı ayarlar da dahil olmak üzere Chrome tarafından kullanılan tüm veriler</translation>
 <translation id="2353636109065292463">İnternet bağlantınızı kontrol etme</translation>
 <translation id="2359808026110333948">Devam et</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Metin ölçekleme</translation>
 <translation id="2394602618534698961">İndirdiğiniz dosyalar burada görünür</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Google Hesabınızda oturum açtığınızda bu özellik devreye girer</translation>
 <translation id="2410754283952462441">Bir hesap seçin</translation>
 <translation id="2414886740292270097">Koyu</translation>
 <translation id="2416359993254398973">Chrome'un bu sitede kameranıza erişmesi için izin gerekiyor.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Şu anda Senkronizasyon ve Google hizmet ayarlarınızı özelleştiriyorsunuz. Senkronizasyonu etkinleştirme işlemini tamamlamak için ekranın altına yakın bir yerde bulunan Onayla düğmesine dokunun. Yukarı git</translation>
 <translation id="3328801116991980348">Site bilgileri</translation>
 <translation id="3333961966071413176">Tüm kişiler</translation>
+<translation id="3334729583274622784">Dosya uzantısı değiştirilsin mi?</translation>
 <translation id="3341058695485821946">Ne kadar veri tasarrufu sağladığınıza bakın</translation>
 <translation id="3350687908700087792">Tüm gizli sekmeleri kapatın.</translation>
 <translation id="3353615205017136254">Google tarafından sağlanan basit sayfa. Sayfanın orijinalini yüklemek için orijinali yükle düğmesine dokunun.</translation>
@@ -873,7 +875,6 @@ Site kameraya ERİŞMEZ. Kamera görüntülerini yalnızca siz görebilirsiniz.<
 <translation id="7493994139787901920"><ph name="VERSION" /> (<ph name="TIME_SINCE_UPDATE" /> güncellendi)</translation>
 <translation id="7494974237137038751">tasarruf edilen veri miktarı</translation>
 <translation id="7498271377022651285">Lütfen bekleyin…</translation>
-<translation id="7510943789645525906">Kullandığınız şifre bir veri ihlaline dahilse sizi uyarır</translation>
 <translation id="7514365320538308">İndir</translation>
 <translation id="751961395872307827">Siteye bağlanılamıyor</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ Site kameraya ERİŞMEZ. Kamera görüntülerini yalnızca siz görebilirsiniz.<
 <translation id="7810647596859435254">Birlikte aç…</translation>
 <translation id="7821588508402923572">Veri tasarruflarınız burada görünür</translation>
 <translation id="7837721118676387834">Belirli bir sitenin, sesi kapatılmış videoları otomatik olarak oynatmasına izin verin.</translation>
-<translation id="7838340937077326045">Dosya uzantısını değiştirmek istediğinizden emin misiniz?</translation>
 <translation id="7846076177841592234">Seçimi iptal et</translation>
 <translation id="784934925303690534">Zaman aralığı</translation>
 <translation id="7851858861565204677">Diğer cihazlar</translation>
@@ -930,7 +930,6 @@ Site kameraya ERİŞMEZ. Kamera görüntülerini yalnızca siz görebilirsiniz.<
 <translation id="7886917304091689118">Chrome'da çalıştırılıyor</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Dosya indiriliyor.}other{# dosya indiriliyor.}}</translation>
 <translation id="7929962904089429003">Menüyü açar</translation>
-<translation id="7930681627240672853">Şifre güvenliğini kontrol et</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> güncel değil.</translation>
 <translation id="7947953824732555851">Kabul et ve oturum aç</translation>
 <translation id="7963646190083259054">Firma:</translation>
@@ -946,7 +945,6 @@ Site kameraya ERİŞMEZ. Kamera görüntülerini yalnızca siz görebilirsiniz.<
 <translation id="8007176423574883786">Bu cihaz için kapatıldı</translation>
 <translation id="8013372441983637696">Chrome verilerinizi de bu cihazdan temizleyin</translation>
 <translation id="8015452622527143194">Sayfadaki her şeyi varsayılan boyutuna döndürür</translation>
-<translation id="8015780634880457457">Google, şifrelerinizin bir veri ihlaline dahil olup olmadığını kontrol edebilir</translation>
 <translation id="802154636333426148">İndirilemedi</translation>
 <translation id="8026334261755873520">Tarama verilerini temizle</translation>
 <translation id="8035133914807600019">Yeni klasör…</translation>

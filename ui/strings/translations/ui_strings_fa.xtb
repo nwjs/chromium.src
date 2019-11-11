@@ -138,7 +138,6 @@
 <translation id="5906667377645263094">{SECONDS,plural, =1{۱ ثانیه باقی مانده است}one{# ثانیه باقی مانده است}other{# ثانیه باقی مانده است}}</translation>
 <translation id="5941711191222866238">کوچک کردن</translation>
 <translation id="5943826764092288734">{HOURS,plural, =1{۱ ساعت}one{# ساعت}other{# ساعت}}</translation>
-<translation id="5946629889255121107">شماره از <ph name="ORIGIN" /> آغاز شد</translation>
 <translation id="6012623610530968780">صفحه <ph name="SELECTED_PAGE" /> از <ph name="TOTAL_PAGE_NUM" /></translation>
 <translation id="6022924867608035986">پاک کردن نوشتار کادر جستجو</translation>
 <translation id="6040143037577758943">بستن</translation>
@@ -199,6 +198,7 @@
 <translation id="8074552109918343525">{MAX_UNREAD_NOTIFICATIONS,plural, =1{بیش از ۱ اعلان خوانده‌نشده}one{بیش از # اعلان خوانده‌نشده}other{بیش از # اعلان خوانده‌نشده}}</translation>
 <translation id="8086866675552927481">{MINUTES,plural, =1{تا ۱ دقیقه دیگر}one{تا # دقیقه دیگر}other{تا # دقیقه دیگر}}</translation>
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
+<translation id="8090736967111090568">شماره از <ph name="ORIGIN" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{۱ ساعت قبل}one{# ساعت قبل}other{# ساعت قبل}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{۱ ثانیه باقی مانده است}one{# ثانیه باقی مانده است}other{# ثانیه باقی مانده است}}</translation>
 <translation id="8134065097954893699">درحال تازه‌سازی این صفحه</translation>

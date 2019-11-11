@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Hindi kailanman nag-save</translation>
 <translation id="1067922213147265141">Iba pang serbisyo ng Google</translation>
 <translation id="1068672505746868501">Huwag kailanman isalin ang mga page sa <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">Kung babaguhin mo ang file extension, puwedeng bumukas ang file sa ibang application at posible itong maging mapanganib sa iyong device.</translation>
 <translation id="1100066534610197918">Buksan sa bagong tab sa grupo</translation>
 <translation id="1105960400813249514">Screen Capture</translation>
 <translation id="1111673857033749125">Dito lalabas ang mga naka-save na bookmark sa iba mo pang mga device.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Buksan lahat</translation>
 <translation id="1409426117486808224">Pinasimpleng view para sa mga bukas na tab</translation>
 <translation id="1409879593029778104">Pinigilan ang pag-download sa <ph name="FILE_NAME" /> dahil may ganitong file na sa kasalukuyan.</translation>
-<translation id="1413136574162415971">Matitingnan ng Google kung bahagi ng paglabag sa data ang iyong mga password. Io-on ito kapag nag-sign in ka sa iyong Google Account at na-on ang pag-sync.</translation>
 <translation id="1414981605391750300">Nakikipag-ugnayan sa Google. Maaari itong umabot nang isang minuto…</translation>
 <translation id="1416550906796893042">Bersyon ng application</translation>
 <translation id="1430915738399379752">I-print</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Para payagan ang Chrome na magpadala sa iyo ng mga notification, i-on din ang mga notification sa <ph name="BEGIN_LINK" />Mga Setting ng Android<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529">May data rin ang <ph name="APP_NAME" /> sa Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Kapag binago ang file extension, puwedeng magresulta sa hindi inaasahang gawi at puwedeng makapinsala sa iyong device.</translation>
 <translation id="2056878612599315956">Naka-pause ang site</translation>
 <translation id="2063713494490388661">Mag-tap upang Maghanap</translation>
 <translation id="2067805253194386918">text</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">I-drag ang slider hanggang sa mabasa mo ito nang kumportable. Dapat ay halos ganito kalaki ang text pagkatapos mag-double tap sa isang talata.</translation>
 <translation id="2323763861024343754">Storage ng site</translation>
 <translation id="2328985652426384049">Hindi makapag-sign in</translation>
+<translation id="2330129964253841015">Balaan ka kung makokompromiso ang mga password</translation>
 <translation id="2349710944427398404">Kabuuang data na ginagamit ng Chrome, kabilang ang mga account, bookmark at naka-save na setting</translation>
 <translation id="2353636109065292463">Sinusuri ang iyong koneksyon sa internet</translation>
 <translation id="2359808026110333948">Magpatuloy</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Pag-scale ng text</translation>
 <translation id="2394602618534698961">Lalabas dito ang mga file na dina-download mo</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Kapag nag-sign in ka sa iyong Google Account, mao-on ang feature na ito</translation>
 <translation id="2410754283952462441">Pumili ng account</translation>
 <translation id="2414886740292270097">Madilim</translation>
 <translation id="2416359993254398973">Kailangan ng Chrome ng pahintulot na i-access ang iyong camera para sa site na ito.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Kasalukuyan mong kino-customize ang iyong mga setting ng Pag-sync at serbisyo ng Google. Para tapusin ang pag-on ng pag-sync, i-tap ang button na Kumpirmahin malapit sa ibaba ng screen. Mag-navigate pataas</translation>
 <translation id="3328801116991980348">Impormasyon ng site</translation>
 <translation id="3333961966071413176">Lahat ng contact</translation>
+<translation id="3334729583274622784">Baguhin ang file extension?</translation>
 <translation id="3341058695485821946">Tingnan kung gaano karaming data ang iyong natipid</translation>
 <translation id="3350687908700087792">Isara ang lahat ng incognito na tab</translation>
 <translation id="3353615205017136254">Hatid ng Google ang lite na page. I-tap ang button na “i-load ang orihinal” para i-load ang orihinal na page.</translation>
@@ -873,7 +875,6 @@ HINDI magkakaroon ng access sa camera ang site. Ikaw lang ang makakakita ng mga 
 <translation id="7493994139787901920"><ph name="VERSION" /> (Na-update <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">natipid na data</translation>
 <translation id="7498271377022651285">Mangyaring maghintay…</translation>
-<translation id="7510943789645525906">Nagbibigay sa iyo ng babala kung ang isang password na ginagamit mo ay bahagi ng isang paglabag sa data</translation>
 <translation id="7514365320538308">I-download</translation>
 <translation id="751961395872307827">Hindi makakonekta sa site</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ HINDI magkakaroon ng access sa camera ang site. Ikaw lang ang makakakita ng mga 
 <translation id="7810647596859435254">Buksan gamit ang…</translation>
 <translation id="7821588508402923572">Lalabas dito ang mga natipid sa iyong data</translation>
 <translation id="7837721118676387834">Payagan ang pag-autoplay ng mga naka-mute na video para sa isang partikular na site.</translation>
-<translation id="7838340937077326045">Sigurado ka bang gusto mong baguhin ang file extension?</translation>
 <translation id="7846076177841592234">Kanselahin ang pinili</translation>
 <translation id="784934925303690534">Sakop na oras</translation>
 <translation id="7851858861565204677">Iba pang device</translation>
@@ -930,7 +930,6 @@ HINDI magkakaroon ng access sa camera ang site. Ikaw lang ang makakakita ng mga 
 <translation id="7886917304091689118">Gumagana sa Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Nagda-download ng file.}one{Nagda-download ng # file.}other{Nagda-download ng # na file.}}</translation>
 <translation id="7929962904089429003">Buksan ang menu</translation>
-<translation id="7930681627240672853">Suriin ang kaligtasan ng password</translation>
 <translation id="7942131818088350342">Luma na ang <ph name="PRODUCT_NAME" />.</translation>
 <translation id="7947953824732555851">I-accept, mag-sign in</translation>
 <translation id="7963646190083259054">Vendor:</translation>
@@ -946,7 +945,6 @@ HINDI magkakaroon ng access sa camera ang site. Ikaw lang ang makakakita ng mga 
 <translation id="8007176423574883786">Naka-off para sa device na ito</translation>
 <translation id="8013372441983637696">I-clear din ang iyong data ng Chrome sa device na ito</translation>
 <translation id="8015452622527143194">Ibalik ang lahat ng nasa page sa default na sukat</translation>
-<translation id="8015780634880457457">Matitingnan ng Google kung bahagi ng paglabag sa data ang iyong mga password</translation>
 <translation id="802154636333426148">Hindi na-download</translation>
 <translation id="8026334261755873520">I-clear ang data sa pag-browse</translation>
 <translation id="8035133914807600019">Bagong folder…</translation>

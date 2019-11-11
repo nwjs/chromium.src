@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">Cetak</translation>
 <translation id="1442386063175183758">Lipatan pintu kanan</translation>
 <translation id="1442987760062738829">Tebuk</translation>
-<translation id="1450011005989029586">Pelanggaran data di tapak atau apl yang anda gunakan telah mendedahkan kata laluan anda. Chrome mengesyorkan <ph name="BOLD" /> pada <ph name="ORIGIN" /> sekarang.</translation>
 <translation id="1455413310270022028">Pemadam</translation>
 <translation id="1463543813647160932">5x7</translation>
 <translation id="1472675084647422956">Tunjukkan lagi</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">Jenis kad ini tidak disokong</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Cuba hubungi pentadbir sistem.</translation>
+<translation id="1739107442478692187">Pelanggaran data berlaku pada tapak atau apl yang anda gunakan. Chrome mengesyorkan anda menyemak kata laluan yang disimpan dan menukar kata laluan anda di <ph name="ORIGIN" /> sekarang.</translation>
 <translation id="1740951997222943430">Masukkan bulan tamat tempoh yang sah</translation>
 <translation id="1743520634839655729">Untuk membayar dengan lebih cepat selepas ini, simpan kad, nama dan alamat pengebilan anda ke Akaun Google dan ke peranti ini.</translation>
 <translation id="1743570585616704562">Tidak dikenali</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">Domain tidak padan</translation>
 <translation id="2096368010154057602">Jabatan</translation>
 <translation id="2099652385553570808">Tiga kokot kiri</translation>
+<translation id="2100280972184758440">Kata laluan anda telah terjejas</translation>
 <translation id="2102134110707549001">Cadangkan Kata Laluan Yang Kukuh…</translation>
 <translation id="2108755909498034140">Mulakan semula komputer anda</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">Diabaikan kerana ia telah diatasi oleh <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Dikeluarkan kepada: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Tebukan bawah sebelah kanan</translation>
+<translation id="2124528555835617522">Pelanggaran data berlaku pada tapak atau apl yang anda gunakan. Chrome mengesyorkan anda menyemak kata laluan yang disimpan sekarang.</translation>
 <translation id="2129079103035905234">Penderia Gerakan</translation>
 <translation id="213826338245044447">Penanda Halaman Mudah Alih</translation>
 <translation id="214556005048008348">Batalkan pembayaran</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">Maaf, kad anda tidak dapat disimpan sekarang</translation>
 <translation id="2262243747453050782">Ralat HTTP</translation>
 <translation id="2263079731045660823">Kemas kini maklumat autolengkap kad kredit dalam tetapan Chrome</translation>
+<translation id="2267047181501709434">Mengesahkan identiti anda...</translation>
 <translation id="2270484714375784793">Nombor telefon</translation>
 <translation id="2277103315734023688">Cari Ke Hadapan</translation>
 <translation id="2283340219607151381">Simpan dan lengkapkan alamat</translation>
@@ -484,6 +487,7 @@
 <translation id="3282497668470633863">Tambahkan nama pada kad</translation>
 <translation id="3287510313208355388">Muat turun semasa dalam talian</translation>
 <translation id="3293642807462928945">Ketahui lebih lanjut tentang dasar <ph name="POLICY_NAME" /></translation>
+<translation id="3295439534709115864">Pelanggaran data berlaku pada tapak atau apl yang anda gunakan. Chrome mengesyorkan supaya anda menukar kata laluan pada <ph name="ORIGIN" /> sekarang.</translation>
 <translation id="3303855915957856445">Tiada hasil carian ditemui</translation>
 <translation id="3320021301628644560">Tambahkan alamat pengebilan</translation>
 <translation id="3324983252691184275">Merah lembayung</translation>
@@ -690,7 +694,6 @@
 <translation id="4258748452823770588">Tandatangan tidak elok</translation>
 <translation id="4261046003697461417">Dokumen yang dilindungi tidak boleh dianotasikan</translation>
 <translation id="4265872034478892965">Dibenarkan oleh pentadbir anda</translation>
-<translation id="4270615291506829403">menukar kata laluan anda</translation>
 <translation id="4275830172053184480">Mulakan semula peranti anda</translation>
 <translation id="4277028893293644418">Tetapkan semula kata laluan</translation>
 <translation id="4279811152705618813"><ph name="DEVICE_TYPE" /> anda diurus oleh <ph name="ENROLLMENT_DOMAIN" /></translation>
@@ -770,7 +773,6 @@
 <translation id="4708268264240856090">Sambungan anda tergendala</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" />Jalankan Diagnostik Rangkaian Windows<ph name="END_LINK" /></translation>
-<translation id="4725851834065990915">Pelanggaran data di tapak atau apl yang anda gunakan telah mendedahkan kata laluan anda. Chrome mengesyorkan supaya anda menyemak kata laluan anda yang disimpan sekarang.</translation>
 <translation id="4726672564094551039">Muat semula dasar</translation>
 <translation id="4728558894243024398">Platform</translation>
 <translation id="4731967714531604179">Prc2 (Sampul Surat)</translation>
@@ -1188,7 +1190,6 @@
 <translation id="679355240208270552">Diabaikan kerana carian lalai tidak didayakan oleh dasar.</translation>
 <translation id="681021252041861472">Medan Diperlukan</translation>
 <translation id="6810899417690483278">ID Penyesuaian</translation>
-<translation id="6819440013020405090">Pelanggaran data di tapak atau apl yang anda gunakan telah mendedahkan kata laluan anda. Chrome mengesyorkan supaya anda menyemak kata laluan yang disimpan dan menukar kata laluan anda di <ph name="ORIGIN" />.</translation>
 <translation id="6825578344716086703">Anda cuba untuk mencapai <ph name="DOMAIN" />, tetapi pelayan memberikan sijil yang ditandatangani menggunakan algoritma tandatangan yang lemah (seperti SHA-1). Ini bermakna bahawa bukti kelayakan keselamatan yang diberi pelayan mungkin dipalsukan dan pelayan tersebut bukan seperti yang anda jangkakan (anda mungkin berkomunikasi dengan penyerang).</translation>
 <translation id="6826370046007623921">Pencegahan Kehilangan Data</translation>
 <translation id="6831043979455480757">Terjemah</translation>
@@ -1231,7 +1232,6 @@
 <translation id="7064851114919012435">Maklumat hubungan</translation>
 <translation id="7075452647191940183">Permintaan terlalu besar</translation>
 <translation id="7079718277001814089">Tapak ini mengandungi perisian hasad</translation>
-<translation id="70850504851191913">Pelanggaran data dilaporkan</translation>
 <translation id="7087282848513945231">Daerah</translation>
 <translation id="7090678807593890770">Cari <ph name="LINK" /> di Google</translation>
 <translation id="7108338896283013870">Sembunyikan</translation>
@@ -1554,7 +1554,6 @@ Butiran tambahan:
 <translation id="8718314106902482036">Pembayaran belum selesai</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, cadangan carian</translation>
 <translation id="8719528812645237045">Berbilang tebukan atas</translation>
-<translation id="8723954843026426558">Saya bersetuju menerima terma &amp; syarat, dasar privasi dan hak penarikan <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /></translation>
 <translation id="8725066075913043281">Cuba lagi</translation>
 <translation id="8728672262656704056">Anda menggunakan mod inkognito</translation>
 <translation id="8730621377337864115">Selesai</translation>

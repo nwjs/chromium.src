@@ -12,10 +12,14 @@ class Navigation;
 // now this only notifies for the main frame.
 //
 // The lifecycle of a navigation:
-// 1) NavigationStarted
-// 2) 0 or more NavigationRedirected
-// 3) 0 or 1 NavigationCommitted
-// 4) NavigationCompleted or NavigationFailed
+// 1) A navigation is initiated, such as by NavigationController::Navigate()
+//    or within the page
+// 2) LoadStateChanged() first invoked
+// 3) NavigationStarted
+// 4) 0 or more NavigationRedirected
+// 5) 0 or 1 ReadyToCommitNavigation
+// 6) NavigationCompleted or NavigationFailed
+// 7) Main frame completes loading, LoadStateChanged() last invoked
 class NavigationObserver {
  public:
   virtual ~NavigationObserver() {}
@@ -44,19 +48,19 @@ class NavigationObserver {
   // Called when a navigation encountered a server redirect.
   virtual void NavigationRedirected(Navigation* navigation) {}
 
-  // Called when the navigation is ready to be committed in a renderer. A
-  // navigation is considered committed when the response code isn't 204/205
-  // (which tell the browser that the request is successful but there's no
-  // content that follows) or a download (either from a response header or based
-  // on mime sniffing the response). The browser then is ready to switch
-  // rendering the new document. Most observers should use NavigationCompleted
-  // or NavigationFailed instead, which happens right after the navigation
-  // commits. This method is for observers that want to initialize renderer-side
-  // state just before the BrowserController commits the navigation.
+  // Called when the navigation is ready to be committed in a renderer. This
+  // occurs when the response code isn't 204/205 (which tell the browser that
+  // the request is successful but there's no content that follows) or a
+  // download (either from a response header or based on mime sniffing the
+  // response). The browser then is ready to switch rendering the new document.
+  // Most observers should use NavigationCompleted or NavigationFailed instead,
+  // which happens right after the navigation commits. This method is for
+  // observers that want to initialize renderer-side state just before the
+  // BrowserController commits the navigation.
   //
   // This is the first point in time where a BrowserController is associated
   // with the navigation.
-  virtual void NavigationCommitted(Navigation* navigation) {}
+  virtual void ReadyToCommitNavigation(Navigation* navigation) {}
 
   // Called when a navigation completes successfully in the BrowserController.
   //
@@ -77,6 +81,16 @@ class NavigationObserver {
   // Note that |navigation| will be destroyed at the end of this call, so do not
   // keep a reference to it afterward.
   virtual void NavigationFailed(Navigation* navigation) {}
+
+  // Indicates that loading has started (|is_loading| is true) or is done
+  // (|is_loading| is false). |to_different_document| will be true unless the
+  // load is a fragment navigation, or triggered by
+  // history.pushState/replaceState.
+  virtual void LoadStateChanged(bool is_loading, bool to_different_document) {}
+
+  // Indicates that the load progress of the page has changed. |progress|
+  // ranges from 0.0 to 1.0.
+  virtual void LoadProgressChanged(double progress) {}
 
   // This is fired after each navigation has completed to indicate that the
   // first paint after a non-empty layout has finished.

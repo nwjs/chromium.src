@@ -921,6 +921,7 @@
 <translation id="2326931316514688470">ઍપ્લિકેશન &amp;ફરીથી લોડ કરો</translation>
 <translation id="2327492829706409234">ઍપ ચાલુ કરો</translation>
 <translation id="2329597144923131178">તમારા તમામ ઉપકરણો પર તમારા બુકમાર્ક્સ, ઇતિહાસ, પાસવર્ડ્સ અને અન્ય સેટિંગ્સ મેળવવા માટે સાઇન ઇન કરો.</translation>
+<translation id="2330129964253841015">જો પાસવર્ડમાં ચેડાં થાય તો તમને ચેતવણી આપવામાં આવશે</translation>
 <translation id="2332131598580221120">સ્ટોરમાં જુઓ</translation>
 <translation id="2332192922827071008">પસંદગીઓ ખોલો</translation>
 <translation id="2332742915001411729">ડિફોલ્ટ પર ફરીથી સેટ કરો</translation>
@@ -969,6 +970,7 @@
 <translation id="2395616325548404795">એન્ટરપ્રાઇઝ સંચાલન માટે તમારા <ph name="DEVICE_TYPE" /> ની સફળતાપૂર્વક નોંધણી કરવામાં આવી, પરંતુ તેની એસેટ અને સ્થાન માહિતી મોકલવામાં નિષ્ફળ થયાં. કૃપા કરીને આ ઉપકરણ માટે તમારા Admin console માંથી આ માહિતી જાતે દાખલ કરો.</translation>
 <translation id="2396783860772170191">4 અંકનો પિન (0000-9999) દાખલ કરો</translation>
 <translation id="2399939490305346086">સુરક્ષા કોડનો સાઇન ઇન ડેટા</translation>
+<translation id="2407481962792080328">જ્યારે તમે તમારા Google એકાઉન્ટમાં સાઇન ઇન કરો છો, ત્યારે આ સુવિધા ચાલુ કરવામાં આવે છે</translation>
 <translation id="2408955596600435184">તમારો PIN દાખલ કરો</translation>
 <translation id="241082044617551207">અજ્ઞાત પ્લગિન</translation>
 <translation id="2412593942846481727">અપડેટ ઉપલબ્ધ છે</translation>
@@ -1423,6 +1425,7 @@
 <translation id="3038612606416062604">પ્રિન્ટરને મેન્યુઅલી ઉમેરો</translation>
 <translation id="3038675903128704560">તમારા કમ્પ્યુટરને ઍક્સેસ કરવા માટે કોઈપણ સાઇટને પ્લગ-ઇનનો ઉપયોગ કરવાની મંજૂરી આપશો નહીં</translation>
 <translation id="3039491566278747710">ડિવાઇસ પર ઇન્ટરનેટ વગર નીતિ ઇન્સ્ટૉલ કરવામાં નિષ્ફળ ગયું.</translation>
+<translation id="3043581297103810752"><ph name="ORIGIN" />માંથી</translation>
 <translation id="3045447014237878114">આ સાઇટે એકથી વધુ ફાઇલો આપમેળે ડાઉનલોડ કરી છે</translation>
 <translation id="3046910703532196514">વેબપેજ, પૂર્ણ</translation>
 <translation id="304747341537320566">વાણી એન્જિનો</translation>
@@ -2289,6 +2292,7 @@
 <translation id="4316850752623536204">વિકાસકર્તા વેબસાઇટ</translation>
 <translation id="4320177379694898372">કોઈ ઇન્ટરનેટ કનેક્શન નથી</translation>
 <translation id="4321442524549817090">URL બ&amp;તાવો</translation>
+<translation id="4322394346347055525">અન્ય ટૅબ્સને બંધ કરો</translation>
 <translation id="4324577459193912240">ફાઇલ અધૂરી છે</translation>
 <translation id="4325237902968425115"><ph name="LINUX_APP_NAME" />ને અનઇન્સ્ટૉલ કરી રહ્યાં છીએ...</translation>
 <translation id="4330191372652740264">બરફનું પાણી</translation>
@@ -2818,7 +2822,6 @@ VR મોડમાં દાખલ થતા પહેલા ખાતરી ક
 <translation id="5142961317498132443">પ્રમાણીકરણ</translation>
 <translation id="5143374789336132547">જ્યારે તમે હોમ બટન ક્લિક કરો છો ત્યારે જે પૃષ્ઠ દર્શાવવામાં આવે છે તે <ph name="EXTENSION_NAME" /> એક્સટેન્શને બદલ્યું છે.</translation>
 <translation id="5143712164865402236">પૂર્ણ સ્ક્રીનમાં દાખલ થાઓ</translation>
-<translation id="5145461783043820456">ત્રીજા પક્ષની કુકીને બ્લૉક કરવું ચાલુ છે</translation>
 <translation id="514575469079499857">સ્થાન (ડિફૉલ્ટ) નક્કી કરવા માટે તમારા IP ઍડ્રેસનો ઉપયોગ કરો</translation>
 <translation id="5146995429444047494"><ph name="ORIGIN" /> માટેના નોટિફિકેશન બ્લૉક કર્યા છે</translation>
 <translation id="5150254825601720210">નેટસ્કેપ પ્રમાણપત્ર SSL સર્વર નામ</translation>
@@ -2954,7 +2957,6 @@ VR મોડમાં દાખલ થતા પહેલા ખાતરી ક
 <translation id="5360150013186312835">ટુલબારમાં દર્શાવો</translation>
 <translation id="5362741141255528695">ખાનગી કી ફાઇલ પસંદ કરો.</translation>
 <translation id="5363109466694494651">Powerwash કરો અને ઉલટાવો</translation>
-<translation id="5365716706805792666">Google તમારા પાસવર્ડ ડેટા ઉલ્લંઘનનો ભાગ હતો કે નહીં તે ચેક કરી શકે છે. જ્યારે તમે તમારા Google એકાઉન્ટ વડે સાઇન ઇન કરશો ત્યારે આ ચાલુ થશે.</translation>
 <translation id="5365881113273618889">તમે પસંદ કરેલું ફોલ્ડર સંવેદનશીલ ફાઇલો ધરાવે છે. શું તમે ખરેખર "<ph name="APP_NAME" />"ને આ ફોલ્ડરની કાયમી લખવાનો ઍક્સેસ આપવા માંગો છો?</translation>
 <translation id="5367091008316207019">ફાઇલ વાંચી રહ્યાં છીએ..</translation>
 <translation id="5368720394188453070">તમારો ફોન લૉક કરેલો છે. દાખલ કરવા માટે તેને અનલૉક કરો.</translation>
@@ -3657,7 +3659,6 @@ USB ડિવાઇસ</translation>
 <translation id="63566973648609420">માત્ર તમારા પાસફ્રેઝ સાથેની કોઈ વ્યક્તિ જ તમારા એન્ક્રિપ્ટ કરેલા ડેટાને વાંચી શકે છે. Googleને પાસફ્રેઝ મોકલવામાં આવતો નથી કે એના દ્વારા સ્ટોર કરવામાં આવતો નથી. જો તમે તમારો પાસફ્રેઝ ભૂલી જાઓ અથવા આ સેટિંગ બદલવા માંગતા હો, તો તમારે <ph name="BEGIN_LINK" />સિંકને ફરીથી સેટ<ph name="END_LINK" /> કરવું પડશે.</translation>
 <translation id="6357619544108132570"><ph name="SHORT_PRODUCT_NAME" /> કુટુંબમાં આપનું સ્વાગત છે. આ કોઈ સામાન્ય કમ્પ્યુટર નથી.</translation>
 <translation id="6358884629796491903">ડ્રેગન</translation>
-<translation id="6360079014182882594">તમને વેબ પર બધે ટ્રૅક કરવામાં ઉપયોગી થઈ શકે એવી કુકી આ સાઇટ ધરાવતી નથી</translation>
 <translation id="6361850914223837199">ભૂલ વિગતો:</translation>
 <translation id="6362853299801475928">&amp;સમસ્યાની જાણ કરો...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3979,6 +3980,7 @@ USB ડિવાઇસ</translation>
 <translation id="6850286078059909152">ટેક્સ્ટનો રંગ</translation>
 <translation id="6851497530878285708">ઍપ ચાલુ કરી</translation>
 <translation id="6853388645642883916">અપડેટકર્તા નિષ્ક્રિય છે</translation>
+<translation id="68541483639528434">અન્ય ટૅબ્સને બંધ કરો</translation>
 <translation id="6856623341093082836">તમારી ટચસ્ક્રીનની સચોટતાને સેટ કરો અને સમાયોજિત કરો</translation>
 <translation id="6857699260879628349">ગોઠવણીની માહિતી મેળવો</translation>
 <translation id="6860097299815761905">પ્રૉક્સી સેટિંગ...</translation>
@@ -4427,7 +4429,6 @@ USB ડિવાઇસ</translation>
 <translation id="7506541170099744506">એન્ટરપ્રાઇઝ સંચાલન માટે તમારા <ph name="DEVICE_TYPE" /> ની સફળતાપૂર્વક નોંધણી કરવામાં આવી.</translation>
 <translation id="7507930499305566459">પ્રતિસાદકર્તાની સ્થિતિનું પ્રમાણપત્ર</translation>
 <translation id="7508054832109420082">પ્રિન્ટરનો ઍક્સેસ આપો</translation>
-<translation id="7510943789645525906">જો તમે ઉપયોગમાં લો છો તે પાસવર્ડ ડેટા ઉલ્લંઘનનો ભાગ હતો તો તમને ચેતવણી આપે છે</translation>
 <translation id="7513029293694390567">સંગ્રહિત ઓળખપત્રનો ઉપયોગ કરીને વેબસાઇટ્સમાં આપમેળે સાઇન ઇન કરો. જો અક્ષમ કરેલ હોય, તો વેબસાઇટમાં સાઇન ઇન કરતાં પહેલાં દર વખતે તમને પુષ્ટિકરણ માટે કહેવામાં આવશે.</translation>
 <translation id="7514239104543605883">તમારા ડિવાઇસ પર કૉપિ કરો</translation>
 <translation id="7514365320538308">ડાઉનલોડ કરો</translation>
@@ -4728,7 +4729,6 @@ USB ડિવાઇસ</translation>
 <translation id="7926423016278357561">આ હું ન હતો/હતી.</translation>
 <translation id="7928836894214140642"><ph name="ENROLLMENT_DOMAIN" /> દ્વારા સંચાલિત</translation>
 <translation id="7930294771522048157">સાચવેલ ચુકવણી પદ્ધતિઓ અહીં દેખાશે</translation>
-<translation id="7930681627240672853">પાસવર્ડ સુરક્ષા ચેક કરો</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" />, તમારી સ્ક્રીન અને ઑડિઓને શેર કરી રહી છે.</translation>
 <translation id="7931318309563332511">અજાણ</translation>
 <translation id="793293630927785390">નવા વાઇ-ફાઇ નેટવર્ક માટે સંવાદ</translation>
@@ -4796,7 +4796,6 @@ USB ડિવાઇસ</translation>
 <translation id="8014154204619229810">અપડેટ કરનાર હાલમાં ચાલી રહ્યું છે. ફરીથી તપાસવા માટે થોડીવારમાં રિફ્રેશ કરો.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" />, પૂર્વમાં ઇન્સ્ટૉલ કરેલ વર્ઝન પર પાછા ફરવામાં અસમર્થ છે. કૃપા કરીને તમારા ડિવાઇસને Powerwash કરવાનો ફરી પ્રયાસ કરો.</translation>
 <translation id="8014210335923519270">Googleને સિસ્ટમ માહિતી અને ઉપયોગ મોકલીને <ph name="IDS_SHORT_PRODUCT_NAME" />ને અને તેની સુરક્ષા બહેતર બનાવો</translation>
-<translation id="8015780634880457457">Google તમારા પાસવર્ડ ડેટા ઉલ્લંઘનનો ભાગ હતો કે નહીં તે ચેક કરી શકે છે</translation>
 <translation id="8016266267177410919">અસ્થાયી સ્ટોરેજ</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">શૉર્ટકટમાં ફેરફાર કર્યો</translation>
@@ -5572,6 +5571,7 @@ USB ડિવાઇસ</translation>
 <translation id="9130015405878219958">અમાન્ય મોડ દાખલ થયો.</translation>
 <translation id="9131487537093447019">Bluetooth ડિવાઇસ પર સંદેશા મોકલો અને ત્યાંથી પ્રાપ્ત કરો.</translation>
 <translation id="9134304429738380103">હા, હું સંમત છું.</translation>
+<translation id="9135090785674039430">જ્યારે ચાલુ કરવામાં આવે, ત્યારે સાઇટ તમને વેબ પર બધે ટ્રૅક કરી શકે એવી કુકીનો ઉપયોગ કરી શકશે નહીં. કેટલીક વેબસાઇટમાં કદાચ વિરામ આવી શકે છે.</translation>
 <translation id="9137013805542155359">મૂળ બતાવો</translation>
 <translation id="9137157311132182254">પસંદગીનું શોધ એન્જિન</translation>
 <translation id="9137248913990643158">આ ઍપ્લિકેશનનો ઉપયોગ કરતાં પહેલાં કૃપા કરીને Chrome ને પ્રારંભ કરો અને સાઇન ઇન કરો.</translation>

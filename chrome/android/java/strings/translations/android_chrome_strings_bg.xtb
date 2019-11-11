@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Незапазвани никога</translation>
 <translation id="1067922213147265141">Други услуги на Google</translation>
 <translation id="1068672505746868501">Страниците на <ph name="SOURCE_LANGUAGE" /> да не се превеждат</translation>
+<translation id="107147699690128016">Ако промените файловото разширение, файлът може да се отвори в друго приложение и потенциално да навреди на устройството ви.</translation>
 <translation id="1100066534610197918">Отваряне в нов раздел в група</translation>
 <translation id="1105960400813249514">Заснемане на екрана</translation>
 <translation id="1111673857033749125">Тук ще се показват отметките, които сте запазили на другите си устройства.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Отваряне на всички</translation>
 <translation id="1409426117486808224">Опростен изглед на отворените раздели</translation>
 <translation id="1409879593029778104">Изтеглянето на „<ph name="FILE_NAME" />“ е предотвратено, защото файлът вече съществува.</translation>
-<translation id="1413136574162415971">Google може да проверява дали паролите ви са изтекли при нарушение на сигурността на данните. Функцията ще бъде включена, когато влезете с профила си в Google и включите синхронизирането.</translation>
 <translation id="1414981605391750300">Установява се връзка с Google. Това може да отнеме известно време…</translation>
 <translation id="1416550906796893042">Версия на приложението</translation>
 <translation id="1430915738399379752">Печат</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">За да разрешите на Chrome да ви изпраща известия, те трябва да бъдат включени и от <ph name="BEGIN_LINK" />настройките на Android<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> също има данни в Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /><ph name="SEPARATOR" /><ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Промяната на файловото разширение може да доведе до неочаквано поведение и да повреди устройството ви.</translation>
 <translation id="2056878612599315956">Сайтът е на пауза</translation>
 <translation id="2063713494490388661">Търсене с докосване</translation>
 <translation id="2067805253194386918">текст</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Преместете плъзгача, докато можете да четете удобно това. Текстът трябва да изглежда поне толкова голям след двукратно докосване на абзац.</translation>
 <translation id="2323763861024343754">Данни от сайтове</translation>
 <translation id="2328985652426384049">Влизането в профила не е възможно</translation>
+<translation id="2330129964253841015">Предупреждение при компрометирани пароли</translation>
 <translation id="2349710944427398404">Общо място в хранилището, което се използва от Chrome, включително за профили, отметки и запазени настройки</translation>
 <translation id="2353636109065292463">Връзката с интернет се проверява</translation>
 <translation id="2359808026110333948">Напред</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Мащабиране на текста</translation>
 <translation id="2394602618534698961">Изтеглените от вас файлове се показват тук</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> МБ</translation>
+<translation id="2407481962792080328">Когато влезете в профила си в Google, тази функция се включва</translation>
 <translation id="2410754283952462441">Изберете профил</translation>
 <translation id="2414886740292270097">Тъмно</translation>
 <translation id="2416359993254398973">Chrome се нуждае от разрешение за достъп до камерата ви за този сайт.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Понастоящем персонализирате настройките си за синхронизиране и за услугите на Google. За да включите синхронизирането, докоснете бутона „Потвърждаване“ в долната част на екрана. Навигиране нагоре</translation>
 <translation id="3328801116991980348">Информация за сайта</translation>
 <translation id="3333961966071413176">Всички контакти</translation>
+<translation id="3334729583274622784">Да се промени ли файловото разширение?</translation>
 <translation id="3341058695485821946">Вижте колко данни сте спестили</translation>
 <translation id="3350687908700087792">Затваряне на всички раздели в режим „инкогнито“</translation>
 <translation id="3353615205017136254">Олекотена страница, предоставена от Google. Докоснете съответния бутон за зареждане на оригиналната.</translation>
@@ -873,7 +875,6 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (Актуализирано: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">спестени данни</translation>
 <translation id="7498271377022651285">Моля, изчакайте...</translation>
-<translation id="7510943789645525906">Предупреждава ви, ако използвана от вас парола е изтекла при нарушение на сигурността на данните</translation>
 <translation id="7514365320538308">Изтегляне</translation>
 <translation id="751961395872307827">Не може да се установи връзка със сайта</translation>
 <translation id="7521387064766892559">Javascript</translation>
@@ -919,7 +920,6 @@
 <translation id="7810647596859435254">Отваряне със…</translation>
 <translation id="7821588508402923572">Тук ще се показва количеството икономисани данни</translation>
 <translation id="7837721118676387834">Разрешаване на автоматичното възпроизвеждане на видеоклипове със заглушен звук за конкретен сайт.</translation>
-<translation id="7838340937077326045">Наистина ли искате да промените файловото разширение?</translation>
 <translation id="7846076177841592234">Анулиране на избора</translation>
 <translation id="784934925303690534">Период от време</translation>
 <translation id="7851858861565204677">Други устройства</translation>
@@ -930,7 +930,6 @@
 <translation id="7886917304091689118">Изпълнява се в Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Изтегля се файл.}other{Изтеглят се # файла.}}</translation>
 <translation id="7929962904089429003">Отваряне на менюто</translation>
-<translation id="7930681627240672853">Проверка на безопасността на паролата</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> не е актуален.</translation>
 <translation id="7947953824732555851">Приемам и влизам</translation>
 <translation id="7963646190083259054">Доставчик:</translation>
@@ -946,7 +945,6 @@
 <translation id="8007176423574883786">Изключено за това устройство</translation>
 <translation id="8013372441983637696">Изчистване на данните ви в Chrome и от това устройство</translation>
 <translation id="8015452622527143194">Стандартен размер на всички елементи на страницата</translation>
-<translation id="8015780634880457457">Google може да проверява дали паролите ви са изтекли при нарушение на сигурността на данните</translation>
 <translation id="802154636333426148">Изтеглянето не бе успешно</translation>
 <translation id="8026334261755873520">Изчистване на данните за сърфирането</translation>
 <translation id="8035133914807600019">Нова папка…</translation>

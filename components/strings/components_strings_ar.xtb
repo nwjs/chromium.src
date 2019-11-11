@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">طباعة</translation>
 <translation id="1442386063175183758">الطي على شكل بوابة يمينًا</translation>
 <translation id="1442987760062738829">ثقب</translation>
-<translation id="1450011005989029586">‏تم كشف كلمة مرورك نتيجة عملية اختراق للبيانات على موقع إلكتروني أو تطبيق تستخدمه. يقترح متصفِّح Chrome <ph name="BOLD" /> عبر <ph name="ORIGIN" /> الآن.</translation>
 <translation id="1455413310270022028">ممحاة</translation>
 <translation id="1463543813647160932">7x5</translation>
 <translation id="1472675084647422956">عرض المزيد</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">لا يتم دعم هذا النوع من البطاقات</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">جرّب الاتصال بمشرف النظام.</translation>
+<translation id="1739107442478692187">‏حدثت عملية اختراق للبيانات على موقع إلكتروني أو تطبيق تستخدمه. يقترح متصفّح Chrome التحقق من كلمات المرور المحفوظة وتغيير كلمات المرور على <ph name="ORIGIN" /> الآن.</translation>
 <translation id="1740951997222943430">أدخِل شهر انتهاء صلاحية صحيح</translation>
 <translation id="1743520634839655729">‏للدفع بشكلٍ أسرع في المرة القادمة، يمكنك حفظ البطاقة والاسم وعنوان إرسال الفواتير في حسابك على Google وفي هذا الجهاز.</translation>
 <translation id="1743570585616704562">لم يتم التعرف عليها</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">النطاق غير متطابق</translation>
 <translation id="2096368010154057602">القسم</translation>
 <translation id="2099652385553570808">وضع ثلاثة دبابيس يسارًا</translation>
+<translation id="2100280972184758440">اختراق كلمة المرور</translation>
 <translation id="2102134110707549001">اقتراح كلمة مرور قوية…</translation>
 <translation id="2108755909498034140">إعادة تشغيل جهاز الكمبيوتر</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">تم تجاهلها نظرًا لتجاوزها بواسطة <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">تم الإصدار إلى: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">عمل ثقب أسفل اليمين</translation>
+<translation id="2124528555835617522">‏حدثت عملية اختراق للبيانات على موقع إلكتروني أو تطبيق تستخدمه. يقترح متصفّح Chrome التحقق من كلمات المرور المحفوظة الآن.</translation>
 <translation id="2129079103035905234">مستشعرات الحركة</translation>
 <translation id="213826338245044447">الإشارات المرجعية على الجوّال</translation>
 <translation id="214556005048008348">إلغاء الدفع</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">عفوًا، يتعذّر حفظ بطاقتك الآن.</translation>
 <translation id="2262243747453050782">‏خطأ HTTP</translation>
 <translation id="2263079731045660823">‏تحديث معلومات الملء التلقائي لبطاقة الائتمان في إعدادات Chrome</translation>
+<translation id="2267047181501709434">جارٍ إثبات هويتك...</translation>
 <translation id="2270484714375784793">رقم الهاتف</translation>
 <translation id="2277103315734023688">الانتقال إلى الأمام</translation>
 <translation id="2283340219607151381">حفظ العناوين وملؤها</translation>
@@ -484,6 +487,7 @@
 <translation id="3282497668470633863">إضافة الاسم الوارد في البطاقة</translation>
 <translation id="3287510313208355388">التنزيل عند الاتصال بالإنترنت</translation>
 <translation id="3293642807462928945">مزيد من المعلومات عن سياسة <ph name="POLICY_NAME" /></translation>
+<translation id="3295439534709115864">‏حدثت عملية اختراق للبيانات على موقع إلكتروني أو تطبيق تستخدمه. يقترح متصفّح Chrome تغيير كلمة مرورك على <ph name="ORIGIN" /> الآن.</translation>
 <translation id="3303855915957856445">لم يتم العثور على أي نتائج بحث</translation>
 <translation id="3320021301628644560">إضافة عنوان إرسال الفواتير</translation>
 <translation id="3324983252691184275">قرمزي</translation>
@@ -689,7 +693,6 @@
 <translation id="4258748452823770588">توقيع غير صالح</translation>
 <translation id="4261046003697461417">يتعذّر إضافة تعليق توضيحي إلى المستندات المحمية</translation>
 <translation id="4265872034478892965">تم السماح من قبل المشرف</translation>
-<translation id="4270615291506829403">تغيير كلمة مرورك</translation>
 <translation id="4275830172053184480">إعادة تشغيل جهازك</translation>
 <translation id="4277028893293644418">إعادة تعيين كلمة المرور</translation>
 <translation id="4279811152705618813">يدير <ph name="ENROLLMENT_DOMAIN" /> الجهاز <ph name="DEVICE_TYPE" />.</translation>
@@ -769,7 +772,6 @@
 <translation id="4708268264240856090">تم قطع اتصالك</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131">‏<ph name="BEGIN_LINK" />تشغيل بيانات تشخيص شبكة Windows<ph name="END_LINK" /></translation>
-<translation id="4725851834065990915">‏كشفت عملية اختراق البيانات على موقع إلكتروني أو تطبيق تستخدمه عن كلمة مرورك. يقترح متصفِّح Chrome التحقق من كلمات المرور المحفوظة الآن.</translation>
 <translation id="4726672564094551039">إعادة تحميل السياسات</translation>
 <translation id="4728558894243024398">النظام الأساسي</translation>
 <translation id="4731967714531604179">‏Prc2 (مغلف)</translation>
@@ -1187,7 +1189,6 @@
 <translation id="679355240208270552">تم التجاهل نظرًا لأنه لم يتم تفعيل البحث التلقائي بواسطة السياسة.</translation>
 <translation id="681021252041861472">الحقل مطلوب</translation>
 <translation id="6810899417690483278">رقم تعريف التخصيص</translation>
-<translation id="6819440013020405090">‏كشفت عملية اختراق البيانات على موقع إلكتروني أو تطبيق تستخدمه عن كلمة مرورك. يقترح متصفِّح Chrome التحقق من كلمات المرور المحفوظة وتغيير كلمة المرور الخاصة بالموقع الإلكتروني <ph name="ORIGIN" />.</translation>
 <translation id="6825578344716086703">‏لقد حاولت الوصول إلى <ph name="DOMAIN" />، ولكن قدَّم الخادم شهادة موقّعة باستخدام خوارزمية توقيع ضعيفة (مثل SHA-1)، مما يعني أن بيانات اعتماد الأمان التي قدمها الخادم من المحتمل أنه تم تزييفها، وأن الخادم قد لا يكون هو الخادم الذي تتوقعه (قد تكون على اتصال بأحد المهاجمين).</translation>
 <translation id="6826370046007623921">منع فقدان البيانات</translation>
 <translation id="6831043979455480757">ترجمة</translation>
@@ -1230,7 +1231,6 @@
 <translation id="7064851114919012435">معلومات الاتصال</translation>
 <translation id="7075452647191940183">الطلب كبير جدًا</translation>
 <translation id="7079718277001814089">يحتوي هذا الموقع على برامج ضارة</translation>
-<translation id="70850504851191913">تم الإبلاغ عن اختراق البيانات</translation>
 <translation id="7087282848513945231">مقاطعة</translation>
 <translation id="7090678807593890770">‏البحث في Google عن <ph name="LINK" /></translation>
 <translation id="7108338896283013870">إخفاء</translation>
@@ -1553,7 +1553,6 @@
 <translation id="8718314106902482036">لم تكتمل عملية الدفع</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />، <ph name="DESCRIPTION" />، اقتراح البحث</translation>
 <translation id="8719528812645237045">عمل عدة ثقوب بالأعلى</translation>
-<translation id="8723954843026426558">أوافق على الأحكام والشروط وسياسة الخصوصية والحق القانوني في التراجع عن <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /></translation>
 <translation id="8725066075913043281">أعد المحاولة</translation>
 <translation id="8728672262656704056">لقد انتقلت إلى التصفّح المتخفي</translation>
 <translation id="8730621377337864115">تم</translation>

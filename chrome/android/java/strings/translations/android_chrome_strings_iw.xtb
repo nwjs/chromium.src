@@ -9,6 +9,7 @@
 <translation id="10614374240317010">פריטים שאף פעם לא נשמרו</translation>
 <translation id="1067922213147265141">‏שירותי Google אחרים</translation>
 <translation id="1068672505746868501">אף פעם אל תתרגם דפים ב<ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">שינוי של סיומת הקובץ עשוי לגרום לכך שהקובץ ייפתח באפליקציה אחרת. מצב זה עלול לסכן את המכשיר.</translation>
 <translation id="1100066534610197918">פתיחה בכרטיסייה חדשה בקבוצה</translation>
 <translation id="1105960400813249514">צילום מסך</translation>
 <translation id="1111673857033749125">סימניות שנשמרו במכשירים האחרים שלך יופיעו כאן.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">פתח הכל</translation>
 <translation id="1409426117486808224">תצוגה פשוטה של כרטיסיות פתוחות</translation>
 <translation id="1409879593029778104">הורדת <ph name="FILE_NAME" /> נמנעה מכיוון שהקובץ כבר קיים.</translation>
-<translation id="1413136574162415971">‏Google יכולה לבדוק אם הייתה פרצה באבטחת מידע שכללה את הסיסמאות שלך. האפשרות הזאת תופעל אחרי כניסה באמצעות חשבון Google והפעלת הסנכרון.</translation>
 <translation id="1414981605391750300">‏המערכת יוצרת קשר עם Google. עוד מעט מסיימים…</translation>
 <translation id="1416550906796893042">גרסת אפליקציה</translation>
 <translation id="1430915738399379752">הדפסה</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">‏כדי לאפשר ל-Chrome לשלוח לך התראות, צריך להפעיל אותן גם ב<ph name="BEGIN_LINK" />הגדרות Android<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529">‏ל-<ph name="APP_NAME" /> יש נתונים גם ב-Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">שינוי סיומת הקובץ עלולה לגרום להתנהגות בלתי צפויה ולהזיק למכשיר.</translation>
 <translation id="2056878612599315956">האתר מושהה</translation>
 <translation id="2063713494490388661">הקש כדי לחפש</translation>
 <translation id="2067805253194386918">טקסט</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">יש לגרור את המחוון עד שאפשר יהיה לקרוא את הקטע הזה בצורה נוחה. לאחר הקשה פעמיים על פיסקה, הטקסט אמור להיות מוצג בגודל הזה לפחות.</translation>
 <translation id="2323763861024343754">נתוני אתר מאוחסנים</translation>
 <translation id="2328985652426384049">אי אפשר להיכנס לחשבון</translation>
+<translation id="2330129964253841015">הצגת אזהרות כשסיסמאות בסיכון</translation>
 <translation id="2349710944427398404">‏סך כל הנתונים שבהם משתמש Chrome, כולל חשבונות, סימניות והגדרות שמורות</translation>
 <translation id="2353636109065292463">בדיקת חיבור האינטרנט</translation>
 <translation id="2359808026110333948">המשך</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">שינוי גודל טקסט</translation>
 <translation id="2394602618534698961">קבצים שהורדת מופיעים כאן</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">‏התכונה הזו מופעלת בעת הכניסה לחשבון Google</translation>
 <translation id="2410754283952462441">בחירת חשבון</translation>
 <translation id="2414886740292270097">כהה</translation>
 <translation id="2416359993254398973">‏Chrome זקוק להרשאה גישה אל המצלמה בשביל האתר הזה.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">‏מתבצעת עכשיו התאמה אישית של הגדרות הסנכרון ושירותי Google. כדי להשלים את הפעלת הסנכרון, יש להקיש על הלחצן 'אישור' קרוב לתחתית המסך. ניווט למעלה</translation>
 <translation id="3328801116991980348">פרטי אתר</translation>
 <translation id="3333961966071413176">כל אנשי הקשר</translation>
+<translation id="3334729583274622784">לשנות את סיומת הקובץ?</translation>
 <translation id="3341058695485821946">בדיקת החיסכון בצריכת נתונים</translation>
 <translation id="3350687908700087792">סגור את כל כרטיסיות הגלישה בסתר</translation>
 <translation id="3353615205017136254">‏גרסת Lite של הדף נוצרה על ידי Google. כדי לטעון את הגרסה המקורית, אפשר להקיש על לחצן טעינת המקור.</translation>
@@ -873,7 +875,6 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (עודכן <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">חסכון בחבילת הגלישה</translation>
 <translation id="7498271377022651285">המתן…</translation>
-<translation id="7510943789645525906">תוצג אזהרה אם סיסמה שלך דלפה עקב פרצה באבטחת מידע</translation>
 <translation id="7514365320538308">הורדה</translation>
 <translation id="751961395872307827">לא ניתן להתחבר לאתר</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@
 <translation id="7810647596859435254">פתח באמצעות...</translation>
 <translation id="7821588508402923572">ערכי החיסכון בנתונים יופיעו כאן</translation>
 <translation id="7837721118676387834">אפשר הפעלה אוטומטית של סרטונים מושתקים באתר ספציפי.</translation>
-<translation id="7838340937077326045">לשנות את סיומת הקובץ?</translation>
 <translation id="7846076177841592234">בטל את הבחירה</translation>
 <translation id="784934925303690534">טווח זמן</translation>
 <translation id="7851858861565204677">מכשירים אחרים</translation>
@@ -930,7 +930,6 @@
 <translation id="7886917304091689118">‏פועל ב-Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{מתבצעת הורדה של הקובץ.}two{מתבצעת הורדה של # קבצים.}many{מתבצעת הורדה של # קבצים.}other{מתבצעת הורדה של # קבצים.}}</translation>
 <translation id="7929962904089429003">פתח את התפריט</translation>
-<translation id="7930681627240672853">בדיקת אבטחה של הסיסמאות</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> אינו מעודכן.</translation>
 <translation id="7947953824732555851">קבל והיכנס</translation>
 <translation id="7963646190083259054">ספק:</translation>
@@ -946,7 +945,6 @@
 <translation id="8007176423574883786">כבוי בשביל המכשיר הזה</translation>
 <translation id="8013372441983637696">‏יש לנקות גם את נתוני Chrome מהמכשיר הזה</translation>
 <translation id="8015452622527143194">החזר את כל מה שמופיע בדף לגודל ברירת המחדל</translation>
-<translation id="8015780634880457457">‏Google יכולה לבדוק אם הסיסמאות שלך היו חלק מפרצה באבטחת המידע</translation>
 <translation id="802154636333426148">ההורדה נכשלה</translation>
 <translation id="8026334261755873520">ניקוי נתוני גלישה</translation>
 <translation id="8035133914807600019">תיקייה חדשה…</translation>

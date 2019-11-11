@@ -9,6 +9,7 @@
 
 #include "ash/accessibility/accessibility_observer.h"
 #include "ash/ash_export.h"
+#include "ash/home_screen/home_launcher_gesture_handler_observer.h"
 #include "ash/public/cpp/tablet_mode_observer.h"
 #include "ash/public/cpp/wallpaper_controller_observer.h"
 #include "ash/wm/overview/overview_observer.h"
@@ -40,11 +41,13 @@ namespace ash {
 // 3) In tablet mode:
 //        - Bottom-most snapped window in splitview,
 //        - Top-most activatable window if splitview is inactive.
-class ASH_EXPORT BackdropController : public AccessibilityObserver,
-                                      public OverviewObserver,
-                                      public SplitViewObserver,
-                                      public WallpaperControllerObserver,
-                                      public TabletModeObserver {
+class ASH_EXPORT BackdropController
+    : public AccessibilityObserver,
+      public OverviewObserver,
+      public SplitViewObserver,
+      public WallpaperControllerObserver,
+      public TabletModeObserver,
+      public HomeLauncherGestureHandlerObserver {
  public:
   explicit BackdropController(aura::Window* container);
   ~BackdropController() override;
@@ -88,6 +91,11 @@ class ASH_EXPORT BackdropController : public AccessibilityObserver,
   // TabletModeObserver:
   void OnTabletModeStarted() override;
   void OnTabletModeEnded() override;
+
+  // HomeLauncherGestureHandlerObserver:
+  void OnHomeLauncherTargetPositionChanged(bool showing,
+                                           int64_t display_id) override;
+  void OnHomeLauncherAnimationComplete(bool shown, int64_t display_id) override;
 
  private:
   friend class WorkspaceControllerTestApi;

@@ -925,6 +925,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="2326931316514688470">App opnieuw &amp;laden</translation>
 <translation id="2327492829706409234">App inschakelen</translation>
 <translation id="2329597144923131178">Als je inlogt, heb je al je instellingen op al je apparaten: bladwijzers, geschiedenis, wachtwoorden en meer.</translation>
+<translation id="2330129964253841015">Waarschuwen als je wachtwoorden niet meer veilig zijn</translation>
 <translation id="2332131598580221120">Bekijken in de Web Store</translation>
 <translation id="2332192922827071008">Voorkeuren openen</translation>
 <translation id="2332742915001411729">Terugzetten naar standaardinstelling</translation>
@@ -973,6 +974,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="2395616325548404795">Je <ph name="DEVICE_TYPE" /> is aangemeld voor bedrijfsbeheer, maar kan de item- en locatiegegevens niet verzenden. Voer deze gegevens handmatig in via je Beheerdersconsole voor dit apparaat.</translation>
 <translation id="2396783860772170191">Voer een viercijferige pincode in (0000-9999)</translation>
 <translation id="2399939490305346086">Inloggegevens voor beveiligingssleutel</translation>
+<translation id="2407481962792080328">Als je inlogt op je Google-account, wordt deze functie ingeschakeld</translation>
 <translation id="2408955596600435184">Je pincode opgeven</translation>
 <translation id="241082044617551207">Onbekende plug-in</translation>
 <translation id="2412593942846481727">Update beschikbaar</translation>
@@ -1427,6 +1429,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="3038612606416062604">Handmatig een printer toevoegen</translation>
 <translation id="3038675903128704560">Sites niet toestaan een plug-in te gebruiken om toegang te krijgen tot je computer</translation>
 <translation id="3039491566278747710">Offline beleid instellen op het apparaat is mislukt.</translation>
+<translation id="3043581297103810752">Van <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Deze site heeft automatisch meerdere bestanden gedownload</translation>
 <translation id="3046910703532196514">Webpagina, compleet</translation>
 <translation id="304747341537320566">Spraakengines</translation>
@@ -2293,6 +2296,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="4316850752623536204">Website van ontwikkelaar</translation>
 <translation id="4320177379694898372">Geen internetverbinding</translation>
 <translation id="4321442524549817090">U&amp;RL weergeven</translation>
+<translation id="4322394346347055525">Andere tabbladen sluiten</translation>
 <translation id="4324577459193912240">Bestand onvolledig</translation>
 <translation id="4325237902968425115"><ph name="LINUX_APP_NAME" /> verwijderen...</translation>
 <translation id="4330191372652740264">IJswater</translation>
@@ -2822,7 +2826,6 @@ Controleer of je de site vertrouwt voordat je VR activeert.</translation>
 <translation id="5142961317498132443">Verificatie</translation>
 <translation id="5143374789336132547">De extensie '<ph name="EXTENSION_NAME" />' heeft gewijzigd welke pagina wordt weergegeven wanneer je op de knop 'Homepage' klikt.</translation>
 <translation id="5143712164865402236">Volledig scherm openen</translation>
-<translation id="5145461783043820456">Blokkeren van cookies van derden is ingeschakeld</translation>
 <translation id="514575469079499857">Je IP-adres gebruiken om je locatie te bepalen (standaard)</translation>
 <translation id="5146995429444047494">Meldingen voor <ph name="ORIGIN" /> zijn geblokkeerd</translation>
 <translation id="5150254825601720210">SSL-servernaam van Netscape-certificaat</translation>
@@ -2958,7 +2961,6 @@ Controleer of je de site vertrouwt voordat je VR activeert.</translation>
 <translation id="5360150013186312835">In werkbalk weergeven</translation>
 <translation id="5362741141255528695">Selecteer een privésleutelbestand.</translation>
 <translation id="5363109466694494651">Powerwash en terugzetten</translation>
-<translation id="5365716706805792666">Google kan controleren of je wachtwoorden betrokken waren bij een gegevenslek. Dit wordt ingeschakeld wanneer je inlogt met je Google-account.</translation>
 <translation id="5365881113273618889">De map die je hebt geselecteerd, bevat gevoelige bestanden. Weet je zeker dat je '<ph name="APP_NAME" />' permanente schrijftoegang wilt geven tot deze map?</translation>
 <translation id="5367091008316207019">Bestand lezen...</translation>
 <translation id="5368720394188453070">Je telefoon is vergrendeld. Ontgrendel deze om door te gaan.</translation>
@@ -3659,7 +3661,6 @@ Controleer of je de site vertrouwt voordat je VR activeert.</translation>
 <translation id="63566973648609420">Alleen iemand met je wachtwoordzin kan je versleutelde gegevens lezen. De wachtwoordzin wordt niet verzonden naar of opgeslagen door Google. Als je je wachtwoordzin vergeet of deze instelling wilt wijzigen, moet je de <ph name="BEGIN_LINK" />synchronisatie resetten<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Welkom bij de <ph name="SHORT_PRODUCT_NAME" />-familie. Dit is geen gewone computer.</translation>
 <translation id="6358884629796491903">Draak</translation>
-<translation id="6360079014182882594">Deze site bevat geen cookies die kunnen worden gebruikt om je te volgen op internet</translation>
 <translation id="6361850914223837199">Foutdetails:</translation>
 <translation id="6362853299801475928">&amp;Een probleem melden...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3981,6 +3982,7 @@ Controleer of je de site vertrouwt voordat je VR activeert.</translation>
 <translation id="6850286078059909152">Tekstkleur</translation>
 <translation id="6851497530878285708">App ingeschakeld</translation>
 <translation id="6853388645642883916">Updater in slaapstand</translation>
+<translation id="68541483639528434">Andere tabbladen sluiten</translation>
 <translation id="6856623341093082836">De nauwkeurigheid van het touchscreen instellen en aanpassen</translation>
 <translation id="6857699260879628349">Configuratiegegevens ophalen</translation>
 <translation id="6860097299815761905">Proxyinstellingen...</translation>
@@ -4429,7 +4431,6 @@ Controleer of je de site vertrouwt voordat je VR activeert.</translation>
 <translation id="7506541170099744506">Je <ph name="DEVICE_TYPE" /> is aangemeld voor bedrijfsbeheer.</translation>
 <translation id="7507930499305566459">Certificaat voor statusbeantwoorder</translation>
 <translation id="7508054832109420082">Toegang verlenen tot printers</translation>
-<translation id="7510943789645525906">Je krijgt een waarschuwing als je wachtwoord betrokken was bij een gegevenslek</translation>
 <translation id="7513029293694390567">Automatisch inloggen bij websites met de opgeslagen gegevens. Als de functie is uitgeschakeld, wordt elke keer om bevestiging gevraagd voordat je inlogt bij een website.</translation>
 <translation id="7514239104543605883">Kopiëren naar je apparaat</translation>
 <translation id="7514365320538308">Downloaden</translation>
@@ -4730,7 +4731,6 @@ Controleer of je de site vertrouwt voordat je VR activeert.</translation>
 <translation id="7926423016278357561">Dit was ik niet.</translation>
 <translation id="7928836894214140642">Beheerd door <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Opgeslagen betaalmethoden worden hier weergegeven</translation>
-<translation id="7930681627240672853">Wachtwoordveiligheid controleren</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> deelt je scherm en audio.</translation>
 <translation id="7931318309563332511">Onbekend</translation>
 <translation id="793293630927785390">Dialoogvenster 'Nieuw wifi-netwerk'</translation>
@@ -4803,7 +4803,6 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="8014154204619229810">De updater wordt momenteel uitgevoerd. Klik op Vernieuwen om opnieuw te controleren.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> kan niet worden teruggezet naar de voorgaande versie. Probeer Powerwash opnieuw op je apparaat.</translation>
 <translation id="8014210335923519270">Verbeter <ph name="IDS_SHORT_PRODUCT_NAME" /> en de beveiliging ervan door systeem- en gebruiksgegevens naar Google te verzenden</translation>
-<translation id="8015780634880457457">Google kan controleren of je wachtwoorden betrokken waren bij een gegevenslek</translation>
 <translation id="8016266267177410919">Tijdelijke opslag</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Snelkoppeling bewerkt</translation>

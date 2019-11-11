@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">Imprimeix</translation>
 <translation id="1442386063175183758">Plegat amb finestra a la dreta</translation>
 <translation id="1442987760062738829">Encunyació</translation>
-<translation id="1450011005989029586">La teva contrasenya ha quedat exposada a causa de la violació de les dades en un lloc web o una aplicació que fas servir. Chrome et recomana <ph name="BOLD" /> que fas servir a <ph name="ORIGIN" /> ara mateix.</translation>
 <translation id="1455413310270022028">Goma d'esborrar</translation>
 <translation id="1463543813647160932">5 x 7</translation>
 <translation id="1472675084647422956">Mostra'n més</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">Aquest tipus de targeta no s'admet</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Proveu de contactar amb l'administrador del sistema.</translation>
+<translation id="1739107442478692187">S'ha produït una violació de les dades en un lloc web o en una aplicació que fas servir. Chrome et recomana que comprovis les contrasenyes desades i que canviïs la contrasenya del lloc web <ph name="ORIGIN" /> ara mateix.</translation>
 <translation id="1740951997222943430">Introdueix un mes de caducitat vàlid</translation>
 <translation id="1743520634839655729">Perquè la propera vegada puguis pagar més ràpidament, desa la targeta, el nom i l'adreça de facturació al Compte de Google i en aquest dispositiu.</translation>
 <translation id="1743570585616704562">No s'ha reconegut</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">Els dominis no coincideixen.</translation>
 <translation id="2096368010154057602">Departament</translation>
 <translation id="2099652385553570808">Grapat triple a l'esquerra</translation>
+<translation id="2100280972184758440">La contrasenya s'ha posat en perill</translation>
 <translation id="2102134110707549001">Suggereix una contrasenya segura…</translation>
 <translation id="2108755909498034140">Reinicia l'ordinador</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">S'ha ignorat perquè <ph name="POLICY_NAME" /> l'ha substituït.</translation>
 <translation id="2119505898009119320">Emès per a: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Encunyació a la part inferior dreta</translation>
+<translation id="2124528555835617522">S'ha produït una violació de les dades en un lloc web o en una aplicació que fas servir. Chrome et recomana que comprovis les contrasenyes desades.</translation>
 <translation id="2129079103035905234">Sensors de moviment</translation>
 <translation id="213826338245044447">Adreces d'interès per a mòbils</translation>
 <translation id="214556005048008348">Cancel·la el pagament</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">Ara mateix no es pot desar la targeta</translation>
 <translation id="2262243747453050782">Error d'HTTP</translation>
 <translation id="2263079731045660823">Actualitza la informació de targetes de crèdit d'Emplenament automàtic a la configuració de Chrome</translation>
+<translation id="2267047181501709434">S'està verificant la teva identitat...</translation>
 <translation id="2270484714375784793">Número de telèfon</translation>
 <translation id="2277103315734023688">Avança</translation>
 <translation id="2283340219607151381">Desa i emplena les adreces</translation>
@@ -474,6 +477,7 @@
 <translation id="3282497668470633863">Afegeix el titular de la targeta</translation>
 <translation id="3287510313208355388">Baixa quan estigui en línia</translation>
 <translation id="3293642807462928945">Més informació sobre la política <ph name="POLICY_NAME" /></translation>
+<translation id="3295439534709115864">S'ha produït una violació de les dades en un lloc web o en una aplicació que fas servir. Chrome et recomana que canviïs la contrasenya del lloc web <ph name="ORIGIN" />.</translation>
 <translation id="3303855915957856445">No s'ha trobat cap resultat de la cerca</translation>
 <translation id="3320021301628644560">Afegeix una adreça de facturació</translation>
 <translation id="3324983252691184275">Carmesí</translation>
@@ -674,7 +678,6 @@
 <translation id="4258748452823770588">Signatura errònia</translation>
 <translation id="4261046003697461417">No es poden fer anotacions en documents protegits</translation>
 <translation id="4265872034478892965">Permès per l'administrador</translation>
-<translation id="4270615291506829403">que canviïs la contrasenya</translation>
 <translation id="4275830172053184480">Reinici del dispositiu</translation>
 <translation id="4277028893293644418">Restableix la contrasenya</translation>
 <translation id="4279811152705618813"><ph name="ENROLLMENT_DOMAIN" /> gestiona el dispositiu <ph name="DEVICE_TYPE" /></translation>
@@ -753,7 +756,6 @@
 <translation id="4708268264240856090">La connexió s'ha interromput</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" />Executa el Diagnòstic de xarxa de Windows<ph name="END_LINK" />.</translation>
-<translation id="4725851834065990915">La teva contrasenya ha quedat exposada a causa de la violació de les dades en un lloc web o una aplicació que fas servir. Chrome et recomana que comprovis les contrasenyes desades.</translation>
 <translation id="4726672564094551039">Torna a carregar les polítiques</translation>
 <translation id="4728558894243024398">Plataforma</translation>
 <translation id="4731967714531604179">Prc2 (sobre)</translation>
@@ -1171,7 +1173,6 @@
 <translation id="679355240208270552">S'ha ignorat perquè la política no ha activat la cerca predeterminada.</translation>
 <translation id="681021252041861472">Camp obligatori</translation>
 <translation id="6810899417690483278">Identificador de personalització</translation>
-<translation id="6819440013020405090">La teva contrasenya ha quedat exposada a causa de la violació de les dades en un lloc web o una aplicació que fas servir. Chrome et recomana que comprovis les contrasenyes desades i que canviïs la contrasenya del lloc web <ph name="ORIGIN" />.</translation>
 <translation id="6825578344716086703">Has provat d'accedir a <ph name="DOMAIN" />, però el servidor ha presentat un certificat signat mitjançant un algoritme de signatura dèbil (com ara SHA-1). Això indica que les credencials de seguretat que ha presentat el servidor podrien haver estat falsificades i que pot ser que el servidor no sigui el que esperaves (és possible que t'estiguis comunicant amb un atacant).</translation>
 <translation id="6826370046007623921">Prevenció de pèrdua de dades</translation>
 <translation id="6831043979455480757">Tradueix</translation>
@@ -1214,7 +1215,6 @@
 <translation id="7064851114919012435">Informació de contacte</translation>
 <translation id="7075452647191940183">La sol·licitud és massa llarga</translation>
 <translation id="7079718277001814089">Aquest lloc web conté programari maliciós</translation>
-<translation id="70850504851191913">S'ha informat d'una violació de les dades</translation>
 <translation id="7087282848513945231">Comtat</translation>
 <translation id="7090678807593890770">Cerqueu <ph name="LINK" /> a Google</translation>
 <translation id="7108338896283013870">Amaga</translation>
@@ -1536,7 +1536,6 @@ Detalls addicionals:
 <translation id="8718314106902482036">No s'ha completat el pagament</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, suggeriment de cerca</translation>
 <translation id="8719528812645237045">Encunyació múltiple a la part superior</translation>
-<translation id="8723954843026426558">Accepto els termes i condicions, la política de privadesa i el dret de desistiment establerts pel domini <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /></translation>
 <translation id="8725066075913043281">Torna-ho a provar</translation>
 <translation id="8728672262656704056">Has passat al mode d'incògnit</translation>
 <translation id="8730621377337864115">Fet</translation>

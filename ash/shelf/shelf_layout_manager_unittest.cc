@@ -3347,6 +3347,8 @@ TEST_P(HotseatShelfLayoutManagerTest,
   wm::ActivateWindow(window.get());
 
   // Swipe up on the shelf to show the hotseat.
+  EXPECT_FALSE(Shell::Get()->app_list_controller()->IsVisible());
+
   SwipeUpOnShelf();
   EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
   if (GetParam() == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS)
@@ -3377,6 +3379,8 @@ TEST_P(HotseatShelfLayoutManagerTest,
   wm::ActivateWindow(window.get());
 
   // Swipe up on the shelf to show the hotseat.
+  EXPECT_FALSE(Shell::Get()->app_list_controller()->IsVisible());
+
   SwipeUpOnShelf();
 
   EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
@@ -3395,6 +3399,10 @@ TEST_P(HotseatShelfLayoutManagerTest,
   GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
                                              kNumScrollSteps);
 
+  EXPECT_EQ(
+      Shell::Get()->app_list_controller()->home_launcher_animation_state(),
+      AppListControllerImpl::HomeLauncherAnimationState::kFinished);
+  EXPECT_TRUE(Shell::Get()->app_list_controller()->IsVisible());
   EXPECT_EQ(HotseatState::kShown, GetShelfLayoutManager()->hotseat_state());
   if (GetParam() == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS)
     EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, GetPrimaryShelf()->GetAutoHideState());
@@ -3486,7 +3494,7 @@ TEST_P(HotseatShelfLayoutManagerTest, ReleasingSlowDragAboveThreshold) {
 }
 
 // Tests that showing overview after showing the hotseat results in only one
-// animation, to |kShown|.
+// animation, to |kExtended|.
 TEST_P(HotseatShelfLayoutManagerTest, ShowingOverviewFromShownAnimatesOnce) {
   GetPrimaryShelf()->SetAutoHideBehavior(GetParam());
   TabletModeControllerTestApi().EnterTabletMode();
@@ -3507,7 +3515,7 @@ TEST_P(HotseatShelfLayoutManagerTest, ShowingOverviewFromShownAnimatesOnce) {
                                                 .CenterPoint();
   GetEventGenerator()->GestureTapAt(overview_button_center);
 
-  state_watcher_->CheckEqual({HotseatState::kExtended, HotseatState::kShown});
+  state_watcher_->CheckEqual({HotseatState::kExtended});
 }
 
 // Tests that the hotseat is not flush with the bottom of the screen when home

@@ -6,10 +6,6 @@ package org.chromium.chrome.features.start_surface;
 
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.TOP_BAR_HEIGHT;
 
-import android.support.v4.widget.NestedScrollView;
-import android.view.LayoutInflater;
-import android.view.ViewGroup;
-
 import androidx.annotation.Nullable;
 
 import org.chromium.chrome.browser.ChromeActivity;
@@ -143,20 +139,31 @@ public class StartSurfaceCoordinator implements StartSurface {
     }
 
     private @SurfaceMode int computeSurfaceMode() {
+        // Check the cached flag before getting the parameter to be consistent with the other
+        // places. Note that the cached flag may have been set before native initialization.
+        if (!FeatureUtilities.isStartSurfaceEnabled()) {
+            return SurfaceMode.NO_START_SURFACE;
+        }
+
         String feature = ChromeFeatureList.getFieldTrialParamByFeature(
                 ChromeFeatureList.START_SURFACE_ANDROID, "start_surface_variation");
 
-        // Do not enable two panes when the bottom bar is enabled since it will
-        // overlap the two panes' bottom bar.
-        if (feature.equals("twopanes") && !FeatureUtilities.isBottomToolbarEnabled()) {
-            return SurfaceMode.TWO_PANES;
+        if (feature.equals("twopanes")) {
+            // Do not enable two panes when the bottom bar is enabled since it will
+            // overlap the two panes' bottom bar.
+            return FeatureUtilities.isBottomToolbarEnabled() ? SurfaceMode.SINGLE_PANE
+                                                             : SurfaceMode.TWO_PANES;
         }
 
         if (feature.equals("single")) return SurfaceMode.SINGLE_PANE;
 
         if (feature.equals("tasksonly")) return SurfaceMode.TASKS_ONLY;
 
-        return SurfaceMode.NO_START_SURFACE;
+        // Default to SurfaceMode.TASKS_ONLY. This could happen when the start surface has been
+        // changed from enabled to disabled in native side, but the cached flag has not been updated
+        // yet, so FeatureUtilities.isStartSurfaceEnabled() above returns true.
+        // TODO(crbug.com/1016548): Remember the last surface mode so as to default to it.
+        return SurfaceMode.TASKS_ONLY;
     }
 
     private void createAndSetStartSurface() {
@@ -171,14 +178,11 @@ public class StartSurfaceCoordinator implements StartSurface {
                 mPropertyModel, mActivity.getToolbarManager().getFakeboxDelegate(),
                 mSurfaceMode == SurfaceMode.SINGLE_PANE);
 
-        // The tasks surface is added to the explore surface in the single pane mode below.
-        if (mSurfaceMode != SurfaceMode.SINGLE_PANE) {
-            // TODO(crbug.com/1000295): Make the tasks surface view scrollable together with the Tab
-            // switcher view in tasks only mode.
-            mTasksSurfacePropertyModelChangeProcessor =
-                    createTasksViewPropertyModelChangeProcessor(mTasksSurface.getContainerView(),
-                            TasksSurfaceViewBinder::bind, mSurfaceMode != SurfaceMode.TASKS_ONLY);
-        }
+        mTasksSurfacePropertyModelChangeProcessor =
+                PropertyModelChangeProcessor.create(mPropertyModel,
+                        new TasksSurfaceViewBinder.ViewHolder(
+                                mActivity.getCompositorViewHolder(), mTasksSurface.getView()),
+                        TasksSurfaceViewBinder::bind);
 
         // There is nothing else to do for SurfaceMode.TASKS_ONLY.
         if (mSurfaceMode == SurfaceMode.TASKS_ONLY) {
@@ -190,12 +194,10 @@ public class StartSurfaceCoordinator implements StartSurface {
                     mActivity, mActivity.getCompositorViewHolder(), mPropertyModel);
         }
 
-        // TODO(crbug.com/1000295): Hide Tab switcher toolbar on explore pane in two panes mode,
-        // which should be done when adding fake search box.
         mExploreSurfaceCoordinator = new ExploreSurfaceCoordinator(mActivity,
-                mActivity.getCompositorViewHolder(),
-                mSurfaceMode == SurfaceMode.SINGLE_PANE ? mTasksSurface.getContainerView() : null,
-                mPropertyModel);
+                mSurfaceMode == SurfaceMode.SINGLE_PANE ? mTasksSurface.getBodyViewContainer()
+                                                        : mActivity.getCompositorViewHolder(),
+                mPropertyModel, mSurfaceMode == SurfaceMode.SINGLE_PANE);
     }
 
     private TabSwitcher.Controller initializeSecondaryTasksSurface() {
@@ -208,33 +210,14 @@ public class StartSurfaceCoordinator implements StartSurface {
                 TabManagementModuleProvider.getDelegate().createTasksSurface(mActivity,
                         propertyModel, mActivity.getToolbarManager().getFakeboxDelegate(), false);
         mSecondaryTasksSurfacePropertyModelChangeProcessor =
-                createTasksViewPropertyModelChangeProcessor(
-                        mSecondaryTasksSurface.getContainerView(),
-                        SecondaryTasksSurfaceViewBinder::bind, true);
+                PropertyModelChangeProcessor.create(mPropertyModel,
+                        new TasksSurfaceViewBinder.ViewHolder(mActivity.getCompositorViewHolder(),
+                                mSecondaryTasksSurface.getView()),
+                        SecondaryTasksSurfaceViewBinder::bind);
         if (mOnTabSelectingListener != null) {
             mSecondaryTasksSurface.setOnTabSelectingListener(mOnTabSelectingListener);
             mOnTabSelectingListener = null;
         }
         return mSecondaryTasksSurface.getController();
-    }
-
-    private PropertyModelChangeProcessor createTasksViewPropertyModelChangeProcessor(
-            ViewGroup container,
-            PropertyModelChangeProcessor.ViewBinder<PropertyModel,
-                    TasksSurfaceViewBinder.ViewHolder, PropertyKey> binder,
-            boolean needScrollContainer) {
-        // TODO(crbug.com/1000295): Put TasksSurface view inside Tab switcher recycler view.
-        // This is a temporarily solution to make the TasksSurfaceView scroll together with the
-        // Tab switcher, however this solution has performance issue when the Tab switcher is in
-        // Grid mode, which is a launcher blocker. Check the bug details.
-        return PropertyModelChangeProcessor.create(mPropertyModel,
-                new TasksSurfaceViewBinder.ViewHolder(mActivity.getCompositorViewHolder(),
-                        needScrollContainer
-                                ? (NestedScrollView) LayoutInflater.from(mActivity).inflate(
-                                        R.layout.ss_explore_scroll_container,
-                                        mActivity.getCompositorViewHolder(), false)
-                                : null,
-                        container),
-                binder);
     }
 }

@@ -925,6 +925,7 @@ Voit ylläpitää tilin asetuksia asentamalla laitteellesi Family Link ‑sovell
 <translation id="2326931316514688470">&amp;Lataa sovellus uudelleen</translation>
 <translation id="2327492829706409234">Ota sovellus käyttöön</translation>
 <translation id="2329597144923131178">Kirjaudu ja käytä kirjanm., historiaa, salasan. ja muita asetuksia kaikissa laitteissasi.</translation>
+<translation id="2330129964253841015">Varoita, jos salasanoja vaarantuu</translation>
 <translation id="2332131598580221120">Näytä Web Storessa</translation>
 <translation id="2332192922827071008">Siirry valintoihin</translation>
 <translation id="2332742915001411729">Palauta oletusarvo</translation>
@@ -973,6 +974,7 @@ Voit ylläpitää tilin asetuksia asentamalla laitteellesi Family Link ‑sovell
 <translation id="2395616325548404795">Yrityshallinta on otettu käyttöön laitteessa <ph name="DEVICE_TYPE" />, mutta laitetunnuksen ja sijaintitietojen lähettäminen epäonnistui. Lisää nämä laitetta koskevat tiedot hallintakonsolista manuaalisesti.</translation>
 <translation id="2396783860772170191">Lisää nelinumeroinen PIN-koodi (0000–9999)</translation>
 <translation id="2399939490305346086">Suojausavaimen kirjautumisdata</translation>
+<translation id="2407481962792080328">Tämä ominaisuus otetaan käyttöön, kun kirjaudut Google-tilillesi</translation>
 <translation id="2408955596600435184">Anna PIN-koodi</translation>
 <translation id="241082044617551207">Tuntematon laajennus</translation>
 <translation id="2412593942846481727">Päivitys saatavilla</translation>
@@ -1427,6 +1429,7 @@ Voit ylläpitää tilin asetuksia asentamalla laitteellesi Family Link ‑sovell
 <translation id="3038612606416062604">Lisää tulostin manuaalisesti</translation>
 <translation id="3038675903128704560">Älä anna sivustojen käyttää tietokonettasi laajennuksen avulla.</translation>
 <translation id="3039491566278747710">Offline-käytäntöjen asentaminen laitteelle epäonnistui.</translation>
+<translation id="3043581297103810752">Lähde: <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Tämä sivusto latasi useita tiedostoja automaattisesti</translation>
 <translation id="3046910703532196514">Verkkosivu, täydellinen</translation>
 <translation id="304747341537320566">Puhemoottorit</translation>
@@ -2290,6 +2293,7 @@ Voit ylläpitää tilin asetuksia asentamalla laitteellesi Family Link ‑sovell
 <translation id="4316850752623536204">Kehittäjän verkkosivusto</translation>
 <translation id="4320177379694898372">Ei internetyhteyttä</translation>
 <translation id="4321442524549817090">N&amp;äytä URL-osoite</translation>
+<translation id="4322394346347055525">Sulje muut välilehdet</translation>
 <translation id="4324577459193912240">Tiedoston osia puuttuu</translation>
 <translation id="4325237902968425115">Poistetaan <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">Jäävesi</translation>
@@ -2819,7 +2823,6 @@ Varmista, että sivusto on luotettava, ennen kuin siirryt VR-tilaan.</translatio
 <translation id="5142961317498132443">Todennus</translation>
 <translation id="5143374789336132547">Laajennus <ph name="EXTENSION_NAME" /> on vaihtanut Etusivu-painikkeella avattavan sivun.</translation>
 <translation id="5143712164865402236">Siirry koko näytön tilaan</translation>
-<translation id="5145461783043820456">Kolmannen osapuolen evästeiden esto on käytössä</translation>
 <translation id="514575469079499857">Määritä sijainti IP-osoitteesi avulla (oletus)</translation>
 <translation id="5146995429444047494">Ilmoitukset on estetty: <ph name="ORIGIN" /></translation>
 <translation id="5150254825601720210">Netscape-varmenteen SSL-palvelimen nimi</translation>
@@ -2955,7 +2958,6 @@ Varmista, että sivusto on luotettava, ennen kuin siirryt VR-tilaan.</translatio
 <translation id="5360150013186312835">Näytä yläpalkissa</translation>
 <translation id="5362741141255528695">Valitse yksityinen avaintiedosto.</translation>
 <translation id="5363109466694494651">Suorita Powerwash ja palauta</translation>
-<translation id="5365716706805792666">Google voi tarkistaa, olivatko salasanasi osallisina tietosuojaloukkauksessa. Tämä otetaan käyttöön kirjautuessasi sisään Google-tilillä.</translation>
 <translation id="5365881113273618889">Valitsemasi kansio sisältää arkaluontoisia tiedostoja. Haluatko varmasti, että <ph name="APP_NAME" /> saa pysyvän kirjoitusoikeuden tähän kansioon?</translation>
 <translation id="5367091008316207019">Luetaan tiedostoa...</translation>
 <translation id="5368720394188453070">Puhelimesi on lukittu. Avaa lukitus käyttääksesi sitä.</translation>
@@ -3658,7 +3660,6 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="63566973648609420">Salattuja tietojasi voi lukea vain tunnuslauseesi avulla. Tunnuslausetta ei lähetetä Googlelle eikä Google tallenna sitä. Jos unohdat tunnuslauseesi tai haluat muokata tätä asetusta, <ph name="BEGIN_LINK" />synkronointi on nollattava<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Tervetuloa <ph name="SHORT_PRODUCT_NAME" />-perheeseen. Tämä ei ole mikään tavallinen tietokone.</translation>
 <translation id="6358884629796491903">Lohikäärme</translation>
-<translation id="6360079014182882594">Sivustolla ei ole evästeitä, joiden avulla sinua voidaan seurata verkossa</translation>
 <translation id="6361850914223837199">Virheen tiedot:</translation>
 <translation id="6362853299801475928">&amp;Ilmoita ongelmasta...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3980,6 +3981,7 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="6850286078059909152">Tekstin väri</translation>
 <translation id="6851497530878285708">Sovellus käytössä</translation>
 <translation id="6853388645642883916">Päivittäjä on lepotilassa</translation>
+<translation id="68541483639528434">Sulje muut välilehdet</translation>
 <translation id="6856623341093082836">Määritä kosketusnäyttö ja säädä sen tarkkuutta</translation>
 <translation id="6857699260879628349">Hae määritystiedot</translation>
 <translation id="6860097299815761905">Välityspalvelimen asetukset...</translation>
@@ -4428,7 +4430,6 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="7506541170099744506">Yrityshallinta on otettu käyttöön laitteessa <ph name="DEVICE_TYPE" />.</translation>
 <translation id="7507930499305566459">Tilavastausvarmenne</translation>
 <translation id="7508054832109420082">Anna tulostinten käyttöoikeus</translation>
-<translation id="7510943789645525906">Varoittaa sinua, jos käyttämäsi salasana oli osallisena tietosuojaloukkauksessa</translation>
 <translation id="7513029293694390567">Kirjaudu automaattisesti verkkosivustoille käyttämällä tallennettuja kirjautumistietoja. Jos toiminto ei ole käytössä, sinua pyydetään vahvistamaan kirjautuminen aina, kun kirjaudut sivustolle.</translation>
 <translation id="7514239104543605883">Kopioi laitteelle</translation>
 <translation id="7514365320538308">Lataa</translation>
@@ -4729,7 +4730,6 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="7926423016278357561">Luo uusi profiili.</translation>
 <translation id="7928836894214140642">Ylläpitäjä: <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Tallennetut maksutavat näkyvät täällä</translation>
-<translation id="7930681627240672853">Salasanojen turvallisuuden tarkistaminen</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> jakaa näyttösi ja äänesi.</translation>
 <translation id="7931318309563332511">Tuntematon</translation>
 <translation id="793293630927785390">Uusi Wi-Fi-verkko ‑valintaikkuna</translation>
@@ -4802,7 +4802,6 @@ Tallenna avaintiedosto suojattuun sijaintiin. Tarvitset sitä, jos haluat luoda 
 <translation id="8014154204619229810">Päivitysohjelma on käynnissä. Lataa sivu hetken kuluttua uudelleen ja tarkista tilanne.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> ei voi palautua aiemmin asennettuun versioon. Suorita laitteellesi Powerwash uudelleen.</translation>
 <translation id="8014210335923519270">Auta luomaan parempi ja turvallisempi <ph name="IDS_SHORT_PRODUCT_NAME" /> lähettämällä järjestelmä- ja käyttötietoja Googlelle.</translation>
-<translation id="8015780634880457457">Google voi tarkistaa, olivatko salasanasi osallisina tietosuojaloukkauksessa</translation>
 <translation id="8016266267177410919">Väliaikainen tallennustila</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Pikanäppäintä muokattu</translation>

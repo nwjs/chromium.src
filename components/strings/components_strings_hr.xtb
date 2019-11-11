@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">Ispis</translation>
 <translation id="1442386063175183758">Presavijanje s desne strane u obliku prozora</translation>
 <translation id="1442987760062738829">Bušenje</translation>
-<translation id="1450011005989029586">Vaša je zaporka ugrožena zbog povrede podataka na web-lokaciji ili u aplikaciji koju koristite. Chrome preporučuje da odmah <ph name="BOLD" /> na <ph name="ORIGIN" />.</translation>
 <translation id="1455413310270022028">Gumica</translation>
 <translation id="1463543813647160932">5 x 7</translation>
 <translation id="1472675084647422956">Prikaži više</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">Ova vrsta kartice nije podržana</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Pokušajte kontaktirati administratora sustava.</translation>
+<translation id="1739107442478692187">Na web-lokaciji ili u aplikaciji koju koristite došlo je do povrede podataka. Chrome preporučuje da provjerite svoje spremljene zaporke i promijenite ih na <ph name="ORIGIN" />.</translation>
 <translation id="1740951997222943430">Unesite važeći mjesec isteka</translation>
 <translation id="1743520634839655729">Da biste sljedeći put platili brže, spremite karticu, ime i adresu za naplatu na svoj Google račun i ovaj uređaj.</translation>
 <translation id="1743570585616704562">Nije prepoznat</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">Domena se ne podudara</translation>
 <translation id="2096368010154057602">Departman</translation>
 <translation id="2099652385553570808">Trostruko spajanje s lijeve strane</translation>
+<translation id="2100280972184758440">Vaša je zaporka ugrožena</translation>
 <translation id="2102134110707549001">Predloži snažnu zaporku…</translation>
 <translation id="2108755909498034140">Ponovo pokrenite računalo</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">Zanemareno jer je nadjačano pravilom <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Izdano za: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Bušenje pri dnu desno</translation>
+<translation id="2124528555835617522">Na web-lokaciji ili u aplikaciji koju koristite došlo je do povrede podataka. Chrome vam preporučuje da odmah provjerite spremljene zaporke.</translation>
 <translation id="2129079103035905234">Senzori kretanja</translation>
 <translation id="213826338245044447">Mobilne oznake</translation>
 <translation id="214556005048008348">Otkaži plaćanje</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">Vaša se kartica trenutačno ne može spremiti</translation>
 <translation id="2262243747453050782">HTTP pogreška</translation>
 <translation id="2263079731045660823">Ažurirajte podatke za automatsko popunjavanje kreditne kartice u postavkama Chromea</translation>
+<translation id="2267047181501709434">Potvrđivanje vašeg identiteta...</translation>
 <translation id="2270484714375784793">Telefonski broj</translation>
 <translation id="2277103315734023688">Traži prema naprijed</translation>
 <translation id="2283340219607151381">Spremi i popuni adrese</translation>
@@ -484,6 +487,7 @@
 <translation id="3282497668470633863">Dodajte ime na kartici</translation>
 <translation id="3287510313208355388">Preuzmi online</translation>
 <translation id="3293642807462928945">Saznajte više o pravilu <ph name="POLICY_NAME" /></translation>
+<translation id="3295439534709115864">Na web-lokaciji ili u aplikaciji koju koristite došlo je do povrede podataka. Chrome preporučuje da odmah promijenite zaporku za <ph name="ORIGIN" />.</translation>
 <translation id="3303855915957856445">Nisu pronađeni rezultati pretraživanja</translation>
 <translation id="3320021301628644560">Dodajte adresu za naplatu</translation>
 <translation id="3324983252691184275">Grimizna</translation>
@@ -688,12 +692,11 @@
 <translation id="4258748452823770588">Potpis nije valjan</translation>
 <translation id="4261046003697461417">Dodavanje bilješke zaštićenim dokumentima nije moguće</translation>
 <translation id="4265872034478892965">Dopustio administrator</translation>
-<translation id="4270615291506829403">promijenite zaporku</translation>
 <translation id="4275830172053184480">Ponovo pokrenite svoj uređaj</translation>
 <translation id="4277028893293644418">Poništi zaporku</translation>
 <translation id="4279811152705618813">Vašim uređajem <ph name="DEVICE_TYPE" /> upravlja <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="428639260510061158">{NUM_CARDS,plural, =1{Ova je kartica spremljena na vašem Google računu}one{Ove su kartice spremljene na vašem Google računu}few{Ove su kartice spremljene na vašem Google računu}other{Ove su kartice spremljene na vašem Google računu}}</translation>
-<translation id="428847186335018806">Pregledajte datoteke koje preuzimate s Chromea ili prenosite na Chrome.</translation>
+<translation id="428847186335018806">Pregledajte datoteke koje preuzimate ili prenosite putem Chromea.</translation>
 <translation id="42981349822642051">Proširi</translation>
 <translation id="4300675098767811073">Višestruko bušenje s desne strane</translation>
 <translation id="4302965934281694568">Chou3 (omotnica)</translation>
@@ -768,7 +771,6 @@
 <translation id="4708268264240856090">Veza je prekinuta</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" />pokrenuti Mrežnu dijagnostiku sustava Windows<ph name="END_LINK" /></translation>
-<translation id="4725851834065990915">Vaša je zaporka ugrožena zbog povrede podataka na web-lokaciji ili u aplikaciji koju koristite. Chrome vam preporučuje da odmah provjerite spremljene zaporke.</translation>
 <translation id="4726672564094551039">Ponovo učitaj pravila</translation>
 <translation id="4728558894243024398">Platforma</translation>
 <translation id="4731967714531604179">Prc2 (omotnica)</translation>
@@ -1186,7 +1188,6 @@
 <translation id="679355240208270552">Zanemareno jer zadano pretraživanje nije omogućeno pravilom.</translation>
 <translation id="681021252041861472">Obavezno polje</translation>
 <translation id="6810899417690483278">ID prilagođavanja</translation>
-<translation id="6819440013020405090">Vaša je zaporka ugrožena zbog povrede podataka na web-lokaciji ili u aplikaciji koju koristite. Chrome preporučuje da provjerite spremljene zaporke i promijenite zaporku na <ph name="ORIGIN" />.</translation>
 <translation id="6825578344716086703">Pokušali ste doseći domenu <ph name="DOMAIN" />, ali poslužitelj je predstavio certifikat potpisan slabim algoritmom potpisa (kao što je SHA-1). Znači da su sigurnosne vjerodajnice koje je poslužitelj predstavio možda krivotvorene, a poslužitelj možda nije poslužitelj koji očekujete (možda ste u komunikaciji s napadačem).</translation>
 <translation id="6826370046007623921">Sprječavanje gubitka podataka</translation>
 <translation id="6831043979455480757">Prevedi</translation>
@@ -1229,7 +1230,6 @@
 <translation id="7064851114919012435">Podaci za kontakt</translation>
 <translation id="7075452647191940183">Zahtjev je prevelik</translation>
 <translation id="7079718277001814089">Ova web-lokacija sadrži zlonamjerni softver</translation>
-<translation id="70850504851191913">Prijavljena je povreda podataka</translation>
 <translation id="7087282848513945231">Država</translation>
 <translation id="7090678807593890770">Potražite upit <ph name="LINK" /> na Googleu</translation>
 <translation id="7108338896283013870">Sakrij preglednik</translation>
@@ -1552,7 +1552,6 @@ Dodatne pojedinosti:
 <translation id="8718314106902482036">Plaćanje nije dovršeno</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, prijedlog za pretraživanje</translation>
 <translation id="8719528812645237045">Višestruko bušenje pri vrhu</translation>
-<translation id="8723954843026426558">Prihvaćam uvjete i odredbe, pravila o privatnosti i pravo na odustajanje domene <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /></translation>
 <translation id="8725066075913043281">Pokušajte ponovo</translation>
 <translation id="8728672262656704056">Radite u anonimnom načinu</translation>
 <translation id="8730621377337864115">Gotovo</translation>

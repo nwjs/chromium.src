@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">አትም</translation>
 <translation id="1442386063175183758">ቀኝ በር እጠፍ</translation>
 <translation id="1442987760062738829">ብሳ</translation>
-<translation id="1450011005989029586">የይለፍ ቃልዎን ባጋለጡበት ጣቢያ ወይም መተግበሪያ ላይ የውሂብ ጥሰት። Chrome <ph name="BOLD" /> በ <ph name="ORIGIN" /> ላይ አሁን ይመከራል።</translation>
 <translation id="1455413310270022028">ማጥፊያ</translation>
 <translation id="1463543813647160932">5x7</translation>
 <translation id="1472675084647422956">ተጨማሪ አሳይ</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">የዚህ ዓይነቱ ካርድ አይደገፍም</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">የሥርዓት አስተዳዳሪውን ለማነጋገር ይሞክሩ።</translation>
+<translation id="1739107442478692187">የውሂብ ጥሰት እርስዎ በሚጠቀሙት ጣቢያ ወይም መተግበሪያ ላይ አጋጥሟል። Chrome የተቀመጡ ይለፍ ቃላትዎን አሁኑኑ እንዲፈትሹና <ph name="ORIGIN" /> ላይ የይለፍ ቃልዎን እንዲቀይሩ ይመክራል።</translation>
 <translation id="1740951997222943430">ትክክለኛ የአገልግሎት ማብቂያ ወር ያስገቡ</translation>
 <translation id="1743520634839655729">በሚቀጥለው ጊዜ በበለጠ ፍጥነት ለመክፈል ካርድዎን እና የማስከፈያ አድራሻዎን በGoogle መለያዎ እና በዚህ መሣሪያ ላይ ያስቀምጡ።</translation>
 <translation id="1743570585616704562">አልታወቀም</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">የጎራ አለመዛመድ</translation>
 <translation id="2096368010154057602">መመሪያ</translation>
 <translation id="2099652385553570808">ሦስቴ ስቴፕለር በግራ በኩል ምታ</translation>
+<translation id="2100280972184758440">የእርስዎ የይለፍ ቃል ተነጥቋል</translation>
 <translation id="2102134110707549001">ጠንካራ የይለፍ ቃል ጠቁም...</translation>
 <translation id="2108755909498034140">ኮምፒውተርዎን ዳግም ያስጀምሩት</translation>
 <translation id="2111256659903765347">ልዕለ-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">በ<ph name="POLICY_NAME" /> ስለተሻረ ችላ ተብሏል።</translation>
 <translation id="2119505898009119320">ለዚህ ተሰጥቷል፦ <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">ከታች በቀን በኩል ብስ</translation>
+<translation id="2124528555835617522">የውሂብ ጥሰት እርስዎ በሚጠቀሙት ጣቢያ ወይም መተግበሪያ ላይ አጋጥሟል። Chrome የተቀመጡ ይለፍ ቃላትዎን አሁኑኑ መፈተሽ ይመክራል።</translation>
 <translation id="2129079103035905234">የእንቅስቃሴ ዳሳሾች</translation>
 <translation id="213826338245044447">የተንቀሳቃሽ ስልክ ዕልባቶች</translation>
 <translation id="214556005048008348">ክፍያን ሰርዝ</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">ይቅርታ፣ የእርስዎ ካርድ አሁን ላይ ሊቀመጥ አይችልም</translation>
 <translation id="2262243747453050782">የኤች ቲ ቲ ፒ ስህተት</translation>
 <translation id="2263079731045660823">በChrome ቅንብሮች ውስጥ የክሬዲት ካርድ ራስ-ሙላ መረጃን ያዘምኑ</translation>
+<translation id="2267047181501709434">ማንነትዎን በማረጋገጥ ላይ...</translation>
 <translation id="2270484714375784793">ስልክ ቁጥር</translation>
 <translation id="2277103315734023688">ወደ ፊት ፈልግ</translation>
 <translation id="2283340219607151381">አድራሻዎችን አስቀምጥ እና ሙላ</translation>
@@ -479,6 +482,7 @@
 <translation id="3282497668470633863">በካርድ ላይ ስም ያክሉ</translation>
 <translation id="3287510313208355388">መስመር ላይ ሲሆኑ ያውርዱ</translation>
 <translation id="3293642807462928945">ስለ<ph name="POLICY_NAME" /> መመሪያው ተጨማሪ ይወቁ</translation>
+<translation id="3295439534709115864">የውሂብ ጥሰት እርስዎ በሚጠቀሙት ጣቢያ ወይም መተግበሪያ ላይ አጋጥሟል። Chrome የይለፍ ቃልዎን አሁኑኑ በ <ph name="ORIGIN" /> ላይ እንዲቀይሩት ይመክራል።</translation>
 <translation id="3303855915957856445">ምንም የፍለጋ ውጤቶች አልተገኙም</translation>
 <translation id="3320021301628644560">የመክፈያ አድራሻ አክል</translation>
 <translation id="3324983252691184275">ክሪምሶን</translation>
@@ -682,7 +686,6 @@
 <translation id="4258748452823770588">መጥፎ ፊርማ</translation>
 <translation id="4261046003697461417">ጥበቃ የሚደረግላቸው ሰነዶች ሊብራሩ አይችሉም</translation>
 <translation id="4265872034478892965">በእርስዎ አስተዳዳሪ የተፈቀደ</translation>
-<translation id="4270615291506829403">የእርስዎን መለያ በመለወጥ ላይ</translation>
 <translation id="4275830172053184480">መሣሪያዎን ዳግም ያስጀምሩ</translation>
 <translation id="4277028893293644418">የይለፍ ቃል ዳግም አቀናብር</translation>
 <translation id="4279811152705618813">የእርስዎ <ph name="DEVICE_TYPE" /> በ<ph name="ENROLLMENT_DOMAIN" /> የሚተዳደር ነው</translation>
@@ -762,7 +765,6 @@
 <translation id="4708268264240856090">የእርስዎ ግንኙነት ተቋርጧል</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" />የWindows አውታረ መረብ መመርመሪያን በማሄድ ላይ<ph name="END_LINK" /></translation>
-<translation id="4725851834065990915">የይለፍ ቃልዎን ባጋለጡበት ጣቢያ ወይም መተግበሪያ ላይ የውሂብ ጥሰት። Chrome የተቀመጡ ይለፍ ቃላትዎን አሁኑኑ መፈተሽ ይመክራል።</translation>
 <translation id="4726672564094551039">መምሪያዎችን ዳግም ጫን</translation>
 <translation id="4728558894243024398">መድረክ</translation>
 <translation id="4731967714531604179">Prc2 (የደብዳቤ ፖስታ)</translation>
@@ -1180,7 +1182,6 @@
 <translation id="679355240208270552">ነባሪው ፍለጋ በመምሪያ ስላልነቃ ችላ ተብሏል።</translation>
 <translation id="681021252041861472">የሚያስፈልግ መስክ</translation>
 <translation id="6810899417690483278">የብጁነት መታወቂያ</translation>
-<translation id="6819440013020405090">የይለፍ ቃልዎን ባጋለጡበት ጣቢያ ወይም መተግበሪያ ላይ የውሂብ ጥሰት። Chrome የተቀመጡ ይለፍ ቃላትዎን እንዲፈትሹና <ph name="ORIGIN" /> ላይ የይለፍ ቃልዎን እንዲቀይሩ ይመክራል።</translation>
 <translation id="6825578344716086703">እርስዎ <ph name="DOMAIN" />ን ለመድረስ ሞክረዋል፣ ነገር ግን አገልጋዩ ደካማ የፊርማ ስልተ-ቀመር (እንደ SHA-1 ያለ) በመጠቀም የተፈረመ የዕውቅና ማረጋገጫ ነው ያቀረበው። ይህ ማለት አገልጋዩ ያቀረበው የደህንነት ምስክርነቶች የተጭበረበሩ ሊሆኑ ይችላሉ፣ እናም አገልጋዩ እርስዎ የሚጠብቁት አገልጋይ ላይሆን ይችላል (ከአጥቂ ጋር እየተገናኙ ሊሆን ይችላል)።</translation>
 <translation id="6826370046007623921">የውሂብ መጥፋትን መከላከያ</translation>
 <translation id="6831043979455480757">መተርጎም</translation>
@@ -1223,7 +1224,6 @@
 <translation id="7064851114919012435">የእውቂያ መረጃ</translation>
 <translation id="7075452647191940183">ጥያቄ ከልክ በላይ ግዙፍ ነው</translation>
 <translation id="7079718277001814089">ይህ ጣቢያ ተንኮል-አዘል ዌር ይዟል</translation>
-<translation id="70850504851191913">የውሂብ ጥሰት ሪፖርት ተደርጓል</translation>
 <translation id="7087282848513945231">ክፍለ ሀገር</translation>
 <translation id="7090678807593890770"><ph name="LINK" />ን በGoogle ላይ ይፈልጉ</translation>
 <translation id="7108338896283013870">ደብቅ</translation>
@@ -1546,7 +1546,6 @@
 <translation id="8718314106902482036">ክፍያ አልተጠናቀቀም</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />፣ <ph name="DESCRIPTION" />፣ የፍለጋ ጥቆማ ሐሳብ</translation>
 <translation id="8719528812645237045">በርካታ ብስ ከላይ</translation>
-<translation id="8723954843026426558">በደንቦች እና ሁኔታዎች፣ የግላዊነት መመሪያ እና በ<ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> የመውጣት መብት እስማማለሁ</translation>
 <translation id="8725066075913043281">እንደገና ይሞክሩ</translation>
 <translation id="8728672262656704056">ማንነት የማያሳውቅ ሁነታ ውስጥ ገብተዋል</translation>
 <translation id="8730621377337864115">ተከናውኗል</translation>

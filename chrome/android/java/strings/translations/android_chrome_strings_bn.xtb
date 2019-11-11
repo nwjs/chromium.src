@@ -9,6 +9,7 @@
 <translation id="10614374240317010">কখনও সংরক্ষিত হয়নি</translation>
 <translation id="1067922213147265141">Google-এর অন্যান্য পরিষেবা</translation>
 <translation id="1068672505746868501"><ph name="SOURCE_LANGUAGE" /> ভাষার পৃষ্ঠার অনুবাদ কখনও দেখতে চাই না</translation>
+<translation id="107147699690128016">আপনি ফাইলের এক্সটেনশন পরিবর্তন করলে, সেটি অন্য অ্যাপ্লিকেশনে খুলতে পারে এবং আপনার ডিভাইসে সমস্যার সৃষ্টি করতে পারে।</translation>
 <translation id="1100066534610197918">গ্রুপে একটি নতুন ট্যাব খুলুন</translation>
 <translation id="1105960400813249514">স্ক্রিন ক্যাপচার</translation>
 <translation id="1111673857033749125">আপনার অন্যান্য ডিভাইসে সেভ করা বুকমার্কগুলি এখানে দেখা যাবে।</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">সব খুলুন</translation>
 <translation id="1409426117486808224">খোলা ট্যাবের জন্য সরলীকৃত ভিউ</translation>
 <translation id="1409879593029778104">ফাইল ইতিমধ্যেই থাকায় <ph name="FILE_NAME" /> ডাউনলোড আটকানো হয়েছে।</translation>
-<translation id="1413136574162415971">Google আপনার পাসওয়ার্ড কোনও ডেটার নিরাপত্তা লঙ্ঘনের অংশ ছিল কিনা তা যাচাই করতে পারে। আপনার Google অ্যাকাউন্ট ব্যবহার করে সাইন-ইন করে সিঙ্ক চালু করলেই এটি চালু হয়ে যাবে।</translation>
 <translation id="1414981605391750300">Google এর সাথে যোগাযোগ করা হচ্ছে। এতে একটু সময় লাগবে…</translation>
 <translation id="1416550906796893042">অ্যাপ্লিকেশন ভার্সন</translation>
 <translation id="1430915738399379752">প্রিন্ট</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Chrome যাতে আপনাকে বিজ্ঞপ্তি পাঠাতে পারে তার জন্য আপনি <ph name="BEGIN_LINK" />Android সেটিংস<ph name="END_LINK" />-এ গিয়ে বিজ্ঞপ্তি চালু করুন।</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> অ্যাপের ডেটা Chrome ব্রাউজারেও আছে</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">ফাইল এক্সটেনশন পরিবর্তন করলে, অপ্রত্যাশিত সমস্যা হতে পারে এবং আপনার ডিভাইসের ক্ষতি হতে পারে।</translation>
 <translation id="2056878612599315956">সাইট পজ করা আছে</translation>
 <translation id="2063713494490388661">সার্চ করতে আলতো চাপুন</translation>
 <translation id="2067805253194386918">টেক্সট</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">আপনি এটি স্বচ্ছন্দে পড়তে না পারা পর্যন্ত স্লাইডারটি টেনে আনুন৷ কোনো অনুচ্ছেদে দুবার-আলতো চাপার পরে পাঠ্যটিকে দেখতে অন্ততপক্ষে এইরকম বড় লাগা উচিত৷</translation>
 <translation id="2323763861024343754">সাইটের স্টোরেজ</translation>
 <translation id="2328985652426384049">সাইন ইন করতে পারছেন না</translation>
+<translation id="2330129964253841015">পাসওয়ার্ড হ্যাক করার চেষ্টা করা হলে আপনাকে জানানো হবে</translation>
 <translation id="2349710944427398404">অ্যাকাউন্ট, ​​বুকমার্ক এবং স্টোর করা সেটিংসসহ Chrome-এর ব্যবহার করা মোট ডেটা</translation>
 <translation id="2353636109065292463">আপনার ইন্টারনেট কানেকশন ঠিক আছে কিনা সেটি দেখা হচ্ছে</translation>
 <translation id="2359808026110333948">চালিয়ে যান</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">পাঠ্য স্কেলিং</translation>
 <translation id="2394602618534698961">আপনার ডাউনলোড করা ফাইল এখানে দেখানো হয়</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> এমবি</translation>
+<translation id="2407481962792080328">আপনার Google অ্যাকাউন্টে সাইন-ইন করলে এই ফিচারটি চালু হয়ে যাবে</translation>
 <translation id="2410754283952462441">একটি অ্যাকাউন্ট বেছে নিন</translation>
 <translation id="2414886740292270097">অন্ধকার</translation>
 <translation id="2416359993254398973">এই সাইটটির জন্য Chrome কে আপনার ক্যামেরায় অ্যাক্সেস দিতে হবে।</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">আপনি এখন আপনার সিঙ্ক এবং Google পরিষেবার সেটিংস কাস্টমাইজ করছেন। স্ক্রিনের নিচের দিকে থাকা 'কনফার্ম করুন' বোতামে ট্যাপ করে সিঙ্ক চালু দিন। উপরে নেভিগেট করুন</translation>
 <translation id="3328801116991980348">সাইট তথ্য</translation>
 <translation id="3333961966071413176">সব পরিচিতি</translation>
+<translation id="3334729583274622784">ফাইলের এক্সটেনশন পরিবর্তন করতে চান?</translation>
 <translation id="3341058695485821946">দেখুন আপনি কত ডেটা সাশ্রয় করেছেন</translation>
 <translation id="3350687908700087792">সমস্ত ছদ্মবেশী ট্যাব বন্ধ করুন</translation>
 <translation id="3353615205017136254">Google লাইট পৃষ্ঠা পাঠিয়েছে। আসল পৃষ্ঠাটি লোড করতে "আসলটি লোড করুন" বোতামে ট্যাপ করুন।</translation>
@@ -875,7 +877,6 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (আপডেট করা হয়েছে <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">সেভ করা ডেটা</translation>
 <translation id="7498271377022651285">দয়া করে অপেক্ষা করুন...</translation>
-<translation id="7510943789645525906">চুরি হওয়া পাসওয়ার্ডের তালিকায় রয়েছে এমন কোনও পাসওয়ার্ড ব্যবহার করলে আপনাকে সতর্ক করে দেয়</translation>
 <translation id="7514365320538308">ডাউনলোড করুন</translation>
 <translation id="751961395872307827">সাইটের সাথে সংযোগ করা যাচ্ছে না</translation>
 <translation id="7521387064766892559">জাভাস্ক্রিপ্ট</translation>
@@ -921,7 +922,6 @@
 <translation id="7810647596859435254">এর মাধ্যমে খুলুন...</translation>
 <translation id="7821588508402923572">আপনি কত ডেটা সেভ করেছেন তা এখানে দেখা যাবে</translation>
 <translation id="7837721118676387834">একটি নির্দিষ্ট সাইটের জন্য মিউট করে রাখা ভিডিওগুলি স্বতঃবাজানোর অনুমতি দেয়।</translation>
-<translation id="7838340937077326045">আপনি কি ফাইল এক্সটেনশন পরিবর্তন করার ব্যাপারে নিশ্চিত?</translation>
 <translation id="7846076177841592234">নির্বাচন বাতিল করুন</translation>
 <translation id="784934925303690534">সময় সীমা</translation>
 <translation id="7851858861565204677">অন্যান্য ডিভাইস</translation>
@@ -932,7 +932,6 @@
 <translation id="7886917304091689118">Chrome এ চালানো হচ্ছে</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{ফাইলটি ডাউনলোড হচ্ছে।}one{#টি ফাইল ডাউনলোড হচ্ছে।}other{#টি ফাইল ডাউনলোড হচ্ছে।}}</translation>
 <translation id="7929962904089429003">মেনুটি খুলুন</translation>
-<translation id="7930681627240672853">পাসওয়ার্ড সুরক্ষিত আছে কিনা চেক করে দেখুন</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> পুরনো হয়ে গেছে।</translation>
 <translation id="7947953824732555851">সম্মত হয়ে সাইন-ইন করুন</translation>
 <translation id="7963646190083259054">বিক্রেতা:</translation>
@@ -948,7 +947,6 @@
 <translation id="8007176423574883786">এই ডিভাইসের জন্য বন্ধ করা আছে</translation>
 <translation id="8013372441983637696">এছাড়া এই ডিভাইস থেকে Chrome ডেটা সরিয়ে ফেলুন</translation>
 <translation id="8015452622527143194">পৃষ্ঠার সবকিছুকে ডিফল্ট আকারে ফিরিয়ে আনুন</translation>
-<translation id="8015780634880457457">আপনার পাসওয়ার্ড কোনও ডেটার নিরাপত্তা লঙ্ঘনের অংশ ছিল কিনা তা Google যাচাই করতে পারে</translation>
 <translation id="802154636333426148">ডাউনলোড করা যায়নি</translation>
 <translation id="8026334261755873520">ব্রাউজ করা ডেটা সাফ করুন</translation>
 <translation id="8035133914807600019">নতুন ফোল্ডার...</translation>

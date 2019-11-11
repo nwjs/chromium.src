@@ -26,6 +26,7 @@ class WebContents;
 namespace weblayer {
 class FullscreenDelegate;
 class NavigationControllerImpl;
+class NewBrowserDelegate;
 class ProfileImpl;
 
 #if defined(OS_ANDROID)
@@ -36,7 +37,14 @@ class BrowserControllerImpl : public BrowserController,
                               public content::WebContentsDelegate,
                               public content::WebContentsObserver {
  public:
-  explicit BrowserControllerImpl(ProfileImpl* profile);
+  // TODO(sky): investigate a better way to not have so many ifdefs.
+#if defined(OS_ANDROID)
+  BrowserControllerImpl(ProfileImpl* profile,
+                        const base::android::JavaParamRef<jobject>& java_impl);
+#endif
+  explicit BrowserControllerImpl(
+      ProfileImpl* profile,
+      std::unique_ptr<content::WebContents> = nullptr);
   ~BrowserControllerImpl() override;
 
   // Returns the BrowserControllerImpl from the specified WebContents, or null
@@ -45,6 +53,10 @@ class BrowserControllerImpl : public BrowserController,
       content::WebContents* web_contents);
 
   content::WebContents* web_contents() const { return web_contents_.get(); }
+
+  bool has_new_browser_delegate() const {
+    return new_browser_delegate_ != nullptr;
+  }
 
 #if defined(OS_ANDROID)
   base::android::ScopedJavaLocalRef<jobject> GetWebContents(
@@ -66,20 +78,29 @@ class BrowserControllerImpl : public BrowserController,
   // BrowserController:
   void SetDownloadDelegate(DownloadDelegate* delegate) override;
   void SetFullscreenDelegate(FullscreenDelegate* delegate) override;
+  void SetNewBrowserDelegate(NewBrowserDelegate* delegate) override;
   void AddObserver(BrowserObserver* observer) override;
   void RemoveObserver(BrowserObserver* observer) override;
   NavigationController* GetNavigationController() override;
+  void ExecuteScript(const base::string16& script,
+                     JavaScriptResultCallback callback) override;
 #if !defined(OS_ANDROID)
   void AttachToView(views::WebView* web_view) override;
 #endif
 
   // content::WebContentsDelegate:
-  void LoadingStateChanged(content::WebContents* source,
-                           bool to_different_document) override;
   void LoadProgressChanged(content::WebContents* source,
                            double progress) override;
+  content::WebContents* OpenURLFromTab(
+      content::WebContents* source,
+      const content::OpenURLParams& params) override;
   void DidNavigateMainFramePostCommit(
       content::WebContents* web_contents) override;
+  content::ColorChooser* OpenColorChooser(
+      content::WebContents* web_contents,
+      SkColor color,
+      const std::vector<blink::mojom::ColorSuggestionPtr>& suggestions)
+      override;
   void RunFileChooser(content::RenderFrameHost* render_frame_host,
                       std::unique_ptr<content::FileSelectListener> listener,
                       const blink::mojom::FileChooserParams& params) override;
@@ -96,6 +117,12 @@ class BrowserControllerImpl : public BrowserController,
       const content::WebContents* web_contents) override;
   blink::mojom::DisplayMode GetDisplayMode(
       const content::WebContents* web_contents) override;
+  void AddNewContents(content::WebContents* source,
+                      std::unique_ptr<content::WebContents> new_contents,
+                      WindowOpenDisposition disposition,
+                      const gfx::Rect& initial_rect,
+                      bool user_gesture,
+                      bool* was_blocked) override;
 
   // content::WebContentsObserver:
   void DidFinishNavigation(
@@ -106,12 +133,14 @@ class BrowserControllerImpl : public BrowserController,
 
   DownloadDelegate* download_delegate_ = nullptr;
   FullscreenDelegate* fullscreen_delegate_ = nullptr;
+  NewBrowserDelegate* new_browser_delegate_ = nullptr;
   ProfileImpl* profile_;
   std::unique_ptr<content::WebContents> web_contents_;
   std::unique_ptr<NavigationControllerImpl> navigation_controller_;
   base::ObserverList<BrowserObserver>::Unchecked observers_;
 #if defined(OS_ANDROID)
   TopControlsContainerView* top_controls_container_view_ = nullptr;
+  base::android::ScopedJavaGlobalRef<jobject> java_impl_;
 #endif
 
   bool is_fullscreen_ = false;

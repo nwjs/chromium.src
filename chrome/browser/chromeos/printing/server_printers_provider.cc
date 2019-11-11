@@ -10,6 +10,7 @@
 
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/sequenced_task_runner.h"
 #include "base/stl_util.h"
 #include "base/task/post_task.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/chromeos/printing/print_servers_provider_factory.h"
 #include "chrome/browser/chromeos/printing/server_printers_fetcher.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/device_event_log/device_event_log.h"
 #include "url/gurl.h"
 
 namespace chromeos {
@@ -69,6 +71,15 @@ class ServerPrintersProviderImpl
   void OnServersChanged(bool servers_are_complete,
                         const std::vector<PrintServer>& servers) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    // Create an entry in the device log.
+    if (servers_are_complete) {
+      PRINTER_LOG(EVENT) << "The list of print servers has been completed. "
+                         << "Number of print servers: " << servers.size();
+      if (!servers.empty()) {
+        base::UmaHistogramCounts1000("Printing.PrintServers.ServersToQuery",
+                                     servers.size());
+      }
+    }
     // Save previous state.
     const bool previous_complete = IsComplete();
     // Initialize new state.
@@ -77,6 +88,7 @@ class ServerPrintersProviderImpl
     std::map<GURL, PrintServerWithPrinters> new_servers;
     for (const auto& server : servers) {
       const GURL& url = server.GetUrl();
+      const std::string& name = server.GetName();
       auto it_new = new_servers.emplace(url, server).first;
       auto it_old = servers_.find(url);
       if (it_old != servers_.end()) {
@@ -88,9 +100,10 @@ class ServerPrintersProviderImpl
         // This is a new print server: query for printers.
         fetchers_.emplace(
             url, std::make_unique<ServerPrintersFetcher>(
-                     url, base::BindRepeating(
-                              &ServerPrintersProviderImpl::OnPrintersFetched,
-                              weak_ptr_factory_.GetWeakPtr())));
+                     url, name,
+                     base::BindRepeating(
+                         &ServerPrintersProviderImpl::OnPrintersFetched,
+                         weak_ptr_factory_.GetWeakPtr())));
       }
     }
     // The rest of servers in the old map are going to be deleted.

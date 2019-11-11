@@ -17,24 +17,24 @@ import org.json.JSONObject;
 import org.chromium.weblayer_private.aidl.APICallException;
 import org.chromium.weblayer_private.aidl.IBrowserController;
 import org.chromium.weblayer_private.aidl.IBrowserControllerClient;
-import org.chromium.weblayer_private.aidl.IDownloadDelegateClient;
-import org.chromium.weblayer_private.aidl.IFullscreenDelegateClient;
+import org.chromium.weblayer_private.aidl.IDownloadCallbackClient;
+import org.chromium.weblayer_private.aidl.IFullscreenCallbackClient;
 import org.chromium.weblayer_private.aidl.IObjectWrapper;
 import org.chromium.weblayer_private.aidl.ObjectWrapper;
 
 /**
  * Represents a web-browser. More specifically, owns a NavigationController, and allows configuring
- * state of the browser, such as delegates and observers.
+ * state of the browser, such as delegates and callbacks.
  */
 public final class BrowserController {
     /** The top level key of the JSON object returned by executeScript(). */
     public static final String SCRIPT_RESULT_KEY = "result";
 
     private final IBrowserController mImpl;
-    private FullscreenDelegateClientImpl mFullscreenDelegateClient;
+    private FullscreenCallbackClientImpl mFullscreenCallbackClient;
     private final NavigationController mNavigationController;
-    private final ObserverList<BrowserObserver> mObservers;
-    private DownloadDelegateClientImpl mDownloadDelegateClient;
+    private final ObserverList<BrowserCallback> mCallbacks;
+    private DownloadCallbackClientImpl mDownloadCallbackClient;
 
     BrowserController(IBrowserController impl) {
         mImpl = impl;
@@ -44,40 +44,43 @@ public final class BrowserController {
             throw new APICallException(e);
         }
 
-        mObservers = new ObserverList<BrowserObserver>();
+        mCallbacks = new ObserverList<BrowserCallback>();
         mNavigationController = NavigationController.create(mImpl);
     }
 
-    public void setDownloadDelegate(@Nullable DownloadDelegate delegate) {
+    public void setDownloadCallback(@Nullable DownloadCallback callback) {
+        ThreadCheck.ensureOnUiThread();
         try {
-            if (delegate != null) {
-                mDownloadDelegateClient = new DownloadDelegateClientImpl(delegate);
-                mImpl.setDownloadDelegateClient(mDownloadDelegateClient);
+            if (callback != null) {
+                mDownloadCallbackClient = new DownloadCallbackClientImpl(callback);
+                mImpl.setDownloadCallbackClient(mDownloadCallbackClient);
             } else {
-                mDownloadDelegateClient = null;
-                mImpl.setDownloadDelegateClient(null);
+                mDownloadCallbackClient = null;
+                mImpl.setDownloadCallbackClient(null);
             }
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
     }
 
-    public void setFullscreenDelegate(@Nullable FullscreenDelegate delegate) {
+    public void setFullscreenCallback(@Nullable FullscreenCallback callback) {
+        ThreadCheck.ensureOnUiThread();
         try {
-            if (delegate != null) {
-                mFullscreenDelegateClient = new FullscreenDelegateClientImpl(delegate);
-                mImpl.setFullscreenDelegateClient(mFullscreenDelegateClient);
+            if (callback != null) {
+                mFullscreenCallbackClient = new FullscreenCallbackClientImpl(callback);
+                mImpl.setFullscreenCallbackClient(mFullscreenCallbackClient);
             } else {
-                mImpl.setFullscreenDelegateClient(null);
-                mFullscreenDelegateClient = null;
+                mImpl.setFullscreenCallbackClient(null);
+                mFullscreenCallbackClient = null;
             }
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
     }
 
-    public DownloadDelegate getDownloadDelegate() {
-        return mDownloadDelegateClient != null ? mDownloadDelegateClient.getDelegate() : null;
+    public DownloadCallback getDownloadCallback() {
+        ThreadCheck.ensureOnUiThread();
+        return mDownloadCallbackClient != null ? mDownloadCallbackClient.getCallback() : null;
     }
 
     /**
@@ -87,6 +90,7 @@ public final class BrowserController {
      */
     public void executeScript(
             @NonNull String script, @Nullable ValueCallback<JSONObject> callback) {
+        ThreadCheck.ensureOnUiThread();
         try {
             ValueCallback<String> stringCallback = (String result) -> {
                 if (callback == null) {
@@ -108,26 +112,25 @@ public final class BrowserController {
     }
 
     @Nullable
-    public FullscreenDelegate getFullscreenDelegate() {
-        return mFullscreenDelegateClient != null ? mFullscreenDelegateClient.getDelegate() : null;
-    }
-
-    @Override
-    protected void finalize() {
-        // TODO(sky): figure out right assertion here if mProfile is non-null.
+    public FullscreenCallback getFullscreenCallback() {
+        ThreadCheck.ensureOnUiThread();
+        return mFullscreenCallbackClient != null ? mFullscreenCallbackClient.getCallback() : null;
     }
 
     @NonNull
     public NavigationController getNavigationController() {
+        ThreadCheck.ensureOnUiThread();
         return mNavigationController;
     }
 
-    public void addObserver(@Nullable BrowserObserver observer) {
-        mObservers.addObserver(observer);
+    public void registerBrowserCallback(@Nullable BrowserCallback callback) {
+        ThreadCheck.ensureOnUiThread();
+        mCallbacks.addObserver(callback);
     }
 
-    public void removeObserver(@Nullable BrowserObserver observer) {
-        mObservers.removeObserver(observer);
+    public void unregisterBrowserCallback(@Nullable BrowserCallback callback) {
+        ThreadCheck.ensureOnUiThread();
+        mCallbacks.removeObserver(callback);
     }
 
     IBrowserController getIBrowserController() {
@@ -138,66 +141,52 @@ public final class BrowserController {
         @Override
         public void visibleUrlChanged(String url) {
             Uri uri = Uri.parse(url);
-            for (BrowserObserver observer : mObservers) {
-                observer.visibleUrlChanged(uri);
-            }
-        }
-
-        @Override
-        public void loadingStateChanged(boolean isLoading, boolean toDifferentDocument) {
-            for (BrowserObserver observer : mObservers) {
-                observer.loadingStateChanged(isLoading, toDifferentDocument);
-            }
-        }
-
-        @Override
-        public void loadProgressChanged(double progress) {
-            for (BrowserObserver observer : mObservers) {
-                observer.loadProgressChanged(progress);
+            for (BrowserCallback callback : mCallbacks) {
+                callback.visibleUrlChanged(uri);
             }
         }
     }
 
-    private final class DownloadDelegateClientImpl extends IDownloadDelegateClient.Stub {
-        private final DownloadDelegate mDelegate;
+    private static final class DownloadCallbackClientImpl extends IDownloadCallbackClient.Stub {
+        private final DownloadCallback mCallback;
 
-        DownloadDelegateClientImpl(DownloadDelegate delegate) {
-            mDelegate = delegate;
+        DownloadCallbackClientImpl(DownloadCallback callback) {
+            mCallback = callback;
         }
 
-        public DownloadDelegate getDelegate() {
-            return mDelegate;
+        public DownloadCallback getCallback() {
+            return mCallback;
         }
 
         @Override
         public void downloadRequested(String url, String userAgent, String contentDisposition,
                 String mimetype, long contentLength) {
-            mDelegate.downloadRequested(
+            mCallback.downloadRequested(
                     url, userAgent, contentDisposition, mimetype, contentLength);
         }
     }
 
-    private final class FullscreenDelegateClientImpl extends IFullscreenDelegateClient.Stub {
-        private FullscreenDelegate mDelegate;
+    private static final class FullscreenCallbackClientImpl extends IFullscreenCallbackClient.Stub {
+        private FullscreenCallback mCallback;
 
-        /* package */ FullscreenDelegateClientImpl(FullscreenDelegate delegate) {
-            mDelegate = delegate;
+        /* package */ FullscreenCallbackClientImpl(FullscreenCallback callback) {
+            mCallback = callback;
         }
 
-        public FullscreenDelegate getDelegate() {
-            return mDelegate;
+        public FullscreenCallback getCallback() {
+            return mCallback;
         }
 
         @Override
         public void enterFullscreen(IObjectWrapper exitFullscreenWrapper) {
             ValueCallback<Void> exitFullscreenCallback = (ValueCallback<Void>) ObjectWrapper.unwrap(
                     exitFullscreenWrapper, ValueCallback.class);
-            mDelegate.enterFullscreen(() -> exitFullscreenCallback.onReceiveValue(null));
+            mCallback.enterFullscreen(() -> exitFullscreenCallback.onReceiveValue(null));
         }
 
         @Override
         public void exitFullscreen() {
-            mDelegate.exitFullscreen();
+            mCallback.exitFullscreen();
         }
     }
 }

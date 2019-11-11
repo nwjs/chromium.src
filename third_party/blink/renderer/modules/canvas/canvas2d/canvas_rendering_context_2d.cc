@@ -319,7 +319,7 @@ CanvasPixelFormat CanvasRenderingContext2D::PixelFormat() const {
 }
 
 void CanvasRenderingContext2D::Reset() {
-  // This is a multiple inherritance bootstrap
+  // This is a multiple inheritance bootstrap
   BaseRenderingContext2D::Reset();
 }
 
@@ -1141,6 +1141,13 @@ bool CanvasRenderingContext2D::IsCanvas2DBufferValid() const {
     return canvas()->GetCanvas2DLayerBridge()->IsValid();
   }
   return false;
+}
+
+bool CanvasRenderingContext2D::IsDeferralEnabled() const {
+  Canvas2DLayerBridge* layer_bridge = canvas()->GetCanvas2DLayerBridge();
+  if (!layer_bridge)
+    return false;
+  return layer_bridge->IsDeferralEnabled();
 }
 
 }  // namespace blink

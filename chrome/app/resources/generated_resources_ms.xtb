@@ -925,6 +925,7 @@ Anda boleh mengurus tetapan akaun ini dengan memasang apl Family Link pada peran
 <translation id="2326931316514688470">&amp;Muat semula apl</translation>
 <translation id="2327492829706409234">Dayakan apl</translation>
 <translation id="2329597144923131178">Log masuk untuk mendapatkan penanda halaman, sejarah, kata laluan dan tetapan lain pada semua peranti anda.</translation>
+<translation id="2330129964253841015">Beri amaran kepada anda jika kata laluan terjejas</translation>
 <translation id="2332131598580221120">Lihat di gedung</translation>
 <translation id="2332192922827071008">Buka Pilihan</translation>
 <translation id="2332742915001411729">Tetapkan semula kepada lalai</translation>
@@ -973,6 +974,7 @@ Anda boleh mengurus tetapan akaun ini dengan memasang apl Family Link pada peran
 <translation id="2395616325548404795"><ph name="DEVICE_TYPE" /> anda berjaya didaftarkan untuk pengurusan perusahaan, tetapi gagal menghantar maklumat aset dan lokasinya. Sila masukkan maklumat ini secara manual daripada Admin console anda untuk peranti ini.</translation>
 <translation id="2396783860772170191">Masukkan PIN 4 angka (0000-9999)</translation>
 <translation id="2399939490305346086">Data log masuk kunci keselamatan</translation>
+<translation id="2407481962792080328">Apabila anda log masuk ke Akaun Google anda, ciri ini akan dihidupkan</translation>
 <translation id="2408955596600435184">Masukkan PIN anda</translation>
 <translation id="241082044617551207">Pemalam tidak diketahui</translation>
 <translation id="2412593942846481727">Kemas kini tersedia</translation>
@@ -1427,6 +1429,7 @@ Anda boleh mengurus tetapan akaun ini dengan memasang apl Family Link pada peran
 <translation id="3038612606416062604">Tambahkan pencetak secara manual</translation>
 <translation id="3038675903128704560">Jangan benarkan mana-mana tapak menggunakan pemalam untuk mengakses komputer anda</translation>
 <translation id="3039491566278747710">Gagal memasang dasar luar talian pada peranti.</translation>
+<translation id="3043581297103810752">Daripada <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Tapak ini memuat turun berbilang fail secara automatik</translation>
 <translation id="3046910703532196514">Haaman Web, Lengkap</translation>
 <translation id="304747341537320566">Enjin Pertuturan</translation>
@@ -2293,6 +2296,7 @@ Anda boleh mengurus tetapan akaun ini dengan memasang apl Family Link pada peran
 <translation id="4316850752623536204">Tapak Web Pembangun</translation>
 <translation id="4320177379694898372">Tiada sambungan Internet</translation>
 <translation id="4321442524549817090">T&amp;unjukkan URL</translation>
+<translation id="4322394346347055525">Tutup Tab Lain</translation>
 <translation id="4324577459193912240">Fail tidak lengkap</translation>
 <translation id="4325237902968425115">Menyahpasang <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Air ais</translation>
@@ -2822,7 +2826,6 @@ Pastikan anda mempercayai tapak ini sebelum memasuki VR.</translation>
 <translation id="5142961317498132443">Pengesahan</translation>
 <translation id="5143374789336132547">Sambungan "<ph name="EXTENSION_NAME" />" telah menukar halaman yang ditunjukkan apabila anda mengklik butang Laman Utama.</translation>
 <translation id="5143712164865402236">Memasuki Skrin Penuh</translation>
-<translation id="5145461783043820456">Penyekatan kuki pihak ketiga dihidupkan</translation>
 <translation id="514575469079499857">Gunakan alamat IP anda untuk menentukan lokasi (lalai)</translation>
 <translation id="5146995429444047494">Pemberitahuan untuk <ph name="ORIGIN" /> disekat</translation>
 <translation id="5150254825601720210">Nama Pelayan SSL Sijil Netscape</translation>
@@ -2958,7 +2961,6 @@ Pastikan anda mempercayai tapak ini sebelum memasuki VR.</translation>
 <translation id="5360150013186312835">Tunjukkan dalam Bar Alat</translation>
 <translation id="5362741141255528695">Pilih fail kunci persendirian.</translation>
 <translation id="5363109466694494651">Powerwash dan Berbalik</translation>
-<translation id="5365716706805792666">Google boleh menyemak sama ada kata laluan anda terlibat dalam pelanggaran data. Semakan ini akan dihidupkan apabila anda log masuk dengan Akaun Google anda.</translation>
 <translation id="5365881113273618889">Folder yang anda pilih mengandungi fail sensitif. Adakah anda pasti anda mahu memberi "<ph name="APP_NAME" />" akses tulis kekal kepada folder ini?</translation>
 <translation id="5367091008316207019">Membaca fail..</translation>
 <translation id="5368720394188453070">Telefon anda dikunci. Buka kuncinya untuk masuk.</translation>
@@ -3659,7 +3661,6 @@ Pastikan anda mempercayai tapak ini sebelum memasuki VR.</translation>
 <translation id="63566973648609420">Hanya orang yang tahu ungkapan laluan anda boleh membaca data anda yang disulitkan. Ungkapan laluan tidak dihantar atau disimpan oleh Google. Jika anda terlupa ungkapan laluan atau ingin menukar tetapan ini, anda perlu <ph name="BEGIN_LINK" />menetapkan semula penyegerakan<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Selamat datang ke keluarga <ph name="SHORT_PRODUCT_NAME" />. Ini bukan komputer biasa.</translation>
 <translation id="6358884629796491903">Naga</translation>
-<translation id="6360079014182882594">Tapak ini bebas daripada kuki yang boleh digunakan untuk menjejaki anda di seluruh web</translation>
 <translation id="6361850914223837199">Butiran ralat:</translation>
 <translation id="6362853299801475928">&amp;Laporkan isu...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3981,6 +3982,7 @@ Pastikan anda mempercayai tapak ini sebelum memasuki VR.</translation>
 <translation id="6850286078059909152">Warna teks</translation>
 <translation id="6851497530878285708">Apl Didayakan</translation>
 <translation id="6853388645642883916">Pengemaskinian tidur</translation>
+<translation id="68541483639528434">Tutup tab lain</translation>
 <translation id="6856623341093082836">Sediakan dan laras ketepatan skrin sentuh anda</translation>
 <translation id="6857699260879628349">Dapatkan maklumat konfigurasi</translation>
 <translation id="6860097299815761905">Tetapan proksi...</translation>
@@ -4429,7 +4431,6 @@ Pastikan anda mempercayai tapak ini sebelum memasuki VR.</translation>
 <translation id="7506541170099744506"><ph name="DEVICE_TYPE" /> anda berjaya didaftarkan untuk pengurusan perusahaan.</translation>
 <translation id="7507930499305566459">Status Pembalas Sijil</translation>
 <translation id="7508054832109420082">Berikan akses kepada pencetak</translation>
-<translation id="7510943789645525906">Memberi anda amaran jika kata laluan yang anda gunakan adalah sebahagian daripada pelanggaran data</translation>
 <translation id="7513029293694390567">Log masuk secara automatik ke tapak web menggunakan bukti kelayakan yang disimpan. Jika dilumpuhkan, anda akan diminta memberikan pengesahan setiap kali sebelum mengelog masuk ke tapak web.</translation>
 <translation id="7514239104543605883">Salin ke peranti anda</translation>
 <translation id="7514365320538308">Muat Turun</translation>
@@ -4731,7 +4732,6 @@ Pastikan anda mempercayai tapak ini sebelum memasuki VR.</translation>
 <translation id="7926423016278357561">Ini bukan saya.</translation>
 <translation id="7928836894214140642">Diurus oleh <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Kaedah pembayaran yang disimpan akan dipaparkan di sini</translation>
-<translation id="7930681627240672853">Semak keselamatan kata laluan</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> berkongsi skrin dan audio anda.</translation>
 <translation id="7931318309563332511">Tidak diketahui</translation>
 <translation id="793293630927785390">Dialog Rangkaian Wi-Fi Baharu</translation>
@@ -4804,7 +4804,6 @@ Simpan fail kunci anda di tempat selamat. Anda akan memerlukannya untuk mencipta
 <translation id="8014154204619229810">Pengemaskinian sedang dijalankan. Muatkan semula dalam satu minit untuk memeriksa lagi.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> tidak dapat kembali kepada versi yang dipasang sebelumnya. Sila cuba Powerwash peranti anda lagi.</translation>
 <translation id="8014210335923519270">Tingkatkan <ph name="IDS_SHORT_PRODUCT_NAME" /> dan keselamatannya dengan menghantar maklumat sistem dan penggunaan kepada Google</translation>
-<translation id="8015780634880457457">Google boleh menyemak sama ada kata laluan anda terlibat dalam pelanggaran data</translation>
 <translation id="8016266267177410919">Storan sementara</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Pintasan diedit</translation>
@@ -5581,7 +5580,7 @@ perubahan ini berlaku, anda mungkin tidak mahukannya.</translation>
 <translation id="9130015405878219958">Mod tidak sah dimasukkan.</translation>
 <translation id="9131487537093447019">Hantar mesej kepada dan terima mesej daripada peranti Bluetooth.</translation>
 <translation id="9134304429738380103">Ya, saya ikut serta.</translation>
-<translation id="9135090785674039430">Apabila dihidupkan, tapak tidak dapat menggunakan kuki yang menjejaki anda di seluruh web. Sesetengah tapak web mungkin akan rosak.</translation>
+<translation id="9135090785674039430">Apabila pilihan ini dihidupkan, tapak tidak dapat menggunakan kuki yang menjejaki anda di seluruh web. Sesetengah tapak web mungkin tidak dapat diakses.</translation>
 <translation id="9137013805542155359">Paparkan asal</translation>
 <translation id="9137157311132182254">Enjin carian pilihan</translation>
 <translation id="9137248913990643158">Sila mulakan dan log masuk ke Chrome sebelum menggunakan apl ini.</translation>

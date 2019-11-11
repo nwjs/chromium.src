@@ -462,6 +462,7 @@ class TabStripModel {
     CommandReload,
     CommandDuplicate,
     CommandCloseTab,
+    CommandCloseOtherTabs,
     CommandCloseTabsToRight,
     CommandTogglePinned,
     CommandFocusMode,

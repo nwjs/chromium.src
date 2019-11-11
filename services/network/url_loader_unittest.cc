@@ -480,7 +480,8 @@ class URLLoaderTest : public testing::Test {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), options, request,
         client_.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-        0 /* request_id */, resource_scheduler_client(), nullptr,
+        0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -1052,7 +1053,7 @@ TEST_F(URLLoaderTest, DestroyOnURLLoaderPipeClosed) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -1106,7 +1107,7 @@ TEST_F(URLLoaderTest, CloseResponseBodyConsumerBeforeProducer) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -1162,7 +1163,7 @@ TEST_F(URLLoaderTest, PauseReadingBodyFromNetBeforeResponseHeaders) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -1240,7 +1241,7 @@ TEST_F(URLLoaderTest, PauseReadingBodyFromNetWhenReadIsPending) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -1307,7 +1308,7 @@ TEST_F(URLLoaderTest, ResumeReadingBodyFromNetAfterClosingConsumer) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -1369,7 +1370,7 @@ TEST_F(URLLoaderTest, MultiplePauseResumeReadingBodyFromNet) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -1623,7 +1624,7 @@ TEST_F(URLLoaderTest, UploadFileCanceled) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -1809,7 +1810,7 @@ TEST_F(URLLoaderTest, UploadChunkedDataPipe) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      nullptr /* resource_scheduler_client */,
+      0 /* keepalive_request_size */, nullptr /* resource_scheduler_client */,
       nullptr /* keepalive_statistics_reporter */,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
@@ -1879,7 +1880,8 @@ TEST_F(URLLoaderTest, RedirectModifiedHeaders) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
       client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -1933,7 +1935,8 @@ TEST_F(URLLoaderTest, RedirectFailsOnModifyUnsafeHeader) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-        0 /* request_id */, resource_scheduler_client(), nullptr,
+        0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -1971,7 +1974,8 @@ TEST_F(URLLoaderTest, RedirectLogsModifiedConcerningHeader) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
       client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -2024,7 +2028,8 @@ TEST_F(URLLoaderTest, RedirectRemoveHeader) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
       client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -2067,7 +2072,8 @@ TEST_F(URLLoaderTest, RedirectRemoveHeaderAndAddItBack) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
       client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -2114,7 +2120,8 @@ TEST_F(URLLoaderTest, UpgradeAddsSecHeaders) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
       client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -2163,7 +2170,8 @@ TEST_F(URLLoaderTest, DowngradeRemovesSecHeaders) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
       client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -2221,7 +2229,8 @@ TEST_F(URLLoaderTest, RedirectChainRemovesAndAddsSecHeaders) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
       client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -2356,7 +2365,8 @@ TEST_F(URLLoaderTest, ResourceSchedulerIntegration) {
         NeverInvokedDeleteLoaderCallback(),
         mojo::MakeRequest(&loaderInterfacePtr), 0, request,
         client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-        0 /* request_id */, resource_scheduler_client(), nullptr,
+        0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -2378,7 +2388,8 @@ TEST_F(URLLoaderTest, ResourceSchedulerIntegration) {
       nullptr /* network_context_client */, NeverInvokedDeleteLoaderCallback(),
       mojo::MakeRequest(&loader_interface_ptr), 0, request,
       client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
   base::RunLoop().RunUntilIdle();
@@ -2415,7 +2426,8 @@ TEST_F(URLLoaderTest, ReadPipeClosedWhileReadTaskPosted) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
       client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -2800,7 +2812,7 @@ TEST_F(URLLoaderTest, SetAuth) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
   base::RunLoop().RunUntilIdle();
@@ -2844,7 +2856,7 @@ TEST_F(URLLoaderTest, CancelAuth) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
   base::RunLoop().RunUntilIdle();
@@ -2888,7 +2900,7 @@ TEST_F(URLLoaderTest, TwoChallenges) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
   base::RunLoop().RunUntilIdle();
@@ -2933,7 +2945,7 @@ TEST_F(URLLoaderTest, NoAuthRequiredForFavicon) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
   base::RunLoop().RunUntilIdle();
@@ -2977,7 +2989,7 @@ TEST_F(URLLoaderTest, HttpAuthResponseHeadersAvailable) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
   base::RunLoop().RunUntilIdle();
@@ -3019,7 +3031,7 @@ TEST_F(URLLoaderTest, CorbEffectiveWithCors) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3059,7 +3071,7 @@ TEST_F(URLLoaderTest, CorbExcludedWithNoCors) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3102,7 +3114,7 @@ TEST_F(URLLoaderTest, CorbEffectiveWithNoCorsWhenNoActualPlugin) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3137,7 +3149,8 @@ TEST_F(URLLoaderTest, FollowRedirectTwice) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
       client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3239,7 +3252,8 @@ TEST_F(URLLoaderTest, ClientAuthRespondTwice) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
       client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3290,7 +3304,7 @@ TEST_F(URLLoaderTest, ClientAuthDestroyResponder) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
   network_context_client.set_url_loader_ptr(&loader);
@@ -3332,7 +3346,7 @@ TEST_F(URLLoaderTest, ClientAuthCancelConnection) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
   network_context_client.set_url_loader_ptr(&loader);
@@ -3373,7 +3387,7 @@ TEST_F(URLLoaderTest, ClientAuthCancelCertificateSelection) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3423,7 +3437,7 @@ TEST_F(URLLoaderTest, ClientAuthNoCertificate) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3478,7 +3492,7 @@ TEST_F(URLLoaderTest, ClientAuthCertificateWithValidSignature) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3535,7 +3549,7 @@ TEST_F(URLLoaderTest, ClientAuthCertificateWithInvalidSignature) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), 0, request, client()->CreateInterfacePtr(),
       TRAFFIC_ANNOTATION_FOR_TESTS, &params, 0 /* request_id */,
-      resource_scheduler_client(), nullptr,
+      0 /* keepalive_request_size */, resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3572,7 +3586,8 @@ TEST_F(URLLoaderTest, BlockAllCookies) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionBlockAllCookies, request,
       client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3598,7 +3613,8 @@ TEST_F(URLLoaderTest, BlockOnlyThirdPartyCookies) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionBlockThirdPartyCookies,
       request, client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-      &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+      &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3624,7 +3640,8 @@ TEST_F(URLLoaderTest, AllowAllCookies) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
       client()->CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3652,7 +3669,8 @@ TEST_F(URLLoaderTest, CookieReporting) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -3686,7 +3704,8 @@ TEST_F(URLLoaderTest, CookieReporting) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -3727,7 +3746,8 @@ TEST_F(URLLoaderTest, CookieReportingRedirect) {
       DeleteLoaderCallback(&delete_run_loop, &url_loader),
       mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
       loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS, &params,
-      0 /* request_id */, resource_scheduler_client(), nullptr,
+      0 /* request_id */, 0 /* keepalive_request_size */,
+      resource_scheduler_client(), nullptr,
       nullptr /* network_usage_accumulator */, nullptr /* header_client */,
       nullptr /* origin_policy_manager */);
 
@@ -3777,7 +3797,8 @@ TEST_F(URLLoaderTest, CookieReportingAuth) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -3824,7 +3845,8 @@ TEST_F(URLLoaderTest, RawRequestCookies) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -3873,7 +3895,8 @@ TEST_F(URLLoaderTest, RawRequestCookiesFlagged) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -3915,7 +3938,8 @@ TEST_F(URLLoaderTest, RawResponseCookies) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -3960,7 +3984,8 @@ TEST_F(URLLoaderTest, RawResponseCookiesInvalid) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -4004,7 +4029,8 @@ TEST_F(URLLoaderTest, RawResponseCookiesRedirect) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -4054,7 +4080,8 @@ TEST_F(URLLoaderTest, RawResponseCookiesRedirect) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -4100,7 +4127,8 @@ TEST_F(URLLoaderTest, RawResponseCookiesAuth) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -4143,7 +4171,8 @@ TEST_F(URLLoaderTest, RawResponseCookiesAuth) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -4184,7 +4213,8 @@ TEST_F(URLLoaderTest, RawResponseQUIC) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -4222,7 +4252,8 @@ TEST_F(URLLoaderTest, CookieReportingCategories) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -4266,7 +4297,8 @@ TEST_F(URLLoaderTest, CookieReportingCategories) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -4306,7 +4338,8 @@ TEST_F(URLLoaderTest, CookieReportingCategories) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), mojom::kURLLoadOptionNone, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         nullptr /* origin_policy_manager */);
 
@@ -4387,7 +4420,8 @@ TEST_F(URLLoaderTest, OriginPolicyManagerCalled) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), 0, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         &mock_origin_policy_manager);
 
@@ -4424,7 +4458,8 @@ TEST_F(URLLoaderTest, OriginPolicyManagerCalled) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), 0, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         &mock_origin_policy_manager);
 
@@ -4461,7 +4496,8 @@ TEST_F(URLLoaderTest, OriginPolicyManagerCalled) {
         DeleteLoaderCallback(&delete_run_loop, &url_loader),
         mojo::MakeRequest(&loader), 0, request,
         loader_client.CreateInterfacePtr(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &params, 0 /* request_id */, resource_scheduler_client(), nullptr,
+        &params, 0 /* request_id */, 0 /* keepalive_request_size */,
+        resource_scheduler_client(), nullptr,
         nullptr /* network_usage_accumulator */, nullptr /* header_client */,
         &mock_origin_policy_manager);
 

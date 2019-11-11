@@ -9,6 +9,7 @@
 <translation id="10614374240317010">一律不保存</translation>
 <translation id="1067922213147265141">其他 Google 服务</translation>
 <translation id="1068672505746868501">一律不翻译<ph name="SOURCE_LANGUAGE" />网页</translation>
+<translation id="107147699690128016">如果您更改文件扩展名，此文件可能会在另一应用中打开并对您的设备造成危害。</translation>
 <translation id="1100066534610197918">在群组内的新标签页中打开</translation>
 <translation id="1105960400813249514">屏幕截图</translation>
 <translation id="1111673857033749125">您在其他设备上保存的书签将列在此处。</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">全部打开</translation>
 <translation id="1409426117486808224">使用简化版视图查看打开的标签页</translation>
 <translation id="1409879593029778104">系统已阻止下载 <ph name="FILE_NAME" />，因为文件已存在。</translation>
-<translation id="1413136574162415971">Google 可检查您的密码是否曾遭遇过数据泄露。当您登录了自己的 Google 帐号并开启了同步功能时，系统即会开启此服务。</translation>
 <translation id="1414981605391750300">正在连接到 Google，请稍等片刻…</translation>
 <translation id="1416550906796893042">应用版本</translation>
 <translation id="1430915738399379752">打印</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">要让 Chrome 向您发送通知，您还需要在 <ph name="BEGIN_LINK" />Android 设置<ph name="END_LINK" />中开启通知。</translation>
 <translation id="204321170514947529">Chrome 中也有<ph name="APP_NAME" />的数据</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">更改文件扩展名可能会导致意外行为并对您的设备造成损害。</translation>
 <translation id="2056878612599315956">网站已被暂停</translation>
 <translation id="2063713494490388661">点按搜索</translation>
 <translation id="2067805253194386918">文本</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">拖动该滑块，将文字调整到适合您阅读的大小。点按两次某段落后，显示的文字至少应是这么大。</translation>
 <translation id="2323763861024343754">网站存储数据</translation>
 <translation id="2328985652426384049">无法登录</translation>
+<translation id="2330129964253841015">在密码泄露时向您发出警告</translation>
 <translation id="2349710944427398404">Chrome 所使用的数据总量，包括帐号、书签和已保存的设置</translation>
 <translation id="2353636109065292463">检查互联网连接状况</translation>
 <translation id="2359808026110333948">继续</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">文字大小</translation>
 <translation id="2394602618534698961">您下载的文件会显示在此处</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">当您登录自己的 Google 帐号后，系统即会启用此功能</translation>
 <translation id="2410754283952462441">选择帐号</translation>
 <translation id="2414886740292270097">深色调</translation>
 <translation id="2416359993254398973">Chrome 需要获得相应权限，才能允许此网站使用您的摄像头。</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">您正在自定义您的“同步功能和 Google 服务”设置。要完成开启同步功能的操作，请点按屏幕底部附近的“确认”按钮。转到上一层级</translation>
 <translation id="3328801116991980348">网站信息</translation>
 <translation id="3333961966071413176">所有联系人</translation>
+<translation id="3334729583274622784">更改文件扩展名？</translation>
 <translation id="3341058695485821946">查看您已节省多少数据流量</translation>
 <translation id="3350687908700087792">关闭所有隐身标签页</translation>
 <translation id="3353615205017136254">由 Google 提供的精简版网页。点按“加载原始网页”按钮即可加载原始网页。</translation>
@@ -873,7 +875,6 @@
 <translation id="7493994139787901920"><ph name="VERSION" />（上次更新时间：<ph name="TIME_SINCE_UPDATE" />）</translation>
 <translation id="7494974237137038751">已节省的流量</translation>
 <translation id="7498271377022651285">请稍候…</translation>
-<translation id="7510943789645525906">如有密码遭遇数据泄露就会向您发出警告</translation>
 <translation id="7514365320538308">下载</translation>
 <translation id="751961395872307827">无法连接到该网站</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@
 <translation id="7810647596859435254">打开方式…</translation>
 <translation id="7821588508402923572">您的数据流量节省情况将显示在这里</translation>
 <translation id="7837721118676387834">允许特定网站自动播放静音的视频。</translation>
-<translation id="7838340937077326045">确定要更改文件扩展名吗？</translation>
 <translation id="7846076177841592234">取消选择</translation>
 <translation id="784934925303690534">时间范围</translation>
 <translation id="7851858861565204677">来自其他设备的同步</translation>
@@ -930,7 +930,6 @@
 <translation id="7886917304091689118">正在 Chrome 中运行</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{正在下载 1 个文件。}other{正在下载 # 个文件。}}</translation>
 <translation id="7929962904089429003">打开菜单</translation>
-<translation id="7930681627240672853">检查密码安全性</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> 不是最新版本。</translation>
 <translation id="7947953824732555851">接受并登录</translation>
 <translation id="7963646190083259054">供应商：</translation>
@@ -946,7 +945,6 @@
 <translation id="8007176423574883786">已对此设备停用</translation>
 <translation id="8013372441983637696">同时从此设备中清除您的 Chrome 数据</translation>
 <translation id="8015452622527143194">将网页上的所有内容恢复到默认大小</translation>
-<translation id="8015780634880457457">Google 可检查您的密码是否曾遭遇过数据泄露</translation>
 <translation id="802154636333426148">下载失败</translation>
 <translation id="8026334261755873520">清除浏览数据</translation>
 <translation id="8035133914807600019">新建文件夹…</translation>

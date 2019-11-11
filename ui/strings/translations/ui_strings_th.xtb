@@ -138,7 +138,6 @@
 <translation id="5906667377645263094">{SECONDS,plural, =1{เหลือ 1 วินาที}other{เหลือ # วินาที}}</translation>
 <translation id="5941711191222866238">ย่อ</translation>
 <translation id="5943826764092288734">{HOURS,plural, =1{1 ชั่วโมง}other{# ชั่วโมง}}</translation>
-<translation id="5946629889255121107">หมายเลขเริ่มต้นมาจาก <ph name="ORIGIN" /></translation>
 <translation id="6012623610530968780">หน้า <ph name="SELECTED_PAGE" /> จาก <ph name="TOTAL_PAGE_NUM" /></translation>
 <translation id="6022924867608035986">ล้างข้อความในช่องค้นหา</translation>
 <translation id="6040143037577758943">ปิด</translation>
@@ -199,6 +198,7 @@
 <translation id="8074552109918343525">{MAX_UNREAD_NOTIFICATIONS,plural, =1{มีการแจ้งเตือนที่ยังไม่อ่านมากกว่า 1 รายการ}other{มีการแจ้งเตือนที่ยังไม่อ่านมากกว่า # รายการ}}</translation>
 <translation id="8086866675552927481">{MINUTES,plural, =1{ใน 1 นาที}other{ใน # นาที}}</translation>
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
+<translation id="8090736967111090568">หมายเลขจาก <ph name="ORIGIN" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{1 ชั่วโมงที่ผ่านมา}other{# ชั่วโมงที่ผ่านมา}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{เหลือ 1 วินาที}other{เหลือ # วินาที}}</translation>
 <translation id="8134065097954893699">กำลังโหลดหน้านี้ใหม่</translation>

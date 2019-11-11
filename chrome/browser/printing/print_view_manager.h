@@ -5,6 +5,8 @@
 #ifndef CHROME_BROWSER_PRINTING_PRINT_VIEW_MANAGER_H_
 #define CHROME_BROWSER_PRINTING_PRINT_VIEW_MANAGER_H_
 
+#include <map>
+
 #include "base/macros.h"
 #include "chrome/browser/printing/print_view_manager_base.h"
 #include "components/printing/common/print.mojom.h"
@@ -85,10 +87,6 @@ class PrintViewManager : public PrintViewManagerBase,
   const mojo::AssociatedRemote<printing::mojom::PrintRenderFrame>&
   GetPrintRenderFrame(content::RenderFrameHost* rfh);
 
-  // Resets the PrintRenderFrame associated remote when it's disconnected from
-  // its receiver.
-  void OnPrintRenderFrameDisconnected();
-
   // Helper method for PrintPreviewNow() and PrintPreviewWithRenderer().
   // Initiate print preview of the current document by first notifying the
   // renderer. Since this happens asynchronously, the print preview dialog
@@ -127,9 +125,12 @@ class PrintViewManager : public PrintViewManagerBase,
   // flag is true between PrintForSystemDialogNow() and PrintPreviewDone().
   bool is_switching_to_system_dialog_ = false;
 
-  // Used to transmit mojom interface method calls to the PrintRenderFrame
-  // associated remote.
-  mojo::AssociatedRemote<printing::mojom::PrintRenderFrame> print_render_frame_;
+  // Stores a PrintRenderFrame associated remote with the RenderFrameHost used
+  // to bind it. The PrintRenderFrame is used to transmit mojo interface method
+  // calls to the associated receiver.
+  std::map<content::RenderFrameHost*,
+           mojo::AssociatedRemote<printing::mojom::PrintRenderFrame>>
+      print_render_frames_;
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 

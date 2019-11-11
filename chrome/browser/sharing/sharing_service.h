@@ -183,6 +183,9 @@ class SharingService : public KeyedService,
   SharingDeviceList RenameAndDeduplicateDevices(
       SharingDeviceList devices) const;
 
+  void InitPersonalizableLocalDeviceName(
+      std::string personalizable_local_device_name);
+
   std::unique_ptr<SharingSyncPreference> sync_prefs_;
   std::unique_ptr<VapidKeyManager> vapid_key_manager_;
   std::unique_ptr<SharingDeviceRegistration> sharing_device_registration_;
@@ -199,6 +202,9 @@ class SharingService : public KeyedService,
   bool is_observing_device_info_tracker_;
   std::unique_ptr<syncer::LocalDeviceInfoProvider::Subscription>
       local_device_info_ready_subscription_;
+  // The personalized name is stored for deduplicating devices running older
+  // clients.
+  base::Optional<std::string> personalizable_local_device_name_;
 
   // Map of random GUID to SendMessageCallback.
   std::map<std::string, SendMessageCallback> send_message_callbacks_;

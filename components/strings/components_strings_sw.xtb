@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">Chapisha</translation>
 <translation id="1442386063175183758">Mikunjo miwili sambamba kulia</translation>
 <translation id="1442987760062738829">Toboa</translation>
-<translation id="1450011005989029586">Ufichuzi haramu wa data kwenye tovuti au programu unayotumia ulionyesha nenosiri lako. Chrome inapendekeza <ph name="BOLD" /> kwenye <ph name="ORIGIN" /> sasa.</translation>
 <translation id="1455413310270022028">Kifutio</translation>
 <translation id="1463543813647160932">5x7</translation>
 <translation id="1472675084647422956">Onyesha zaidi</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">Aina hii ya kadi haitumiki</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Kuwasiliana na msimamizi wa mfumo.</translation>
+<translation id="1739107442478692187">Tukio la ufichuzi haramu wa data limefanyika kwenye tovuti au programu unayotumia. Chrome inapendekeza ukague manenosiri uliyohifadhi na ubadilishe nenosiri lako kwenye <ph name="ORIGIN" /> sasa.</translation>
 <translation id="1740951997222943430">Andika mwezi sahihi wa kuisha kwa muda wa matumizi</translation>
 <translation id="1743520634839655729">Ili ulipe kwa haraka wakati ujao, hifadhi anwani ya kutuma bili, jina na maelezo ya kadi yako kwenye Akaunti yako ya Google na kwenye kifaa hiki.</translation>
 <translation id="1743570585616704562">Haikutambua alama ya kidole</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">Kitolingana kwa kikoa</translation>
 <translation id="2096368010154057602">Idara</translation>
 <translation id="2099652385553570808">Bana kushoto mara tatu</translation>
+<translation id="2100280972184758440">Nenosiri lako limeathiriwa</translation>
 <translation id="2102134110707549001">Pendekeza Nenosiri Thabiti…</translation>
 <translation id="2108755909498034140">Zima na uwashe kompyuta yako</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">Imepuuzwa kwa sababu ilifutwa na <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Umetolewa kwa: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Toboa chini kulia</translation>
+<translation id="2124528555835617522">Tukio la ufichuzi haramu wa data limefanyika kwenye tovuti au programu unayotumia. Chrome inapendekeza ukague manenosiri uliyohifadhi sasa.</translation>
 <translation id="2129079103035905234">Vitambuzi vya Mwendo</translation>
 <translation id="213826338245044447">Alamisho kwenye Simu</translation>
 <translation id="214556005048008348">Ghairi malipo</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">Samahani, kadi yako haiwezi kuhifadhiwa sasa hivi</translation>
 <translation id="2262243747453050782">Hitilfau ya HTTP</translation>
 <translation id="2263079731045660823">Sasisha maelezo ya kujaza kiotomatiki kadi za mikopo katika mipangilio ya Chrome</translation>
+<translation id="2267047181501709434">Inathibitisha utambulisho wako...</translation>
 <translation id="2270484714375784793">Nambari ya simu</translation>
 <translation id="2277103315734023688">Sogeza Mbele</translation>
 <translation id="2283340219607151381">Hifadhi na ujaze anwani</translation>
@@ -480,6 +483,7 @@
 <translation id="3282497668470633863">Ongeza jina kwenye kadi</translation>
 <translation id="3287510313208355388">Pakua ukiwa mtandaoni</translation>
 <translation id="3293642807462928945">Pata maelezo zaidi kuhusu sera ya <ph name="POLICY_NAME" /></translation>
+<translation id="3295439534709115864">Tukio la ufichuzi haramu wa data limefanyika kwenye tovuti au programu unayotumia. Chrome inapendekeza ubadilishe nenosiri lako kwenye <ph name="ORIGIN" /> sasa.</translation>
 <translation id="3303855915957856445">Hakuna matokeo ya utafutaji yaliyopatikana</translation>
 <translation id="3320021301628644560">Ongeza anwani ya kutuma bili</translation>
 <translation id="3324983252691184275">Nyekundu Iliyoiva</translation>
@@ -684,7 +688,6 @@
 <translation id="4258748452823770588">Sahihi mbaya</translation>
 <translation id="4261046003697461417">Huwezi kuweka vidokezo kwenye hati zinazolindwa</translation>
 <translation id="4265872034478892965">Imeruhusiwa na msimamizi wako</translation>
-<translation id="4270615291506829403">ubadilishe nenosiri lako</translation>
 <translation id="4275830172053184480">Washa upya kifaa chako</translation>
 <translation id="4277028893293644418">Badilisha nenosiri</translation>
 <translation id="4279811152705618813"><ph name="DEVICE_TYPE" /> yako inasimamiwa na <ph name="ENROLLMENT_DOMAIN" /></translation>
@@ -763,7 +766,6 @@
 <translation id="4708268264240856090">Muunganisho wako umekatizwa</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" />Kuendesha Zana ya Windows ya Kuchunguza Mtandao<ph name="END_LINK" /></translation>
-<translation id="4725851834065990915">Ufichuzi haramu wa data kwenye tovuti au programu unayotumia ulionyesha nenosiri lako. Chrome inapendekeza ukague manenosiri uliyohifadhi hivi sasa.</translation>
 <translation id="4726672564094551039">Pakia sera upya</translation>
 <translation id="4728558894243024398">Mfumo wa uendeshaji</translation>
 <translation id="4731967714531604179">Prc2 (Bahasha)</translation>
@@ -1181,7 +1183,6 @@
 <translation id="679355240208270552">Imepuuzwa kwa sababu utafutaji chaguomsingi umezimwa na sera.</translation>
 <translation id="681021252041861472">Sehemu Hii Sharti Ijazwe</translation>
 <translation id="6810899417690483278">Kitambulisho cha kubadilisha ili kukufaa</translation>
-<translation id="6819440013020405090">Ufichuzi haramu wa data kwenye tovuti au programu unayotumia ulionyesha nenosiri lako. Chrome inapendekeza ukague manenosiri yako uliyohifadhi na ubadilishe nenosiri lako kwenye <ph name="ORIGIN" />.</translation>
 <translation id="6825578344716086703">Umejaribu kufikia <ph name="DOMAIN" />, lakini seva iliwasilisha cheti kilichotiwa sahihi na kanuni duni. Hii inamaanisha kuwa stakabadhi za usalama zilizowasilishwa na seva hiyo huenda ni bandia na seva hiyo huenda ikawa si ile uliyotarajia (unaweza kuwa unawasiliana na mvamizi).</translation>
 <translation id="6826370046007623921">Mfumo wa Kuzuia Data Isipotee</translation>
 <translation id="6831043979455480757">Tafsiri</translation>
@@ -1224,7 +1225,6 @@
 <translation id="7064851114919012435">Maelezo ya mawasiliano</translation>
 <translation id="7075452647191940183">Ombi ni kubwa mno</translation>
 <translation id="7079718277001814089">Tovuti hii ina programu hasidi</translation>
-<translation id="70850504851191913">Ufichuzi haramu wa data umeripotiwa</translation>
 <translation id="7087282848513945231">Jimbo</translation>
 <translation id="7090678807593890770">Tafuta <ph name="LINK" /> kwenye Google</translation>
 <translation id="7108338896283013870">Ficha</translation>
@@ -1543,7 +1543,6 @@
 <translation id="8718314106902482036">Malipo hayajakamilishwa</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" /> , <ph name="DESCRIPTION" /> , pendekezo la utafutaji</translation>
 <translation id="8719528812645237045">Toboa mara nyingi juu</translation>
-<translation id="8723954843026426558">Ninakubali sheria na masharti, sera ya faraja na haki ya kujiondoa ya <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /></translation>
 <translation id="8725066075913043281">Jaribu tena</translation>
 <translation id="8728672262656704056">Unavinjari katika hali fiche</translation>
 <translation id="8730621377337864115">Nimemaliza</translation>

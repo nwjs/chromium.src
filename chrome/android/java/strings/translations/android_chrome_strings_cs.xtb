@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Nikdy se neukládají</translation>
 <translation id="1067922213147265141">Další služby Google</translation>
 <translation id="1068672505746868501">Stránky v jazyce <ph name="SOURCE_LANGUAGE" /> nikdy nepřekládat</translation>
+<translation id="107147699690128016">Pokud změníte příponu souboru, může se soubor otevřít v jiné aplikaci a potenciálně může být rizikem pro vaše zařízení.</translation>
 <translation id="1100066534610197918">Otevřít na nové kartě ve skup.</translation>
 <translation id="1105960400813249514">Snímky obrazovky</translation>
 <translation id="1111673857033749125">Zde se objeví záložky, které jste si uložili v ostatních zařízeních.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Otevřít vše</translation>
 <translation id="1409426117486808224">Zjednodušené zobrazení otevřených karet</translation>
 <translation id="1409879593029778104">Stažení souboru <ph name="FILE_NAME" /> bylo zabráněno, protože soubor již existuje.</translation>
-<translation id="1413136574162415971">Google může kontrolovat, zda vaše hesla nebyla součástí úniku dat. Pokud se přihlásíte pomocí účtu Google a zapnete synchronizaci, tato funkce bude zapnutá.</translation>
 <translation id="1414981605391750300">Kontaktování Googlu. Může to chvíli trvat…</translation>
 <translation id="1416550906796893042">Verze aplikace</translation>
 <translation id="1430915738399379752">Tisk</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Chcete-li Chromu umožnit zasílat vám oznámení, zapněte oznámení také v <ph name="BEGIN_LINK" />Natavení Android<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529">Aplikace <ph name="APP_NAME" /> má také data v Chromu</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Změna přípony souboru může vést k neočekávanému chování a může být pro zařízení škodlivá.</translation>
 <translation id="2056878612599315956">Web je pozastaven</translation>
 <translation id="2063713494490388661">Vyhledání klepnutím</translation>
 <translation id="2067805253194386918">text</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Přetahujte posuvník tak dlouho, dokud nebudete moci pohodlně přečíst tento text. Po dvojitém klepnutí na odstavec by měl být text alespoň takto velký.</translation>
 <translation id="2323763861024343754">Úložiště webů</translation>
 <translation id="2328985652426384049">Přihlášení se nezdařilo</translation>
+<translation id="2330129964253841015">Upozorňovat v případě ohrožení hesel</translation>
 <translation id="2349710944427398404">Celkové množství dat využívané prohlížečem Chrome, včetně účtů, záložek a uložených nastavení</translation>
 <translation id="2353636109065292463">Kontrola připojení k internetu</translation>
 <translation id="2359808026110333948">Pokračovat</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Zvětšení/zmenšení textu</translation>
 <translation id="2394602618534698961">Zde se zobrazují stažené soubory</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Když se přihlásíte k účtu Google, je tato funkce zapnutá</translation>
 <translation id="2410754283952462441">Vyberte účet</translation>
 <translation id="2414886740292270097">Tmavé</translation>
 <translation id="2416359993254398973">Chrome pro tento web potřebuje oprávnění k přístupu k fotoaparátu.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Aktuálně upravujete své nastavení synchronizace a služeb Google. Zapnutí synchronizace dokončíte klepnutím na tlačítko Potvrdit, které se nachází u dolního okraje obrazovky. Přejít nahoru</translation>
 <translation id="3328801116991980348">Informace o stránkách</translation>
 <translation id="3333961966071413176">Všechny kontakty</translation>
+<translation id="3334729583274622784">Změnit příponu souboru?</translation>
 <translation id="3341058695485821946">Podívejte se, kolik dat jste ušetřili</translation>
 <translation id="3350687908700087792">Zavřít všechny anonymní karty</translation>
 <translation id="3353615205017136254">Zjednodušenou stránku poskytuje Google. Klepnutím na tlačítko k načtení originálu zobrazíte původní verzi.</translation>
@@ -873,7 +875,6 @@ Web NEZÍSKÁ přístup k fotoaparátu. Fotky z fotoaparátu uvidíte pouze vy
 <translation id="7493994139787901920"><ph name="VERSION" /> (aktualizováno <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">uspořená data</translation>
 <translation id="7498271377022651285">Čekejte prosím…</translation>
-<translation id="7510943789645525906">Upozorní vás, pokud vaše heslo bylo součástí úniku dat</translation>
 <translation id="7514365320538308">Stáhnout</translation>
 <translation id="751961395872307827">K webu se nelze připojit</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ Web NEZÍSKÁ přístup k fotoaparátu. Fotky z fotoaparátu uvidíte pouze vy
 <translation id="7810647596859435254">Otevřít v aplikaci…</translation>
 <translation id="7821588508402923572">Zde se budou zobrazovat vaše úspory dat</translation>
 <translation id="7837721118676387834">Povolit automatické přehrávání ztlumených videí na konkrétním webu.</translation>
-<translation id="7838340937077326045">Opravdu příponu souboru chcete změnit?</translation>
 <translation id="7846076177841592234">Zrušit výběr</translation>
 <translation id="784934925303690534">Časové období</translation>
 <translation id="7851858861565204677">Jiná zařízení</translation>
@@ -930,7 +930,6 @@ Web NEZÍSKÁ přístup k fotoaparátu. Fotky z fotoaparátu uvidíte pouze vy
 <translation id="7886917304091689118">Spuštěno v Chromu</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Stahování souboru.}few{Stahování # souborů.}many{Stahování # souboru.}other{Stahování # souborů.}}</translation>
 <translation id="7929962904089429003">Otevřít nabídku</translation>
-<translation id="7930681627240672853">Zkontrolovat bezpečnost hesla</translation>
 <translation id="7942131818088350342">Aplikace <ph name="PRODUCT_NAME" /> je zastaralá.</translation>
 <translation id="7947953824732555851">Přijmout a přihlásit</translation>
 <translation id="7963646190083259054">Dodavatel:</translation>
@@ -946,7 +945,6 @@ Web NEZÍSKÁ přístup k fotoaparátu. Fotky z fotoaparátu uvidíte pouze vy
 <translation id="8007176423574883786">Vypnuto v tomto zařízení</translation>
 <translation id="8013372441983637696">Vymazat data prohlížeče Chrome také z tohoto zařízení</translation>
 <translation id="8015452622527143194">Vrátit veškerý obsah stránky na původní velikost</translation>
-<translation id="8015780634880457457">Google může kontrolovat, zda vaše hesla nebyla součástí úniku dat</translation>
 <translation id="802154636333426148">Stažení se nezdařilo</translation>
 <translation id="8026334261755873520">Vymazat údaje o prohlížení</translation>
 <translation id="8035133914807600019">Nová složka…</translation>

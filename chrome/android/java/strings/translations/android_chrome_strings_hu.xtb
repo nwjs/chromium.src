@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Az alábbi oldalakról soha ne mentsen jelszavakat</translation>
 <translation id="1067922213147265141">Egyéb Google-szolgáltatások</translation>
 <translation id="1068672505746868501">Soha ne fordítsa le a(z) <ph name="SOURCE_LANGUAGE" /> nyelvű oldalakat</translation>
+<translation id="107147699690128016">Ha módosítja a fájl kiterjesztését, előfordulhat, hogy a fájlt másik alkalmazás nyitja meg, ami veszélyt jelenthet az eszközre.</translation>
 <translation id="1100066534610197918">Megnyitás új lapon, csoportban</translation>
 <translation id="1105960400813249514">Képernyőrögzítés</translation>
 <translation id="1111673857033749125">A más eszközökön mentett könyvjelzők itt jelennek meg.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Összes megnyitása</translation>
 <translation id="1409426117486808224">A megnyitott lapok egyszerűsített nézete</translation>
 <translation id="1409879593029778104">A következő fájl letöltését a böngésző megakadályozta, mert a fájl már létezik: <ph name="FILE_NAME" />.</translation>
-<translation id="1413136574162415971">A Google ellenőrizheti, hogy jelszavai érintettek-e adatvédelmi incidensben. Ez a funkció akkor kapcsol be, amikor bejelentkezik Google-fiókjával, és bekapcsolja a szinkronizálást.</translation>
 <translation id="1414981605391750300">Kapcsolatfelvétel a Google-lal… ez eltarthat pár percig…</translation>
 <translation id="1416550906796893042">Alkalmazás verziószáma</translation>
 <translation id="1430915738399379752">Nyomtatás</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Ahhoz, hogy a Chrome értesítéseket küldhessen, az értesítéseket az <ph name="BEGIN_LINK" />Android-beállítások<ph name="END_LINK" /> között is be kell kapcsolni.</translation>
 <translation id="204321170514947529">A(z) <ph name="APP_NAME" /> a Chrome-ban is rendelkezik adatokkal</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">A fájlkiterjesztés módosítása váratlan viselkedést eredményezhet, és károsíthatja az eszközt.</translation>
 <translation id="2056878612599315956">A webhely szüneteltetve van</translation>
 <translation id="2063713494490388661">A Keresés koppintással funkció</translation>
 <translation id="2067805253194386918">szöveg</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Húzza a csúszkát, amíg kényelmesen nem tudja olvasni a szöveget. A szövegnek legalább ekkorának kell lennie, miután duplán koppint egy bekezdésre.</translation>
 <translation id="2323763861024343754">Webhely tárhelye</translation>
 <translation id="2328985652426384049">Nem sikerült a bejelentkezés</translation>
+<translation id="2330129964253841015">Figyelmeztetés, ha jelszavai illetéktelen kezekbe kerülnek</translation>
 <translation id="2349710944427398404">A Chrome által használt teljes adatmennyiség, beleértve a fiókokat, könyvjelzőket és mentett beállításokat is</translation>
 <translation id="2353636109065292463">Az internetkapcsolat ellenőrzése</translation>
 <translation id="2359808026110333948">Tovább</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Szöveg nagyítása</translation>
 <translation id="2394602618534698961">Itt találhatja majd a letöltött fájlokat</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Amikor bejelentkezik Google-fiókjába, a rendszer bekapcsolja ezt a funkciót</translation>
 <translation id="2410754283952462441">Válasszon fiókot</translation>
 <translation id="2414886740292270097">Sötét</translation>
 <translation id="2416359993254398973">A Chrome számára engedély szükséges, hogy hozzáférjen a kamerához ennél a webhelynél.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Jelenleg a Szinkronizálás és Google beállításait szabja személyre. A szinkronizálás bekapcsolásának véglegesítéséhez koppintson a képernyő alján található Megerősítés gombra. Fel</translation>
 <translation id="3328801116991980348">Webhelyadatok</translation>
 <translation id="3333961966071413176">Összes névjegy</translation>
+<translation id="3334729583274622784">Módosítja a fájl kiterjesztését?</translation>
 <translation id="3341058695485821946">Megnézheti, mennyi adatot takarított meg</translation>
 <translation id="3350687908700087792">Az összes inkognitólap bezárása</translation>
 <translation id="3353615205017136254">Egyszerű oldal a Google-tól. Az Eredeti betöltése gombra koppintva betöltheti az eredeti oldalt.</translation>
@@ -873,7 +875,6 @@ A webhely NEM kap hozzáférést a kamerához. A kamera képét csak Ön láthat
 <translation id="7493994139787901920"><ph name="VERSION" /> (Frissítve: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">megtakarított adatmennyiség</translation>
 <translation id="7498271377022651285">Kérjük, várjon…</translation>
-<translation id="7510943789645525906">Figyelmezteti Önt, ha jelszava adatvédelmi incidensben volt érintett</translation>
 <translation id="7514365320538308">Letöltés</translation>
 <translation id="751961395872307827">Nem lehet csatlakozni a webhelyhez</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ A webhely NEM kap hozzáférést a kamerához. A kamera képét csak Ön láthat
 <translation id="7810647596859435254">Megnyitás ezzel:</translation>
 <translation id="7821588508402923572">Itt látható a megtakarított adatmennyiség</translation>
 <translation id="7837721118676387834">A némított videók automatikus lejátszásának engedélyezése az adott webhelyen.</translation>
-<translation id="7838340937077326045">Biztosan módosítja a fájlkiterjesztést?</translation>
 <translation id="7846076177841592234">Kijelölés törlése</translation>
 <translation id="784934925303690534">Időszak</translation>
 <translation id="7851858861565204677">Egyéb eszközök</translation>
@@ -930,7 +930,6 @@ A webhely NEM kap hozzáférést a kamerához. A kamera képét csak Ön láthat
 <translation id="7886917304091689118">Fut a Chrome-ban</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Fájl letöltése…}other{# fájl letöltése…}}</translation>
 <translation id="7929962904089429003">A menü megnyitása</translation>
-<translation id="7930681627240672853">Jelszavak biztonságának ellenőrzése</translation>
 <translation id="7942131818088350342">A(z) <ph name="PRODUCT_NAME" /> elavult.</translation>
 <translation id="7947953824732555851">Elfogadás és bejelentkezés</translation>
 <translation id="7963646190083259054">Szolgáltató:</translation>
@@ -946,7 +945,6 @@ A webhely NEM kap hozzáférést a kamerához. A kamera képét csak Ön láthat
 <translation id="8007176423574883786">Kikapcsolva ezen az eszközön</translation>
 <translation id="8013372441983637696">Az Ön Chrome-adatai is törlődjenek erről az eszközről</translation>
 <translation id="8015452622527143194">Minden visszaállítása alapértelmezett méretűre</translation>
-<translation id="8015780634880457457">A Google ellenőrizheti, hogy jelszavai érintettek-e adatvédelmi incidensben</translation>
 <translation id="802154636333426148">Nem sikerült a letöltés</translation>
 <translation id="8026334261755873520">Böngészési adatok törlése</translation>
 <translation id="8035133914807600019">Új mappa…</translation>

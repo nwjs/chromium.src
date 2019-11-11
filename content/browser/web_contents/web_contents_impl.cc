@@ -1612,6 +1612,9 @@ bool WebContentsImpl::IsCrashed() {
 #if defined(OS_ANDROID)
     case base::TERMINATION_STATUS_OOM_PROTECTED:
 #endif
+#if defined(OS_WIN)
+    case base::TERMINATION_STATUS_INTEGRITY_FAILURE:
+#endif
       return true;
     case base::TERMINATION_STATUS_NORMAL_TERMINATION:
     case base::TERMINATION_STATUS_STILL_RUNNING:
@@ -1856,18 +1859,22 @@ bool WebContentsImpl::NeedToFireBeforeUnload() {
   if (GetRenderViewHost()->SuddenTerminationAllowed())
     return false;
 
-  // Check whether the main frame needs to run beforeunload or unload handlers.
-  if (GetMainFrame()->GetSuddenTerminationDisablerState(
-          blink::kBeforeUnloadHandler | blink::kUnloadHandler)) {
-    return true;
+  // Check whether any frame in the frame tree needs to run beforeunload or
+  // unload handlers.
+  for (FrameTreeNode* node : frame_tree_.Nodes()) {
+    RenderFrameHostImpl* rfh = node->current_frame_host();
+
+    // No need to run beforeunload/unload if the RenderFrame isn't live.
+    if (!rfh->IsRenderFrameLive())
+      continue;
+
+    if (rfh->GetSuddenTerminationDisablerState(blink::kBeforeUnloadHandler |
+                                               blink::kUnloadHandler)) {
+      return true;
+    }
   }
 
-  // Check whether any subframes need to run beforeunload handlers.
-  //
-  // TODO(alexmos): Also check whether subframes need to run unload handlers in
-  // addition to beforeunload.
-  return GetMainFrame()->ShouldDispatchBeforeUnload(
-      true /* check_subframes_only */);
+  return false;
 }
 
 void WebContentsImpl::DispatchBeforeUnload(bool auto_cancel) {
@@ -3119,12 +3126,22 @@ void WebContentsImpl::ShowCreatedWidget(int process_id,
     return;
 
   // GetOutermostWebContents() returns |this| if there are no outer WebContents.
+  auto* outer_web_contents = GetOuterWebContents();
+  auto* outermost_web_contents = GetOutermostWebContents();
   RenderWidgetHostView* view =
-      GetOutermostWebContents()->GetRenderWidgetHostView();
+      outermost_web_contents->GetRenderWidgetHostView();
+  // It's not entirely obvious why we need the transform only in the case where
+  // the outer webcontents is not the same as the outermost webcontents. It may
+  // be due to the fact that oopifs that are children of the mainframe get
+  // correct values for their screenrects, but deeper cross-process frames do
+  // not. Hopefully this can be resolved with https://crbug.com/928825.
+  // Handling these cases separately is needed for http://crbug.com/1015298.
+  bool needs_transform = this != outermost_web_contents &&
+                         outermost_web_contents != outer_web_contents;
 
   gfx::Rect transformed_rect(initial_rect);
   RenderWidgetHostView* this_view = GetRenderWidgetHostView();
-  if (this_view != view) {
+  if (needs_transform) {
     // We need to transform the coordinates of initial_rect.
     gfx::Point origin =
         this_view->TransformPointToRootCoordSpace(initial_rect.origin());

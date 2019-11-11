@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Mai salvate</translation>
 <translation id="1067922213147265141">Altri servizi Google</translation>
 <translation id="1068672505746868501">Non tradurre mai le pagine in <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">Se cambi l'estensione del file, il file potrebbe essere aperto in un'altra applicazione e costituire un pericolo per il dispositivo.</translation>
 <translation id="1100066534610197918">Apri in nuova scheda in gruppo</translation>
 <translation id="1105960400813249514">Acquisizione schermo</translation>
 <translation id="1111673857033749125">I preferiti salvati sugli altri dispositivi verranno visualizzati qui.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Apri tutte</translation>
 <translation id="1409426117486808224">Visualizzazione semplificata delle schede aperte</translation>
 <translation id="1409879593029778104">Download di <ph name="FILE_NAME" /> impedito perché il file esiste già.</translation>
-<translation id="1413136574162415971">Google può controllare se le tue password sono state oggetto di una violazione dei dati. Questa impostazione viene attivata se accedi con il tuo Account Google e attivi la sincronizzazione.</translation>
 <translation id="1414981605391750300">Connessione a Google in corso. L'operazione potrebbe richiedere un minuto…</translation>
 <translation id="1416550906796893042">Versione applicazione</translation>
 <translation id="1430915738399379752">Stampa</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Per consentire a Chrome di inviarti notifiche, devi attivare le notifiche anche nelle <ph name="BEGIN_LINK" />Impostazioni Android<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529">Anche <ph name="APP_NAME" /> presenta dati in Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">La modifica dell'estensione del file potrebbe causare un comportamento imprevisto e potrebbe danneggiare il dispositivo.</translation>
 <translation id="2056878612599315956">Sito in pausa</translation>
 <translation id="2063713494490388661">Tocca per cercare</translation>
 <translation id="2067805253194386918">testo</translation>
@@ -183,13 +182,15 @@
 <translation id="2321958826496381788">Trascina il cursore finché leggi il testo senza problemi. Il testo dovrebbe avere queste dimensioni minime quando tocchi due volte un paragrafo.</translation>
 <translation id="2323763861024343754">Memoria utilizzata dai siti</translation>
 <translation id="2328985652426384049">Impossibile eseguire l'accesso</translation>
+<translation id="2330129964253841015">Ricevi un avviso in caso di compromissione delle password</translation>
 <translation id="2349710944427398404">Dati totali utilizzati da Chrome, tra cui account, preferiti e impostazioni salvate</translation>
-<translation id="2353636109065292463">Controllo della connessione a Internet</translation>
+<translation id="2353636109065292463">Controllare la connessione a Internet</translation>
 <translation id="2359808026110333948">Continua</translation>
 <translation id="2369533728426058518">schede aperte</translation>
 <translation id="2387895666653383613">Ridimensionamento testo</translation>
 <translation id="2394602618534698961">I file scaricati vengono visualizzati qui</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Questa funzionalità viene attivata quando accedi al tuo Account Google</translation>
 <translation id="2410754283952462441">Scegli un account</translation>
 <translation id="2414886740292270097">Scuro</translation>
 <translation id="2416359993254398973">Per questo sito Chrome ha bisogno dell'autorizzazione ad accedere alla fotocamera.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Stai personalizzando le impostazioni Sincronizzazione e servizi Google. Per terminare l'attivazione della sincronizzazione, tocca il pulsante Conferma nella parte inferiore dello schermo. Torna indietro</translation>
 <translation id="3328801116991980348">Informazioni sito</translation>
 <translation id="3333961966071413176">Tutti i contatti</translation>
+<translation id="3334729583274622784">Vuoi cambiare l'estensione del file?</translation>
 <translation id="3341058695485821946">Scopri la quantità di dati risparmiata</translation>
 <translation id="3350687908700087792">Chiudi tutte le schede di navigazione in incognito</translation>
 <translation id="3353615205017136254">Pagina Lite fornita da Google. Tocca il pulsante Carica originale per caricare la pagina originale.</translation>
@@ -389,7 +391,7 @@
 <translation id="3988466920954086464">Visualizza i risultati della ricerca immediata in questo riquadro</translation>
 <translation id="3991845972263764475"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> di ?</translation>
 <translation id="3997476611815694295">Memoria dati non importanti</translation>
-<translation id="4000212216660919741">Casa offline</translation>
+<translation id="4000212216660919741">Home page offline</translation>
 <translation id="4002066346123236978">Titolo</translation>
 <translation id="4008040567710660924">Consenti i cookie per un sito specifico.</translation>
 <translation id="4034817413553209278">{HOURS,plural, =1{# ora}other{# ore}}</translation>
@@ -873,7 +875,6 @@ Il sito NON ottiene l'accesso alla videocamera. Le immagini della videocamera so
 <translation id="7493994139787901920"><ph name="VERSION" /> (Ultimo aggiornamento: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">di dati risparmiati</translation>
 <translation id="7498271377022651285">Attendi…</translation>
-<translation id="7510943789645525906">Ricevi un avviso se una tua password è stata oggetto di una violazione dei dati</translation>
 <translation id="7514365320538308">Scarica</translation>
 <translation id="751961395872307827">Impossibile connettersi al sito</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ Il sito NON ottiene l'accesso alla videocamera. Le immagini della videocamera so
 <translation id="7810647596859435254">Apri con…</translation>
 <translation id="7821588508402923572">La quantità di dati risparmiata sarà visualizzata qui</translation>
 <translation id="7837721118676387834">Consenti la riproduzione automatica dei video con audio disattivato in un sito specifico.</translation>
-<translation id="7838340937077326045">Vuoi modificare l'estensione del file?</translation>
 <translation id="7846076177841592234">Annulla selezione</translation>
 <translation id="784934925303690534">Intervallo di tempo</translation>
 <translation id="7851858861565204677">Altri dispositivi</translation>
@@ -930,7 +930,6 @@ Il sito NON ottiene l'accesso alla videocamera. Le immagini della videocamera so
 <translation id="7886917304091689118">In esecuzione in Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Download del file.}other{Download di # file.}}</translation>
 <translation id="7929962904089429003">Apri il menu</translation>
-<translation id="7930681627240672853">Controlla la sicurezza delle password</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> è obsoleto.</translation>
 <translation id="7947953824732555851">Accetta e accedi</translation>
 <translation id="7963646190083259054">Fornitore:</translation>
@@ -946,7 +945,6 @@ Il sito NON ottiene l'accesso alla videocamera. Le immagini della videocamera so
 <translation id="8007176423574883786">Disattivata per questo dispositivo</translation>
 <translation id="8013372441983637696">Cancella i tuoi dati di Chrome anche da questo dispositivo</translation>
 <translation id="8015452622527143194">Ripristina le dimensioni predefinite della pagina</translation>
-<translation id="8015780634880457457">Google può controllare se le tue password sono state oggetto di una violazione dei dati</translation>
 <translation id="802154636333426148">Download non riuscito</translation>
 <translation id="8026334261755873520">Cancella dati di navigazione</translation>
 <translation id="8035133914807600019">Nuova cartella…</translation>

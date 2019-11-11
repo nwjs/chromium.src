@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">Stampa</translation>
 <translation id="1442386063175183758">Piegatura a finestra a destra</translation>
 <translation id="1442987760062738829">Perforatura</translation>
-<translation id="1450011005989029586">A causa di una violazione dei dati su un sito o un'app che usi, la tua password è stata esposta. Chrome consiglia di <ph name="BOLD" /> sul sito <ph name="ORIGIN" /> immediatamente.</translation>
 <translation id="1455413310270022028">Gomma</translation>
 <translation id="1463543813647160932">5 x 7</translation>
 <translation id="1472675084647422956">Mostra altro</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">Questo tipo di carta non è supportato</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Prova a contattare l'amministratore di sistema.</translation>
+<translation id="1739107442478692187">Si è verificata una violazione dei dati su un sito o un'app che usi. Chrome ti consiglia di controllare le password che hai salvato e di cambiare subito la password su <ph name="ORIGIN" />.</translation>
 <translation id="1740951997222943430">Inserisci un mese di scadenza valido</translation>
 <translation id="1743520634839655729">Per pagare più velocemente la prossima volta, salva la carta e l'indirizzo di fatturazione sul tuo Account Google e su questo dispositivo.</translation>
 <translation id="1743570585616704562">Non riconosciuta</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">Dominio non corrispondente</translation>
 <translation id="2096368010154057602">Dipartimento</translation>
 <translation id="2099652385553570808">Tripla pinzatura a sinistra</translation>
+<translation id="2100280972184758440">La tua password è stata compromessa</translation>
 <translation id="2102134110707549001">Suggerisci password efficace…</translation>
 <translation id="2108755909498034140">Riavvia il computer</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">Ignorata perché è stata sostituita da <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Rilasciato a: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Perforatura in basso a destra</translation>
+<translation id="2124528555835617522">Si è verificata una violazione dei dati su un sito o un'app che usi. Chrome ti consiglia di controllare subito le password che hai salvato.</translation>
 <translation id="2129079103035905234">Sensori di movimento</translation>
 <translation id="213826338245044447">Preferiti su disp. mobili</translation>
 <translation id="214556005048008348">Annulla pagamento</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">Spiacenti, al momento non è possibile salvare la tua carta</translation>
 <translation id="2262243747453050782">Errore HTTP</translation>
 <translation id="2263079731045660823">Aggiorna i dati della compilazione automatica delle carte di credito nelle impostazioni di Chrome</translation>
+<translation id="2267047181501709434">Verifica della tua identità…</translation>
 <translation id="2270484714375784793">Numero di telefono</translation>
 <translation id="2277103315734023688">Vai avanti</translation>
 <translation id="2283340219607151381">Salva e compila gli indirizzi</translation>
@@ -282,7 +285,7 @@
 <translation id="2292556288342944218">L'accesso a Internet è bloccato</translation>
 <translation id="2297722699537546652">B5 (Envelope)</translation>
 <translation id="2310021320168182093">Chou2 (Envelope)</translation>
-<translation id="2315864634253056100">Il nome di questo sito è simile a <ph name="LOOKALIKE_DOMAIN" />. A volte i malintenzionati imitano i siti modificando in modo poco evidente l'indirizzo web.</translation>
+<translation id="2315864634253056100">Il nome di questo sito è simile a <ph name="LOOKALIKE_DOMAIN" />. A volte i malintenzionati imitano i siti modificando l'indirizzo web in modo poco evidente.</translation>
 <translation id="2316887270356262533">Consente di liberare meno di 1 MB. Alcuni siti potrebbero caricarsi più lentamente alla prossima visita.</translation>
 <translation id="2317259163369394535"><ph name="DOMAIN" /> richiede un nome utente e una password.</translation>
 <translation id="2317583587496011522">Le carte di debito sono accettate.</translation>
@@ -481,6 +484,7 @@
 <translation id="3282497668470633863">Aggiungi il nome indicato sulla carta</translation>
 <translation id="3287510313208355388">Scarica quando è online</translation>
 <translation id="3293642807462928945">Scopri di più sulla norma <ph name="POLICY_NAME" /></translation>
+<translation id="3295439534709115864">Si è verificata una violazione dei dati su un sito o un'app che usi. Chrome consiglia di cambiare subito la password su <ph name="ORIGIN" />.</translation>
 <translation id="3303855915957856445">Nessun risultato di ricerca trovato</translation>
 <translation id="3320021301628644560">Aggiungi l'indirizzo di fatturazione</translation>
 <translation id="3324983252691184275">Cremisi</translation>
@@ -686,7 +690,6 @@
 <translation id="4258748452823770588">Firma errata</translation>
 <translation id="4261046003697461417">Non è possibile inserire annotazioni nei documenti protetti</translation>
 <translation id="4265872034478892965">Consentita dall'amministratore</translation>
-<translation id="4270615291506829403">cambiare la password</translation>
 <translation id="4275830172053184480">Riavvia il dispositivo</translation>
 <translation id="4277028893293644418">Reimposta password</translation>
 <translation id="4279811152705618813">Il tuo dispositivo <ph name="DEVICE_TYPE" /> è gestito dal dominio <ph name="ENROLLMENT_DOMAIN" /></translation>
@@ -766,7 +769,6 @@
 <translation id="4708268264240856090">La connessione è stata interrotta</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" />Eseguire lo strumento Diagnostica di rete Windows<ph name="END_LINK" /></translation>
-<translation id="4725851834065990915">A causa di una violazione dei dati su un sito o un'app che usi, la tua password è stata esposta. Chrome suggerisce di controllare subito le tue password salvate.</translation>
 <translation id="4726672564094551039">Ricarica criteri</translation>
 <translation id="4728558894243024398">Piattaforma</translation>
 <translation id="4731967714531604179">Prc2 (Envelope)</translation>
@@ -1183,7 +1185,6 @@
 <translation id="679355240208270552">Ignorato perché la ricerca predefinita non è attiva secondo la norma.</translation>
 <translation id="681021252041861472">Campo obbligatorio</translation>
 <translation id="6810899417690483278">ID personalizzazione</translation>
-<translation id="6819440013020405090">A causa di una violazione dei dati su un sito o un'app che usi, la tua password è stata esposta. Chrome suggerisce di controllare le tue password salvate e di cambiare la tua password su <ph name="ORIGIN" />.</translation>
 <translation id="6825578344716086703">Hai tentato di accedere al sito <ph name="DOMAIN" />, ma il server ha presentato un certificato firmato utilizzando un algoritmo di firma debole (ad esempio SHA-1). Ciò significa che le credenziali di sicurezza presentate dal server potrebbero essere state falsificate e il server potrebbe non essere quello previsto (è possibile che tu stia comunicando con un malintenzionato).</translation>
 <translation id="6826370046007623921">Prevenzione della perdita dei dati</translation>
 <translation id="6831043979455480757">Traduci</translation>
@@ -1226,7 +1227,6 @@
 <translation id="7064851114919012435">Informazioni di contatto</translation>
 <translation id="7075452647191940183">La richiesta è troppo grande</translation>
 <translation id="7079718277001814089">Questo sito contiene malware</translation>
-<translation id="70850504851191913">Segnalazione di violazione dei dati</translation>
 <translation id="7087282848513945231">Contea</translation>
 <translation id="7090678807593890770">Cerca <ph name="LINK" /> con Google</translation>
 <translation id="7108338896283013870">Nascondi</translation>
@@ -1548,7 +1548,6 @@ Ulteriori dettagli:
 <translation id="8718314106902482036">Pagamento non completato</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, suggerimento di ricerca</translation>
 <translation id="8719528812645237045">Perforatura multipla in alto</translation>
-<translation id="8723954843026426558">Accetto Termini e condizioni, le norme sulla privacy e il diritto di recesso per <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /></translation>
 <translation id="8725066075913043281">Riprova</translation>
 <translation id="8728672262656704056">Sei passato alla navigazione in incognito</translation>
 <translation id="8730621377337864115">Fine</translation>

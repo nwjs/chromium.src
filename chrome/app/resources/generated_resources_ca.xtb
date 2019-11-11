@@ -925,6 +925,7 @@ Pots gestionar la configuració d'aquest compte instal·lant l'aplicació Family
 <translation id="2326931316514688470">&amp;Tornar a carregar l'aplicació</translation>
 <translation id="2327492829706409234">Activa l'aplicació</translation>
 <translation id="2329597144923131178">Inicieu la sessió per tenir adreces d'interès, historial, contrasenyes i altres opcions de configuració en tots els dispositius.</translation>
+<translation id="2330129964253841015">T'avisa si les contrasenyes es posen en perill</translation>
 <translation id="2332131598580221120">Mostra a la botiga</translation>
 <translation id="2332192922827071008">Obre les preferències</translation>
 <translation id="2332742915001411729">Restableix als valors predeterminats</translation>
@@ -973,6 +974,7 @@ Pots gestionar la configuració d'aquest compte instal·lant l'aplicació Family
 <translation id="2395616325548404795">El teu dispositiu <ph name="DEVICE_TYPE" /> s'ha inscrit correctament a la gestió empresarial, però no ha pogut enviar la informació d'elements i d'ubicació. Introdueix aquesta informació manualment a la consola d'administració del dispositiu.</translation>
 <translation id="2396783860772170191">Introdueix un PIN de 4 dígits (0000-9999)</translation>
 <translation id="2399939490305346086">Dades d'inici de sessió de la clau de seguretat</translation>
+<translation id="2407481962792080328">En iniciar la sessió al Compte de Google, aquesta funció està sempre activada</translation>
 <translation id="2408955596600435184">Introdueix el PIN</translation>
 <translation id="241082044617551207">Connector desconegut</translation>
 <translation id="2412593942846481727">Hi ha una actualització disponible</translation>
@@ -1426,6 +1428,7 @@ Pots gestionar la configuració d'aquest compte instal·lant l'aplicació Family
 <translation id="3038612606416062604">Afegeix una impressora manualment</translation>
 <translation id="3038675903128704560">No permetis que cap lloc utilitzi un connector per accedir a l'ordinador</translation>
 <translation id="3039491566278747710">No s'ha pogut instal·lar la política sense connexió al dispositiu.</translation>
+<translation id="3043581297103810752">De: <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Aquest lloc web ha baixat diversos fitxers automàticament</translation>
 <translation id="3046910703532196514">Pàgina web completa</translation>
 <translation id="304747341537320566">Motors de veu</translation>
@@ -2290,6 +2293,7 @@ en almenys <ph name="INSTALL_SIZE" /> d'espai lliure. Per alliberar espai, supri
 <translation id="4316850752623536204">Lloc web per a desenvolupadors</translation>
 <translation id="4320177379694898372">No hi ha connexió a Internet</translation>
 <translation id="4321442524549817090">M&amp;ostra l'URL</translation>
+<translation id="4322394346347055525">Tanca les altres pestanyes</translation>
 <translation id="4324577459193912240">Fitxer incomplet</translation>
 <translation id="4325237902968425115">S'està desinstal·lant <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Aigua glaçada</translation>
@@ -2819,7 +2823,6 @@ Assegura't que confies en aquest lloc web abans d'entrar al mode RV.</translatio
 <translation id="5142961317498132443">Autenticació</translation>
 <translation id="5143374789336132547">L'extensió <ph name="EXTENSION_NAME" /> ha canviat la pàgina que es mostra quan feu clic al botó Pàgina d'inici.</translation>
 <translation id="5143712164865402236">Passa a pantalla completa</translation>
-<translation id="5145461783043820456">El bloqueig de galetes de tercers està activat</translation>
 <translation id="514575469079499857">Utilitza l'adreça IP per determinar la ubicació (opció predeterminada)</translation>
 <translation id="5146995429444047494">Les notificacions per a <ph name="ORIGIN" /> estan bloquejades</translation>
 <translation id="5150254825601720210">Nom del servidor SSL de certificats de Netscape</translation>
@@ -2956,7 +2959,6 @@ Assegura't que confies en aquest lloc web abans d'entrar al mode RV.</translatio
 <translation id="5360150013186312835">Mostra a la barra d'eines</translation>
 <translation id="5362741141255528695">Seleccioneu el fitxer de clau privada.</translation>
 <translation id="5363109466694494651">Fes un Powerwash i canvia a la versió anterior</translation>
-<translation id="5365716706805792666">Google pot comprovar si les teves contrasenyes s'han vist afectades per una violació de les dades. Aquesta opció s'activarà quan iniciïs la sessió amb el Compte de Google.</translation>
 <translation id="5365881113273618889">La carpeta que has seleccionat conté fitxers confidencials. Confirmes que vols concedir a "<ph name="APP_NAME" />" accés d'escriptura permanent en aquesta carpeta?</translation>
 <translation id="5367091008316207019">S'està llegint el fitxer...</translation>
 <translation id="5368720394188453070">El telèfon està bloquejat. Desbloquegeu-lo per accedir-hi.</translation>
@@ -3658,7 +3660,6 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="63566973648609420">Només els usuaris que sàpiguen la teva frase de contrasenya poden llegir les dades que encriptis. La frase de contrasenya no s'envia a Google, ni Google l'emmagatzema. Si l'oblides o vols canviar aquesta configuració, hauràs de <ph name="BEGIN_LINK" />restablir la sincronització<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Us donem la benvinguda a la família <ph name="SHORT_PRODUCT_NAME" />. Aquest no és un ordinador convencional.</translation>
 <translation id="6358884629796491903">Drac</translation>
-<translation id="6360079014182882594">Aquest lloc web no té cap galeta que es pugui utilitzar per fer un seguiment de la teva activitat al web</translation>
 <translation id="6361850914223837199">Detalls de l'error:</translation>
 <translation id="6362853299801475928">&amp;Informa d'un problema...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3980,6 +3981,7 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="6850286078059909152">Color del text</translation>
 <translation id="6851497530878285708">Aplicació activada</translation>
 <translation id="6853388645642883916">S'ha posat l'actualitzador en repòs.</translation>
+<translation id="68541483639528434">Tanca les altres pestanyes</translation>
 <translation id="6856623341093082836">Configura i ajusta la precisió de la pantalla tàctil</translation>
 <translation id="6857699260879628349">Obtén informació de configuració</translation>
 <translation id="6860097299815761905">Config. servidor interm.</translation>
@@ -4428,7 +4430,6 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="7506541170099744506"><ph name="DEVICE_TYPE" /> s'ha inscrit correctament a la gestió empresarial.</translation>
 <translation id="7507930499305566459">Certificat de resposta d'estat</translation>
 <translation id="7508054832109420082">Dona permís per accedir a les impressores</translation>
-<translation id="7510943789645525906">T'avisa si una contrasenya que utilitzes ha patit una violació de les dades</translation>
 <translation id="7513029293694390567">Inicia la sessió automàticament als llocs web amb les credencials emmagatzemades. Si la funció està desactivada, se't demanarà sempre que confirmis les credencials per iniciar la sessió en un lloc web.</translation>
 <translation id="7514239104543605883">Copia-ho al dispositiu</translation>
 <translation id="7514365320538308">Baixa</translation>
@@ -4730,7 +4731,6 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="7926423016278357561">No era jo.</translation>
 <translation id="7928836894214140642">Gestionat per <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Les formes de pagament desades es mostraran aquí</translation>
-<translation id="7930681627240672853">Comprova la seguretat de la contrasenya</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> està compartint la pantalla i l'àudio.</translation>
 <translation id="7931318309563332511">Desconegut</translation>
 <translation id="793293630927785390">Diàleg per afegir una xarxa Wi-Fi</translation>
@@ -4803,7 +4803,6 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8014154204619229810">L'actualitzador està en funcionament. Actualitzeu la pantalla d'aquí a un minut per tornar-ho a comprovar.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> no pot canviar a la versió anterior instal·lada. Torneu a provar de fer un Powerwash al dispositiu.</translation>
 <translation id="8014210335923519270">Envia a Google informació del sistema i dades sobre l'ús de <ph name="IDS_SHORT_PRODUCT_NAME" /> per millorar aquest servei i la seva seguretat</translation>
-<translation id="8015780634880457457">Google pot comprovar si les teves contrasenyes s'han vist afectades per una violació de les dades.</translation>
 <translation id="8016266267177410919">Emmagatzematge temporal</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">S'ha editat la drecera</translation>

@@ -127,8 +127,9 @@ bool SavedBoundsAreContentBounds(const Browser* browser) {
   bool is_app_with_window_bounds =
       browser->deprecated_is_app() &&
       !web_app::AppBrowserController::IsForWebAppBrowser(browser);
-  return !browser->is_type_normal() && !is_app_with_window_bounds &&
-         !browser->is_trusted_source();
+  return !browser->is_type_normal() && !is_app_with_window_bounds;
+  // bounds should be content bounds for NW.js apps
+         //!browser->is_trusted_source();
 }
 
 void SaveWindowPlacement(const Browser* browser,

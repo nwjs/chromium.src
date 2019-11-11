@@ -925,6 +925,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="2326931316514688470">&amp;Znova načítať aplikáciu</translation>
 <translation id="2327492829706409234">Povoliť aplikáciu</translation>
 <translation id="2329597144923131178">Prihláste sa a používajte svoje záložky, históriu, heslá a ďalšie nastavenia vo všetkých svojich zariadeniach.</translation>
+<translation id="2330129964253841015">Upozorňovať pri odhalení hesiel</translation>
 <translation id="2332131598580221120">Zobraziť v obchode</translation>
 <translation id="2332192922827071008">Otvoriť predvoľby</translation>
 <translation id="2332742915001411729">Obnoviť na predvolené hodnoty</translation>
@@ -973,6 +974,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="2395616325548404795">Zariadenie <ph name="DEVICE_TYPE" /> bolo úspešne zaregistrované na podnikovú správu. Nepodarilo sa však odoslať informácie o obsahu a polohe. Zadajte tieto informácie ručne v Správcovskej konzole pre toto zariadenie.</translation>
 <translation id="2396783860772170191">Zadajte štvorciferný PIN (0000 – 9999)</translation>
 <translation id="2399939490305346086">Prihlasovacie údaje bezpečnostného kľúča</translation>
+<translation id="2407481962792080328">Keď sa prihlásite do svojho účtu Google, táto funkcia je zapnutá</translation>
 <translation id="2408955596600435184">Zadajte kód PIN</translation>
 <translation id="241082044617551207">Neznámy doplnok</translation>
 <translation id="2412593942846481727">K dispozícii je aktualizácia</translation>
@@ -1426,6 +1428,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="3038612606416062604">Manuálne pridanie tlačiarne</translation>
 <translation id="3038675903128704560">Nepovoliť žiadnemu webu používať doplnok na prístup do počítača</translation>
 <translation id="3039491566278747710">Pravidlo pre režim offline sa nepodarilo v zariadení nainštalovať.</translation>
+<translation id="3043581297103810752">Z webu <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Tento web automaticky stiahol viacero súborov</translation>
 <translation id="3046910703532196514">Webová stránka, Úplné</translation>
 <translation id="304747341537320566">Nástroje hlasovej odozvy</translation>
@@ -2292,6 +2295,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="4316850752623536204">Webové stránky vývojára</translation>
 <translation id="4320177379694898372">Žiadne internetové pripojenie</translation>
 <translation id="4321442524549817090">Zo&amp;braziť webovú adresu</translation>
+<translation id="4322394346347055525">Zatvoriť ostatné karty</translation>
 <translation id="4324577459193912240">Súbor nie je úplný</translation>
 <translation id="4325237902968425115">Prebieha odinštalovanie aplikácie <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">Voda s ľadom</translation>
@@ -2821,7 +2825,6 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="5142961317498132443">Overenie totožnosti</translation>
 <translation id="5143374789336132547">Rozšírenie „<ph name="EXTENSION_NAME" />“ zmenilo stránku, ktorá sa zobrazí po kliknutí na tlačidlo Domovská stránka.</translation>
 <translation id="5143712164865402236">Celá obrazovka</translation>
-<translation id="5145461783043820456">Blokovanie súborov cookie tretej strany je zapnuté</translation>
 <translation id="514575469079499857">Na zistenie polohy používať adresu IP (predvolené)</translation>
 <translation id="5146995429444047494">Upozornenia webu <ph name="ORIGIN" /> sú blokované</translation>
 <translation id="5150254825601720210">Netscape – názov servera SSL certifikátu</translation>
@@ -2957,7 +2960,6 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="5360150013186312835">Zobraziť na paneli s nástrojmi</translation>
 <translation id="5362741141255528695">Vybrať súbor súkromného kľúča.</translation>
 <translation id="5363109466694494651">Úplne obnoviť (Powerwash) a vrátiť späť</translation>
-<translation id="5365716706805792666">Google môže skontrolovať, či vaše heslá boli súčasťou porušenia ochrany údajov. Táto funkcia bude zapnutá, keď sa prihlásite pomcou svojho účtu Google.</translation>
 <translation id="5365881113273618889">Vybraný priečinok obsahuje citlivé súbory. Naozaj chcete aplikácii <ph name="APP_NAME" /> povoliť trvalý prístup na zapisovanie pre tento priečinok?</translation>
 <translation id="5367091008316207019">Prebieha čítanie súboru..</translation>
 <translation id="5368720394188453070">Telefón je uzamknutý. Ak chcete pokračovať, odomknite ho.</translation>
@@ -3206,7 +3208,7 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="5701080607174488915">Pri načítavaní pravidla zo servera sa vyskytla chyba.</translation>
 <translation id="5701381305118179107">Na stred</translation>
 <translation id="5702898740348134351">Spravovať &amp;vyhľadávače…</translation>
-<translation id="570302979952009979">Pomenuje tento odtlačok prsta</translation>
+<translation id="570302979952009979">Pomenujte tento odtlačok prsta</translation>
 <translation id="5704875434923668958">Synchronizácia do účtu</translation>
 <translation id="5707185214361380026">Nepodarilo sa načítať rozšírenie zo zdroja</translation>
 <translation id="5708171344853220004">Hlavný názov Microsoft</translation>
@@ -3483,7 +3485,7 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="6096047740730590436">Otvoriť maximalizované</translation>
 <translation id="6096326118418049043">Názov X.500</translation>
 <translation id="6097480669505687979">Ak neuvoľníte miesto, môže dôjsť k automatickému odstráneniu používateľov a dát.</translation>
-<translation id="6098793583803863900">V neznámom súbore sa kontrolujte prítomnosť nebezpečného obsahu.</translation>
+<translation id="6098793583803863900">V neznámom súbore sa kontroluje prítomnosť nebezpečného obsahu.</translation>
 <translation id="6100736666660498114">Ponuka Štart</translation>
 <translation id="6101226222197207147">Bola pridaná nová aplikácia (<ph name="EXTENSION_NAME" />)</translation>
 <translation id="6102043788063419338">Tento súbor zablokovala rozšírená ochrana.</translation>
@@ -3658,7 +3660,6 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="63566973648609420">Šifrované údaje môže čítať iba používateľ s prístupovou frázou. Prístupová fráza sa do Googlu neodosiela a Google ju ani neukladá. Ak zabudnete prístupovú frázu alebo budete chcieť zmeniť toto nastavenie zmeniť, musíte <ph name="BEGIN_LINK" />resetovať synchronizáciu<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Vítame vás do rodiny produktov <ph name="SHORT_PRODUCT_NAME" />. Toto nie je obyčajný počítač.</translation>
 <translation id="6358884629796491903">Drak</translation>
-<translation id="6360079014182882594">Tento web nepoužíva súbory cookie, pomocou ktorých vás je možné sledovať na internete</translation>
 <translation id="6361850914223837199">Podrobnosti chyby:</translation>
 <translation id="6362853299801475928">Nahlásenie p&amp;roblému...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3980,6 +3981,7 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="6850286078059909152">Farba textu</translation>
 <translation id="6851497530878285708">Aplikácia je povolená</translation>
 <translation id="6853388645642883916">Služba Updater je v režime spánku</translation>
+<translation id="68541483639528434">Zatvoriť ostatné karty</translation>
 <translation id="6856623341093082836">Nastaviť a upraviť presnosť dotykovej obrazovky</translation>
 <translation id="6857699260879628349">Získať informácie o konfigurácii</translation>
 <translation id="6860097299815761905">Nastavenia servera proxy...</translation>
@@ -4428,7 +4430,6 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="7506541170099744506">Zariadenie <ph name="DEVICE_TYPE" /> bolo úspešne zaregistrované na podnikovú správu.</translation>
 <translation id="7507930499305566459">Certifikát stavového odpovedajúceho zariadenia</translation>
 <translation id="7508054832109420082">Poskytnite prístup k tlačiarňam</translation>
-<translation id="7510943789645525906">Upozorní vás, ak heslo, ktoré používate, bolo súčasťou porušenia ochrany údajov</translation>
 <translation id="7513029293694390567">Prihlasovať sa na weboch automaticky pomocou uložených prihlasovacích údajov. Keď je táto funkcia vypnutá, zobrazí sa vám pred každým prihlásením žiadosť o potvrdenie.</translation>
 <translation id="7514239104543605883">Kopírovať do zariadenia</translation>
 <translation id="7514365320538308">Stiahnuť</translation>
@@ -4730,7 +4731,6 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="7926423016278357561">To som nebol(a) ja.</translation>
 <translation id="7928836894214140642">Spravuje <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Tu sa zobrazia uložené spôsoby platby</translation>
-<translation id="7930681627240672853">Skontrolovať bezpečnosť hesla</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> zdieľa vašu obrazovku a zvuk.</translation>
 <translation id="7931318309563332511">Neznámy</translation>
 <translation id="793293630927785390">Dialógové okno Nová sieť Wi‑Fi</translation>
@@ -4803,7 +4803,6 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="8014154204619229810">Aktualizačný nástroj je práve spustený. Obnovením stránky o minútu to znova skontrolujte.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> sa nedokáže vrátiť späť na predchádzajúcu nainštalovanú verziu. Skúste znova vykonať úplné obnovenie svojho zariadenia (tzv. Powerwash).</translation>
 <translation id="8014210335923519270">Zlepšite <ph name="IDS_SHORT_PRODUCT_NAME" /> a jeho zabezpečenie odosielaním informácií o systéme a využití do Googlu</translation>
-<translation id="8015780634880457457">Google môže skontrolovať, či vaše heslá boli súčasťou porušenia ochrany údajov.</translation>
 <translation id="8016266267177410919">Dočasné úložisko</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Skratka bola upravená</translation>
@@ -5087,7 +5086,7 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="8435395510592618362">Overenie totožnosti pomocou aplikácie <ph name="APP_NAME" /></translation>
 <translation id="843760761634048214">Uloženie kreditnej karty</translation>
 <translation id="8438328416656800239">Prepnite na inteligentný prehliadač</translation>
-<translation id="8438566539970814960">Zlepšovať vyhľadávania a prehliadanie</translation>
+<translation id="8438566539970814960">Zlepšovať vyhľadávanie a prehliadanie</translation>
 <translation id="8439506636278576865">Ponúkať preklad stránok v tomto jazyku</translation>
 <translation id="8440630305826533614">Aplikácie pre Linux</translation>
 <translation id="8443338615972234259">Zriaďte ihneď nový účet pre kontrolovaného používateľa.</translation>
@@ -5545,7 +5544,7 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="9076283476770535406">Môže zahŕňať obsah pre dospelých</translation>
 <translation id="9076523132036239772">Je nám ľúto, e-mailovú adresu alebo heslo sa nepodarilo overiť. Skúste sa najprv pripojiť k sieti.</translation>
 <translation id="9084064520949870008">Otvoriť ako okno</translation>
-<translation id="9085256200913095638">Zdvojiť vybranú kartu</translation>
+<translation id="9085256200913095638">Duplikovať vybranú kartu</translation>
 <translation id="9088234649737575428">Doplnok <ph name="PLUGIN_NAME" /> je blokovaný podnikovými pravidlami</translation>
 <translation id="9088917181875854783">Potvrďte, že tento prístupový kľúč sa zobrazuje na zariadení „<ph name="DEVICE_NAME" />“:</translation>
 <translation id="9094033019050270033">Aktualizovať heslo</translation>
@@ -5578,6 +5577,7 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="9130015405878219958">Zadali ste neplatný režim.</translation>
 <translation id="9131487537093447019">Posielať správy zariadeniam Bluetooth a prijímať správy zo zariadení Bluetooth.</translation>
 <translation id="9134304429738380103">Áno, chcem.</translation>
+<translation id="9135090785674039430">Keď toto nastavenie zapnete, weby nebudú môcť používať súbory cookie, ktoré vás sledujú na internete. Na niektorých weboch môže dôjsť k zlyhaniu.</translation>
 <translation id="9137013805542155359">Zobraziť originál</translation>
 <translation id="9137157311132182254">Preferovaný vyhľadávač</translation>
 <translation id="9137248913990643158">Začnite a prihláste sa do Chromu ešte predtým, ako použijete túto aplikáciu.</translation>

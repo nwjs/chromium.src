@@ -105,6 +105,9 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
     // Metrics. True if sheet has ever been triggered (in peeked state) for an edge swipe.
     private boolean mSheetTriggered;
 
+    // Metrics. True if sheet was opened from long-press on back button.
+    private boolean mOpenedAsPopup;
+
     // Set to {@code true} for each trigger when the sheet should fully expand with
     // no peek/half state.
     private boolean mFullyExpand;
@@ -122,12 +125,17 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
         mMediator = new NavigationSheetMediator(context, mModelList, (position, index) -> {
             mDelegate.navigateToIndex(index);
             close(false);
-            GestureNavMetrics.recordHistogram("GestureNavigation.Sheet.Used", mForward);
+            if (mOpenedAsPopup) {
+                GestureNavMetrics.recordUserAction(
+                        (index == -1) ? "ShowFullHistory" : "HistoryClick" + (position + 1));
+            } else {
+                GestureNavMetrics.recordHistogram("GestureNavigation.Sheet.Used", mForward);
 
-            // Logs position of the clicked item. Back navigation has negative value,
-            // while forward positive. Show full history is zero.
-            RecordHistogram.recordSparseHistogram("GestureNavigation.Sheet.Selected",
-                    index == -1 ? 0 : (mForward ? position + 1 : -position - 1));
+                // Logs position of the clicked item. Back navigation has negative value,
+                // while forward positive. Show full history is zero.
+                RecordHistogram.recordSparseHistogram("GestureNavigation.Sheet.Selected",
+                        index == -1 ? 0 : (mForward ? position + 1 : -position - 1));
+            }
         });
         mModelAdapter.registerType(NAVIGATION_LIST_ITEM_TYPE_ID, () -> {
             return mLayoutInflater.inflate(R.layout.navigation_popup_item, null);
@@ -149,18 +157,23 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
     }
 
     // Transition to either peeked or expanded state.
-    private void openSheet(boolean fullyExpand, boolean animate) {
+    private boolean openSheet(boolean fullyExpand, boolean animate) {
         mContentView =
                 (NavigationSheetView) mLayoutInflater.inflate(R.layout.navigation_sheet, null);
         ListView listview = (ListView) mContentView.findViewById(R.id.navigation_entries);
         listview.setAdapter(mModelAdapter);
         NavigationHistory history = mDelegate.getHistory(mForward);
         mMediator.populateEntries(history);
-        mBottomSheetController.get().requestShowContent(this, true);
+        if (!mBottomSheetController.get().requestShowContent(this, true)) {
+            close(false);
+            mContentView = null;
+            return false;
+        }
         mBottomSheetController.get().getBottomSheet().addObserver(mSheetObserver);
         mSheetTriggered = true;
         mFullyExpand = fullyExpand;
         if (fullyExpand || history.getEntryCount() <= SKIP_PEEK_COUNT) expandSheet();
+        return true;
     }
 
     private void expandSheet() {
@@ -176,12 +189,16 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
         mForward = forward;
         mShowCloseIndicator = showCloseIndicator;
         mSheetTriggered = false;
+        mOpenedAsPopup = false;
     }
 
     @Override
-    public void startAndExpand(boolean forward, boolean animate) {
+    public boolean startAndExpand(boolean forward, boolean animate) {
         start(forward, /* showCloseIndicator= */ false);
-        openSheet(/* fullyExpand= */ true, animate);
+        mOpenedAsPopup = true;
+        boolean opened = openSheet(/* fullyExpand= */ true, animate);
+        if (opened) GestureNavMetrics.recordUserAction("Popup");
+        return opened;
     }
 
     @Override
@@ -218,11 +235,8 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
         if (isPeeked()) expandSheet();
     }
 
-    /**
-     * Hide the sheet and reset its model.
-     * @param animation {@code true} if animation effect is to be made.
-     */
-    private void close(boolean animate) {
+    @Override
+    public void close(boolean animate) {
         if (!isHidden()) mBottomSheetController.get().hideContent(this, animate);
         mBottomSheetController.get().getBottomSheet().removeObserver(mSheetObserver);
         mMediator.clear();

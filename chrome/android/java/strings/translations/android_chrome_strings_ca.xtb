@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Contrasenyes que no es desen mai</translation>
 <translation id="1067922213147265141">Altres serveis de Google</translation>
 <translation id="1068672505746868501">No tradueixis mai les pàgines en <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">Si canvies l'extensió del fitxer, pot ser que el fitxer s'obri en una altra aplicació i pot arribar a ser perillós per al dispositiu.</translation>
 <translation id="1100066534610197918">Obre en una pestanya d'un grup</translation>
 <translation id="1105960400813249514">Captura de pantalla</translation>
 <translation id="1111673857033749125">Les adreces d'interès desades als altres dispositius es mostraran aquí.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Obre-les totes</translation>
 <translation id="1409426117486808224">Visualització simplificada de les pestanyes obertes</translation>
 <translation id="1409879593029778104">No s'ha baixat el fitxer <ph name="FILE_NAME" /> perquè ja existeix.</translation>
-<translation id="1413136574162415971">Google pot comprovar si les teves contrasenyes s'han vist afectades per una violació de les dades. Aquesta opció s'activarà quan iniciïs la sessió amb el Compte de Google i activis la sincronització.</translation>
 <translation id="1414981605391750300">S'està contactant amb Google. Aquest procés pot trigar una estona…</translation>
 <translation id="1416550906796893042">Versió de l'aplicació</translation>
 <translation id="1430915738399379752">Imprimeix</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Perquè Chrome et pugui enviar notificacions, també has d'activar-les a la <ph name="BEGIN_LINK" />configuració d'Android<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> també té dades a Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Si canvies l'extensió del fitxer, pot ser que el fitxer no es comporti de la manera esperada i que malmeti el dispositiu.</translation>
 <translation id="2056878612599315956">El lloc web s'ha posat en pausa</translation>
 <translation id="2063713494490388661">Toca per cercar</translation>
 <translation id="2067805253194386918">text</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Arrossega el control lliscant fins que puguis llegir aquest text còmodament. El text ha de ser almenys així de gran després de tocar dos cops un paràgraf.</translation>
 <translation id="2323763861024343754">Emmagatzematge del lloc web</translation>
 <translation id="2328985652426384049">No es pot iniciar la sessió</translation>
+<translation id="2330129964253841015">T'avisa si les contrasenyes es posen en perill</translation>
 <translation id="2349710944427398404">Dades totals utilitzades per Chrome, com ara comptes, adreces d'interès i opcions de configuració desades</translation>
 <translation id="2353636109065292463">S'està comprovant la connexió a Internet</translation>
 <translation id="2359808026110333948">Continua</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Canvia la mida del text</translation>
 <translation id="2394602618534698961">Els fitxers que baixes es mostren aquí</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">En iniciar la sessió al Compte de Google, aquesta funció està sempre activada</translation>
 <translation id="2410754283952462441">Tria un compte</translation>
 <translation id="2414886740292270097">Fosc</translation>
 <translation id="2416359993254398973">Per visitar aquest lloc web, Chrome necessita permís per accedir a la teva càmera.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">Estàs personalitzant la configuració de la sincronització i del servei de Google. Per acabar d'activar la sincronització, toca el botó Confirma que hi ha cap a la part inferior de la pantalla. Navega cap amunt</translation>
 <translation id="3328801116991980348">Informació del lloc web</translation>
 <translation id="3333961966071413176">Tots els contactes</translation>
+<translation id="3334729583274622784">Vols canviar l'extensió del fitxer?</translation>
 <translation id="3341058695485821946">Consulta la quantitat de dades que has estalviat</translation>
 <translation id="3350687908700087792">Tanca totes les pestanyes d'incògnit</translation>
 <translation id="3353615205017136254">Pàgina en mode bàsic oferida per Google. Toca el botó Carrega la versió original per carregar la pàgina original.</translation>
@@ -873,7 +875,6 @@ El lloc web NO obté accés a la càmera. Només tu pots veure les imatges de la
 <translation id="7493994139787901920"><ph name="VERSION" /> (última actualització: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">dades estalviades</translation>
 <translation id="7498271377022651285">Espereu...</translation>
-<translation id="7510943789645525906">T'avisa si una contrasenya que utilitzes ha patit una violació de les dades</translation>
 <translation id="7514365320538308">Baixa</translation>
 <translation id="751961395872307827">No es pot connectar amb el lloc web</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ El lloc web NO obté accés a la càmera. Només tu pots veure les imatges de la
 <translation id="7810647596859435254">Obre amb…</translation>
 <translation id="7821588508402923572">Les dades que estalviïs es mostraran aquí</translation>
 <translation id="7837721118676387834">Permet la reproducció automàtica de vídeos silenciats d'un lloc web concret.</translation>
-<translation id="7838340937077326045">Confirmes que vols canviar l'extensió del fitxer?</translation>
 <translation id="7846076177841592234">Cancel·la la selecció</translation>
 <translation id="784934925303690534">Interval de temps</translation>
 <translation id="7851858861565204677">Altres dispositius</translation>
@@ -930,7 +930,6 @@ El lloc web NO obté accés a la càmera. Només tu pots veure les imatges de la
 <translation id="7886917304091689118">S'està executant a Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{S'està baixant el fitxer.}other{S'estan baixant # fitxers.}}</translation>
 <translation id="7929962904089429003">Obre el menú</translation>
-<translation id="7930681627240672853">Comprova la seguretat de la contrasenya</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> no està actualitzat.</translation>
 <translation id="7947953824732555851">Acc. i inicia sessió</translation>
 <translation id="7963646190083259054">Proveïdor:</translation>
@@ -946,7 +945,6 @@ El lloc web NO obté accés a la càmera. Només tu pots veure les imatges de la
 <translation id="8007176423574883786">Aquesta ubicació està desactivada per a aquest dispositiu</translation>
 <translation id="8013372441983637696">Esborra també les teves dades de Chrome d'aquest dispositiu</translation>
 <translation id="8015452622527143194">Restableix la mida de tots els elements de la pàgina</translation>
-<translation id="8015780634880457457">Google pot comprovar si les teves contrasenyes s'han vist afectades per una violació de les dades.</translation>
 <translation id="802154636333426148">Error de baixada</translation>
 <translation id="8026334261755873520">Esborra les dades de navegació</translation>
 <translation id="8035133914807600019">Carpeta nova…</translation>

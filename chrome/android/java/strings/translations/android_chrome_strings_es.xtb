@@ -9,6 +9,7 @@
 <translation id="10614374240317010">Contraseñas que nunca se guardan</translation>
 <translation id="1067922213147265141">Otros servicios de Google</translation>
 <translation id="1068672505746868501">No traducir nunca las páginas en <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="107147699690128016">Si cambias la extensión del archivo, el archivo podría abrirse en una aplicación diferente y convertirse en un riesgo potencial para tu dispositivo.</translation>
 <translation id="1100066534610197918">Abrir pestaña nueva en grupo</translation>
 <translation id="1105960400813249514">Captura de pantalla</translation>
 <translation id="1111673857033749125">Aquí aparecen los marcadores que hayas guardado en otros dispositivos.</translation>
@@ -65,7 +66,6 @@
 <translation id="1407135791313364759">Abrir todas</translation>
 <translation id="1409426117486808224">Vista simplificada de las pestañas abiertas</translation>
 <translation id="1409879593029778104">No se ha descargado <ph name="FILE_NAME" /> porque este archivo ya existe.</translation>
-<translation id="1413136574162415971">Google puede comprobar si tus contraseñas se han visto afectadas por una quiebra de seguridad de datos. Esta función se activará cuando inicies sesión con tu cuenta de Google y actives la sincronización.</translation>
 <translation id="1414981605391750300">Contactando con Google. Esto puede tardar un minuto…</translation>
 <translation id="1416550906796893042">Versión de la aplicación</translation>
 <translation id="1430915738399379752">Imprimir</translation>
@@ -145,7 +145,6 @@
 <translation id="2041019821020695769">Para que Chrome pueda enviarte notificaciones, actívalas también en los <ph name="BEGIN_LINK" />ajustes de Android<ph name="END_LINK" />.</translation>
 <translation id="204321170514947529"><ph name="APP_NAME" /> también tiene datos en Chrome</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
-<translation id="2049961518639794558">Cambiar la extensión del archivo podría provocar un comportamiento inesperado y dañar tu dispositivo.</translation>
 <translation id="2056878612599315956">Sitio web en pausa</translation>
 <translation id="2063713494490388661">Tocar para buscar</translation>
 <translation id="2067805253194386918">texto</translation>
@@ -183,6 +182,7 @@
 <translation id="2321958826496381788">Arrastra el control deslizante hasta que puedas leer cómodamente. El texto debe tener al menos este tamaño después de tocar un párrafo dos veces.</translation>
 <translation id="2323763861024343754">Almacenamiento del sitio web</translation>
 <translation id="2328985652426384049">No se puede iniciar sesión</translation>
+<translation id="2330129964253841015">Avisar si las contraseñas están en riesgo</translation>
 <translation id="2349710944427398404">Datos totales utilizados por Chrome, incluidos los marcadores, las cuentas y la configuración guardada</translation>
 <translation id="2353636109065292463">Comprobar tu conexión a Internet</translation>
 <translation id="2359808026110333948">Continuar</translation>
@@ -190,6 +190,7 @@
 <translation id="2387895666653383613">Ajuste de texto</translation>
 <translation id="2394602618534698961">Los archivos que descargues aparecerán aquí</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2407481962792080328">Esta función se activará cuando inicies sesión en tu cuenta de Google</translation>
 <translation id="2410754283952462441">Elegir una cuenta</translation>
 <translation id="2414886740292270097">Oscuro</translation>
 <translation id="2416359993254398973">Chrome necesita permiso para acceder a la cámara en este sitio web.</translation>
@@ -314,6 +315,7 @@
 <translation id="3315103659806849044">En estos momentos estás personalizando los ajustes de los servicios de Google y sincronización. Para activar finalmente la sincronización, toca el botón Confirmar, que se encuentra casi al final de la pantalla. Desplázate hacia arriba</translation>
 <translation id="3328801116991980348">Información del sitio</translation>
 <translation id="3333961966071413176">Todos los contactos</translation>
+<translation id="3334729583274622784">¿Cambiar la extensión del archivo?</translation>
 <translation id="3341058695485821946">Consulta la cantidad de datos que has ahorrado</translation>
 <translation id="3350687908700087792">Cerrar todas las pestañas de incógnito</translation>
 <translation id="3353615205017136254">Página básica ofrecida por Google. Si quieres ver la original, toca el botón para cargarla.</translation>
@@ -873,7 +875,6 @@ El sitio web no obtendrá acceso a la cámara. Solo tú puedes ver las imágenes
 <translation id="7493994139787901920"><ph name="VERSION" /> (actualizada el <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7494974237137038751">de datos ahorrados</translation>
 <translation id="7498271377022651285">Espera…</translation>
-<translation id="7510943789645525906">Te avisa si alguna de tus contraseñas se ha visto afectada por una quiebra de seguridad de datos</translation>
 <translation id="7514365320538308">Descargar</translation>
 <translation id="751961395872307827">No se puede establecer conexión con el sitio web</translation>
 <translation id="7521387064766892559">JavaScript</translation>
@@ -919,7 +920,6 @@ El sitio web no obtendrá acceso a la cámara. Solo tú puedes ver las imágenes
 <translation id="7810647596859435254">Abrir con…</translation>
 <translation id="7821588508402923572">El ahorro de datos aparecerá aquí</translation>
 <translation id="7837721118676387834">Permitir que un sitio web específico reproduzca automáticamente los vídeos silenciados.</translation>
-<translation id="7838340937077326045">¿Seguro que quieres cambiar la extensión de archivo?</translation>
 <translation id="7846076177841592234">Cancelar selección</translation>
 <translation id="784934925303690534">Intervalo de tiempo</translation>
 <translation id="7851858861565204677">Otros dispositivos</translation>
@@ -930,7 +930,6 @@ El sitio web no obtendrá acceso a la cámara. Solo tú puedes ver las imágenes
 <translation id="7886917304091689118">Se está ejecutando en Chrome</translation>
 <translation id="7925590027513907933">{FILE_COUNT,plural, =1{Descargando archivo.}other{Descargando # archivos.}}</translation>
 <translation id="7929962904089429003">Abre el menú</translation>
-<translation id="7930681627240672853">Comprobar la seguridad de la contraseña</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> está obsoleto.</translation>
 <translation id="7947953824732555851">Aceptar y acceder</translation>
 <translation id="7963646190083259054">Proveedor:</translation>
@@ -946,7 +945,6 @@ El sitio web no obtendrá acceso a la cámara. Solo tú puedes ver las imágenes
 <translation id="8007176423574883786">Desactivada para este dispositivo</translation>
 <translation id="8013372441983637696">Borrar también los datos de Chrome de este dispositivo</translation>
 <translation id="8015452622527143194">Restaura el tamaño predeterminado del contenido</translation>
-<translation id="8015780634880457457">Google puede comprobar si tus contraseñas se han vistos afectadas por una quiebra de seguridad de datos</translation>
 <translation id="802154636333426148">No se ha podido descargar el archivo</translation>
 <translation id="8026334261755873520">Borrar datos de navegación</translation>
 <translation id="8035133914807600019">Nueva carpeta…</translation>

@@ -403,6 +403,15 @@ class BrowserViewLayoutDelegateImpl : public BrowserViewLayoutDelegate {
     return browser_view_->IsBookmarkBarVisible();
   }
 
+  bool IsContentsSeparatorEnabled() const override {
+    // Web app windows manage their own separator.
+    // TODO(crbug.com/1012979): Make PWAs set the visibility of the ToolbarView
+    // based on whether it is visible instead of setting the height to 0px. This
+    // will enable BrowserViewLayout to hide the contents separator on its own
+    // using the same logic used by normal BrowserViews.
+    return !browser_view_->browser()->app_controller();
+  }
+
   ExclusiveAccessBubbleViews* GetExclusiveAccessBubble() const override {
     return browser_view_->exclusive_access_bubble();
   }
@@ -816,8 +825,7 @@ bool BrowserView::IsOnCurrentWorkspace() const {
   }
 
   BOOL on_current_desktop;
-  if (!native_win ||
-      FAILED(virtual_desktop_manager->IsWindowOnCurrentVirtualDesktop(
+  if (FAILED(virtual_desktop_manager->IsWindowOnCurrentVirtualDesktop(
           native_win->GetHost()->GetAcceleratedWidget(),
           &on_current_desktop)) ||
       on_current_desktop) {
@@ -829,9 +837,9 @@ bool BrowserView::IsOnCurrentWorkspace() const {
   // is not on the current virtual desktop when it is. In this situation,
   // it also returns GUID_NULL for the desktop id.
   GUID workspace_guid;
-  return SUCCEEDED(virtual_desktop_manager->GetWindowDesktopId(
-             native_win->GetHost()->GetAcceleratedWidget(), &workspace_guid)) &&
-         workspace_guid != GUID_NULL;
+  return !SUCCEEDED(virtual_desktop_manager->GetWindowDesktopId(
+             native_win->GetHost()->GetAcceleratedWidget(), &workspace_guid)) ||
+         workspace_guid == GUID_NULL;
 #else
   return true;
 #endif  // defined(OS_CHROMEOS)
@@ -1465,10 +1473,11 @@ void BrowserView::ShowIntentPickerBubble(
     bool show_stay_in_chrome,
     bool show_remember_selection,
     PageActionIconType icon_type,
+    const base::Optional<url::Origin>& initiating_origin,
     IntentPickerResponse callback) {
   toolbar_->ShowIntentPickerBubble(std::move(app_info), show_stay_in_chrome,
                                    show_remember_selection, icon_type,
-                                   std::move(callback));
+                                   initiating_origin, std::move(callback));
 }
 
 void BrowserView::ShowBookmarkBubble(const GURL& url, bool already_bookmarked) {
@@ -2246,7 +2255,7 @@ gfx::ImageSkia BrowserView::GetWindowIcon() {
     return rb.GetImageNamed(override_window_icon_resource_id).AsImageSkia();
 #endif
 
-  if (browser_->deprecated_is_app())
+  if (browser_->deprecated_is_app() || browser_->is_type_popup())
     return browser_->GetCurrentPageIcon().AsImageSkia();
 
   return gfx::ImageSkia();

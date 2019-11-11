@@ -12,6 +12,13 @@
 
 namespace weblayer {
 
+// GENERATED_JAVA_ENUM_PACKAGE: org.chromium.weblayer_private
+// GENERATED_JAVA_CLASS_NAME_OVERRIDE: ImplBrowsingDataType
+enum class BrowsingDataType {
+  COOKIES_AND_SITE_DATA = 0,
+  CACHE = 1,
+};
+
 class Profile {
  public:
   // Pass an empty |path| for an in-memory profile.
@@ -19,8 +26,11 @@ class Profile {
 
   virtual ~Profile() {}
 
-  // TODO: add lots of parameters to control what gets deleted and which range.
-  virtual void ClearBrowsingData() = 0;
+  virtual void ClearBrowsingData(
+      const std::vector<BrowsingDataType>& data_types,
+      base::Time from_time,
+      base::Time to_time,
+      base::OnceClosure callback) = 0;
 };
 
 }  // namespace weblayer

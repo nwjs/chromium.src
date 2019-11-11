@@ -922,6 +922,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="2326931316514688470">&amp;Volver a cargar la aplicación</translation>
 <translation id="2327492829706409234">Habilitar aplicación</translation>
 <translation id="2329597144923131178">Accede a tu cuenta para ver los favoritos, el historial, las contraseñas y otras opciones de configuración en todos los dispositivos.</translation>
+<translation id="2330129964253841015">Advertirme si se vulneran las contraseñas</translation>
 <translation id="2332131598580221120">Ver en Chrome Web Store</translation>
 <translation id="2332192922827071008">Abrir preferencias</translation>
 <translation id="2332742915001411729">Restablecer configuración de zoom predeterminada</translation>
@@ -970,6 +971,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="2395616325548404795">Tu dispositivo <ph name="DEVICE_TYPE" /> se inscribió correctamente para la administración empresarial, pero se produjo un error al intentar enviar la información de la ubicación y del recurso. Ingresa los datos manualmente en la Consola del administrador del dispositivo.</translation>
 <translation id="2396783860772170191">Ingresa un PIN de 4 dígitos (0000-9999)</translation>
 <translation id="2399939490305346086">Datos de acceso de la llave de seguridad</translation>
+<translation id="2407481962792080328">Se activa esta función cuando accedes a tu Cuenta de Google</translation>
 <translation id="2408955596600435184">Ingresa tu PIN</translation>
 <translation id="241082044617551207">Complemento desconocido</translation>
 <translation id="2412593942846481727">Actualización disponible</translation>
@@ -1424,6 +1426,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="3038612606416062604">Agregar una impresora manualmente</translation>
 <translation id="3038675903128704560">No permitir que los sitios usen complementos para acceder a tu computadora</translation>
 <translation id="3039491566278747710">No se pudo instalar la política sin conexión en el dispositivo.</translation>
+<translation id="3043581297103810752">De <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Este sitio descargó varios archivos automáticamente</translation>
 <translation id="3046910703532196514">Página web, completa</translation>
 <translation id="304747341537320566">Motores de comentarios de texto a voz</translation>
@@ -2290,6 +2293,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="4316850752623536204">Sitio web del programador</translation>
 <translation id="4320177379694898372">Sin conexión a Internet</translation>
 <translation id="4321442524549817090">M&amp;ostrar URL</translation>
+<translation id="4322394346347055525">Cerrar las demás pestañas</translation>
 <translation id="4324577459193912240">El archivo está incompleto</translation>
 <translation id="4325237902968425115">Desinstalando <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">Agua helada</translation>
@@ -2819,7 +2823,6 @@ Asegúrate de que este sitio sea de confianza antes de entrar en el modo RV.</tr
 <translation id="5142961317498132443">Autenticación</translation>
 <translation id="5143374789336132547">La extensión "<ph name="EXTENSION_NAME" />" cambió la página que se muestra al hacer clic en el botón Página prinicpal.</translation>
 <translation id="5143712164865402236">Ingresar a pantalla completa</translation>
-<translation id="5145461783043820456">Está activado el bloqueo de cookies de terceros</translation>
 <translation id="514575469079499857">Usar tu dirección IP para determinar la ubicación (predeterminado)</translation>
 <translation id="5146995429444047494">Se bloquearon las notificaciones de <ph name="ORIGIN" /></translation>
 <translation id="5150254825601720210">Nombre del servidor SSL para el certificado de Microsoft</translation>
@@ -2955,7 +2958,6 @@ Asegúrate de que este sitio sea de confianza antes de entrar en el modo RV.</tr
 <translation id="5360150013186312835">Mostrar en la barra de herramientas</translation>
 <translation id="5362741141255528695">Seleccionar archivo de clave privada.</translation>
 <translation id="5363109466694494651">Utilizar la función Powerwash y revertir</translation>
-<translation id="5365716706805792666">Google puede determinar si tus contraseñas formaron parte de un incumplimiento de datos. Se activará esta opción cuando accedas con tu Cuenta de Google.</translation>
 <translation id="5365881113273618889">La carpeta seleccionada contiene archivos confidenciales. ¿Confirmas que deseas otorgar a "<ph name="APP_NAME" />" acceso de escritura permanente a esta carpeta?</translation>
 <translation id="5367091008316207019">Leyendo el archivo...</translation>
 <translation id="5368720394188453070">El teléfono está bloqueado. Desbloquéalo para ingresar.</translation>
@@ -3656,7 +3658,6 @@ Asegúrate de que este sitio sea de confianza antes de entrar en el modo RV.</tr
 <translation id="63566973648609420">Solo las personas que tengan tu frase de contraseña pueden leer los datos encriptados. Google no envía ni almacena la frase de contraseña. Si la olvidas o quieres cambiar esta configuración, deberás <ph name="BEGIN_LINK" />restablecer la sincronización<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Te damos la bienvenida a la familia <ph name="SHORT_PRODUCT_NAME" />. Esta no es una computadora convencional.</translation>
 <translation id="6358884629796491903">Dragón</translation>
-<translation id="6360079014182882594">Este sitio no tiene cookies que se usen para rastrearte en la Web</translation>
 <translation id="6361850914223837199">Detalles del error:</translation>
 <translation id="6362853299801475928">&amp;Cómo informar de un problema...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3978,6 +3979,7 @@ Asegúrate de que este sitio sea de confianza antes de entrar en el modo RV.</tr
 <translation id="6850286078059909152">Color del texto</translation>
 <translation id="6851497530878285708">App habilitada</translation>
 <translation id="6853388645642883916">Actualizador suspendido</translation>
+<translation id="68541483639528434">Cerrar las demás pestañas</translation>
 <translation id="6856623341093082836">Configurar y ajustar la precisión de tu pantalla táctil</translation>
 <translation id="6857699260879628349">Obtener información sobre la configuración</translation>
 <translation id="6860097299815761905">Configuración de proxy...</translation>
@@ -4426,7 +4428,6 @@ Asegúrate de que este sitio sea de confianza antes de entrar en el modo RV.</tr
 <translation id="7506541170099744506">Tu dispositivo <ph name="DEVICE_TYPE" /> se inscribió correctamente para la administración empresarial.</translation>
 <translation id="7507930499305566459">Certificado del respondedor de estado</translation>
 <translation id="7508054832109420082">Otorgar acceso a las impresoras</translation>
-<translation id="7510943789645525906">Te avisa si una contraseña que usas formó parte de un incumplimiento de datos</translation>
 <translation id="7513029293694390567">Accede automáticamente a los sitios web con las credenciales almacenadas. Si la función está inhabilitada, deberás confirmar siempre tu identidad para acceder a un sitio web.</translation>
 <translation id="7514239104543605883">Copiar a tu dispositivo</translation>
 <translation id="7514365320538308">Descargar</translation>
@@ -4684,7 +4685,7 @@ Asegúrate de que este sitio sea de confianza antes de entrar en el modo RV.</tr
 <translation id="7853747251428735">&amp;Más herramientas</translation>
 <translation id="7857117644404132472">Agregar excepción</translation>
 <translation id="7857949311770343000">¿Esta es la página Nueva pestaña que esperabas ver?</translation>
-<translation id="7859938049767853383">El archivo <ph name="FILE_NAME" /> es demasiado grande para su análisis en la nube y no se permite abrirlo.</translation>
+<translation id="7859938049767853383">El archivo <ph name="FILE_NAME" /> es demasiado grande para que se analice en la nube y no se permite abrirlo.</translation>
 <translation id="786073089922909430">Servicio: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;Descargas</translation>
 <translation id="7868378670806575181">{NUM_COOKIES,plural, =1{1 cookie}other{# cookies}}</translation>
@@ -4728,7 +4729,6 @@ Asegúrate de que este sitio sea de confianza antes de entrar en el modo RV.</tr
 <translation id="7926423016278357561">No era yo.</translation>
 <translation id="7928836894214140642">Administrado por <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Las formas de pago guardadas se mostrarán aquí</translation>
-<translation id="7930681627240672853">Revisar la seguridad de las contraseñas</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> comparte tu pantalla y audio.</translation>
 <translation id="7931318309563332511">Desconocido</translation>
 <translation id="793293630927785390">Cuadro de diálogo de nueva red Wi-Fi</translation>
@@ -4801,7 +4801,6 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8014154204619229810">El actualizador se está ejecutando en este momento. Actualiza dentro de un minuto para verificarlo de nuevo.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> no puede volver a la versión instalada previamente. Vuelve a intentarlo para utilizar la función Powerwash en el dispositivo.</translation>
 <translation id="8014210335923519270">Para mejorar <ph name="IDS_SHORT_PRODUCT_NAME" /> y su seguridad, envía a Google información sobre el sistema y sobre el modo en que lo usas</translation>
-<translation id="8015780634880457457">Google puede determinar si tus contraseñas formaron parte de un incumplimiento de datos</translation>
 <translation id="8016266267177410919">Almacenamiento temporal</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Se editó el acceso directo</translation>
@@ -5577,6 +5576,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="9130015405878219958">Se ingresó un modo no válido.</translation>
 <translation id="9131487537093447019">Enviar y recibir mensajes desde dispositivos Bluetooth</translation>
 <translation id="9134304429738380103">Acepto.</translation>
+<translation id="9135090785674039430">Cuando esta opción está activada, los sitios no pueden usar cookies para rastrearte en la Web. Es posible que algunos sitios web no funcionen.</translation>
 <translation id="9137013805542155359">Mostrar original</translation>
 <translation id="9137157311132182254">Motor de búsqueda preferido</translation>
 <translation id="9137248913990643158">Abre Chrome y accede a tu cuenta antes de usar esta app.</translation>

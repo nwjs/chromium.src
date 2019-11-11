@@ -5,6 +5,7 @@
 package org.chromium.weblayer;
 
 import android.os.RemoteException;
+import android.support.v4.app.Fragment;
 import android.view.View;
 import android.webkit.ValueCallback;
 
@@ -20,18 +21,32 @@ import org.chromium.weblayer_private.aidl.ObjectWrapper;
  */
 public final class BrowserFragmentController {
     private final IBrowserFragmentController mImpl;
-    private final ProfileManager mProfileManager;
     private BrowserController mController;
 
-
-    BrowserFragmentController(IBrowserFragmentController impl, ProfileManager profileManager) {
+    BrowserFragmentController(IBrowserFragmentController impl) {
         mImpl = impl;
-        mProfileManager = profileManager;
     }
 
-    // TODO(pshmakov): rename this to BrowserTabController.
+    /**
+     * Returns the BrowserFragmentController for the supplied Fragment; null if
+     * {@link fragment} was not created by WebLayer.
+     *
+     * @return the BrowserFragmentController
+     */
+    @Nullable
+    public static BrowserFragmentController fromFragment(@Nullable Fragment fragment) {
+        return fragment instanceof BrowserFragment ? ((BrowserFragment) fragment).getController()
+                                                   : null;
+    }
+
+    /**
+     * Returns the BrowserController associated with this BrowserFragmentController.
+     *
+     * @return The BrowserController.
+     */
     @NonNull
     public BrowserController getBrowserController() {
+        ThreadCheck.ensureOnUiThread();
         if (mController == null) {
             try {
                 mController = new BrowserController(mImpl.getBrowserController());
@@ -42,7 +57,14 @@ public final class BrowserFragmentController {
         return mController;
     }
 
+    /**
+     * Sets the View shown at the top of the browser. A value of null removes the view. The
+     * top-view is typically used to show the uri. The top-view scrolls with the page.
+     *
+     * @param view The new top-view.
+     */
     public void setTopView(@Nullable View view) {
+        ThreadCheck.ensureOnUiThread();
         try {
             mImpl.setTopView(ObjectWrapper.wrap(view));
         } catch (RemoteException e) {
@@ -61,15 +83,15 @@ public final class BrowserFragmentController {
      */
     @NonNull
     public ListenableResult<Boolean> setSupportsEmbedding(boolean enable) {
+        ThreadCheck.ensureOnUiThread();
         try {
             final ListenableResult<Boolean> listenableResult = new ListenableResult<Boolean>();
-            mImpl.setSupportsEmbedding(
-                    enable, ObjectWrapper.wrap(new ValueCallback<Boolean>() {
-                        @Override
-                        public void onReceiveValue(Boolean result) {
-                            listenableResult.supplyResult(result);
-                        }
-                    }));
+            mImpl.setSupportsEmbedding(enable, ObjectWrapper.wrap(new ValueCallback<Boolean>() {
+                @Override
+                public void onReceiveValue(Boolean result) {
+                    listenableResult.supplyResult(result);
+                }
+            }));
             return listenableResult;
         } catch (RemoteException e) {
             throw new APICallException(e);
@@ -82,8 +104,9 @@ public final class BrowserFragmentController {
      */
     @NonNull
     public Profile getProfile() {
+        ThreadCheck.ensureOnUiThread();
         try {
-            return mProfileManager.getProfileFor(mImpl.getProfile());
+            return Profile.of(mImpl.getProfile());
         } catch (RemoteException e) {
             throw new APICallException(e);
         }

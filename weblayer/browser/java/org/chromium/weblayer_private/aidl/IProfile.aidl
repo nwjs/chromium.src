@@ -7,5 +7,8 @@ package org.chromium.weblayer_private.aidl;
 interface IProfile {
   void destroy() = 0;
 
-  void clearBrowsingData() = 1;
+  void clearBrowsingData(in int[] dataTypes, long fromMillis, long toMillis,
+          in IObjectWrapper completionCallback) = 1;
+
+  String getPath() = 2;
 }

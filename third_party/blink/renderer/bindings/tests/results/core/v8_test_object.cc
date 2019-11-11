@@ -1550,7 +1550,7 @@ static void TestEnumAttributeAttributeSetter(
   // Returns undefined without setting the value if the value is invalid.
   DummyExceptionStateForTesting dummy_exception_state;
   {
-    const char* kValidValues[] = {
+    const char* const kValidValues[] = {
       "",
       "EnumValue1",
       "EnumValue2",
@@ -1598,7 +1598,7 @@ static void TestEnumOrNullAttributeAttributeSetter(
   // Returns undefined without setting the value if the value is invalid.
   DummyExceptionStateForTesting dummy_exception_state;
   {
-    const char* kValidValues[] = {
+    const char* const kValidValues[] = {
       nullptr,
       "",
       "EnumValue1",
@@ -5613,7 +5613,7 @@ static void VoidMethodTestEnumArgMethod(const v8::FunctionCallbackInfo<v8::Value
   test_enum_type_arg = info[0];
   if (!test_enum_type_arg.Prepare())
     return;
-  const char* kValidTestEnumTypeArgValues[] = {
+  const char* const kValidTestEnumTypeArgValues[] = {
       "",
       "EnumValue1",
       "EnumValue2",
@@ -5641,7 +5641,7 @@ static void VoidMethodTestMultipleEnumArgMethod(const v8::FunctionCallbackInfo<v
   test_enum_type_arg = info[0];
   if (!test_enum_type_arg.Prepare())
     return;
-  const char* kValidTestEnumTypeArgValues[] = {
+  const char* const kValidTestEnumTypeArgValues[] = {
       "",
       "EnumValue1",
       "EnumValue2",
@@ -5654,7 +5654,7 @@ static void VoidMethodTestMultipleEnumArgMethod(const v8::FunctionCallbackInfo<v
   test_enum_type_arg_2 = info[1];
   if (!test_enum_type_arg_2.Prepare())
     return;
-  const char* kValidTestEnumTypeArg2Values[] = {
+  const char* const kValidTestEnumTypeArg2Values[] = {
       "",
       "EnumValue1",
       "EnumValue2",

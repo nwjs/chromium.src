@@ -922,6 +922,7 @@ Wenn Sie die Family Link App auf Ihrem Gerät installieren, können Sie die Eins
 <translation id="2326931316514688470">App &amp;neu laden</translation>
 <translation id="2327492829706409234">App aktivieren</translation>
 <translation id="2329597144923131178">Melden Sie sich an, um Ihre Lesezeichen, Ihren Verlauf, Ihre Passwörter und andere Einstellungen auf allen Ihren Geräten aufzurufen.</translation>
+<translation id="2330129964253841015">Warnen, wenn Passwörter nicht mehr sicher sind</translation>
 <translation id="2332131598580221120">Im Store ansehen</translation>
 <translation id="2332192922827071008">Einstellungen öffnen</translation>
 <translation id="2332742915001411729">Auf Standardeinstellungen zurücksetzen</translation>
@@ -970,6 +971,7 @@ Wenn Sie die Family Link App auf Ihrem Gerät installieren, können Sie die Eins
 <translation id="2395616325548404795">Ihr <ph name="DEVICE_TYPE" /> wurde erfolgreich für die Unternehmensverwaltung angemeldet, aber es wurden keine Geräte- und Standortinformationen gesendet. Bitte geben Sie diese Informationen für das Gerät manuell über Ihre Admin-Konsole ein.</translation>
 <translation id="2396783860772170191">Geben Sie die 4-stellige PIN ein (0000–9999)</translation>
 <translation id="2399939490305346086">Anmeldedaten auf Sicherheitsschlüssel</translation>
+<translation id="2407481962792080328">Wenn Sie sich in Ihrem Google-Konto anmelden, ist diese Funktion eingeschaltet</translation>
 <translation id="2408955596600435184">PIN eingeben</translation>
 <translation id="241082044617551207">Unbekanntes Plug-in</translation>
 <translation id="2412593942846481727">Update verfügbar</translation>
@@ -1423,6 +1425,7 @@ Servernachricht: <ph name="SERVER_MSG" /></translation>
 <translation id="3038612606416062604">Drucker manuell hinzufügen</translation>
 <translation id="3038675903128704560">Verwendung von Plug-ins für den Zugriff auf Ihren Computer für keine Website zulassen</translation>
 <translation id="3039491566278747710">Fehler beim Installieren der Offlinerichtlinie auf dem Gerät.</translation>
+<translation id="3043581297103810752">Von <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">Diese Website hat automatisch mehrere Dateien heruntergeladen</translation>
 <translation id="3046910703532196514">Webseite, vollständig</translation>
 <translation id="304747341537320566">Sprach-Engines</translation>
@@ -2289,6 +2292,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="4316850752623536204">Website des Entwicklers</translation>
 <translation id="4320177379694898372">Keine Internetverbindung</translation>
 <translation id="4321442524549817090">U&amp;RL zeigen</translation>
+<translation id="4322394346347055525">Andere Tabs schließen</translation>
 <translation id="4324577459193912240">Datei unvollständig</translation>
 <translation id="4325237902968425115">"<ph name="LINUX_APP_NAME" />" wird deinstalliert...</translation>
 <translation id="4330191372652740264">Wasser mit Eis</translation>
@@ -2818,7 +2822,6 @@ Starten Sie den VR-Modus nur dann, wenn Sie dieser Website vertrauen.</translati
 <translation id="5142961317498132443">Authentifizierung</translation>
 <translation id="5143374789336132547">Durch die Erweiterung <ph name="EXTENSION_NAME" /> wurde die Seite geändert, die beim Klicken auf die Schaltfläche "Startseite" erscheint.</translation>
 <translation id="5143712164865402236">Vollbildmodus ein</translation>
-<translation id="5145461783043820456">Cookies von Drittanbietern werden blockiert</translation>
 <translation id="514575469079499857">IP-Adresse zur Standortbestimmung verwenden (Standardeinstellung)</translation>
 <translation id="5146995429444047494">Benachrichtigungen von <ph name="ORIGIN" /> werden blockiert</translation>
 <translation id="5150254825601720210">SSL-Servername für Netscape-Zertifikat</translation>
@@ -2954,7 +2957,6 @@ Starten Sie den VR-Modus nur dann, wenn Sie dieser Website vertrauen.</translati
 <translation id="5360150013186312835">In Symbolleiste anzeigen</translation>
 <translation id="5362741141255528695">Private Schlüsseldatei auswählen</translation>
 <translation id="5363109466694494651">Powerwash durchführen und zurücksetzen</translation>
-<translation id="5365716706805792666">Google kann prüfen, ob Ihre Passwörter von einer Datenpanne betroffen sind. Diese Funktion wird aktiviert, wenn Sie sich mit Ihrem Google-Konto anmelden.</translation>
 <translation id="5365881113273618889">Der ausgewählte Ordner enthält vertrauliche Dateien. Möchten Sie <ph name="APP_NAME" /> wirklich dauerhaft Schreibzugriff auf diesen Ordner gewähren?</translation>
 <translation id="5367091008316207019">Datei wird gelesen...</translation>
 <translation id="5368720394188453070">Ihr Telefon ist gesperrt. Entsperren Sie es, um fortzufahren.</translation>
@@ -3655,7 +3657,6 @@ Starten Sie den VR-Modus nur dann, wenn Sie dieser Website vertrauen.</translati
 <translation id="63566973648609420">Nur Personen mit Ihrer Passphrase können Ihre verschlüsselten Daten lesen. Die Passphrase wird nicht an Google gesendet oder von Google gespeichert. Falls Sie sie vergessen oder diese Einstellung ändern möchten, müssen Sie die <ph name="BEGIN_LINK" />Synchronisierung zurücksetzen<ph name="END_LINK" />.</translation>
 <translation id="6357619544108132570">Willkommen bei der <ph name="SHORT_PRODUCT_NAME" />-Familie. Dies ist kein herkömmlicher Computer.</translation>
 <translation id="6358884629796491903">Drache</translation>
-<translation id="6360079014182882594">Diese Website enthält keine Cookies, die Ihre Browserdaten über mehrere Websites hinweg erfassen</translation>
 <translation id="6361850914223837199">Fehlerdetails:</translation>
 <translation id="6362853299801475928">P&amp;roblem melden...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3977,6 +3978,7 @@ Starten Sie den VR-Modus nur dann, wenn Sie dieser Website vertrauen.</translati
 <translation id="6850286078059909152">Schriftfarbe</translation>
 <translation id="6851497530878285708">App aktiviert</translation>
 <translation id="6853388645642883916">Updater im Ruhemodus</translation>
+<translation id="68541483639528434">Andere Tabs schließen</translation>
 <translation id="6856623341093082836">Touchscreen einrichten und Genauigkeit anpassen</translation>
 <translation id="6857699260879628349">Konfigurationsinformationen abrufen</translation>
 <translation id="6860097299815761905">Proxy-Einstellungen...</translation>
@@ -4425,7 +4427,6 @@ Starten Sie den VR-Modus nur dann, wenn Sie dieser Website vertrauen.</translati
 <translation id="7506541170099744506">Ihr <ph name="DEVICE_TYPE" /> wurde erfolgreich für die Unternehmensverwaltung angemeldet.</translation>
 <translation id="7507930499305566459">Zertifikat für Statusantwortdienst</translation>
 <translation id="7508054832109420082">Zugriff auf Drucker geben</translation>
-<translation id="7510943789645525906">Warnt Sie, wenn eines Ihrer Passwörter von einer Datenpanne betroffen ist</translation>
 <translation id="7513029293694390567">Sie werden mithilfe gespeicherter Anmeldedaten automatisch auf Websites angemeldet. Wenn diese Funktion deaktiviert ist, werden Sie bei jeder Anmeldung auf einer Website nach einer Bestätigung gefragt.</translation>
 <translation id="7514239104543605883">Auf mein Gerät kopieren</translation>
 <translation id="7514365320538308">Herunterladen</translation>
@@ -4727,7 +4728,6 @@ Starten Sie den VR-Modus nur dann, wenn Sie dieser Website vertrauen.</translati
 <translation id="7926423016278357561">Das war nicht ich.</translation>
 <translation id="7928836894214140642">Verwaltet von <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">Gespeicherte Zahlungsmethoden werden hier angezeigt</translation>
-<translation id="7930681627240672853">Passwortsicherheit überprüfen</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> teilt Bildschirm und Audio.</translation>
 <translation id="7931318309563332511">Unbekannt</translation>
 <translation id="793293630927785390">"Neues WLAN"-Dialogfeld</translation>
@@ -4800,7 +4800,6 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="8014154204619229810">Der Updater wird momentan ausgeführt. Bitte versuchen Sie es in einer Minute erneut, indem Sie eine Aktualisierung vornehmen.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> konnte die zuvor installierte Version nicht wiederherstellen. Bitte versuchen Sie erneut, ein Powerwash für Ihr Gerät durchzuführen.</translation>
 <translation id="8014210335923519270"><ph name="IDS_SHORT_PRODUCT_NAME" /> und die Sicherheit verbessern, indem System- und Nutzungsdaten an Google gesendet werden</translation>
-<translation id="8015780634880457457">Google kann prüfen, ob Ihre Passwörter von einer Datenpanne betroffen sind</translation>
 <translation id="8016266267177410919">Temporärer Speicher</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Verknüpfung bearbeitet</translation>
@@ -5576,6 +5575,7 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="9130015405878219958">Eingegebener Modus ist ungültig.</translation>
 <translation id="9131487537093447019">Nachrichten an Bluetooth-Geräte senden und von diesen erhalten</translation>
 <translation id="9134304429738380103">Ok.</translation>
+<translation id="9135090785674039430">Bei Aktivierung der Funktion können Websites keine Cookies verwenden, die Ihre Browserdaten über mehrere Websites hinweg erfassen Einige Websites könnten abstürzen.</translation>
 <translation id="9137013805542155359">Original anzeigen</translation>
 <translation id="9137157311132182254">Bevorzugte Suchmaschine</translation>
 <translation id="9137248913990643158">Melden Sie sich in Chrome an, bevor Sie diese App nutzen.</translation>

@@ -8,15 +8,19 @@
 #include "base/logging.h"
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/interstitial_page.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/browser_controls_state.h"
+#include "ui/base/window_open_disposition.h"
 #include "weblayer/browser/file_select_helper.h"
+#include "weblayer/browser/isolated_world_ids.h"
 #include "weblayer/browser/navigation_controller_impl.h"
 #include "weblayer/browser/profile_impl.h"
 #include "weblayer/public/browser_observer.h"
 #include "weblayer/public/download_delegate.h"
 #include "weblayer/public/fullscreen_delegate.h"
+#include "weblayer/public/new_browser_delegate.h"
 
 #if !defined(OS_ANDROID)
 #include "ui/views/controls/webview/webview.h"
@@ -26,7 +30,7 @@
 #include "base/android/callback_android.h"
 #include "base/android/jni_string.h"
 #include "base/json/json_writer.h"
-#include "weblayer/browser/isolated_world_ids.h"
+#include "components/embedder_support/android/delegate/color_chooser_android.h"
 #include "weblayer/browser/java/jni/BrowserControllerImpl_jni.h"
 #include "weblayer/browser/top_controls_container_view.h"
 #endif
@@ -34,6 +38,27 @@
 namespace weblayer {
 
 namespace {
+
+NewBrowserDisposition NewBrowserDispositionFromWindowDisposition(
+    WindowOpenDisposition disposition) {
+  // WindowOpenDisposition has a *ton* of types, but the following are really
+  // the only ones that should be hit for this code path.
+  switch (disposition) {
+    case WindowOpenDisposition::NEW_FOREGROUND_TAB:
+      return NewBrowserDisposition::kForeground;
+    case WindowOpenDisposition::NEW_BACKGROUND_TAB:
+      return NewBrowserDisposition::kBackground;
+    case WindowOpenDisposition::NEW_POPUP:
+      return NewBrowserDisposition::kNewPopup;
+    case WindowOpenDisposition::NEW_WINDOW:
+      return NewBrowserDisposition::kNewWindow;
+    default:
+      // The set of allowed types are in
+      // ContentBrowserClientImpl::CanCreateWindow().
+      NOTREACHED();
+      return NewBrowserDisposition::kForeground;
+  }
+}
 
 // Pointer value of this is used as a key in base::SupportsUserData for
 // WebContents. Value of the key is an instance of |UserData|.
@@ -46,7 +71,7 @@ struct UserData : public base::SupportsUserData::Data {
 #if defined(OS_ANDROID)
 BrowserController* g_last_browser_controller;
 
-void JavaScriptResultCallback(
+void HandleJavaScriptResult(
     const base::android::ScopedJavaGlobalRef<jobject>& callback,
     base::Value result) {
   std::string json;
@@ -57,14 +82,32 @@ void JavaScriptResultCallback(
 
 }  // namespace
 
-BrowserControllerImpl::BrowserControllerImpl(ProfileImpl* profile)
-    : profile_(profile) {
+#if defined(OS_ANDROID)
+BrowserControllerImpl::BrowserControllerImpl(
+    ProfileImpl* profile,
+    const base::android::JavaParamRef<jobject>& java_impl)
+    : BrowserControllerImpl(profile) {
+  java_impl_ = java_impl;
+}
+#endif
+
+BrowserControllerImpl::BrowserControllerImpl(
+    ProfileImpl* profile,
+    std::unique_ptr<content::WebContents> web_contents)
+    : profile_(profile), web_contents_(std::move(web_contents)) {
 #if defined(OS_ANDROID)
   g_last_browser_controller = this;
 #endif
-  content::WebContents::CreateParams create_params(
-      profile_->GetBrowserContext());
-  web_contents_ = content::WebContents::Create(create_params);
+  if (web_contents_) {
+    // This code path is hit when the page requests a new tab, which should
+    // only be possible from the same profile.
+    DCHECK_EQ(profile_->GetBrowserContext(),
+              web_contents_->GetBrowserContext());
+  } else {
+    content::WebContents::CreateParams create_params(
+        profile_->GetBrowserContext());
+    web_contents_ = content::WebContents::Create(create_params);
+  }
   std::unique_ptr<UserData> user_data = std::make_unique<UserData>();
   user_data->controller = this;
   web_contents_->SetUserData(&kWebContentsUserDataKey, std::move(user_data));
@@ -76,8 +119,10 @@ BrowserControllerImpl::BrowserControllerImpl(ProfileImpl* profile)
 }
 
 BrowserControllerImpl::~BrowserControllerImpl() {
-  // Destruct this now to avoid it calling back when this object is partially
-  // destructed.
+  // Destruct WebContents now to avoid it calling back when this object is
+  // partially destructed. DidFinishNavigation can be called while destroying
+  // WebContents, so stop observing first.
+  Observe(nullptr);
   web_contents_.reset();
 }
 
@@ -115,6 +160,11 @@ void BrowserControllerImpl::SetFullscreenDelegate(
     host->OnWebkitPreferencesChanged();
 }
 
+void BrowserControllerImpl::SetNewBrowserDelegate(
+    NewBrowserDelegate* delegate) {
+  new_browser_delegate_ = delegate;
+}
+
 void BrowserControllerImpl::AddObserver(BrowserObserver* observer) {
   observers_.AddObserver(observer);
 }
@@ -127,6 +177,12 @@ NavigationController* BrowserControllerImpl::GetNavigationController() {
   return navigation_controller_.get();
 }
 
+void BrowserControllerImpl::ExecuteScript(const base::string16& script,
+                                          JavaScriptResultCallback callback) {
+  web_contents_->GetMainFrame()->ExecuteJavaScriptInIsolatedWorld(
+      script, std::move(callback), ISOLATED_WORLD_ID_WEBLAYER);
+}
+
 #if !defined(OS_ANDROID)
 void BrowserControllerImpl::AttachToView(views::WebView* web_view) {
   web_view->SetWebContents(web_contents_.get());
@@ -135,10 +191,12 @@ void BrowserControllerImpl::AttachToView(views::WebView* web_view) {
 #endif
 
 #if defined(OS_ANDROID)
-static jlong JNI_BrowserControllerImpl_CreateBrowserController(JNIEnv* env,
-                                                               jlong profile) {
-  return reinterpret_cast<intptr_t>(
-      new BrowserControllerImpl(reinterpret_cast<ProfileImpl*>(profile)));
+static jlong JNI_BrowserControllerImpl_CreateBrowserController(
+    JNIEnv* env,
+    jlong profile,
+    const base::android::JavaParamRef<jobject>& java_impl) {
+  return reinterpret_cast<intptr_t>(new BrowserControllerImpl(
+      reinterpret_cast<ProfileImpl*>(profile), java_impl));
 }
 
 static void JNI_BrowserControllerImpl_DeleteBrowserController(
@@ -167,31 +225,46 @@ void BrowserControllerImpl::ExecuteScript(
     const base::android::JavaParamRef<jstring>& script,
     const base::android::JavaParamRef<jobject>& callback) {
   base::android::ScopedJavaGlobalRef<jobject> jcallback(env, callback);
-  web_contents_->GetMainFrame()->ExecuteJavaScriptInIsolatedWorld(
-      base::android::ConvertJavaStringToUTF16(script),
-      base::BindOnce(&JavaScriptResultCallback, jcallback),
-      ISOLATED_WORLD_ID_WEBLAYER);
+  ExecuteScript(base::android::ConvertJavaStringToUTF16(script),
+                base::BindOnce(&HandleJavaScriptResult, jcallback));
 }
 
 #endif
 
-void BrowserControllerImpl::LoadingStateChanged(content::WebContents* source,
-                                                bool to_different_document) {
-  bool is_loading = web_contents_->IsLoading();
-  for (auto& observer : observers_)
-    observer.LoadingStateChanged(is_loading, to_different_document);
+content::WebContents* BrowserControllerImpl::OpenURLFromTab(
+    content::WebContents* source,
+    const content::OpenURLParams& params) {
+  if (params.disposition != WindowOpenDisposition::CURRENT_TAB) {
+    NOTIMPLEMENTED();
+    return nullptr;
+  }
+
+  source->GetController().LoadURLWithParams(
+      content::NavigationController::LoadURLParams(params));
+  return source;
 }
 
 void BrowserControllerImpl::LoadProgressChanged(content::WebContents* source,
                                                 double progress) {
-  for (auto& observer : observers_)
-    observer.LoadProgressChanged(progress);
+  navigation_controller_->NotifyLoadProgressChanged(progress);
 }
 
 void BrowserControllerImpl::DidNavigateMainFramePostCommit(
     content::WebContents* web_contents) {
   for (auto& observer : observers_)
     observer.DisplayedUrlChanged(web_contents->GetVisibleURL());
+}
+
+content::ColorChooser* BrowserControllerImpl::OpenColorChooser(
+    content::WebContents* web_contents,
+    SkColor color,
+    const std::vector<blink::mojom::ColorSuggestionPtr>& suggestions) {
+#if defined(OS_ANDROID)
+  return new web_contents_delegate_android::ColorChooserAndroid(
+      web_contents, color, suggestions);
+#else
+  return nullptr;
+#endif
 }
 
 void BrowserControllerImpl::RunFileChooser(
@@ -212,7 +285,12 @@ int BrowserControllerImpl::GetTopControlsHeight() {
 
 bool BrowserControllerImpl::DoBrowserControlsShrinkRendererSize(
     const content::WebContents* web_contents) {
-  return true;
+#if defined(OS_ANDROID)
+  return Java_BrowserControllerImpl_doBrowserControlsShrinkRendererSize(
+      base::android::AttachCurrentThread(), java_impl_);
+#else
+  return false;
+#endif
 }
 
 bool BrowserControllerImpl::EmbedsFullscreenWidget() {
@@ -246,6 +324,24 @@ blink::mojom::DisplayMode BrowserControllerImpl::GetDisplayMode(
     const content::WebContents* web_contents) {
   return is_fullscreen_ ? blink::mojom::DisplayMode::kFullscreen
                         : blink::mojom::DisplayMode::kBrowser;
+}
+
+void BrowserControllerImpl::AddNewContents(
+    content::WebContents* source,
+    std::unique_ptr<content::WebContents> new_contents,
+    WindowOpenDisposition disposition,
+    const gfx::Rect& initial_rect,
+    bool user_gesture,
+    bool* was_blocked) {
+  if (!new_browser_delegate_)
+    return;
+
+  std::unique_ptr<BrowserController> browser =
+      std::make_unique<BrowserControllerImpl>(profile_,
+                                              std::move(new_contents));
+  new_browser_delegate_->OnNewBrowser(
+      std::move(browser),
+      NewBrowserDispositionFromWindowDisposition(disposition));
 }
 
 void BrowserControllerImpl::DidFinishNavigation(

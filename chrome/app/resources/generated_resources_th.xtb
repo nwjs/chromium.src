@@ -925,6 +925,7 @@
 <translation id="2326931316514688470">โ&amp;หลดแอปซ้ำ</translation>
 <translation id="2327492829706409234">เปิดใช้งานแอปพลิเคชัน</translation>
 <translation id="2329597144923131178">ลงชื่อเข้าใช้เพื่อรับบุ๊กมาร์ก ประวัติ รหัสผ่าน และการตั้งค่าอื่นๆ ในอุปกรณ์ทั้งหมด</translation>
+<translation id="2330129964253841015">เตือนคุณหากรหัสผ่านถูกบุกรุก</translation>
 <translation id="2332131598580221120">ดูในสโตร์</translation>
 <translation id="2332192922827071008">เปิดค่ากำหนด</translation>
 <translation id="2332742915001411729">รีเซ็ตเป็นค่าเริ่มต้น</translation>
@@ -973,6 +974,7 @@
 <translation id="2395616325548404795">ลงทะเบียน <ph name="DEVICE_TYPE" /> ของคุณสำหรับการจัดการองค์กรเรียบร้อยแล้ว แต่ไม่สามารถส่งเนื้อหาและข้อมูลตำแหน่งของอุปกรณ์ โปรดป้อนข้อมูลนี้ด้วยตนเองจากคอนโซลผู้ดูแลระบบสำหรับอุปกรณ์นี้</translation>
 <translation id="2396783860772170191">ป้อน PIN 4 หลัก (0000-9999)</translation>
 <translation id="2399939490305346086">ข้อมูลการลงชื่อเข้าใช้ในคีย์ความปลอดภัย</translation>
+<translation id="2407481962792080328">ฟีเจอร์นี้จะเปิดเมื่อคุณลงชื่อเข้าใช้บัญชี Google</translation>
 <translation id="2408955596600435184">ป้อน PIN ของคุณ</translation>
 <translation id="241082044617551207">ปลั๊กอินที่ไม่รู้จัก</translation>
 <translation id="2412593942846481727">มีเวอร์ชันอัปเดต</translation>
@@ -1427,6 +1429,7 @@
 <translation id="3038612606416062604">เพิ่มเครื่องพิมพ์ด้วยตนเอง</translation>
 <translation id="3038675903128704560">ไม่อนุญาตให้เว็บไซต์ทั้งหมดใช้ปลั๊กอินเพื่อเข้าถึงคอมพิวเตอร์ของคุณ</translation>
 <translation id="3039491566278747710">ติดตั้งนโยบายออฟไลน์ในอุปกรณ์นี้ไม่สำเร็จ</translation>
+<translation id="3043581297103810752">จาก <ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">เว็บไซต์นี้มีการดาวน์โหลดไฟล์หลายไฟล์โดยอัตโนมัติ</translation>
 <translation id="3046910703532196514">หน้าเว็บ ทั้งหมด</translation>
 <translation id="304747341537320566">เครื่องมืออ่านออกเสียง</translation>
@@ -2293,6 +2296,7 @@
 <translation id="4316850752623536204">เว็บไซต์นักพัฒนาซอฟต์แวร์</translation>
 <translation id="4320177379694898372">ไม่มีการเชื่อมต่ออินเทอร์เน็ต</translation>
 <translation id="4321442524549817090">แ&amp;สดง URL</translation>
+<translation id="4322394346347055525">ปิดแท็บอื่นๆ</translation>
 <translation id="4324577459193912240">ไฟล์ไม่สมบูรณ์</translation>
 <translation id="4325237902968425115">กำลังถอนการติดตั้ง <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">น้ำเย็น</translation>
@@ -2822,7 +2826,6 @@
 <translation id="5142961317498132443">การตรวจสอบสิทธิ์</translation>
 <translation id="5143374789336132547">ส่วนขยาย "<ph name="EXTENSION_NAME" />" ได้เปลี่ยนหน้าที่จะแสดงเมื่อคุณคลิกปุ่มหน้าแรก</translation>
 <translation id="5143712164865402236">เข้าสู่โหมดเต็มหน้าจอ</translation>
-<translation id="5145461783043820456">การบล็อกคุกกี้ของบุคคลที่สามเปิดอยู่</translation>
 <translation id="514575469079499857">ใช้ที่อยู่ IP ของคุณเพื่อระบุตำแหน่ง (ค่าเริ่มต้น)</translation>
 <translation id="5146995429444047494">บล็อกการแจ้งเตือนของ <ph name="ORIGIN" /> ไว้</translation>
 <translation id="5150254825601720210">ใบรับรองชื่อเซิร์ฟเวอร์ SSL ของ Netscape</translation>
@@ -2958,7 +2961,6 @@
 <translation id="5360150013186312835">แสดงในแถบเครื่องมือ</translation>
 <translation id="5362741141255528695">เลือกไฟล์กุญแจส่วนตัว</translation>
 <translation id="5363109466694494651">Powerwash และเปลี่ยนกลับ</translation>
-<translation id="5365716706805792666">Google จะตรวจสอบได้ว่ารหัสผ่านของคุณรวมอยู่ในการละเมิดข้อมูลหรือไม่ ฟีเจอร์นี้จะเปิดขึ้นเมื่อคุณลงชื่อเข้าใช้ด้วยบัญชี Google</translation>
 <translation id="5365881113273618889">โฟลเดอร์ที่คุณเลือกมีไฟล์ที่ละเอียดอ่อน แน่ใจไหมว่าต้องการให้สิทธิ์การเข้าถึงในการเขียนโฟลเดอร์นี้อย่างถาวรแก่ "<ph name="APP_NAME" />"</translation>
 <translation id="5367091008316207019">กำลังอ่านไฟล์..</translation>
 <translation id="5368720394188453070">โทรศัพท์ล็อกอยู่ โปรดปลดล็อกเพื่อเข้าใช้งาน</translation>
@@ -3659,7 +3661,6 @@
 <translation id="63566973648609420">เฉพาะผู้ที่มีรหัสผ่านของคุณเท่านั้นจึงจะสามารถอ่านข้อมูลที่เข้ารหัสของคุณได้ Google จะไม่ส่งหรือจัดเก็บรหัสผ่านนี้ หากคุณลืมรหัสผ่านหรือต้องการเปลี่ยนการตั้งค่านี้ คุณจะต้อง<ph name="BEGIN_LINK" />รีเซ็ตการซิงค์<ph name="END_LINK" /></translation>
 <translation id="6357619544108132570">ยินดีต้อนรับสู่ครอบครัว <ph name="SHORT_PRODUCT_NAME" /> คอมพิวเตอร์นี้ไม่ธรรมดา</translation>
 <translation id="6358884629796491903">มังกร</translation>
-<translation id="6360079014182882594">เว็บไซต์นี้ไม่มีคุกกี้ที่จะใช้ในการติดตามคุณในอินเทอร์เน็ตได้</translation>
 <translation id="6361850914223837199">รายละเอียดข้อผิดพลาด:</translation>
 <translation id="6362853299801475928">&amp;รายงานปัญหา...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3981,6 +3982,7 @@
 <translation id="6850286078059909152">สีข้อความ</translation>
 <translation id="6851497530878285708">เปิดใช้แอปแล้ว</translation>
 <translation id="6853388645642883916">โปรแกรมอัปเดตอยู่ในโหมดสลีป</translation>
+<translation id="68541483639528434">ปิดแท็บอื่นๆ</translation>
 <translation id="6856623341093082836">ตั้งค่าและปรับเปลี่ยนความแม่นยำของหน้าจอสัมผัส</translation>
 <translation id="6857699260879628349">ดูข้อมูลการกำหนดค่า</translation>
 <translation id="6860097299815761905">การตั้งค่าพร็อกซี...</translation>
@@ -4429,7 +4431,6 @@
 <translation id="7506541170099744506">ลงทะเบียน <ph name="DEVICE_TYPE" /> ของคุณสำหรับการจัดการองค์กรเรียบร้อยแล้ว</translation>
 <translation id="7507930499305566459">ใบรับรอง Status Responder</translation>
 <translation id="7508054832109420082">ให้สิทธิ์เข้าถึงเครื่องพิมพ์</translation>
-<translation id="7510943789645525906">เตือนคุณในกรณีที่รหัสผ่านที่ใช้รวมอยู่ในการละเมิดข้อมูล</translation>
 <translation id="7513029293694390567">ลงชื่อเข้าใช้เว็บไซต์โดยอัตโนมัติโดยใช้ข้อมูลเข้าสู่ระบบที่เก็บไว้ เมื่อฟีเจอร์นี้ปิดอยู่ ระบบจะขอให้คุณยืนยันทุกครั้งก่อนลงชื่อเข้าใช้เว็บไซต์</translation>
 <translation id="7514239104543605883">คัดลอกไปยังอุปกรณ์ของคุณ</translation>
 <translation id="7514365320538308">ดาวน์โหลด</translation>
@@ -4731,7 +4732,6 @@
 <translation id="7926423016278357561">นี่ไม่ใช่ฉัน</translation>
 <translation id="7928836894214140642">จัดการโดย <ph name="ENROLLMENT_DOMAIN" /></translation>
 <translation id="7930294771522048157">วิธีการชำระเงินที่บันทึกไว้จะปรากฏที่นี่</translation>
-<translation id="7930681627240672853">ตรวจสอบความปลอดภัยของรหัสผ่าน</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> กำลังแชร์หน้าจอและเสียงของคุณ</translation>
 <translation id="7931318309563332511">ไม่รู้จัก</translation>
 <translation id="793293630927785390">กล่องโต้ตอบเครือข่าย Wi-Fi ใหม่</translation>
@@ -4804,7 +4804,6 @@
 <translation id="8014154204619229810">โปรแกรมอัปเดตกำลังทำงาน โปรดรีเฟรชในอีก 1 นาทีเพื่อตรวจสอบอีกครั้ง</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> ไม่สามารถเปลี่ยนกลับไปเป็นเวอร์ชันที่ติดตั้งไว้ก่อนหน้านี้ได้ โปรดลองอีกครั้งเพื่อ Powerwash อุปกรณ์ของคุณ</translation>
 <translation id="8014210335923519270">ปรับปรุง <ph name="IDS_SHORT_PRODUCT_NAME" /> และความปลอดภัยด้วยการส่งข้อมูลและการใช้งานไปยัง Google</translation>
-<translation id="8015780634880457457">Google จะตรวจสอบได้ว่ารหัสผ่านของคุณรวมอยู่ในการละเมิดข้อมูลหรือไม่</translation>
 <translation id="8016266267177410919">พื้นที่เก็บข้อมูลชั่วคราว</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">แก้ไขทางลัดแล้ว</translation>
@@ -5580,6 +5579,7 @@
 <translation id="9130015405878219958">โหมดที่ป้อนไม่ถูกต้อง</translation>
 <translation id="9131487537093447019">ส่งข้อความถึงและรับข้อความจากอุปกรณ์บลูทูธ</translation>
 <translation id="9134304429738380103">ได้สิ ตกลง</translation>
+<translation id="9135090785674039430">เมื่อเปิดใช้ เว็บไซต์ต่างๆ จะใช้คุกกี้ที่ติดตามคุณในอินเทอร์เน็ตไม่ได้ บางเว็บไซต์อาจเกิดข้อขัดข้องขึ้น</translation>
 <translation id="9137013805542155359">แสดงหน้าเว็บเดิม</translation>
 <translation id="9137157311132182254">เครื่องมือค้นหาที่ต้องการ</translation>
 <translation id="9137248913990643158">โปรดเปิดและลงชื่อเข้าใช้ Chrome ก่อนใช้แอปนี้</translation>

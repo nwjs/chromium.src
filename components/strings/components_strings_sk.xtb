@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">Tlačiť</translation>
 <translation id="1442386063175183758">Obojstranná fazóna s otváraním doprava</translation>
 <translation id="1442987760062738829">Prederaviť</translation>
-<translation id="1450011005989029586">Porušenie ochrany údajov na webe alebo v aplikácii, ktorú používate, viedlo k odhaleniu vášho hesla. Chrome vám na <ph name="ORIGIN" /> odporúča okamžite si <ph name="BOLD" />.</translation>
 <translation id="1455413310270022028">Guma</translation>
 <translation id="1463543813647160932">5x7</translation>
 <translation id="1472675084647422956">Zobraziť viac</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">Tento typ karty nie je podporovaný</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Skúste kontaktovať správcu systému.</translation>
+<translation id="1739107442478692187">Na webe alebo v aplikácii, ktorú používate, došlo k porušeniu ochrany údajov. Chrome odporúča skontrolovať uložené heslá a ihneď zmeniť heslo na <ph name="ORIGIN" />.</translation>
 <translation id="1740951997222943430">Zadajte platný mesiac vypršania platnosti</translation>
 <translation id="1743520634839655729">Ak chcete nabudúce zaplatiť rýchlejšie, uložte si kartu, meno a fakturačnú adresu do účtu Google a tohto zariadenia.</translation>
 <translation id="1743570585616704562">Nerozpoznané</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">Domény sa nezhodujú</translation>
 <translation id="2096368010154057602">Department</translation>
 <translation id="2099652385553570808">Tri spinky vľavo</translation>
+<translation id="2100280972184758440">Vaše heslo bolo odhalené</translation>
 <translation id="2102134110707549001">Navrhnúť silné heslo…</translation>
 <translation id="2108755909498034140">Reštartujte počítač</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">Ignorované, pretože bolo prepísané pravidlom <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Vydané pre: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Prederaviť vpravo dole</translation>
+<translation id="2124528555835617522">Na webe alebo v aplikácii, ktorú používate, došlo k porušeniu ochrany údajov. Chrome odporúča okamžite skontrolovať uložené heslá.</translation>
 <translation id="2129079103035905234">Senzory pohybu</translation>
 <translation id="213826338245044447">Mobilné záložky</translation>
 <translation id="214556005048008348">Zrušiť platbu</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">Je nám to ľúto, ale karta sa momentálne nedá uložiť.</translation>
 <translation id="2262243747453050782">Chyba protokolu HTTP</translation>
 <translation id="2263079731045660823">Aktualizujte informácie automatického dopĺňania kreditných kariet v nastaveniach Chromu</translation>
+<translation id="2267047181501709434">Prebieha overenie totožnosti…</translation>
 <translation id="2270484714375784793">Telefónne číslo</translation>
 <translation id="2277103315734023688">Pretočiť dopredu</translation>
 <translation id="2283340219607151381">Ukladať a dopĺňať adresy</translation>
@@ -282,6 +285,7 @@
 <translation id="2292556288342944218">Váš prístup k internetu je blokovaný</translation>
 <translation id="2297722699537546652">B5 (obálka)</translation>
 <translation id="2310021320168182093">Chou2 (obálka)</translation>
+<translation id="2315864634253056100">Zdá sa, že názov tohto webu sa podobá doméne <ph name="LOOKALIKE_DOMAIN" />. Útočníci niekedy weby napodobňujú tak, že vo webovej adrese vykonajú ťažko odhaliteľné zmeny.</translation>
 <translation id="2316887270356262533">Uvoľní menej ako 1 MB. Niektoré weby sa môžu pri ďalšej návšteve načítať pomalšie.</translation>
 <translation id="2317259163369394535">Doména <ph name="DOMAIN" /> vyžaduje používateľské meno a heslo.</translation>
 <translation id="2317583587496011522">Debetné karty sú akceptované.</translation>
@@ -463,12 +467,14 @@
 <translation id="3229041911291329567">Informácie o verzii vášho zariadenia a prehliadača</translation>
 <translation id="323107829343500871">Zadajte kód CVC karty <ph name="CREDIT_CARD" /></translation>
 <translation id="3234666976984236645">Vždy na tomto webe zisťovať dôležitý obsah</translation>
+<translation id="3262069459091978471"><ph name="LOOKALIKE_DOMAIN" /> sa podobá doméne <ph name="SUGGESTED_DOMAIN" />. Útočníci niekedy weby napodobňujú použitím podobných webových adries.</translation>
 <translation id="3270847123878663523">&amp;Vrátiť späť zmenu poradia</translation>
 <translation id="3274521967729236597">Pa‑Kai</translation>
 <translation id="3281668902344226640">Overte svoje uložené spôsoby platby pomocou funkcie Touch ID.</translation>
 <translation id="3282497668470633863">Pridanie mena na karte</translation>
 <translation id="3287510313208355388">Stiahnuť po obnovení pripojenia</translation>
 <translation id="3293642807462928945">Ďalšie informácie o pravidle <ph name="POLICY_NAME" /></translation>
+<translation id="3295439534709115864">Na webe alebo v aplikácii, ktorú používate, došlo k porušeniu ochrany údajov. Chrome odporúča okamžite zmeniť heslo na webe <ph name="ORIGIN" />.</translation>
 <translation id="3303855915957856445">Nič sa nenašlo</translation>
 <translation id="3320021301628644560">Pridanie fakturačnej adresy</translation>
 <translation id="3324983252691184275">Karmínová</translation>
@@ -668,7 +674,6 @@
 <translation id="4258748452823770588">Chybný podpis</translation>
 <translation id="4261046003697461417">V chránených dokumentoch nie je anotácia možná</translation>
 <translation id="4265872034478892965">Povolené správcom</translation>
-<translation id="4270615291506829403">zmeniť heslo</translation>
 <translation id="4275830172053184480">Reštart zariadenia</translation>
 <translation id="4277028893293644418">Obnoviť heslo</translation>
 <translation id="4279811152705618813">Vaše zariadenie <ph name="DEVICE_TYPE" /> spravuje doména <ph name="ENROLLMENT_DOMAIN" /></translation>
@@ -747,7 +752,6 @@
 <translation id="4708268264240856090">Pripojenie bolo prerušené</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" />Spustiť nástroj Diagnostika siete systému Windows<ph name="END_LINK" /></translation>
-<translation id="4725851834065990915">Porušenie ochrany údajov na webe alebo v aplikácii, ktorú používate, viedlo k odhaleniu vášho hesla. Chrome odporúča okamžite skontrolovať uložené heslá.</translation>
 <translation id="4726672564094551039">Znova načítať pravidlá</translation>
 <translation id="4728558894243024398">Platforma</translation>
 <translation id="4731967714531604179">Prc2 (obálka)</translation>
@@ -1164,7 +1168,6 @@
 <translation id="679355240208270552">Ignorované, pretože predvolené vyhľadávanie je zakázané pravidlom.</translation>
 <translation id="681021252041861472">Povinné pole</translation>
 <translation id="6810899417690483278">Identifikátor prispôsobenia</translation>
-<translation id="6819440013020405090">Porušenie ochrany údajov na webe alebo v aplikácii, ktorú používate, viedlo k odhaleniu vášho hesla. Chrome odporúča skontrolovať uložené heslá a zmeniť heslo na <ph name="ORIGIN" />.</translation>
 <translation id="6825578344716086703">Pokúsili ste sa o prístup do domény <ph name="DOMAIN" />, server však predložil certifikát podpísaný slabým algoritmom podpisu. Znamená to, že predložené poverenia zabezpečenia mohli byť sfalšované a môže ísť o úplne iný server, než ste očakávali (možno komunikujete s útočníkom).</translation>
 <translation id="6826370046007623921">Ochrana pred únikom údajov</translation>
 <translation id="6831043979455480757">Preložiť</translation>
@@ -1207,7 +1210,6 @@
 <translation id="7064851114919012435">Kontaktné údaje</translation>
 <translation id="7075452647191940183">Žiadosť je príliš veľká</translation>
 <translation id="7079718277001814089">Tento web obsahuje malvér</translation>
-<translation id="70850504851191913">Bolo nahlásené porušenie ochrany údajov</translation>
 <translation id="7087282848513945231">Okres</translation>
 <translation id="7090678807593890770">Vyhľadajte na Googli výraz <ph name="LINK" /></translation>
 <translation id="7108338896283013870">Skryť</translation>
@@ -1472,6 +1474,7 @@
 <translation id="830498451218851433">Zahnúť v polovici</translation>
 <translation id="8307358339886459768">Malá fotka</translation>
 <translation id="8308427013383895095">Preklad zlyhal v dôsledku problému so sieťovým pripojením.</translation>
+<translation id="831207732689920588">Táto stránka je podozrivá (nahlásená Chromom).</translation>
 <translation id="8332188693563227489">Prístup k webu <ph name="HOST_NAME" /> bol zamietnutý</translation>
 <translation id="8340095855084055290"><ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
 <translation id="834457929814110454">Ak si uvedomujete bezpečnostné riziko, môžete <ph name="BEGIN_LINK" />tieto stránky navštíviť<ph name="END_LINK" /> ešte skôr, ako budú škodlivé programy odstránené.</translation>
@@ -1529,7 +1532,6 @@
 <translation id="8718314106902482036">Platba nebola dokončená</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, návrh vyhľadávania</translation>
 <translation id="8719528812645237045">Viacero dierok hore</translation>
-<translation id="8723954843026426558">Súhlasím so zmluvnými podmienkami, pravidlami ochrany súkromia a právom na odstúpenie, ktoré sa týkajú domény <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /></translation>
 <translation id="8725066075913043281">Skúsiť znova</translation>
 <translation id="8728672262656704056">Ste v režime inkognito</translation>
 <translation id="8730621377337864115">Hotovo</translation>
@@ -1563,6 +1565,7 @@
 <translation id="8903921497873541725">Priblížiť</translation>
 <translation id="890485472659500557">Engineering-C</translation>
 <translation id="8912362522468806198">účtu Google</translation>
+<translation id="8918231688545606538">Táto stránka je podozrivá</translation>
 <translation id="892588693504540538">Prederaviť vpravo hore</translation>
 <translation id="8931333241327730545">Chcete túto kartu uložiť do svojho účtu Google?</translation>
 <translation id="8932102934695377596">Vaše hodiny idú pozadu</translation>

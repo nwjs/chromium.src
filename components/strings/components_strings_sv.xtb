@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">Skriv ut</translation>
 <translation id="1442386063175183758">Fönsterfalsning, höger flik</translation>
 <translation id="1442987760062738829">Hålslag</translation>
-<translation id="1450011005989029586">Ditt lösenord exponerades genom ett dataintrång på en webbplats eller i en app du använder. Chrome rekommenderar att du <ph name="BOLD" /> på <ph name="ORIGIN" /> direkt.</translation>
 <translation id="1455413310270022028">Suddgummi</translation>
 <translation id="1463543813647160932">5:7</translation>
 <translation id="1472675084647422956">Visa fler</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">Denna korttyp stöds inte</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Kontakta systemadministratören.</translation>
+<translation id="1739107442478692187">Ett dataintrång skedde på en webbplats eller i en app du använder. Om du har återanvänt lösenordet på andra webbplatser rekommenderas du i Chrome att återställa lösenordet på <ph name="ORIGIN" /> nu.</translation>
 <translation id="1740951997222943430">Ange en giltig utgångsmånad</translation>
 <translation id="1743520634839655729">Spara kortet, faktureringsadressen och namnet i Google-kontot och på enheten så går det snabbare att betala nästa gång.</translation>
 <translation id="1743570585616704562">Identifierades inte</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">Domänen matchar inte</translation>
 <translation id="2096368010154057602">Departement</translation>
 <translation id="2099652385553570808">Tre häftklamrar till vänster</translation>
+<translation id="2100280972184758440">Ditt lösenord har läckt ut</translation>
 <translation id="2102134110707549001">Föreslå ett starkt lösenord …</translation>
 <translation id="2108755909498034140">Starta om datorn</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">Ignoreras eftersom den åsidosätts av <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Utfärdat till: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Hål nere till höger</translation>
+<translation id="2124528555835617522">Ett dataintrång skedde på en webbplats eller i en app du använder. Du rekommenderas i Chrome att kontrollera dina sparade lösenord nu.</translation>
 <translation id="2129079103035905234">Rörelsesensorer</translation>
 <translation id="213826338245044447">Bokmärken i mobilen</translation>
 <translation id="214556005048008348">Avbryt betalningen</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">Det går tyvärr inte att spara kortet just nu</translation>
 <translation id="2262243747453050782">HTTP-fel</translation>
 <translation id="2263079731045660823">Uppdatera kreditkortsuppgifter för Autofyll i Chrome-inställningarna</translation>
+<translation id="2267047181501709434">Din identitet verifieras …</translation>
 <translation id="2270484714375784793">Telefonnummer</translation>
 <translation id="2277103315734023688">Sök framåt</translation>
 <translation id="2283340219607151381">Spara och fyll i adresser</translation>
@@ -484,6 +487,7 @@
 <translation id="3282497668470633863">Lägg till namnet på kortet</translation>
 <translation id="3287510313208355388">Ladda ned när du är online</translation>
 <translation id="3293642807462928945">Läs mer om principen <ph name="POLICY_NAME" /></translation>
+<translation id="3295439534709115864">Ett dataintrång skedde på en webbplats eller i en app du använder. Du rekommenderas i Chrome att ändra lösenordet på <ph name="ORIGIN" /> nu.</translation>
 <translation id="3303855915957856445">Inga sökresultat hittades</translation>
 <translation id="3320021301628644560">Lägg till faktureringsadress</translation>
 <translation id="3324983252691184275">Karmosinröd</translation>
@@ -689,7 +693,6 @@
 <translation id="4258748452823770588">Felaktig signatur</translation>
 <translation id="4261046003697461417">Det går inte annotera i skyddade dokument</translation>
 <translation id="4265872034478892965">Beviljades av administratören</translation>
-<translation id="4270615291506829403">ändra lösenordet</translation>
 <translation id="4275830172053184480">Starta om enheten</translation>
 <translation id="4277028893293644418">Återställ lösenord</translation>
 <translation id="4279811152705618813">Din <ph name="DEVICE_TYPE" /> hanteras av <ph name="ENROLLMENT_DOMAIN" /></translation>
@@ -769,7 +772,6 @@
 <translation id="4708268264240856090">Anslutningen avbröts</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" /> köra nätverksdiagnostik för Windows<ph name="END_LINK" /></translation>
-<translation id="4725851834065990915">Ditt lösenord exponerades genom ett dataintrång på en webbplats eller i en app du använder. Du rekommenderas i Chrome att kontrollera dina sparade lösenord nu.</translation>
 <translation id="4726672564094551039">Läs in policyer på nytt</translation>
 <translation id="4728558894243024398">Plattform</translation>
 <translation id="4731967714531604179">Prc2 (kuvert)</translation>
@@ -1187,7 +1189,6 @@
 <translation id="679355240208270552">Ignoreras eftersom standardsökmotorn inte har aktiverats av principen.</translation>
 <translation id="681021252041861472">Obligatoriskt fält</translation>
 <translation id="6810899417690483278">Anpassnings-id</translation>
-<translation id="6819440013020405090">Ditt lösenord exponerades genom ett dataintrång på en webbplats eller i en app du använder. Om du har återanvänt lösenordet på andra webbplatser rekommenderas du i Chrome att återställa lösenordet på <ph name="ORIGIN" />.</translation>
 <translation id="6825578344716086703">Du försökte besöka <ph name="DOMAIN" />, men servern skickade ett certifikat som signerats med en svag signaturalgoritm (t.ex. SHA-1). Det innebär att säkerhetsuppgifterna som servern uppgav kan vara förfalskade och att servern kanske inte är den server du tror (du kanske kommunicerar med en skadlig server).</translation>
 <translation id="6826370046007623921">Förebyggande av dataförlust</translation>
 <translation id="6831043979455480757">Översätt</translation>
@@ -1230,7 +1231,6 @@
 <translation id="7064851114919012435">Kontaktuppgifter</translation>
 <translation id="7075452647191940183">Begäran är för stor</translation>
 <translation id="7079718277001814089">Webbplatsen innehåller skadlig programvara.</translation>
-<translation id="70850504851191913">Dataintrång har rapporterats</translation>
 <translation id="7087282848513945231">Kommun</translation>
 <translation id="7090678807593890770">Sök efter <ph name="LINK" /> på Google</translation>
 <translation id="7108338896283013870">Dölj</translation>
@@ -1553,7 +1553,6 @@ Mer information:
 <translation id="8718314106902482036">Betalningen slutfördes inte</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, sökförslag</translation>
 <translation id="8719528812645237045">Flera hål högst upp</translation>
-<translation id="8723954843026426558">Jag godkänner användarvillkor, sekretesspolicy och ångerrätt på <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /></translation>
 <translation id="8725066075913043281">Försök igen</translation>
 <translation id="8728672262656704056">Du surfar inkognito</translation>
 <translation id="8730621377337864115">Klart</translation>

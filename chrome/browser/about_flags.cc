@@ -857,10 +857,12 @@ const FeatureEntry::FeatureVariation kOmniboxDocumentProviderVariations[] = {
 
 #ifdef OS_ANDROID
 const FeatureEntry::FeatureParam kOmniboxNTPZPSLocal[] = {
+    {"ZeroSuggestVariant:1:*", "Local"},
     {"ZeroSuggestVariant:7:*", "Local"},
     {"ZeroSuggestVariant:8:*", "Local"}};
 
 const FeatureEntry::FeatureParam kOmniboxNTPZPSRemote[] = {
+    {"ZeroSuggestVariant:1:*", "RemoteNoUrl"},
     {"ZeroSuggestVariant:7:*", "RemoteNoUrl"},
     {"ZeroSuggestVariant:8:*", "RemoteNoUrl"}};
 
@@ -4452,6 +4454,9 @@ const FeatureEntry kFeatureEntries[] = {
     {"temporary-unexpire-flags-m76", flag_descriptions::kUnexpireFlagsM76Name,
      flag_descriptions::kUnexpireFlagsM76Description, kOsAll,
      FEATURE_VALUE_TYPE(flags::kUnexpireFlagsM76)},
+    {"temporary-unexpire-flags-m78", flag_descriptions::kUnexpireFlagsM78Name,
+     flag_descriptions::kUnexpireFlagsM78Description, kOsAll,
+     FEATURE_VALUE_TYPE(flags::kUnexpireFlagsM78)},
 
 #if defined(OS_CHROMEOS)
     {"lock-screen-media-controls",

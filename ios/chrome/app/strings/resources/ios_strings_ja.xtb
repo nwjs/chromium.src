@@ -99,6 +99,7 @@
 <translation id="2273327106802955778">その他のメニュー</translation>
 <translation id="2316709634732130529">推奨されたパスワードを使用</translation>
 <translation id="2320166752086256636">キーボードを非表示</translation>
+<translation id="2330129964253841015">パスワードが危険にさらされた場合に警告する</translation>
 <translation id="2339560363438331454">同期と Google サービス</translation>
 <translation id="2351097562818989364">翻訳設定をリセットしました。</translation>
 <translation id="2359043044084662842">翻訳</translation>
@@ -202,7 +203,6 @@
 <translation id="3783017676699494206">画像を保存</translation>
 <translation id="3789841737615482174">インストール</translation>
 <translation id="385051799172605136">戻る</translation>
-<translation id="3886946236301294521">使用しているパスワードがデータ侵害を受けた場合に警告を表示します。</translation>
 <translation id="3897092660631435901">メニュー</translation>
 <translation id="3915450441834151894">サイト情報</translation>
 <translation id="3922310737605261887">コピーしたテキストを検索</translation>
@@ -253,6 +253,7 @@
 <translation id="4620246317052452550">既読のページ</translation>
 <translation id="4630540211544979320">ページの翻訳</translation>
 <translation id="4636930964841734540">情報</translation>
+<translation id="4659126640776004816">この機能は Google アカウントにログインすると有効になります。</translation>
 <translation id="4659667755519643272">タブ切り替えモードを開始</translation>
 <translation id="4666531726415300315"><ph name="EMAIL" /> としてログインしています。
 
@@ -301,7 +302,6 @@
 <translation id="5300589172476337783">表示</translation>
 <translation id="5317780077021120954">保存</translation>
 <translation id="5327248766486351172">名前</translation>
-<translation id="5365716706805792666">Google ではお使いのパスワードがデータ侵害の対象になっていたかを確認できます。この機能は、Google アカウントでログインするとオンになります。</translation>
 <translation id="5388358297987318779">画像を開く</translation>
 <translation id="5407969256130905701">変更を破棄</translation>
 <translation id="5409365236829784218">このファイルを開くアプリがインストールされていません。</translation>
@@ -333,7 +333,6 @@
 <translation id="5854790677617711513">30 日以上経過</translation>
 <translation id="5857090052475505287">新しいフォルダ</translation>
 <translation id="5857770089550859117">同期を開始するにはパスフレーズが必要です。</translation>
-<translation id="5859444426865731878">Google ではお使いのパスワードがデータ侵害の対象になっていたかを確認できます。</translation>
 <translation id="5860033963881614850">オフ</translation>
 <translation id="5869029295770560994">OK</translation>
 <translation id="5871497086027727873">1件の項目を移動しました</translation>
@@ -482,7 +481,6 @@
 <translation id="7859704718976024901">閲覧履歴</translation>
 <translation id="7887198238286927132">プライバシー保護のため、Chrome ではこの欄の自動入力は行われません。</translation>
 <translation id="7918293828610777738">リーディング リストをオフラインで利用できます。リーディング リストにページを追加するには、<ph name="SHARE_OPENING_ICON" /> &gt; [<ph name="READ_LATER_TEXT" />] をタップします。</translation>
-<translation id="7930681627240672853">パスワードの安全性を確認</translation>
 <translation id="7938254975914653459">FaceTime</translation>
 <translation id="7939128259257418052">パスワードをエクスポート...</translation>
 <translation id="7947953824732555851">同意してログイン</translation>

@@ -5,6 +5,7 @@
 package org.chromium.weblayer_browsertests_apk;
 
 import android.net.Uri;
+import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
@@ -17,10 +18,9 @@ import org.chromium.base.test.util.UrlUtils;
 import org.chromium.content_public.browser.BrowserStartupController;
 import org.chromium.native_test.NativeBrowserTest;
 import org.chromium.native_test.NativeBrowserTestActivity;
+import org.chromium.weblayer.BrowserCallback;
 import org.chromium.weblayer.BrowserController;
-import org.chromium.weblayer.BrowserFragment;
 import org.chromium.weblayer.BrowserFragmentController;
-import org.chromium.weblayer.BrowserObserver;
 import org.chromium.weblayer.Profile;
 import org.chromium.weblayer.WebLayer;
 
@@ -28,7 +28,7 @@ import java.io.File;
 
 /** An Activity base class for running browser tests against WebLayerShell. */
 public class WebLayerBrowserTestsActivity extends NativeBrowserTestActivity {
-    private static final String TAG = "cr.native_test";
+    private static final String TAG = "native_test";
 
     private WebLayer mWebLayer;
     private Profile mProfile;
@@ -77,18 +77,18 @@ public class WebLayerBrowserTestsActivity extends NativeBrowserTestActivity {
                 new RelativeLayout.LayoutParams(
                         LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
-        BrowserFragment fragment = WebLayer.createBrowserFragment(null);
+        Fragment fragment = WebLayer.createBrowserFragment(null);
 
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
         transaction.add(viewId, fragment);
         transaction.commitNow();
 
-        mBrowserFragmentController = fragment.getController();
+        mBrowserFragmentController = BrowserFragmentController.fromFragment(fragment);
         mProfile = mBrowserFragmentController.getProfile();
         mBrowserFragmentController.setTopView(topContentsContainer);
 
         mBrowserController = mBrowserFragmentController.getBrowserController();
-        mBrowserController.addObserver(new BrowserObserver() {
+        mBrowserController.registerBrowserCallback(new BrowserCallback() {
             @Override
             public void visibleUrlChanged(Uri uri) {
                 mUrlView.setText(uri.toString());

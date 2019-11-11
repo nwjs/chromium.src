@@ -99,6 +99,7 @@
 <translation id="2273327106802955778">மேலும் விருப்பங்களுக்கான மெனு</translation>
 <translation id="2316709634732130529">பரிந்துரைக்கப்பட்ட கடவுச்சொல்லைப் பயன்படுத்து</translation>
 <translation id="2320166752086256636">விசைப்பலகையை மறை</translation>
+<translation id="2330129964253841015">கடவுச்சொற்கள் அபகரிக்கப்பட்டிருந்தால் அதுகுறித்து எச்சரிக்கவும்</translation>
 <translation id="2339560363438331454">ஒத்திசைவு &amp; Google சேவைகள்</translation>
 <translation id="2351097562818989364">உங்களின் மொழியாக்க அமைப்புகள் மீட்டமைக்கப்பட்டன.</translation>
 <translation id="2359043044084662842">மொழிபெயர்</translation>
@@ -202,7 +203,6 @@
 <translation id="3783017676699494206">படத்தைச் சேமி</translation>
 <translation id="3789841737615482174">நிறுவுக</translation>
 <translation id="385051799172605136">முந்தைய பக்கம்</translation>
-<translation id="3886946236301294521">நீங்கள் பயன்படுத்தும் கடவுச்சொல் தரவு மீறலின் ஒரு பகுதி எனில் உங்களை எச்சரிக்கும்.</translation>
 <translation id="3897092660631435901">மெனு</translation>
 <translation id="3915450441834151894">தளம் குறித்த தகவல்</translation>
 <translation id="3922310737605261887">நகலெடுத்த உரைக்குத் தேடவும்</translation>
@@ -253,6 +253,7 @@
 <translation id="4620246317052452550">நீங்கள் படித்த பக்கங்கள்</translation>
 <translation id="4630540211544979320">பக்கங்களை மொழிபெயர்த்தல்</translation>
 <translation id="4636930964841734540">தகவல்</translation>
+<translation id="4659126640776004816">உங்கள் Google கணக்கில் உள்நுழையும்போது இந்த அம்சம் இயக்கப்பட்டது.</translation>
 <translation id="4659667755519643272">தாவல் மாற்றியைத் துவக்கு</translation>
 <translation id="4666531726415300315"><ph name="EMAIL" /> ஆக உள்நுழைந்துள்ளீர்கள்.
 
@@ -301,7 +302,6 @@
 <translation id="5300589172476337783">காண்பி</translation>
 <translation id="5317780077021120954">சேமி</translation>
 <translation id="5327248766486351172">பெயர்</translation>
-<translation id="5365716706805792666">உங்கள் கடவுச்சொற்கள் தரவு மீறலில் பாதிக்கப்பட்டுள்ளதா என்று Google சரிபார்க்கும். உங்கள் Google கணக்கின் மூலம் உள்நுழைந்தால் இது ஆன் ஆகும்.</translation>
 <translation id="5388358297987318779">படத்தைத் திற</translation>
 <translation id="5407969256130905701">மாற்றங்களை நிராகரி</translation>
 <translation id="5409365236829784218">இந்தக் கோப்பைத் திறக்கக்கூடிய ஆப்ஸ் எதுவும் நிறுவப்படவில்லை.</translation>
@@ -333,7 +333,6 @@
 <translation id="5854790677617711513">30 நாட்களுக்கு முந்தையவை</translation>
 <translation id="5857090052475505287">புதிய கோப்புறை</translation>
 <translation id="5857770089550859117">ஒத்திசைவைத் தொடங்க, கடவுச்சொற்றொடர் தேவை.</translation>
-<translation id="5859444426865731878">உங்கள் கடவுச்சொற்கள் தரவு மீறலில் பாதிக்கப்பட்டுள்ளதா என்று Google சரிபார்க்கும்.</translation>
 <translation id="5860033963881614850">ஆஃப்</translation>
 <translation id="5869029295770560994">சரி, புரிந்தது</translation>
 <translation id="5871497086027727873">1 உருப்படி நகர்த்தப்பட்டது</translation>
@@ -482,7 +481,6 @@
 <translation id="7859704718976024901">உலாவல் வரலாறு</translation>
 <translation id="7887198238286927132">உங்கள் தனியுரிமையைப் பாதுகாக்க, Chrome இந்தப் புலத்தைத் தானாக நிரப்பாது.</translation>
 <translation id="7918293828610777738">உங்கள் வாசிப்புப் பட்டியலை ஆஃப்லைனில் அணுகலாம். வாசிப்புப் பட்டியலில் ஒரு பக்கத்தைச் சேர்க்க, <ph name="SHARE_OPENING_ICON" /> ஐகானைத் தட்டிய பின்னர் <ph name="READ_LATER_TEXT" /> என்பதைத் தட்டவும்.</translation>
-<translation id="7930681627240672853">கடவுச்சொல் பாதுகாப்பைச் சரிபார்</translation>
 <translation id="7938254975914653459">ஃபேஸ்டைம்</translation>
 <translation id="7939128259257418052">கடவுச்சொற்களை ஏற்று...</translation>
 <translation id="7947953824732555851">ஏற்று உள்நுழைக</translation>

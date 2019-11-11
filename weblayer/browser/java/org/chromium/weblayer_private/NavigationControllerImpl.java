@@ -107,8 +107,8 @@ public final class NavigationControllerImpl extends INavigationController.Stub {
     }
 
     @CalledByNative
-    private void navigationCommitted(NavigationImpl navigation) throws RemoteException {
-        mNavigationControllerClient.navigationCommitted(navigation.getClientNavigation());
+    private void readyToCommitNavigation(NavigationImpl navigation) throws RemoteException {
+        mNavigationControllerClient.readyToCommitNavigation(navigation.getClientNavigation());
     }
 
     @CalledByNative
@@ -119,6 +119,17 @@ public final class NavigationControllerImpl extends INavigationController.Stub {
     @CalledByNative
     private void navigationFailed(NavigationImpl navigation) throws RemoteException {
         mNavigationControllerClient.navigationFailed(navigation.getClientNavigation());
+    }
+
+    @CalledByNative
+    private void loadStateChanged(boolean isLoading, boolean toDifferentDocument)
+            throws RemoteException {
+        mNavigationControllerClient.loadStateChanged(isLoading, toDifferentDocument);
+    }
+
+    @CalledByNative
+    private void loadProgressChanged(double progress) throws RemoteException {
+        mNavigationControllerClient.loadProgressChanged(progress);
     }
 
     @CalledByNative

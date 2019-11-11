@@ -111,7 +111,6 @@
 <translation id="1430915738399379752">Imprimir</translation>
 <translation id="1442386063175183758">Dobra simétrica à direita</translation>
 <translation id="1442987760062738829">Perfurar</translation>
-<translation id="1450011005989029586">Uma violação de dados num site ou numa aplicação que utiliza expôs a sua palavra-passe. O Chrome recomenda <ph name="BOLD" /> em <ph name="ORIGIN" /> agora.</translation>
 <translation id="1455413310270022028">Borracha</translation>
 <translation id="1463543813647160932">5 x 7</translation>
 <translation id="1472675084647422956">Mostrar mais</translation>
@@ -175,6 +174,7 @@
 <translation id="173080396488393970">Este tipo de cartão não é suportado</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Experimente contactar o gestor do sistema.</translation>
+<translation id="1739107442478692187">Ocorreu uma violação de dados num site ou numa aplicação que utiliza. O Chrome recomenda que verifique as palavras-passe guardadas e que altere a sua palavra-passe em <ph name="ORIGIN" /> agora.</translation>
 <translation id="1740951997222943430">Introduza um mês de expiração válido</translation>
 <translation id="1743520634839655729">Para pagar mais rapidamente da próxima vez, guarde o cartão, o nome e o endereço de faturação na sua Conta Google e neste dispositivo.</translation>
 <translation id="1743570585616704562">Não reconhecida</translation>
@@ -239,6 +239,7 @@
 <translation id="2094505752054353250">Falta de correspondência de domínio</translation>
 <translation id="2096368010154057602">Departamento</translation>
 <translation id="2099652385553570808">Agrafo triplo à esquerda</translation>
+<translation id="2100280972184758440">A sua palavra-passe foi comprometida</translation>
 <translation id="2102134110707549001">Sugerir palavra-passe forte…</translation>
 <translation id="2108755909498034140">Reiniciar o computador</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -246,6 +247,7 @@
 <translation id="2114841414352855701">Ignorada porque foi substituída por <ph name="POLICY_NAME" /> .</translation>
 <translation id="2119505898009119320">Emitido para: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Perfurar na parte inferior direita</translation>
+<translation id="2124528555835617522">Ocorreu uma violação de dados num site ou numa aplicação que utiliza. O Chrome recomenda que verifique agora as palavras-passe guardadas.</translation>
 <translation id="2129079103035905234">Sensores de movimentos</translation>
 <translation id="213826338245044447">Marcadores de Telemóvel</translation>
 <translation id="214556005048008348">Cancelar pagamento</translation>
@@ -275,6 +277,7 @@
 <translation id="2257315177824333709">De momento, não é possível guardar o seu cartão.</translation>
 <translation id="2262243747453050782">Erro HTTP</translation>
 <translation id="2263079731045660823">Atualizar as informações de preenchimento automático do cartão de crédito nas definições do Chrome</translation>
+<translation id="2267047181501709434">A validar a sua identidade…</translation>
 <translation id="2270484714375784793">Número de telefone</translation>
 <translation id="2277103315734023688">Procurar para a frente</translation>
 <translation id="2283340219607151381">Guardar e preencher endereços</translation>
@@ -484,6 +487,7 @@
 <translation id="3282497668470633863">Adicionar nome no cartão</translation>
 <translation id="3287510313208355388">Transferir quando estiver online</translation>
 <translation id="3293642807462928945">Saiba mais acerca da política <ph name="POLICY_NAME" /></translation>
+<translation id="3295439534709115864">Ocorreu uma violação de dados num site ou numa aplicação que utiliza. O Chrome recomenda a alteração da palavra-passe em <ph name="ORIGIN" /> agora.</translation>
 <translation id="3303855915957856445">Não foram encontrados resultados da pesquisa</translation>
 <translation id="3320021301628644560">Adicionar endereço de faturação</translation>
 <translation id="3324983252691184275">Carmesim</translation>
@@ -689,7 +693,6 @@
 <translation id="4258748452823770588">Assinatura incorreta</translation>
 <translation id="4261046003697461417">Não é possível anotar documentos protegidos</translation>
 <translation id="4265872034478892965">Permitida pelo gestor</translation>
-<translation id="4270615291506829403">alterar a palavra-passe</translation>
 <translation id="4275830172053184480">Reiniciar o dispositivo</translation>
 <translation id="4277028893293644418">Repor palavra-passe</translation>
 <translation id="4279811152705618813">O seu <ph name="DEVICE_TYPE" /> é gerido por <ph name="ENROLLMENT_DOMAIN" /></translation>
@@ -769,7 +772,6 @@
 <translation id="4708268264240856090">A ligação foi interrompida</translation>
 <translation id="4712404868219726379">Windows Hello</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" />Executar o Diagnóstico de rede do Windows<ph name="END_LINK" /></translation>
-<translation id="4725851834065990915">Uma violação de dados num site ou numa aplicação que utiliza expôs a sua palavra-passe. O Chrome recomenda que verifique agora as palavras-passe guardadas.</translation>
 <translation id="4726672564094551039">Recarregar políticas</translation>
 <translation id="4728558894243024398">Plataforma</translation>
 <translation id="4731967714531604179">Prc2 (Envelope)</translation>
@@ -1187,7 +1189,6 @@
 <translation id="679355240208270552">Ignorado porque a pesquisa predefinida não está ativada pela política.</translation>
 <translation id="681021252041861472">Campo obrigatório</translation>
 <translation id="6810899417690483278">ID de personalização</translation>
-<translation id="6819440013020405090">Uma violação de dados num site ou numa aplicação que utiliza expôs a sua palavra-passe. O Chrome recomenda que verifique as palavras-passe guardadas e que altere a sua palavra-passe em <ph name="ORIGIN" />.</translation>
 <translation id="6825578344716086703">Tentou aceder a <ph name="DOMAIN" />, mas o servidor apresentou um certificado assinado utilizando um algoritmo de assinatura fraco (como SHA-1). Isto significa que as credenciais de segurança apresentadas pelo servidor podem ter sido falsificadas e que o servidor pode não ser aquele que pretende (pode estar a comunicar com um utilizador mal intencionado).</translation>
 <translation id="6826370046007623921">Prevenção contra a perda de dados</translation>
 <translation id="6831043979455480757">Traduzir</translation>
@@ -1230,7 +1231,6 @@
 <translation id="7064851114919012435">Informações de contacto</translation>
 <translation id="7075452647191940183">O pedido é demasiado grande.</translation>
 <translation id="7079718277001814089">Este site contém um software malicioso</translation>
-<translation id="70850504851191913">Violação de dados comunicada</translation>
 <translation id="7087282848513945231">Município</translation>
 <translation id="7090678807593890770">Pesquisar <ph name="LINK" /> no Google</translation>
 <translation id="7108338896283013870">Ocultar</translation>
@@ -1552,7 +1552,6 @@ Detalhes adicionais:
 <translation id="8718314106902482036">Pagamento não concluído</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, sugestão de pesquisa.</translation>
 <translation id="8719528812645237045">Perfuração múltipla na parte superior</translation>
-<translation id="8723954843026426558">Aceito os Termos de Utilização, a Política de Privacidade e o direito de cancelamento de <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />.</translation>
 <translation id="8725066075913043281">Tentar novamente</translation>
 <translation id="8728672262656704056">Está anónimo</translation>
 <translation id="8730621377337864115">Concluído</translation>

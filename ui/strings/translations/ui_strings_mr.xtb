@@ -138,7 +138,6 @@
 <translation id="5906667377645263094">{SECONDS,plural, =1{1 सेकंद शिल्लक}other{# सेकंद शिल्लक}}</translation>
 <translation id="5941711191222866238">लहान करा</translation>
 <translation id="5943826764092288734">{HOURS,plural, =1{1 तास}other{# तास}}</translation>
-<translation id="5946629889255121107">नंबरची सुरुवात <ph name="ORIGIN" /> वरून आहे</translation>
 <translation id="6012623610530968780"><ph name="TOTAL_PAGE_NUM" /> पैकी <ph name="SELECTED_PAGE" /> पेज</translation>
 <translation id="6022924867608035986">शोध बॉक्स मजकूर साफ करा</translation>
 <translation id="6040143037577758943">बंद करा</translation>
@@ -199,6 +198,7 @@
 <translation id="8074552109918343525">{MAX_UNREAD_NOTIFICATIONS,plural, =1{एकापेक्षा जास्त न वाचलेली सूचना}other{# पेक्षा जास्त न वाचलेल्या सूचना}}</translation>
 <translation id="8086866675552927481">{MINUTES,plural, =1{१मि मध्ये}other{#मि मध्ये}}</translation>
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
+<translation id="8090736967111090568"><ph name="ORIGIN" /> वरील नंबर</translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{1 तासापूर्वी}other{# तासांपूर्वी}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{1 सेकंद शिल्लक}other{# सेकंद शिल्लक}}</translation>
 <translation id="8134065097954893699">हे पेज रीलोड करत आहे</translation>

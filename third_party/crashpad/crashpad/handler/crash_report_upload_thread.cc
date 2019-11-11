@@ -60,7 +60,7 @@ CrashReportUploadThread::CrashReportUploadThread(CrashReportDatabase* database,
               this),
       known_pending_report_uuids_(),
       database_(database) {
-  DCHECK(!url_.empty());
+  //DCHECK(!url_.empty());
 }
 
 CrashReportUploadThread::~CrashReportUploadThread() {

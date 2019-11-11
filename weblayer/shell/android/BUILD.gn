@@ -7,6 +7,7 @@ import("//build/config/android/config.gni")
 import("//build/config/android/rules.gni")
 import("//third_party/icu/config.gni")
 import("//tools/v8_context_snapshot/v8_context_snapshot.gni")
+import("//weblayer/variables.gni")
 
 android_assets("weblayer_shell_assets") {
   testonly = true
@@ -27,8 +28,10 @@ android_library("weblayer_shell_java") {
     "//third_party/android_deps:android_support_v4_java",
     "//weblayer/public/java",
   ]
-  java_files =
-      [ "shell_apk/src/org/chromium/weblayer/shell/WebLayerShellActivity.java" ]
+  java_files = [
+    "shell_apk/src/org/chromium/weblayer/shell/InstrumentationActivity.java",
+    "shell_apk/src/org/chromium/weblayer/shell/WebLayerShellActivity.java",
+  ]
 }
 
 template("weblayer_shell_apk_helper") {
@@ -148,56 +151,6 @@ if (public_android_sdk) {
   }
 }
 
-demo_apk_manifest = "$target_gen_dir/demo_apk_manifest/AndroidManifest.xml"
-
-jinja_template("demo_apk_manifest") {
-  input = "demo_apk/AndroidManifest.xml"
-  output = demo_apk_manifest
-}
-
-android_assets("demo_apk_assets") {
-  testonly = true
-
-  sources = [
-    "$root_out_dir/weblayer_shell.pak",
-  ]
-  disable_compression = true
-  deps = [
-    "//weblayer/shell:shell_pak",
-  ]
-}
-
-android_library("demo_apk_java") {
-  testonly = true
-
-  deps = [
-    ":demo_apk_manifest",
-    "//third_party/android_deps:android_support_v4_java",
-    "//weblayer/public/java",
-  ]
-  java_files = [ "demo_apk/src/org/chromium/weblayer/demo/WebLayerAnimationDemoActivity.java" ]
-
-  android_manifest_for_lint = demo_apk_manifest
-}
-
-android_apk("weblayer_demo_apk") {
-  testonly = true
-
-  deps = [
-    ":demo_apk_assets",
-    ":demo_apk_java",
-    ":demo_apk_manifest",
-  ]
-  apk_name = "WebLayerDemo"
-  android_manifest = demo_apk_manifest
-  min_sdk_version = 21
-  target_sdk_version = 28
-  android_manifest_dep = ":demo_apk_manifest"
-
-  # Add a native lib so the ABI is compatible with the implementation APK.
-  native_lib_placeholders = [ "libdummy.so" ]
-}
-
 weblayer_support_manifest =
     "$target_gen_dir/weblayer_support_manifest/AndroidManifest.xml"
 
@@ -206,30 +159,17 @@ jinja_template("weblayer_support_manifest") {
   output = weblayer_support_manifest
 }
 
-android_assets("weblayer_support_assets") {
-  testonly = true
-
-  sources = [
-    "$root_out_dir/weblayer_support.pak",
-  ]
-  disable_compression = true
-  deps = [
-    "//third_party/icu:icu_assets",
-    "//weblayer/shell:support_pak",
-  ]
-  if (use_v8_context_snapshot) {
-    deps += [ "//tools/v8_context_snapshot:v8_context_snapshot_assets" ]
-  } else {
-    deps += [ "//v8:v8_external_startup_data_assets" ]
-  }
-}
-
 android_apk("weblayer_support_apk") {
   testonly = true
 
+  # Test runner does not support having "additional apks" that are incremental.
+  never_incremental = true
+
   deps = [
-    ":weblayer_support_assets",
     ":weblayer_support_manifest",
+    "//android_webview:locale_pak_assets",
+    "//android_webview:monochrome_webview_assets",
+    "//android_webview:pak_file_assets",
     "//base:base_java",
     "//weblayer/browser/java",
   ]
@@ -248,6 +188,8 @@ android_apk("weblayer_support_apk") {
   target_sdk_version = 28
   android_manifest_dep = ":weblayer_support_manifest"
   shared_resources = true
+
+  locale_config_java_packages = [ weblayer_locale_config_java_package ]
 
   native_lib_version_rule = "//build/util:chrome_version_json"
   _native_lib_file =
@@ -269,19 +211,21 @@ instrumentation_test_apk("weblayer_instrumentation_test_apk") {
     "//third_party/android_support_test_runner:runner_java",
   ]
   java_files = [
-    "javatests/src/org/chromium/weblayer/test/BrowserObserverTest.java",
-    "javatests/src/org/chromium/weblayer/test/DownloadDelegateTest.java",
+    "javatests/src/org/chromium/weblayer/test/BrowserCallbackTest.java",
+    "javatests/src/org/chromium/weblayer/test/DataClearingTest.java",
+    "javatests/src/org/chromium/weblayer/test/DownloadCallbackTest.java",
     "javatests/src/org/chromium/weblayer/test/EventUtils.java",
-    "javatests/src/org/chromium/weblayer/test/FullscreenDelegateTest.java",
-    "javatests/src/org/chromium/weblayer/test/NavigationTest.java",
-    "javatests/src/org/chromium/weblayer/test/SmokeTest.java",
     "javatests/src/org/chromium/weblayer/test/EventUtils.java",
     "javatests/src/org/chromium/weblayer/test/ExecuteScriptTest.java",
+    "javatests/src/org/chromium/weblayer/test/BrowserFragmentLifecycleTest.java",
+    "javatests/src/org/chromium/weblayer/test/FullscreenCallbackTest.java",
+    "javatests/src/org/chromium/weblayer/test/InputTypesTest.java",
+    "javatests/src/org/chromium/weblayer/test/InstrumentationActivityTestRule.java",
+    "javatests/src/org/chromium/weblayer/test/NavigationTest.java",
     "javatests/src/org/chromium/weblayer/test/RenderingTest.java",
-    "javatests/src/org/chromium/weblayer/test/WebLayerShellActivityTestRule.java",
-    "javatests/src/org/chromium/weblayer/test/FragmentRestoreTest.java",
-    "javatests/src/org/chromium/weblayer/test/FileInputTest.java",
-    "shell_apk/src/org/chromium/weblayer/shell/WebLayerShellActivity.java",
+    "javatests/src/org/chromium/weblayer/test/ProfileTest.java",
+    "javatests/src/org/chromium/weblayer/test/SmokeTest.java",
+    "javatests/src/org/chromium/weblayer/test/TopControlsTest.java",
   ]
   additional_apks = [
     "//weblayer/shell/android:weblayer_support_apk",

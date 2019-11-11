@@ -922,6 +922,7 @@
 <translation id="2326931316514688470">重新加载应用(&amp;R)</translation>
 <translation id="2327492829706409234">启用应用</translation>
 <translation id="2329597144923131178">登录后可获取您所有设备上保存的书签、历史记录、密码和其他设置。</translation>
+<translation id="2330129964253841015">在密码泄露时向您发出警告</translation>
 <translation id="2332131598580221120">在应用店中查看</translation>
 <translation id="2332192922827071008">打开偏好设置</translation>
 <translation id="2332742915001411729">重置为默认设置</translation>
@@ -970,6 +971,7 @@
 <translation id="2395616325548404795">您的 <ph name="DEVICE_TYPE" /> 已成功注册企业管理服务，但未能发送其资产和位置信息。请通过管理控制台为此设备手动输入这些信息。</translation>
 <translation id="2396783860772170191">输入 4 位数的 PIN 码 (0000-9999)</translation>
 <translation id="2399939490305346086">安全密钥登录数据</translation>
+<translation id="2407481962792080328">当您登录自己的 Google 帐号后，系统即会启用此功能</translation>
 <translation id="2408955596600435184">输入您的 PIN 码</translation>
 <translation id="241082044617551207">未知插件</translation>
 <translation id="2412593942846481727">有可用的更新</translation>
@@ -1423,6 +1425,7 @@
 <translation id="3038612606416062604">手动添加打印机</translation>
 <translation id="3038675903128704560">不允许任何网站使用插件访问您的计算机</translation>
 <translation id="3039491566278747710">未能在此设备上安装离线政策。</translation>
+<translation id="3043581297103810752">源自：<ph name="ORIGIN" /></translation>
 <translation id="3045447014237878114">此网站已自动下载多个文件</translation>
 <translation id="3046910703532196514">网页，全部</translation>
 <translation id="304747341537320566">语音引擎</translation>
@@ -2286,6 +2289,7 @@
 <translation id="4316850752623536204">开发者网站</translation>
 <translation id="4320177379694898372">未连接到互联网</translation>
 <translation id="4321442524549817090">显示网址</translation>
+<translation id="4322394346347055525">关闭其他标签页</translation>
 <translation id="4324577459193912240">文件下载未完成</translation>
 <translation id="4325237902968425115">正在卸载 <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">冰水</translation>
@@ -2815,7 +2819,6 @@
 <translation id="5142961317498132443">身份验证</translation>
 <translation id="5143374789336132547">“<ph name="EXTENSION_NAME" />”扩展程序更改了您点击“主页”按钮后系统显示的页面。</translation>
 <translation id="5143712164865402236">进入全屏模式</translation>
-<translation id="5145461783043820456">已开启第三方 Cookie 屏蔽</translation>
 <translation id="514575469079499857">根据您的 IP 地址确定位置（默认）</translation>
 <translation id="5146995429444047494"><ph name="ORIGIN" /> 网站上的通知已被屏蔽</translation>
 <translation id="5150254825601720210">Netscape 证书 SSL 服务器名称</translation>
@@ -2951,7 +2954,6 @@
 <translation id="5360150013186312835">在工具栏中显示</translation>
 <translation id="5362741141255528695">选择私有密钥文件。</translation>
 <translation id="5363109466694494651">执行 Powerwash 操作并还原</translation>
-<translation id="5365716706805792666">Google 可检查您的密码是否曾遭遇过数据泄露。当您登录了自己的 Google 帐号时，系统即会开启此服务。</translation>
 <translation id="5365881113273618889">您所选的文件夹中包含敏感文件。确定要向“<ph name="APP_NAME" />”授予对此文件夹的永久写入权限吗？</translation>
 <translation id="5367091008316207019">正在读取文件...</translation>
 <translation id="5368720394188453070">配对手机已锁定，需将其解锁才能进入。</translation>
@@ -3652,7 +3654,6 @@
 <translation id="63566973648609420">只有知道您密码的人才能读取您的已加密数据。系统不会将该密码发送给 Google，Google 也不会存储该密码。如果您忘记了密码或想更改此设置，则需<ph name="BEGIN_LINK" />重置同步<ph name="END_LINK" />。</translation>
 <translation id="6357619544108132570">欢迎使用<ph name="SHORT_PRODUCT_NAME" />系列产品！这不是一款普通的计算机。</translation>
 <translation id="6358884629796491903">龙</translation>
-<translation id="6360079014182882594">此网站上无 Cookie，因此无法跟踪您在网上的活动</translation>
 <translation id="6361850914223837199">错误详情：</translation>
 <translation id="6362853299801475928">报告问题(&amp;R)...</translation>
 <translation id="6365069501305898914">Facebook</translation>
@@ -3974,6 +3975,7 @@
 <translation id="6850286078059909152">文字颜色</translation>
 <translation id="6851497530878285708">已启用此应用</translation>
 <translation id="6853388645642883916">更新程序处于休眠模式</translation>
+<translation id="68541483639528434">关闭其他标签页</translation>
 <translation id="6856623341093082836">设置和调整您的触摸屏的精确度</translation>
 <translation id="6857699260879628349">获取配置信息</translation>
 <translation id="6860097299815761905">代理设置...</translation>
@@ -4422,7 +4424,6 @@
 <translation id="7506541170099744506">您的 <ph name="DEVICE_TYPE" /> 已成功注册企业管理服务。</translation>
 <translation id="7507930499305566459">状态响应程序证书</translation>
 <translation id="7508054832109420082">授予对打印机的使用期限</translation>
-<translation id="7510943789645525906">如有密码遭遇数据泄露就会向您发出警告</translation>
 <translation id="7513029293694390567">使用存储的凭据自动登录网站。停用该功能后，系统会在您每次登录网站时要求您进行确认。</translation>
 <translation id="7514239104543605883">复制到您的设备</translation>
 <translation id="7514365320538308">下载</translation>
@@ -4724,7 +4725,6 @@
 <translation id="7926423016278357561">不是我本人。</translation>
 <translation id="7928836894214140642">由 <ph name="ENROLLMENT_DOMAIN" /> 管理</translation>
 <translation id="7930294771522048157">已保存的付款方式会显示在这里</translation>
-<translation id="7930681627240672853">检查密码安全性</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> 正在共享您的屏幕和音频。</translation>
 <translation id="7931318309563332511">未知</translation>
 <translation id="793293630927785390">“添加新 Wi-Fi 网络”对话框</translation>
@@ -4797,7 +4797,6 @@
 <translation id="8014154204619229810">更新程序正在运行，请稍后刷新并再次查看。</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" />无法还原到之前安装的版本。请重新尝试对您的设备执行 Powerwash 操作。</translation>
 <translation id="8014210335923519270">将系统信息和使用情况数据发送给 Google，帮助改进 <ph name="IDS_SHORT_PRODUCT_NAME" /> 并提高其安全性</translation>
-<translation id="8015780634880457457">Google 可检查您的密码是否曾遭遇过数据泄露</translation>
 <translation id="8016266267177410919">临时存储</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">已修改快捷方式</translation>
@@ -5572,6 +5571,7 @@
 <translation id="9130015405878219958">输入的模式无效。</translation>
 <translation id="9131487537093447019">向蓝牙设备发送消息，以及接收来自蓝牙设备的消息。</translation>
 <translation id="9134304429738380103">立即启用。</translation>
+<translation id="9135090785674039430">当此设置处于开启状态时，网站无法使用 Cookie 来跟踪您在网上的活动。某些网站可能会无法正常运行。</translation>
 <translation id="9137013805542155359">显示原始网页</translation>
 <translation id="9137157311132182254">首选搜索引擎</translation>
 <translation id="9137248913990643158">在使用此应用前，请先启动并登录 Chrome。</translation>
