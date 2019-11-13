@@ -48,6 +48,7 @@ class BrowserNonClientFrameViewMac : public BrowserNonClientFrameView {
 
   // views::View:
   gfx::Size GetMinimumSize() const override;
+  gfx::Size GetMaximumSize() const override;
 
  protected:
   // views::View:

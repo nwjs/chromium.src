@@ -668,8 +668,11 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   if (!new_window)
     return RespondNow(Error(tabs_constants::kBrowserWindowNotAllowed));
 
-  if (position == "center")
-    BrowserView::GetBrowserViewForBrowser(new_window)->frame()->CenterWindow(create_params.initial_bounds.size());
+  if (position == "center") {
+    BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(new_window)->frame();
+    gfx::Rect bounds = frame->non_client_view()->GetWindowBoundsForClientBounds(create_params.initial_bounds);
+    frame->CenterWindow(bounds.size());
+  }
 
   for (const GURL& url : urls) {
     NavigateParams navigate_params(new_window, url, ui::PAGE_TRANSITION_LINK);
@@ -882,6 +885,9 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     set_bounds = true;
   }
 
+  BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(browser)->frame();
+  gfx::Rect win_bounds = frame->non_client_view()->GetWindowBoundsForClientBounds(bounds);
+
   if (set_bounds) {
     if (show_state == ui::SHOW_STATE_MINIMIZED ||
         show_state == ui::SHOW_STATE_MAXIMIZED ||
@@ -890,12 +896,12 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     }
     // TODO(varkha): Updating bounds during a drag can cause problems and a more
     // general solution is needed. See http://crbug.com/251813 .
-    browser->window()->SetBounds(bounds);
+    browser->window()->SetBounds(win_bounds);
   }
 
   if (params->update_info.position &&
       *params->update_info.position == "center")
-    BrowserView::GetBrowserViewForBrowser(browser)->frame()->CenterWindow(bounds.size());
+    frame->CenterWindow(win_bounds.size());
 
   if (params->update_info.focused) {
     if (*params->update_info.focused) {
