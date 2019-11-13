@@ -39,6 +39,8 @@ if (manifest.window) {
   //   options.kiosk = true;
   if (manifest.window.position)
     options.position = manifest.window.position;
+  if (manifest.window.icon)
+    options.icon = manifest.window.icon;
   if (manifest.window.title)
     options.title = manifest.window.title;
 }

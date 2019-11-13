@@ -2732,6 +2732,7 @@ bool Browser::PopupBrowserSupportsWindowFeature(WindowFeature feature,
     case FEATURE_DOWNLOADSHELF:
       return true;
     case FEATURE_TITLEBAR:
+      return true;
     case FEATURE_LOCATIONBAR:
       return false; //check_can_support || (!fullscreen && !is_trusted_source());
     case FEATURE_TABSTRIP:

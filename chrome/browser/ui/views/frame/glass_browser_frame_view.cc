@@ -246,14 +246,21 @@ gfx::Rect GlassBrowserFrameView::GetWindowBoundsForClientBounds(
     const gfx::Rect& client_bounds) const {
   HWND hwnd = views::HWNDForWidget(frame());
   if (!browser_view()->IsTabStripVisible() && hwnd) {
-    // If we don't have a tabstrip, we're either a popup or an app window, in
-    // which case we have a standard size non-client area and can just use
-    // AdjustWindowRectEx to obtain it. We check for a non-null window handle in
-    // case this gets called before the window is actually created.
-    RECT rect = client_bounds.ToRECT();
-    AdjustWindowRectEx(&rect, GetWindowLong(hwnd, GWL_STYLE), FALSE,
-                       GetWindowLong(hwnd, GWL_EXSTYLE));
-    return gfx::Rect(rect);
+    if (ShouldCustomDrawSystemTitlebar()) {
+      const int top_inset = GetTopInset(false);
+      const int thickness = std::floor(
+        FrameTopBorderThicknessPx(false) /
+        display::win::ScreenWin::GetScaleFactorForHWND(hwnd));
+      return gfx::Rect(std::max(0, client_bounds.x() - thickness),
+        std::max(0, client_bounds.y() - top_inset),
+        client_bounds.width() + 2 * thickness, client_bounds.height() + top_inset + thickness);
+    }
+    else {
+      RECT rect = client_bounds.ToRECT();
+      AdjustWindowRectEx(&rect, GetWindowLong(hwnd, GWL_STYLE), FALSE,
+        GetWindowLong(hwnd, GWL_EXSTYLE));
+      return gfx::Rect(rect);
+    }
   }
 
   const int top_inset = GetTopInset(false);
