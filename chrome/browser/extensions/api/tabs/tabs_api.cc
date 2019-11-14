@@ -885,6 +885,26 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     set_bounds = true;
   }
 
+  bool set_client_bounds = false;
+  BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(browser)->frame();
+  gfx::Rect client_bounds = frame->non_client_view()->frame_view()->GetBoundsForClientView();
+  client_bounds.Offset(bounds.OffsetFromOrigin());
+
+  if (params->update_info.inner_width) {
+    client_bounds.set_width(*params->update_info.inner_width);
+    set_client_bounds = true;
+  }
+
+  if (params->update_info.inner_height) {
+    client_bounds.set_height(*params->update_info.inner_height);
+    set_client_bounds = true;
+  }
+
+  if (set_client_bounds) {
+    gfx::Rect win_bounds = frame->non_client_view()->GetWindowBoundsForClientBounds(client_bounds);
+    browser->window()->SetBounds(win_bounds);
+  }
+
   if (set_bounds) {
     if (show_state == ui::SHOW_STATE_MINIMIZED ||
         show_state == ui::SHOW_STATE_MAXIMIZED ||
