@@ -114,6 +114,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
       net::NetLog::ThreadSafeObserver* observer);
 
   // mojom::NetworkService implementation:
+  void SetAdditionalTrustAnchors(const net::CertificateList& anchors) override;
   void SetClient(mojom::NetworkServiceClientPtr client,
                  mojom::NetworkServiceParamsPtr params) override;
 #if defined(OS_CHROMEOS)

@@ -894,6 +894,8 @@ interface NetworkContext {
   [EnableIf=is_chromeos]
   UpdateAdditionalCertificates(AdditionalCertificates? additional_certificates);
 
+  SetTrustAnchors(array<X509Certificate> trust_anchors);
+
   // Updates the CT policy to be used for requests. Only applies if the
   // NetworkContextParams set enforce_chrome_ct_policy to true.
   // TODO(rsleevi): Remove this once Chrome-specific policies are moved out

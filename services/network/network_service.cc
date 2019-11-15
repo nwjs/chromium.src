@@ -8,6 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include "net/cert/test_root_certs.h"
+
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/debug/crash_logging.h"
@@ -320,6 +322,16 @@ NetworkService::~NetworkService() {
 
   if (initialized_)
     trace_net_log_observer_.StopWatchForTraceStart();
+}
+
+void NetworkService::SetAdditionalTrustAnchors(const net::CertificateList& anchors) {
+  for (NetworkContext* nc : network_contexts_)
+    nc->SetTrustAnchors(anchors);
+#if defined(OS_MACOSX)
+  net::TestRootCerts* certs = net::TestRootCerts::GetInstance();
+  for (size_t i = 0; i < anchors.size(); i++)
+    certs->Add(anchors[i].get());
+#endif
 }
 
 void NetworkService::set_os_crypt_is_configured() {

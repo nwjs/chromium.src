@@ -7,6 +7,8 @@
 #include <memory>
 #include <utility>
 
+#include "content/nw/src/policy_cert_verifier.h"
+
 #include "base/barrier_closure.h"
 #include "base/base64.h"
 #include "base/bind.h"
@@ -1035,6 +1037,10 @@ void NetworkContext::SetEnableReferrers(bool enable_referrers) {
   context_network_delegate_->set_enable_referrers(enable_referrers);
 }
 
+void NetworkContext::SetTrustAnchors(const net::CertificateList& anchors) {
+  nw_cert_verifier_->SetTrustAnchors(anchors);
+}
+
 #if defined(OS_CHROMEOS)
 void NetworkContext::UpdateAdditionalCertificates(
     mojom::AdditionalCertificatesPtr additional_certificates) {
@@ -1688,11 +1694,11 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext() {
       base::CommandLine::ForCurrentProcess();
 
   std::unique_ptr<net::CertVerifier> cert_verifier;
-  if (g_cert_verifier_for_testing) {
-    cert_verifier = std::make_unique<WrappedTestingCertVerifier>();
-  } else {
-#if defined(OS_ANDROID) || defined(OS_FUCHSIA) || defined(OS_CHROMEOS) || \
-    BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
+  //if (g_cert_verifier_for_testing) {
+  //  cert_verifier = std::make_unique<WrappedTestingCertVerifier>();
+  //} else {
+#if 0//defined(OS_ANDROID) || defined(OS_FUCHSIA) || defined(OS_CHROMEOS) || \
+    //BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
     cert_net_fetcher_ = base::MakeRefCounted<net::CertNetFetcherImpl>();
 #endif
 #if defined(OS_CHROMEOS)
@@ -1715,7 +1721,7 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext() {
         std::move(params_->initial_additional_certificates));
     cert_verifier_with_trust_anchors_->InitializeOnIOThread(verify_proc);
     cert_verifier = base::WrapUnique(cert_verifier_with_trust_anchors_);
-#elif BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
+#elif 0//BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
     if (params_->trial_comparison_cert_verifier_params) {
       cert_verifier = std::make_unique<net::CachingCertVerifier>(
           std::make_unique<TrialComparisonCertVerifierMojo>(
@@ -1728,10 +1734,14 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext() {
               net::CreateCertVerifyProcBuiltin(
                   cert_net_fetcher_, /*system_trust_store_provider=*/nullptr)));
     }
+#else
+    cert_verifier = std::make_unique<nw::PolicyCertVerifier>(base::Closure());
+    nw_cert_verifier_ = (nw::PolicyCertVerifier*)cert_verifier.get();
+    nw_cert_verifier_->InitializeOnIOThread(net::CertVerifyProc::CreateDefault(cert_net_fetcher_));
 #endif
     if (!cert_verifier)
       cert_verifier = net::CertVerifier::CreateDefault(cert_net_fetcher_);
-  }
+    //}
 
   builder.SetCertVerifier(IgnoreErrorsCertVerifier::MaybeWrapCertVerifier(
       *command_line, nullptr, std::move(cert_verifier)));

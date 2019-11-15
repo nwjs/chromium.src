@@ -182,6 +182,8 @@ jumbo_component("network_service") {
     "url_request_context_builder_mojo.h",
     "url_request_context_owner.cc",
     "url_request_context_owner.h",
+    "../../content/nw/src/policy_cert_verifier.cc",
+    "../../content/nw/src/policy_cert_verifier.h",
   ]
 
   if (enable_mdns) {

@@ -176,6 +176,8 @@ interface NetworkService {
   [EnableIf=is_chromeos]
   ReinitializeLogging(LoggingSettings settings);
 
+  SetAdditionalTrustAnchors(array<X509Certificate> trust_anchors);
+
   // Starts observing the NetLog event stream and writing entries to |file|.
   // |constants| is a legend used for decoding constant values in the log; it
   // will be merged with the |GetNetConstants()| dictionary before being passed
