@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "content/nw/src/policy_cert_verifier.h"
+#include "net/cert/cert_verify_proc.h"
 
 #include "base/barrier_closure.h"
 #include "base/base64.h"
