@@ -1,3 +1,4 @@
+
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -101,10 +102,12 @@ bool WindowCanOpenTabs(Browser* browser) {
 
 // Finds an existing Browser compatible with |profile|, making a new one if no
 // such Browser is located.
-Browser* GetOrCreateBrowser(Profile* profile, bool user_gesture, const gfx::Rect& bounds) {
+Browser* GetOrCreateBrowser(Profile* profile, const NavigateParams& params) {
   Browser* browser = chrome::FindTabbedBrowser(profile, false);
+  Browser::CreateParams browser_params(profile, params.user_gesture, params.window_bounds);
+  browser_params.frameless = params.frameless;
   return browser ? browser
-                 : new Browser(Browser::CreateParams(profile, user_gesture, bounds));
+                 : new Browser(browser_params);
 }
 
 Browser* GetOrCreateBrowser(Profile* profile, bool user_gesture) {
@@ -211,7 +214,7 @@ std::pair<Browser*, int> GetBrowserAndTabForDisposition(
 
       // Find a compatible window and re-execute this command in it. Otherwise
       // re-run with NEW_WINDOW.
-      return {GetOrCreateBrowser(profile, params.user_gesture, params.window_bounds), -1};
+      return {GetOrCreateBrowser(profile, params), -1};
     case WindowOpenDisposition::NEW_POPUP: {
       // Make a new popup window.
       // Coerce app-style if |source| represents an app.
@@ -243,10 +246,13 @@ std::pair<Browser*, int> GetBrowserAndTabForDisposition(
                   profile, params.user_gesture)),
               -1};
     }
-    case WindowOpenDisposition::NEW_WINDOW:
+    case WindowOpenDisposition::NEW_WINDOW: {
+      Browser::CreateParams browser_params(profile, params.user_gesture, params.window_bounds);
+      browser_params.frameless = params.frameless;
       // Make a new normal browser window.
-      return {new Browser(Browser::CreateParams(profile, params.user_gesture)),
+      return {new Browser(browser_params),
               -1};
+    }
     case WindowOpenDisposition::OFF_THE_RECORD:
       // Make or find an incognito window.
       return {GetOrCreateBrowser(profile->GetOffTheRecordProfile(),

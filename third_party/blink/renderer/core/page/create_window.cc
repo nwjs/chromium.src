@@ -227,7 +227,7 @@ Frame* CreateNewWindow(LocalFrame& opener_frame,
                        const AtomicString& frame_name, WebString* manifest) {
   DCHECK(request.GetResourceRequest().RequestorOrigin() ||
          opener_frame.GetDocument()->Url().IsEmpty());
-  DCHECK_EQ(kNavigationPolicyCurrentTab, request.GetNavigationPolicy());
+  //DCHECK_EQ(kNavigationPolicyCurrentTab, request.GetNavigationPolicy());
 
   // Exempting window.open() from this check here is necessary to support a
   // special policy that will be removed in Chrome 82.
