@@ -453,7 +453,7 @@ void ChromeBrowserMainPartsMac::PreMainMessageLoopStart() {
   [NSApp setDelegate:app_controller];
 
   chrome::BuildMainMenu(NSApp, app_controller,
-                        l10n_util::GetStringUTF16(IDS_PRODUCT_NAME), false);
+                        l10n_util::GetStringUTF16(IDS_PRODUCT_NAME), true);
   [app_controller mainMenuCreated];
 
   // Initialize the OSCrypt.

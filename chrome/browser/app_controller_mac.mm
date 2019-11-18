@@ -383,13 +383,13 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
          selector:@selector(willPowerOff:)
              name:NSWorkspaceWillPowerOffNotification
            object:nil];
-
+#if 0
   NSMenu* fileMenu = [[[NSApp mainMenu] itemWithTag:IDC_FILE_MENU] submenu];
   closeTabMenuItem_ = [fileMenu itemWithTag:IDC_CLOSE_TAB];
   DCHECK(closeTabMenuItem_);
   closeWindowMenuItem_ = [fileMenu itemWithTag:IDC_CLOSE_WINDOW];
   DCHECK(closeWindowMenuItem_);
-
+#endif
   // Set up the command updater for when there are no windows open
   [self initMenuState];
 
