@@ -196,7 +196,7 @@ struct NavigateParams {
     SHOW_WINDOW,
     // Show the browser window after navigating but do not activate.
     SHOW_WINDOW_INACTIVE,
-    SHOW_FULLSCREEN
+    SHOW_WINDOW_FULLSCREEN
   };
   // Default is NO_ACTION (don't show or activate the window).
   // If disposition is NEW_WINDOW or NEW_POPUP, and |window_action| is set to

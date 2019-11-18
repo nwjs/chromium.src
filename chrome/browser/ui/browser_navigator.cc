@@ -10,6 +10,9 @@
 #include <string>
 #include <utility>
 
+#include "chrome/browser/ui/views/frame/browser_frame.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "base/strings/utf_string_conversions.h"
@@ -392,6 +395,11 @@ class ScopedBrowserShower {
         (*contents_)->Focus();
         window->Activate();
       }
+    } else if (params_->window_action == NavigateParams::SHOW_WINDOW_FULLSCREEN) {
+      BrowserWindow* window = params_->browser->window();
+      BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(params_->browser)->frame();
+      frame->SetFullscreen(true);
+      window->Show();
     }
   }
 
