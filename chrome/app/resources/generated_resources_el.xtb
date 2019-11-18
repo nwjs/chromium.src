@@ -1762,7 +1762,7 @@
 <translation id="359283478042092570">Είσοδος</translation>
 <translation id="3593965109698325041">Περιορισμοί ονόματος πιστοποιητικού</translation>
 <translation id="3596235046596950091">Ενεργοποίηση υπηρεσιών cloud</translation>
-<translation id="3599221874935822507">Αναπτυγμένο</translation>
+<translation id="3599221874935822507">Ανάγλυφο</translation>
 <translation id="3599863153486145794">Διαγράφει το ιστορικό από όλες τις συνδεδεμένες συσκευές. Ο Λογαριασμός σας Google ενδέχεται να διαθέτει άλλες μορφές ιστορικού περιήγησης στη διεύθυνση <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="3600051066689725006">Πληροφορίες αιτήματος ιστού</translation>
 <translation id="3600792891314830896">Σίγαση ιστοτόπων που αναπαράγουν ήχο</translation>
@@ -2267,6 +2267,7 @@
 <translation id="4316850752623536204">Ιστότοπος προγραμματιστή</translation>
 <translation id="4320177379694898372">Χωρίς σύνδεση στο διαδίκτυο</translation>
 <translation id="4321442524549817090">Εμφάνιση URL</translation>
+<translation id="4322394346347055525">Κλείσιμο Άλλων Καρτελών</translation>
 <translation id="4324577459193912240">Το αρχείο είναι ελλιπές</translation>
 <translation id="4325237902968425115">Απεγκατάσταση <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Παγωμένο νερό</translation>
@@ -3950,6 +3951,7 @@
 <translation id="6850286078059909152">Χρώμα κειμένου</translation>
 <translation id="6851497530878285708">Η εφαρμογή ενεργοποιήθηκε</translation>
 <translation id="6853388645642883916">Το πρόγραμμα ενημέρωσης είναι σε αδράνεια</translation>
+<translation id="68541483639528434">Κλείσιμο των άλλων καρτελών</translation>
 <translation id="6856623341093082836">Ρύθμιση και προσαρμογή ακρίβειας οθόνης αφής</translation>
 <translation id="6857699260879628349">Λήψη πληροφοριών διαμόρφωσης</translation>
 <translation id="6860097299815761905">Ρυθμίσεις διακομιστή μεσολάβησης...</translation>

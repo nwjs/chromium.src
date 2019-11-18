@@ -1747,7 +1747,7 @@ Unaweza kudhibiti mipangilio ya akaunti hii kwa kusakinisha programu ya Family L
 <translation id="357886715122934472">&lt;Strong&gt; <ph name="SENDER" /> &lt;/Strong&gt; anataka kushiriki printa &lt;strong&gt; <ph name="PRINTER_NAME" /> &lt;/Strong&gt; na kundi unalomiliki: &lt;strong&gt; <ph name="GROUP_NAME" /> &lt;/Strong&gt;. Ukikubali, wanachama wote wa kundi wataweza kuchapisha kwenye printa.</translation>
 <translation id="357889014807611375">Wi-Fi inayopima data</translation>
 <translation id="3584169441612580296">Kusoma na kubadilisha picha, muziki na maudhui mengine kwenye kompyuta yako</translation>
-<translation id="3586806079541226322">Haiwezi kufungua faili hii</translation>
+<translation id="3586806079541226322">Imeshindwa kufungua faili</translation>
 <translation id="3586931643579894722">Ficha maelezo</translation>
 <translation id="3587482841069643663">Zote</translation>
 <translation id="358796204584394954">Charaza msimbo huu kwenye "<ph name="DEVICE_NAME" />" ili kuoanisha:</translation>
@@ -2262,6 +2262,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4316850752623536204">Tovuti ya Wasanidi Programu</translation>
 <translation id="4320177379694898372">Hakuna muunganisho wa intaneti</translation>
 <translation id="4321442524549817090">O&amp;nyesha URL</translation>
+<translation id="4322394346347055525">Funga Vichupo Vingine</translation>
 <translation id="4324577459193912240">Faili haijakamilika</translation>
 <translation id="4325237902968425115">Inaondoa <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Maji ya barafu</translation>
@@ -3943,6 +3944,7 @@ Hakikisha kwamba unaamini tovuti hii kabla ya kuingia katika VR.</translation>
 <translation id="6850286078059909152">Rangi ya maandishi</translation>
 <translation id="6851497530878285708">Programu Imewashwa</translation>
 <translation id="6853388645642883916">Kisasishaji kimetulia</translation>
+<translation id="68541483639528434">Funga vichupo vingine</translation>
 <translation id="6856623341093082836">Weka mipangilio na urekebishe usahihi wa skrini yako ya kugusa</translation>
 <translation id="6857699260879628349">Pata maelezo ya kuweka mipangilio</translation>
 <translation id="6860097299815761905">Mipangilio ya proksi...</translation>

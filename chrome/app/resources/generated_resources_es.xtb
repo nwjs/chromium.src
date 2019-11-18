@@ -2266,6 +2266,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="4316850752623536204">Sitio web del desarrollador</translation>
 <translation id="4320177379694898372">No hay conexión a Internet</translation>
 <translation id="4321442524549817090">&amp;Mostrar URL</translation>
+<translation id="4322394346347055525">Cerrar las demás pestañas</translation>
 <translation id="4324577459193912240">Archivo incompleto</translation>
 <translation id="4325237902968425115">Desinstalando <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Agua helada</translation>
@@ -3153,7 +3154,7 @@ Asegúrate de que este sitio web sea de confianza antes de acceder al modo de re
 <translation id="5659593005791499971">Correo electrónico</translation>
 <translation id="5659833766619490117">No se ha podido traducir la página</translation>
 <translation id="5660204307954428567">Vincular con <ph name="DEVICE_NAME" /></translation>
-<translation id="5662477687021125631">Perpetua</translation>
+<translation id="5662477687021125631">Permanente</translation>
 <translation id="5667546120811588575">Configurando Google Play...</translation>
 <translation id="5669267381087807207">Activando</translation>
 <translation id="5669691691057771421">Introducir el nuevo PIN</translation>
@@ -3948,6 +3949,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6850286078059909152">Color del texto</translation>
 <translation id="6851497530878285708">Aplicación habilitada</translation>
 <translation id="6853388645642883916">Herramienta de actualización no disponible</translation>
+<translation id="68541483639528434">Cerrar las demás pestañas</translation>
 <translation id="6856623341093082836">Configurar y ajustar la precisión de la pantalla táctil</translation>
 <translation id="6857699260879628349">Obtener información de configuración</translation>
 <translation id="6860097299815761905">Configuración de proxy...</translation>
@@ -4100,7 +4102,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7077829361966535409">No se ha podido cargar la página de inicio de sesión con la configuración de proxy actual. <ph name="GAIA_RELOAD_LINK_START" />Intenta iniciar sesión de nuevo<ph name="GAIA_RELOAD_LINK_END" /> o utiliza otra <ph name="PROXY_SETTINGS_LINK_START" />configuración de proxy<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="7078120482318506217">Todas las redes</translation>
 <translation id="708060913198414444">C&amp;opiar dirección de audio</translation>
-<translation id="7081952801286122383">Estás en el modo de incógnito</translation>
+<translation id="7081952801286122383">Estás en modo de incógnito</translation>
 <translation id="708278670402572152">Desconectar para habilitar la búsqueda</translation>
 <translation id="70850504851191913">Se ha denunciado una quiebra de seguridad de datos</translation>
 <translation id="7085389578340536476">¿Quieres permitir que Chrome grabe audio?</translation>

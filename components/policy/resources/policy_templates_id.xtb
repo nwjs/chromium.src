@@ -2920,7 +2920,7 @@ Jika kebijakan ini dinonaktifkan atau tidak disetel, situs tidak akan dapat mena
 <translation id="6195802366906945965">Menentukan apakah pemverifikasi sertifikat bawaan akan digunakan untuk memverifikasi sertifikat server</translation>
 <translation id="6197453924249895891">Memberikan akses ke kunci perusahaan ke ekstensi.
 
-      Kunci hanya ditujukan untuk pemakaian dalam perusahaan jika dibuat menggunakan API chrome.enterprise.platformKeys pada akun yang dikelola. Kunci yang diimpor atau dibuat dengan cara lain tidak boleh digunakan untuk perusahaan.
+      Kunci hanya ditujukan untuk pemakaian dalam perusahaan jika dibuat menggunakan API chrome.enterprise.platformKeys pada akun terkelola. Kunci yang diimpor atau dibuat dengan cara lain tidak boleh digunakan untuk perusahaan.
 
       Akses ke kunci yang ditujukan untuk pemakaian dalam perusahaan hanya dikontrol oleh kebijakan ini. Pengguna tidak dapat memberikan maupun menarik akses ke kunci perusahaan ke atau dari ekstensi.
 

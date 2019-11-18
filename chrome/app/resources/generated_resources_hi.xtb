@@ -175,7 +175,7 @@
 <translation id="1238191093934674082">खुला VPN</translation>
 <translation id="1239594683407221485">Files ऐप्लिकेशन में डिवाइस की सामग्री देखें.</translation>
 <translation id="124116460088058876">ज़्यादा भाषाएं</translation>
-<translation id="1241753985463165747">लागू किए जाने पर अभी वाली वेबसाइट पर मौजूद अपना सभी डेटा पढ़ें और बदलें</translation>
+<translation id="1241753985463165747">लागू किए जाने पर अभी वाली वेबसाइट पर मौजूद आपका डेटा पढ़ और बदल सकता है</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> आपकी सेटिंग को रीसेट करना चाहता है.</translation>
 <translation id="1243314992276662751">अपलोड करें</translation>
 <translation id="1244265436519979884">फ़िलहाल, Linux की बहाल करने की प्रक्रिया जारी है</translation>
@@ -288,7 +288,7 @@
 <translation id="1427269577154060167">देश</translation>
 <translation id="142758023928848008">स्टिकी की चालू करें (कीबोर्ड शॉर्टकट को क्रम से लिखकर उनका उपयोग करने के लिए)</translation>
 <translation id="1429300045468813835">सभी को हटाएं</translation>
-<translation id="143027896309062157">अपने कंप्यूटर और जिन वेबसाइट पर आप विज़िट करते हैं, उन पर मौजूद अपना सभी डेटा पढ़ें और बदलें</translation>
+<translation id="143027896309062157">अपने कंप्यूटर और जिन वेबसाइट पर आप विज़िट करते हैं, उन पर मौजूद आपका डेटा पढ़ और बदल सकता है</translation>
 <translation id="1430915738399379752">प्रिंट करें</translation>
 <translation id="1431188203598586230">आखिरी साॅफ़्टवेयर अपडेट</translation>
 <translation id="1432581352905426595">सर्च इंजन प्रबंधित करें</translation>
@@ -1111,7 +1111,7 @@
 <translation id="2610260699262139870">वा&amp;स्‍तविक आकार</translation>
 <translation id="2610780100389066815">Microsoft विश्वास सूची हस्ताक्षर</translation>
 <translation id="2612676031748830579">कार्ड संख्या</translation>
-<translation id="2616366145935564096"><ph name="WEBSITE_1" /> पर मौजूद अपना डेटा पढ़ें और बदलें</translation>
+<translation id="2616366145935564096"><ph name="WEBSITE_1" /> पर मौजूद आपका डेटा पढ़ और बदल सकता है</translation>
 <translation id="2617342710774726426">सिम कार्ड लॉक है</translation>
 <translation id="2619761439309613843">हर दिन रीफ़्रेश करें</translation>
 <translation id="2620436844016719705">सिस्टम</translation>
@@ -2266,6 +2266,7 @@
 <translation id="4316850752623536204">डेवलपर वेबसाइट</translation>
 <translation id="4320177379694898372">कोई इंटरनेट कनेक्‍शन नहीं</translation>
 <translation id="4321442524549817090">यूआरएल दि&amp;खाएं</translation>
+<translation id="4322394346347055525">अन्य टैब बंद करें</translation>
 <translation id="4324577459193912240">फ़ाइल अधूरी है</translation>
 <translation id="4325237902968425115"><ph name="LINUX_APP_NAME" /> अनइंस्टॉल हो रहा है...</translation>
 <translation id="4330191372652740264">आइस वॉटर</translation>
@@ -3334,7 +3335,7 @@
     यह तस्वीर Chromebook की साइन इन स्क्रीन और लॉक स्क्रीन पर दिखाई देगी.</translation>
 <translation id="5925147183566400388">प्रमाणन अभ्यास कथन पॉइंटर</translation>
 <translation id="592880897588170157">PDF फ़ाइलों को Chrome में अपने आप खोलने के बजाय उन्हें डाउनलोड करें</translation>
-<translation id="5931146425219109062">आप जिन वेबसाइट पर जाते हैं, उन पर मौजूद अपना सभी डेटा पढ़ें और बदलें</translation>
+<translation id="5931146425219109062">आप जिन वेबसाइट पर जाते हैं, उन पर मौजूद आपका डेटा पढ़ और बदल सकता है</translation>
 <translation id="5932224571077948991">साइट में तंग करने वाले या गुमराह करने वाले विज्ञापन दिखाई देते हैं</translation>
 <translation id="59324397759951282"><ph name="MANUFACTURER_NAME" /> का यूएसबी डिवाइस</translation>
 <translation id="5932881020239635062">सीरियल</translation>
@@ -3653,7 +3654,7 @@
 <translation id="6406303162637086258">ब्राउज़र पुनर्प्रारंभ को सिम्युलेट करें</translation>
 <translation id="6406506848690869874">सिंक</translation>
 <translation id="6406708970972405507">सेटिंग - <ph name="SECTION_TITLE" /></translation>
-<translation id="6408118934673775994"><ph name="WEBSITE_1" />, <ph name="WEBSITE_2" /> और <ph name="WEBSITE_3" /> पर मौजूद अपना डेटा पढ़ें और बदलें</translation>
+<translation id="6408118934673775994"><ph name="WEBSITE_1" />, <ph name="WEBSITE_2" /> और <ph name="WEBSITE_3" /> पर मौजूद आपका डेटा पढ़ और बदल सकता है</translation>
 <translation id="6410257289063177456">इमेज फ़ाइल</translation>
 <translation id="6410328738210026208">चैनल बदलें और पावरवॉश करें</translation>
 <translation id="6410668567036790476">सर्च इंजन जोड़ें</translation>
@@ -3842,7 +3843,7 @@
 <translation id="6691936601825168937">&amp;अग्रेषित करें</translation>
 <translation id="6697492270171225480">जब कोई पेज मिल नहीं पा रहा हो तो मिलते-जुलते पेज के सुझाव दिखाएं</translation>
 <translation id="6697690052557311665">शेयर करने के लिए, फ़ाइलें ऐप्लिकेशन में किसी फ़ोल्डर पर क्लिक करें, फिर "Linux से शेयर करें" चुनें.</translation>
-<translation id="6698810901424468597"><ph name="WEBSITE_1" /> और <ph name="WEBSITE_2" /> पर मौजूद अपना डेटा पढ़ें और बदलें</translation>
+<translation id="6698810901424468597"><ph name="WEBSITE_1" /> और <ph name="WEBSITE_2" /> पर मौजूद आपका डेटा पढ़ और बदल सकता है</translation>
 <translation id="6699883973579689168">अब अपने सभी Google खातों को एक ही जगह से प्रबंधित करें ऐप्लिकेशन, वेबसाइट, और Chrome या Google Play के एक्सटेंशन को आपने जो भी ऐक्सेस और अनुमतियां दी हैं वे अब आपके सभी साइन खातों पर लागू होंगी. <ph name="LINK_BEGIN" />ज़्यादा जानें<ph name="LINK_END" /></translation>
 <translation id="6700480081846086223"><ph name="HOST_NAME" /> को कास्ट करें</translation>
 <translation id="6701535245008341853">प्रोफ़ाइल नहीं पाया जा सका.</translation>
@@ -3948,6 +3949,7 @@
 <translation id="6850286078059909152">टेक्स्ट का रंग</translation>
 <translation id="6851497530878285708">ऐप्लिकेशन चालू</translation>
 <translation id="6853388645642883916">अपडेटर निष्क्रिय</translation>
+<translation id="68541483639528434">अन्य टैब बंद करें</translation>
 <translation id="6856623341093082836">अपनी टचस्क्रीन को सटीक सेट करें और एडजस्ट करें</translation>
 <translation id="6857699260879628349">कॉन्फ़िगरेशन की जानकारी पाएं</translation>
 <translation id="6860097299815761905">प्रॉक्‍सी सेटिंग...</translation>

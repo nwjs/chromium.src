@@ -2264,6 +2264,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="4316850752623536204">Sitio web del programador</translation>
 <translation id="4320177379694898372">Sin conexión a Internet</translation>
 <translation id="4321442524549817090">M&amp;ostrar URL</translation>
+<translation id="4322394346347055525">Cerrar las demás pestañas</translation>
 <translation id="4324577459193912240">El archivo está incompleto</translation>
 <translation id="4325237902968425115">Desinstalando <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">Agua helada</translation>
@@ -3946,6 +3947,7 @@ Asegúrate de que este sitio sea de confianza antes de entrar en el modo RV.</tr
 <translation id="6850286078059909152">Color del texto</translation>
 <translation id="6851497530878285708">App habilitada</translation>
 <translation id="6853388645642883916">Actualizador suspendido</translation>
+<translation id="68541483639528434">Cerrar las demás pestañas</translation>
 <translation id="6856623341093082836">Configurar y ajustar la precisión de tu pantalla táctil</translation>
 <translation id="6857699260879628349">Obtener información sobre la configuración</translation>
 <translation id="6860097299815761905">Configuración de proxy...</translation>
@@ -4192,7 +4194,7 @@ Asegúrate de que este sitio sea de confianza antes de entrar en el modo RV.</tr
 <translation id="7220019174139618249">No se pueden exportar las contraseñas a "<ph name="FOLDER" />"</translation>
 <translation id="722055596168483966">Personalizar los servicios de Google</translation>
 <translation id="7221855153210829124">Mostrar notificaciones</translation>
-<translation id="7221869452894271364">Cargar esta página de nuevo</translation>
+<translation id="7221869452894271364">Volver a cargar esta página</translation>
 <translation id="7222204278952406003">Chrome es el navegador predeterminado</translation>
 <translation id="7222232353993864120">Dirección de correo electrónico</translation>
 <translation id="7225179976675429563">Falta el tipo de red.</translation>

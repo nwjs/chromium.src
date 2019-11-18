@@ -2264,6 +2264,7 @@
 <translation id="4316850752623536204">موقع الويب لمطوّر البرامج</translation>
 <translation id="4320177379694898372">لا يتوفر اتصال بالإنترنت</translation>
 <translation id="4321442524549817090">‏عرض&amp;عنوان URL</translation>
+<translation id="4322394346347055525">إغلاق علامات التبويب الأخرى</translation>
 <translation id="4324577459193912240">ملف غير مكتمل</translation>
 <translation id="4325237902968425115">جارٍ إلغاء تثبيت <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">ماء مثلج</translation>
@@ -2399,7 +2400,7 @@
 <translation id="4545759655004063573">لا يمكن الحفظ نظرًا لأن الأذونات غير كافية. يُرجى الحفظ في مكان آخر.</translation>
 <translation id="4546308221697447294">‏استمتع بالتصفح السريع باستخدام Google Chrome</translation>
 <translation id="4547659257713117923">ليست هناك علامات تبويب من أجهزة أخرى</translation>
-<translation id="4547672827276975204">التعيين تلقائيًا</translation>
+<translation id="4547672827276975204">ضبط المنطقة الزمنية تلقائيًا</translation>
 <translation id="4551763574344810652">اضغط على <ph name="MODIFIER_KEY_DESCRIPTION" /> للتراجع</translation>
 <translation id="4552089082226364758">الفلاش</translation>
 <translation id="4554591392113183336">الإضافة الخارجية في نفس الإصدار أو إصدار أقل مقارنة بالموجودة حاليًا.</translation>
@@ -3947,6 +3948,7 @@
 <translation id="6850286078059909152">لون النص</translation>
 <translation id="6851497530878285708">تم تفعيل التطبيق</translation>
 <translation id="6853388645642883916">خدمة التحديث خاملة</translation>
+<translation id="68541483639528434">إغلاق علامات التبويب الأخرى</translation>
 <translation id="6856623341093082836">إعداد دقة الشاشة التي تعمل باللمس وضبطها</translation>
 <translation id="6857699260879628349">الحصول على معلومات الضبط</translation>
 <translation id="6860097299815761905">إعدادات الخادم الوكيل...</translation>

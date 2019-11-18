@@ -150,7 +150,7 @@
 <translation id="1645368109819982629">Nem támogatott protokoll</translation>
 <translation id="1655462015569774233">{1,plural, =1{A szerver nem tudta bizonyítani, hogy valóban a(z) <ph name="DOMAIN" /> domainbe tartozik; biztonsági tanúsítványa tegnap lejárt. Ennek oka lehet konfigurációs hiba, de az is lehet, hogy egy támadó eltérítette az Ön kapcsolódását. Számítógépének órája jelenleg a következőre van állítva: <ph name="CURRENT_DATE" />. Ez megfelelőnek tűnik? Ha nem, állítsa be megfelelően a rendszer óráját, majd frissítse az oldalt.}other{A szerver nem tudta bizonyítani, hogy valóban a(z) <ph name="DOMAIN" /> domainbe tartozik; biztonsági tanúsítványa # nappal ezelőtt lejárt. Ennek oka lehet konfigurációs hiba, de az is lehet, hogy egy támadó eltérítette az Ön kapcsolódását. Számítógépének órája jelenleg a következőre van állítva: <ph name="CURRENT_DATE" />. Ez megfelelőnek tűnik? Ha nem, állítsa be megfelelően a rendszer óráját, majd frissítse az oldalt.}}</translation>
 <translation id="1656489000284462475">Átvétel</translation>
-<translation id="1662550410081243962">Fizetési módok mentése és betöltése</translation>
+<translation id="1662550410081243962">Fizetési módok mentése és kitöltése</translation>
 <translation id="1663943134801823270">A kártyák és a címek a Chrome-ból származnak. A <ph name="BEGIN_LINK" />Beállításokban<ph name="END_LINK" /> kezelheti őket.</translation>
 <translation id="1669987054044193553">Megerősítés és mentés</translation>
 <translation id="1671391448414634642">A(z) <ph name="SOURCE_LANGUAGE" /> nyelvű oldalak mostantól le lesznek fordítva <ph name="TARGET_LANGUAGE" /> nyelvre.</translation>
@@ -266,7 +266,7 @@
 <translation id="2263079731045660823">Hitelkártyával kapcsolatos automatikus kitöltési adatok frissítése a Chrome beállításaiban</translation>
 <translation id="2270484714375784793">Telefonszám</translation>
 <translation id="2277103315734023688">Ugrás előre</translation>
-<translation id="2283340219607151381">Címek mentése és betöltése</translation>
+<translation id="2283340219607151381">Címek mentése és kitöltése</translation>
 <translation id="2292556288342944218">Az internethez való hozzáférést a rendszer letiltotta</translation>
 <translation id="2297722699537546652">B5 (boríték)</translation>
 <translation id="2310021320168182093">Chou2 (boríték)</translation>
@@ -1150,7 +1150,7 @@
     alkalmazását kérte az összes hozzá irányuló kérés esetében. De ahelyett, hogy
     átadta volna a házirendet, átirányította máshova a böngészőt, megakadályozva,
     hogy a böngésző teljesítse a(z) <ph name="SITE" /> webhelyre irányuló kérelmet.</translation>
-<translation id="7179323680825933600">Fizetési módok mentése és betöltése</translation>
+<translation id="7179323680825933600">Fizetési módok mentése és kitöltése</translation>
 <translation id="7180611975245234373">Frissítés</translation>
 <translation id="7182878459783632708">Nincsenek beállított házirendek</translation>
 <translation id="7186367841673660872">Ezt az oldalt<ph name="ORIGINAL_LANGUAGE" />nyelvről fordítottuk<ph name="LANGUAGE_LANGUAGE" />nyelvre.</translation>

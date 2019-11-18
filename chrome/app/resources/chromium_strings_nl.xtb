@@ -18,7 +18,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="1668054258064581266">Nadat je je account uit Chromium hebt verwijderd, moet je je geopende tabbladen mogelijk opnieuw laden om de wijzigingen door te voeren.</translation>
 <translation id="1688750314291223739">Stel synchronisatie in om je persoonlijke browserfuncties online op te slaan en toegang te hebben tot deze functies via Chromium, vanaf elke computer.</translation>
 <translation id="1708666629004767631">Er is een nieuwe, veiligere versie van Chromium beschikbaar.</translation>
-<translation id="1766096484055239003">Je beheerder vereist dat je Chromium opnieuw start om een update toe te passen</translation>
+<translation id="1766096484055239003">Je beheerder vereist dat je Chromium opnieuw start om een update uit te voeren</translation>
 <translation id="1774152462503052664">Chromium laten uitvoeren op de achtergrond</translation>
 <translation id="1779356040007214683">Om Chromium veiliger te maken, hebben we een aantal extensies uitgeschakeld die niet worden vermeld in de <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> en mogelijk zonder je medeweten zijn geïnstalleerd.</translation>
 <translation id="1808667845054772817">Chromium opnieuw installeren</translation>
@@ -28,7 +28,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="1929939181775079593">Chromium reageert niet. Nu opnieuw starten?</translation>
 <translation id="1966382378801805537">Chromium kan de standaardbrowser niet bepalen of instellen</translation>
 <translation id="2008474315282236005">Hiermee wordt 1 item verwijderd van dit apparaat. Als je je gegevens later wilt terughalen, log je in bij Chromium als <ph name="USER_EMAIL" />.</translation>
-<translation id="2117378023188580026">Je beheerder vraagt je Chromium opnieuw te starten om deze update toe te passen</translation>
+<translation id="2117378023188580026">Je beheerder vraagt je Chromium opnieuw te starten om deze update uit te voeren</translation>
 <translation id="2119636228670142020">Over &amp;Chromium OS</translation>
 <translation id="2241627712206172106">Als je een computer deelt, kunnen vrienden en familie afzonderlijk surfen en Chromium configureren zoals zij dat willen.</translation>
 <translation id="2265088490657775772">Download Chromium naar je iPhone</translation>
@@ -40,7 +40,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="2535480412977113886">Chromium OS kan je gegevens niet synchroniseren omdat de inloggegevens voor je account zijn verouderd.</translation>
 <translation id="2560420686485554789">Chromium heeft toegang tot de opslag nodig om bestanden te downloaden</translation>
 <translation id="2572494885440352020">Chromium Helper</translation>
-<translation id="2587578672395088481">Chromium OS moet opnieuw worden gestart om de update toe te passen.</translation>
+<translation id="2587578672395088481">Chromium OS moet opnieuw worden gestart om de update uit te voeren.</translation>
 <translation id="2647554856022461007">Chromium kan webservices gebruiken om de browsefunctionaliteit te verbeteren. Je kunt deze services eventueel uitschakelen. <ph name="BEGIN_LINK" />Meer informatie<ph name="END_LINK" /></translation>
 <translation id="2648074677641340862">Er is tijdens de installatie een fout opgetreden in het besturingssysteem. Download Chromium opnieuw.</translation>
 <translation id="2711502716910134313">Chromium-tabblad</translation>

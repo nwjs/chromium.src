@@ -2267,6 +2267,7 @@ Pretende pará-lo?</translation>
 <translation id="4316850752623536204">Website para programadores</translation>
 <translation id="4320177379694898372">Sem ligação à Internet</translation>
 <translation id="4321442524549817090">M&amp;ostrar URL</translation>
+<translation id="4322394346347055525">Fechar os Outros Separadores</translation>
 <translation id="4324577459193912240">Ficheiro incompleto</translation>
 <translation id="4325237902968425115">A desinstalar <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">Água gelada</translation>
@@ -3950,6 +3951,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6850286078059909152">Cor do texto</translation>
 <translation id="6851497530878285708">Aplicação ativada</translation>
 <translation id="6853388645642883916">Atualizador em suspensão</translation>
+<translation id="68541483639528434">Fechar os outros separadores</translation>
 <translation id="6856623341093082836">Configurar e ajustar a precisão do ecrã tátil</translation>
 <translation id="6857699260879628349">Obter informações de configuração</translation>
 <translation id="6860097299815761905">Definições de proxy...</translation>
@@ -5167,7 +5169,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8631032106121706562">Pétalas</translation>
 <translation id="8635628933471165173">A atualizar…</translation>
 <translation id="8637542770513281060">O seu computador contém um módulo seguro, que é utilizado para implementar várias funcionalidades de segurança essenciais no Chrome OS. Aceda ao Centro de Ajuda do Chromebook em https://support.google.com/chromebook/?p=sm para saber mais.</translation>
-<translation id="8637688295594795546">Actualização do sistema disponível. A preparar para transferir…</translation>
+<translation id="8637688295594795546">Actualização do sistema disponível. A preparar a transferência...</translation>
 <translation id="8639047128869322042">A procurar software prejudicial...</translation>
 <translation id="8642900771896232685">2 segundos</translation>
 <translation id="8642947597466641025">Aumentar o tamanho do texto</translation>

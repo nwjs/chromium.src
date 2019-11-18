@@ -1032,7 +1032,7 @@ Wenn Sie "Letzte Sitzung wiederherstellen" wählen, werden die URLs, die beim le
 <translation id="2762164719979766599">Gibt die Liste der lokalen Gerätekonten an, die auf der Anmeldeseite angezeigt werden sollen.
 
       Jeder Listeneintrag besteht aus einer Kennung, die intern dazu verwendet wird, die verschiedenen lokalen Gerätekonten auseinanderzuhalten.</translation>
-<translation id="2769952903507981510">Erforderlichen Domain-Namen für Remotezugriff-Hosts konfigurieren</translation>
+<translation id="2769952903507981510">Erforderlichen Domainnamen für Remotezugriff-Hosts konfigurieren</translation>
 <translation id="2783078941107212091">Dadurch werden App-Empfehlungen bei Nullstatus des Suchfelds im Launcher aktiviert.
 
           Ist die Richtlinie auf "true" festgelegt, können App-Empfehlungen in der Suche mit Nullstatus angezeigt werden.
@@ -2789,11 +2789,11 @@ Die Richtlinie wird nur angewendet, wenn die <ph name="CHROME_REPORTING_EXTENSIO
 <translation id="5883015257301027298">Standardeinstellungen für Cookies</translation>
 <translation id="5887414688706570295">Konfiguriert das TalkGadget-Präfix, das von Remotezugriff-Hosts verwendet wird, und verhindert, dass dieses von Nutzern geändert werden kann.
 
-          Wenn dieses Präfix angegeben wird, wird es dem TalkGadget-Basisnamen vorangestellt, um einen vollständigen Domain-Namen für das TalkGadget zu erstellen. Der Basisname der TalkGadget-Domain lautet ".talkgadget.google.com".
+          Wenn dieses Präfix angegeben wird, wird es dem TalkGadget-Basisnamen vorangestellt, um einen vollständigen Domainnamen für das TalkGadget zu erstellen. Der Basisname der TalkGadget-Domain lautet ".talkgadget.google.com".
 
-          Wenn diese Einstellung aktiviert ist, verwenden die Hosts beim Zugriff auf das TalkGadget den benutzerdefinierten Domain-Namen anstelle des Standard-Domain-Namens.
+          Wenn diese Einstellung aktiviert ist, verwenden die Hosts beim Zugriff auf das TalkGadget den benutzerdefinierten Domainnamen anstelle des Standard-Domainnamens.
 
-          Ist die Einstellung deaktiviert oder nicht festgelegt, wird der Standard-Domain-Name für das TalkGadget ("chromoting-host.talkgadget.google.com") für alle Hosts verwendet.
+          Ist die Einstellung deaktiviert oder nicht festgelegt, wird der Standard-Domainname für das TalkGadget ("chromoting-host.talkgadget.google.com") für alle Hosts verwendet.
 
           Clients für den Remotezugriff sind von dieser Richtlinieneinstellung nicht betroffen. Diese verwenden immer "chromoting-client.talkgadget.google.com" für den Zugriff auf das TalkGadget.</translation>
 <translation id="5893553533827140852">Wenn diese Einstellung aktiviert ist, wird für Anfragen zur Gnubby-Authentifizierung ein Proxy über eine Remote-Host-Verbindung verwendet.

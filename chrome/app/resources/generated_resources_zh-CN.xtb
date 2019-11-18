@@ -2262,6 +2262,7 @@
 <translation id="4316850752623536204">开发者网站</translation>
 <translation id="4320177379694898372">未连接到互联网</translation>
 <translation id="4321442524549817090">显示网址</translation>
+<translation id="4322394346347055525">关闭其他标签页</translation>
 <translation id="4324577459193912240">文件下载未完成</translation>
 <translation id="4325237902968425115">正在卸载 <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">冰水</translation>
@@ -3944,6 +3945,7 @@
 <translation id="6850286078059909152">文字颜色</translation>
 <translation id="6851497530878285708">已启用此应用</translation>
 <translation id="6853388645642883916">更新程序处于休眠模式</translation>
+<translation id="68541483639528434">关闭其他标签页</translation>
 <translation id="6856623341093082836">设置和调整您的触摸屏的精确度</translation>
 <translation id="6857699260879628349">获取配置信息</translation>
 <translation id="6860097299815761905">代理设置...</translation>

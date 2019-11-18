@@ -2266,6 +2266,7 @@ Elindítja a következőt: <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation
 <translation id="4316850752623536204">Fejlesztő webhelye</translation>
 <translation id="4320177379694898372">Nincs internetkapcsolat</translation>
 <translation id="4321442524549817090">&amp;URL megjelenítése</translation>
+<translation id="4322394346347055525">Egyéb lapok bezárása</translation>
 <translation id="4324577459193912240">A fájl hiányos</translation>
 <translation id="4325237902968425115"><ph name="LINUX_APP_NAME" /> eltávolítása…</translation>
 <translation id="4330191372652740264">Jeges víz</translation>
@@ -3950,6 +3951,7 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="6850286078059909152">Szöveg színe</translation>
 <translation id="6851497530878285708">Alkalmazás engedélyezve</translation>
 <translation id="6853388645642883916">A frissítő alvó módba került</translation>
+<translation id="68541483639528434">A többi lap bezárása</translation>
 <translation id="6856623341093082836">Az érintőképernyő pontosságának beállítása és módosítása</translation>
 <translation id="6857699260879628349">Konfigurációs információk kérése</translation>
 <translation id="6860097299815761905">Proxy-beállítások...</translation>

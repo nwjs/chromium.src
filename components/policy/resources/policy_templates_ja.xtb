@@ -972,7 +972,7 @@
 <translation id="2679827548357140943">アップロードしたコンテンツに対してマルウェアのチェックを行う必要のあるドメインのリスト</translation>
 <translation id="268577405881275241">データ圧縮プロキシ機能を有効にする</translation>
 <translation id="2693108589792503178">パスワード変更 URL を設定する。</translation>
-<translation id="2694143893026486692">拡大鏡（ドッキング）の有効化</translation>
+<translation id="2694143893026486692">ドッキング拡大鏡の有効化</translation>
 <translation id="2706708761587205154">PIN ありの印刷のみを許可します</translation>
 <translation id="2710534340210290498">このポリシーが false の場合、ユーザーは画面をロックできません（ユーザー セッションからのログアウトのみ可能です）。このポリシーが true または未設定の場合、パスワードで認証されたユーザーは画面をロックできます。</translation>
 <translation id="2731627323327011390">ARC アプリで <ph name="PRODUCT_OS_NAME" /> の証明書を使用できないようにする</translation>

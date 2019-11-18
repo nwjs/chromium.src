@@ -2266,6 +2266,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="4316850752623536204">Webové stránky vývojára</translation>
 <translation id="4320177379694898372">Žiadne internetové pripojenie</translation>
 <translation id="4321442524549817090">Zo&amp;braziť webovú adresu</translation>
+<translation id="4322394346347055525">Zatvoriť ostatné karty</translation>
 <translation id="4324577459193912240">Súbor nie je úplný</translation>
 <translation id="4325237902968425115">Prebieha odinštalovanie aplikácie <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">Voda s ľadom</translation>
@@ -3804,7 +3805,7 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="6639554308659482635">Pamäť nástroja SQLite</translation>
 <translation id="6641138807883536517">Náhodne generované heslo bezpečnostného modulu nie je k dispozícii. Po použití funkcie Powerwash je to normálne.</translation>
 <translation id="6643016212128521049">Vymazať</translation>
-<translation id="6644512095122093795">Ponúknuť uloženie hesiel</translation>
+<translation id="6644512095122093795">Ponúkať ukladanie hesiel</translation>
 <translation id="6644513150317163574">Neplatný formát webovej adresy. Keď sa použije overenie jediným prihlásením, server musí byť špecifikovaný ako názov hostiteľa.</translation>
 <translation id="6644846457769259194">Zariadenie sa aktualizuje (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6645437135153136856">Vybrané zariadenie v službe Google Cloud Print už nie je podporované. <ph name="BR" /> Skúste túto tlačiareň nakonfigurovať v nastaveniach systému počítača.</translation>
@@ -3948,6 +3949,7 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="6850286078059909152">Farba textu</translation>
 <translation id="6851497530878285708">Aplikácia je povolená</translation>
 <translation id="6853388645642883916">Služba Updater je v režime spánku</translation>
+<translation id="68541483639528434">Zatvoriť ostatné karty</translation>
 <translation id="6856623341093082836">Nastaviť a upraviť presnosť dotykovej obrazovky</translation>
 <translation id="6857699260879628349">Získať informácie o konfigurácii</translation>
 <translation id="6860097299815761905">Nastavenia servera proxy...</translation>
@@ -5042,7 +5044,7 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="8435395510592618362">Overenie totožnosti pomocou aplikácie <ph name="APP_NAME" /></translation>
 <translation id="843760761634048214">Uloženie kreditnej karty</translation>
 <translation id="8438328416656800239">Prepnite na inteligentný prehliadač</translation>
-<translation id="8438566539970814960">Zlepšovať vyhľadávania a prehliadanie</translation>
+<translation id="8438566539970814960">Zlepšovať vyhľadávanie a prehliadanie</translation>
 <translation id="8439506636278576865">Ponúkať preklad stránok v tomto jazyku</translation>
 <translation id="8440630305826533614">Aplikácie pre Linux</translation>
 <translation id="8443338615972234259">Zriaďte ihneď nový účet pre kontrolovaného používateľa.</translation>

@@ -1288,7 +1288,7 @@
       如果已启用或未配置此设置，用户就可以用自己的 Google 帐号进行身份验证，从而启用云打印代理。
 
       如果已停用此设置，用户将无法启用代理，该计算机也就无法与 <ph name="CLOUD_PRINT_NAME" />共享其打印机。</translation>
-<translation id="3307971460556020865">阻止大型文件上传和下载</translation>
+<translation id="3307971460556020865">禁止上传和下载大型文件</translation>
 <translation id="3312206664202507568">通过 chrome://password-change 启用一个页面，以便 SAML 用户能够在会话期间更改其 SAML 密码，从而确保 SAML 密码和设备屏幕锁定密码保持同步。
 
       此政策还可在 SAML 密码即将到期时向 SAML 用户显示通知以示警告，以便他们能够通过在会话期间更改密码来立即采取应对措施。
@@ -1417,7 +1417,7 @@
 <translation id="3524204464536655762">不允许任何网站通过 WebUSB API 请求访问 USB 设备</translation>
 <translation id="3526752951628474302">仅限单色打印</translation>
 <translation id="3528000905991875314">启用备用的错误页面</translation>
-<translation id="3534882636155369445">允许大型文件传输</translation>
+<translation id="3534882636155369445">允许大型文件</translation>
 <translation id="3545457887306538845">让您能够控制可在什么情况下使用开发者工具。
 
       如果此政策设为“DeveloperToolsDisallowedForForceInstalledExtensions”（值为 0，即默认值），那么在通常情况下，用户都可以访问开发者工具以及 JavaScript 控制台，但在运行由企业政策安装的扩展程序的情况下，则无法使用它们。
@@ -1480,7 +1480,7 @@
 <translation id="3711895659073496551">暂停</translation>
 <translation id="3715569262675717862">基于客户端证书的身份验证</translation>
 <translation id="3736879847913515635">允许通过用户管理器添加用户</translation>
-<translation id="3737890474637805114">阻止大型文件下载</translation>
+<translation id="3737890474637805114">禁止下载大型文件</translation>
 <translation id="3738723882663496016">此政策可为该设备指定 <ph name="PLUGIN_VM_NAME" /> 许可密钥。</translation>
 <translation id="3748900290998155147">指定是否允许使用唤醒锁定。屏幕唤醒锁定可由扩展程序通过 Power Management Extension API 请求，也可由 ARC 应用请求。
 
@@ -2907,12 +2907,11 @@
 
       如果此政策未设置或设为“无”，则 <ph name="PRODUCT_NAME" /> 允许用户上传或下载任何大小的文件。
 
-      如果此政策设为“阻止大型文件下载”，那么当文件因太大而无法扫描时，系统会在将文件提供给用户之前就删除它们。由于系统并非总能在下载之前确定文件的大小，因此 <ph name="PRODUCT_NAME" /> 可能会先下载文件，然后再确定它们是否超过了允许的大小限制。
+      如果此政策设为“禁止下载大型文件”，那么当文件因太大而无法扫描时，系统会在将文件提供给用户之前就删除它们。由于系统并非总能在下载之前确定文件的大小，因此 <ph name="PRODUCT_NAME" /> 可能会先下载文件，然后再确定它们是否超过了允许的大小限制。
 
-      如果此政策设为“阻止大型文件上传”，用户将无法选择上传因太大而无法扫描的文件。
+      如果此政策设为“禁止上传大型文件”，用户将无法选择上传因太大而无法扫描的文件。
 
-      如果此政策设为“阻止大型文件上传和下载”，<ph name="PRODUCT_NAME" /> 将根据“阻止大型文件下载”和“阻止大型文件上传”所述的规则操作。
-      </translation>
+      如果此政策设为“禁止上传和下载大型文件”，<ph name="PRODUCT_NAME" /> 将根据“禁止下载大型文件”和“禁止上传大型文件”所述的规则操作。</translation>
 <translation id="6310223829319187614">允许在用户登录期间自动填充域名</translation>
 <translation id="6315673513957120120">当用户访问存在 SSL 错误的网站时，Chrome 将显示警告页面。默认情况下，或当此政策设为 true 时，用户可以在点击这些警告页面后继续操作。
       如果将此政策设为 false，用户将无法通过点击任何警告页面继续操作。</translation>
@@ -4151,7 +4150,7 @@
       如果此政策设为 true，用户必须先使用其个人资料登录 <ph name="PRODUCT_NAME" />，然后才能使用该浏览器。此外，BrowserGuestModeEnabled 的默认值会设为 false。请注意，启用此政策后，现有的未登录个人资料将处于锁定且不可访问的状态。有关详情，请参阅帮助中心文章。
 
       如果此政策设为 false 或未配置，用户无需登录 <ph name="PRODUCT_NAME" /> 即可使用该浏览器。</translation>
-<translation id="858309738002328421">阻止大型文件上传</translation>
+<translation id="858309738002328421">禁止上传大型文件</translation>
 <translation id="8585558195682146109">发送用户下载内容进行扫描</translation>
 <translation id="8586528890725660268">指定用户无法使用的打印机。
 

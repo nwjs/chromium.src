@@ -657,4 +657,21 @@ TEST_F(ManagePasswordsStateTest, ChooseCredentialLocalWithNonEmptyFederation) {
   passwords_data().ChooseCredential(&local_federated_form());
 }
 
+TEST_F(ManagePasswordsStateTest, AutofillCausedByInternalFormManager) {
+  test_stored_forms().push_back(&saved_match());
+  auto test_form_manager = CreateFormManagerWithFederation();
+  auto* weak_manager = test_form_manager.get();
+  passwords_data().OnPendingPassword(std::move(test_form_manager));
+
+  // Force autofill with the parameters coming from the object to be destroyed.
+  auto federate_matches = weak_manager->GetFederatedMatches();
+  passwords_data().OnPasswordAutofilled(weak_manager->GetBestMatches(),
+                                        weak_manager->GetOrigin(),
+                                        &federate_matches);
+  EXPECT_THAT(passwords_data().GetCurrentForms(),
+              UnorderedElementsAre(Pointee(local_federated_form()),
+                                   Pointee(saved_match())));
+  EXPECT_EQ(saved_match().origin, passwords_data().origin());
+}
+
 }  // namespace

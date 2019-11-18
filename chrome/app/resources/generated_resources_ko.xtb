@@ -2265,6 +2265,7 @@
 <translation id="4316850752623536204">개발자 웹사이트</translation>
 <translation id="4320177379694898372">인터넷에 연결되지 않음</translation>
 <translation id="4321442524549817090">URL 표시(&amp;H)</translation>
+<translation id="4322394346347055525">다른 탭 닫기</translation>
 <translation id="4324577459193912240">파일 다운로드가 완료되지 않음</translation>
 <translation id="4325237902968425115"><ph name="LINUX_APP_NAME" /> 제거 중...</translation>
 <translation id="4330191372652740264">얼음물</translation>
@@ -3361,7 +3362,7 @@ VR로 들어가기 전에 이 사이트를 신뢰할 수 있는지 확인하세�
 <translation id="5972017421290582825">MIDI 설정 관리...</translation>
 <translation id="597235323114979258">대상 더보기</translation>
 <translation id="5972666587303800813">작동하지 않는 서비스</translation>
-<translation id="5972708806901999743">위로 이동</translation>
+<translation id="5972708806901999743">가장 위로 이동</translation>
 <translation id="5972826969634861500"><ph name="PRODUCT_NAME" /> 시작</translation>
 <translation id="5973605538625120605">PIN 변경</translation>
 <translation id="5975792506968920132">배터리 충전율</translation>
@@ -3947,6 +3948,7 @@ VR로 들어가기 전에 이 사이트를 신뢰할 수 있는지 확인하세�
 <translation id="6850286078059909152">텍스트 색상</translation>
 <translation id="6851497530878285708">앱 사용 설정됨</translation>
 <translation id="6853388645642883916">업데이터 절전 모드</translation>
+<translation id="68541483639528434">다른 탭 닫기</translation>
 <translation id="6856623341093082836">터치스크린 설정 및 정확도 조정</translation>
 <translation id="6857699260879628349">구성 정보 가져오기</translation>
 <translation id="6860097299815761905">프록시 설정...</translation>

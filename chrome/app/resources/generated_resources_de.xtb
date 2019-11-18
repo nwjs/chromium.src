@@ -1949,7 +1949,7 @@ Servernachricht: <ph name="SERVER_MSG" /></translation>
 <translation id="3838486795898716504">Weitere <ph name="PAGE_TITLE" /></translation>
 <translation id="3838543471119263078">Cookies und andere Website- und Plug-in-Daten</translation>
 <translation id="383891835335927981">Keine Websites wurden vergrößert oder verkleinert</translation>
-<translation id="3839516600093027468">Immer verhindern, dass <ph name="HOST" /> die Zwischenablage aufruft</translation>
+<translation id="3839516600093027468">Immer verhindern, dass <ph name="HOST" /> die Zwischenablage abruft</translation>
 <translation id="3841964634449506551">Passwort ungültig</translation>
 <translation id="3842552989725514455">Schriftart Serif</translation>
 <translation id="3846116211488856547">Tools für die Entwicklung erhalten, z. B. von Websites und Android-Apps. Für die Installation von Linux werden <ph name="DOWNLOAD_SIZE" /> an Daten heruntergeladen.</translation>
@@ -2263,6 +2263,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="4316850752623536204">Website des Entwicklers</translation>
 <translation id="4320177379694898372">Keine Internetverbindung</translation>
 <translation id="4321442524549817090">U&amp;RL zeigen</translation>
+<translation id="4322394346347055525">Andere Tabs schließen</translation>
 <translation id="4324577459193912240">Datei unvollständig</translation>
 <translation id="4325237902968425115">"<ph name="LINUX_APP_NAME" />" wird deinstalliert...</translation>
 <translation id="4330191372652740264">Wasser mit Eis</translation>
@@ -2379,7 +2380,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="4520385623207007473">Verwendete Cookies</translation>
 <translation id="452039078290142656">unbekannte Geräte von <ph name="VENDOR_NAME" /></translation>
 <translation id="4522570452068850558">Details</translation>
-<translation id="4522600456902129422">Weiterhin zulassen, dass diese Website die Zwischenablage aufruft</translation>
+<translation id="4522600456902129422">Weiterhin zulassen, dass diese Website die Zwischenablage abruft</translation>
 <translation id="4524832533047962394">Der verwendete Anmeldemodus wird von dieser Version des Betriebssystems nicht unterstützt. Bitte führen Sie ein Update auf die aktuelle Version durch.</translation>
 <translation id="4525382759303819021">Ich möchte die neuesten Updates und Empfehlungen zu Play Store-Apps erhalten</translation>
 <translation id="4530494379350999373">Ursprung</translation>
@@ -3945,6 +3946,7 @@ Starten Sie den VR-Modus nur dann, wenn Sie dieser Website vertrauen.</translati
 <translation id="6850286078059909152">Schriftfarbe</translation>
 <translation id="6851497530878285708">App aktiviert</translation>
 <translation id="6853388645642883916">Updater im Ruhemodus</translation>
+<translation id="68541483639528434">Andere Tabs schließen</translation>
 <translation id="6856623341093082836">Touchscreen einrichten und Genauigkeit anpassen</translation>
 <translation id="6857699260879628349">Konfigurationsinformationen abrufen</translation>
 <translation id="6860097299815761905">Proxy-Einstellungen...</translation>

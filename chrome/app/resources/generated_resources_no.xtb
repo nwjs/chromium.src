@@ -345,7 +345,7 @@
 <translation id="1509281256533087115">Få tilgang til en hvilken som helst <ph name="DEVICE_NAME_AND_VENDOR" /> via USB</translation>
 <translation id="150962533380566081">Ugyldig PUK.</translation>
 <translation id="1510030919967934016">Denne siden har blitt nektet tillatelse til å spore posisjonen din.</translation>
-<translation id="1510238584712386396">Appvelger</translation>
+<translation id="1510238584712386396">Appoversikt</translation>
 <translation id="1510785804673676069">Hvis du bruker en mellomtjener, må du sjekke mellomtjenerinnstillingene eller ta kontakt med nettverksadministratoren for å kontrollere at mellomtjeneren fungerer. Hvis du ikke vil bruke en mellomtjener, kan du endre <ph name="LINK_START" />mellomtjenerinnstillingene<ph name="LINK_END" />.</translation>
 <translation id="1511997356770098059">Denne sikkerhetsnøkkelen kan ikke lagre påloggingsinformasjon</translation>
 <translation id="1512210426710821809">Den eneste måten du kan angre dette på, er å installere <ph name="IDS_SHORT_PRODUCT_OS_NAME" /> på nytt</translation>
@@ -966,7 +966,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="2419706071571366386">Av sikkerhetsårsaker bør du logge av når datamaskinen ikke er i bruk.</translation>
 <translation id="2422125132043002186">Gjenopprettingen av Linux er avbrutt</translation>
 <translation id="2423578206845792524">Lagre &amp;bildet som...</translation>
-<translation id="2428510569851653187">Beskriv hva du holdt på med da fanen kræsjet</translation>
+<translation id="2428510569851653187">Beskriv hva du holdt på med da fanen krasjet</translation>
 <translation id="2431027948063157455">Google-assistenten kunne ikke lastes inn. Kontrollér nettverkstilkoblingen din, og prøv på nytt.</translation>
 <translation id="243242775089461296">Blokkering av informasjonskapsler fra tredjeparter er slått av for dette nettstedet</translation>
 <translation id="2432753757290432042">Oppdatering av Linux (beta) kreves</translation>
@@ -1632,7 +1632,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="3421387094817716717">Offentlig nøkkel basert på elliptiske kurver</translation>
 <translation id="3423463006624419153">På «<ph name="PHONE_NAME_1" />» og «<ph name="PHONE_NAME_2" />»:</translation>
 <translation id="3423858849633684918">Start <ph name="PRODUCT_NAME" /> på nytt</translation>
-<translation id="3424969259347320884">Beskriv hva du holdt på med da fanen kræsjet</translation>
+<translation id="3424969259347320884">Beskriv hva du holdt på med da fanen krasjet</translation>
 <translation id="3427092606871434483">Tillat (standard)</translation>
 <translation id="3428419049384081277">Du er pålogget</translation>
 <translation id="3429275422858276529">Sett denne siden som bokmerke for å finne den enkelt senere</translation>
@@ -2190,7 +2190,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="4194570336751258953">Aktiver berøringsklikk</translation>
 <translation id="4195643157523330669">Åpne i ny fane</translation>
 <translation id="4195814663415092787">Fortsett der du slapp</translation>
-<translation id="4198146608511578238">Bare hold på appvelgerikonet for å snakke med Google-assistenten</translation>
+<translation id="4198146608511578238">Bare hold på appoversiktikonet for å snakke med Google-assistenten</translation>
 <translation id="4200689466366162458">Egendefinerte ord</translation>
 <translation id="4200983522494130825">&amp;Ny fane</translation>
 <translation id="4201546031411513170">Du kan når som helst velge hva du vil synkronisere, i innstillingene.</translation>
@@ -2262,6 +2262,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="4316850752623536204">Utviklernettsted</translation>
 <translation id="4320177379694898372">Ingen internettilkobling</translation>
 <translation id="4321442524549817090">V&amp;is nettadressen</translation>
+<translation id="4322394346347055525">Lukk andre faner</translation>
 <translation id="4324577459193912240">Filen er ufullstendig</translation>
 <translation id="4325237902968425115">Avinstallerer <ph name="LINUX_APP_NAME" /> …</translation>
 <translation id="4330191372652740264">Isvann</translation>
@@ -2362,7 +2363,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="4480590691557335796">Chrome kan finne skadelig programvare på datamaskinen din og fjerne den</translation>
 <translation id="4481530544597605423">Frakoblede enheter</translation>
 <translation id="4495419450179050807">Ikke vis på denne siden</translation>
-<translation id="4500114933761911433"><ph name="PLUGIN_NAME" /> har kræsjet</translation>
+<translation id="4500114933761911433"><ph name="PLUGIN_NAME" /> har krasjet</translation>
 <translation id="450099669180426158">Utropstegnikon</translation>
 <translation id="4501530680793980440">Bekreftelse av fjerning</translation>
 <translation id="4502423230170890588">Fjern fra denne enheten</translation>
@@ -3745,7 +3746,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="6541638731489116978">Dette nettstedet er blokkert fra å få tilgang til bevegelsessensorene dine.</translation>
 <translation id="654233263479157500">Bruk en nettjeneste til å løse problemer med navigeringsfeil</translation>
 <translation id="6545665334409411530">Gjentakelsesfrekvens</translation>
-<translation id="6545834809683560467">Bruk en forslagstjeneste for å fullføre søk og nettadresser som skrives inn i adressefeltet eller søkefeltet i appvelgeren</translation>
+<translation id="6545834809683560467">Bruk en forslagstjeneste for å fullføre søk og nettadresser som skrives inn i adressefeltet eller søkefeltet i appoversikten</translation>
 <translation id="6545864417968258051">Bluetooth-skanning</translation>
 <translation id="6545867563032584178">Mikrofonen er slått av i Mac-systemvalgene</translation>
 <translation id="6547354035488017500">Frigjør minst 512 MB lagringsplass for å unngå at enheten slutter å reagere. For å frigjøre plass, slett filer fra enhetslagringen.</translation>
@@ -3944,6 +3945,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="6850286078059909152">Tekstfarge</translation>
 <translation id="6851497530878285708">Appen er slått på</translation>
 <translation id="6853388645642883916">Oppdatereringsprogrammet er i hvilemodus</translation>
+<translation id="68541483639528434">Lukk andre faner</translation>
 <translation id="6856623341093082836">Konfigurer og juster nøyaktigheten til berøringsskjermen din</translation>
 <translation id="6857699260879628349">Få informasjon om oppsett</translation>
 <translation id="6860097299815761905">Innstillinger for proxy-tjener</translation>
@@ -5427,7 +5429,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="8977811652087512276">Feil passord eller skadet fil</translation>
 <translation id="8978154919215542464">På – synkroniser alt</translation>
 <translation id="897939795688207351">På <ph name="ORIGIN" /></translation>
-<translation id="8980951173413349704"><ph name="WINDOW_TITLE" /> – kræsjet</translation>
+<translation id="8980951173413349704"><ph name="WINDOW_TITLE" /> – krasjet</translation>
 <translation id="8983632908660087688"><ph name="ORIGIN" /> kan redigere <ph name="FILENAME" /></translation>
 <translation id="8985264973231822211">Aktiv for <ph name="DEVICE_LAST_ACTIVATED_TIME" /> dag siden</translation>
 <translation id="8986362086234534611">Glem</translation>

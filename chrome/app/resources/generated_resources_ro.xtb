@@ -2267,6 +2267,7 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="4316850752623536204">Site-ul dezvoltatorului</translation>
 <translation id="4320177379694898372">Nu există conexiune la internet</translation>
 <translation id="4321442524549817090">A&amp;rată adresa URL</translation>
+<translation id="4322394346347055525">Închide celelalte file</translation>
 <translation id="4324577459193912240">Fișier incomplet</translation>
 <translation id="4325237902968425115">Se dezinstalează <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Apă cu gheață</translation>
@@ -3949,6 +3950,7 @@ Asigură-te că site-ul este de încredere înainte să intri în RV.</translati
 <translation id="6850286078059909152">Culoarea textului</translation>
 <translation id="6851497530878285708">Aplicația a fost activată</translation>
 <translation id="6853388645642883916">Utilitarul de actualizare este inactiv</translation>
+<translation id="68541483639528434">Închide celelalte file</translation>
 <translation id="6856623341093082836">Configurează și ajustează precizia ecranului tactil</translation>
 <translation id="6857699260879628349">Primește informații despre configurare</translation>
 <translation id="6860097299815761905">Setări proxy...</translation>

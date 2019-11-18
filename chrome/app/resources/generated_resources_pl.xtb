@@ -2267,6 +2267,7 @@ Możesz zarządzać ustawieniami konta, korzystając z aplikacji Family Link na
 <translation id="4316850752623536204">Witryna dewelopera</translation>
 <translation id="4320177379694898372">Brak połączenia z internetem</translation>
 <translation id="4321442524549817090">P&amp;okaż URL</translation>
+<translation id="4322394346347055525">Zamknij inne karty</translation>
 <translation id="4324577459193912240">Plik niekompletny</translation>
 <translation id="4325237902968425115">Odinstalowuję aplikację <ph name="LINUX_APP_NAME" />...</translation>
 <translation id="4330191372652740264">Woda z lodem</translation>
@@ -3949,6 +3950,7 @@ Zanim włączysz VR na tej stronie, sprawdź, czy można uznać ją za zaufaną.
 <translation id="6850286078059909152">Kolor tekstu</translation>
 <translation id="6851497530878285708">Aplikacja włączona</translation>
 <translation id="6853388645642883916">Aktualizator jest uśpiony</translation>
+<translation id="68541483639528434">Zamknij inne karty</translation>
 <translation id="6856623341093082836">Skonfiguruj i dostosuj precyzję ekranu dotykowego</translation>
 <translation id="6857699260879628349">Uzyskaj dane do konfiguracji</translation>
 <translation id="6860097299815761905">Ustawienia serwera proxy...</translation>
@@ -4035,7 +4037,7 @@ Zanim włączysz VR na tej stronie, sprawdź, czy można uznać ją za zaufaną.
 <translation id="6985235333261347343">Agent odzyskiwania kluczy firmy Microsoft</translation>
 <translation id="698524779381350301">Automatycznie zezwól na dostęp na tych stronach</translation>
 <translation id="6985607387932385770">Drukarki</translation>
-<translation id="6990778048354947307">Ciemny motyw</translation>
+<translation id="6990778048354947307">Tryb ciemny</translation>
 <translation id="6991665348624301627">Wybierz urządzenie docelowe</translation>
 <translation id="6992554835374084304">Włączanie ulepszonego sprawdzania pisowni</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> – Historia aktywności</translation>
@@ -4539,7 +4541,7 @@ Zanim włączysz VR na tej stronie, sprawdź, czy można uznać ją za zaufaną.
 <translation id="7732111077498238432">W sieci obowiązują zasady</translation>
 <translation id="7737238973539693982">Usuń Linuksa (Beta)</translation>
 <translation id="7740996059027112821">Standardowa</translation>
-<translation id="7746457520633464754">Aby wykrywać niebezpieczne aplikacje i witryny, Chrome wysyła do Google adresy URL i część zawartości niektórych odwiedzanych przez Ciebie stron, a także niektóre informacje o systemie.</translation>
+<translation id="7746457520633464754">Aby wykrywać niebezpieczne aplikacje i witryny, Chrome wysyła do Google adresy URL i część zawartości niektórych odwiedzanych przez Ciebie stron, a także niektóre informacje o systemie</translation>
 <translation id="7750228210027921155">Obraz w obrazie</translation>
 <translation id="7751260505918304024">Pokaż wszystkie</translation>
 <translation id="7754704193130578113">Pytaj przed pobraniem, gdzie zapisać każdy plik</translation>

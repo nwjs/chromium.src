@@ -2062,7 +2062,7 @@ Cette option est habituellement désactivée dans le cadre de la protection cont
       Bien que la règle elle-même soit compatible avec les plates-formes citées, la fonctionnalité qu'elle active peut n'être disponible que sur un nombre plus restreint de plates-formes. Les fonctionnalités abandonnées de la plate-forme en ligne ne peuvent pas toutes être réactivées. Seules celles qui sont énumérées ci-dessous peuvent l'être pendant une durée limitée, qui varie selon la fonctionnalité. Le format général de la balise de chaîne est [FonctionnalitéAbandonnée]_EffectiveUntil[aaaammjj]. Pour information, vous pouvez découvrir les raisons pour lesquelles des motivations ont été apportées aux fonctionnalités des plates-formes en ligne en consultant la page https://bit.ly/blinkintents.
       </translation>
 <translation id="4442582539341804154">Activer le verrouillage lorsque l'appareil est inactif ou en veille</translation>
-<translation id="4449469846627734399">Définir la configuration quotidienne du passage à l'alimentation via la batterie</translation>
+<translation id="4449469846627734399">Définir la configuration quotidienne de l'alimentation alternée en heures pleines</translation>
 <translation id="4449545651113180484">Faire pivoter l'écran vers la droite de 270 degrés</translation>
 <translation id="445270821089253489">Contrôle le type d'informations figurant dans les rapports sur les utilisateurs et les appareils.</translation>
 <translation id="4454820008017317557">Afficher l'icône de la barre d'outils de <ph name="PRODUCT_NAME" /></translation>
@@ -2610,7 +2610,7 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
 <translation id="5457924070961220141">Permet de configurer le moteur de rendu HTML par défaut lorsque <ph name="PRODUCT_FRAME_NAME" /> est installé. 
 
 Lorsque cette règle n'est pas configurée, le paramètre par défaut utilisé consiste à permettre au navigateur d'accueil d'effectuer le rendu. Mais vous avez la possibilité de remplacer ce paramètre et de demander que les pages HTML soient affichées par <ph name="PRODUCT_FRAME_NAME" /> par défaut.</translation>
-<translation id="5458584148602890023">Activer l'alimentation sur batterie en heures pleines</translation>
+<translation id="5458584148602890023">Activer l'alimentation alternée en heures pleines</translation>
 <translation id="5464816904705580310">Configurer les paramètres des utilisateurs gérés</translation>
 <translation id="546726650689747237">Délai d'assombrissement de l'écran (secteur)</translation>
 <translation id="5469143988693423708">L'utilisateur est autorisé à exécuter Crostini</translation>
@@ -2945,7 +2945,7 @@ Si l'option "Forcé" est sélectionnée, les pages peuvent être ouvertes UNIQUE
 
       Si cette règle n'est pas configurée, la liste des appareils USB amovibles est vide.</translation>
 <translation id="6083631234867522991">Windows (clients Windows) :</translation>
-<translation id="608788685013546076">Définir le pourcentage de passage à l'alimentation sur batterie en heures pleines</translation>
+<translation id="608788685013546076">Définir le niveau de batterie minimal autorisé avec l'alimentation alternée en heures pleines</translation>
 <translation id="6089679180657323464">Contrôle les paramètres du dispositif de contrôle de diagnostic et de télémétrie de Wilco.</translation>
 <translation id="6091233616732024397">Obliger les utilisateurs à se connecter pour se servir du navigateur</translation>
 <translation id="6093156968240188330">Permettre aux utilisateurs distants d'interagir avec des fenêtres élevées dans les sessions d'assistance à distance</translation>
@@ -3307,7 +3307,7 @@ Si vous désactivez ce paramètre ou si vous ne le configurez pas, le SPN Kerber
 
       Si cette règle est définie sur "False", ils ne sont pas autorisés à se connecter à un autre compte Google depuis une application Android ou depuis la zone de contenu d'un navigateur n'étant pas en mode navigation privée.
 
-      Si elle est définie sur "True" ou si elle n'est pas configurée, le comportement par défaut est utilisé : ils peuvent se connecter à un autre compte Google depuis une application Android ou depuis la zone de contenu du navigateur, sauf pour les comptes enfant où cela sera bloqué pour la zone de contenu hors navigation privée.
+      Si elle est définie sur "True" ou si elle n'est pas configurée, le comportement par défaut est utilisé : ils peuvent se connecter à un autre compte Google depuis une application Android ou depuis la zone de contenu du navigateur, sauf pour les comptes enfants où cela sera bloqué pour la zone de contenu hors navigation privée.
 
       Dans le cas où la connexion à un autre compte ne devrait pas être autorisée via le mode navigation privée, pensez à bloquer ce mode à l'aide de la règle IncognitoModeAvailability.
 
@@ -3527,11 +3527,11 @@ En cas de non-configuration de cette règle, aucune restriction ne s'applique qu
 
       Pour en savoir plus sur la règle <ph name="IEEM_SITELIST_POLICY" /> d'Internet Explorer, consultez la page https://docs.microsoft.com/internet-explorer/ie11-deploy-guide/what-is-enterprise-mode</translation>
 <translation id="7132877481099023201">URL autorisées à accéder aux appareils de capture vidéo sans avis préalable</translation>
-<translation id="713712866686796666">Permet de définir la configuration quotidienne du passage à l'alimentation via la batterie.
+<translation id="713712866686796666">Permet de définir la configuration quotidienne de l'alimentation alternée en heures pleines.
 
           Cette règle n'est utilisée que si la règle <ph name="DEVICE_POWER_PEAK_SHIFT_ENABLED_NAME" /> est définie sur "True".
 
-          Si cette règle n'est pas configurée ni définie, le passage à l'alimentation via la batterie est désactivé.
+          Si cette règle n'est pas définie, l'alimentation alternée en heures pleines est désactivée.
 
           Remarque : Les valeurs autorisées dans le champ <ph name="MINUTE_FIELD_NAME" /> de <ph name="START_TIME_FIELD_NAME" />, <ph name="END_TIME_FIELD_NAME" /> et <ph name="CHARGE_START_TIME_FIELD_NAME" /> sont 0, 15, 30 et 45.</translation>
 <translation id="7138678301420049075">Autre</translation>
@@ -3585,17 +3585,17 @@ En cas de non-configuration de cette règle, aucune restriction ne s'applique qu
           Si cette règle est définie sur "False", les demandes de wakelocks forçant l'activation de l'écran seront rétrogradées au rang de demandes de wakelocks système.</translation>
 <translation id="7177857088692019405">Déverrouillage rapide</translation>
 <translation id="7185078796915954712">TLS 1.3</translation>
-<translation id="7187447094921703950">Permet d'activer la règle de gestion de l'alimentation avec passage à l'alimentation via la batterie.
+<translation id="7187447094921703950">Permet d'activer l'alimentation alternée en heures pleines.
 
-          Le passage à l'alimentation via la batterie est une règle d'économie d'énergie qui limite le recours à l'alimentation secteur pendant les pics d'utilisation au cours de la journée. Il est possible de définir l'heure de début et de fin de ce mode pour chaque jour de la semaine. Durant ces plages horaires, le système fonctionnera sur la batterie, même si l'appareil est branché sur le secteur, tant que le niveau de la batterie reste au-dessus du seuil défini. À la fin de la plage horaire programmée, le système fonctionnera sur le secteur s'il y est branché, mais ne rechargera pas la batterie. Le système reprendra son fonctionnement habituel en utilisant l'alimentation secteur et en rechargeant la batterie à l'heure programmée pour le début de la charge.
+La règle d'alimentation alternée en heures pleines permet de réduire la consommation électrique pendant les heures pleines de la journée. Il est possible de définir les heures de début et de fin du basculement sur batterie pour chaque jour de la semaine. Lorsque ce mode est activé, le système est alimenté uniquement par la batterie, même si l’appareil est branché sur une prise électrique, tant que le niveau de charge minimal défini par l’utilisateur n’est pas atteint. À la fin de la plage spécifiée, si le système est branché sur une prise, il recommence à être alimenté par le secteur mais ne recharge pas la batterie. Il reprend son fonctionnement normal (alimentation secteur et recharge de la batterie) à l'heure de début de charge indiquée.
 
-          Si cette règle est définie sur "True", et si les règles <ph name="DEVICE_POWER_PEAK_SHIFT_BATTERY_THRESHOLD_NAME" /> et <ph name="DEVICE_POWER_PEAK_SHIFT_DAY_CONFIG_NAME" /> sont configurées, le passage à l'alimentation via la batterie est toujours activé s'il est compatible avec l'appareil.
+Lorsque cette règle est définie sur "True" et que la valeur de <ph name="DEVICE_POWER_PEAK_SHIFT_BATTERY_THRESHOLD_NAME" /> et de <ph name="DEVICE_POWER_PEAK_SHIFT_DAY_CONFIG_NAME" /> est définie, l'alimentation alternée en heures pleines est toujours activée si elle est compatible avec l'appareil.
 
-          Si cette règle est définie sur "False", le passage à l'alimentation via la batterie est désactivé.
+Si cette règle est définie sur "False", l'alimentation alternée en heures pleines est toujours désactivée.
 
-          Si vous configurez cette règle, les utilisateurs ne peuvent ni la modifier ni l'ignorer.
+Si vous définissez cette règle, les utilisateurs n'ont pas la possibilité de la modifier ni de l'ignorer.
 
-          Si cette règle n'est pas configurée, le passage à l'alimentation via la batterie est désactivé au départ et ne peut être activé par l'utilisateur.</translation>
+Si cette règle n'est pas définie, l'alimentation alternée est désactivée dès le départ et ne peut pas être activée par l'utilisateur.</translation>
 <translation id="718956142899066210">Types de connexion autorisés pour les mises à jour</translation>
 <translation id="7190286937411178540">Activer la fonctionnalité d'accessibilité de mise en surbrillance au clavier</translation>
 <translation id="7194407337890404814">Nom du moteur de recherche par défaut</translation>
@@ -4453,11 +4453,11 @@ Si vous désactivez ce paramètre ou s'il n'est pas défini, le nom canonique du
       Si cette règle est configurée, le groupe d'applications est figé et ne peut plus être modifié par l'utilisateur.
 
       Si cette règle n'est pas définie, l'utilisateur a la possibilité de modifier la liste des applications épinglées dans le Lanceur d'applications.</translation>
-<translation id="8779504970846195767">Permet de définir en pourcentage le seuil de passage à l'alimentation via la batterie.
+<translation id="8779504970846195767">Permet de définir le niveau de batterie minimal autorisé avec l'alimentation alternée en heures pleines.
 
           Cette règle n'est utilisée que si la règle <ph name="DEVICE_POWER_PEAK_SHIFT_ENABLED_NAME" /> est définie sur "True".
 
-          Si cette règle n'est pas configurée ni définie, le passage à l'alimentation via la batterie est désactivé.</translation>
+          Si cette règle n'est pas configurée ni définie, l'alimentation alternée en heures pleines est toujours désactivée.</translation>
 <translation id="8798099450830957504">Par défaut</translation>
 <translation id="8800453707696044281">Personnaliser le pourcentage auquel la recharge de la batterie doit s'arrêter</translation>
 <translation id="8801680448782904838">Avertir un utilisateur qu'un redémarrage du navigateur ou de l'appareil est recommandé ou exigé</translation>

@@ -1357,7 +1357,7 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
 <translation id="3264793472749429012">Codificaciones del proveedor de búsquedas predeterminadas</translation>
 <translation id="3273221114520206906">Configuración de JavaScript predeterminada</translation>
 <translation id="3284094172359247914">Controlar el uso de la API WebUSB</translation>
-<translation id="3288595667065905535">Canal de lanzamiento</translation>
+<translation id="3288595667065905535">Versión</translation>
 <translation id="3292147213643666827">Permite que <ph name="PRODUCT_NAME" /> actúe como proxy entre <ph name="CLOUD_PRINT_NAME" /> y las impresoras anteriores conectadas al ordenador.
 
       Si esta opción se habilita o no se configura, los usuarios podrán habilitar el proxy de Google Cloud Print si realizan el proceso de autenticación con sus cuentas de Google.
@@ -3385,7 +3385,7 @@ Si no se establece esta política, el teclado en pantalla se inhabilitará la pr
       Estos son los idiomas que se admiten actualmente: af, bg, ca, cs, da, de, el, en-AU, en-CA, en-GB, en-US, es, es-419, es-AR, es-ES, es-MX, es-US, et, fa, fo, fr, he, hi, hr, hu, id, it, ko, lt, lv, nb, nl, pl, pt-BR, pt-PT, ro, ru, sh, sk, sl, sq, sr, sv, ta, tg, tr, uk y vi.</translation>
 <translation id="6926703471186170050">Habilitar impresión de borde largo por las dos caras</translation>
 <translation id="6931242315485576290">Inhabilitar sincronización de datos con Google</translation>
-<translation id="6932419914671987652">Si se habilita esta política, <ph name="PRODUCT_NAME" /> forzará las sesiones de invitado y evitará los inicios de sesión de perfil. Los inicios de sesión como invitado son perfiles de <ph name="PRODUCT_NAME" /> en los que todas las ventanas están en modo de navegación de incógnito.
+<translation id="6932419914671987652">Si se habilita esta política, <ph name="PRODUCT_NAME" /> forzará las sesiones de invitado y evitará los inicios de sesión de perfil. Los inicios de sesión como invitado son perfiles de <ph name="PRODUCT_NAME" /> en los que todas las ventanas están en modo de incógnito.
 
       Si la política está inhabilitada o no está definida, o el modo invitados del navegador está inhabilitado por la política <ph name="BROWSER_GUEST_MODE_ENABLED_POLICY_NAME" />, <ph name="PRODUCT_NAME" /> permitirá que se usen perfiles nuevos y ya creados.</translation>
 <translation id="6936894225179401731">Permite especificar el número máximo de conexiones simultáneas que se pueden establecer con el servidor proxy.

@@ -20,7 +20,7 @@
 <translation id="1399397803214730675">Denne datamaskinen har allerede en nyere versjon av Google Chrome. Hvis programvaren ikke fungerer, må du avinstallere Google Chrome og prøve på nytt.</translation>
 <translation id="1434626383986940139">Chrome Canary-apper</translation>
 <translation id="1457721931618994305">Oppdaterer Google Chrome …</translation>
-<translation id="1469002951682717133">Chrome Appvelger</translation>
+<translation id="1469002951682717133">Chrome Appoversikt</translation>
 <translation id="1553358976309200471">Oppdater Chrome</translation>
 <translation id="1587223624401073077">Google Chrome bruker kameraet ditt.</translation>
 <translation id="1587325591171447154"><ph name="FILE_NAME" /> er farlig, så Chrome har blokkert den.</translation>
@@ -255,7 +255,7 @@ Hvis du logger deg på allikevel, blir Chrome-informasjon som bokmerker, loggen 
 <translation id="8498858610309223613">En spesiell sikkerhetsoppdatering for Google Chrome ble nettopp installert. Start på nytt nå, så gjenoppretter vi fanene dine.</translation>
 <translation id="8521348052903287641">Regel for å tillate innkommende mDNS-trafikk i Google Chrome Dev.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
-<translation id="8547799825197623713">Chrome-appvelger – Canary</translation>
+<translation id="8547799825197623713">Chrome-appoversikt – Canary</translation>
 <translation id="8556340503434111824">En ny versjon av Google Chrome er tilgjengelig, og den er nå raskere en noen sinne.</translation>
 <translation id="8568392309447938879">Du må være logget på Chrome for å bruke apper. På denne måten kan Chrome synkronisere appene, bokmerkene og passordene samt loggen din og andre innstillinger, på alle enhetene dine.</translation>
 <translation id="8606668294522778825">Google Chrome bruker nettjenester for å forbedre nettopplevelsen din. Du kan deaktivere disse tjenestene. <ph name="BEGIN_LINK" />Finn ut mer<ph name="END_LINK" /></translation>

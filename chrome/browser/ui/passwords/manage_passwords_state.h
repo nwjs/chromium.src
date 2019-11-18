@@ -72,7 +72,7 @@ class ManagePasswordsState {
   void OnPasswordAutofilled(
       const std::map<base::string16, const autofill::PasswordForm*>&
           password_form_map,
-      const GURL& origin,
+      GURL origin,
       const std::vector<const autofill::PasswordForm*>* federated_matches);
 
   // Move to INACTIVE_STATE.

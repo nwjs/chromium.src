@@ -2264,6 +2264,7 @@
 <translation id="4316850752623536204">وب‌سایت برنامه‌نویس</translation>
 <translation id="4320177379694898372">اتصال اینترنتی ندارید</translation>
 <translation id="4321442524549817090">نمایش&amp; نشانی وب</translation>
+<translation id="4322394346347055525">بستن برگه‌های دیگر</translation>
 <translation id="4324577459193912240">فایل ناقص</translation>
 <translation id="4325237902968425115">درحال حذف نصب <ph name="LINUX_APP_NAME" />…</translation>
 <translation id="4330191372652740264">آب یخ</translation>
@@ -3426,7 +3427,7 @@
 <translation id="6061882183774845124">ارسال پیوند به دستگاه‌هایتان</translation>
 <translation id="6064217302520318294">قفل صفحه</translation>
 <translation id="6065289257230303064">ویژگی‌های دایرکتوری موضوع گواهی</translation>
-<translation id="6069671174561668781">تنظیم تصویر زمینه</translation>
+<translation id="6069671174561668781">تنظیم کاغذدیواری</translation>
 <translation id="6071181508177083058">تأیید گذرواژه</translation>
 <translation id="6071576563962215370">این سیستم نتوانست قفل ویژگی‌های زمان نصب دستگاه را ایجاد کند.</translation>
 <translation id="6073451960410192870">توقف ضبط</translation>
@@ -3946,6 +3947,7 @@
 <translation id="6850286078059909152">رنگ نوشتار</translation>
 <translation id="6851497530878285708">برنامه فعال شد</translation>
 <translation id="6853388645642883916">به‌روزرسان در حالت خواب</translation>
+<translation id="68541483639528434">بستن برگه‌های دیگر</translation>
 <translation id="6856623341093082836">راه‌اندازی و تنظیم دقت صفحه لمسی</translation>
 <translation id="6857699260879628349">دریافت اطلاعات پیکربندی</translation>
 <translation id="6860097299815761905">تنظیمات پراکسی...</translation>
