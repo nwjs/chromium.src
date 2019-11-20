@@ -602,9 +602,9 @@ void NativeWidgetNSWindowBridge::CreateContentView(uint64_t ns_view_id,
     CALayer* flipped_layer = background_layer.sublayers[0];
     [bridged_view_ setForceCPUDrawLayer:flipped_layer];
     [flipped_layer setGeometryFlipped:NO];
-  } else
-  [bridged_view_ setWantsLayer:YES];
-
+  } else {
+    [bridged_view_ setWantsLayer:YES];
+  }
   [window_ setContentView:bridged_view_];
 }
 
@@ -1277,7 +1277,9 @@ void NativeWidgetNSWindowBridge::SetCALayerParams(
 
 void NativeWidgetNSWindowBridge::SetIgnoresMouseEvents(
     bool ignores_mouse_events) {
-  [window_ setIgnoresMouseEvents:ignores_mouse_events];
+  if (!content::g_force_cpu_draw) {
+    [window_ setIgnoresMouseEvents:ignores_mouse_events];
+  }
 }
 
 void NativeWidgetNSWindowBridge::MakeFirstResponder() {
