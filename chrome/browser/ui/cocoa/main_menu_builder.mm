@@ -36,7 +36,7 @@ base::scoped_nsobject<NSMenuItem> BuildAppMenu(
                 .string_format_1(product_name)
                 .tag(IDC_ABOUT)
                 .target(app_delegate)
-                .action(@selector(orderFrontStandardAboutPanel:)),
+                /*.action(@selector(orderFrontStandardAboutPanel:))*/,
                 Item().is_separator(),
                 Item(IDS_PREFERENCES)
                     .tag(IDC_OPTIONS)

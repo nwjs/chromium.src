@@ -4,6 +4,9 @@
 
 #include "chrome/browser/chrome_browser_main_mac.h"
 
+#include "content/nw/src/nw_base.h"
+#include "base/strings/utf_string_conversions.h"
+
 #import <Cocoa/Cocoa.h>
 #include <stdlib.h>
 #include <sys/mount.h>
@@ -453,7 +456,7 @@ void ChromeBrowserMainPartsMac::PreMainMessageLoopStart() {
   [NSApp setDelegate:app_controller];
 
   chrome::BuildMainMenu(NSApp, app_controller,
-                        l10n_util::GetStringUTF16(IDS_PRODUCT_NAME), true);
+                        base::UTF8ToUTF16(nw::package()->GetName()), true);
   [app_controller mainMenuCreated];
 
   // Initialize the OSCrypt.
