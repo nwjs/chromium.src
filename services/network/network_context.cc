@@ -1581,7 +1581,7 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext() {
                       cert_net_fetcher_))));
     }
 #endif
-#if BUILDFLAG(BUILTIN_CERT_VERIFIER_FEATURE_SUPPORTED)
+#if 0//BUILDFLAG(BUILTIN_CERT_VERIFIER_FEATURE_SUPPORTED)
     if (!cert_verifier) {
       cert_verifier = std::make_unique<net::CachingCertVerifier>(
           std::make_unique<net::CoalescingCertVerifier>(
@@ -1595,7 +1595,7 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext() {
 #else
     cert_verifier = std::make_unique<nw::PolicyCertVerifier>(base::Closure());
     nw_cert_verifier_ = (nw::PolicyCertVerifier*)cert_verifier.get();
-    nw_cert_verifier_->InitializeOnIOThread(net::CertVerifyProc::CreateDefault(cert_net_fetcher_));
+    nw_cert_verifier_->InitializeOnIOThread(net::CertVerifyProc::CreateSystemVerifyProc(cert_net_fetcher_));
 #endif
     if (!cert_verifier)
       cert_verifier = net::CertVerifier::CreateDefault(cert_net_fetcher_);
