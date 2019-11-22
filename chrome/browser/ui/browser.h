@@ -617,7 +617,7 @@ class Browser : public TabStripModelObserver,
   bool is_type_normal() const { return type_ == TYPE_NORMAL; }
   bool is_type_popup() const { return type_ == TYPE_POPUP; }
   bool is_type_app() const { return type_ == TYPE_APP; }
-  bool is_type_devtools() const { return type_ == TYPE_DEVTOOLS; }
+  bool is_type_devtools() const;
   // TODO(crbug.com/990158): |deprecated_is_app()| is added for backwards
   // compatibility for previous callers to |is_app()| which returned true when
   // |app_name_| is non-empty.  This includes TYPE_APP and TYPE_DEVTOOLS.

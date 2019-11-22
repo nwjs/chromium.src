@@ -387,6 +387,14 @@ Browser::CreateParams Browser::CreateParams::CreateForDevTools(
   return params;
 }
 
+// on nwjs, the browser type is always TYPE_POPUP
+// fortunately for devtool the app_name is always set to DevToolsWindow::kDevToolsApp
+// so we use this for is_type_devtools() function
+// https://github.com/nwjs/nw.js/issues/7226
+bool Browser::is_type_devtools() const {
+  return app_name_.compare(DevToolsWindow::kDevToolsApp) == 0;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Browser, InterstitialObserver:
 
