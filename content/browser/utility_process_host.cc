@@ -395,6 +395,7 @@ bool UtilityProcessHost::StartProcess() {
       network::switches::kNetLogCaptureMode,
       network::switches::kExplicitlyAllowedPorts,
       service_manager::switches::kNoSandbox,
+      service_manager::switches::kEnableAudioServiceSandbox,
 #if defined(OS_MACOSX)
       service_manager::switches::kEnableSandboxLogging,
       os_crypt::switches::kUseMockKeychain,

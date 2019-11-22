@@ -2012,6 +2012,10 @@ const char kTabGroupsAndroidName[] = "Tab Groups";
 const char kTabGroupsAndroidDescription[] =
     "Allows users to create groups to better organize their tabs.";
 
+const char kTabGroupsContinuationAndroidName[] = "Tab Groups Continuation";
+const char kTabGroupsContinuationAndroidDescription[] =
+    "Allows users to access continuation features in Tab Group.";
+
 const char kTabGroupsUiImprovementsAndroidName[] = "Tab Groups UI Improvements";
 const char kTabGroupsUiImprovementsAndroidDescription[] =
     "Allows users to access new features in Tab Group UI.";
@@ -2093,11 +2097,6 @@ const char kTouchSelectionStrategyDescription[] =
     "handles are dragged. Non-default behavior is experimental.";
 const char kTouchSelectionStrategyCharacter[] = "Character";
 const char kTouchSelectionStrategyDirection[] = "Direction";
-
-const char kTouchToFillAndroidName[] = "Touch To Fill UI for Passwords";
-const char kTouchToFillAndroidDescription[] =
-    "Adds a Touch To Fill sheet to the keyboard accessory which will be shown "
-    "instead of the keyboard when a password can be filled.";
 
 const char kTraceUploadUrlName[] = "Trace label for navigation tracing";
 const char kTraceUploadUrlDescription[] =
@@ -2369,6 +2368,11 @@ const char kAutofillAccessoryViewName[] =
 const char kAutofillAccessoryViewDescription[] =
     "Shows Autofill suggestions on top of the keyboard rather than in a "
     "dropdown.";
+
+const char kAutofillTouchToFillName[] = "Touch To Fill UI for Passwords";
+const char kAutofillTouchToFillDescription[] =
+    "Adds a Touch To Fill sheet to the keyboard accessory which will be shown "
+    "instead of the keyboard when a password can be filled.";
 
 const char kAutofillUseMobileLabelDisambiguationName[] =
     "Autofill Uses Mobile Label Disambiguation";
@@ -3594,8 +3598,13 @@ const char kReduceDisplayNotificationsDescription[] =
 
 const char kReleaseNotesName[] = "CrOS Release Notes.";
 const char kReleaseNotesDescription[] =
-    "Instructs OS to show notification about CrOS ReleaseNotes on login after "
-    "update, show webview describing new OS features.";
+    "Creates release notes app in settings menu that shows a webview "
+    "describing new OS features.";
+
+const char kReleaseNotesNotificationName[] = "CrOS Release Notes Notification.";
+const char kReleaseNotesNotificationDescription[] =
+    "Instructs OS to show notificationlogin after update that release notes "
+    "are now available.";
 
 const char kSchedulerConfigurationName[] = "Scheduler Configuration";
 const char kSchedulerConfigurationDescription[] =
@@ -3771,8 +3780,7 @@ const char kWebGL2ComputeContextDescription[] =
 
 #endif  // defined(OS_WIN) || defined(OS_LINUX) || defined(OS_CHROMEOS)
 
-#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) || \
-    defined(OS_CHROMEOS)
+#if BUILDFLAG(ENABLE_CLICK_TO_CALL)
 
 const char kClickToCallContextMenuForSelectedTextName[] =
     "Enable click to call feature on desktop when a phone number is selected";
@@ -3786,8 +3794,7 @@ const char kClickToCallUIDescription[] =
     "Enables click to call feature signals to be handled on desktop by showing "
     "a list of user's available devices with telephony functionality.";
 
-#endif  // defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) ||
-        // defined(OS_CHROMEOS)
+#endif  // BUILDFLAG(ENABLE_CLICK_TO_CALL)
 
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
 

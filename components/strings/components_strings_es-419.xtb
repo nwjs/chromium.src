@@ -174,7 +174,7 @@
 <translation id="173080396488393970">No se acepta este tipo de tarjeta</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Intenta comunicarte con el administrador del sistema.</translation>
-<translation id="1739107442478692187">Se produjo una violación de la seguridad de los datos en un sitio o app que usas. Chrome te recomienda revisar las contraseñas guardadas y cambiar la contraseña que usas en <ph name="ORIGIN" /> ahora.</translation>
+<translation id="1739107442478692187">Se produjo una violación de la seguridad de los datos en un sitio o app que usas. Chrome te recomienda revisar las contraseñas que tengas guardadas y cambiar la que usas en <ph name="ORIGIN" /> ahora.</translation>
 <translation id="1740951997222943430">Ingresa una fecha de vencimiento válida</translation>
 <translation id="1743520634839655729">Para realizar pagos de forma más rápida la próxima vez, guarda tu tarjeta, nombre y dirección de facturación en tu cuenta de Google y en este dispositivo.</translation>
 <translation id="1743570585616704562">No se reconoció</translation>
@@ -247,7 +247,7 @@
 <translation id="2114841414352855701">Se ignoró porque fue anulada por <ph name="POLICY_NAME" /> .</translation>
 <translation id="2119505898009119320">Emitida a: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Perforación en la esquina inferior derecha</translation>
-<translation id="2124528555835617522">Se produjo una violación de la seguridad de los datos en un sitio o app que usas. Chrome te recomienda revisar tus contraseñas guardadas ahora.</translation>
+<translation id="2124528555835617522">Se produjo una violación de la seguridad de los datos en un sitio o app que usas. Chrome te recomienda revisar ahora las contraseñas que tengas guardadas.</translation>
 <translation id="2129079103035905234">Sensores de movimiento</translation>
 <translation id="213826338245044447">Favoritos del celular</translation>
 <translation id="214556005048008348">Cancelar pago</translation>
@@ -486,7 +486,7 @@
 <translation id="3282497668470633863">Agregar el nombre en la tarjeta</translation>
 <translation id="3287510313208355388">Descargar cuando haya conexión</translation>
 <translation id="3293642807462928945">Más información sobre la política <ph name="POLICY_NAME" /></translation>
-<translation id="3295439534709115864">Se produjo una violación de la seguridad de los datos en un sitio o app que usas. Chrome te recomienda cambiar la contraseña que usas en <ph name="ORIGIN" /> ahora.</translation>
+<translation id="3295439534709115864">Se produjo una violación de la seguridad de los datos en un sitio o app que usas. Chrome te recomienda cambiar ahora la contraseña que usas en <ph name="ORIGIN" />.</translation>
 <translation id="3303855915957856445">No se encontraron resultados en la búsqueda</translation>
 <translation id="3320021301628644560">Agregar dirección de facturación</translation>
 <translation id="3324983252691184275">Carmesí</translation>

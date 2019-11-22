@@ -133,8 +133,11 @@ bool HasSingleUsernameVote(const FormStructure& form) {
 
 // Returns true if at least one of the fields in |form| has a prediction to be a
 // new-password related field.
-// corresponds to a field for creating or changing a password.
 bool HasNewPasswordVote(const FormStructure& form) {
+  if (!base::FeatureList::IsEnabled(
+          password_manager::features::
+              KEnablePasswordGenerationForClearTextFields))
+    return false;
   for (const auto& field : form) {
     if (field->server_type() == autofill::ACCOUNT_CREATION_PASSWORD ||
         field->server_type() == autofill::NEW_PASSWORD) {
@@ -170,6 +173,8 @@ void PasswordManager::RegisterProfilePrefs(
   registry->RegisterIntegerPref(
       prefs::kPasswordManagerOnboardingState,
       static_cast<int>(metrics_util::OnboardingState::kDoNotShow));
+  registry->RegisterBooleanPref(prefs::kWasOnboardingFeatureCheckedBefore,
+                                false);
 
 #if defined(OS_MACOSX)
   registry->RegisterIntegerPref(prefs::kKeychainMigrationStatus,
@@ -195,10 +200,7 @@ void PasswordManager::RegisterLocalPrefs(PrefRegistrySimple* registry) {
 }
 
 PasswordManager::PasswordManager(PasswordManagerClient* client)
-    : client_(client),
-      leak_delegate_(client)
-
-{
+    : client_(client), leak_delegate_(client) {
   DCHECK(client_);
 }
 

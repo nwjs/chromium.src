@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Citește și modifică toate datele tale de pe site-ul actual (când se invocă)</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> dorește să restabilească setările.</translation>
 <translation id="1243314992276662751">Încărcați</translation>
+<translation id="1243398753772016127">Site-urile nu pot folosi activitatea ta de navigare de pe diferite site-uri pentru a personaliza anunțurile</translation>
 <translation id="1244265436519979884">O restabilire Linux este în desfășurare</translation>
 <translation id="1244303850296295656">Eroare privind extensiile</translation>
 <translation id="1246905108078336582">Elimini sugestia din clipboard?</translation>
@@ -925,7 +926,7 @@ Poți gestiona setările contului dacă instalezi aplicația Family Link pe disp
 <translation id="2326931316514688470">&amp;Reîncarcă aplicația</translation>
 <translation id="2327492829706409234">Activați aplicația</translation>
 <translation id="2329597144923131178">Conectează-te și accesează marcajele, istoricul, parolele și alte setări pe toate dispozitivele.</translation>
-<translation id="2330129964253841015">Te avertizează dacă parolele tale au fost compromise</translation>
+<translation id="2330129964253841015">Avertizează-mă dacă parolele au fost compromise</translation>
 <translation id="2332131598580221120">Vedeți în magazin</translation>
 <translation id="2332192922827071008">Deschide Preferințele</translation>
 <translation id="2332742915001411729">Resetați la valorile prestabilite</translation>
@@ -3039,6 +3040,7 @@ Asigură-te că site-ul este de încredere înainte să intri în RV.</translati
 <translation id="5466374726908360271">In&amp;serează și caută „<ph name="SEARCH_TERMS" />”</translation>
 <translation id="5468173180030470402">Se caută dispozitive de stocare în rețea</translation>
 <translation id="5471768120198416576">Bună! Eu sunt vocea pentru redarea vocală a textului.</translation>
+<translation id="5472133193607270166">Dacă opțiunea este activată, site-urile nu pot folosi activitatea ta de navigare de pe diferite site-uri pentru a personaliza anunțurile. Unele site-uri pot să nu funcționeze corect.</translation>
 <translation id="5473333559083690127">Reintrodu noul cod PIN</translation>
 <translation id="5481941284378890518">Adaugă imprimantele din apropiere</translation>
 <translation id="5483785310822538350">Revocă accesul la fișiere și la dispozitive</translation>
@@ -4231,7 +4233,6 @@ Asigură-te că site-ul este de încredere înainte să intri în RV.</translati
 <translation id="7221869452894271364">Reîncarcă această pagină</translation>
 <translation id="7222204278952406003">Chrome este browserul prestabilit</translation>
 <translation id="7222232353993864120">Adresa de e-mail</translation>
-<translation id="7223859049862598735">Chrome blochează cookie-urile care pot fi folosite pentru a te urmări pe web</translation>
 <translation id="7225179976675429563">Lipsește tipul de rețea</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (Furnizor: <ph name="VENDOR_ID" />, Produs: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Controlează setările care precizează dacă site-urile pot utiliza funcții, cum ar fi localizarea geografică, microfonul, camera foto etc.</translation>
@@ -5579,7 +5580,6 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="9130015405878219958">A fost introdus un mod nevalid.</translation>
 <translation id="9131487537093447019">Trimite mesaje către dispozitivele Bluetooth și primește mesaje de la acestea.</translation>
 <translation id="9134304429738380103">Da, sunt de acord.</translation>
-<translation id="9135090785674039430">Dacă opțiunea este activată, site-urile nu pot folosi cookie-uri care te urmăresc pe web. Este posibil ca unele site-uri să nu funcționeze.</translation>
 <translation id="9137013805542155359">Afișează originalul</translation>
 <translation id="9137157311132182254">Motor de căutare preferat</translation>
 <translation id="9137248913990643158">Pornește și conectează-te la Chrome înainte de a folosi această aplicație.</translation>

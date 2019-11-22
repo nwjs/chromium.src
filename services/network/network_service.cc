@@ -8,6 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include "net/cert/test_root_certs.h"
+
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/debug/crash_logging.h"
@@ -96,24 +98,10 @@ std::unique_ptr<net::NetworkChangeNotifier> CreateNetworkChangeNotifierIfNeeded(
     bool mock_network_change_notifier) {
   // There is a global singleton net::NetworkChangeNotifier if NetworkService
   // is running inside of the browser process.
-  if (!net::NetworkChangeNotifier::HasNetworkChangeNotifier()) {
-    if (mock_network_change_notifier)
-      return net::NetworkChangeNotifier::CreateMock();
-#if defined(OS_ANDROID) || defined(OS_CHROMEOS)
-    // On Android and ChromeOS, network change events are synced from the
-    // browser process.
-    return std::make_unique<net::NetworkChangeNotifierPosix>(
-        initial_connection_type, initial_connection_subtype);
-#elif defined(OS_IOS)
-    // iOS doesn't embed //content.
-    // TODO(xunjieli): Figure out what to do for iOS.
-    NOTIMPLEMENTED();
-    return nullptr;
-#else
-    return net::NetworkChangeNotifier::Create();
-#endif
-  }
-  return nullptr;
+  if (mock_network_change_notifier)
+    return net::NetworkChangeNotifier::CreateMockIfNeeded();
+  return net::NetworkChangeNotifier::CreateIfNeeded(initial_connection_type,
+                                                    initial_connection_subtype);
 }
 
 void OnGetNetworkList(std::unique_ptr<net::NetworkInterfaceList> networks,
@@ -317,6 +305,16 @@ NetworkService::~NetworkService() {
 
   if (initialized_)
     trace_net_log_observer_.StopWatchForTraceStart();
+}
+
+void NetworkService::SetAdditionalTrustAnchors(const net::CertificateList& anchors) {
+  for (NetworkContext* nc : network_contexts_)
+    nc->SetTrustAnchors(anchors);
+#if defined(OS_MACOSX)
+  net::TestRootCerts* certs = net::TestRootCerts::GetInstance();
+  for (size_t i = 0; i < anchors.size(); i++)
+    certs->Add(anchors[i].get());
+#endif
 }
 
 void NetworkService::set_os_crypt_is_configured() {
@@ -621,14 +619,6 @@ void NetworkService::RemoveCorbExceptionForPlugin(uint32_t process_id) {
 void NetworkService::AddExtraMimeTypesForCorb(
     const std::vector<std::string>& mime_types) {
   CrossOriginReadBlocking::AddExtraMimeTypesForCorb(mime_types);
-}
-
-void NetworkService::ExcludeSchemeFromRequestInitiatorSiteLockChecks(
-    const std::string& scheme,
-    mojom::NetworkService::
-        ExcludeSchemeFromRequestInitiatorSiteLockChecksCallback callback) {
-  network::ExcludeSchemeFromRequestInitiatorSiteLockChecks(scheme);
-  std::move(callback).Run();
 }
 
 void NetworkService::OnMemoryPressure(

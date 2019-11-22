@@ -45,6 +45,7 @@ class GlassBrowserFrameView : public BrowserNonClientFrameView,
   SkColor GetCaptionColor(BrowserFrameActiveState active_state) const override;
   void UpdateThrobber(bool running) override;
   gfx::Size GetMinimumSize() const override;
+  gfx::Size GetMaximumSize() const override;
 
   // views::NonClientFrameView:
   gfx::Rect GetBoundsForClientView() const override;

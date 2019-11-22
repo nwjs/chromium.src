@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">呼び出しの時点でアクセスしているウェブサイト上の全データの読み取りと変更</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> が設定のリセットを求めています。</translation>
 <translation id="1243314992276662751">アップロード</translation>
+<translation id="1243398753772016127">サイトはあなたが別のサイトで閲覧した内容に基づいて広告をカスタマイズできなくなります</translation>
 <translation id="1244265436519979884">現在、Linux の復元が進行中です</translation>
 <translation id="1244303850296295656">拡張機能のエラー</translation>
 <translation id="1246905108078336582">クリップボードから候補を削除してもよろしいですか？</translation>
@@ -776,7 +777,7 @@
 <translation id="2129825002735785149">プラグインを更新</translation>
 <translation id="2131077480075264">「<ph name="APP_NAME" />」は「<ph name="IMPORT_NAME" />」で許可されていないためインストールできません</translation>
 <translation id="21354425047973905">PIN を非表示</translation>
-<translation id="2135456203358955318">拡大鏡（ドッキング）</translation>
+<translation id="2135456203358955318">ドッキング拡大鏡</translation>
 <translation id="2135787500304447609">再開(&amp;R)</translation>
 <translation id="2136372518715274136">新しいパスワードを入力</translation>
 <translation id="2136476978468204130">入力したパスフレーズが正しくありません</translation>
@@ -3039,6 +3040,7 @@ VR を開始する前に、信頼できるサイトかどうかを確認して�
 <translation id="5466374726908360271">「<ph name="SEARCH_TERMS" />」を貼り付けて検索</translation>
 <translation id="5468173180030470402">ファイル共有を探しています</translation>
 <translation id="5471768120198416576">こんにちは。テキスト読み上げの音声です。</translation>
+<translation id="5472133193607270166">オンにすると、サイトはあなたが別のサイトで閲覧した内容に基づいて広告をカスタマイズできなくなります。一部のサイトは適切に機能しなくなる可能性があります。</translation>
 <translation id="5473333559083690127">新しい PIN を再入力</translation>
 <translation id="5481941284378890518">近くのプリンタを追加</translation>
 <translation id="5483785310822538350">ファイルとデバイスのアクセスを取り消す</translation>
@@ -4231,7 +4233,6 @@ VR を開始する前に、信頼できるサイトかどうかを確認して�
 <translation id="7221869452894271364">このページを再読み込みします</translation>
 <translation id="7222204278952406003">Chrome をデフォルトのブラウザに設定しました</translation>
 <translation id="7222232353993864120">メール アドレス</translation>
-<translation id="7223859049862598735">Cookie は Chrome でブロックされています。Cookie はウェブでのユーザーのトラッキングに使用されます</translation>
 <translation id="7225179976675429563">ネットワークの種類が指定されていません</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" />（ベンダー: <ph name="VENDOR_ID" />、プロダクト: <ph name="PRODUCT_ID" />）</translation>
 <translation id="7228479291753472782">ウェブサイトが位置情報やマイク、カメラなどの機能を使用できるかどうかの設定の操作</translation>
@@ -4312,7 +4313,7 @@ VR を開始する前に、信頼できるサイトかどうかを確認して�
 <translation id="7328867076235380839">無効な組み合わせです</translation>
 <translation id="7329154610228416156">保護されていない URL（<ph name="BLOCKED_URL" />）を使用するよう設定されているため、ログインできませんでした。管理者にお問い合わせください。</translation>
 <translation id="7334190995941642545">Smart Lock は現在ご利用いただけません。しばらくしてからもう一度お試しください。</translation>
-<translation id="7334274148831027933">拡大鏡（ドッキング）を有効にする</translation>
+<translation id="7334274148831027933">ドッキング拡大鏡を有効にする</translation>
 <translation id="7335974957018254119">スペルチェックを使用する言語</translation>
 <translation id="7336799713063880535">通知をブロックしました。</translation>
 <translation id="7338630283264858612">デバイスのシリアル番号が無効です。</translation>
@@ -5158,7 +5159,7 @@ VR を開始する前に、信頼できるサイトかどうかを確認して�
 <translation id="8546541260734613940">[*.]example.com</translation>
 <translation id="854655314928502177">ウェブプロキシ自動検出 URL:</translation>
 <translation id="8546930481464505581">Touch Bar をカスタマイズ</translation>
-<translation id="8547013269961688403">拡大鏡（全画面）を有効にする</translation>
+<translation id="8547013269961688403">全画面拡大鏡を有効にする</translation>
 <translation id="85486688517848470">キーボードの最上段にあるキーの動作を切り替えるには、検索キーを押したままにします</translation>
 <translation id="8549457076611407730">{NUM_ITEMS,plural, =1{1 個のアイテム}other{# 個のアイテム}}</translation>
 <translation id="8551388862522347954">ライセンス</translation>
@@ -5579,7 +5580,6 @@ VR を開始する前に、信頼できるサイトかどうかを確認して�
 <translation id="9130015405878219958">入力されたモードが無効です。</translation>
 <translation id="9131487537093447019">Bluetooth デバイスとのメッセージの送受信。</translation>
 <translation id="9134304429738380103">利用する</translation>
-<translation id="9135090785674039430">オンにすると、サイトは Cookie を使用してあなたをウェブ上でトラッキングできなくなります。ウェブサイトによっては機能が損なわれる場合もあります。</translation>
 <translation id="9137013805542155359">原文のページを表示</translation>
 <translation id="9137157311132182254">優先する検索エンジン</translation>
 <translation id="9137248913990643158">このアプリを使用するには、Chrome を起動してログインしてください。</translation>

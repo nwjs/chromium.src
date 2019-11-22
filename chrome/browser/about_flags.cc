@@ -3336,6 +3336,11 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kTabGroupsAndroidDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(chrome::android::kTabGroupsAndroid)},
 
+    {"enable-tab-groups-continuation",
+     flag_descriptions::kTabGroupsContinuationAndroidName,
+     flag_descriptions::kTabGroupsContinuationAndroidDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(chrome::android::kTabGroupsContinuationAndroid)},
+
     {"enable-tab-groups-ui-improvements",
      flag_descriptions::kTabGroupsUiImprovementsAndroidName,
      flag_descriptions::kTabGroupsUiImprovementsAndroidDescription, kOsAndroid,
@@ -3758,8 +3763,7 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_VALUE_TYPE(kClickToCallReceiver)},
 #endif  // defined(OS_ANDROID)
 
-#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) || \
-    defined(OS_CHROMEOS)
+#if BUILDFLAG(ENABLE_CLICK_TO_CALL)
     {"click-to-call-context-menu-selected-text",
      flag_descriptions::kClickToCallContextMenuForSelectedTextName,
      flag_descriptions::kClickToCallContextMenuForSelectedTextDescription,
@@ -3768,8 +3772,7 @@ const FeatureEntry kFeatureEntries[] = {
     {"click-to-call-ui", flag_descriptions::kClickToCallUIName,
      flag_descriptions::kClickToCallUIDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(kClickToCallUI)},
-#endif  // defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) ||
-        // defined(OS_CHROMEOS)
+#endif  // BUILDFLAG(ENABLE_CLICK_TO_CALL)
 
     {"shared-clipboard-receiver",
      flag_descriptions::kSharedClipboardReceiverName,
@@ -4344,9 +4347,9 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_VALUE_TYPE(features::kMouseSubframeNoImplicitCapture)},
 
 #if defined(OS_ANDROID)
-    {"touch-to-fill", flag_descriptions::kTouchToFillAndroidName,
-     flag_descriptions::kTouchToFillAndroidDescription, kOsAndroid,
-     FEATURE_VALUE_TYPE(autofill::features::kTouchToFillAndroid)},
+    {"touch-to-fill", flag_descriptions::kAutofillTouchToFillName,
+     flag_descriptions::kAutofillTouchToFillDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(autofill::features::kAutofillTouchToFill)},
 #endif  // defined(OS_ANDROID)
 
     {"enable-sync-uss-nigori", flag_descriptions::kEnableSyncUSSNigoriName,

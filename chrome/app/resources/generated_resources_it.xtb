@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Lettura e modifica di tutti i dati sul sito web corrente (se richiamato)</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> vuole ripristinare le impostazioni.</translation>
 <translation id="1243314992276662751">Carica</translation>
+<translation id="1243398753772016127">I siti non possono usare la tua attività di navigazione su diversi siti web per personalizzare gli annunci.</translation>
 <translation id="1244265436519979884">È in corso il ripristino di Linux</translation>
 <translation id="1244303850296295656">Errore delle estensioni</translation>
 <translation id="1246905108078336582">Rimuovere il suggerimento dagli appunti?</translation>
@@ -831,7 +832,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="2195331105963583686">Dopo tale periodo, potrai continuare a usare questo dispositivo <ph name="DEVICE_TYPE" />, che però non riceverà più automaticamente aggiornamenti software e di sicurezza.</translation>
 <translation id="2195729137168608510">Protezione email</translation>
 <translation id="2199298570273670671">Errore</translation>
-<translation id="2199719347983604670">Dati dalla Sincronizzazione Chrome</translation>
+<translation id="2199719347983604670">Dati dalla sincronizzazione Chrome</translation>
 <translation id="2200094388063410062">Email</translation>
 <translation id="2200356397587687044">Chrome ha bisogno dell'autorizzazione per continuare</translation>
 <translation id="220138918934036434">Nascondi pulsante</translation>
@@ -3038,6 +3039,7 @@ Prima di accedere alla VR, verifica che questo sito sia attendibile.</translatio
 <translation id="5466374726908360271">I&amp;ncolla e cerca "<ph name="SEARCH_TERMS" />"</translation>
 <translation id="5468173180030470402">Ricerca condivisioni file in corso</translation>
 <translation id="5471768120198416576">Ciao! Sono la voce della sintesi locale.</translation>
+<translation id="5472133193607270166">Se questa opzione è attiva, i siti non possono usare la tua attività di navigazione su diversi siti web per personalizzare gli annunci. Alcuni siti potrebbero non funzionare correttamente.</translation>
 <translation id="5473333559083690127">Inserisci ancora il nuovo PIN</translation>
 <translation id="5481941284378890518">Aggiungi stampanti nelle vicinanze</translation>
 <translation id="5483785310822538350">Revoca accesso a file e dispositivi</translation>
@@ -4230,7 +4232,6 @@ Prima di accedere alla VR, verifica che questo sito sia attendibile.</translatio
 <translation id="7221869452894271364">Ricarica questa pagina</translation>
 <translation id="7222204278952406003">Chrome è il browser predefinito</translation>
 <translation id="7222232353993864120">Indirizzo email</translation>
-<translation id="7223859049862598735">Chrome blocca i cookie che possono essere usati per monitorare la tua attività sul Web</translation>
 <translation id="7225179976675429563">Tipo di rete mancante</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (fornitore: <ph name="VENDOR_ID" />, prodotto: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Manipola le impostazioni che specificano se i siti web possono utilizzare funzioni come geolocalizzazione, microfono, fotocamera e così via.</translation>
@@ -5577,7 +5578,6 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="9130015405878219958">La modalità inserita non è valida.</translation>
 <translation id="9131487537093447019">Inviare e ricevere messaggi a/da dispositivi Bluetooth.</translation>
 <translation id="9134304429738380103">Sì, accetto.</translation>
-<translation id="9135090785674039430">Se questa opzione è attiva, i siti non possono usare i cookie per monitorare la tua attività sul Web. Alcuni siti web potrebbero non funzionare.</translation>
 <translation id="9137013805542155359">Mostra originale</translation>
 <translation id="9137157311132182254">Motore di ricerca preferito</translation>
 <translation id="9137248913990643158">Accedi a Chrome prima di usare questa app.</translation>

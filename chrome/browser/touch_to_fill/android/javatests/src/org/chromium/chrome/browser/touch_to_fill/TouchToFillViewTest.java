@@ -44,6 +44,7 @@ import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties;
 import org.chromium.chrome.browser.touch_to_fill.data.Credential;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet.SheetState;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet.StateChangeReason;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -193,6 +194,26 @@ public class TouchToFillViewTest {
 
     @Test
     @MediumTest
+    public void testSingleCredentialHasClickableButton() {
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            mModel.get(SHEET_ITEMS)
+                    .addAll(asList(
+                            buildSheetItem(TouchToFillProperties.ItemType.CREDENTIAL, ANA, null),
+                            buildConfirmationButton(ANA)));
+            mModel.set(VISIBLE, true);
+        });
+        pollUiThread(() -> getBottomSheetState() == BottomSheet.SheetState.HALF);
+
+        assertNotNull(getCredentials().getChildAt(0));
+        assertNotNull(getCredentials().getChildAt(1));
+
+        TouchCommon.singleClickView(getCredentials().getChildAt(1));
+
+        waitForEvent(mCredentialCallback).onResult(eq(ANA));
+    }
+
+    @Test
+    @MediumTest
     public void testManagePasswordsIsClickable() {
         final AtomicBoolean manageButtonClicked = new AtomicBoolean(false);
         TestThreadUtils.runOnUiThreadBlocking(() -> {
@@ -257,10 +278,22 @@ public class TouchToFillViewTest {
     }
 
     private MVCListAdapter.ListItem buildCredentialItem(Credential credential) {
-        return new MVCListAdapter.ListItem(TouchToFillProperties.ItemType.CREDENTIAL,
+        return buildSheetItem(
+                TouchToFillProperties.ItemType.CREDENTIAL, credential, mCredentialCallback);
+    }
+
+    private MVCListAdapter.ListItem buildConfirmationButton(Credential credential) {
+        return buildSheetItem(
+                TouchToFillProperties.ItemType.FILL_BUTTON, credential, mCredentialCallback);
+    }
+
+    private static MVCListAdapter.ListItem buildSheetItem(
+            @TouchToFillProperties.ItemType int itemType, Credential credential,
+            Callback<Credential> callback) {
+        return new MVCListAdapter.ListItem(itemType,
                 new PropertyModel.Builder(TouchToFillProperties.CredentialProperties.ALL_KEYS)
                         .with(CREDENTIAL, credential)
-                        .with(ON_CLICK_LISTENER, mCredentialCallback)
+                        .with(ON_CLICK_LISTENER, callback)
                         .with(FORMATTED_ORIGIN, credential.getOriginUrl())
                         .build());
     }

@@ -16,6 +16,8 @@
 #import "ui/base/l10n/l10n_util_mac.h"
 #include "ui/strings/grit/ui_strings.h"
 
+#pragma clang diagnostic ignored "-Wunused-function"
+
 namespace chrome {
 namespace {
 
@@ -34,7 +36,7 @@ base::scoped_nsobject<NSMenuItem> BuildAppMenu(
                 .string_format_1(product_name)
                 .tag(IDC_ABOUT)
                 .target(app_delegate)
-                .action(@selector(orderFrontStandardAboutPanel:)),
+                /*.action(@selector(orderFrontStandardAboutPanel:))*/,
                 Item().is_separator(),
                 Item(IDS_PREFERENCES)
                     .tag(IDC_OPTIONS)
@@ -49,7 +51,7 @@ base::scoped_nsobject<NSMenuItem> BuildAppMenu(
                     .command_id(IDC_IMPORT_SETTINGS)
                     .remove_if(is_pwa),
                 Item().is_separator(),
-                Item(IDS_SERVICES_MAC).tag(-1).submenu({}),
+                //Item(IDS_SERVICES_MAC).tag(-1).submenu({}),
                 Item(IDS_HIDE_APP_MAC)
                     .string_format_1(product_name)
                     .tag(IDC_HIDE_APP)
@@ -456,9 +458,9 @@ void BuildMainMenu(NSApplication* nsapp,
   using Builder = base::scoped_nsobject<NSMenuItem> (*)(
       NSApplication*, id, const base::string16&, bool);
   static const Builder kBuilderFuncs[] = {
-      &BuildAppMenu,     &BuildFileMenu,      &BuildEditMenu,   &BuildViewMenu,
-      &BuildHistoryMenu, &BuildBookmarksMenu, &BuildPeopleMenu, &BuildTabMenu,
-      &BuildWindowMenu,  &BuildHelpMenu,
+      &BuildAppMenu,     /*&BuildFileMenu,*/      &BuildEditMenu,  /* &BuildViewMenu,
+      &BuildHistoryMenu, &BuildBookmarksMenu, &BuildPeopleMenu, &BuildTabMenu,*/
+      &BuildWindowMenu,  /*&BuildHelpMenu,*/
   };
   for (auto* builder : kBuilderFuncs) {
     auto item = builder(nsapp, app_delegate, product_name, is_pwa);

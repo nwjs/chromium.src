@@ -1127,6 +1127,9 @@ cc::PropertyTrees* PaintArtifactCompositor::GetPropertyTreesForDirectUpdate() {
 
 bool PaintArtifactCompositor::DirectlyUpdateCompositedOpacityValue(
     const EffectPaintPropertyNode& effect) {
+  // We can only directly-update compositor values if all content associated
+  // with the node is known to be composited.
+  DCHECK(effect.HasDirectCompositingReasons());
   if (auto* property_trees = GetPropertyTreesForDirectUpdate()) {
     return PropertyTreeManager::DirectlyUpdateCompositedOpacityValue(
         property_trees, *root_layer_->layer_tree_host(), effect);
@@ -1136,6 +1139,12 @@ bool PaintArtifactCompositor::DirectlyUpdateCompositedOpacityValue(
 
 bool PaintArtifactCompositor::DirectlyUpdateScrollOffsetTransform(
     const TransformPaintPropertyNode& transform) {
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+    // We can only directly-update compositor values if all content associated
+    // with the node is known to be composited. We cannot DCHECK this pre-
+    // CompositeAfterPaint because we cannot query CompositedLayerMapping here.
+    DCHECK(transform.HasDirectCompositingReasons());
+  }
   if (auto* property_trees = GetPropertyTreesForDirectUpdate()) {
     return PropertyTreeManager::DirectlyUpdateScrollOffsetTransform(
         property_trees, *root_layer_->layer_tree_host(), transform);
@@ -1145,6 +1154,9 @@ bool PaintArtifactCompositor::DirectlyUpdateScrollOffsetTransform(
 
 bool PaintArtifactCompositor::DirectlyUpdateTransform(
     const TransformPaintPropertyNode& transform) {
+  // We can only directly-update compositor values if all content associated
+  // with the node is known to be composited.
+  DCHECK(transform.HasDirectCompositingReasons());
   if (auto* property_trees = GetPropertyTreesForDirectUpdate()) {
     return PropertyTreeManager::DirectlyUpdateTransform(
         property_trees, *root_layer_->layer_tree_host(), transform);
@@ -1154,6 +1166,9 @@ bool PaintArtifactCompositor::DirectlyUpdateTransform(
 
 bool PaintArtifactCompositor::DirectlyUpdatePageScaleTransform(
     const TransformPaintPropertyNode& transform) {
+  // We can only directly-update compositor values if all content associated
+  // with the node is known to be composited.
+  DCHECK(transform.HasDirectCompositingReasons());
   if (auto* property_trees = GetPropertyTreesForDirectUpdate()) {
     return PropertyTreeManager::DirectlyUpdatePageScaleTransform(
         property_trees, *root_layer_->layer_tree_host(), transform);

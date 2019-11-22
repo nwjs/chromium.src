@@ -44,6 +44,11 @@ class WindowProxyManager : public GarbageCollected<WindowProxyManager> {
     return window_proxy_;
   }
 
+  bool ContextNotReady(DOMWrapperWorld& world) {
+    WindowProxy* window_proxy = WindowProxyMaybeUninitialized(world);
+    return window_proxy->ContextNotReady();
+  }
+
   WindowProxy* GetWindowProxy(DOMWrapperWorld& world) {
     WindowProxy* window_proxy = WindowProxyMaybeUninitialized(world);
     window_proxy->InitializeIfNeeded();

@@ -104,6 +104,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
       net::NetLog::ThreadSafeObserver* observer);
 
   // mojom::NetworkService implementation:
+  void SetAdditionalTrustAnchors(const net::CertificateList& anchors) override;
   void SetClient(mojo::PendingRemote<mojom::NetworkServiceClient> client,
                  mojom::NetworkServiceParamsPtr params) override;
 #if defined(OS_CHROMEOS)
@@ -153,11 +154,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   void RemoveCorbExceptionForPlugin(uint32_t process_id) override;
   void AddExtraMimeTypesForCorb(
       const std::vector<std::string>& mime_types) override;
-  void ExcludeSchemeFromRequestInitiatorSiteLockChecks(
-      const std::string& scheme,
-      mojom::NetworkService::
-          ExcludeSchemeFromRequestInitiatorSiteLockChecksCallback callback)
-      override;
   void OnMemoryPressure(base::MemoryPressureListener::MemoryPressureLevel
                             memory_pressure_level) override;
   void OnPeerToPeerConnectionsCountChange(uint32_t count) override;

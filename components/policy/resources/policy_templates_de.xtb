@@ -706,6 +706,11 @@ Die Richtlinie wird nur angewendet, wenn die <ph name="CHROME_REPORTING_EXTENSIO
 <translation id="2149330464730004005">Farbdruck einschränken</translation>
 <translation id="2156132677421487971">Konfigurieren von Richtlinien für <ph name="PRODUCT_NAME" />, ein Tool, mit dem Nutzer Inhalte von Tabs, Websites oder dem Desktop von einem Browser auf andere Bildschirme und Soundsysteme übertragen können.</translation>
 <translation id="2156755242840687300">Externe Druckserver aktiviert</translation>
+<translation id="2160336427036785721">Diese Richtlinie legt fest, wie viel Arbeitsspeicher eine einzelne Instanz von <ph name="PRODUCT_NAME" /> verbrauchen darf, bevor Tabs verworfen werden, um Arbeitsspeicher zu leeren. Der vom jeweiligen Tab verbrauchte Arbeitsspeicher wird freigegeben und der Tab muss neu geladen werden, wenn er wieder aufgerufen wird.
+
+      Wenn diese Richtlinie konfiguriert wird, verwirft der Browser Tabs, um Arbeitsspeicher zu leeren, sobald das Limit überschritten wird. Es gibt jedoch keine Garantie dafür, dass der Browser immer unterhalb des Limits bleibt. Jeder Wert unter 1024 wird auf 1024 aufgerundet.
+
+      Wenn diese Richtlinie nicht konfiguriert ist, wird der Browser versuchen, Arbeitsspeicher zu leeren, wenn der verfügbare Arbeitsspeicher auf dem jeweiligen Gerät gering ist.</translation>
 <translation id="2166472654199325139">Websites mit Inhalten nur für Erwachsene nicht filtern</translation>
 <translation id="2168397434410358693">Inaktivitätsverzögerung im Netzbetrieb</translation>
 <translation id="217013996107840632">Befehlszeilenparameter für den Wechsel vom alternativen Browser.</translation>
@@ -816,7 +821,7 @@ Diese Richtlinie gilt auch für Komponentenerweiterungen, zum Beispiel die Hango
 
       Wenn diese Richtlinie auf "true" gesetzt ist und eine Bestätigungsaufforderung für ein externes Protokoll angezeigt wird, kann der Nutzer "Immer öffnen" auswählen und das Protokoll so in Zukunft ohne die Bestätigung öffnen.
 
-      Wird sie auf "false" gesetzt oder nicht konfiguriert, wird das Kästchen für "Immer öffnen" nicht angezeigt und der Nutzer immer, wenn ein externes Protokoll aufgerufen wird, zur Bestätigung aufgefordert.</translation>
+      Wird sie auf "false" gesetzt oder nicht konfiguriert, wird das Kästchen für "Immer öffnen" nicht angezeigt und der Nutzer jedes Mal, wenn ein externes Protokoll aufgerufen wird, zur Bestätigung aufgefordert.</translation>
 <translation id="2411817661175306360">Passwortschutzwarnung ist ausgeschaltet</translation>
 <translation id="2411919772666155530">Benachrichtigungen auf diesen Websites blockieren</translation>
 <translation id="2418507228189425036">Deaktiviert das Speichern des Browserverlaufs in <ph name="PRODUCT_NAME" /> und verhindert, dass Nutzer diese Einstellung ändern. 
@@ -910,6 +915,15 @@ Falls die Richtlinie auf "false" gesetzt wird, kann eine verzögerungsfreie auto
           Sollte sie aktiviert oder nicht konfiguriert sein, werden Sicherheitswarnungen angezeigt, wenn Chrome mit einigen Befehlszeilen-Flags gestartet wird.
 
           Unter Windows steht diese Richtlinie nur bei Instanzen zur Verfügung, die Teil einer "<ph name="MS_AD_NAME" />"-Domain sind, oder bei Windows 10 Pro- oder Windows 10 Enterprise-Instanzen, für die eine Geräteverwaltung eingerichtet ist.</translation>
+<translation id="2480971699591919564">Hiermit wird die Funktion "Zum Anrufen klicken" aktiviert. Mit ihr können Telefonnummern von Chrome-Computern an Android-Geräte gesendet werden, wenn der Nutzer angemeldet ist. Weitere Informationen finden Sie in diesem Hilfeartikel: https://support.google.com/chrome/answer/9430554?.
+
+      Wenn diese Richtlinie aktiviert ist, können Chrome-Nutzer Telefonnummern an Android-Geräte senden.
+
+      Ist sie deaktiviert, geht dies nicht.
+
+      Wenn Sie diese Richtlinie konfigurieren, kann sie vom Nutzer nicht geändert oder überschrieben werden.
+
+      Wird sie nicht konfiguriert, ist die Funktion "Zum Anrufen klicken" standardmäßig aktiviert.</translation>
 <translation id="2482676533225429905">Natives Messaging</translation>
 <translation id="2483146640187052324">Netzwerkaktionen über alle Netzwerkverbindungen vervollständigen</translation>
 <translation id="2484208301968418871">Mit dieser Richtlinie wird die Anwendung des URL-Filters "SafeSites" konfiguriert.
@@ -1897,6 +1911,7 @@ Diese Richtlinie hat keine Auswirkungen darauf, ob die lokalen Nutzerdaten auf d
 <translation id="4075864623710596000">In dieser Liste aufgeführte Hostnamen sind vom HSTS-Richtliniencheck ausgenommen, der Anfragen von http auf https upgraden kann. Für diese Richtlinie sind nur Single-Label-Hostnamen zulässig. Hostnamen müssen kanonisiert werden: Alle IDNs müssen in ihr A-Label-Format konvertiert und alle ASCII-Buchstaben kleingeschrieben werden. Diese Richtlinie gilt nur für die angegebenen Hostnamen, aber nicht für Subdomains der angegebenen Namen.</translation>
 <translation id="408029843066770167">Abfragen an einen Google-Dienst für die Zeiteinstellung zulassen</translation>
 <translation id="408076456549153854">Browseranmeldung aktivieren</translation>
+<translation id="4082498585300984671">Funktion "Zum Anrufen klicken" aktivieren</translation>
 <translation id="40853027210512570">Diese Richtlinie überschreibt die Regeln zur Auswahl des <ph name="PRODUCT_NAME" />-Standarddruckers.
 
       Über sie werden die Regeln zur Auswahl des Standarddruckers in <ph name="PRODUCT_NAME" /> festgelegt. Diese Auswahl erfolgt, wenn die Druckfunktion das erste Mal mit einem Profil verwendet wird.
@@ -2874,15 +2889,15 @@ Die Richtlinie wird nur angewendet, wenn die <ph name="CHROME_REPORTING_EXTENSIO
           Diese Richtlinie ist nur dann wirksam, wenn <ph name="POWER_SMART_DIM_ENABLED_POLICY_NAME" /> deaktiviert ist. Andernfalls wird diese Richtlinie ignoriert, da die Verzögerung für die Bildschirmabdunkelung von einem Modell für maschinelles Lernen festgelegt wird.
 
           Der Skalierungsfaktor muss bei mindestens 100 % liegen. Werte, bei denen die Verzögerung für die Bildschirmabdunkelung im Präsentationsmodus kürzer wäre als normal, sind nicht zulässig.</translation>
-<translation id="5590988845778885692">Mit dieser Richtlinie können Konfigurationen verfügbarer Druckserver zur Verfügung gestellt werden.
+<translation id="5590988845778885692">Mit dieser Richtlinie können Konfigurationen verfügbarer Druckserver bereitgestellt werden.
 
-      Sie haben damit die Möglichkeit, <ph name="PRODUCT_OS_NAME" />-Geräten Konfigurationen externer Druckserver als JSON-Datei zur Verfügung zu stellen.
+      So können Sie <ph name="PRODUCT_OS_NAME" />-Geräten Konfigurationen externer Druckserver als JSON-Datei zur Verfügung stellen.
 
       Die Datei darf nicht größer als 1 MB sein und muss ein Array an Datensätzen enthalten (JSON-Objekte). Jeder Datensatz muss die Felder "id", "url" und "display_name" mit Strings als Werte enthalten. Alle Werte in den "id"-Feldern müssen eindeutig sein.
 
       Die Datei wird heruntergeladen und im Cache gespeichert. Anhand des kryptografischen Hashs wird die Integrität des Downloads verifiziert. Sobald sich die URL oder der Hash ändert, wird die Datei noch einmal heruntergeladen.
 
-      Wenn diese Richtlinie auf den richtigen Wert festgelegt ist, versuchen Geräte, verfügbare Drucker über das Internet Printing Protocol (IPP) bei angegebenen Druckservern abzufragen.
+      Wenn diese Richtlinie auf den richtigen Wert gesetzt ist, versuchen Geräte, über das Internet Printing Protocol (IPP) bei den angegebenen Druckservern die verfügbaren Drucker abzufragen.
 
       Wird sie nicht konfiguriert oder auf einen falschen Wert gesetzt, werden Nutzern keine Serverdrucker angezeigt.
 
@@ -3139,6 +3154,10 @@ Wenn diese Einstellung deaktiviert oder nicht konfiguriert ist, wird kein Proxy 
       Beachten Sie, dass die Richtlinie ignoriert wird und die Standortdienste von Google immer deaktiviert sind, wenn die Richtlinie "<ph name="DEFAULT_GEOLOCATION_SETTING_POLICY_NAME" />" auf "<ph name="BLOCK_GEOLOCATION_SETTING" />" festgelegt ist.</translation>
 <translation id="6141402445226505817">Immer die grobe Erkennung der Zeitzone verwenden</translation>
 <translation id="6145799962557135888">Ermöglicht Ihnen die Zusammenstellung einer Liste mit URL-Mustern, die Websites angeben, denen die Ausführung von JavaScript gestattet ist. Wenn diese Richtlinie nicht konfiguriert ist, kommt für alle Websites entweder der globale Standardwert der Richtlinie "DefaultJavaScriptSetting", falls konfiguriert, oder der persönlichen Konfiguration des Nutzers zum Einsatz.</translation>
+<translation id="614616930188030377">Muster in dieser Liste werden mit der Sicherheitsherkunft der anfragenden URL abgeglichen.
+      Wenn Übereinstimmungen gefunden werden oder chrome://flags/#enable-webrtc-hide-local-ips-with-mdns deaktiviert ist, werden die lokalen IP-Adressen in WebRTC ICE-Kandidaten angezeigt.
+      Andernfalls werden lokale IP-Adressen mit mDNS-Hostnamen verborgen.
+      Beachten Sie bitte, dass diese Richtlinie den Schutz lokaler IPs schwächt, sofern Administratoren diese benötigen.</translation>
 <translation id="614662973812186053">Diese Richtlinie steuert zudem die Erfassung von Nutzungs- und Diagnosedaten in Android.</translation>
 <translation id="6153048425064249648">Mit dieser Richtlinie wird festgelegt, ob Cloud-Berichte für <ph name="PRODUCT_NAME" /> erstellt werden. Dabei werden Daten zum Betrieb des Browsers an die Google Admin-Konsole gesendet.
 
@@ -4099,6 +4118,7 @@ Die Richtlinienwerte sollten in % angegeben werden und zwischen 0 und 100 liegen
           Wenn diese Richtlinie nicht konfiguriert wird, ist der Modus mit hohem Kontrast deaktiviert, wenn der Anmeldebildschirm das erste Mal angezeigt wird. Die Nutzer können den Modus mit hohem Kontrast jederzeit aktivieren oder deaktivieren und dieser Status bleibt auf der Anmeldeseite bei einem Nutzerwechsel erhalten.
 
           Hinweis: Sofern konfiguriert, überschreibt "<ph name="DEVICE_LOGIN_SCREEN_HIGH_CONTRAST_ENABLED_POLICY_NAME" />" diese Richtlinie.</translation>
+<translation id="7846952520291088817">URLs, für die lokale IPs in WebRTC ICE Candidates offengelegt sind</translation>
 <translation id="7858404742201086014">Wenn Sie diese Einstellung aktivieren, werden veraltete Plug-ins als normale Plug-ins verwendet.
 
       Ist diese Einstellung deaktiviert, werden veraltete Plug-ins nicht verwendet und Nutzer werden nicht aufgefordert, ihrer Ausführung zuzustimmen.

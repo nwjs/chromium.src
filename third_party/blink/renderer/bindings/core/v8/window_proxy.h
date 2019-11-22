@@ -165,6 +165,7 @@ class WindowProxy : public GarbageCollected<WindowProxy> {
   virtual bool IsLocal() const { return false; }
 
   enum FrameReuseStatus { kFrameWillNotBeReused, kFrameWillBeReused };
+  bool ContextNotReady() const { return lifecycle_ == Lifecycle::kContextIsUninitialized;}
 
  protected:
   // Lifecycle represents the following four states.
@@ -265,7 +266,6 @@ class WindowProxy : public GarbageCollected<WindowProxy> {
 
   v8::Isolate* GetIsolate() const { return isolate_; }
   Frame* GetFrame() const { return frame_.Get(); }
-
 #if DCHECK_IS_ON()
   void DidAttachGlobalObject() { is_global_object_attached_ = true; }
   void DidDetachGlobalObject() { is_global_object_attached_ = false; }

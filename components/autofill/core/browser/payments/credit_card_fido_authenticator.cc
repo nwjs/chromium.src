@@ -525,7 +525,18 @@ CreditCardFIDOAuthenticator::ParseCreationOptions(
       "timeout_millis", base::Value::Type::INTEGER);
   options->adjusted_timeout = base::TimeDelta::FromMilliseconds(
       timeout ? timeout->GetInt() : kWebAuthnTimeoutMs);
-  options->attestation = AttestationConveyancePreference::kDirect;
+
+  const auto* attestation =
+      creation_options.FindStringKey("attestation_conveyance_preference");
+  if (!attestation || base::EqualsCaseInsensitiveASCII(*attestation, "NONE")) {
+    options->attestation = AttestationConveyancePreference::kNone;
+  } else if (base::EqualsCaseInsensitiveASCII(*attestation, "INDIRECT")) {
+    options->attestation = AttestationConveyancePreference::kIndirect;
+  } else if (base::EqualsCaseInsensitiveASCII(*attestation, "DIRECT")) {
+    options->attestation = AttestationConveyancePreference::kDirect;
+  } else {
+    NOTREACHED();
+  }
 
   // Only allow user-verifying platform authenticators.
   options->authenticator_selection = AuthenticatorSelectionCriteria(
@@ -574,7 +585,8 @@ CreditCardFIDOAuthenticator::ParseCredentialDescriptor(
 base::Value CreditCardFIDOAuthenticator::ParseAssertionResponse(
     GetAssertionAuthenticatorResponsePtr assertion_response) {
   base::Value response = base::Value(base::Value::Type::DICTIONARY);
-  response.SetKey("credential_id", base::Value(assertion_response->info->id));
+  response.SetKey("credential_id",
+                  BytesToBase64(assertion_response->info->raw_id));
   response.SetKey("authenticator_data",
                   BytesToBase64(assertion_response->authenticator_data));
   response.SetKey("client_data",

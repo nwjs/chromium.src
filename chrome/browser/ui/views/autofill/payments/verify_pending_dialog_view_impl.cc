@@ -31,6 +31,7 @@ VerifyPendingDialogViewImpl::~VerifyPendingDialogViewImpl() {
   }
 }
 
+// static
 VerifyPendingDialogView* VerifyPendingDialogView::CreateDialogAndShow(
     VerifyPendingDialogController* controller,
     content::WebContents* web_contents) {
@@ -53,7 +54,9 @@ void VerifyPendingDialogViewImpl::AddedToWidget() {
 }
 
 bool VerifyPendingDialogViewImpl::Cancel() {
-  controller_->OnCancel();
+  if (controller_)
+    controller_->OnCancel();
+
   return true;
 }
 

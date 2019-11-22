@@ -158,6 +158,7 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
     return window_proxy_manager_;
   }
   WindowProxy* GetWindowProxy(DOMWrapperWorld&);
+  bool ContextNotReady(DOMWrapperWorld& world) const;
 
   virtual void DidChangeVisibilityState();
 

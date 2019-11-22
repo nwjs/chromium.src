@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Membaca dan mengubah semua data di situs saat ini jika diminta</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> ingin menyetel ulang setelan Anda.</translation>
 <translation id="1243314992276662751">Upload</translation>
+<translation id="1243398753772016127">Situs tidak dapat menggunakan aktivitas penjelajahan Anda di situs lain untuk mempersonalisasi iklan</translation>
 <translation id="1244265436519979884">Pemulihan Linux saat ini sedang berlangsung</translation>
 <translation id="1244303850296295656">Kesalahan ekstensi</translation>
 <translation id="1246905108078336582">Hapus saran dari papan klip?</translation>
@@ -3037,6 +3038,7 @@ Pastikan Anda memercayai situs ini sebelum masuk ke VR.</translation>
 <translation id="5466374726908360271">Tempel dan telusuri “<ph name="SEARCH_TERMS" />”</translation>
 <translation id="5468173180030470402">Mencari berbagi file</translation>
 <translation id="5471768120198416576">Halo! Saya suara text to speech Anda.</translation>
+<translation id="5472133193607270166">Jika diaktifkan, situs tidak dapat menggunakan aktivitas penjelajahan di situs lain untuk mempersonalisasi iklan. Beberapa situs mungkin tidak berfungsi dengan baik.</translation>
 <translation id="5473333559083690127">Masukkan lagi PIN baru</translation>
 <translation id="5481941284378890518">Tambahkan Printer di Sekitar</translation>
 <translation id="5483785310822538350">Cabut akses perangkat dan file</translation>
@@ -4229,7 +4231,6 @@ Pastikan Anda memercayai situs ini sebelum masuk ke VR.</translation>
 <translation id="7221869452894271364">Muat ulang halaman ini</translation>
 <translation id="7222204278952406003">Chrome adalah browser default Anda</translation>
 <translation id="7222232353993864120">Alamat Email</translation>
-<translation id="7223859049862598735">Chrome memblokir cookie yang dapat digunakan untuk melacak Anda di web</translation>
 <translation id="7225179976675429563">Jenis jaringan hilang</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (Vendor: <ph name="VENDOR_ID" />, Produk: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Memanipulasi setelan yang menentukan apakah situs web dapat menggunakan fitur seperti geolokasi, mikrofon, kamera, dll.</translation>
@@ -5577,7 +5578,6 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="9130015405878219958">Mode yang dimasukkan tidak valid.</translation>
 <translation id="9131487537093447019">Kirim pesan ke dan terima pesan dari perangkat Bluetooth.</translation>
 <translation id="9134304429738380103">Ya, saya setuju.</translation>
-<translation id="9135090785674039430">Jika diaktifkan, situs tidak dapat menggunakan cookie yang akan melacak Anda di web. Beberapa situs mungkin dapat terganggu.</translation>
 <translation id="9137013805542155359">Perlihatkan halaman asli</translation>
 <translation id="9137157311132182254">Mesin telusur pilihan</translation>
 <translation id="9137248913990643158">Mulai dan login ke Chrome sebelum menggunakan aplikasi ini.</translation>

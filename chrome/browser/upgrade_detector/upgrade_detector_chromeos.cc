@@ -42,14 +42,12 @@ constexpr base::TimeDelta kNotifyCycleDelta = base::TimeDelta::FromMinutes(20);
 // The default amount of time it takes for the detector's annoyance level
 // (upgrade_notification_stage()) to reach UPGRADE_ANNOYANCE_HIGH once an
 // upgrade is detected.
-constexpr base::TimeDelta kDefaultHighThreshold = base::TimeDelta::FromDays(4);
+constexpr base::TimeDelta kDefaultHighThreshold = base::TimeDelta::FromDays(7);
 
 // The default amount of time between the detector's annoyance level change
 // from UPGRADE_ANNOYANCE_ELEVATED to UPGRADE_ANNOYANCE_HIGH in ms.
-constexpr int kDefaultHeadsUpPeriodMs = 24 * 60 * 60 * 1000;  // 1 day.
-
 constexpr base::TimeDelta kDefaultHeadsUpPeriod =
-    base::TimeDelta::FromMilliseconds(kDefaultHeadsUpPeriodMs);
+    base::TimeDelta::FromDays(3);  // 3 days.
 
 // The reason of the rollback used in the UpgradeDetector.RollbackReason
 // histogram.
@@ -129,9 +127,12 @@ UpgradeDetectorChromeos::UpgradeDetectorChromeos(
     // base::Unretained is safe here because |this| outlives the registrar.
     pref_change_registrar_.Add(
         prefs::kRelaunchHeadsUpPeriod,
-        base::BindRepeating(
-            &UpgradeDetectorChromeos::OnRelaunchHeadsUpPeriodPrefChanged,
-            base::Unretained(this)));
+        base::BindRepeating(&UpgradeDetectorChromeos::OnRelaunchPrefChanged,
+                            base::Unretained(this)));
+    pref_change_registrar_.Add(
+        prefs::kRelaunchNotification,
+        base::BindRepeating(&UpgradeDetectorChromeos::OnRelaunchPrefChanged,
+                            base::Unretained(this)));
   }
 }
 
@@ -140,7 +141,7 @@ UpgradeDetectorChromeos::~UpgradeDetectorChromeos() {}
 // static
 void UpgradeDetectorChromeos::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterIntegerPref(prefs::kRelaunchHeadsUpPeriod,
-                                kDefaultHeadsUpPeriodMs);
+                                kDefaultHeadsUpPeriod.InMilliseconds());
 }
 
 void UpgradeDetectorChromeos::Init() {
@@ -242,18 +243,13 @@ void UpgradeDetectorChromeos::CalculateDeadlines() {
       std::max(high_deadline_ - heads_up_period, upgrade_detected_time());
 }
 
-void UpgradeDetectorChromeos::OnRelaunchHeadsUpPeriodPrefChanged() {
-  // Run OnThresholdPrefChanged using SequencedTaskRunner to avoid double
-  // NotifyUpgrade calls in case two polices are changed at one moment.
-  base::SequencedTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&UpgradeDetectorChromeos::OnThresholdPrefChanged,
-                     weak_factory_.GetWeakPtr()));
+void UpgradeDetectorChromeos::OnRelaunchNotificationPeriodPrefChanged() {
+  OnRelaunchPrefChanged();
 }
 
-void UpgradeDetectorChromeos::OnRelaunchNotificationPeriodPrefChanged() {
+void UpgradeDetectorChromeos::OnRelaunchPrefChanged() {
   // Run OnThresholdPrefChanged using SequencedTaskRunner to avoid double
-  // NotifyUpgrade calls in case two polices are changed at one moment.
+  // NotifyUpgrade calls in case multiple policies are changed at one moment.
   base::SequencedTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
       base::BindOnce(&UpgradeDetectorChromeos::OnThresholdPrefChanged,
@@ -322,7 +318,13 @@ void UpgradeDetectorChromeos::NotifyOnUpgrade() {
     set_upgrade_notification_stage(UPGRADE_ANNOYANCE_ELEVATED);
     next_delay = high_deadline_ - current_time;
   } else {
-    set_upgrade_notification_stage(UPGRADE_ANNOYANCE_NONE);
+    // If the relaunch notification policy is enabled, the user will be notified
+    // at a later time, so set the level to UPGRADE_ANNOYANCE_NONE. Otherwise,
+    // the user should be notified now, so set the level to
+    // UPGRADE_ANNOYANCE_LOW.
+    set_upgrade_notification_stage(IsRelaunchNotificationPolicyEnabled()
+                                       ? UPGRADE_ANNOYANCE_NONE
+                                       : UPGRADE_ANNOYANCE_LOW);
     next_delay = elevated_deadline_ - current_time;
   }
   const auto new_stage = upgrade_notification_stage();

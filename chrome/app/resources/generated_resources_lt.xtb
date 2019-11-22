@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Skaityti ir keisti visus dabartinės svetainės duomenis, kai suaktyvinama</translation>
 <translation id="1242633766021457174">„<ph name="THIRD_PARTY_TOOL_NAME" />“ nori iš naujo nustatyti nustatymus.</translation>
 <translation id="1243314992276662751">Įkelti</translation>
+<translation id="1243398753772016127">Svetainės negali naudoti jūsų naršymo veiklos skirtingose svetainėse, kad galėtų suasmeninti skelbimus</translation>
 <translation id="1244265436519979884">Šiuo metu vykdomas „Linux“ atkūrimas</translation>
 <translation id="1244303850296295656">Plėtinio klaida</translation>
 <translation id="1246905108078336582">Pašalinti pasiūlymą iš iškarpinės?</translation>
@@ -3039,6 +3040,7 @@ Prieš aktyvindami VR režimą įsitikinkite, kad ši svetainė patikima.</trans
 <translation id="5466374726908360271">Įk&amp;klijuoti ir ieškoti „<ph name="SEARCH_TERMS" />“</translation>
 <translation id="5468173180030470402">Ieškoma failų bendrinimo įrenginių</translation>
 <translation id="5471768120198416576">Sveiki, tai – jūsų teksto į kalbą balsas.</translation>
+<translation id="5472133193607270166">Įjungus svetainės negalės naudoti jūsų naršymo veiklos skirtingose svetainėse, kad galėtų suasmeninti skelbimus Kai kurios svetainės gali tinkamai neveikti.</translation>
 <translation id="5473333559083690127">Iš naujo įveskite naują PIN kodą</translation>
 <translation id="5481941284378890518">Pridėti netoliese esančius spausdintuvus</translation>
 <translation id="5483785310822538350">Anuliuoti galimybę pasiekti failą ir įrenginį</translation>
@@ -4232,7 +4234,6 @@ Prieš aktyvindami VR, įsitikinkite, kad ši svetainė patikima.</translation>
 <translation id="7221869452894271364">Įkelti iš naujo šį puslapį</translation>
 <translation id="7222204278952406003">„Chrome“ yra numatytoji naršyklė</translation>
 <translation id="7222232353993864120">El. pašto adresas</translation>
-<translation id="7223859049862598735">„Chrome“ blokuoja slapukus, kuriuos naudojant galima stebėti jūsų veiklą žiniatinklyje</translation>
 <translation id="7225179976675429563">Trūksta tinklo tipo</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (paslaugos teikėjas: <ph name="VENDOR_ID" />, produktas: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Valdyti nustatymus, nurodančius, ar svetainės gali naudoti funkcijas, pvz., geografinės vietovės nustatymą, mikrofoną, fotoaparatą ir kt.</translation>
@@ -5580,7 +5581,6 @@ Rakto failą laikykite saugioje vietoje. Jo reikės, kai norėsite sukurti nauja
 <translation id="9130015405878219958">Įvestas neteisingas režimas.</translation>
 <translation id="9131487537093447019">Siųsti pranešimus į „Bluetooth“ įrenginius ir gauti pranešimus iš jų.</translation>
 <translation id="9134304429738380103">Taip, sutinku.</translation>
-<translation id="9135090785674039430">Įjungus svetainės negalės naudoti slapukų, kurie stebi jūsų veiklą žiniatinklyje. Kai kurios svetainės gali neveikti.</translation>
 <translation id="9137013805542155359">Rodyti originalą</translation>
 <translation id="9137157311132182254">Pageidaujamas paieškos variklis</translation>
 <translation id="9137248913990643158">Prieš naudodami šią programą prisijunkite prie „Chrome“.</translation>

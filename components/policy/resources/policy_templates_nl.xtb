@@ -3,11 +3,11 @@
 <translationbundle lang="nl">
 <translation id="1001649754854402482">Schakel <ph name="CORS" />-controlebeperkingen voor de nieuwe <ph name="CORS" />-implementatie in, waardoor extensies geschikt gedrag kunnen behouden en <ph name="PRODUCT_NAME" /> toestemming heeft om opgegeven headers te verzenden zonder <ph name="CORS" />-controle.
 
-      Als deze lijst leeg is, probeert <ph name="PRODUCT_NAME" /> extensies op geschikte manieren uit te voeren en worden er geen <ph name="API" />-wijzingen geïntroduceerd voor <ph name="PRODUCT_NAME" /> 79, zoals uiteeengezet in <ph name="WEB_REQUEST_API_MANUAL" />.
+      Als deze lijst leeg is, probeert <ph name="PRODUCT_NAME" /> extensies op geschikte manieren uit te voeren en worden er geen <ph name="API" />-wijzingen geïntroduceerd voor <ph name="PRODUCT_NAME" /> 79, zoals uitgelegd in <ph name="WEB_REQUEST_API_MANUAL" />.
 
       Als deze lijst is ingesteld voor headernamen van <ph name="HTTP" />-verzoeken, negeert de <ph name="CORS" />-controle de vermelde headers om de beperking voor extensies in te schakelen.
 
-      Als deze lijst niet is ingesteld, worden beide beperkingen (zoals hierboven uiteengezet) niet toegepast.
+      Als deze lijst niet is ingesteld, worden beide beperkingen (zoals hierboven uitgelegd) niet toegepast.
 
       Ga voor meer informatie over <ph name="CORS" /> naar: <ph name="CORS_HELP_URL" />.</translation>
 <translation id="1002439864875515590">Als dit beleid is ingesteld op een lege tekenreeks of niet is geconfigureerd, geeft <ph name="PRODUCT_OS_NAME" /> geen optie voor automatisch aanvullen weer tijdens het inlogproces van de gebruiker.
@@ -715,6 +715,11 @@
 <translation id="2149330464730004005">Afdrukken in kleur inschakelen</translation>
 <translation id="2156132677421487971">Stel beleid voor <ph name="PRODUCT_NAME" /> in, een functie waarmee gebruikers de content van tabbladen, sites of hun bureaublad vanuit de browser naar externe schermen en geluidssystemen kunnen sturen.</translation>
 <translation id="2156755242840687300">Ingeschakelde externe afdrukservers</translation>
+<translation id="2160336427036785721">Hiermee configureer je de hoeveelheid geheugen die één instantie van <ph name="PRODUCT_NAME" /> kan gebruiken voordat tabbladen worden verwijderd om geheugen te besparen (dit houdt in dat het geheugen dat voor het tabblad wordt gebruikt, wordt vrijgemaakt en dat het tabblad opnieuw moet worden geladen als de gebruiker naar dit tabblad schakelt).
+
+      Als het beleid is ingesteld, worden tabbladen in de browser verwijderd om geheugen te besparen als de limiet wordt bereikt. Er is geen garantie dat de browser altijd onder de limiet wordt uitgevoerd. Elke waarde lager dan 1024 wordt afgerond naar 1024.
+
+      Als dit beleid niet is ingesteld, begint de browser pas met het besparen van geheugen nadat is gedetecteerd dat er nog maar een kleine hoeveelheid fysiek geheugen op de machine beschikbaar is.</translation>
 <translation id="2166472654199325139">Sites niet filteren op content voor volwassenen</translation>
 <translation id="2168397434410358693">Inactieve vertraging wanneer op netstroom wordt gewerkt</translation>
 <translation id="217013996107840632">Opdrachtregelparameters voor overschakeling vanaf de alternatieve browser.</translation>
@@ -822,9 +827,9 @@
 <translation id="2386362615870139244">Schermactiveringsvergrendeling toestaan</translation>
 <translation id="2398554235599593694"> Met dit beleid wordt bepaald of het selectievakje 'Altijd openen' moet worden weergegeven in bevestigingsprompts voor externe protocolactivering.
 
-      Als dit beleid is ingesteld op 'True', kan de gebruiker, wanneer een bevestiging van een extern protocol wordt weergegeven, aangeven dat het protocol in de toekomst altijd moet worden geopend zonder bevestigingsprompts.
+      Als dit beleid is ingesteld op 'True', kan de gebruiker, als er een bevestiging van een extern protocol wordt weergegeven, aangeven dat het protocol in de toekomst altijd moet worden geopend zonder bevestigingsprompts.
 
-      Als dit beleid is ingesteld op 'False' of niet is ingesteld, wordt het selectievakje 'Altijd openen' niet weergegeven en ontvangt de gebruiker een prompt telkens wanneer een extern protocol wordt aangeroepen.</translation>
+      Als dit beleid is ingesteld op 'False' of niet is ingesteld, wordt het selectievakje 'Altijd openen' niet weergegeven en krijgt de gebruiker elke keer als er een extern protocol wordt aangeroepen een prompt.</translation>
 <translation id="2411817661175306360">Waarschuwing voor wachtwoordbeveiliging is uitgeschakeld</translation>
 <translation id="2411919772666155530">Meldingen op deze sites blokkeren</translation>
 <translation id="2418507228189425036">Hiermee wordt het opslaan van de browsergeschiedenis in <ph name="PRODUCT_NAME" /> uitgeschakeld en wordt voorkomen dat gebruikers deze instelling kunnen wijzigen.
@@ -886,7 +891,7 @@
 
           Dit beleid kan worden overschreven voor specifieke URL-patronen met het beleid 'InsecureContentAllowedForUrls' en 'InsecureContentBlockedForUrls'.
 
-          Als dit beleid niet is ingesteld, kunnen gebruikers uitzonderingen toevoegen om blokkeerbare gecombineerde content toe te staan.*</translation>
+          Als dit beleid niet is ingesteld, kunnen gebruikers uitzonderingen toevoegen om blokkeerbare gecombineerde content toe te staan.</translation>
 <translation id="2463034609187171371">DHE-coderingssuites inschakelen in TLS</translation>
 <translation id="2463365186486772703">Landinstelling voor applicatie</translation>
 <translation id="2463832514638083341">Met dit beleid wordt bepaald hoelang (in dagen) de metadata van afdruktaken worden opgeslagen op het apparaat.
@@ -918,6 +923,15 @@
           Als dit beleid is ingeschakeld of niet is ingesteld, worden waarschuwingen uitgeschakeld wanneer bepaalde opdrachtregelmarkeringen worden gebruikt om Chrome te starten.
 
           In Windows is dit beleid alleen beschikbaar op instanties die zijn gekoppeld aan een <ph name="MS_AD_NAME" />-domein of op Windows 10 Pro- of Enterprise-instanties die zijn ingeschreven voor apparaatbeheer.</translation>
+<translation id="2480971699591919564">De functie 'Klik om te bellen' inschakelen, waarmee gebruikers telefoonnummers van Chrome-desktops naar een Android-apparaat kunnen sturen als de gebruiker is ingelogd. Bekijk het volgende Helpcentrum-artikel voor meer informatie: https://support.google.com/chrome/answer/9430554?hl=nl.
+
+      Als dit beleid is ingeschakeld, wordt de mogelijkheid om telefoonnummers naar Android-apparaten te sturen ingeschakeld voor de Chrome-gebruiker.
+
+      Als dit beleid is uitgeschakeld, wordt de mogelijkheid om telefoonnummers naar Android-apparaten te sturen uitgeschakeld voor de Chrome-gebruiker.
+
+      Als je dit beleid instelt, kunnen gebruikers dit niet wijzigen of overschrijven.
+
+      Als je dit beleid niet instelt, is de functie 'Klik om te bellen' standaard ingeschakeld.</translation>
 <translation id="2482676533225429905">Systeemeigen berichten</translation>
 <translation id="2483146640187052324">Netwerkacties voorspellen voor elke netwerkverbinding</translation>
 <translation id="2484208301968418871">Met dit beleid wordt de toepassing van het SafeSites URL-filter beheerd.
@@ -1930,6 +1944,7 @@
 <translation id="4075864623710596000">De op deze lijst vermelde hostnamen zijn vrijgesteld van controle van het HSTS-beleid die verzoeken kan upgraden van HTTP naar HTTPS. In dit beleid zijn alleen hostnamen met één label toegestaan. Hostnamen moeten een canonieke URL hebben. Eventuele IDN's moeten worden geconverteerd naar de A-labelindeling en alle ASCII-letters moeten kleine letters zijn. Dit beleid is alleen van toepassing op de vermelde specifieke hostnamen en niet op de subdomeinen van de vermelde namen.</translation>
 <translation id="408029843066770167">Query's naar een Google-tijdservice toestaan</translation>
 <translation id="408076456549153854">Inloggen bij browser inschakelen</translation>
+<translation id="4082498585300984671">De functie 'Klik om te bellen' inschakelen</translation>
 <translation id="40853027210512570">Hiermee negeer je de regels van <ph name="PRODUCT_NAME" /> voor selectie van de standaardprinter.
 
       Met dit beleid kun je bepalen welke regels je wilt gebruiken om de standaardprinter in <ph name="PRODUCT_NAME" /> te selecteren. Je kunt dit instellen wanneer de afdrukfunctie voor het eerst in een profiel wordt gebruikt.
@@ -2942,7 +2957,7 @@
 
       Het bestand mag niet groter zijn dan 1 MB en moet een matrix van records (json-objecten) bevatten. Elke record moet de velden 'id', 'url' en 'display_name' bevatten, met tekenreeksen als waarden. De waarden van het veld 'id' moeten uniek zijn.
 
-      Het bestand wordt gedownload en opgeslagen in het cachegeheugen. De cryptografische hash wordt gebruikt om de integriteit van de download te verifiëren. Het bestand wordt opnieuw gedownload wanneer de URL of de hash wordt gewijzigd.
+      Het bestand wordt gedownload en opgeslagen in het cachegeheugen. De cryptografische hash wordt gebruikt om de integriteit van de download te verifiëren. Het bestand wordt opnieuw gedownload als de URL of de hash wordt gewijzigd.
 
       Als dit beleid is ingesteld op de juiste waarde, proberen apparaten opgegeven afdrukservers naar beschikbare printers te vragen die het IPP-protocol gebruiken.
 
@@ -3216,6 +3231,10 @@
 <translation id="6145799962557135888">Hiermee kun je een lijst URL-patronen instellen waarmee sites worden gespecificeerd die JavaScript mogen uitvoeren.
 
           Als dit beleid niet wordt ingesteld, wordt de algemene standaardwaarde gebruikt voor alle sites op basis van het beleid 'DefaultJavaScriptSetting' (als dit is ingesteld) of anders op basis van de configuratie van de gebruiker.</translation>
+<translation id="614616930188030377">Patronen in deze lijst worden vergeleken met de beveiligingsoorsprong van de aanvragende URL.
+      Als een overeenkomst wordt gevonden of als chrome://flags/#enable-webrtc-hide-local-ips-with-mdns is Uitgeschakeld, worden de lokale IP-adressen weergegeven in WebRTC ICE-kandidaten.
+      Anders worden lokale IP-adressen verborgen met mDNS-hostnamen.
+      Houd er rekening mee dat dit beleid de beveiliging van lokale IP's verzwakt als beheerders dit nodig hebben.</translation>
 <translation id="614662973812186053">Met dit beleid wordt ook het gebruik van Android en het verzamelen van diagnostische gegevens bepaald.</translation>
 <translation id="6153048425064249648">Met dit beleid wordt cloudrapportage voor <ph name="PRODUCT_NAME" /> beheerd, waarmee informatie over de werking van de browser naar Google Admin Console wordt geüpload.
 
@@ -3246,11 +3265,11 @@
 
           Ga voor gedetailleerdere voorbeelden naar:
           <ph name="PROXY_HELP_URL" />.</translation>
-<translation id="6172059022423179562">Gebruik de verouderde <ph name="CORS" />-implementatie in plaats van de nieuwe <ph name="CORS" />.
+<translation id="6172059022423179562">De verouderde <ph name="CORS" />-implementatie gebruiken in plaats van de nieuwe <ph name="CORS" />.
 
-      Als deze instelling is ingesteld op True, wordt de verouderde implementatie gebruikt die zou moeten werken met eerdere versies.
+      Als deze instelling is ingesteld op 'True', wordt de verouderde implementatie gebruikt die zou moeten werken met eerdere versies.
 
-      Als deze instelling is ingesteld op False of niet is ingesteld, wordt de nieuwe implementatie gebruikt die mogelijk ondernemingsspecifieke compatibiliteitsproblemen kan veroorzaken.
+      Als deze instelling is ingesteld op 'False' of niet is ingesteld, wordt de nieuwe implementatie gebruikt, die mogelijk ondernemingsspecifieke compatibiliteitsproblemen kan veroorzaken.
 
       Dit beleid wordt na een aantal mijlpalen verwijderd.
 
@@ -4200,6 +4219,7 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
           Als dit beleid niet is ingesteld, wordt de modus voor hoog contrast uitgeschakeld als het inlogscherm voor de eerste keer wordt weergegeven. Gebruikers kunnen de modus voor hoog contrast op elk gewenst moment in- of uitschakelen. De status op het inlogscherm is van toepassing op alle gebruikers.
 
           Opmerking: <ph name="DEVICE_LOGIN_SCREEN_HIGH_CONTRAST_ENABLED_POLICY_NAME" /> overschrijft dit beleid als het voorgaande is opgegeven.</translation>
+<translation id="7846952520291088817">URL's waarvan lokale IP's zichtbaar zijn in WebRTC ICE-kandidaten</translation>
 <translation id="7858404742201086014">Als je deze instelling inschakelt, worden verouderde plug-ins gebruikt als normale plug-ins.
 
       Als je deze instelling uitschakelt, worden verouderde plug-ins niet gebruikt en wordt gebruikers niet gevraagd of ze deze willen uitvoeren.
@@ -4615,9 +4635,9 @@ Als dit beleid niet is ingesteld, worden er geen beperkingen toegepast en kan de
       Wijzigingen in het beleid worden alleen toegepast wanneer ARC niet actief is, bijvoorbeeld wanneer Chrome OS wordt gestart.</translation>
 <translation id="8606263947930257189">Bepaalt of <ph name="PRODUCT_NAME" /> tabbladen kan vastzetten die minimaal vijf minuten op de achtergrond actief zijn.
 
-      Als het beleid is ingesteld op True, kunnen tabbladen worden vastgezet die minimaal vijf minuten op de achtergrond actief zijn. Het vastzetten van tabbladen verlaagt het CPU-, batterij- en geheugengebruik. <ph name="PRODUCT_NAME" /> gebruikt bepaalde methoden om te voorkomen dat tabbladen worden vastgezet die nuttig werk op de achtergrond leveren (zoals meldingen weergeven, geluid afspelen en video streamen). Webontwikkelaars kunnen daarnaast hun site afmelden voor vastzetten (https://chromium.googlesource.com/chromium/src/+/HEAD/chrome/browser/performance_manager/docs/freezing_opt_out_opt_in.md).
+      Als het beleid is ingesteld op 'True', kunnen tabbladen die minimaal vijf minuten op de achtergrond actief zijn worden vastgezet. Het vastzetten van tabbladen verlaagt het CPU-, batterij- en geheugengebruik. <ph name="PRODUCT_NAME" /> gebruikt bepaalde methoden om te voorkomen dat tabbladen worden vastgezet die nuttig werk op de achtergrond leveren (zoals meldingen weergeven, geluid afspelen en video streamen). Webontwikkelaars kunnen daarnaast hun site afmelden voor vastzetten (https://chromium.googlesource.com/chromium/src/+/HEAD/chrome/browser/performance_manager/docs/freezing_opt_out_opt_in.md).
 
-      Als het beleid is ingesteld op False, worden er geen tabbladen vastgezet.</translation>
+      Als het beleid is ingesteld op 'False', worden er geen tabbladen vastgezet.</translation>
 <translation id="8615400197788843468">Hiermee wordt de beperkte inlogfunctie van <ph name="PRODUCT_NAME" /> in G Suite ingeschakeld en wordt voorkomen dat gebruikers deze instelling wijzigen.
 
       Als je deze instelling definieert, kan de gebruiker Google-apps alleen openen via accounts van de opgegeven domeinen (houd er rekening mee dat als je accounts van gmail.com/googlemail.com wilt toestaan, je 'consumer_accounts' (zonder aanhalingstekens) aan de lijst met domeinen moet toevoegen).

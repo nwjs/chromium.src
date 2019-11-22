@@ -697,7 +697,12 @@
 <translation id="214901426630414675">Restringir el modo de impresión doble</translation>
 <translation id="2149330464730004005">Habilitar la impresión a color</translation>
 <translation id="2156132677421487971">Configura las políticas para <ph name="PRODUCT_NAME" />, una función que permite que los usuarios envíen el contenido de las pestañas, los sitios o el escritorio del navegador a pantallas y sistemas de sonido remotos.</translation>
-<translation id="2156755242840687300">Se habilitaron los servidores de impresión externos</translation>
+<translation id="2156755242840687300">Habilita los servidores de impresión externos</translation>
+<translation id="2160336427036785721">Configura la cantidad de memoria que puede usar una única instancia de <ph name="PRODUCT_NAME" /> antes de que se empiecen a descartar las pestañas (es decir que se liberará la memoria que utiliza la pestaña, la cual se deberá volver a cargar cuando se seleccione), a fin de ahorrar memoria.
+
+      Si estableces la política, el navegador comenzará a descartar pestañas para ahorrar memoria cuando se supere el límite. Sin embargo, no hay garantía de que el navegador se ejecute siempre por debajo del límite. Se redondeará a 1024 cualquier valor por debajo de 1024.
+
+      Si no estableces esta política, el navegador solo comenzará a ahorrar memoria cuando detecte que queda poca cantidad de memoria física disponible en la máquina.</translation>
 <translation id="2166472654199325139">No aplicar filtros de contenido para adultos a los sitios</translation>
 <translation id="2168397434410358693">Demora de inactividad con alimentación de CA</translation>
 <translation id="217013996107840632">Parámetros de la línea de comandos para cambiar del navegador alternativo</translation>
@@ -801,7 +806,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="2386362615870139244">Permitir bloqueos de activación de pantalla</translation>
 <translation id="2398554235599593694"> Esta política determina si se muestra la casilla de verificación "Always open" en mensajes de confirmación de lanzamiento en protocolos externos.
 
-      Si se establece esta política como verdadera, es posible que el usuario establezca "Always" para el protocolo sin futuros mensajes de confirmación (cuando se muestre un mensaje de confirmación del protocolo externo).
+      Si se establece esta política como verdadera, es posible que el usuario establezca "Always open" para el protocolo sin futuros mensajes de confirmación (cuando se muestre un mensaje de confirmación del protocolo externo).
 
       Si se establece esta política como falsa o no se establece, no se mostrará la casilla de verificación "Always open" y el usuario deberá realizar una acción cuando se invoque un protocolo externo.</translation>
 <translation id="2411817661175306360">La advertencia de la protección de la contraseña está desactivada</translation>
@@ -863,7 +868,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="2454228136871844693">Optimiza la estabilidad.</translation>
 <translation id="2458754120470702975">Permite establecer si los usuarios pueden agregar excepciones para habilitar contenido mixto en sitios específicos.
 
-          Puede anularse esta política para patrones de URL específicos mediante las políticas "InsecureContentAllowedForUrls" y "InsecureContentBlockedForUrls".
+          Esta política puede anularse para patrones de URL específicos mediante las políticas "InsecureContentAllowedForUrls" y "InsecureContentBlockedForUrls".
 
           Si no se establece esta política, los usuarios podrán agregar excepciones para permitir contenido mixto bloqueable.</translation>
 <translation id="2463034609187171371">Permitir los paquetes de encriptación DHE en TLS</translation>
@@ -897,6 +902,15 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
           Si se inhabilita o no se establece, se muestran advertencias de seguridad cuando se usan algunas marcas de la línea de comandos para iniciar Chrome.
 
           En Windows, esta política solo está disponible en instancias vinculadas a un dominio <ph name="MS_AD_NAME" /> o instancias de Windows 10 Pro o Enterprise habilitadas para la administración de dispositivos.</translation>
+<translation id="2480971699591919564">Habilita la función Llamar con un clic, que permite que los usuarios envíen números de teléfono desde computadoras de escritorio con Chrome hacia dispositivos Android donde el usuario accedió a su cuenta. Para obtener más información, consulta el artículo del Centro de ayuda: https://support.google.com/chrome/answer/9430554?hl=en.
+
+      Si se habilita esta política, el usuario de Chrome podrá enviar números de teléfono a dispositivos Android.
+
+      Si se inhabilita, el usuario de Chrome no podrá realizar esta acción.
+
+      Si estableces esta política, los usuarios no podrán cambiarla ni anularla.
+
+      Si no la estableces, se habilitará la función Llamar con un clic de forma predeterminada.</translation>
 <translation id="2482676533225429905">Mensajería nativa</translation>
 <translation id="2483146640187052324">Predecir acciones de la red en cualquier conexión de red</translation>
 <translation id="2484208301968418871">Esta política controla la aplicación del filtro de URL de SafeSites.
@@ -1897,6 +1911,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="4075864623710596000">Los nombres de host que se especifican en esta lista no se incluirán en la revisión de la política de HSTS que podría mejorar las solicitudes de http a https. En esta política, solo se permiten nombres de host con una sola etiqueta. Los nombres de host deben estar canonicalizados: debe convertirse cualquier IDN a su formato de etiqueta A y todas las letras en formato ASCII deben estar en minúscula. Esta política solo se aplica a los nombres de host específicos de la lista; no se aplica a los subdominios de estos nombres.</translation>
 <translation id="408029843066770167">Permitir consultas a un servicio de hora de Google</translation>
 <translation id="408076456549153854">Habilitar el acceso en el navegador</translation>
+<translation id="4082498585300984671">Habilita la función Llamar con un clic</translation>
 <translation id="40853027210512570">Anula las reglas predeterminadas de selección de impresora de <ph name="PRODUCT_NAME" />.
 
       Esta política determina las reglas para seleccionar la impresora predeterminada en <ph name="PRODUCT_NAME" />, que sucede la primera vez que se usa la función de impresión con un perfil.
@@ -3132,6 +3147,10 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
       Se ignorará esta política, y los Servicios de ubicación de Google estarán siempre inhabilitados si la política <ph name="DEFAULT_GEOLOCATION_SETTING_POLICY_NAME" /> se establece como <ph name="BLOCK_GEOLOCATION_SETTING" />.</translation>
 <translation id="6141402445226505817">Usar siempre la detección amplia de la zona horaria</translation>
 <translation id="6145799962557135888">Te permite configurar una lista de patrones de URL que especifican los sitios que están autorizados a ejecutar JavaScript. Si esta política no se configura, se usará el valor global predeterminado para todos los sitios ya sea de la política "DefaultJavaScriptSetting", si está configurada, o de otro tipo de configuración personal del usuario.</translation>
+<translation id="614616930188030377">Se compararán los patrones de esta lista con el origen de seguridad de la URL solicitante.
+      Si se encuentra una coincidencia o se inhabilita la opción chrome://flags/#enable-webrtc-hide-local-ips-with-mdns, se mostrarán las direcciones IP locales en los candidatos ICE de WebRTC.
+      De lo contrario, se ocultarán las direcciones IP locales con nombres de host de mDNS.
+      Ten en cuenta que esta política afecta la protección de las IP locales, si los administradores la habilitan.</translation>
 <translation id="614662973812186053">Esta política también controla la recopilación de datos de diagnóstico y uso de Android.</translation>
 <translation id="6153048425064249648">Esta política controla los informes en la nube de <ph name="PRODUCT_NAME" />, que suben información sobre el funcionamiento del navegador a la consola del Administrador de Google.
 
@@ -3278,7 +3297,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="6440051664870270040">Permitir la navegación y las ventanas emergentes en los sitios al mismo tiempo</translation>
 <translation id="6447948611083700881">Se inhabilitó la funcionalidad de copia de seguridad y restablecimiento</translation>
 <translation id="6449476513004303784">No permitir que los usuarios administren certificados</translation>
-<translation id="6453641799812499182">Permite que <ph name="CORS" /> verifique las migraciones en la nueva implementación de <ph name="CORS" /></translation>
+<translation id="6453641799812499182">Permite que <ph name="CORS" /> revise las mitigaciones en la nueva implementación de <ph name="CORS" /></translation>
 <translation id="645425387487868471">Permitir forzar el acceso para <ph name="PRODUCT_NAME" /></translation>
 <translation id="6464074037294098618">Habilitar "Autocompletar" para las direcciones</translation>
 <translation id="6467613372414922590">Permite el uso de hosts de mensajería nativa en el nivel de usuario (instalados sin permisos de administrador).</translation>
@@ -4109,6 +4128,7 @@ Si se selecciona "U2F_EXTENDED", el segundo factor integrado proporcionará func
           Si no estableces esta política, el modo de contraste alto estará inhabilitado cuando se muestre por primera vez la pantalla de acceso. En este caso, los usuarios podrán habilitar o inhabilitar el modo de contraste alto en cualquier momento y la opción que elijan se mantendrá entre los usuarios.
 
           Nota: <ph name="DEVICE_LOGIN_SCREEN_HIGH_CONTRAST_ENABLED_POLICY_NAME" /> anula esta política si se especifica la política anterior.</translation>
+<translation id="7846952520291088817">Las URL para las que se exponen las IP locales en los candidatos ICE de WebRTC</translation>
 <translation id="7858404742201086014">Si habilitas esta configuración, los complementos desactualizados se usarán como complementos normales.
 
       Si se inhabilita esta configuración, no se usarán los complementos desactualizados y no se solicitará autorización a los usuarios para ejecutarlos.
@@ -4304,9 +4324,9 @@ Si se selecciona "U2F_EXTENDED", el segundo factor integrado proporcionará func
 <translation id="8176035528522326671">Permitir que el usuario de empresa sea solo usuario principal en la sesión de perfiles múltiples (comportamiento predeterminado para usuarios administrados por empresas)</translation>
 <translation id="8176620453475617465">Esta política permite que un administrador especifique si una página puede enviar solicitudes XHR síncronas cuando el usuario la abandona (la cierra o pasa a otra página).
 
-      Si se habilita, las páginas podrán enviar solicitudes XHR síncronas cuando el usuario las abandona.
+      Si se habilita, cuando el usuario abandona las páginas, estas podrán enviar solicitudes XHR síncronas.
 
-      Si se inhabilita o no se establece, las páginas no podrán enviar solicitudes XHR síncronas cuando el usuario las abandona.
+      Si se inhabilita o no se establece, cuando el usuario abandona las páginas, estas no podrán enviar solicitudes XHR síncronas.
 
       Se quitará esta política en Chrome 82.
 

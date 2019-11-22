@@ -16,13 +16,12 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.CallbackHelper;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.content_public.browser.test.util.Criteria;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
-import org.chromium.weblayer.BrowserController;
-import org.chromium.weblayer.BrowserFragmentController;
+import org.chromium.weblayer.Browser;
+import org.chromium.weblayer.Tab;
 import org.chromium.weblayer.WebLayer;
 import org.chromium.weblayer.shell.InstrumentationActivity;
 
@@ -37,8 +36,8 @@ public class TopControlsTest {
 
     private int mTopControlsHeight;
     private int mInitialVisiblePageHeight;
-    private BrowserController mBrowserController;
-    private BrowserFragmentController mBrowserFragmentController;
+    private Tab mTab;
+    private Browser mBrowser;
 
     /**
      * Returns the visible height of the page as determined by JS. The returned value is in CSS
@@ -58,39 +57,28 @@ public class TopControlsTest {
                     .beginTransaction()
                     .add(android.R.id.content, fragment)
                     .commitNow();
-            mBrowserFragmentController = BrowserFragmentController.fromFragment(fragment);
-            mBrowserFragmentController.setTopView(new FrameLayout(activity));
-            mBrowserController = mBrowserFragmentController.getBrowserController();
+            mBrowser = Browser.fromFragment(fragment);
+            mBrowser.setTopView(new FrameLayout(activity));
+            mTab = mBrowser.getActiveTab();
         });
 
-        mActivityTestRule.navigateAndWait(
-                mBrowserController, UrlUtils.encodeHtmlDataUri("<html></html>"), true);
+        mActivityTestRule.navigateAndWait(mTab, UrlUtils.encodeHtmlDataUri("<html></html>"), true);
 
         // Calling setSupportsEmbedding() makes sure onTopControlsChanged() will get called, which
         // should not crash.
         CallbackHelper helper = new CallbackHelper();
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            mBrowserFragmentController.setSupportsEmbedding(true).addCallback(
+            mBrowser.setSupportsEmbedding(true).addCallback(
                     (Boolean result) -> { helper.notifyCalled(); });
         });
         helper.waitForCallback(0);
     }
 
-    // TODO(https://crbug.com/1020065): fix this test, it's flaky.
     @Test
     @SmallTest
-    @DisabledTest
     public void testBasic() throws Exception {
         final String url = UrlUtils.encodeHtmlDataUri("<body><p style='height:5000px'>");
         InstrumentationActivity activity = mActivityTestRule.launchShellWithUrl(url);
-
-        // Wait for layout to make sure the top contents container is shown.
-        CallbackHelper helper = new CallbackHelper();
-        TestThreadUtils.runOnUiThreadBlocking(() -> {
-            activity.getTopContentsContainer().getViewTreeObserver().addOnGlobalLayoutListener(
-                    helper::notifyCalled);
-        });
-        helper.waitForCallback(0);
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             mTopControlsHeight = activity.getTopContentsContainer().getHeight();

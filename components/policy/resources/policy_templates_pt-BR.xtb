@@ -699,6 +699,11 @@ Se você desativar esta configuração ou deixá-la sem definição, todas as p�
 <translation id="2149330464730004005">Ativar a impressão colorida</translation>
 <translation id="2156132677421487971">"Configurar políticas para o <ph name="PRODUCT_NAME" />", um recurso que permite que os usuários enviem o conteúdo de guias, sites ou a área de trabalho do navegador para telas e sistemas de som remotos.</translation>
 <translation id="2156755242840687300">Servidores de impressão externos ativados</translation>
+<translation id="2160336427036785721">Configura a quantidade de memória que uma única instância do <ph name="PRODUCT_NAME" /> pode usar antes que as guias comecem a ser descartadas para economizar memória. Isto é, a memória usada por uma guia será liberada, e a guia terá que ser atualizada ao ser aberta novamente.
+
+      Se a política for definida, o navegador começará a descartar guias para economizar memória quando o limite for excedido. Entretanto, não há garantia de que o navegador seja sempre executado dentro dos limites. Qualquer valor abaixo de 1.024 será arredondado para esse número.
+
+      Se esta política não for definida, o navegador só começará a economizar memória quando detectar que a quantidade de memória física da máquina está baixa.</translation>
 <translation id="2166472654199325139">Não filtrar sites com conteúdo adulto</translation>
 <translation id="2168397434410358693">Intervalo de inatividade no funcionamento com alimentação CA</translation>
 <translation id="217013996107840632">Parâmetros de linha de comando para fazer a mudança do navegador alternativo.</translation>
@@ -898,6 +903,15 @@ Se você desativar esta configuração ou deixá-la sem definição, todas as p�
           Se a política for ativada ou não for definida, serão exibidos avisos de segurança quando algumas sinalizações da linha de comando forem usadas para iniciar o Chrome.
 
           No Windows, essa política está disponível apenas em instâncias associadas a um domínio do <ph name="MS_AD_NAME" /> ou instâncias do Windows 10 Pro ou Enterprise inscritas no gerenciamento de dispositivos.</translation>
+<translation id="2480971699591919564">Ativar o recurso "Clique para ligar", que permite que os usuários enviem números de telefone de computadores com Chrome para um dispositivo Android quando o usuário está conectado. Para mais informações, acesse o artigo de Central de Ajuda: https://support.google.com/chrome/answer/9430554?hl=pt-BR.
+
+      Se esta política estiver ativada, a capacidade de enviar números de telefone para dispositivos Android estará ativada para o usuário do Chrome.
+
+      Se esta política estiver desativada, a capacidade de enviar números de telefone para dispositivos Android não estará ativada para o usuário do Chrome.
+
+      Se você definir esta política, o usuário não poderá mudá-la ou substituí-la.
+
+      Se esta política não for definida, o recurso "Clique para ligar" ficará ativado por padrão.</translation>
 <translation id="2482676533225429905">Mensagens nativas</translation>
 <translation id="2483146640187052324">Prever ações da rede em qualquer conexão de rede</translation>
 <translation id="2484208301968418871">Esta política controla a aplicação do filtro de URL SafeSites.
@@ -1886,6 +1900,7 @@ Observe que esta política não se aplica ao modo de navegação anônima.</tran
 <translation id="4075864623710596000">Os nomes de host especificados nesta lista estarão isentos da verificação de política HSTS que poderia fazer upgrade de solicitações de http para https. Apenas nomes de host de etiqueta única são permitidos nesta política. Nomes de host precisam ser canonizados: todos os IDNs precisam ser convertidos no formato de etiqueta A, e todas as letras ASCII precisam ser minúsculas. Esta política se aplica apenas aos nomes de host especificados. Ela não se aplica a subdomínios dos nomes especificados.</translation>
 <translation id="408029843066770167">Permitir consultas a um serviço de hora do Google</translation>
 <translation id="408076456549153854">Ativar login no navegador</translation>
+<translation id="4082498585300984671">Ativar o recurso "Clique para ligar"</translation>
 <translation id="40853027210512570">Substitui as regras de seleção da impressora padrão do <ph name="PRODUCT_NAME" />.
 
       Esta política determina as regras para selecionar a impressora padrão no <ph name="PRODUCT_NAME" />, que acontece na primeira vez em que a função de impressão é usada com um perfil.
@@ -3118,6 +3133,10 @@ Se esta política não for definida, qualquer plug-in que corresponder aos padr�
       Observe que esta política será ignorada e os Serviços de localização do Google estarão sempre desativados quando a política <ph name="DEFAULT_GEOLOCATION_SETTING_POLICY_NAME" /> estiver configurada como <ph name="BLOCK_GEOLOCATION_SETTING" />.</translation>
 <translation id="6141402445226505817">Sempre usar detecção de fuso horário aproximada</translation>
 <translation id="6145799962557135888">Permite que você defina uma lista de padrões de URL que especificam sites com permissão para executar o JavaScript. Se esta política for deixada sem definição, o valor padrão global será utilizado para todos os sites a partir da política "DefaultJavaScriptSetting", caso esta tenha sido definida, ou a partir das configurações pessoais do usuário, caso não tenha sido definida.</translation>
+<translation id="614616930188030377">Os padrões desta lista serão comparados com a origem de segurança do URL solicitante.
+      Se uma correspondência for encontrada ou a opção chrome://flags/#enable-webrtc-hide-local-ips-with-mdns estiver desativada, os endereços IP locais serão mostrados nos candidatos ICE do WebRTC.
+      Caso contrário, os endereços IP locais serão ocultos com os nomes de host de mDNS.
+      Observe que, se exigida pelos administradores, esta política enfraquece a proteção dos IPs locais.</translation>
 <translation id="614662973812186053">Esta política também controla a coleta de dados de uso e diagnóstico do Android.</translation>
 <translation id="6153048425064249648">Esta política controla a geração de relatórios em nuvem do <ph name="PRODUCT_NAME" />, que faz upload de informações sobre a operação do navegador no Google Admin Console.
 
@@ -4093,6 +4112,7 @@ Se esta política não for definida, o renderizador padrão será usado para tod
           Se esta política não for definida, o modo de alto contraste será desativado quando a tela de login aparecer pela primeira vez. Os usuários poderão ativar ou desativar o modo de alto contraste a qualquer momento, e o estado dele na tela de login será persistente entre eles.
 
           Observação: se <ph name="DEVICE_LOGIN_SCREEN_HIGH_CONTRAST_ENABLED_POLICY_NAME" /> for especificada, ela substituirá esta política.</translation>
+<translation id="7846952520291088817">URLs para os quais IPs locais são expostos em candidatos ICE do WebRTC</translation>
 <translation id="7858404742201086014">Se você ativar esta configuração, plug-ins desatualizados serão utilizados como plug-ins normais.
 
       Se você desativar esta configuração, plug-ins desatualizados não serão utilizados, e não será solicitada a permissão dos usuários para executá-los.

@@ -544,7 +544,7 @@ class CacheStorageManagerTest : public testing::Test {
         cache_manager_->OpenCacheStorage(origin, owner);
     cache_storage.value()->MatchCache(
         cache_name, std::move(request), std::move(match_options),
-        /* trace_id = */ 0,
+        CacheStorageSchedulerPriority::kNormal, /* trace_id = */ 0,
         base::BindOnce(&CacheStorageManagerTest::CacheMatchCallback,
                        base::Unretained(this), base::Unretained(&loop)));
     loop.Run();
@@ -574,7 +574,7 @@ class CacheStorageManagerTest : public testing::Test {
         cache_manager_->OpenCacheStorage(origin, owner);
     cache_storage.value()->MatchAllCaches(
         std::move(request), std::move(match_options),
-        /* trace_id = */ 0,
+        CacheStorageSchedulerPriority::kNormal, /* trace_id = */ 0,
         base::BindOnce(&CacheStorageManagerTest::CacheMatchCallback,
                        base::Unretained(this), base::Unretained(&loop)));
     loop.Run();
@@ -714,7 +714,8 @@ class CacheStorageManagerTest : public testing::Test {
     request->url = url;
     base::RunLoop loop;
     cache->Match(
-        std::move(request), nullptr, /* trace_id = */ 0,
+        std::move(request), nullptr, CacheStorageSchedulerPriority::kNormal,
+        /* trace_id = */ 0,
         base::BindOnce(&CacheStorageManagerTest::CacheMatchCallback,
                        base::Unretained(this), base::Unretained(&loop)));
     loop.Run();

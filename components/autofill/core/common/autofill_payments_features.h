@@ -29,6 +29,7 @@ extern const base::Feature kAutofillEnableToolbarStatusChip;
 extern const base::Feature kAutofillLocalCardMigrationUsesStrikeSystemV2;
 extern const base::Feature kAutofillNoLocalSaveOnUnmaskSuccess;
 extern const base::Feature kAutofillNoLocalSaveOnUploadSuccess;
+extern const base::Feature kAutofillSaveCardDismissOnNavigation;
 extern const base::Feature kAutofillSaveCardShowNoThanks;
 extern const base::Feature kAutofillSaveCreditCardUsesImprovedMessaging;
 extern const base::Feature kAutofillUpdatedCardUnmaskPromptUi;

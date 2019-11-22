@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Aktiveerimisel saate praegusel veebisaidil lugeda ja muuta kõiki oma andmeid</translation>
 <translation id="1242633766021457174">Tööriist <ph name="THIRD_PARTY_TOOL_NAME" /> soovib teie seaded lähtestada.</translation>
 <translation id="1243314992276662751">Laadi üles</translation>
+<translation id="1243398753772016127">Saidid ei saa reklaamide isikupärastamiseks eri saitidel teie sirvimistegevust kasutada.</translation>
 <translation id="1244265436519979884">Linuxi taastamine on pooleli</translation>
 <translation id="1244303850296295656">Laienduse viga</translation>
 <translation id="1246905108078336582">Kas eemaldada soovitus lõikelaualt?</translation>
@@ -3039,6 +3040,7 @@ Enne VR-i aktiveerimist veenduge, et sait oleks usaldusväärne.</translation>
 <translation id="5466374726908360271">Kleebi ja otsi üksust „<ph name="SEARCH_TERMS" />”</translation>
 <translation id="5468173180030470402">Jagatud failide otsimine</translation>
 <translation id="5471768120198416576">Tere! Mina olen teie kõnesünteesi hääl.</translation>
+<translation id="5472133193607270166">Kui on sisse lülitatud, ei saa saidid reklaamide isikupärastamiseks eri saitidel teie sirvimistegevust kasutada. Mõned saidid ei pruugi korralikult töötada.</translation>
 <translation id="5473333559083690127">Sisestage uus PIN-kood uuesti</translation>
 <translation id="5481941284378890518">Läheduses olevate printerite lubamine</translation>
 <translation id="5483785310822538350">Tühista juurdepääs failile ja seadmele</translation>
@@ -4231,7 +4233,6 @@ Enne VR-i aktiveerimist veenduge, et sait oleks usaldusväärne.</translation>
 <translation id="7221869452894271364">Laadi see lehekülg uuesti</translation>
 <translation id="7222204278952406003">Chrome on teie vaikebrauser</translation>
 <translation id="7222232353993864120">E-posti aadress</translation>
-<translation id="7223859049862598735">Chrome blokeerib küpsisefailid, mida saab kasutada veebis teie jälgimiseks</translation>
 <translation id="7225179976675429563">Võrgu tüüp puudub</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (teenusepakkuja: <ph name="VENDOR_ID" />, teenus: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Muutke seadeid, mis määravad, kas veebisaidid saavad kasutada selliseid funktsioone nagu asukoha määramine, mikrofon, kaamera jne.</translation>
@@ -5579,7 +5580,6 @@ Hoidke oma võtmefail kindlas kohas. Teil läheb seda oma laiendi uute versiooni
 <translation id="9130015405878219958">Sisestati vale režiim.</translation>
 <translation id="9131487537093447019">Bluetoothi seadmetele sõnumite saatmine ja nendelt sõnumite vastuvõtmine.</translation>
 <translation id="9134304429738380103">Jah, olen nõus.</translation>
-<translation id="9135090785674039430">Kui see on sisse lülitatud, ei saa saidid kasutada küpsisefaile, mis jälgivad teid kogu veebis. Mõni veebisait ei pruugi toimida.</translation>
 <translation id="9137013805542155359">Kuva originaal</translation>
 <translation id="9137157311132182254">Eelistatud otsingumootor</translation>
 <translation id="9137248913990643158">Enne selle rakenduse kasutamist alustage ja logige Chrome'i sisse.</translation>

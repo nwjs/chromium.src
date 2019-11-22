@@ -33,6 +33,7 @@ CONTENT_EXPORT extern const base::Feature kBrowserVerifiedUserActivation;
 CONTENT_EXPORT extern const base::Feature kCacheInlineScriptCode;
 CONTENT_EXPORT extern const base::Feature kCacheStorageParallelOps;
 CONTENT_EXPORT extern const base::Feature kCacheStorageEagerReading;
+CONTENT_EXPORT extern const base::Feature kCacheStorageHighPriorityMatch;
 CONTENT_EXPORT extern const base::Feature kCanvas2DImageChromium;
 CONTENT_EXPORT extern const base::Feature kConsolidatedMovementXY;
 CONTENT_EXPORT extern const base::Feature kCookieDeprecationMessages;
@@ -106,6 +107,7 @@ CONTENT_EXPORT extern const base::Feature
 CONTENT_EXPORT extern const base::Feature kServiceWorkerLongRunningMessage;
 CONTENT_EXPORT extern const base::Feature kServiceWorkerOnUI;
 CONTENT_EXPORT extern const base::Feature kServiceWorkerPaymentApps;
+CONTENT_EXPORT extern const base::Feature kServiceWorkerPrefersUnusedProcess;
 CONTENT_EXPORT extern const base::Feature kSharedArrayBuffer;
 CONTENT_EXPORT extern const base::Feature
     kSignedExchangePrefetchCacheForNavigations;

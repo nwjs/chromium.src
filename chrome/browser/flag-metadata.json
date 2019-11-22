@@ -1805,6 +1805,11 @@
     "expiry_milestone": 82
   },
   {
+    "name": "enable-tab-groups-continuation",
+    "owners": [ "memex-team@google.com" ],
+    "expiry_milestone": 84
+  },
+  {
     "name": "enable-tab-groups-ui-improvements",
     "owners": [ "memex-team@google.com" ],
     "expiry_milestone": 82
@@ -2949,6 +2954,11 @@
   },
   {
     "name": "release-notes",
+    "owners": [ "yulunwu" ],
+    "expiry_milestone": 79
+  },
+  {
+    "name": "release-notes-notification",
     "owners": [ "yulunwu" ],
     "expiry_milestone": 79
   },

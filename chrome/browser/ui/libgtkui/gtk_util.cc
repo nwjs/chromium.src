@@ -96,7 +96,7 @@ GdkModifierType ExtractGdkEventStateFromKeyEvent(
       {ui::EF_CONTROL_DOWN, GDK_CONTROL_MASK},
       {ui::EF_ALT_DOWN, GDK_MOD1_MASK},
       {ui::EF_NUM_LOCK_ON, GDK_MOD2_MASK},
-      {ui::EF_MOD3_DOWN, GDK_META_MASK},
+      {ui::EF_MOD3_DOWN, GDK_MOD3_MASK},
       {ui::EF_COMMAND_DOWN, GDK_MOD4_MASK},
       {ui::EF_ALTGR_DOWN, GDK_MOD5_MASK},
       {ui::EF_LEFT_MOUSE_BUTTON, GDK_BUTTON1_MASK},
@@ -617,6 +617,11 @@ GdkDisplay* GetGdkDisplay() {
   return display;
 }
 
+int BuildXkbStateFromGdkEvent(unsigned int state, unsigned char group) {
+  DCHECK_EQ(0u, ((state >> 13) & 0x3));
+  return state | ((group & 0x3) << 13);
+}
+
 GdkEvent* GdkEventFromKeyEvent(const ui::KeyEvent& key_event) {
   GdkEventType event_type =
       key_event.type() == ui::ET_KEY_PRESSED ? GDK_KEY_PRESS : GDK_KEY_RELEASE;
@@ -642,7 +647,7 @@ GdkEvent* GdkEventFromKeyEvent(const ui::KeyEvent& key_event) {
   gdk_event->key.time = event_time.InMilliseconds();
   gdk_event->key.hardware_keycode = hw_code;
   gdk_event->key.keyval = keyval;
-  gdk_event->key.state = state;
+  gdk_event->key.state = BuildXkbStateFromGdkEvent(state, group);
   gdk_event->key.group = group;
   gdk_event->key.send_event = key_event.flags() & ui::EF_FINAL;
   gdk_event->key.is_modifier = state & GDK_MODIFIER_MASK;

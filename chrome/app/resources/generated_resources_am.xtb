@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">ሲጠራ በአሁኑ ድር ጣቢያ ላይ ያለውን ውሂብ ሁሉ ያነብባል እና ይቀይራል</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> ቅንብሮችዎን ዳግም ማስጀመር ይፈልጋሉ።</translation>
 <translation id="1243314992276662751">ስቀል</translation>
+<translation id="1243398753772016127">ጣቢያዎች ማስታወቂያዎችን ግላዊነት ለማላበስ የአሰሳ እንቅስቃሴዎን በተለያዩ ጣቢያዎች ላይ መጠቀም አይችሉም</translation>
 <translation id="1244265436519979884">Linux ወደነበረበት መመለስ አሁን በሂደት ላይ ነው</translation>
 <translation id="1244303850296295656">የቅጥያ ስህተት</translation>
 <translation id="1246905108078336582">የአስተያየት ጥቆማ ከቅንጥብ ሰሌዳ ይወገድ?</translation>
@@ -3036,6 +3037,7 @@
 <translation id="5466374726908360271">ይለጥፉና «<ph name="SEARCH_TERMS" />»ን ይፈልጉ</translation>
 <translation id="5468173180030470402">የፋይል ማጋራቶችን በመፈለግ ላይ</translation>
 <translation id="5471768120198416576">ጤና ይስጥልን! እኔ የጽሑፍ-ወደ-ንግግር ድምጽዎ ነኝ።</translation>
+<translation id="5472133193607270166">ሲበራ ጣቢያዎች ማስታወቂያዎችን ግላዊነት ለማላበስ በተለያዩ ጣቢያዎች ላይ እንቅስቃሴዎን መጠቀም አይችሉም። አንዳንድ ጣቢያዎች በአግባቡ ላይሰሩ ይችላሉ።</translation>
 <translation id="5473333559083690127">አዲሱን ፒን ደግመው ያስገቡ</translation>
 <translation id="5481941284378890518">አቅራቢያ ያሉ አታሚዎችን አክል</translation>
 <translation id="5483785310822538350">የፋይል እና መሣሪያ መዳረሻ ይሻሩ</translation>
@@ -4228,7 +4230,6 @@
 <translation id="7221869452894271364">ይህን ገጽ ዳግም ጫን</translation>
 <translation id="7222204278952406003">Chrome ነባሪው አሳሽዎ ነው</translation>
 <translation id="7222232353993864120">ኢሜይል አድራሻ</translation>
-<translation id="7223859049862598735">Chrome እርስዎን በመላው ድር ላይ ሊከታተሉ የሚችሉ ኩኪዎችን እያገደ ነው</translation>
 <translation id="7225179976675429563">የአውታረ መረብ አይነት ይጎድላል</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (አቅራቢ፦ <ph name="VENDOR_ID" />፣ ምርት፦ <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">ድር ጣቢያዎች እንደ ጂዮአካባቢ፣ ማይክሮፎን፣ ካሜራ፣ ወዘተ. ያሉ ባህሪያትን መጠቀም ይችሉ እንደሆነ የሚገልጹ ቅንብሮችን ይቆጣጠራል።</translation>
@@ -5580,7 +5581,6 @@ nil</translation>
 <translation id="9130015405878219958">ልክ ያልሆነ ሁነታ ገብቷል።</translation>
 <translation id="9131487537093447019">መልዕክቶችን ወደ ብሉቱዝ መሣሪያዎች ይልካል እና ከእነሱ ይቀበላል።</translation>
 <translation id="9134304429738380103">አዎ፣ ገብቼበታለሁ።</translation>
-<translation id="9135090785674039430">ሲበራ ጣቢያዎች እርስዎን በመላው ድር ላይ የሚከታተሉ ኩኪዎችን መጠቀም አይችሉም። አንዳንድ ድር ጣቢያዎች ሊሰበሩ ይችላሉ።</translation>
 <translation id="9137013805542155359">የመጀመሪያውን አሳይ</translation>
 <translation id="9137157311132182254">የተመረጠው የፍለጋ ፕሮግራም</translation>
 <translation id="9137248913990643158">ይህን መተግበሪያ ከመጠቀምዎ በፊት እባክዎ ይጀምሩና ወደ Chrome ይግቡ።</translation>

@@ -103,9 +103,9 @@ void CreateInProcessNetworkServiceOnThread(
   auto registry = std::make_unique<service_manager::BinderRegistry>();
   registry->AddInterface(base::BindRepeating(
       [](mojo::PendingReceiver<network::mojom::NetworkServiceTest>) {}));
-
   static base::NoDestructor<network::NetworkService> service(
-      std::move(registry), std::move(receiver));
+      std::move(registry), std::move(receiver),
+      true /* delay_initialization_until_set_client */);
 }
 
 void CreateInProcessNetworkService(

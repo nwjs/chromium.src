@@ -241,6 +241,14 @@ gfx::Size GlassBrowserFrameView::GetMinimumSize() const {
   return min_size;
 }
 
+gfx::Size GlassBrowserFrameView::GetMaximumSize() const {
+  gfx::Size max_size(browser_view()->GetMaximumSize());
+  if (max_size.height() > 0 || max_size.width() > 0)
+    max_size.Enlarge(0, GetTopInset(false));
+
+  return max_size;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // GlassBrowserFrameView, views::NonClientFrameView implementation:
 

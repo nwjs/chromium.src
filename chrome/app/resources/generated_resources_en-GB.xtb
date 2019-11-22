@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Read and change all your data on the current website when invoked</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> wants to reset your settings.</translation>
 <translation id="1243314992276662751">Upload</translation>
+<translation id="1243398753772016127">Sites can’t use your browsing activity across different sites to personalise ads</translation>
 <translation id="1244265436519979884">Linux restore currently in progress</translation>
 <translation id="1244303850296295656">Extension error</translation>
 <translation id="1246905108078336582">Remove suggestion from clipboard?</translation>
@@ -3039,6 +3040,7 @@ Make sure that you trust this site before entering VR.</translation>
 <translation id="5466374726908360271">Paste and search for '<ph name="SEARCH_TERMS" />'</translation>
 <translation id="5468173180030470402">Looking for file shares</translation>
 <translation id="5471768120198416576">Hi there! I'm your text-to-speech voice.</translation>
+<translation id="5472133193607270166">When on, sites can’t use your browsing activity across different sites to personalise ads. Some sites may not work properly.</translation>
 <translation id="5473333559083690127">Re-enter new PIN</translation>
 <translation id="5481941284378890518">Add Nearby Printers</translation>
 <translation id="5483785310822538350">Revoke file and device access</translation>
@@ -4231,7 +4233,6 @@ Make sure that you trust this site before entering VR.</translation>
 <translation id="7221869452894271364">Reload this page</translation>
 <translation id="7222204278952406003">Chrome is your default browser</translation>
 <translation id="7222232353993864120">Email Address</translation>
-<translation id="7223859049862598735">Chrome is blocking cookies that can be used to track you across the web</translation>
 <translation id="7225179976675429563">Network type missing</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (Vendor: <ph name="VENDOR_ID" />, Product: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Manipulate settings that specify whether websites can use features such as geo-location, microphone, camera, etc.</translation>
@@ -5579,7 +5580,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="9130015405878219958">Invalid mode entered.</translation>
 <translation id="9131487537093447019">Send messages to and receive messages from Bluetooth devices.</translation>
 <translation id="9134304429738380103">Yes, I'm in.</translation>
-<translation id="9135090785674039430">When turned on, sites can't use cookies that track you across the web. Some websites might break.</translation>
 <translation id="9137013805542155359">Show original</translation>
 <translation id="9137157311132182254">Preferred search engine</translation>
 <translation id="9137248913990643158">Please start and sign in to Chrome before using this app.</translation>

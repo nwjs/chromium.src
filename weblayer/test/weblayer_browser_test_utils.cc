@@ -4,105 +4,46 @@
 
 #include "weblayer/test/weblayer_browser_test_utils.h"
 
-#include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind_test_util.h"
 #include "url/gurl.h"
-#include "weblayer/public/browser_controller.h"
-#include "weblayer/public/navigation.h"
 #include "weblayer/public/navigation_controller.h"
-#include "weblayer/public/navigation_observer.h"
+#include "weblayer/public/tab.h"
 #include "weblayer/shell/browser/shell.h"
+#include "weblayer/test/test_navigation_observer.h"
 
 namespace weblayer {
 
 namespace {
 
-// Runs |closure| once |url| is successfully navigated to.
-class TestNavigationObserver : public NavigationObserver {
- public:
-  enum class NavigationEventToObserve { Completion, Failure };
-
-  TestNavigationObserver(base::OnceClosure closure,
-                         const GURL& url,
-                         NavigationEventToObserve event,
-                         Shell* shell)
-      : closure_(std::move(closure)),
-        url_(url),
-        event_(event),
-        browser_(shell->browser_controller()) {
-    browser_->GetNavigationController()->AddObserver(this);
-  }
-
-  ~TestNavigationObserver() override {
-    browser_->GetNavigationController()->RemoveObserver(this);
-  }
-
- private:
-  // NavigationObserver implementation:
-  void NavigationCompleted(Navigation* navigation) override {
-    if (navigation->GetURL() == url_ &&
-        event_ == NavigationEventToObserve::Completion) {
-      navigation_complete_ = true;
-      CheckComplete();
-    }
-  }
-
-  void NavigationFailed(Navigation* navigation) override {
-    if (navigation->GetURL() == url_ &&
-        event_ == NavigationEventToObserve::Failure) {
-      std::move(closure_).Run();
-    }
-  }
-
-  void LoadStateChanged(bool is_loading, bool to_different_document) override {
-    done_loading_ = !is_loading;
-    CheckComplete();
-  }
-
-  void CheckComplete() {
-    if (done_loading_ && navigation_complete_)
-      std::move(closure_).Run();
-  }
-
-  base::OnceClosure closure_;
-  const GURL url_;
-  NavigationEventToObserve event_;
-  BrowserController* browser_;
-  bool done_loading_ = false;
-  bool navigation_complete_ = false;
-};
-
 // Navigates to |url| in |shell| and waits for |event| to occur.
-void NavigateAndWaitForEvent(
-    const GURL& url,
-    Shell* shell,
-    TestNavigationObserver::NavigationEventToObserve event) {
-  base::RunLoop run_loop;
-  TestNavigationObserver test_observer(run_loop.QuitClosure(), url, event,
-                                       shell);
-
-  shell->browser_controller()->GetNavigationController()->Navigate(url);
-  run_loop.Run();
+void NavigateAndWaitForEvent(const GURL& url,
+                             Shell* shell,
+                             TestNavigationObserver::NavigationEvent event) {
+  TestNavigationObserver test_observer(url, event, shell);
+  shell->tab()->GetNavigationController()->Navigate(url);
+  test_observer.Wait();
 }
 
 }  // namespace
 
 void NavigateAndWaitForCompletion(const GURL& url, Shell* shell) {
-  NavigateAndWaitForEvent(
-      url, shell, TestNavigationObserver::NavigationEventToObserve::Completion);
+  NavigateAndWaitForEvent(url, shell,
+                          TestNavigationObserver::NavigationEvent::Completion);
 }
 
 void NavigateAndWaitForFailure(const GURL& url, Shell* shell) {
-  NavigateAndWaitForEvent(
-      url, shell, TestNavigationObserver::NavigationEventToObserve::Failure);
+  NavigateAndWaitForEvent(url, shell,
+                          TestNavigationObserver::NavigationEvent::Failure);
 }
 
-base::Value ExecuteScript(Shell* shell, const std::string& script) {
+base::Value ExecuteScript(Shell* shell,
+                          const std::string& script,
+                          bool use_separate_isolate) {
   base::Value final_result;
   base::RunLoop run_loop;
-  shell->browser_controller()->ExecuteScript(
-      base::ASCIIToUTF16(script),
+  shell->tab()->ExecuteScript(
+      base::ASCIIToUTF16(script), use_separate_isolate,
       base::BindLambdaForTesting(
           [&run_loop, &final_result](base::Value result) {
             final_result = std::move(result);

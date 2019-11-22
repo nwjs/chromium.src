@@ -4,10 +4,8 @@
 
 package org.chromium.weblayer.test;
 
-import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
 
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -18,7 +16,6 @@ import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.content_public.browser.test.util.Criteria;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
-import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.weblayer.FullscreenCallback;
 import org.chromium.weblayer.shell.InstrumentationActivity;
 
@@ -31,7 +28,6 @@ public class FullscreenCallbackTest {
     public InstrumentationActivityTestRule mActivityTestRule =
             new InstrumentationActivityTestRule();
 
-    private EmbeddedTestServer mTestServer;
     private InstrumentationActivity mActivity;
     private Delegate mDelegate;
 
@@ -41,13 +37,13 @@ public class FullscreenCallbackTest {
         public Runnable mExitFullscreenRunnable;
 
         @Override
-        public void enterFullscreen(Runnable exitFullscreenRunner) {
+        public void onEnterFullscreen(Runnable exitFullscreenRunner) {
             mEnterFullscreenCount++;
             mExitFullscreenRunnable = exitFullscreenRunner;
         }
 
         @Override
-        public void exitFullscreen() {
+        public void onExitFullscreen() {
             mExitFullscreenCount++;
         }
 
@@ -72,28 +68,17 @@ public class FullscreenCallbackTest {
 
     @Before
     public void setUp() {
-        mTestServer = new EmbeddedTestServer();
-        mTestServer.initializeNative(InstrumentationRegistry.getInstrumentation().getContext(),
-                EmbeddedTestServer.ServerHTTPSSetting.USE_HTTP);
-        mTestServer.addDefaultHandlers("weblayer/test/data");
-        Assert.assertTrue(mTestServer.start(0));
-
-        String url = mTestServer.getURL("/fullscreen.html");
+        String url = mActivityTestRule.getTestDataURL("fullscreen.html");
         mActivity = mActivityTestRule.launchShellWithUrl(url);
         Assert.assertNotNull(mActivity);
         mDelegate = new Delegate();
         TestThreadUtils.runOnUiThreadBlocking(
-                () -> { mActivity.getBrowserController().setFullscreenCallback(mDelegate); });
+                () -> { mActivity.getTab().setFullscreenCallback(mDelegate); });
 
         // First touch enters fullscreen.
         EventUtils.simulateTouchCenterOfView(mActivity.getWindow().getDecorView());
         mDelegate.waitForFullscreen();
         Assert.assertEquals(1, mDelegate.mEnterFullscreenCount);
-    }
-
-    @After
-    public void tearDown() {
-        mTestServer.stopAndDestroyServer();
     }
 
     @Test
@@ -110,7 +95,7 @@ public class FullscreenCallbackTest {
     public void testExitFullscreenWhenDelegateCleared() {
         // Clearing the FullscreenCallback should exit fullscreen.
         TestThreadUtils.runOnUiThreadBlocking(
-                () -> { mActivity.getBrowserController().setFullscreenCallback(null); });
+                () -> { mActivity.getTab().setFullscreenCallback(null); });
         mDelegate.waitForExitFullscreen();
         Assert.assertEquals(1, mDelegate.mExitFullscreenCount);
     }

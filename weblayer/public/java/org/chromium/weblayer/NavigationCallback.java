@@ -19,7 +19,7 @@ import androidx.annotation.NonNull;
  */
 public abstract class NavigationCallback {
     /**
-     * Called when a navigation started in the BrowserController. |navigation| is unique to a
+     * Called when a navigation started in the Tab. |navigation| is unique to a
      * specific navigation. The same |navigation| will be  provided on subsequent calls to
      * NavigationRedirected, NavigationCommitted, NavigationCompleted and NavigationFailed when
      * related to this navigation. Observers should clear any references to |navigation| in
@@ -31,7 +31,7 @@ public abstract class NavigationCallback {
      * pushState/replaceState, which will not result in a document change. To filter these out, use
      * Navigation::IsSameDocument.
      *
-     * Note that more than one navigation can be ongoing in the BrowserController at the same time.
+     * Note that more than one navigation can be ongoing in the Tab at the same time.
      * Each will get its own Navigation object.
      *
      * Note that there is no guarantee that NavigationCompleted/NavigationFailed will be called for
@@ -39,14 +39,14 @@ public abstract class NavigationCallback {
      *
      * @param navigation the unique object for this navigation.
      */
-    public void navigationStarted(@NonNull Navigation navigation) {}
+    public void onNavigationStarted(@NonNull Navigation navigation) {}
 
     /**
      * Called when a navigation encountered a server redirect.
      *
      * @param navigation the unique object for this navigation.
      */
-    public void navigationRedirected(@NonNull Navigation navigation) {}
+    public void onNavigationRedirected(@NonNull Navigation navigation) {}
 
     /**
      * Called when the navigation is ready to be committed in a renderer. This occurs when the
@@ -55,20 +55,20 @@ public abstract class NavigationCallback {
      * mime sniffing the response). The browser then is ready to switch rendering the new document.
      * Most observers should use NavigationCompleted or NavigationFailed instead, which happens
      * right after the navigation commits. This method is for observers that want to initialize
-     * renderer-side state just before the BrowserController commits the navigation.
+     * renderer-side state just before the Tab commits the navigation.
      *
-     * This is the first point in time where a BrowserController is associated with the navigation.
+     * This is the first point in time where a Tab is associated with the navigation.
      *
      * @param navigation the unique object for this navigation.
      */
-    public void readyToCommitNavigation(@NonNull Navigation navigation) {}
+    public void onReadyToCommitNavigation(@NonNull Navigation navigation) {}
 
     /**
-     * Called when a navigation completes successfully in the BrowserController.
+     * Called when a navigation completes successfully in the Tab.
      *
-     * The document load will still be ongoing in the BrowserController. Use the document loads
+     * The document load will still be ongoing in the Tab. Use the document loads
      * events such as onFirstContentfulPaint and related methods to listen for continued events from
-     * this BrowserController.
+     * this Tab.
      *
      * Note that this is fired by same-document navigations, such as fragment navigations or
      * pushState/replaceState, which will not result in a document change. To filter these out, use
@@ -79,17 +79,17 @@ public abstract class NavigationCallback {
      *
      * @param navigation the unique object for this navigation.
      */
-    public void navigationCompleted(@NonNull Navigation navigation) {}
+    public void onNavigationCompleted(@NonNull Navigation navigation) {}
 
     /**
-     * Called when a navigation aborts in the BrowserController.
+     * Called when a navigation aborts in the Tab.
      *
      * Note that |navigation| will be destroyed at the end of this call, so do not keep a reference
      * to it afterward.
      *
      * @param navigation the unique object for this navigation.
      */
-    public void navigationFailed(@NonNull Navigation navigation) {}
+    public void onNavigationFailed(@NonNull Navigation navigation) {}
 
     /**
      * The load state of the document has changed.
@@ -98,14 +98,14 @@ public abstract class NavigationCallback {
      * @param toDifferentDocument True if the main frame is loading a different document. Only valid
      *        when |isLoading| is true.
      */
-    public void loadStateChanged(boolean isLoading, boolean toDifferentDocument) {}
+    public void onLoadStateChanged(boolean isLoading, boolean toDifferentDocument) {}
 
     /**
      * The progress of loading the main frame in the document has changed.
      *
      * @param progress A value in the range of 0.0-1.0.
      */
-    public void loadProgressChanged(double progress) {}
+    public void onLoadProgressChanged(double progress) {}
 
     /**
      * This is fired after each navigation has completed to indicate that the first paint after a

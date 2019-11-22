@@ -76,10 +76,11 @@ void ReputationWebContentsObserver::DidFinishNavigation(
   if (!navigation_handle->IsInMainFrame() ||
       navigation_handle->IsSameDocument() ||
       !navigation_handle->HasCommitted()) {
+    MaybeCallReputationCheckCallback();
     return;
   }
 
-  last_navigation_safety_tip_info_ = {security_state::SafetyTipStatus::kNone,
+  last_navigation_safety_tip_info_ = {security_state::SafetyTipStatus::kUnknown,
                                       GURL()};
   last_safety_tip_navigation_entry_id_ = 0;
 
@@ -100,7 +101,7 @@ ReputationWebContentsObserver::GetSafetyTipInfoForVisibleNavigation() const {
   return last_safety_tip_navigation_entry_id_ == entry->GetUniqueID()
              ? last_navigation_safety_tip_info_
              : security_state::SafetyTipInfo(
-                   {security_state::SafetyTipStatus::kNone, GURL()});
+                   {security_state::SafetyTipStatus::kUnknown, GURL()});
 }
 
 void ReputationWebContentsObserver::RegisterReputationCheckCallbackForTesting(
@@ -113,7 +114,7 @@ ReputationWebContentsObserver::ReputationWebContentsObserver(
     : WebContentsObserver(web_contents),
       profile_(Profile::FromBrowserContext(web_contents->GetBrowserContext())),
       weak_factory_(this) {
-  last_navigation_safety_tip_info_ = {security_state::SafetyTipStatus::kNone,
+  last_navigation_safety_tip_info_ = {security_state::SafetyTipStatus::kUnknown,
                                       GURL()};
 }
 
@@ -137,24 +138,10 @@ void ReputationWebContentsObserver::MaybeShowSafetyTip() {
 
 void ReputationWebContentsObserver::HandleReputationCheckResult(
     security_state::SafetyTipStatus safety_tip_status,
-    bool user_ignored,
     const GURL& url,
     const GURL& suggested_url) {
   UMA_HISTOGRAM_ENUMERATION("Security.SafetyTips.SafetyTipShown",
                             safety_tip_status);
-
-  if (safety_tip_status == security_state::SafetyTipStatus::kNone ||
-      safety_tip_status == security_state::SafetyTipStatus::kBadKeyword) {
-    MaybeCallReputationCheckCallback();
-    return;
-  }
-
-  if (user_ignored) {
-    UMA_HISTOGRAM_ENUMERATION("Security.SafetyTips.SafetyTipIgnoredPageLoad",
-                              safety_tip_status);
-    MaybeCallReputationCheckCallback();
-    return;
-  }
 
   // Set this field independent of whether the feature to show the UI is
   // enabled/disabled. Metrics code uses this field and we want to record
@@ -165,10 +152,27 @@ void ReputationWebContentsObserver::HandleReputationCheckResult(
   // triggered when a committed navigation finishes.
   last_safety_tip_navigation_entry_id_ =
       web_contents()->GetController().GetLastCommittedEntry()->GetUniqueID();
-  // Update the visible security state, since we downgrade indicator when a
-  // safety tip is triggered. This has to happen after
-  // last_safety_tip_navigation_entry_id_ is updated.
-  web_contents()->DidChangeVisibleSecurityState();
+  // Since we downgrade indicator when a safety tip is triggered, update the
+  // visible security state if we have a non-kNone status. This has to happen
+  // after last_safety_tip_navigation_entry_id_ is updated.
+  if (safety_tip_status != security_state::SafetyTipStatus::kNone) {
+    web_contents()->DidChangeVisibleSecurityState();
+  }
+
+  if (safety_tip_status == security_state::SafetyTipStatus::kNone ||
+      safety_tip_status == security_state::SafetyTipStatus::kBadKeyword) {
+    MaybeCallReputationCheckCallback();
+    return;
+  }
+
+  if (safety_tip_status == security_state::SafetyTipStatus::kLookalikeIgnored ||
+      safety_tip_status ==
+          security_state::SafetyTipStatus::kBadReputationIgnored) {
+    UMA_HISTOGRAM_ENUMERATION("Security.SafetyTips.SafetyTipIgnoredPageLoad",
+                              safety_tip_status);
+    MaybeCallReputationCheckCallback();
+    return;
+  }
 
   MaybeCallReputationCheckCallback();
 

@@ -29,6 +29,7 @@ import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.RenderCoordinates;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
+import org.chromium.content_public.common.ResourceRequestBody;
 import org.chromium.ui.base.ViewAndroidDelegate;
 
 /**
@@ -217,6 +218,12 @@ public class OverlayPanelContent {
             }
 
             @Override
+            public void openNewTab(String url, String extraHeaders, ResourceRequestBody postData,
+                    int disposition, boolean isRendererInitiated) {
+                mContentDelegate.onOpenNewTabRequested(url);
+            }
+
+            @Override
             public int getTopControlsHeight() {
                 return (int) (mBarHeightPx
                         / mActivity.getWindowAndroid().getDisplay().getDipScale());
@@ -350,12 +357,18 @@ public class OverlayPanelContent {
                     }
 
                     @Override
+                    public void titleWasSet(String title) {
+                        mContentDelegate.onTitleUpdated(title);
+                    }
+
+                    @Override
                     public void didFinishNavigation(NavigationHandle navigation) {
                         if (navigation.hasCommitted() && navigation.isInMainFrame()) {
                             mIsProcessingPendingNavigation = false;
                             mContentDelegate.onMainFrameNavigation(navigation.getUrl(),
                                     !TextUtils.equals(navigation.getUrl(), mLoadedUrl),
-                                    isHttpFailureCode(navigation.httpStatusCode()));
+                                    isHttpFailureCode(navigation.httpStatusCode()),
+                                    navigation.isErrorPage());
                         }
                     }
                 };

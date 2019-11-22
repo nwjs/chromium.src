@@ -248,7 +248,7 @@
 <translation id="2114841414352855701">এড়িয়ে যাওয়া হয়েছে কারণ এটি <ph name="POLICY_NAME" />-দ্বারা ওভাররাইড করা হয়েছিল৷</translation>
 <translation id="2119505898009119320">এই সংস্থাকে ইস্যু করা হয়েছিল: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">নিচে ডানদিকে পাঞ্চ করুন</translation>
-<translation id="2124528555835617522">আপনার ব্যবহার করা সাইট বা অ্যাপে ডেটার নিরাপত্তা লঙ্ঘন হয়েছে। Chrome এখনই আপনার সেভ করা পাসওয়ার্ড পরীক্ষা করার জন্য সাজেস্ট করছে।</translation>
+<translation id="2124528555835617522">আপনার ব্যবহার করা সাইট বা অ্যাপে ডেটার নিরাপত্তা লঙ্ঘন হয়েছে। Chrome এখনই আপনার সেভ করা পাসওয়ার্ড পরীক্ষা করতে সাজেস্ট করছে।</translation>
 <translation id="2129079103035905234">মোশন সেন্সর</translation>
 <translation id="213826338245044447">মোবাইল বুকমার্ক</translation>
 <translation id="214556005048008348">পেমেন্ট বাতিল করুন</translation>
@@ -488,7 +488,7 @@
 <translation id="3282497668470633863">কার্ডে থাকা নাম যোগ করুন</translation>
 <translation id="3287510313208355388">অনলাইন হয়ে ডাউনলোড করবেন</translation>
 <translation id="3293642807462928945"><ph name="POLICY_NAME" /> নীতি সম্পর্কে আরও জানুন</translation>
-<translation id="3295439534709115864">আপনার ব্যবহার করা সাইট বা অ্যাপে ডেটার নিরাপত্তা লঙ্ঘন হয়েছে। Chrome এখন <ph name="ORIGIN" />-এ আপনার পাসওয়ার্ড পরিবর্তন করার সাজেস্ট করছে।</translation>
+<translation id="3295439534709115864">আপনার ব্যবহার করা সাইট বা অ্যাপে ডেটার নিরাপত্তা লঙ্ঘন হয়েছে। Chrome এখন <ph name="ORIGIN" />-এ আপনার পাসওয়ার্ড পরিবর্তন করতে সাজেস্ট করছে।</translation>
 <translation id="3303855915957856445">কোনো সার্চ ফলাফল পাওয়া যায়নি</translation>
 <translation id="3320021301628644560">বিলিংয়ের ঠিকানা যোগ করুন</translation>
 <translation id="3324983252691184275">টকটকে লাল</translation>

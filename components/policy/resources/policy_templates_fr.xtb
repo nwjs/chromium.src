@@ -3,7 +3,7 @@
 <translationbundle lang="fr">
 <translation id="1001649754854402482">Atténuer les vérifications <ph name="CORS" /> dans la nouvelle mise en œuvre de <ph name="CORS" />, ce qui permet aux extensions de conserver un comportement compatible, et à <ph name="PRODUCT_NAME" /> d'envoyer les en-têtes spécifiés sans vérifications <ph name="CORS" />.
 
-      Si aucun paramètre d'atténuation n'est indiqué dans la liste, <ph name="PRODUCT_NAME" /> essaie d'exécuter les extensions de manière compatible, et n'introduit pas de modifications de <ph name="API" /> pour <ph name="PRODUCT_NAME" /> 79 (comme indiqué dans le <ph name="WEB_REQUEST_API_MANUAL" />).
+      Si aucun paramètre d'atténuation n'est indiqué dans la liste, <ph name="PRODUCT_NAME" /> essaie d'exécuter les extensions de manière compatible, et n'introduit pas de modifications de <ph name="API" /> pour <ph name="PRODUCT_NAME" /> 79 (comme indiqué à la page <ph name="WEB_REQUEST_API_MANUAL" />).
 
       Si cette liste est définie pour contenir le nom d'en-têtes de requêtes <ph name="HTTP" />, les vérifications <ph name="CORS" /> ignorent les en-têtes répertoriés en plus d'être atténuées pour les extensions.
 
@@ -717,6 +717,11 @@ Si ce paramètre n'est pas défini, les utilisateurs peuvent choisir d'utiliser 
 <translation id="2149330464730004005">Activer l'impression couleur</translation>
 <translation id="2156132677421487971">Configurer les règles pour <ph name="PRODUCT_NAME" />, une fonctionnalité permettant aux utilisateurs de caster le contenu des onglets, des sites ou de leur bureau depuis leur navigateur sur des écrans ou systèmes audio distants.</translation>
 <translation id="2156755242840687300">Serveurs d'impression externes activés</translation>
+<translation id="2160336427036785721">Permet de configurer la quantité de mémoire qu'une instance de <ph name="PRODUCT_NAME" /> peut utiliser avant que des onglets ne commencent à être ignorés (c'est-à-dire que la mémoire utilisée par l'onglet sera libérée, et l'onglet devra être actualisé lorsque l'utilisateur le sélectionnera) afin d'économiser de la mémoire.
+
+      Si cette règle est configurée, le navigateur commence à ignorer des onglets pour économiser de la mémoire lorsque la limite est dépassée. Il n'est cependant pas garanti que le navigateur fonctionne toujours en deçà de cette limite. Toute valeur inférieure à 1024 est arrondie à ce nombre.
+
+      Si cette règle n'est pas configurée, le navigateur ne commence à économiser de la mémoire que s'il détecte que la quantité de mémoire physique sur l'ordinateur est faible.</translation>
 <translation id="2166472654199325139">Ne pas filtrer les sites de contenus réservés aux adultes</translation>
 <translation id="2168397434410358693">Délai d'inactivité (secteur)</translation>
 <translation id="217013996107840632">Paramètres de ligne de commande pour basculer vers Chrome à partir du navigateur secondaire.</translation>
@@ -924,6 +929,15 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
           Si elle est activée ou si elle n'est pas définie, les avertissements de sécurité s'affichent si certains indicateurs de ligne de commande sont utilisés pour lancer Chrome.
 
           Sur Windows, cette règle est uniquement disponible sur les instances associées à un domaine <ph name="MS_AD_NAME" /> ou sur les instances Windows 10 Pro ou Windows Enterprise qui sont enregistrées pour bénéficier de la gestion des appareils.</translation>
+<translation id="2480971699591919564">Cette règle active la fonctionnalité d'appel direct, qui autorise les utilisateurs à envoyer des numéros de téléphone depuis leur ordinateur équipé de Chrome vers un appareil Android lorsqu'ils sont connectés. Pour plus d'informations, consultez cet article du centre d'aide : https://support.google.com/chrome/answer/9430554?hl=fr.
+
+      Si cette règle est activée, la fonctionnalité permettant d'envoyer des numéros de téléphone vers des appareils Android sera activée pour l'utilisateur Chrome.
+
+      Si cette règle est désactivée, la fonctionnalité permettant d'envoyer des numéros de téléphone vers des appareils Android sera désactivée pour l'utilisateur Chrome.
+
+      Si vous configurez cette règle, les utilisateurs ne peuvent ni la modifier, ni l'ignorer.
+
+      Si vous ne définissez pas cette règle, la fonctionnalité d'appel direct est activée par défaut.</translation>
 <translation id="2482676533225429905">Messagerie native</translation>
 <translation id="2483146640187052324">Prédire les actions réseau lors d'une connexion au réseau</translation>
 <translation id="2484208301968418871">Cette règle contrôle l'application du filtre d'URL SafeSites.
@@ -1942,6 +1956,7 @@ Cette option est habituellement désactivée dans le cadre de la protection cont
 <translation id="4075864623710596000">Les noms d'hôte indiqués dans cette liste seront exemptés de la vérification de la règle HSTS susceptible de remplacer les requêtes HTTP par des requêtes HTTPS. Seuls les noms d'hôte sans extension sont autorisés dans cette règle. Les noms d'hôtes doivent être indiqués sous forme canonique : tous les noms de domaine internationalisés (IDN) doivent être convertis dans leur format d'étiquette A, et toutes les lettres ASCII doivent être en minuscules. Cette règle ne s'applique qu'aux noms d'hôte spécifiques indiqués. Elle ne concerne pas leurs sous-domaines.</translation>
 <translation id="408029843066770167">Autoriser l'envoi de requêtes à un service horaire de Google</translation>
 <translation id="408076456549153854">Activer la connexion au navigateur</translation>
+<translation id="4082498585300984671">Activer la fonctionnalité d'appel direct</translation>
 <translation id="40853027210512570">Remplace les règles par défaut de sélection d'imprimante pour <ph name="PRODUCT_NAME" />.
 
       Cette règle détermine les critères utilisés pour la sélection d'imprimante par défaut dans <ph name="PRODUCT_NAME" />, ce qui se produit la première fois que la fonction d'impression est utilisée avec un profil.
@@ -2953,11 +2968,11 @@ Lorsque cette règle n'est pas configurée, le paramètre par défaut utilisé c
 
       Le fichier est téléchargé et mis en cache. Le hachage cryptographique permet de vérifier l'intégrité du fichier téléchargé. Le fichier sera de nouveau téléchargé chaque fois que l'URL ou le hachage seront modifiés.
 
-      Lorsque cette règle est définie sur une valeur correcte, les appareils essaient d'interroger les serveurs d'impression spécifiés pour accéder aux imprimantes disponibles à l'aide du protocole IPP.
+      Lorsque cette règle est définie avec une valeur correcte, les appareils essaient d'interroger les serveurs d'impression spécifiés pour accéder aux imprimantes disponibles à l'aide du protocole IPP.
 
-      Si cette règle n'est pas configurée ou si elle est définie sur une valeur incorrecte, aucune imprimante du serveur n'est proposée aux utilisateurs.
+      Si cette règle n'est pas définie, ou si sa valeur est incorrecte, aucune imprimante du serveur n'est visible pour les utilisateurs.
 
-      Actuellement, le nombre de serveurs d'impression est limité à 16. Seuls les 16 premiers serveurs d'impression de la liste sont interrogés.
+      Actuellement, le nombre de serveurs d'impression est limité à 16. Seuls les 16 premiers serveurs d'impression de la liste seront interrogés.
       </translation>
 <translation id="5592242031005200087">
       Si cette règle est activée, chacune des origines définies et répertoriées dans une
@@ -3225,6 +3240,10 @@ Si l'option "Forcé" est sélectionnée, les pages peuvent être ouvertes UNIQUE
 <translation id="6145799962557135888">Permet de définir une liste de formats d'URL spécifiant les sites qui sont autorisés à exécuter JavaScript. 
 
 Si cette règle n'est pas configurée, la valeur par défaut globale sera utilisée pour tous les sites à partir de la règle "DefaultJavaScriptSetting", si elle est définie, ou à défaut, à partir de la configuration personnelle de l'utilisateur.</translation>
+<translation id="614616930188030377">Les modèles de cette liste sont comparés à la source de sécurité de l'URL à l'origine de la demande.
+      En cas de correspondance ou si chrome://flags/#enable-webrtc-hide-local-ips-with-mdns est désactivé, les candidats WebRTC ICE affichent les adresses IP locales.
+      Sinon, les adresses IP locales sont masquées avec les noms d'hôte mDNS.
+      Veuillez noter que cette règle affaiblit la protection des adresses IP locales, dans le cas où celle-ci serait requise par les administrateurs.</translation>
 <translation id="614662973812186053">Cette règle permet également de contrôler la collecte des données d'utilisation et de diagnostic sur les appareils Android.</translation>
 <translation id="6153048425064249648">Cette règle permet de contrôler la création de rapports dans le cloud pour <ph name="PRODUCT_NAME" />, qui transmet des informations sur le fonctionnement du navigateur à la console d'administration Google.
 
@@ -3276,7 +3295,7 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
 
       Si cette règle est définie sur "False" ou si elle n'est pas configurée, la nouvelle mise en œuvre utilisée peut causer des problèmes de compatibilité spécifiques à l'entreprise.
 
-      Cette règle sera supprimée après quelques jalons.
+      Cette règle sera supprimée après quelques étapes intermédiaires.
 
       Pour en savoir plus sur <ph name="CORS" />, consultez la page <ph name="CORS_HELP_URL" />.</translation>
 <translation id="6178075938488052838">Cette règle permet de contrôler les utilisateurs autorisés à démarrer une session <ph name="PRODUCT_OS_NAME" />. Elle n'empêche pas les utilisateurs de se connecter à un autre compte Google sur un appareil Android. Pour ce faire, configurez la règle <ph name="ACCOUNT_TYPES_WITH_MANAGEMENT_DISABLED_CLOUDDPC_POLICY_NAME" /> propre à Android via <ph name="ARC_POLICY_POLICY_NAME" />.</translation>
@@ -3544,7 +3563,7 @@ Si vous désactivez ce paramètre ou si vous ne le configurez pas, le SPN Kerber
 
       Si cette règle est définie sur "False", ils ne sont pas autorisés à se connecter à un autre compte Google depuis une application Android ou depuis la zone de contenu d'un navigateur n'étant pas en mode navigation privée.
 
-      Si elle est définie sur "True" ou si elle n'est pas configurée, le comportement par défaut est utilisé : ils peuvent se connecter à un autre compte Google depuis une application Android ou depuis la zone de contenu du navigateur, sauf pour les comptes enfant où cela sera bloqué pour la zone de contenu hors navigation privée.
+      Si elle est définie sur "True" ou si elle n'est pas configurée, le comportement par défaut est utilisé : ils peuvent se connecter à un autre compte Google depuis une application Android ou depuis la zone de contenu du navigateur, sauf pour les comptes enfants où cela sera bloqué pour la zone de contenu hors navigation privée.
 
       Dans le cas où la connexion à un autre compte ne devrait pas être autorisée via le mode navigation privée, pensez à bloquer ce mode à l'aide de la règle IncognitoModeAvailability.
 
@@ -4224,6 +4243,7 @@ au maximum si un utilisateur se sert de l'appareil.
           Si cette règle n'est pas configurée, le contraste élevé est désactivé au premier affichage de l'écran de connexion. Les utilisateurs peuvent l'activer ou le désactiver à tout moment, et son état sur l'écran de connexion est appliqué à tous les utilisateurs.
 
           Remarque : <ph name="DEVICE_LOGIN_SCREEN_HIGH_CONTRAST_ENABLED_POLICY_NAME" /> remplace cette règle si l'ancienne est définie.</translation>
+<translation id="7846952520291088817">URL pour lesquelles les candidats WebRTC ICE affichent les adresses IP locales</translation>
 <translation id="7858404742201086014">Si vous activez ce paramètre, les plug-ins obsolètes sont utilisés comme des plug-ins normaux.
 
       Si vous désactivez ce paramètre, les plug-ins obsolètes ne sont pas utilisés, et l'autorisation des utilisateurs ne sera pas requise pour leur exécution.

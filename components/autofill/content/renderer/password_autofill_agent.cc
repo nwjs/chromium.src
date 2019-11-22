@@ -783,10 +783,9 @@ bool PasswordAutofillAgent::ShouldSuppressKeyboard() {
 
 bool PasswordAutofillAgent::TryToShowTouchToFill(
     const WebFormControlElement& control_element) {
-#if defined(OS_ANDROID)
   // Don't show Touch To Fill if it should only be enabled for insecure origins
   // and we are currently on a potentially trustworthy origin.
-  if (base::GetFieldTrialParamByFeatureAsBool(features::kTouchToFillAndroid,
+  if (base::GetFieldTrialParamByFeatureAsBool(features::kAutofillTouchToFill,
                                               "insecure-origins-only",
                                               /*default_value=*/false) &&
       render_frame()
@@ -796,7 +795,6 @@ bool PasswordAutofillAgent::TryToShowTouchToFill(
           .IsPotentiallyTrustworthy()) {
     return false;
   }
-#endif  // OS_ANDROID
 
   if (touch_to_fill_state_ != TouchToFillState::kShouldShow)
     return false;

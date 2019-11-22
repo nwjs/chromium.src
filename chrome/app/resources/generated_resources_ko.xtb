@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">호출할 경우 현재 웹사이트에 있는 모든 데이터를 읽고 변경합니다.</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" />에서 설정을 재설정하려 합니다.</translation>
 <translation id="1243314992276662751">업로드</translation>
+<translation id="1243398753772016127">사이트에서 사용자의 타 사이트 탐색 활동 정보를 이용해 광고를 맞춤설정할 수 없습니다.</translation>
 <translation id="1244265436519979884">현재 Linux 복원이 진행 중입니다.</translation>
 <translation id="1244303850296295656">확장 프로그램 오류</translation>
 <translation id="1246905108078336582">클립보드에서 추천 항목을 삭제하시겠습니까?</translation>
@@ -3037,6 +3038,7 @@ VR로 들어가기 전에 이 사이트를 신뢰할 수 있는지 확인하세�
 <translation id="5466374726908360271">'<ph name="SEARCH_TERMS" />' 붙여넣기 및 검색(&amp;S)</translation>
 <translation id="5468173180030470402">파일 공유 찾는 중</translation>
 <translation id="5471768120198416576">안녕하세요. 텍스트 음성 변환의 음성입니다.</translation>
+<translation id="5472133193607270166">사용 설정하면 사이트에서 사용자의 타 사이트 탐색 활동 정보를 이용해 광고를 맞춤설정할 수 없습니다. 일부 사이트는 제대로 작동하지 않을 수 있습니다.</translation>
 <translation id="5473333559083690127">새 PIN 다시 입력</translation>
 <translation id="5481941284378890518">주변 프린터 추가</translation>
 <translation id="5483785310822538350">파일 및 기기 액세스 취소</translation>
@@ -3393,7 +3395,7 @@ VR로 들어가기 전에 이 사이트를 신뢰할 수 있는지 확인하세�
 <translation id="5972017421290582825">MIDI 설정 관리...</translation>
 <translation id="597235323114979258">대상 더보기</translation>
 <translation id="5972666587303800813">작동하지 않는 서비스</translation>
-<translation id="5972708806901999743">위로 이동</translation>
+<translation id="5972708806901999743">가장 위로 이동</translation>
 <translation id="5972826969634861500"><ph name="PRODUCT_NAME" /> 시작</translation>
 <translation id="5973605538625120605">PIN 변경</translation>
 <translation id="5975792506968920132">배터리 충전율</translation>
@@ -4229,7 +4231,6 @@ VR로 들어가기 전에 이 사이트를 신뢰할 수 있는지 확인하세�
 <translation id="7221869452894271364">페이지 새로고침</translation>
 <translation id="7222204278952406003">Chrome이 기본 브라우저로 설정되어 있습니다.</translation>
 <translation id="7222232353993864120">이메일 주소</translation>
-<translation id="7223859049862598735">웹 전반에서 사용자 추적에 사용될 수 있는 쿠키를 Chrome에서 차단 중입니다.</translation>
 <translation id="7225179976675429563">네트워크 유형이 없습니다.</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" />(공급업체: <ph name="VENDOR_ID" />, 제품: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">웹사이트에서 위치정보, 마이크, 카메라 등과 같은 기능을 사용할 수 있도록 할지 여부를 지정하는 설정을 조작합니다.</translation>
@@ -5577,7 +5578,6 @@ VR로 들어가기 전에 이 사이트를 신뢰할 수 있는지 확인하세�
 <translation id="9130015405878219958">잘못된 모드를 입력했습니다.</translation>
 <translation id="9131487537093447019">블루투스 기기와 메시지를 주고받습니다.</translation>
 <translation id="9134304429738380103">예, 동의합니다.</translation>
-<translation id="9135090785674039430">이 옵션을 사용 설정하면 사이트가 웹 전반에서 사용자를 추적하는 쿠키를 사용할 수 없습니다. 일부 웹사이트가 정상적으로 작동하지 않을 수 있습니다.</translation>
 <translation id="9137013805542155359">원본 보기</translation>
 <translation id="9137157311132182254">기본 검색엔진</translation>
 <translation id="9137248913990643158">이 앱을 사용하기 전에 Chrome을 시작하고 로그인하세요.</translation>

@@ -1227,6 +1227,12 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kCorsLegacyModeEnabled,
     prefs::kCorsLegacyModeEnabled,
     base::Value::Type::BOOLEAN },
+
+#if BUILDFLAG(ENABLE_CLICK_TO_CALL)
+  { key::kClickToCallEnabled,
+    prefs::kClickToCallEnabled,
+    base::Value::Type::BOOLEAN },
+#endif  // BUILDFLAG(ENABLE_CLICK_TO_CALL)
 };
 // clang-format on
 

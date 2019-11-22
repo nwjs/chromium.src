@@ -9,12 +9,12 @@ import android.os.RemoteException;
 
 import androidx.annotation.NonNull;
 
-import org.chromium.weblayer_private.aidl.APICallException;
-import org.chromium.weblayer_private.aidl.IBrowserController;
-import org.chromium.weblayer_private.aidl.IClientNavigation;
-import org.chromium.weblayer_private.aidl.INavigation;
-import org.chromium.weblayer_private.aidl.INavigationController;
-import org.chromium.weblayer_private.aidl.INavigationControllerClient;
+import org.chromium.weblayer_private.interfaces.APICallException;
+import org.chromium.weblayer_private.interfaces.IClientNavigation;
+import org.chromium.weblayer_private.interfaces.INavigation;
+import org.chromium.weblayer_private.interfaces.INavigationController;
+import org.chromium.weblayer_private.interfaces.INavigationControllerClient;
+import org.chromium.weblayer_private.interfaces.ITab;
 
 /**
  * Provides methods to control navigation, along with maintaining the current list of navigations.
@@ -23,12 +23,11 @@ public final class NavigationController {
     private INavigationController mNavigationController;
     private final ObserverList<NavigationCallback> mCallbacks;
 
-    static NavigationController create(IBrowserController browserController) {
+    static NavigationController create(ITab tab) {
         NavigationController navigationController = new NavigationController();
         try {
-            navigationController.mNavigationController =
-                    browserController.createNavigationController(
-                            navigationController.new NavigationControllerClientImpl());
+            navigationController.mNavigationController = tab.createNavigationController(
+                    navigationController.new NavigationControllerClientImpl());
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
@@ -149,49 +148,49 @@ public final class NavigationController {
         @Override
         public void navigationStarted(IClientNavigation navigation) {
             for (NavigationCallback callback : mCallbacks) {
-                callback.navigationStarted((Navigation) navigation);
+                callback.onNavigationStarted((Navigation) navigation);
             }
         }
 
         @Override
         public void navigationRedirected(IClientNavigation navigation) {
             for (NavigationCallback callback : mCallbacks) {
-                callback.navigationRedirected((Navigation) navigation);
+                callback.onNavigationRedirected((Navigation) navigation);
             }
         }
 
         @Override
         public void readyToCommitNavigation(IClientNavigation navigation) {
             for (NavigationCallback callback : mCallbacks) {
-                callback.readyToCommitNavigation((Navigation) navigation);
+                callback.onReadyToCommitNavigation((Navigation) navigation);
             }
         }
 
         @Override
         public void navigationCompleted(IClientNavigation navigation) {
             for (NavigationCallback callback : mCallbacks) {
-                callback.navigationCompleted((Navigation) navigation);
+                callback.onNavigationCompleted((Navigation) navigation);
             }
         }
 
         @Override
         public void navigationFailed(IClientNavigation navigation) {
             for (NavigationCallback callback : mCallbacks) {
-                callback.navigationFailed((Navigation) navigation);
+                callback.onNavigationFailed((Navigation) navigation);
             }
         }
 
         @Override
         public void loadStateChanged(boolean isLoading, boolean toDifferentDocument) {
             for (NavigationCallback callback : mCallbacks) {
-                callback.loadStateChanged(isLoading, toDifferentDocument);
+                callback.onLoadStateChanged(isLoading, toDifferentDocument);
             }
         }
 
         @Override
         public void loadProgressChanged(double progress) {
             for (NavigationCallback callback : mCallbacks) {
-                callback.loadProgressChanged(progress);
+                callback.onLoadProgressChanged(progress);
             }
         }
 

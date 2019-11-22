@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Ler e alterar todos os seus dados no website atual quando invocado</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> deseja redefinir suas configurações.</translation>
 <translation id="1243314992276662751">Fazer upload</translation>
+<translation id="1243398753772016127">O Google Sites não pode usar sua atividade de navegação em diferentes sites para personalizar anúncios</translation>
 <translation id="1244265436519979884">A restauração do Linux está em andamento</translation>
 <translation id="1244303850296295656">Erro na extensão</translation>
 <translation id="1246905108078336582">Remover sugestão da área de transferência?</translation>
@@ -3037,6 +3038,7 @@ Verifique se você confia neste site antes de entrar na RV.</translation>
 <translation id="5466374726908360271">Colar e pesquisar “<ph name="SEARCH_TERMS" />”</translation>
 <translation id="5468173180030470402">Procurando compartilhamento de arquivos</translation>
 <translation id="5471768120198416576">Olá! Eu sou sua voz para conversão de texto em voz.</translation>
+<translation id="5472133193607270166">Quando ativado, os sites não podem usar atividades de navegação entre sites diferentes para personalizar anúncios. Alguns sites talvez não funcionem adequadamente.</translation>
 <translation id="5473333559083690127">Digite o novo PIN novamente</translation>
 <translation id="5481941284378890518">Adicionar impressoras próximas</translation>
 <translation id="5483785310822538350">Revogar acesso ao arquivo e ao dispositivo</translation>
@@ -4231,7 +4233,6 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="7221869452894271364">Recarregar esta página</translation>
 <translation id="7222204278952406003">O Chrome é seu navegador padrão</translation>
 <translation id="7222232353993864120">Endereço de e-mail</translation>
-<translation id="7223859049862598735">O Chrome está bloqueando cookies que podem ser usados para rastrear você na Web</translation>
 <translation id="7225179976675429563">Tipo de rede ausente</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (fornecedor: <ph name="VENDOR_ID" />, produto: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Manipular configurações que determinam se websites podem usar recursos, como geolocalização, microfone, câmera, etc.</translation>
@@ -5579,7 +5580,6 @@ Mantenha a sua chave de arquivo em um local seguro. Você precisará dela para c
 <translation id="9130015405878219958">Modo inválido inserido.</translation>
 <translation id="9131487537093447019">Enviar mensagens para e receber mensagens de dispositivos Bluetooth.</translation>
 <translation id="9134304429738380103">Sim, vamos lá.</translation>
-<translation id="9135090785674039430">Quando ativado, os sites não podem usar cookies que rastreiem você pela Web. Alguns sites podem não funcionar.</translation>
 <translation id="9137013805542155359">Mostrar original</translation>
 <translation id="9137157311132182254">Mecanismo de pesquisa preferido</translation>
 <translation id="9137248913990643158">Inicie e faça login no Chrome antes de usar este app.</translation>

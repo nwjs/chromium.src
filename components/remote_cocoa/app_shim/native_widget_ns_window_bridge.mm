@@ -328,9 +328,11 @@ NativeWidgetNSWindowBridge::NativeWidgetNSWindowBridge(
       bridge_mojo_binding_(this) {
   DCHECK(GetIdToWidgetImplMap().find(id_) == GetIdToWidgetImplMap().end());
   GetIdToWidgetImplMap().insert(std::make_pair(id_, this));
+  display::Screen::GetScreen()->AddObserver(this);
 }
 
 NativeWidgetNSWindowBridge::~NativeWidgetNSWindowBridge() {
+  display::Screen::GetScreen()->RemoveObserver(this);
   // The delegate should be cleared already. Note this enforces the precondition
   // that -[NSWindow close] is invoked on the hosted window before the
   // destructor is called.
@@ -603,9 +605,9 @@ void NativeWidgetNSWindowBridge::CreateContentView(uint64_t ns_view_id,
     CALayer* flipped_layer = background_layer.sublayers[0];
     [bridged_view_ setForceCPUDrawLayer:flipped_layer];
     [flipped_layer setGeometryFlipped:NO];
-  } else
-  [bridged_view_ setWantsLayer:YES];
-
+  } else {
+    [bridged_view_ setWantsLayer:YES];
+  }
   [window_ setContentView:bridged_view_];
 }
 
@@ -1153,7 +1155,17 @@ DragDropClient* NativeWidgetNSWindowBridge::drag_drop_client() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// NativeWidgetNSWindowBridge, ui::CATransactionObserver
+// NativeWidgetNSWindowBridge, display::DisplayObserver:
+
+void NativeWidgetNSWindowBridge::OnDisplayAdded(
+    const display::Display& display) {
+  UpdateWindowDisplay();
+}
+
+void NativeWidgetNSWindowBridge::OnDisplayRemoved(
+    const display::Display& display) {
+  UpdateWindowDisplay();
+}
 
 void NativeWidgetNSWindowBridge::OnDisplayMetricsChanged(
     const display::Display& display,
@@ -1309,7 +1321,9 @@ void NativeWidgetNSWindowBridge::SetCALayerParams(
 
 void NativeWidgetNSWindowBridge::SetIgnoresMouseEvents(
     bool ignores_mouse_events) {
-  [window_ setIgnoresMouseEvents:ignores_mouse_events];
+  if (!content::g_force_cpu_draw) {
+    [window_ setIgnoresMouseEvents:ignores_mouse_events];
+  }
 }
 
 void NativeWidgetNSWindowBridge::MakeFirstResponder() {

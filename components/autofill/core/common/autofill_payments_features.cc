@@ -87,6 +87,11 @@ const base::Feature kAutofillNoLocalSaveOnUnmaskSuccess{
 const base::Feature kAutofillNoLocalSaveOnUploadSuccess{
     "AutofillNoLocalSaveOnUploadSuccess", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// When enabled, the Save Card infobar will be dismissed by a user initiated
+// navigation other than one caused by submitted form.
+const base::Feature kAutofillSaveCardDismissOnNavigation{
+    "AutofillSaveCardDismissOnNavigation", base::FEATURE_ENABLED_BY_DEFAULT};
+
 // When enabled, local and upload credit card save dialogs will add a
 // [No thanks] cancel button option. This is intended to bring the
 // AutofillSaveCardImprovedUserConsent functionality to Chrome OS, Android, and

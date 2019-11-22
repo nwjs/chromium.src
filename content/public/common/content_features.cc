@@ -12,7 +12,7 @@
 namespace features {
 
 const base::Feature kNWNewWin{
-    "nw2", base::FEATURE_DISABLED_BY_DEFAULT};
+    "nw2", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // All features in alphabetical order.
 
@@ -105,6 +105,11 @@ const base::Feature kCacheStorageParallelOps{"CacheStorageParallelOps",
 // URL.
 const base::Feature kCacheStorageEagerReading{
     "CacheStorageEagerReading", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables scheduling the operation at high priority when a cache.match() is
+// initiated from a FetchEvent handler with a matching request URL.
+const base::Feature kCacheStorageHighPriorityMatch{
+    "CacheStorageHighPriorityMatch", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // If Canvas2D Image Chromium is allowed, this feature controls whether it is
 // enabled.
@@ -478,6 +483,13 @@ const base::Feature kServiceWorkerOnUI{"ServiceWorkerOnUI",
 // TODO(rouslan): Remove this.
 const base::Feature kServiceWorkerPaymentApps{"ServiceWorkerPaymentApps",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
+
+// If enabled, prefer to start service workers in an unused renderer process if
+// available. This helps let navigations and service workers use the same
+// process when a process was already created for a navigation but not yet
+// claimed by it (as is common for navigations from the Android New Tab Page).
+const base::Feature kServiceWorkerPrefersUnusedProcess{
+    "ServiceWorkerPrefersUnusedProcess", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // http://tc39.github.io/ecmascript_sharedmem/shmem.html
 const base::Feature kSharedArrayBuffer {

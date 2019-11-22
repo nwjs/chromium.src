@@ -32,6 +32,7 @@ using lookalikes::DomainInfo;
 using lookalikes::LookalikeUrlService;
 using safe_browsing::V4ProtocolManagerUtil;
 using safety_tips::ReputationService;
+using security_state::SafetyTipStatus;
 
 // This factory helps construct and find the singleton ReputationService linked
 // to a Profile.
@@ -214,8 +215,8 @@ void ReputationService::GetReputationStatusWithEngagedSites(
   // If the URL is on the allowlist list, do nothing else. This is only used to
   // mitigate false positives, so no further processing should be done.
   if (ShouldSuppressWarning(url)) {
-    std::move(callback).Run(security_state::SafetyTipStatus::kNone,
-                            IsIgnored(url), url, GURL());
+    std::move(callback).Run(security_state::SafetyTipStatus::kNone, url,
+                            GURL());
     return;
   }
 
@@ -230,15 +231,20 @@ void ReputationService::GetReputationStatusWithEngagedSites(
                              engaged_domain.domain_and_registry);
                    });
   if (already_engaged != engaged_sites.end()) {
-    std::move(callback).Run(security_state::SafetyTipStatus::kNone,
-                            IsIgnored(url), url, GURL());
+    std::move(callback).Run(security_state::SafetyTipStatus::kNone, url,
+                            GURL());
     return;
   }
 
   // 2. Server-side blocklist check.
   security_state::SafetyTipStatus status = GetUrlBlockType(url);
   if (status != security_state::SafetyTipStatus::kNone) {
-    std::move(callback).Run(status, IsIgnored(url), url, GURL());
+    // This is a merge-hack, and does not exist in M80+. See crbug/1022017.
+    // In M79, status is always kBadReputation if not kNone.
+    status =
+        (IsIgnored(url) ? security_state::SafetyTipStatus::kBadReputationIgnored
+                        : status);
+    std::move(callback).Run(status, url, GURL());
     return;
   }
 
@@ -246,8 +252,8 @@ void ReputationService::GetReputationStatusWithEngagedSites(
   // Empty domain_and_registry happens on private domains.
   if (navigated_domain.domain_and_registry.empty() ||
       lookalikes::IsTopDomain(navigated_domain)) {
-    std::move(callback).Run(security_state::SafetyTipStatus::kNone,
-                            IsIgnored(url), url, GURL());
+    std::move(callback).Run(security_state::SafetyTipStatus::kNone, url,
+                            GURL());
     return;
   }
 
@@ -255,22 +261,23 @@ void ReputationService::GetReputationStatusWithEngagedSites(
   GURL safe_url;
   if (ShouldTriggerSafetyTipFromLookalike(url, navigated_domain, engaged_sites,
                                           &safe_url)) {
-    std::move(callback).Run(security_state::SafetyTipStatus::kLookalike,
-                            IsIgnored(url), url, safe_url);
+    std::move(callback).Run(
+        (IsIgnored(url) ? security_state::SafetyTipStatus::kLookalikeIgnored
+                        : security_state::SafetyTipStatus::kLookalike),
+        url, safe_url);
     return;
   }
 
   // 5. Keyword heuristics.
   if (ShouldTriggerSafetyTipFromKeywordInURL(
           url, top500_domains::kTop500Keywords, 500)) {
-    std::move(callback).Run(security_state::SafetyTipStatus::kBadKeyword,
-                            IsIgnored(url), url, GURL());
+    std::move(callback).Run(security_state::SafetyTipStatus::kBadKeyword, url,
+                            GURL());
     return;
   }
 
   // TODO(crbug/984725): 6. Additional client-side heuristics.
-  std::move(callback).Run(security_state::SafetyTipStatus::kNone,
-                          IsIgnored(url), url, GURL());
+  std::move(callback).Run(security_state::SafetyTipStatus::kNone, url, GURL());
 }
 
 security_state::SafetyTipStatus GetUrlBlockType(const GURL& url) {

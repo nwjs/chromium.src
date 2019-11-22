@@ -64,6 +64,8 @@ void AddWebContents(Browser* browser,
   gfx::Rect rect = initial_rect;
   int height = 0; int width = 0;
   int x = 0; int y = 0;
+  bool has_frame = true;
+  bool fullscreen = false;
   if (!manifest.empty()) {
     std::unique_ptr<base::Value> val = base::JSONReader().ReadToValueDeprecated(manifest);
     if (val && val->is_dict()) {
@@ -77,13 +79,16 @@ void AddWebContents(Browser* browser,
         rect.set_x(x);
       if (mnfst->GetInteger("y", &y))
         rect.set_y(y);
+      mnfst->GetBoolean("frame", &has_frame);
+      mnfst->GetBoolean("fullscreen", &fullscreen);
     }
   }
   NavigateParams params(browser, std::move(new_contents));
   params.source_contents = source_contents;
   params.disposition = disposition;
   params.window_bounds = rect;
-  params.window_action = NavigateParams::SHOW_WINDOW;
+  params.window_action = fullscreen ? NavigateParams::SHOW_WINDOW_FULLSCREEN : NavigateParams::SHOW_WINDOW;
+  params.frameless = !has_frame;
   // At this point, we're already beyond the popup blocker. Even if the popup
   // was created without a user gesture, we have to set |user_gesture| to true,
   // so it gets correctly focused.

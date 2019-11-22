@@ -708,6 +708,11 @@ Si esta política se establece en True, <ph name="PRODUCT_OS_NAME" /> intentará
 <translation id="2149330464730004005">Habilitar impresión en color</translation>
 <translation id="2156132677421487971">Configura las políticas de <ph name="PRODUCT_NAME" />, una función que permite que los usuarios envíen contenido de las pestañas, los sitios web o el escritorio desde el navegador a pantallas y sistemas de sonido remotos.</translation>
 <translation id="2156755242840687300">Servidores de impresión externos habilitados</translation>
+<translation id="2160336427036785721">Configura la cantidad de memoria que una única instancia de <ph name="PRODUCT_NAME" /> puede usar antes de que se empiecen a descartar pestañas (es decir, se liberará la memoria que usa una pestaña y esta se tendrá que volver a cargar cuando se vuelva a acceder a ella) para ahorrar memoria.
+
+      Si se define esta política, el navegador empezará a descartar pestañas para ahorrar memoria cuando se supere el límite de memoria. Sin embargo, no se garantiza que el navegador se ejecute siempre por debajo de ese límite. Cualquier valor que sea inferior a 1024 se establecerá como 1024.
+
+      Si no se define esta política, el navegador solo intentará ahorrar memoria cuando detecte que la cantidad de memoria física del equipo es baja.</translation>
 <translation id="2166472654199325139">No filtrar el contenido para adultos de los sitios web</translation>
 <translation id="2168397434410358693">Retraso de inactividad cuando el dispositivo está conectado a la red</translation>
 <translation id="217013996107840632">Parámetros de línea de comandos para cambiar desde el navegador alternativo.</translation>
@@ -914,6 +919,15 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
           Si se habilita o no se define, se mostrarán advertencias de seguridad cuando se usen algunas instrucciones de línea de comandos para iniciar Chrome.
 
           En Windows, esta política solo está disponible en instancias que estén vinculadas a un dominio de <ph name="MS_AD_NAME" /> y en instancias de Windows 10 Pro o Enterprise que se hayan registrado en la gestión de dispositivos.</translation>
+<translation id="2480971699591919564">Habilita la función Clic de llamada, que permite a los usuarios enviar números de teléfono desde Chrome para ordenador a un dispositivo Android si el usuario ha iniciado sesión. Puedes consultar más información en este artículo del Centro de Ayuda: https://support.google.com/chrome/answer/9430554?hl=es
+
+      Si se habilita esta política, el usuario de Chrome podrá enviar números de teléfono a dispositivos Android.
+
+      Si no se habilita esta política, el usuario de Chrome no podrá enviar números de teléfono a dispositivos Android.
+
+      Si estableces esta política, los usuarios no podrán cambiarla ni anularla.
+
+      Si no se establece esta política, la función Clic de llamada se habilitará de forma predeterminada.</translation>
 <translation id="2482676533225429905">Mensajes nativos</translation>
 <translation id="2483146640187052324">Predecir las acciones de red en cualquier conexión de red</translation>
 <translation id="2484208301968418871">Esta política controla la aplicación del filtro de URLs SafeSites.
@@ -1938,6 +1952,7 @@ Si esta política se establece en False, el usuario no podrá canjear ofertas.</
 <translation id="4075864623710596000">Los nombres de host que se especifican en esta lista quedarán exentos de la comprobación de la política de HSTS, que podría actualizar las solicitudes de http a https. Esta política solo admite nombres de host de una sola etiqueta. Los nombres de host deben seguir el proceso de canonicalización: cada IDN debe codificarse en su formato de etiqueta A y todas las letras ASCII deben ser minúsculas. Esta política solo se aplica a los nombres de host que se especifican en esta lista. No se aplica a sus subdominios.</translation>
 <translation id="408029843066770167">Permitir consultas a un servicio de hora de Google</translation>
 <translation id="408076456549153854">Habilitar inicio de sesión en el navegador</translation>
+<translation id="4082498585300984671">Habilitar la función Clic de llamada</translation>
 <translation id="40853027210512570">Anula las reglas para seleccionar la impresora predeterminada de <ph name="PRODUCT_NAME" />.
 
       Esta política determina las reglas para seleccionar la impresora predeterminada en <ph name="PRODUCT_NAME" />. Esto ocurre la primera vez que se utiliza la función de imprimir con un perfil.
@@ -2957,11 +2972,11 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
 
       El archivo se descargará y se almacenará en caché. Se usa un hash criptográfico para verificar la integridad de la descarga. Se volverá a descargar el archivo cada vez que se cambie la URL o el hash.
 
-      Si se asigna un valor correcto a esta política, los dispositivos intentarán solicitar información a los servidores de impresión especificados sobre las impresoras disponibles usando el protocolo IPP.
+      Si se asigna un valor correcto a esta política, los dispositivos intentarán solicitar información a los servidores de impresión especificados con el protocolo IPP para buscar impresoras disponibles.
 
-      Si no se define esta política o se le asigna un valor incorrecto, los usuarios no verán ninguna impresora del servidor.
+      Si no se define esta política o se le asigna un valor incorrecto, los usuarios no verán ningún servidor de impresión.
 
-      Actualmente, el número máximo de servidores de impresión es 16. Solo se solicitará información a los 16 primeros servidores de la lista.
+      Actualmente, el número máximo de servidores de impresión es 16. Solo se solicitará información a los primeros 16 servidores de la lista.
       </translation>
 <translation id="5592242031005200087">
       Si se habilita la política, cada uno de los orígenes especificados en una lista de elementos separados por comas se ejecutará en un proceso propio. También se aislarán los orígenes de los subdominios correspondientes (por ejemplo, especificar https://example.com/ aislará https://foo.example.com/ como parte del sitio web https://example.com/).
@@ -3225,6 +3240,10 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
 <translation id="6145799962557135888">Permite establecer una lista de patrones de URL para especificar los sitios que no pueden ejecutar JavaScript.
 
           Si no se establece esta política, se usará para todos los sitios el valor general predeterminado que se indique en la política DefaultJavaScriptSetting (si se ha establecido) o el valor personalizado que haya definido el usuario (en caso contrario).</translation>
+<translation id="614616930188030377">Los patrones de esta lista se compararán con el origen de seguridad de la URL solicitante.
+      Si se encuentra alguna coincidencia o chrome://flags/#enable-webrtc-hide-local-ips-with-mdns está inhabilitado, las direcciones IP locales se mostrarán en candidatos ICE WebRTC.
+      De lo contrario, las direcciones IP locales se ocultarán con nombres de host mDNS.
+      Ten en cuenta que esta política debilita la protección de las IP locales si así lo necesitan los administradores.</translation>
 <translation id="614662973812186053">Esta política también controla la recopilación de los datos de uso y diagnóstico de Android.</translation>
 <translation id="6153048425064249648">Esta política regula los informes en la nube de <ph name="PRODUCT_NAME" />, que envían información sobre el funcionamiento del navegador a la consola de administración de Google.
 
@@ -3621,7 +3640,7 @@ Si la política está establecida en False, no se informará sobre los usuarios.
       Estos son los idiomas que se admiten actualmente: af, bg, ca, cs, da, de, el, en-AU, en-CA, en-GB, en-US, es, es-419, es-AR, es-ES, es-MX, es-US, et, fa, fo, fr, he, hi, hr, hu, id, it, ko, lt, lv, nb, nl, pl, pt-BR, pt-PT, ro, ru, sh, sk, sl, sq, sr, sv, ta, tg, tr, uk y vi.</translation>
 <translation id="6926703471186170050">Habilitar impresión de borde largo por las dos caras</translation>
 <translation id="6931242315485576290">Inhabilitar sincronización de datos con Google</translation>
-<translation id="6932419914671987652">Si se habilita esta política, <ph name="PRODUCT_NAME" /> forzará las sesiones de invitado y evitará los inicios de sesión de perfil. Los inicios de sesión como invitado son perfiles de <ph name="PRODUCT_NAME" /> en los que todas las ventanas están en modo de navegación de incógnito.
+<translation id="6932419914671987652">Si se habilita esta política, <ph name="PRODUCT_NAME" /> forzará las sesiones de invitado y evitará los inicios de sesión de perfil. Los inicios de sesión como invitado son perfiles de <ph name="PRODUCT_NAME" /> en los que todas las ventanas están en modo de incógnito.
 
       Si la política está inhabilitada o no está definida, o el modo invitados del navegador está inhabilitado por la política <ph name="BROWSER_GUEST_MODE_ENABLED_POLICY_NAME" />, <ph name="PRODUCT_NAME" /> permitirá que se usen perfiles nuevos y ya creados.</translation>
 <translation id="6936894225179401731">Permite especificar el número máximo de conexiones simultáneas que se pueden establecer con el servidor proxy.
@@ -4227,6 +4246,7 @@ Si esta opción no está establecida o está establecida en True, los dispositiv
           Si no se asigna ningún valor a esta política, el modo de contraste alto se inhabilitará inicialmente cuando se muestre la pantalla de inicio de sesión por primera vez. Los usuarios podrán habilitar o inhabilitar el modo de contraste alto en cualquier momento, y su estado en la pantalla de inicio de sesión permanecerá entre usuarios.
 
           Nota: <ph name="DEVICE_LOGIN_SCREEN_HIGH_CONTRAST_ENABLED_POLICY_NAME" /> anula esta política si se especifica la anterior.</translation>
+<translation id="7846952520291088817">URLs cuyas IP locales se exponen en candidatos ICE WebRTC</translation>
 <translation id="7858404742201086014">Si habilitas esta opción, los complementos obsoletos se utilizarán como complementos normales.
 
       Si inhabilitas esta opción, no se utilizarán los complementos obsoletos y no se pedirá permiso a los usuarios para ejecutarlos.
@@ -4645,7 +4665,7 @@ Te recomendamos que utilices GPO para configurar la política en Windows, aunque
       Los cambios de esta política solo se podrán aplicar cuando ARC no se esté ejecutando, p. ej. cuando Chrome OS se está iniciando.</translation>
 <translation id="8606263947930257189">Permite controlar si <ph name="PRODUCT_NAME" /> puede inmovilizar las pestañas que hayan estado en segundo plano durante un mínimo de 5 minutos.
 
-      Si se asigna el valor "true" a esta política, las pestañas que hayan estado en segundo plano durante un mínimo de 5 minutos podrían inmovilizarse. Inmovilizar las pestañas reduce el consumo de CPU, batería y memoria. <ph name="PRODUCT_NAME" /> usa métodos heurísticos para evitar inmovilizar pestañas que realicen funciones útiles en segundo plano, como mostrar notificaciones, reproducir sonidos o vídeos en streaming. Los desarrolladores web pueden inhabilitar la inmovilización en sus sitios web (https://chromium.googlesource.com/chromium/src/+/HEAD/chrome/browser/performance_manager/docs/freezing_opt_out_opt_in.md).
+      Si se asigna el valor "true" a esta política, las pestañas que hayan estado en segundo plano durante un mínimo de 5 minutos podrían inmovilizarse. Inmovilizar las pestañas reduce el consumo de CPU, batería y memoria. <ph name="PRODUCT_NAME" /> usa métodos heurísticos para evitar inmovilizar pestañas que realicen funciones útiles en segundo plano, como mostrar notificaciones, reproducir sonidos o emitir vídeos en streaming. Los desarrolladores web pueden inhabilitar la inmovilización en sus sitios web (https://chromium.googlesource.com/chromium/src/+/HEAD/chrome/browser/performance_manager/docs/freezing_opt_out_opt_in.md).
 
       Si se asigna el valor "false" a esta política, no se inmovilizará ninguna pestaña.</translation>
 <translation id="8615400197788843468">Habilita la función de inicio de sesión restringido de <ph name="PRODUCT_NAME" /> en G Suite e impide que los usuarios cambien esta opción.

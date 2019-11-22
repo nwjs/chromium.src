@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Al je gegevens op de huidige website lezen en wijzigen wanneer dit wordt aangeroepen</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> wil je instellingen resetten.</translation>
 <translation id="1243314992276662751">Uploaden</translation>
+<translation id="1243398753772016127">Sites kunnen je browse-activiteit op verschillende sites niet gebruiken om advertenties te personaliseren.</translation>
 <translation id="1244265436519979884">Linux-herstel wordt momenteel uitgevoerd</translation>
 <translation id="1244303850296295656">Fout met extensie</translation>
 <translation id="1246905108078336582">Suggestie verwijderen van klembord?</translation>
@@ -3039,6 +3040,7 @@ Controleer of je de site vertrouwt voordat je VR activeert.</translation>
 <translation id="5466374726908360271">Pl&amp;akken en zoeken naar '<ph name="SEARCH_TERMS" />'</translation>
 <translation id="5468173180030470402">Zoeken naar fileshares</translation>
 <translation id="5471768120198416576">Hallo. Ik ben je stem voor tekst-naar-spraak.</translation>
+<translation id="5472133193607270166">Als deze optie is ingeschakeld, kunnen sites je browse-activiteit op verschillende sites niet gebruiken om advertenties te personaliseren. Bepaalde sites werken mogelijk niet correct.</translation>
 <translation id="5473333559083690127">Pincode opnieuw opgeven</translation>
 <translation id="5481941284378890518">Printers in de buurt toevoegen</translation>
 <translation id="5483785310822538350">Toegang tot bestand en apparaat intrekken</translation>
@@ -4231,7 +4233,6 @@ Controleer of je de site vertrouwt voordat je VR activeert.</translation>
 <translation id="7221869452894271364">Deze pagina opnieuw laden</translation>
 <translation id="7222204278952406003">Chrome is je standaardbrowser</translation>
 <translation id="7222232353993864120">E-mailadres</translation>
-<translation id="7223859049862598735">Chrome blokkeert cookies die kunnen worden gebruikt om je te volgen op internet.</translation>
 <translation id="7225179976675429563">Type netwerk ontbreekt</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (leverancier: <ph name="VENDOR_ID" />, product: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Instellingen bewerken die bepalen of websites functies (zoals geolocatie, microfoon, camera, enzovoort) kunnen gebruiken</translation>
@@ -5579,7 +5580,6 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="9130015405878219958">Ongeldige modus opgegeven.</translation>
 <translation id="9131487537093447019">Berichten verzenden naar en ontvangen van Bluetooth-apparaten.</translation>
 <translation id="9134304429738380103">Ja, ik doe mee.</translation>
-<translation id="9135090785674039430">Als deze optie is ingeschakeld, kunnen sites geen cookies gebruiken die je volgen op internet. Sommige websites werken hierdoor mogelijk niet meer.</translation>
 <translation id="9137013805542155359">Origineel weergeven</translation>
 <translation id="9137157311132182254">Voorkeurszoekmachine</translation>
 <translation id="9137248913990643158">Start Chrome en log in voordat je deze app gebruikt.</translation>

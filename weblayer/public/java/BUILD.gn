@@ -21,9 +21,7 @@ android_resources("client_resources") {
 
 android_library("java") {
   java_files = [
-    "org/chromium/weblayer/BrowserCallback.java",
-    "org/chromium/weblayer/BrowserController.java",
-    "org/chromium/weblayer/BrowserFragmentController.java",
+    "org/chromium/weblayer/Browser.java",
     "org/chromium/weblayer/BrowserFragment.java",
     "org/chromium/weblayer/BrowsingDataType.java",
     "org/chromium/weblayer/Callback.java",
@@ -32,11 +30,18 @@ android_library("java") {
     "org/chromium/weblayer/FullscreenCallback.java",
     "org/chromium/weblayer/ListenableFuture.java",
     "org/chromium/weblayer/ListenableResult.java",
+    "org/chromium/weblayer/LoadError.java",
     "org/chromium/weblayer/NavigationCallback.java",
     "org/chromium/weblayer/NavigationController.java",
     "org/chromium/weblayer/Navigation.java",
+    "org/chromium/weblayer/NavigationState.java",
+    "org/chromium/weblayer/NewTabCallback.java",
+    "org/chromium/weblayer/NewTabType.java",
     "org/chromium/weblayer/ObserverList.java",
     "org/chromium/weblayer/Profile.java",
+    "org/chromium/weblayer/Tab.java",
+    "org/chromium/weblayer/TabCallback.java",
+    "org/chromium/weblayer/TabListCallback.java",
     "org/chromium/weblayer/ThreadCheck.java",
     "org/chromium/weblayer/UnsupportedVersionException.java",
     "org/chromium/weblayer/WebLayer.java",
@@ -49,12 +54,8 @@ android_library("java") {
     "//third_party/android_deps:androidx_annotation_annotation_java",
     "//third_party/android_deps:com_android_support_support_compat_java",
     "//third_party/android_deps:com_android_support_support_fragment_java",
-    "//weblayer/browser/java:client_java",
+    "//weblayer/browser/java:interfaces_java",
   ]
-
-  # Needed for android.webkit.WebViewDelegate.
-  alternative_android_sdk_dep =
-      "//third_party/android_sdk:public_framework_system_java"
 
   android_manifest_for_lint = weblayer_client_manifest
 }

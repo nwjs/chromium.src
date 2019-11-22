@@ -2490,6 +2490,39 @@ Unknown properties are collapsed to zero. -->
   <int value="10" label="Component app (downloaded)"/>
 </enum>
 
+<enum name="AppManagementEntryPoint">
+  <int value="0" label="App list context menu app info (ARC)"/>
+  <int value="1" label="App list context menu app info (Chrome app)"/>
+  <int value="2" label="App list context menu app info (Web App)"/>
+  <int value="3" label="Launcher context menu app info (ARC)"/>
+  <int value="4" label="Launcher context menu app info (Chrome app)"/>
+  <int value="5" label="Launcher context menu app info (Web App)"/>
+  <int value="6" label="App Management main view (ARC)"/>
+  <int value="7" label="App Management main view (Chrome app)"/>
+  <int value="8" label="App Management main view (Web App)"/>
+  <int value="9" label="OS Settings main page"/>
+</enum>
+
+<enum name="AppManagementUserAction">
+  <int value="0" label="View opened"/>
+  <int value="1" label="Native settings opened"/>
+  <int value="2" label="Uninstall dialog launched"/>
+  <int value="3" label="Pin to shelf turned on"/>
+  <int value="4" label="Pin to shelf turned off"/>
+  <int value="5" label="Notifications turned on"/>
+  <int value="6" label="Notifications turned off"/>
+  <int value="7" label="Location turned on"/>
+  <int value="8" label="Location turned off"/>
+  <int value="9" label="Camera turned on"/>
+  <int value="10" label="Camera turned off"/>
+  <int value="11" label="Microphone turned on"/>
+  <int value="12" label="Microphone turned off"/>
+  <int value="13" label="Contacts turned on"/>
+  <int value="14" label="Contacts turned off"/>
+  <int value="15" label="Storage turned on"/>
+  <int value="16" label="Storage turned off"/>
+</enum>
+
 <enum name="AppPromoAction">
   <int value="0" label="PROMO_LAUNCH_APP"/>
   <int value="1" label="PROMO_LAUNCH_WEB_STORE"/>
@@ -18461,7 +18494,8 @@ Called by update_net_error_codes.py.-->
   <int value="633" label="DefaultInsecureContentSetting"/>
   <int value="634" label="InsecureContentAllowedForUrls"/>
   <int value="635" label="InsecureContentBlockedForUrls"/>
-  <int value="636" label="WebRtcLocalIpsAllowedUrls"/>
+  <int value="640" label="WebRtcLocalIpsAllowedUrls"/>
+  <int value="645" label="ClickToCallEnabled"/>
 </enum>
 
 <enum name="EnterprisePolicyInvalidations">
@@ -36637,6 +36671,7 @@ from previous Chrome versions.
   <int value="-322827131" label="tab-management-experiment-type-basil"/>
   <int value="-320820051" label="enable-zero-copy"/>
   <int value="-319002650" label="ArcUsbStorageUI:enabled"/>
+  <int value="-317195508" label="TabGroupsContinuationAndroid:disabled"/>
   <int value="-315604713" label="WebUSB:enabled"/>
   <int value="-314910380" label="disable-distance-field-text"/>
   <int value="-314605926" label="protect-sync-credential-on-reauth:enabled"/>
@@ -37126,6 +37161,7 @@ from previous Chrome versions.
   <int value="348854923" label="v8-cache-strategies-for-cache-storage"/>
   <int value="350399958" label="ModuleScriptsImportMetaUrl:disabled"/>
   <int value="350616049" label="IntentPicker:disabled"/>
+  <int value="350635266" label="TabGroupsContinuationAndroid:enabled"/>
   <int value="351005753" label="enable-experimental-accessibility-autoclick"/>
   <int value="352191859" label="disabled-new-style-notification"/>
   <int value="352937987" label="OverflowIconsForMediaControls:disabled"/>
@@ -53671,8 +53707,8 @@ Called by update_net_trust_anchors.py.-->
     |factory_params_.request_initiator_site_lock|.
   </int>
   <int value="5" label="ExcludedScheme">
-    Scheme excluded from request_initiator_site_lock checks (e.g.
-    chrome-extension).
+    Scheme excluded from request_initiator_site_lock checks. Since ~M80 this
+    value can only be recorded during tests.
   </int>
   <int value="6" label="ExcludedUniversalAccessPlugin">
     Requests from a renderer processes that embeds an universal access plugin
@@ -54120,6 +54156,12 @@ Called by update_net_trust_anchors.py.-->
   <int value="2" label="Safety Tip for bad reputation"/>
   <int value="3" label="Safety Tip for lookalike URL"/>
   <int value="4" label="Safety Tip for a URL with a suspicious keyword"/>
+  <int value="5"
+      label="Safety Tip for bad reputation, but the user has explicitly
+             dismissed the Safety Tip on a previous navigation"/>
+  <int value="6"
+      label="Safety Tip for a lookalike URL, but the user has explicitly
+             dismissed the Safety Tip on a previous navigation"/>
 </enum>
 
 <enum name="SameSiteCookieContext">

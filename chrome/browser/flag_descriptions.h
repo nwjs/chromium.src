@@ -1186,6 +1186,9 @@ extern const char kTabGridLayoutAndroidDescription[];
 extern const char kTabGroupsAndroidName[];
 extern const char kTabGroupsAndroidDescription[];
 
+extern const char kTabGroupsContinuationAndroidName[];
+extern const char kTabGroupsContinuationAndroidDescription[];
+
 extern const char kTabGroupsUiImprovementsAndroidName[];
 extern const char kTabGroupsUiImprovementsAndroidDescription[];
 
@@ -1235,9 +1238,6 @@ extern const char kTouchSelectionStrategyName[];
 extern const char kTouchSelectionStrategyDescription[];
 extern const char kTouchSelectionStrategyCharacter[];
 extern const char kTouchSelectionStrategyDirection[];
-
-extern const char kTouchToFillAndroidName[];
-extern const char kTouchToFillAndroidDescription[];
 
 extern const char kTraceUploadUrlName[];
 extern const char kTraceUploadUrlDescription[];
@@ -1398,6 +1398,9 @@ extern const char kAutofillAccessoryViewDescription[];
 
 extern const char kAutofillAssistantDirectActionsName[];
 extern const char kAutofillAssistantDirectActionsDescription[];
+
+extern const char kAutofillTouchToFillName[];
+extern const char kAutofillTouchToFillDescription[];
 
 extern const char kAutofillUseMobileLabelDisambiguationName[];
 extern const char kAutofillUseMobileLabelDisambiguationDescription[];
@@ -2139,6 +2142,9 @@ extern const char kReduceDisplayNotificationsDescription[];
 extern const char kReleaseNotesName[];
 extern const char kReleaseNotesDescription[];
 
+extern const char kReleaseNotesNotificationName[];
+extern const char kReleaseNotesNotificationDescription[];
+
 extern const char kSchedulerConfigurationName[];
 extern const char kSchedulerConfigurationDescription[];
 extern const char kSchedulerConfigurationConservative[];
@@ -2256,8 +2262,7 @@ extern const char kWebGL2ComputeContextDescription[];
 
 #endif  // defined(OS_WIN) || defined(OS_LINUX) || defined(OS_CHROMEOS)
 
-#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) || \
-    defined(OS_CHROMEOS)
+#if BUILDFLAG(ENABLE_CLICK_TO_CALL)
 
 extern const char kClickToCallContextMenuForSelectedTextName[];
 extern const char kClickToCallContextMenuForSelectedTextDescription[];
@@ -2265,8 +2270,7 @@ extern const char kClickToCallContextMenuForSelectedTextDescription[];
 extern const char kClickToCallUIName[];
 extern const char kClickToCallUIDescription[];
 
-#endif  // defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) ||
-        // defined(OS_CHROMEOS)
+#endif  // BUILDFLAG(ENABLE_CLICK_TO_CALL)
 
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
 

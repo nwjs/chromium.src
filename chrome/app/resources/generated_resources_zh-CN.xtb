@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">调用时可读取和更改您在当前网站上的所有数据</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" />要重置您的设置。</translation>
 <translation id="1243314992276662751">上传</translation>
+<translation id="1243398753772016127">网站无法根据您在各个不同网站上的浏览活动为您展示个性化广告</translation>
 <translation id="1244265436519979884">正在进行 Linux 恢复</translation>
 <translation id="1244303850296295656">扩展程序错误</translation>
 <translation id="1246905108078336582">从剪贴板中移除建议？</translation>
@@ -3032,6 +3033,7 @@
 <translation id="5466374726908360271">粘贴并搜索“<ph name="SEARCH_TERMS" />”</translation>
 <translation id="5468173180030470402">正在查找文件共享</translation>
 <translation id="5471768120198416576">您好！这是文字转语音的语音。</translation>
+<translation id="5472133193607270166">当此设置处于开启状态时，网站无法根据您在各个不同网站上的浏览活动为您展示个性化广告。某些网站可能会无法正常运行。</translation>
 <translation id="5473333559083690127">请重新输入新的 PIN 码</translation>
 <translation id="5481941284378890518">添加附近的打印机</translation>
 <translation id="5483785310822538350">撤消对文件和设备的访问权限</translation>
@@ -4224,7 +4226,6 @@
 <translation id="7221869452894271364">重新加载此页</translation>
 <translation id="7222204278952406003">Chrome 是您的默认浏览器</translation>
 <translation id="7222232353993864120">电子邮件地址</translation>
-<translation id="7223859049862598735">Chrome 已被配置为屏蔽 Cookie，因此无法跟踪您在网上的活动</translation>
 <translation id="7225179976675429563">缺少网络类型</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" />（供应商：<ph name="VENDOR_ID" />，产品：<ph name="PRODUCT_ID" />）</translation>
 <translation id="7228479291753472782">管理用于指定网站可否使用地理位置信息、麦克风、摄像头等功能的设置</translation>
@@ -5571,7 +5572,6 @@
 <translation id="9130015405878219958">输入的模式无效。</translation>
 <translation id="9131487537093447019">向蓝牙设备发送消息，以及接收来自蓝牙设备的消息。</translation>
 <translation id="9134304429738380103">立即启用。</translation>
-<translation id="9135090785674039430">当此设置处于开启状态时，网站无法使用 Cookie 来跟踪您在网上的活动。某些网站可能会无法正常运行。</translation>
 <translation id="9137013805542155359">显示原始网页</translation>
 <translation id="9137157311132182254">首选搜索引擎</translation>
 <translation id="9137248913990643158">在使用此应用前，请先启动并登录 Chrome。</translation>

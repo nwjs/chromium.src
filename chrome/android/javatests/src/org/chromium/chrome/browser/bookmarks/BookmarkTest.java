@@ -130,6 +130,27 @@ public class BookmarkTest {
         BookmarkTestUtil.waitForBookmarkModelLoaded();
     }
 
+    /**
+     * Loads an empty partner bookmarks folder for testing. The partner bookmarks folder will appear
+     * in the mobile bookmarks folder.
+     *
+     */
+    protected void loadEmptyPartnerBookmarksForTesting() {
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> { mBookmarkModel.loadEmptyPartnerBookmarkShimForTesting(); });
+        BookmarkTestUtil.waitForBookmarkModelLoaded();
+    }
+
+    /**
+     * Loads a non-empty partner bookmarks folder for testing. The partner bookmarks folder will
+     * appear in the mobile bookmarks folder.
+     */
+    protected void loadFakePartnerBookmarkShimForTesting() {
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> { mBookmarkModel.loadFakePartnerBookmarkShimForTesting(); });
+        BookmarkTestUtil.waitForBookmarkModelLoaded();
+    }
+
     @After
     public void tearDown() {
         mTestServer.stopAndDestroyServer();

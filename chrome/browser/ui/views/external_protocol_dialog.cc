@@ -94,6 +94,14 @@ ui::ModalType ExternalProtocolDialog::GetModalType() const {
   return ui::MODAL_TYPE_CHILD;
 }
 
+views::Widget* ExternalProtocolDialog::GetWidget() {
+  return message_box_view_->GetWidget();
+}
+
+const views::Widget* ExternalProtocolDialog::GetWidget() const {
+  return message_box_view_->GetWidget();
+}
+
 void ExternalProtocolDialog::ShowRememberSelectionCheckbox() {
   message_box_view_->SetCheckBoxLabel(delegate_->GetCheckboxText());
 }

@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Baca dan ubah semua data anda pada tapak web semasa apabila digunakan</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> mahu menetapkan semula tetapan anda.</translation>
 <translation id="1243314992276662751">Muat naik</translation>
+<translation id="1243398753772016127">Tapak tidak boleh menggunakan aktiviti penyemakan imbas anda di tapak lain untuk memperibadikan iklan</translation>
 <translation id="1244265436519979884">Pemulihan Linux sedang dijalankan</translation>
 <translation id="1244303850296295656">Ralat sambungan</translation>
 <translation id="1246905108078336582">Alih keluar cadangan daripada papan keratan?</translation>
@@ -3039,6 +3040,7 @@ Pastikan anda mempercayai tapak ini sebelum memasuki VR.</translation>
 <translation id="5466374726908360271">Ta&amp;mpal dan cari “<ph name="SEARCH_TERMS" />”</translation>
 <translation id="5468173180030470402">Mencari perkongsian fail</translation>
 <translation id="5471768120198416576">Hai! Saya ialah suara teks ke pertuturan anda.</translation>
+<translation id="5472133193607270166">Apabila kuki dihidupkan, tapak tidak boleh menggunakan aktiviti penyemakan imbas anda di tapak lain untuk memperibadikan iklan. Sesetengah tapak mungkin tidak dapat berfungsi dengan betul.</translation>
 <translation id="5473333559083690127">Masukkan semula PIN baharu</translation>
 <translation id="5481941284378890518">Tambahkan Pencetak Berdekatan</translation>
 <translation id="5483785310822538350">Batalkan akses fail dan peranti</translation>
@@ -4231,7 +4233,6 @@ Pastikan anda mempercayai tapak ini sebelum memasuki VR.</translation>
 <translation id="7221869452894271364">Muatkan semula halaman ini</translation>
 <translation id="7222204278952406003">Chrome ialah penyemak imbas lalai anda</translation>
 <translation id="7222232353993864120">Alamat E-mel</translation>
-<translation id="7223859049862598735">Chrome menyekat kuki yang boleh digunakan untuk menjejaki anda di seluruh web</translation>
 <translation id="7225179976675429563">Jenis rangkaian tiada</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (Vendor: <ph name="VENDOR_ID" />, Produk: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Manipulasi tetapan yang menentukan sama ada tapak web boleh menggunakan ciri seperti geolokasi, mikrofon, kamera dan sebagainya.</translation>
@@ -5580,7 +5581,6 @@ perubahan ini berlaku, anda mungkin tidak mahukannya.</translation>
 <translation id="9130015405878219958">Mod tidak sah dimasukkan.</translation>
 <translation id="9131487537093447019">Hantar mesej kepada dan terima mesej daripada peranti Bluetooth.</translation>
 <translation id="9134304429738380103">Ya, saya ikut serta.</translation>
-<translation id="9135090785674039430">Apabila pilihan ini dihidupkan, tapak tidak dapat menggunakan kuki yang menjejaki anda di seluruh web. Sesetengah tapak web mungkin tidak dapat diakses.</translation>
 <translation id="9137013805542155359">Paparkan asal</translation>
 <translation id="9137157311132182254">Enjin carian pilihan</translation>
 <translation id="9137248913990643158">Sila mulakan dan log masuk ke Chrome sebelum menggunakan apl ini.</translation>

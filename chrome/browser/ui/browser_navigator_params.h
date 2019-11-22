@@ -196,7 +196,8 @@ struct NavigateParams {
     // Show and activate the browser window after navigating.
     SHOW_WINDOW,
     // Show the browser window after navigating but do not activate.
-    SHOW_WINDOW_INACTIVE
+    SHOW_WINDOW_INACTIVE,
+    SHOW_WINDOW_FULLSCREEN
   };
   // Default is NO_ACTION (don't show or activate the window).
   // If disposition is NEW_WINDOW or NEW_POPUP, and |window_action| is set to
@@ -205,7 +206,7 @@ struct NavigateParams {
 
   // If false then the navigation was not initiated by a user gesture.
   bool user_gesture = true;
-
+  bool frameless = false;
   // What to do with the path component of the URL for singleton navigations.
   enum PathBehavior {
     // Two URLs with differing paths are different.

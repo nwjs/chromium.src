@@ -66,6 +66,8 @@ base::string16 GetSafetyTipTitle(
           security_interstitials::common_string_util::GetFormattedHostName(
               suggested_url));
 #endif
+    case security_state::SafetyTipStatus::kBadReputationIgnored:
+    case security_state::SafetyTipStatus::kLookalikeIgnored:
     case security_state::SafetyTipStatus::kBadKeyword:
     case security_state::SafetyTipStatus::kUnknown:
     case security_state::SafetyTipStatus::kNone:
@@ -97,6 +99,8 @@ base::string16 GetSafetyTipDescription(
           security_interstitials::common_string_util::GetFormattedHostName(
               suggested_url));
 #endif
+    case security_state::SafetyTipStatus::kBadReputationIgnored:
+    case security_state::SafetyTipStatus::kLookalikeIgnored:
     case security_state::SafetyTipStatus::kBadKeyword:
     case security_state::SafetyTipStatus::kNone:
     case security_state::SafetyTipStatus::kUnknown:
@@ -117,6 +121,8 @@ int GetSafetyTipLeaveButtonId(security_state::SafetyTipStatus warning_type) {
     case security_state::SafetyTipStatus::kLookalike:
       return IDS_PAGE_INFO_SAFETY_TIP_LEAVE_BUTTON;
 #endif
+    case security_state::SafetyTipStatus::kBadReputationIgnored:
+    case security_state::SafetyTipStatus::kLookalikeIgnored:
     case security_state::SafetyTipStatus::kBadKeyword:
     case security_state::SafetyTipStatus::kUnknown:
     case security_state::SafetyTipStatus::kNone:

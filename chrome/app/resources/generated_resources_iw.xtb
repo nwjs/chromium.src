@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">קרא ושנה את כל הנתונים שלך באתר הנוכחי בעת הקריאה</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> רוצה לאפס את ההגדרות שלך.</translation>
 <translation id="1243314992276662751">העלה</translation>
+<translation id="1243398753772016127">אתרים לא יכולים להשתמש בפעילות הגלישה שלך באתרים אחרים כדי להתאים אישית מודעות</translation>
 <translation id="1244265436519979884">‏מתבצע כעת שחזור של Linux</translation>
 <translation id="1244303850296295656">שגיאת תוסף</translation>
 <translation id="1246905108078336582">להסיר את ההצעה מהלוח?</translation>
@@ -3036,6 +3037,7 @@
 <translation id="5466374726908360271">הד&amp;בקה וחיפוש של "<ph name="SEARCH_TERMS" />"</translation>
 <translation id="5468173180030470402">מתבצע איתור של התקני רשת לשיתוף קבצים</translation>
 <translation id="5471768120198416576">שלום. זהו הקול של המרת טקסט לדיבור.</translation>
+<translation id="5472133193607270166">כשהאפשרות מופעלת, אתרים לא יכולים להשתמש בפעילות הגלישה שלך באתרים שונים כדי להציג מודעות בהתאמה אישית. ייתכן שאתרים מסוימים לא יפעלו באופן תקין.</translation>
 <translation id="5473333559083690127">‏הזן שוב את מספר ה-PIN החדש</translation>
 <translation id="5481941284378890518">הוסף מדפסות קרובות</translation>
 <translation id="5483785310822538350">בטל גישה לקבצים ולמכשירים</translation>
@@ -4228,7 +4230,6 @@
 <translation id="7221869452894271364">רענן את הדף</translation>
 <translation id="7222204278952406003">‏Chrome הוא דפדפן ברירת המחדל</translation>
 <translation id="7222232353993864120">כתובת אימייל</translation>
-<translation id="7223859049862598735">‏Chrome חוסם קובצי cookie שבהם אפשר להשתמש כדי לעקוב אחריך באינטרנט</translation>
 <translation id="7225179976675429563">חסר סוג רשת</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (ספק: <ph name="VENDOR_ID" />, מוצר: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">שינוי הגדרות שמציינות אם אתרים יכולים להשתמש בתכונות כגון מיקום גיאוגרפי, מיקרופון, מצלמה ועוד</translation>
@@ -5577,7 +5578,6 @@
 <translation id="9130015405878219958">הוזן מצב לא חוקי.</translation>
 <translation id="9131487537093447019">‏שליחת הודעות למכשירי Bluetooth וקבלת הודעות מהם.</translation>
 <translation id="9134304429738380103">כן, אני מסכים/ה.</translation>
-<translation id="9135090785674039430">‏כשהאפשרות מופעלת, אתרים לא יכולים להשתמש בקובצי cookie לניהול מעקב אחריך באינטרנט. ייתכנו תקלות בתפקוד של חלק מהאתרים.</translation>
 <translation id="9137013805542155359">הצג מקור</translation>
 <translation id="9137157311132182254">מנוע חיפוש מועדף</translation>
 <translation id="9137248913990643158">‏היכנס לחשבונך ב-Chrome לפני שתשתמש באפליקציה הזו.</translation>

@@ -69,6 +69,11 @@ void WakeLockSentinel::DoRelease() {
   manager_->UnregisterSentinel(this);
   manager_.Clear();
 
+  // This function may be called on ExecutionContext destruction. Events should
+  // not be dispatched in this case.
+  if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed())
+    return;
+
   DispatchEvent(
       *MakeGarbageCollected<WakeLockEvent>(event_type_names::kRelease, this));
 }

@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Accéder à toutes vos données sur le site Web actuellement consulté et les modifier</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> souhaite rétablir vos paramètres.</translation>
 <translation id="1243314992276662751">Importer</translation>
+<translation id="1243398753772016127">Les sites ne peuvent pas utiliser votre activité de navigation sur d'autres sites pour personnaliser les annonces</translation>
 <translation id="1244265436519979884">Restauration Linux…</translation>
 <translation id="1244303850296295656">Erreur au niveau des extensions.</translation>
 <translation id="1246905108078336582">Supprimer la suggestion du presse-papiers ?</translation>
@@ -3039,6 +3040,7 @@ N'activez la RV que si vous faites confiance à ce site.</translation>
 <translation id="5466374726908360271">Coller et chercher "<ph name="SEARCH_TERMS" />"</translation>
 <translation id="5468173180030470402">Recherche de partages de fichiers…</translation>
 <translation id="5471768120198416576">Bonjour ! Je suis la voix de votre synthèse vocale.</translation>
+<translation id="5472133193607270166">Lorsque cette option est activée, les sites ne peuvent pas utiliser votre activité de navigation sur d'autres sites pour personnaliser les annonces. Certains peuvent ne pas fonctionner correctement.</translation>
 <translation id="5473333559083690127">Saisir encore le nouveau code</translation>
 <translation id="5481941284378890518">Ajouter des imprimantes à proximité</translation>
 <translation id="5483785310822538350">Retirer les droits d'accès aux fichiers et aux appareils</translation>
@@ -4232,7 +4234,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7221869452894271364">Actualiser cette page</translation>
 <translation id="7222204278952406003">Chrome est votre navigateur par défaut</translation>
 <translation id="7222232353993864120">Adresse e-mail</translation>
-<translation id="7223859049862598735">Chrome bloque les cookies pouvant servir à suivre votre activité sur le Web</translation>
 <translation id="7225179976675429563">Type de réseau manquant.</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (fournisseur : <ph name="VENDOR_ID" />, produit : <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Manipule des paramètres qui déterminent si les sites Web peuvent utiliser des fonctionnalités telles que la géolocalisation, le microphone, l'appareil photo, etc.</translation>
@@ -5580,7 +5581,6 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="9130015405878219958">Le mode indiqué est incorrect.</translation>
 <translation id="9131487537093447019">Envoyer des messages à des appareils Bluetooth, et en recevoir de ces derniers</translation>
 <translation id="9134304429738380103">J'accepte.</translation>
-<translation id="9135090785674039430">Lorsque cette option est activée, les sites ne peuvent pas utiliser de cookies pour suivre votre activité sur le Web. Certains sites Web risquent de ne pas fonctionner.</translation>
 <translation id="9137013805542155359">Afficher l'original</translation>
 <translation id="9137157311132182254">Moteur de recherche préféré</translation>
 <translation id="9137248913990643158">Veuillez démarrer Chrome et vous connecter à votre compte avant d'utiliser cette application</translation>

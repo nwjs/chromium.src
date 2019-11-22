@@ -14,6 +14,7 @@ import android.view.WindowManager;
 
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.WindowDelegate;
+import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.omnibox.status.StatusView;
 
 /**
@@ -77,10 +78,10 @@ public class LocationBarPhone extends LocationBarLayout {
             // children this way doesn't affect the views' bounds (including hit rect). But these
             // hit rects are preserved for the views that matter (the icon and the url actions
             // container).
-            int lateral_padding = getResources().getDimensionPixelOffset(
+            int lateralPadding = getResources().getDimensionPixelOffset(
                     R.dimen.sei_location_bar_lateral_padding);
-            setPaddingRelative(
-                    lateral_padding, getPaddingTop(), lateral_padding, getPaddingBottom());
+            setPaddingRelative(lateralPadding, getPaddingTop(), lateralPadding, getPaddingBottom());
+            updateUrlBarPaddingForSearchEngineIcon();
         }
 
         // This branch will be hit if the search engine logo experiment is enabled and we should
@@ -106,10 +107,12 @@ public class LocationBarPhone extends LocationBarLayout {
     private void updateUrlBarPaddingForSearchEngineIcon() {
         if (mUrlBar == null || mStatusView == null) return;
 
+        // TODO(crbug.com/1019019): Come up with a better solution for M80 or M81.
         int endPadding = 0;
-        if (SearchEngineLogoUtils.shouldShowSearchEngineLogo(mToolbarDataProvider.isIncognito())) {
+        if (SearchEngineLogoUtils.shouldShowSearchEngineLogo(mToolbarDataProvider.isIncognito())
+                && hasFocus()) {
             // This padding prevents the UrlBar's content from extending past the available space
-            // and into the next view.
+            // and into the next view while focused.
             endPadding = mStatusView.getEndPaddingPixelSizeForFocusState(true)
                     - mStatusView.getEndPaddingPixelSizeForFocusState(false);
         }
@@ -187,8 +190,7 @@ public class LocationBarPhone extends LocationBarLayout {
                         - mStatusView.getEndPaddingPixelSizeForFocusState(false));
 
         if (!hasFocus && mIconView.getVisibility() == VISIBLE
-                && mToolbarDataProvider.getNewTabPageForCurrentTab() != null
-                && !mToolbarDataProvider.getTab().isLoading()) {
+                && SearchEngineLogoUtils.currentlyOnNTP(mToolbarDataProvider)) {
             // When:
             // 1. unfocusing the LocationBar on the NTP.
             // 2. scrolling the fakebox to the LocationBar on the NTP.
@@ -239,6 +241,7 @@ public class LocationBarPhone extends LocationBarLayout {
             setFocusable(false);
             setFocusableInTouchMode(false);
         }
+        updateUrlBarPaddingForSearchEngineIcon();
         setUrlFocusChangeInProgress(true);
         updateShouldAnimateIconChanges();
         super.onUrlFocusChange(hasFocus);
@@ -292,6 +295,8 @@ public class LocationBarPhone extends LocationBarLayout {
             setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN, false);
             getWindowAndroid().getKeyboardDelegate().showKeyboard(mUrlBar);
         }
+        updateUrlBarPaddingForSearchEngineIcon();
+        mStatusViewCoordinator.onUrlAnimationFinished(hasFocus);
         setUrlFocusChangeInProgress(false);
         updateShouldAnimateIconChanges();
     }
@@ -352,9 +357,30 @@ public class LocationBarPhone extends LocationBarLayout {
         boolean isIncognito = getToolbarDataProvider().isIncognito();
         boolean shouldShowSearchEngineLogo =
                 SearchEngineLogoUtils.shouldShowSearchEngineLogo(isIncognito);
-        updateUrlBarPaddingForSearchEngineIcon();
-        if (mIconView != null) mIconView.setVisibility(shouldShowSearchEngineLogo ? VISIBLE : GONE);
         setShowIconsWhenUrlFocused(shouldShowSearchEngineLogo);
         mFirstVisibleFocusedView = shouldShowSearchEngineLogo ? mStatusView : mUrlBar;
+
+        updateStatusVisibility();
+        updateUrlBarPaddingForSearchEngineIcon();
+    }
+
+    @Override
+    public void onTabLoadingNTP(NewTabPage ntp) {
+        super.onTabLoadingNTP(ntp);
+        updateStatusVisibility();
+    }
+
+    /** Update the status visibility according to the current state held in LocationBar. */
+    private void updateStatusVisibility() {
+        boolean incognito = getToolbarDataProvider().isIncognito();
+        if (!SearchEngineLogoUtils.shouldShowSearchEngineLogo(incognito)) {
+            return;
+        }
+
+        if (SearchEngineLogoUtils.currentlyOnNTP(mToolbarDataProvider)) {
+            mStatusViewCoordinator.setStatusIconShown(hasFocus());
+        } else {
+            mStatusViewCoordinator.setStatusIconShown(true);
+        }
     }
 }

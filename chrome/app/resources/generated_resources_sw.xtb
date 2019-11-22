@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Soma na ubadilishe data yako yote kwenye tovuti unayovinjari sasa inapotumwa</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> inataka kuweka upya mipangilio yako.</translation>
 <translation id="1243314992276662751">Pakia</translation>
+<translation id="1243398753772016127">Tovuti haziwezi kutumia shughuli zako za kuvinjari kwenye tovuti tofauti ili kuweka mapendeleo kwenye matangazo</translation>
 <translation id="1244265436519979884">Shughuli ya kupakia metadata ya Linux inaendelea wakati huu</translation>
 <translation id="1244303850296295656">Hitilafu ya kiendelezi</translation>
 <translation id="1246905108078336582">Je, ungependa kuondoa pendekezo kwenye ubao wa kunakili?</translation>
@@ -3034,6 +3035,7 @@ Hakikisha kwamba unaamini tovuti hii kabla ya kuingia katika VR.</translation>
 <translation id="5466374726908360271">Ba&amp;ndika na utafute “<ph name="SEARCH_TERMS" />”</translation>
 <translation id="5468173180030470402">Inatafuta faili za kushiriki</translation>
 <translation id="5471768120198416576">Hujambo! Mimi ni sauti yako inayobadilisha maandishi kwenda usemi.</translation>
+<translation id="5472133193607270166">Ukiwasha, tovuti haziwezi kutumia shughuli zako za kuvinjari kwenye tovuti tofauti ili kukuonyesha matangazo yanayokufaa zaidi. Huenda baadhi ya tovuti zisifanye kazi vizuri.</translation>
 <translation id="5473333559083690127">Weka tena PIN mpya</translation>
 <translation id="5481941284378890518">Ongeza Printa za Uhamishaji wa Karibu</translation>
 <translation id="5483785310822538350">Batilisha idhini ya kufikia faili na kifaa</translation>
@@ -4225,7 +4227,6 @@ Hakikisha kwamba unaamini tovuti hii kabla ya kuingia katika VR.</translation>
 <translation id="7221869452894271364">Pakia ukurasa huu upya</translation>
 <translation id="7222204278952406003">Chrome ni kivinjari chako chaguomsingi</translation>
 <translation id="7222232353993864120">Anwani ya barua pepe</translation>
-<translation id="7223859049862598735">Chrome inazuia vidakuzi vinavyoweza kutumiwa kukufuatilia kwenye wavuti</translation>
 <translation id="7225179976675429563">Aina ya mtandao inakosekana</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (Muuzaji: <ph name="VENDOR_ID" />, Bidhaa: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Badilisha mipangilio ambayo hubainisha ikiwa tovuti zinaweza kutumia vipengele kama vile kutambulisha mahali, maikrofoni, kamera, nk.</translation>
@@ -5575,7 +5576,6 @@ Sidhani tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="9130015405878219958">Modi batili imeingizwa.</translation>
 <translation id="9131487537093447019">Tuma na upokee barua kutoka kwenye vifaa vya Bluetooth.</translation>
 <translation id="9134304429738380103">Ndiyo, ninakubali.</translation>
-<translation id="9135090785674039430">Ikiwashwa, tovuti haziwezi kutumia vidakuzi vinavyokufuatilia kwenye wavuti. Baadhi ya tovuti huenda zikaacha kufanya kazi.</translation>
 <translation id="9137013805542155359">Onyesha asili</translation>
 <translation id="9137157311132182254">Mtambo wa kutafuta unaopendelea</translation>
 <translation id="9137248913990643158">Tafadhali anza na uingie katika Chrome kabla ya kutumia programu hii.</translation>

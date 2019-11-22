@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">قراءة جميع بياناتك وتغييرها على موقع الويب الحالي عند الاستدعاء</translation>
 <translation id="1242633766021457174">يريد <ph name="THIRD_PARTY_TOOL_NAME" /> إعادة تعيين إعداداتك.</translation>
 <translation id="1243314992276662751">تحميل</translation>
+<translation id="1243398753772016127">لا يمكن للمواقع الإلكترونية تخصيص الإعلانات بالاستناد إلى نشاط تصفّحك لمواقع إلكترونية أخرى.</translation>
 <translation id="1244265436519979884">‏استعادة Linux قيد التقدم حاليًا</translation>
 <translation id="1244303850296295656">خطأ في الإضافة</translation>
 <translation id="1246905108078336582">هل تريد إزالة اقتراح من الحافظة؟</translation>
@@ -1026,7 +1027,7 @@
 <translation id="2470702053775288986">تم إيقاف الإضافات غير المدعومة</translation>
 <translation id="2473195200299095979">ترجم هذه الصفحة</translation>
 <translation id="2475982808118771221">حدث خطأ</translation>
-<translation id="2476578072172137802">إعدادات الموقع</translation>
+<translation id="2476578072172137802">إعدادات الموقع الإلكتروني</translation>
 <translation id="2478176599153288112">أذونات ملف الوسائط لـ "<ph name="EXTENSION" />"</translation>
 <translation id="247949520305900375">مشاركة الصوت</translation>
 <translation id="2480868415629598489">تعديل البيانات التي يتم نسخها ولصقها</translation>
@@ -2432,7 +2433,7 @@
 <translation id="4545759655004063573">لا يمكن الحفظ نظرًا لأن الأذونات غير كافية. يُرجى الحفظ في مكان آخر.</translation>
 <translation id="4546308221697447294">‏استمتع بالتصفح السريع باستخدام Google Chrome</translation>
 <translation id="4547659257713117923">ليست هناك علامات تبويب من أجهزة أخرى</translation>
-<translation id="4547672827276975204">التعيين تلقائيًا</translation>
+<translation id="4547672827276975204">ضبط المنطقة الزمنية تلقائيًا</translation>
 <translation id="4551763574344810652">اضغط على <ph name="MODIFIER_KEY_DESCRIPTION" /> للتراجع</translation>
 <translation id="4552089082226364758">الفلاش</translation>
 <translation id="4554591392113183336">الإضافة الخارجية في نفس الإصدار أو إصدار أقل مقارنة بالموجودة حاليًا.</translation>
@@ -2566,7 +2567,7 @@
 <translation id="4751476147751820511">أجهزة استشعار الإضاءة أو الحركة</translation>
 <translation id="4756378406049221019">إيقاف/إعادة تحميل</translation>
 <translation id="4756388243121344051">ال&amp;سجل</translation>
-<translation id="4759238208242260848">التنزيلات</translation>
+<translation id="4759238208242260848">الملفات التي تم تنزيلها</translation>
 <translation id="4761104368405085019">استخدام الميكروفون</translation>
 <translation id="4762718786438001384">مساحة القرص على الجهاز منخفضة للغاية</translation>
 <translation id="4763408175235639573">تم تعيين ملفات تعريف الارتباط التالية عند عرض هذه الصفحة</translation>
@@ -3036,6 +3037,7 @@
 <translation id="5466374726908360271">ل&amp;صق وبحث عن "<ph name="SEARCH_TERMS" />"</translation>
 <translation id="5468173180030470402">البحث عن خوادم مشاركة الملفات</translation>
 <translation id="5471768120198416576">مرحبًا! هذا صوت ميزة تحويل النص إلى كلام.</translation>
+<translation id="5472133193607270166">عند التفعيل، لا يمكن للمواقع الإلكترونية استخدام نشاط التصفّح الخاص بك على المواقع الإلكترونية المختلفة لتخصيص الإعلانات. يمكن ألا تعمل بعض المواقع الإلكترونية على نحو سليم.</translation>
 <translation id="5473333559083690127">إعادة إدخال رقم التعريف الشخصي الجديد</translation>
 <translation id="5481941284378890518">إضافة طابعات مجاورة</translation>
 <translation id="5483785310822538350">إبطال الوصول للملف والجهاز</translation>
@@ -4229,7 +4231,6 @@
 <translation id="7221869452894271364">إعادة تحميل هذه الصفحة</translation>
 <translation id="7222204278952406003">‏Chrome هو متصفِّحك التلقائي</translation>
 <translation id="7222232353993864120">عنوان البريد الإلكتروني</translation>
-<translation id="7223859049862598735">‏يحظر Chrome ملفات تعريف الارتباط المستخدمة لتتبع خطواتك على الويب.</translation>
 <translation id="7225179976675429563">نوع الشبكة مفقود</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (المورّد: <ph name="VENDOR_ID" />، المنتج: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">معالجة الإعدادات التي تحدد ما إذا كان بإمكان مواقع الويب استخدام ميزات مثل المواقع الجغرافية والميكروفون والكاميرا، وغيرها</translation>
@@ -5577,7 +5578,6 @@
 <translation id="9130015405878219958">تم إدخال وضع غير صحيح.</translation>
 <translation id="9131487537093447019">إرسال الرسائل إلى أجهزة البلوتوث واستلامها منها.</translation>
 <translation id="9134304429738380103">نعم، أنا موافق.</translation>
-<translation id="9135090785674039430">عند تفعيل هذه الميزة، لا يمكن للمواقع الإلكترونية استخدام ملفات تعريف الارتباط التي تتبع خطواتك على الويب. قد تتوقف بعض المواقع الإلكترونية عن العمل.</translation>
 <translation id="9137013805542155359">إظهار الصفحة الأصلية</translation>
 <translation id="9137157311132182254">محرِّك البحث المفضل</translation>
 <translation id="9137248913990643158">‏يُرجى البدء وتسجيل الدخول إلى Chrome قبل استخدام هذا التطبيق.</translation>

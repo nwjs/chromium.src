@@ -331,6 +331,8 @@ class PasswordManagerTest : public testing::Test {
         prefs::kPasswordManagerOnboardingState,
         static_cast<int>(metrics_util::OnboardingState::kDoNotShow));
     prefs_->registry()->RegisterBooleanPref(
+        prefs::kWasOnboardingFeatureCheckedBefore, false);
+    prefs_->registry()->RegisterBooleanPref(
         prefs::kPasswordLeakDetectionEnabled, true);
     ON_CALL(client_, GetPrefs()).WillByDefault(Return(prefs_.get()));
 
@@ -3227,6 +3229,10 @@ TEST_F(PasswordManagerTest, FillSingleUsername) {
 // in marking the password field as eligible for password generation.
 TEST_F(PasswordManagerTest,
        MarkServerPredictedClearTextPasswordFieldEligibleForGeneration) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      password_manager::features::KEnablePasswordGenerationForClearTextFields);
+
   PasswordFormManager::set_wait_for_server_predictions_for_filling(true);
   EXPECT_CALL(client_, IsSavingAndFillingEnabled(_))
       .WillRepeatedly(Return(true));

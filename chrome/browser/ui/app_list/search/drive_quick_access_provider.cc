@@ -93,6 +93,7 @@ DriveQuickAccessProvider::~DriveQuickAccessProvider() = default;
 
 void DriveQuickAccessProvider::Start(const base::string16& query) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  ClearResultsSilently();
   if (!query.empty())
     return;
 
@@ -101,7 +102,6 @@ void DriveQuickAccessProvider::Start(const base::string16& query) {
       "Apps.AppList.DriveQuickAccessProvider.TimeFromFetchToZeroStateStart",
       base::TimeTicks::Now() - latest_fetch_start_time_);
 
-  ClearResultsSilently();
   // Results are launched via DriveFS, so DriveFS must be mounted.
   bool drive_fs_mounted = drive_service_ && drive_service_->IsMounted();
   LogDriveFSMounted(drive_fs_mounted);

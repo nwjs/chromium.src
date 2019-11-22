@@ -195,8 +195,10 @@ FrameTree::FindResult FrameTree::FindOrCreateFrameForNavigation(
   // Named frame lookup should always be relative to a local frame.
   DCHECK(IsA<LocalFrame>(this_frame_.Get()));
   LocalFrame* current_frame = To<LocalFrame>(this_frame_.Get());
+  bool policy_changed = false;
 
   NavigationPolicy policy = request.GetNavigationPolicy();
+  NavigationPolicy policy0 = policy;
   if (name == "_blank")
     policy = kNavigationPolicyNewWindow;
 
@@ -208,12 +210,15 @@ FrameTree::FindResult FrameTree::FindOrCreateFrameForNavigation(
     current_frame->Client()->willHandleNavigationPolicy(request.GetResourceRequest(), &policy, &manifest);
     if (policy == kNavigationPolicyIgnore)
       return FindResult(nullptr, false);
+    request.SetNavigationPolicy(policy);
     request.SetManifest(manifest);
+    if (!manifest.IsEmpty() || policy != policy0)
+      policy_changed = true;
   }
   // A GetNavigationPolicy() value other than kNavigationPolicyCurrentTab at
   // this point indicates that a user event modified the navigation policy
   // (e.g., a ctrl-click). Let the user's action override any target attribute.
-  if (request.GetNavigationPolicy() != kNavigationPolicyCurrentTab)
+  if (policy0 != kNavigationPolicyCurrentTab && !policy_changed)
     return FindResult(current_frame, false);
 
   bool new_window = false;

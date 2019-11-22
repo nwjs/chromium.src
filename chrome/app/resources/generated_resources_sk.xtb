@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Čítať a meniť všetky údaje na aktuálnom webe (po vyvolaní)</translation>
 <translation id="1242633766021457174">Nástroj <ph name="THIRD_PARTY_TOOL_NAME" /> chce resetovať vaše nastavenia.</translation>
 <translation id="1243314992276662751">Nahrať</translation>
+<translation id="1243398753772016127">Weby nemôžu prispôsobovať reklamy na základe vašej aktivity prehliadania na rôznych stránkach</translation>
 <translation id="1244265436519979884">Prebieha obnovenie systému Linux</translation>
 <translation id="1244303850296295656">Chyba rozšírenia</translation>
 <translation id="1246905108078336582">Chcete odstrániť návrh zo schránky?</translation>
@@ -3038,6 +3039,7 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="5466374726908360271">Prilepiť a &amp;vyhľadať „<ph name="SEARCH_TERMS" />“</translation>
 <translation id="5468173180030470402">Hľadajú sa zdieľané úložiská</translation>
 <translation id="5471768120198416576">Dobrý deň, som hlas prevodu textu na reč.</translation>
+<translation id="5472133193607270166">Keď je táto možnosť zapnutá, weby nemôžu prispôsobovať reklamy na základe vašej aktivity prehliadania na rôznych stránkach. Niektoré weby nemusia fungovať správne.</translation>
 <translation id="5473333559083690127">Opätovné zadanie nového kódu PIN</translation>
 <translation id="5481941284378890518">Pridať tlačiarne v okolí</translation>
 <translation id="5483785310822538350">Odvolať prístup k súborom a zariadeniam</translation>
@@ -3839,7 +3841,7 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="6639554308659482635">Pamäť nástroja SQLite</translation>
 <translation id="6641138807883536517">Náhodne generované heslo bezpečnostného modulu nie je k dispozícii. Po použití funkcie Powerwash je to normálne.</translation>
 <translation id="6643016212128521049">Vymazať</translation>
-<translation id="6644512095122093795">Ponúknuť uloženie hesiel</translation>
+<translation id="6644512095122093795">Ponúkať ukladanie hesiel</translation>
 <translation id="6644513150317163574">Neplatný formát webovej adresy. Keď sa použije overenie jediným prihlásením, server musí byť špecifikovaný ako názov hostiteľa.</translation>
 <translation id="6644846457769259194">Zariadenie sa aktualizuje (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6645437135153136856">Vybrané zariadenie v službe Google Cloud Print už nie je podporované. <ph name="BR" /> Skúste túto tlačiareň nakonfigurovať v nastaveniach systému počítača.</translation>
@@ -4230,7 +4232,6 @@ Pred prechodom do VR skontrolujte, či tomuto webu dôverujete.</translation>
 <translation id="7221869452894271364">Obnoviť túto stránku</translation>
 <translation id="7222204278952406003">Chrome je váš predvolený prehliadač</translation>
 <translation id="7222232353993864120">E-mailová adresa</translation>
-<translation id="7223859049862598735">Chrome blokuje súbory cookie, pomocou ktorých vás je možné sledovať na internete</translation>
 <translation id="7225179976675429563">Chýba typ siete</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (dodávateľ: <ph name="VENDOR_ID" />, produkt: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Upravujte nastavenia, ktoré určujú, či weby môžu používať funkcie, ako sú geolokácia, mikrofón, kamera atď.</translation>
@@ -5577,7 +5578,6 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="9130015405878219958">Zadali ste neplatný režim.</translation>
 <translation id="9131487537093447019">Posielať správy zariadeniam Bluetooth a prijímať správy zo zariadení Bluetooth.</translation>
 <translation id="9134304429738380103">Áno, chcem.</translation>
-<translation id="9135090785674039430">Keď toto nastavenie zapnete, weby nebudú môcť používať súbory cookie, ktoré vás sledujú na internete. Na niektorých weboch môže dôjsť k zlyhaniu.</translation>
 <translation id="9137013805542155359">Zobraziť originál</translation>
 <translation id="9137157311132182254">Preferovaný vyhľadávač</translation>
 <translation id="9137248913990643158">Začnite a prihláste sa do Chromu ešte predtým, ako použijete túto aplikáciu.</translation>

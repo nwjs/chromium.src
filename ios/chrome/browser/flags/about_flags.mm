@@ -561,6 +561,12 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kDisableAnimationOnLowBatteryName,
      flag_descriptions::kDisableAnimationOnLowBatteryDescription,
      flags_ui::kOsIos, FEATURE_VALUE_TYPE(kDisableAnimationOnLowBattery)},
+    {"autofill-save-card-dismiss-on-navigation",
+     flag_descriptions::kAutofillSaveCardDismissOnNavigationName,
+     flag_descriptions::kAutofillSaveCardDismissOnNavigationDescription,
+     flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(
+         autofill::features::kAutofillSaveCardDismissOnNavigation)},
 };
 
 // Add all switches from experimental flags to |command_line|.

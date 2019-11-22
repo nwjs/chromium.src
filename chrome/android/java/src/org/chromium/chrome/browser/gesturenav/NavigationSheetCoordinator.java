@@ -141,7 +141,7 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
             return mLayoutInflater.inflate(R.layout.navigation_popup_item, null);
         }, NavigationItemViewBinder::bind);
         mOpenSheetRunnable = () -> {
-            if (isHidden()) openSheet(false, true);
+            if (isHidden()) openSheet(true, true);
         };
         mLongSwipePeekThreshold = Math.min(
                 context.getResources().getDisplayMetrics().density * LONG_SWIPE_PEEK_THRESHOLD_DP,
@@ -157,7 +157,7 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
     }
 
     // Transition to either peeked or expanded state.
-    private boolean openSheet(boolean fullyExpand, boolean animate) {
+    private boolean openSheet(boolean expandIfSmall, boolean animate) {
         mContentView =
                 (NavigationSheetView) mLayoutInflater.inflate(R.layout.navigation_sheet, null);
         ListView listview = (ListView) mContentView.findViewById(R.id.navigation_entries);
@@ -171,8 +171,10 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
         }
         mBottomSheetController.get().getBottomSheet().addObserver(mSheetObserver);
         mSheetTriggered = true;
-        mFullyExpand = fullyExpand;
-        if (fullyExpand || history.getEntryCount() <= SKIP_PEEK_COUNT) expandSheet();
+        if (expandIfSmall && history.getEntryCount() <= SKIP_PEEK_COUNT) {
+            mFullyExpand = true;
+            expandSheet();
+        }
         return true;
     }
 
@@ -189,6 +191,7 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
         mForward = forward;
         mShowCloseIndicator = showCloseIndicator;
         mSheetTriggered = false;
+        mFullyExpand = false;
         mOpenedAsPopup = false;
     }
 
@@ -196,7 +199,11 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
     public boolean startAndExpand(boolean forward, boolean animate) {
         start(forward, /* showCloseIndicator= */ false);
         mOpenedAsPopup = true;
-        boolean opened = openSheet(/* fullyExpand= */ true, animate);
+
+        // Enter the expanded state by disabling peek/half state rather than
+        // calling |expandSheet| explicilty. Otherwise it cause an extra
+        // state transition (full -> full), which cancels the animation effect.
+        boolean opened = openSheet(/* expandIfSmall */ false, animate);
         if (opened) GestureNavMetrics.recordUserAction("Popup");
         return opened;
     }
@@ -303,6 +310,7 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
 
     @Override
     public int getPeekHeight() {
+        if (mOpenedAsPopup) return BottomSheet.HeightMode.DISABLED;
         // Makes peek state as 'not present' when bottom sheet is in expanded state (i.e. animating
         // from expanded to close state). It avoids the sheet animating in two distinct steps, which
         // looks awkward.
@@ -313,11 +321,13 @@ class NavigationSheetCoordinator implements BottomSheetContent, NavigationSheet 
 
     @Override
     public boolean wrapContentEnabled() {
+        if (mOpenedAsPopup) return true;
         return false;
     }
 
     @Override
     public float getCustomHalfRatio() {
+        if (mOpenedAsPopup) return -1.0f; // BottomSheet.INVALID_HEIGHT_RATIO
         return mFullyExpand ? getCustomFullRatio()
                             : getCappedHeightRatio(mParentView.getHeight() / 2 + mItemHeight / 2);
     }

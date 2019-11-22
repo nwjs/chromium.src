@@ -174,7 +174,7 @@
 <translation id="173080396488393970">Type de carte non accepté</translation>
 <translation id="1734864079702812349">American Express</translation>
 <translation id="1734878702283171397">Essayez de contacter l'administrateur système.</translation>
-<translation id="1739107442478692187">Une violation des données affecte un site ou une application que vous utilisez. Nous vous recommandons de vérifier vos mots de passe enregistrés et de modifier celui utilisé pour <ph name="ORIGIN" /> immédiatement.</translation>
+<translation id="1739107442478692187">Un site ou une application que vous utilisez a subi une violation des données. Nous vous recommandons de vérifier vos mots de passe enregistrés et de modifier celui utilisé pour <ph name="ORIGIN" /> immédiatement.</translation>
 <translation id="1740951997222943430">Saisissez un mois d'expiration valide</translation>
 <translation id="1743520634839655729">Pour régler plus rapidement vos achats la prochaine fois, enregistrez votre carte, votre nom et votre adresse de facturation dans votre compte Google et sur cet appareil.</translation>
 <translation id="1743570585616704562">Non reconnu</translation>
@@ -247,7 +247,7 @@
 <translation id="2114841414352855701">Ignorée parce que remplacée par <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Émis pour : <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Perforation en bas à droite</translation>
-<translation id="2124528555835617522">Une violation des données affecte un site ou une application que vous utilisez. Nous vous recommandons de vérifier vos mots de passe enregistrés immédiatement.</translation>
+<translation id="2124528555835617522">Un site ou une application que vous utilisez a subi une violation des données. Nous vous recommandons de vérifier vos mots de passe enregistrés immédiatement.</translation>
 <translation id="2129079103035905234">Capteurs de mouvement</translation>
 <translation id="213826338245044447">Favoris sur mobile</translation>
 <translation id="214556005048008348">Annuler le paiement</translation>
@@ -477,7 +477,7 @@
 <translation id="3282497668470633863">Ajouter le nom sur la carte</translation>
 <translation id="3287510313208355388">Télécharger une fois connecté</translation>
 <translation id="3293642807462928945">En savoir plus sur les règles <ph name="POLICY_NAME" />.</translation>
-<translation id="3295439534709115864">Une violation des données affecte un site ou une application que vous utilisez. Nous vous recommandons de changer votre mot de passe pour <ph name="ORIGIN" /> immédiatement.</translation>
+<translation id="3295439534709115864">Un site ou une application que vous utilisez a subi une violation des données. Nous vous recommandons de changer votre mot de passe pour <ph name="ORIGIN" /> immédiatement.</translation>
 <translation id="3303855915957856445">Aucun résultat de recherche n'a été trouvé.</translation>
 <translation id="3320021301628644560">Ajouter une adresse de facturation</translation>
 <translation id="3324983252691184275">Pourpre</translation>

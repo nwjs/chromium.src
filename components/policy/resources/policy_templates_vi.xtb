@@ -711,6 +711,11 @@
 <translation id="2149330464730004005">Bật chế độ in màu</translation>
 <translation id="2156132677421487971">Định cấu hình các chính sách cho <ph name="PRODUCT_NAME" />, một tính năng cho phép người dùng gửi nội dung của các tab, trang web hoặc màn hình từ trình duyệt đến màn hình và hệ thống âm thanh từ xa.</translation>
 <translation id="2156755242840687300">Máy chủ máy in bên ngoài được bật</translation>
+<translation id="2160336427036785721">Định cấu hình dung lượng bộ nhớ mà một phiên bản <ph name="PRODUCT_NAME" /> có thể sử dụng trước khi các tab bắt đầu bị đóng (nghĩa là dung lượng bộ nhớ mà tab sử dụng sẽ được giải phóng và tab sẽ phải tải lại khi chuyển đổi) để tiết kiệm bộ nhớ.
+
+      Nếu bạn đặt chính sách này, thì trình duyệt sẽ bắt đầu đóng các tab để tiết kiệm bộ nhớ sau khi vượt quá giới hạn. Tuy nhiên, không thể đảm bảo rằng trình duyệt sẽ luôn chạy trong mức giới hạn. Mọi giá trị xấp xỉ 1024 sẽ được làm tròn thành 1024.
+
+      Nếu bạn không đặt chính sách này, thì trình duyệt sẽ chỉ bắt đầu tìm cách tiết kiệm bộ nhớ sau khi phát hiện thấy rằng dung lượng bộ nhớ thực trên máy ở mức thấp.</translation>
 <translation id="2166472654199325139">Không lọc các trang web có nội dung người lớn</translation>
 <translation id="2168397434410358693">Độ trễ lúc không sử dụng khi chạy trên nguồn AC</translation>
 <translation id="217013996107840632">Các tham số dòng lệnh để chuyển từ trình duyệt thay thế.</translation>
@@ -916,6 +921,15 @@
           Nếu bạn bật hoặc không đặt chính sách này, thì các cảnh báo bảo mật sẽ hiện ra khi một số cờ dòng lệnh được dùng để chạy Chrome.
 
           Trên Windows, chính sách này chỉ có trên các phiên bản liên kết với một miền <ph name="MS_AD_NAME" /> hoặc các phiên bản Windows 10 Pro hoặc Enterprise đã đăng ký quản lý thiết bị.</translation>
+<translation id="2480971699591919564">Bật tính năng Nhấp để gọi. Tính năng này cho phép người dùng gửi số điện thoại từ Máy tính đang mở Chrome sang thiết bị Android khi người dùng đã đăng nhập. Để biết thêm thông tin, hãy xem bài viết trong trung tâm trợ giúp: https://support.google.com/chrome/answer/9430554?hl=vi.
+
+      Nếu bạn đặt chính sách này thành bật, thì người dùng Chrome có thể gửi số điện thoại tới thiết bị Android.
+
+      Nếu bạn đặt chính sách này thành tắt, thì người dùng Chrome sẽ không thể gửi số điện thoại tới thiết bị Android.
+
+      Nếu bạn đặt chính sách này, thì người dùng sẽ không thể thay đổi hay ghi đè chính sách này.
+
+      Nếu bạn không đặt chính sách này, thì tính năng Nhấp để gọi sẽ bật theo mặc định.</translation>
 <translation id="2482676533225429905">Nhắn tin gốc</translation>
 <translation id="2483146640187052324">Dự đoán tác vụ mạng trên kết nối mạng bất kỳ</translation>
 <translation id="2484208301968418871">Chính sách này kiểm soát việc áp dụng bộ lọc URL SafeSites.
@@ -1938,6 +1952,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="4075864623710596000">Các tên máy chủ đã chỉ định trong danh sách này sẽ được miễn kiểm tra chính sách HSTS mà có thể nâng cấp yêu cầu từ http lên https. Chính sách này chỉ cho phép tên máy chủ một nhãn. Cần phải chuẩn hóa tên máy chủ: mọi IDN phải được chuyển sang định dạng nhãn A và tất cả chữ cái ASCII phải là chữ thường. Chính sách này chỉ áp dụng với các tên máy chủ cụ thể đã chỉ định, chứ không áp dụng với các miền con của tên máy chủ đã chỉ định.</translation>
 <translation id="408029843066770167">Cho phép gửi truy vấn tới dịch vụ thời gian của Google</translation>
 <translation id="408076456549153854">Cho phép đăng nhập vào trình duyệt</translation>
+<translation id="4082498585300984671">Bật tính năng Nhấp để gọi</translation>
 <translation id="40853027210512570">Ghi đè các quy tắc chọn máy in mặc định trong <ph name="PRODUCT_NAME" />.
 
       Chính sách này xác định các quy tắc chọn máy in mặc định trong <ph name="PRODUCT_NAME" />. Quá trình này diễn ra vào lần đầu tiên sử dụng chức năng in với một cấu hình.
@@ -2946,13 +2961,13 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Hệ số tỷ lệ phải từ 100% trở lên. Bạn không được sử dụng các giá trị rút ngắn độ trễ làm mờ màn hình trong chế độ thuyết trình so với độ trễ làm mờ màn hình thông thường.</translation>
 <translation id="5590988845778885692">Cung cấp cấu hình của các máy chủ máy in hiện có.
 
-      Chính sách này cho phép bạn cung cấp cấu hình của các máy chủ máy in bên ngoài cho thiết bị <ph name="PRODUCT_OS_NAME" /> dưới dạng tệp JSON.
+      Chính sách này cho phép bạn cung cấp cấu hình của các máy chủ máy in bên ngoài cho các thiết bị <ph name="PRODUCT_OS_NAME" /> dưới dạng tệp JSON.
 
       Kích thước của tệp không được vượt quá 1 MB và phải chứa một chuỗi bản ghi (đối tượng JSON). Mỗi bản ghi phải chứa các trường "id", "url" và "display_name" có giá trị là các chuỗi. Giá trị của trường "id" phải là duy nhất.
 
       Tệp sẽ được tải xuống và lưu vào bộ nhớ đệm. Hàm băm mật mã dùng để xác minh tính toàn vẹn của tệp tải xuống. Tệp sẽ được tải lại xuống mỗi khi URL hoặc hàm băm thay đổi.
 
-      Khi bạn đặt chính sách này thành giá trị chính xác, thiết bị sẽ tìm cách truy vấn các máy chủ máy in được chỉ định để tìm các máy in hiện có sử dụng giao thức IPP.
+      Khi bạn đặt chính sách này thành giá trị chính xác, thiết bị sẽ tìm cách truy vấn các máy chủ máy in được chỉ định để tìm những máy in hiện có sử dụng giao thức IPP.
 
       Nếu bạn không đặt hoặc đặt chính sách này thành giá trị không chính xác, thì người dùng sẽ không nhìn thấy máy chủ máy in.
 
@@ -3223,6 +3238,10 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="6145799962557135888">Cho phép bạn thiết lập danh sách các mẫu url chỉ định những trang web được phép chạy JavaScript.
 
           Nếu không thiết lập chính sách này, giá trị mặc định chung từ chính sách 'DefaultImagesSetting' nếu chính sách này được thiết lập hoặc từ cấu hình cá nhân của người dùng sẽ được sử dụng cho tất cả các trang web.</translation>
+<translation id="614616930188030377">Các mẫu trong danh sách này sẽ được so khớp với nguồn bảo mật của URL yêu cầu.
+      Nếu tìm thấy mẫu phù hợp hoặc nếu chrome://flags/#enable-webrtc-hide-local-ips-with-mdns đang Tắt, thì địa chỉ IP cục bộ sẽ hiển thị trong ứng viên WebRTC ICE.
+      Nếu không, địa chỉ IP cục bộ sẽ được che giấu bằng tên máy chủ mDNS.
+      Xin lưu ý rằng chính sách này sẽ làm yếu đi chức năng bảo vệ của IP cục bộ nếu quản trị viên cần.</translation>
 <translation id="614662973812186053">Chính sách này cũng kiểm soát việc thu thập dữ liệu chẩn đoán và sử dụng Android.</translation>
 <translation id="6153048425064249648">Chính sách này kiểm soát tính năng báo cáo đám mây của <ph name="PRODUCT_NAME" />. Tính năng này tải thông tin về hoạt động của trình duyệt lên Bảng điều khiển dành cho quản trị viên của Google.
 
@@ -4218,6 +4237,7 @@ Nếu bạn không đặt chính sách này thì người dùng sẽ có thể t
           Nếu bạn không đặt chính sách này, thì chế độ tương phản cao sẽ tắt khi màn hình đăng nhập hiển thị lần đầu tiên. Người dùng có thể bật hoặc tắt chế độ tương phản cao bất cứ lúc nào. Ngoài ra, trạng thái của chế độ này trên màn hình đăng nhập sẽ không thay đổi giữa những người dùng.
 
           Lưu ý: <ph name="DEVICE_LOGIN_SCREEN_HIGH_CONTRAST_ENABLED_POLICY_NAME" /> (nếu đã được chỉ định) sẽ ghi đè chính sách này.</translation>
+<translation id="7846952520291088817">URL cho các IP cục bộ hiển thị trong các ứng viên WebRTC ICE</translation>
 <translation id="7858404742201086014">Nếu bạn bật tùy chọn cài đặt này, các plugin lỗi thời sẽ được sử dụng như những plugin bình thường.
 
       Nếu bạn tắt tùy chọn cài đặt này, các plugin lỗi thời sẽ không được sử dụng và người dùng sẽ không được yêu cầu cấp quyền để chạy các plugin đó.

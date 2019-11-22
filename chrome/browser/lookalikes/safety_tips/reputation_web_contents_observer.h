@@ -57,7 +57,6 @@ class ReputationWebContentsObserver
   // reputation result is available.
   void HandleReputationCheckResult(
       security_state::SafetyTipStatus safety_tip_status,
-      bool user_ignored,
       const GURL& url,
       const GURL& suggested_url);
 

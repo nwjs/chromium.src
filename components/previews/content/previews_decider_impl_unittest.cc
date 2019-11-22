@@ -2117,11 +2117,6 @@ TEST_F(PreviewsDeciderImplTest, LogDecisionMadeNetworkNotSlow) {
   std::vector<PreviewsEligibilityReason> checked_decisions = {
       PreviewsEligibilityReason::URL_HAS_BASIC_AUTH,
       PreviewsEligibilityReason::EXCLUDED_BY_MEDIA_SUFFIX,
-      PreviewsEligibilityReason::BLACKLIST_UNAVAILABLE,
-      PreviewsEligibilityReason::BLACKLIST_DATA_NOT_LOADED,
-      PreviewsEligibilityReason::USER_RECENTLY_OPTED_OUT,
-      PreviewsEligibilityReason::USER_BLACKLISTED,
-      PreviewsEligibilityReason::HOST_BLACKLISTED,
       PreviewsEligibilityReason::NETWORK_QUALITY_UNAVAILABLE,
       PreviewsEligibilityReason::DEVICE_OFFLINE,
   };
@@ -2165,11 +2160,6 @@ TEST_F(PreviewsDeciderImplTest, LogDecisionMadeReloadDisallowed) {
   std::vector<PreviewsEligibilityReason> checked_decisions = {
       PreviewsEligibilityReason::URL_HAS_BASIC_AUTH,
       PreviewsEligibilityReason::EXCLUDED_BY_MEDIA_SUFFIX,
-      PreviewsEligibilityReason::BLACKLIST_UNAVAILABLE,
-      PreviewsEligibilityReason::BLACKLIST_DATA_NOT_LOADED,
-      PreviewsEligibilityReason::USER_RECENTLY_OPTED_OUT,
-      PreviewsEligibilityReason::USER_BLACKLISTED,
-      PreviewsEligibilityReason::HOST_BLACKLISTED,
       PreviewsEligibilityReason::NETWORK_QUALITY_UNAVAILABLE,
       PreviewsEligibilityReason::DEVICE_OFFLINE,
       PreviewsEligibilityReason::NETWORK_NOT_SLOW,
@@ -2242,16 +2232,16 @@ TEST_F(PreviewsDeciderImplTest, LogDecisionMadeAllowClientPreviewsWithECT) {
   std::vector<PreviewsEligibilityReason> checked_decisions = {
       PreviewsEligibilityReason::URL_HAS_BASIC_AUTH,
       PreviewsEligibilityReason::EXCLUDED_BY_MEDIA_SUFFIX,
-      PreviewsEligibilityReason::BLACKLIST_UNAVAILABLE,
-      PreviewsEligibilityReason::BLACKLIST_DATA_NOT_LOADED,
-      PreviewsEligibilityReason::USER_RECENTLY_OPTED_OUT,
-      PreviewsEligibilityReason::USER_BLACKLISTED,
-      PreviewsEligibilityReason::HOST_BLACKLISTED,
       PreviewsEligibilityReason::NETWORK_QUALITY_UNAVAILABLE,
       PreviewsEligibilityReason::DEVICE_OFFLINE,
       PreviewsEligibilityReason::NETWORK_NOT_SLOW,
       PreviewsEligibilityReason::NETWORK_NOT_SLOW_FOR_SESSION,
       PreviewsEligibilityReason::RELOAD_DISALLOWED,
+      PreviewsEligibilityReason::BLACKLIST_UNAVAILABLE,
+      PreviewsEligibilityReason::BLACKLIST_DATA_NOT_LOADED,
+      PreviewsEligibilityReason::USER_RECENTLY_OPTED_OUT,
+      PreviewsEligibilityReason::USER_BLACKLISTED,
+      PreviewsEligibilityReason::HOST_BLACKLISTED,
   };
   PreviewsUserData user_data(kDefaultPageId);
   content::MockNavigationHandle navigation_handle;

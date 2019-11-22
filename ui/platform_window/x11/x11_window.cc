@@ -76,6 +76,8 @@ ui::XWindow::Configuration ConvertInitPropertiesToXWindowConfig(
   config.wm_role_name = properties.wm_role_name;
   config.activatable = properties.activatable;
   config.visual_id = properties.x_visual_id;
+  config.prefer_dark_theme = properties.prefer_dark_theme;
+  config.background_color = properties.background_color;
   return config;
 }
 
@@ -435,6 +437,10 @@ bool X11Window::IsTranslucentWindowOpacitySupported() const {
   // initializes |visual_has_alpha_|), so we cannot simply return
   // |visual_has_alpha_|.
   return ui::XVisualManager::GetInstance()->ArgbVisualAvailable();
+}
+
+void X11Window::LowerXWindow() {
+  XWindow::LowerWindow();
 }
 
 bool X11Window::CanDispatchEvent(const PlatformEvent& xev) {

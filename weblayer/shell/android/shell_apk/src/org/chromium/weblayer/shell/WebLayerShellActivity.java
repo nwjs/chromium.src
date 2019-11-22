@@ -27,14 +27,14 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
 
-import org.chromium.weblayer.BrowserCallback;
-import org.chromium.weblayer.BrowserController;
-import org.chromium.weblayer.BrowserFragmentController;
+import org.chromium.weblayer.Browser;
 import org.chromium.weblayer.DownloadCallback;
 import org.chromium.weblayer.FullscreenCallback;
 import org.chromium.weblayer.NavigationCallback;
 import org.chromium.weblayer.NavigationController;
 import org.chromium.weblayer.Profile;
+import org.chromium.weblayer.Tab;
+import org.chromium.weblayer.TabCallback;
 import org.chromium.weblayer.UnsupportedVersionException;
 import org.chromium.weblayer.WebLayer;
 
@@ -49,8 +49,8 @@ public class WebLayerShellActivity extends FragmentActivity {
     private static final String KEY_MAIN_VIEW_ID = "mainViewId";
 
     private Profile mProfile;
-    private BrowserFragmentController mBrowserFragmentController;
-    private BrowserController mBrowserController;
+    private Browser mBrowser;
+    private Tab mTab;
     private EditText mUrlView;
     private ProgressBar mLoadProgressBar;
     private View mMainView;
@@ -124,13 +124,13 @@ public class WebLayerShellActivity extends FragmentActivity {
         if (isFinishing() || isDestroyed()) return;
 
         Fragment fragment = getOrCreateBrowserFragment(savedInstanceState);
-        mBrowserFragmentController = BrowserFragmentController.fromFragment(fragment);
-        mBrowserFragmentController.getBrowserController().setFullscreenCallback(
+        mBrowser = Browser.fromFragment(fragment);
+        mBrowser.getActiveTab().setFullscreenCallback(
                 new FullscreenCallback() {
                     private int mSystemVisibilityToRestore;
 
                     @Override
-                    public void enterFullscreen(Runnable exitFullscreenRunnable) {
+                    public void onEnterFullscreen(Runnable exitFullscreenRunnable) {
                         // This comes from Chrome code to avoid an extra resize.
                         final WindowManager.LayoutParams attrs = getWindow().getAttributes();
                         attrs.flags |= WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS;
@@ -150,7 +150,7 @@ public class WebLayerShellActivity extends FragmentActivity {
                     }
 
                     @Override
-                    public void exitFullscreen() {
+                    public void onExitFullscreen() {
                         View decorView = getWindow().getDecorView();
                         decorView.setSystemUiVisibility(mSystemVisibilityToRestore);
 
@@ -162,38 +162,37 @@ public class WebLayerShellActivity extends FragmentActivity {
                         }
                     }
                 });
-        mProfile = mBrowserFragmentController.getProfile();
+        mProfile = mBrowser.getProfile();
 
-        mBrowserFragmentController.setTopView(mTopContentsContainer);
+        mBrowser.setTopView(mTopContentsContainer);
 
-        mBrowserController = mBrowserFragmentController.getBrowserController();
+        mTab = mBrowser.getActiveTab();
         String startupUrl = getUrlFromIntent(getIntent());
         if (TextUtils.isEmpty(startupUrl)) {
             startupUrl = "http://google.com";
         }
         loadUrl(startupUrl);
-        mBrowserController.registerBrowserCallback(new BrowserCallback() {
+        mTab.registerTabCallback(new TabCallback() {
             @Override
-            public void visibleUrlChanged(Uri uri) {
+            public void onVisibleUrlChanged(Uri uri) {
                 mUrlView.setText(uri.toString());
             }
         });
-        mBrowserController.getNavigationController().registerNavigationCallback(
-                new NavigationCallback() {
-                    @Override
-                    public void loadStateChanged(boolean isLoading, boolean toDifferentDocument) {
-                        mLoadProgressBar.setVisibility(
-                                isLoading && toDifferentDocument ? View.VISIBLE : View.INVISIBLE);
-                    }
-
-                    @Override
-                    public void loadProgressChanged(double progress) {
-                        mLoadProgressBar.setProgress((int) Math.round(100 * progress));
-                    }
-                });
-        mBrowserController.setDownloadCallback(new DownloadCallback() {
+        mTab.getNavigationController().registerNavigationCallback(new NavigationCallback() {
             @Override
-            public void downloadRequested(String url, String userAgent, String contentDisposition,
+            public void onLoadStateChanged(boolean isLoading, boolean toDifferentDocument) {
+                mLoadProgressBar.setVisibility(
+                        isLoading && toDifferentDocument ? View.VISIBLE : View.INVISIBLE);
+            }
+
+            @Override
+            public void onLoadProgressChanged(double progress) {
+                mLoadProgressBar.setProgress((int) Math.round(100 * progress));
+            }
+        });
+        mTab.setDownloadCallback(new DownloadCallback() {
+            @Override
+            public void onDownloadRequested(String url, String userAgent, String contentDisposition,
                     String mimetype, long contentLength) {
                 DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
                 request.setNotificationVisibility(
@@ -234,7 +233,7 @@ public class WebLayerShellActivity extends FragmentActivity {
     }
 
     public void loadUrl(String url) {
-        mBrowserController.getNavigationController().navigate(Uri.parse(sanitizeUrl(url)));
+        mTab.getNavigationController().navigate(Uri.parse(sanitizeUrl(url)));
         mUrlView.clearFocus();
     }
 
@@ -263,9 +262,8 @@ public class WebLayerShellActivity extends FragmentActivity {
 
     @Override
     public void onBackPressed() {
-        if (mBrowserFragmentController != null) {
-            NavigationController controller =
-                    mBrowserFragmentController.getBrowserController().getNavigationController();
+        if (mBrowser != null) {
+            NavigationController controller = mBrowser.getActiveTab().getNavigationController();
             if (controller.canGoBack()) {
                 controller.goBack();
                 return;

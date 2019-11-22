@@ -309,6 +309,8 @@
               "minHeight": {"type": "integer", "optional": true, "description": ""},  
               "left": {"type": "integer", "optional": true, "description": "The offset from the left edge of the screen to move the window to in pixels. This value is ignored for panels."},
               "top": {"type": "integer", "optional": true, "description": "The offset from the top edge of the screen to move the window to in pixels. This value is ignored for panels."},
+              "innerWidth": {"type": "integer", "optional": true, "description": ""},  
+              "innerHeight": {"type": "integer", "optional": true, "description": ""},  
               "width": {"type": "integer", "minimum": 0, "optional": true, "description": "The width to resize the window to in pixels. This value is ignored for panels."},
               "height": {"type": "integer", "minimum": 0, "optional": true, "description": "The height to resize the window to in pixels. This value is ignored for panels."},
               "focused": {"type": "boolean", "optional": true, "description": "If <code>true</code>, brings the window to the front; cannot be combined with the state 'minimized'. If <code>false</code>, brings the next window in the z-order to the front; cannot be combined with the state 'fullscreen' or 'maximized'."},

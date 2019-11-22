@@ -16,13 +16,18 @@ import android.support.test.rule.ActivityTestRule;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.Assert;
+import org.junit.Rule;
+import org.junit.runner.Description;
+import org.junit.runners.model.Statement;
 
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
-import org.chromium.weblayer.BrowserController;
+import org.chromium.net.test.EmbeddedTestServer;
+import org.chromium.net.test.EmbeddedTestServerRule;
 import org.chromium.weblayer.Navigation;
 import org.chromium.weblayer.NavigationCallback;
+import org.chromium.weblayer.Tab;
 import org.chromium.weblayer.WebLayer;
 import org.chromium.weblayer.shell.InstrumentationActivity;
 
@@ -36,9 +41,12 @@ import java.util.concurrent.TimeoutException;
  * Test can use this ActivityTestRule to launch or get InstrumentationActivity.
  */
 public class InstrumentationActivityTestRule extends ActivityTestRule<InstrumentationActivity> {
+    @Rule
+    private EmbeddedTestServerRule mTestServerRule = new EmbeddedTestServerRule();
+
     private static final class NavigationWaiter {
         private String mUrl;
-        private BrowserController mController;
+        private Tab mTab;
         private boolean mNavigationComplete;
         private boolean mDoneLoading;
         private boolean mContentfulPaint;
@@ -46,7 +54,7 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
 
         private NavigationCallback mNavigationCallback = new NavigationCallback() {
             @Override
-            public void navigationCompleted(Navigation navigation) {
+            public void onNavigationCompleted(Navigation navigation) {
                 if (navigation.getUri().toString().equals(mUrl)) {
                     mNavigationComplete = true;
                     checkComplete();
@@ -54,7 +62,7 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
             }
 
             @Override
-            public void loadStateChanged(boolean isLoading, boolean toDifferentDocument) {
+            public void onLoadStateChanged(boolean isLoading, boolean toDifferentDocument) {
                 mDoneLoading = !isLoading;
                 checkComplete();
             }
@@ -68,17 +76,16 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
 
         // |waitForPaint| should generally be set to true, unless there is a specific reason for
         // onFirstContentfulPaint to not fire.
-        public NavigationWaiter(String url, BrowserController controller, boolean waitForPaint) {
+        public NavigationWaiter(String url, Tab controller, boolean waitForPaint) {
             mUrl = url;
-            mController = controller;
+            mTab = controller;
             if (!waitForPaint) mContentfulPaint = true;
         }
 
         public void navigateAndWait() {
             TestThreadUtils.runOnUiThreadBlocking(() -> {
-                mController.getNavigationController().registerNavigationCallback(
-                        mNavigationCallback);
-                mController.getNavigationController().navigate(Uri.parse(mUrl));
+                mTab.getNavigationController().registerNavigationCallback(mNavigationCallback);
+                mTab.getNavigationController().navigate(Uri.parse(mUrl));
             });
             try {
                 mCallbackHelper.waitForCallback(
@@ -87,8 +94,7 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
                 throw new RuntimeException(e);
             }
             TestThreadUtils.runOnUiThreadBlocking(() -> {
-                mController.getNavigationController().unregisterNavigationCallback(
-                        mNavigationCallback);
+                mTab.getNavigationController().unregisterNavigationCallback(mNavigationCallback);
             });
         }
 
@@ -114,6 +120,11 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
 
     public InstrumentationActivityTestRule() {
         super(InstrumentationActivity.class, false, false);
+    }
+
+    @Override
+    public Statement apply(final Statement base, Description description) {
+        return super.apply(mTestServerRule.apply(base, description), description);
     }
 
     public WebLayer getWebLayer() {
@@ -164,10 +175,10 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
      * Loads the given URL in the shell.
      */
     public void navigateAndWait(String url) {
-        navigateAndWait(getActivity().getBrowserController(), url, true /* waitForPaint */);
+        navigateAndWait(getActivity().getTab(), url, true /* waitForPaint */);
     }
 
-    public void navigateAndWait(BrowserController controller, String url, boolean waitForPaint) {
+    public void navigateAndWait(Tab controller, String url, boolean waitForPaint) {
         NavigationWaiter waiter = new NavigationWaiter(url, controller, waitForPaint);
         waiter.navigateAndWait();
     }
@@ -203,12 +214,12 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
     /**
      * Executes the script passed in and waits for the result.
      */
-    public JSONObject executeScriptSync(String script) {
+    public JSONObject executeScriptSync(String script, boolean useSeparateIsolate) {
         JSONCallbackHelper callbackHelper = new JSONCallbackHelper();
         int count = callbackHelper.getCallCount();
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            getActivity().getBrowserController().executeScript(
-                    script, (JSONObject result) -> { callbackHelper.notifyCalled(result); });
+            getActivity().getTab().executeScript(script, useSeparateIsolate,
+                    (JSONObject result) -> { callbackHelper.notifyCalled(result); });
         });
         try {
             callbackHelper.waitForCallback(count);
@@ -220,7 +231,8 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
 
     public int executeScriptAndExtractInt(String script) {
         try {
-            return executeScriptSync(script).getInt(BrowserController.SCRIPT_RESULT_KEY);
+            return executeScriptSync(script, true /* useSeparateIsolate */)
+                    .getInt(Tab.SCRIPT_RESULT_KEY);
         } catch (JSONException e) {
             throw new RuntimeException(e);
         }
@@ -228,7 +240,8 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
 
     public String executeScriptAndExtractString(String script) {
         try {
-            return executeScriptSync(script).getString(BrowserController.SCRIPT_RESULT_KEY);
+            return executeScriptSync(script, true /* useSeparateIsolate */)
+                    .getString(Tab.SCRIPT_RESULT_KEY);
         } catch (JSONException e) {
             throw new RuntimeException(e);
         }
@@ -236,7 +249,8 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
 
     public boolean executeScriptAndExtractBoolean(String script) {
         try {
-            return executeScriptSync(script).getBoolean(BrowserController.SCRIPT_RESULT_KEY);
+            return executeScriptSync(script, true /* useSeparateIsolate */)
+                    .getBoolean(Tab.SCRIPT_RESULT_KEY);
         } catch (JSONException e) {
             throw new RuntimeException(e);
         }
@@ -247,5 +261,13 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
         extras.putString(InstrumentationActivity.EXTRA_PROFILE_NAME, profileName);
         String url = "data:text,foo";
         return launchShellWithUrl(url, extras);
+    }
+
+    public EmbeddedTestServer getTestServer() {
+        return mTestServerRule.getServer();
+    }
+
+    public String getTestDataURL(String path) {
+        return getTestServer().getURL("/weblayer/test/data/" + path);
     }
 }

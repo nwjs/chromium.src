@@ -87,13 +87,16 @@ test("weblayer_browsertests") {
   ]
 
   sources = [
+    "../browser/navigation_browsertest.cc",
+    "../browser/ssl_browsertest.cc",
     "../browser/webui/webui_browsertest.cc",
     "browsertests_main.cc",
     "interstitial_utils.cc",
     "interstitial_utils.h",
-    "ssl_browsertest.cc",
     "test_launcher_delegate_impl.cc",
     "test_launcher_delegate_impl.h",
+    "test_navigation_observer.cc",
+    "test_navigation_observer.h",
     "weblayer_browser_test.cc",
     "weblayer_browser_test.h",
     "weblayer_browser_test_test.cc",
@@ -117,10 +120,15 @@ test("weblayer_browsertests") {
       "//testing/android/native_test:native_test_support",
       "//ui/android:android",
       "//ui/touch_selection:touch_selection",
+      "//weblayer:locale_pak_assets",
 
       # Needed for WebLayerImpl.
       "//weblayer/browser/java",
+
+      # default upstream safebrowsing related classes
+      "//weblayer/browser/java:gms_bridge_upstream_impl_java",
     ]
+
     android_manifest =
         "${target_gen_dir}/weblayer_browsertests_manifest/AndroidManifest.xml"
     android_manifest_dep = ":weblayer_browsertests_manifest"

@@ -177,6 +177,7 @@
 <translation id="1241753985463165747">Leer y modificar todos los datos del sitio web actual cuando se invoca</translation>
 <translation id="1242633766021457174"><ph name="THIRD_PARTY_TOOL_NAME" /> quiere restablecer la configuración.</translation>
 <translation id="1243314992276662751">Cargar</translation>
+<translation id="1243398753772016127">Los sitios no podrán usar tu actividad de navegación en diferentes sitios para personalizar anuncios</translation>
 <translation id="1244265436519979884">El restablecimiento de Linux está en curso</translation>
 <translation id="1244303850296295656">Error de extensión</translation>
 <translation id="1246905108078336582">¿Quieres quitar la sugerencia del portapapeles?</translation>
@@ -971,7 +972,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="2395616325548404795">Tu dispositivo <ph name="DEVICE_TYPE" /> se inscribió correctamente para la administración empresarial, pero se produjo un error al intentar enviar la información de la ubicación y del recurso. Ingresa los datos manualmente en la Consola del administrador del dispositivo.</translation>
 <translation id="2396783860772170191">Ingresa un PIN de 4 dígitos (0000-9999)</translation>
 <translation id="2399939490305346086">Datos de acceso de la llave de seguridad</translation>
-<translation id="2407481962792080328">Se activa esta función cuando accedes a tu Cuenta de Google</translation>
+<translation id="2407481962792080328">Esta función se activa cuando accedes a tu Cuenta de Google</translation>
 <translation id="2408955596600435184">Ingresa tu PIN</translation>
 <translation id="241082044617551207">Complemento desconocido</translation>
 <translation id="2412593942846481727">Actualización disponible</translation>
@@ -3036,6 +3037,7 @@ Asegúrate de que este sitio sea de confianza antes de entrar en el modo RV.</tr
 <translation id="5466374726908360271">&amp;Pegar y buscar "<ph name="SEARCH_TERMS" />"</translation>
 <translation id="5468173180030470402">Buscando archivos compartidos</translation>
 <translation id="5471768120198416576">Hola, soy la voz que leerá tus textos.</translation>
+<translation id="5472133193607270166">Si se activa esta opción, los sitios web no podrán usar tu actividad de navegación en diferentes sitios para personalizar anuncios. Es posible que algunos sitios no funcionen correctamente.</translation>
 <translation id="5473333559083690127">Vuelve a ingresar el PIN nuevo</translation>
 <translation id="5481941284378890518">Agregar impresoras cercanas</translation>
 <translation id="5483785310822538350">Revocar acceso al archivo y al dispositivo</translation>
@@ -4225,10 +4227,9 @@ Asegúrate de que este sitio sea de confianza antes de entrar en el modo RV.</tr
 <translation id="7220019174139618249">No se pueden exportar las contraseñas a "<ph name="FOLDER" />"</translation>
 <translation id="722055596168483966">Personalizar los servicios de Google</translation>
 <translation id="7221855153210829124">Mostrar notificaciones</translation>
-<translation id="7221869452894271364">Cargar esta página de nuevo</translation>
+<translation id="7221869452894271364">Volver a cargar esta página</translation>
 <translation id="7222204278952406003">Chrome es el navegador predeterminado</translation>
 <translation id="7222232353993864120">Dirección de correo electrónico</translation>
-<translation id="7223859049862598735">Chrome bloqueó cookies que pueden usarse para rastrearte en la Web</translation>
 <translation id="7225179976675429563">Falta el tipo de red.</translation>
 <translation id="7227028316978186866"><ph name="DEVICE_NAME" /> (proveedor: <ph name="VENDOR_ID" />, producto: <ph name="PRODUCT_ID" />)</translation>
 <translation id="7228479291753472782">Se manipularán las opciones de configuración que especifican si los sitios web pueden usar funciones, como la ubicación geográfica, el micrófono, la cámara, etc.</translation>
@@ -5576,7 +5577,6 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="9130015405878219958">Se ingresó un modo no válido.</translation>
 <translation id="9131487537093447019">Enviar y recibir mensajes desde dispositivos Bluetooth</translation>
 <translation id="9134304429738380103">Acepto.</translation>
-<translation id="9135090785674039430">Cuando esta opción está activada, los sitios no pueden usar cookies para rastrearte en la Web. Es posible que algunos sitios web no funcionen.</translation>
 <translation id="9137013805542155359">Mostrar original</translation>
 <translation id="9137157311132182254">Motor de búsqueda preferido</translation>
 <translation id="9137248913990643158">Abre Chrome y accede a tu cuenta antes de usar esta app.</translation>

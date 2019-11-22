@@ -680,6 +680,11 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
 <translation id="2149330464730004005">Attiva la stampa a colori</translation>
 <translation id="2156132677421487971">Consente di configurare le norme per <ph name="PRODUCT_NAME" />, una funzione che permette agli utenti di inviare i contenuti di schede, siti o del desktop dal browser a schermi remoti e sistemi audio.</translation>
 <translation id="2156755242840687300">Server di stampa esterni attivi</translation>
+<translation id="2160336427036785721">Consente di configurare la quantità di memoria che una singola istanza di <ph name="PRODUCT_NAME" /> può utilizzare prima che le schede vengano eliminate (ossia la memoria utilizzata dalla scheda verrà liberata e la scheda dovrà essere ricaricata quando l'utente la seleziona) per risparmiare memoria.
+
+      Se il criterio viene impostato, una volta superato il limite il browser inizierà a eliminare le schede per risparmiare memoria. Non vi è, tuttavia, alcuna garanzia che il browser venga sempre eseguito al di sotto di tale limite. Qualsiasi valore inferiore a 1024 verrà arrotondato per eccesso a 1024.
+
+      Se questo criterio non viene impostato, il browser farà dei tentativi per risparmiare memoria solo una volta rilevato che la memoria fisica del computer è in esaurimento.</translation>
 <translation id="2166472654199325139">Non filtrare i siti di contenuti per adulti</translation>
 <translation id="2168397434410358693">Ritardo inattività in caso di utilizzo di CA</translation>
 <translation id="217013996107840632">Parametri della riga di comando per cambiare il browser alternativo.</translation>
@@ -786,9 +791,9 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
 <translation id="2386362615870139244">Consenti Wakelock dello schermo</translation>
 <translation id="2398554235599593694"> Questo criterio consente di stabilire se mostrare o meno la casella di controllo "Apri sempre" nei messaggi di conferma di avvio di protocolli esterni.
 
-      Se questo criterio viene impostato su True, quando viene mostrato un messaggio di conferma di un protocollo esterno, l'utente può scegliere di "aprire sempre" il protocollo senza ricevere ulteriori messaggi di conferma.
+      Se questo criterio viene impostato su true, quando viene mostrato un messaggio di conferma di un protocollo esterno, l'utente può scegliere di "aprire sempre" il protocollo senza ricevere ulteriori messaggi di conferma.
 
-      Se questo criterio viene impostato su False o non viene impostato, la casella di controllo "Apri sempre" non viene visualizzata e l'utente riceverà un messaggio ogni volta che viene richiamato un protocollo esterno.</translation>
+      Se questo criterio viene impostato su false o non viene impostato, la casella di controllo "Apri sempre" non viene visualizzata e l'utente riceverà un messaggio ogni volta che viene richiamato un protocollo esterno.</translation>
 <translation id="2411817661175306360">L'avviso di protezione tramite password non è attivo</translation>
 <translation id="2411919772666155530">Blocca le notifiche su questi siti</translation>
 <translation id="2418507228189425036">Consente di disattivare il salvataggio della cronologia del browser in <ph name="PRODUCT_NAME" /> e di impedire agli utenti di modificare questa impostazione.
@@ -882,6 +887,15 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
           Se attivato o non impostato, gli avvisi sulla sicurezza vengono visualizzati quando vengono utilizzati determinati flag della linea di comando per avviare Chrome.
 
           Su Windows, questo criterio è disponibile solo per le istanze che fanno parte di un dominio <ph name="MS_AD_NAME" /> così come per le istanze di Windows 10 Pro o Enterprise registrate per la gestione dei dispositivi.</translation>
+<translation id="2480971699591919564">Consente di attivare la funzionalità Click-to-call che permette agli utenti di inviare numeri di telefono dai computer desktop Chrome ai dispositivi Android se eseguono l'accesso. Per ulteriori informazioni, leggi l'articolo del Centro assistenza all'indirizzo https://support.google.com/chrome/answer/9430554?hl=it.
+
+      Se questo criterio viene attivato, la funzionalità di invio di numeri di telefono ai dispositivi Android verrà attivata per gli utenti di Chrome.
+
+      Se questo criterio viene disattivato, la funzionalità di invio di numeri di telefono ai dispositivi Android verrà disattivata per gli utenti di Chrome.
+
+      Se imposti questo criterio, gli utenti non potranno modificarlo o ignorarlo.
+
+      Se questo criterio non viene impostato, la funzionalità Click-to-call sarà attiva per impostazione predefinita.</translation>
 <translation id="2482676533225429905">Messaggi nativi</translation>
 <translation id="2483146640187052324">Prevedi le azioni di rete su qualsiasi connessione di rete</translation>
 <translation id="2484208301968418871">Questa norma consente di gestire l'applicazione del filtro di URL di SafeSites.
@@ -1173,7 +1187,7 @@ Se questa norma non viene impostata, l'utente potrà scegliere se utilizzare o m
 <translation id="2872961005593481000">Spegni</translation>
 <translation id="2873651257716068683">Consente di eseguire l'override delle dimensioni predefinite delle pagine di stampa. Se le dimensioni della pagina non sono disponibili, questa norma viene ignorata.</translation>
 <translation id="2874209944580848064">Nota per i dispositivi <ph name="PRODUCT_OS_NAME" /> che supportano le app Android:</translation>
-<translation id="2875192972412983412">Consente di specificare il sottoinsieme di server di stampa a cui verranno richieste stampanti.
+<translation id="2875192972412983412">Consente di specificare il sottoinsieme di server di stampa a cui verranno inviate query sulle stampanti.
 
       Se viene usato questo criterio, gli utenti avranno a disposizione soltanto le stampanti con ID corrispondenti ai valori specificati in questo criterio.
 
@@ -1869,6 +1883,7 @@ Avviso. È consigliabile mantenere attivati gli aggiornamenti automatici per con
 <translation id="4075864623710596000">I nomi host specificati in questo elenco saranno esenti dalla verifica dei criteri HSTS che potrebbero eseguire l'upgrade delle richieste da http a https. Solo i nomi host con etichetta singola sono consentiti in questo criterio. I nomi host devono essere canonicalizzati: ogni IDN deve essere convertito nel relativo formato A-label e tutte le lettere ASCII devono essere minuscole. Questo criterio si applica soltanto ai nomi host specificati e non ai relativi sottodomini.</translation>
 <translation id="408029843066770167">Consenti query a un servizio orario di Google</translation>
 <translation id="408076456549153854">Attiva accesso al browser</translation>
+<translation id="4082498585300984671">Attiva la funzionalità Click-to-call</translation>
 <translation id="40853027210512570">Consente di sostituire le regole di selezione della stampante predefinita di <ph name="PRODUCT_NAME" />.
 
       Questo criterio determina le regole di selezione della stampante predefinita in <ph name="PRODUCT_NAME" />, che viene effettuata al primo utilizzo della funzione di stampa con un profilo.
@@ -2846,11 +2861,11 @@ Se questa impostazione viene disattivata o non viene impostata, sia gli utenti l
 
       Il file viene scaricato e memorizzato nella cache. L'hash di crittografia viene utilizzato per verificare l'integrità del download. Il file viene scaricato nuovamente ogni volta che l'URL o l'hash cambiano.
 
-      Se viene impostato un valore corretto per questo criterio, i dispositivi proveranno a richiedere ai server di stampa specificati le stampanti disponibili che utilizzano il protocollo IPP.
+      Se il criterio è impostato su un valore corretto, i dispositivi provano a inviare query ai server di stampa specificati per le stampanti disponibili che utilizzano il protocollo IPP.
 
-      Se questo criterio non viene impostato o viene impostato un valore sbagliato, nessuna stampante sarà visibile agli utenti.
+      Se questo criterio non viene impostato o viene impostato un valore sbagliato, agli utenti non sarà visibile nessun server di stampa.
 
-      Attualmente, il numero di server di stampa è limitato a 16. Verranno inviate richieste solo ai primi 16 server di stampa dell'elenco.
+      Attualmente, il numero di server di stampa è limitato a 16. Solo ai primi 16 server di stampa dell'elenco vengono inviate query.
       </translation>
 <translation id="5592242031005200087">
       Se la norma è attivata, ciascuna delle origini denominate all'interno di un elenco separato da virgole verrà eseguita nel proprio processo. Ciò isolerà anche le origini indicate dai sottodomini, ad esempio specificando https://example.com/ si isolerà anche https://foo.example.com/, perché fa parte del sito https://example.com/.
@@ -3106,6 +3121,10 @@ Il valore della norma deve essere specificato in millisecondi. I valori devono e
       Tieni presente che questo criterio viene ignorato e i Servizi di geolocalizzazione di Google vengono sempre disattivati se il criterio <ph name="DEFAULT_GEOLOCATION_SETTING_POLICY_NAME" /> è impostato su <ph name="BLOCK_GEOLOCATION_SETTING" />.</translation>
 <translation id="6141402445226505817">Utilizza sempre il rilevamento approssimativo del fuso orario</translation>
 <translation id="6145799962557135888">Consente di impostare un elenco di pattern URL che specificano i siti in cui è consentita l'esecuzione di JavaScript. Se questa norma non viene impostata, per tutti i siti verrà utilizzato il valore predefinito globale della norma "DefaultJavaScriptSetting", se è impostata, oppure verrà utilizzata la configurazione personale dell'utente.</translation>
+<translation id="614616930188030377">I pattern di questo elenco verranno confrontati con l'origine di sicurezza dell'URL richiedente.
+      Se viene trovata una corrispondenza o se chrome://flags/#enable-webrtc-hide-local-ips-with-mdns è disattivato, gli indirizzi IP locali vengono mostrati nei candidati ICE WebRTC.
+      In caso contrario, gli indirizzi IP locali vengono nascosti tramite nomi host mDNS.
+      Tieni presente che questo criterio riduce la sicurezza degli indirizzi IP locali se richiesto dagli amministratori.</translation>
 <translation id="614662973812186053">Questa norma controlla anche la raccolta dei dati diagnostici e sull'utilizzo di Android.</translation>
 <translation id="6153048425064249648">Questa norma consente di controllare il reporting su cloud di <ph name="PRODUCT_NAME" />, che carica informazioni sul funzionamento del browser sulla Console di amministrazione Google.
 
@@ -3152,9 +3171,9 @@ Il valore della norma deve essere specificato in millisecondi. I valori devono e
           <ph name="PROXY_HELP_URL" />.</translation>
 <translation id="6172059022423179562">Consente di usare l'implementazione <ph name="CORS" /> legacy anziché la nuova implementazione <ph name="CORS" />.
 
-      Se questo criterio viene impostato su True, viene usata l'implementazione legacy, che dovrebbe essere compatibile con le versioni precedenti.
+      Se questo criterio viene impostato su true, viene usata l'implementazione legacy, che dovrebbe essere compatibile con le versioni precedenti.
 
-      Se questo criterio viene impostato su False o non viene impostato, viene usata la nuova implementazione, che potrebbe causare problemi di compatibilità per le aziende.
+      Se questo criterio viene impostato su false o non viene impostato, viene usata la nuova implementazione, che potrebbe causare problemi di compatibilità per le aziende.
 
       Questo criterio verrà rimosso dopo un paio di aggiornamenti.
 
@@ -4075,6 +4094,7 @@ Se questa norma non viene impostata, <ph name="PRODUCT_NAME" /> utilizzerà il v
           Se questo criterio non viene impostato, la modalità ad alto contrasto viene disattivata alla prima visualizzazione della schermata di accesso. Gli utenti possono attivare o disattivare la modalità ad alto contrasto in qualsiasi momento, e il relativo stato nella schermata di accesso persiste per tutti gli utenti.
 
           Nota: se specificato, <ph name="DEVICE_LOGIN_SCREEN_HIGH_CONTRAST_ENABLED_POLICY_NAME" /> sostituisce questo criterio.</translation>
+<translation id="7846952520291088817">URL per cui vengono esposti IP locali nei candidati ICE WebRTC</translation>
 <translation id="7858404742201086014">Se attivi questa impostazione, i plug-in obsoleti vengono utilizzati come normali plug-in.
 
       Se disattivi questa impostazione, i plug-in obsoleti non vengono utilizzati e agli utenti non è richiesta l'autorizzazione per eseguirli.

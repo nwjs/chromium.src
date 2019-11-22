@@ -417,13 +417,6 @@ class PasswordAutofillAgentTest : public ChromeRenderViewTest {
         password_manager::features::kFillOnAccountSelect);
   }
 
-#if defined(OS_ANDROID)
-  void EnableTouchToFillFeature() {
-    scoped_feature_list_.InitAndEnableFeature(
-        autofill::features::kTouchToFillAndroid);
-  }
-#endif
-
   void EnableShowAutofillSignatures() {
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
         switches::kShowAutofillSignatures);

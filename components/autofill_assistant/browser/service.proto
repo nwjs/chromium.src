@@ -76,6 +76,36 @@ message SupportsScriptResponseProto {
   optional ClientSettingsProto client_settings = 3;
 }
 
+// Represents a dimension, e.g., width or height.
+message ClientDimensionProto {
+  oneof size {
+    int32 dpi = 1;
+    // Factor to multiply with the client's total width.
+    float width_factor = 2;
+    // Factor to multiply with the client's total height.
+    float height_factor = 3;
+  }
+}
+
+// Overlay image to be drawn on top of full overlays.
+message OverlayImageProto {
+  // The image to display. If set, |image_size| is mandatory.
+  optional string image_url = 1;
+  // The size of the image to display.
+  optional ClientDimensionProto image_size = 2;
+  // The margin between the top of the page (anchor) and the image.
+  optional ClientDimensionProto image_top_margin = 3;
+  // The margin between the bottom of the image and the baseline of the text.
+  optional ClientDimensionProto image_bottom_margin = 4;
+  // The text to display beneath the image. If set, |text_color| and |text_size|
+  // are mandatory.
+  optional string text = 5;
+  // Supported formats: #RRGGBB or #AARRGGBB.
+  optional string text_color = 6;
+  // The size of the text to display.
+  optional ClientDimensionProto text_size = 7;
+}
+
 message ClientSettingsProto {
   reserved 10, 11;
 
@@ -127,6 +157,9 @@ message ClientSettingsProto {
   // How much time to give users to tap undo when after |tap_count| unexpected
   // taps where
   optional int32 tap_shutdown_delay_ms = 15;
+
+  // Optional image drawn on top of overlays.
+  optional OverlayImageProto overlay_image = 16;
 }
 
 message ScriptTimeoutError {
@@ -516,8 +549,6 @@ message ProcessedActionStatusDetailsProto {
   optional ProcessedActionStatusProto original_status = 2;
 
   // More information included for autofill related errors.
-  //
-  // For now this is only filled for PRECONDITION_FAILED errors.
   optional AutofillErrorInfoProto autofill_error_info = 3;
 }
 
@@ -589,6 +620,9 @@ message AutofillErrorInfoProto {
 
   // Whether the client memory at |address_key_requested| pointed to null.
   optional bool address_pointee_was_null = 3;
+
+  // Error status of the Chrome autofill attempt.
+  optional ProcessedActionStatusProto autofill_error_status = 4;
 }
 
 // Next: 22
@@ -691,6 +725,9 @@ enum ProcessedActionStatusProto {
   // The requested autofill info (e.g., Chrome password manager login) was not
   // available. It might have been recently deleted.
   AUTOFILL_INFO_NOT_AVAILABLE = 21;
+
+  // An unexpected error occurred during element resolution.
+  FRAME_HOST_NOT_FOUND = 22;
 }
 
 // The pseudo type values come from
@@ -1169,6 +1206,14 @@ message ContactDetailsProto {
   optional bool request_payer_phone = 4;
 }
 
+// A generic read-only popup message.
+message InfoPopupProto {
+  // The title of the popup window.
+  optional string title = 1;
+  // The text of the popup window.
+  optional string text = 2;
+}
+
 message LoginDetailsProto {
   // A custom login option which will be handled by the backend, e.g.,
   // 'Guest checkout' or 'Log in with Google'.
@@ -1181,6 +1226,13 @@ message LoginDetailsProto {
   message LoginOptionPasswordManagerProto {}
 
   message LoginOptionProto {
+    // If set, an info icon will be shown that displays a popup when tapped.
+    optional InfoPopupProto info_popup = 6;
+
+    // The optional sublabel to display beneath the label.
+    optional string sublabel = 7;
+    optional string sublabel_accessibility_hint = 8;
+
     // If the option was chosen, this payload will be returned to the server.
     optional bytes payload = 1;
 

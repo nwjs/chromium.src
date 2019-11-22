@@ -139,17 +139,13 @@ OmniboxPopupContentsView::OmniboxPopupContentsView(
     const ui::ThemeProvider* theme_provider)
     : model_(new OmniboxPopupModel(this, edit_model)),
       omnibox_view_(omnibox_view),
-      location_bar_view_(location_bar_view) {
+      location_bar_view_(location_bar_view),
+      theme_provider_(theme_provider) {
   // The contents is owned by the LocationBarView.
   set_owned_by_client();
 
   SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical));
-
-  for (size_t i = 0; i < AutocompleteResult::GetMaxMatches(); ++i) {
-    AddChildView(std::make_unique<OmniboxResultView>(this, i, theme_provider))
-        ->SetVisible(false);
-  }
 }
 
 OmniboxPopupContentsView::~OmniboxPopupContentsView() {
@@ -245,6 +241,14 @@ void OmniboxPopupContentsView::UpdatePopupAppearance() {
   // we have enough row views.
   const size_t result_size = model_->result().size();
   for (size_t i = 0; i < result_size; ++i) {
+    // Create child views lazily.  Since especially the first result view may be
+    // expensive to create due to loading font data, this saves time and memory
+    // during browser startup.
+    if (children().size() == i) {
+      AddChildView(
+          std::make_unique<OmniboxResultView>(this, i, theme_provider_));
+    }
+
     OmniboxResultView* view = result_view_at(i);
     const AutocompleteMatch& match = GetMatchAtIndex(i);
     view->SetMatch(match);

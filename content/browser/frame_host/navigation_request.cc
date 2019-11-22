@@ -618,6 +618,28 @@ network::mojom::IPAddressSpace CalculateIPAddressSpace(
   return network::mojom::IPAddressSpace::kPublic;
 }
 
+// Convert the navigation type to the appropriate cross-document one.
+//
+// This is currently used when:
+// 1) Restarting a same-document navigation as cross-document.
+// 2) Committing an error page after blocking a same-document navigations.
+mojom::NavigationType ConvertToCrossDocumentType(mojom::NavigationType type) {
+  switch (type) {
+    case mojom::NavigationType::SAME_DOCUMENT:
+      return mojom::NavigationType::DIFFERENT_DOCUMENT;
+    case mojom::NavigationType::HISTORY_SAME_DOCUMENT:
+      return mojom::NavigationType::HISTORY_DIFFERENT_DOCUMENT;
+    case mojom::NavigationType::RELOAD:
+    case mojom::NavigationType::RELOAD_BYPASSING_CACHE:
+    case mojom::NavigationType::RELOAD_ORIGINAL_REQUEST_URL:
+    case mojom::NavigationType::RESTORE:
+    case mojom::NavigationType::RESTORE_WITH_POST:
+    case mojom::NavigationType::HISTORY_DIFFERENT_DOCUMENT:
+    case mojom::NavigationType::DIFFERENT_DOCUMENT:
+      return type;
+  }
+}
+
 }  // namespace
 
 // static
@@ -884,7 +906,7 @@ NavigationRequest::NavigationRequest(
       commit_navigation_client_(mojo::NullAssociatedRemote()),
       rfh_restored_from_back_forward_cache_(
           rfh_restored_from_back_forward_cache) {
-  DCHECK(browser_initiated || common_params_->initiator_origin.has_value());
+  DCHECK(browser_initiated_ || common_params_->initiator_origin.has_value());
   DCHECK(!IsRendererDebugURL(common_params_->url));
   DCHECK(common_params_->method == "POST" || !common_params_->post_data);
   TRACE_EVENT_ASYNC_BEGIN2("navigation", "NavigationRequest", this,
@@ -943,6 +965,20 @@ NavigationRequest::NavigationRequest(
     // This requires auditing same-document and other navigations that don't
     // have |from_begin_navigation_| or |entry| set.
     DCHECK(!RequiresSourceSiteInstance() || source_site_instance_);
+  }
+
+  // Let the NTP override the navigation params and pretend that this is a
+  // browser-initiated, bookmark-like navigation.
+  if (!browser_initiated_ && source_site_instance_) {
+    bool is_renderer_initiated = !browser_initiated_;
+    Referrer referrer(*common_params_->referrer);
+    GetContentClient()->browser()->OverrideNavigationParams(
+        source_site_instance_.get(), &common_params_->transition,
+        &is_renderer_initiated, &referrer, &common_params_->initiator_origin);
+    common_params_->referrer =
+        blink::mojom::Referrer::New(referrer.url, referrer.policy);
+    browser_initiated_ = !is_renderer_initiated;
+    commit_params_->is_browser_initiated = browser_initiated_;
   }
 
   // Store the old RenderFrameHost id at request creation to be used later.
@@ -1023,11 +1059,11 @@ NavigationRequest::NavigationRequest(
         common_params_->referrer->policy, frame_tree_node);
 
     if (begin_params_->is_form_submission) {
-      if (browser_initiated && !commit_params_->post_content_type.empty()) {
+      if (browser_initiated_ && !commit_params_->post_content_type.empty()) {
         // This is a form resubmit, so make sure to set the Content-Type header.
         headers.SetHeaderIfMissing(net::HttpRequestHeaders::kContentType,
                                    commit_params_->post_content_type);
-      } else if (!browser_initiated) {
+      } else if (!browser_initiated_) {
         // Save the Content-Type in case the form is resubmitted. This will get
         // sent back to the renderer in the CommitNavigation IPC. The renderer
         // will then send it back with the post body so that we can access it
@@ -1239,18 +1275,6 @@ void NavigationRequest::StartNavigation(bool is_for_commit) {
       frame_tree_node->current_frame_host()->GetSiteInstance();
   site_url_ = GetSiteForCommonParamsURL();
 
-  // Let the NTP override the navigation params and pretend that this is a
-  // browser-initiated, bookmark-like navigation.
-  bool is_renderer_initiated = !browser_initiated_;
-  Referrer referrer(*common_params_->referrer);
-  GetContentClient()->browser()->OverrideNavigationParams(
-      starting_site_instance_.get(), &common_params_->transition,
-      &is_renderer_initiated, &referrer, &common_params_->initiator_origin);
-  common_params_->referrer =
-      blink::mojom::Referrer::New(referrer.url, referrer.policy);
-  browser_initiated_ = !is_renderer_initiated;
-  commit_params_->is_browser_initiated = browser_initiated_;
-
   // Compute the redirect chain.
   // TODO(clamy): Try to simplify this and have the redirects be part of
   // CommonNavigationParams.
@@ -1349,15 +1373,8 @@ void NavigationRequest::ResetForCrossDocumentRestart() {
   render_frame_host_ = nullptr;
 
   // Convert the navigation type to the appropriate cross-document one.
-  if (common_params_->navigation_type ==
-      mojom::NavigationType::HISTORY_SAME_DOCUMENT) {
-    common_params_->navigation_type =
-        mojom::NavigationType::HISTORY_DIFFERENT_DOCUMENT;
-  } else {
-    DCHECK(common_params_->navigation_type ==
-           mojom::NavigationType::SAME_DOCUMENT);
-    common_params_->navigation_type = mojom::NavigationType::DIFFERENT_DOCUMENT;
-  }
+  common_params_->navigation_type =
+      ConvertToCrossDocumentType(common_params_->navigation_type);
 }
 
 void NavigationRequest::RegisterSubresourceOverride(
@@ -2375,6 +2392,14 @@ void NavigationRequest::OnWillProcessResponseChecksComplete(
 void NavigationRequest::CommitErrorPage(
     const base::Optional<std::string>& error_page_content) {
   UpdateCommitNavigationParamsHistory();
+
+  // Error pages are always cross-document.
+  //
+  // This is useful when a same-document navigation is blocked and commit an
+  // error page instead. See https://crbug.com/1018385.
+  common_params_->navigation_type =
+      ConvertToCrossDocumentType(common_params_->navigation_type);
+
   frame_tree_node_->TransferNavigationRequestOwnership(render_frame_host_);
   // Error pages commit in an opaque origin in the renderer process. If this
   // NavigationRequest resulted in committing an error page, set

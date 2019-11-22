@@ -58,6 +58,10 @@
 #include "crypto/scoped_nss_types.h"
 #endif
 
+namespace nw {
+  class PolicyCertVerifier;
+}
+
 namespace base {
 class UnguessableToken;
 }  // namespace base
@@ -224,6 +228,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
                             mojom::NetworkConditionsPtr conditions) override;
   void SetAcceptLanguage(const std::string& new_accept_language) override;
   void SetEnableReferrers(bool enable_referrers) override;
+  void SetTrustAnchors(const net::CertificateList&) override;
 #if defined(OS_CHROMEOS)
   void UpdateAdditionalCertificates(
       mojom::AdditionalCertificatesPtr additional_certificates) override;
@@ -567,6 +572,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   std::queue<SetExpectCTTestReportCallback>
       outstanding_set_expect_ct_callbacks_;
 #endif  // BUILDFLAG(IS_CT_SUPPORTED)
+
+  nw::PolicyCertVerifier* nw_cert_verifier_ = nullptr;
 
 #if defined(OS_CHROMEOS)
   CertVerifierWithTrustAnchors* cert_verifier_with_trust_anchors_ = nullptr;

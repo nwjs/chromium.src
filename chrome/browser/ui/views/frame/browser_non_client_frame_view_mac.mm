@@ -296,6 +296,10 @@ gfx::Size BrowserNonClientFrameViewMac::GetMinimumSize() const {
   return client_size;
 }
 
+gfx::Size BrowserNonClientFrameViewMac::GetMaximumSize() const {
+  gfx::Size client_size = frame()->client_view()->GetMaximumSize();
+  return client_size;
+}
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserNonClientFrameViewMac, protected:
 

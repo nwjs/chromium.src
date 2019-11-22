@@ -91,6 +91,7 @@ config("mac_dynamic_flags") {
 
       # Path for loading shared libraries for bundled binaries. Get back from
       # Binary.app/Contents/MacOS.
+      "-lc++abi",
       "-Wl,-rpath,@loader_path/../../..",
     ]
   }
