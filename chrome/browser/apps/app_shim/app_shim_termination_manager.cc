@@ -68,7 +68,10 @@ class AppShimTerminationManagerImpl : public AppShimTerminationManager,
     switch (type) {
       case chrome::NOTIFICATION_BROWSER_OPENED:
       case chrome::NOTIFICATION_BROWSER_CLOSE_CANCELLED:
-        browser_session_running_ = true;
+        // fix https://github.com/nwjs/nw.js/issues/7226 for nw1
+        // browser_session_running_ will set to true once devtool is opened
+        // hence the TerminateIfNoAppWindows function will never be called
+        // browser_session_running_ = true;
         break;
       case chrome::NOTIFICATION_CLOSE_ALL_BROWSERS_REQUEST:
         browser_session_running_ = false;
