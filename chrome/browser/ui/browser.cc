@@ -348,7 +348,7 @@ Browser::CreateParams::CreateParams(Profile* profile, bool user_gesture, const g
 Browser::CreateParams::CreateParams(Type type,
                                     Profile* profile,
                                     bool user_gesture)
-    : type(TYPE_POPUP), profile(profile), user_gesture(user_gesture) {}
+    : type(type == TYPE_DEVTOOLS ? TYPE_DEVTOOLS : TYPE_POPUP), profile(profile), user_gesture(user_gesture) {}
 
 Browser::CreateParams::CreateParams(Type type,
                                     Profile* profile,
@@ -385,14 +385,6 @@ Browser::CreateParams Browser::CreateParams::CreateForDevTools(
   params.app_name = DevToolsWindow::kDevToolsApp;
   params.trusted_source = true;
   return params;
-}
-
-// on nwjs, the browser type is always TYPE_POPUP
-// fortunately for devtool the app_name is always set to DevToolsWindow::kDevToolsApp
-// so we use this for is_type_devtools() function
-// https://github.com/nwjs/nw.js/issues/7226
-bool Browser::is_type_devtools() const {
-  return app_name_.compare(DevToolsWindow::kDevToolsApp) == 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

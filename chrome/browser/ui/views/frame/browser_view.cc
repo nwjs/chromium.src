@@ -490,7 +490,7 @@ const char BrowserView::kViewClassName[] = "BrowserView";
 
 BrowserView::BrowserView(std::unique_ptr<Browser> browser)
     : views::ClientView(nullptr, nullptr), browser_(std::move(browser)) {
-  CHECK(browser_->is_type_popup()) << "opening browser window.";
+  CHECK(browser_->is_type_popup() || browser_->is_type_devtools()) << "opening browser window.";
   browser_->tab_strip_model()->AddObserver(this);
   resizable_ = browser_->initial_resizable();
   immersive_mode_controller_ = chrome::CreateImmersiveModeController();
