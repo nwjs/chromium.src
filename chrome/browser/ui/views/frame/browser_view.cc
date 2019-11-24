@@ -2396,7 +2396,7 @@ bool BrowserView::GetSavedWindowPlacement(
     }
 
     *bounds = window_rect;
-    *show_state = ui::SHOW_STATE_NORMAL;
+    //*show_state = ui::SHOW_STATE_NORMAL;
   }
 
   // We return true because we can _always_ locate reasonable bounds using the
