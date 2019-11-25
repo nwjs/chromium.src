@@ -841,15 +841,8 @@ ui::ZOrderLevel BrowserView::GetZOrderLevel() const {
 }
 
 void BrowserView::SetZOrderLevel(ui::ZOrderLevel level) {
-  // Not implemented for browser windows.
-  NOTIMPLEMENTED();
+  frame_->SetZOrderLevel(level);
 }
-
-#if 0
-void BrowserView::SetAlwaysOnTop(bool always_on_top) {
-  frame_->SetAlwaysOnTop(always_on_top);
-}
-#endif
 
 gfx::NativeWindow BrowserView::GetNativeWindow() const {
   // While the browser destruction is going on, the widget can already be gone,
