@@ -168,7 +168,7 @@ UpgradeDetectorImpl::UpgradeDetectorImpl(const base::Clock* clock,
   // - kSimulateCriticalUpdate has precedence over kSimulateOutdated.
   // - kSimulateOutdatedNoAU has precedence over kSimulateOutdated.
   // - kSimulateOutdated[NoAu] can work on its own, or with a specified date.
-  if (cmd_line.HasSwitch(switches::kDisableBackgroundNetworking))
+  if (true || cmd_line.HasSwitch(switches::kDisableBackgroundNetworking))
     return;
   if (cmd_line.HasSwitch(switches::kSimulateUpgrade)) {
     UpgradeDetected(UPGRADE_AVAILABLE_REGULAR);
