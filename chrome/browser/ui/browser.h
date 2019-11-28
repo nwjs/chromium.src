@@ -623,7 +623,7 @@ class Browser : public TabStripModelObserver,
   // |app_name_| is non-empty.  This includes TYPE_APP and TYPE_DEVTOOLS.
   // Existing callers should change to use the appropriate is_type_* functions.
   bool deprecated_is_app() const {
-    return type_ == TYPE_APP || type_ == TYPE_DEVTOOLS;
+    return type_ == TYPE_APP || type_ == TYPE_DEVTOOLS || type_ == TYPE_POPUP;
   }
 
   // True when the mouse cursor is locked.
