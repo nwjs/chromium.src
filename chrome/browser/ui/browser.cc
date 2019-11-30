@@ -350,7 +350,7 @@ Browser::CreateParams::CreateParams(Profile* profile, bool user_gesture, const g
 Browser::CreateParams::CreateParams(Type type,
                                     Profile* profile,
                                     bool user_gesture)
-    : type(TYPE_POPUP), profile(profile), user_gesture(user_gesture) {}
+    : type(type == TYPE_DEVTOOLS ? TYPE_DEVTOOLS : TYPE_POPUP), profile(profile), user_gesture(user_gesture) {}
 
 Browser::CreateParams::CreateParams(const CreateParams& other) = default;
 

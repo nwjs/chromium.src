@@ -121,6 +121,8 @@ bool ShouldSaveWindowPlacement(const Browser* browser) {
 }
 
 bool SavedBoundsAreContentBounds(const Browser* browser) {
+  return true;
+#if 0
   // Applications other than web apps (such as devtools) save their window size.
   // Web apps, on the other hand, have the same behavior as popups, and save
   // their content bounds.
@@ -130,6 +132,7 @@ bool SavedBoundsAreContentBounds(const Browser* browser) {
   return !browser->is_type_normal() && !is_app_with_window_bounds;
   // bounds should be content bounds for NW.js apps
          //!browser->is_trusted_source();
+#endif
 }
 
 void SaveWindowPlacement(const Browser* browser,

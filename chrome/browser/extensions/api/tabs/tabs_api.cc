@@ -574,14 +574,6 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
                                                     nullptr, &window_bounds,
                                                     &ignored_show_state);
 
-    if (create_data->min_width)
-      min_width = *create_data->min_width;
-    if (create_data->max_width)
-      max_width = *create_data->max_width;
-    if (create_data->min_height)
-      min_height = *create_data->min_height;
-    if (create_data->max_height)
-      max_height = *create_data->max_height;
     // Any part of the bounds can optionally be set by the caller.
     if (create_data->left)
       window_bounds.set_x(*create_data->left);
@@ -594,6 +586,23 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
     if (create_data->height)
       window_bounds.set_height(*create_data->height);
+
+    if (create_data->min_width) {
+      min_width = *create_data->min_width;
+      window_bounds.set_width(std::max(min_width, window_bounds.width()));
+    }
+    if (create_data->max_width) {
+      max_width = *create_data->max_width;
+      window_bounds.set_width(std::min(max_width, window_bounds.width()));
+    }
+    if (create_data->min_height) {
+      min_height = *create_data->min_height;
+      window_bounds.set_height(std::max(min_height, window_bounds.height()));
+    }
+    if (create_data->max_height) {
+      max_height = *create_data->max_height;
+      window_bounds.set_height(std::min(max_height, window_bounds.height()));
+    }
 
     if (create_data->focused)
       focused = *create_data->focused;
@@ -730,6 +739,10 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
   new_window->window()->SetMinimumSize(gfx::Size(min_width, min_height));
   new_window->window()->SetMaximumSize(gfx::Size(max_width, max_height));
+  if (create_params.initial_show_state == ui::SHOW_STATE_FULLSCREEN) {
+    BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(new_window)->frame();
+    frame->SetFullscreen(true);
+  }
   if (!hidden) {
   if (focused)
     new_window->window()->Show();

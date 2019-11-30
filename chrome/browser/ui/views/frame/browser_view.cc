@@ -438,7 +438,7 @@ const char BrowserView::kViewClassName[] = "BrowserView";
 
 BrowserView::BrowserView(std::unique_ptr<Browser> browser)
     : views::ClientView(nullptr, nullptr), browser_(std::move(browser)) {
-  CHECK(browser_->is_type_popup()) << "opening browser window.";
+  CHECK(browser_->is_type_popup() || browser_->is_type_devtools()) << "opening browser window.";
   browser_->tab_strip_model()->AddObserver(this);
   resizable_ = browser_->initial_resizable();
   immersive_mode_controller_ = chrome::CreateImmersiveModeController();
@@ -786,15 +786,8 @@ ui::ZOrderLevel BrowserView::GetZOrderLevel() const {
 }
 
 void BrowserView::SetZOrderLevel(ui::ZOrderLevel level) {
-  // Not implemented for browser windows.
-  NOTIMPLEMENTED();
+  frame_->SetZOrderLevel(level);
 }
-
-#if 0
-void BrowserView::SetAlwaysOnTop(bool always_on_top) {
-  frame_->SetAlwaysOnTop(always_on_top);
-}
-#endif
 
 gfx::NativeWindow BrowserView::GetNativeWindow() const {
   // While the browser destruction is going on, the widget can already be gone,
@@ -2341,7 +2334,7 @@ bool BrowserView::GetSavedWindowPlacement(
     }
 
     *bounds = window_rect;
-    *show_state = ui::SHOW_STATE_NORMAL;
+    //*show_state = ui::SHOW_STATE_NORMAL;
   }
 
   // We return true because we can _always_ locate reasonable bounds using the

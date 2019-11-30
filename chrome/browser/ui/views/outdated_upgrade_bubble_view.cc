@@ -58,6 +58,7 @@ int g_num_ignored_bubbles = 0;
 void OutdatedUpgradeBubbleView::ShowBubble(views::View* anchor_view,
                                            content::PageNavigator* navigator,
                                            bool auto_update_enabled) {
+#if 0
   if (g_upgrade_bubble)
     return;
   g_upgrade_bubble = new OutdatedUpgradeBubbleView(anchor_view, navigator,
@@ -67,6 +68,7 @@ void OutdatedUpgradeBubbleView::ShowBubble(views::View* anchor_view,
       auto_update_enabled
           ? base::UserMetricsAction("OutdatedUpgradeBubble.Show")
           : base::UserMetricsAction("OutdatedUpgradeBubble.ShowNoAU"));
+#endif
 }
 
 OutdatedUpgradeBubbleView::~OutdatedUpgradeBubbleView() {
