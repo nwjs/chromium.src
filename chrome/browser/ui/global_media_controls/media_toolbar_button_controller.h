@@ -11,6 +11,7 @@
 
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/ui/global_media_controls/media_notification_container_observer.h"
 #include "components/media_message_center/media_notification_controller.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -31,6 +32,7 @@ namespace service_manager {
 class Connector;
 }  // namespace service_manager
 
+class Browser;
 class MediaDialogDelegate;
 class MediaNotificationContainerImpl;
 class MediaToolbarButtonControllerDelegate;
@@ -45,7 +47,8 @@ class MediaToolbarButtonController
  public:
   MediaToolbarButtonController(const base::UnguessableToken& source_id,
                                service_manager::Connector* connector,
-                               MediaToolbarButtonControllerDelegate* delegate);
+                               MediaToolbarButtonControllerDelegate* delegate,
+                               const Browser* browser);
   ~MediaToolbarButtonController() override;
 
   // media_session::mojom::AudioFocusObserver implementation.
@@ -80,23 +83,65 @@ class MediaToolbarButtonController
     kHidden,
   };
 
-  class Session : public content::WebContentsObserver {
+  class Session : public content::WebContentsObserver,
+                  public media_session::mojom::MediaControllerObserver {
    public:
     Session(MediaToolbarButtonController* owner,
             const std::string& id,
             std::unique_ptr<media_message_center::MediaNotificationItem> item,
-            content::WebContents* web_contents);
+            content::WebContents* web_contents,
+            const Browser* browser,
+            mojo::Remote<media_session::mojom::MediaController> controller);
     ~Session() override;
 
     // content::WebContentsObserver implementation.
     void WebContentsDestroyed() override;
+    void OnWebContentsFocused(content::RenderWidgetHost*) override;
+
+    // media_session::mojom::MediaControllerObserver:
+    void MediaSessionInfoChanged(
+        media_session::mojom::MediaSessionInfoPtr session_info) override;
+    void MediaSessionMetadataChanged(
+        const base::Optional<media_session::MediaMetadata>& metadata) override {
+    }
+    void MediaSessionActionsChanged(
+        const std::vector<media_session::mojom::MediaSessionAction>& actions)
+        override {}
+    void MediaSessionChanged(
+        const base::Optional<base::UnguessableToken>& request_id) override {}
+    void MediaSessionPositionChanged(
+        const base::Optional<media_session::MediaPosition>& position) override;
 
     media_message_center::MediaNotificationItem* item() { return item_.get(); }
 
+    // Called when a new MediaController is given to the item. We need to
+    // observe the same session as our underlying item.
+    void SetController(
+        mojo::Remote<media_session::mojom::MediaController> controller);
+
    private:
+    // Called when a session is interacted with (to reset |inactive_timer_|).
+    void OnSessionInteractedWith();
+
+    void StartInactiveTimer();
+
+    void OnInactiveTimerFired();
+
+    // True if this MediaToolbarButtonController is for the same window as the
+    // tab that owns the media session.
+    bool IsSameWindow();
+
     MediaToolbarButtonController* owner_;
     const std::string id_;
     std::unique_ptr<media_message_center::MediaNotificationItem> item_;
+    const Browser* const browser_;
+
+    // Used to stop/hide a paused session after a period of inactivity.
+    base::OneShotTimer inactive_timer_;
+
+    // Used to receive updates to the Media Session playback state.
+    mojo::Receiver<media_session::mojom::MediaControllerObserver>
+        observer_receiver_{this};
 
     DISALLOW_COPY_AND_ASSIGN(Session);
   };
@@ -108,6 +153,7 @@ class MediaToolbarButtonController
 
   service_manager::Connector* const connector_;
   MediaToolbarButtonControllerDelegate* const delegate_;
+  const Browser* const browser_;
   MediaDialogDelegate* dialog_delegate_ = nullptr;
 
   // The delegate starts hidden and isn't shown until media playback starts.

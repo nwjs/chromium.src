@@ -31,7 +31,8 @@ MediaToolbarButtonView::MediaToolbarButtonView(
       connector_(connector),
       controller_(std::make_unique<MediaToolbarButtonController>(source_id,
                                                                  connector_,
-                                                                 this)),
+                                                                 this,
+                                                                 browser)),
       browser_(browser) {
   GlobalMediaControlsInProductHelp* in_product_help =
       GlobalMediaControlsInProductHelpFactory::GetForProfile(

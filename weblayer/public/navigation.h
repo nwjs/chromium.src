@@ -16,9 +16,15 @@ namespace weblayer {
 // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.weblayer_private
 // GENERATED_JAVA_CLASS_NAME_OVERRIDE: ImplNavigationState
 enum class NavigationState {
+  // Waiting to receive initial response data.
   kWaitingResponse = 0,
+  // Processing the response.
   kReceivingBytes = 1,
+  // The navigation succeeded. Any NavigationObservers would have had
+  // NavigationCompleted() called.
   kComplete = 2,
+  // The navigation failed. IsErrorPage() will return true, and any
+  // NavigationObservers would have had NavigationFailed() called.
   kFailed = 3,
 };
 
@@ -36,6 +42,10 @@ class Navigation {
   virtual const std::vector<GURL>& GetRedirectChain() = 0;
 
   virtual NavigationState GetState() = 0;
+
+  // Returns the status code of the navigation. Returns 0 if the navigation
+  // hasn't completed yet or if a response wasn't received.
+  virtual int GetHttpStatusCode() = 0;
 
   // Whether the navigation happened without changing document. Examples of
   // same document navigations are:

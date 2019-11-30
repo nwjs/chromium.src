@@ -274,7 +274,6 @@
 <translation id="2248949050832152960">WebAuthnனைப் பயன்படுத்து</translation>
 <translation id="2250931979407627383">எட்ஜ் ஸ்டிட்ச் லெஃப்ட்</translation>
 <translation id="225207911366869382">இந்த கொள்கைக்கான மதிப்பு தடுக்கப்பட்டது.</translation>
-<translation id="2257315177824333709">தற்போது உங்கள் கார்டு விவரங்களைச் சேமிக்க இயலாது</translation>
 <translation id="2262243747453050782">HTTP பிழை</translation>
 <translation id="2263079731045660823">Chrome அமைப்புகளில் கிரெடிட் கார்டுத் தன்னிரப்பித் தகவலைப் புதுப்பிக்கவும்</translation>
 <translation id="2267047181501709434">உங்கள் அடையாளத்தைச் சரிபார்க்கிறது...</translation>
@@ -647,6 +646,7 @@
 <translation id="4176463684765177261">முடக்கப்பட்டது</translation>
 <translation id="4179515394835346607"><ph name="ROW_NAME" /> <ph name="ROW_CONTENT" /></translation>
 <translation id="4193750898749511769">அடுத்த முறை விரைவாகப் பணம் செலுத்த கார்டு விவரங்களையும் பில்லிங் முகவரியையும் Google கணக்கில் சேமிக்கவும்.</translation>
+<translation id="4194250254487269611">உங்கள் கார்டு விவரங்களைத் தற்போது சேமிக்க இயலாது</translation>
 <translation id="4196861286325780578">&amp;நகர்த்தலை மீண்டும் செய்</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />ஃபயர்வால் மற்றும் வைரஸ் எதிர்ப்பு உள்ளமைவைச் சரிபார்த்தல்<ph name="END_LINK" /></translation>
 <translation id="4215751373031079683">7x9 (என்வலப்)</translation>

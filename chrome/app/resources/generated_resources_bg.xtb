@@ -973,6 +973,7 @@
 <translation id="2396783860772170191">Въведете 4-цифрен ПИН (0000 – 9999)</translation>
 <translation id="2399939490305346086">Данни за вход от ключа за сигурност</translation>
 <translation id="2407481962792080328">Когато влезете в профила си в Google, тази функция се включва</translation>
+<translation id="2408018932941436077">Картата се запазва</translation>
 <translation id="2408955596600435184">Въведете своя ПИН</translation>
 <translation id="241082044617551207">Неизвестна приставка</translation>
 <translation id="2412593942846481727">Налице е актуализация</translation>
@@ -4766,6 +4767,7 @@
 <translation id="7968833647796919681">Активиране на събирането на данни за ефективността</translation>
 <translation id="7968982339740310781">Преглед на подробностите</translation>
 <translation id="7969046989155602842">Command</translation>
+<translation id="7970882136539140748">Картата не може да бъде запазена в момента</translation>
 <translation id="7972714317346275248">PKCS 1 SHA-384 с RSA шифроване</translation>
 <translation id="7973962044839454485">Удостоверяването през PPP не бе успешно поради неправилно потребителско име или парола</translation>
 <translation id="7974566588408714340">Нов опит посредством <ph name="EXTENSIONNAME" /></translation>
@@ -5087,7 +5089,6 @@
 <translation id="8431909052837336408">Промяна на ПИН за SIM картата</translation>
 <translation id="8434480141477525001">Порт за отстраняване на грешки в клиента с директно изпълнение</translation>
 <translation id="8435395510592618362">Потвърждаване на самоличността ви чрез <ph name="APP_NAME" /></translation>
-<translation id="843760761634048214">Запазване на кредитната карта</translation>
 <translation id="8438328416656800239">Преминете към интелигентен браузър</translation>
 <translation id="8438566539970814960">Подобряване на търсенията и сърфирането</translation>
 <translation id="8439506636278576865">Предлагане страниците на този език да се превеждат</translation>
@@ -5465,6 +5466,7 @@
 <translation id="8965037249707889821">Въведете старата парола</translation>
 <translation id="8966870118594285808">Повторно отваряне на раздел, ако случайно сте го затворили</translation>
 <translation id="8967866634928501045">За показване натиснете Alt Shift A</translation>
+<translation id="8968766641738584599">Запазване на картата</translation>
 <translation id="89720367119469899">Escape</translation>
 <translation id="8972513834460200407">Моля, обърнете се към системния си администратор, за да се уверите, че защитната стена не блокира изтеглянията от сървърите на Google.</translation>
 <translation id="8973557916016709913">Премахване на мащаба</translation>

@@ -17,15 +17,21 @@ import org.chromium.weblayer_private.interfaces.ObjectWrapper;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Implementation of IProfile.
+ */
 @JNINamespace("weblayer")
 public final class ProfileImpl extends IProfile.Stub {
-    private final String mPath;
+    private final String mName;
     private long mNativeProfile;
     private Runnable mOnDestroyCallback;
 
-    ProfileImpl(String path, Runnable onDestroyCallback) {
-        mPath = path;
-        mNativeProfile = ProfileImplJni.get().createProfile(path);
+    ProfileImpl(String name, Runnable onDestroyCallback) {
+        if (!name.matches("^\\w*$")) {
+            throw new IllegalArgumentException("Name can only contain words: " + name);
+        }
+        mName = name;
+        mNativeProfile = ProfileImplJni.get().createProfile(name);
         mOnDestroyCallback = onDestroyCallback;
     }
 
@@ -38,8 +44,8 @@ public final class ProfileImpl extends IProfile.Stub {
     }
 
     @Override
-    public String getPath() {
-        return mPath;
+    public String getName() {
+        return mName;
     }
 
     @Override
@@ -76,7 +82,7 @@ public final class ProfileImpl extends IProfile.Stub {
 
     @NativeMethods
     interface Natives {
-        long createProfile(String path);
+        long createProfile(String name);
         void deleteProfile(long profile);
         void clearBrowsingData(long nativeProfileImpl, @ImplBrowsingDataType int[] dataTypes,
                 long fromMillis, long toMillis, Runnable callback);

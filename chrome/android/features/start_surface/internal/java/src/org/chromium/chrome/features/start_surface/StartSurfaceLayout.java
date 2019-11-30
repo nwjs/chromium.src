@@ -386,7 +386,7 @@ public class StartSurfaceLayout extends Layout implements StartSurface.OverviewM
     }
 
     @VisibleForTesting
-    StartSurface getStartSurfaceForTesting() {
+    public StartSurface getStartSurfaceForTesting() {
         return mStartSurface;
     }
 

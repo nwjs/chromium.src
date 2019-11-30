@@ -975,6 +975,7 @@
 <translation id="2396783860772170191">Введите четырехзначный PIN-код (0000–9999)</translation>
 <translation id="2399939490305346086">Учетные данные электронного ключа</translation>
 <translation id="2407481962792080328">Эта функция включается, когда вы входите в аккаунт Google.</translation>
+<translation id="2408018932941436077">Сохранение карты</translation>
 <translation id="2408955596600435184">Введите PIN-код</translation>
 <translation id="241082044617551207">Неизвестный плагин</translation>
 <translation id="2412593942846481727">Доступно обновление</translation>
@@ -4762,6 +4763,7 @@
 <translation id="7968833647796919681">Разрешить сбор данных о производительности</translation>
 <translation id="7968982339740310781">Просмотреть сведения</translation>
 <translation id="7969046989155602842">Command</translation>
+<translation id="7970882136539140748">Не удалось сохранить карту</translation>
 <translation id="7972714317346275248">PKCS #1 SHA-384 с шифрованием RSA</translation>
 <translation id="7973962044839454485">Не удалось выполнить аутентификацию PPP: неверное имя пользователя или пароль</translation>
 <translation id="7974566588408714340">Подключиться через <ph name="EXTENSIONNAME" /></translation>
@@ -5082,7 +5084,6 @@
 <translation id="8431909052837336408">Изменение PIN-кода SIM-карты</translation>
 <translation id="8434480141477525001">Порт отладки NaCl</translation>
 <translation id="8435395510592618362">Подтверждение личности для приложения "<ph name="APP_NAME" />"</translation>
-<translation id="843760761634048214">Сохранить кредитную карту</translation>
 <translation id="8438328416656800239">Перейдите на умный браузер</translation>
 <translation id="8438566539970814960">Помогать улучшить просмотр страниц и поиск</translation>
 <translation id="8439506636278576865">Предлагать перевести страницы на этом языке</translation>
@@ -5460,6 +5461,7 @@
 <translation id="8965037249707889821">Введите старый пароль</translation>
 <translation id="8966870118594285808">Если вы случайно закрыли вкладку, откройте ее снова</translation>
 <translation id="8967866634928501045">Чтобы показать, нажмите Alt + Shift + A</translation>
+<translation id="8968766641738584599">Сохранить карту</translation>
 <translation id="89720367119469899">Отключить</translation>
 <translation id="8972513834460200407">Уточните у администратора сети, не блокирует ли брандмауэр скачивание файлов с серверов Google.</translation>
 <translation id="8973557916016709913">Сбросить масштаб</translation>

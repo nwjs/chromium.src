@@ -110,6 +110,8 @@ void TopControlsContainerView::SetWebContents(
 void TopControlsContainerView::DidToggleFullscreenModeForTab(
     bool entered_fullscreen,
     bool will_cause_resize) {
+  TRACE_EVENT0("weblayer",
+               "Java_TopControlsContainerView_didToggleFullscreenModeForTab");
   Java_TopControlsContainerView_didToggleFullscreenModeForTab(
       AttachCurrentThread(), java_top_controls_container_view_,
       entered_fullscreen);
@@ -120,10 +122,10 @@ static jlong JNI_TopControlsContainerView_CreateTopControlsContainerView(
     const base::android::JavaParamRef<jobject>&
         java_top_controls_container_view,
     jlong native_content_view_render_view) {
-  return reinterpret_cast<jlong>(new TopControlsContainerView(
-      java_top_controls_container_view,
-      reinterpret_cast<ContentViewRenderView*>(
-          native_content_view_render_view)));
+  return reinterpret_cast<jlong>(
+      new TopControlsContainerView(java_top_controls_container_view,
+                                   reinterpret_cast<ContentViewRenderView*>(
+                                       native_content_view_render_view)));
 }
 
 }  // namespace weblayer

@@ -9,6 +9,7 @@
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/cpu.h"
+#include "base/files/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/path_service.h"
@@ -23,6 +24,7 @@
 #include "weblayer/browser/content_browser_client_impl.h"
 #include "weblayer/common/content_client_impl.h"
 #include "weblayer/common/weblayer_paths.h"
+#include "weblayer/public/common/switches.h"
 #include "weblayer/renderer/content_renderer_client_impl.h"
 #include "weblayer/utility/content_utility_client_impl.h"
 
@@ -35,7 +37,8 @@
 #include "ui/base/resource/resource_bundle_android.h"
 #include "ui/base/ui_base_switches.h"
 #include "weblayer/browser/android_descriptors.h"
-#include "weblayer/common/crash_reporter_client.h"
+#include "weblayer/common/crash_reporter/crash_keys.h"
+#include "weblayer/common/crash_reporter/crash_reporter_client.h"
 #endif
 
 #if defined(OS_WIN)
@@ -153,6 +156,7 @@ void ContentMainDelegateImpl::PreSandboxStartup() {
   EnableCrashReporter(
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
           switches::kProcessType));
+  SetWebLayerCrashKeys();
 #endif
 }
 
@@ -196,13 +200,13 @@ void ContentMainDelegateImpl::InitializeResourceBundle() {
       command_line.GetSwitchValueASCII(switches::kProcessType).empty();
   if (is_browser_process) {
     ui::SetLocalePaksStoredInApk(true);
+    // Passing an empty |pref_locale| yields the system default locale.
     std::string locale = ui::ResourceBundle::InitSharedInstanceWithLocale(
-        base::android::GetDefaultLocaleString(), nullptr,
-        ui::ResourceBundle::LOAD_COMMON_RESOURCES);
+        {} /*pref_locale*/, nullptr, ui::ResourceBundle::LOAD_COMMON_RESOURCES);
+
     if (locale.empty()) {
       LOG(WARNING) << "Failed to load locale .pak from apk.";
     }
-    base::i18n::SetICUDefaultLocale(locale);
 
     // Try to directly mmap the resources.pak from the apk. Fall back to load
     // from file, using PATH_SERVICE, otherwise.
@@ -220,6 +224,22 @@ void ContentMainDelegateImpl::InitializeResourceBundle() {
         base::File(fd), region, ui::SCALE_FACTOR_NONE);
     base::GlobalDescriptors::GetInstance()->Set(
         kWebLayerSecondaryLocalePakDescriptor, fd, region);
+
+    if (command_line.HasSwitch(switches::kWebLayerUserDataDir)) {
+      base::FilePath path =
+          command_line.GetSwitchValuePath(switches::kWebLayerUserDataDir);
+      if (base::DirectoryExists(path) || base::CreateDirectory(path)) {
+        // Profile needs an absolute path, which we would normally get via
+        // PathService. In this case, manually ensure the path is absolute.
+        if (!path.IsAbsolute())
+          path = base::MakeAbsoluteFilePath(path);
+      } else {
+        LOG(ERROR) << "Unable to create data-path directory: " << path.value();
+      }
+      CHECK(base::PathService::OverrideAndCreateIfNeeded(
+          weblayer::DIR_USER_DATA, path, true /* is_absolute */,
+          false /* create */));
+    }
   } else {
     base::i18n::SetICUDefaultLocale(
         command_line.GetSwitchValueASCII(switches::kLang));

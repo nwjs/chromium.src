@@ -173,7 +173,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': 'd14b82e84b7710230aabcd1d337904571768451c',
+  'v8_revision': '67f634cd0425556df76cdc89a932cfd29a79f83b',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -1475,7 +1475,7 @@ deps = {
     Var('chromium_git') + '/external/khronosgroup/webgl.git' + '@' + '2701c130839edbeb226735b0775966b6423d9e83',
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '47331eceb8b6b2aebd13f749f5af8ffdc2a5082c',
+    Var('webrtc_git') + '/src.git' + '@' + 'b484ec0082948ae086c2ba4142b4d2bf8bc4dd4b',
 
   'src/third_party/xdg-utils': {
       'url': Var('chromium_git') + '/chromium/deps/xdg-utils.git' + '@' + 'd80274d5869b17b8c9067a1022e4416ee7ed5e0d',
@@ -1537,7 +1537,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@1f680ceac999e877c12366a462e2d8e58ef0ba95',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@5a367463d8b00b5974866dbc670af14007525f8b',
     'condition': 'checkout_src_internal',
   },
 

@@ -84,7 +84,7 @@ class MediaToolbarButtonControllerTest : public testing::Test {
 
   void SetUp() override {
     controller_ = std::make_unique<MediaToolbarButtonController>(
-        base::UnguessableToken::Create(), nullptr, &delegate_);
+        base::UnguessableToken::Create(), nullptr, &delegate_, nullptr);
   }
 
  protected:

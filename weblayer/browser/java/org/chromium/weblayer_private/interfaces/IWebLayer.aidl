@@ -33,6 +33,12 @@ interface IWebLayer {
   IBrowserFragment createBrowserFragmentImpl(in IRemoteFragmentClient fragmentClient,
       in IObjectWrapper fragmentArgs) = 3;
 
-  // Create or get the profile matching profilePath.
-  IProfile getProfile(in String profilePath) = 4;
+  // Create or get the profile matching profileName.
+  IProfile getProfile(in String profileName) = 4;
+
+  // Enable or disable DevTools remote debugging server.
+  void setRemoteDebuggingEnabled(boolean enabled) = 5;
+
+  // Returns whether or not the DevTools remote debugging server is enabled.
+  boolean isRemoteDebuggingEnabled() = 6;
 }

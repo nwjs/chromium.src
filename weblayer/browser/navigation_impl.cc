@@ -66,8 +66,18 @@ const std::vector<GURL>& NavigationImpl::GetRedirectChain() {
 }
 
 NavigationState NavigationImpl::GetState() {
-  NOTIMPLEMENTED() << "TODO: properly implement this";
+  if (navigation_handle_->IsErrorPage())
+    return NavigationState::kFailed;
+  if (navigation_handle_->HasCommitted())
+    return NavigationState::kComplete;
+  if (navigation_handle_->GetResponseHeaders())
+    return NavigationState::kReceivingBytes;
   return NavigationState::kWaitingResponse;
+}
+
+int NavigationImpl::GetHttpStatusCode() {
+  auto* response_headers = navigation_handle_->GetResponseHeaders();
+  return response_headers ? response_headers->response_code() : 0;
 }
 
 bool NavigationImpl::IsSameDocument() {

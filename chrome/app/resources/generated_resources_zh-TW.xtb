@@ -729,7 +729,7 @@
 <translation id="2046702855113914483">拉麵</translation>
 <translation id="2048182445208425546">存取你的網路流量</translation>
 <translation id="2048653237708779538">無法執行操作</translation>
-<translation id="2050339315714019657">縱向</translation>
+<translation id="2050339315714019657">直向</translation>
 <translation id="2053312383184521053">閒置狀態資料</translation>
 <translation id="205560151218727633">Google 助理標誌</translation>
 <translation id="2058456167109518507">偵測到裝置</translation>
@@ -976,6 +976,7 @@
 <translation id="2396783860772170191">輸入 4 位數 PIN 碼 (0000-9999)</translation>
 <translation id="2399939490305346086">安全金鑰登入資料</translation>
 <translation id="2407481962792080328">登入 Google 帳戶時，系統會啟用這項功能</translation>
+<translation id="2408018932941436077">正在儲存信用卡</translation>
 <translation id="2408955596600435184">請輸入你的 PIN 碼</translation>
 <translation id="241082044617551207">不明的外掛程式</translation>
 <translation id="2412593942846481727">有可用的更新</translation>
@@ -4764,6 +4765,7 @@
 <translation id="7968833647796919681">啟用效能資料收集</translation>
 <translation id="7968982339740310781">查看詳細資料</translation>
 <translation id="7969046989155602842">Command 鍵</translation>
+<translation id="7970882136539140748">目前無法儲存信用卡</translation>
 <translation id="7972714317346275248">PKCS #1 SHA-384 (使用 RSA 加密)</translation>
 <translation id="7973962044839454485">使用者名稱或密碼錯誤，導致 PPP 驗證失敗</translation>
 <translation id="7974566588408714340">使用「<ph name="EXTENSIONNAME" />」重試</translation>
@@ -5084,7 +5086,6 @@
 <translation id="8431909052837336408">變更 SIM 卡的 PIN 碼</translation>
 <translation id="8434480141477525001">NaCl 偵錯通訊埠</translation>
 <translation id="8435395510592618362">向 <ph name="APP_NAME" /> 驗證你的身分</translation>
-<translation id="843760761634048214">儲存信用卡</translation>
 <translation id="8438328416656800239">改用智慧瀏覽器</translation>
 <translation id="8438566539970814960">改善搜尋和瀏覽體驗</translation>
 <translation id="8439506636278576865">翻譯這個語言的網頁</translation>
@@ -5462,6 +5463,7 @@
 <translation id="8965037249707889821">輸入先前的密碼</translation>
 <translation id="8966870118594285808">你可以重新開啟不小心關閉的分頁</translation>
 <translation id="8967866634928501045">按下 Alt + Shift + A 鍵即可顯示</translation>
+<translation id="8968766641738584599">儲存卡片</translation>
 <translation id="89720367119469899">Escape</translation>
 <translation id="8972513834460200407">請與網路管理員聯絡，確認防火牆並未封鎖從 Google 伺服器下載的內容。</translation>
 <translation id="8973557916016709913">重設為預設縮放比例</translation>

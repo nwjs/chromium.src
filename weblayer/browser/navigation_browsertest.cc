@@ -34,6 +34,8 @@ class OneShotNavigationObserver : public NavigationObserver {
   bool completed() { return completed_; }
   bool is_error_page() { return is_error_page_; }
   Navigation::LoadError load_error() { return load_error_; }
+  int http_status_code() { return http_status_code_; }
+  NavigationState navigation_state() { return navigation_state_; }
 
  private:
   // NavigationObserver implementation:
@@ -47,6 +49,8 @@ class OneShotNavigationObserver : public NavigationObserver {
   void Finish(Navigation* navigation) {
     is_error_page_ = navigation->IsErrorPage();
     load_error_ = navigation->GetLoadError();
+    http_status_code_ = navigation->GetHttpStatusCode();
+    navigation_state_ = navigation->GetState();
     run_loop_.Quit();
   }
 
@@ -55,6 +59,8 @@ class OneShotNavigationObserver : public NavigationObserver {
   bool completed_ = false;
   bool is_error_page_ = false;
   Navigation::LoadError load_error_ = Navigation::kNoError;
+  int http_status_code_ = 0;
+  NavigationState navigation_state_ = NavigationState::kWaitingResponse;
 };
 
 }  // namespace
@@ -72,6 +78,8 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, NoError) {
   EXPECT_TRUE(observer.completed());
   EXPECT_FALSE(observer.is_error_page());
   EXPECT_EQ(observer.load_error(), Navigation::kNoError);
+  EXPECT_EQ(observer.http_status_code(), 200);
+  EXPECT_EQ(observer.navigation_state(), NavigationState::kComplete);
 }
 
 IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, HttpClientError) {
@@ -85,6 +93,8 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, HttpClientError) {
   EXPECT_TRUE(observer.completed());
   EXPECT_FALSE(observer.is_error_page());
   EXPECT_EQ(observer.load_error(), Navigation::kHttpClientError);
+  EXPECT_EQ(observer.http_status_code(), 404);
+  EXPECT_EQ(observer.navigation_state(), NavigationState::kComplete);
 }
 
 IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, HttpServerError) {
@@ -98,6 +108,8 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, HttpServerError) {
   EXPECT_TRUE(observer.completed());
   EXPECT_FALSE(observer.is_error_page());
   EXPECT_EQ(observer.load_error(), Navigation::kHttpServerError);
+  EXPECT_EQ(observer.http_status_code(), 500);
+  EXPECT_EQ(observer.navigation_state(), NavigationState::kComplete);
 }
 
 IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, SSLError) {
@@ -118,6 +130,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, SSLError) {
   EXPECT_FALSE(observer.completed());
   EXPECT_TRUE(observer.is_error_page());
   EXPECT_EQ(observer.load_error(), Navigation::kSSLError);
+  EXPECT_EQ(observer.navigation_state(), NavigationState::kFailed);
 }
 
 IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, HttpConnectivityError) {
@@ -132,6 +145,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, HttpConnectivityError) {
   EXPECT_FALSE(observer.completed());
   EXPECT_TRUE(observer.is_error_page());
   EXPECT_EQ(observer.load_error(), Navigation::kConnectivityError);
+  EXPECT_EQ(observer.navigation_state(), NavigationState::kFailed);
 }
 
 }  // namespace weblayer

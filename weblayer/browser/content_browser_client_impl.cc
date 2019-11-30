@@ -14,10 +14,12 @@
 #include "build/build_config.h"
 #include "components/security_interstitials/content/ssl_cert_reporter.h"
 #include "components/security_interstitials/content/ssl_error_navigation_throttle.h"
+#include "components/version_info/version_info.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/devtools_manager_delegate.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/network_service_instance.h"
+#include "content/public/common/content_switches.h"
 #include "content/public/common/service_names.mojom.h"
 #include "content/public/common/user_agent.h"
 #include "content/public/common/web_preferences.h"
@@ -30,6 +32,7 @@
 #include "url/gurl.h"
 #include "url/origin.h"
 #include "weblayer/browser/browser_main_parts_impl.h"
+#include "weblayer/browser/i18n_util.h"
 #include "weblayer/browser/ssl_error_handler.h"
 #include "weblayer/browser/tab_impl.h"
 #include "weblayer/browser/weblayer_content_browser_overlay_manifest.h"
@@ -42,6 +45,7 @@
 #include "components/crash/content/browser/crash_handler_host_linux.h"
 #include "ui/base/resource/resource_bundle_android.h"
 #include "weblayer/browser/android_descriptors.h"
+#include "weblayer/browser/devtools_manager_delegate_android.h"
 #include "weblayer/browser/safe_browsing/safe_browsing_service.h"
 #endif
 
@@ -93,9 +97,13 @@ ContentBrowserClientImpl::CreateBrowserMainParts(
   return browser_main_parts;
 }
 
+std::string ContentBrowserClientImpl::GetApplicationLocale() {
+  return i18n::GetApplicationLocale();
+}
+
 std::string ContentBrowserClientImpl::GetAcceptLangs(
     content::BrowserContext* context) {
-  return "en-us,en";
+  return i18n::GetAcceptLangs();
 }
 
 content::WebContentsViewDelegate*
@@ -103,9 +111,14 @@ ContentBrowserClientImpl::GetWebContentsViewDelegate(
     content::WebContents* web_contents) {
   return nullptr;
 }
+
 content::DevToolsManagerDelegate*
 ContentBrowserClientImpl::GetDevToolsManagerDelegate() {
+#if defined(OS_ANDROID)
+  return new DevToolsManagerDelegateAndroid();
+#else
   return new content::DevToolsManagerDelegate();
+#endif
 }
 
 base::Optional<service_manager::Manifest>
@@ -115,19 +128,29 @@ ContentBrowserClientImpl::GetServiceManifestOverlay(base::StringPiece name) {
   return base::nullopt;
 }
 
+std::string ContentBrowserClientImpl::GetProduct() {
+  return version_info::GetProductNameAndVersionForUserAgent();
+}
+
 std::string ContentBrowserClientImpl::GetUserAgent() {
-  std::string product = "Chrome/";
-  product += params_->full_version;
+  std::string product = GetProduct();
+
+  const base::CommandLine& command_line =
+      *base::CommandLine::ForCurrentProcess();
+
+  if (command_line.HasSwitch(switches::kUseMobileUserAgent))
+    product += " Mobile";
   return content::BuildUserAgentFromProduct(product);
 }
 
 blink::UserAgentMetadata ContentBrowserClientImpl::GetUserAgentMetadata() {
   blink::UserAgentMetadata metadata;
 
-  metadata.brand = params_->brand;
-  metadata.full_version = params_->full_version;
-  metadata.major_version = params_->major_version;
-  metadata.platform = content::BuildOSCpuInfo(false);
+  metadata.brand = version_info::GetProductName();
+  metadata.full_version = version_info::GetVersionNumber();
+  metadata.major_version = version_info::GetMajorVersionNumber();
+  metadata.platform = version_info::GetOSType();
+
   metadata.architecture = "";
   metadata.model = "";
 
@@ -154,7 +177,7 @@ ContentBrowserClientImpl::CreateNetworkContext(
   network::mojom::NetworkContextParamsPtr context_params =
       network::mojom::NetworkContextParams::New();
   context_params->user_agent = GetUserAgent();
-  context_params->accept_language = "en-us,en";
+  context_params->accept_language = GetAcceptLangs(context);
   if (!context->IsOffTheRecord()) {
     base::FilePath cookie_path = context->GetPath();
     cookie_path = cookie_path.Append(FILE_PATH_LITERAL("Cookies"));

@@ -71,10 +71,12 @@ class TabImpl : public Tab,
 #endif
 
   DownloadDelegate* download_delegate() { return download_delegate_; }
+  ErrorPageDelegate* error_page_delegate() { return error_page_delegate_; }
   FullscreenDelegate* fullscreen_delegate() { return fullscreen_delegate_; }
 
   // Tab:
   void SetDownloadDelegate(DownloadDelegate* delegate) override;
+  void SetErrorPageDelegate(ErrorPageDelegate* delegate) override;
   void SetFullscreenDelegate(FullscreenDelegate* delegate) override;
   void SetNewTabDelegate(NewTabDelegate* delegate) override;
   void AddObserver(TabObserver* observer) override;
@@ -123,15 +125,18 @@ class TabImpl : public Tab,
                       const gfx::Rect& initial_rect,
                       bool user_gesture,
                       bool* was_blocked) override;
+  void CloseContents(content::WebContents* source) override;
 
   // content::WebContentsObserver:
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
+  void RenderProcessGone(base::TerminationStatus status) override;
 
   // Called from closure supplied to delegate to exit fullscreen.
   void OnExitFullscreen();
 
   DownloadDelegate* download_delegate_ = nullptr;
+  ErrorPageDelegate* error_page_delegate_ = nullptr;
   FullscreenDelegate* fullscreen_delegate_ = nullptr;
   NewTabDelegate* new_tab_delegate_ = nullptr;
   ProfileImpl* profile_;

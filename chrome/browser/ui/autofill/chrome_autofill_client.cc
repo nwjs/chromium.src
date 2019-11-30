@@ -520,8 +520,6 @@ void ChromeAutofillClient::DidFillOrPreviewField(
 }
 
 bool ChromeAutofillClient::IsContextSecure() {
-  // Note: Defer to SecurityStateTabHelper to determine what pages
-  // are secure so that autofill behavior matches that shown in the omnibox.
 
   content::NavigationEntry* navigation_entry =
       web_contents()->GetController().GetLastCommittedEntry();
@@ -531,10 +529,18 @@ bool ChromeAutofillClient::IsContextSecure() {
 
   SecurityStateTabHelper* helper =
       SecurityStateTabHelper::FromWebContents(web_contents());
+  if (!helper)
+    return false;
 
-  // There may be no SecurityStateTabHelper attached in some tests.
-  return helper &&
-         security_state::IsSslCertificateValid(helper->GetSecurityLevel());
+  const auto security_level = helper->GetSecurityLevel();
+
+  // Cases with mixed passive content are safe enough to allow autofill, so
+  // allow NONE in addition to the secure cases.
+  //
+  // TODO(crbug.com/701018): Once passive mixed content is less common, just use
+  // IsSslCertificateValid().
+  return security_state::IsSslCertificateValid(security_level) ||
+         security_level == security_state::NONE;
 }
 
 bool ChromeAutofillClient::ShouldShowSigninPromo() {

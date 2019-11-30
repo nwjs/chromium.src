@@ -12,4 +12,8 @@ interface ITabClient {
   void visibleUrlChanged(in String url) = 0;
 
   void onNewTab(in int tabId, in int mode) = 1;
+
+  void onRenderProcessGone() = 2;
+
+  void onCloseTab() = 3;
 }

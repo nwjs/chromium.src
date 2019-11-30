@@ -274,7 +274,6 @@
 <translation id="2248949050832152960">WebAuthn használata</translation>
 <translation id="2250931979407627383">Éltűzés a bal oldalon</translation>
 <translation id="225207911366869382">Ez az érték elavult ennél a házirendnél.</translation>
-<translation id="2257315177824333709">A kártya jelenleg sajnos nem menthető</translation>
 <translation id="2262243747453050782">HTTP hiba</translation>
 <translation id="2263079731045660823">Hitelkártyával kapcsolatos automatikus kitöltési adatok frissítése a Chrome beállításaiban</translation>
 <translation id="2267047181501709434">Személyazonosság ellenőrzése folyamatban…</translation>
@@ -658,6 +657,7 @@
 <translation id="4176463684765177261">Letiltva</translation>
 <translation id="4179515394835346607"><ph name="ROW_NAME" />: <ph name="ROW_CONTENT" /></translation>
 <translation id="4193750898749511769">A következő alkalommal gyorsabban fizethet, ha kártyáját és számlázási címét hozzáadja Google-fiókjához.</translation>
+<translation id="4194250254487269611">A kártya jelenleg nem menthető</translation>
 <translation id="4196861286325780578">&amp;Áthelyezés újra</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />A tűzfal és a vírusirtó konfigurációjának ellenőrzése<ph name="END_LINK" /></translation>
 <translation id="4215751373031079683">7x9 (boríték)</translation>

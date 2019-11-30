@@ -976,6 +976,7 @@
 <translation id="2396783860772170191">4자리 PIN(0000~9999) 입력</translation>
 <translation id="2399939490305346086">보안 키 로그인 데이터</translation>
 <translation id="2407481962792080328">Google 계정에 로그인하면 이 기능이 사용 설정됩니다.</translation>
+<translation id="2408018932941436077">카드 저장 중</translation>
 <translation id="2408955596600435184">PIN 입력</translation>
 <translation id="241082044617551207">알 수 없는 플러그인</translation>
 <translation id="2412593942846481727">업데이트 가능</translation>
@@ -4764,6 +4765,7 @@ VR로 들어가기 전에 이 사이트를 신뢰할 수 있는지 확인하세�
 <translation id="7968833647796919681">성능 데이터 수집 사용</translation>
 <translation id="7968982339740310781">세부정보 보기</translation>
 <translation id="7969046989155602842">Command</translation>
+<translation id="7970882136539140748">지금은 카드를 저장할 수 없음</translation>
 <translation id="7972714317346275248">PKCS #1 SHA-384(RSA 암호화 사용)</translation>
 <translation id="7973962044839454485">사용자 이름 또는 비밀번호가 잘못되어 PPP 인증에 실패했습니다.</translation>
 <translation id="7974566588408714340"><ph name="EXTENSIONNAME" />을(를) 사용하여 다시 시도</translation>
@@ -5085,7 +5087,6 @@ VR로 들어가기 전에 이 사이트를 신뢰할 수 있는지 확인하세�
 <translation id="8431909052837336408">SIM PIN 변경</translation>
 <translation id="8434480141477525001">NaCl 디버그 포트</translation>
 <translation id="8435395510592618362"><ph name="APP_NAME" />(으)로 신원 확인</translation>
-<translation id="843760761634048214">신용카드 저장</translation>
 <translation id="8438328416656800239">스마트 브라우저로 전환</translation>
 <translation id="8438566539970814960">검색 및 탐색 기능 개선</translation>
 <translation id="8439506636278576865">이 언어로 된 페이지에 대한 번역 옵션 제공</translation>
@@ -5463,6 +5464,7 @@ VR로 들어가기 전에 이 사이트를 신뢰할 수 있는지 확인하세�
 <translation id="8965037249707889821">이전 비밀번호 입력</translation>
 <translation id="8966870118594285808">실수로 탭을 닫은 경우 탭 다시 열기</translation>
 <translation id="8967866634928501045">표시하려면 Alt Shift A를 누르세요</translation>
+<translation id="8968766641738584599">카드 저장</translation>
 <translation id="89720367119469899">Esc</translation>
 <translation id="8972513834460200407">네트워크 관리자에게 문의하여 방화벽이 Google 서버에서 다운로드를 차단하지 않는지 확인하시기 바랍니다.</translation>
 <translation id="8973557916016709913">확대/축소 레벨 삭제</translation>

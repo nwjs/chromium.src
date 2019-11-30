@@ -976,6 +976,7 @@
 <translation id="2396783860772170191">Εισαγάγετε έναν 4ψήφιο PIN (0000-9999).</translation>
 <translation id="2399939490305346086">Δεδομένα σύνδεσης κλειδιού ασφαλείας</translation>
 <translation id="2407481962792080328">Αυτή η λειτουργία ενεργοποιείται όταν συνδέεστε στον Λογαριασμό σας Google.</translation>
+<translation id="2408018932941436077">Γίνεται αποθήκευση της κάρτας</translation>
 <translation id="2408955596600435184">Εισαγάγετε το PIN</translation>
 <translation id="241082044617551207">Άγνωστη προσθήκη</translation>
 <translation id="2412593942846481727">Υπάρχει διαθέσιμη ενημέρωση</translation>
@@ -4767,6 +4768,7 @@
 <translation id="7968833647796919681">Ενεργοποίηση συλλογής δεδομένων απόδοσης</translation>
 <translation id="7968982339740310781">Προβολή λεπτομερειών</translation>
 <translation id="7969046989155602842">Πλήκτρο Command</translation>
+<translation id="7970882136539140748">Δεν είναι δυνατή η αποθήκευση της κάρτας αυτήν τη στιγμή</translation>
 <translation id="7972714317346275248">PKCS #1 SHA-384 με κρυπτογράφηση RSA</translation>
 <translation id="7973962044839454485">Αποτυχία ελέγχου ταυτότητας PPP λόγω εσφαλμένου ονόματος χρήστη ή κωδικού πρόσβασης</translation>
 <translation id="7974566588408714340">Επανάληψη προσπάθειας με χρήση <ph name="EXTENSIONNAME" /></translation>
@@ -5088,7 +5090,6 @@
 <translation id="8431909052837336408">Αλλαγή αριθμού PIN της κάρτας SIM</translation>
 <translation id="8434480141477525001">NaCl Εντοπισμός σφαλμάτων θύρας</translation>
 <translation id="8435395510592618362">Επαληθεύστε την ταυτότητά σας με την εφαρμογή <ph name="APP_NAME" /></translation>
-<translation id="843760761634048214">Αποθήκευση πιστωτικής κάρτας</translation>
 <translation id="8438328416656800239">Εναλλαγή σε ένα έξυπνο πρόγραμμα περιήγησης</translation>
 <translation id="8438566539970814960">Βελτιώστε τις αναζητήσεις και την περιήγηση</translation>
 <translation id="8439506636278576865">Ερώτηση για τη μετάφραση σελίδων σε αυτήν τη γλώσσα</translation>
@@ -5464,6 +5465,7 @@
 <translation id="8965037249707889821">Εισαγάγετε τον προηγούμενο κωδικό πρόσβασης</translation>
 <translation id="8966870118594285808">Ανοίξτε ξανά μια καρτέλα εάν την κλείσατε τυχαία</translation>
 <translation id="8967866634928501045">Πατήστε τα πλήκτρα Alt, Shift και A για εμφάνιση</translation>
+<translation id="8968766641738584599">Αποθήκευση κάρτας</translation>
 <translation id="89720367119469899">Escape</translation>
 <translation id="8972513834460200407">Πραγματοποιήστε έλεγχο με το διαχειριστή του δικτύου σας, για να βεβαιωθείτε ότι το τείχος προστασίας δεν αποκλείει λήψεις από τους διακομιστές της Google.</translation>
 <translation id="8973557916016709913">Κατάργηση επιπέδου εστίασης</translation>
