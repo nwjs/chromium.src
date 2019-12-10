@@ -756,14 +756,12 @@ TEST_F(CrosNetworkConfigTest, SetProperties) {
   ASSERT_TRUE(properties->priority);
   EXPECT_EQ(1, properties->priority->active_value);
 
-  // Set auto connect only. Priority should remain unchanged. Also provide a
-  // matching |guid|.
+  // Set auto connect only. Priority should remain unchanged.
   config = mojom::ConfigProperties::New();
   config->type_config = mojom::NetworkTypeConfigProperties::NewWifi(
       mojom::WiFiConfigProperties::New());
   config->auto_connect = mojom::AutoConnectConfig::New();
   config->auto_connect->value = true;
-  config->guid = kGUID;
   success = SetProperties(kGUID, std::move(config));
   ASSERT_TRUE(success);
   properties = GetManagedProperties(kGUID);
@@ -776,16 +774,6 @@ TEST_F(CrosNetworkConfigTest, SetProperties) {
   EXPECT_TRUE(wifi->auto_connect->active_value);
   ASSERT_TRUE(properties->priority);
   EXPECT_EQ(1, properties->priority->active_value);
-
-  // Set auto connect with a mismatched guid; call should fail.
-  config = mojom::ConfigProperties::New();
-  config->type_config = mojom::NetworkTypeConfigProperties::NewWifi(
-      mojom::WiFiConfigProperties::New());
-  config->auto_connect = mojom::AutoConnectConfig::New();
-  config->auto_connect->value = false;
-  config->guid = "Mismatched guid";
-  success = SetProperties(kGUID, std::move(config));
-  EXPECT_FALSE(success);
 }
 
 TEST_F(CrosNetworkConfigTest, ConfigureNetwork) {
@@ -794,7 +782,6 @@ TEST_F(CrosNetworkConfigTest, ConfigureNetwork) {
   const std::string ssid = "new_wifi_ssid";
   // Configure a new wifi network.
   auto config = mojom::ConfigProperties::New();
-  config->name = ssid;
   auto wifi = mojom::WiFiConfigProperties::New();
   wifi->ssid = ssid;
   config->type_config =
@@ -811,24 +798,6 @@ TEST_F(CrosNetworkConfigTest, ConfigureNetwork) {
   ASSERT_TRUE(network->type_state);
   ASSERT_TRUE(network->type_state->is_wifi());
   EXPECT_EQ(ssid, network->type_state->get_wifi()->ssid);
-}
-
-TEST_F(CrosNetworkConfigTest, ConfigureNetworkExistingGuid) {
-  // Note: shared = false requires a UserManager instance.
-  bool shared = true;
-  const std::string guid = "new_wifi_guid";
-  const std::string ssid = "new_wifi_ssid";
-  // Configure a new wifi network with an existing guid.
-  auto config = mojom::ConfigProperties::New();
-  config->guid = guid;
-  config->name = ssid;
-  auto wifi = mojom::WiFiConfigProperties::New();
-  wifi->ssid = ssid;
-  config->type_config =
-      mojom::NetworkTypeConfigProperties::NewWifi(std::move(wifi));
-  std::string config_guid = ConfigureNetwork(std::move(config), shared);
-  // The new guid should be the same as the existing guid.
-  EXPECT_EQ(config_guid, guid);
 }
 
 TEST_F(CrosNetworkConfigTest, ForgetNetwork) {
