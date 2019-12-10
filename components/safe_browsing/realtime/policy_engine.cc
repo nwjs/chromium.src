@@ -43,6 +43,9 @@ bool RealTimePolicyEngine::IsEnabledByPolicy(
 // static
 bool RealTimePolicyEngine::CanPerformFullURLLookup(
     content::BrowserContext* browser_context) {
+  if (browser_context->IsOffTheRecord())
+    return false;
+
   if (!IsFetchAllowlistEnabled())
     return false;
 

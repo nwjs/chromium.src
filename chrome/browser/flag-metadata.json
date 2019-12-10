@@ -548,12 +548,12 @@
   {
     "name": "crostini-gpu-support",
     "owners": [ "nverne", "benwells" ],
-    "expiry_milestone": 78
+    "expiry_milestone": 85
   },
   {
     "name": "crostini-usb-allow-unsupported",
     "owners": [ "nverne", "benwells" ],
-    "expiry_milestone": 77
+    "expiry_milestone": 85
   },
   {
     "name": "crostini-usb-support",
@@ -1194,6 +1194,11 @@
     "name": "enable-display-locking",
     "owners": [ "//third_party/blink/renderer/core/display_lock/OWNERS" ],
     "expiry_milestone": 80
+  },
+  {
+    "name": "enable-duet-tabstrip-integration",
+    "owners": [ "memex-team@google.com" ],
+    "expiry_milestone": 84
   },
   {
     "name": "enable-encryption-migration",
@@ -2372,7 +2377,7 @@
   {
     "name": "mac-syscall-sandbox",
     "owners": [ "kerrnel@google.com" ],
-    "expiry_milestone": 80
+    "expiry_milestone": 88
   },
   {
     "name": "mac-system-media-permissions-info-ui",
@@ -2382,7 +2387,7 @@
   {
     "name": "mac-v2-gpu-sandbox",
     "owners": [ "kerrnel@google.com" ],
-    "expiry_milestone": 78
+    "expiry_milestone": 88
   },
   {
     "name": "mac-views-task-manager",
@@ -2995,7 +3000,7 @@
   {
     "name": "scheduler-configuration",
     "owners": [ "kerrnel", "mnissler" ],
-    "expiry_milestone": 77
+    "expiry_milestone": 88
   },
   {
     "name": "scrollable-tabstrip",

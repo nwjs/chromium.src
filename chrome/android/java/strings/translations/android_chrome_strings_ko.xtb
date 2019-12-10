@@ -182,7 +182,6 @@
 <translation id="2321958826496381788">편하게 읽을 수 있을 때까지 슬라이더를 드래그하세요. 단락을 두 번 탭하면 텍스트가 이 이상의 크기로 표시됩니다.</translation>
 <translation id="2323763861024343754">사이트 저장공간</translation>
 <translation id="2328985652426384049">로그인할 수 없음</translation>
-<translation id="2330129964253841015">비밀번호가 도용된 경우 알림</translation>
 <translation id="2349710944427398404">계정, 북마크, 저장된 설정 등 Chrome에서 사용한 전체 데이터</translation>
 <translation id="2353636109065292463">인터넷 연결 상태를 확인하세요.</translation>
 <translation id="2359808026110333948">계속</translation>
@@ -521,7 +520,7 @@
 <translation id="4962975101802056554">기기에서 모든 권한을 취소합니다.</translation>
 <translation id="4970824347203572753">현재 위치에서 사용할 수 없습니다.</translation>
 <translation id="497421865427891073">앞으로 이동</translation>
-<translation id="4988210275050210843">파일 다운로드 중(<ph name="MEGABYTES" />MB)</translation>
+<translation id="4988210275050210843">파일 다운로드 중(<ph name="MEGABYTES" />)</translation>
 <translation id="4988526792673242964">페이지</translation>
 <translation id="4994033804516042629">연락처 없음</translation>
 <translation id="4996978546172906250">공유 방법</translation>
@@ -587,7 +586,7 @@ VR로 들어가기 전에 이 사이트를 신뢰할 수 있는지 확인하세�
 <translation id="5424588387303617268"><ph name="GIGABYTES" /> GB 사용 가능</translation>
 <translation id="543338862236136125">비밀번호 수정</translation>
 <translation id="5433691172869980887">사용자 이름 복사됨</translation>
-<translation id="543509235395288790">파일 <ph name="COUNT" />개(<ph name="MEGABYTES" />MB) 다운로드 중</translation>
+<translation id="543509235395288790">파일 <ph name="COUNT" />개(<ph name="MEGABYTES" />) 다운로드 중</translation>
 <translation id="5441522332038954058">검색주소창으로 이동</translation>
 <translation id="5447201525962359567">쿠키 및 기타 로컬에 저장된 데이터 등 모든 사이트 저장공간</translation>
 <translation id="5447765697759493033">이 사이트는 번역되지 않습니다.</translation>
@@ -808,6 +807,7 @@ VR로 들어가기 전에 이 사이트를 신뢰할 수 있는지 확인하세�
 <translation id="6989267951144302301">다운로드할 수 없음</translation>
 <translation id="6990079615885386641">Google Play 스토어에서 앱 다운로드: <ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">사이트에서 마이크를 사용하기 전에 확인(권장)</translation>
+<translation id="6995899638241819463">데이터 유출로 인해 비밀번호가 노출된 경우 알림</translation>
 <translation id="7015203776128479407">초기 동기화 설정이 완료되지 않았습니다. 동기화가 사용 중지되었습니다.</translation>
 <translation id="7016516562562142042">현재 검색엔진에 허용됨</translation>
 <translation id="7022756207310403729">브라우저에서 열기</translation>

@@ -819,6 +819,11 @@
 <translation id="2303795211377219696">Bật tính năng Tự động điền cho thẻ tín dụng</translation>
 <translation id="2309390639296060546">Cài đặt vị trí địa lý mặc định</translation>
 <translation id="2327252517317514801">Xác định miền được phép truy cập vào G Suite</translation>
+<translation id="2328573323851533589">Chính sách này có thể dùng để buộc bật hoặc buộc tắt tính năng kiểm tra rò rỉ thông tin đăng nhập trong <ph name="PRODUCT_NAME" />.
+
+          Xin lưu ý rằng ngay cả khi bạn đặt chính sách này thành True, thì chính sách này cũng không kích hoạt việc buộc bật hoặc buộc tắt tính năng kiểm tra rò rỉ thông tin đăng nhập nếu tùy chọn Duyệt web an toàn bị tắt (theo chính sách hoặc do người dùng). Để buộc bật tùy chọn Duyệt web an toàn, hãy dùng chính sách <ph name="SAFE_BROWSING_ENABLED_POLICY_NAME" />.
+
+          Nếu bạn bật hoặc tắt chính sách này, thì người dùng sẽ không thể thay đổi hoặc ghi đè chính sách này trong <ph name="PRODUCT_NAME" />. Nếu bạn không đặt chính sách này, thì hệ thống sẽ cho phép kiểm tra rò rỉ thông tin đăng nhập (nhưng người dùng có thể tắt tính năng này).</translation>
 <translation id="2345547870894930157">Bật chế độ DNS qua HTTPS không có phương án dự phòng cho truy vấn không an toàn</translation>
 <translation id="237494535617297575">Cho phép bạn thiết lập danh sách các mẫu url chỉ định những trang web được phép hiển thị thông báo.
 
@@ -3450,9 +3455,6 @@ Nếu bạn không đặt chính sách này thì người dùng sẽ có thể t
 <translation id="6544897973797372144">Nếu chính sách này được đặt thành Đúng và chính sách ChromeOsReleaseChannel không được chỉ định thì người dùng của miền đăng ký sẽ được phép thay đổi kênh phát hành của thiết bị. Nếu chính sách này được đặt thành sai, thiết bị sẽ bị khóa bất kể kênh mà thiết bị được đặt lần cuối.
 
       Kênh do người dùng đã chọn sẽ bị ghi đè bởi chính sách ChromeOsReleaseChannel nhưng nếu kênh của chính sách ổn định hơn kênh được cài đặt trên thiết bị thì kênh sẽ chỉ chuyển đổi sau khi phiên bản của kênh ổn định hơn đạt tới số phiên bản cao hơn phiên bản được cài đặt trên thiết bị.</translation>
-<translation id="6549567350270907557">Nếu bạn bật tùy chọn cài đặt này, người dùng có thể dùng <ph name="PRODUCT_NAME" /> để kiểm tra xem các thông tin đăng nhập đã nhập có bị rò rỉ hay không.
-
-              Nếu bạn bật hoặc tắt chính sách này, người dùng sẽ không thể thay đổi hoặc ghi đè chính sách này trong <ph name="PRODUCT_NAME" />. Nếu bạn không đặt chính sách này, thì hệ thống sẽ cho phép dùng tình năng kiểm tra rò rỉ (nhưng người dùng có thể tắt tính năng này).</translation>
 <translation id="6553143066970470539">Phần trăm độ sáng màn hình</translation>
 <translation id="6559057113164934677">Không cho phép bất kỳ trang web nào truy cập vào máy ảnh và micrô</translation>
 <translation id="6561396069801924653">Hiển thị tùy chọn trợ năng trong menu của khay hệ thống</translation>

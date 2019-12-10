@@ -128,6 +128,11 @@ struct VideoCaptureImpl::BufferContext
 
     // Create GPU texture and bind GpuMemoryBuffer to the texture.
     auto* sii = buffer_context->gpu_factories_->SharedImageInterface();
+    if (!sii) {
+      std::move(on_texture_bound)
+          .Run(std::move(info), std::move(frame), std::move(buffer_context));
+      return;
+    }
     unsigned texture_target =
         buffer_context->gpu_factories_->ImageTextureTarget(
             gpu_memory_buffer->GetFormat());
@@ -182,6 +187,8 @@ struct VideoCaptureImpl::BufferContext
       gpu::SyncToken release_sync_token) {
     if (!mailbox.IsZero()) {
       auto* sii = gpu_factories->SharedImageInterface();
+      if (!sii)
+        return;
       sii->DestroySharedImage(release_sync_token, mailbox);
     }
   }

@@ -139,6 +139,14 @@ public class PrefServiceBridge {
     }
 
     /**
+     * @param preference The name of the preference.
+     * @return Whether the specified preference is managed.
+     */
+    public boolean isManagedPreference(@Pref int preference) {
+        return PrefServiceBridgeJni.get().isManagedPreference(PrefServiceBridge.this, preference);
+    }
+
+    /**
      * Migrates (synchronously) the preferences to the most recent version.
      */
     public void migratePreferences() {
@@ -1143,6 +1151,7 @@ public class PrefServiceBridge {
         boolean getBoolean(PrefServiceBridge caller, int preference);
         void setBoolean(PrefServiceBridge caller, int preference, boolean value);
         void setInteger(PrefServiceBridge caller, int preference, int value);
+        boolean isManagedPreference(PrefServiceBridge caller, int preference);
         boolean getAcceptCookiesEnabled(PrefServiceBridge caller);
         boolean getAcceptCookiesUserModifiable(PrefServiceBridge caller);
         boolean getAcceptCookiesManagedByCustodian(PrefServiceBridge caller);

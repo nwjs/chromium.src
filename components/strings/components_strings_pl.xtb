@@ -115,6 +115,7 @@
 <translation id="1463543813647160932">5 x 7</translation>
 <translation id="1472675084647422956">Pokaż więcej</translation>
 <translation id="147358896496811705">2A0</translation>
+<translation id="1476595624592550506">Zmień hasło</translation>
 <translation id="1484290072879560759">Wybierz adres wysyłki</translation>
 <translation id="1492194039220927094">Przekazywanie zasad w trybie push:</translation>
 <translation id="1501859676467574491">Pokaż karty z konta Google</translation>
@@ -174,7 +175,6 @@
 <translation id="173080396488393970">Ten typ karty nie jest obsługiwany</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Skontaktuj się z administratorem systemu.</translation>
-<translation id="1739107442478692187">W używanej przez Ciebie witrynie lub aplikacji doszło do naruszenia bezpieczeństwa danych. Chrome zaleca natychmiastowe sprawdzenie zapisanych haseł i zmianę hasła na <ph name="ORIGIN" />.</translation>
 <translation id="1740951997222943430">Wpisz miesiąc w prawidłowym formacie</translation>
 <translation id="1743520634839655729">Aby następnym razem zapłacić szybciej, zapisz kartę oraz imię, nazwisko i adres rozliczeniowy na swoim koncie Google i na tym urządzeniu.</translation>
 <translation id="1743570585616704562">Nie rozpoznano</translation>
@@ -207,6 +207,7 @@
 <translation id="1914326953223720820">Usługa rozpakowywania</translation>
 <translation id="1915697529809968049">Używać Touch ID zamiast kodu CVC?</translation>
 <translation id="1916770123977586577">Załaduj stronę ponownie, by zastosować na niej zaktualizowane ustawienia</translation>
+<translation id="1917876262703816781">W Twojej witrynie lub aplikacji doszło do naruszenia bezpieczeństwa danych i ktoś poznał Twoje hasło. Chrome zaleca niezwłoczną zmianę hasła na stronie <ph name="ORIGIN" />.</translation>
 <translation id="1919345977826869612">Reklamy</translation>
 <translation id="1919367280705858090">Uzyskiwanie pomocy w przypadku konkretnego komunikatu o błędzie</translation>
 <translation id="192020519938775529">{COUNT,plural, =0{Brak}=1{1 witryna}few{# witryny}many{# witryn}other{# witryny}}</translation>
@@ -239,7 +240,6 @@
 <translation id="2094505752054353250">Niewłaściwa domena</translation>
 <translation id="2096368010154057602">Departament</translation>
 <translation id="2099652385553570808">Trzy zszywki po lewej</translation>
-<translation id="2100280972184758440">Ktoś poznał Twoje hasło</translation>
 <translation id="2102134110707549001">Zaproponuj silne hasło…</translation>
 <translation id="2108755909498034140">Uruchom ponownie komputer</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -247,7 +247,6 @@
 <translation id="2114841414352855701">Ignorowana, ponieważ jest zastąpiona przez <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Wystawiony dla: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Otwór w prawym dolnym rogu</translation>
-<translation id="2124528555835617522">W używanej przez Ciebie witrynie lub aplikacji doszło do naruszenia bezpieczeństwa danych. Chrome zaleca niezwłoczne sprawdzenie zapisanych haseł.</translation>
 <translation id="2129079103035905234">Czujniki ruchu</translation>
 <translation id="213826338245044447">Zakładki na komórce</translation>
 <translation id="214556005048008348">Anuluj płatność</translation>
@@ -486,7 +485,6 @@
 <translation id="3282497668470633863">Dodaj imię i nazwisko na karcie</translation>
 <translation id="3287510313208355388">Pobierz, gdy będę online</translation>
 <translation id="3293642807462928945">Więcej informacji o zasadzie <ph name="POLICY_NAME" /></translation>
-<translation id="3295439534709115864">W używanej przez Ciebie witrynie lub aplikacji doszło do naruszenia bezpieczeństwa danych. Chrome zaleca niezwłoczną zmianę hasła na stronie <ph name="ORIGIN" />.</translation>
 <translation id="3303855915957856445">Brak wyników wyszukiwania</translation>
 <translation id="3320021301628644560">Dodaj adres rozliczeniowy</translation>
 <translation id="3324983252691184275">Karmazynowy</translation>
@@ -898,6 +896,7 @@
 <translation id="5287240709317226393">Pokaż pliki cookie</translation>
 <translation id="5287456746628258573">Ta strona używa nieaktualnej konfiguracji zabezpieczeń, co oznacza, że Twoje dane (np. hasła i numery kart kredytowych) mogą być zagrożone podczas przesyłania na tę stronę.</translation>
 <translation id="5288108484102287882">Weryfikacja wartości zasad zakończyła się z ostrzeżeniami</translation>
+<translation id="5295292838686006428">W Twojej witrynie lub aplikacji doszło do naruszenia bezpieczeństwa danych i ktoś poznał Twoje hasło. Chrome zaleca niezwłoczne sprawdzenie zapisanych haseł.</translation>
 <translation id="5299298092464848405">Podczas przetwarzania zasady wystąpił błąd</translation>
 <translation id="5300589172476337783">Pokaż</translation>
 <translation id="5308380583665731573">Połącz</translation>
@@ -947,6 +946,7 @@
 <translation id="5540224163453853">Nie udało się znaleźć tego artykułu.</translation>
 <translation id="5541546772353173584">Dodaj adres e-mail</translation>
 <translation id="5545756402275714221">Artykuły dla Ciebie</translation>
+<translation id="5552137475244467770">Co jakiś czas Chrome sprawdza, czy Twoje hasła nie pojawiły się na listach opublikowanych w internecie. Aby nikt (nawet Google) nie mógł odczytać haseł ani nazw użytkowników, podczas sprawdzania są one zaszyfrowane.</translation>
 <translation id="5556459405103347317">Odśwież</translation>
 <translation id="5560088892362098740">Data ważności</translation>
 <translation id="5565735124758917034">Aktywny</translation>
@@ -1037,6 +1037,7 @@
 <translation id="5992691462791905444">Składanie typu Z</translation>
 <translation id="6000758707621254961">Wyniki wyszukiwania dla zapytania „<ph name="SEARCH_TEXT" />”: <ph name="RESULT_COUNT" /></translation>
 <translation id="6008256403891681546">JCB</translation>
+<translation id="6014801569448771146">Sprawdź swoje hasła</translation>
 <translation id="6015796118275082299">Rok</translation>
 <translation id="6016158022840135739">{COUNT,plural, =1{Strona 1}few{Strona #}many{Strona #}other{Strona #}}</translation>
 <translation id="6017514345406065928">Zielony</translation>
@@ -1320,6 +1321,7 @@ Dodatkowe informacje:
 <translation id="7481312909269577407">Dalej</translation>
 <translation id="748406663033922918">Użyj blokady ekranu, by zweryfikować zapisane formy płatności.</translation>
 <translation id="7485870689360869515">Nie znaleziono danych.</translation>
+<translation id="7495290002932347110">W Twojej witrynie lub aplikacji doszło do naruszenia bezpieczeństwa danych i ktoś poznał Twoje hasło. Chrome zaleca natychmiastowe sprawdzenie zapisanych haseł i zmianę hasła na <ph name="ORIGIN" />.</translation>
 <translation id="7498234416455752244">Edytuj dalej</translation>
 <translation id="7508255263130623398">Zwrócony identyfikator urządzenia dla zasad jest pusty lub nie pasuje do bieżącego identyfikatora urządzenia</translation>
 <translation id="7508870219247277067">Zielony awokado</translation>

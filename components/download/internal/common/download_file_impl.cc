@@ -120,6 +120,7 @@ void DownloadFileImpl::SourceStream::RegisterDataReadyCallback(
 }
 
 void DownloadFileImpl::SourceStream::ClearDataReadyCallback() {
+  read_stream_callback_.Cancel();
   input_stream_->ClearDataReadyCallback();
 }
 
@@ -631,10 +632,11 @@ void DownloadFileImpl::StreamActive(SourceStream* source_stream,
   // If we're stopping to yield the thread, post a task so we come back.
   if (state == InputStream::HAS_DATA && now - start > delta &&
       !should_terminate) {
+    source_stream->read_stream_callback()->Reset(base::BindOnce(
+        &DownloadFileImpl::StreamActive, weak_factory_.GetWeakPtr(),
+        source_stream, MOJO_RESULT_OK));
     base::SequencedTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::BindOnce(&DownloadFileImpl::StreamActive,
-                                  weak_factory_.GetWeakPtr(), source_stream,
-                                  MOJO_RESULT_OK));
+        FROM_HERE, source_stream->read_stream_callback()->callback());
   } else if (state == InputStream::EMPTY && !should_terminate) {
     source_stream->RegisterDataReadyCallback(
         base::Bind(&DownloadFileImpl::StreamActive, weak_factory_.GetWeakPtr(),

@@ -64,7 +64,14 @@ MediaToolbarButtonController::Session::Session(
   SetController(std::move(controller));
 }
 
-MediaToolbarButtonController::Session::~Session() = default;
+MediaToolbarButtonController::Session::~Session() {
+  // ~WebContentsObserver is ran after all the member's destructors. When
+  // `item_` is destroyed, it triggers a list of destruction which ends up
+  // re-entering and attempts to call a WebContentsObserver callback which
+  // fails. In order to avoid this from happening, the destructor stops
+  // observing before the implicit destructors are run.
+  Observe(nullptr);
+}
 
 void MediaToolbarButtonController::Session::WebContentsDestroyed() {
   // If the WebContents is destroyed, then we should just remove the item

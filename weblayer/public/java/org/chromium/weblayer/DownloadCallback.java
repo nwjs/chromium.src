@@ -4,6 +4,8 @@
 
 package org.chromium.weblayer;
 
+import android.net.Uri;
+
 import androidx.annotation.NonNull;
 
 /**
@@ -11,14 +13,19 @@ import androidx.annotation.NonNull;
  */
 public abstract class DownloadCallback {
     /**
-     * A download of has been requested with the specified details.
+     * A download of has been requested with the specified details. If it returns true the download
+     * will be considered intercepted and WebLayer won't proceed with it. Note that there are many
+     * corner cases where the embedder downloading it won't work (e.g. POSTs, one-time URLs,
+     * requests that depend on cookies or auth state). If the method returns false, then currently
+     * WebLayer won't download it but in the future this will be hooked up with new callbacks in
+     * this interface.
      *
-     * @param url the target that should be downloaded
+     * @param uri the target that should be downloaded
      * @param userAgent the user agent to be used for the download
      * @param contentDisposition content-disposition http header, if present
      * @param mimetype the mimetype of the content reported by the server
      * @param contentLength the file size reported by the server
      */
-    public abstract void onDownloadRequested(@NonNull String url, @NonNull String userAgent,
+    public abstract boolean onInterceptDownload(@NonNull Uri uri, @NonNull String userAgent,
             @NonNull String contentDisposition, @NonNull String mimetype, long contentLength);
 }

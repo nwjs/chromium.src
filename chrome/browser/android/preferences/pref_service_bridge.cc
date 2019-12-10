@@ -158,6 +158,14 @@ static void JNI_PrefServiceBridge_SetInteger(JNIEnv* env,
       PrefServiceBridge::GetPrefNameExposedToJava(j_pref_index), j_value);
 }
 
+static jboolean JNI_PrefServiceBridge_IsManagedPreference(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& obj,
+    const jint j_pref_index) {
+  return GetPrefService()->IsManagedPreference(
+      PrefServiceBridge::GetPrefNameExposedToJava(j_pref_index));
+}
+
 static jboolean JNI_PrefServiceBridge_IsContentSettingManaged(
     JNIEnv* env,
     const JavaParamRef<jobject>& obj,

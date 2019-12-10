@@ -926,7 +926,6 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="2326931316514688470">&amp;Actualiser l'application</translation>
 <translation id="2327492829706409234">Activer l'application</translation>
 <translation id="2329597144923131178">Connectez-vous pour synchroniser favoris, historique, mots de passe et autres sur vos appareils. </translation>
-<translation id="2330129964253841015">M'avertir quand des mots de passe ont été piratés</translation>
 <translation id="2332131598580221120">Afficher dans la boutique</translation>
 <translation id="2332192922827071008">Ouvrir les préférences</translation>
 <translation id="2332742915001411729">Rétablir le thème par défaut</translation>
@@ -2224,7 +2223,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4184885522552335684">Faites glisser un affichage pour le déplacer</translation>
 <translation id="4194570336751258953">Activer la fonction "Taper pour cliquer"</translation>
 <translation id="4195643157523330669">Ouvrir dans un nouvel onglet</translation>
-<translation id="4195814663415092787">Reprendre mes activités là où je m'étais arrêté</translation>
+<translation id="4195814663415092787">Reprendre où vous avez arrêté</translation>
 <translation id="4198146608511578238">Appuyez de manière prolongée sur l'icône du lanceur d'applications pour parler à l'Assistant Google.</translation>
 <translation id="4200689466366162458">Mots personnalisés</translation>
 <translation id="4200983522494130825">Nouvel ongle&amp;t</translation>
@@ -4075,6 +4074,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6990778048354947307">Thème sombre</translation>
 <translation id="6991665348624301627">Sélectionner un emplacement de destination</translation>
 <translation id="6992554835374084304">Activer le correcteur orthographique amélioré</translation>
+<translation id="6995899638241819463">Recevoir une alerte si des mots de passe sont compromis lors d'une violation des données</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> – Journal d'activité</translation>
 <translation id="6997707937646349884">Sur vos appareils :</translation>
 <translation id="6998793565256476099">Enregistrer un appareil pour la visioconférence</translation>

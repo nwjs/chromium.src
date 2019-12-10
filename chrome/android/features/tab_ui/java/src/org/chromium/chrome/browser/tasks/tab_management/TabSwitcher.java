@@ -173,6 +173,12 @@ public interface TabSwitcher {
          */
         @VisibleForTesting
         int getCleanupDelayForTesting();
+
+        /**
+         * @return The top offset from top toolbar to tab list. Used to adjust the animations for
+         *         tab switcher.
+         */
+        int getTabListTopOffset();
     }
 
     /**

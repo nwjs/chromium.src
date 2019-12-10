@@ -925,7 +925,6 @@
 <translation id="2326931316514688470">Пере&amp;загрузить приложение</translation>
 <translation id="2327492829706409234">Включить приложение</translation>
 <translation id="2329597144923131178">Войдите, чтобы синхронизировать закладки, пароли, историю и т. д. на всех устройствах.</translation>
-<translation id="2330129964253841015">Сообщать об утечке паролей</translation>
 <translation id="2332131598580221120">Открыть в Интернет-магазине</translation>
 <translation id="2332192922827071008">Открыть настройки</translation>
 <translation id="2332742915001411729">Сбросить</translation>
@@ -3778,7 +3777,7 @@
 <translation id="652948702951888897">История Chrome</translation>
 <translation id="6530186581263215931">Эти настройки определяются администратором</translation>
 <translation id="6531282281159901044">Сохранить</translation>
-<translation id="6532101170117367231">Сохранить в Google Диске</translation>
+<translation id="6532101170117367231">Сохранить на Google Диске</translation>
 <translation id="6532106788206463496">Сохранить</translation>
 <translation id="654039047105555694"><ph name="BEGIN_BOLD" />Примечание.<ph name="END_BOLD" /> Данную функцию следует включать только при необходимости, поскольку сбор данных может замедлить работу системы.</translation>
 <translation id="6541638731489116978">Этому сайту закрыт доступ к датчикам движения.</translation>
@@ -4070,6 +4069,7 @@
 <translation id="6990778048354947307">Тёмная тема</translation>
 <translation id="6991665348624301627">Выбор места назначения</translation>
 <translation id="6992554835374084304">Включите расширенную проверку правописания</translation>
+<translation id="6995899638241819463">Сообщать, если пароли были раскрыты в результате утечки данных</translation>
 <translation id="6997642619627518301"><ph name="NAME_PH" /> – Журнал активности</translation>
 <translation id="6997707937646349884">На ваших устройствах:</translation>
 <translation id="6998793565256476099">Зарегистрировать как устройство для проведения видеоконференций.</translation>

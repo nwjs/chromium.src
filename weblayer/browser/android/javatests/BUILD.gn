@@ -20,6 +20,7 @@ instrumentation_test_apk("weblayer_instrumentation_test_apk") {
   ]
   java_files = [
     "src/org/chromium/weblayer/test/BrowserFragmentLifecycleTest.java",
+    "src/org/chromium/weblayer/test/CrashReporterTest.java",
     "src/org/chromium/weblayer/test/DataClearingTest.java",
     "src/org/chromium/weblayer/test/DownloadCallbackTest.java",
     "src/org/chromium/weblayer/test/ErrorPageCallbackTest.java",
@@ -38,6 +39,7 @@ instrumentation_test_apk("weblayer_instrumentation_test_apk") {
     "src/org/chromium/weblayer/test/TabCallbackTest.java",
     "src/org/chromium/weblayer/test/TabListCallbackTest.java",
     "src/org/chromium/weblayer/test/TopControlsTest.java",
+    "src/org/chromium/weblayer/test/WebLayerLoadingTest.java",
   ]
   additional_apks = [
     "//weblayer/shell/android:weblayer_support_apk",

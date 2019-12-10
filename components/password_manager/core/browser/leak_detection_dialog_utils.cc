@@ -90,7 +90,13 @@ base::string16 GetDescription(CredentialLeakType leak_type,
 }
 
 base::string16 GetTitle(CredentialLeakType leak_type) {
-  return l10n_util::GetStringUTF16(IDS_CREDENTIAL_LEAK_TITLE);
+  return l10n_util::GetStringUTF16(ShouldCheckPasswords(leak_type)
+                                       ? IDS_CREDENTIAL_LEAK_TITLE_CHECK
+                                       : IDS_CREDENTIAL_LEAK_TITLE_CHANGE);
+}
+
+base::string16 GetLeakDetectionTooltip() {
+  return l10n_util::GetStringUTF16(IDS_PASSWORD_MANAGER_LEAK_HELP_MESSAGE);
 }
 
 bool ShouldCheckPasswords(CredentialLeakType leak_type) {

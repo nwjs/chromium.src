@@ -22,7 +22,6 @@ import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 
 import org.chromium.weblayer.Browser;
-import org.chromium.weblayer.ListenableFuture;
 import org.chromium.weblayer.Profile;
 import org.chromium.weblayer.Tab;
 import org.chromium.weblayer.TabCallback;
@@ -39,6 +38,10 @@ public class InstrumentationActivity extends FragmentActivity {
 
     public static final String EXTRA_PROFILE_NAME = "EXTRA_PROFILE_NAME";
 
+    // Used in tests to specify whether WebLayer should be created automatically on launch.
+    // True by default. If set to false, the test should call loadWebLayerSync.
+    public static final String EXTRA_CREATE_WEBLAYER = "EXTRA_CREATE_WEBLAYER";
+
     private Profile mProfile;
     private Browser mBrowser;
     private Tab mTab;
@@ -47,6 +50,7 @@ public class InstrumentationActivity extends FragmentActivity {
     private int mMainViewId;
     private ViewGroup mTopContentsContainer;
     private IntentInterceptor mIntentInterceptor;
+    private Bundle mSavedInstanceState;
 
     public Tab getTab() {
         return mTab;
@@ -82,6 +86,7 @@ public class InstrumentationActivity extends FragmentActivity {
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mSavedInstanceState = savedInstanceState;
         LinearLayout mainView = new LinearLayout(this);
         mMainViewId = View.generateViewId();
         mainView.setId(mMainViewId);
@@ -102,29 +107,38 @@ public class InstrumentationActivity extends FragmentActivity {
         mTopContentsContainer.addView(mUrlView,
                 new RelativeLayout.LayoutParams(
                         LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-        if (savedInstanceState != null) {
+
+        if (getIntent().getBooleanExtra(EXTRA_CREATE_WEBLAYER, true)) {
             // If activity is re-created during process restart, FragmentManager attaches
             // BrowserFragment immediately, resulting in synchronous init. By the time this line
-            // executes, the synchronous init has already happened.
-            createWebLayer(getApplication(), savedInstanceState);
+            // executes, the synchronous init has already happened, so WebLayer#createAsync will
+            // deliver WebLayer instance to callbacks immediately.
+            createWebLayerAsync();
         }
     }
 
-    public ListenableFuture<WebLayer> createWebLayer(
-            Context appContext, Bundle savedInstanceState) {
+    private void createWebLayerAsync() {
         try {
-            ListenableFuture<WebLayer> future = WebLayer.create(appContext);
-            future.addCallback(webLayer -> onWebLayerReady(savedInstanceState));
-            return future;
+            WebLayer.loadAsync(getApplicationContext(), webLayer -> onWebLayerReady());
         } catch (UnsupportedVersionException e) {
             throw new RuntimeException("Failed to initialize WebLayer", e);
         }
     }
 
-    private void onWebLayerReady(Bundle savedInstanceState) {
-        if (isFinishing() || isDestroyed()) return;
+    public WebLayer loadWebLayerSync(Context appContext) {
+        try {
+            WebLayer webLayer = WebLayer.loadSync(appContext);
+            onWebLayerReady();
+            return webLayer;
+        } catch (UnsupportedVersionException e) {
+            throw new RuntimeException("Failed to initialize WebLayer", e);
+        }
+    }
 
-        Fragment fragment = getOrCreateBrowserFragment(savedInstanceState);
+    private void onWebLayerReady() {
+        if (mBrowser != null || isFinishing() || isDestroyed()) return;
+
+        Fragment fragment = getOrCreateBrowserFragment();
         mBrowser = Browser.fromFragment(fragment);
         mProfile = mBrowser.getProfile();
 
@@ -133,15 +147,15 @@ public class InstrumentationActivity extends FragmentActivity {
         mTab = mBrowser.getActiveTab();
         mTab.registerTabCallback(new TabCallback() {
             @Override
-            public void onVisibleUrlChanged(Uri uri) {
+            public void onVisibleUriChanged(Uri uri) {
                 mUrlView.setText(uri.toString());
             }
         });
     }
 
-    private Fragment getOrCreateBrowserFragment(Bundle savedInstanceState) {
+    private Fragment getOrCreateBrowserFragment() {
         FragmentManager fragmentManager = getSupportFragmentManager();
-        if (savedInstanceState != null) {
+        if (mSavedInstanceState != null) {
             // FragmentManager could have re-created the fragment.
             List<Fragment> fragments = fragmentManager.getFragments();
             if (fragments.size() > 1) {
@@ -151,10 +165,10 @@ public class InstrumentationActivity extends FragmentActivity {
                 return fragments.get(0);
             }
         }
-        return createBrowserFragment(mMainViewId, savedInstanceState);
+        return createBrowserFragment(mMainViewId);
     }
 
-    public Fragment createBrowserFragment(int viewId, Bundle savedInstanceState) {
+    public Fragment createBrowserFragment(int viewId) {
         FragmentManager fragmentManager = getSupportFragmentManager();
         String profileName = getIntent().hasExtra(EXTRA_PROFILE_NAME)
                 ? getIntent().getStringExtra(EXTRA_PROFILE_NAME)

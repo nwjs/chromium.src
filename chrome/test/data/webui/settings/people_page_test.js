@@ -671,6 +671,13 @@ cr.define('settings_people_page', function() {
 
         PolymerTest.clearBody();
         peoplePage = document.createElement('settings-people-page');
+        // Preferences should exist for embedded 'personalization_options.html'.
+        // We don't perform tests on them.
+        peoplePage.prefs = {
+          profile: {password_manager_leak_detection: {value: true}},
+          safebrowsing:
+              {enabled: {value: true}, scout_reporting_enabled: {value: true}},
+        };
         peoplePage.pageVisibility = settings.pageVisibility;
         document.body.appendChild(peoplePage);
 
@@ -738,6 +745,13 @@ cr.define('settings_people_page', function() {
 
         PolymerTest.clearBody();
         peoplePage = document.createElement('settings-people-page');
+        // Preferences should exist for embedded 'personalization_options.html'.
+        // We don't perform tests on them.
+        peoplePage.prefs = {
+          profile: {password_manager_leak_detection: {value: true}},
+          safebrowsing:
+              {enabled: {value: true}, scout_reporting_enabled: {value: true}},
+        };
         peoplePage.pageVisibility = settings.pageVisibility;
         document.body.appendChild(peoplePage);
 

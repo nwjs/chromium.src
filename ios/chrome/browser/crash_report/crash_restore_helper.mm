@@ -19,7 +19,9 @@
 #include "components/strings/grit/components_strings.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/crash_report/breakpad_helper.h"
+#include "ios/chrome/browser/infobars/confirm_infobar_controller.h"
 #include "ios/chrome/browser/infobars/confirm_infobar_metrics_recorder.h"
+#include "ios/chrome/browser/infobars/infobar.h"
 #include "ios/chrome/browser/infobars/infobar_manager_impl.h"
 #include "ios/chrome/browser/infobars/infobar_utils.h"
 #include "ios/chrome/browser/sessions/ios_chrome_tab_restore_service_factory.h"
@@ -118,6 +120,9 @@ class SessionCrashedInfoBarDelegate : public ConfirmInfoBarDelegate {
   void InfoBarDismissed() override;
   int GetIconId() const override;
 
+  // TimeInterval when the delegate was created.
+  NSTimeInterval delegate_creation_time_;
+
   // The CrashRestoreHelper to restore sessions.
   CrashRestoreHelper* crash_restore_helper_;
 
@@ -126,7 +131,9 @@ class SessionCrashedInfoBarDelegate : public ConfirmInfoBarDelegate {
 
 SessionCrashedInfoBarDelegate::SessionCrashedInfoBarDelegate(
     CrashRestoreHelper* crash_restore_helper)
-    : crash_restore_helper_(crash_restore_helper) {}
+    : crash_restore_helper_(crash_restore_helper) {
+  delegate_creation_time_ = [NSDate timeIntervalSinceReferenceDate];
+}
 
 SessionCrashedInfoBarDelegate::~SessionCrashedInfoBarDelegate() {}
 
@@ -138,12 +145,15 @@ bool SessionCrashedInfoBarDelegate::Create(
   std::unique_ptr<ConfirmInfoBarDelegate> delegate(
       new SessionCrashedInfoBarDelegate(crash_restore_helper));
 
-  if (IsConfirmInfobarMessagesUIEnabled()) {
+  if (IsCrashRestoreInfobarMessagesUIEnabled()) {
     return !!infobar_manager->AddInfoBar(
         ::CreateHighPriorityConfirmInfoBar(std::move(delegate)));
   } else {
-    return !!infobar_manager->AddInfoBar(
-        ::CreateConfirmInfoBar(std::move(delegate)));
+    ConfirmInfoBarController* controller = [[ConfirmInfoBarController alloc]
+        initWithInfoBarDelegate:delegate.get()];
+    std::unique_ptr<infobars::InfoBar> infobar =
+        std::make_unique<InfoBarIOS>(controller, std::move(delegate));
+    return !!infobar_manager->AddInfoBar(std::move(infobar));
   }
 }
 
@@ -167,6 +177,11 @@ base::string16 SessionCrashedInfoBarDelegate::GetButtonLabel(
 }
 
 bool SessionCrashedInfoBarDelegate::Accept() {
+  NSTimeInterval duration =
+      [NSDate timeIntervalSinceReferenceDate] - delegate_creation_time_;
+  [ConfirmInfobarMetricsRecorder
+      recordConfirmAcceptTime:duration
+        forInfobarConfirmType:InfobarConfirmType::kInfobarConfirmTypeRestore];
   [ConfirmInfobarMetricsRecorder
       recordConfirmInfobarEvent:MobileMessagesConfirmInfobarEvents::Accepted
           forInfobarConfirmType:InfobarConfirmType::kInfobarConfirmTypeRestore];

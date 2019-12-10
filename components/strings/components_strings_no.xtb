@@ -115,6 +115,7 @@
 <translation id="1463543813647160932">5 x 7</translation>
 <translation id="1472675084647422956">Vis mer</translation>
 <translation id="147358896496811705">2A0</translation>
+<translation id="1476595624592550506">Endre passordet</translation>
 <translation id="1484290072879560759">Velg leveringsadresse</translation>
 <translation id="1492194039220927094">Push-levering av regler:</translation>
 <translation id="1501859676467574491">Vis kredittkort fra Google-kontoen din</translation>
@@ -174,7 +175,6 @@
 <translation id="173080396488393970">Denne korttypen støttes ikke</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Prøv å kontakte systemadministratoren.</translation>
-<translation id="1739107442478692187">Det har skjedd et databrudd på et nettsted eller i en app du bruker. Chrome anbefaler at du sjekker de lagrede passordene dine og endrer passordet på <ph name="ORIGIN" /> nå.</translation>
 <translation id="1740951997222943430">Angi en gyldig utløpsmåned</translation>
 <translation id="1743520634839655729">For å betale raskere neste gang, lagre kortet og faktureringsadressen i Google-kontoen din og på denne enheten.</translation>
 <translation id="1743570585616704562">Ikke gjenkjent</translation>
@@ -207,6 +207,7 @@
 <translation id="1914326953223720820">Utpakkingstjeneste</translation>
 <translation id="1915697529809968049">Vil du bruke Touch ID i stedet for CVC?</translation>
 <translation id="1916770123977586577">Last inn denne siden på nytt for å ta i bruk de oppdaterte innstillingene dine på dette nettstedet.</translation>
+<translation id="1917876262703816781">Et databrudd på et nettsted eller i en app har avdekket passordet ditt. Chrome anbefaler at du endrer passordet ditt på <ph name="ORIGIN" /> nå.</translation>
 <translation id="1919345977826869612">Annonser</translation>
 <translation id="1919367280705858090">Få hjelp med spesifikke feilmeldinger</translation>
 <translation id="192020519938775529">{COUNT,plural, =0{Ingen}=1{1 nettsted}other{# nettsteder}}</translation>
@@ -239,7 +240,6 @@
 <translation id="2094505752054353250">Domenene samsvarer ikke</translation>
 <translation id="2096368010154057602">Departement</translation>
 <translation id="2099652385553570808">Tre stifter venstre</translation>
-<translation id="2100280972184758440">Passordet ditt er utsatt for sikkerhetsbrudd</translation>
 <translation id="2102134110707549001">Foreslå et sterkt passord…</translation>
 <translation id="2108755909498034140">Start datamaskinen på nytt.</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -247,7 +247,6 @@
 <translation id="2114841414352855701">Ignorert fordi det ble overstyrt av <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Utstedt til: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Hull nede til høyre</translation>
-<translation id="2124528555835617522">Det har skjedd et databrudd på et nettsted eller i en app du bruker. Chrome anbefaler at du sjekker de lagrede passordene dine nå.</translation>
 <translation id="2129079103035905234">Bevegelsessensorer</translation>
 <translation id="213826338245044447">Bokmerker for mobil</translation>
 <translation id="214556005048008348">Avbryt betalingen</translation>
@@ -310,7 +309,7 @@
 <translation id="2410754574180102685">Government-Legal</translation>
 <translation id="2413528052993050574">Denne tjeneren kunne ikke bevise at den er <ph name="DOMAIN" />. Tjenerens sikkerhetssertifikat kan være trukket tilbake. Dette kan være forårsaket av en feilkonfigurering eller en angriper som avskjærer tilkoblingen din.</translation>
 <translation id="2438874542388153331">Fire hull høyre</translation>
-<translation id="245044156129055925">Du har nettopp skrevet inn passordet ditt på et bedragersk nettsted. Chromium anbefaler deg å bytte passord nå.</translation>
+<translation id="245044156129055925">Du har nettopp skrevet inn passordet ditt på et villedende nettsted. Chromium anbefaler deg å bytte passord nå.</translation>
 <translation id="2463193859425327265">Endre startsiden</translation>
 <translation id="2463739503403862330">Fyll ut</translation>
 <translation id="2465402087343596252">Architecture-E</translation>
@@ -486,7 +485,6 @@ brukere av denne nettleseren.</translation>
 <translation id="3282497668470633863">Legg til navnet på kortet</translation>
 <translation id="3287510313208355388">Last ned når du er koblet til Internett</translation>
 <translation id="3293642807462928945">Finn ut mer om regelen <ph name="POLICY_NAME" /></translation>
-<translation id="3295439534709115864">Det har skjedd et databrudd på et nettsted eller i en app du bruker. Chrome anbefaler at du endrer passordet ditt på <ph name="ORIGIN" /> nå.</translation>
 <translation id="3303855915957856445">Søket ga ingen treff</translation>
 <translation id="3320021301628644560">Legg til faktureringsadresse</translation>
 <translation id="3324983252691184275">Karmosinrød</translation>
@@ -898,6 +896,7 @@ brukere av denne nettleseren.</translation>
 <translation id="5287240709317226393">Vis informasjonskapsler</translation>
 <translation id="5287456746628258573">Dette nettstedet bruker en utdatert sikkerhetskonfigurasjon, som betyr at informasjonen din (for eksempel passord eller kredittkortnumre) kan bli avslørt når den sendes til dette nettstedet.</translation>
 <translation id="5288108484102287882">Det har oppstått advarsler under validering av regelverdier</translation>
+<translation id="5295292838686006428">Et databrudd på et nettsted eller i en app har avdekket passordet ditt. Chrome anbefaler at du sjekker de lagrede passordene dine nå.</translation>
 <translation id="5299298092464848405">Feil under analysen av enhetsinnstillingene</translation>
 <translation id="5300589172476337783">Vis</translation>
 <translation id="5308380583665731573">Koble til</translation>
@@ -947,6 +946,7 @@ brukere av denne nettleseren.</translation>
 <translation id="5540224163453853">Den forespurte artikkelen ble ikke funnet.</translation>
 <translation id="5541546772353173584">Legg til e-post</translation>
 <translation id="5545756402275714221">Artikler for deg</translation>
+<translation id="5552137475244467770">Chrome sjekker passordene dine regelmessig mot lister som er lagt ut på nett. Når dette gjøres, er passordene og brukernavnene dine kryptert. Det betyr at ingen kan lese dem, ikke engang Google.</translation>
 <translation id="5556459405103347317">Last inn på nytt</translation>
 <translation id="5560088892362098740">Utløpsdato</translation>
 <translation id="5565735124758917034">Aktiv</translation>
@@ -1037,6 +1037,7 @@ brukere av denne nettleseren.</translation>
 <translation id="5992691462791905444">Ingeniør-Z-fals</translation>
 <translation id="6000758707621254961"><ph name="RESULT_COUNT" /> resultater for «<ph name="SEARCH_TEXT" />»</translation>
 <translation id="6008256403891681546">JCB</translation>
+<translation id="6014801569448771146">Kontrollér passordene dine</translation>
 <translation id="6015796118275082299">År</translation>
 <translation id="6016158022840135739">{COUNT,plural, =1{Side 1}other{Side #}}</translation>
 <translation id="6017514345406065928">Grønn</translation>
@@ -1114,7 +1115,7 @@ brukere av denne nettleseren.</translation>
 <translation id="6401136357288658127">Denne regelen er avviklet. Du bør bruke den nye regelen <ph name="NEW_POLICY" /> i stedet.</translation>
 <translation id="6404511346730675251">Rediger bokmerket</translation>
 <translation id="6406765186087300643">C0 (konvolutt)</translation>
-<translation id="6409754798200046165">Du har nettopp skrevet inn passordet ditt på et bedragersk nettsted. Chrome anbefaler deg å bytte passord nå.</translation>
+<translation id="6409754798200046165">Du har nettopp skrevet inn passordet ditt på et villedende nettsted. Chrome anbefaler deg å bytte passord nå.</translation>
 <translation id="6410264514553301377">Skriv inn utløpsdatoen og verifiseringskoden for <ph name="CREDIT_CARD" /></translation>
 <translation id="6415778972515849510">Chromium kan hjelpe deg med å beskytte Google-kontoen din og endre passordet ditt.</translation>
 <translation id="6427730057873428458">Vindusfals</translation>
@@ -1319,6 +1320,7 @@ brukere av denne nettleseren.</translation>
 <translation id="7481312909269577407">Frem</translation>
 <translation id="748406663033922918">Bruk skjermlås til å bekrefte de lagrede betalingsmåtene dine.</translation>
 <translation id="7485870689360869515">Ingen data ble funnet.</translation>
+<translation id="7495290002932347110">Et databrudd på et nettsted eller i en app har avdekket passordet ditt. Chrome anbefaler at du sjekker de lagrede passordene dine og endrer passordet på <ph name="ORIGIN" /> nå.</translation>
 <translation id="7498234416455752244">Fortsett å endre</translation>
 <translation id="7508255263130623398">Den returnerte enhets-ID-en for regelen er tom eller samsvarer ikke med den faktiske enhets-ID-en</translation>
 <translation id="7508870219247277067">Avokadogrønn</translation>

@@ -801,6 +801,11 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="2303795211377219696">Habilitar la función Autocompletar para tarjetas de crédito</translation>
 <translation id="2309390639296060546">Configuración de geolocalización predeterminada</translation>
 <translation id="2327252517317514801">Definir los dominios con permiso para acceder a G Suite</translation>
+<translation id="2328573323851533589">Se puede usar esta política para forzar la habilitación o inhabilitación de la búsqueda de filtraciones de credenciales en <ph name="PRODUCT_NAME" />.
+
+          Ten en cuenta que, incluso si se establece esta política como verdadera, no se activará el comportamiento cuando la Navegación segura esté inhabilitada (ya sea por la política o el usuario). Si quieres forzar la Navegación segura, usa la política <ph name="SAFE_BROWSING_ENABLED_POLICY_NAME" />.
+
+          Si se habilita o inhabilita esta política, los usuarios no podrán cambiarla ni anularla en <ph name="PRODUCT_NAME" />. Si no se establece la política, se permitirá la búsqueda de filtraciones de credenciales (aunque el usuario podrá desactivar esta acción).</translation>
 <translation id="2345547870894930157">Habilitar DNS sobre HTTPS sin resguardo inseguro</translation>
 <translation id="237494535617297575">Te permite configurar una lista de patrones de URL que especifican los sitios que están autorizados a mostrar notificaciones. Si esta política no se configura, se usará el valor global predeterminado para todos los sitios ya sea de la política "DefaultNotificationsSetting", si está configurada, o de otro tipo de configuración personal del usuario.</translation>
 <translation id="2386362615870139244">Permitir bloqueos de activación de pantalla</translation>
@@ -3355,9 +3360,6 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="6544897973797372144">Si esta política se establece en Verdadera y la política ChromeOsReleaseChannel no se especifica, los usuarios del dominio de inscripción podrán cambiar el canal de versiones del dispositivo. Si esta política se establece en Falsa, el dispositivo se bloqueará en cualquier canal que se haya establecido anteriormente.
 
       El canal seleccionado por el usuario será reemplazado por la política ChromeOsReleaseChannel, pero si el canal de la política es más estable que el que fue instalado en el dispositivo, el canal solo cambiará después de que la versión del canal más estable alcance un número de versión más alto que la instalada en el dispositivo.</translation>
-<translation id="6549567350270907557">Si se habilita esta configuración, los usuarios podrán verificar que una filtración de datos no afecte las credenciales ingresadas en <ph name="PRODUCT_NAME" />.
-
-              Si se habilita o inhabilita esta política, los usuarios no podrán cambiarla ni anularla en <ph name="PRODUCT_NAME" />. Si no se configura, se permitirá que se compruebe que no haya habido filtraciones (aunque el usuario podrá desactivar esta acción).</translation>
 <translation id="6553143066970470539">Porcentaje del brillo de pantalla</translation>
 <translation id="6559057113164934677">No permitir que ningún sitio acceda a la cámara ni al micrófono</translation>
 <translation id="6561396069801924653">Mostrar opciones de accesibilidad en el menú de la bandeja del sistema</translation>

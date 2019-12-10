@@ -99,7 +99,6 @@
 <translation id="2273327106802955778">Menú más</translation>
 <translation id="2316709634732130529">Utilizar la contraseña sugerida</translation>
 <translation id="2320166752086256636">Ocultar teclado</translation>
-<translation id="2330129964253841015">Avisar si se vulneran tus contraseñas</translation>
 <translation id="2339560363438331454">Servicios de Google y sincronización</translation>
 <translation id="2351097562818989364">Se han restablecido tus ajustes de traducción.</translation>
 <translation id="2359043044084662842">Traducir</translation>
@@ -333,7 +332,7 @@ Handoff también debe estar habilitado en la sección General de Configuración,
 <translation id="5854790677617711513">Más de 30 días</translation>
 <translation id="5857090052475505287">Nueva carpeta</translation>
 <translation id="5857770089550859117">Se requiere una frase de contraseña para iniciar la sincronización.</translation>
-<translation id="5860033963881614850">No</translation>
+<translation id="5860033963881614850">Desactivado</translation>
 <translation id="5869029295770560994">Entendido</translation>
 <translation id="5871497086027727873">1 elemento eliminado</translation>
 <translation id="5897956970858271241">Ir al enlace copiado</translation>
@@ -356,7 +355,7 @@ Handoff también debe estar habilitado en la sección General de Configuración,
 <translation id="605721222689873409">AA</translation>
 <translation id="6066301408025741299">Toca para cancelar.</translation>
 <translation id="6108923351542677676">Configuración en curso…</translation>
-<translation id="6119050551270742952">La página web actual está en modo de navegación de incógnito</translation>
+<translation id="6119050551270742952">Sitio actual en modo incógnito</translation>
 <translation id="6122191549521593678">Online</translation>
 <translation id="6127379762771434464">Elemento quitado</translation>
 <translation id="6136914049981179737">Hace segundos</translation>
@@ -426,6 +425,7 @@ Tus datos se cifraron con tu frase de contraseña de sincronización el <ph name
 <translation id="6973630695168034713">Carpetas</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6988572888918530647">Gestionar tu cuenta de Google</translation>
+<translation id="6995899638241819463">Avisar si tus contraseñas se ven expuestas en una quiebra de seguridad de datos</translation>
 <translation id="7004499039102548441">Pestañas recientes</translation>
 <translation id="7006788746334555276">Configuración de contenido</translation>
 <translation id="7015203776128479407">La configuración de sincronización inicial no ha terminado. La sincronización está desactivada.</translation>
@@ -504,7 +504,7 @@ Tus datos se cifraron con tu frase de contraseña de sincronización el <ph name
 <translation id="8261506727792406068">Eliminar</translation>
 <translation id="8281781826761538115">Predeterminada: <ph name="DEFAULT_LOCALE" /></translation>
 <translation id="8319076807703933069">Nueva búsqueda</translation>
-<translation id="8323906514956095947">Mantén pulsado para ver más opciones de pestañas</translation>
+<translation id="8323906514956095947">Mantén pulsado el botón para ver más opciones de pestañas</translation>
 <translation id="8328777765163860529">Cerrar todo</translation>
 <translation id="8407669440184693619">No se han encontrado contraseñas para este sitio web</translation>
 <translation id="842017693807136194">Has iniciado sesión como</translation>

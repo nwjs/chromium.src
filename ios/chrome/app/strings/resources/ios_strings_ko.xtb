@@ -99,7 +99,6 @@
 <translation id="2273327106802955778">더보기 메뉴</translation>
 <translation id="2316709634732130529">추천 비밀번호 사용</translation>
 <translation id="2320166752086256636">키보드 숨기기</translation>
-<translation id="2330129964253841015">비밀번호가 도용된 경우 알림</translation>
 <translation id="2339560363438331454">동기화 및 Google 서비스</translation>
 <translation id="2351097562818989364">번역 설정이 재설정되었습니다.</translation>
 <translation id="2359043044084662842">번역</translation>
@@ -426,6 +425,7 @@
 <translation id="6973630695168034713">폴더</translation>
 <translation id="6979158407327259162">Google 드라이브</translation>
 <translation id="6988572888918530647">Google 계정 관리</translation>
+<translation id="6995899638241819463">데이터 유출로 인해 비밀번호가 노출된 경우 알림</translation>
 <translation id="7004499039102548441">최근 탭</translation>
 <translation id="7006788746334555276">콘텐츠 설정</translation>
 <translation id="7015203776128479407">초기 동기화 설정이 완료되지 않았습니다. 동기화가 사용 중지되었습니다.</translation>

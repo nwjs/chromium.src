@@ -87,6 +87,8 @@ import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
+import org.chromium.chrome.browser.tasks.tab_management.TabGroupPopupUi;
+import org.chromium.chrome.browser.tasks.tab_management.TabManagementModuleProvider;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator;
 import org.chromium.chrome.browser.toolbar.top.ActionModeController;
 import org.chromium.chrome.browser.toolbar.top.ActionModeController.ActionBarDelegate;
@@ -183,7 +185,8 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
     private OverviewModeBehavior mOverviewModeBehavior;
     private LayoutManager mLayoutManager;
     private IdentityDiscController mIdentityDiscController;
-
+    private ObservableSupplierImpl<View> mTabGroupPopUiParentSupplier;
+    private @Nullable TabGroupPopupUi mTabGroupPopupUi;
     private TabObserver mTabObserver;
     private BookmarkBridge.BookmarkModelObserver mBookmarksObserver;
     private FindToolbarObserver mFindToolbarObserver;
@@ -766,10 +769,19 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
             mActivity.onShareMenuItemSelected(false, isIncognito);
         };
 
+        if (FeatureUtilities.isDuetTabStripIntegrationAndroidEnabled()
+                && FeatureUtilities.isBottomToolbarEnabled()) {
+            mTabGroupPopUiParentSupplier = new ObservableSupplierImpl<>();
+            mTabGroupPopupUi = TabManagementModuleProvider.getDelegate().createTabGroupPopUi(
+                    mAppThemeColorProvider, mTabGroupPopUiParentSupplier);
+        }
+
         mBottomControlsCoordinator = new BottomControlsCoordinator(mActivity.getFullscreenManager(),
                 mActivity.findViewById(R.id.bottom_controls_stub),
                 mActivity.getActivityTabProvider(), homeButtonListener, searchAcceleratorListener,
-                shareButtonListener, mAppThemeColorProvider);
+                shareButtonListener, mTabGroupPopupUi != null
+                ? mTabGroupPopupUi.getLongClickListenerForTriggering() : null,
+                mAppThemeColorProvider);
 
         mIsBottomToolbarVisible = FeatureUtilities.isBottomToolbarEnabled()
                 && (!FeatureUtilities.isAdaptiveToolbarEnabled()
@@ -923,7 +935,9 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
 
         OnLongClickListener tabSwitcherLongClickHandler = null;
 
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_SWITCHER_LONGPRESS_MENU)) {
+        if (mTabGroupPopupUi != null) {
+            tabSwitcherLongClickHandler = mTabGroupPopupUi.getLongClickListenerForTriggering();
+        } else if (ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_SWITCHER_LONGPRESS_MENU)) {
             tabSwitcherLongClickHandler =
                     TabSwitcherActionMenuCoordinator.createOnLongClickListener(
                             (id) -> mActivity.onOptionsItemSelected(id, null));
@@ -931,7 +945,7 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
 
         mToolbar.initializeWithNative(tabModelSelector, controlsVisibilityDelegate, layoutManager,
                 tabSwitcherClickHandler, tabSwitcherLongClickHandler, newTabClickHandler,
-                bookmarkClickHandler, customTabsBackClickHandler);
+                bookmarkClickHandler, customTabsBackClickHandler, overviewModeBehavior);
 
         mToolbar.addOnAttachStateChangeListener(new OnAttachStateChangeListener() {
             @Override
@@ -945,6 +959,13 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
                 refreshSelectedTab();
             }
         });
+
+        if (mTabGroupPopupUi != null) {
+            mTabGroupPopUiParentSupplier.set(mIsBottomToolbarVisible
+                            ? mActivity.findViewById(R.id.bottom_controls)
+                            : mActivity.findViewById(R.id.toolbar));
+            mTabGroupPopupUi.initializeWithNative(mActivity);
+        }
 
         mLocationBarModel.initializeWithNative();
         mLocationBarModel.setShouldShowOmniboxInOverviewMode(
@@ -1222,6 +1243,11 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
             mLocationBar.removeUrlFocusChangeListener(this);
         }
 
+        if (mTabGroupPopupUi != null) {
+            mTabGroupPopupUi.destroy();
+            mTabGroupPopupUi = null;
+        }
+
         mToolbar.removeUrlExpansionObserver(mActivity.getStatusBarColorController());
         mToolbar.destroy();
 
@@ -1260,6 +1286,11 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
             mBottomControlsCoordinator.setBottomControlsVisible(mIsBottomToolbarVisible);
             if (mAppMenuButtonHelper != null) {
                 mAppMenuButtonHelper.setMenuShowsFromBottom(mIsBottomToolbarVisible);
+            }
+            if (mTabGroupPopupUi != null) {
+                mTabGroupPopUiParentSupplier.set(mIsBottomToolbarVisible
+                                ? mActivity.findViewById(R.id.bottom_controls)
+                                : mActivity.findViewById(R.id.toolbar));
             }
         }
     }

@@ -762,7 +762,8 @@ scoped_refptr<VideoFrame> VideoFrame::CreateColorFrame(
     base::TimeDelta timestamp) {
   scoped_refptr<VideoFrame> frame =
       CreateFrame(PIXEL_FORMAT_I420, size, gfx::Rect(size), size, timestamp);
-  FillYUV(frame.get(), y, u, v);
+  if (frame)
+    FillYUV(frame.get(), y, u, v);
   return frame;
 }
 
@@ -783,7 +784,8 @@ scoped_refptr<VideoFrame> VideoFrame::CreateTransparentFrame(
   const base::TimeDelta kZero;
   scoped_refptr<VideoFrame> frame =
       CreateFrame(PIXEL_FORMAT_I420A, size, gfx::Rect(size), size, kZero);
-  FillYUVA(frame.get(), kBlackY, kBlackUV, kBlackUV, kTransparentA);
+  if (frame)
+    FillYUVA(frame.get(), kBlackY, kBlackUV, kBlackUV, kTransparentA);
   return frame;
 }
 

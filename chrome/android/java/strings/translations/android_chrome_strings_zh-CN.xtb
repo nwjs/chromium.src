@@ -182,7 +182,6 @@
 <translation id="2321958826496381788">拖动该滑块，将文字调整到适合您阅读的大小。点按两次某段落后，显示的文字至少应是这么大。</translation>
 <translation id="2323763861024343754">网站存储数据</translation>
 <translation id="2328985652426384049">无法登录</translation>
-<translation id="2330129964253841015">在密码泄露时向您发出警告</translation>
 <translation id="2349710944427398404">Chrome 所使用的数据总量，包括帐号、书签和已保存的设置</translation>
 <translation id="2353636109065292463">检查互联网连接状况</translation>
 <translation id="2359808026110333948">继续</translation>
@@ -587,7 +586,7 @@
 <translation id="5424588387303617268">可用存储空间：<ph name="GIGABYTES" /> GB</translation>
 <translation id="543338862236136125">修改密码</translation>
 <translation id="5433691172869980887">已复制用户名</translation>
-<translation id="543509235395288790">正在下载 <ph name="COUNT" /> 个文件（<ph name="MEGABYTES" /> MB）。</translation>
+<translation id="543509235395288790">正在下载 <ph name="COUNT" /> 个文件（共 <ph name="MEGABYTES" />）。</translation>
 <translation id="5441522332038954058">跳转到地址栏</translation>
 <translation id="5447201525962359567">所有网站存储数据，包括 Cookie 及其他本地存储的数据</translation>
 <translation id="5447765697759493033">系统不会翻译此网站</translation>
@@ -808,6 +807,7 @@
 <translation id="6989267951144302301">无法下载</translation>
 <translation id="6990079615885386641">从 Google Play 商店下载应用：<ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">在允许网站使用您的麦克风前先询问（推荐）</translation>
+<translation id="6995899638241819463">在密码遭遇数据泄露时，向您发出警告</translation>
 <translation id="7015203776128479407">初始同步设置未完成。同步功能处于关闭状态。</translation>
 <translation id="7016516562562142042">允许当前搜索引擎使用</translation>
 <translation id="7022756207310403729">在浏览器中打开</translation>

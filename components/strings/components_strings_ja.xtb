@@ -115,6 +115,7 @@
 <translation id="1463543813647160932">5×7</translation>
 <translation id="1472675084647422956">表示項目を増やす</translation>
 <translation id="147358896496811705">2A0</translation>
+<translation id="1476595624592550506">パスワードを変更してください</translation>
 <translation id="1484290072879560759">配送先住所を選択</translation>
 <translation id="1492194039220927094">ポリシーのプッシュ:</translation>
 <translation id="1501859676467574491">Google アカウントに保存したカードを表示</translation>
@@ -174,7 +175,6 @@
 <translation id="173080396488393970">この種類のカードはご利用いただけません</translation>
 <translation id="1734864079702812349">AMEX</translation>
 <translation id="1734878702283171397">システム管理者にお問い合わせください。</translation>
-<translation id="1739107442478692187">ご利用のサイトまたはアプリでデータ侵害がありました。保存したパスワードを確認し、<ph name="ORIGIN" /> のパスワードを今すぐ変更することをおすすめします。</translation>
 <translation id="1740951997222943430">有効期限（月）を正しい形式で入力してください</translation>
 <translation id="1743520634839655729">カード、お名前、請求先住所を Google アカウントとこのデバイスに保存すると、次回のお支払いが簡単になります。</translation>
 <translation id="1743570585616704562">認識されませんでした</translation>
@@ -207,6 +207,7 @@
 <translation id="1914326953223720820">解凍サービス</translation>
 <translation id="1915697529809968049">CVC の代わりに Touch ID を使用しますか？</translation>
 <translation id="1916770123977586577">更新後の設定をこのサイトに適用するには、このページを再読み込みしてください</translation>
+<translation id="1917876262703816781">サイトまたはアプリでのデータ侵害により、パスワード情報が漏洩しました。<ph name="ORIGIN" /> のパスワードをすぐに変更することをおすすめします。</translation>
 <translation id="1919345977826869612">広告</translation>
 <translation id="1919367280705858090">特定のエラー メッセージに関する情報</translation>
 <translation id="192020519938775529">{COUNT,plural, =0{なし}=1{1 件のサイト}other{# 件のサイト}}</translation>
@@ -239,7 +240,6 @@
 <translation id="2094505752054353250">ドメインが一致しません</translation>
 <translation id="2096368010154057602">県</translation>
 <translation id="2099652385553570808">3 か所のステープル（左）</translation>
-<translation id="2100280972184758440">パスワードが危険にさらされています</translation>
 <translation id="2102134110707549001">安全なパスワードを自動生成…</translation>
 <translation id="2108755909498034140">パソコンを再起動する</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -247,7 +247,6 @@
 <translation id="2114841414352855701"><ph name="POLICY_NAME" /> によって上書きされるため無視されます。</translation>
 <translation id="2119505898009119320">発行先: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">パンチ（右下）</translation>
-<translation id="2124528555835617522">ご利用のサイトまたはアプリでデータ侵害がありました。保存したパスワードをすぐに確認することをおすすめします。</translation>
 <translation id="2129079103035905234">モーション センサー</translation>
 <translation id="213826338245044447">モバイルのブックマーク</translation>
 <translation id="214556005048008348">支払いをキャンセル</translation>
@@ -476,7 +475,6 @@
 <translation id="3282497668470633863">名義人名を追加</translation>
 <translation id="3287510313208355388">オンライン時にダウンロード</translation>
 <translation id="3293642807462928945"><ph name="POLICY_NAME" /> ポリシーの詳細</translation>
-<translation id="3295439534709115864">ご利用のサイトまたはアプリでデータ侵害がありました。<ph name="ORIGIN" /> のパスワードをすぐに変更することをおすすめします。</translation>
 <translation id="3303855915957856445">一致する結果は見つかりませんでした</translation>
 <translation id="3320021301628644560">請求先住所を追加</translation>
 <translation id="3324983252691184275">クリムゾン</translation>
@@ -882,6 +880,7 @@
 <translation id="5287240709317226393">Cookie を表示</translation>
 <translation id="5287456746628258573">このサイトでは古いセキュリティ設定を使用しています。このサイトにパスワードやクレジット カード番号などの情報を送信すると流出する恐れがあります。</translation>
 <translation id="5288108484102287882">ポリシー値の検証で警告が返されました</translation>
+<translation id="5295292838686006428">サイトまたはアプリでのデータ侵害により、パスワード情報が漏洩しました。保存したパスワードをすぐに確認することをおすすめします。</translation>
 <translation id="5299298092464848405">ポリシーの解析中にエラーが発生しました</translation>
 <translation id="5300589172476337783">表示</translation>
 <translation id="5308380583665731573">接続</translation>
@@ -931,6 +930,7 @@
 <translation id="5540224163453853">リクエストされた記事が見つかりませんでした。</translation>
 <translation id="5541546772353173584">メールの追加</translation>
 <translation id="5545756402275714221">おすすめの記事</translation>
+<translation id="5552137475244467770">Chrome では、定期的にパスワードをオンライン上の公開リストと照合し、確認しています。その際、パスワードとユーザー名は Google を含め誰も読み取ることができないよう暗号化されます。</translation>
 <translation id="5556459405103347317">再読み込み</translation>
 <translation id="5560088892362098740">有効期限</translation>
 <translation id="5565735124758917034">有効</translation>
@@ -1021,6 +1021,7 @@
 <translation id="5992691462791905444">工学 Z 折り</translation>
 <translation id="6000758707621254961">「<ph name="SEARCH_TEXT" />」に対する <ph name="RESULT_COUNT" /> 件の検索結果</translation>
 <translation id="6008256403891681546">JCB</translation>
+<translation id="6014801569448771146">パスワードの確認</translation>
 <translation id="6015796118275082299">年</translation>
 <translation id="6016158022840135739">{COUNT,plural, =1{ページ 1}other{ページ #}}</translation>
 <translation id="6017514345406065928">緑</translation>
@@ -1304,6 +1305,7 @@
 <translation id="7481312909269577407">進む</translation>
 <translation id="748406663033922918">画面ロックを使用して、保存したお支払い方法を確認します。</translation>
 <translation id="7485870689360869515">データが見つかりません。</translation>
+<translation id="7495290002932347110">サイトまたはアプリでのデータ侵害により、パスワード情報が漏洩しました。保存したパスワードを確認し、<ph name="ORIGIN" /> のパスワードを今すぐ変更することをおすすめします。</translation>
 <translation id="7498234416455752244">編集を続ける</translation>
 <translation id="7508255263130623398">返されたポリシーのデバイス ID が空であるか、現在のデバイス ID と一致しません</translation>
 <translation id="7508870219247277067">アボカド グリーン</translation>

@@ -45,9 +45,11 @@ import org.chromium.chrome.browser.preferences.ChromeBasePreference;
 import org.chromium.chrome.browser.preferences.ChromeSwitchPreference;
 import org.chromium.chrome.browser.preferences.ManagedPreferenceDelegate;
 import org.chromium.chrome.browser.preferences.ManagedPreferencesUtils;
+import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.preferences.PreferenceUtils;
 import org.chromium.chrome.browser.preferences.Preferences;
+import org.chromium.chrome.browser.preferences.password.PasswordUIView;
 import org.chromium.chrome.browser.preferences.privacy.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.IdentityServicesProvider;
@@ -96,6 +98,7 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
     private static final String PREF_SEARCH_SUGGESTIONS = "search_suggestions";
     private static final String PREF_NAVIGATION_ERROR = "navigation_error";
     private static final String PREF_SAFE_BROWSING = "safe_browsing";
+    private static final String PREF_PASSWORD_LEAK_DETECTION = "password_leak_detection";
     private static final String PREF_SAFE_BROWSING_SCOUT_REPORTING =
             "safe_browsing_scout_reporting";
     private static final String PREF_USAGE_AND_CRASH_REPORTING = "usage_and_crash_reports";
@@ -137,6 +140,7 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
     private ChromeSwitchPreference mSearchSuggestions;
     private ChromeSwitchPreference mNavigationError;
     private ChromeSwitchPreference mSafeBrowsing;
+    private @Nullable ChromeSwitchPreference mPasswordLeakDetection;
     private ChromeSwitchPreference mSafeBrowsingReporting;
     private ChromeSwitchPreference mUsageAndCrashReporting;
     private ChromeSwitchPreference mUrlKeyedAnonymizedData;
@@ -209,6 +213,18 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
         mSafeBrowsing.setOnPreferenceChangeListener(this);
         mSafeBrowsing.setManagedPreferenceDelegate(mManagedPreferenceDelegate);
 
+        PreferenceCategory servicesCategory =
+                (PreferenceCategory) findPreference(PREF_SERVICES_CATEGORY);
+        mPasswordLeakDetection =
+                (ChromeSwitchPreference) findPreference(PREF_PASSWORD_LEAK_DETECTION);
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.PASSWORD_LEAK_DETECTION)) {
+            mPasswordLeakDetection.setOnPreferenceChangeListener(this);
+            mPasswordLeakDetection.setManagedPreferenceDelegate(mManagedPreferenceDelegate);
+        } else {
+            removePreference(servicesCategory, mPasswordLeakDetection);
+            mPasswordLeakDetection = null;
+        }
+
         mSafeBrowsingReporting =
                 (ChromeSwitchPreference) findPreference(PREF_SAFE_BROWSING_SCOUT_REPORTING);
         mSafeBrowsingReporting.setOnPreferenceChangeListener(this);
@@ -224,8 +240,6 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
         mUrlKeyedAnonymizedData.setOnPreferenceChangeListener(this);
         mUrlKeyedAnonymizedData.setManagedPreferenceDelegate(mManagedPreferenceDelegate);
 
-        PreferenceCategory servicesCategory =
-                (PreferenceCategory) findPreference(PREF_SERVICES_CATEGORY);
         mContextualSearch = findPreference(PREF_CONTEXTUAL_SEARCH);
         if (!ContextualSearchFieldTrial.isEnabled()) {
             removePreference(servicesCategory, mContextualSearch);
@@ -337,6 +351,13 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
             mPrefServiceBridge.setSearchSuggestEnabled((boolean) newValue);
         } else if (PREF_SAFE_BROWSING.equals(key)) {
             mPrefServiceBridge.setSafeBrowsingEnabled((boolean) newValue);
+            // Toggling the safe browsing preference impacts the leak detection and the
+            // safe browsing reporting preferences as well.
+            PostTask.postTask(UiThreadTaskTraits.DEFAULT,
+                    this::updateLeakDetectionAndSafeBrowsingReportingPreferences);
+        } else if (PREF_PASSWORD_LEAK_DETECTION.equals(key)) {
+            mPrefServiceBridge.setBoolean(
+                    Pref.PASSWORD_MANAGER_LEAK_DETECTION_ENABLED, (boolean) newValue);
         } else if (PREF_SAFE_BROWSING_SCOUT_REPORTING.equals(key)) {
             mPrefServiceBridge.setSafeBrowsingExtendedReportingEnabled((boolean) newValue);
         } else if (PREF_NAVIGATION_ERROR.equals(key)) {
@@ -541,8 +562,9 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
         mSearchSuggestions.setChecked(mPrefServiceBridge.isSearchSuggestEnabled());
         mNavigationError.setChecked(mPrefServiceBridge.isResolveNavigationErrorEnabled());
         mSafeBrowsing.setChecked(mPrefServiceBridge.isSafeBrowsingEnabled());
-        mSafeBrowsingReporting.setChecked(
-                mPrefServiceBridge.isSafeBrowsingExtendedReportingEnabled());
+
+        updateLeakDetectionAndSafeBrowsingReportingPreferences();
+
         mUsageAndCrashReporting.setChecked(
                 mPrivacyPrefManager.isUsageAndCrashReportingPermittedByUser());
         mUrlKeyedAnonymizedData.setChecked(
@@ -599,6 +621,34 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
         mSyncRequested.setEnabled(canDisableSync());
     }
 
+    /**
+     * If password leak detection is off and cannot be toggled while safe browsing is disabled, so
+     * its appearance needs to be updated. The same goes for safe browsing reporting.
+     */
+    private void updateLeakDetectionAndSafeBrowsingReportingPreferences() {
+        boolean safe_browsing_enabled = mPrefServiceBridge.getBoolean(Pref.SAFE_BROWSING_ENABLED);
+        mSafeBrowsingReporting.setEnabled(safe_browsing_enabled);
+        mSafeBrowsingReporting.setChecked(safe_browsing_enabled
+                && mPrefServiceBridge.isSafeBrowsingExtendedReportingEnabled());
+
+        if (mPasswordLeakDetection == null) return; // Early exit without leak detection to update.
+
+        boolean has_token_for_leak_check = PasswordUIView.hasAccountForLeakCheckRequest();
+        boolean leak_detection_enabled =
+                mPrefServiceBridge.getBoolean(Pref.PASSWORD_MANAGER_LEAK_DETECTION_ENABLED);
+        boolean toggle_enabled = safe_browsing_enabled && has_token_for_leak_check;
+
+        mPasswordLeakDetection.setEnabled(toggle_enabled);
+        mPasswordLeakDetection.setChecked(toggle_enabled && leak_detection_enabled);
+
+        if (!safe_browsing_enabled || !leak_detection_enabled || has_token_for_leak_check) {
+            mPasswordLeakDetection.setSummary(null);
+            return;
+        }
+        mPasswordLeakDetection.setSummary(
+                R.string.passwords_leak_detection_switch_signed_out_enable_description);
+    }
+
     private ManagedPreferenceDelegate createManagedPreferenceDelegate() {
         return preference -> {
             String key = preference.getKey();
@@ -613,6 +663,10 @@ public class SyncAndServicesPreferences extends PreferenceFragmentCompat
             }
             if (PREF_SAFE_BROWSING.equals(key)) {
                 return mPrefServiceBridge.isSafeBrowsingManaged();
+            }
+            if (PREF_PASSWORD_LEAK_DETECTION.equals(key)) {
+                return mPrefServiceBridge.isManagedPreference(
+                        Pref.PASSWORD_MANAGER_LEAK_DETECTION_ENABLED);
             }
             if (PREF_USAGE_AND_CRASH_REPORTING.equals(key)) {
                 return mPrefServiceBridge.isMetricsReportingManaged();

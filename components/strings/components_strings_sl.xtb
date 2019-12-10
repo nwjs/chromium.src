@@ -115,6 +115,7 @@
 <translation id="1463543813647160932">5 x 7</translation>
 <translation id="1472675084647422956">Pokaži več</translation>
 <translation id="147358896496811705">2A0</translation>
+<translation id="1476595624592550506">Spremenite geslo</translation>
 <translation id="1484290072879560759">Izbira naslova za pošiljanje</translation>
 <translation id="1492194039220927094">Potiskanje pravilnikov:</translation>
 <translation id="1501859676467574491">Prikaz kartic iz Google Računa</translation>
@@ -174,7 +175,6 @@
 <translation id="173080396488393970">Ta vrsta kartice ni podprta</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Poskusite se obrniti na skrbnika sistema.</translation>
-<translation id="1739107442478692187">Na spletnem mestu ali v aplikaciji, ki ga oziroma jo uporabljate, je prišlo do podatkovne kršitve. Chrome priporoča, da preverite shranjena gesla in spremenite geslo za spletno mesto <ph name="ORIGIN" />.</translation>
 <translation id="1740951997222943430">Vnesite veljaven mesec poteka veljavnosti</translation>
 <translation id="1743520634839655729">Če želite naslednjič hitreje plačati, shranite kartico, ime in naslov za izstavitev računa v Google Računu in v tej napravi.</translation>
 <translation id="1743570585616704562">Ni prepoznano</translation>
@@ -207,6 +207,7 @@
 <translation id="1914326953223720820">Storitev razširjanja datotek</translation>
 <translation id="1915697529809968049">Želite namesto kode CVC uporabiti Touch ID?</translation>
 <translation id="1916770123977586577">Če želite uporabiti posodobljene nastavitve za to spletno mesto, znova naložite to stran</translation>
+<translation id="1917876262703816781">Zaradi podatkovne kršitve na spletnem mestu ali v aplikaciji je bilo razkrito vaše geslo. Chrome priporoča, da takoj spremenite geslo za spletno mesto <ph name="ORIGIN" />.</translation>
 <translation id="1919345977826869612">Oglasi</translation>
 <translation id="1919367280705858090">Pomoč pri določenem sporočilu o napaki</translation>
 <translation id="192020519938775529">{COUNT,plural, =0{Brez}=1{1 spletno mesto}one{# spletno mesto}two{# spletni mesti}few{# spletna mesta}other{# spletnih mest}}</translation>
@@ -239,7 +240,6 @@
 <translation id="2094505752054353250">Neujemanje domen</translation>
 <translation id="2096368010154057602">Področje</translation>
 <translation id="2099652385553570808">Trojno spenjanje na levi</translation>
-<translation id="2100280972184758440">Geslo je ogroženo</translation>
 <translation id="2102134110707549001">Predlagaj zapleteno geslo …</translation>
 <translation id="2108755909498034140">Znova zaženite računalnik</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -247,7 +247,6 @@
 <translation id="2114841414352855701">Prezrto, ker je to preglasil pravilnik <ph name="POLICY_NAME" />.</translation>
 <translation id="2119505898009119320">Izdano za: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Luknjanje spodaj desno</translation>
-<translation id="2124528555835617522">Na spletnem mestu ali v aplikaciji, ki ga oziroma jo uporabljate, je prišlo do podatkovne kršitve. Chrome priporoča, da takoj preverite shranjena gesla.</translation>
 <translation id="2129079103035905234">Tipala gibanja</translation>
 <translation id="213826338245044447">Mobilni zaznamki</translation>
 <translation id="214556005048008348">Prekliči plačilo</translation>
@@ -486,7 +485,6 @@
 <translation id="3282497668470633863">Dodajanje imena na kartico</translation>
 <translation id="3287510313208355388">Prenesi, ko je povezava</translation>
 <translation id="3293642807462928945">Preberite več o pravilniku <ph name="POLICY_NAME" /></translation>
-<translation id="3295439534709115864">Na spletnem mestu ali v aplikaciji, ki ga oziroma jo uporabljate, je prišlo do podatkovne kršitve. Chrome priporoča, da takoj spremenite geslo za spletno mesto <ph name="ORIGIN" />.</translation>
 <translation id="3303855915957856445">Ni rezultatov iskanja</translation>
 <translation id="3320021301628644560">Dodajanje naslova za izstavitev računa</translation>
 <translation id="3324983252691184275">Škrlatna</translation>
@@ -898,6 +896,7 @@
 <translation id="5287240709317226393">Pokaži piškotke</translation>
 <translation id="5287456746628258573">To spletno mesto uporablja zastarelo varnostno konfiguracijo, zaradi česar so lahko vaši podatki ob pošiljanju temu spletnemu mestu izpostavljeni (npr. gesla ali številke kreditnih kartic).</translation>
 <translation id="5288108484102287882">Preverjanje vrednosti pravilnika je aktiviralo opozorila</translation>
+<translation id="5295292838686006428">Zaradi podatkovne kršitve na spletnem mestu ali v aplikaciji je bilo razkrito vaše geslo. Chrome priporoča, da takoj preverite shranjena gesla.</translation>
 <translation id="5299298092464848405">Napaka pri razčlenjevanju pravilnika</translation>
 <translation id="5300589172476337783">Pokaži</translation>
 <translation id="5308380583665731573">Povezovanje</translation>
@@ -947,6 +946,7 @@
 <translation id="5540224163453853">Zahtevanega članka ni bilo mogoče najti.</translation>
 <translation id="5541546772353173584">Dodajanje e-poštnega naslova</translation>
 <translation id="5545756402275714221">Članki za vas</translation>
+<translation id="5552137475244467770">Chrome občasno preveri vaša gesla, tako da jih primerja s seznami gesel, objavljenimi v spletu. Pri tem so vaša gesla in uporabniška imena šifrirana, da jih ne more prebrati nihče, vključno z Googlom.</translation>
 <translation id="5556459405103347317">Znova naloži</translation>
 <translation id="5560088892362098740">Datum poteka</translation>
 <translation id="5565735124758917034">Aktivno</translation>
@@ -1037,6 +1037,7 @@
 <translation id="5992691462791905444">Prepogibanje v obliki harmonike z dvema zgiboma</translation>
 <translation id="6000758707621254961">Rezultati za »<ph name="SEARCH_TEXT" />« (<ph name="RESULT_COUNT" />)</translation>
 <translation id="6008256403891681546">JCB</translation>
+<translation id="6014801569448771146">Preverite gesla</translation>
 <translation id="6015796118275082299">Leto</translation>
 <translation id="6016158022840135739">{COUNT,plural, =1{Stran 1}one{Stran #}two{Stran #}few{Stran #}other{Stran #}}</translation>
 <translation id="6017514345406065928">Zelena</translation>
@@ -1320,6 +1321,7 @@ Dodatne podrobnosti:
 <translation id="7481312909269577407">Naprej</translation>
 <translation id="748406663033922918">Uporabite zaklepanje zaslona za potrjevanje shranjenih plačilnih sredstev.</translation>
 <translation id="7485870689360869515">Ni podatkov.</translation>
+<translation id="7495290002932347110">Zaradi podatkovne kršitve na spletnem mestu ali v aplikaciji je bilo razkrito vaše geslo. Chrome priporoča, da preverite shranjena gesla in spremenite geslo za spletno mesto <ph name="ORIGIN" />.</translation>
 <translation id="7498234416455752244">Nadaljuj urejanje</translation>
 <translation id="7508255263130623398">Vrnjen ID naprave pravilnika je prazen ali se ne ujema s trenutnim ID-jem naprave</translation>
 <translation id="7508870219247277067">Avokadovo zelena</translation>

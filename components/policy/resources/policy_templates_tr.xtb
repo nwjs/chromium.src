@@ -813,6 +813,11 @@
 <translation id="2303795211377219696">Kredi kartları için Otomatik Doldurma özelliğini etkinleştirme</translation>
 <translation id="2309390639296060546">Varsayılan coğrafi konum ayarı</translation>
 <translation id="2327252517317514801">G Suite'e erişmesine izin verilen alan adlarını tanımla</translation>
+<translation id="2328573323851533589">Bu politika, <ph name="PRODUCT_NAME" /> ürününde kimlik bilgisi sızıntılarının kontrolünü etkinleştirmeyi veya devre dışı bırakmayı zorunlu tutmak için kullanılabilir.
+
+          Güvenli Tarama devre dışı bırakılmışsa (politika veya kullanıcı tarafından), bu politika True (Doğru) değerine ayarlanmış olsa bile, istenen davranış tetiklenmez. Güvenli Tarama'nın açık olmasını zorunlu tutmak için <ph name="SAFE_BROWSING_ENABLED_POLICY_NAME" /> politikasını kullanın.
+
+          Bu politika etkinleştirilir veya devre dışı bırakılırsa <ph name="PRODUCT_NAME" /> içinde kullanıcılar tarafından değiştirilemez ya da geçersiz kılınamaz. Bu politika ayarlanmadan bırakılırsa kimlik bilgisi sızıntısı kontrolüne izin verilir (ancak kullanıcı tarafından kapatılabilir).</translation>
 <translation id="2345547870894930157">DNS-over-HTTPS'i güvenli olmayan geçiş olmadan etkinleştir</translation>
 <translation id="237494535617297575">Bildirim görüntülemelerine izin verilen sitelerin belirtildiği bir URL kalıpları listesi ayarlamanıza olanak tanır.
 
@@ -3424,9 +3429,6 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="6544897973797372144">Bu politika True değerine ayarlanırsa ve ChromeOsReleaseChannel politikası belirtilmediyse, kaydedilmekte olan alan adı kullanıcılarının cihazın yayın kanalını değiştirmelerine izin verilir. Bu politika false değerine ayarlanırsa, cihaz son olarak ayarlandığı kanalda kilitlenir.
 
       Kullanıcının seçtiği kanal ChromeOsReleaseChannel politikası tarafından geçersiz kılınırsa, ancak politika kanalı cihaza yüklenen kanaldan daha dengeliyse; kanal yalnızca daha dengeli kanalın sürümü cihazda yüklü olandan daha yüksek bir sürüme ulaştığında değiştirilir.</translation>
-<translation id="6549567350270907557">Bu ayar etkinleştirilirse kullanıcılar, <ph name="PRODUCT_NAME" /> ürününün, girilen kimlik bilgilerinin bir sızıntının parçası olup olmadığını kontrol etmesini sağlayabilir.
-
-              Bu politika etkinleştilir veya devre dışı bırakılırsa kullanıcılar tarafından değiştirilemez veya <ph name="PRODUCT_NAME" /> içinde geçersiz kılınamaz. Bu politika ayarlanmadan bırakılırsa sızıntı denetimine izin verilir (ancak kullanıcı tarafından kapatılabilir).</translation>
 <translation id="6553143066970470539">Ekran parlaklığı yüzdesi</translation>
 <translation id="6559057113164934677">Hiçbir sitenin kamera ve mikrofona erişmesine izin verme</translation>
 <translation id="6561396069801924653">Erişilebilirlik seçeneklerini sistem tepsisi menüsünde göster</translation>

@@ -10,7 +10,6 @@ import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.support.v4.content.FileProvider;
 import android.util.SparseArray;
 import android.webkit.ValueCallback;
@@ -25,7 +24,6 @@ import org.chromium.base.PathUtils;
 import org.chromium.base.StrictModeContext;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
-import org.chromium.base.annotations.UsedByReflection;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.components.embedder_support.application.ClassLoaderContextWrapperFactory;
@@ -34,12 +32,12 @@ import org.chromium.content_public.browser.ChildProcessCreationParams;
 import org.chromium.content_public.browser.DeviceUtils;
 import org.chromium.ui.base.ResourceBundle;
 import org.chromium.weblayer_private.interfaces.IBrowserFragment;
+import org.chromium.weblayer_private.interfaces.ICrashReporterController;
 import org.chromium.weblayer_private.interfaces.IObjectWrapper;
 import org.chromium.weblayer_private.interfaces.IProfile;
 import org.chromium.weblayer_private.interfaces.IRemoteFragmentClient;
 import org.chromium.weblayer_private.interfaces.IWebLayer;
 import org.chromium.weblayer_private.interfaces.ObjectWrapper;
-import org.chromium.weblayer_private.interfaces.WebLayerVersion;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
@@ -47,18 +45,18 @@ import java.lang.reflect.Method;
 
 /**
  * Root implementation class for WebLayer.
- * This is constructed by the client library using reflection.
  */
 @JNINamespace("weblayer")
-@UsedByReflection("WebLayer")
 public final class WebLayerImpl extends IWebLayer.Stub {
     // TODO: should there be one tag for all this code?
     private static final String TAG = "WebLayer";
-    private static final String PRIVATE_DATA_DIRECTORY_SUFFIX = "weblayer";
+    private static final String PRIVATE_DIRECTORY_SUFFIX = "weblayer";
     // TODO: Configure this from the client.
     private static final String COMMAND_LINE_FILE = "/data/local/tmp/weblayer-command-line";
 
     private final ProfileManager mProfileManager = new ProfileManager();
+
+    private boolean mInited;
 
     private static class FileProviderHelper implements ContentUriUtils.FileProviderUtil {
         // Keep this variable in sync with the value defined in AndroidManifest.xml.
@@ -73,29 +71,71 @@ public final class WebLayerImpl extends IWebLayer.Stub {
         }
     }
 
-    @UsedByReflection("WebLayer")
-    public static IBinder create() {
-        return new WebLayerImpl();
-    }
-
-    private WebLayerImpl() {}
+    WebLayerImpl() {}
 
     /**
-     * Returns true if the client and implementation versions are compatible.
+     * Performs the minimal initialization needed for a context. This is used for example in
+     * CrashReporterControllerImpl, so it can be used before full WebLayer initialization.
      */
-    @UsedByReflection("WebLayer")
-    public static boolean checkVersion(int clientVersion) {
-        return clientVersion == WebLayerVersion.sVersionNumber;
-    }
-
-    @Override
-    public void initAndLoadAsync(
-            IObjectWrapper appContextWrapper, IObjectWrapper loadedCallbackWrapper) {
+    public static Context minimalInitForContext(IObjectWrapper appContextWrapper) {
+        if (ContextUtils.getApplicationContext() != null) {
+            return ContextUtils.getApplicationContext();
+        }
         // Wrap the app context so that it can be used to load WebLayer implementation classes.
         Context appContext = ClassLoaderContextWrapperFactory.get(
                 ObjectWrapper.unwrap(appContextWrapper, Context.class));
-        PackageInfo packageInfo = WebViewFactory.getLoadedPackageInfo();
         ContextUtils.initApplicationContext(appContext);
+        PathUtils.setPrivateDataDirectorySuffix(PRIVATE_DIRECTORY_SUFFIX, PRIVATE_DIRECTORY_SUFFIX);
+        return appContext;
+    }
+
+    @Override
+    public void loadAsync(
+            IObjectWrapper appContextWrapper, IObjectWrapper loadedCallbackWrapper) {
+        init(appContextWrapper);
+
+        final ValueCallback<Boolean> loadedCallback = (ValueCallback<Boolean>) ObjectWrapper.unwrap(
+                loadedCallbackWrapper, ValueCallback.class);
+        BrowserStartupController.get(LibraryProcessType.PROCESS_WEBLAYER)
+                .startBrowserProcessesAsync(/* startGpu */ false,
+                        /* startServiceManagerOnly */ false,
+                        new BrowserStartupController.StartupCallback() {
+                            @Override
+                            public void onSuccess() {
+                                CrashReporterControllerImpl.getInstance(appContextWrapper)
+                                        .notifyNativeInitialized();
+                                loadedCallback.onReceiveValue(true);
+                            }
+                            @Override
+                            public void onFailure() {
+                                loadedCallback.onReceiveValue(false);
+                            }
+                        });
+    }
+
+    @Override
+    public void loadSync(IObjectWrapper appContextWrapper) {
+        init(appContextWrapper);
+
+        BrowserStartupController.get(LibraryProcessType.PROCESS_WEBLAYER)
+                .startBrowserProcessesSync(
+                        /* singleProcess*/ false);
+        CrashReporterControllerImpl.getInstance(appContextWrapper).notifyNativeInitialized();
+    }
+
+    private void init(IObjectWrapper appContextWrapper) {
+        if (mInited) {
+            return;
+        }
+        mInited = true;
+
+        Context appContext = minimalInitForContext(appContextWrapper);
+        PackageInfo packageInfo = WebViewFactory.getLoadedPackageInfo();
+
+        // TODO: This can break some functionality of apps that are doing interesting things with
+        // Contexts, ideally we would find a better way to do this.
+        addWebViewAssetPath(appContext, packageInfo);
+
         BuildInfo.setBrowserPackageInfo(packageInfo);
         int resourcesPackageId = getPackageId(appContext, packageInfo.packageName);
         // TODO: The call to onResourcesLoaded() can be slow, we may need to parallelize this with
@@ -103,7 +143,6 @@ public final class WebLayerImpl extends IWebLayer.Stub {
         R.onResourcesLoaded(resourcesPackageId);
 
         ResourceBundle.setAvailablePakLocales(new String[] {}, LocaleConfig.UNCOMPRESSED_LOCALES);
-        PathUtils.setPrivateDataDirectorySuffix(PRIVATE_DATA_DIRECTORY_SUFFIX);
 
         ChildProcessCreationParams.set(appContext.getPackageName(), false /* isExternalService */,
                 LibraryProcessType.PROCESS_WEBLAYER_CHILD, true /* bindToCaller */,
@@ -128,29 +167,6 @@ public final class WebLayerImpl extends IWebLayer.Stub {
             LibraryLoader.getInstance().ensureInitialized(LibraryProcessType.PROCESS_WEBLAYER);
         }
         GmsBridge.getInstance().setSafeBrowsingHandler();
-
-        final ValueCallback<Boolean> loadedCallback = (ValueCallback<Boolean>) ObjectWrapper.unwrap(
-                loadedCallbackWrapper, ValueCallback.class);
-        BrowserStartupController.get(LibraryProcessType.PROCESS_WEBLAYER)
-                .startBrowserProcessesAsync(/* startGpu */ false,
-                        /* startServiceManagerOnly */ false,
-                        new BrowserStartupController.StartupCallback() {
-                            @Override
-                            public void onSuccess() {
-                                loadedCallback.onReceiveValue(true);
-                            }
-                            @Override
-                            public void onFailure() {
-                                loadedCallback.onReceiveValue(false);
-                            }
-                        });
-    }
-
-    @Override
-    public void loadSync() {
-        BrowserStartupController.get(LibraryProcessType.PROCESS_WEBLAYER)
-                .startBrowserProcessesSync(
-                        /* singleProcess*/ false);
     }
 
     @Override
@@ -175,6 +191,31 @@ public final class WebLayerImpl extends IWebLayer.Stub {
     @Override
     public boolean isRemoteDebuggingEnabled() {
         return WebLayerImplJni.get().isRemoteDebuggingEnabled();
+    }
+
+    @Override
+    public ICrashReporterController getCrashReporterController(IObjectWrapper appContext) {
+        return CrashReporterControllerImpl.getInstance(appContext);
+    }
+
+    private static void addWebViewAssetPath(Context appContext, PackageInfo packageInfo) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                Constructor constructor = WebViewDelegate.class.getDeclaredConstructor();
+                constructor.setAccessible(true);
+                WebViewDelegate delegate = (WebViewDelegate) constructor.newInstance();
+                delegate.addWebViewAssetPath(appContext);
+            } else {
+                // In L WebViewDelegate did not yet exist, so we have to poke AssetManager directly.
+                // Note: like the implementation in WebView's Api21CompatibilityDelegate this does
+                // not support split APKs.
+                Method addAssetPath = AssetManager.class.getMethod("addAssetPath", String.class);
+                addAssetPath.invoke(appContext.getResources().getAssets(),
+                        packageInfo.applicationInfo.sourceDir);
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

@@ -824,6 +824,11 @@ Google에 전송됩니다.  사용 중지되면 이 정보가 Google에 전송�
 <translation id="2303795211377219696">신용카드 정보 자동 완성 사용</translation>
 <translation id="2309390639296060546">기본 위치정보 설정</translation>
 <translation id="2327252517317514801">G Suite에 액세스할 수 있게 허용된 도메인 정의</translation>
+<translation id="2328573323851533589">이 정책을 사용하여 <ph name="PRODUCT_NAME" />에서 사용자 인증 정보 유출 확인을 강제로 사용 설정하거나 중지할 수 있습니다.
+
+          정책이 True로 설정되더라도 세이프 브라우징이 정책 또는 사용자에 의해 사용 중지되어 있으면 사용자 인증 정보 유출 확인을 강제로 사용 설정하거나 중지하지 않습니다. 세이프 브라우징을 강제로 사용 설정하려면 <ph name="SAFE_BROWSING_ENABLED_POLICY_NAME" /> 정책을 사용하세요.
+
+          이 정책을 사용 설정 또는 중지하면 사용자가 <ph name="PRODUCT_NAME" />에서 정책을 변경하거나 재정의할 수 없습니다. 정책이 설정되어 있지 않으면 사용자 인증 정보 유출 확인이 허용되지만 사용자가 사용 중지할 수 있습니다.</translation>
 <translation id="2345547870894930157">안전하지 않은 대체 없이 DNS-over-HTTPS 사용</translation>
 <translation id="237494535617297575">알림 표시가 허용되는 사이트를 지정하는 URL 패턴 목록을 설정할 수 있습니다.
 
@@ -3461,9 +3466,6 @@ Google에 전송됩니다.  사용 중지되면 이 정보가 Google에 전송�
 <translation id="6544897973797372144">정책이 True로 설정되어 있고 ChromeOsReleaseChannel 정책이 지정되지 않은 경우 등록된 도메인의 사용자가 기기의 배포 채널을 변경할 수 있도록 허용됩니다. 정책이 false로 설정되어 있으면 마지막에 설정한 채널을 기기가 사용합니다.
 
       사용자가 선택한 채널은 ChromeOsReleaseChannel 정책이 무시할 수 있지만 정책 채널이 기기에 설치된 채널보다 더 안정적인 경우 더 안정적인 채널이 기기에 설치된 채널보다 더 많아질 때 채널이 전환됩니다.</translation>
-<translation id="6549567350270907557">이 설정을 사용 설정하면 입력된 사용자 인증 정보가 유출된 데이터에 포함되었는지 <ph name="PRODUCT_NAME" />에서 확인하도록 할 수 있습니다.
-
-              이 정책을 사용 설정 또는 중지하면 사용자는 <ph name="PRODUCT_NAME" />에서 이 정책을 변경하거나 재정의할 수 없습니다. 정책이 설정되지 않으면 유출 검사가 허용되지만 사용자가 사용 중지할 수 있습니다.</translation>
 <translation id="6553143066970470539">화면 밝기 퍼센트</translation>
 <translation id="6559057113164934677">카메라 및 마이크에 대한 모든 사이트의 액세스 허용 안함</translation>
 <translation id="6561396069801924653">작업 표시줄 메뉴에 접근성 옵션 표시</translation>

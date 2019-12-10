@@ -115,6 +115,7 @@
 <translation id="1463543813647160932">5x7</translation>
 <translation id="1472675084647422956">자세히 보기</translation>
 <translation id="147358896496811705">2A0</translation>
+<translation id="1476595624592550506">비밀번호 변경</translation>
 <translation id="1484290072879560759">배송지 주소 선택</translation>
 <translation id="1492194039220927094">정책 푸시:</translation>
 <translation id="1501859676467574491">Google 계정에 저장된 카드 표시</translation>
@@ -174,7 +175,6 @@
 <translation id="173080396488393970">이 유형의 카드는 지원되지 않습니다.</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">시스템 관리자에게 문의하세요.</translation>
-<translation id="1739107442478692187">사용 중인 사이트 또는 앱에서 정보 유출이 발생했습니다. 저장된 비밀번호를 확인하고 지금 바로 <ph name="ORIGIN" />의 비밀번호를 변경하는 것이 좋습니다.</translation>
 <translation id="1740951997222943430">올바른 만료 월을 입력하세요.</translation>
 <translation id="1743520634839655729">다음번에 더 빠르게 결제할 수 있도록 Google 계정과 기기에 카드, 이름, 청구서 수신 주소를 저장하세요.</translation>
 <translation id="1743570585616704562">인식할 수 없음</translation>
@@ -207,6 +207,7 @@
 <translation id="1914326953223720820">압축 해제 서비스</translation>
 <translation id="1915697529809968049">CVC 대신 Touch ID를 사용하시겠습니까?</translation>
 <translation id="1916770123977586577">이 사이트에 업데이트된 설정을 적용하려면 이 페이지를 다시 로드하세요.</translation>
+<translation id="1917876262703816781">사이트 또는 앱의 정보 유출로 인해 비밀번호가 노출되었습니다. 지금 <ph name="ORIGIN" />의 비밀번호를 변경하는 것이 좋습니다.</translation>
 <translation id="1919345977826869612">광고</translation>
 <translation id="1919367280705858090">특정 오류 메시지에 관한 도움말 보기</translation>
 <translation id="192020519938775529">{COUNT,plural, =0{없음}=1{사이트 1개}other{사이트 #개}}</translation>
@@ -239,7 +240,6 @@
 <translation id="2094505752054353250">도메인이 일치하지 않음</translation>
 <translation id="2096368010154057602">부서</translation>
 <translation id="2099652385553570808">왼쪽 트리플 스테이플</translation>
-<translation id="2100280972184758440">비밀번호가 도용됨</translation>
 <translation id="2102134110707549001">강력한 비밀번호 추천...</translation>
 <translation id="2108755909498034140">컴퓨터 다시 시작</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -247,7 +247,6 @@
 <translation id="2114841414352855701"><ph name="POLICY_NAME" />이(가) 우선 적용되었기 때문에 무시됩니다.</translation>
 <translation id="2119505898009119320">발급 대상: <ph name="ORGANIZATION" />[<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">오른쪽 하단 펀칭</translation>
-<translation id="2124528555835617522">사용 중인 사이트 또는 앱에서 정보 유출이 발생했습니다. 지금 바로 저장된 비밀번호를 확인하는 것이 좋습니다.</translation>
 <translation id="2129079103035905234">움직임 감지 센서</translation>
 <translation id="213826338245044447">모바일 북마크</translation>
 <translation id="214556005048008348">결제 취소</translation>
@@ -484,7 +483,6 @@
 <translation id="3282497668470633863">카드 명의 추가</translation>
 <translation id="3287510313208355388">온라인 상태일 때 다운로드</translation>
 <translation id="3293642807462928945"><ph name="POLICY_NAME" /> 정책에 관해 자세히 알아보기</translation>
-<translation id="3295439534709115864">사용 중인 사이트 또는 앱에서 정보 유출이 발생했습니다. 지금 바로 <ph name="ORIGIN" />의 비밀번호를 변경하는 것이 좋습니다.</translation>
 <translation id="3303855915957856445">검색결과 없음</translation>
 <translation id="3320021301628644560">청구지 주소 추가</translation>
 <translation id="3324983252691184275">진홍색</translation>
@@ -896,6 +894,7 @@
 <translation id="5287240709317226393">쿠키 표시</translation>
 <translation id="5287456746628258573">이 사이트에서는 오래된 보안 구성을 사용하므로 정보(예: 비밀번호나 신용카드 번호)를 이 사이트로 전송할 경우 정보가 유출될 수도 있습니다.</translation>
 <translation id="5288108484102287882">정책 값 유효성 검사 결과 경고가 발생했습니다.</translation>
+<translation id="5295292838686006428">사이트 또는 앱의 정보 유출로 인해 비밀번호가 노출되었습니다. 지금 저장된 비밀번호를 확인하는 것이 좋습니다.</translation>
 <translation id="5299298092464848405">정책을 파싱하는 중 오류 발생</translation>
 <translation id="5300589172476337783">표시</translation>
 <translation id="5308380583665731573">연결</translation>
@@ -945,6 +944,7 @@
 <translation id="5540224163453853">요청한 글을 찾지 못했습니다.</translation>
 <translation id="5541546772353173584">이메일 추가</translation>
 <translation id="5545756402275714221">추천 기사</translation>
+<translation id="5552137475244467770">Chrome에서는 온라인에 게시된 비밀번호 목록에 사용자의 비밀번호가 포함되어 있는지를 주기적으로 확인합니다. 이렇게 하면 비밀번호 및 사용자 이름이 암호화되어 Google을 포함해 누구도 읽을 수 없습니다.</translation>
 <translation id="5556459405103347317">새로고침</translation>
 <translation id="5560088892362098740">만료일</translation>
 <translation id="5565735124758917034">활성</translation>
@@ -1035,6 +1035,7 @@
 <translation id="5992691462791905444">엔지니어링 Z 폴드</translation>
 <translation id="6000758707621254961">'<ph name="SEARCH_TEXT" />' 검색결과 <ph name="RESULT_COUNT" />개</translation>
 <translation id="6008256403891681546">JCB</translation>
+<translation id="6014801569448771146">비밀번호 확인</translation>
 <translation id="6015796118275082299">연도</translation>
 <translation id="6016158022840135739">{COUNT,plural, =1{1페이지}other{#페이지}}</translation>
 <translation id="6017514345406065928">녹색</translation>
@@ -1317,6 +1318,7 @@
 <translation id="7481312909269577407">앞으로</translation>
 <translation id="748406663033922918">화면 잠금을 사용해 저장된 결제 수단을 확인합니다.</translation>
 <translation id="7485870689360869515">데이터 없음</translation>
+<translation id="7495290002932347110">사이트 또는 앱의 정보 유출로 인해 비밀번호가 노출되었습니다. 지금 저장된 비밀번호를 확인하고 <ph name="ORIGIN" />의 비밀번호를 변경하는 것이 좋습니다.</translation>
 <translation id="7498234416455752244">계속 수정</translation>
 <translation id="7508255263130623398">반환된 정책 기기 ID가 비었거나 현재 기기 ID와 일치하지 않음</translation>
 <translation id="7508870219247277067">아보카도 녹색</translation>

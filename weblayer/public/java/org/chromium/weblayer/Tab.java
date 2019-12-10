@@ -223,10 +223,10 @@ public final class Tab {
 
     private final class TabClientImpl extends ITabClient.Stub {
         @Override
-        public void visibleUrlChanged(String url) {
-            Uri uri = Uri.parse(url);
+        public void visibleUriChanged(String uriString) {
+            Uri uri = Uri.parse(uriString);
             for (TabCallback callback : mCallbacks) {
-                callback.onVisibleUrlChanged(uri);
+                callback.onVisibleUriChanged(uri);
             }
         }
 
@@ -270,10 +270,10 @@ public final class Tab {
         }
 
         @Override
-        public void downloadRequested(String url, String userAgent, String contentDisposition,
-                String mimetype, long contentLength) {
-            mCallback.onDownloadRequested(
-                    url, userAgent, contentDisposition, mimetype, contentLength);
+        public boolean interceptDownload(String uriString, String userAgent,
+                String contentDisposition, String mimetype, long contentLength) {
+            return mCallback.onInterceptDownload(
+                    Uri.parse(uriString), userAgent, contentDisposition, mimetype, contentLength);
         }
     }
 

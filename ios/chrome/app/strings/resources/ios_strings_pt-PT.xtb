@@ -99,7 +99,6 @@
 <translation id="2273327106802955778">Menu Mais</translation>
 <translation id="2316709634732130529">Utilizar palavra-passe sugerida</translation>
 <translation id="2320166752086256636">Ocultar teclado</translation>
-<translation id="2330129964253841015">Enviar-lhe um aviso se as palavras-passe forem comprometidas</translation>
 <translation id="2339560363438331454">Sincronização e serviços Google</translation>
 <translation id="2351097562818989364">As definições de tradução foram repostas.</translation>
 <translation id="2359043044084662842">Traduzir</translation>
@@ -426,6 +425,7 @@ Os dados foram encriptados com a sua frase de acesso de sincronização em <ph n
 <translation id="6973630695168034713">Pastas</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6988572888918530647">Faça a gestão da sua Conta Google</translation>
+<translation id="6995899638241819463">Enviar-lhe um aviso se as palavras-passe forem expostas numa violação de dados</translation>
 <translation id="7004499039102548441">Separadores recentes</translation>
 <translation id="7006788746334555276">Definições de Conteúdo</translation>
 <translation id="7015203776128479407">A configuração da sincronização inicial não foi concluída. A sincronização está desativada.</translation>

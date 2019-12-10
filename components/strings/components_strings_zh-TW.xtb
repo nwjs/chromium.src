@@ -115,6 +115,7 @@
 <translation id="1463543813647160932">5x7</translation>
 <translation id="1472675084647422956">顯示更多</translation>
 <translation id="147358896496811705">2A0</translation>
+<translation id="1476595624592550506">變更你的密碼</translation>
 <translation id="1484290072879560759">選擇運送地址</translation>
 <translation id="1492194039220927094">政策通知推送：</translation>
 <translation id="1501859676467574491">顯示你 Google 帳戶中的卡片</translation>
@@ -174,7 +175,6 @@
 <translation id="173080396488393970">不支援這種信用卡類型</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">建議您與系統管理員聯絡。</translation>
-<translation id="1739107442478692187">你使用的網站或應用程式發生資料侵害事件。Chrome 建議你檢查儲存的密碼，並立即變更 <ph name="ORIGIN" /> 上的密碼。</translation>
 <translation id="1740951997222943430">請輸入有效的到期月份</translation>
 <translation id="1743520634839655729">只要將你的卡片資訊、姓名與帳單地址儲存到你的 Google 帳戶中和這部裝置上，下次即可更快完成付款程序。</translation>
 <translation id="1743570585616704562">無法識別</translation>
@@ -207,6 +207,7 @@
 <translation id="1914326953223720820">解壓縮服務</translation>
 <translation id="1915697529809968049">要使用 Touch ID 取代信用卡安全碼嗎？</translation>
 <translation id="1916770123977586577">如要將你更新過的設定套用到這個網站，請重新載入這個網頁</translation>
+<translation id="1917876262703816781">你使用的某個網站或應用程式發生資料侵害事件，因此你的密碼已遭洩露。Chrome 建議你立即變更 <ph name="ORIGIN" /> 上的密碼。</translation>
 <translation id="1919345977826869612">廣告</translation>
 <translation id="1919367280705858090">瞭解如何修正特定錯誤訊息指出的錯誤</translation>
 <translation id="192020519938775529">{COUNT,plural, =0{無}=1{1 個網站}other{# 個網站}}</translation>
@@ -239,7 +240,6 @@
 <translation id="2094505752054353250">網域不符</translation>
 <translation id="2096368010154057602">部門</translation>
 <translation id="2099652385553570808">三釘 (左側)</translation>
-<translation id="2100280972184758440">你的密碼已遭外洩</translation>
 <translation id="2102134110707549001">建議高強度密碼…</translation>
 <translation id="2108755909498034140">重新啟動電腦</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -247,7 +247,6 @@
 <translation id="2114841414352855701">由於政策被「<ph name="POLICY_NAME" />」覆寫了，因此遭到略過。</translation>
 <translation id="2119505898009119320">核發對象：<ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">打孔 (右下方)</translation>
-<translation id="2124528555835617522">你使用的網站或應用程式發生資料侵害事件。Chrome 建議你立即檢查已儲存的密碼。</translation>
 <translation id="2129079103035905234">動作感應器</translation>
 <translation id="213826338245044447">行動版書籤</translation>
 <translation id="214556005048008348">取消付款</translation>
@@ -476,7 +475,6 @@
 <translation id="3282497668470633863">新增持卡人姓名</translation>
 <translation id="3287510313208355388">等到可連線時再下載網頁內容</translation>
 <translation id="3293642807462928945">進一步瞭解 <ph name="POLICY_NAME" /> 政策</translation>
-<translation id="3295439534709115864">你使用的網站或應用程式發生資料侵害事件。Chrome 建議你立即變更 <ph name="ORIGIN" /> 上的密碼。</translation>
 <translation id="3303855915957856445">找不到相符的搜尋結果</translation>
 <translation id="3320021301628644560">新增帳單地址</translation>
 <translation id="3324983252691184275">深紅色</translation>
@@ -882,6 +880,7 @@
 <translation id="5287240709317226393">顯示 Cookie</translation>
 <translation id="5287456746628258573">這個網站的安全性設定過舊，因此你傳送給這個網站的的資訊 (例如密碼或信用卡號碼) 可能會外洩。</translation>
 <translation id="5288108484102287882">政策值驗證作業出現警告訊息</translation>
+<translation id="5295292838686006428">你使用的某個網站或應用程式發生資料侵害事件，因此你的密碼已遭洩露。Chrome 建議你立即檢查已儲存的密碼。</translation>
 <translation id="5299298092464848405">解析政策時發生錯誤</translation>
 <translation id="5300589172476337783">顯示</translation>
 <translation id="5308380583665731573">連線</translation>
@@ -931,6 +930,7 @@
 <translation id="5540224163453853">找不到要求的文章。</translation>
 <translation id="5541546772353173584">新增電子郵件地址</translation>
 <translation id="5545756402275714221">為你推薦的報導</translation>
+<translation id="5552137475244467770">Chrome 會定期將你的密碼與網路上發布的清單進行比對。在比對過程中，你的密碼和使用者名稱會經過加密，任何人 (包括 Google) 都無法讀取。</translation>
 <translation id="5556459405103347317">重新載入</translation>
 <translation id="5560088892362098740">到期日</translation>
 <translation id="5565735124758917034">管理中</translation>
@@ -1021,6 +1021,7 @@
 <translation id="5992691462791905444">大小彈簧摺</translation>
 <translation id="6000758707621254961">有 <ph name="RESULT_COUNT" /> 個與「<ph name="SEARCH_TEXT" />」相符的搜尋結果</translation>
 <translation id="6008256403891681546">JCB</translation>
+<translation id="6014801569448771146">請檢查你的密碼</translation>
 <translation id="6015796118275082299">年</translation>
 <translation id="6016158022840135739">{COUNT,plural, =1{第 1 頁}other{第 # 頁}}</translation>
 <translation id="6017514345406065928">綠色</translation>
@@ -1304,6 +1305,7 @@
 <translation id="7481312909269577407">往前</translation>
 <translation id="748406663033922918">使用螢幕鎖定驗證已儲存的付款方式。</translation>
 <translation id="7485870689360869515">找不到任何資料。</translation>
+<translation id="7495290002932347110">你使用的某個網站或應用程式發生資料侵害事件，因此你的密碼已遭洩露。Chrome 建議你立即檢查已儲存的密碼，並變更 <ph name="ORIGIN" /> 上的密碼。</translation>
 <translation id="7498234416455752244">繼續編輯</translation>
 <translation id="7508255263130623398">傳回的政策裝置 ID 沒有任何內容，或是與目前的裝置 ID 不符</translation>
 <translation id="7508870219247277067">酪梨綠</translation>

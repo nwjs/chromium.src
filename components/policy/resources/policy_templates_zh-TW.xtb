@@ -801,6 +801,11 @@
 <translation id="2303795211377219696">啟用信用卡的自動填入功能</translation>
 <translation id="2309390639296060546">預設地理位置設定</translation>
 <translation id="2327252517317514801">定義可存取 G Suite 的網域</translation>
+<translation id="2328573323851533589">這項政策可用於強制啟用或強制停用 <ph name="PRODUCT_NAME" /> 中的憑證外洩檢查功能。
+
+          請注意，如果安全瀏覽功能已停用 (無論是根據政策設定或使用者自行停用)，即使這項政策設為 True，也不會觸發對應的行為。如要強制啟用安全瀏覽功能，請使用 <ph name="SAFE_BROWSING_ENABLED_POLICY_NAME" /> 政策。
+
+          將這項政策設為啟用或停用後，使用者即無法在 <ph name="PRODUCT_NAME" /> 中變更或覆寫設定。如果不設定這項政策，系統可執行憑證外洩檢查功能 (但使用者可自行停用)。</translation>
 <translation id="2345547870894930157">啟用 DNS-over-HTTPS，而且禁止改用不安全查詢</translation>
 <translation id="237494535617297575">允許你設定網址模式清單，指定可以展示通知的網站。如果未設定這項政策，系統會從「DefaultNotificationsSetting」政策 (如果有設定的話) 或使用者的個人設定，將通用預設值套用至所有網站。</translation>
 <translation id="2386362615870139244">允許使用螢幕喚醒鎖</translation>
@@ -3322,9 +3327,6 @@
 <translation id="6544897973797372144">如果你將這項政策設為「True」，且並未指定 ChromeOsReleaseChannel 政策，則註冊網域的使用者將可變更裝置的發布頻道。如果你將這項政策設為「False」，則系統會將裝置鎖定為先前設定的任何頻道。
 
       ChromeOsReleaseChannel 政策會覆寫使用者選取的頻道，但如果政策設定的頻道比裝置原本安裝的頻道更穩定，則系統只會在更穩定的頻道發布比裝置上安裝的頻道更高的版本時，才會切換至該版本。</translation>
-<translation id="6549567350270907557">啟用這項設定後，使用者可以透過 <ph name="PRODUCT_NAME" /> 檢查已輸入的憑證是否有資料外洩。
-
-              這項政策一經啟用或停用，使用者即無法在 <ph name="PRODUCT_NAME" /> 中變更或覆寫政策。如果不設定這項政策，系統可執行資料外洩檢查功能 (但使用者可自行關閉)。</translation>
 <translation id="6553143066970470539">螢幕亮度百分比</translation>
 <translation id="6559057113164934677">不允許任何網站使用攝影機和麥克風</translation>
 <translation id="6561396069801924653">在系統匣選單中顯示無障礙選項</translation>
@@ -4327,7 +4329,7 @@
           如果你停用這項設定，系統將會掃描網頁的中繼標記。
 
           如未設定這項政策，系統將會掃描網頁的中繼標記。</translation>
-<translation id="829641334878002866">這項政策可讓你設定時間範圍 (以毫秒為單位)，指定從系統第一次通知使用者重新啟動 <ph name="PRODUCT_OS_NAME" />裝置以套用待處理的更新開始，到 <ph name="RELAUNCH_NOTIFICATION_PERIOD_POLICY_NAME" /> 政策指定的結束時間為止，兩者之間的時間範圍。
+<translation id="829641334878002866">這項政策可讓你設定以下作業的時間範圍 (以毫秒為單位)：從系統第一次通知使用者重新啟動 <ph name="PRODUCT_OS_NAME" />裝置以套用待處理的更新開始，到 <ph name="RELAUNCH_NOTIFICATION_PERIOD_POLICY_NAME" /> 政策指定的結束時間為止。
 
       如果不設定這項政策，<ph name="PRODUCT_OS_NAME" />裝置會使用 259200000 毫秒 (三天) 做為預設時間範圍。</translation>
 <translation id="8300455783946254851">如果你設為 Ture，<ph name="PRODUCT_OS_NAME" />的「檔案」應用程式就會在使用行動網路連線時停用 Google 雲端硬碟同步功能。這種情形下，系統只有在連上 WiFi 或乙太網路連線時才會將資料同步處理至 Google 雲端硬碟。

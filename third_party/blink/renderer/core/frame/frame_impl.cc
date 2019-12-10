@@ -49,6 +49,13 @@ FrameImpl::~FrameImpl() = default;
 void FrameImpl::GetTextSurroundingSelection(
     uint32_t max_length,
     GetTextSurroundingSelectionCallback callback) {
+  // Early return on detached frames to avoid crashing if a request for
+  // surrounding text gets received at this point.
+  if (!GetSupplementable()->IsAttached()) {
+    std::move(callback).Run(g_empty_string, 0, 0);
+    return;
+  }
+
   blink::SurroundingText surrounding_text(GetSupplementable(), max_length);
 
   // |surrounding_text| might not be correctly initialized, for example if

@@ -86,7 +86,7 @@ bool AppListControllerDelegate::UninstallAllowed(Profile* profile,
 }
 
 bool AppListControllerDelegate::CanDoShowAppInfoFlow() {
-  return CanShowAppInfoDialog();
+  return CanPlatformShowAppInfoDialog();
 }
 
 void AppListControllerDelegate::DoShowAppInfoFlow(

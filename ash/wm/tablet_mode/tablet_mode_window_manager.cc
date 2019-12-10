@@ -41,15 +41,17 @@ namespace {
 
 // This function is called to check if window[i] is eligible to be carried over
 // to split view mode during clamshell <-> tablet mode transition or multi-user
-// switch transition. Returns true if windows[i] exists, can snap in split view,
-// and is not an ARC window.
+// switch transition. Returns true if windows[i] exists, is on |root_window|,
+// can snap in split view, and is not an ARC window.
 // TODO(xdai): Make it work for ARC windows. (see
 // https://crbug.com/922282 and
 // https://buganizer.corp.google.com/issues/123432223).
 bool IsCarryOverCandidateForSplitView(
     const MruWindowTracker::WindowList& windows,
-    size_t i) {
-  return windows.size() > i && CanSnapInSplitview(windows[i]) &&
+    size_t i,
+    aura::Window* root_window) {
+  return windows.size() > i && windows[i]->GetRootWindow() == root_window &&
+         CanSnapInSplitview(windows[i]) &&
          static_cast<ash::AppType>(windows[i]->GetProperty(
              aura::client::kAppType)) != AppType::ARC_APP;
 }
@@ -71,11 +73,12 @@ GetCarryOverWindowsInSplitView() {
                        return window->GetProperty(kIsShowingInOverviewKey);
                      }),
       mru_windows.end());
-  if (IsCarryOverCandidateForSplitView(mru_windows, 0u)) {
+  aura::Window* root_window = Shell::GetPrimaryRootWindow();
+  if (IsCarryOverCandidateForSplitView(mru_windows, 0u, root_window)) {
     if (WindowState::Get(mru_windows[0])->GetStateType() ==
         WindowStateType::kLeftSnapped) {
       windows.emplace(mru_windows[0], WindowStateType::kLeftSnapped);
-      if (IsCarryOverCandidateForSplitView(mru_windows, 1u) &&
+      if (IsCarryOverCandidateForSplitView(mru_windows, 1u, root_window) &&
           WindowState::Get(mru_windows[1])->GetStateType() ==
               WindowStateType::kRightSnapped) {
         windows.emplace(mru_windows[1], WindowStateType::kRightSnapped);
@@ -83,7 +86,7 @@ GetCarryOverWindowsInSplitView() {
     } else if (WindowState::Get(mru_windows[0])->GetStateType() ==
                WindowStateType::kRightSnapped) {
       windows.emplace(mru_windows[0], WindowStateType::kRightSnapped);
-      if (IsCarryOverCandidateForSplitView(mru_windows, 1u) &&
+      if (IsCarryOverCandidateForSplitView(mru_windows, 1u, root_window) &&
           WindowState::Get(mru_windows[1])->GetStateType() ==
               WindowStateType::kLeftSnapped) {
         windows.emplace(mru_windows[1], WindowStateType::kLeftSnapped);

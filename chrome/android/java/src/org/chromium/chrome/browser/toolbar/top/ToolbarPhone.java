@@ -52,6 +52,7 @@ import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.Invalidator;
 import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
+import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.ntp.NewTabPage;
@@ -1253,7 +1254,7 @@ public class ToolbarPhone extends ToolbarLayout implements Invalidator.Client, O
         previousAlpha = mLocationBar.getAlpha();
         mLocationBar.setAlpha(previousAlpha * floatAlpha);
         // If the location bar is now fully transparent, do not bother drawing it.
-        if (mLocationBar.getAlpha() != 0) {
+        if (mLocationBar.getAlpha() != 0 && isLocationBarCurrentlyShown()) {
             drawChild(canvas, mLocationBar, SystemClock.uptimeMillis());
         }
         mLocationBar.setAlpha(previousAlpha);
@@ -1612,6 +1613,11 @@ public class ToolbarPhone extends ToolbarLayout implements Invalidator.Client, O
     @Override
     public void setLayoutUpdateHost(LayoutUpdateHost layoutUpdateHost) {
         mLayoutUpdateHost = layoutUpdateHost;
+    }
+
+    @Override
+    public void setOverviewModeBehavior(OverviewModeBehavior overviewModeBehavior) {
+        mLocationBar.setOverviewModeBehavior(overviewModeBehavior);
     }
 
     @Override
@@ -2382,6 +2388,11 @@ public class ToolbarPhone extends ToolbarLayout implements Invalidator.Client, O
     private boolean isLocationBarShownInNTP() {
         NewTabPage ntp = getToolbarDataProvider().getNewTabPageForCurrentTab();
         return ntp != null && ntp.isLocationBarShownInNTP();
+    }
+
+    private boolean isLocationBarCurrentlyShown() {
+        NewTabPage ntp = getToolbarDataProvider().getNewTabPageForCurrentTab();
+        return ntp == null || !isLocationBarShownInNTP() || mUrlExpansionPercent > 0;
     }
 
     /**

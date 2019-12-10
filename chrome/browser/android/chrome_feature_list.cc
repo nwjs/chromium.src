@@ -137,6 +137,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kDownloadRename,
     &kDownloadTabManagementModule,
     &kDrawVerticallyEdgeToEdge,
+    &kDuetTabStripIntegrationAndroid,
     &kEphemeralTab,
     &kEphemeralTabUsingBottomSheet,
     &kExploreSites,
@@ -417,6 +418,9 @@ const base::Feature kDownloadRename{"DownloadRename",
 
 const base::Feature kDownloadTabManagementModule{
     "DownloadTabManagementModule", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kDuetTabStripIntegrationAndroid{
+    "DuetTabStripIntegrationAndroid", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kEphemeralTab{"EphemeralTab",
                                   base::FEATURE_DISABLED_BY_DEFAULT};

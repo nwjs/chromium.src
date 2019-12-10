@@ -153,6 +153,13 @@ public class FeatureUtilities {
     private static final String TAB_GROUPS_ANDROID_ENABLED_KEY = "tab_group_android_enabled";
 
     /**
+     * Whether or not the Duet-TabStrip integration is enabled.
+     * Default value is false.
+     */
+    public static final String DUET_TABSTRIP_INTEGRATION_ANDROID_ENABLED_KEY =
+            "Chrome.Flags.DuetTabstripIntegrationEnabled";
+
+    /**
      * Whether or not bootstrap tasks should be prioritized (i.e. bootstrap task prioritization
      * experiment is enabled). Default value is true.
      */
@@ -246,8 +253,11 @@ public class FeatureUtilities {
         cacheStartSurfaceEnabled();
         cacheClickToCallOpenDialerDirectlyEnabled();
 
-        if (isHighEndPhone()) cacheGridTabSwitcherEnabled();
-        if (isHighEndPhone()) cacheTabGroupsAndroidEnabled();
+        if (isHighEndPhone()) {
+            cacheGridTabSwitcherEnabled();
+            cacheTabGroupsAndroidEnabled();
+            cacheDuetTabStripIntegrationAndroidEnabled();
+        }
 
         // Propagate REACHED_CODE_PROFILER feature value to LibraryLoader. This can't be done in
         // LibraryLoader itself because it lives in //base and can't depend on ChromeFeatureList.
@@ -371,7 +381,7 @@ public class FeatureUtilities {
         return isFlagEnabled(BOTTOM_TOOLBAR_ENABLED_KEY, false)
                 && !DeviceFormFactor.isNonMultiDisplayContextOnTablet(
                         ContextUtils.getApplicationContext())
-                && !isTabGroupsAndroidEnabled();
+                && (isDuetTabStripIntegrationAndroidEnabled() || !isTabGroupsAndroidEnabled());
     }
 
     /**
@@ -387,7 +397,7 @@ public class FeatureUtilities {
      */
     public static boolean isAdaptiveToolbarEnabled() {
         return isFlagEnabled(ADAPTIVE_TOOLBAR_ENABLED_KEY, true) && isBottomToolbarEnabled()
-                && !isGridTabSwitcherEnabled();
+                && (isDuetTabStripIntegrationAndroidEnabled() || !isGridTabSwitcherEnabled());
     }
 
     /**
@@ -560,6 +570,21 @@ public class FeatureUtilities {
                         && isHighEndPhone());
     }
 
+    private static void cacheDuetTabStripIntegrationAndroidEnabled() {
+        ChromePreferenceManager chromePreferenceManager = ChromePreferenceManager.getInstance();
+        String featureKey = DUET_TABSTRIP_INTEGRATION_ANDROID_ENABLED_KEY;
+        boolean shouldQueryFeatureFlag = !DeviceClassManager.enableAccessibilityLayout();
+        if (!shouldQueryFeatureFlag) {
+            chromePreferenceManager.writeBoolean(featureKey, false);
+            return;
+        }
+        boolean queriedFlagValue =
+                ChromeFeatureList.isEnabled(ChromeFeatureList.DUET_TABSTRIP_INTEGRATION_ANDROID);
+        boolean duetTabStripIntegrationEnabled =
+                queriedFlagValue && TabManagementModuleProvider.isTabManagementModuleSupported();
+        chromePreferenceManager.writeBoolean(featureKey, duetTabStripIntegrationEnabled);
+    }
+
     /**
      * @return Whether the tab group feature is enabled and available for use.
      */
@@ -592,6 +617,17 @@ public class FeatureUtilities {
     @VisibleForTesting
     public static void setIsTabToGtsAnimationEnabledForTesting(@Nullable Boolean enabled) {
         sIsTabToGtsAnimationEnabled = enabled;
+    }
+
+    /**
+     * Toggles whether the Duet-TabStrip integration is enabled for testing. Should be reset back to
+     * null after the test has finished. Notice that TabGroup should also be turned on in order to
+     * really get the feature.
+     */
+    @VisibleForTesting
+    public static void setDuetTabStripIntegrationAndroidEnabledForTesting(
+            @Nullable Boolean isEnabled) {
+        sFlags.put(DUET_TABSTRIP_INTEGRATION_ANDROID_ENABLED_KEY, isEnabled);
     }
 
     /**
@@ -631,6 +667,14 @@ public class FeatureUtilities {
     public static boolean isTabGroupsAndroidContinuationEnabled() {
         return isTabGroupsAndroidEnabled()
                 && ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID);
+    }
+
+    /**
+     * @return Whether the tab strip and duet integration feature is enabled and available for use.
+     */
+    public static boolean isDuetTabStripIntegrationAndroidEnabled() {
+        return isTabGroupsAndroidEnabled()
+                && isFlagEnabled(DUET_TABSTRIP_INTEGRATION_ANDROID_ENABLED_KEY, false);
     }
 
     /**

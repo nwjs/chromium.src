@@ -115,6 +115,7 @@
 <translation id="1463543813647160932">5x7</translation>
 <translation id="1472675084647422956">显示更多</translation>
 <translation id="147358896496811705">2A0</translation>
+<translation id="1476595624592550506">更改您的密码</translation>
 <translation id="1484290072879560759">选择送货地址</translation>
 <translation id="1492194039220927094">政策推送：</translation>
 <translation id="1501859676467574491">显示您的 Google 帐号中保存的支付卡</translation>
@@ -174,7 +175,6 @@
 <translation id="173080396488393970">此信用卡类型不受支持</translation>
 <translation id="1734864079702812349">美国运通卡</translation>
 <translation id="1734878702283171397">请尝试联系系统管理员。</translation>
-<translation id="1739107442478692187">您使用的某个网站或应用发生了数据泄露。Chrome 建议您立即检查并更改您在<ph name="ORIGIN" />上保存的密码。</translation>
 <translation id="1740951997222943430">请输入有效的失效月份</translation>
 <translation id="1743520634839655729">若想在下次购物时更快捷地付款，请将您的付款卡信息、姓名和帐单邮寄地址保存到您的 Google 帐号名下以及这台设备中。</translation>
 <translation id="1743570585616704562">无法识别</translation>
@@ -207,6 +207,7 @@
 <translation id="1914326953223720820">解压缩服务</translation>
 <translation id="1915697529809968049">要改用 Touch ID 来取代银行卡验证码 (CVC) 吗？</translation>
 <translation id="1916770123977586577">要将您更新后的设置应用到此网站，请重新加载此页面</translation>
+<translation id="1917876262703816781">某个网站或应用发生了数据泄露，导致您的密码外泄。Chrome 建议您立即更改您在<ph name="ORIGIN" />上保存的密码。</translation>
 <translation id="1919345977826869612">广告</translation>
 <translation id="1919367280705858090">了解如何解决特定错误消息指出的错误</translation>
 <translation id="192020519938775529">{COUNT,plural, =0{无}=1{1 个网站}other{# 个网站}}</translation>
@@ -239,7 +240,6 @@
 <translation id="2094505752054353250">网域不匹配</translation>
 <translation id="2096368010154057602">省</translation>
 <translation id="2099652385553570808">三钉（左侧）</translation>
-<translation id="2100280972184758440">您的密码已被泄露</translation>
 <translation id="2102134110707549001">建议安全系数高的密码…</translation>
 <translation id="2108755909498034140">重新启动计算机</translation>
 <translation id="2111256659903765347">Super-A</translation>
@@ -247,7 +247,6 @@
 <translation id="2114841414352855701">由于已被 <ph name="POLICY_NAME" /> 替换，该政策已忽略。</translation>
 <translation id="2119505898009119320">颁发对象：<ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">打孔（右下角）</translation>
-<translation id="2124528555835617522">您使用的某个网站或应用发生了数据泄露。Chrome 建议您立即检查已保存的密码。</translation>
 <translation id="2129079103035905234">动态传感器</translation>
 <translation id="213826338245044447">移动设备书签</translation>
 <translation id="214556005048008348">取消付款</translation>
@@ -474,7 +473,6 @@
 <translation id="3282497668470633863">添加持卡人姓名</translation>
 <translation id="3287510313208355388">联网时下载</translation>
 <translation id="3293642807462928945">详细了解“<ph name="POLICY_NAME" />”政策</translation>
-<translation id="3295439534709115864">您使用的某个网站或应用发生了数据泄露。Chrome 建议您立即更改您在<ph name="ORIGIN" />上保存的密码。</translation>
 <translation id="3303855915957856445">未找到任何搜索结果</translation>
 <translation id="3320021301628644560">添加账单邮寄地址</translation>
 <translation id="3324983252691184275">深红色</translation>
@@ -878,6 +876,7 @@
 <translation id="5287240709317226393">显示 Cookie</translation>
 <translation id="5287456746628258573">此网站使用的安全性配置已过期，这可能会导致您的信息（例如密码或信用卡卡号）在发送至此网站时出现泄露。</translation>
 <translation id="5288108484102287882">政策值验证引发了警告</translation>
+<translation id="5295292838686006428">某个网站或应用发生了数据泄露，导致您的密码外泄。Chrome 建议您立即检查您保存的密码。</translation>
 <translation id="5299298092464848405">解析策略时出错</translation>
 <translation id="5300589172476337783">显示</translation>
 <translation id="5308380583665731573">连接</translation>
@@ -927,6 +926,7 @@
 <translation id="5540224163453853">找不到请求的文章。</translation>
 <translation id="5541546772353173584">添加电子邮件地址</translation>
 <translation id="5545756402275714221">为您推荐的文章</translation>
+<translation id="5552137475244467770">Chrome 会定期检查您的密码是否已被列在网上发布的外泄密码列表内。当 Chrome 进行这项检查时，您的密码和用户名都会被加密，所以绝不会被任何人员/任何一方（包括 Google）读取。</translation>
 <translation id="5556459405103347317">重新加载</translation>
 <translation id="5560088892362098740">到期日期</translation>
 <translation id="5565735124758917034">主动</translation>
@@ -1017,6 +1017,7 @@
 <translation id="5992691462791905444">工程 Z 型折</translation>
 <translation id="6000758707621254961"><ph name="RESULT_COUNT" /> 个与“<ph name="SEARCH_TEXT" />”相符的搜索结果</translation>
 <translation id="6008256403891681546">JCB</translation>
+<translation id="6014801569448771146">检查您的密码</translation>
 <translation id="6015796118275082299">年</translation>
 <translation id="6016158022840135739">{COUNT,plural, =1{第 1 页}other{第 # 页}}</translation>
 <translation id="6017514345406065928">绿色</translation>
@@ -1299,6 +1300,7 @@
 <translation id="7481312909269577407">前进</translation>
 <translation id="748406663033922918">使用“屏幕锁定”功能验证您保存的付款方式。</translation>
 <translation id="7485870689360869515">找不到数据。</translation>
+<translation id="7495290002932347110">某个网站或应用发生了数据泄露，导致您的密码外泄。Chrome 建议您立即检查并更改您在<ph name="ORIGIN" />上保存的密码。</translation>
 <translation id="7498234416455752244">继续修改</translation>
 <translation id="7508255263130623398">返回的政策设备 ID 为空，或与当前的设备 ID 不一致</translation>
 <translation id="7508870219247277067">黄绿色</translation>

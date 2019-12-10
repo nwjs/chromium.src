@@ -442,9 +442,9 @@ public class StartSurfaceLayout extends Layout implements StartSurface.OverviewM
         // The content viewport is intentionally sent as both params below.
         mSceneLayer.pushLayers(getContext(), contentViewport, contentViewport, this,
                 layerTitleCache, tabContentManager, resourceManager, fullscreenManager,
-                FeatureUtilities.isTabToGtsAnimationEnabled() ? mTabListDelegate.getResourceId()
-                                                              : 0,
-                mBackgroundAlpha);
+        FeatureUtilities.isTabToGtsAnimationEnabled() ? mTabListDelegate.getResourceId()
+                                                                 : 0,
+                mBackgroundAlpha, mStartSurface.getTabListDelegate().getTabListTopOffset());
         mFrameCount++;
         if (mLastFrameTime != 0) {
             long elapsed = SystemClock.elapsedRealtime() - mLastFrameTime;

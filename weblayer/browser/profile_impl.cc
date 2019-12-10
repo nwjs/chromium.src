@@ -11,8 +11,15 @@
 #include "base/strings/string_util.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
+#include "components/prefs/in_memory_pref_store.h"
+#include "components/prefs/pref_registry_simple.h"
+#include "components/prefs/pref_service.h"
+#include "components/prefs/pref_service_factory.h"
+#include "components/safe_browsing/common/safe_browsing_prefs.h"
+#include "components/user_prefs/user_prefs.h"
 #include "components/web_cache/browser/web_cache_manager.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/download_manager_delegate.h"
 #include "content/public/browser/resource_context.h"
@@ -27,6 +34,10 @@
 #include "base/android/jni_string.h"
 #include "base/android/scoped_java_ref.h"
 #include "weblayer/browser/java/jni/ProfileImpl_jni.h"
+#endif
+
+#if defined(OS_POSIX)
+#include "base/base_paths_posix.h"
 #endif
 
 #if defined(OS_ANDROID)
@@ -69,9 +80,8 @@ class DownloadManagerDelegateImpl : public content::DownloadManagerDelegate {
     if (!delegate)
       return true;
 
-    delegate->DownloadRequested(url, user_agent, content_disposition, mime_type,
-                                content_length);
-    return true;
+    return delegate->InterceptDownload(url, user_agent, content_disposition,
+                                       mime_type, content_length);
   }
 
  private:
@@ -92,9 +102,13 @@ bool IsNameValid(const std::string& name) {
 
 class ProfileImpl::BrowserContextImpl : public content::BrowserContext {
  public:
-  BrowserContextImpl(const base::FilePath& path) : path_(path) {
-    resource_context_ = std::make_unique<ResourceContextImpl>();
+  BrowserContextImpl(ProfileImpl* profile_impl, const base::FilePath& path)
+      : profile_impl_(profile_impl),
+        path_(path),
+        resource_context_(new ResourceContextImpl()) {
     content::BrowserContext::Initialize(this, path_);
+
+    CreateUserPrefService();
   }
 
   ~BrowserContextImpl() override { NotifyWillBeDestroyed(this); }
@@ -167,11 +181,44 @@ class ProfileImpl::BrowserContextImpl : public content::BrowserContext {
     return nullptr;
   }
 
+  ProfileImpl* profile_impl() const { return profile_impl_; }
+
  private:
+  // Creates a simple in-memory pref service.
+  // TODO(timvolodine): Investigate whether WebLayer needs persistent pref
+  // service.
+  void CreateUserPrefService() {
+    auto pref_registry = base::MakeRefCounted<PrefRegistrySimple>();
+    RegisterPrefs(pref_registry.get());
+
+    PrefServiceFactory pref_service_factory;
+    pref_service_factory.set_user_prefs(
+        base::MakeRefCounted<InMemoryPrefStore>());
+    user_pref_service_ = pref_service_factory.Create(pref_registry);
+    // Note: UserPrefs::Set also ensures that the user_pref_service_ has not
+    // been set previously.
+    user_prefs::UserPrefs::Set(this, user_pref_service_.get());
+  }
+
+  // Registers the preferences that WebLayer accesses.
+  void RegisterPrefs(PrefRegistrySimple* pref_registry) {
+    safe_browsing::RegisterProfilePrefs(pref_registry);
+  }
+
+  ProfileImpl* const profile_impl_;
   base::FilePath path_;
-  std::unique_ptr<ResourceContextImpl> resource_context_;
+  // ResourceContext needs to be deleted on the IO thread in general (and in
+  // particular due to the destruction of the safebrowsing mojo interface
+  // that has been added in ContentBrowserClient::ExposeInterfacesToRenderer
+  // on IO thread, see crbug.com/1029317). Also this is similar to how Chrome
+  // handles ProfileIOData.
+  // TODO(timvolodine): consider a more general Profile shutdown/destruction
+  // sequence for the IO/UI bits (crbug.com/1029879).
+  std::unique_ptr<ResourceContextImpl, content::BrowserThread::DeleteOnIOThread>
+      resource_context_;
   DownloadManagerDelegateImpl download_delegate_;
   SSLHostStateDelegateImpl ssl_host_state_delegate_;
+  std::unique_ptr<PrefService> user_pref_service_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowserContextImpl);
 };
@@ -205,18 +252,36 @@ class ProfileImpl::DataClearer : public content::BrowsingDataRemover::Observer {
   base::OnceCallback<void()> callback_;
 };
 
-ProfileImpl::ProfileImpl(const std::string& name) {
+// static
+base::FilePath ProfileImpl::GetCachePath(content::BrowserContext* context) {
+  DCHECK(context);
+  ProfileImpl* profile =
+      static_cast<BrowserContextImpl*>(context)->profile_impl();
+#if defined(OS_POSIX)
   base::FilePath path;
+  {
+    base::ScopedAllowBlocking allow_blocking;
+    CHECK(base::PathService::Get(base::DIR_CACHE, &path));
+    path = path.AppendASCII("profiles").AppendASCII(profile->name_.c_str());
+    if (!base::PathExists(path))
+      base::CreateDirectory(path);
+  }
+  return path;
+#else
+  return profile->data_path_;
+#endif
+}
 
+ProfileImpl::ProfileImpl(const std::string& name) : name_(name) {
   if (!name.empty()) {
     CHECK(IsNameValid(name));
     {
       base::ScopedAllowBlocking allow_blocking;
-      CHECK(base::PathService::Get(DIR_USER_DATA, &path));
-      path = path.AppendASCII("profiles").AppendASCII(name.c_str());
+      CHECK(base::PathService::Get(DIR_USER_DATA, &data_path_));
+      data_path_ = data_path_.AppendASCII("profiles").AppendASCII(name.c_str());
 
-      if (!base::PathExists(path))
-        base::CreateDirectory(path);
+      if (!base::PathExists(data_path_))
+        base::CreateDirectory(data_path_);
     }
   }
 
@@ -224,7 +289,7 @@ ProfileImpl::ProfileImpl(const std::string& name) {
   // OnRenderProcessHostCreated events.
   web_cache::WebCacheManager::GetInstance();
 
-  browser_context_ = std::make_unique<BrowserContextImpl>(path);
+  browser_context_ = std::make_unique<BrowserContextImpl>(this, data_path_);
 }
 
 ProfileImpl::~ProfileImpl() {

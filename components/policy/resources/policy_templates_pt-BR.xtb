@@ -802,6 +802,11 @@ Se você desativar esta configuração ou deixá-la sem definição, todas as p�
 <translation id="2303795211377219696">Ativar o preenchimento automático para cartões de crédito</translation>
 <translation id="2309390639296060546">Configuração padrão de geolocalização</translation>
 <translation id="2327252517317514801">Definir os domínios autorizados a acessar o G Suite</translation>
+<translation id="2328573323851533589">Esta política pode ser usada para ativar ou desativar forçadamente a verificação de vazamento de credenciais no <ph name="PRODUCT_NAME" />.
+
+          Mesmo se a política for definida como verdadeira, o comportamento não será acionado se o Navegação segura for desativado, seja pela política ou pelo usuário. Para forçar o Navegação segura, use a política <ph name="SAFE_BROWSING_ENABLED_POLICY_NAME" />.
+
+          Se esta política for ativada ou desativada, o usuário não poderá mudá-la nem substituí-la no <ph name="PRODUCT_NAME" />. Se esta política não for definida, a verificação de vazamento será permitida, mas poderá ser desativada pelo usuário.</translation>
 <translation id="2345547870894930157">Ativar DNS sobre HTTPS sem substituto inseguro</translation>
 <translation id="237494535617297575">Permite que você defina uma lista de padrões de URL que especificam sites com permissão para exibir notificações. Se esta política for deixada sem definição, o valor padrão global será utilizado para todos os sites a partir da política "DefaultNotificationsSetting", caso esta tenha sido definida, ou a partir das configurações pessoais do usuário, caso não tenha sido definida.</translation>
 <translation id="2386362615870139244">Permitir bloqueios de ativação da tela</translation>
@@ -3341,9 +3346,6 @@ Se esta configuração estiver desativada ou se nenhum valor for definido, o Mod
 <translation id="6544897973797372144">Se esta política for definida como "True", e a política ChromeOsReleaseChannel não for especificada, os usuários do domínio de inscrição poderão alterar o canal de versão do dispositivo. Se esta política for definida como "false", o dispositivo será bloqueado em qualquer canal em que a política tenha sido definida pela última vez.
 
       O canal selecionado pelo usuário será substituído pela política ChromeOsReleaseChannel, mas se o canal da política for mais estável que aquele instalado no dispositivo, o canal só vai mudar depois que a versão do canal mais estável atingir um número de versão superior à que está instalada no dispositivo.</translation>
-<translation id="6549567350270907557">Se essa configuração estiver ativada, os usuários poderão usar o <ph name="PRODUCT_NAME" /> para verificar se as credenciais digitadas foram comprometidas em um vazamento.
-
-              Se esta política estiver ativada ou desativada, o usuário não poderá alterá-la ou substituí-la no <ph name="PRODUCT_NAME" />. Se esta política não for definida, a verificação de vazamento será permitida, mas poderá ser desativada pelo usuário.</translation>
 <translation id="6553143066970470539">Porcentagem de brilho da tela</translation>
 <translation id="6559057113164934677">Não permitir que nenhum site acesse minha câmera e meu microfone</translation>
 <translation id="6561396069801924653">Mostrar opções de acessibilidade no menu da bandeja do sistema</translation>

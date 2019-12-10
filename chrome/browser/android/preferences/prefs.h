@@ -39,7 +39,9 @@ enum Pref {
   USAGE_STATS_ENABLED,
   OFFLINE_PREFETCH_USER_SETTING_ENABLED,
   SAFE_BROWSING_EXTENDED_REPORTING_OPT_IN_ALLOWED,
+  SAFE_BROWSING_ENABLED,
   PASSWORD_MANAGER_ONBOARDING_STATE,
+  PASSWORD_MANAGER_LEAK_DETECTION_ENABLED,
   // PREF_NUM_PREFS must be the last entry.
   PREF_NUM_PREFS
 };
@@ -68,7 +70,9 @@ const char* const kPrefsExposedToJava[] = {
     prefs::kUsageStatsEnabled,
     offline_pages::prefetch_prefs::kUserSettingEnabled,
     prefs::kSafeBrowsingExtendedReportingOptInAllowed,
+    prefs::kSafeBrowsingEnabled,
     password_manager::prefs::kPasswordManagerOnboardingState,
+    password_manager::prefs::kPasswordLeakDetectionEnabled,
 };
 
 #endif  // CHROME_BROWSER_ANDROID_PREFERENCES_PREFS_H_

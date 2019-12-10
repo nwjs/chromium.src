@@ -462,7 +462,7 @@ void NTPResourceCache::CreateNewTabHTML() {
                             !prefs->GetBoolean(prefs::kHideWebStoreIcon));
 
   load_time_data.SetBoolean("canShowAppInfoDialog",
-                            CanShowAppInfoDialog());
+                            CanPlatformShowAppInfoDialog());
 
   AppLauncherHandler::GetLocalizedValues(profile_, &load_time_data);
 
