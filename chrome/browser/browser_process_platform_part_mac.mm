@@ -4,6 +4,8 @@
 
 #include "chrome/browser/browser_process_platform_part_mac.h"
 
+#include "chrome/browser/lifetime/application_lifetime.h"
+
 #include "base/mac/foundation_util.h"
 #import "chrome/browser/app_controller_mac.h"
 #include "chrome/browser/chrome_browser_application_mac.h"
@@ -29,15 +31,17 @@ void BrowserProcessPlatformPart::AttemptExit(bool try_to_quit_application) {
   // come down this code path at all.) URL requests to exit have
   // |try_to_quit_application| set to true; keyboard menu invocations have it
   // set to false.
-
   if (!try_to_quit_application) {
+    chrome::CloseAllBrowsers(false, true);
+    return;
+#if 0
     // A keyboard menu invocation.
     AppController* app_controller =
         base::mac::ObjCCastStrict<AppController>([NSApp delegate]);
     if (![app_controller runConfirmQuitPanel])
       return;
+#endif
   }
-
   chrome_browser_application_mac::Terminate();
 }
 
