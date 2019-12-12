@@ -65,6 +65,8 @@ class WindowsGetAllFunction : public ExtensionFunction {
   DECLARE_EXTENSION_FUNCTION("windows.getAll", WINDOWS_GETALL)
 };
 class WindowsCreateFunction : public ExtensionFunction {
+  void OnFinishedFirstNavigationOrClosed(ResponseValue result_arg,
+                                         bool did_finish);
   ~WindowsCreateFunction() override {}
   ResponseAction Run() override;
   // Returns whether the window should be created in incognito mode.

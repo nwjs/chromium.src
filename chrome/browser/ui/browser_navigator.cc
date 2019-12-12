@@ -12,6 +12,7 @@
 
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 
 #include "base/command_line.h"
 #include "base/macros.h"
@@ -470,6 +471,9 @@ std::unique_ptr<content::WebContents> CreateTargetContents(
   if (js_doc_end.empty())
     package->root()->GetString(::switches::kmInjectJSDocEnd, &js_doc_end);
   target_contents->GetMutableRendererPrefs()->nw_inject_js_doc_end = js_doc_end;
+  bool new_site = params.url.SchemeIs("chrome") || !nw::PinningRenderer();
+  if (params.block_parser && !new_site)
+    static_cast<content::WebContentsImpl*>(target_contents.get())->SetSkipBlockingParser(false);
   if (!js_doc_start.empty() || !js_doc_end.empty())
     target_contents->SyncRendererPrefs();
 

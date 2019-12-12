@@ -147,6 +147,13 @@ void TabsEventRouter::TabEntry::NavigationEntryCommitted(
   router_->TabUpdated(this, std::move(changed_property_names));
 }
 
+void TabsEventRouter::TabEntry::DidStopLoading() {
+  std::set<std::string> changed_property_names;
+  changed_property_names.insert("nwstatus");
+
+  router_->TabUpdated(this, std::move(changed_property_names));
+}
+
 void TabsEventRouter::TabEntry::TitleWasSet(content::NavigationEntry* entry) {
   std::set<std::string> changed_property_names;
   changed_property_names.insert(tabs_constants::kTitleKey);

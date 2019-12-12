@@ -123,6 +123,13 @@ class Browser : public TabStripModelObserver,
                 public translate::ContentTranslateDriver::Observer,
                 public ui::SelectFileDialog::Listener {
  public:
+  using DidFinishFirstNavigationCallback =
+                      base::OnceCallback<void(bool did_finish)>;
+  void AddOnDidFinishFirstNavigationCallback(
+                      DidFinishFirstNavigationCallback callback);
+  bool DidFinishFirstNavigation() { return did_finish_first_navigation_; }
+  // Called when first navigation was completed.
+  void OnDidFinishFirstNavigation();
   // SessionService::WindowType mirrors these values.  If you add to this
   // enum, look at SessionService::WindowType to see if it needs to be
   // updated.
@@ -648,6 +655,10 @@ class Browser : public TabStripModelObserver,
   void SetIsInTabDragging(bool is_in_tab_dragging);
 
  private:
+  std::vector<DidFinishFirstNavigationCallback> on_did_finish_first_navigation_callbacks_;
+  // Whether the first navigation was completed in both browser and renderer
+  // processes.
+  bool did_finish_first_navigation_ = false;
   friend class BrowserTest;
   friend class FullscreenControllerInteractiveTest;
   friend class FullscreenControllerTest;

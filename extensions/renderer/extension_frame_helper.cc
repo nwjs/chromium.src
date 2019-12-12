@@ -321,7 +321,7 @@ void ExtensionFrameHelper::ReadyToCommitNavigation(
   // document immediately. The chrome.app.window.create() callback (if any)
   // needs to be called prior to the new window's 'load' event. The parser will
   // be resumed when it happens. It doesn't apply to sandboxed pages.
-  if (view_type_ == VIEW_TYPE_APP_WINDOW && render_frame()->IsMainFrame() &&
+  if ((view_type_ == VIEW_TYPE_APP_WINDOW || view_type_ == VIEW_TYPE_TAB_CONTENTS) && render_frame()->IsMainFrame() &&
       !has_started_first_navigation_ && !static_cast<content::RenderFrameImpl*>(render_frame())->skip_blocking_parser_) { // &&
     //      GURL(document_loader->GetUrl()).SchemeIs(kExtensionScheme) &&
     //  !ScriptContext::IsSandboxedPage(document_loader->GetUrl())) {

@@ -90,6 +90,7 @@ struct NavigateParams {
   // The origin of the initiator of the navigation.
   base::Optional<url::Origin> initiator_origin;
 
+  bool block_parser = false;
   std::string inject_js_start, inject_js_end;
   // The frame name to be used for the main frame.
   std::string frame_name;

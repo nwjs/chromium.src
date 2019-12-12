@@ -545,6 +545,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   bool all_visible = false;
   bool show_in_taskbar = true;
   bool resizable = true;
+  bool block_parser = false;
   std::string title;
   int min_width = 0; int min_height = 0; int max_width = 0; int max_height = 0;
   std::string extension_id;
@@ -631,6 +632,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       title = *create_data->title;
     if (create_data->position)
       position = *create_data->position;
+    if (create_data->block_parser)
+      block_parser = *create_data->block_parser;
   }
 
   // Create a new BrowserWindow.
@@ -709,6 +712,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
     navigate_params.inject_js_start = inject_js_start;
     navigate_params.inject_js_end = inject_js_end;
+    navigate_params.block_parser = block_parser;
 
     if (new_instance)
       nw::SetPinningRenderer(false);
@@ -772,8 +776,26 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
         *new_window, extension(), ExtensionTabUtil::kPopulateTabs,
         source_context_type());
   }
+  if (new_window->DidFinishFirstNavigation())
+    return RespondNow(OneArgument(std::move(result)));
+  new_window->AddOnDidFinishFirstNavigationCallback(
+    base::BindOnce(&WindowsCreateFunction::
+                   OnFinishedFirstNavigationOrClosed,
+                   this, OneArgument(std::move(result))));
+  return RespondLater();
+}
 
-  return RespondNow(OneArgument(std::move(result)));
+void WindowsCreateFunction::OnFinishedFirstNavigationOrClosed(
+    ResponseValue result_arg,
+    bool did_finish) {
+  DCHECK(!did_respond());
+
+  if (!did_finish) {
+    Respond(Error("Browser is closed before ready to commit first navigation."));
+    return;
+  }
+
+  Respond(std::move(result_arg));
 }
 
 ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {

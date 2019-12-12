@@ -60,6 +60,7 @@
           "title": {"type": "string", "optional": true, "description": "The title of the tab. This property is only present if the extension's manifest includes the <code>\"tabs\"</code> permission."},
           "favIconUrl": {"type": "string", "optional": true, "description": "The URL of the tab's favicon. This property is only present if the extension's manifest includes the <code>\"tabs\"</code> permission. It may also be an empty string if the tab is loading."},
           "status": {"type": "string", "optional": true, "description": "Either <em>loading</em> or <em>complete</em>."},
+          "nwstatus": {"type": "string", "optional": true, "description": "Either <em>loading</em> or <em>complete</em>."},
           "incognito": {"type": "boolean", "description": "Whether the tab is in an incognito window."},
           "width": {"type": "integer", "optional": true, "description": "The width of the tab in pixels."},
           "height": {"type": "integer", "optional": true, "description": "The height of the tab in pixels."},
@@ -1014,6 +1015,11 @@
             "name": "changeInfo",
             "description": "Lists the changes to the state of the tab that was updated.",
             "properties": {
+              "nwstatus": {
+                "type": "string",
+                "optional": true,
+                "description": "The status of the tab. Can be either <em>loading</em> or <em>complete</em>."
+              },
               "status": {
                 "type": "string",
                 "optional": true,

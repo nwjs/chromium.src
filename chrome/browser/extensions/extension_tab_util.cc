@@ -406,6 +406,8 @@ std::unique_ptr<api::tabs::Tab> ExtensionTabUtil::CreateTabObject(
   tab_object->window_id = GetWindowIdOfTab(contents);
   tab_object->status =
       std::make_unique<std::string>(GetTabStatusText(is_loading));
+  tab_object->nwstatus =
+      std::make_unique<std::string>(GetTabStatusText(is_loading));
   tab_object->active = tab_strip && tab_index == tab_strip->active_index();
   tab_object->selected = tab_strip && tab_index == tab_strip->active_index();
   tab_object->highlighted = tab_strip && tab_strip->IsTabSelected(tab_index);

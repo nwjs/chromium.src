@@ -402,6 +402,21 @@ class Browser::InterstitialObserver : public content::WebContentsObserver {
   DISALLOW_COPY_AND_ASSIGN(InterstitialObserver);
 };
 
+void Browser::AddOnDidFinishFirstNavigationCallback(
+    DidFinishFirstNavigationCallback callback) {
+  on_did_finish_first_navigation_callbacks_.push_back(std::move(callback));
+}
+
+void Browser::OnDidFinishFirstNavigation() {
+  if (did_finish_first_navigation_)
+    return;
+  did_finish_first_navigation_ = true;
+  std::vector<DidFinishFirstNavigationCallback> callbacks;
+  std::swap(callbacks, on_did_finish_first_navigation_callbacks_);
+  for (auto&& callback : callbacks)
+    std::move(callback).Run(true /* did_finish */);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Browser, Constructors, Creation, Showing:
 
@@ -1769,6 +1784,7 @@ void Browser::RendererResponsive(
 void Browser::DidNavigateMainFramePostCommit(WebContents* web_contents) {
   if (web_contents == tab_strip_model_->GetActiveWebContents())
     UpdateBookmarkBarState(BOOKMARK_BAR_STATE_CHANGE_TAB_STATE);
+  OnDidFinishFirstNavigation();
 }
 
 content::JavaScriptDialogManager* Browser::GetJavaScriptDialogManager(
