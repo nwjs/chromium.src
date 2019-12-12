@@ -246,6 +246,7 @@
               "focused": {"type": "boolean", "optional": true, "description": "If <code>true</code>, opens an active window. If <code>false</code>, opens an inactive window."},
               "hidden": {"type": "boolean", "optional": true, "description": ""},
               "frameless": {"type": "boolean", "optional": true, "description": ""},
+              "kiosk": {"type": "boolean", "optional": true, "description": ""},
               "alphaEnabled": {"type": "boolean", "optional": true, "description": ""},
               "new_instance": {"type": "boolean", "optional": true, "description": ""},
               "block_parser": {"type":"boolean", "optional": true, "description": ""},

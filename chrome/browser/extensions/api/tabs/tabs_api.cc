@@ -13,6 +13,9 @@
 
 #include "content/nw/src/nw_base.h"
 #include "content/nw/src/nw_content.h"
+#if defined(OS_MACOSX)
+#include "content/nw/src/nw_content_mac.h"
+#endif
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "extensions/browser/extension_registry.h"
 
@@ -540,6 +543,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   bool hidden = false;
   bool new_instance = false;
   bool frameless = false;
+  bool kiosk = false;
   bool transparent = false;
   bool always_on_top = false;
   bool all_visible = false;
@@ -618,6 +622,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       new_instance = *create_data->new_instance;
     if (create_data->frameless)
       frameless = *create_data->frameless;
+    if (create_data->kiosk)
+      kiosk = *create_data->kiosk;
     if (create_data->alpha_enabled)
       transparent = *create_data->alpha_enabled;
     if (create_data->always_on_top)
@@ -681,12 +687,18 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   if (!new_window)
     return RespondNow(Error(tabs_constants::kBrowserWindowNotAllowed));
 
+  BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(new_window)->frame();
   if (position == "center") {
-    BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(new_window)->frame();
     gfx::Rect bounds = frame->non_client_view()->GetWindowBoundsForClientBounds(create_params.initial_bounds);
     frame->CenterWindow(bounds.size());
   }
 
+  if (kiosk) {
+    frame->SetFullscreen(true);
+#if defined(OS_MACOSX)
+    NWSetNSAppKioskOptions();
+#endif
+  }
   for (const GURL& url : urls) {
     NavigateParams navigate_params(new_window, url, ui::PAGE_TRANSITION_LINK);
     navigate_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;

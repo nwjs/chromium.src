@@ -34,8 +34,8 @@ if (manifest.window) {
     options.allVisible = true;
   if (manifest.window.transparent)
     options.alphaEnabled = true;
-  // if (manifest.window.kiosk === true)
-  //   options.kiosk = true;
+  if (manifest.window.kiosk === true)
+    options.kiosk = true;
   if (manifest.window.position)
     options.position = manifest.window.position;
   if (manifest.window.icon)
