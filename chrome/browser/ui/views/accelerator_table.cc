@@ -28,7 +28,9 @@ const AcceleratorMapping kAcceleratorMap[] = {
     //      modifier.
     //   2) Update GetShortcutsNotPresentInMainMenu() in
     //      global_keyboard_shortcuts_mac.mm.
+#if defined(NWJS_SDK)
     {ui::VKEY_F12, ui::EF_NONE, IDC_DEV_TOOLS_TOGGLE},
+#endif
 #if 0
     {ui::VKEY_ESCAPE, ui::EF_NONE, IDC_CLOSE_FIND_OR_STOP},
 
