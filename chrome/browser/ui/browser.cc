@@ -428,7 +428,9 @@ Browser* Browser::Create(const CreateParams& params) {
   if (IsOnKioskSplashScreen())
     return nullptr;
 
-  return new Browser(params);
+  Browser* ret = new Browser(params);
+  nw::CreateAppWindowHook(nullptr);
+  return ret;
 }
 
 Browser::Browser(const CreateParams& params)
