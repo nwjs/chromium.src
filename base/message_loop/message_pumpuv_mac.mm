@@ -230,13 +230,13 @@ bool MessagePumpUVNSRunLoop::RunWork() {
   return resignal_work_source;
 }
 
-bool MessagePumpUVNSRunLoop::RunIdleWork() {
+void MessagePumpUVNSRunLoop::RunIdleWork() {
   if (!delegate_) {
     // This point can be reached with a NULL delegate_ if Run is not on the
     // stack but foreign code is spinning the CFRunLoop.  Arrange to come back
     // here when a delegate is available.
     delegateless_idle_work_ = true;
-    return false;
+    return;
   }
 
   // The NSApplication-based run loop only drains the autorelease pool at each
@@ -253,7 +253,7 @@ bool MessagePumpUVNSRunLoop::RunIdleWork() {
     CFRunLoopSourceSignal(idle_work_source_);
   }
 
-  return did_work;
+  return;
 }
 
 void MessagePumpUVNSRunLoop::PreWaitObserverHook() {

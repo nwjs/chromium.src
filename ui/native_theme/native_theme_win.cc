@@ -615,10 +615,6 @@ SkColor NativeThemeWin::GetPlatformHighContrastColor(ColorId color_id) const {
     case kColorId_DisabledMenuItemForegroundColor:
     case kColorId_LinkDisabled:
 
-    // Menu
-    case kColorId_MenuBackgroundColor:
-      return SK_ColorWHITE;
-
     case kColorId_LabelDisabledColor:
     case kColorId_ButtonDisabledColor:
     case kColorId_ThrobberWaitingColor:

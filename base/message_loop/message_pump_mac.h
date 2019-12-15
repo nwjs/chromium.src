@@ -196,7 +196,7 @@ class BASE_EXPORT MessagePumpCFRunLoopBase : public MessagePump {
   // actually does perform idle work, it will resignal that source.  The
   // static method calls the instance method.
   static void RunIdleWorkSource(void* info);
-  virtual bool RunIdleWork();
+  virtual void RunIdleWork();
   virtual void PreWaitObserverHook();
 
   // Perform work that may have been deferred because it was not runnable

@@ -65,7 +65,7 @@ class BASE_EXPORT MessagePumpUVNSRunLoop : public MessagePumpCFRunLoopBase {
 
  protected:
   bool RunWork() override;
-  bool RunIdleWork() override;
+  void RunIdleWork() override;
   void PreWaitObserverHook() override;
 
  private:
