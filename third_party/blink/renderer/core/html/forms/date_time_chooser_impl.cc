@@ -130,7 +130,8 @@ void DateTimeChooserImpl::WriteDocument(SharedBuffer* data) {
   data->Append(ChooserResourceLoader::GetCalendarPickerStyleSheet());
   if (RuntimeEnabledFeatures::FormControlsRefreshEnabled()) {
     data->Append(ChooserResourceLoader::GetCalendarPickerRefreshStyleSheet());
-    if (parameters_->type == input_type_names::kTime) {
+    if (parameters_->type == input_type_names::kTime ||
+        parameters_->type == input_type_names::kDatetimeLocal) {
       data->Append(ChooserResourceLoader::GetTimePickerStyleSheet());
     }
   }
@@ -139,9 +140,7 @@ void DateTimeChooserImpl::WriteDocument(SharedBuffer* data) {
       "window.dialogArguments = {\n",
       data);
   AddProperty("anchorRectInScreen", parameters_->anchor_rect_in_screen, data);
-  float scale_factor =
-      frame_->View()->GetChromeClient()->WindowToViewportScalar(frame_, 1.0f);
-  AddProperty("zoomFactor", ZoomFactor() / scale_factor, data);
+  AddProperty("zoomFactor", ScaledZoomFactor(), data);
   AddProperty("min",
               ValueToDateTimeString(parameters_->minimum, parameters_->type),
               data);
@@ -229,6 +228,9 @@ void DateTimeChooserImpl::WriteDocument(SharedBuffer* data) {
     data->Append(ChooserResourceLoader::GetMonthPickerJS());
     if (parameters_->type == input_type_names::kTime) {
       data->Append(ChooserResourceLoader::GetTimePickerJS());
+    } else if (parameters_->type == input_type_names::kDatetimeLocal) {
+      data->Append(ChooserResourceLoader::GetTimePickerJS());
+      data->Append(ChooserResourceLoader::GetDateTimeLocalPickerJS());
     }
   }
   data->Append(ChooserResourceLoader::GetCalendarPickerJS());
@@ -237,6 +239,10 @@ void DateTimeChooserImpl::WriteDocument(SharedBuffer* data) {
 
 Element& DateTimeChooserImpl::OwnerElement() {
   return client_->OwnerElement();
+}
+
+ChromeClient& DateTimeChooserImpl::GetChromeClient() {
+  return *frame_->View()->GetChromeClient();
 }
 
 Locale& DateTimeChooserImpl::GetLocale() {

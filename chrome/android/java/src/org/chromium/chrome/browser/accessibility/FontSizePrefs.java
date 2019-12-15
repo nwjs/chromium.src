@@ -7,10 +7,11 @@ package org.chromium.chrome.browser.accessibility;
 import android.annotation.SuppressLint;
 import android.content.SharedPreferences;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.browser.util.MathUtils;
@@ -30,7 +31,7 @@ public class FontSizePrefs {
      * The font scale threshold beyond which force enable zoom is automatically turned on. It
      * is chosen such that force enable zoom will be activated when the accessibility large text
      * setting is on (i.e. this value should be the same as or lesser than the font size scale used
-     * by accessiblity large text).
+     * by accessibility large text).
      */
     public static final float FORCE_ENABLE_ZOOM_THRESHOLD_MULTIPLIER = 1.3f;
 

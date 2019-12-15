@@ -21,7 +21,7 @@ void NavigationClient::CommitNavigation(
     network::mojom::URLResponseHeadPtr response_head,
     mojo::ScopedDataPipeConsumerHandle response_body,
     network::mojom::URLLoaderClientEndpointsPtr url_loader_client_endpoints,
-    std::unique_ptr<blink::URLLoaderFactoryBundleInfo> subresource_loaders,
+    std::unique_ptr<blink::PendingURLLoaderFactoryBundle> subresource_loaders,
     base::Optional<std::vector<::content::mojom::TransferrableURLLoaderPtr>>
         subresource_overrides,
     blink::mojom::ControllerServiceWorkerInfoPtr controller_service_worker_info,
@@ -51,10 +51,10 @@ void NavigationClient::CommitFailedNavigation(
     bool has_stale_copy_in_cache,
     int error_code,
     const base::Optional<std::string>& error_page_content,
-    std::unique_ptr<blink::URLLoaderFactoryBundleInfo> subresource_loaders,
+    std::unique_ptr<blink::PendingURLLoaderFactoryBundle> subresource_loaders,
     CommitFailedNavigationCallback callback) {
   ResetDisconnectionHandler();
-  render_frame_->CommitFailedPerNavigationMojoInterfaceNavigation(
+  render_frame_->CommitFailedNavigation(
       std::move(common_params), std::move(commit_params),
       has_stale_copy_in_cache, error_code, error_page_content,
       std::move(subresource_loaders), std::move(callback));

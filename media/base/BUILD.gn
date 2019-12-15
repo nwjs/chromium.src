@@ -177,6 +177,9 @@ jumbo_source_set("base") {
     "media_log.cc",
     "media_log.h",
     "media_log_event.h",
+    "media_log_properties.cc",
+    "media_log_properties.h",
+    "media_log_properties_helper.h",
     "media_observer.cc",
     "media_observer.h",
     "media_permission.cc",
@@ -323,11 +326,11 @@ jumbo_source_set("base") {
   ]
   deps = [
     "//base/allocator:buildflags",
+    "//components/system_media_controls/linux/buildflags",
     "//gpu/command_buffer/common",
     "//gpu/ipc/common:common",
     "//third_party/libyuv",
     "//third_party/widevine/cdm:headers",
-    "//ui/base/mpris/buildflags",
     "//ui/display:display",
     "//ui/events:events_base",
     "//url:url",

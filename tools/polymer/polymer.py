@@ -50,6 +50,7 @@
 #     encountering any dependency to that file.
 
 import argparse
+import io
 import os
 import re
 import sys
@@ -165,7 +166,7 @@ class Dependency:
 
 
 def _extract_dependencies(html_file):
-  with open(html_file, 'r') as f:
+  with io.open(html_file, encoding='utf-8', mode='r') as f:
     lines = f.readlines()
     deps = []
     for line in lines:
@@ -182,20 +183,26 @@ def _generate_js_imports(html_file):
 
 
 def _extract_dom_module_id(html_file):
-  with open(html_file, 'r') as f:
+  with io.open(html_file, encoding='utf-8', mode='r') as f:
     contents = f.read()
     match = re.search(r'\s*<dom-module id="(.*)"', contents)
     assert match
     return match.group(1)
 
 
+def _add_template_markers(html_template):
+  return '<!--_html_template_start_-->%s<!--_html_template_end_-->' % \
+      html_template;
+
+
 def _extract_template(html_file, html_type):
   if html_type == 'v3-ready':
-    with open(html_file, 'r') as f:
-      return f.read()
+    with io.open(html_file, encoding='utf-8', mode='r') as f:
+      template = f.read()
+      return _add_template_markers('\n' + template)
 
   if html_type == 'dom-module':
-    with open(html_file, 'r') as f:
+    with io.open(html_file, encoding='utf-8', mode='r') as f:
       lines = f.readlines()
       start_line = -1
       end_line = -1
@@ -211,10 +218,10 @@ def _extract_template(html_file, html_type):
           assert re.match(r'\s*</template>', lines[i - 2])
           assert re.match(r'\s*<script ', lines[i - 1])
           end_line = i - 3;
-    return '\n' + ''.join(lines[start_line:end_line + 1])
+    return _add_template_markers('\n' + ''.join(lines[start_line:end_line + 1]))
 
   if html_type == 'style-module':
-    with open(html_file, 'r') as f:
+    with io.open(html_file, encoding='utf-8', mode='r') as f:
       lines = f.readlines()
       start_line = -1
       end_line = -1
@@ -234,7 +241,7 @@ def _extract_template(html_file, html_type):
 
   if html_type == 'iron-iconset':
     templates = []
-    with open(html_file, 'r') as f:
+    with io.open(html_file, encoding='utf-8', mode='r') as f:
       lines = f.readlines()
       start_line = -1
       end_line = -1
@@ -255,7 +262,7 @@ def _extract_template(html_file, html_type):
 
 
   assert html_type == 'custom-style'
-  with open(html_file, 'r') as f:
+  with io.open(html_file, encoding='utf-8', mode='r') as f:
     lines = f.readlines()
     start_line = -1
     end_line = -1
@@ -284,7 +291,7 @@ def _process_v3_ready(js_file, html_file):
   # Extract HTML template and place in JS file.
   html_template = _extract_template(html_file, 'v3-ready')
 
-  with open(js_file) as f:
+  with io.open(js_file, encoding='utf-8') as f:
     lines = f.readlines()
 
   HTML_TEMPLATE_REGEX = '{__html_template__}'
@@ -312,7 +319,7 @@ def _process_dom_module(js_file, html_file):
   # Replace export annotations with 'export'.
   EXPORT_LINE_REGEX = '/* #export */'
 
-  with open(js_file) as f:
+  with io.open(js_file, encoding='utf-8') as f:
     lines = f.readlines()
 
   imports_added = False
@@ -387,12 +394,13 @@ def _process_style_module(js_file, html_file):
   # example cr_icons_css.html.
   js_template = \
 """%(js_imports)s
-const styleElement = document.createElement('dom-module');
-styleElement.setAttribute('assetpath', 'chrome://resources/');
-styleElement.innerHTML = `%(html_template)s`;
-styleElement.register('%(style_id)s');""" % {
-  'js_imports': '\n'.join(js_imports),
+const template = document.createElement('template');
+template.innerHTML = `
+<dom-module id="%(style_id)s" assetpath="chrome://resources/">%(html_template)s</dom-module>
+`;
+document.body.appendChild(template.content.cloneNode(true));""" % {
   'html_template': html_template,
+  'js_imports': '\n'.join(js_imports),
   'style_id': style_id,
 }
 
@@ -479,8 +487,12 @@ def main(argv):
     result = _process_v3_ready(js_file, html_file)
 
   # Reconstruct file.
-  with open(os.path.join(out_folder, result[1]), 'w') as f:
+  # Specify the newline character so that the exact same file is generated
+  # across platforms.
+  with io.open(os.path.join(out_folder, result[1]), mode='w', encoding='utf-8', newline='\n') as f:
     for l in result[0]:
+      if (type(l) != unicode):
+        l = unicode(l, encoding='utf-8')
       f.write(l)
   return
 

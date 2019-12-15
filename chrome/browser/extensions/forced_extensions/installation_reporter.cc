@@ -10,12 +10,6 @@
 #include "base/no_destructor.h"
 #include "chrome/browser/extensions/forced_extensions/installation_reporter_factory.h"
 
-namespace {
-
-extensions::InstallationReporter::TestObserver* g_test_observer = nullptr;
-
-}  // namespace
-
 namespace extensions {
 
 InstallationReporter::InstallationData::InstallationData() = default;
@@ -40,10 +34,16 @@ std::string InstallationReporter::GetFormattedInstallationData(
     str << "; downloading_stage: "
         << static_cast<int>(data.downloading_stage.value());
   }
+  // No extra check for stage: we may be interested in cache status even in case
+  // of successfull extension install.
+  if (data.downloading_cache_status) {
+    str << "; downloading_cache_status: "
+        << static_cast<int>(data.downloading_cache_status.value());
+  }
   return str.str();
 }
 
-InstallationReporter::TestObserver::~TestObserver() = default;
+InstallationReporter::Observer::~Observer() = default;
 
 InstallationReporter::InstallationReporter(
     const content::BrowserContext* context)
@@ -61,8 +61,8 @@ void InstallationReporter::ReportInstallationStage(const ExtensionId& id,
                                                    Stage stage) {
   InstallationData& data = installation_data_map_[id];
   data.install_stage = stage;
-  if (g_test_observer) {
-    g_test_observer->OnExtensionDataChanged(id, browser_context_, data);
+  for (auto& observer : observers_) {
+    observer.OnExtensionDataChangedForTesting(id, browser_context_, data);
   }
 }
 
@@ -71,8 +71,20 @@ void InstallationReporter::ReportDownloadingStage(
     ExtensionDownloaderDelegate::Stage stage) {
   InstallationData& data = installation_data_map_[id];
   data.downloading_stage = stage;
-  if (g_test_observer) {
-    g_test_observer->OnExtensionDataChanged(id, browser_context_, data);
+  for (auto& observer : observers_) {
+    observer.OnExtensionDataChangedForTesting(id, browser_context_, data);
+  }
+}
+
+void InstallationReporter::ReportDownloadingCacheStatus(
+    const ExtensionId& id,
+    ExtensionDownloaderDelegate::CacheStatus cache_status) {
+  DCHECK_NE(cache_status,
+            ExtensionDownloaderDelegate::CacheStatus::CACHE_UNKNOWN);
+  InstallationData& data = installation_data_map_[id];
+  data.downloading_cache_status = cache_status;
+  for (auto& observer : observers_) {
+    observer.OnExtensionDataChangedForTesting(id, browser_context_, data);
   }
 }
 
@@ -81,8 +93,9 @@ void InstallationReporter::ReportFailure(const ExtensionId& id,
   DCHECK_NE(reason, FailureReason::UNKNOWN);
   InstallationData& data = installation_data_map_[id];
   data.failure_reason = reason;
-  if (g_test_observer) {
-    g_test_observer->OnExtensionDataChanged(id, browser_context_, data);
+  for (auto& observer : observers_) {
+    observer.OnExtensionInstallationFailed(id, reason);
+    observer.OnExtensionDataChangedForTesting(id, browser_context_, data);
   }
 }
 
@@ -97,8 +110,9 @@ void InstallationReporter::ReportCrxInstallError(
   InstallationData& data = installation_data_map_[id];
   data.failure_reason = reason;
   data.install_error_detail = crx_install_error;
-  if (g_test_observer) {
-    g_test_observer->OnExtensionDataChanged(id, browser_context_, data);
+  for (auto& observer : observers_) {
+    observer.OnExtensionInstallationFailed(id, reason);
+    observer.OnExtensionDataChangedForTesting(id, browser_context_, data);
   }
 }
 
@@ -112,9 +126,12 @@ void InstallationReporter::Clear() {
   installation_data_map_.clear();
 }
 
-// static
-void InstallationReporter::SetTestObserver(TestObserver* observer) {
-  g_test_observer = observer;
+void InstallationReporter::AddObserver(Observer* observer) {
+  observers_.AddObserver(observer);
+}
+
+void InstallationReporter::RemoveObserver(Observer* observer) {
+  observers_.RemoveObserver(observer);
 }
 
 }  //  namespace extensions

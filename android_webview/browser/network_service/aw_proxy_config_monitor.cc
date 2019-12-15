@@ -5,10 +5,13 @@
 #include "android_webview/browser/network_service/aw_proxy_config_monitor.h"
 
 #include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "base/barrier_closure.h"
 #include "base/bind.h"
+#include "base/no_destructor.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 
 namespace android_webview {
@@ -16,8 +19,6 @@ namespace android_webview {
 namespace {
 const char kProxyServerSwitch[] = "proxy-server";
 const char kProxyBypassListSwitch[] = "proxy-bypass-list";
-
-base::LazyInstance<AwProxyConfigMonitor>::Leaky g_instance;
 }  // namespace
 
 AwProxyConfigMonitor::AwProxyConfigMonitor() {
@@ -34,7 +35,8 @@ AwProxyConfigMonitor::~AwProxyConfigMonitor() {
 }
 
 AwProxyConfigMonitor* AwProxyConfigMonitor::GetInstance() {
-  return g_instance.Pointer();
+  static base::NoDestructor<AwProxyConfigMonitor> instance;
+  return instance.get();
 }
 
 void AwProxyConfigMonitor::AddProxyToNetworkContextParams(

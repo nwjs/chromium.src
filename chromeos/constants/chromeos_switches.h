@@ -35,6 +35,7 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kAppAutoLaunched[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kAppOemManifestFile[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kArcAvailability[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kArcAvailable[];
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kArcBuildProperties[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kArcDataCleanupOnStart[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kArcDisableAppSync[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
@@ -47,6 +48,7 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kArcForceShowOptInUi[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kArcPackagesCacheMode[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kArcPlayStoreAutoUpdate[];
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kArcScale[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kArcStartMode[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kArcTransitionMigrationRequired[];
@@ -103,6 +105,8 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kEnableCastReceiver[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kEnableChromevoxDeveloperOption[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kEnableConsumerKiosk[];
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const char kEnableTabletFormFactor[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kEnableEncryptionMigration[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
@@ -242,6 +246,9 @@ bool ShouldTetherHostScansIgnoreWiredConnections();
 
 // Returns true if we should skip all other OOBE pages after user login.
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool ShouldSkipOobePostLogin();
+
+// Returns true if the device is of tablet form factor.
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsTabletFormFactor();
 
 // Returns true if GAIA services has been disabled.
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsGaiaServicesDisabled();

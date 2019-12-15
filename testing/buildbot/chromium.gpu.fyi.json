@@ -3696,7 +3696,7 @@
           "--browser=android-chromium",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -4212,7 +4212,7 @@
           "--browser=android-chromium",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -4711,7 +4711,7 @@
           "--browser=android-chromium",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -4754,7 +4754,6 @@
           "--benchmarks=rendering.mobile",
           "--browser=android-chromium"
         ],
-        "experiment_percentage": 100,
         "isolate_name": "rendering_representative_perf_tests",
         "merge": {
           "args": [],
@@ -5281,7 +5280,7 @@
           "--browser=android-chromium",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -5869,7 +5868,7 @@
           "--browser=android-chromium",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -6414,7 +6413,7 @@
           "--browser=android-chromium",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -6559,7 +6558,7 @@
           "--browser=android-chromium",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -6752,6 +6751,7 @@
       {
         "args": [
           "--use-vulkan=native",
+          "--gr-context-type=vulkan",
           "--disable-vulkan-fallback-to-gl-for-testing",
           "--enable-features=UseSkiaRenderer",
           "--test-launcher-filter-file=../../testing/buildbot/filters/gpu.skiarenderer_vulkan_content_browsertests.filter",
@@ -6805,7 +6805,7 @@
           "--browser=android-chromium",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --use-vulkan=native --disable-vulkan-fallback-to-gl-for-testing --enable-features=UseSkiaRenderer --use-cmd-decoder=validating",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --gr-context-type=vulkan --use-vulkan=native --disable-vulkan-fallback-to-gl-for-testing --enable-features=UseSkiaRenderer --use-cmd-decoder=validating",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -7005,6 +7005,8 @@
   "GPU FYI Win dEQP Builder": {},
   "GPU FYI Win x64 Builder": {},
   "GPU FYI Win x64 Builder (dbg)": {},
+  "GPU FYI Win x64 DX12 Vulkan Builder": {},
+  "GPU FYI Win x64 DX12 Vulkan Builder (dbg)": {},
   "GPU FYI Win x64 dEQP Builder": {},
   "Linux FYI Debug (NVIDIA)": {
     "gtest_tests": [
@@ -7338,7 +7340,7 @@
           "--browser=debug",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -8097,7 +8099,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -8648,7 +8650,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -9238,7 +9240,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -9848,7 +9850,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -10078,6 +10080,7 @@
           "--test-launcher-jobs=1",
           "--test-launcher-filter-file=../../testing/buildbot/filters/vulkan.content_browsertests.filter",
           "--enable-features=UseSkiaRenderer,UiGpuRasterization",
+          "--gr-context-type=vulkan",
           "--use-vulkan=native",
           "--enable-oop-rasterization",
           "--enable-gpu-rasterization",
@@ -10314,7 +10317,7 @@
           "--additional-expectations=../../third_party/blink/web_tests/FlagExpectations/enable-gpu-rasterization",
           "--additional-expectations=../../third_party/blink/web_tests/FlagExpectations/use-gl=any"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -10387,6 +10390,7 @@
           "--additional-driver-flag=--force-gpu-rasterization",
           "--additional-driver-flag=--enable-oop-rasterization",
           "--additional-driver-flag=--disable-software-compositing-fallback",
+          "--additional-driver-flag=--gr-context-type=vulkan",
           "--additional-driver-flag=--use-vulkan=native",
           "--additional-driver-flag=--disable-vulkan-fallback-to-gl-for-testing",
           "--additional-driver-flag=--disable-headless-mode",
@@ -10399,7 +10403,7 @@
           "--additional-expectations=../../third_party/blink/web_tests/FlagExpectations/enable-gpu-rasterization",
           "--additional-expectations=../../third_party/blink/web_tests/FlagExpectations/use-vulkan=native"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -10427,7 +10431,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --use-vulkan=native --disable-vulkan-fallback-to-gl-for-testing --enable-features=UseSkiaRenderer --use-cmd-decoder=validating",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --gr-context-type=vulkan --use-vulkan=native --disable-vulkan-fallback-to-gl-for-testing --enable-features=UseSkiaRenderer --use-cmd-decoder=validating",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -10474,6 +10478,7 @@
           "--test-launcher-jobs=1",
           "--test-launcher-filter-file=../../testing/buildbot/filters/vulkan.content_browsertests.filter",
           "--enable-features=UseSkiaRenderer,UiGpuRasterization",
+          "--gr-context-type=vulkan",
           "--use-vulkan=native",
           "--enable-oop-rasterization",
           "--enable-gpu-rasterization",
@@ -10710,7 +10715,7 @@
           "--additional-expectations=../../third_party/blink/web_tests/FlagExpectations/enable-gpu-rasterization",
           "--additional-expectations=../../third_party/blink/web_tests/FlagExpectations/use-gl=any"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -10783,6 +10788,7 @@
           "--additional-driver-flag=--force-gpu-rasterization",
           "--additional-driver-flag=--enable-oop-rasterization",
           "--additional-driver-flag=--disable-software-compositing-fallback",
+          "--additional-driver-flag=--gr-context-type=vulkan",
           "--additional-driver-flag=--use-vulkan=native",
           "--additional-driver-flag=--disable-vulkan-fallback-to-gl-for-testing",
           "--additional-driver-flag=--disable-headless-mode",
@@ -10795,7 +10801,7 @@
           "--additional-expectations=../../third_party/blink/web_tests/FlagExpectations/enable-gpu-rasterization",
           "--additional-expectations=../../third_party/blink/web_tests/FlagExpectations/use-vulkan=native"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -10823,7 +10829,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --use-vulkan=native --disable-vulkan-fallback-to-gl-for-testing --enable-features=UseSkiaRenderer --use-cmd-decoder=validating",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --gr-context-type=vulkan --use-vulkan=native --disable-vulkan-fallback-to-gl-for-testing --enable-features=UseSkiaRenderer --use-cmd-decoder=validating",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -11526,7 +11532,7 @@
           "--browser=debug",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -12187,7 +12193,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -12827,7 +12833,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -12867,7 +12873,6 @@
           "../../tools/perf/run_benchmark",
           "--benchmarks=rendering.desktop"
         ],
-        "experiment_percentage": 100,
         "isolate_name": "rendering_representative_perf_tests",
         "merge": {
           "args": [],
@@ -13450,7 +13455,7 @@
           "--browser=debug",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -13967,7 +13972,7 @@
           "--browser=debug",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -14479,7 +14484,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -14521,7 +14526,6 @@
           "../../tools/perf/run_benchmark",
           "--benchmarks=rendering.desktop"
         ],
-        "experiment_percentage": 100,
         "isolate_name": "rendering_representative_perf_tests",
         "merge": {
           "args": [],
@@ -15144,7 +15148,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -15867,7 +15871,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -18313,6 +18317,72 @@
       }
     ]
   },
+  "Win10 FYI x64 DX12 Vulkan Debug (NVIDIA)": {
+    "isolated_scripts": [
+      {
+        "args": [
+          "noop_sleep",
+          "--show-stdout",
+          "--browser=debug_x64",
+          "--passthrough",
+          "-v",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc"
+        ],
+        "isolate_name": "telemetry_gpu_integration_test",
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "noop_sleep_tests",
+        "should_retry_with_patch": false,
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "containment_type": "AUTO",
+          "dimension_sets": [
+            {
+              "gpu": "nvidia-quadro-p400-win10-stable",
+              "os": "Windows-10",
+              "pool": "Chrome-GPU"
+            }
+          ],
+          "idempotent": false
+        }
+      }
+    ]
+  },
+  "Win10 FYI x64 DX12 Vulkan Release (NVIDIA)": {
+    "isolated_scripts": [
+      {
+        "args": [
+          "noop_sleep",
+          "--show-stdout",
+          "--browser=release_x64",
+          "--passthrough",
+          "-v",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc"
+        ],
+        "isolate_name": "telemetry_gpu_integration_test",
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "noop_sleep_tests",
+        "should_retry_with_patch": false,
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "containment_type": "AUTO",
+          "dimension_sets": [
+            {
+              "gpu": "nvidia-quadro-p400-win10-stable",
+              "os": "Windows-10",
+              "pool": "Chrome-GPU"
+            }
+          ],
+          "idempotent": false
+        }
+      }
+    ]
+  },
   "Win10 FYI x64 Debug (NVIDIA)": {
     "gtest_tests": [
       {
@@ -18798,7 +18868,7 @@
           "--browser=debug_x64",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -19032,7 +19102,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19055,7 +19125,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19079,7 +19149,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19102,7 +19172,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19128,7 +19198,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19151,7 +19221,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19175,7 +19245,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19197,7 +19267,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19219,7 +19289,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19243,7 +19313,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19268,7 +19338,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19287,7 +19357,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19306,7 +19376,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19329,7 +19399,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19340,6 +19410,33 @@
       }
     ],
     "isolated_scripts": [
+      {
+        "args": [
+          "--gtest-benchmark-name=angle_perftests",
+          "-v",
+          "--one-frame-only"
+        ],
+        "isolate_name": "angle_perftests",
+        "merge": {
+          "args": [
+            "--smoke-test-mode"
+          ],
+          "script": "//tools/perf/process_perf_results.py"
+        },
+        "name": "angle_perftests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "containment_type": "AUTO",
+          "dimension_sets": [
+            {
+              "gpu": "8086:5912-26.20.100.7323",
+              "os": "Windows-10",
+              "pool": "Chrome-GPU"
+            }
+          ],
+          "expiration": 21600
+        }
+      },
       {
         "args": [
           "context_lost",
@@ -19361,7 +19458,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19391,7 +19488,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19421,7 +19518,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19451,7 +19548,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19485,7 +19582,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19528,7 +19625,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19545,7 +19642,7 @@
           "--browser=release_x64",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -19572,7 +19669,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19603,7 +19700,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19618,7 +19715,6 @@
           "--benchmarks=rendering.desktop",
           "--browser=release_x64"
         ],
-        "experiment_percentage": 100,
         "isolate_name": "rendering_representative_perf_tests",
         "merge": {
           "args": [],
@@ -19630,7 +19726,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19660,7 +19756,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19690,7 +19786,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19722,7 +19818,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19755,7 +19851,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19786,7 +19882,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19817,7 +19913,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19848,7 +19944,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19879,7 +19975,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
-              "gpu": "8086:5912-26.20.100.6912",
+              "gpu": "8086:5912-26.20.100.7323",
               "os": "Windows-10",
               "pool": "Chrome-GPU"
             }
@@ -19929,31 +20025,6 @@
     "gtest_tests": [
       {
         "args": [
-          "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "should_retry_with_patch": false,
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "gpu": "1002:699f",
-              "os": "Windows-10",
-              "pool": "Chrome-GPU"
-            }
-          ],
-          "expiration": 21600,
-          "shards": 4
-        },
-        "test": "angle_end2end_tests"
-      },
-      {
-        "args": [
           "--use-gpu-in-tests"
         ],
         "merge": {
@@ -20224,29 +20295,6 @@
           "expiration": 21600
         },
         "test": "swiftshader_unittests"
-      },
-      {
-        "args": [
-          "--ignore-runtime-requirements=*"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "xr_browser_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "gpu": "1002:699f",
-              "os": "Windows-10",
-              "pool": "Chrome-GPU"
-            }
-          ],
-          "expiration": 21600
-        },
-        "test": "xr_browser_tests"
       }
     ],
     "isolated_scripts": [
@@ -20455,7 +20503,7 @@
           "--browser=release_x64",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -21217,7 +21265,7 @@
           "--browser=release_x64",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -21288,7 +21336,6 @@
           "--benchmarks=rendering.desktop",
           "--browser=release_x64"
         ],
-        "experiment_percentage": 100,
         "isolate_name": "rendering_representative_perf_tests",
         "merge": {
           "args": [],
@@ -22109,7 +22156,7 @@
           "--browser=release_x64",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -22182,7 +22229,6 @@
           "--benchmarks=rendering.desktop",
           "--browser=release_x64"
         ],
-        "experiment_percentage": 100,
         "isolate_name": "rendering_representative_perf_tests",
         "merge": {
           "args": [],
@@ -22576,79 +22622,6 @@
           "expiration": 21600
         },
         "test": "browser_tests"
-      },
-      {
-        "args": [
-          "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "gpu": "10de:2184",
-              "os": "Windows-10",
-              "pool": "Chrome-GPU"
-            }
-          ],
-          "expiration": 21600
-        },
-        "test": "dawn_end2end_tests"
-      },
-      {
-        "args": [
-          "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0",
-          "--enable-backend-validation"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "dawn_end2end_validation_layers_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "gpu": "10de:2184",
-              "os": "Windows-10",
-              "pool": "Chrome-GPU"
-            }
-          ],
-          "expiration": 21600
-        },
-        "test": "dawn_end2end_tests"
-      },
-      {
-        "args": [
-          "--use-gpu-in-tests",
-          "--test-launcher-retry-limit=0",
-          "--use-wire"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "dawn_end2end_wire_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "gpu": "10de:2184",
-              "os": "Windows-10",
-              "pool": "Chrome-GPU"
-            }
-          ],
-          "expiration": 21600
-        },
-        "test": "dawn_end2end_tests"
       },
       {
         "args": [
@@ -23058,7 +23031,7 @@
           "--browser=release_x64",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -24111,7 +24084,7 @@
           "--browser=release_x64",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -24162,7 +24135,6 @@
           "--benchmarks=rendering.desktop",
           "--browser=release_x64"
         ],
-        "experiment_percentage": 100,
         "isolate_name": "rendering_representative_perf_tests",
         "merge": {
           "args": [],
@@ -24811,7 +24783,7 @@
           "--target",
           "Release_x64"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -25866,7 +25838,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -26720,7 +26692,7 @@
           "--browser=debug",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -27389,7 +27361,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -28293,7 +28265,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",
@@ -29356,7 +29328,7 @@
           "--browser=release_x64",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_revision}",

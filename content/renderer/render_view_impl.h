@@ -29,6 +29,7 @@
 #include "content/common/content_export.h"
 #include "content/public/common/browser_controls_state.h"
 #include "content/public/common/drop_data.h"
+#include "content/public/common/page_visibility_state.h"
 #include "content/public/common/page_zoom.h"
 #include "content/public/common/referrer.h"
 #include "content/public/common/web_preferences.h"
@@ -43,7 +44,6 @@
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/public/mojom/renderer_preference_watcher.mojom.h"
 #include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
-#include "third_party/blink/public/platform/scheduler/web_scoped_virtual_time_pauser.h"
 #include "third_party/blink/public/platform/web_input_event.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/web/web_ax_object.h"
@@ -171,6 +171,9 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   // Passes along the device scale factor to the WebView.
   void SetDeviceScaleFactor(bool use_zoom_for_dsf, float device_scale_factor);
 
+  // Passes along the visible viewport size to the WebView.
+  void SetVisibleViewportSize(const gfx::Size& visible_viewport_size);
+
   // Passes along the page zoom to the WebView to set it on a newly attached
   // LocalFrame.
   void PropagatePageZoomToNewlyAttachedFrame(bool use_zoom_for_dsf,
@@ -203,9 +206,6 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   // of |enable|. This is used for web tests that need to control the focus
   // synchronously from the renderer.
   void SetFocusAndActivateForTesting(bool enable);
-
-  void NavigateBackForwardSoon(int offset, bool has_user_gesture);
-  void DidCommitProvisionalHistoryLoad();
 
   void UpdateBrowserControlsState(BrowserControlsState constraints,
                                   BrowserControlsState current,
@@ -302,7 +302,8 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   // Called when Page visibility is changed, to update the View/Page in blink.
   // This is separate from the IPC handlers as tests may call this and need to
   // be able to specify |initial_setting| where IPC handlers do not.
-  void ApplyPageHidden(bool hidden, bool initial_setting);
+  void ApplyPageVisibilityState(PageVisibilityState visibility_state,
+                                bool initial_setting);
 
   // Instead of creating a new RenderWidget, a RenderFrame for a main frame
   // revives the undead RenderWidget;
@@ -403,15 +404,11 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   void DidCommitCompositorFrameForWidget() override;
   void DidCompletePageScaleAnimationForWidget() override;
   void ResizeWebWidgetForWidget(
-      const gfx::Size& size,
-      float top_controls_height,
-      float bottom_controls_height,
-      bool browser_controls_shrink_blink_size) override;
+      const gfx::Size& widget_size,
+      cc::BrowserControlsParams browser_controls_params) override;
   void SetScreenMetricsEmulationParametersForWidget(
       bool enabled,
       const blink::WebDeviceEmulationParams& params) override;
-  void ResizeVisualViewportForWidget(
-      const gfx::Size& scaled_viewport_size) override;
 
   // Old WebLocalFrameClient implementations
   // ----------------------------------------
@@ -453,7 +450,6 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   void OnSetInitialFocus(bool reverse);
   void OnSetRendererPrefs(
       const blink::mojom::RendererPreferences& renderer_prefs);
-  void OnSetWebUIProperty(const std::string& name, const std::string& value);
   void OnSuppressDialogsUntilSwapOut();
   void OnUpdateTargetURLAck();
   void OnUpdateWebPreferences(const WebPreferences& prefs);
@@ -462,13 +458,10 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   void OnSetBackgroundOpaque(bool opaque);
 
   // Page message handlers -----------------------------------------------------
-  void OnPageWasHidden();
-  void OnPageWasShown();
-  void OnUpdateScreenInfo(const ScreenInfo& screen_info);
-  void OnUpdatePageVisualProperties(const gfx::Size& visible_viewport_size);
+  void OnPageVisibilityChanged(PageVisibilityState visibility_state);
   void SetPageFrozen(bool frozen);
   void PutPageIntoBackForwardCache();
-  void RestorePageFromBackForwardCache();
+  void RestorePageFromBackForwardCache(base::TimeTicks navigation_start);
   void OnTextAutosizerPageInfoChanged(
       const blink::WebTextAutosizerPageInfo& page_info);
 
@@ -677,8 +670,6 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   // All the registered observers.  We expect this list to be small, so vector
   // is fine.
   base::ObserverList<RenderViewObserver>::Unchecked observers_;
-
-  blink::WebScopedVirtualTimePauser history_navigation_virtual_time_pauser_;
 
   // ---------------------------------------------------------------------------
   // ADDING NEW DATA? Please see if it fits appropriately in one of the above

@@ -21,8 +21,7 @@
 #include "media/base/cdm_session_tracker.h"
 #include "media/base/content_decryption_module.h"
 #include "media/mojo/mojom/content_decryption_module.mojom.h"
-#include "mojo/public/cpp/bindings/associated_binding.h"
-#include "mojo/public/cpp/bindings/binding.h"
+#include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
 
@@ -142,7 +141,8 @@ class MojoCdm : public ContentDecryptionModule,
 
   mojo::Remote<mojom::ContentDecryptionModule> remote_cdm_;
   mojom::InterfaceFactory* interface_factory_;
-  mojo::AssociatedBinding<ContentDecryptionModuleClient> client_binding_;
+  mojo::AssociatedReceiver<ContentDecryptionModuleClient> client_receiver_{
+      this};
 
   // Protects |cdm_id_|, |decryptor_ptr_|, |decryptor_| and
   // |decryptor_task_runner_| which could be accessed from other threads.
@@ -156,7 +156,7 @@ class MojoCdm : public ContentDecryptionModule,
   // The DecryptorPtrInfo exposed by the remote CDM. Set after initialization
   // is completed and cleared after |decryptor_| is created. May be invalid
   // after initialization if the CDM doesn't support a Decryptor.
-  mojom::DecryptorPtrInfo decryptor_ptr_info_;
+  mojo::PendingRemote<mojom::Decryptor> decryptor_ptr_info_;
 
   // Decryptor based on |decryptor_ptr_|, lazily created in GetDecryptor().
   // Since GetDecryptor() can be called on a different thread, use

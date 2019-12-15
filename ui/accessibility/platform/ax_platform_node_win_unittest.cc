@@ -155,8 +155,9 @@ ScopedVariant SELF(CHILDID_SELF);
     size_t count = array_upper_bound - array_lower_bound + 1;                 \
     ASSERT_EQ(expected_property_values.size(), count);                        \
     for (size_t i = 0; i < count; ++i) {                                      \
-      CComPtr<IRawElementProviderSimple> element;                             \
-      ASSERT_HRESULT_SUCCEEDED(array_data[i]->QueryInterface(&element));      \
+      ComPtr<IRawElementProviderSimple> element;                              \
+      ASSERT_HRESULT_SUCCEEDED(                                               \
+          array_data[i]->QueryInterface(IID_PPV_ARGS(&element)));             \
       EXPECT_UIA_BSTR_EQ(element, element_test_property_id,                   \
                          expected_property_values[i].c_str());                \
     }                                                                         \
@@ -198,8 +199,9 @@ ScopedVariant SELF(CHILDID_SELF);
     ASSERT_EQ(expected_property_values.size(), count);                         \
     std::vector<std::wstring> property_values;                                 \
     for (size_t i = 0; i < count; ++i) {                                       \
-      CComPtr<IRawElementProviderSimple> element;                              \
-      ASSERT_HRESULT_SUCCEEDED(array_data[i]->QueryInterface(&element));       \
+      ComPtr<IRawElementProviderSimple> element;                               \
+      ASSERT_HRESULT_SUCCEEDED(                                                \
+          array_data[i]->QueryInterface(IID_PPV_ARGS(&element)));              \
       ScopedVariant actual;                                                    \
       ASSERT_HRESULT_SUCCEEDED(element->GetPropertyValue(                      \
           element_test_property_id, actual.Receive()));                        \
@@ -286,6 +288,18 @@ AXPlatformNodeWinTest::GetRootIRawElementProviderFragment() {
   return QueryInterfaceFromNode<IRawElementProviderFragment>(GetRootNode());
 }
 
+Microsoft::WRL::ComPtr<IRawElementProviderFragment>
+AXPlatformNodeWinTest::IRawElementProviderFragmentFromNode(AXNode* node) {
+  AXPlatformNode* platform_node = AXPlatformNodeFromNode(node);
+  gfx::NativeViewAccessible native_view =
+      platform_node->GetNativeViewAccessible();
+  ComPtr<IUnknown> unknown_node = native_view;
+  ComPtr<IRawElementProviderFragment> fragment_node;
+  unknown_node.As(&fragment_node);
+
+  return fragment_node;
+}
+
 ComPtr<IAccessible> AXPlatformNodeWinTest::IAccessibleFromNode(AXNode* node) {
   return QueryInterfaceFromNode<IAccessible>(node);
 }
@@ -368,11 +382,19 @@ ComPtr<IAccessibleTableCell> AXPlatformNodeWinTest::GetCellInTable() {
 
 void AXPlatformNodeWinTest::InitFragmentRoot() {
   test_fragment_root_delegate_ = std::make_unique<TestFragmentRootDelegate>();
-  test_fragment_root_delegate_->child_ =
-      AXPlatformNodeFromNode(GetRootNode())->GetNativeViewAccessible();
+  ax_fragment_root_.reset(InitNodeAsFragmentRoot(
+      GetRootNode(), test_fragment_root_delegate_.get()));
+}
 
-  ax_fragment_root_ = std::make_unique<ui::AXFragmentRootWin>(
-      gfx::kMockAcceleratedWidget, test_fragment_root_delegate_.get());
+AXFragmentRootWin* AXPlatformNodeWinTest::InitNodeAsFragmentRoot(
+    AXNode* node,
+    TestFragmentRootDelegate* delegate) {
+  delegate->child_ = AXPlatformNodeFromNode(node)->GetNativeViewAccessible();
+  if (node->parent())
+    delegate->parent_ =
+        AXPlatformNodeFromNode(node->parent())->GetNativeViewAccessible();
+
+  return new AXFragmentRootWin(gfx::kMockAcceleratedWidget, delegate);
 }
 
 ComPtr<IRawElementProviderFragmentRoot>
@@ -400,7 +422,7 @@ AXPlatformNodeWinTest::GetSupportedPatternsFromNodeId(int32_t id) {
       UIA_ValuePatternId,
   };
   for (LONG property_id : all_supported_patterns_) {
-    CComPtr<IUnknown> provider = nullptr;
+    ComPtr<IUnknown> provider;
     if (SUCCEEDED(raw_element_provider_simple->GetPatternProvider(property_id,
                                                                   &provider)) &&
         provider) {
@@ -2649,10 +2671,12 @@ TEST_F(AXPlatformNodeWinTest, TestUnlabeledImageRoleDescription) {
   tree.nodes[1].id = 2;
   tree.nodes[1].SetImageAnnotationStatus(
       ax::mojom::ImageAnnotationStatus::kEligibleForAnnotation);
+  tree.nodes[1].role = ax::mojom::Role::kImage;
 
   tree.nodes[2].id = 3;
   tree.nodes[2].SetImageAnnotationStatus(
       ax::mojom::ImageAnnotationStatus::kSilentlyEligibleForAnnotation);
+  tree.nodes[2].role = ax::mojom::Role::kImage;
 
   Init(tree);
   ComPtr<IAccessible> root_obj(GetRootIAccessible());
@@ -2683,10 +2707,12 @@ TEST_F(AXPlatformNodeWinTest, TestUnlabeledImageAttributes) {
   tree.nodes[1].id = 2;
   tree.nodes[1].SetImageAnnotationStatus(
       ax::mojom::ImageAnnotationStatus::kEligibleForAnnotation);
+  tree.nodes[1].role = ax::mojom::Role::kImage;
 
   tree.nodes[2].id = 3;
   tree.nodes[2].SetImageAnnotationStatus(
       ax::mojom::ImageAnnotationStatus::kSilentlyEligibleForAnnotation);
+  tree.nodes[2].role = ax::mojom::Role::kImage;
 
   Init(tree);
   ComPtr<IAccessible> root_obj(GetRootIAccessible());
@@ -4206,7 +4232,8 @@ TEST_F(AXPlatformNodeWinTest, TestUIAGetProviderOptions) {
   EXPECT_HRESULT_SUCCEEDED(root_node->get_ProviderOptions(&provider_options));
   EXPECT_EQ(ProviderOptions_ServerSideProvider |
                 ProviderOptions_UseComThreading |
-                ProviderOptions_RefuseNonClientSupport,
+                ProviderOptions_RefuseNonClientSupport |
+                ProviderOptions_HasNativeIAccessible,
             provider_options);
 }
 
@@ -4505,7 +4532,8 @@ TEST_F(AXPlatformNodeWinTest, TestUIANavigate) {
 TEST_F(AXPlatformNodeWinTest, TestISelectionProviderCanSelectMultipleDefault) {
   Init(BuildListBox(/*option_1_is_selected*/ false,
                     /*option_2_is_selected*/ false,
-                    /*option_3_is_selected*/ false));
+                    /*option_3_is_selected*/ false,
+                    /*additional_state*/ ax::mojom::State::kNone));
 
   ComPtr<ISelectionProvider> selection_provider(
       QueryInterfaceFromNode<ISelectionProvider>(GetRootNode()));
@@ -4535,7 +4563,8 @@ TEST_F(AXPlatformNodeWinTest,
        TestISelectionProviderIsSelectionRequiredDefault) {
   Init(BuildListBox(/*option_1_is_selected*/ false,
                     /*option_2_is_selected*/ false,
-                    /*option_3_is_selected*/ false));
+                    /*option_3_is_selected*/ false,
+                    /*additional_state*/ ax::mojom::State::kNone));
 
   ComPtr<ISelectionProvider> selection_provider(
       QueryInterfaceFromNode<ISelectionProvider>(GetRootNode()));
@@ -4564,7 +4593,8 @@ TEST_F(AXPlatformNodeWinTest, TestISelectionProviderIsSelectionRequiredTrue) {
 TEST_F(AXPlatformNodeWinTest, TestISelectionProviderGetSelectionNoneSelected) {
   Init(BuildListBox(/*option_1_is_selected*/ false,
                     /*option_2_is_selected*/ false,
-                    /*option_3_is_selected*/ false));
+                    /*option_3_is_selected*/ false,
+                    /*additional_state*/ ax::mojom::State::kNone));
 
   ComPtr<ISelectionProvider> selection_provider(
       QueryInterfaceFromNode<ISelectionProvider>(GetRootNode()));
@@ -4589,7 +4619,8 @@ TEST_F(AXPlatformNodeWinTest,
        TestISelectionProviderGetSelectionSingleItemSelected) {
   Init(BuildListBox(/*option_1_is_selected*/ false,
                     /*option_2_is_selected*/ true,
-                    /*option_3_is_selected*/ false));
+                    /*option_3_is_selected*/ false,
+                    /*additional_state*/ ax::mojom::State::kNone));
 
   ComPtr<ISelectionProvider> selection_provider(
       QueryInterfaceFromNode<ISelectionProvider>(GetRootNode()));
@@ -4623,7 +4654,8 @@ TEST_F(AXPlatformNodeWinTest,
        TestISelectionProviderGetSelectionMultipleItemsSelected) {
   Init(BuildListBox(/*option_1_is_selected*/ true,
                     /*option_2_is_selected*/ true,
-                    /*option_3_is_selected*/ true));
+                    /*option_3_is_selected*/ true,
+                    /*additional_state*/ ax::mojom::State::kNone));
 
   ComPtr<ISelectionProvider> selection_provider(
       QueryInterfaceFromNode<ISelectionProvider>(GetRootNode()));
@@ -5831,10 +5863,10 @@ TEST_F(AXPlatformNodeWinTest, TestISelectionItemProviderGetSelectionContainer) {
   ComPtr<ISelectionItemProvider> item_provider =
       QueryInterfaceFromNode<ISelectionItemProvider>(row->children()[0]);
 
-  CComPtr<IRawElementProviderSimple> container;
+  ComPtr<IRawElementProviderSimple> container;
   EXPECT_HRESULT_SUCCEEDED(item_provider->get_SelectionContainer(&container));
   EXPECT_NE(nullptr, container);
-  EXPECT_EQ(container, container_provider.Get());
+  EXPECT_EQ(container, container_provider);
 }
 
 TEST_F(AXPlatformNodeWinTest, TestIValueProvider_GetValue) {

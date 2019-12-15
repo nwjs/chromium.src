@@ -904,7 +904,10 @@
     {
       "id": 108,
       "cr_bugs": [449150],
-      "description": "Mali-4xx does not support GL_RGB format",
+      "description": "Mali-4xx on Linux does not support GL_RGB format",
+      "os": {
+        "type": "linux"
+      },
       "gl_vendor": "ARM.*",
       "gl_renderer": ".*Mali-4.*",
       "features": [
@@ -1596,25 +1599,6 @@
       ]
     },
     {
-      "id": 172,
-      "description": "Use GL_INTEL_framebuffer_CMAA on ChromeOS",
-      "cr_bugs": [535198],
-      "os": {
-        "type" : "chromeos"
-      },
-      "vendor_id": "0x8086",
-      "driver_vendor": "Mesa",
-      "gl_vendor": "Intel.*",
-      "gl_type": "gles",
-      "gl_version": {
-        "op": ">=",
-        "value": "3.1"
-      },
-      "features": [
-        "use_framebuffer_cmaa"
-      ]
-    },
-    {
       "id": 174,
       "description": "Adreno 4xx support for EXT_multisampled_render_to_texture is buggy on Android 7.0",
       "cr_bugs": [612474],
@@ -2211,12 +2195,16 @@
     },
     {
       "id": 219,
-      "description": "Zero-copy DXGI video hangs or displays incorrect colors on AMD drivers",
-      "cr_bugs": [623029],
+      "description": "Zero-copy DXGI video hangs or displays incorrect colors on older AMD drivers",
+      "cr_bugs": [623029, 1025427],
       "os": {
         "type": "win"
       },
       "vendor_id": "0x1002",
+      "driver_version": {
+        "op": "<",
+        "value": "23.20.826.5120"
+      },
       "features": [
         "disable_dxgi_zero_copy_video"
       ]
@@ -2904,18 +2892,6 @@
       ]
     },
     {
-      "id":275,
-      "cr_bugs": [838725],
-      "description": "Disable AImageReader on ARM GPUs as its buggy.",
-      "os": {
-        "type": "android"
-      },
-      "gl_vendor": "ARM.*",
-      "features": [
-        "disable_aimagereader"
-      ]
-    },
-    {
       "id": 277,
       "description": "Direct composition path is buggy on certain AMD devices/drivers",
       "cr_bugs": [800950],
@@ -3124,14 +3100,17 @@
     },
     {
       "id": 294,
-      "cr_bugs": [932879],
-      "description": "Hardware overlays result in black videos on non-Intel GPUs",
+      "cr_bugs": [932879, 1025427],
+      "description": "Hardware overlays are only supported on certain Intel/AMD gpus",
       "os": {
         "type": "win"
       },
       "exceptions": [
         {
           "vendor_id": "0x8086"
+        },
+        {
+          "vendor_id": "0x1002"
         }
       ],
       "features": [
@@ -3373,6 +3352,125 @@
       "gl_type": "gl",
       "disabled_extensions": [
         "GL_MESA_framebuffer_flip_y"
+      ]
+    },
+    {
+      "id": 316,
+      "cr_bugs": [1003860],
+      "description": "Limit MSAA to 4x on ChromeOS for Intel",
+      "os": {
+        "type": "chromeos"
+      },
+      "intel_gpu_generation": {
+        "op": ">=",
+        "value": "9"
+      },
+      "driver_vendor": "Mesa",
+      "gl_vendor": "Intel.*",
+      "features": [
+        "max_msaa_sample_count_4"
+      ]
+    },
+    {
+      "id": 317,
+      "cr_bugs": [1003860],
+      "description": "Limit MSAA to 2x on older Intel GPU generations on ChromeOS",
+      "os": {
+        "type": "chromeos"
+      },
+      "intel_gpu_generation": {
+        "op": "<",
+        "value": "9"
+      },
+      "driver_vendor": "Mesa",
+      "gl_vendor": "Intel.*",
+      "features": [
+        "max_msaa_sample_count_2"
+      ]
+    },
+    {
+      "id": 318,
+      "cr_bugs": [995396],
+      "description": "Direct composition caused performance issues on AMD GPUs",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x1002",
+      "device_id": ["0x694c"],
+      "features": [
+        "disable_direct_composition"
+      ]
+    },
+    {
+      "id": 319,
+      "cr_bugs": [709351],
+      "description": "Remove dynamic indexing for swizzled vectors on Mac",
+      "os": {
+        "type": "macosx"
+      },
+      "features": [
+        "remove_dynamic_indexing_of_swizzled_vector"
+      ]
+    },
+    {
+      "id": 320,
+      "cr_bugs": [709351],
+      "description": "Remove dynamic indexing for swizzled vectors on Android",
+      "os": {
+        "type": "android"
+      },
+      "features": [
+        "remove_dynamic_indexing_of_swizzled_vector"
+      ]
+    },
+    {
+      "id": 321,
+      "description": "Zero-copy DXGI video hangs or displays incorrect colors on older AMD drivers",
+      "cr_bugs": [623029, 1025427],
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x1002",
+      "device_id": ["0x9870", "0x9874", "0x98E4"],
+      "driver_version": {
+        "op": "<",
+        "value": "26.20.15000.37"
+      },
+      "features": [
+        "disable_dxgi_zero_copy_video"
+      ]
+    },
+    {
+      "id": 322,
+      "cr_bugs": [932879, 1025427],
+      "description": "Hardware overlays fail to work on older AMD drivers",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x1002",
+      "driver_version": {
+        "op": "<",
+        "value": "23.20.826.5120"
+      },
+      "features": [
+        "disable_direct_composition_video_overlays"
+      ]
+    },
+    {
+      "id": 323,
+      "cr_bugs": [932879, 1025427],
+      "description": "Hardware overlays fail to work on older AMD drivers",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x1002",
+      "device_id": ["0x9870", "0x9874", "0x98E4"],
+      "driver_version": {
+        "op": "<",
+        "value": "26.20.15000.37"
+      },
+      "features": [
+        "disable_direct_composition_video_overlays"
       ]
     }
   ]

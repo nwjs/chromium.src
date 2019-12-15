@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 #include <stddef.h>
+#include <memory>
+#include <utility>
 
 #include "base/callback.h"
 #include "base/strings/string16.h"
@@ -158,9 +160,24 @@ ukm::SourceId RenderFrameHostDelegate::GetUkmSourceIdForLastCommittedSource()
   return ukm::kInvalidSourceId;
 }
 
+ukm::SourceId RenderFrameHostDelegate::
+    GetUkmSourceIdForLastCommittedSourceIncludingSameDocument() const {
+  return ukm::kInvalidSourceId;
+}
+
 RenderFrameHostImpl* RenderFrameHostDelegate::GetMainFrameForInnerDelegate(
     FrameTreeNode* frame_tree_node) {
   return nullptr;
+}
+
+media::MediaMetricsProvider::RecordAggregateWatchTimeCallback
+RenderFrameHostDelegate::GetRecordAggregateWatchTimeCallback() {
+  return base::NullCallback();
+}
+
+bool RenderFrameHostDelegate::IsFrameLowPriority(
+    const RenderFrameHost* render_frame_host) {
+  return false;
 }
 
 }  // namespace content

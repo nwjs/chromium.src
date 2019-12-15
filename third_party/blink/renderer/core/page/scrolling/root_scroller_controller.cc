@@ -175,7 +175,10 @@ void RootScrollerController::RecomputeEffectiveRootScroller() {
     }
   }
 
-  if (effective_root_scroller_ == new_effective_root_scroller)
+  // Note, the layout object can be replaced during a rebuild. In that case,
+  // re-run process even if the element itself is the same.
+  if (effective_root_scroller_ == new_effective_root_scroller &&
+      effective_root_scroller_->IsEffectiveRootScroller())
     return;
 
   Node* old_effective_root_scroller = effective_root_scroller_;
@@ -243,6 +246,13 @@ bool RootScrollerController::IsValidRootScroller(const Element& element) const {
 
     // TODO(bokan): Make work with OOPIF. crbug.com/642378.
     if (!frame_owner->OwnedEmbeddedContentView()->IsLocalFrameView())
+      return false;
+
+    // It's possible for an iframe to have a LayoutView but not have performed
+    // the lifecycle yet. We shouldn't promote such an iframe until it has
+    // since we won't be able to use the scroller inside yet.
+    Document* doc = frame_owner->contentDocument();
+    if (!doc || !doc->View() || !doc->View()->DidFirstLayout())
       return false;
   }
 

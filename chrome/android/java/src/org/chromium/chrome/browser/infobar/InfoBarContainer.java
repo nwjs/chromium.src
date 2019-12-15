@@ -8,10 +8,10 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ObserverList;
 import org.chromium.base.UserData;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.R;
@@ -20,8 +20,9 @@ import org.chromium.chrome.browser.infobar.InfoBarContainerLayout.Item;
 import org.chromium.chrome.browser.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabObserver;
-import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetObserver;
 import org.chromium.chrome.browser.widget.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.content_public.browser.NavigationHandle;
@@ -225,7 +226,7 @@ public class InfoBarContainer implements UserData, KeyboardVisibilityListener {
         mTabView = tab.getView();
         mTab = tab;
 
-        if (tab.getActivity() != null) initializeContainerView();
+        if (((TabImpl) tab).getActivity() != null) initializeContainerView();
 
         // Chromium's InfoBarContainer may add an InfoBar immediately during this initialization
         // call, so make sure everything in the InfoBarContainer is completely ready beforehand.
@@ -233,8 +234,8 @@ public class InfoBarContainer implements UserData, KeyboardVisibilityListener {
     }
 
     public SnackbarManager getSnackbarManager() {
-        if (mTab != null && mTab.getActivity() != null) {
-            return mTab.getActivity().getSnackbarManager();
+        if (mTab != null && ((TabImpl) mTab).getActivity() != null) {
+            return ((TabImpl) mTab).getActivity().getSnackbarManager();
         }
 
         return null;
@@ -465,7 +466,7 @@ public class InfoBarContainer implements UserData, KeyboardVisibilityListener {
     }
 
     private void initializeContainerView() {
-        final ChromeActivity chromeActivity = mTab.getActivity();
+        final ChromeActivity chromeActivity = ((TabImpl) mTab).getActivity();
         assert chromeActivity
                 != null
             : "ChromeActivity should not be null when initializing InfoBarContainerView";
@@ -476,19 +477,21 @@ public class InfoBarContainer implements UserData, KeyboardVisibilityListener {
                 new View.OnAttachStateChangeListener() {
                     @Override
                     public void onViewAttachedToWindow(View view) {
-                        if (mTab.getActivity().getBottomSheet() != null
-                                && mBottomSheetObserver == null) {
+                        if (mBottomSheetObserver == null) {
                             mBottomSheetObserver = new EmptyBottomSheetObserver() {
                                 @Override
                                 public void onSheetStateChanged(int sheetState) {
-                                    if (mTab.isHidden()) return;
+                                    if (((TabImpl) mTab).isHidden()) return;
                                     mInfoBarContainerView.setVisibility(
-                                            sheetState == BottomSheet.SheetState.FULL
+                                            sheetState == BottomSheetController.SheetState.FULL
                                                     ? View.INVISIBLE
                                                     : View.VISIBLE);
                                 }
                             };
-                            mTab.getActivity().getBottomSheet().addObserver(mBottomSheetObserver);
+                            ((TabImpl) mTab)
+                                    .getActivity()
+                                    .getBottomSheetController()
+                                    .addObserver(mBottomSheetObserver);
                         }
 
                         for (InfoBarContainer.InfoBarContainerObserver observer : mObservers) {
@@ -527,9 +530,9 @@ public class InfoBarContainer implements UserData, KeyboardVisibilityListener {
             mInfoBarContainerView = null;
         }
 
-        ChromeActivity activity = mTab.getActivity();
-        if (activity != null && mBottomSheetObserver != null && activity.getBottomSheet() != null) {
-            activity.getBottomSheet().removeObserver(mBottomSheetObserver);
+        ChromeActivity activity = ((TabImpl) mTab).getActivity();
+        if (activity != null && mBottomSheetObserver != null) {
+            activity.getBottomSheetController().removeObserver(mBottomSheetObserver);
         }
 
         mTab.getWindowAndroid().getKeyboardDelegate().removeKeyboardVisibilityListener(this);

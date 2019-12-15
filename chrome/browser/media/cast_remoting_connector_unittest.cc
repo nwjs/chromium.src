@@ -21,27 +21,15 @@
 #include "content/public/test/browser_task_environment.h"
 #include "media/mojo/mojom/mirror_service_remoting.mojom.h"
 #include "media/mojo/mojom/remoting.mojom.h"
-#include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "mojo/public/cpp/bindings/pending_remote.h"
-#include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::BrowserThread;
 
-using media::mojom::RemoterPtr;
-using media::mojom::RemoterRequest;
 using media::mojom::RemotingSinkMetadata;
 using media::mojom::RemotingSinkMetadataPtr;
-using media::mojom::RemotingSourcePtr;
-using media::mojom::RemotingSourceRequest;
 using media::mojom::RemotingStartFailReason;
 using media::mojom::RemotingStopReason;
-using media::mojom::MirrorServiceRemoterPtr;
-using media::mojom::MirrorServiceRemoterRequest;
-using media::mojom::MirrorServiceRemotingSourcePtr;
-using media::mojom::MirrorServiceRemotingSourceRequest;
 
 using ::testing::_;
 using ::testing::AtLeast;
@@ -110,7 +98,7 @@ class MockRemotingSource : public media::mojom::RemotingSource {
   MockRemotingSource() {}
   ~MockRemotingSource() final {}
 
-  void Bind(mojo::PendingReceiver<RemotingSource> receiver) {
+  void Bind(mojo::PendingReceiver<media::mojom::RemotingSource> receiver) {
     receiver_.Bind(std::move(receiver));
   }
 
@@ -128,12 +116,13 @@ class MockRemotingSource : public media::mojom::RemotingSource {
   mojo::Receiver<media::mojom::RemotingSource> receiver_{this};
 };
 
-// TODO(xjz): Remove the media::mojom::MirrorServiceRemoter implementation after
-// Mirroring Service is launched.
+// TODO(crbug.com/1015486): Remove the media::mojom::MirrorServiceRemoter
+// implementation after Mirroring Service is launched.
 class MockMediaRemoter final : public media::mojom::MirrorServiceRemoter,
                                public media::mojom::Remoter {
  public:
-  // TODO(xjz): Remove this ctor after Mirroring Service is launched.
+  // TODO(crbug.com/1015486): Remove this ctor after Mirroring Service is
+  // launched.
   explicit MockMediaRemoter(FakeMediaRouter* media_router) {
     mojo::PendingRemote<media::mojom::MirrorServiceRemoter> pending_remoter;
     deprecated_receiver_.Bind(pending_remoter.InitWithNewPipeAndPassReceiver());
@@ -144,7 +133,7 @@ class MockMediaRemoter final : public media::mojom::MirrorServiceRemoter,
 
   explicit MockMediaRemoter(CastRemotingConnector* connector) {
     connector->ConnectWithMediaRemoter(receiver_.BindNewPipeAndPassRemote(),
-                                       mojo::MakeRequest(&source_));
+                                       source_.BindNewPipeAndPassReceiver());
   }
 
   ~MockMediaRemoter() final {}
@@ -219,12 +208,12 @@ class MockMediaRemoter final : public media::mojom::MirrorServiceRemoter,
                video_sender_receiver));
 
  private:
-  // TODO(xjz): Remove these after Mirroring Service is launched.
+  // TODO(crbug.com/1015486): Remove these after Mirroring Service is launched.
   mojo::Receiver<media::mojom::MirrorServiceRemoter> deprecated_receiver_{this};
   mojo::Remote<media::mojom::MirrorServiceRemotingSource> deprecated_source_;
 
   mojo::Receiver<media::mojom::Remoter> receiver_{this};
-  RemotingSourcePtr source_;
+  mojo::Remote<media::mojom::RemotingSource> source_;
 };
 
 }  // namespace
@@ -241,13 +230,15 @@ class CastRemotingConnectorTest : public ::testing::Test {
   }
 
  protected:
-  RemoterPtr CreateRemoter(MockRemotingSource* source) {
-    RemotingSourcePtr source_ptr;
-    source->Bind(mojo::MakeRequest(&source_ptr));
-    RemoterPtr remoter_ptr;
-    connector_->CreateBridge(std::move(source_ptr),
-                             mojo::MakeRequest(&remoter_ptr));
-    return remoter_ptr;
+  mojo::PendingRemote<media::mojom::Remoter> CreateRemoter(
+      MockRemotingSource* source) {
+    mojo::PendingRemote<media::mojom::RemotingSource> source_pending_remote;
+    source->Bind(source_pending_remote.InitWithNewPipeAndPassReceiver());
+    mojo::PendingRemote<media::mojom::Remoter> remoter_pending_remote;
+    connector_->CreateBridge(
+        std::move(source_pending_remote),
+        remoter_pending_remote.InitWithNewPipeAndPassReceiver());
+    return remoter_pending_remote;
   }
 
   static void RunUntilIdle() {
@@ -288,7 +279,7 @@ class CastRemotingConnectorTest : public ::testing::Test {
 
 TEST_F(CastRemotingConnectorTest, NeverNotifiesThatSinkIsAvailable) {
   MockRemotingSource source;
-  RemoterPtr remoter = CreateRemoter(&source);
+  mojo::Remote<media::mojom::Remoter> remoter(CreateRemoter(&source));
 
   EXPECT_CALL(source, OnSinkAvailable(_)).Times(0);
   EXPECT_CALL(source, OnSinkGone()).Times(AtLeast(0));
@@ -297,7 +288,7 @@ TEST_F(CastRemotingConnectorTest, NeverNotifiesThatSinkIsAvailable) {
 
 TEST_F(CastRemotingConnectorTest, NotifiesWhenSinkIsAvailableAndThenGone) {
   MockRemotingSource source;
-  RemoterPtr remoter = CreateRemoter(&source);
+  mojo::Remote<media::mojom::Remoter> remoter(CreateRemoter(&source));
 
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetConnector());
@@ -314,9 +305,9 @@ TEST_F(CastRemotingConnectorTest, NotifiesWhenSinkIsAvailableAndThenGone) {
 TEST_F(CastRemotingConnectorTest,
        NotifiesMultipleSourcesWhenSinkIsAvailableAndThenGone) {
   MockRemotingSource source1;
-  RemoterPtr remoter1 = CreateRemoter(&source1);
+  mojo::Remote<media::mojom::Remoter> remoter1(CreateRemoter(&source1));
   MockRemotingSource source2;
-  RemoterPtr remoter2 = CreateRemoter(&source2);
+  mojo::Remote<media::mojom::Remoter> remoter2(CreateRemoter(&source2));
 
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetConnector());
@@ -334,7 +325,7 @@ TEST_F(CastRemotingConnectorTest,
 
 TEST_F(CastRemotingConnectorTest, HandlesTeardownOfRemotingSourceFirst) {
   std::unique_ptr<MockRemotingSource> source(new MockRemotingSource);
-  RemoterPtr remoter = CreateRemoter(source.get());
+  mojo::Remote<media::mojom::Remoter> remoter(CreateRemoter(source.get()));
 
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetConnector());
@@ -349,7 +340,7 @@ TEST_F(CastRemotingConnectorTest, HandlesTeardownOfRemotingSourceFirst) {
 
 TEST_F(CastRemotingConnectorTest, HandlesTeardownOfRemoterFirst) {
   MockRemotingSource source;
-  RemoterPtr remoter = CreateRemoter(&source);
+  mojo::Remote<media::mojom::Remoter> remoter(CreateRemoter(&source));
 
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetConnector());
@@ -364,10 +355,10 @@ TEST_F(CastRemotingConnectorTest, HandlesTeardownOfRemoterFirst) {
 
 TEST_F(CastRemotingConnectorTest, NoConnectedMediaRemoter) {
   MockRemotingSource source;
-  RemoterPtr remoter = CreateRemoter(&source);
+  mojo::Remote<media::mojom::Remoter> remoter(CreateRemoter(&source));
 
   EXPECT_CALL(source,
-              OnStartFailed(RemotingStartFailReason::SERVICE_NOT_CONNECTED))
+              OnStartFailed(RemotingStartFailReason::INVALID_ANSWER_MESSAGE))
       .Times(1);
   remoter->Start();
   RunUntilIdle();
@@ -375,9 +366,9 @@ TEST_F(CastRemotingConnectorTest, NoConnectedMediaRemoter) {
 
 TEST_F(CastRemotingConnectorTest, UserDisableRemoting) {
   MockRemotingSource source1;
-  RemoterPtr remoter1 = CreateRemoter(&source1);
+  mojo::Remote<media::mojom::Remoter> remoter1(CreateRemoter(&source1));
   MockRemotingSource source2;
-  RemoterPtr remoter2 = CreateRemoter(&source2);
+  mojo::Remote<media::mojom::Remoter> remoter2(CreateRemoter(&source2));
 
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetConnector());
@@ -398,7 +389,7 @@ TEST_F(CastRemotingConnectorTest, UserDisableRemoting) {
 TEST_F(CastRemotingConnectorTest, NoPermissionToStart) {
   CreateConnector(false);
   MockRemotingSource source;
-  RemoterPtr remoter = CreateRemoter(&source);
+  mojo::Remote<media::mojom::Remoter> remoter(CreateRemoter(&source));
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetMediaRouter());
 
@@ -436,9 +427,10 @@ class CastRemotingConnectorFullSessionTest
 // remoting session to end.
 TEST_P(CastRemotingConnectorFullSessionTest, GoesThroughAllTheMotions) {
   std::unique_ptr<MockRemotingSource> source(new MockRemotingSource());
-  RemoterPtr remoter = CreateRemoter(source.get());
+  mojo::Remote<media::mojom::Remoter> remoter(CreateRemoter(source.get()));
   std::unique_ptr<MockRemotingSource> other_source(new MockRemotingSource());
-  RemoterPtr other_remoter = CreateRemoter(other_source.get());
+  mojo::Remote<media::mojom::Remoter> other_remoter(
+      CreateRemoter(other_source.get()));
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetConnector());
 
@@ -630,7 +622,7 @@ TEST_P(CastRemotingConnectorFullSessionTest, GoesThroughAllTheMotions) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          CastRemotingConnectorFullSessionTest,
                          ::testing::Values(SOURCE_TERMINATES,
                                            MOJO_PIPE_CLOSES,
@@ -638,11 +630,12 @@ INSTANTIATE_TEST_SUITE_P(,
                                            EXTERNAL_FAILURE,
                                            USER_DISABLED));
 
-// TODO(xjz): Remove the following tests after Mirroring Service is launched.
+// TODO(crbug.com/1015486): Remove the following tests after Mirroring Service
+// is launched.
 TEST_F(CastRemotingConnectorTest,
        DeprecatedNotifiesWhenSinkIsAvailableAndThenGone) {
   MockRemotingSource source;
-  RemoterPtr remoter = CreateRemoter(&source);
+  mojo::Remote<media::mojom::Remoter> remoter(CreateRemoter(&source));
 
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetMediaRouter());
@@ -659,9 +652,9 @@ TEST_F(CastRemotingConnectorTest,
 TEST_F(CastRemotingConnectorTest,
        DeprecatedNotifiesMultipleSourcesWhenSinkIsAvailableAndThenGone) {
   MockRemotingSource source1;
-  RemoterPtr remoter1 = CreateRemoter(&source1);
+  mojo::Remote<media::mojom::Remoter> remoter1(CreateRemoter(&source1));
   MockRemotingSource source2;
-  RemoterPtr remoter2 = CreateRemoter(&source2);
+  mojo::Remote<media::mojom::Remoter> remoter2(CreateRemoter(&source2));
 
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetMediaRouter());
@@ -680,7 +673,7 @@ TEST_F(CastRemotingConnectorTest,
 TEST_F(CastRemotingConnectorTest,
        DeprecatedHandlesTeardownOfRemotingSourceFirst) {
   std::unique_ptr<MockRemotingSource> source(new MockRemotingSource);
-  RemoterPtr remoter = CreateRemoter(source.get());
+  mojo::Remote<media::mojom::Remoter> remoter(CreateRemoter(source.get()));
 
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetMediaRouter());
@@ -695,7 +688,7 @@ TEST_F(CastRemotingConnectorTest,
 
 TEST_F(CastRemotingConnectorTest, DeprecatedHandlesTeardownOfRemoterFirst) {
   MockRemotingSource source;
-  RemoterPtr remoter = CreateRemoter(&source);
+  mojo::Remote<media::mojom::Remoter> remoter(CreateRemoter(&source));
 
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetMediaRouter());
@@ -710,9 +703,9 @@ TEST_F(CastRemotingConnectorTest, DeprecatedHandlesTeardownOfRemoterFirst) {
 
 TEST_F(CastRemotingConnectorTest, DeprecatedUserDisableRemoting) {
   MockRemotingSource source1;
-  RemoterPtr remoter1 = CreateRemoter(&source1);
+  mojo::Remote<media::mojom::Remoter> remoter1(CreateRemoter(&source1));
   MockRemotingSource source2;
-  RemoterPtr remoter2 = CreateRemoter(&source2);
+  mojo::Remote<media::mojom::Remoter> remoter2(CreateRemoter(&source2));
 
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetMediaRouter());
@@ -744,9 +737,10 @@ class DeprecatedCastRemotingConnectorFullSessionTest
 TEST_P(DeprecatedCastRemotingConnectorFullSessionTest,
        GoesThroughAllTheMotions) {
   std::unique_ptr<MockRemotingSource> source(new MockRemotingSource());
-  RemoterPtr remoter = CreateRemoter(source.get());
+  mojo::Remote<media::mojom::Remoter> remoter(CreateRemoter(source.get()));
   std::unique_ptr<MockRemotingSource> other_source(new MockRemotingSource());
-  RemoterPtr other_remoter = CreateRemoter(other_source.get());
+  mojo::Remote<media::mojom::Remoter> other_remoter(
+      CreateRemoter(other_source.get()));
   std::unique_ptr<MockMediaRemoter> media_remoter =
       std::make_unique<MockMediaRemoter>(GetMediaRouter());
 
@@ -941,7 +935,7 @@ TEST_P(DeprecatedCastRemotingConnectorFullSessionTest,
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          DeprecatedCastRemotingConnectorFullSessionTest,
                          ::testing::Values(SOURCE_TERMINATES,
                                            MOJO_PIPE_CLOSES,

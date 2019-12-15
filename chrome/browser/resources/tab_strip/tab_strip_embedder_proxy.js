@@ -18,6 +18,14 @@ export class TabStripEmbedderProxy {
     return sendWithPromise('getThemeColors');
   }
 
+  /**
+   * @return {!Promise<!Object<string, string>>} Object with CSS variables
+   *     as keys and pixel lengths as values
+   */
+  getLayout() {
+    return sendWithPromise('getLayout');
+  }
+
   observeThemeChanges() {
     chrome.send('observeThemeChanges');
   }
@@ -31,8 +39,37 @@ export class TabStripEmbedderProxy {
     chrome.send('showTabContextMenu', [tabId, locationX, locationY]);
   }
 
+  /**
+   * @param {number} locationX
+   * @param {number} locationY
+   */
+  showBackgroundContextMenu(locationX, locationY) {
+    chrome.send('showBackgroundContextMenu', [locationX, locationY]);
+  }
+
   closeContainer() {
     chrome.send('closeContainer');
+  }
+
+  /** @param {number} durationMs Activation duration time in ms. */
+  reportTabActivationDuration(durationMs) {
+    chrome.send('reportTabActivationDuration', [durationMs]);
+  }
+
+  /**
+   * @param {number} tabCount Number of tabs.
+   * @param {number} durationMs Activation duration time in ms.
+   */
+  reportTabDataReceivedDuration(tabCount, durationMs) {
+    chrome.send('reportTabDataReceivedDuration', [tabCount, durationMs]);
+  }
+
+  /**
+   * @param {number} tabCount Number of tabs.
+   * @param {number} durationMs Creation duration time in ms.
+   */
+  reportTabCreationDuration(tabCount, durationMs) {
+    chrome.send('reportTabCreationDuration', [tabCount, durationMs]);
   }
 }
 

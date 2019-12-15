@@ -90,11 +90,8 @@ WebContents* WebContentsDelegateAndroid::OpenURLFromTab(
         ConvertUTF8ToJavaString(env, url.spec());
     ScopedJavaLocalRef<jstring> extra_headers =
         ConvertUTF8ToJavaString(env, params.extra_headers);
-    ScopedJavaLocalRef<jobject> post_data;
-    if (params.uses_post && params.post_data) {
-      post_data = content::ConvertResourceRequestBodyToJavaObject(
-          env, params.post_data);
-    }
+    ScopedJavaLocalRef<jobject> post_data =
+        content::ConvertResourceRequestBodyToJavaObject(env, params.post_data);
     Java_WebContentsDelegateAndroid_openNewTab(
         env, obj, java_url, extra_headers, post_data,
         static_cast<int>(disposition), params.is_renderer_initiated);
@@ -142,15 +139,6 @@ void WebContentsDelegateAndroid::LoadingStateChanged(
   ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
   Java_WebContentsDelegateAndroid_loadingStateChanged(env, obj,
                                                       to_different_document);
-}
-
-void WebContentsDelegateAndroid::LoadProgressChanged(WebContents* source,
-                                                     double progress) {
-  JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
-  if (obj.is_null())
-    return;
-  Java_WebContentsDelegateAndroid_notifyLoadProgressChanged(env, obj, progress);
 }
 
 void WebContentsDelegateAndroid::RendererUnresponsive(
@@ -368,12 +356,37 @@ int WebContentsDelegateAndroid::GetTopControlsHeight() {
   return Java_WebContentsDelegateAndroid_getTopControlsHeight(env, obj);
 }
 
+int WebContentsDelegateAndroid::GetTopControlsMinHeight() {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
+  if (obj.is_null())
+    return 0;
+  return Java_WebContentsDelegateAndroid_getTopControlsMinHeight(env, obj);
+}
+
 int WebContentsDelegateAndroid::GetBottomControlsHeight() {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
   if (obj.is_null())
     return 0;
   return Java_WebContentsDelegateAndroid_getBottomControlsHeight(env, obj);
+}
+
+int WebContentsDelegateAndroid::GetBottomControlsMinHeight() {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
+  if (obj.is_null())
+    return 0;
+  return Java_WebContentsDelegateAndroid_getBottomControlsMinHeight(env, obj);
+}
+
+bool WebContentsDelegateAndroid::ShouldAnimateBrowserControlsHeightChanges() {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
+  if (obj.is_null())
+    return false;
+  return Java_WebContentsDelegateAndroid_shouldAnimateBrowserControlsHeightChanges(
+      env, obj);
 }
 
 bool WebContentsDelegateAndroid::DoBrowserControlsShrinkRendererSize(

@@ -3,7 +3,6 @@
 <translationbundle lang="ro">
 <translation id="1001534784610492198">Arhiva programului de instalare este deteriorată sau nevalidă. Descarcă din nou Google Chrome.</translation>
 <translation id="102763973188675173">Personalizează și controlează Google Chrome. Este disponibilă o actualizare.</translation>
-<translation id="1035334672863811645">conectează-te la Chrome</translation>
 <translation id="1051826050538111504">Ai software dăunător pe computer. Chrome poate să îl elimine, să restabilească setările și să dezactiveze extensiile pentru ca browserul să funcționeze normal din nou.</translation>
 <translation id="1065672644894730302">Preferințele dvs. nu pot fi citite. Este posibil ca unele funcții să nu fie disponibile, iar modificările aduse preferințelor nu vor fi salvate.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> a folosit Chrome anterior</translation>
@@ -73,7 +72,6 @@
 <translation id="3065168410429928842">Fila Chrome</translation>
 <translation id="3080151273017101988">Rulează în continuare aplicații în fundal când Google Chrome este închis</translation>
 <translation id="3089968997497233615">Google Chrome este disponibil într-o versiune nouă și mai sigură.</translation>
-<translation id="3138848678222082288">Versiunile Chrome ulterioare se vor instala automat. După această descărcare, Chrome va reporni și va fi gata de utilizare.</translation>
 <translation id="3149510190863420837">Aplicații Chrome</translation>
 <translation id="3282568296779691940">Conectează-te la Chrome</translation>
 <translation id="3340978935015468852">setări</translation>
@@ -94,7 +92,6 @@
 <translation id="3718181793972440140">Astfel, se va șterge 1 element de pe acest dispozitiv. Pentru a recupera datele mai târziu, conectează-te la Chrome ca <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">Extensia „<ph name="EXTENSION_NAME" />” a modificat ce pagină se afișează când pornești Chrome.</translation>
 <translation id="3780814664026482060">Chrome – <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Elimină din Chrome...</translation>
 <translation id="386202838227397562">Închide toate ferestrele Google Chrome și încearcă din nou.</translation>
 <translation id="3873044882194371212">Deschide linkul într-o fereastră Chrome inco&amp;gnito</translation>
 <translation id="3889417619312448367">Dezinstalează Google Chrome</translation>
@@ -175,7 +172,6 @@
 <translation id="677276454032249905">Ieși din Chrome oricum?</translation>
 <translation id="683440813066116847">Regula de intrare pentru Google Chrome Canary pentru a permite traficul mDNS.</translation>
 <translation id="6885412569789873916">Aplicații Chrome Beta</translation>
-<translation id="6906909733186691861">Versiunile Chrome ulterioare se vor instala automat.</translation>
 <translation id="6943584222992551122">Datele de navigare ale acestei persoane vor fi șterse de pe dispozitiv. Pentru a recupera datele, conectează-te la Chrome ca <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Regula de intrare pentru Google Chrome Beta pentru a permite traficul mDNS.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> necesită să citiți și să acceptați Termenii și condițiile următoare înainte de a utiliza acest dispozitiv. Acești termeni nu extind, nu modifică și nu limitează Termenii pentru sistemul de operare Google Chrome.</translation>
@@ -226,7 +222,6 @@
 <translation id="8521348052903287641">Regula de intrare pentru Google Chrome Dev pentru a permite traficul mDNS.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Este disponibilă o nouă versiune de Google Chrome, iar aceasta este mai rapidă ca oricând.</translation>
-<translation id="8606668294522778825">Este posibil ca Google Chrome să folosească servicii web pentru a-ți îmbunătăți experiența de navigare. Poți să dezactivezi aceste servicii. <ph name="BEGIN_LINK" />Află mai multe<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome nu mai răspunde. Îl repornești acum?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome se va relansa într-un minut}few{Chrome se va relansa în # minute}other{Chrome se va relansa în # de minute}}</translation>
 <translation id="8669527147644353129">Google Chrome Helper</translation>

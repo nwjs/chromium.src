@@ -3,7 +3,6 @@
 <translationbundle lang="ca">
 <translation id="1001534784610492198">El fitxer d'instal·lació està malmès o no és vàlid. Torna a baixar Google Chrome.</translation>
 <translation id="102763973188675173">Personalitza i controla Google Chrome. Hi ha una actualització disponible.</translation>
-<translation id="1035334672863811645">Inicia la sessió a Chrome</translation>
 <translation id="1051826050538111504">Hi ha programari nociu a l'ordinador. Chrome el pot suprimir, restaurar la configuració i desactivar les extensions perquè el navegador torni a funcionar amb normalitat.</translation>
 <translation id="1065672644894730302">No es poden llegir les vostres preferències. És possible que algunes funcions no estiguin disponibles i que els canvis a les preferències no es desin.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> abans utilitzava Chrome</translation>
@@ -72,7 +71,6 @@
 <translation id="3065168410429928842">Pestanya de Chrome</translation>
 <translation id="3080151273017101988">Continua executant aplicacions de segon pla en tancar Google Chrome</translation>
 <translation id="3089968997497233615">Hi ha disponible una nova versió més segura de Google Chrome.</translation>
-<translation id="3138848678222082288">Les versions futures de Chrome s'instal·laran automàticament. Quan finalitzi la baixada, Chrome es reiniciarà i ja el podràs utilitzar.</translation>
 <translation id="3149510190863420837">Aplicacions de Chrome</translation>
 <translation id="3282568296779691940">Inicia la sessió a Chrome</translation>
 <translation id="3340978935015468852">configuració</translation>
@@ -93,7 +91,6 @@
 <translation id="3718181793972440140">Amb aquesta acció, se suprimirà 1 element d'aquest dispositiu. Per recuperar les teves dades més endavant, inicia la sessió a Chrome com a <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">L'extensió <ph name="EXTENSION_NAME" /> ha canviat la pàgina que es mostra quan inicieu Chrome.</translation>
 <translation id="3780814664026482060">Chrome: <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Suprimeix de Chrome...</translation>
 <translation id="386202838227397562">Tanqueu totes les finestres de Google Chrome i torneu-ho a provar.</translation>
 <translation id="3873044882194371212">Obre l'enllaç en una finestra d'incò&amp;gnit a Chrome</translation>
 <translation id="3889417619312448367">Desinstal·la Google Chrome</translation>
@@ -173,7 +170,6 @@
 <translation id="677276454032249905">Vols sortir de Chrome igualment?</translation>
 <translation id="683440813066116847">Regla d'entrada de Google Chrome Canary per permetre el trànsit de mDNS.</translation>
 <translation id="6885412569789873916">Aplicacions de Chrome Beta</translation>
-<translation id="6906909733186691861">Les versions futures de Chrome s'instal·laran automàticament.</translation>
 <translation id="6943584222992551122">Les dades de navegació d'aquesta persona se suprimiran d'aquest dispositiu. Per recuperar-les, inicia la sessió a Chrome com a <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Regla d'entrada de Google Chrome Beta per permetre el trànsit d'mDNS.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> exigeix que llegiu i accepteu els Termes i condicions següents abans no utilitzeu el dispositiu. Aquestes condicions no amplien, modifiquen ni restringeixen les condicions de Google Chrome OS.</translation>
@@ -224,7 +220,6 @@
 <translation id="8521348052903287641">Regla d'entrada de Google Chrome Dev per permetre el trànsit d'mDNS.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Hi ha disponible una nova versió de Google Chrome, i és més ràpida que mai.</translation>
-<translation id="8606668294522778825">Google Chrome pot utilitzar serveis web per millorar la vostra experiència de  navegació, però podeu desactivar-los si voleu. <ph name="BEGIN_LINK" />Més informació<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome no respon. Voleu tornar-lo a iniciar ara?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome es reiniciarà d'aquí a 1 minut}other{Chrome es reiniciarà d'aquí a # minuts}}</translation>
 <translation id="8669527147644353129">Aplicació d'ajuda de Google Chrome</translation>

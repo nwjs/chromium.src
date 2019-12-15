@@ -111,6 +111,10 @@ class FakeWebWorkerFetchContext final : public WebWorkerFetchContext {
     return base::Optional<WebSecurityOrigin>();
   }
   WebString GetAcceptLanguages() const override { return WebString(); }
+  mojo::ScopedMessagePipeHandle TakePendingWorkerTimingReceiver(
+      int request_id) override {
+    return {};
+  }
 
  private:
   FakeWebURLLoaderFactory fake_web_url_loader_factory_;
@@ -255,7 +259,6 @@ TEST_F(WebEmbeddedWorkerImplTest, TerminateSoonAfterStart) {
       /*installed_scripts_manager_params=*/nullptr,
       /*content_settings_proxy=*/mojo::ScopedMessagePipeHandle(),
       /*cache_storage_remote=*/mojo::ScopedMessagePipeHandle(),
-      /*interface_provider_info=*/mojo::ScopedMessagePipeHandle(),
       /*browser_interface_broker=*/mojo::ScopedMessagePipeHandle(),
       Thread::Current()->GetTaskRunner());
   testing::Mock::VerifyAndClearExpectations(mock_client_.get());
@@ -274,7 +277,6 @@ TEST_F(WebEmbeddedWorkerImplTest, TerminateWhileWaitingForDebugger) {
       /*installed_scripts_manager_params=*/nullptr,
       /*content_settings_proxy=*/mojo::ScopedMessagePipeHandle(),
       /*cache_storage_remote=*/mojo::ScopedMessagePipeHandle(),
-      /*interface_provider_info=*/mojo::ScopedMessagePipeHandle(),
       /*browser_interface_broker=*/mojo::ScopedMessagePipeHandle(),
       Thread::Current()->GetTaskRunner());
   testing::Mock::VerifyAndClearExpectations(mock_client_.get());
@@ -296,7 +298,6 @@ TEST_F(WebEmbeddedWorkerImplTest, ScriptNotFound) {
       /*installed_scripts_manager_params=*/nullptr,
       /*content_settings_proxy=*/mojo::ScopedMessagePipeHandle(),
       /*cache_storage_remote=*/mojo::ScopedMessagePipeHandle(),
-      /*interface_provider_info=*/mojo::ScopedMessagePipeHandle(),
       /*browser_interface_broker=*/mojo::ScopedMessagePipeHandle(),
       Thread::Current()->GetTaskRunner());
   testing::Mock::VerifyAndClearExpectations(mock_client_.get());

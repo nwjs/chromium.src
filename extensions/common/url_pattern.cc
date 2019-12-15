@@ -414,8 +414,12 @@ bool URLPattern::SetPort(base::StringPiece port) {
 }
 
 bool URLPattern::MatchesURL(const GURL& test) const {
+  // Invalid URLs can never match.
+  if (!test.is_valid())
+    return false;
+
   const GURL* test_url = &test;
-  bool has_inner_url = test.inner_url() != NULL;
+  bool has_inner_url = test.inner_url() != nullptr;
 
   if (has_inner_url) {
     if (!test.SchemeIsFileSystem())
@@ -430,6 +434,11 @@ bool URLPattern::MatchesURL(const GURL& test) const {
 
   if (match_all_urls_)
     return true;
+
+  // Unless |match_all_urls_| is true, the grammar only permits matching
+  // URLs with nonempty paths.
+  if (!test.has_path())
+    return false;
 
   std::string path_for_request = test.PathForRequest();
   if (has_inner_url) {

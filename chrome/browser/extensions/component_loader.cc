@@ -57,7 +57,7 @@
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/storage_partition.h"
 #include "extensions/browser/extensions_browser_client.h"
-#include "storage/browser/fileapi/file_system_context.h"
+#include "storage/browser/file_system/file_system_context.h"
 #include "ui/chromeos/devicetype_utils.h"
 #include "ui/file_manager/grit/file_manager_resources.h"
 #endif
@@ -105,8 +105,13 @@ std::unique_ptr<base::DictionaryValue> LoadManifestOnFileThread(
   }
 
   if (localize_manifest) {
+    // This is only called for Chrome OS component extensions which are loaded
+    // from a read-only rootfs partition, so it is safe to set
+    // |gzip_permission| to kAllowForTrustedSource.
     bool localized = extension_l10n_util::LocalizeExtension(
-        root_directory, manifest.get(), &error);
+        root_directory, manifest.get(),
+        extension_l10n_util::GzippedMessagesPermission::kAllowForTrustedSource,
+        &error);
     CHECK(localized) << error;
   }
 
@@ -341,15 +346,6 @@ void ComponentLoader::AddWithNameAndDescription(
   }
 }
 
-#if BUILDFLAG(ENABLE_APP_LIST)
-void ComponentLoader::AddChromeApp() {
-  AddWithNameAndDescription(
-      IDR_CHROME_APP_MANIFEST, base::FilePath(FILE_PATH_LITERAL("chrome_app")),
-      l10n_util::GetStringUTF8(IDS_SHORT_PRODUCT_NAME),
-      l10n_util::GetStringUTF8(IDS_CHROME_SHORTCUT_DESCRIPTION));
-}
-#endif  // BUILDFLAG(ENABLE_APP_LIST)
-
 void ComponentLoader::AddWebStoreApp() {
 #if defined(OS_CHROMEOS)
   if (!IsNormalSession())
@@ -363,6 +359,13 @@ void ComponentLoader::AddWebStoreApp() {
 }
 
 #if defined(OS_CHROMEOS)
+void ComponentLoader::AddChromeApp() {
+  AddWithNameAndDescription(
+      IDR_CHROME_APP_MANIFEST, base::FilePath(FILE_PATH_LITERAL("chrome_app")),
+      l10n_util::GetStringUTF8(IDS_SHORT_PRODUCT_NAME),
+      l10n_util::GetStringUTF8(IDS_CHROME_SHORTCUT_DESCRIPTION));
+}
+
 void ComponentLoader::AddFileManagerExtension() {
   AddWithNameAndDescription(
       IDR_FILEMANAGER_MANIFEST,
@@ -467,9 +470,9 @@ void ComponentLoader::AddDefaultComponentExtensions(
 
   if (!skip_session_components) {
     AddWebStoreApp();
-#if BUILDFLAG(ENABLE_APP_LIST)
+#if defined(OS_CHROMEOS)
     AddChromeApp();
-#endif  // BUILDFLAG(ENABLE_APP_LIST)
+#endif  // defined(OS_CHROMEOS)
   }
 
 #endif

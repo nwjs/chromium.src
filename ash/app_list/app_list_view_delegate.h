@@ -62,11 +62,14 @@ class ASH_PUBLIC_EXPORT AppListViewDelegate {
   // chrome/browser/ui/app_list/app_launch_event_logger.proto. |launch_type| is
   // either kAppSearchResult or kSearchResult and is used to determine which
   // histograms to log to.
+  // |launch_as_default|: True if the result is launched as the default result
+  // by user pressing ENTER key.
   virtual void OpenSearchResult(const std::string& result_id,
                                 int event_flags,
                                 ash::AppListLaunchedFrom launched_from,
                                 ash::AppListLaunchType launch_type,
-                                int suggestion_index) = 0;
+                                int suggestion_index,
+                                bool launch_as_default) = 0;
 
   // Called to log UMA metrics for the launch of an item either in the app tile
   // list or the search result list. The |launch_location| argument determines
@@ -135,9 +138,7 @@ class ASH_PUBLIC_EXPORT AppListViewDelegate {
 
   // Forwards events to the home launcher gesture handler and returns true if
   // they have been processed.
-  virtual bool ProcessHomeLauncherGesture(
-      ui::GestureEvent* event,
-      const gfx::Point& screen_location) = 0;
+  virtual bool ProcessHomeLauncherGesture(ui::GestureEvent* event) = 0;
 
   // Returns True if the last event passing through app list was a key event.
   // This is stored in the controller and managed by the presenter.

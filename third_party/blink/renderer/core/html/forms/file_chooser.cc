@@ -163,6 +163,8 @@ void FileChooser::DidCloseChooser() {
       chrome_client_impl_->UnregisterPopupOpeningObserver(client_);
   }
 
+  if (client_)
+    client_->DisconnectFileChooser();
   Release();
 }
 

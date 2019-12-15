@@ -2,7 +2,7 @@
   "comments": [
     "Test the SlimNavigationManager feature."
   ],
-  "xcode build version": "11a420a",
+  "xcode build version": "11a1027",
   "gn_args": [
     "goma_dir=\"$(goma_dir)\"",
     "is_component_build=false",
@@ -22,7 +22,7 @@
       "device type": "iPhone 6s Plus",
       "os": "12.2",
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -33,7 +33,7 @@
       "device type": "iPhone 6s",
       "os": "12.2",
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -44,7 +44,7 @@
       "device type": "iPhone 6s",
       "os": "12.2",
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -55,7 +55,7 @@
       "device type": "iPad Air 2",
       "os": "12.2",
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -66,7 +66,7 @@
       "device type": "iPhone 6s",
       "os": "12.2",
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -80,7 +80,7 @@
       "os": "12.2",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -92,7 +92,7 @@
       "os": "12.2",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -104,7 +104,7 @@
       "os": "12.2",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -116,7 +116,7 @@
       "os": "12.2",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -128,7 +128,7 @@
       "os": "12.2",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -140,7 +140,7 @@
       "os": "12.2",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -154,7 +154,7 @@
       "os": "12.2",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -166,7 +166,7 @@
       "os": "12.2",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -178,7 +178,7 @@
       "os": "12.2",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -190,7 +190,7 @@
       "os": "12.2",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -202,7 +202,7 @@
       "os": "12.2",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -214,7 +214,7 @@
       "os": "12.2",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -225,7 +225,7 @@
       "device type": "iPhone X",
       "os": "12.2",
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -234,9 +234,9 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPhone 6s Plus",
-      "os": "13.0",
+      "os": "13.1",
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -245,9 +245,9 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPhone 6s",
-      "os": "13.0",
+      "os": "13.1",
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -256,9 +256,9 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPhone 6s",
-      "os": "13.0",
+      "os": "13.1",
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -267,9 +267,9 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPad Air 2",
-      "os": "13.0",
+      "os": "13.1",
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -278,9 +278,9 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPhone 6s",
-      "os": "13.0",
+      "os": "13.1",
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -291,10 +291,10 @@
       "shards": 3,
       "xcode parallelization": true,
       "device type": "iPad Air 2",
-      "os": "13.0",
+      "os": "13.1",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -303,10 +303,10 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPad Air 2",
-      "os": "13.0",
+      "os": "13.1",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -315,10 +315,10 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPad Air 2",
-      "os": "13.0",
+      "os": "13.1",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -327,10 +327,10 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPad Air 2",
-      "os": "13.0",
+      "os": "13.1",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -339,10 +339,10 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPad Air 2",
-      "os": "13.0",
+      "os": "13.1",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -351,10 +351,10 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPad Air 2",
-      "os": "13.0",
+      "os": "13.1",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -365,10 +365,10 @@
       "shards": 3,
       "xcode parallelization": true,
       "device type": "iPhone X",
-      "os": "13.0",
+      "os": "13.1",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -377,10 +377,10 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPhone X",
-      "os": "13.0",
+      "os": "13.1",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -389,10 +389,10 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPhone X",
-      "os": "13.0",
+      "os": "13.1",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -401,10 +401,10 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPhone X",
-      "os": "13.0",
+      "os": "13.1",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -413,10 +413,10 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPhone X",
-      "os": "13.0",
+      "os": "13.1",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -425,10 +425,10 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPhone X",
-      "os": "13.0",
+      "os": "13.1",
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     },
     {
@@ -437,9 +437,9 @@
         "--disable-features=SlimNavigationManager,OfflineVersionWithoutNativeContent,LogLoadStartedInDidStartNavigation"
       ],
       "device type": "iPhone X",
-      "os": "13.0",
+      "os": "13.1",
       "host os": "Mac-10.14.6",
-      "pool":"Chrome",
+      "pool":"chromium.tests",
       "priority": 30
     }
   ]

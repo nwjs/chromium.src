@@ -18,12 +18,14 @@ import androidx.browser.customtabs.CustomTabsSessionToken;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.dependency_injection.ActivityScope;
 import org.chromium.chrome.browser.prerender.ExternalPrerenderHandler;
 import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.TabHidingType;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -64,7 +66,7 @@ public class CustomTabObserver extends EmptyTabObserver {
 
     @Inject
     public CustomTabObserver(@Named(APP_CONTEXT) Context appContext,
-            CustomTabIntentDataProvider intentDataProvider, CustomTabsConnection connection) {
+            BrowserServicesIntentDataProvider intentDataProvider, CustomTabsConnection connection) {
         mOpenedByChrome = intentDataProvider.isOpenedByChrome();
         mCustomTabsConnection = mOpenedByChrome ? null : connection;
         mSession = intentDataProvider.getSession();
@@ -178,7 +180,7 @@ public class CustomTabObserver extends EmptyTabObserver {
 
     @Override
     public void onDidAttachInterstitialPage(Tab tab) {
-        if (tab.getSecurityLevel() != ConnectionSecurityLevel.DANGEROUS) return;
+        if (((TabImpl) tab).getSecurityLevel() != ConnectionSecurityLevel.DANGEROUS) return;
         resetPageLoadTracking();
     }
 

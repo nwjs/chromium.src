@@ -216,6 +216,7 @@ ClientImageTransferCacheEntry::ClientImageTransferCacheEntry(
   safe_size += decoded_color_space_size + align;
   safe_size += num_planes_ * sizeof(uint64_t);  // plane widths
   safe_size += num_planes_ * sizeof(uint64_t);  // plane heights
+  safe_size += num_planes_ * sizeof(uint64_t);  // plane strides
   safe_size +=
       num_planes_ * (sizeof(uint64_t) + align);  // pixels size + alignment
   // Include 4 bytes of padding before each plane data chunk so we can always
@@ -249,8 +250,8 @@ void ClientImageTransferCacheEntry::ValidateYUVDataBeforeSerializing() const {
     const SkPixmap* plane = yuv_pixmaps_->at(i);
     DCHECK_GT(plane->width(), 0);
     DCHECK_GT(plane->height(), 0);
+    DCHECK_GT(plane->rowBytes(), 0u);
   }
-  DCHECK(yuv_color_space_);
 }
 
 bool ClientImageTransferCacheEntry::Serialize(base::span<uint8_t> data) const {
@@ -273,6 +274,7 @@ bool ClientImageTransferCacheEntry::Serialize(base::span<uint8_t> data) const {
       const SkPixmap* plane = yuv_pixmaps_->at(i);
       writer.Write(plane->width());
       writer.Write(plane->height());
+      writer.WriteSize(plane->rowBytes());
       size_t plane_size = plane->computeByteSize();
       if (plane_size == SIZE_MAX)
         return false;
@@ -403,6 +405,8 @@ bool ServiceImageTransferCacheEntry::Deserialize(
       reader.Read(&plane_width);
       uint32_t plane_height = 0;
       reader.Read(&plane_height);
+      size_t plane_stride = 0;
+      reader.ReadSize(&plane_stride);
       // Because Skia does not support YUV rasterization from software planes,
       // we require that each pixmap fits in a GPU texture. In the
       // GpuImageDecodeCache, we veto YUV decoding if the planes would be too
@@ -411,7 +415,8 @@ bool ServiceImageTransferCacheEntry::Deserialize(
       // We compute this for each plane in case a malicious renderer tries to
       // send very large U or V planes.
       fits_on_gpu_ = plane_width <= max_size && plane_height <= max_size;
-      if (!fits_on_gpu_ || plane_width == 0 || plane_height == 0)
+      if (!fits_on_gpu_ || plane_width == 0 || plane_height == 0 ||
+          plane_stride == 0)
         return false;
 
       size_t plane_bytes;
@@ -435,7 +440,9 @@ bool ServiceImageTransferCacheEntry::Deserialize(
       // are OK with this as the worst case scenario is visual corruption.
       SkPixmap plane_pixmap(plane_pixmap_info,
                             const_cast<const void*>(plane_pixel_data),
-                            plane_pixmap_info.minRowBytes());
+                            plane_stride);
+      if (plane_pixmap.computeByteSize() > plane_bytes)
+        return false;
 
       // Nothing should read the colorspace of individual planes because that
       // information is stored in image_, so we pass nullptr.

@@ -63,6 +63,7 @@
 #include "gpu/ipc/client/gpu_channel_host.h"
 #include "gpu/ipc/host/gpu_memory_buffer_support.h"
 #include "gpu/vulkan/buildflags.h"
+#include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "services/viz/public/cpp/gpu/context_provider_command_buffer.h"
 #include "third_party/khronos/GLES2/gl2.h"
 #include "ui/base/ui_base_switches_util.h"
@@ -271,7 +272,7 @@ void GpuProcessTransportFactory::EstablishedGpuChannel(
 
   if (gpu_channel_host &&
       gpu_channel_host->gpu_feature_info()
-              .status_values[gpu::GPU_FEATURE_TYPE_GPU_COMPOSITING] !=
+              .status_values[gpu::GPU_FEATURE_TYPE_ACCELERATED_GL] !=
           gpu::kGpuFeatureStatusEnabled) {
     use_gpu_compositing = false;
   }
@@ -427,11 +428,10 @@ void GpuProcessTransportFactory::EstablishedGpuChannel(
   if (compositor->use_external_begin_frame_control()) {
     // We don't bind the controller mojo interface, since we only use the
     // ExternalBeginFrameSourceMojo directly and not via mojo (plus, as it
-    // is an associated interface, binding it would require a separate pipe).
-    viz::mojom::ExternalBeginFrameControllerAssociatedRequest request = nullptr;
+    // is an associated remote, binding it would require a separate pipe).
     external_begin_frame_source_mojo =
         std::make_unique<viz::ExternalBeginFrameSourceMojo>(
-            GetFrameSinkManager(), std::move(request),
+            GetFrameSinkManager(), mojo::NullAssociatedReceiver(),
             viz::BeginFrameSource::kNotRestartableId);
     begin_frame_source = external_begin_frame_source_mojo.get();
   } else if (disable_frame_rate_limit_) {
@@ -486,8 +486,7 @@ void GpuProcessTransportFactory::EstablishedGpuChannel(
       compositor->frame_sink_id(), GetHostFrameSinkManager(),
       GetFrameSinkManager(), data->display.get(), data->display_client.get(),
       context_provider, shared_worker_context_provider(),
-      compositor->task_runner(), GetGpuMemoryBufferManager(),
-      features::IsVizHitTestingSurfaceLayerEnabled());
+      compositor->task_runner(), GetGpuMemoryBufferManager());
   data->display->Resize(compositor->size());
   data->display->SetOutputIsSecure(data->output_is_secure);
   compositor->SetLayerTreeFrameSink(std::move(layer_tree_frame_sink));
@@ -737,7 +736,7 @@ void GpuProcessTransportFactory::SetOutputIsSecure(ui::Compositor* compositor,
 
 void GpuProcessTransportFactory::AddVSyncParameterObserver(
     ui::Compositor* compositor,
-    viz::mojom::VSyncParameterObserverPtr observer) {
+    mojo::PendingRemote<viz::mojom::VSyncParameterObserver> observer) {
   auto it = per_compositor_data_.find(compositor);
   if (it == per_compositor_data_.end())
     return;
@@ -775,7 +774,7 @@ GpuProcessTransportFactory::SharedMainThreadContextProvider() {
       gpu_channel_factory_->EstablishGpuChannelSync();
   if (!gpu_channel_host ||
       gpu_channel_host->gpu_feature_info()
-              .status_values[gpu::GPU_FEATURE_TYPE_GPU_COMPOSITING] !=
+              .status_values[gpu::GPU_FEATURE_TYPE_ACCELERATED_GL] !=
           gpu::kGpuFeatureStatusEnabled) {
     DisableGpuCompositing(nullptr);
     if (gpu_channel_host)

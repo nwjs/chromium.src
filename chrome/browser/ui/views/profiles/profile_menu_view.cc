@@ -12,6 +12,7 @@
 #include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/browser_process.h"
@@ -65,6 +66,7 @@ namespace {
 
 constexpr float kShortcutIconToImageRatio = 9.0 / 16.0;
 
+// TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
 // Number of times the Dice sign-in promo illustration should be shown.
 constexpr int kDiceSigninPromoIllustrationShowCountMax = 10;
 
@@ -76,6 +78,7 @@ ProfileAttributesEntry* GetProfileAttributesEntry(Profile* profile) {
   return entry;
 }
 
+// TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
 BadgedProfilePhoto::BadgeType GetProfileBadgeType(Profile* profile) {
   if (profile->IsSupervised()) {
     return profile->IsChild() ? BadgedProfilePhoto::BADGE_TYPE_CHILD
@@ -113,7 +116,8 @@ bool AreSigninCookiesClearedOnExit(Profile* profile) {
   return client->AreSigninCookiesDeletedOnExit();
 }
 
-#if defined(GOOGLE_CHROME_BUILD)
+// TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 // Returns the Google G icon in grey and with a padding of 2. The padding is
 // needed to make the icon look smaller, otherwise it looks too big compared to
 // the other icons. See crbug.com/951751 for more information.
@@ -181,11 +185,13 @@ ProfileMenuView::ProfileMenuView(views::Button* anchor_button,
 ProfileMenuView::~ProfileMenuView() = default;
 
 void ProfileMenuView::BuildMenu() {
+  // TODO(crbug.com/993752): Remove after ProfileMenuRevamp.
   avatar_menu_ = std::make_unique<AvatarMenu>(
       &g_browser_process->profile_manager()->GetProfileAttributesStorage(),
       this, browser());
   avatar_menu_->RebuildMenu();
 
+  // TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
   if (!base::FeatureList::IsEnabled(features::kProfileMenuRevamp)) {
     if (dice_enabled_) {
       // Fetch DICE accounts. Note: This always includes the primary account if
@@ -214,16 +220,18 @@ void ProfileMenuView::BuildMenu() {
   BuildProfileManagementFeatureButtons();
 }
 
+// TODO(crbug.com/993752): Remove after ProfileMenuRevamp.
 void ProfileMenuView::OnAvatarMenuChanged(
     AvatarMenu* avatar_menu) {
-  // TODO(crbug.com/993752): Remove AvatarMenu observer.
 }
 
+// TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
 void ProfileMenuView::FocusButtonOnKeyboardOpen() {
   if (first_profile_button_)
     first_profile_button_->RequestFocus();
 }
 
+// TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
 void ProfileMenuView::OnWidgetClosing(views::Widget* /*widget*/) {
   // Unsubscribe from everything early so that the updates do not reach the
   // bubble and change its state.
@@ -293,6 +301,7 @@ void ProfileMenuView::OnManageProfilesButtonClicked() {
   PostActionPerformed(ProfileMetrics::PROFILE_DESKTOP_MENU_OPEN_USER_MANAGER);
 }
 
+// TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
 void ProfileMenuView::OnLockButtonClicked() {
   RecordClick(ActionableItem::kLockButton);
   profiles::LockProfile(browser()->profile());
@@ -348,6 +357,9 @@ void ProfileMenuView::OnSyncErrorButtonClicked(
     case sync_ui_util::UPGRADE_CLIENT_ERROR:
       chrome::OpenUpdateChromeDialog(browser());
       break;
+    case sync_ui_util::TRUSTED_VAULT_KEY_MISSING_ERROR:
+      sync_ui_util::OpenTabForSyncKeyRetrieval(browser());
+      break;
     case sync_ui_util::PASSPHRASE_ERROR:
     case sync_ui_util::SETTINGS_UNCONFIRMED_ERROR:
       chrome::ShowSettingsSubPage(browser(), chrome::kSyncSetupSubPage);
@@ -358,6 +370,7 @@ void ProfileMenuView::OnSyncErrorButtonClicked(
   }
 }
 
+// TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
 void ProfileMenuView::OnCurrentProfileCardClicked() {
   RecordClick(ActionableItem::kCurrentProfileCard);
   if (dice_enabled_ &&
@@ -501,6 +514,7 @@ gfx::ImageSkia ProfileMenuView::GetSyncIcon() {
     case sync_ui_util::UNRECOVERABLE_ERROR:
     case sync_ui_util::UPGRADE_CLIENT_ERROR:
     case sync_ui_util::PASSPHRASE_ERROR:
+    case sync_ui_util::TRUSTED_VAULT_KEY_MISSING_ERROR:
     case sync_ui_util::SETTINGS_UNCONFIRMED_ERROR:
       icon = &kSyncPausedCircleIcon;
       color_id = ui::NativeTheme::kColorId_AlertSeverityHigh;
@@ -609,7 +623,7 @@ void ProfileMenuView::BuildFeatureButtons() {
 
   if (has_unconsented_account && !IsSyncPaused(profile)) {
     AddFeatureButton(
-#if defined(GOOGLE_CHROME_BUILD)
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
         // The Google G icon needs to be shrunk, so it won't look too big
         // compared to the other icons.
         ImageForMenu(kGoogleGLogoIcon, /*icon_to_image_ratio=*/0.75),
@@ -650,7 +664,7 @@ void ProfileMenuView::BuildProfileManagementHeading() {
 void ProfileMenuView::BuildSelectableProfiles() {
   auto profile_entries = g_browser_process->profile_manager()
                              ->GetProfileAttributesStorage()
-                             .GetAllProfilesAttributes();
+                             .GetAllProfilesAttributesSortedByName();
   for (ProfileAttributesEntry* profile_entry : profile_entries) {
     // The current profile is excluded.
     if (profile_entry->GetPath() == browser()->profile()->GetPath())
@@ -692,6 +706,7 @@ void ProfileMenuView::BuildProfileManagementFeatureButtons() {
   }
 }
 
+// TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
 void ProfileMenuView::AddProfileMenuView(AvatarMenu* avatar_menu) {
   // Separate items into active and alternatives.
   const AvatarMenu::Item* active_item = nullptr;
@@ -713,13 +728,11 @@ void ProfileMenuView::AddProfileMenuView(AvatarMenu* avatar_menu) {
       AddGuestProfileView();
   }
 
-#if defined(GOOGLE_CHROME_BUILD)
   if (dice_enabled_ && !dice_accounts_.empty() &&
       !SigninErrorControllerFactory::GetForProfile(browser()->profile())
            ->HasError()) {
     AddManageGoogleAccountButton();
   }
-#endif
 
   if (browser()->profile()->IsSupervised())
     AddSupervisedUserDisclaimerView();
@@ -732,6 +745,7 @@ void ProfileMenuView::AddProfileMenuView(AvatarMenu* avatar_menu) {
   AddOptionsView(display_lock, avatar_menu);
 }
 
+// TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
 bool ProfileMenuView::AddSyncErrorViewIfNeeded(
     const AvatarMenu::Item& avatar_item) {
   int content_string_id, button_string_id;
@@ -751,6 +765,7 @@ bool ProfileMenuView::AddSyncErrorViewIfNeeded(
   return true;
 }
 
+// TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
 void ProfileMenuView::AddPreDiceSyncErrorView(
     const AvatarMenu::Item& avatar_item,
     sync_ui_util::AvatarSyncErrorType error,
@@ -777,6 +792,7 @@ void ProfileMenuView::AddPreDiceSyncErrorView(
   }
 }
 
+// TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
 void ProfileMenuView::AddDiceSyncErrorView(
     const AvatarMenu::Item& avatar_item,
     sync_ui_util::AvatarSyncErrorType error,
@@ -829,6 +845,7 @@ void ProfileMenuView::AddDiceSyncErrorView(
   }
 }
 
+// TODO(crbug.com/1021587): Incorporate into ProfileMenuRevamp.
 void ProfileMenuView::AddSyncPausedReasonCookiesClearedOnExit() {
   base::string16 link_text = l10n_util::GetStringUTF16(
       IDS_SYNC_PAUSED_REASON_CLEAR_COOKIES_ON_EXIT_LINK_TEXT);
@@ -842,6 +859,7 @@ void ProfileMenuView::AddSyncPausedReasonCookiesClearedOnExit() {
                           base::Unretained(this)));
 }
 
+// TODO(crbug.com/1021587): Remove after ProfileMenuRevamp.
 void ProfileMenuView::AddCurrentProfileView(
     const AvatarMenu::Item& avatar_item,
     bool is_guest) {
@@ -1115,16 +1133,16 @@ void ProfileMenuView::AddAutofillHomeView() {
                           base::Unretained(this)));
 }
 
-#if defined(GOOGLE_CHROME_BUILD)
 void ProfileMenuView::AddManageGoogleAccountButton() {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   AddMenuGroup(false);
   CreateAndAddButton(
       GetGoogleIconForUserMenu(GetDefaultIconSize()),
       l10n_util::GetStringUTF16(IDS_SETTINGS_MANAGE_GOOGLE_ACCOUNT),
       base::BindRepeating(&ProfileMenuView::OnManageGoogleAccountButtonClicked,
                           base::Unretained(this)));
-}
 #endif
+}
 
 void ProfileMenuView::PostActionPerformed(
     ProfileMetrics::ProfileDesktopMenu action_performed) {

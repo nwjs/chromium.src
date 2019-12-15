@@ -3,7 +3,6 @@
 <translationbundle lang="th">
 <translation id="1001534784610492198">การเก็บข้อมูลของโปรแกรมติดตั้งเสียหายหรือไม่ถูกต้อง โปรดดาวน์โหลด Google Chrome อีกครั้ง</translation>
 <translation id="102763973188675173">ปรับแต่งและควบคุม Google Chrome มีการอัปเดต</translation>
-<translation id="1035334672863811645">ลงชื่อเข้าใช้ Chrome</translation>
 <translation id="1051826050538111504">มีซอฟต์แวร์อันตรายในคอมพิวเตอร์ของคุณ Chrome ช่วยนำซอฟต์แวร์ดังกล่าวออก คืนการตั้งค่า และปิดใช้ส่วนขยายให้คุณได้ เพื่อให้เบราว์เซอร์กลับมาทำงานเป็นปกติอีกครั้ง</translation>
 <translation id="1065672644894730302">ค่ากำหนดของคุณไม่สามารถอ่านได้ ฟีเจอร์บางอย่างอาจใช้ไม่ได้และการเปลี่ยนแปลงค่ากำหนดจะไม่ได้รับการบันทึก</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> ใช้ Chrome อยู่ก่อนหน้านี้</translation>
@@ -72,7 +71,6 @@
 <translation id="3065168410429928842">แท็บ Chrome</translation>
 <translation id="3080151273017101988">เรียกใช้แอปพลิเคชันเบื้องหลังต่อไปเมื่อ Google Chrome ถูกปิดลง</translation>
 <translation id="3089968997497233615">Google Chrome มีรุ่นใหม่ที่ปลอดภัยกว่าให้ใช้งานแล้ว</translation>
-<translation id="3138848678222082288">Chrome เวอร์ชันต่อๆ ไปจะติดตั้งโดยอัตโนมัติ เมื่อดาวน์โหลดเสร็จแล้ว Chrome จะรีสตาร์ทและคุณจะเริ่มใช้งานได้ทันที</translation>
 <translation id="3149510190863420837">แอป Chrome</translation>
 <translation id="3282568296779691940">ลงชื่อเข้าใช้ Chrome</translation>
 <translation id="3340978935015468852">การตั้งค่า</translation>
@@ -93,7 +91,6 @@
 <translation id="3718181793972440140">การดำเนินการนี้จะลบ 1 รายการออกจากอุปกรณ์นี้ หากต้องการดึงข้อมูลภายหลัง ให้ลงชื่อเข้าใช้ Chrome ด้วย <ph name="USER_EMAIL" /></translation>
 <translation id="3735758079232443276">ส่วนขยาย "<ph name="EXTENSION_NAME" />" ได้เปลี่ยนหน้าที่จะแสดงเมื่อคุณเริ่มต้น Chrome</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">นำออกจาก Chrome...</translation>
 <translation id="386202838227397562">โปรดปิดหน้าต่าง Google Chrome ทั้งหมดและลองใหม่อีกครั้ง</translation>
 <translation id="3873044882194371212">เปิดลิงก์ในหน้าต่างที่ไม่ระบุตัวตนของ Chrome</translation>
 <translation id="3889417619312448367">ยกเลิกการติดตั้ง Google Chrome</translation>
@@ -173,7 +170,6 @@
 <translation id="677276454032249905">ออกจาก Chrome ใช่ไหม</translation>
 <translation id="683440813066116847">กฎขาเข้าสำหรับ Google Chrome Canary เพื่ออนุญาตการเข้าชมแบบ mDNS</translation>
 <translation id="6885412569789873916">แอป Chrome เบต้า</translation>
-<translation id="6906909733186691861">Chrome เวอร์ชันต่อๆ ไปจะติดตั้งโดยอัตโนมัติ</translation>
 <translation id="6943584222992551122">ระบบจะลบข้อมูลการท่องเว็บของบุคคลนี้ออกจากอุปกรณ์เครื่องนี้ หากต้องการกู้ข้อมูลคืน ให้ลงชื่อเข้าใช้ Chrome ในชื่อ <ph name="USER_EMAIL" /></translation>
 <translation id="6967962315388095737">กฎขาเข้าสำหรับ Google Chrome เบต้าเพื่ออนุญาตการเข้าชมแบบ mDNS</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> กำหนดว่าคุณต้องอ่านและยอมรับข้อกำหนดในการให้บริการต่อไปนี้ก่อนใช้อุปกรณ์นี้ ข้อกำหนดเหล่านี้ไม่ขยาย แก้ไข หรือจำกัดข้อกำหนดของ Google Chrome OS</translation>
@@ -224,7 +220,6 @@
 <translation id="8521348052903287641">กฎขาเข้าสำหรับ Google Chrome Dev เพื่ออนุญาตการเข้าชมแบบ mDNS</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">มี Chrome รุ่นใหม่ให้ใช้งานแล้วและเร็วกว่าเดิม</translation>
-<translation id="8606668294522778825">Google Chrome อาจใช้บริการเว็บเพื่อปรับปรุงประสบการณ์การท่องเว็บของคุณ คุณสามารถเลือกปิดบริการเหล่านี้ได้ <ph name="BEGIN_LINK" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome ไม่ตอบสนอง เปิดใช้งานใหม่ตอนนี้หรือไม่</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome จะเปิดขึ้นมาใหม่ใน 1 นาที}other{Chrome จะเปิดขึ้นมาใหม่ใน # นาที}}</translation>
 <translation id="8669527147644353129">ตัวช่วยเหลือของ Google Chrome</translation>

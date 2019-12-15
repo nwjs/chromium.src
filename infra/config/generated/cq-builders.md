@@ -19,10 +19,6 @@ These builders must pass before a CL may land.
 
 * [android-marshmallow-arm64-rel](https://ci.chromium.org/p/chromium/builders/try/android-marshmallow-arm64-rel) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android-marshmallow-arm64-rel)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android-marshmallow-arm64-rel))
 
-* [android_arm64_dbg_recipe](https://ci.chromium.org/p/chromium/builders/try/android_arm64_dbg_recipe) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android_arm64_dbg_recipe)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android_arm64_dbg_recipe))
-
-* [android_clang_dbg_recipe](https://ci.chromium.org/p/chromium/builders/try/android_clang_dbg_recipe) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android_clang_dbg_recipe)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android_clang_dbg_recipe))
-
 * [android_compile_dbg](https://ci.chromium.org/p/chromium/builders/try/android_compile_dbg) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android_compile_dbg)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android_compile_dbg))
 
 * [android_cronet](https://ci.chromium.org/p/chromium/builders/try/android_cronet) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android_cronet)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android_cronet))
@@ -86,6 +82,13 @@ builder.
 
   Path exclude regular expressions:
   * [`//components/cronet/ios/.+`](https://cs.chromium.org/chromium/src/components/cronet/ios/)
+
+* [android-pie-arm64-dbg](https://ci.chromium.org/p/chromium/builders/try/android-pie-arm64-dbg) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android-pie-arm64-dbg)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android-pie-arm64-dbg))
+
+  Path regular expressions:
+  * [`//chrome/android/java/src/org/chromium/chrome/browser/vr/.+`](https://cs.chromium.org/chromium/src/chrome/android/java/src/org/chromium/chrome/browser/vr/)
+  * [`//chrome/browser/vr/.+`](https://cs.chromium.org/chromium/src/chrome/browser/vr/)
+  * [`//third_party/gvr-android-sdk/.+`](https://cs.chromium.org/chromium/src/third_party/gvr-android-sdk/)
 
 * [android_compile_x64_dbg](https://ci.chromium.org/p/chromium/builders/try/android_compile_x64_dbg) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android_compile_x64_dbg)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android_compile_x64_dbg))
 
@@ -321,17 +324,11 @@ These builders are run on some percentage of builds. Their results are ignored
 by CQ. These are often used to test new configurations before they are added
 as required builders.
 
-* [android-marshmallow-arm64-coverage-rel](https://ci.chromium.org/p/chromium/builders/try/android-marshmallow-arm64-coverage-rel) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android-marshmallow-arm64-coverage-rel)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android-marshmallow-arm64-coverage-rel))
-  * Experiment percentage: 20
-
 * [android-pie-arm64-rel](https://ci.chromium.org/p/chromium/builders/try/android-pie-arm64-rel) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+android-pie-arm64-rel)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+android-pie-arm64-rel))
-  * Experiment percentage: 50
-
-* [chromeos-kevin-experimental-rel](https://ci.chromium.org/p/chromium/builders/try/chromeos-kevin-experimental-rel) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+chromeos-kevin-experimental-rel)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+chromeos-kevin-experimental-rel))
-  * Experiment percentage: 5
+  * Experiment percentage: 100
 
 * [fuchsia-compile-x64-dbg](https://ci.chromium.org/p/chromium/builders/try/fuchsia-compile-x64-dbg) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+fuchsia-compile-x64-dbg)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+fuchsia-compile-x64-dbg))
-  * Experiment percentage: 5
+  * Experiment percentage: 50
 
 * [ios-device](https://ci.chromium.org/p/chromium/builders/try/ios-device) ([definition](https://cs.chromium.org/search?q=package:%5Echromium$+file:/cq.star$+-file:/beta/+-file:/stable/+ios-device)) ([matching builders](https://cs.chromium.org/search?q=+file:trybots.py+ios-device))
   * Experiment percentage: 10

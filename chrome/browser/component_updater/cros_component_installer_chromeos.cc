@@ -34,9 +34,9 @@ constexpr char kComponentsRootPath[] = "cros-components";
 
 // All downloadable Chrome OS components.
 const ComponentConfig kConfigs[] = {
-    {"epson-inkjet-printer-escpr", "3.0",
+    {"epson-inkjet-printer-escpr", "4.0",
      "1913a5e0a6cad30b6f03e176177e0d7ed62c5d6700a9c66da556d7c3f5d6a47e"},
-    {"cros-termina", "790.1",
+    {"cros-termina", "800.1",
      "e9d960f84f628e1f42d05de4046bb5b3154b6f1f65c08412c6af57a29aecaffb"},
     {"rtanalytics-light", "15.0",
      "69f09d33c439c2ab55bbbe24b47ab55cb3f6c0bd1f1ef46eefea3216ec925038"},
@@ -336,10 +336,13 @@ void CrOSComponentInstaller::FinishInstall(const std::string& name,
                                            LoadCallback load_callback,
                                            update_client::Error error) {
   if (error != update_client::Error::NONE) {
+    Error err = Error::INSTALL_FAILURE;
+    if (error == update_client::Error::UPDATE_IN_PROGRESS) {
+      err = Error::UPDATE_IN_PROGRESS;
+    }
     base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE,
-        base::BindOnce(std::move(load_callback),
-                       ReportError(Error::INSTALL_FAILURE), base::FilePath()));
+        FROM_HERE, base::BindOnce(std::move(load_callback), ReportError(err),
+                                  base::FilePath()));
   } else if (!IsCompatible(name)) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE,

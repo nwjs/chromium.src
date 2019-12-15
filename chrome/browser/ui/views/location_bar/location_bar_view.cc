@@ -126,12 +126,6 @@
 
 namespace {
 
-// This feature shows the full URL when the user focuses the omnibox via
-// keyboard shortcut. This feature flag only exists so we have a remote
-// killswitch for this behavior.
-base::Feature kOmniboxShowFullUrlOnKeyboardShortcut{
-    "OmniboxShowFullUrlOnKeyboardShortcut", base::FEATURE_ENABLED_BY_DEFAULT};
-
 int IncrementalMinimumWidth(const views::View* view) {
   return (view && view->GetVisible()) ? view->GetMinimumSize().width() : 0;
 }
@@ -261,8 +255,7 @@ void LocationBarView::Init() {
       params.types_enabled.push_back(PageActionIconType::kManagePasswords);
     }
     params.types_enabled.push_back(PageActionIconType::kIntentPicker);
-    if (base::FeatureList::IsEnabled(features::kDesktopPWAsOmniboxInstall))
-      params.types_enabled.push_back(PageActionIconType::kPwaInstall);
+    params.types_enabled.push_back(PageActionIconType::kPwaInstall);
     params.types_enabled.push_back(PageActionIconType::kFind);
     params.types_enabled.push_back(PageActionIconType::kTranslate);
     params.types_enabled.push_back(PageActionIconType::kZoom);
@@ -320,10 +313,10 @@ SkColor LocationBarView::GetColor(OmniboxPart part) const {
                          part);
 }
 
-SkColor LocationBarView::GetOpaqueBorderColor(bool incognito) const {
+SkColor LocationBarView::GetOpaqueBorderColor() const {
   return color_utils::GetResultingPaintColor(
-      GetBorderColor(), ThemeProperties::GetDefaultColor(
-                            ThemeProperties::COLOR_TOOLBAR, incognito));
+      GetBorderColor(),
+      GetThemeProvider()->GetColor(ThemeProperties::COLOR_TOOLBAR));
 }
 
 int LocationBarView::GetBorderRadius() const {
@@ -369,24 +362,7 @@ void LocationBarView::SelectAll() {
 // LocationBarView, public LocationBar implementation:
 
 void LocationBarView::FocusLocation(bool is_user_initiated) {
-  const bool omnibox_already_focused = omnibox_view_->HasFocus();
-
   omnibox_view_->SetFocus(is_user_initiated);
-
-  if (omnibox_already_focused)
-    omnibox_view()->model()->ClearKeyword();
-
-  // TODO(tommycli): Since we are now passing the |is_user_initiated| parameter
-  // onto OmniboxView, we can likely move the below code into SetFocus().
-  if (!is_user_initiated)
-    return;
-
-  omnibox_view_->SelectAll(true);
-
-  // Only exit Query in Omnibox mode on focus command if the location bar was
-  // already focused to begin with, i.e. user presses Ctrl+L twice.
-  if (base::FeatureList::IsEnabled(kOmniboxShowFullUrlOnKeyboardShortcut))
-    omnibox_view()->model()->Unelide(omnibox_already_focused);
 }
 
 void LocationBarView::Revert() {
@@ -401,7 +377,7 @@ OmniboxView* LocationBarView::GetOmniboxView() {
 // LocationBarView, public views::View implementation:
 
 bool LocationBarView::HasFocus() const {
-  return omnibox_view_->model()->has_focus();
+  return omnibox_view_ && omnibox_view_->model()->has_focus();
 }
 
 void LocationBarView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
@@ -957,7 +933,11 @@ void LocationBarView::UpdateContentSettingsIcons() {
 inline bool LocationBarView::UpdateSendTabToSelfIcon() {
   PageActionIconView* icon = page_action_icon_container_->GetIconView(
       PageActionIconType::kSendTabToSelf);
-  return icon && icon->Update();
+  if (!icon)
+    return false;
+  bool was_visible = icon->GetVisible();
+  icon->Update();
+  return was_visible != icon->GetVisible();
 }
 
 void LocationBarView::SaveStateToContents(WebContents* contents) {
@@ -1025,7 +1005,7 @@ void LocationBarView::OnPaintBorder(gfx::Canvas* canvas) {
     return;  // The border is painted by our Background.
 
   gfx::Rect bounds(GetContentsBounds());
-  const SkColor border_color = GetOpaqueBorderColor(profile_->IsOffTheRecord());
+  const SkColor border_color = GetOpaqueBorderColor();
   canvas->DrawLine(gfx::PointF(bounds.x(), bounds.y()),
                    gfx::PointF(bounds.right(), bounds.y()), border_color);
   canvas->DrawLine(gfx::PointF(bounds.x(), bounds.bottom() - 1),

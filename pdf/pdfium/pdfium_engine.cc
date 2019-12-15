@@ -606,8 +606,10 @@ void PDFiumEngine::AppendPage(PDFEngine* engine, int index) {
   FPDF_ImportPages(doc(), static_cast<PDFiumEngine*>(engine)->doc(), "1",
                    index);
   pp::Size new_page_size = GetPageSize(index);
-  if (curr_page_size != new_page_size)
-    LoadPageInfo(true);
+  if (curr_page_size != new_page_size) {
+    DCHECK(document_loaded_);
+    LoadPageInfo();
+  }
   client_->Invalidate(GetPageScreenRect(index));
 }
 
@@ -668,8 +670,10 @@ void PDFiumEngine::OnPendingRequestComplete() {
     }
   }
   pending_pages_.swap(still_pending);
-  if (update_pages)
-    LoadPageInfo(true);
+  if (update_pages) {
+    DCHECK(document_loaded_);
+    LoadPageInfo();
+  }
 }
 
 void PDFiumEngine::OnNewDataReceived() {
@@ -716,8 +720,15 @@ void PDFiumEngine::FinishLoadingDocument() {
     if (IsPageVisible(i))
       client_->Invalidate(GetPageScreenRect(i));
   }
+
+  // Transition |document_loaded_| to true after finishing any calls to
+  // FPDFAvail_IsPageAvail(), since we no longer need to defer calls to this
+  // function from LoadPageInfo(). Note that LoadBody() calls LoadPageInfo()
+  // indirectly, so we cannot make this transition earlier.
+  document_loaded_ = true;
+
   if (need_update)
-    LoadPageInfo(true);
+    LoadPageInfo();
 
   if (called_do_document_action_)
     return;
@@ -1906,18 +1917,19 @@ void PDFiumEngine::ZoomUpdated(double new_zoom_level) {
 
 void PDFiumEngine::RotateClockwise() {
   desired_layout_options_.RotatePagesClockwise();
-  RotateInternal();
+  ProposeNextDocumentLayout();
 }
 
 void PDFiumEngine::RotateCounterclockwise() {
   desired_layout_options_.RotatePagesCounterclockwise();
-  RotateInternal();
+  ProposeNextDocumentLayout();
 }
 
 void PDFiumEngine::InvalidateAllPages() {
   CancelPaints();
   StopFind();
-  LoadPageInfo(true);
+  DCHECK(document_loaded_);
+  RefreshCurrentDocumentLayout();
   client_->Invalidate(pp::Rect(plugin_size_));
 }
 
@@ -2271,41 +2283,28 @@ uint32_t PDFiumEngine::GetCharUnicode(int page_index, int char_index) {
   return pages_[page_index]->GetCharUnicode(char_index);
 }
 
-base::Optional<PP_PrivateAccessibilityTextRunInfo> PDFiumEngine::GetTextRunInfo(
-    int page_index,
-    int start_char_index) {
+base::Optional<pp::PDF::PrivateAccessibilityTextRunInfo>
+PDFiumEngine::GetTextRunInfo(int page_index, int start_char_index) {
   DCHECK(PageIndexInBounds(page_index));
   return pages_[page_index]->GetTextRunInfo(start_char_index);
 }
 
-uint32_t PDFiumEngine::GetLinkCount(int page_index) {
+std::vector<PDFEngine::AccessibilityLinkInfo> PDFiumEngine::GetLinkInfo(
+    int page_index) {
   DCHECK(PageIndexInBounds(page_index));
-  return pages_[page_index]->GetLinkCount();
+  return pages_[page_index]->GetLinkInfo();
 }
 
-bool PDFiumEngine::GetLinkInfo(int page_index,
-                               uint32_t link_index,
-                               std::string* out_url,
-                               int* out_start_char_index,
-                               int* out_char_count,
-                               pp::FloatRect* out_bounds) {
+std::vector<PDFEngine::AccessibilityImageInfo> PDFiumEngine::GetImageInfo(
+    int page_index) {
   DCHECK(PageIndexInBounds(page_index));
-  return pages_[page_index]->GetLinkInfo(
-      link_index, out_url, out_start_char_index, out_char_count, out_bounds);
+  return pages_[page_index]->GetImageInfo();
 }
 
-uint32_t PDFiumEngine::GetImageCount(int page_index) {
+std::vector<PDFEngine::AccessibilityHighlightInfo>
+PDFiumEngine::GetHighlightInfo(int page_index) {
   DCHECK(PageIndexInBounds(page_index));
-  return pages_[page_index]->GetImageCount();
-}
-
-bool PDFiumEngine::GetImageInfo(int page_index,
-                                uint32_t image_index,
-                                std::string* out_alt_text,
-                                pp::FloatRect* out_bounds) {
-  DCHECK(PageIndexInBounds(page_index));
-  return pages_[page_index]->GetImageInfo(image_index, out_alt_text,
-                                          out_bounds);
+  return pages_[page_index]->GetHighlightInfo();
 }
 
 bool PDFiumEngine::GetPrintScaling() {
@@ -2372,7 +2371,8 @@ void PDFiumEngine::AppendBlankPages(size_t num_pages) {
     pages_.push_back(std::move(page));
   }
 
-  LoadPageInfo(true);
+  DCHECK(document_loaded_);
+  LoadPageInfo();
 }
 
 void PDFiumEngine::LoadDocument() {
@@ -2474,16 +2474,19 @@ void PDFiumEngine::ContinueLoadingDocument(const std::string& password) {
     FinishLoadingDocument();
 }
 
-void PDFiumEngine::LoadPageInfo(bool reload) {
-  std::vector<pp::Size> page_sizes = LoadPageSizes(reload);
-  if (page_sizes.empty())
-    return;
+void PDFiumEngine::LoadPageInfo() {
+  RefreshCurrentDocumentLayout();
 
-  if (two_up_view_) {
-    layout_.ComputeTwoUpViewLayout(page_sizes);
-  } else {
-    layout_.ComputeSingleViewLayout(page_sizes);
-  }
+  // TODO(crbug.com/1013800): RefreshCurrentDocumentLayout() should send some
+  // sort of "current layout changed" notification, instead of proposing a new
+  // layout. Proposals are never rejected currently, so this is OK for now.
+  ProposeNextDocumentLayout();
+}
+
+void PDFiumEngine::RefreshCurrentDocumentLayout() {
+  UpdateDocumentLayout(&layout_);
+  if (!layout_.dirty())
+    return;
 
   DCHECK_EQ(pages_.size(), layout_.page_count());
   for (size_t i = 0; i < layout_.page_count(); ++i) {
@@ -2491,20 +2494,40 @@ void PDFiumEngine::LoadPageInfo(bool reload) {
     pages_[i]->set_rect(layout_.page_bounds_rect(i));
   }
 
+  layout_.clear_dirty();
+
   CalculateVisiblePages();
-  if (layout_.dirty()) {
-    layout_.clear_dirty();
-    client_->ProposeDocumentLayout(layout_);
+}
+
+void PDFiumEngine::ProposeNextDocumentLayout() {
+  DocumentLayout next_layout;
+  next_layout.SetOptions(desired_layout_options_);
+  UpdateDocumentLayout(&next_layout);
+
+  // The time windows between proposal and application may overlap, so we must
+  // always propose a new layout, regardless of the current layout state.
+  client_->ProposeDocumentLayout(next_layout);
+}
+
+void PDFiumEngine::UpdateDocumentLayout(DocumentLayout* layout) {
+  std::vector<pp::Size> page_sizes = LoadPageSizes(layout->options());
+  if (page_sizes.empty())
+    return;
+
+  if (two_up_view_) {
+    layout->ComputeTwoUpViewLayout(page_sizes);
+  } else {
+    layout->ComputeSingleViewLayout(page_sizes);
   }
 }
 
-std::vector<pp::Size> PDFiumEngine::LoadPageSizes(bool reload) {
+std::vector<pp::Size> PDFiumEngine::LoadPageSizes(
+    const DocumentLayout::Options& layout_options) {
   std::vector<pp::Size> page_sizes;
   if (!doc_loader_)
     return page_sizes;
-  if (pages_.empty() && reload)
+  if (pages_.empty() && document_loaded_)
     return page_sizes;
-  DCHECK(reload || pages_.empty()) << "!reload expects no existing pages";
 
   pending_pages_.clear();
   size_t new_page_count = FPDF_GetPageCount(doc());
@@ -2513,13 +2536,12 @@ std::vector<pp::Size> PDFiumEngine::LoadPageSizes(bool reload) {
   bool is_linear =
       FPDFAvail_IsLinearized(fpdf_availability()) == PDF_LINEARIZED;
   for (size_t i = 0; i < new_page_count; ++i) {
-    // Get page availability. If |reload| == true and the page is not new,
-    // then the page has been constructed already. Get page availability flag
-    // from already existing PDFiumPage object.
-    // If |reload| == false or the page is new, then the page may not be fully
-    // loaded yet.
+    // Get page availability. If |document_loaded_| == true and the page is not
+    // new, then the page has been constructed already. Get page availability
+    // flag from already existing PDFiumPage object. If |document_loaded_| ==
+    // false or the page is new, then the page may not be fully loaded yet.
     bool page_available;
-    if (reload && i < pages_.size()) {
+    if (document_loaded_ && i < pages_.size()) {
       page_available = pages_[i]->available();
     } else if (is_linear) {
       FX_DOWNLOADHINTS& download_hints = document_->download_hints();
@@ -2530,17 +2552,22 @@ std::vector<pp::Size> PDFiumEngine::LoadPageSizes(bool reload) {
       page_available = doc_complete;
     }
 
-    pp::Size size = page_available ? GetPageSize(i) : default_page_size_;
+    // TODO(crbug.com/1013800): It'd be better if page size were independent of
+    // layout options, and handled in the layout code.
+    pp::Size size = page_available ? GetPageSizeForLayout(i, layout_options)
+                                   : default_page_size_;
     EnlargePage(i, new_page_count, &size);
     page_sizes.push_back(size);
   }
 
-  // Add new pages. If !reload, do not mark page as available even if
-  // |doc_complete| is true because FPDFAvail_IsPageAvail() still has to be
-  // called for this page, which will be done in FinishLoadingDocument().
+  // Add new pages. If |document_loaded_| == false, do not mark page as
+  // available even if |doc_complete| is true because FPDFAvail_IsPageAvail()
+  // still has to be called for this page, which will be done in
+  // FinishLoadingDocument().
   for (size_t i = pages_.size(); i < new_page_count; ++i) {
     auto page = std::make_unique<PDFiumPage>(this, i);
-    if (reload && FPDFAvail_IsPageAvail(fpdf_availability(), i, nullptr))
+    if (document_loaded_ &&
+        FPDFAvail_IsPageAvail(fpdf_availability(), i, nullptr))
       page->MarkAvailable();
     pages_.push_back(std::move(page));
   }
@@ -2581,7 +2608,8 @@ void PDFiumEngine::LoadPages() {
       // the document is available, the first page is available as well.
       CheckPageAvailable(FPDFAvail_GetFirstPageNum(doc()), &pending_pages_);
     }
-    LoadPageInfo(false);
+    DCHECK(!document_loaded_);
+    LoadPageInfo();
   }
 }
 
@@ -2703,6 +2731,12 @@ bool PDFiumEngine::CheckPageAvailable(int index, std::vector<int>* pending) {
 }
 
 pp::Size PDFiumEngine::GetPageSize(int index) {
+  return GetPageSizeForLayout(index, layout_.options());
+}
+
+pp::Size PDFiumEngine::GetPageSizeForLayout(
+    int index,
+    const DocumentLayout::Options& layout_options) {
   pp::Size size;
   double width_in_points = 0;
   double height_in_points = 0;
@@ -2715,7 +2749,7 @@ pp::Size PDFiumEngine::GetPageSize(int index) {
     int height_in_pixels = static_cast<int>(
         ConvertUnitDouble(height_in_points, kPointsPerInch, kPixelsPerInch));
 
-    switch (layout_.options().default_page_orientation()) {
+    switch (layout_options.default_page_orientation()) {
       case PageOrientation::kOriginal:
       case PageOrientation::kClockwise180:
         // No axis swap needed.
@@ -3389,7 +3423,20 @@ void PDFiumEngine::OnSelectionPositionChanged() {
   client_->SelectionChanged(left, right);
 }
 
-void PDFiumEngine::RotateInternal() {
+pp::Size PDFiumEngine::ApplyDocumentLayout(
+    const DocumentLayout::Options& options) {
+  // We need to return early if the layout would not change, otherwise calling
+  // client_->ScrollToPage() would send another "viewport" message, triggering
+  // an infinite loop.
+  //
+  // TODO(crbug.com/1013800): The current implementation computes layout twice
+  // (here, and in InvalidateAllPages()). This shouldn't be too expensive at
+  // realistic page counts, but could be avoided.
+  layout_.SetOptions(options);
+  UpdateDocumentLayout(&layout_);
+  if (!layout_.dirty())
+    return layout_.size();
+
   // Store the current find index so that we can resume finding at that
   // particular index after we have recomputed the find results.
   std::string current_find_text = current_find_text_;
@@ -3398,7 +3445,6 @@ void PDFiumEngine::RotateInternal() {
   // Save the current page.
   int most_visible_page = most_visible_page_;
 
-  layout_.SetOptions(desired_layout_options_);
   InvalidateAllPages();
 
   // Restore find results.
@@ -3412,6 +3458,8 @@ void PDFiumEngine::RotateInternal() {
   // the scroll position has not. Re-adjust.
   // TODO(thestig): It would be better to also restore the position on the page.
   client_->ScrollToPage(most_visible_page);
+
+  return layout_.size();
 }
 
 void PDFiumEngine::SetSelecting(bool selecting) {

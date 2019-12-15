@@ -3,7 +3,6 @@
 <translationbundle lang="fi">
 <translation id="1001534784610492198">Asennusohjelman arkistotiedosto on vioittunut tai se ei kelpaa. Lataa Google Chrome uudelleen.</translation>
 <translation id="102763973188675173">Muokkaa ja hallinnoi Google Chromea. Päivitys on saatavilla.</translation>
-<translation id="1035334672863811645">Kirjaudu Chromeen</translation>
 <translation id="1051826050538111504">Tietokoneellasi on haitallinen ohjelmisto. Chrome voi poistaa sen, palauttaa asetuksesi ja poistaa laajennukset käytöstä, jotta selaimesi toimii taas normaalisti.</translation>
 <translation id="1065672644894730302">Asetuksiasi ei voi lukea. Kaikkia toimintoja ei voi välttämättä käyttää eikä asetuksiin tehtäviä muutoksia tallenneta.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> käytti aiemmin Chromea</translation>
@@ -73,7 +72,6 @@
 <translation id="3065168410429928842">Chrome-välilehti</translation>
 <translation id="3080151273017101988">Jätä taustaohjelmat käyntiin, kun Google Chrome suljetaan</translation>
 <translation id="3089968997497233615">Google Chromesta on saatavillaa uusi, turvallisempi versio.</translation>
-<translation id="3138848678222082288">Chromen tulevat versiot asennetaan automaattisesti. Kun lataus on valmis, Chrome käynnistyy uudelleen ja voit aloittaa käytön.</translation>
 <translation id="3149510190863420837">Chrome-sovellukset</translation>
 <translation id="3282568296779691940">Kirjaudu Chromeen</translation>
 <translation id="3340978935015468852">asetuksissa</translation>
@@ -94,7 +92,6 @@
 <translation id="3718181793972440140">Yksi kohde poistetaan pysyvästi  tältä laitteelta. Jos haluat palauttaa tiedot myöhemmin, kirjaudu Chromeen käyttäjänä <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">Laajennus <ph name="EXTENSION_NAME" /> on vaihtanut Chromen aloitussivun.</translation>
 <translation id="3780814664026482060">Chrome – <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Poista Chromesta…</translation>
 <translation id="386202838227397562">Sulje kaikki Chrome-ikkunat ja yritä uudelleen.</translation>
 <translation id="3873044882194371212">Avaa linkki Chromen inco&amp;gnito-ikkunassa</translation>
 <translation id="3889417619312448367">Poista Google Chromen asennus</translation>
@@ -175,7 +172,6 @@
 <translation id="677276454032249905">Suljetaanko Chrome silti?</translation>
 <translation id="683440813066116847">Google Chrome Canaryn saapuvien yhteyksien sääntö, joka sallii mDNS-liikenteen.</translation>
 <translation id="6885412569789873916">Chromen betaversion sovellukset</translation>
-<translation id="6906909733186691861">Chromen tulevat versiot asennetaan automaattisesti.</translation>
 <translation id="6943584222992551122">Käyttäjän selaustiedot poistetaan tältä laitteelta. Jos haluat palauttaa tiedot myöhemmin, kirjaudu Chromeen käyttäjänä <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Google Chromen betaversion saapuvien yhteyksien sääntö, joka sallii mDNS-liikenteen.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> edellyttää, että luet ja hyväksyt seuraavat käyttöehdot ennen tämän laitteen käyttöä. Nämä ehdot eivät laajenna, muokkaa tai rajoita Chrome-käyttöliittymän ehtoja.</translation>
@@ -226,7 +222,6 @@
 <translation id="8521348052903287641">Google Chromen kehittäjäversion saapuvien yhteyksien sääntö, joka sallii mDNS-liikenteen.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Chromesta on saatavissa uusi versio, joka on entistäkin nopeampi.</translation>
-<translation id="8606668294522778825">Google Chrome voi käyttää verkkopalveluita selauskokemuksesi parantamiseen. Voit halutessasi poistaa nämä palvelut käytöstä. <ph name="BEGIN_LINK" />Lisätietoja<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome ei vastaa. Käynnistetäänkö uudelleen?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome käynnistetään uudelleen 1 minuutin kuluttua}other{Chrome käynnistetään uudelleen # minuutin kuluttua.}}</translation>
 <translation id="8669527147644353129">Google Chrome Helper</translation>

@@ -633,6 +633,20 @@ class MultiDeviceSetupImplTest : public testing::Test {
     return eligible_devices_list;
   }
 
+  std::vector<mojom::HostDevicePtr> CallGetEligibleActiveHostDevices() {
+    base::RunLoop run_loop;
+    multidevice_setup_->GetEligibleActiveHostDevices(base::BindOnce(
+        &MultiDeviceSetupImplTest::OnEligibleActiveHostDevicesFetched,
+        base::Unretained(this), run_loop.QuitClosure()));
+    run_loop.Run();
+
+    std::vector<mojom::HostDevicePtr> eligible_devices_list =
+        std::move(*last_eligible_active_devices_list_);
+    last_eligible_active_devices_list_.reset();
+
+    return eligible_devices_list;
+  }
+
   bool CallSetHostDevice(const std::string& host_device_id,
                          const std::string& auth_token) {
     base::RunLoop run_loop;
@@ -810,6 +824,15 @@ class MultiDeviceSetupImplTest : public testing::Test {
     std::move(quit_closure).Run();
   }
 
+  void OnEligibleActiveHostDevicesFetched(
+      base::OnceClosure quit_closure,
+      std::vector<mojom::HostDevicePtr> eligible_active_devices_list) {
+    EXPECT_FALSE(last_eligible_active_devices_list_);
+    last_eligible_active_devices_list_ =
+        std::move(eligible_active_devices_list);
+    std::move(quit_closure).Run();
+  }
+
   void OnSetHostDeviceResult(base::OnceClosure quit_closure, bool success) {
     EXPECT_FALSE(last_set_host_success_);
     last_set_host_success_ = success;
@@ -899,6 +922,8 @@ class MultiDeviceSetupImplTest : public testing::Test {
 
   base::Optional<bool> last_debug_event_success_;
   base::Optional<multidevice::RemoteDeviceList> last_eligible_devices_list_;
+  base::Optional<std::vector<mojom::HostDevicePtr>>
+      last_eligible_active_devices_list_;
   base::Optional<bool> last_set_host_success_;
   base::Optional<bool> last_set_host_without_auth_success_;
   base::Optional<
@@ -1181,6 +1206,29 @@ TEST_F(MultiDeviceSetupImplTest, ComprehensiveHostTest) {
   fake_host_backend_delegate()->NotifyHostChangedOnBackend(base::nullopt);
 }
 
+TEST_F(MultiDeviceSetupImplTest, TestGetEligibleActiveHosts) {
+  // Start with no eligible devices.
+  EXPECT_TRUE(CallGetEligibleActiveHostDevices().empty());
+
+  multidevice::DeviceWithConnectivityStatusList host_device_list;
+  for (auto remote_device_ref : test_devices()) {
+    host_device_list.emplace_back(multidevice::DeviceWithConnectivityStatus(
+        remote_device_ref, cryptauthv2::ConnectivityStatus::ONLINE));
+  }
+  // Simulate a sync occurring; now, all of the test devices are eligible hosts.
+  fake_eligible_host_devices_provider()->set_eligible_active_host_devices(
+      host_device_list);
+
+  std::vector<mojom::HostDevicePtr> result_hosts =
+      CallGetEligibleActiveHostDevices();
+  for (size_t i = 0; i < kNumTestDevices; i++) {
+    EXPECT_EQ(*GetMutableRemoteDevice(test_devices()[i]),
+              result_hosts[i]->remote_device);
+    EXPECT_EQ(cryptauthv2::ConnectivityStatus::ONLINE,
+              result_hosts[i]->connectivity_status);
+  }
+}
+
 TEST_F(MultiDeviceSetupImplTest, TestSetHostDevice_InvalidAuthToken) {
   // Start valid eligible host devices.
   fake_eligible_host_devices_provider()->set_eligible_host_devices(
@@ -1225,22 +1273,6 @@ TEST_F(MultiDeviceSetupImplTest, TestSetHostDeviceWithoutAuthToken) {
   VerifyCurrentHostStatus(
       mojom::HostStatus::kHostSetLocallyButWaitingForBackendConfirmation,
       test_devices()[0], observer.get(), 1u /* expected_observer_index */);
-}
-
-TEST_F(MultiDeviceSetupImplTest, GetEligibleHostDevicesSortedByTimestamp) {
-  multidevice::RemoteDeviceRefList devices = test_devices();
-
-  // Update the devices in the list such that they are sorted from
-  // least-recently-updated to most-recently-updated. This is the opposite order
-  // that is expected from GetEligibleDevices();
-  for (size_t i = 0; i < devices.size(); ++i)
-    GetMutableRemoteDevice(devices[i])->last_update_time_millis = i;
-  fake_eligible_host_devices_provider()->set_eligible_host_devices(devices);
-
-  // Now, reverse the original list and verify that the returned devices are
-  // sorted in the correct order.
-  std::reverse(devices.begin(), devices.end());
-  EXPECT_EQ(RefListToRawList(devices), CallGetEligibleHostDevices());
 }
 
 }  // namespace multidevice_setup

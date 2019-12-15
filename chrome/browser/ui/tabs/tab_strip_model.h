@@ -23,6 +23,7 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
+#include "chrome/browser/ui/tabs/tab_group_controller.h"
 #include "chrome/browser/ui/tabs/tab_group_id.h"
 #include "chrome/browser/ui/tabs/tab_group_visual_data.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_order_controller.h"
@@ -35,6 +36,7 @@
 #endif
 
 class Profile;
+class TabGroupModel;
 class TabStripModelDelegate;
 class TabStripModelObserver;
 
@@ -73,7 +75,7 @@ class WebContents;
 // accessed on the UI thread.
 //
 ////////////////////////////////////////////////////////////////////////////////
-class TabStripModel {
+class TabStripModel : public TabGroupController {
  public:
   // Used to specify what should happen when the tab is closed.
   enum CloseTypes {
@@ -129,12 +131,12 @@ class TabStripModel {
     NEW_TAB_ENUM_COUNT = 3,
   };
 
-  static const int kNoTab = -1;
+  static constexpr int kNoTab = -1;
 
   // Construct a TabStripModel with a delegate to help it do certain things
   // (see the TabStripModelDelegate documentation). |delegate| cannot be NULL.
   explicit TabStripModel(TabStripModelDelegate* delegate, Profile* profile);
-  ~TabStripModel();
+  ~TabStripModel() override;
 
   // Retrieves the TabStripModelDelegate associated with this TabStripModel.
   TabStripModelDelegate* delegate() const { return delegate_; }
@@ -279,7 +281,7 @@ class TabStripModel {
 
   // Returns the WebContents at the specified index, or NULL if there is
   // none.
-  content::WebContents* GetWebContentsAt(int index) const;
+  content::WebContents* GetWebContentsAt(int index) const override;
 
   // Returns the index of the specified WebContents, or TabStripModel::kNoTab
   // if the WebContents is not in this TabStripModel.
@@ -339,25 +341,7 @@ class TabStripModel {
   // index is invalid or not grouped.
   // This feature is in development and gated behind a feature flag (see
   // https://crbug.com/915956).
-  base::Optional<TabGroupId> GetTabGroupForTab(int index) const;
-
-  // Returns the TabGroupVisualData instance for the given |group|. The returned
-  // pointer is valid until all tabs in |group| are destroyed or until
-  // SetVisualDataForGroup is called for |group|.
-  const TabGroupVisualData* GetVisualDataForGroup(TabGroupId group) const;
-
-  // Returns a title for |group| that can be shown in the UI, generating a
-  // descriptive placeholder if the user has not named the group.
-  base::string16 GetUserVisibleGroupTitle(TabGroupId group) const;
-
-  // Sets the visual data for |group|. Notifies observers of the change.
-  void SetVisualDataForGroup(TabGroupId group, TabGroupVisualData data);
-
-  // Returns a list of tab groups that contain at least one tab in this strip.
-  std::vector<TabGroupId> ListTabGroups() const;
-
-  // Returns the list of tabs in the given |group|.
-  std::vector<int> ListTabsInGroup(TabGroupId group) const;
+  base::Optional<TabGroupId> GetTabGroupForTab(int index) const override;
 
   // Returns the index of the first tab that is not a pinned tab. This returns
   // |count()| if all of the tabs are pinned tabs, and 0 if none of the tabs are
@@ -451,6 +435,8 @@ class TabStripModel {
   // must be sorted in ascending order. This feature is in development and gated
   // behind a feature flag. https://crbug.com/915956.
   void RemoveFromGroup(const std::vector<int>& indices);
+
+  TabGroupModel* group_model() const { return group_model_.get(); }
 
   // View API //////////////////////////////////////////////////////////////////
 
@@ -670,16 +656,21 @@ class TabStripModel {
                        int new_index,
                        base::Optional<TabGroupId> new_group);
 
-  // Notifies observers that the tab at |index| was moved from |old_group| to
-  // |new_group|.
-  void NotifyGroupChange(int index,
-                         base::Optional<TabGroupId> old_group,
-                         base::Optional<TabGroupId> new_group);
-
   // Helper function for MoveAndSetGroup. Removes the tab at |index| from the
   // group that contains it, if any. Also deletes that group, if it now contains
   // no tabs. Returns that group.
   base::Optional<TabGroupId> UngroupTab(int index);
+
+  // Helper function for MoveAndSetGroup. Adds the tab at |index| to |group|.
+  void GroupTab(int index, TabGroupId group);
+
+  // TabGroupController:
+  void CreateTabGroup(TabGroupId group) override;
+  void ChangeTabGroupContents(TabGroupId group) override;
+  void ChangeTabGroupVisuals(TabGroupId group) override;
+  void CloseTabGroup(TabGroupId group) override;
+  // The same as count(), but overridden for TabGroup to access.
+  int GetTabCount() const override;
 
   // Changes the pinned state of the tab at |index|.
   void SetTabPinnedImpl(int index, bool pinned);
@@ -705,10 +696,8 @@ class TabStripModel {
   // be kept in sync with |selection_model_|.
   std::vector<std::unique_ptr<WebContentsData>> contents_data_;
 
-  // The data for tab groups hosted within this TabStripModel, indexed by the
-  // group ID.
-  class GroupData;
-  std::map<TabGroupId, GroupData> group_data_;
+  // The model for tab groups hosted within this TabStripModel.
+  std::unique_ptr<TabGroupModel> group_model_;
 
   TabStripModelDelegate* delegate_;
 

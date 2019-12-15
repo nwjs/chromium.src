@@ -15,12 +15,11 @@
 #include "base/strings/string_piece.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/chromeos/wilco_dtc_supportd/mojo_utils.h"
+#include "chrome/browser/chromeos/wilco_dtc_supportd/wilco_dtc_supportd_client.h"
 #include "chrome/browser/chromeos/wilco_dtc_supportd/wilco_dtc_supportd_messaging.h"
 #include "chrome/browser/chromeos/wilco_dtc_supportd/wilco_dtc_supportd_notification_controller.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
-#include "chromeos/dbus/wilco_dtc_supportd_client.h"
-#include "mojo/public/cpp/bindings/interface_ptr_info.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "mojo/public/cpp/platform/platform_channel_endpoint.h"
@@ -58,8 +57,8 @@ class WilcoDtcSupportdBridgeDelegateImpl final
 
   // Delegate overrides:
   void CreateWilcoDtcSupportdServiceFactoryMojoInvitation(
-      wilco_dtc_supportd::mojom::WilcoDtcSupportdServiceFactoryPtr*
-          wilco_dtc_supportd_service_factory_mojo_ptr,
+      mojo::Remote<wilco_dtc_supportd::mojom::WilcoDtcSupportdServiceFactory>*
+          wilco_dtc_supportd_service_factory_mojo_remote,
       base::ScopedFD* remote_endpoint_fd) override;
 
  private:
@@ -74,8 +73,8 @@ WilcoDtcSupportdBridgeDelegateImpl::~WilcoDtcSupportdBridgeDelegateImpl() =
 
 void WilcoDtcSupportdBridgeDelegateImpl::
     CreateWilcoDtcSupportdServiceFactoryMojoInvitation(
-        wilco_dtc_supportd::mojom::WilcoDtcSupportdServiceFactoryPtr*
-            wilco_dtc_supportd_service_factory_mojo_ptr,
+        mojo::Remote<wilco_dtc_supportd::mojom::WilcoDtcSupportdServiceFactory>*
+            wilco_dtc_supportd_service_factory_mojo_remote,
         base::ScopedFD* remote_endpoint_fd) {
   mojo::OutgoingInvitation invitation;
   mojo::PlatformChannel channel;
@@ -84,8 +83,8 @@ void WilcoDtcSupportdBridgeDelegateImpl::
   mojo::OutgoingInvitation::Send(std::move(invitation),
                                  base::kNullProcessHandle,
                                  channel.TakeLocalEndpoint());
-  wilco_dtc_supportd_service_factory_mojo_ptr->Bind(
-      mojo::InterfacePtrInfo<
+  wilco_dtc_supportd_service_factory_mojo_remote->Bind(
+      mojo::PendingRemote<
           wilco_dtc_supportd::mojom::WilcoDtcSupportdServiceFactory>(
           std::move(server_pipe), 0 /* version */));
   *remote_endpoint_fd =
@@ -160,11 +159,9 @@ void WilcoDtcSupportdBridge::WaitForDBusService() {
   // ScheduleWaitingForDBusService().
   dbus_waiting_weak_ptr_factory_.InvalidateWeakPtrs();
 
-  DBusThreadManager::Get()
-      ->GetWilcoDtcSupportdClient()
-      ->WaitForServiceToBeAvailable(
-          base::BindOnce(&WilcoDtcSupportdBridge::OnWaitedForDBusService,
-                         dbus_waiting_weak_ptr_factory_.GetWeakPtr()));
+  chromeos::WilcoDtcSupportdClient::Get()->WaitForServiceToBeAvailable(
+      base::BindOnce(&WilcoDtcSupportdBridge::OnWaitedForDBusService,
+                     dbus_waiting_weak_ptr_factory_.GetWeakPtr()));
 }
 
 void WilcoDtcSupportdBridge::ScheduleWaitingForDBusService() {
@@ -193,16 +190,16 @@ void WilcoDtcSupportdBridge::OnWaitedForDBusService(bool service_is_available) {
 }
 
 void WilcoDtcSupportdBridge::BootstrapMojoConnection() {
-  DCHECK(!wilco_dtc_supportd_service_factory_mojo_ptr_);
+  DCHECK(!wilco_dtc_supportd_service_factory_mojo_remote_);
 
   // Create a Mojo message pipe and attach
-  // |wilco_dtc_supportd_service_factory_mojo_ptr_| to its local endpoint.
+  // |wilco_dtc_supportd_service_factory_mojo_remote_| to its local endpoint.
   base::ScopedFD remote_endpoint_fd;
   delegate_->CreateWilcoDtcSupportdServiceFactoryMojoInvitation(
-      &wilco_dtc_supportd_service_factory_mojo_ptr_, &remote_endpoint_fd);
-  DCHECK(wilco_dtc_supportd_service_factory_mojo_ptr_);
+      &wilco_dtc_supportd_service_factory_mojo_remote_, &remote_endpoint_fd);
+  DCHECK(wilco_dtc_supportd_service_factory_mojo_remote_);
   DCHECK(remote_endpoint_fd.is_valid());
-  wilco_dtc_supportd_service_factory_mojo_ptr_.set_connection_error_handler(
+  wilco_dtc_supportd_service_factory_mojo_remote_.set_disconnect_handler(
       base::BindOnce(&WilcoDtcSupportdBridge::OnMojoConnectionError,
                      weak_ptr_factory_.GetWeakPtr()));
 
@@ -213,7 +210,7 @@ void WilcoDtcSupportdBridge::BootstrapMojoConnection() {
   mojo::PendingRemote<wilco_dtc_supportd::mojom::WilcoDtcSupportdClient>
       self_proxy;
   mojo_self_receiver_.Bind(self_proxy.InitWithNewPipeAndPassReceiver());
-  wilco_dtc_supportd_service_factory_mojo_ptr_->GetService(
+  wilco_dtc_supportd_service_factory_mojo_remote_->GetService(
       wilco_dtc_supportd_service_mojo_remote_.BindNewPipeAndPassReceiver(),
       std::move(self_proxy),
       base::BindOnce(&WilcoDtcSupportdBridge::OnMojoGetServiceCompleted,
@@ -221,19 +218,17 @@ void WilcoDtcSupportdBridge::BootstrapMojoConnection() {
 
   // Send the file descriptor with the Mojo message pipe's remote endpoint to
   // the wilco_dtc_supportd daemon via the D-Bus.
-  DBusThreadManager::Get()
-      ->GetWilcoDtcSupportdClient()
-      ->BootstrapMojoConnection(
-          std::move(remote_endpoint_fd),
-          base::BindOnce(&WilcoDtcSupportdBridge::OnBootstrappedMojoConnection,
-                         weak_ptr_factory_.GetWeakPtr()));
+  chromeos::WilcoDtcSupportdClient::Get()->BootstrapMojoConnection(
+      std::move(remote_endpoint_fd),
+      base::BindOnce(&WilcoDtcSupportdBridge::OnBootstrappedMojoConnection,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 void WilcoDtcSupportdBridge::OnBootstrappedMojoConnection(bool success) {
   if (success)
     return;
   DLOG(ERROR) << "Failed to establish Mojo connection to wilco_dtc_supportd";
-  wilco_dtc_supportd_service_factory_mojo_ptr_.reset();
+  wilco_dtc_supportd_service_factory_mojo_remote_.reset();
   wilco_dtc_supportd_service_mojo_remote_.reset();
   ScheduleWaitingForDBusService();
 }
@@ -249,7 +244,7 @@ void WilcoDtcSupportdBridge::OnMojoGetServiceCompleted() {
 void WilcoDtcSupportdBridge::OnMojoConnectionError() {
   DLOG(WARNING)
       << "Mojo connection to the wilco_dtc_supportd daemon got shut down";
-  wilco_dtc_supportd_service_factory_mojo_ptr_.reset();
+  wilco_dtc_supportd_service_factory_mojo_remote_.reset();
   wilco_dtc_supportd_service_mojo_remote_.reset();
   ScheduleWaitingForDBusService();
 }

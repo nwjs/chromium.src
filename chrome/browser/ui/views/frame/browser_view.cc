@@ -76,6 +76,8 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window_state.h"
+#include "chrome/browser/ui/find_bar/find_bar.h"
+#include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/in_product_help/reopen_tab_in_product_help.h"
 #include "chrome/browser/ui/in_product_help/reopen_tab_in_product_help_factory.h"
 #include "chrome/browser/ui/layout_constants.h"
@@ -182,6 +184,7 @@
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/scoped_canvas.h"
+#include "ui/gfx/scrollbar_size.h"
 #include "ui/native_theme/native_theme_dark_aura.h"
 #include "ui/views/accessibility/view_accessibility_utils.h"
 #include "ui/views/controls/button/menu_button.h"
@@ -424,6 +427,27 @@ class BrowserViewLayoutDelegateImpl : public BrowserViewLayoutDelegate {
     return browser_view_->GetTopControlsSlideBehaviorShownRatio();
   }
 
+  bool SupportsWindowFeature(Browser::WindowFeature feature) const override {
+    return browser_view_->browser()->SupportsWindowFeature(feature);
+  }
+
+  gfx::NativeView GetHostView() const override {
+    return browser_view_->GetWidget()->GetNativeView();
+  }
+
+  bool BrowserIsTypeNormal() const override {
+    return browser_view_->browser()->is_type_normal();
+  }
+
+  bool HasFindBarController() const override {
+    return browser_view_->browser()->HasFindBarController();
+  }
+
+  void MoveWindowForFindBarIfNecessary() const override {
+    auto* const controller = browser_view_->browser()->GetFindBarController();
+    return controller->find_bar()->MoveWindowIfNecessary();
+  }
+
  private:
   BrowserView* browser_view_;
 
@@ -442,6 +466,7 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
   browser_->tab_strip_model()->AddObserver(this);
   resizable_ = browser_->initial_resizable();
   immersive_mode_controller_ = chrome::CreateImmersiveModeController();
+  md_observer_.Add(ui::MaterialDesignController::GetInstance());
 }
 
 void BrowserView::ForceClose() {
@@ -619,7 +644,22 @@ void BrowserView::InitStatusBubble() {
 }
 
 gfx::Rect BrowserView::GetFindBarBoundingBox() const {
-  return GetBrowserViewLayout()->GetFindBarBoundingBox();
+  gfx::Rect contents_bounds = contents_container_->ConvertRectToWidget(
+      contents_container_->GetLocalBounds());
+
+  // If the location bar is visible use it to position the bounding box,
+  // otherwise use the contents container.
+  if (!immersive_mode_controller_->IsEnabled() ||
+      immersive_mode_controller_->IsRevealed()) {
+    const gfx::Rect bounding_box =
+        toolbar_button_provider_->GetFindBarBoundingBox(
+            contents_bounds.bottom());
+    if (!bounding_box.IsEmpty())
+      return bounding_box;
+  }
+
+  contents_bounds.Inset(0, 0, gfx::scrollbar_size(), 0);
+  return contents_container_->GetMirroredRect(contents_bounds);
 }
 
 int BrowserView::GetTabStripHeight() const {
@@ -635,7 +675,7 @@ bool BrowserView::IsTabStripVisible() const {
     return false;
 
 #if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
-  if (base::FeatureList::IsEnabled(features::kWebUITabStrip))
+  if (WebUITabStripContainerView::UseTouchableTabStrip())
     return false;
 #endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 
@@ -1220,10 +1260,11 @@ void BrowserView::SetToolbarButtonProvider(ToolbarButtonProvider* provider) {
           browser_.get(), toolbar_button_provider_);
 }
 
-bool BrowserView::UpdatePageActionIcon(PageActionIconType type) {
+void BrowserView::UpdatePageActionIcon(PageActionIconType type) {
   PageActionIconView* icon =
       toolbar_button_provider_->GetPageActionIconView(type);
-  return icon ? icon->Update() : false;
+  if (icon)
+    icon->Update();
 }
 
 autofill::AutofillBubbleHandler* BrowserView::GetAutofillBubbleHandler() {
@@ -1260,8 +1301,8 @@ void BrowserView::SetFocusToLocationBar(bool select_all) {
 }
 
 void BrowserView::UpdateReloadStopState(bool is_loading, bool force) {
-  if (toolbar_->reload_button()) {
-    toolbar_->reload_button()->ChangeMode(
+  if (toolbar_button_provider_->GetReloadButton()) {
+    toolbar_button_provider_->GetReloadButton()->ChangeMode(
         is_loading ? ReloadButton::Mode::kStop : ReloadButton::Mode::kReload,
         force);
   }
@@ -2067,6 +2108,9 @@ base::string16 BrowserView::GetAccessibleTabLabel(bool include_app_name,
     case TabAlertState::BLUETOOTH_CONNECTED:
       return l10n_util::GetStringFUTF16(
           IDS_TAB_AX_LABEL_BLUETOOTH_CONNECTED_FORMAT, title);
+    case TabAlertState::HID_CONNECTED:
+      return l10n_util::GetStringFUTF16(IDS_TAB_AX_LABEL_HID_CONNECTED_FORMAT,
+                                        title);
     case TabAlertState::SERIAL_CONNECTED:
       return l10n_util::GetStringFUTF16(
           IDS_TAB_AX_LABEL_SERIAL_CONNECTED_FORMAT, title);
@@ -2099,7 +2143,7 @@ BrowserView::GetNativeViewHostsForTopControlsSlide() const {
   results.push_back(contents_web_view_->holder());
 
 #if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
-  if (base::FeatureList::IsEnabled(features::kWebUITabStrip))
+  if (webui_tab_strip_)
     results.push_back(webui_tab_strip_->GetNativeViewHost());
 #endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 
@@ -2169,6 +2213,8 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
     if (devtools_window) {
       WebContents* inspected_contents =
           devtools_window->GetInspectedWebContents();
+      if (!inspected_contents)
+        return gfx::ImageSkia();
       Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
       if (browser && !browser->icon_override().IsEmpty())
         return *browser->icon_override().ToImageSkia();
@@ -2205,8 +2251,6 @@ gfx::ImageSkia BrowserView::GetWindowIcon() {
     if (devtools_window) {
       WebContents* inspected_contents =
           devtools_window->GetInspectedWebContents();
-      if (!inspected_contents)
-        return gfx::ImageSkia();
       Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
       if (browser && !browser->icon_override().IsEmpty())
         return *browser->icon_override().ToImageSkia();
@@ -2504,6 +2548,10 @@ void BrowserView::GetAccessiblePanes(std::vector<views::View*>* panes) {
   // (Windows) or Ctrl+Back/Forward (Chrome OS).  If one of these is
   // invisible or has no focusable children, it will be automatically
   // skipped.
+#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+  if (webui_tab_strip_)
+    panes->push_back(webui_tab_strip_);
+#endif
   panes->push_back(toolbar_button_provider_->GetAsAccessiblePaneView());
   if (tabstrip_)
     panes->push_back(tabstrip_);
@@ -2597,6 +2645,11 @@ void BrowserView::Layout() {
   WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
   if (contents && PermissionRequestManager::FromWebContents(contents))
     PermissionRequestManager::FromWebContents(contents)->UpdateAnchorPosition();
+
+#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+  if (webui_tab_strip_)
+    webui_tab_strip_->UpdatePromoBubbleBounds();
+#endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 }
 
 void BrowserView::OnGestureEvent(ui::GestureEvent* event) {
@@ -2749,15 +2802,22 @@ void BrowserView::InitViews() {
   tab_strip_region_view_->AddChildView(tabstrip_);  // Takes ownership.
   tabstrip_controller->InitFromModel(tabstrip_);
 
-  views::View* webui_tab_strip_view = nullptr;
-#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
-  if (base::FeatureList::IsEnabled(features::kWebUITabStrip)) {
-    webui_tab_strip_ = top_container_->AddChildView(
-        std::make_unique<WebUITabStripContainerView>(browser_.get()));
+  // Create WebViews early so |webui_tab_strip_| can observe their size.
+  devtools_web_view_ = new views::WebView(browser_->profile());
+  devtools_web_view_->SetID(VIEW_ID_DEV_TOOLS_DOCKED);
+  devtools_web_view_->SetVisible(false);
 
-    webui_tab_strip_view = webui_tab_strip_;
-  }
-#endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+  contents_web_view_ = new ContentsWebView(browser_->profile(), browser_->is_transparent());
+  contents_web_view_->SetID(VIEW_ID_TAB_CONTAINER);
+  contents_web_view_->SetEmbedFullscreenWidgetMode(true);
+
+  contents_container_ = new views::View();
+  if (browser_->is_transparent())
+    contents_container_->SetBackground(views::CreateSolidBackground(SK_ColorTRANSPARENT));
+  contents_container_->AddChildView(devtools_web_view_);
+  contents_container_->AddChildView(contents_web_view_);
+  contents_container_->SetLayoutManager(std::make_unique<ContentsLayoutManager>(
+      devtools_web_view_, contents_web_view_));
 
   toolbar_ = top_container_->AddChildView(
       std::make_unique<ToolbarView>(browser_.get(), this));
@@ -2771,24 +2831,9 @@ void BrowserView::InitViews() {
   if (!toolbar_button_provider_)
     SetToolbarButtonProvider(toolbar_);
 
-  contents_web_view_ = new ContentsWebView(browser_->profile(), browser_->is_transparent());
-  contents_web_view_->SetID(VIEW_ID_TAB_CONTAINER);
-  contents_web_view_->SetEmbedFullscreenWidgetMode(true);
-
   web_contents_close_handler_.reset(
       new WebContentsCloseHandler(contents_web_view_));
 
-  devtools_web_view_ = new views::WebView(browser_->profile());
-  devtools_web_view_->SetID(VIEW_ID_DEV_TOOLS_DOCKED);
-  devtools_web_view_->SetVisible(false);
-
-  contents_container_ = new views::View();
-  if (browser_->is_transparent())
-    contents_container_->SetBackground(views::CreateSolidBackground(SK_ColorTRANSPARENT));
-  contents_container_->AddChildView(devtools_web_view_);
-  contents_container_->AddChildView(contents_web_view_);
-  contents_container_->SetLayoutManager(std::make_unique<ContentsLayoutManager>(
-      devtools_web_view_, contents_web_view_));
   AddChildView(contents_container_);
   set_contents_view(contents_container_);
 
@@ -2815,11 +2860,11 @@ void BrowserView::InitViews() {
   }
 
   auto browser_view_layout = std::make_unique<BrowserViewLayout>(
-      std::make_unique<BrowserViewLayoutDelegateImpl>(this), browser(), this,
-      top_container_, tab_strip_region_view_, tabstrip_, webui_tab_strip_view,
-      toolbar_, infobar_container_, contents_container_,
-      immersive_mode_controller_.get(), web_footer_experiment,
-      contents_separator_);
+      std::make_unique<BrowserViewLayoutDelegateImpl>(this),
+      GetWidget()->GetNativeView(), this, top_container_,
+      tab_strip_region_view_, tabstrip_, toolbar_, infobar_container_,
+      contents_container_, immersive_mode_controller_.get(),
+      web_footer_experiment, contents_separator_);
   SetLayoutManager(std::move(browser_view_layout));
 
   EnsureFocusOrder();
@@ -2835,6 +2880,34 @@ void BrowserView::InitViews() {
   frame_->OnBrowserViewInitViewsComplete();
   frame_->GetFrameView()->UpdateMinimumSize();
   using_native_frame_ = frame_->ShouldUseNativeFrame();
+
+  MaybeInitializeWebUITabStrip();
+}
+
+void BrowserView::MaybeInitializeWebUITabStrip() {
+#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+  if (browser_->SupportsWindowFeature(Browser::FEATURE_TABSTRIP) &&
+      WebUITabStripContainerView::UseTouchableTabStrip()) {
+    if (!webui_tab_strip_) {
+      // We use |contents_container_| here so that enabling or disabling
+      // devtools won't affect the tab sizes. We still use only
+      // |contents_web_view_| for screenshotting and will adjust the
+      // screenshot accordingly. Ideally, the thumbnails should be sized
+      // based on a typical tab size, ignoring devtools or e.g. the
+      // downloads bar.
+      webui_tab_strip_ = top_container_->AddChildView(
+          std::make_unique<WebUITabStripContainerView>(browser_.get(),
+                                                       contents_container_));
+    }
+  } else if (webui_tab_strip_) {
+    top_container_->RemoveChildView(webui_tab_strip_);
+    delete webui_tab_strip_;
+    webui_tab_strip_ = nullptr;
+  }
+  GetBrowserViewLayout()->set_webui_tab_strip(webui_tab_strip_);
+  if (toolbar_)
+    toolbar_->UpdateForWebUITabStrip();
+#endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 }
 
 void BrowserView::LoadingAnimationCallback() {
@@ -3411,6 +3484,12 @@ void BrowserView::OnImmersiveFullscreenExited() {
 
 void BrowserView::OnImmersiveModeControllerDestroyed() {
   ReparentTopContainerForEndOfImmersive();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// BrowserView, ui::MaterialDesignControllerObserver implementation:
+void BrowserView::OnTouchUiChanged() {
+  MaybeInitializeWebUITabStrip();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

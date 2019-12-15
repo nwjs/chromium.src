@@ -10,10 +10,10 @@ import android.os.Bundle;
 import android.util.Pair;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Log;
 import org.chromium.base.StreamUtil;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.browser.ChromeVersionInfo;
 import org.chromium.chrome.browser.crypto.CipherFactory;
@@ -353,24 +353,25 @@ public class TabState {
 
     /** @return An opaque "state" object that can be persisted to storage. */
     public static TabState from(Tab tab) {
-        if (!tab.isInitialized()) return null;
+        TabImpl tabImpl = (TabImpl) tab;
+        if (!tabImpl.isInitialized()) return null;
         TabState tabState = new TabState();
-        tabState.contentsState = getWebContentsState(tab);
+        tabState.contentsState = getWebContentsState(tabImpl);
         tabState.openerAppId = TabAssociatedApp.getAppId(tab);
         tabState.parentId = tab.getParentId();
         tabState.timestampMillis = tab.getTimestampMillis();
         tabState.tabLaunchTypeAtCreation = tab.getLaunchTypeAtInitialTabCreation();
         // Don't save the actual default theme color because it could change on night mode state
         // changed.
-        tabState.themeColor = TabThemeColorHelper.isDefaultColorUsed(tab)
-                ? TabState.UNSPECIFIED_THEME_COLOR
-                : TabThemeColorHelper.getColor(tab);
-        tabState.rootId = tab.getRootId();
+        tabState.themeColor = TabThemeColorHelper.isUsingColorFromTabContents(tab)
+                ? TabThemeColorHelper.getColor(tab)
+                : TabState.UNSPECIFIED_THEME_COLOR;
+        tabState.rootId = tabImpl.getRootId();
         return tabState;
     }
 
     /** Returns an object representing the state of the Tab's WebContents. */
-    private static WebContentsState getWebContentsState(Tab tab) {
+    private static WebContentsState getWebContentsState(TabImpl tab) {
         if (tab.getFrozenContentsState() != null) return tab.getFrozenContentsState();
 
         // Native call returns null when buffer allocation needed to serialize the state failed.
@@ -383,7 +384,7 @@ public class TabState {
     }
 
     /** Returns an ByteBuffer representing the state of the Tab's WebContents. */
-    private static ByteBuffer getWebContentsStateAsByteBuffer(Tab tab) {
+    private static ByteBuffer getWebContentsStateAsByteBuffer(TabImpl tab) {
         LoadUrlParams pendingLoadParams = tab.getPendingLoadParams();
         if (pendingLoadParams == null) {
             return getContentsStateAsByteBuffer(tab);
@@ -604,7 +605,7 @@ public class TabState {
         if (!tab.isFrozen()) {
             TabStateJni.get().createHistoricalTabFromContents(tab.getWebContents());
         } else {
-            WebContentsState state = tab.getFrozenContentsState();
+            WebContentsState state = ((TabImpl) tab).getFrozenContentsState();
             if (state != null) {
                 TabStateJni.get().createHistoricalTab(state.buffer(), state.version());
             }

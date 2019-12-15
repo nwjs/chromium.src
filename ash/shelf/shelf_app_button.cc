@@ -19,6 +19,7 @@
 #include "base/time/time.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "skia/ext/image_operations.h"
+#include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/compositor/layer.h"
@@ -296,8 +297,9 @@ class ShelfAppButton::AppStatusIndicatorView
 // static
 const char ShelfAppButton::kViewClassName[] = "ash/ShelfAppButton";
 
-ShelfAppButton::ShelfAppButton(ShelfView* shelf_view)
-    : ShelfButton(shelf_view->shelf(), shelf_view),
+ShelfAppButton::ShelfAppButton(ShelfView* shelf_view,
+                               ShelfButtonDelegate* shelf_button_delegate)
+    : ShelfButton(shelf_view->shelf(), shelf_button_delegate),
       icon_view_(new views::ImageView()),
       shelf_view_(shelf_view),
       indicator_(new AppStatusIndicatorView()),
@@ -513,6 +515,10 @@ bool ShelfAppButton::IsIconSizeCurrent() {
   return icon_width == ShelfConfig::Get()->button_icon_size();
 }
 
+void ShelfAppButton::FireRippleActivationTimerForTest() {
+  ripple_activation_timer_.FireNow();
+}
+
 const char* ShelfAppButton::GetClassName() const {
   return kViewClassName;
 }
@@ -531,9 +537,10 @@ bool ShelfAppButton::OnMousePressed(const ui::MouseEvent& event) {
   shelf_view_->PointerPressedOnButton(this, ShelfView::MOUSE, event);
 
   if (shelf_view_->IsDraggedView(this)) {
-    drag_timer_.Start(
-        FROM_HERE, base::TimeDelta::FromMilliseconds(kDragTimeThresholdMs),
-        base::Bind(&ShelfAppButton::OnTouchDragTimer, base::Unretained(this)));
+    drag_timer_.Start(FROM_HERE,
+                      base::TimeDelta::FromMilliseconds(kDragTimeThresholdMs),
+                      base::BindOnce(&ShelfAppButton::OnTouchDragTimer,
+                                     base::Unretained(this)));
   }
   return true;
 }
@@ -582,7 +589,7 @@ void ShelfAppButton::Layout() {
 
   // If on the left or top 'invert' the inset so the constant gap is on
   // the interior (towards the center of display) edge of the shelf.
-  if (SHELF_ALIGNMENT_LEFT == shelf->alignment())
+  if (ShelfAlignment::kLeft == shelf->alignment())
     x_offset = button_bounds.width() - (icon_size + icon_padding);
 
   // Center icon with respect to the secondary axis.
@@ -620,17 +627,17 @@ void ShelfAppButton::Layout() {
   DCHECK_LE(icon_height, icon_size);
 
   switch (shelf->alignment()) {
-    case SHELF_ALIGNMENT_BOTTOM:
-    case SHELF_ALIGNMENT_BOTTOM_LOCKED:
+    case ShelfAlignment::kBottom:
+    case ShelfAlignment::kBottomLocked:
       indicator_midpoint.set_y(button_bounds.bottom() -
                                kStatusIndicatorRadiusDip -
                                status_indicator_offet_from_shelf_edge);
       break;
-    case SHELF_ALIGNMENT_LEFT:
+    case ShelfAlignment::kLeft:
       indicator_midpoint.set_x(button_bounds.x() + kStatusIndicatorRadiusDip +
                                status_indicator_offet_from_shelf_edge);
       break;
-    case SHELF_ALIGNMENT_RIGHT:
+    case ShelfAlignment::kRight:
       indicator_midpoint.set_x(button_bounds.right() -
                                kStatusIndicatorRadiusDip -
                                status_indicator_offet_from_shelf_edge);
@@ -736,6 +743,14 @@ std::unique_ptr<views::InkDropRipple> ShelfAppButton::CreateInkDropRipple()
 std::unique_ptr<views::InkDropMask> ShelfAppButton::CreateInkDropMask() const {
   // Do not set a mask, allow the ink drop to burst out.
   return nullptr;
+}
+
+bool ShelfAppButton::HandleAccessibleAction(
+    const ui::AXActionData& action_data) {
+  if (action_data.action == ax::mojom::Action::kScrollToMakeVisible)
+    shelf_button_delegate()->HandleAccessibleActionScrollToMakeVisible(this);
+
+  return views::View::HandleAccessibleAction(action_data);
 }
 
 void ShelfAppButton::UpdateState() {

@@ -3,7 +3,6 @@
 <translationbundle lang="es">
 <translation id="1001534784610492198">El archivo de instalación está dañado o no es válido. Vuelve a descargar Google Chrome.</translation>
 <translation id="102763973188675173">Personaliza y controla Google Chrome. Hay una actualización disponible.</translation>
-<translation id="1035334672863811645">iniciar sesión en Chrome</translation>
 <translation id="1051826050538111504">Se ha detectado software dañino en tu ordenador. Chrome puede eliminarlo, restaurar tu configuración y desactivar las extensiones para que el navegador vuelva a funcionar con normalidad.</translation>
 <translation id="1065672644894730302">No se pueden leer tus preferencias.
 
@@ -77,7 +76,6 @@ Es posible que algunas funciones no estén disponibles y que no se guarden los c
 <translation id="3065168410429928842">Pestaña de Chrome</translation>
 <translation id="3080151273017101988">Seguir ejecutando aplicaciones en segundo plano al cerrar Google Chrome</translation>
 <translation id="3089968997497233615">Hay una nueva versión más segura de Google Chrome disponible.</translation>
-<translation id="3138848678222082288">Las próximas versiones de Chrome se instalarán automáticamente. Cuando se complete esta descarga, Chrome se reiniciará y el proceso se habrá completado.</translation>
 <translation id="3149510190863420837">Aplicaciones de Chrome</translation>
 <translation id="3282568296779691940">Iniciar sesión en Chrome</translation>
 <translation id="3340978935015468852">configuración</translation>
@@ -98,7 +96,6 @@ Es posible que algunas funciones no estén disponibles y que no se guarden los c
 <translation id="3718181793972440140">Se eliminará un elemento de este dispositivo. Para recuperar tus datos en otro momento, inicia sesión en Chrome como <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">La extensión <ph name="EXTENSION_NAME" /> ha cambiado la página que se muestra al iniciar Chrome.</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Desinstalar de Chrome...</translation>
 <translation id="386202838227397562">Cierra todas las ventanas de Google Chrome y vuelve a intentarlo.</translation>
 <translation id="3873044882194371212">Abrir enlace en una ventana de incó&amp;gnito de Chrome</translation>
 <translation id="3889417619312448367">Desinstalar Google Chrome</translation>
@@ -183,7 +180,6 @@ Google Chrome no puede recuperar tu configuración.</translation>
 <translation id="677276454032249905">¿Quieres salir de Chrome de todas formas?</translation>
 <translation id="683440813066116847">Regla entrante para que Google Chrome Canary permita tráfico mDNS.</translation>
 <translation id="6885412569789873916">Aplicaciones de Chrome Beta</translation>
-<translation id="6906909733186691861">Las próximas versiones de Chrome se instalarán automáticamente.</translation>
 <translation id="6943584222992551122">Los datos de navegación de este usuario se eliminarán del dispositivo. Para recuperar los datos, inicia sesión en Chrome como <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Regla entrante para que Google Chrome Beta permita tráfico mDNS.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> requiere que leas y aceptes las siguientes Condiciones de Servicio antes de utilizar este dispositivo. Estas condiciones no amplían, modifican ni limitan los términos de Google Chrome OS.</translation>
@@ -234,7 +230,6 @@ Google Chrome no puede recuperar tu configuración.</translation>
 <translation id="8521348052903287641">Regla entrante para que Google Chrome Dev permita tráfico mDNS.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Hay una nueva versión de Google Chrome disponible que funciona a una velocidad sin precedentes.</translation>
-<translation id="8606668294522778825">Google Chrome puede utilizar servicios web para mejorar tu experiencia de navegación. Puedes habilitar o inhabilitar estos servicios. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome no responde. ¿Quieres reiniciarlo ahora?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome se reiniciará dentro de 1 minuto}other{Chrome se reiniciará dentro de # minutos}}</translation>
 <translation id="8669527147644353129">Ayudante de Google Chrome</translation>

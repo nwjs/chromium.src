@@ -135,6 +135,7 @@ crbug.com/948141 Pixel_CanvasDisplaySRGBAccelerated2D [ Skip ]
 crbug.com/883500 [ android no-skia-renderer qualcomm-adreno-(tm)-330 ] Pixel_BackgroundImage [ Skip ]
 crbug.com/883500 [ android no-use-gl no-use-vulkan qualcomm-adreno-(tm)-420 ] Pixel_BackgroundImage [ Skip ]
 crbug.com/883500 [ android no-use-gl no-use-vulkan qualcomm-adreno-(tm)-430 ] Pixel_BackgroundImage [ Skip ]
+crbug.com/1029389 [ android qualcomm-adreno-(tm)-330 ] Pixel_PrecisionRoundedCorner [ Skip ]
 
 # Flakes on Nexus 5X.
 crbug.com/883500 [ android-chromium no-use-gl no-use-vulkan qualcomm-adreno-(tm)-418 ] Pixel_BackgroundImage [ RetryOnFailure ]
@@ -178,31 +179,7 @@ crbug.com/974380 [ win ] Pixel_OffscreenCanvasUnaccelerated2DGPUCompositingWorke
 crbug.com/974380 [ mac ] Pixel_OffscreenCanvasUnaccelerated2DGPUCompositingWorker [ Skip ]
 crbug.com/974383 [ mac ] Pixel_CanvasDisplayLinearRGBAccelerated2D [ Skip ]
 
-# Fails on Intel
-crbug.com/991289 [ linux skia-renderer intel ] Pixel_CSS3DBlueBox [ Skip ]
-
 # Fails when the browser features SkiaRenderer & Vulkan are enabled on Android
-crbug.com/969864 [ android skia-renderer use-vulkan ] Pixel_2DCanvasWebGL [ Failure ]
-crbug.com/969864 [ android skia-renderer use-vulkan ] Pixel_BackgroundImage [ Skip ]
-crbug.com/969864 [ android skia-renderer use-vulkan ] Pixel_Canvas2DRedBox [ Skip ]
-crbug.com/969864 [ android skia-renderer use-vulkan ] Pixel_Canvas2DUntagged [ Skip ]
-crbug.com/969864 [ android skia-renderer use-vulkan ] Pixel_CanvasDisplayLinearRGBAccelerated2D [ Skip ]
-crbug.com/969864 [ android android-chromium skia-renderer use-vulkan ] Pixel_OffscreenCanvas2DResizeOnWorker [ Skip ]
-crbug.com/969864 [ android android-chromium skia-renderer use-vulkan ] Pixel_OffscreenCanvasAccelerated2D [ Skip ]
-crbug.com/969864 [ android android-chromium skia-renderer use-vulkan ] Pixel_OffscreenCanvasAccelerated2DWorker [ Skip ]
-crbug.com/969864 [ android android-chromium skia-renderer use-vulkan ] Pixel_OffscreenCanvasTransferAfterStyleResize [ Skip ]
-crbug.com/969864 [ android android-chromium skia-renderer use-vulkan ] Pixel_OffscreenCanvasTransferBeforeStyleResize [ Skip ]
-crbug.com/969864 [ android android-chromium skia-renderer use-vulkan ] Pixel_OffscreenCanvasTransferToImageBitmap [ Skip ]
-crbug.com/969864 [ android android-chromium skia-renderer use-vulkan ] Pixel_OffscreenCanvasTransferToImageBitmapWorker [ Skip ]
-crbug.com/969864 [ android android-chromium skia-renderer use-vulkan ] Pixel_OffscreenCanvasWebGLDefault [ Skip ]
-crbug.com/969864 [ android android-chromium skia-renderer use-vulkan ] Pixel_OffscreenCanvasWebGLDefaultWorker [ Skip ]
-crbug.com/969864 [ android android-chromium skia-renderer use-vulkan ] Pixel_OffscreenCanvasWebglResizeOnWorker [ Skip ]
-crbug.com/969864 [ android skia-renderer use-vulkan ] Pixel_WebGLGreenTriangle_AA_Alpha [ Skip ]
-crbug.com/969864 [ android skia-renderer use-vulkan ] Pixel_WebGLGreenTriangle_AA_NoAlpha [ Skip ]
-crbug.com/969864 [ android skia-renderer use-vulkan ] Pixel_WebGLGreenTriangle_NoAA_Alpha [ Skip ]
-crbug.com/969864 [ android skia-renderer use-vulkan ] Pixel_WebGLGreenTriangle_NoAA_NoAlpha [ Skip ]
-crbug.com/969864 [ android skia-renderer use-vulkan ] Pixel_WebGLTransparentGreenTriangle_NoAlpha_ImplicitClear [ Skip ]
-crbug.com/985070 [ android android-chromium skia-renderer use-vulkan qualcomm-adreno-(tm)-540 ] Pixel_CanvasLowLatencyWebGL [ Skip ]
 crbug.com/991289 [ android skia-renderer use-vulkan ] Pixel_CSS3DBlueBox [ Skip ]
 crbug.com/991291 [ android android-chromium skia-renderer use-vulkan ] Pixel_Video_Context_Loss_VP9 [ Skip ]
 crbug.com/991291 [ android skia-renderer use-vulkan ] Pixel_Video_MP4 [ Skip ]
@@ -214,10 +191,6 @@ crbug.com/991291 [ android skia-renderer use-vulkan ] Pixel_Video_VP9 [ Skip ]
 
 # Fails when the browser features SkiaRenderer & GL are enabled on Android.
 # The more specific matching criteria is to prevent collisions with other expectations.
-crbug.com/969864 [ android skia-renderer use-gl no-use-vulkan ] Pixel_BackgroundImage [ Skip ]
-crbug.com/969864 [ android skia-renderer use-gl no-use-vulkan ] Pixel_CanvasDisplayLinearRGBAccelerated2D [ Skip ]
-crbug.com/969864 [ android android-chromium skia-renderer use-gl no-use-vulkan ] Pixel_OffscreenCanvasTransferAfterStyleResize [ Skip ]
-crbug.com/969864 [ android android-chromium skia-renderer use-gl no-use-vulkan ] Pixel_OffscreenCanvasTransferBeforeStyleResize [ Skip ]
 crbug.com/1008456 [ android android-chromium skia-renderer use-gl no-use-vulkan ] Pixel_Video_Context_Loss_VP9 [ Skip ]
 crbug.com/969864 [ android skia-renderer use-gl no-use-vulkan ] Pixel_Video_MP4 [ Skip ]
 crbug.com/969864 [ android skia-renderer use-gl no-use-vulkan ] Pixel_Video_MP4_FourColors_Aspect_4x3 [ Skip ]
@@ -225,7 +198,6 @@ crbug.com/969864 [ android skia-renderer use-gl no-use-vulkan ] Pixel_Video_MP4_
 crbug.com/969864 [ android skia-renderer use-gl no-use-vulkan ] Pixel_Video_MP4_FourColors_Rot_270 [ Skip ]
 crbug.com/969864 [ android skia-renderer use-gl no-use-vulkan ] Pixel_Video_MP4_FourColors_Rot_90 [ Skip ]
 crbug.com/969864 [ android skia-renderer use-gl no-use-vulkan ] Pixel_Video_VP9 [ Skip ]
-crbug.com/969864 [ android skia-renderer use-gl no-use-vulkan ] Pixel_WebGL2_BlitFramebuffer_Result_Displayed [ Skip ]
 
 # Fails on Android SkiaRenderer, both GL and Vulkan
 crbug.com/1008450 [ android skia-renderer ] Pixel_Video_BackdropFilter [ Skip ]
@@ -253,3 +225,23 @@ crbug.com/983600 [ mojave amd-0x6821 ] Pixel_CSSFilterEffects_NoOverlays [ Retry
 
 # Producing incorrect image on Win10 Intel HD 630 w/ 26.20.100.6912 drivers.
 crbug.com/997313 [ win intel-0x5912 ] Pixel_WebGL_PremultipliedAlpha_False [ Failure ]
+
+# Flakes on Nexus 9 or NVIDIA Shield TV
+crbug.com/1019462 [ android nvidia no-skia-renderer ] Pixel_Video_MP4_FourColors_Aspect_4x3 [ RetryOnFailure ]
+crbug.com/1019462 [ android nvidia no-skia-renderer ] Pixel_Video_MP4_FourColors_Rot_180 [ RetryOnFailure ]
+crbug.com/1019462 [ android nvidia no-skia-renderer ] Pixel_Video_MP4_FourColors_Rot_270 [ RetryOnFailure ]
+crbug.com/1019462 [ android nvidia no-skia-renderer ] Pixel_Video_MP4_FourColors_Rot_90 [ RetryOnFailure ]
+crbug.com/1019462 [ android nvidia no-skia-renderer ] Pixel_Video_MP4_Rounded_Corner [ RetryOnFailure ]
+crbug.com/1019462 [ android nvidia no-skia-renderer ] Pixel_Video_Context_Loss_VP9 [ RetryOnFailure ]
+crbug.com/1019462 [ android nvidia no-skia-renderer ] Pixel_WebGL2_BlitFramebuffer_Result_Displayed [ RetryOnFailure ]
+
+# Skip dual gpu switch tests on Mac Nvidia
+crbug.com/681341 [ mac nvidia ] Pixel_WebGLLowToHighPower [ Skip ]
+
+# Flakes on Mac Retine NVIDIA producing a blank image.
+crbug.com/1027518 [ mac nvidia ] Pixel_Video_Context_Loss_VP9 [ Skip ]
+
+# Flakes on Linux, Mac and Windows
+crbug.com/1028975 [ linux ] Pixel_PrecisionRoundedCorner [ RetryOnFailure ]
+crbug.com/1028975 [ mac ] Pixel_PrecisionRoundedCorner [ RetryOnFailure ]
+crbug.com/1028975 [ win ] Pixel_PrecisionRoundedCorner [ RetryOnFailure ]

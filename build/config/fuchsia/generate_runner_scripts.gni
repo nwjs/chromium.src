@@ -7,6 +7,7 @@ assert(is_fuchsia)
 import("//build/config/chromecast_build.gni")
 import("//build/config/fuchsia/config.gni")
 import("//build/config/fuchsia/package.gni")
+import("//build/config/gclient_args.gni")
 import("//build/config/sysroot.gni")
 import("//build/util/generate_wrapper.gni")
 
@@ -85,8 +86,6 @@ template("fuchsia_package_runner") {
       _manifest_path,
       "//build/fuchsia/",
       "//build/util/lib/",
-      "//third_party/llvm-build/Release+Asserts/bin/llvm-symbolizer",
-      "${qemu_root}/",
       "${fuchsia_sdk}/tools/fvm",
       "${fuchsia_sdk}/tools/pm",
       "${fuchsia_sdk}/tools/symbolize",
@@ -97,8 +96,22 @@ template("fuchsia_package_runner") {
       "${boot_image_root}/qemu/zircon-a.zbi",
     ]
 
-    if (host_cpu == "x64" && target_cpu == "x64") {
+    if (checkout_aemu) {
       data += [ "${aemu_root}/" ]
+    }
+
+    if (host_os == "linux" && host_cpu == "x64" && target_cpu == "arm64") {
+      data += [
+        # Host tools for qemu on arm64 test bots.
+        "${qemu_arm64_root}/",
+        "${fuchsia_arm64_sdk}/",
+      ]
+    } else {
+      data += [
+        # Host tools for qemu on x64 test bots.
+        "//third_party/llvm-build/Release+Asserts/bin/llvm-symbolizer",
+        "${qemu_root}/",
+      ]
     }
 
     executable_args = []
@@ -136,6 +149,13 @@ template("fuchsia_package_runner") {
 
     if (defined(invoker.use_test_server) && invoker.use_test_server) {
       executable_args += [ "--enable-test-server" ]
+    }
+
+    if (default_fuchsia_build_dir_for_installation != "") {
+      executable_args += [
+        "--fuchsia-out-dir",
+        default_fuchsia_build_dir_for_installation,
+      ]
     }
   }
 

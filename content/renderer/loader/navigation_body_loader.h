@@ -18,7 +18,8 @@
 #include "content/common/navigation_params.h"
 #include "content/public/common/resource_load_info.mojom.h"
 #include "mojo/public/cpp/base/big_buffer.h"
-#include "mojo/public/cpp/bindings/binding.h"
+#include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "mojo/public/cpp/system/simple_watcher.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
@@ -144,8 +145,9 @@ class CONTENT_EXPORT NavigationBodyLoader
   mojom::ResourceLoadInfoPtr resource_load_info_;
 
   // These bindings are live while loading the response.
-  network::mojom::URLLoaderPtr url_loader_;
-  mojo::Binding<network::mojom::URLLoaderClient> url_loader_client_binding_;
+  mojo::Remote<network::mojom::URLLoader> url_loader_;
+  mojo::Receiver<network::mojom::URLLoaderClient> url_loader_client_receiver_{
+      this};
   WebNavigationBodyLoader::Client* client_ = nullptr;
 
   // The handle and watcher are live while loading the body.

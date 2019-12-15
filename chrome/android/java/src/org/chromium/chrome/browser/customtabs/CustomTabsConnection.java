@@ -22,6 +22,7 @@ import android.widget.RemoteViews;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsCallback;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.CustomTabsService;
@@ -40,7 +41,6 @@ import org.chromium.base.SysUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TimeUtilsJni;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
@@ -65,8 +65,10 @@ import org.chromium.chrome.browser.init.ChainedTasks;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.metrics.PageLoadMetrics;
 import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
+import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.settings.privacy.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.chrome.browser.util.UrlConstants;
@@ -832,7 +834,7 @@ public class CustomTabsConnection {
         Uri redirectEndpoint = intent.getParcelableExtra(REDIRECT_ENDPOINT_KEY);
         if (redirectEndpoint == null || !isValid(redirectEndpoint)) return;
 
-        Origin origin = new Origin(url);
+        Origin origin = Origin.create(url);
         if (origin == null) return;
         if (!mClientManager.isFirstPartyOriginForSession(session, origin)) return;
 
@@ -935,7 +937,9 @@ public class CustomTabsConnection {
 
         if (resourceList == null || referrer == null) return 0;
         if (policy < 0 || policy > ReferrerPolicy.LAST) policy = ReferrerPolicy.DEFAULT;
-        if (!mClientManager.isFirstPartyOriginForSession(session, new Origin(referrer))) return 0;
+        Origin origin = Origin.create(referrer);
+        if (origin == null) return 0;
+        if (!mClientManager.isFirstPartyOriginForSession(session, origin)) return 0;
 
         String referrerString = referrer.toString();
         int requestsSent = 0;
@@ -963,7 +967,9 @@ public class CustomTabsConnection {
     @VisibleForTesting
     boolean canDoParallelRequest(CustomTabsSessionToken session, Uri referrer) {
         ThreadUtils.assertOnUiThread();
-        return mClientManager.isFirstPartyOriginForSession(session, new Origin(referrer));
+        Origin origin = Origin.create(referrer);
+        if (origin == null) return false;
+        return mClientManager.isFirstPartyOriginForSession(session, origin);
     }
 
     /** See {@link ClientManager#getReferrerForSession(CustomTabsSessionToken)} */
@@ -1390,14 +1396,13 @@ public class CustomTabsConnection {
         if (!DeviceClassManager.enablePrerendering()) {
             return SPECULATION_STATUS_ON_START_NOT_ALLOWED_DEVICE_CLASS;
         }
-        PrefServiceBridge prefs = PrefServiceBridge.getInstance();
-        if (prefs.isBlockThirdPartyCookiesEnabled()) {
+        if (PrefServiceBridge.getInstance().getBoolean(Pref.BLOCK_THIRD_PARTY_COOKIES)) {
             return SPECULATION_STATUS_ON_START_NOT_ALLOWED_BLOCK_3RD_PARTY_COOKIES;
         }
         // TODO(yusufo): The check for prerender in PrivacyPreferencesManager now checks for the
         // network connection type as well, we should either change that or add another check for
-        // custom tabs. Then PrivacyManager should be used to make the below check.
-        if (!prefs.getNetworkPredictionEnabled()) {
+        // custom tabs. Then that method should be used to make the below check.
+        if (!PrivacyPreferencesManager.getInstance().getNetworkPredictionEnabled()) {
             return SPECULATION_STATUS_ON_START_NOT_ALLOWED_NETWORK_PREDICTION_DISABLED;
         }
         if (DataReductionProxySettings.getInstance().isDataReductionProxyEnabled()

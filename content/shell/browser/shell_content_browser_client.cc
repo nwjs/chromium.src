@@ -48,8 +48,6 @@
 #include "device/bluetooth/public/mojom/test/fake_bluetooth.mojom.h"
 #include "media/mojo/buildflags.h"
 #include "net/ssl/client_cert_identity.h"
-#include "net/url_request/url_request.h"
-#include "net/url_request/url_request_context_getter.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/service_manager/public/cpp/manifest.h"
 #include "services/service_manager/public/cpp/manifest_builder.h"
@@ -165,40 +163,6 @@ const service_manager::Manifest& GetContentBrowserOverlayManifest() {
   return *manifest;
 }
 
-const service_manager::Manifest& GetContentGpuOverlayManifest() {
-  static base::NoDestructor<service_manager::Manifest> manifest{
-      service_manager::ManifestBuilder()
-          .ExposeCapability("browser", service_manager::Manifest::InterfaceList<
-                                           mojom::PowerMonitorTest>())
-          .Build()};
-  return *manifest;
-}
-
-const service_manager::Manifest& GetContentRendererOverlayManifest() {
-  static base::NoDestructor<service_manager::Manifest> manifest{
-      service_manager::ManifestBuilder()
-          .ExposeCapability(
-              "browser",
-              service_manager::Manifest::InterfaceList<mojom::PowerMonitorTest,
-                                                       mojom::TestService>())
-          .ExposeInterfaceFilterCapability_Deprecated(
-              "navigation:frame", "browser",
-              service_manager::Manifest::InterfaceList<mojom::WebTestControl>())
-          .Build()};
-  return *manifest;
-}
-
-const service_manager::Manifest& GetContentUtilityOverlayManifest() {
-  static base::NoDestructor<service_manager::Manifest> manifest{
-      service_manager::ManifestBuilder()
-          .ExposeCapability(
-              "browser",
-              service_manager::Manifest::InterfaceList<mojom::PowerMonitorTest,
-                                                       mojom::TestService>())
-          .Build()};
-  return *manifest;
-}
-
 }  // namespace
 
 std::string GetShellUserAgent() {
@@ -212,6 +176,10 @@ std::string GetShellUserAgent() {
   if (command_line->HasSwitch(switches::kUseMobileUserAgent))
     product += " Mobile";
   return BuildUserAgentFromProduct(product);
+}
+
+std::string GetShellLanguage() {
+  return "en-us,en";
 }
 
 blink::UserAgentMetadata GetShellUserAgentMetadata() {
@@ -256,21 +224,17 @@ ShellContentBrowserClient::CreateBrowserMainParts(
 bool ShellContentBrowserClient::IsHandledURL(const GURL& url) {
   if (!url.is_valid())
     return false;
-  // Keep in sync with ProtocolHandlers added by
-  // ShellURLRequestContextGetter::GetURLRequestContext().
   static const char* const kProtocolList[] = {
-      url::kBlobScheme,
-      url::kFileSystemScheme,
-      kChromeUIScheme,
-      kChromeDevToolsScheme,
-      url::kDataScheme,
+      url::kHttpScheme, url::kHttpsScheme,     url::kWsScheme,
+      url::kWssScheme,  url::kBlobScheme,      url::kFileSystemScheme,
+      kChromeUIScheme,  kChromeDevToolsScheme, url::kDataScheme,
       url::kFileScheme,
   };
-  for (size_t i = 0; i < base::size(kProtocolList); ++i) {
-    if (url.scheme() == kProtocolList[i])
+  for (const char* supported_protocol : kProtocolList) {
+    if (url.scheme_piece() == supported_protocol)
       return true;
   }
-  return net::URLRequest::IsHandledProtocol(url.scheme());
+  return false;
 }
 
 void ShellContentBrowserClient::BindInterfaceRequestFromFrame(
@@ -321,12 +285,6 @@ base::Optional<service_manager::Manifest>
 ShellContentBrowserClient::GetServiceManifestOverlay(base::StringPiece name) {
   if (name == content::mojom::kBrowserServiceName)
     return GetContentBrowserOverlayManifest();
-  if (name == content::mojom::kGpuServiceName)
-    return GetContentGpuOverlayManifest();
-  if (name == content::mojom::kRendererServiceName)
-    return GetContentRendererOverlayManifest();
-  if (name == content::mojom::kUtilityServiceName)
-    return GetContentUtilityOverlayManifest();
 
   return base::nullopt;
 }
@@ -369,7 +327,7 @@ void ShellContentBrowserClient::AppendExtraCommandLineSwitches(
 }
 
 std::string ShellContentBrowserClient::GetAcceptLangs(BrowserContext* context) {
-  return "en-us,en";
+  return GetShellLanguage();
 }
 
 std::string ShellContentBrowserClient::GetDefaultDownloadName() {
@@ -415,17 +373,6 @@ base::OnceClosure ShellContentBrowserClient::SelectClientCertificate(
 SpeechRecognitionManagerDelegate*
     ShellContentBrowserClient::CreateSpeechRecognitionManagerDelegate() {
   return new ShellSpeechRecognitionManagerDelegate();
-}
-
-void ShellContentBrowserClient::OverrideWebkitPrefs(
-    RenderViewHost* render_view_host,
-    WebPreferences* prefs) {
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kForceDarkMode)) {
-    prefs->preferred_color_scheme = blink::PreferredColorScheme::kDark;
-  } else {
-    prefs->preferred_color_scheme = blink::PreferredColorScheme::kLight;
-  }
 }
 
 base::FilePath ShellContentBrowserClient::GetFontLookupTableCacheDir() {
@@ -516,7 +463,7 @@ ShellContentBrowserClient::CreateNetworkContext(
       network::mojom::NetworkContextParams::New();
   UpdateCorsExemptHeader(context_params.get());
   context_params->user_agent = GetUserAgent();
-  context_params->accept_language = "en-us,en";
+  context_params->accept_language = GetAcceptLangs(context);
 
 #if BUILDFLAG(ENABLE_REPORTING)
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(

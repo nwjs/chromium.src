@@ -23,20 +23,28 @@
 #include "chrome/browser/net/profile_network_context_service_factory.h"
 #include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_window.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/chrome_constants.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/search_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_service.h"
+#include "components/search_engines/template_url_service.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/simple_url_loader_test_helper.h"
 #include "mojo/public/cpp/system/data_pipe_utils.h"
 #include "net/base/load_flags.h"
+#include "net/http/http_auth_preferences.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
@@ -150,6 +158,188 @@ IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceBrowsertest, BrotliEnabled) {
       base::SplitString(*simple_loader_helper.response_body(), ",",
                         base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
   EXPECT_TRUE(base::Contains(encodings, "br"));
+}
+
+enum class AmbientAuthProfileBit {
+  INCOGNITO = 1,
+  GUEST = 2,
+};
+
+// Indicates the state of the feature flags
+// |kEnableAmbientAuthenticationInIncognito| and
+// |kEnableAmbientAuthenticationInGuestSession|
+enum class AmbientAuthenticationFeatureState {
+  GUEST_OFF_INCOGNITO_OFF = 0,  // 00
+  GUEST_OFF_INCOGNITO_ON = 1,   // 01
+  GUEST_ON_INCOGNITO_OFF = 2,   // 10
+  GUEST_ON_INCOGNITO_ON = 3,    // 11
+};
+
+class AmbientAuthenticationTestWithPolicy
+    : public policy::PolicyTest,
+      public testing::WithParamInterface<AmbientAuthenticationFeatureState> {
+ public:
+  AmbientAuthenticationTestWithPolicy() {
+    feature_state_ = GetParam();
+    CookTheFeatureList();
+    policy::PolicyTest::SetUpInProcessBrowserTestFixture();
+  }
+
+  void IsAmbientAuthAllowedForProfilesTest() {
+    PrefService* service = g_browser_process->local_state();
+    int policy_value =
+        service->GetInteger(prefs::kAmbientAuthenticationInPrivateModesEnabled);
+
+    EXPECT_TRUE(IsAmbientAuthAllowedForProfile(GetRegularProfile()));
+    EXPECT_EQ(IsAmbientAuthAllowedForProfile(GetIncognitoProfile()),
+              IsIncognitoAllowedInFeature() ||
+                  IsIncognitoAllowedInPolicy(policy_value));
+// TODO(crbug.com/1030624): Adapt this test for chromeos guest sessions too once
+// we have device level policy for guests
+#if !defined(OS_CHROMEOS)
+    EXPECT_EQ(
+        IsAmbientAuthAllowedForProfile(GetGuestProfile()),
+        IsGuestAllowedInFeature() || IsGuestAllowedInPolicy(policy_value));
+#endif
+  }
+
+ protected:
+  inline bool IsIncognitoAllowedInFeature() const {
+    return static_cast<int>(feature_state_) &
+           static_cast<int>(AmbientAuthProfileBit::INCOGNITO);
+  }
+
+  inline bool IsGuestAllowedInFeature() const {
+    return static_cast<int>(feature_state_) &
+           static_cast<int>(AmbientAuthProfileBit::GUEST);
+  }
+
+  inline bool IsIncognitoAllowedInPolicy(int policy_value) const {
+    return policy_value & static_cast<int>(AmbientAuthProfileBit::INCOGNITO);
+  }
+
+  inline bool IsGuestAllowedInPolicy(int policy_value) const {
+    return policy_value & static_cast<int>(AmbientAuthProfileBit::GUEST);
+  }
+
+  void CookTheFeatureList() {
+    std::vector<base::Feature> enabled_feature_list;
+    std::vector<base::Feature> disabled_feature_list;
+
+    if (IsIncognitoAllowedInFeature())
+      enabled_feature_list.push_back(
+          features::kEnableAmbientAuthenticationInIncognito);
+    else
+      disabled_feature_list.push_back(
+          features::kEnableAmbientAuthenticationInIncognito);
+
+    if (IsGuestAllowedInFeature())
+      enabled_feature_list.push_back(
+          features::kEnableAmbientAuthenticationInGuestSession);
+    else
+      disabled_feature_list.push_back(
+          features::kEnableAmbientAuthenticationInGuestSession);
+
+    scoped_feature_list_.InitWithFeatures(enabled_feature_list,
+                                          disabled_feature_list);
+  }
+
+  Profile* GetIncognitoProfile() {
+    Profile* regular_profile = browser()->profile();
+    Profile* off_the_record_profile = regular_profile->GetOffTheRecordProfile();
+    EXPECT_TRUE(regular_profile->HasOffTheRecordProfile());
+    return off_the_record_profile;
+  }
+
+  Profile* GetGuestProfile() {
+    Profile* guest_profile = OpenGuestBrowser()->profile();
+    return guest_profile;
+  }
+
+  Profile* GetRegularProfile() { return browser()->profile(); }
+
+  bool IsAmbientAuthAllowedForProfile(Profile* profile) {
+    ProfileNetworkContextService* profile_network_context_service =
+        ProfileNetworkContextServiceFactory::GetForContext(profile);
+    base::FilePath empty_relative_partition_path;
+    network::mojom::NetworkContextParamsPtr network_context_params_ptr =
+        profile_network_context_service->CreateNetworkContextParams(
+            /*in_memory=*/false, empty_relative_partition_path);
+    return network_context_params_ptr->http_auth_static_network_context_params
+               ->allow_default_credentials ==
+           net::HttpAuthPreferences::ALLOW_DEFAULT_CREDENTIALS;
+  }
+  // OpenGuestBrowser method code borrowed from
+  // chrome/browser/profiles/profile_window_browsertest.cc
+  Browser* OpenGuestBrowser() {
+    size_t num_browsers = BrowserList::GetInstance()->size();
+
+    // Create a guest browser nicely. Using CreateProfile() and CreateBrowser()
+    // does incomplete initialization that would lead to
+    // SystemUrlRequestContextGetter being leaked.
+    profiles::SwitchToGuestProfile(ProfileManager::CreateCallback());
+    ui_test_utils::WaitForBrowserToOpen();
+
+    DCHECK_NE(static_cast<Profile*>(nullptr),
+              g_browser_process->profile_manager()->GetProfileByPath(
+                  ProfileManager::GetGuestProfilePath()));
+    EXPECT_EQ(num_browsers + 1, BrowserList::GetInstance()->size());
+
+    Profile* guest = g_browser_process->profile_manager()->GetProfileByPath(
+        ProfileManager::GetGuestProfilePath());
+    Browser* browser = chrome::FindAnyBrowser(guest, true);
+    EXPECT_TRUE(browser);
+
+    // When |browser| closes a BrowsingDataRemover will be created and executed.
+    // It needs a loaded TemplateUrlService or else it hangs on to a
+    // CallbackList::Subscription forever.
+    search_test_utils::WaitForTemplateURLServiceToLoad(
+        TemplateURLServiceFactory::GetForProfile(guest));
+
+    return browser;
+  }
+
+  void EnablePolicyWithValue(net::AmbientAuthAllowedProfileTypes value) {
+    SetPolicy(&policies_,
+              policy::key::kAmbientAuthenticationInPrivateModesEnabled,
+              std::make_unique<base::Value>(static_cast<int>(value)));
+    UpdateProviderPolicy(policies_);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+  AmbientAuthenticationFeatureState feature_state_;
+  policy::PolicyMap policies_;
+};
+
+INSTANTIATE_TEST_CASE_P(
+    ,
+    AmbientAuthenticationTestWithPolicy,
+    testing::Values(AmbientAuthenticationFeatureState::GUEST_OFF_INCOGNITO_OFF,
+                    AmbientAuthenticationFeatureState::GUEST_OFF_INCOGNITO_ON,
+                    AmbientAuthenticationFeatureState::GUEST_ON_INCOGNITO_OFF,
+                    AmbientAuthenticationFeatureState::GUEST_ON_INCOGNITO_ON));
+
+IN_PROC_BROWSER_TEST_P(AmbientAuthenticationTestWithPolicy, RegularOnly) {
+  EnablePolicyWithValue(net::AmbientAuthAllowedProfileTypes::REGULAR_ONLY);
+  IsAmbientAuthAllowedForProfilesTest();
+}
+
+IN_PROC_BROWSER_TEST_P(AmbientAuthenticationTestWithPolicy,
+                       IncognitoAndRegular) {
+  EnablePolicyWithValue(
+      net::AmbientAuthAllowedProfileTypes::INCOGNITO_AND_REGULAR);
+  IsAmbientAuthAllowedForProfilesTest();
+}
+
+IN_PROC_BROWSER_TEST_P(AmbientAuthenticationTestWithPolicy, GuestAndRegular) {
+  EnablePolicyWithValue(net::AmbientAuthAllowedProfileTypes::GUEST_AND_REGULAR);
+  IsAmbientAuthAllowedForProfilesTest();
+}
+
+IN_PROC_BROWSER_TEST_P(AmbientAuthenticationTestWithPolicy, All) {
+  EnablePolicyWithValue(net::AmbientAuthAllowedProfileTypes::ALL);
+  IsAmbientAuthAllowedForProfilesTest();
 }
 
 // Test subclass that adds switches::kDiskCacheDir and switches::kDiskCacheSize
@@ -416,7 +606,7 @@ IN_PROC_BROWSER_TEST_P(
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    ,
+    All,
     ProfileNetworkContextServiceCertVerifierBuiltinFeaturePolicyTest,
     ::testing::Bool());
 #endif

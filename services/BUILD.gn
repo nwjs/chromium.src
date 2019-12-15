@@ -26,6 +26,7 @@ test("services_unittests") {
     "//services/metrics/public/cpp:tests",
     "//services/network:tests",
     "//services/network/public/cpp:tests",
+    "//services/network/public/cpp/cert_verifier:tests",
     "//services/test:run_all_unittests",
   ]
 
@@ -42,7 +43,6 @@ test("services_unittests") {
       "//services/image_annotation/public/cpp:tests",
       "//services/media_session:tests",
       "//services/media_session/public/cpp:tests",
-      "//services/preferences:tests",
       "//services/proxy_resolver:tests",
       "//services/resource_coordinator:tests",
       "//services/shape_detection:tests",

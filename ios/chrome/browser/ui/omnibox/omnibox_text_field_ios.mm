@@ -32,7 +32,6 @@
 #include "ios/chrome/grit/ios_strings.h"
 #include "ios/chrome/grit/ios_theme_resources.h"
 #include "skia/ext/skia_utils_ios.h"
-#include "third_party/google_toolbox_for_mac/src/iPhone/GTMFadeTruncatingLabel.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/image/image.h"
@@ -668,16 +667,13 @@ NSString* const kOmniboxFadeAnimationKey = @"OmniboxFadeAnimation";
 // preprending http:// to the copied URL if needed.
 - (void)copy:(id)sender {
   id<OmniboxTextFieldDelegate> delegate = [self delegate];
-  BOOL handled = NO;
 
   // Must test for the onCopy method, since it's optional.
-  if ([delegate respondsToSelector:@selector(onCopy)])
-    handled = [delegate onCopy];
-
-  // iOS 4 doesn't expose an API that allows the delegate to handle the copy
-  // operation, so let the superclass perform the copy if the delegate couldn't.
-  if (!handled)
+  if ([delegate respondsToSelector:@selector(onCopy)]) {
+    [delegate onCopy];
+  } else {
     [super copy:sender];
+  }
 }
 
 - (void)cut:(id)sender {

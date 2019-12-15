@@ -5,9 +5,12 @@
 #include <string>
 
 #include "base/feature_list.h"
+#include "base/values.h"
 #include "net/base/features.h"
 #include "net/base/network_isolation_key.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace net {
 
@@ -15,6 +18,20 @@ namespace {
 
 std::string GetOriginDebugString(const base::Optional<url::Origin>& origin) {
   return origin ? origin->GetDebugString() : "null";
+}
+
+url::Origin GetSchemeAndRegistrableDomain(const url::Origin& origin) {
+  std::string registrable_domain = GetDomainAndRegistry(
+      origin.host(),
+      net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
+  // GetDomainAndRegistry() returns an empty string for IP literals and
+  // effective TLDs.
+  if (registrable_domain.empty())
+    registrable_domain = origin.host();
+  return url::Origin::CreateFromNormalizedTuple(
+      origin.scheme(), registrable_domain,
+      url::DefaultPortForScheme(origin.scheme().c_str(),
+                                origin.scheme().length()));
 }
 
 }  // namespace
@@ -26,6 +43,10 @@ NetworkIsolationKey::NetworkIsolationKey(const url::Origin& top_frame_origin,
       top_frame_origin_(top_frame_origin) {
   if (use_frame_origin_) {
     frame_origin_ = frame_origin;
+  }
+  if (base::FeatureList::IsEnabled(
+          net::features::kUseRegistrableDomainInNetworkIsolationKey)) {
+    ReplaceOriginsWithRegistrableDomains();
   }
 }
 
@@ -43,6 +64,18 @@ NetworkIsolationKey& NetworkIsolationKey::operator=(
 
 NetworkIsolationKey& NetworkIsolationKey::operator=(
     NetworkIsolationKey&& network_isolation_key) = default;
+
+NetworkIsolationKey NetworkIsolationKey::CreateTransient() {
+  url::Origin opaque_origin;
+  return NetworkIsolationKey(opaque_origin, opaque_origin);
+}
+
+NetworkIsolationKey NetworkIsolationKey::CreateWithNewFrameOrigin(
+    const url::Origin& new_frame_origin) const {
+  if (!top_frame_origin_)
+    return NetworkIsolationKey();
+  return NetworkIsolationKey(top_frame_origin_.value(), new_frame_origin);
+}
 
 std::string NetworkIsolationKey::ToString() const {
   if (IsTransient())
@@ -99,7 +132,7 @@ bool NetworkIsolationKey::FromValue(
   if (value.type() != base::Value::Type::LIST)
     return false;
 
-  base::span<const base::Value> list = value.GetList();
+  base::Value::ConstListView list = value.GetList();
   if (list.empty()) {
     *network_isolation_key = NetworkIsolationKey();
     return true;
@@ -141,6 +174,21 @@ bool NetworkIsolationKey::FromValue(
 
 bool NetworkIsolationKey::IsEmpty() const {
   return !top_frame_origin_.has_value() && !frame_origin_.has_value();
+}
+
+void NetworkIsolationKey::ReplaceOriginsWithRegistrableDomains() {
+  if (!top_frame_origin_.has_value())
+    return;
+
+  if (!top_frame_origin_->opaque()) {
+    top_frame_origin_ =
+        GetSchemeAndRegistrableDomain(top_frame_origin_.value());
+  }
+
+  if (!frame_origin_.has_value() || frame_origin_->opaque())
+    return;
+
+  frame_origin_ = GetSchemeAndRegistrableDomain(frame_origin_.value());
 }
 
 }  // namespace net

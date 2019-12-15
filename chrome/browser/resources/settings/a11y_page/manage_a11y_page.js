@@ -10,7 +10,7 @@
 Polymer({
   is: 'settings-manage-a11y-page',
 
-  behaviors: [WebUIListenerBehavior],
+  behaviors: [WebUIListenerBehavior, settings.RouteOriginBehavior],
 
   properties: {
     /**
@@ -127,12 +127,15 @@ Polymer({
     },
 
     /**
-     * |hasKeyboard_|starts undefined so observers don't trigger
+     * |hasKeyboard_| starts undefined so observers don't trigger
      * until it has been populated.
      * @private
      */
     hasKeyboard_: Boolean,
   },
+
+  /** settings.RouteOriginBehavior override */
+  route_: settings.routes.MANAGE_ACCESSIBILITY,
 
   /** @override */
   attached: function() {
@@ -147,6 +150,16 @@ Polymer({
         'startup-sound-enabled-updated',
         this.updateStartupSoundEnabled_.bind(this));
     chrome.send('getStartupSoundEnabled');
+
+    const r = settings.routes;
+    this.addFocusConfig_(r.MANAGE_TTS_SETTINGS, '#ttsSubpageButton');
+    this.addFocusConfig_(r.MANAGE_CAPTION_SETTINGS, '#captionsSubpageButton');
+    this.addFocusConfig_(
+        r.MANAGE_SWITCH_ACCESS_SETTINGS, '#switchAccessSubpageButton');
+    this.addFocusConfig_(r.DISPLAY, '#displaySubpageButton');
+    this.addFocusConfig_(r.APPEARANCE, '#appearanceSubpageButton');
+    this.addFocusConfig_(r.KEYBOARD, '#keyboardSubpageButton');
+    this.addFocusConfig_(r.POINTERS, '#pointerSubpageButton');
   },
 
   /**

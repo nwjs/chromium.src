@@ -13,11 +13,10 @@ import android.widget.ImageButton;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ThemeColorProvider;
-import org.chromium.chrome.browser.appmenu.AppMenuButtonHelper;
 import org.chromium.chrome.browser.compositor.Invalidator;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
@@ -32,13 +31,12 @@ import org.chromium.chrome.browser.toolbar.TabCountProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
+import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
 
 /**
  * A coordinator for the top toolbar component.
  */
 public class TopToolbarCoordinator implements Toolbar {
-    static final int TAB_SWITCHER_MODE_NORMAL_ANIMATION_DURATION_MS = 200;
-    static final int TAB_SWITCHER_MODE_GTS_ANIMATION_DURATION_MS = 150;
 
     /**
      * Observes toolbar URL expansion percentage change.
@@ -608,6 +606,9 @@ public class TopToolbarCoordinator implements Toolbar {
      */
     public void onBottomToolbarVisibilityChanged(boolean isVisible) {
         mToolbarLayout.onBottomToolbarVisibilityChanged(isVisible);
+        if (mTabSwitcherModeCoordinatorPhone != null) {
+            mTabSwitcherModeCoordinatorPhone.onBottomToolbarVisibilityChanged(isVisible);
+        }
     }
 
     /**

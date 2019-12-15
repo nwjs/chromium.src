@@ -72,6 +72,8 @@ ExtensionManagement::ExtensionManagement(Profile* profile)
   pref_change_registrar_.Add(pref_names::kAllowedTypes, pref_change_callback);
   pref_change_registrar_.Add(pref_names::kExtensionManagement,
                              pref_change_callback);
+  pref_change_registrar_.Add(prefs::kCloudExtensionRequestEnabled,
+                             pref_change_callback);
 #if !defined(OS_CHROMEOS)
   pref_change_registrar_.Add(prefs::kCloudReportingEnabled,
                              pref_change_callback);
@@ -114,14 +116,21 @@ bool ExtensionManagement::BlacklistedByDefault() const {
 
 ExtensionManagement::InstallationMode ExtensionManagement::GetInstallationMode(
     const Extension* extension) const {
+  std::string update_url;
+  if (extension->manifest()->GetString(manifest_keys::kUpdateURL, &update_url))
+    return GetInstallationMode(extension->id(), update_url);
+  return GetInstallationMode(extension->id(), std::string());
+}
+
+ExtensionManagement::InstallationMode ExtensionManagement::GetInstallationMode(
+    const ExtensionId& extension_id,
+    const std::string& update_url) const {
   // Check per-extension installation mode setting first.
-  auto iter_id = settings_by_id_.find(extension->id());
+  auto iter_id = settings_by_id_.find(extension_id);
   if (iter_id != settings_by_id_.end())
     return iter_id->second->installation_mode;
-  std::string update_url;
   // Check per-update-url installation mode setting.
-  if (extension->manifest()->GetString(manifest_keys::kUpdateURL,
-                                       &update_url)) {
+  if (!update_url.empty()) {
     auto iter_update_url = settings_by_update_url_.find(update_url);
     if (iter_update_url != settings_by_update_url_.end())
       return iter_update_url->second->installation_mode;
@@ -164,6 +173,17 @@ bool ExtensionManagement::IsInstallationExplicitlyAllowed(
   InstallationMode mode = it->second->installation_mode;
   return mode == INSTALLATION_FORCED || mode == INSTALLATION_RECOMMENDED ||
          mode == INSTALLATION_ALLOWED;
+}
+
+bool ExtensionManagement::IsInstallationExplicitlyBlocked(
+    const ExtensionId& id) const {
+  auto it = settings_by_id_.find(id);
+  // No settings explicitly specified for |id|.
+  if (it == settings_by_id_.end())
+    return false;
+  // Checks if the extension is on the black list or removed list.
+  InstallationMode mode = it->second->installation_mode;
+  return mode == INSTALLATION_BLOCKED || mode == INSTALLATION_REMOVED;
 }
 
 bool ExtensionManagement::IsOffstoreInstallAllowed(
@@ -346,6 +366,8 @@ void ExtensionManagement::Refresh() {
           LoadPreference(pref_names::kExtensionManagement,
                          true,
                          base::Value::Type::DICTIONARY));
+  const base::Value* extension_request_pref = LoadPreference(
+      prefs::kCloudExtensionRequestEnabled, false, base::Value::Type::BOOLEAN);
 
   // Reset all settings.
   global_settings_.reset(new internal::GlobalSettings());
@@ -354,8 +376,9 @@ void ExtensionManagement::Refresh() {
 
   // Parse default settings.
   const base::Value wildcard("*");
-  if (denied_list_pref &&
-      denied_list_pref->Find(wildcard) != denied_list_pref->end()) {
+  if ((denied_list_pref &&
+       denied_list_pref->Find(wildcard) != denied_list_pref->end()) ||
+      (extension_request_pref && extension_request_pref->GetBool())) {
     default_settings_->installation_mode = INSTALLATION_BLOCKED;
   }
 

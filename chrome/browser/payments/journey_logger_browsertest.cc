@@ -12,7 +12,7 @@
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/test_event_waiter.h"
 #include "components/network_session_configurator/common/network_switches.h"
-#include "components/payments/content/service_worker_payment_app_factory.h"
+#include "components/payments/content/service_worker_payment_app_finder.h"
 #include "components/payments/core/journey_logger.h"
 #include "components/payments/core/test_payment_manifest_downloader.h"
 #include "content/public/browser/browser_context.h"
@@ -48,7 +48,7 @@ class JourneyLoggerTest : public PlatformBrowserTest,
  public:
   // PaymentRequestTestObserver events that can be waited on by the EventWaiter.
   enum TestEvent : int {
-    SHOW_INSTRUMENTS_READY,
+    SHOW_APPS_READY,
   };
 
   JourneyLoggerTest()
@@ -82,7 +82,7 @@ class JourneyLoggerTest : public PlatformBrowserTest,
             ->GetURLLoaderFactoryForBrowserProcess());
     downloader->AddTestServerURL("https://google.com/",
                                  gpay_server_.GetURL("google.com", "/"));
-    ServiceWorkerPaymentAppFactory::GetInstance()
+    ServiceWorkerPaymentAppFinder::GetInstance()
         ->SetDownloaderAndIgnorePortInOriginComparisonForTesting(
             std::move(downloader));
 
@@ -103,9 +103,9 @@ class JourneyLoggerTest : public PlatformBrowserTest,
   }
 
   // PaymentRequestTestObserver implementation.
-  void OnShowInstrumentsReady() override {
+  void OnShowAppsReady() override {
     if (event_waiter_)
-      event_waiter_->OnEvent(TestEvent::SHOW_INSTRUMENTS_READY);
+      event_waiter_->OnEvent(TestEvent::SHOW_APPS_READY);
   }
 
   void ResetEventWaiterForSequence(std::list<TestEvent> event_sequence) {
@@ -129,7 +129,7 @@ class JourneyLoggerTest : public PlatformBrowserTest,
 IN_PROC_BROWSER_TEST_F(JourneyLoggerTest, NoPaymentMethodSupported) {
   base::HistogramTester histogram_tester;
 
-  ResetEventWaiterForSequence({TestEvent::SHOW_INSTRUMENTS_READY});
+  ResetEventWaiterForSequence({TestEvent::SHOW_APPS_READY});
   EXPECT_TRUE(content::ExecJs(GetActiveWebContents(), "testBasicCard()"));
   WaitForObservedEvent();
 
@@ -153,7 +153,7 @@ IN_PROC_BROWSER_TEST_F(JourneyLoggerTest, BasicCardOnly) {
 
   base::HistogramTester histogram_tester;
 
-  ResetEventWaiterForSequence({TestEvent::SHOW_INSTRUMENTS_READY});
+  ResetEventWaiterForSequence({TestEvent::SHOW_APPS_READY});
   EXPECT_TRUE(content::ExecJs(GetActiveWebContents(), "testBasicCard()"));
   WaitForObservedEvent();
 

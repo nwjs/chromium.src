@@ -52,6 +52,9 @@ const wchar_t kDefaultProfilePictureFileExtension[] = L".jpg";
 
 namespace {
 
+// Minimum supported version of Chrome for GCPW.
+constexpr char kMinimumSupportedChromeVersionStr[] = "77.0.3865.65";
+
 constexpr char kSentinelFilename[] = "gcpw_startup.sentinel";
 constexpr base::FilePath::CharType kCredentialProviderFolder[] =
     L"Credential Provider";
@@ -132,7 +135,7 @@ void DeleteVersionDirectory(const base::FilePath& version_path) {
   // Release the locks, actually deleting the files.  It is now possible to
   // delete the version path.
   locks.clear();
-  if (all_deletes_succeeded && !base::DeleteFile(version_path, true))
+  if (all_deletes_succeeded && !base::DeleteFileRecursively(version_path))
     LOGFN(ERROR) << "Could not delete version " << version_path.BaseName();
 }
 
@@ -695,6 +698,15 @@ base::string16 GetStringResource(int base_message_id) {
   return localized_string;
 }
 
+base::string16 GetStringResource(int base_message_id,
+                                 const std::vector<base::string16>& subst) {
+  base::string16 format_string = GetStringResource(base_message_id);
+  base::string16 formatted =
+      base::ReplaceStringPlaceholders(format_string, subst, nullptr);
+
+  return formatted;
+}
+
 base::string16 GetSelectedLanguage() {
   return GetLanguageSelector().matched_candidate();
 }
@@ -789,6 +801,10 @@ base::string16 GetWindowsVersion() {
     return release_id;
 
   return L"Unknown";
+}
+
+base::Version GetMinimumSupportedChromeVersion() {
+  return base::Version(kMinimumSupportedChromeVersionStr);
 }
 
 FakesForTesting::FakesForTesting() {}

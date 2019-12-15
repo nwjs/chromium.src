@@ -11,7 +11,7 @@
 #include "components/services/filesystem/public/mojom/types.mojom.h"
 #include "content/browser/native_file_system/native_file_system_handle_base.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "storage/browser/fileapi/file_system_url.h"
+#include "storage/browser/file_system/file_system_url.h"
 #include "third_party/blink/public/mojom/native_file_system/native_file_system_directory_handle.mojom.h"
 
 namespace content {
@@ -43,7 +43,9 @@ class NativeFileSystemDirectoryHandleImpl
   void GetDirectory(const std::string& basename,
                     bool create,
                     GetDirectoryCallback callback) override;
-  void GetEntries(GetEntriesCallback callback) override;
+  void GetEntries(mojo::PendingRemote<
+                  blink::mojom::NativeFileSystemDirectoryEntriesListener>
+                      pending_listener) override;
   void RemoveEntry(const std::string& basename,
                    bool recurse,
                    RemoveEntryCallback callback) override;
@@ -52,9 +54,6 @@ class NativeFileSystemDirectoryHandleImpl
       override;
 
  private:
-  // State that is kept for the duration of a GetEntries/ReadDirectory call.
-  struct ReadDirectoryState;
-
   // This method creates the file if it does not currently exists. I.e. it is
   // the implementation for passing create=true to GetFile.
   void GetFileWithWritePermission(const storage::FileSystemURL& child_url,
@@ -70,10 +69,11 @@ class NativeFileSystemDirectoryHandleImpl
                        GetDirectoryCallback callback,
                        base::File::Error result);
   void DidReadDirectory(
-      ReadDirectoryState* state,
+      mojo::Remote<blink::mojom::NativeFileSystemDirectoryEntriesListener>*
+          listener,
       base::File::Error result,
       std::vector<filesystem::mojom::DirectoryEntry> file_list,
-      bool has_more);
+      bool has_more_entries);
 
   void RemoveEntryImpl(const storage::FileSystemURL& url,
                        bool recurse,

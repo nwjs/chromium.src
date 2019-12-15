@@ -67,7 +67,7 @@ class OzonePlatformWindows : public OzonePlatform {
   std::unique_ptr<SystemInputInjector> CreateSystemInputInjector() override {
     return nullptr;  // no input injection support.
   }
-  std::unique_ptr<PlatformWindowBase> CreatePlatformWindow(
+  std::unique_ptr<PlatformWindow> CreatePlatformWindow(
       PlatformWindowDelegate* delegate,
       PlatformWindowInitProperties properties) override {
     return std::make_unique<WindowsWindow>(delegate, properties.bounds);
@@ -88,8 +88,9 @@ class OzonePlatformWindows : public OzonePlatform {
     // This unbreaks tests that create their own.
     if (!PlatformEventSource::GetInstance())
       platform_event_source_ = std::make_unique<WindowsPlatformEventSource>();
+    keyboard_layout_engine_ = std::make_unique<StubKeyboardLayoutEngine>();
     KeyboardLayoutEngineManager::SetKeyboardLayoutEngine(
-        std::make_unique<StubKeyboardLayoutEngine>());
+        keyboard_layout_engine_.get());
 
     overlay_manager_ = std::make_unique<StubOverlayManager>();
     input_controller_ = CreateStubInputController();
@@ -103,6 +104,7 @@ class OzonePlatformWindows : public OzonePlatform {
   }
 
  private:
+  std::unique_ptr<KeyboardLayoutEngine> keyboard_layout_engine_;
   std::unique_ptr<WindowsWindowManager> window_manager_;
   std::unique_ptr<WindowsSurfaceFactory> surface_factory_;
   std::unique_ptr<PlatformEventSource> platform_event_source_;

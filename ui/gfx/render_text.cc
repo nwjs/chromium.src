@@ -9,9 +9,12 @@
 #include <algorithm>
 #include <climits>
 
+#include "base/bind.h"
+#include "base/callback.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/i18n/break_iterator.h"
+#include "base/i18n/char_iterator.h"
 #include "base/logging.h"
 #include "base/numerics/ranges.h"
 #include "base/stl_util.h"
@@ -22,6 +25,7 @@
 #include "cc/paint/paint_canvas.h"
 #include "cc/paint/paint_shader.h"
 #include "third_party/icu/source/common/unicode/rbbi.h"
+#include "third_party/icu/source/common/unicode/uchar.h"
 #include "third_party/icu/source/common/unicode/utf16.h"
 #include "third_party/skia/include/core/SkDrawLooper.h"
 #include "third_party/skia/include/core/SkFontStyle.h"
@@ -38,11 +42,6 @@
 #include "ui/gfx/text_elider.h"
 #include "ui/gfx/text_utils.h"
 #include "ui/gfx/utf16_indexing.h"
-
-#if defined(OS_MACOSX)
-#include "third_party/skia/include/ports/SkTypeface_mac.h"
-#include "ui/gfx/render_text_mac.h"
-#endif  // defined(OS_MACOSX)
 
 namespace gfx {
 
@@ -192,6 +191,196 @@ void RestoreBreakList(RenderText* render_text, BreakList<T>* break_list) {
   }
 }
 
+// Move the iterator |iter| forward until |position| is included in the range.
+template <typename T>
+typename BreakList<T>::const_iterator IncrementBreakListIteratorToPosition(
+    const BreakList<T>& break_list,
+    typename BreakList<T>::const_iterator iter,
+    size_t position) {
+  for (; iter != break_list.breaks().end(); ++iter) {
+    const gfx::Range range = break_list.GetRange(iter);
+    if (position >= range.start() && position < range.end())
+      break;
+  }
+  return iter;
+}
+
+// Determines the equivalent codepoint (same rank) at |text[index]| in
+// |other_text|. The size of each codepoint may no longer match due to elision,
+// truncation or revision but their ordering is still the same. The following
+// code assumes that |other_text| is a transformation from |text| that preserves
+// the number and ordering of codepoints. Replacing a 1x with a 2x character
+// codepoint is valid, however replacing one codepoint with two codepoints is
+// not (see http://crbug.com/1021720).
+size_t GetTextIndexForOtherText(const base::string16& text,
+                                size_t index,
+                                const base::string16& other_text) {
+  // Move index to the beginning of the surrogate pair, if needed.
+  U16_SET_CP_START(text.data(), 0, index);
+
+  // Iterates through codepoints in both strings until we reach |index| in
+  // |text|.
+  base::i18n::UTF16CharIterator text_iter(&text);
+  base::i18n::UTF16CharIterator other_text_iter(&other_text);
+  while (!text_iter.end() && !other_text_iter.end()) {
+    // Codepoint at |index| is found, returns the corresponding index in
+    // |other_text|.
+    if (text_iter.array_pos() == static_cast<int32_t>(index))
+      return other_text_iter.array_pos();
+
+    // Move both iterator to the next codepoints.
+    if (!text_iter.Advance() || !other_text_iter.Advance())
+      break;
+  }
+
+  // The index is out-of-bound. Returns the end of other_text.
+  return other_text.length();
+}
+
+// Returns the offset (codepoint rank) for the codepoint at text[index].
+size_t GetOffsetForTextIndex(const base::string16& text, size_t index) {
+  DCHECK_LT(index, text.length());
+  // Move index to the beginning of the surrogate pair, if needed.
+  U16_SET_CP_START(text.data(), 0, index);
+
+  // Iterates through codepoints until we reach |index| in |text|.
+  for (base::i18n::UTF16CharIterator text_iter(&text); !text_iter.end();
+       text_iter.Advance()) {
+    // Codepoint at |index| is found, returns the corresponding offset.
+    if (text_iter.array_pos() == static_cast<int32_t>(index))
+      return text_iter.char_offset();
+  }
+
+  NOTREACHED();
+  return text.length();
+}
+
+// Applies a conversion function on codepoints in |text|. The resulting text
+// size may differ but the amount of codepoints stay the same. The rewrite
+// function |func| receives the offset (e.g. rank) of the codepoint and the
+// codepoint.
+void RewriteCodepointsInPlace(
+    base::RepeatingCallback<UChar32(size_t, UChar32)> func,
+    base::string16* text) {
+  size_t index = 0;
+  size_t rank = 0;
+  while (index < text->length()) {
+    // Gets the range to be replaced.
+    UChar32 original_codepoint;
+    U16_GET(text->c_str(), 0, index, text->length(), original_codepoint);
+
+    // Find the codepoint replacement.
+    UChar32 new_codepoint = func.Run(rank, original_codepoint);
+
+    if (new_codepoint != original_codepoint) {
+      // Encode the codepoint in utf16 (e.g. base::char16).
+      base::char16 replace_chars[U16_MAX_LENGTH];
+      size_t replace_length = U16_LENGTH(new_codepoint);
+      if (replace_length == 1) {
+        replace_chars[0] = new_codepoint;
+      } else {
+        replace_chars[0] = U16_LEAD(new_codepoint);
+        replace_chars[1] = U16_TRAIL(new_codepoint);
+      }
+
+      // Replace the codepoint range by the new codepoint characters.
+      text->replace(index, U16_LENGTH(original_codepoint), replace_chars,
+                    replace_length);
+    }
+
+    // Move index of the next codepoint. This must be computed after any
+    // rewriting steps above since codepoint size may differ.
+    U16_NEXT(text->c_str(), index, text->length(), new_codepoint);
+    ++rank;
+  }
+}
+
+// Obscures characters for the given |text|. The obscured characters are
+// replaced by an bullet. In multiline, the newline character is not replaced.
+// If |reveal_index| is specified, the codepoint at |reveal_index| keeps its
+// original value.
+void ObscuredText(bool multiline, int reveal_index, base::string16* text) {
+  DCHECK_LE(-1, reveal_index);
+  // Convert reveal_index to a rank because indexes are invalidated since the
+  // text is replace in-place. Reveal index can be -1 to indicate that no
+  // character should be revealed. If |reveal_index| is out-of-bound, no
+  // character should be revealed.
+  size_t reveal_rank;
+  if (reveal_index != -1 &&
+      base::checked_cast<size_t>(reveal_index) < text->size()) {
+    // Move |reveal_index| to the beginning of the surrogate pair, if needed.
+    U16_SET_CP_START(text->data(), 0, reveal_index);
+    reveal_rank = GetOffsetForTextIndex(*text, reveal_index);
+  } else {
+    reveal_rank = text->length();
+  }
+
+  RewriteCodepointsInPlace(
+      base::BindRepeating(
+          [](bool multiline, size_t reveal_rank, size_t rank,
+             UChar32 codepoint) -> UChar32 {
+            if ((reveal_rank == rank) || (codepoint == '\n' && multiline))
+              return codepoint;
+            return RenderText::kPasswordReplacementChar;
+          },
+          multiline, reveal_rank),
+      text);
+}
+
+// Replaces the unicode control characters, control characters and PUA (Private
+// Use Areas) codepoints.
+UChar32 ReplaceControlCharacter(bool multiline,
+                                size_t index,
+                                UChar32 codepoint) {
+  // 'REPLACEMENT CHARACTER' used to replace an unknown,
+  // unrecognized or unrepresentable character.
+  constexpr base::char16 kReplacementCodepoint = 0xFFFD;
+  // Control Pictures block (see:
+  // https://unicode.org/charts/PDF/U2400.pdf).
+  constexpr base::char16 kSymbolsCodepoint = 0x2400;
+
+  if (codepoint >= 0 && codepoint <= 0x1F) {
+    // The newline character should be kept as-is when
+    // rendertext is multiline.
+    if (codepoint != '\n' || !multiline) {
+      // Replace codepoints with their visual symbols, which are
+      // at the same offset from kSymbolsCodepoint.
+      return kSymbolsCodepoint + codepoint;
+    }
+  } else if (codepoint == 0x7F) {
+    // Replace the 'del' codepoint by its symbol (u2421).
+    return kSymbolsCodepoint + 0x21;
+  } else if (!U_IS_UNICODE_CHAR(codepoint)) {
+    // Unicode codepoint that can't be assigned a character.
+    // This handles:
+    // - single surrogate codepoints,
+    // - last two codepoints on each plane,
+    // - invalid characters (e.g. u+fdd0..u+fdef)
+    // - codepoints above u+10ffff
+    return kReplacementCodepoint;
+  } else if (codepoint > 0x7F) {
+    // Private use codepoints are working with a pair of font
+    // and codepoint, but they are not used in Chrome.
+    const int8_t codepoint_category = u_charType(codepoint);
+    if (codepoint_category == U_PRIVATE_USE_CHAR ||
+        codepoint_category == U_CONTROL_CHAR) {
+      return kReplacementCodepoint;
+    }
+  }
+
+  return codepoint;
+}
+
+// Replace the codepoints not handled by RenderText by an other compatible
+// codepoint. Replace the unicode control characters ISO 6429 (block C0) by
+// their corresponding visual symbols. Control characters can't be displayed but
+// their visual symbols can. Replace PUA (Private Use Areas) codepoints with the
+// 'replacement character'.
+void ReplaceControlCharactersWithSymbols(bool multiline, base::string16* text) {
+  RewriteCodepointsInPlace(
+      base::BindRepeating(ReplaceControlCharacter, multiline), text);
+}
+
 }  // namespace
 
 namespace internal {
@@ -275,43 +464,52 @@ void SkiaTextRenderer::DrawStrike(int x,
   canvas_skia_->drawRect(r, flags_);
 }
 
-StyleIterator::StyleIterator(const BreakList<SkColor>& colors,
-                             const BreakList<BaselineStyle>& baselines,
-                             const BreakList<int>& font_size_overrides,
-                             const BreakList<Font::Weight>& weights,
-                             const std::vector<BreakList<bool>>& styles)
+StyleIterator::StyleIterator(const BreakList<SkColor>* colors,
+                             const BreakList<BaselineStyle>* baselines,
+                             const BreakList<int>* font_size_overrides,
+                             const BreakList<Font::Weight>* weights,
+                             const std::vector<BreakList<bool>>* styles)
     : colors_(colors),
       baselines_(baselines),
       font_size_overrides_(font_size_overrides),
       weights_(weights),
       styles_(styles) {
-  color_ = colors_.breaks().begin();
-  baseline_ = baselines_.breaks().begin();
-  font_size_override_ = font_size_overrides_.breaks().begin();
-  weight_ = weights_.breaks().begin();
-  for (size_t i = 0; i < styles_.size(); ++i)
-    style_.push_back(styles_[i].breaks().begin());
+  color_ = colors_->breaks().begin();
+  baseline_ = baselines_->breaks().begin();
+  font_size_override_ = font_size_overrides_->breaks().begin();
+  weight_ = weights_->breaks().begin();
+  for (size_t i = 0; i < styles_->size(); ++i)
+    style_.push_back((*styles_)[i].breaks().begin());
 }
 
-StyleIterator::~StyleIterator() {}
+StyleIterator::StyleIterator(const StyleIterator& style) = default;
+StyleIterator::~StyleIterator() = default;
+StyleIterator& StyleIterator::operator=(const StyleIterator& style) = default;
 
 Range StyleIterator::GetRange() const {
-  Range range(colors_.GetRange(color_));
-  range = range.Intersect(baselines_.GetRange(baseline_));
-  range = range.Intersect(font_size_overrides_.GetRange(font_size_override_));
-  range = range.Intersect(weights_.GetRange(weight_));
+  return GetTextBreakingRange().Intersect(colors_->GetRange(color_));
+}
+
+Range StyleIterator::GetTextBreakingRange() const {
+  Range range = baselines_->GetRange(baseline_);
+  range = range.Intersect(font_size_overrides_->GetRange(font_size_override_));
+  range = range.Intersect(weights_->GetRange(weight_));
   for (size_t i = 0; i < TEXT_STYLE_COUNT; ++i)
-    range = range.Intersect(styles_[i].GetRange(style_[i]));
+    range = range.Intersect((*styles_)[i].GetRange(style_[i]));
   return range;
 }
 
-void StyleIterator::UpdatePosition(size_t position) {
-  color_ = colors_.GetBreak(position);
-  baseline_ = baselines_.GetBreak(position);
-  font_size_override_ = font_size_overrides_.GetBreak(position);
-  weight_ = weights_.GetBreak(position);
-  for (size_t i = 0; i < TEXT_STYLE_COUNT; ++i)
-    style_[i] = styles_[i].GetBreak(position);
+void StyleIterator::IncrementToPosition(size_t position) {
+  color_ = IncrementBreakListIteratorToPosition(*colors_, color_, position);
+  baseline_ =
+      IncrementBreakListIteratorToPosition(*baselines_, baseline_, position);
+  font_size_override_ = IncrementBreakListIteratorToPosition(
+      *font_size_overrides_, font_size_override_, position);
+  weight_ = IncrementBreakListIteratorToPosition(*weights_, weight_, position);
+  for (size_t i = 0; i < TEXT_STYLE_COUNT; ++i) {
+    style_[i] = IncrementBreakListIteratorToPosition((*styles_)[i], style_[i],
+                                                     position);
+  }
 }
 
 LineSegment::LineSegment() : run(0) {}
@@ -352,28 +550,13 @@ RenderText::~RenderText() {
 }
 
 // static
-std::unique_ptr<RenderText> RenderText::CreateHarfBuzzInstance() {
+std::unique_ptr<RenderText> RenderText::CreateRenderText() {
   return std::make_unique<RenderTextHarfBuzz>();
-}
-
-// static
-std::unique_ptr<RenderText> RenderText::CreateFor(Typesetter typesetter) {
-#if defined(OS_MACOSX)
-  if (typesetter == Typesetter::NATIVE)
-    return std::make_unique<RenderTextMac>();
-
-#endif  // defined(OS_MACOSX)
-  return CreateHarfBuzzInstance();
-}
-
-// static
-std::unique_ptr<RenderText> RenderText::CreateInstanceDeprecated() {
-  return CreateFor(Typesetter::BROWSER);
 }
 
 std::unique_ptr<RenderText> RenderText::CreateInstanceOfSameStyle(
     const base::string16& text) const {
-  std::unique_ptr<RenderText> render_text = CreateInstanceOfSameType();
+  std::unique_ptr<RenderText> render_text = CreateRenderText();
   // |SetText()| must be called before styles are set.
   render_text->SetText(text);
   render_text->SetFontList(font_list_);
@@ -469,12 +652,11 @@ void RenderText::SetObscured(bool obscured) {
 }
 
 void RenderText::SetObscuredRevealIndex(int index) {
-  if (obscured_reveal_index_ == index)
-    return;
-
-  obscured_reveal_index_ = index;
-  cached_bounds_and_offset_valid_ = false;
-  OnTextAttributeChanged();
+  if (obscured_reveal_index_ != index) {
+    obscured_reveal_index_ = index;
+    cached_bounds_and_offset_valid_ = false;
+    OnTextAttributeChanged();
+  }
 }
 
 void RenderText::SetMultiline(bool multiline) {
@@ -497,31 +679,23 @@ size_t RenderText::GetNumLines() {
 }
 
 void RenderText::SetWordWrapBehavior(WordWrapBehavior behavior) {
-  if (word_wrap_behavior_ == behavior)
-    return;
-  word_wrap_behavior_ = behavior;
-  if (multiline_) {
-    cached_bounds_and_offset_valid_ = false;
-    lines_.clear();
-    OnTextAttributeChanged();
+  if (word_wrap_behavior_ != behavior) {
+    word_wrap_behavior_ = behavior;
+    if (multiline_) {
+      cached_bounds_and_offset_valid_ = false;
+      lines_.clear();
+      OnTextAttributeChanged();
+    }
   }
 }
 
-void RenderText::SetReplaceNewlineCharsWithSymbols(bool replace) {
-  if (replace_newline_chars_with_symbols_ == replace)
-    return;
-  replace_newline_chars_with_symbols_ = replace;
-  cached_bounds_and_offset_valid_ = false;
-  OnTextAttributeChanged();
-}
-
 void RenderText::SetMinLineHeight(int line_height) {
-  if (min_line_height_ == line_height)
-    return;
-  min_line_height_ = line_height;
-  cached_bounds_and_offset_valid_ = false;
-  lines_.clear();
-  OnDisplayTextAttributeChanged();
+  if (min_line_height_ != line_height) {
+    min_line_height_ = line_height;
+    cached_bounds_and_offset_valid_ = false;
+    lines_.clear();
+    OnDisplayTextAttributeChanged();
+  }
 }
 
 void RenderText::SetElideBehavior(ElideBehavior elide_behavior) {
@@ -723,34 +897,35 @@ void RenderText::SetCompositionRange(const Range& composition_range) {
         Range(0, text_.length()).Contains(composition_range));
   composition_range_.set_end(composition_range.end());
   composition_range_.set_start(composition_range.start());
-  // TODO(oshima|msw): Altering composition underlines shouldn't
-  // require layout changes. It's currently necessary because
-  // RenderTextHarfBuzz paints text decorations by run, and
-  // RenderTextMac applies all styles during layout.
   OnLayoutTextAttributeChanged(false);
 }
 
 void RenderText::SetColor(SkColor value) {
   colors_.SetValue(value);
   OnTextColorChanged();
+  OnLayoutTextAttributeChanged(false);
 }
 
 void RenderText::ApplyColor(SkColor value, const Range& range) {
   colors_.ApplyValue(value, range);
   OnTextColorChanged();
+  OnLayoutTextAttributeChanged(false);
 }
 
 void RenderText::SetBaselineStyle(BaselineStyle value) {
   baselines_.SetValue(value);
+  OnLayoutTextAttributeChanged(false);
 }
 
 void RenderText::ApplyBaselineStyle(BaselineStyle value, const Range& range) {
   baselines_.ApplyValue(value, range);
+  OnLayoutTextAttributeChanged(false);
 }
 
 void RenderText::ApplyFontSizeOverride(int font_size_override,
                                        const Range& range) {
   font_size_overrides_.ApplyValue(font_size_override, range);
+  OnLayoutTextAttributeChanged(false);
 }
 
 void RenderText::SetStyle(TextStyle style, bool value) {
@@ -763,12 +938,7 @@ void RenderText::SetStyle(TextStyle style, bool value) {
 }
 
 void RenderText::ApplyStyle(TextStyle style, bool value, const Range& range) {
-  // Do not change styles mid-grapheme to avoid breaking ligatures.
-  const size_t start = IsValidCursorIndex(range.start()) ? range.start() :
-      IndexOfAdjacentGrapheme(range.start(), CURSOR_BACKWARD);
-  const size_t end = IsValidCursorIndex(range.end()) ? range.end() :
-      IndexOfAdjacentGrapheme(range.end(), CURSOR_FORWARD);
-  styles_[style].ApplyValue(value, Range(start, end));
+  styles_[style].ApplyValue(value, range);
 
   cached_bounds_and_offset_valid_ = false;
   // TODO(oshima|msw): Not all style change requires layout changes.
@@ -796,13 +966,12 @@ bool RenderText::GetStyle(TextStyle style) const {
 }
 
 void RenderText::SetDirectionalityMode(DirectionalityMode mode) {
-  if (mode == directionality_mode_)
-    return;
-
-  directionality_mode_ = mode;
-  text_direction_ = base::i18n::UNKNOWN_DIRECTION;
-  cached_bounds_and_offset_valid_ = false;
-  OnLayoutTextAttributeChanged(false);
+  if (mode != directionality_mode_) {
+    directionality_mode_ = mode;
+    text_direction_ = base::i18n::UNKNOWN_DIRECTION;
+    cached_bounds_and_offset_valid_ = false;
+    OnLayoutTextAttributeChanged(false);
+  }
 }
 
 base::i18n::TextDirection RenderText::GetDisplayTextDirection() {
@@ -821,14 +990,6 @@ VisualCursorDirection RenderText::GetVisualDirectionOfLogicalBeginning() {
 
 SizeF RenderText::GetStringSizeF() {
   return SizeF(GetStringSize());
-}
-
-Size RenderText::GetLineSize(const SelectionModel& caret) {
-  return GetStringSize();
-}
-
-float RenderText::TotalLineWidth() {
-  return GetStringSizeF().width();
 }
 
 float RenderText::GetContentWidthF() {
@@ -850,7 +1011,7 @@ int RenderText::GetBaseline() {
   return baseline_;
 }
 
-void RenderText::Draw(Canvas* canvas) {
+void RenderText::Draw(Canvas* canvas, bool select_all) {
   EnsureLayout();
 
   if (clip_to_display_rect()) {
@@ -861,12 +1022,16 @@ void RenderText::Draw(Canvas* canvas) {
     canvas->ClipRect(clip_rect);
   }
 
-  if (!text().empty() && focused())
-    DrawSelection(canvas);
-
   if (!text().empty()) {
+    Range draw_selection;
+    if (select_all)
+      draw_selection = Range(0, text().length());
+    else if (focused())
+      draw_selection = selection();
+
+    DrawSelection(canvas, draw_selection);
     internal::SkiaTextRenderer renderer(canvas);
-    DrawVisualText(&renderer);
+    DrawVisualText(&renderer, draw_selection);
   }
 
   if (clip_to_display_rect())
@@ -874,7 +1039,7 @@ void RenderText::Draw(Canvas* canvas) {
 }
 
 bool RenderText::IsValidLogicalIndex(size_t index) const {
-  // Check that the index is at a valid code point (not mid-surrgate-pair) and
+  // Check that the index is at a valid code point (not mid-surrogate-pair) and
   // that it's not truncated from the display text (its glyph may be shown).
   //
   // Indices within truncated text are disallowed so users can easily interact
@@ -1127,7 +1292,6 @@ RenderText::RenderText()
       font_size_overrides_(0),
       weights_(Font::Weight::NORMAL),
       styles_(TEXT_STYLE_COUNT),
-      composition_and_selection_styles_applied_(false),
       obscured_(false),
       obscured_reveal_index_(-1),
       truncate_length_(0),
@@ -1137,12 +1301,23 @@ RenderText::RenderText()
       multiline_(false),
       max_lines_(0),
       word_wrap_behavior_(IGNORE_LONG_WORDS),
-      replace_newline_chars_with_symbols_(true),
       subpixel_rendering_suppressed_(false),
       clip_to_display_rect_(true),
       baseline_(kInvalidBaseline),
       cached_bounds_and_offset_valid_(false),
       strike_thickness_factor_(kLineThicknessFactor) {}
+
+internal::StyleIterator RenderText::GetTextStyleIterator() const {
+  return internal::StyleIterator(&colors_, &baselines_, &font_size_overrides_,
+                                 &weights_, &styles_);
+}
+
+internal::StyleIterator RenderText::GetLayoutTextStyleIterator() {
+  EnsuresLayoutTextAttributeUpdated();
+  return internal::StyleIterator(&layout_colors_, &layout_baselines_,
+                                 &layout_font_size_overrides_, &layout_weights_,
+                                 &layout_styles_);
+}
 
 bool RenderText::IsHomogeneous() const {
   if (colors().breaks().size() > 1 || baselines().breaks().size() > 1 ||
@@ -1217,7 +1392,131 @@ void RenderText::SetSelectionModel(const SelectionModel& model) {
 void RenderText::OnTextColorChanged() {
 }
 
+void RenderText::OnLayoutTextAttributeChanged(bool text_changed) {
+  layout_text_attributes_up_to_date_ = false;
+}
+
+void RenderText::EnsureLayoutTextUpdated() {
+  if (layout_text_up_to_date_)
+    return;
+
+  layout_text_ = text_;
+
+  // Obscure the layout text by replacing hidden characters by bullets.
+  if (obscured_)
+    ObscuredText(multiline_, obscured_reveal_index_, &layout_text_);
+
+  // Handle unicode control characters ISO 6429 (block C0). Range from 0 to 0x1F
+  // and 0x7F.
+  ReplaceControlCharactersWithSymbols(multiline_, &layout_text_);
+
+  const base::string16& text = layout_text_;
+  if (truncate_length_ > 0 && truncate_length_ < text.length()) {
+    // Truncate the text at a valid character break and append an ellipsis.
+    icu::StringCharacterIterator iter(text.c_str());
+    // Respect ELIDE_HEAD and ELIDE_MIDDLE preferences during truncation.
+    if (elide_behavior_ == ELIDE_HEAD) {
+      iter.setIndex32(
+          static_cast<int32_t>(text.length() - truncate_length_ + 1));
+      layout_text_.assign(kEllipsisUTF16 + text.substr(iter.getIndex()));
+    } else if (elide_behavior_ == ELIDE_MIDDLE) {
+      iter.setIndex32(static_cast<int32_t>(truncate_length_ / 2));
+      const size_t ellipsis_start = iter.getIndex();
+      iter.setIndex32(
+          static_cast<int32_t>(text.length() - (truncate_length_ / 2)));
+      const size_t ellipsis_end = iter.getIndex();
+      DCHECK_LE(ellipsis_start, ellipsis_end);
+      layout_text_.assign(text.substr(0, ellipsis_start) + kEllipsisUTF16 +
+                          text.substr(ellipsis_end));
+    } else {
+      iter.setIndex32(static_cast<int32_t>(truncate_length_ - 1));
+      layout_text_.assign(text.substr(0, iter.getIndex()) + kEllipsisUTF16);
+    }
+  }
+
+  // Wait to reset |layout_text_up_to_date_| until the end, to ensure this
+  // function's implementation doesn't indirectly rely on it being up to date
+  // anywhere.
+  layout_text_up_to_date_ = true;
+}
+
+void RenderText::EnsuresLayoutTextAttributeUpdated() {
+  if (layout_text_attributes_up_to_date_)
+    return;
+
+  // Reset the previous layout text attributes.
+  size_t max_length = layout_text_.length();
+  layout_colors_.SetMax(max_length);
+  layout_baselines_.SetMax(max_length);
+  layout_font_size_overrides_.SetMax(max_length);
+  layout_weights_.SetMax(max_length);
+  layout_styles_.resize(TEXT_STYLE_COUNT);
+  for (auto& layout_style : layout_styles_)
+    layout_style.SetMax(max_length);
+
+  // Create an iterator to ensure layout BreakLists don't break graphemes.
+  base::i18n::BreakIterator grapheme_iter(
+      text_, base::i18n::BreakIterator::BREAK_CHARACTER);
+  bool success = grapheme_iter.Init();
+  DCHECK(success);
+
+  // Iterates through codepoints in both strings. Both string have the same
+  // amount of codepoints but some codepoints may differ (e.g. obscured or
+  // replaced) and may differ in length (e.g. surrogate pair).
+  base::i18n::UTF16CharIterator text_iter(&text_);
+  base::i18n::UTF16CharIterator layout_text_iter(&layout_text_);
+  internal::StyleIterator styles = GetTextStyleIterator();
+  size_t current_grapheme_start_position = 0;
+  while (!text_iter.end() && !layout_text_iter.end()) {
+    size_t current_text_position = text_iter.array_pos();
+    size_t current_layout_text_position = layout_text_iter.array_pos();
+    if (grapheme_iter.IsGraphemeBoundary(current_text_position))
+      current_grapheme_start_position = current_text_position;
+
+    // Move text iterators to their next character.
+    text_iter.Advance();
+    layout_text_iter.Advance();
+
+    // Apply the style at current grapheme position to the layout text.
+    styles.IncrementToPosition(current_grapheme_start_position);
+
+    Range range(current_layout_text_position, layout_text_iter.array_pos());
+    layout_colors_.ApplyValue(styles.color(), range);
+    layout_baselines_.ApplyValue(styles.baseline(), range);
+    layout_font_size_overrides_.ApplyValue(styles.font_size_override(), range);
+    layout_weights_.ApplyValue(styles.weight(), range);
+    for (size_t i = 0; i < TEXT_STYLE_COUNT; ++i) {
+      layout_styles_[i].ApplyValue(styles.style(static_cast<TextStyle>(i)),
+                                   range);
+    }
+
+    // Apply an underline to the composition range in |underlines|.
+    if (composition_range_.Contains(
+            gfx::Range(current_grapheme_start_position))) {
+      layout_styles_[TEXT_STYLE_HEAVY_UNDERLINE].ApplyValue(true, range);
+    }
+
+    // Apply the selected text color to the selection range.
+    if (!selection().is_empty() &&
+        selection().Contains(gfx::Range(current_grapheme_start_position))) {
+      layout_colors_.ApplyValue(selection_color_, range);
+    }
+  }
+
+  // Wait to reset |layout_text_attributes_up_to_date_| until the end, to ensure
+  // this function's implementation doesn't indirectly rely on it being up to
+  // date anywhere.
+  layout_text_attributes_up_to_date_ = true;
+}
+
+const base::string16& RenderText::GetLayoutText() {
+  EnsureLayoutTextUpdated();
+  return layout_text_;
+}
+
 void RenderText::UpdateDisplayText(float text_width) {
+  EnsureLayoutTextUpdated();
+
   // TODO(krb): Consider other elision modes for multiline.
   if ((multiline_ && (!max_lines_ || elide_behavior() != ELIDE_TAIL)) ||
       elide_behavior() == NO_ELIDE || elide_behavior() == FADE_TAIL ||
@@ -1293,32 +1592,6 @@ const BreakList<size_t>& RenderText::GetLineBreaks() {
     } while (iter.Advance());
   }
   return line_breaks_;
-}
-
-void RenderText::ApplyCompositionAndSelectionStyles() {
-  // Save the underline and color breaks to undo the temporary styles later.
-  DCHECK(!composition_and_selection_styles_applied_);
-  saved_colors_ = colors_;
-  saved_underlines_ = styles_[TEXT_STYLE_HEAVY_UNDERLINE];
-
-  // Apply an underline to the composition range in |underlines|.
-  if (composition_range_.IsValid() && !composition_range_.is_empty())
-    styles_[TEXT_STYLE_HEAVY_UNDERLINE].ApplyValue(true, composition_range_);
-
-  // Apply the selected text color to the [un-reversed] selection range.
-  if (!selection().is_empty() && focused()) {
-    const Range range(selection().GetMin(), selection().GetMax());
-    colors_.ApplyValue(selection_color_, range);
-  }
-  composition_and_selection_styles_applied_ = true;
-}
-
-void RenderText::UndoCompositionAndSelectionStyles() {
-  // Restore the underline and color breaks to undo the temporary styles.
-  DCHECK(composition_and_selection_styles_applied_);
-  colors_ = saved_colors_;
-  styles_[TEXT_STYLE_HEAVY_UNDERLINE] = saved_underlines_;
-  composition_and_selection_styles_applied_ = false;
 }
 
 Point RenderText::ToViewPoint(const PointF& point,
@@ -1400,8 +1673,7 @@ HorizontalAlignment RenderText::GetCurrentHorizontalAlignment() {
 }
 
 Vector2d RenderText::GetAlignmentOffset(size_t line_number) {
-  // TODO(ckocagil): Enable |lines_| usage on RenderTextMac.
-  if (MultilineSupported() && multiline_)
+  if (multiline_)
     DCHECK_LT(line_number, lines_.size());
   Vector2d offset;
   HorizontalAlignment horizontal_alignment = GetCurrentHorizontalAlignment();
@@ -1527,12 +1799,28 @@ base::i18n::TextDirection RenderText::GetTextDirection(
 
 size_t RenderText::TextIndexToGivenTextIndex(const base::string16& given_text,
                                              size_t index) const {
-  DCHECK(given_text == layout_text() || given_text == display_text());
+  DCHECK(layout_text_up_to_date_);
+  DCHECK(given_text == layout_text_ || given_text == display_text());
   DCHECK_LE(index, text().length());
-  ptrdiff_t i = obscured() ? UTF16IndexToOffset(text(), 0, index) : index;
-  CHECK_GE(i, 0);
-  // Clamp indices to the length of the given layout or display text.
-  return std::min<size_t>(given_text.length(), i);
+  return GetTextIndexForOtherText(text(), index, given_text);
+}
+
+size_t RenderText::GivenTextIndexToTextIndex(const base::string16& given_text,
+                                             size_t index) const {
+  DCHECK(layout_text_up_to_date_);
+  DCHECK(given_text == layout_text_ || given_text == display_text());
+  DCHECK_LE(index, text().length());
+  return GetTextIndexForOtherText(given_text, index, text());
+}
+
+size_t RenderText::TextIndexToDisplayIndex(size_t index) {
+  DCHECK_LE(index, text().length());
+  return GetTextIndexForOtherText(text(), index, GetDisplayText());
+}
+
+size_t RenderText::DisplayIndexToTextIndex(size_t index) {
+  DCHECK_LE(index, GetDisplayText().length());
+  return GetTextIndexForOtherText(GetDisplayText(), index, text());
 }
 
 void RenderText::UpdateStyleLengths() {
@@ -1596,7 +1884,7 @@ int RenderText::DetermineBaselineCenteringText(const int display_height,
 gfx::Rect RenderText::ExpandToBeVerticallySymmetric(
     const gfx::Rect& rect,
     const gfx::Rect& display_rect) {
-  // Mirror |rect| accross the horizontal line dividing |display_rect| in half.
+  // Mirror |rect| across the horizontal line dividing |display_rect| in half.
   gfx::Rect result = rect;
   int mid_y = display_rect.CenterPoint().y();
   // The top of the mirror rect must be equidistant with the bottom of the
@@ -1614,57 +1902,7 @@ void RenderText::OnTextAttributeChanged() {
   text_elided_ = false;
   line_breaks_.SetMax(0);
 
-  if (obscured_) {
-    size_t obscured_text_length =
-        static_cast<size_t>(UTF16IndexToOffset(text_, 0, text_.length()));
-    layout_text_.assign(obscured_text_length, kPasswordReplacementChar);
-
-    if (obscured_reveal_index_ >= 0 &&
-        obscured_reveal_index_ < static_cast<int>(text_.length())) {
-      // Gets the index range in |text_| to be revealed.
-      size_t start = obscured_reveal_index_;
-      U16_SET_CP_START(text_.data(), 0, start);
-      size_t end = start;
-      UChar32 unused_char;
-      U16_NEXT(text_.data(), end, text_.length(), unused_char);
-
-      // Gets the index in |layout_text_| to be replaced.
-      const size_t cp_start =
-          static_cast<size_t>(UTF16IndexToOffset(text_, 0, start));
-      if (layout_text_.length() > cp_start)
-        layout_text_.replace(cp_start, 1, text_.substr(start, end - start));
-    }
-  } else {
-    layout_text_ = text_;
-  }
-
-  const base::string16& text = layout_text_;
-  if (truncate_length_ > 0 && truncate_length_ < text.length()) {
-    // Truncate the text at a valid character break and append an ellipsis.
-    icu::StringCharacterIterator iter(text.c_str());
-    // Respect ELIDE_HEAD and ELIDE_MIDDLE preferences during truncation.
-    if (elide_behavior_ == ELIDE_HEAD) {
-      iter.setIndex32(
-          static_cast<int32_t>(text.length() - truncate_length_ + 1));
-      layout_text_.assign(kEllipsisUTF16 + text.substr(iter.getIndex()));
-    } else if (elide_behavior_ == ELIDE_MIDDLE) {
-      iter.setIndex32(static_cast<int32_t>(truncate_length_ / 2));
-      const size_t ellipsis_start = iter.getIndex();
-      iter.setIndex32(
-          static_cast<int32_t>(text.length() - (truncate_length_ / 2)));
-      const size_t ellipsis_end = iter.getIndex();
-      DCHECK_LE(ellipsis_start, ellipsis_end);
-      layout_text_.assign(text.substr(0, ellipsis_start) + kEllipsisUTF16 +
-                          text.substr(ellipsis_end));
-    } else {
-      iter.setIndex32(static_cast<int32_t>(truncate_length_ - 1));
-      layout_text_.assign(text.substr(0, iter.getIndex()) + kEllipsisUTF16);
-    }
-  }
-  static const base::char16 kNewline[] = { '\n', 0 };
-  static const base::char16 kNewlineSymbol[] = { 0x2424, 0 };
-  if (!multiline_ && replace_newline_chars_with_symbols_)
-    base::ReplaceChars(layout_text_, kNewline, kNewlineSymbol, &layout_text_);
+  layout_text_up_to_date_ = false;
 
   OnLayoutTextAttributeChanged(true);
 }
@@ -1886,8 +2124,8 @@ void RenderText::UpdateCachedBoundsAndOffset() {
   SetDisplayOffset(display_offset_.x() + delta_x);
 }
 
-void RenderText::DrawSelection(Canvas* canvas) {
-  for (Rect s : GetSubstringBounds(selection())) {
+void RenderText::DrawSelection(Canvas* canvas, const Range& selection) {
+  for (Rect s : GetSubstringBounds(selection)) {
     if (symmetric_selection_visual_bounds() && !multiline())
       s = ExpandToBeVerticallySymmetric(s, display_rect());
     canvas->FillRect(s, selection_background_focused_color_);
@@ -1948,16 +2186,6 @@ Range RenderText::ExpandRangeToWordBoundary(const Range& range) const {
 
   return range.is_reversed() ? Range(range_max, range_min)
                              : Range(range_min, range_max);
-}
-
-internal::TextRunList* RenderText::GetRunList() {
-  NOTREACHED();
-  return nullptr;
-}
-
-const internal::TextRunList* RenderText::GetRunList() const {
-  NOTREACHED();
-  return nullptr;
 }
 
 }  // namespace gfx

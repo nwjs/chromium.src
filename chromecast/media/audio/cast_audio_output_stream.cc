@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bits.h"
 #include "base/callback.h"
 #include "base/callback_helpers.h"
 #include "base/location.h"
@@ -101,7 +102,7 @@ class CastAudioOutputStream::MixerServiceWrapper
 
   void SetRunning(bool running);
   void Start(AudioSourceCallback* source_callback);
-  void Stop();
+  void Stop(base::WaitableEvent* finished);
   void Close(base::OnceClosure closure);
   void SetVolume(double volume);
   void Flush();
@@ -188,11 +189,14 @@ void CastAudioOutputStream::MixerServiceWrapper::Start(
   mixer_connection_->SetVolumeMultiplier(volume_);
 }
 
-void CastAudioOutputStream::MixerServiceWrapper::Stop() {
+void CastAudioOutputStream::MixerServiceWrapper::Stop(
+    base::WaitableEvent* finished) {
   DCHECK_CALLED_ON_VALID_THREAD(io_thread_checker_);
   mixer_connection_.reset();
-
   source_callback_ = nullptr;
+  if (finished) {
+    finished->Signal();
+  }
 }
 
 void CastAudioOutputStream::MixerServiceWrapper::Flush() {
@@ -204,7 +208,7 @@ void CastAudioOutputStream::MixerServiceWrapper::Flush() {
 void CastAudioOutputStream::MixerServiceWrapper::Close(
     base::OnceClosure closure) {
   DCHECK_CALLED_ON_VALID_THREAD(io_thread_checker_);
-  Stop();
+  Stop(nullptr);
   std::move(closure).Run();
 }
 
@@ -222,6 +226,9 @@ void CastAudioOutputStream::MixerServiceWrapper::FillNextBuffer(
     int64_t playout_timestamp) {
   DCHECK_CALLED_ON_VALID_THREAD(io_thread_checker_);
 
+  // Round down to closest multiple of 4 to ensure correct channel alignment.
+  frames = base::bits::AlignDown(frames, 4);
+
   // Acquire running_lock_ for the scope of this fill call to
   // prevent the source callback from closing the output stream
   // mid-fill.
@@ -236,13 +243,15 @@ void CastAudioOutputStream::MixerServiceWrapper::FillNextBuffer(
     playout_timestamp = 0;
   }
 
-  // If |audio_bus_| has been created (i.e., this is not the first
-  // FillNextBuffer call) and |frames| doesn't change, which is expected behavir
-  // from MixerServiceConnection, the |audio_bus_| won't be recreated but be
-  // reused.
-  if (!audio_bus_ || frames != audio_bus_->frames()) {
-    audio_bus_ = ::media::AudioBus::Create(audio_params_.channels(), frames);
+  // Wrap the data buffer so we can write directly into it.
+  if (!audio_bus_) {
+    audio_bus_ = ::media::AudioBus::CreateWrapper(audio_params_.channels());
   }
+  float* channel_data = static_cast<float*>(buffer);
+  for (int c = 0; c < audio_params_.channels(); ++c) {
+    audio_bus_->SetChannelData(c, channel_data + c * frames);
+  }
+  audio_bus_->set_frames(frames);
 
   base::TimeDelta delay = kMixerStartThreshold;
   base::TimeTicks delay_timestamp =
@@ -250,14 +259,8 @@ void CastAudioOutputStream::MixerServiceWrapper::FillNextBuffer(
 
   int frames_filled =
       source_callback_->OnMoreData(delay, delay_timestamp, 0, audio_bus_.get());
-
-  float* channel_data = static_cast<float*>(buffer);
-  for (int channel = 0; channel < audio_params_.channels(); channel++) {
-    std::copy_n(audio_bus_->channel(channel), frames_filled, channel_data);
-    channel_data += frames_filled;
-  }
-
-  mixer_connection_->SendNextBuffer(frames_filled);
+  DCHECK_EQ(frames_filled, frames);
+  mixer_connection_->SendNextBuffer(frames);
 }
 
 CastAudioOutputStream::CastAudioOutputStream(
@@ -409,13 +412,15 @@ void CastAudioOutputStream::Stop() {
   // |cma_wrapper_| and |mixer_service_wrapper_| cannot be both active.
   DCHECK(!(cma_wrapper_ && mixer_service_wrapper_));
 
+  base::WaitableEvent finished;
   if (cma_wrapper_) {
-    base::WaitableEvent stopFinished;
-    POST_TO_CMA_WRAPPER(Stop, base::Unretained(&stopFinished));
-    stopFinished.Wait();
+    POST_TO_CMA_WRAPPER(Stop, &finished);
   } else if (mixer_service_wrapper_) {
-    POST_TO_MIXER_SERVICE_WRAPPER(Stop);
+    POST_TO_MIXER_SERVICE_WRAPPER(Stop, &finished);
+  } else {
+    finished.Signal();
   }
+  finished.Wait();
 }
 
 void CastAudioOutputStream::Flush() {
@@ -486,8 +491,7 @@ void CastAudioOutputStream::OnGetMultiroomInfo(
     POST_TO_CMA_WRAPPER(Initialize, application_session_id,
                         std::move(multiroom_info));
   } else {
-    DCHECK(!(audio_params_.effects() & ::media::AudioParameters::MULTIZONE) &&
-           CastMediaShlib::AddDirectAudioSource);
+    DCHECK(!(audio_params_.effects() & ::media::AudioParameters::MULTIZONE));
 
     mixer_service_wrapper_ =
         std::make_unique<MixerServiceWrapper>(audio_params_, device_id_);

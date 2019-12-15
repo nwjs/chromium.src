@@ -68,6 +68,7 @@
 #include "ui/gfx/canvas.h"
 
 #if defined(OS_ANDROID)
+#include "base/strings/utf_string_conversions.h"
 #include "content/browser/renderer_host/render_widget_host_view_android.h"
 #include "ui/android/screen_android.h"
 #endif
@@ -296,6 +297,18 @@ FakeRenderFrameMetadataObserver::FakeRenderFrameMetadataObserver(
     : receiver_(std::move(receiver)),
       client_remote_(std::move(client_remote)) {}
 
+// MockInputEventObserver -------------------------------------------------
+class MockInputEventObserver : public RenderWidgetHost::InputEventObserver {
+ public:
+  MOCK_METHOD1(OnInputEvent, void(const blink::WebInputEvent&));
+#if defined(OS_ANDROID)
+  MOCK_METHOD1(OnImeTextCommittedEvent, void(const base::string16& text_str));
+  MOCK_METHOD1(OnImeSetComposingTextEvent,
+               void(const base::string16& text_str));
+  MOCK_METHOD0(OnImeFinishComposingTextEvent, void());
+#endif
+};
+
 // MockRenderWidgetHostDelegate --------------------------------------------
 
 class MockRenderWidgetHostDelegate : public RenderWidgetHostDelegate {
@@ -363,6 +376,20 @@ class MockRenderWidgetHostDelegate : public RenderWidgetHostDelegate {
 
   int GetFocusOwningWebContentsCallCount() const {
     return focus_owning_web_contents_call_count;
+  }
+
+  void OnVerticalScrollDirectionChanged(
+      viz::VerticalScrollDirection scroll_direction) override {
+    ++on_vertical_scroll_direction_changed_call_count_;
+    last_vertical_scroll_direction_ = scroll_direction;
+  }
+
+  int GetOnVerticalScrollDirectionChangedCallCount() const {
+    return on_vertical_scroll_direction_changed_call_count_;
+  }
+
+  viz::VerticalScrollDirection GetLastVerticalScrollDirection() const {
+    return last_vertical_scroll_direction_;
   }
 
   RenderViewHostDelegateView* GetDelegateView() override {
@@ -435,6 +462,10 @@ class MockRenderWidgetHostDelegate : public RenderWidgetHostDelegate {
   double zoom_level_ = 0;
 
   int focus_owning_web_contents_call_count = 0;
+
+  int on_vertical_scroll_direction_changed_call_count_ = 0;
+  viz::VerticalScrollDirection last_vertical_scroll_direction_ =
+      viz::VerticalScrollDirection::kNull;
 };
 
 class MockRenderWidgetHostOwnerDelegate
@@ -461,13 +492,6 @@ class RenderWidgetHostTest : public testing::Test {
   }
   bool MouseEventCallback(const blink::WebMouseEvent& /* event */) {
     return handle_mouse_event_;
-  }
-
-  void RunLoopFor(base::TimeDelta duration) {
-    base::RunLoop run_loop;
-    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
-        FROM_HERE, run_loop.QuitClosure(), duration);
-    run_loop.Run();
   }
 
  protected:
@@ -707,6 +731,8 @@ class RenderWidgetHostTest : public testing::Test {
     return reinterpret_cast<const WebInputEvent*>(data);
   }
 
+  BrowserTaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   std::unique_ptr<TestBrowserContext> browser_context_;
   RenderWidgetHostProcess* process_;  // Deleted automatically by the widget.
   std::unique_ptr<MockRenderWidgetHostDelegate> delegate_;
@@ -727,7 +753,6 @@ class RenderWidgetHostTest : public testing::Test {
  private:
   SyntheticWebTouchEvent touch_event_;
 
-  BrowserTaskEnvironment task_environment_;
   mojo::Remote<viz::mojom::CompositorFrameSinkClient>
       renderer_compositor_frame_sink_remote_;
 
@@ -992,7 +1017,7 @@ TEST_F(RenderWidgetHostTest, ResizeThenCrash) {
 TEST_F(RenderWidgetHostTest, Background) {
   std::unique_ptr<RenderWidgetHostViewBase> view;
 #if defined(USE_AURA)
-  view.reset(new RenderWidgetHostViewAura(host_.get(), false));
+  view.reset(new RenderWidgetHostViewAura(host_.get()));
   // TODO(derat): Call this on all platforms: http://crbug.com/102450.
   view->InitAsChild(nullptr);
 #elif defined(OS_ANDROID)
@@ -1303,7 +1328,7 @@ TEST_F(RenderWidgetHostTest, DontPostponeInputEventAckTimeout) {
   host_->StartInputEventAckTimeout(TimeDelta::FromSeconds(30));
 
   // Wait long enough for first timeout and see if it fired.
-  RunLoopFor(TimeDelta::FromMilliseconds(10));
+  task_environment_.FastForwardBy(TimeDelta::FromMilliseconds(10));
   EXPECT_TRUE(delegate_->unresponsive_timer_fired());
 }
 
@@ -1319,7 +1344,7 @@ TEST_F(RenderWidgetHostTest, StopAndStartInputEventAckTimeout) {
   host_->StartInputEventAckTimeout(TimeDelta::FromMilliseconds(10));
 
   // Wait long enough for first timeout and see if it fired.
-  RunLoopFor(TimeDelta::FromMilliseconds(40));
+  task_environment_.FastForwardBy(TimeDelta::FromMilliseconds(40));
   EXPECT_TRUE(delegate_->unresponsive_timer_fired());
 }
 
@@ -1334,7 +1359,7 @@ TEST_F(RenderWidgetHostTest, ShorterDelayInputEventAckTimeout) {
   host_->StartInputEventAckTimeout(TimeDelta::FromMilliseconds(20));
 
   // Wait long enough for the second timeout and see if it fired.
-  RunLoopFor(TimeDelta::FromMilliseconds(25));
+  task_environment_.FastForwardBy(TimeDelta::FromMilliseconds(25));
   EXPECT_TRUE(delegate_->unresponsive_timer_fired());
 }
 
@@ -1349,18 +1374,18 @@ TEST_F(RenderWidgetHostTest, InputEventAckTimeoutDisabledForInputWhenHidden) {
 
   // The timeout should not fire.
   EXPECT_FALSE(delegate_->unresponsive_timer_fired());
-  RunLoopFor(TimeDelta::FromMicroseconds(2));
+  task_environment_.FastForwardBy(TimeDelta::FromMilliseconds(2));
   EXPECT_FALSE(delegate_->unresponsive_timer_fired());
 
   // The timeout should never reactivate while hidden.
   SimulateMouseEvent(WebInputEvent::kMouseMove, 10, 10, 0, false);
-  RunLoopFor(TimeDelta::FromMicroseconds(2));
+  task_environment_.FastForwardBy(TimeDelta::FromMilliseconds(2));
   EXPECT_FALSE(delegate_->unresponsive_timer_fired());
 
   // Showing the widget should restore the timeout, as the events have
   // not yet been ack'ed.
   host_->WasShown(base::nullopt /* record_tab_switch_time_request */);
-  RunLoopFor(TimeDelta::FromMicroseconds(2));
+  task_environment_.FastForwardBy(TimeDelta::FromMilliseconds(2));
   EXPECT_TRUE(delegate_->unresponsive_timer_fired());
 }
 
@@ -1385,7 +1410,7 @@ TEST_F(RenderWidgetHostTest, MultipleInputEvents) {
   dispatched_events[0]->ToEvent()->CallCallback(INPUT_EVENT_ACK_STATE_CONSUMED);
 
   // Wait long enough for first timeout and see if it fired.
-  RunLoopFor(TimeDelta::FromMicroseconds(20));
+  task_environment_.FastForwardBy(TimeDelta::FromMilliseconds(20));
   EXPECT_TRUE(delegate_->unresponsive_timer_fired());
 }
 TEST_F(RenderWidgetHostTest, IgnoreInputEvent) {
@@ -1987,26 +2012,6 @@ TEST_F(RenderWidgetHostTest, ForceEnableZoomShouldUpdateAfterRebind) {
   host_->ExpectForceEnableZoom(true);
 }
 
-TEST_F(RenderWidgetHostTest, RenderWidgetSurfaceProperties) {
-  RenderWidgetSurfaceProperties prop1;
-  prop1.size = gfx::Size(200, 200);
-  prop1.device_scale_factor = 1.f;
-  RenderWidgetSurfaceProperties prop2;
-  prop2.size = gfx::Size(300, 300);
-  prop2.device_scale_factor = 2.f;
-
-  EXPECT_EQ(
-      "RenderWidgetSurfaceProperties(size(this: 200x200, other: 300x300), "
-      "device_scale_factor(this: 1, other: 2))",
-      prop1.ToDiffString(prop2));
-  EXPECT_EQ(
-      "RenderWidgetSurfaceProperties(size(this: 300x300, other: 200x200), "
-      "device_scale_factor(this: 2, other: 1))",
-      prop2.ToDiffString(prop1));
-  EXPECT_EQ("", prop1.ToDiffString(prop1));
-  EXPECT_EQ("", prop2.ToDiffString(prop2));
-}
-
 // If a navigation happens while the widget is hidden, we shouldn't show
 // contents of the previous page when we become visible.
 TEST_F(RenderWidgetHostTest, NavigateInBackgroundShowsBlank) {
@@ -2054,35 +2059,34 @@ TEST_F(RenderWidgetHostTest, RendererHangRecordsMetrics) {
   tester.ExpectUniqueSample("Renderer.Hung.Duration", 17000, 1);
 }
 
-// TODO(https://crbug.com/992784): Flakily fails the final
-// ConsumePendingUserActivationIfAllowed expectation, after RunLoopFor().
-TEST_F(RenderWidgetHostTest, DISABLED_PendingUserActivationTimeout) {
+TEST_F(RenderWidgetHostTest, PendingUserActivationTimeout) {
   base::test::ScopedFeatureList scoped_feature_list_;
   scoped_feature_list_.InitAndEnableFeature(
       features::kBrowserVerifiedUserActivation);
 
   // One event allows one activation notification.
   SimulateMouseEvent(WebInputEvent::kMouseDown);
-  EXPECT_TRUE(host_->ConsumePendingUserActivationIfAllowed());
-  EXPECT_FALSE(host_->ConsumePendingUserActivationIfAllowed());
+  EXPECT_TRUE(host_->RemovePendingUserActivationIfAvailable());
+  EXPECT_FALSE(host_->RemovePendingUserActivationIfAvailable());
 
   // Mouse move and up does not increase pending user activation counter.
   SimulateMouseEvent(WebInputEvent::kMouseMove);
   SimulateMouseEvent(WebInputEvent::kMouseUp);
-  EXPECT_FALSE(host_->ConsumePendingUserActivationIfAllowed());
+  EXPECT_FALSE(host_->RemovePendingUserActivationIfAvailable());
 
   // 2 events allow 2 activation notifications.
   SimulateMouseEvent(WebInputEvent::kMouseDown);
   SimulateKeyboardEvent(WebInputEvent::kKeyDown);
-  EXPECT_TRUE(host_->ConsumePendingUserActivationIfAllowed());
-  EXPECT_TRUE(host_->ConsumePendingUserActivationIfAllowed());
-  EXPECT_FALSE(host_->ConsumePendingUserActivationIfAllowed());
+  EXPECT_TRUE(host_->RemovePendingUserActivationIfAvailable());
+  EXPECT_TRUE(host_->RemovePendingUserActivationIfAvailable());
+  EXPECT_FALSE(host_->RemovePendingUserActivationIfAvailable());
 
-  // Pending activation is reset after |kActivationNotificationExpireTime|.
+  // Timer reset the pending activation.
   SimulateMouseEvent(WebInputEvent::kMouseDown);
   SimulateMouseEvent(WebInputEvent::kMouseDown);
-  RunLoopFor(RenderWidgetHostImpl::kActivationNotificationExpireTime);
-  EXPECT_FALSE(host_->ConsumePendingUserActivationIfAllowed());
+  task_environment_.FastForwardBy(
+      RenderWidgetHostImpl::kActivationNotificationExpireTime);
+  EXPECT_FALSE(host_->RemovePendingUserActivationIfAvailable());
 }
 
 // Tests that fling events are not dispatched when the wheel event is consumed.
@@ -2130,6 +2134,87 @@ TEST_F(RenderWidgetHostTest, FlingEventsWhenSomeScrollEventsConsumed) {
   dispatched_events =
       host_->mock_widget_input_handler_.GetAndResetDispatchedMessages();
   EXPECT_NE(0u, dispatched_events.size());
+}
+
+TEST_F(RenderWidgetHostTest, AddAndRemoveInputEventObserver) {
+  MockInputEventObserver observer;
+
+  // Add InputEventObserver.
+  host_->AddInputEventObserver(&observer);
+
+  // Confirm OnInputEvent is triggered.
+  NativeWebKeyboardEvent native_event(WebInputEvent::Type::kChar, 0,
+                                      GetNextSimulatedEventTime());
+  ui::LatencyInfo latency_info = ui::LatencyInfo();
+  EXPECT_CALL(observer, OnInputEvent(_)).Times(1);
+  host_->DispatchInputEventWithLatencyInfo(native_event, &latency_info);
+
+  // Remove InputEventObserver.
+  host_->RemoveInputEventObserver(&observer);
+
+  // Confirm InputEventObserver is removed.
+  EXPECT_CALL(observer, OnInputEvent(_)).Times(0);
+  latency_info = ui::LatencyInfo();
+  host_->DispatchInputEventWithLatencyInfo(native_event, &latency_info);
+}
+
+#if defined(OS_ANDROID)
+TEST_F(RenderWidgetHostTest, AddAndRemoveImeInputEventObserver) {
+  MockInputEventObserver observer;
+
+  // Add ImeInputEventObserver.
+  host_->AddImeInputEventObserver(&observer);
+
+  // Confirm ImeFinishComposingTextEvent is triggered.
+  EXPECT_CALL(observer, OnImeFinishComposingTextEvent()).Times(1);
+  host_->ImeFinishComposingText(true);
+
+  // Remove ImeInputEventObserver.
+  host_->RemoveImeInputEventObserver(&observer);
+
+  // Confirm ImeInputEventObserver is removed.
+  EXPECT_CALL(observer, OnImeFinishComposingTextEvent()).Times(0);
+  host_->ImeFinishComposingText(true);
+}
+#endif
+
+// Tests that vertical scroll direction changes are propagated to the delegate.
+TEST_F(RenderWidgetHostTest, OnVerticalScrollDirectionChanged) {
+  const auto NotifyVerticalScrollDirectionChanged =
+      [this](viz::VerticalScrollDirection scroll_direction) {
+        static uint32_t frame_token = 1u;
+        host_->frame_token_message_queue_->DidProcessFrame(frame_token);
+
+        cc::RenderFrameMetadata metadata;
+        metadata.new_vertical_scroll_direction = scroll_direction;
+        static_cast<mojom::RenderFrameMetadataObserverClient*>(
+            host_->render_frame_metadata_provider())
+            ->OnRenderFrameMetadataChanged(frame_token++, metadata);
+      };
+
+  // Verify initial state.
+  EXPECT_EQ(0, delegate_->GetOnVerticalScrollDirectionChangedCallCount());
+  EXPECT_EQ(viz::VerticalScrollDirection::kNull,
+            delegate_->GetLastVerticalScrollDirection());
+
+  // Verify that we will *not* propagate a vertical scroll of |kNull| which is
+  // only used to indicate the absence of a change in vertical scroll direction.
+  NotifyVerticalScrollDirectionChanged(viz::VerticalScrollDirection::kNull);
+  EXPECT_EQ(0, delegate_->GetOnVerticalScrollDirectionChangedCallCount());
+  EXPECT_EQ(viz::VerticalScrollDirection::kNull,
+            delegate_->GetLastVerticalScrollDirection());
+
+  // Verify that we will propagate a vertical scroll |kUp|.
+  NotifyVerticalScrollDirectionChanged(viz::VerticalScrollDirection::kUp);
+  EXPECT_EQ(1, delegate_->GetOnVerticalScrollDirectionChangedCallCount());
+  EXPECT_EQ(viz::VerticalScrollDirection::kUp,
+            delegate_->GetLastVerticalScrollDirection());
+
+  // Verify that we will propagate a vertical scroll |kDown|.
+  NotifyVerticalScrollDirectionChanged(viz::VerticalScrollDirection::kDown);
+  EXPECT_EQ(2, delegate_->GetOnVerticalScrollDirectionChangedCallCount());
+  EXPECT_EQ(viz::VerticalScrollDirection::kDown,
+            delegate_->GetLastVerticalScrollDirection());
 }
 
 }  // namespace content

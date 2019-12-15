@@ -15,9 +15,10 @@ import android.view.ContextMenu.ContextMenuInfo;
 import android.view.View;
 import android.view.View.OnCreateContextMenuListener;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.Callback;
 import org.chromium.base.TimeUtilsJni;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.metrics.RecordHistogram;
@@ -47,6 +48,7 @@ public class ContextMenuHelper implements OnCreateContextMenuListener {
 
     private ContextMenuPopulator mPopulator;
     private ContextMenuParams mCurrentContextMenuParams;
+    private WindowAndroid mWindow;
     private Activity mActivity;
     private Callback<Integer> mCallback;
     private Runnable mOnMenuShown;
@@ -94,6 +96,13 @@ public class ContextMenuHelper implements OnCreateContextMenuListener {
     }
 
     /**
+     * @return The window associated with the context menu helper.
+     */
+    protected WindowAndroid getWindow() {
+        return mWindow;
+    }
+
+    /**
      * @param populator A {@link ContextMenuPopulator} that is responsible for managing and showing
      *                  context menus.
      */
@@ -122,6 +131,7 @@ public class ContextMenuHelper implements OnCreateContextMenuListener {
         }
 
         mCurrentContextMenuParams = params;
+        mWindow = windowAndroid;
         mActivity = windowAndroid.getActivity().get();
         mCallback = (result) -> {
             mSelectedItemBeforeDismiss = true;
@@ -152,7 +162,7 @@ public class ContextMenuHelper implements OnCreateContextMenuListener {
             final RevampedContextMenuCoordinator menuCoordinator =
                     new RevampedContextMenuCoordinator(
                             topContentOffsetPx, this::shareImageWithLastShareComponent);
-            menuCoordinator.displayMenu(mActivity, mCurrentContextMenuParams, items, mCallback,
+            menuCoordinator.displayMenu(mWindow, mCurrentContextMenuParams, items, mCallback,
                     mOnMenuShown, mOnMenuClosed);
             if (sRevampedContextMenuShownCallback != null) {
                 sRevampedContextMenuShownCallback.onResult(menuCoordinator);
@@ -207,7 +217,7 @@ public class ContextMenuHelper implements OnCreateContextMenuListener {
      */
     public void searchWithGoogleLens(boolean isIncognito) {
         retrieveImage((Uri imageUri) -> {
-            ShareHelper.shareImageWithGoogleLens(mActivity, imageUri, isIncognito);
+            ShareHelper.shareImageWithGoogleLens(mWindow, imageUri, isIncognito);
         });
     }
 
@@ -225,7 +235,7 @@ public class ContextMenuHelper implements OnCreateContextMenuListener {
      * it will use the right activity set when the menu was displayed.
      */
     void shareImage() {
-        retrieveImage((Uri imageUri) -> { ShareHelper.shareImage(mActivity, null, imageUri); });
+        retrieveImage((Uri imageUri) -> { ShareHelper.shareImage(mWindow, null, imageUri); });
     }
 
     /**
@@ -233,8 +243,7 @@ public class ContextMenuHelper implements OnCreateContextMenuListener {
      */
     private void shareImageWithLastShareComponent() {
         retrieveImage((Uri imageUri) -> {
-            ShareHelper.shareImage(
-                    mActivity, ShareHelper.getLastShareComponentName(null), imageUri);
+            ShareHelper.shareImage(mWindow, ShareHelper.getLastShareComponentName(null), imageUri);
         });
     }
 
@@ -290,8 +299,8 @@ public class ContextMenuHelper implements OnCreateContextMenuListener {
             return;
         }
         ContextMenuUi menuUi = new PlatformContextMenuUi(menu);
-        menuUi.displayMenu(mActivity, mCurrentContextMenuParams, items, mCallback, mOnMenuShown,
-                mOnMenuClosed);
+        menuUi.displayMenu(
+                mWindow, mCurrentContextMenuParams, items, mCallback, mOnMenuShown, mOnMenuClosed);
     }
 
     private void recordTimeToTakeActionHistogram(boolean selectedItem) {

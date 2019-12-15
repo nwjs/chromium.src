@@ -13,10 +13,10 @@ import android.graphics.Bitmap;
 import android.text.format.DateUtils;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
@@ -276,7 +276,7 @@ public class WebappDataStorage {
                 editor.putString(KEY_ICON, info.icon().encoded());
                 editor.putInt(KEY_DISPLAY_MODE, info.displayMode());
                 editor.putInt(KEY_ORIENTATION, info.orientation());
-                editor.putLong(KEY_THEME_COLOR, info.themeColor());
+                editor.putLong(KEY_THEME_COLOR, info.toolbarColor());
                 editor.putLong(KEY_BACKGROUND_COLOR, info.backgroundColor());
                 editor.putBoolean(KEY_IS_ICON_GENERATED, info.isIconGenerated());
                 editor.putBoolean(KEY_IS_ICON_ADAPTIVE, info.isIconAdaptive());

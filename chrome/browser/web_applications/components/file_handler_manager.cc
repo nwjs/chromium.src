@@ -11,48 +11,71 @@
 namespace web_app {
 
 FileHandlerManager::FileHandlerManager(Profile* profile)
-    : profile_(profile), registrar_observer_(this) {}
+    : profile_(profile), registrar_observer_(this), shortcut_observer_(this) {}
 
 FileHandlerManager::~FileHandlerManager() = default;
 
-void FileHandlerManager::SetSubsystems(AppRegistrar* registrar) {
+void FileHandlerManager::SetSubsystems(AppRegistrar* registrar,
+                                       AppShortcutManager* shortcut_manager) {
   registrar_ = registrar;
-  registrar_observer_.Add(registrar);
+  shortcut_manager_ = shortcut_manager;
 }
 
-void FileHandlerManager::OnWebAppInstalled(const AppId& installed_app_id) {
+void FileHandlerManager::Start() {
+  DCHECK(registrar_);
+  DCHECK(shortcut_manager_);
+
+  registrar_observer_.Add(registrar_);
+  shortcut_observer_.Add(shortcut_manager_);
+}
+
+void FileHandlerManager::EnableAndRegisterOsFileHandlers(const AppId& app_id) {
   if (!base::FeatureList::IsEnabled(blink::features::kFileHandlingAPI) ||
-      !OsSupportsWebAppFileHandling())
+      !ShouldRegisterFileHandlersWithOs()) {
     return;
-  std::string app_name = registrar_->GetAppShortName(installed_app_id);
+  }
+
+  std::string app_name = registrar_->GetAppShortName(app_id);
   const std::vector<apps::FileHandlerInfo>* file_handlers =
-      GetFileHandlers(installed_app_id);
+      GetFileHandlers(app_id);
   if (!file_handlers)
     return;
   std::set<std::string> file_extensions =
       GetFileExtensionsFromFileHandlers(*file_handlers);
   std::set<std::string> mime_types =
       GetMimeTypesFromFileHandlers(*file_handlers);
-  RegisterFileHandlersForWebApp(installed_app_id, app_name, *profile_,
-                                file_extensions, mime_types);
+  RegisterFileHandlersWithOs(app_id, app_name, profile(), file_extensions,
+                             mime_types);
 }
 
-void FileHandlerManager::OnWebAppUninstalled(const AppId& installed_app_id) {
-  if (base::FeatureList::IsEnabled(blink::features::kFileHandlingAPI) &&
-      OsSupportsWebAppFileHandling()) {
-    UnregisterFileHandlersForWebApp(installed_app_id, *profile_);
+void FileHandlerManager::DisableAndUnregisterOsFileHandlers(
+    const AppId& app_id) {
+  if (!base::FeatureList::IsEnabled(blink::features::kFileHandlingAPI) ||
+      !ShouldRegisterFileHandlersWithOs()) {
+    return;
   }
+
+  UnregisterFileHandlersWithOs(app_id, profile());
+}
+
+void FileHandlerManager::OnWebAppUninstalled(const AppId& app_id) {
+  DisableAndUnregisterOsFileHandlers(app_id);
 }
 
 void FileHandlerManager::OnWebAppProfileWillBeDeleted(const AppId& app_id) {
-  if (base::FeatureList::IsEnabled(blink::features::kFileHandlingAPI) &&
-      OsSupportsWebAppFileHandling()) {
-    UnregisterFileHandlersForWebApp(app_id, *profile_);
-  }
+  DisableAndUnregisterOsFileHandlers(app_id);
 }
 
 void FileHandlerManager::OnAppRegistrarDestroyed() {
   registrar_observer_.RemoveAll();
+}
+
+void FileHandlerManager::OnShortcutsCreated(const AppId& app_id) {
+  EnableAndRegisterOsFileHandlers(app_id);
+}
+
+void FileHandlerManager::OnShortcutManagerDestroyed() {
+  shortcut_observer_.RemoveAll();
 }
 
 std::set<std::string> GetFileExtensionsFromFileHandlers(

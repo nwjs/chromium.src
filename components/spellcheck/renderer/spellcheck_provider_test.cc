@@ -33,7 +33,7 @@ void FakeTextCheckingCompletion::DidCancelCheckingText() {
 TestingSpellCheckProvider::TestingSpellCheckProvider(
     service_manager::LocalInterfaceProvider* embedder_provider)
     : SpellCheckProvider(nullptr,
-                         new SpellCheck(nullptr, embedder_provider),
+                         new SpellCheck(embedder_provider),
                          embedder_provider) {}
 
 TestingSpellCheckProvider::TestingSpellCheckProvider(
@@ -116,6 +116,23 @@ void TestingSpellCheckProvider::FillSuggestionList(const base::string16&,
   NOTREACHED();
 }
 #endif  // BUILDFLAG(USE_BROWSER_SPELLCHECKER)
+
+#if BUILDFLAG(USE_WIN_HYBRID_SPELLCHECKER)
+void TestingSpellCheckProvider::GetPerLanguageSuggestions(
+    const base::string16& word,
+    GetPerLanguageSuggestionsCallback callback) {
+  NOTREACHED();
+}
+
+void TestingSpellCheckProvider::RequestPartialTextCheck(
+    const base::string16& text,
+    int route_id,
+    const std::vector<SpellCheckResult>& partial_results,
+    bool fill_suggestions,
+    RequestPartialTextCheckCallback callback) {
+  NOTREACHED();
+}
+#endif  // BUILDFLAG(USE_WIN_HYBRID_SPELLCHECKER)
 
 #if defined(OS_ANDROID)
 void TestingSpellCheckProvider::DisconnectSessionBridge() {

@@ -11,6 +11,7 @@
 #include "base/compiler_specific.h"
 #include "base/files/file_path.h"
 #include "base/memory/ref_counted.h"
+#include "base/optional.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/sequenced_task_runner.h"
@@ -34,6 +35,7 @@
 #include "net/http/http_transaction_factory.h"
 #include "net/http/transport_security_state.h"
 #include "net/net_buildflags.h"
+#include "net/quic/quic_context.h"
 #include "net/socket/client_socket_pool_manager.h"
 #include "net/socket/transport_client_socket_pool.h"
 #include "net/ssl/ssl_config_service_defaults.h"
@@ -90,6 +92,7 @@ class RequestContext : public URLRequestContext {
         std::make_unique<SSLConfigServiceDefaults>());
     storage_.set_http_server_properties(
         std::make_unique<HttpServerProperties>());
+    storage_.set_quic_context(std::make_unique<QuicContext>());
 
     HttpNetworkSession::Context session_context;
     session_context.host_resolver = host_resolver();
@@ -100,6 +103,7 @@ class RequestContext : public URLRequestContext {
     session_context.proxy_resolution_service = proxy_resolution_service();
     session_context.ssl_config_service = ssl_config_service();
     session_context.http_server_properties = http_server_properties();
+    session_context.quic_context = quic_context();
     storage_.set_http_network_session(std::make_unique<HttpNetworkSession>(
         HttpNetworkSession::Params(), session_context));
     storage_.set_http_transaction_factory(std::make_unique<HttpCache>(
@@ -156,7 +160,7 @@ class BasicNetworkDelegate : public NetworkDelegateImpl {
       const HttpResponseHeaders* original_response_headers,
       scoped_refptr<HttpResponseHeaders>* override_response_headers,
       const net::IPEndPoint& endpoint,
-      GURL* allowed_unsafe_redirect_url) override {
+      base::Optional<GURL>* preserve_fragment_on_redirect_url) override {
     return OK;
   }
 

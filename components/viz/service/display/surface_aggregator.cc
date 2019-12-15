@@ -36,6 +36,7 @@
 #include "components/viz/service/surfaces/surface_manager.h"
 #include "ui/gfx/geometry/angle_conversions.h"
 #include "ui/gfx/geometry/rect_conversions.h"
+#include "ui/gfx/overlay_transform.h"
 #include "ui/gfx/overlay_transform_utils.h"
 
 namespace viz {
@@ -799,6 +800,18 @@ void SurfaceAggregator::AddColorConversionPass() {
   auto* root_render_pass = dest_pass_list_->back().get();
   if (root_render_pass->color_space == output_color_space_)
     return;
+
+  // An extra color conversion pass is only done if the display's color
+  // space is unsuitable as a working color space. This happens only
+  // on Windows, where HDR output is required to be in a space with a linear
+  // (or PQ) transfer function.
+  // TODO(ccameron,sunnyps): Determine if blending in PQ space is close
+  // enough to sRGB space as to not require this extra pass.
+  // Or at least to avoid changing behavior.
+  if (output_color_space_ != gfx::ColorSpace::CreateSCRGBLinear() &&
+      output_color_space_ != gfx::ColorSpace::CreateHDR10()) {
+    return;
+  }
 
   gfx::Rect output_rect = root_render_pass->output_rect;
   CHECK(root_render_pass->transform_to_root_target == gfx::Transform());
@@ -1597,7 +1610,6 @@ bool SurfaceAggregator::CanMergeRoundedCorner(
 CompositorFrame SurfaceAggregator::Aggregate(
     const SurfaceId& surface_id,
     base::TimeTicks expected_display_time,
-    gfx::OverlayTransform display_transform,
     int64_t display_trace_id) {
   DCHECK(!expected_display_time.is_null());
 
@@ -1624,15 +1636,21 @@ CompositorFrame SurfaceAggregator::Aggregate(
       TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT, "step",
       "SurfaceAggregation", "display_trace", display_trace_id_);
 
+  const gfx::OverlayTransform display_transform =
+      root_surface_frame.metadata.display_transform_hint;
+
   CompositorFrame frame;
+  frame.metadata.display_transform_hint = display_transform;
+  frame.metadata.top_controls_visible_height =
+      root_surface_frame.metadata.top_controls_visible_height;
 
   dest_pass_list_ = &frame.render_pass_list;
   expected_display_time_ = expected_display_time;
 
   const gfx::Size viewport_bounds =
       root_surface_frame.render_pass_list.back()->output_rect.size();
-  root_surface_transform_ =
-      gfx::OverlayTransformToTransform(display_transform, viewport_bounds);
+  root_surface_transform_ = gfx::OverlayTransformToTransform(
+      display_transform, gfx::SizeF(viewport_bounds));
 
   valid_surfaces_.clear();
   has_cached_render_passes_ = false;

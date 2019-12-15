@@ -207,6 +207,13 @@ class NytimesDesktopStory2018(_ArticleBrowsingStory):
   SUPPORTED_PLATFORMS = platforms.DESKTOP_ONLY
   TAGS = [story_tags.YEAR_2018]
 
+class NytimesMobileStory2019(_ArticleBrowsingStory):
+  """The third top website in http://www.alexa.com/topsites/category/News"""
+  NAME = 'browse:news:nytimes:2019'
+  URL = 'http://mobile.nytimes.com'
+  ITEM_SELECTOR = '.css-1yjtett a'
+  SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
+  TAGS = [story_tags.YEAR_2019]
 
 # Desktop qq.com opens a news item in a separate tab, for which the back button
 # does not work.
@@ -257,7 +264,7 @@ class RedditMobileStory2019(_ArticleBrowsingStory):
     for i in xrange(self.ITEMS_TO_VISIT + 1):
       # Skip the ad disguised as an article.
       if i == 1:
-           continue
+        continue
       self._NavigateToItem(action_runner, i)
       self._ReadNextArticle(action_runner)
       self._NavigateBack(action_runner)
@@ -604,11 +611,25 @@ class YouTubeMobileStory(_MediaBrowsingStory):
           story_tags.HEALTH_CHECK, story_tags.YEAR_2016]
 
 
-class YouTubeDesktopStory2018(_MediaBrowsingStory):
+class YouTubeMobileStory2019(_MediaBrowsingStory):
+  """Load a typical YouTube video then navigate to a next few videos. Stop and
+  watch each video for few seconds.
+  """
+  NAME = 'browse:media:youtube:2019'
+  URL = 'https://m.youtube.com/watch?v=TcMBFSGVi1c&autoplay=false'
+  ITEM_SELECTOR = '.compact-media-item > a'
+  SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
+  IS_SINGLE_PAGE_APP = True
+  ITEM_SELECTOR_INDEX = 3
+  TAGS = [story_tags.JAVASCRIPT_HEAVY, story_tags.EMERGING_MARKET,
+          story_tags.HEALTH_CHECK, story_tags.YEAR_2019]
+
+
+class YouTubeDesktopStory2019(_MediaBrowsingStory):
   """Load a typical YouTube video then navigate to a next few videos. Stop and
   watch each video for a few seconds.
   """
-  NAME = 'browse:media:youtube:2018'
+  NAME = 'browse:media:youtube:2019'
   URL = 'https://www.youtube.com/watch?v=QGfhS1hfTWw&autoplay=0'
   ITEM_SELECTOR = 'ytd-compact-video-renderer.ytd-watch-next-secondary-results-renderer a'
   SUPPORTED_PLATFORMS = platforms.DESKTOP_ONLY
@@ -618,7 +639,7 @@ class YouTubeDesktopStory2018(_MediaBrowsingStory):
   ITEMS_TO_VISIT = 8
   ITEM_SELECTOR_INDEX = 3
   PLATFORM_SPECIFIC = True
-  TAGS = [story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2018]
+  TAGS = [story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2019]
 
 
 class YouTubeTVDesktopStory2019(_MediaBrowsingStory):
@@ -936,6 +957,14 @@ class BrowseGloboMobileStory(_ArticleBrowsingStory):
   ITEM_SELECTOR = '.hui-premium__title'
   COMPLETE_STATE_WAIT_TIMEOUT = 150
 
+class BrowseGloboMobileStory2019(_ArticleBrowsingStory):
+  NAME = 'browse:news:globo:2019'
+  URL = 'http://www.globo.com'
+  SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
+  TAGS = [story_tags.EMERGING_MARKET, story_tags.YEAR_2019]
+  ITEMS_TO_VISIT = 2  # 4 links causes renderer OOM crbug.com/714650.
+  ITEM_SELECTOR = '.hui-premium__link'
+  COMPLETE_STATE_WAIT_TIMEOUT = 150
 
 class BrowseCricBuzzMobileStory(_ArticleBrowsingStory):
   NAME = 'browse:news:cricbuzz'
@@ -946,7 +975,14 @@ class BrowseCricBuzzMobileStory(_ArticleBrowsingStory):
   ITEMS_TO_VISIT = 3
   ITEM_SELECTOR = '.list-content'
 
+class BrowseCricBuzzMobileStory2019(_ArticleBrowsingStory):
+  NAME = 'browse:news:cricbuzz:2019'
+  URL = 'http://m.cricbuzz.com'
+  SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
+  TAGS = [story_tags.EMERGING_MARKET, story_tags.YEAR_2019]
 
+  ITEMS_TO_VISIT = 3
+  ITEM_SELECTOR = '.list-content'
 
 ##############################################################################
 # Maps browsing stories.

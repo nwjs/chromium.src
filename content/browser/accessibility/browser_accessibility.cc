@@ -35,17 +35,24 @@ BrowserAccessibility* BrowserAccessibility::Create() {
 }
 #endif
 
-BrowserAccessibility::BrowserAccessibility()
-    : manager_(nullptr), node_(nullptr) {}
+// static
+BrowserAccessibility* BrowserAccessibility::FromAXPlatformNodeDelegate(
+    ui::AXPlatformNodeDelegate* delegate) {
+  if (!delegate || !delegate->IsWebContent())
+    return nullptr;
+  return static_cast<BrowserAccessibility*>(delegate);
+}
 
-BrowserAccessibility::~BrowserAccessibility() {}
+BrowserAccessibility::BrowserAccessibility() = default;
+
+BrowserAccessibility::~BrowserAccessibility() = default;
 
 namespace {
 
 const BrowserAccessibility* GetTextContainerForPlainTextField(
     const BrowserAccessibility& text_field) {
   DCHECK(text_field.IsPlainTextField());
-  DCHECK(text_field.InternalChildCount() == 1);
+  DCHECK_EQ(1u, text_field.InternalChildCount());
   // Text fields wrap their static text and inline text boxes in generic
   // containers, and some, like input type=search, wrap the wrapper as well.
   // Structure is like this:
@@ -57,7 +64,7 @@ const BrowserAccessibility* GetTextContainerForPlainTextField(
   // This method will return the lowest generic container.
   const BrowserAccessibility* child = text_field.InternalGetFirstChild();
   DCHECK_EQ(child->GetRole(), ax::mojom::Role::kGenericContainer);
-  DCHECK(child->InternalChildCount() <= 1);
+  DCHECK_LE(child->InternalChildCount(), 1u);
   if (child->InternalChildCount() == 1) {
     const BrowserAccessibility* grand_child = child->InternalGetFirstChild();
     if (grand_child->GetRole() == ax::mojom::Role::kGenericContainer) {
@@ -116,9 +123,24 @@ bool BrowserAccessibility::PlatformIsLeafIncludingIgnored() const {
 
   // Roles whose children are only presentational according to the ARIA and
   // HTML5 Specs should be hidden from screen readers.
-  // (Note that whilst ARIA buttons can have only presentational children, HTML5
-  // buttons are allowed to have content.)
   switch (GetRole()) {
+    // According to the ARIA and Core-AAM specs:
+    // https://w3c.github.io/aria/#button,
+    // https://www.w3.org/TR/core-aam-1.1/#exclude_elements
+    // button's children are presentational only and should be hidden from
+    // screen readers. However, we cannot enforce the leafiness of buttons
+    // because they may contain many rich, interactive descendants such as a day
+    // in a calendar, and screen readers will need to interact with these
+    // contents. See https://crbug.com/689204.
+    // So we decided to not enforce the leafiness of buttons and expose all
+    // children. The only exception to enforce leafiness is when the button has
+    // a single text child and to prevent screen readers from double speak.
+    case ax::mojom::Role::kButton: {
+      if (InternalChildCount() == 1 &&
+          InternalGetFirstChild()->IsTextOnlyObject())
+        return true;
+      return false;
+    }
     case ax::mojom::Role::kDocCover:
     case ax::mojom::Role::kGraphicsSymbol:
     case ax::mojom::Role::kImage:
@@ -636,7 +658,7 @@ gfx::Rect BrowserAccessibility::GetRootFrameHypertextRangeBoundsRect(
     const BrowserAccessibility* child = it.get();
     if (child->GetRole() != ax::mojom::Role::kInlineTextBox) {
       DLOG(WARNING) << "BrowserAccessibility objects with role STATIC_TEXT "
-                    << "should have children of role INLINE_TEXT_BOX.";
+                    << "should have children of role INLINE_TEXT_BOX.\n";
       continue;
     }
 
@@ -1062,28 +1084,6 @@ bool BrowserAccessibility::HasAction(ax::mojom::Action action_enum) const {
   return GetData().HasAction(action_enum);
 }
 
-bool BrowserAccessibility::HasVisibleCaretOrSelection() const {
-  ui::AXTree::Selection unignored_selection =
-      manager()->ax_tree()->GetUnignoredSelection();
-  int32_t focus_id = unignored_selection.focus_object_id;
-  BrowserAccessibility* focus_object = manager()->GetFromID(focus_id);
-  if (!focus_object)
-    return false;
-
-  // Selection or caret will be visible in a focused editable area.
-  if (HasState(ax::mojom::State::kEditable)) {
-    return IsPlainTextField() ? focus_object == this
-                              : focus_object->IsDescendantOf(this);
-  }
-
-  // The selection will be visible in non-editable content only if it is not
-  // collapsed into a caret.
-  return (focus_id != unignored_selection.anchor_object_id ||
-          unignored_selection.focus_offset !=
-              unignored_selection.anchor_offset) &&
-         focus_object->IsDescendantOf(this);
-}
-
 bool BrowserAccessibility::IsWebAreaForPresentationalIframe() const {
   if (GetRole() != ax::mojom::Role::kWebArea &&
       GetRole() != ax::mojom::Role::kRootWebArea) {
@@ -1098,18 +1098,11 @@ bool BrowserAccessibility::IsWebAreaForPresentationalIframe() const {
 }
 
 bool BrowserAccessibility::IsClickable() const {
-  return ui::IsClickable(GetData());
+  return GetData().IsClickable();
 }
 
 bool BrowserAccessibility::IsPlainTextField() const {
-  // We need to check both the role and editable state, because some ARIA text
-  // fields may in fact not be editable, whilst some editable fields might not
-  // have the role.
-  return !HasState(ax::mojom::State::kRichlyEditable) &&
-         (GetRole() == ax::mojom::Role::kTextField ||
-          GetRole() == ax::mojom::Role::kTextFieldWithComboBox ||
-          GetRole() == ax::mojom::Role::kSearchBox ||
-          GetBoolAttribute(ax::mojom::BoolAttribute::kEditableRoot));
+  return GetData().IsPlainTextField();
 }
 
 bool BrowserAccessibility::IsRichTextField() const {
@@ -1281,6 +1274,30 @@ bool BrowserAccessibility::IsWebContent() const {
   return true;
 }
 
+bool BrowserAccessibility::HasVisibleCaretOrSelection() const {
+  ui::AXTree::Selection unignored_selection =
+      manager()->ax_tree()->GetUnignoredSelection();
+  int32_t focus_id = unignored_selection.focus_object_id;
+  BrowserAccessibility* focus_object = manager()->GetFromID(focus_id);
+  if (!focus_object)
+    return false;
+
+  // Selection or caret will be visible in a focused editable area, or if caret
+  // browsing is enabled.
+  if (HasState(ax::mojom::State::kEditable) ||
+      BrowserAccessibilityStateImpl::GetInstance()->IsCaretBrowsingEnabled()) {
+    return IsPlainTextField() ? focus_object == this
+                              : focus_object->IsDescendantOf(this);
+  }
+
+  // The selection will be visible in non-editable content only if it is not
+  // collapsed into a caret.
+  return (focus_id != unignored_selection.anchor_object_id ||
+          unignored_selection.focus_offset !=
+              unignored_selection.anchor_offset) &&
+         focus_object->IsDescendantOf(this);
+}
+
 std::set<ui::AXPlatformNode*> BrowserAccessibility::GetNodesForNodeIdSet(
     const std::set<int32_t>& ids) {
   std::set<ui::AXPlatformNode*> nodes;
@@ -1349,6 +1366,21 @@ const ui::AXUniqueId& BrowserAccessibility::GetUniqueId() const {
   return unique_id_;
 }
 
+std::string BrowserAccessibility::SubtreeToStringHelper(size_t level) {
+  std::string result(level * 2, '+');
+  result += ToString();
+  result += '\n';
+
+  for (InternalChildIterator it = InternalChildrenBegin();
+       it != InternalChildrenEnd(); ++it) {
+    BrowserAccessibility* child = it.get();
+    DCHECK(child);
+    result += child->SubtreeToStringHelper(level + 1);
+  }
+
+  return result;
+}
+
 base::Optional<int> BrowserAccessibility::FindTextBoundary(
     ui::AXTextBoundary boundary,
     int offset,
@@ -1363,13 +1395,8 @@ base::Optional<int> BrowserAccessibility::FindTextBoundary(
   // On Windows and Linux ATK, it is standard text navigation behavior to stop
   // if we are searching in the backwards direction and the current position is
   // already at the required text boundary.
-  if (direction == ui::AXTextBoundaryDirection::kBackwards) {
-    // AXPosition disallows ui::AXBoundaryBehavior::StopIfAlreadyAtBoundary when
-    // used on character boundaries because it would be non-sensical.
-    if (boundary == ui::AXTextBoundary::kCharacter)
-      return offset;
+  if (direction == ui::AXTextBoundaryDirection::kBackwards)
     boundary_behavior = ui::AXBoundaryBehavior::StopIfAlreadyAtBoundary;
-  }
 
   return GetBoundaryTextOffsetInsideBaseAnchor(
       direction, position,
@@ -1519,7 +1546,7 @@ BrowserAccessibility::PlatformChildIterator::PlatformChildIterator(
   DCHECK(parent && parent->instance_active());
 }
 
-BrowserAccessibility::PlatformChildIterator::~PlatformChildIterator() {}
+BrowserAccessibility::PlatformChildIterator::~PlatformChildIterator() = default;
 
 bool BrowserAccessibility::PlatformChildIterator::operator==(
     const ChildIterator& rhs) const {
@@ -1568,6 +1595,7 @@ int BrowserAccessibility::PlatformChildIterator::GetIndexInParent() const {
 
   return platform_iterator->GetIndexInParent();
 }
+
 BrowserAccessibility& BrowserAccessibility::PlatformChildIterator::operator*()
     const {
   return *platform_iterator;
@@ -1782,9 +1810,9 @@ bool BrowserAccessibility::AccessibilityPerformAction(
       return true;
     }
     case ax::mojom::Action::kScrollToMakeVisible:
-      manager_->ScrollToMakeVisible(*this, data.target_rect,
-                                    data.horizontal_scroll_alignment,
-                                    data.vertical_scroll_alignment);
+      manager_->ScrollToMakeVisible(
+          *this, data.target_rect, data.horizontal_scroll_alignment,
+          data.vertical_scroll_alignment, data.scroll_behavior);
       return true;
     case ax::mojom::Action::kSetScrollOffset:
       manager_->SetScrollOffset(*this, data.target_point);
@@ -1884,6 +1912,9 @@ base::string16 BrowserAccessibility::GetLocalizedStringForRoleDescription()
     case ax::mojom::Role::kAudio:
       return content_client->GetLocalizedString(IDS_AX_ROLE_AUDIO);
 
+    case ax::mojom::Role::kCode:
+      return content_client->GetLocalizedString(IDS_AX_ROLE_CODE);
+
     case ax::mojom::Role::kColorWell:
       return content_client->GetLocalizedString(IDS_AX_ROLE_COLOR_WELL);
 
@@ -1909,6 +1940,9 @@ base::string16 BrowserAccessibility::GetLocalizedStringForRoleDescription()
 
     case ax::mojom::Role::kDetails:
       return content_client->GetLocalizedString(IDS_AX_ROLE_DETAILS);
+
+    case ax::mojom::Role::kEmphasis:
+      return content_client->GetLocalizedString(IDS_AX_ROLE_EMPHASIS);
 
     case ax::mojom::Role::kFigure:
       return content_client->GetLocalizedString(IDS_AX_ROLE_FIGURE);
@@ -1939,6 +1973,12 @@ base::string16 BrowserAccessibility::GetLocalizedStringForRoleDescription()
 
     case ax::mojom::Role::kStatus:
       return content_client->GetLocalizedString(IDS_AX_ROLE_OUTPUT);
+
+    case ax::mojom::Role::kStrong:
+      return content_client->GetLocalizedString(IDS_AX_ROLE_STRONG);
+
+    case ax::mojom::Role::kSwitch:
+      return content_client->GetLocalizedString(IDS_AX_ROLE_SWITCH);
 
     case ax::mojom::Role::kTextField: {
       std::string input_type;
@@ -1996,6 +2036,10 @@ base::Optional<int> BrowserAccessibility::GetPosInSet() const {
 
 base::Optional<int> BrowserAccessibility::GetSetSize() const {
   return node()->GetSetSize();
+}
+
+bool BrowserAccessibility::IsInListMarker() const {
+  return node()->IsInListMarker();
 }
 
 std::string BrowserAccessibility::ToString() const {
@@ -2180,9 +2224,34 @@ bool BrowserAccessibility::HasInvalidAttribute(
                       }) != attributes.end();
 }
 
-std::ostream& operator<<(std::ostream& stream,
-                         const BrowserAccessibility& object) {
-  return stream << object.ToString();
+static bool HasListAncestor(const BrowserAccessibility* node) {
+  if (node == nullptr)
+    return false;
+
+  if (ui::IsStaticList(node->GetRole()))
+    return true;
+
+  return HasListAncestor(node->InternalGetParent());
+}
+
+static bool HasListDescendant(const BrowserAccessibility* current,
+                              const BrowserAccessibility* root) {
+  // Do not check the root when looking for a list descendant.
+  if (current != root && ui::IsStaticList(current->GetRole()))
+    return true;
+
+  for (auto it = current->InternalChildrenBegin();
+       it != current->InternalChildrenEnd(); ++it) {
+    if (HasListDescendant(it.get(), root))
+      return true;
+  }
+  return false;
+}
+
+bool BrowserAccessibility::IsHierarchicalList() const {
+  if (!ui::IsStaticList(GetRole()))
+    return false;
+  return HasListDescendant(this, this) || HasListAncestor(InternalGetParent());
 }
 
 }  // namespace content

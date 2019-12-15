@@ -42,7 +42,7 @@ class SkiaOutputDeviceVulkan final : public SkiaOutputDevice {
   void EndPaint(const GrBackendSemaphore& semaphore) override;
 
  private:
-  void CreateVulkanSurface();
+  bool CreateVulkanSurface();
   void CreateSkSurface();
 
   VulkanContextProvider* const context_provider_;
@@ -54,6 +54,8 @@ class SkiaOutputDeviceVulkan final : public SkiaOutputDevice {
 
   // SkSurfaces for swap chain images.
   std::vector<sk_sp<SkSurface>> sk_surfaces_;
+
+  sk_sp<SkColorSpace> sk_color_space_;
 
   DISALLOW_COPY_AND_ASSIGN(SkiaOutputDeviceVulkan);
 };

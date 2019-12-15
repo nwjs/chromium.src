@@ -103,6 +103,7 @@ TestRenderFrameHost* TestWebContents::GetPendingMainFrame() {
 
 int TestWebContents::DownloadImage(const GURL& url,
                                    bool is_favicon,
+                                   uint32_t preferred_size,
                                    uint32_t max_bitmap_size,
                                    bool bypass_cache,
                                    ImageDownloadCallback callback) {
@@ -320,7 +321,7 @@ void TestWebContents::TestSetIsLoading(bool value) {
           node->render_manager()->speculative_frame_host();
       if (speculative_frame_host)
         speculative_frame_host->ResetLoadingState();
-      node->ResetNavigationRequest(false, true);
+      node->ResetNavigationRequest(false);
     }
   }
 }

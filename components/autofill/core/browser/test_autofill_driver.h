@@ -37,6 +37,7 @@ class TestAutofillDriver : public AutofillDriver {
                               const FormData& data) override;
   void PropagateAutofillPredictions(
       const std::vector<autofill::FormStructure*>& forms) override;
+  void HandleParsedForms(const std::vector<FormStructure*>& forms) override;
   void SendAutofillTypePredictionsToRenderer(
       const std::vector<FormStructure*>& forms) override;
   void RendererShouldAcceptDataListSuggestion(
@@ -51,12 +52,15 @@ class TestAutofillDriver : public AutofillDriver {
   void PopupHidden() override;
   gfx::RectF TransformBoundingBoxToViewportCoordinates(
       const gfx::RectF& bounding_box) override;
+  net::NetworkIsolationKey NetworkIsolationKey() override;
 
   // Methods unique to TestAutofillDriver that tests can use to specialize
   // functionality.
 
   void SetIsIncognito(bool is_incognito);
   void SetIsInMainFrame(bool is_in_main_frame);
+  void SetNetworkIsolationKey(
+      const net::NetworkIsolationKey& network_isolation_key);
 
   void SetSharedURLLoaderFactory(
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
@@ -66,6 +70,7 @@ class TestAutofillDriver : public AutofillDriver {
   scoped_refptr<network::SharedURLLoaderFactory> test_shared_loader_factory_;
   bool is_incognito_ = false;
   bool is_in_main_frame_ = false;
+  net::NetworkIsolationKey network_isolation_key_;
 
   DISALLOW_COPY_AND_ASSIGN(TestAutofillDriver);
 };

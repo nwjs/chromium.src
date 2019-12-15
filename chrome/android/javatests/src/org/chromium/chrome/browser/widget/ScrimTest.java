@@ -30,7 +30,7 @@ import org.chromium.chrome.browser.omnibox.UrlBar;
 import org.chromium.chrome.browser.util.MathUtils;
 import org.chromium.chrome.browser.widget.ScrimView.ScrimObserver;
 import org.chromium.chrome.browser.widget.ScrimView.ScrimParams;
-import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetContent;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
 import org.chromium.chrome.browser.widget.bottomsheet.TestBottomSheetContent;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -51,7 +51,6 @@ public class ScrimTest {
     @Rule
     public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
 
-    private BottomSheet mBottomSheet;
     private BottomSheetController mSheetController;
     private ScrimView mScrim;
 
@@ -62,7 +61,6 @@ public class ScrimTest {
 
         ThreadUtils.runOnUiThreadBlocking(() -> {
             mSheetController = activity.getBottomSheetController();
-            mBottomSheet = mSheetController.getBottomSheet();
             mScrim = activity.getScrim();
         });
     }
@@ -114,9 +112,9 @@ public class ScrimTest {
         ThreadUtils.runOnUiThreadBlocking(() -> {
             mSheetController.requestShowContent(
                     new TestBottomSheetContent(mActivityTestRule.getActivity(),
-                            BottomSheet.ContentPriority.HIGH, false),
+                            BottomSheetContent.ContentPriority.HIGH, false),
                     false);
-            mBottomSheet.setSheetState(BottomSheet.SheetState.HALF, false);
+            mSheetController.setSheetStateForTesting(BottomSheetController.SheetState.HALF, false);
         });
 
         assertScrimVisibility(true);
@@ -125,7 +123,9 @@ public class ScrimTest {
         assertEquals("The scrim alpha should be 0.", 0f, mScrim.getAlpha(), MathUtils.EPSILON);
 
         ThreadUtils.runOnUiThreadBlocking(
-                () -> mBottomSheet.setSheetState(BottomSheet.SheetState.PEEK, false));
+                ()
+                        -> mSheetController.setSheetStateForTesting(
+                                BottomSheetController.SheetState.PEEK, false));
 
         assertScrimVisibility(false);
         assertFalse("Nothing should be obscuring the tab.",

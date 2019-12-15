@@ -211,8 +211,8 @@ void MultibufferDataSource::Initialize(const InitializeCB& init_cb) {
         FROM_HERE, base::BindOnce(&MultibufferDataSource::UpdateProgress,
                                   weak_factory_.GetWeakPtr()));
   } else {
-    reader_->Wait(1,
-                  base::Bind(&MultibufferDataSource::StartCallback, weak_ptr_));
+    reader_->Wait(
+        1, base::BindOnce(&MultibufferDataSource::StartCallback, weak_ptr_));
   }
 }
 
@@ -249,8 +249,8 @@ void MultibufferDataSource::OnRedirect(
             FROM_HERE,
             base::BindOnce(&MultibufferDataSource::StartCallback, weak_ptr_));
       } else {
-        reader_->Wait(
-            1, base::Bind(&MultibufferDataSource::StartCallback, weak_ptr_));
+        reader_->Wait(1, base::BindOnce(&MultibufferDataSource::StartCallback,
+                                        weak_ptr_));
       }
     } else if (read_op_) {
       CreateResourceLoader(read_op_->position(), kPositionNotSpecified);
@@ -259,8 +259,8 @@ void MultibufferDataSource::OnRedirect(
             FROM_HERE,
             base::BindOnce(&MultibufferDataSource::ReadTask, weak_ptr_));
       } else {
-        reader_->Wait(1,
-                      base::Bind(&MultibufferDataSource::ReadTask, weak_ptr_));
+        reader_->Wait(
+            1, base::BindOnce(&MultibufferDataSource::ReadTask, weak_ptr_));
       }
     }
   }
@@ -488,8 +488,8 @@ void MultibufferDataSource::ReadTask() {
     SeekTask_Locked();
   } else {
     reader_->Seek(read_op_->position());
-    reader_->Wait(1, base::Bind(&MultibufferDataSource::ReadTask,
-                                weak_factory_.GetWeakPtr()));
+    reader_->Wait(1, base::BindOnce(&MultibufferDataSource::ReadTask,
+                                    weak_factory_.GetWeakPtr()));
     UpdateLoadingState_Locked(false);
   }
 }
@@ -601,9 +601,8 @@ void MultibufferDataSource::StartCallback() {
         !AssumeFullyBuffered() && (total_bytes_ == kPositionNotSpecified ||
                                    !url_data_->range_supported());
 
-    media_log_->SetDoubleProperty("total_bytes",
-                                  static_cast<double>(total_bytes_));
-    media_log_->SetBooleanProperty("streaming", streaming_);
+    media_log_->SetProperty<MediaLogProperty::kTotalBytes>(total_bytes_);
+    media_log_->SetProperty<MediaLogProperty::kIsStreaming>(streaming_);
   } else {
     SetReader(nullptr);
   }
@@ -623,9 +622,9 @@ void MultibufferDataSource::StartCallback() {
 
     // Progress callback might be called after the start callback,
     // make sure that we update single_origin_ now.
-    media_log_->SetBooleanProperty("single_origin", single_origin_);
-    media_log_->SetBooleanProperty("range_header_supported",
-                                   url_data_->range_supported());
+    media_log_->SetProperty<MediaLogProperty::kIsSingleOrigin>(single_origin_);
+    media_log_->SetProperty<MediaLogProperty::kIsRangeHeaderSupported>(
+        url_data_->range_supported());
   }
 
   render_task_runner_->PostTask(FROM_HERE,

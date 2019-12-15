@@ -58,8 +58,6 @@
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
-#include "components/rappor/public/rappor_utils.h"
-#include "components/rappor/rappor_service_impl.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/password_protection/metrics_util.h"
 #include "components/safe_browsing/proto/csd.pb.h"
@@ -69,6 +67,7 @@
 #include "components/strings/grit/components_chromium_strings.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/subresource_filter/core/browser/subresource_filter_features.h"
+#include "components/ukm/content/source_url_recorder.h"
 #include "components/url_formatter/elide_url.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/content_switches.h"
@@ -77,6 +76,8 @@
 #include "net/cert/x509_certificate.h"
 #include "net/ssl/ssl_cipher_suite_names.h"
 #include "net/ssl/ssl_connection_status_flags.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/boringssl/src/include/openssl/ssl.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/origin.h"
@@ -112,30 +113,35 @@ namespace {
 // ORDER OF THESE ITEMS IS IMPORTANT and comes from https://crbug.com/610358. To
 // propose changing it, email security-dev@chromium.org.
 ContentSettingsType kPermissionType[] = {
-    CONTENT_SETTINGS_TYPE_GEOLOCATION,
-    CONTENT_SETTINGS_TYPE_MEDIASTREAM_CAMERA,
-    CONTENT_SETTINGS_TYPE_MEDIASTREAM_MIC,
-    CONTENT_SETTINGS_TYPE_SENSORS,
-    CONTENT_SETTINGS_TYPE_NOTIFICATIONS,
-    CONTENT_SETTINGS_TYPE_JAVASCRIPT,
+    ContentSettingsType::GEOLOCATION,
+    ContentSettingsType::MEDIASTREAM_CAMERA,
+    ContentSettingsType::MEDIASTREAM_MIC,
+    ContentSettingsType::SENSORS,
+    ContentSettingsType::NOTIFICATIONS,
+    ContentSettingsType::JAVASCRIPT,
 #if !defined(OS_ANDROID)
-    CONTENT_SETTINGS_TYPE_PLUGINS,
-    CONTENT_SETTINGS_TYPE_IMAGES,
+    ContentSettingsType::PLUGINS,
+    ContentSettingsType::IMAGES,
 #endif
-    CONTENT_SETTINGS_TYPE_POPUPS,
-    CONTENT_SETTINGS_TYPE_ADS,
-    CONTENT_SETTINGS_TYPE_BACKGROUND_SYNC,
-    CONTENT_SETTINGS_TYPE_SOUND,
-    CONTENT_SETTINGS_TYPE_AUTOMATIC_DOWNLOADS,
-    CONTENT_SETTINGS_TYPE_AUTOPLAY,
-    CONTENT_SETTINGS_TYPE_MIDI_SYSEX,
-    CONTENT_SETTINGS_TYPE_CLIPBOARD_READ,
-    CONTENT_SETTINGS_TYPE_USB_GUARD,
+    ContentSettingsType::POPUPS,
+    ContentSettingsType::ADS,
+    ContentSettingsType::BACKGROUND_SYNC,
+    ContentSettingsType::SOUND,
+    ContentSettingsType::AUTOMATIC_DOWNLOADS,
+#if defined(OS_ANDROID) || defined(OS_CHROMEOS)
+    ContentSettingsType::PROTECTED_MEDIA_IDENTIFIER,
+#endif
+    ContentSettingsType::MIDI_SYSEX,
+    ContentSettingsType::CLIPBOARD_READ,
+#if defined(OS_ANDROID)
+    ContentSettingsType::NFC,
+#endif
+    ContentSettingsType::USB_GUARD,
 #if !defined(OS_ANDROID)
-    CONTENT_SETTINGS_TYPE_SERIAL_GUARD,
-    CONTENT_SETTINGS_TYPE_NATIVE_FILE_SYSTEM_WRITE_GUARD,
+    ContentSettingsType::SERIAL_GUARD,
+    ContentSettingsType::NATIVE_FILE_SYSTEM_WRITE_GUARD,
 #endif
-    CONTENT_SETTINGS_TYPE_BLUETOOTH_SCANNING,
+    ContentSettingsType::BLUETOOTH_SCANNING,
 };
 
 // Checks whether this permission is currently the factory default, as set by
@@ -164,9 +170,9 @@ bool ShouldShowPermission(
     HostContentSettingsMap* content_settings,
     content::WebContents* web_contents,
     TabSpecificContentSettings* tab_specific_content_settings) {
-  // Note |CONTENT_SETTINGS_TYPE_ADS| will show up regardless of its default
+  // Note |ContentSettingsType::ADS| will show up regardless of its default
   // value when it has been activated on the current origin.
-  if (info.type == CONTENT_SETTINGS_TYPE_ADS) {
+  if (info.type == ContentSettingsType::ADS) {
     if (!base::FeatureList::IsEnabled(
             subresource_filter::kSafeBrowsingSubresourceFilter)) {
       return false;
@@ -175,11 +181,11 @@ bool ShouldShowPermission(
     // The setting for subresource filtering should not show up if the site is
     // not activated, both on android and desktop platforms.
     return content_settings->GetWebsiteSetting(
-               site_url, GURL(), CONTENT_SETTINGS_TYPE_ADS_DATA, std::string(),
+               site_url, GURL(), ContentSettingsType::ADS_DATA, std::string(),
                nullptr) != nullptr;
   }
 
-  if (info.type == CONTENT_SETTINGS_TYPE_SOUND) {
+  if (info.type == ContentSettingsType::SOUND) {
     // The sound content setting should always show up when the tab has played
     // audio.
     if (web_contents && web_contents->WasEverAudible())
@@ -189,28 +195,28 @@ bool ShouldShowPermission(
 #if defined(OS_ANDROID)
   // Special geolocation DSE settings apply only on Android, so make sure it
   // gets checked there regardless of default setting on Desktop.
-  if (info.type == CONTENT_SETTINGS_TYPE_GEOLOCATION)
+  if (info.type == ContentSettingsType::GEOLOCATION)
     return true;
 
   // The Native File System write permission is desktop only at the moment.
-  if (info.type == CONTENT_SETTINGS_TYPE_NATIVE_FILE_SYSTEM_WRITE_GUARD)
+  if (info.type == ContentSettingsType::NATIVE_FILE_SYSTEM_WRITE_GUARD)
     return false;
 #else
   // Flash is shown if the user has ever changed its setting for |site_url|.
-  if (info.type == CONTENT_SETTINGS_TYPE_PLUGINS &&
+  if (info.type == ContentSettingsType::PLUGINS &&
       content_settings->GetWebsiteSetting(site_url, site_url,
-                                          CONTENT_SETTINGS_TYPE_PLUGINS_DATA,
+                                          ContentSettingsType::PLUGINS_DATA,
                                           std::string(), nullptr) != nullptr) {
     return true;
   }
 
-  // Autoplay is Android-only at the moment.
-  if (info.type == CONTENT_SETTINGS_TYPE_AUTOPLAY)
+  // NFC is Android-only at the moment.
+  if (info.type == ContentSettingsType::NFC)
     return false;
 
   // Display the Native File System write permission if the Native File System
   // API is currently being used.
-  if (info.type == CONTENT_SETTINGS_TYPE_NATIVE_FILE_SYSTEM_WRITE_GUARD &&
+  if (info.type == ContentSettingsType::NATIVE_FILE_SYSTEM_WRITE_GUARD &&
       web_contents->HasNativeFileSystemHandles()) {
     return true;
   }
@@ -299,12 +305,12 @@ ChooserContextBase* GetSerialChooserContext(Profile* profile) {
 // Settings UI. THE ORDER OF THESE ITEMS IS IMPORTANT. To propose changing it,
 // email security-dev@chromium.org.
 const PageInfo::ChooserUIInfo kChooserUIInfo[] = {
-    {CONTENT_SETTINGS_TYPE_USB_CHOOSER_DATA, &GetUsbChooserContext,
+    {ContentSettingsType::USB_CHOOSER_DATA, &GetUsbChooserContext,
      IDS_PAGE_INFO_USB_DEVICE_SECONDARY_LABEL,
      IDS_PAGE_INFO_USB_DEVICE_ALLOWED_BY_POLICY_LABEL,
      IDS_PAGE_INFO_DELETE_USB_DEVICE, &UsbChooserContext::GetObjectName},
 #if !defined(OS_ANDROID)
-    {CONTENT_SETTINGS_TYPE_SERIAL_CHOOSER_DATA, &GetSerialChooserContext,
+    {ContentSettingsType::SERIAL_CHOOSER_DATA, &GetSerialChooserContext,
      IDS_PAGE_INFO_SERIAL_PORT_SECONDARY_LABEL,
      /*allowed_by_policy_description_string_id=*/-1,
      IDS_PAGE_INFO_DELETE_SERIAL_PORT, &SerialChooserContext::GetObjectName},
@@ -452,6 +458,13 @@ void PageInfo::RecordPageInfoAction(PageInfoAction action) {
 
   UMA_HISTOGRAM_ENUMERATION("WebsiteSettings.Action", action, PAGE_INFO_COUNT);
 
+  if (web_contents()) {
+    ukm::builders::PageInfoBubble(
+        ukm::GetSourceIdForWebContentsDocument(web_contents()))
+        .SetActionTaken(action)
+        .Record(ukm::UkmRecorder::Get());
+  }
+
   base::UmaHistogramEnumeration(
       security_state::GetSafetyTipHistogramName(
           "Security.SafetyTips.PageInfo.Action", safety_tip_info_.status),
@@ -507,12 +520,6 @@ void PageInfo::OnSitePermissionChanged(ContentSettingsType type,
     UMA_HISTOGRAM_EXACT_LINEAR(
         "WebsiteSettings.OriginInfo.PermissionChanged.Allowed", histogram_value,
         num_values);
-
-    if (type == CONTENT_SETTINGS_TYPE_PLUGINS) {
-      rappor::SampleDomainAndRegistryFromGURL(
-          g_browser_process->rappor_service(),
-          "ContentSettings.Plugins.AddedAllowException", site_url_);
-    }
   } else if (setting == ContentSetting::CONTENT_SETTING_BLOCK) {
     UMA_HISTOGRAM_EXACT_LINEAR(
         "WebsiteSettings.OriginInfo.PermissionChanged.Blocked", histogram_value,
@@ -523,9 +530,9 @@ void PageInfo::OnSitePermissionChanged(ContentSettingsType type,
   // total count of permission changes in another histogram makes it easier to
   // compare it against other kinds of actions in Page Info.
   RecordPageInfoAction(PAGE_INFO_CHANGED_PERMISSION);
-  if (type == CONTENT_SETTINGS_TYPE_SOUND) {
+  if (type == ContentSettingsType::SOUND) {
     ContentSetting default_setting =
-        content_settings_->GetDefaultContentSetting(CONTENT_SETTINGS_TYPE_SOUND,
+        content_settings_->GetDefaultContentSetting(ContentSettingsType::SOUND,
                                                     nullptr);
     bool mute = (setting == CONTENT_SETTING_BLOCK) ||
                 (setting == CONTENT_SETTING_DEFAULT &&
@@ -552,7 +559,7 @@ void PageInfo::OnSitePermissionChanged(ContentSettingsType type,
                                                 setting);
 
   // When the sound setting is changed, no reload is necessary.
-  if (type != CONTENT_SETTINGS_TYPE_SOUND)
+  if (type != ContentSettingsType::SOUND)
     show_info_bar_ = true;
 
   // Refresh the UI to reflect the new setting.
@@ -650,7 +657,10 @@ void PageInfo::OnWhitelistPasswordReuseButtonPressed(
 #endif
 }
 
-void PageInfo::ComputeUIInputs(
+// TODO(crbug.com/1030099): ComputeUIInputs causes Chrome OS' compiler to hang
+// during an optimization pass; optnone appears to fix that. Remove this once
+// that's fixed.
+__attribute__((optnone)) void PageInfo::ComputeUIInputs(
     const GURL& url,
     security_state::SecurityLevel security_level,
     const security_state::VisibleSecurityState& visible_security_state) {
@@ -674,8 +684,10 @@ void PageInfo::ComputeUIInputs(
     // All about: URLs except about:blank are redirected.
     DCHECK_EQ(url::kAboutBlankURL, url.spec());
     site_identity_status_ = SITE_IDENTITY_STATUS_NO_CERT;
-    site_details_message_ =
+#if defined(OS_ANDROID)
+    identity_status_description_android_ =
         l10n_util::GetStringUTF16(IDS_PAGE_INFO_SECURITY_TAB_INSECURE_IDENTITY);
+#endif
     site_connection_status_ = SITE_CONNECTION_STATUS_UNENCRYPTED;
     site_connection_details_ = l10n_util::GetStringFUTF16(
         IDS_PAGE_INFO_SECURITY_TAB_NOT_ENCRYPTED_CONNECTION_TEXT,
@@ -685,8 +697,10 @@ void PageInfo::ComputeUIInputs(
 
   if (url.SchemeIs(content::kChromeUIScheme) || is_chrome_ui_native_scheme) {
     site_identity_status_ = SITE_IDENTITY_STATUS_INTERNAL_PAGE;
-    site_details_message_ =
+#if defined(OS_ANDROID)
+    identity_status_description_android_ =
         l10n_util::GetStringUTF16(IDS_PAGE_INFO_INTERNAL_PAGE);
+#endif
     site_connection_status_ = SITE_CONNECTION_STATUS_INTERNAL_PAGE;
     return;
   }
@@ -700,8 +714,6 @@ void PageInfo::ComputeUIInputs(
     if (security_level == security_state::SECURE_WITH_POLICY_INSTALLED_CERT) {
 #if defined(OS_CHROMEOS)
       site_identity_status_ = SITE_IDENTITY_STATUS_ADMIN_PROVIDED_CERT;
-      site_details_message_ = l10n_util::GetStringFUTF16(
-          IDS_CERT_POLICY_PROVIDED_CERT_MESSAGE, UTF8ToUTF16(url.host()));
 #else
       DCHECK(false) << "Policy certificates exist only on ChromeOS";
 #endif
@@ -720,51 +732,65 @@ void PageInfo::ComputeUIInputs(
               IDS_PAGE_INFO_SECURITY_TAB_UNKNOWN_PARTY));
         }
 
-        site_details_message_.assign(l10n_util::GetStringFUTF16(
-            IDS_PAGE_INFO_SECURITY_TAB_SECURE_IDENTITY_VERIFIED, issuer_name));
+#if defined(OS_ANDROID)
+        // This string is shown on all non-error HTTPS sites on Android when
+        // the user taps "Details" link on page info.
+        identity_status_description_android_.assign(l10n_util::GetStringFUTF16(
+            IDS_PAGE_INFO_SECURE_IDENTITY_VERIFIED, issuer_name));
+#endif
       }
       if (security_state::IsSHA1InChain(visible_security_state)) {
         site_identity_status_ =
             SITE_IDENTITY_STATUS_DEPRECATED_SIGNATURE_ALGORITHM;
-        site_details_message_ +=
+
+#if defined(OS_ANDROID)
+        identity_status_description_android_ +=
             UTF8ToUTF16("\n\n") +
             l10n_util::GetStringUTF16(
                 IDS_PAGE_INFO_SECURITY_TAB_DEPRECATED_SIGNATURE_ALGORITHM);
+#endif
       }
     }
   } else {
     // HTTP or HTTPS with errors (not warnings).
-    site_details_message_.assign(l10n_util::GetStringUTF16(
-        IDS_PAGE_INFO_SECURITY_TAB_INSECURE_IDENTITY));
     if (!security_state::IsSchemeCryptographic(visible_security_state.url) ||
         !visible_security_state.certificate) {
       site_identity_status_ = SITE_IDENTITY_STATUS_NO_CERT;
     } else {
       site_identity_status_ = SITE_IDENTITY_STATUS_ERROR;
     }
-
+#if defined(OS_ANDROID)
     const base::string16 bullet = UTF8ToUTF16("\n • ");
     std::vector<ssl_errors::ErrorInfo> errors;
     ssl_errors::ErrorInfo::GetErrorsForCertStatus(
         certificate_, visible_security_state.cert_status, url, &errors);
-    for (size_t i = 0; i < errors.size(); ++i) {
-      site_details_message_ += bullet;
-      site_details_message_ += errors[i].short_description();
+
+    identity_status_description_android_.assign(l10n_util::GetStringUTF16(
+        IDS_PAGE_INFO_SECURITY_TAB_INSECURE_IDENTITY));
+    for (const ssl_errors::ErrorInfo& error : errors) {
+      identity_status_description_android_ += bullet;
+      identity_status_description_android_ += error.short_description();
     }
 
     if (visible_security_state.cert_status & net::CERT_STATUS_NON_UNIQUE_NAME) {
-      site_details_message_ += ASCIIToUTF16("\n\n");
-      site_details_message_ +=
+      identity_status_description_android_ += ASCIIToUTF16("\n\n");
+      identity_status_description_android_ +=
           l10n_util::GetStringUTF16(IDS_PAGE_INFO_SECURITY_TAB_NON_UNIQUE_NAME);
     }
+#endif
   }
 
   if (visible_security_state.malicious_content_status !=
       security_state::MALICIOUS_CONTENT_STATUS_NONE) {
     // The site has been flagged by Safe Browsing. Takes precedence over TLS.
+    base::string16 safe_browsing_details;
     GetSafeBrowsingStatusByMaliciousContentStatus(
         visible_security_state.malicious_content_status, &safe_browsing_status_,
-        &site_details_message_);
+        &safe_browsing_details);
+#if defined(OS_ANDROID)
+    identity_status_description_android_ = safe_browsing_details;
+#endif
+
 #if BUILDFLAG(FULL_SAFE_BROWSING)
     bool old_show_change_pw_buttons = show_change_password_buttons_;
 #endif
@@ -787,15 +813,18 @@ void PageInfo::ComputeUIInputs(
   }
 
   safety_tip_info_ = visible_security_state.safety_tip_info;
+#if defined(OS_ANDROID)
   if (base::FeatureList::IsEnabled(security_state::features::kSafetyTipUI)) {
-    // site_details_message_ is only displayed on Android when the user taps
-    // "Details" link on the page info. Reuse the description from page info UI.
+    // identity_status_description_android_ is only displayed on Android when
+    // the user taps "Details" link on the page info. Reuse the description from
+    // page info UI.
     std::unique_ptr<PageInfoUI::SecurityDescription> security_description =
         PageInfoUI::CreateSafetyTipSecurityDescription(safety_tip_info_);
     if (security_description) {
-      site_details_message_ = security_description->details;
+      identity_status_description_android_ = security_description->details;
     }
   }
+#endif
 
   // Site Connection
   // We consider anything less than 80 bits encryption to be weak encryption.
@@ -909,6 +938,9 @@ void PageInfo::PresentSitePermissions() {
     permission_info.type = kPermissionType[i];
 
     content_settings::SettingInfo info;
+
+    // TODO(crbug.com/1030245) Investigate why the value is queried from the low
+    // level routine GetWebsiteSettings.
     std::unique_ptr<base::Value> value = content_settings_->GetWebsiteSetting(
         site_url_, site_url_, permission_info.type, std::string(), &info);
     DCHECK(value.get());
@@ -947,8 +979,10 @@ void PageInfo::PresentSitePermissions() {
 
       // If under embargo, update |permission_info| to reflect that.
       if (permission_result.content_setting == CONTENT_SETTING_BLOCK &&
-          permission_result.source ==
-              PermissionStatusSource::MULTIPLE_DISMISSALS) {
+          (permission_result.source ==
+               PermissionStatusSource::MULTIPLE_DISMISSALS ||
+           permission_result.source ==
+               PermissionStatusSource::MULTIPLE_IGNORES)) {
         permission_info.setting = permission_result.content_setting;
       }
     }
@@ -1012,7 +1046,11 @@ void PageInfo::PresentSiteIdentity() {
   if (base::FeatureList::IsEnabled(security_state::features::kSafetyTipUI)) {
     info.safety_tip_info = safety_tip_info_;
   }
-  info.identity_status_description = UTF16ToUTF8(site_details_message_);
+#if defined(OS_ANDROID)
+  info.identity_status_description_android =
+      UTF16ToUTF8(identity_status_description_android_);
+#endif
+
   info.certificate = certificate_;
   info.show_ssl_decision_revoke_button = show_ssl_decision_revoke_button_;
   info.show_change_password_buttons = show_change_password_buttons_;
@@ -1042,13 +1080,9 @@ void PageInfo::RecordPasswordReuseEvent() {
 
 std::vector<ContentSettingsType> PageInfo::GetAllPermissionsForTesting() {
   std::vector<ContentSettingsType> permission_list;
-  for (size_t i = 0; i < base::size(kPermissionType); ++i) {
-#if !defined(OS_ANDROID)
-    if (kPermissionType[i] == CONTENT_SETTINGS_TYPE_AUTOPLAY)
-      continue;
-#endif
+  for (size_t i = 0; i < base::size(kPermissionType); ++i)
     permission_list.push_back(kPermissionType[i]);
-  }
+
   return permission_list;
 }
 
@@ -1056,6 +1090,7 @@ void PageInfo::GetSafeBrowsingStatusByMaliciousContentStatus(
     security_state::MaliciousContentStatus malicious_content_status,
     PageInfo::SafeBrowsingStatus* status,
     base::string16* details) {
+  std::vector<size_t> placeholder_offsets;
   switch (malicious_content_status) {
     case security_state::MALICIOUS_CONTENT_STATUS_NONE:
       NOTREACHED();
@@ -1082,7 +1117,8 @@ void PageInfo::GetSafeBrowsingStatusByMaliciousContentStatus(
           password_protection_service_
               ? password_protection_service_->GetWarningDetailText(
                     password_protection_service_
-                        ->reused_password_account_type_for_last_shown_warning())
+                        ->reused_password_account_type_for_last_shown_warning(),
+                    &placeholder_offsets)
               : base::string16();
 #endif
       break;
@@ -1094,7 +1130,8 @@ void PageInfo::GetSafeBrowsingStatusByMaliciousContentStatus(
           password_protection_service_
               ? password_protection_service_->GetWarningDetailText(
                     password_protection_service_
-                        ->reused_password_account_type_for_last_shown_warning())
+                        ->reused_password_account_type_for_last_shown_warning(),
+                    &placeholder_offsets)
               : base::string16();
 #endif
       break;
@@ -1108,7 +1145,8 @@ void PageInfo::GetSafeBrowsingStatusByMaliciousContentStatus(
           password_protection_service_
               ? password_protection_service_->GetWarningDetailText(
                     password_protection_service_
-                        ->reused_password_account_type_for_last_shown_warning())
+                        ->reused_password_account_type_for_last_shown_warning(),
+                    &placeholder_offsets)
               : base::string16();
 #endif
       break;
@@ -1120,7 +1158,8 @@ void PageInfo::GetSafeBrowsingStatusByMaliciousContentStatus(
           password_protection_service_
               ? password_protection_service_->GetWarningDetailText(
                     password_protection_service_
-                        ->reused_password_account_type_for_last_shown_warning())
+                        ->reused_password_account_type_for_last_shown_warning(),
+                    &placeholder_offsets)
               : base::string16();
 #endif
       break;

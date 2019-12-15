@@ -317,10 +317,6 @@ bool DirectoryBackingStore::DeleteEntries(EntryTable from,
       statement.Assign(db_->GetCachedStatement(
           SQL_FROM_HERE, "DELETE FROM metas WHERE metahandle = ?"));
       break;
-    case DELETE_JOURNAL_TABLE:
-      statement.Assign(db_->GetCachedStatement(
-          SQL_FROM_HERE, "DELETE FROM deleted_metas WHERE metahandle = ?"));
-      break;
   }
 
   for (auto i = handles.begin(); i != handles.end(); ++i) {
@@ -357,17 +353,6 @@ bool DirectoryBackingStore::SaveChanges(
   }
 
   if (!DeleteEntries(METAS_TABLE, snapshot.metahandles_to_purge))
-    return false;
-
-  PrepareSaveEntryStatement(DELETE_JOURNAL_TABLE,
-                            &save_delete_journal_statement_);
-  for (auto i = snapshot.delete_journals.begin();
-       i != snapshot.delete_journals.end(); ++i) {
-    if (!SaveEntryToDB(&save_delete_journal_statement_, **i))
-      return false;
-  }
-
-  if (!DeleteEntries(DELETE_JOURNAL_TABLE, snapshot.delete_journals_to_purge))
     return false;
 
   if (save_info) {
@@ -717,25 +702,6 @@ bool DirectoryBackingStore::SafeToPurgeOnLoading(
       return true;
   }
   return false;
-}
-
-bool DirectoryBackingStore::LoadDeleteJournals(JournalIndex* delete_journals) {
-  string select;
-  select.reserve(kUpdateStatementBufferSize);
-  select.append("SELECT ");
-  AppendColumnList(&select);
-  select.append(" FROM deleted_metas");
-
-  sql::Statement s(db_->GetUniqueStatement(select.c_str()));
-
-  while (s.Step()) {
-    std::unique_ptr<EntryKernel> kernel = UnpackEntry(&s);
-    // A null kernel is evidence of external data corruption.
-    if (!kernel)
-      return false;
-    DeleteJournal::AddEntryToJournalIndex(delete_journals, std::move(kernel));
-  }
-  return s.Succeeded();
 }
 
 bool DirectoryBackingStore::LoadInfo(Directory::KernelLoadInfo* info) {
@@ -1737,9 +1703,6 @@ void DirectoryBackingStore::PrepareSaveEntryStatement(
   switch (table) {
     case METAS_TABLE:
       query.append("INSERT OR REPLACE INTO metas ");
-      break;
-    case DELETE_JOURNAL_TABLE:
-      query.append("INSERT OR REPLACE INTO deleted_metas ");
       break;
   }
 

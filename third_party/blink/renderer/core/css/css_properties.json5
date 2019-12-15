@@ -354,9 +354,9 @@
       physical_group: {
         valid_type: "str",
         valid_values: ["border", "border-color", "border-style", "border-width",
-                       "inset", "margin", "max-size", "min-size", "overflow",
-                       "padding", "scroll-margin", "scroll-padding", "size",
-                       "visited-border-color"],
+                       "inset", "intrinsic-size", "margin", "max-size",
+                       "min-size", "overflow", "padding", "scroll-margin",
+                       "scroll-padding", "size", "visited-border-color"],
       }
     },
 
@@ -928,7 +928,6 @@
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       interpolable: true,
       compositable: true,
-      runtime_flag: "CSSBackdropFilter",
       field_group: "*",
       field_template: "external",
       include_paths: ["third_party/blink/renderer/core/style/style_filter_data.h"],
@@ -1982,6 +1981,50 @@
       converter: "ConvertImageOrientation",
     },
     {
+      name: "intrinsic-block-size",
+      property_methods: ["ParseSingleValue"],
+      direction_aware_options: {
+        resolver: "block",
+        physical_group: "intrinsic-size"
+      },
+      runtime_flag: "CSSIntrinsicSize"
+    },
+    {
+      name: "intrinsic-height",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      interpolable: true,
+      field_group: "box",
+      field_template: "external",
+      keywords: ["auto", "legacy"],
+      default_value: "IntrinsicLength()",
+      type_name: "IntrinsicLength",
+      converter: "ConvertIntrinsicLength",
+      include_paths: ["third_party/blink/renderer/core/style/intrinsic_length.h"],
+      runtime_flag: "CSSIntrinsicSize"
+    },
+    {
+      name: "intrinsic-inline-size",
+      property_methods: ["ParseSingleValue"],
+      direction_aware_options: {
+        resolver: "inline",
+        physical_group: "intrinsic-size"
+      },
+      runtime_flag: "CSSIntrinsicSize"
+    },
+    {
+      name: "intrinsic-width",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      interpolable: true,
+      field_group: "box",
+      field_template: "external",
+      keywords: ["auto", "legacy"],
+      default_value: "IntrinsicLength()",
+      type_name: "IntrinsicLength",
+      converter: "ConvertIntrinsicLength",
+      include_paths: ["third_party/blink/renderer/core/style/intrinsic_length.h"],
+      runtime_flag: "CSSIntrinsicSize"
+    },
+    {
       name: "isolation",
       property_methods: ["CSSValueFromComputedStyleInternal"],
       field_group: "*",
@@ -2485,7 +2528,7 @@
       inherited: true,
       field_group: "*",
       field_template: "keyword",
-      keywords: ["normal", "break-word"],
+      keywords: ["normal", "break-word", "anywhere"],
       default_value: "normal",
       typedom_types: ["Keyword"]
     },
@@ -2679,6 +2722,20 @@
       converter: "ConvertQuotes",
       keywords: ["none"],
       typedom_types: ["Keyword"]
+    },
+    {
+      name: "render-subtree",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      field_group: "*",
+      field_size: 3,
+      field_template: "multi_keyword",
+      keywords: ["none", "invisible", "skip-activation", "skip-viewport-activation"],
+      default_value: "none",
+      name_for_methods: "RenderSubtree",
+      type_name: "RenderSubtreeFlags",
+      converter: "ConvertFlags<RenderSubtreeFlags>",
+      typedom_types: ["Keyword"],
+      runtime_flag: "CSSRenderSubtree"
     },
     {
       name: "resize",
@@ -4860,18 +4917,6 @@
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
     },
     {
-      name: "content-size",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      field_group: "box",
-      field_template: "external",
-      keywords: ["none"],
-      default_value: "ContentSize()",
-      type_name: "ContentSize",
-      converter: "ConvertContentSize",
-      include_paths: ["third_party/blink/renderer/core/style/content_size.h"],
-      runtime_flag: "CSSContentSize"
-    },
-    {
       name: "flex",
       longhands: ["flex-grow", "flex-shrink", "flex-basis"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
@@ -4986,6 +5031,12 @@
       longhands: ["inset-inline-start", "inset-inline-end"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       runtime_flag: "CSSLogical",
+    },
+    {
+      name: "intrinsic-size",
+      longhands: ["intrinsic-width", "intrinsic-height"],
+      property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      runtime_flag: "CSSIntrinsicSize"
     },
     {
       name: "list-style",

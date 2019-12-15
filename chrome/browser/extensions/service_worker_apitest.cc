@@ -400,13 +400,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest, TabsExecuteScript) {
 }
 
 // Tests chrome.webRequest APIs.
-// Times out on Mac/Win only.  https://crbug.com/997686
-#if defined(OS_WIN) || defined(OS_MACOSX)
-#define MAYBE_WebRequest DISABLED_WebRequest
-#else
-#define MAYBE_WebRequest WebRequest
-#endif
-IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest, MAYBE_WebRequest) {
+IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest, WebRequest) {
   ASSERT_TRUE(
       RunExtensionTest("service_worker/worker_based_background/web_request"))
       << message_;
@@ -599,8 +593,6 @@ class EarlyWorkerMessageSender : public EventRouter::Observer {
   bool SendAndWait() { return listener_.WaitUntilSatisfied(); }
 
  private:
-  static constexpr const char* const kTestOnMessageEventName = "test.onMessage";
-
   void DispatchEvent(std::unique_ptr<Event> event) {
     EventRouter::Get(browser_context_)
         ->DispatchEventToExtension(extension_id_, std::move(event));
@@ -1190,8 +1182,9 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest, MAYBE_WebAccessibleResourcesFetch) {
 // Tests that updating a packed extension with modified scripts works
 // properly -- we expect that the new script will execute, rather than the
 // previous one.
+// Flaky on all platforms: https://crbug.com/1003244
 IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
-                       UpdatePackedExtension) {
+                       DISABLED_UpdatePackedExtension) {
   constexpr char kManifest1[] =
       R"({
            "name": "Test Extension",
@@ -1205,17 +1198,11 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
   // a callback that forces itself to reload.
   constexpr char kScript1[] =
       R"(
-         addEventListener('activate', event => {
-           // TODO(crbug.com/999027, crbug.com/984522): Delaying sending
-           // 'ready1' until activation seems to reduce the flakiness described
-           // in the bugs. It'd be better to fix the underlying bugs.
-           chrome.test.sendMessage('ready1');
-         });
-
          chrome.runtime.onUpdateAvailable.addListener(function(details) {
            chrome.test.assertEq('%s', details.version);
            chrome.runtime.reload();
          });
+         chrome.test.sendMessage('ready1');
         )";
 
   std::string id;
@@ -1296,29 +1283,11 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
          })";
   constexpr char kScript[] =
       R"(
-         let activated;
-         let installed;
-
-         addEventListener('activate', event => {
-           activated = true;
-           NotifyIfDone();
-         });
-
          chrome.runtime.onInstalled.addListener(function(details) {
-           installed = true;
            chrome.test.assertEq('%s', details.reason);
-           NotifyIfDone();
-         });
-
-         // TODO(crbug.com/999027, crbug.com/984522): Delaying notification
-         // until activation seems to reduce the flakiness described in the
-         // bugs. It'd be better to fix the underlying bugs.
-         function NotifyIfDone() {
-           if (!activated || !installed)
-             return;
            chrome.test.sendMessage('%s');
            chrome.test.sendMessage('onInstalled');
-         }
+         });
         )";
 
   std::string id;

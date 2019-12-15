@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+cr.exportPath('settings');
+
 /**
  * @typedef {{
  *   enabled: boolean,
@@ -73,6 +75,14 @@ Polymer({
     showDoNotTrackDialog_: {
       type: Boolean,
       value: false,
+    },
+
+    /** @private */
+    privacySettingsRedesignEnabled_: {
+      type: Boolean,
+      value: function() {
+        return loadTimeData.getBoolean('privacySettingsRedesignEnabled');
+      },
     },
 
     /**
@@ -152,6 +162,13 @@ Polymer({
       }
     },
 
+    /** @private */
+    enableQuietNotificationPromptsSetting_: {
+      type: Boolean,
+      value: () =>
+          loadTimeData.getBoolean('enableQuietNotificationPromptsSetting'),
+    },
+
     /** @private {!Map<string, string>} */
     focusConfig_: {
       type: Object,
@@ -180,20 +197,6 @@ Polymer({
               '#security-keys-subpage-trigger');
         }
         return map;
-      },
-    },
-
-    /**
-     * This flag is used to conditionally show a set of sync UIs to the
-     * profiles that have been migrated to have a unified consent flow.
-     * TODO(tangltom): In the future when all profiles are completely migrated,
-     * this should be removed, and UIs hidden behind it should become default.
-     * @private
-     */
-    unifiedConsentEnabled_: {
-      type: Boolean,
-      value: function() {
-        return loadTimeData.getBoolean('unifiedConsentEnabled');
       },
     },
 
@@ -276,12 +279,25 @@ Polymer({
   },
 
   /**
+   * Records changes made to the "can a website check if you have saved payment
+   * methods" setting for logging, the logic of actually changing the setting
+   * is taken care of by the webUI pref.
+   * @private
+   */
+  onCanMakePaymentChange_: function() {
+    this.browserProxy_.recordSettingsPageHistogram(
+        settings.SettingsPageInteractions.PRIVACY_PAYMENT_METHOD);
+  },
+
+  /**
    * Handles the change event for the do-not-track toggle. Shows a
    * confirmation dialog when enabling the setting.
    * @param {!Event} event
    * @private
    */
   onDoNotTrackChange_: function(event) {
+    this.browserProxy_.recordSettingsPageHistogram(
+        settings.SettingsPageInteractions.PRIVACY_DO_NOT_TRACK);
     const target = /** @type {!SettingsToggleButtonElement} */ (event.target);
     if (!target.checked) {
       // Always allow disabling the pref.
@@ -342,6 +358,18 @@ Polymer({
     // <if expr="is_win or is_macosx">
     this.browserProxy_.showManageSSLCertificates();
     // </if>
+    this.browserProxy_.recordSettingsPageHistogram(
+        settings.SettingsPageInteractions.PRIVACY_MANAGE_CERTIFICATES);
+  },
+
+  /**
+   * Records changes made to the network prediction setting for logging, the
+   * logic of actually changing the setting is taken care of by the webUI pref.
+   * @private
+   */
+  onNetworkPredictionChange_: function() {
+    this.browserProxy_.recordSettingsPageHistogram(
+        settings.SettingsPageInteractions.PRIVACY_NETWORK_PREDICTION);
   },
 
   /** @private */
@@ -349,6 +377,8 @@ Polymer({
     // Navigate to sync page, and remove (privacy related) search text to
     // avoid the sync page from being hidden.
     settings.navigateTo(settings.routes.SYNC, null, true);
+    this.browserProxy_.recordSettingsPageHistogram(
+        settings.SettingsPageInteractions.PRIVACY_SYNC_AND_GOOGLE_SERVICES);
   },
 
   /**
@@ -371,11 +401,15 @@ Polymer({
   /** @private */
   onSiteSettingsTap_: function() {
     settings.navigateTo(settings.routes.SITE_SETTINGS);
+    this.browserProxy_.recordSettingsPageHistogram(
+        settings.SettingsPageInteractions.PRIVACY_SITE_SETTINGS);
   },
 
   /** @private */
   onClearBrowsingDataTap_: function() {
     settings.navigateTo(settings.routes.CLEAR_BROWSER_DATA);
+    this.browserProxy_.recordSettingsPageHistogram(
+        settings.SettingsPageInteractions.PRIVACY_CLEAR_BROWSING_DATA);
   },
 
   /** @private */
@@ -387,6 +421,8 @@ Polymer({
   /** @private */
   onSecurityKeysTap_: function() {
     settings.navigateTo(settings.routes.SECURITY_KEYS);
+    this.browserProxy_.recordSettingsPageHistogram(
+        settings.SettingsPageInteractions.PRIVACY_SECURITY_KEYS);
   },
 
   /** @private */
@@ -403,15 +439,17 @@ Polymer({
 
   /** @private */
   onSigninAllowedChange_: function() {
-    if (this.syncStatus.signedIn && !this.$.signinAllowedToggle.checked) {
+    const toggle = this.$$('#signinAllowedToggle');
+    if (this.syncStatus.signedIn && !toggle.checked) {
       // Switch the toggle back on and show the signout dialog.
-      this.$.signinAllowedToggle.checked = true;
+      toggle.checked = true;
       this.showSignoutDialog_ = true;
     } else {
-      /** @type {!SettingsToggleButtonElement} */ (this.$.signinAllowedToggle)
-          .sendPrefChange();
+      toggle.sendPrefChange();
       this.showRestart_ = true;
     }
+    this.browserProxy_.recordSettingsPageHistogram(
+        settings.SettingsPageInteractions.PRIVACY_CHROME_SIGN_IN);
   },
 
   /** @private */
@@ -419,9 +457,9 @@ Polymer({
     if (/** @type {!SettingsSignoutDialogElement} */ (
             this.$$('settings-signout-dialog'))
             .wasConfirmed()) {
-      this.$.signinAllowedToggle.checked = false;
-      /** @type {!SettingsToggleButtonElement} */ (this.$.signinAllowedToggle)
-          .sendPrefChange();
+      const toggle = this.$$('#signinAllowedToggle');
+      toggle.checked = false;
+      toggle.sendPrefChange();
       this.showRestart_ = true;
     }
     this.showSignoutDialog_ = false;

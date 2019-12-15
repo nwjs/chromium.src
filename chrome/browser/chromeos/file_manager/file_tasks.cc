@@ -57,7 +57,7 @@
 #include "extensions/browser/extension_util.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_set.h"
-#include "storage/browser/fileapi/file_system_url.h"
+#include "storage/browser/file_system/file_system_url.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/mime_util/mime_util.h"
 #include "ui/base/window_open_disposition.h"
@@ -419,9 +419,9 @@ bool ExecuteFileTask(Profile* profile,
     extensions::app_file_handler_util::MimeTypeCollector* mime_collector =
         new extensions::app_file_handler_util::MimeTypeCollector(profile);
     mime_collector->CollectForURLs(
-        file_urls, base::Bind(&ExecuteByArcAfterMimeTypesCollected, profile,
-                              task, file_urls, base::Passed(std::move(done)),
-                              base::Owned(mime_collector)));
+        file_urls, base::BindOnce(&ExecuteByArcAfterMimeTypesCollected, profile,
+                                  task, file_urls, std::move(done),
+                                  base::Owned(mime_collector)));
     return true;
   }
 

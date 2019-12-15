@@ -45,8 +45,13 @@ struct DeviceScaleFactorDPIThreshold {
 // Update the list of zoom levels whenever a new device scale factor is added
 // here. See zoom level list in /ui/display/manager/display_util.cc
 const DeviceScaleFactorDPIThreshold kThresholdTableForInternal[] = {
-    {300.f, 2.66666f}, {270.0f, 2.25f}, {230.0f, 2.0f}, {220.0f, 1.77777f},
-    {180.0f, 1.6f},    {150.0f, 1.25f}, {0.0f, 1.0f},
+    {300.f, 2.6666667461395263671875f},
+    {270.0f, 2.25f},
+    {230.0f, 2.0f},
+    {220.0f, 1.77777779102325439453125f},
+    {180.0f, 1.6f},
+    {150.0f, 1.25f},
+    {0.0f, 1.0f},
 };
 
 // Returns a list of display modes for the given |output| that doesn't exclude
@@ -306,9 +311,16 @@ ManagedDisplayInfo DisplayChangeObserver::CreateManagedDisplayInfo(
                         ? 0
                         : kInchInMm * mode_info->size().width() /
                               snapshot->physical_size().width();
+  constexpr gfx::Size k225DisplaySizeHack(3000, 2000);
+
   if (snapshot->type() == DISPLAY_CONNECTION_TYPE_INTERNAL) {
     new_info.set_native(true);
-    device_scale_factor = FindDeviceScaleFactor(dpi);
+    // This is a stopgap hack to deal with b/74845106. Unfortunately, some old
+    // devices (like evt) does not have a firmware fix, so we need to keep this.
+    if (mode_info->size() == k225DisplaySizeHack)
+      device_scale_factor = 2.25f;
+    else if (dpi)
+      device_scale_factor = FindDeviceScaleFactor(dpi);
   } else {
     ManagedDisplayMode mode;
     if (display_manager_->GetSelectedModeForDisplayId(snapshot->display_id(),

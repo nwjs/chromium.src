@@ -12,11 +12,16 @@
 #include "build/build_config.h"
 #include "components/discardable_memory/public/mojom/discardable_shared_memory_manager.mojom.h"
 #include "components/discardable_memory/service/discardable_shared_memory_manager.h"
+#include "content/browser/field_trial_recorder.h"
+#include "content/common/field_trial_recorder.mojom.h"
 #include "content/public/browser/browser_child_process_host_delegate.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/system_connector.h"
 #include "services/device/public/mojom/constants.mojom.h"
 #include "services/device/public/mojom/power_monitor.mojom.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
+#include "services/metrics/public/mojom/ukm_interface.mojom.h"
+#include "services/metrics/ukm_recorder_interface.h"
 
 #if defined(OS_MACOSX)
 #include "content/browser/sandbox_support_mac_impl.h"
@@ -83,6 +88,12 @@ void BrowserChildProcessHostImpl::BindHostReceiver(
   }
 #endif
 
+  if (auto r = receiver.As<mojom::FieldTrialRecorder>()) {
+    base::PostTask(FROM_HERE, {BrowserThread::UI},
+                   base::BindOnce(&FieldTrialRecorder::Create, std::move(r)));
+    return;
+  }
+
   if (auto r = receiver.As<
                discardable_memory::mojom::DiscardableSharedMemoryManager>()) {
     discardable_memory::DiscardableSharedMemoryManager::Get()->Bind(
@@ -99,6 +110,12 @@ void BrowserChildProcessHostImpl::BindHostReceiver(
                                             std::move(r));
             },
             std::move(r)));
+    return;
+  }
+
+  if (auto r = receiver.As<ukm::mojom::UkmRecorderInterface>()) {
+    metrics::UkmRecorderInterface::Create(ukm::UkmRecorder::Get(),
+                                          std::move(r));
     return;
   }
 

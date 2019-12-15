@@ -151,17 +151,10 @@ DockedMagnifierControllerImpl::~DockedMagnifierControllerImpl() {
 
 // static
 void DockedMagnifierControllerImpl::RegisterProfilePrefs(
-    PrefRegistrySimple* registry,
-    bool for_test) {
-  if (for_test) {
-    // In tests there is no remote pref service. Make ash own the prefs.
-    // TODO(xiyuan): move ownership to ash.
-    registry->RegisterBooleanPref(prefs::kDockedMagnifierEnabled, false,
-                                  PrefRegistry::PUBLIC);
-  }
-
+    PrefRegistrySimple* registry) {
+  registry->RegisterBooleanPref(prefs::kDockedMagnifierEnabled, false);
   registry->RegisterDoublePref(prefs::kDockedMagnifierScale,
-                               kDefaultMagnifierScale, PrefRegistry::PUBLIC);
+                               kDefaultMagnifierScale);
 }
 
 bool DockedMagnifierControllerImpl::GetEnabled() const {
@@ -310,6 +303,10 @@ void DockedMagnifierControllerImpl::CenterOnPoint(
   settings.SetTweenType(gfx::Tween::ZERO);
   settings.SetPreemptionStrategy(ui::LayerAnimator::IMMEDIATELY_SET_NEW_TARGET);
   viewport_magnifier_layer_->SetTransform(transform);
+}
+
+int DockedMagnifierControllerImpl::GetMagnifierHeightForTesting() const {
+  return GetTotalMagnifierHeight();
 }
 
 void DockedMagnifierControllerImpl::OnActiveUserPrefServiceChanged(
@@ -711,13 +708,11 @@ void DockedMagnifierControllerImpl::CreateMagnifierViewport() {
   params.activatable = views::Widget::InitParams::ACTIVATABLE_NO;
   params.accept_events = false;
   params.bounds = viewport_bounds;
-  params.opacity = views::Widget::InitParams::OPAQUE_WINDOW;
+  params.opacity = views::Widget::InitParams::WindowOpacity::kOpaque;
   params.parent =
       GetViewportParentContainerForRoot(current_source_root_window_);
   params.name = kDockedMagnifierViewportWindowName;
   viewport_widget_->Init(std::move(params));
-  viewport_widget_->Show();
-  viewport_widget_->AddObserver(this);
 
   // 2- Create the separator layer right below the viwport widget, parented to
   //    the layer of the root window.
@@ -763,6 +758,11 @@ void DockedMagnifierControllerImpl::CreateMagnifierViewport() {
 
   // 6- Confine the mouse cursor within the remaining part of the display.
   ConfineMouseCursorOutsideViewport();
+
+  // 7- Show the widget, which can trigger events to request movement of the
+  // viewport now that all internal state has been created.
+  viewport_widget_->AddObserver(this);
+  viewport_widget_->Show();
 }
 
 void DockedMagnifierControllerImpl::MaybeCachePointOfInterestMinimumHeight(

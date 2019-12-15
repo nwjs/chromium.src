@@ -19,6 +19,7 @@
 #include "chrome/browser/web_applications/components/install_finalizer.h"
 #include "chrome/browser/web_applications/components/install_manager.h"
 #include "chrome/browser/web_applications/components/pending_app_manager.h"
+#include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/components/web_app_provider_base.h"
 #include "chrome/browser/web_applications/components/web_app_tab_helper.h"
 #include "chrome/common/chrome_features.h"
@@ -27,7 +28,6 @@
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
-#include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 #include "third_party/skia/include/core/SkColor.h"
 
 namespace web_app {
@@ -154,6 +154,7 @@ class ManifestUpdateManagerBrowserTest : public InProcessBrowserTest {
     AppId app_id;
     base::RunLoop run_loop;
     InstallManager::InstallParams params;
+    params.fallback_start_url = http_server_.GetURL("/fallback-url");
     params.add_to_applications_menu = false;
     params.add_to_desktop = false;
     params.add_to_quick_launch_bar = false;
@@ -176,7 +177,7 @@ class ManifestUpdateManagerBrowserTest : public InProcessBrowserTest {
     const GURL app_url = GetAppURL();
     base::RunLoop run_loop;
     ExternalInstallOptions install_options(
-        app_url, blink::mojom::DisplayMode::kStandalone,
+        app_url, DisplayMode::kStandalone,
         ExternalInstallSource::kExternalPolicy);
     install_options.add_to_applications_menu = false;
     install_options.add_to_desktop = false;
@@ -210,14 +211,15 @@ class ManifestUpdateManagerBrowserTest : public InProcessBrowserTest {
     return *WebAppProviderBase::GetProviderBase(browser()->profile());
   }
 
+ protected:
   net::EmbeddedTestServer::HandleRequestCallback request_override_;
 
   base::HistogramTester histogram_tester_;
 
+  net::EmbeddedTestServer http_server_;
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
-
-  net::EmbeddedTestServer http_server_;
 
   DISALLOW_COPY_AND_ASSIGN(ManifestUpdateManagerBrowserTest);
 };
@@ -293,7 +295,8 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
   GURL url = GetAppURL();
   UpdateCheckResultAwaiter awaiter(browser(), url);
   ui_test_utils::NavigateToURL(browser(), url);
-  GetProvider().install_finalizer().UninstallWebApp(app_id, base::DoNothing());
+  GetProvider().install_finalizer().UninstallWebAppFromSyncByUser(
+      app_id, base::DoNothing());
   EXPECT_EQ(std::move(awaiter).AwaitNextResult(),
             ManifestUpdateResult::kAppUninstalled);
   histogram_tester_.ExpectBucketCount(kUpdateHistogramName,
@@ -425,9 +428,9 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
   OverrideManifest(kManifestTemplate, {kInstallableIconList,
                                        "invalid manifest syntax !@#$%^*&()"});
   EXPECT_EQ(GetResultAfterPageLoad(GetAppURL(), &app_id),
-            ManifestUpdateResult::kAppDataInvalid);
+            ManifestUpdateResult::kAppNotEligible);
   histogram_tester_.ExpectBucketCount(kUpdateHistogramName,
-                                      ManifestUpdateResult::kAppDataInvalid, 1);
+                                      ManifestUpdateResult::kAppNotEligible, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
@@ -467,13 +470,14 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
         auto http_response =
             std::make_unique<net::test_server::BasicHttpResponse>();
         http_response->set_code(net::HTTP_TEMPORARY_REDIRECT);
-        http_response->AddCustomHeader("Location", "/defaultresponse");
+        http_response->AddCustomHeader(
+            "Location", "http://other-origin.com/defaultresponse");
         http_response->set_content("redirect page");
         return std::move(http_response);
       });
 
-  // Install via PendingAppManager, the redirect should cause it to install a
-  // placeholder app.
+  // Install via PendingAppManager, the redirect to a different origin should
+  // cause it to install a placeholder app.
   AppId app_id = InstallPolicyApp();
   EXPECT_TRUE(GetProvider().registrar().IsPlaceholderApp(app_id));
 
@@ -547,9 +551,8 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest, CheckKeepsSameName) {
   EXPECT_EQ(GetProvider().registrar().GetAppShortName(app_id), "App name 1");
 }
 
-// TODO(crbug.com/926083): Implement icon URL change detection.
 IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
-                       DISABLED_CheckFindsIconUrlChange) {
+                       CheckFindsIconUrlChange) {
   constexpr char kManifestTemplate[] = R"(
     {
       "name": "Test app name",
@@ -563,11 +566,10 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
   AppId app_id = InstallWebApp();
 
   OverrideManifest(kManifestTemplate, {kAnotherInstallableIconList});
-  // TODO(crbug.com/926083): Implement icon updating.
   EXPECT_EQ(GetResultAfterPageLoad(GetAppURL(), &app_id),
-            ManifestUpdateResult::kAppUpdateFailed);
-  histogram_tester_.ExpectBucketCount(
-      kUpdateHistogramName, ManifestUpdateResult::kAppUpdateFailed, 1);
+            ManifestUpdateResult::kAppUpdated);
+  histogram_tester_.ExpectBucketCount(kUpdateHistogramName,
+                                      ManifestUpdateResult::kAppUpdated, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
@@ -597,6 +599,29 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
   // after updating.
   EXPECT_FALSE(
       GetProvider().install_finalizer().CanUserUninstallFromSync(app_id));
+}
+
+IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
+                       CheckFindsScopeChange) {
+  constexpr char kManifestTemplate[] = R"(
+    {
+      "name": "Test app name",
+      "start_url": ".",
+      "scope": "$1",
+      "display": "standalone",
+      "icons": $2
+    }
+  )";
+  OverrideManifest(kManifestTemplate, {"/banners/", kInstallableIconList});
+  AppId app_id = InstallWebApp();
+
+  OverrideManifest(kManifestTemplate, {"/", kInstallableIconList});
+  EXPECT_EQ(GetResultAfterPageLoad(GetAppURL(), &app_id),
+            ManifestUpdateResult::kAppUpdated);
+  histogram_tester_.ExpectBucketCount(kUpdateHistogramName,
+                                      ManifestUpdateResult::kAppUpdated, 1);
+  EXPECT_EQ(GetProvider().registrar().GetAppScope(app_id),
+            http_server_.GetURL("/"));
 }
 
 }  // namespace web_app

@@ -103,6 +103,15 @@ void AutofillDriverIOS::PropagateAutofillPredictions(
   autofill_manager_.client()->PropagateAutofillPredictions(nullptr, forms);
 }
 
+void AutofillDriverIOS::HandleParsedForms(
+    const std::vector<FormStructure*>& forms) {
+  web::WebFrame* web_frame = web::GetWebFrameWithId(web_state_, web_frame_id_);
+  if (!web_frame) {
+    return;
+  }
+  [bridge_ handleParsedForms:forms inFrame:web_frame];
+}
+
 void AutofillDriverIOS::SendAutofillTypePredictionsToRenderer(
     const std::vector<FormStructure*>& forms) {
   web::WebFrame* web_frame = web::GetWebFrameWithId(web_state_, web_frame_id_);
@@ -139,6 +148,22 @@ void AutofillDriverIOS::PopupHidden() {
 gfx::RectF AutofillDriverIOS::TransformBoundingBoxToViewportCoordinates(
     const gfx::RectF& bounding_box) {
   return bounding_box;
+}
+
+net::NetworkIsolationKey AutofillDriverIOS::NetworkIsolationKey() {
+  std::string main_web_frame_id = web::GetMainWebFrameId(web_state_);
+  web::WebFrame* main_web_frame =
+      web::GetWebFrameWithId(web_state_, main_web_frame_id);
+  if (!main_web_frame)
+    return net::NetworkIsolationKey();
+
+  web::WebFrame* web_frame = web::GetWebFrameWithId(web_state_, web_frame_id_);
+  if (!web_frame)
+    return net::NetworkIsolationKey();
+
+  return net::NetworkIsolationKey(
+      url::Origin::Create(main_web_frame->GetSecurityOrigin()),
+      url::Origin::Create(web_frame->GetSecurityOrigin()));
 }
 
 }  // namespace autofill

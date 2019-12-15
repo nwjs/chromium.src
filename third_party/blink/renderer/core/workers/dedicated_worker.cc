@@ -21,8 +21,6 @@
 #include "base/command_line.h"
 
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
-#include "services/service_manager/public/cpp/interface_provider.h"
-#include "services/service_manager/public/mojom/interface_provider.mojom-blink.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/browser_interface_broker.mojom-blink.h"
@@ -91,7 +89,7 @@ void CountTopLevelScriptRequestUrlOriginType(
   WorkerTopLevelScriptOriginType origin_type;
   if (request_url.ProtocolIsData()) {
     origin_type = WorkerTopLevelScriptOriginType::kDataUrl;
-  } else if (context_origin.IsSameSchemeHostPort(
+  } else if (context_origin.IsSameOriginWith(
                  SecurityOrigin::Create(request_url).get())) {
     origin_type = WorkerTopLevelScriptOriginType::kSameOrigin;
   } else if (context_origin.Protocol() == "chrome-extension") {
@@ -160,7 +158,7 @@ DedicatedWorker::DedicatedWorker(ExecutionContext* context,
       factory_client_(
           Platform::Current()->CreateDedicatedWorkerHostFactoryClient(
               this,
-              GetExecutionContext()->GetInterfaceProvider())) {
+              GetExecutionContext()->GetBrowserInterfaceBroker())) {
   DCHECK(context->IsContextThread());
   DCHECK(script_request_url_.IsValid());
   DCHECK(context_proxy_);
@@ -198,7 +196,9 @@ void DedicatedWorker::postMessage(ScriptState* script_state,
                                   const ScriptValue& message,
                                   const PostMessageOptions* options,
                                   ExceptionState& exception_state) {
-  DCHECK(GetExecutionContext()->IsContextThread());
+  DCHECK(!GetExecutionContext() || GetExecutionContext()->IsContextThread());
+  if (!GetExecutionContext())
+    return;
 
   BlinkTransferableMessage transferable_message;
   Transferables transferables;
@@ -210,6 +210,8 @@ void DedicatedWorker::postMessage(ScriptState* script_state,
     return;
   DCHECK(serialized_message);
   transferable_message.message = serialized_message;
+  transferable_message.sender_origin =
+      GetExecutionContext()->GetSecurityOrigin()->IsolatedCopy();
 
   // Disentangle the port in preparation for sending it to the remote context.
   transferable_message.ports = MessagePort::DisentanglePorts(
@@ -338,13 +340,7 @@ bool DedicatedWorker::HasPendingActivity() const {
 }
 
 void DedicatedWorker::OnWorkerHostCreated(
-    mojo::ScopedMessagePipeHandle interface_provider,
     mojo::ScopedMessagePipeHandle browser_interface_broker) {
-  DCHECK(!interface_provider_);
-  interface_provider_ = service_manager::mojom::blink::InterfaceProviderPtrInfo(
-      std::move(interface_provider),
-      service_manager::mojom::blink::InterfaceProvider::Version_);
-
   DCHECK(!browser_interface_broker_);
   browser_interface_broker_ =
       mojo::PendingRemote<mojom::blink::BrowserInterfaceBroker>(
@@ -414,8 +410,8 @@ void DedicatedWorker::OnFinished() {
     }
     const KURL script_response_url = classic_script_loader_->ResponseURL();
     DCHECK(script_request_url_ == script_response_url ||
-           SecurityOrigin::AreSameSchemeHostPort(script_request_url_,
-                                                 script_response_url));
+           SecurityOrigin::AreSameOrigin(script_request_url_,
+                                         script_response_url));
     ContinueStart(
         script_response_url, OffMainThreadWorkerScriptFetchOption::kDisabled,
         referrer_policy, classic_script_loader_->ResponseAddressSpace(),
@@ -472,7 +468,6 @@ DedicatedWorker::CreateGlobalScopeCreationParams(
                                       ? mojom::ScriptType::kClassic
                                       : mojom::ScriptType::kModule;
 
-  DCHECK(interface_provider_);
   return std::make_unique<GlobalScopeCreationParams>(isNodeJS, main_script,
       script_url, script_type, off_main_thread_fetch_option, options_->name(),
       GetExecutionContext()->UserAgent(), CreateWebWorkerFetchContext(),
@@ -485,8 +480,7 @@ DedicatedWorker::CreateGlobalScopeCreationParams(
       OriginTrialContext::GetTokens(GetExecutionContext()).get(),
       parent_devtools_token, std::move(settings), kV8CacheOptionsDefault,
       nullptr /* worklet_module_responses_map */,
-      std::move(interface_provider_), std::move(browser_interface_broker_),
-      CreateBeginFrameProviderParams(),
+      std::move(browser_interface_broker_), CreateBeginFrameProviderParams(),
       GetExecutionContext()->GetSecurityContext().GetFeaturePolicy(),
       GetExecutionContext()->GetAgentClusterID());
 }

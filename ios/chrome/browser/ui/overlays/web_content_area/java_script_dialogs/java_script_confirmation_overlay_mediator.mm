@@ -8,8 +8,9 @@
 #import "ios/chrome/browser/overlays/public/overlay_request.h"
 #import "ios/chrome/browser/overlays/public/overlay_response.h"
 #import "ios/chrome/browser/overlays/public/web_content_area/java_script_confirmation_overlay.h"
-#import "ios/chrome/browser/ui/alert_view_controller/alert_action.h"
-#import "ios/chrome/browser/ui/alert_view_controller/alert_consumer.h"
+#import "ios/chrome/browser/ui/alert_view/alert_action.h"
+#import "ios/chrome/browser/ui/alert_view/alert_consumer.h"
+#import "ios/chrome/browser/ui/dialogs/dialog_constants.h"
 #import "ios/chrome/browser/ui/overlays/web_content_area/java_script_dialogs/java_script_dialog_blocking_action.h"
 #import "ios/chrome/browser/ui/overlays/web_content_area/java_script_dialogs/java_script_overlay_mediator_util.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -93,6 +94,10 @@
   if (blockingAction)
     [actions addObject:blockingAction];
   return actions;
+}
+
+- (NSString*)alertAccessibilityIdentifier {
+  return kJavaScriptDialogAccessibilityIdentifier;
 }
 
 @end

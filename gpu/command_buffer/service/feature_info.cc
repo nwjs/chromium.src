@@ -417,6 +417,13 @@ void FeatureInfo::EnableCHROMIUMColorBufferFloatRGB() {
   AddExtensionString("GL_CHROMIUM_color_buffer_float_rgb");
 }
 
+void FeatureInfo::EnableOESFboRenderMipmap() {
+  if (!feature_flags_.oes_fbo_render_mipmap) {
+    AddExtensionString("GL_OES_fbo_render_mipmap");
+    feature_flags_.oes_fbo_render_mipmap = true;
+  }
+}
+
 void FeatureInfo::EnableOESTextureFloatLinear() {
   if (!oes_texture_float_linear_available_)
     return;
@@ -712,6 +719,14 @@ void FeatureInfo::InitializeFeatures() {
     validators_.index_type.AddValue(GL_UNSIGNED_INT);
   }
 
+  if (gl_version_info_->IsAtLeastGL(3, 0) || gl_version_info_->is_es3 ||
+      gfx::HasExtension(extensions, "GL_OES_fbo_render_mipmap") ||
+      gfx::HasExtension(extensions, "GL_EXT_framebuffer_object")) {
+    if (!disallowed_features_.oes_fbo_render_mipmap) {
+      EnableOESFboRenderMipmap();
+    }
+  }
+
   bool has_srgb_framebuffer_support = false;
   if (gl_version_info_->IsAtLeastGL(3, 2) ||
       (gl_version_info_->IsAtLeastGL(2, 0) &&
@@ -989,26 +1004,6 @@ void FeatureInfo::InitializeFeatures() {
     feature_flags_.ext_multisample_compatibility = true;
     validators_.capability.AddValue(GL_MULTISAMPLE_EXT);
     validators_.capability.AddValue(GL_SAMPLE_ALPHA_TO_ONE_EXT);
-  }
-
-  if (gfx::HasExtension(extensions, "GL_INTEL_framebuffer_CMAA")) {
-    feature_flags_.chromium_screen_space_antialiasing = true;
-    AddExtensionString("GL_CHROMIUM_screen_space_antialiasing");
-  } else if (gl_version_info_->IsAtLeastGLES(3, 1) ||
-             (gl_version_info_->IsAtLeastGL(3, 0) &&
-              gfx::HasExtension(extensions,
-                                "GL_ARB_shading_language_420pack") &&
-              gfx::HasExtension(extensions, "GL_ARB_texture_storage") &&
-              gfx::HasExtension(extensions, "GL_ARB_texture_gather") &&
-              gfx::HasExtension(extensions,
-                                "GL_ARB_explicit_uniform_location") &&
-              gfx::HasExtension(extensions,
-                                "GL_ARB_explicit_attrib_location") &&
-              gfx::HasExtension(extensions,
-                                "GL_ARB_shader_image_load_store"))) {
-    feature_flags_.chromium_screen_space_antialiasing = true;
-    feature_flags_.use_chromium_screen_space_antialiasing_via_shaders = true;
-    AddExtensionString("GL_CHROMIUM_screen_space_antialiasing");
   }
 
   if (gfx::HasExtension(extensions, "GL_OES_depth24") ||
@@ -1570,14 +1565,47 @@ void FeatureInfo::InitializeFeatures() {
 
   if (!is_passthrough_cmd_decoder_ ||
       gfx::HasExtension(extensions, "GL_ANGLE_multi_draw")) {
-    feature_flags_.webgl_multi_draw = true;
-    AddExtensionString("GL_WEBGL_multi_draw");
 
     if (gfx::HasExtension(extensions, "GL_ANGLE_instanced_arrays") ||
         feature_flags_.angle_instanced_arrays || gl_version_info_->is_es3 ||
         gl_version_info_->is_desktop_core_profile) {
-      feature_flags_.webgl_multi_draw_instanced = true;
-      AddExtensionString("GL_WEBGL_multi_draw_instanced");
+      feature_flags_.webgl_multi_draw = true;
+      AddExtensionString("GL_WEBGL_multi_draw");
+    }
+  }
+
+#if defined(OS_MACOSX)
+  if (is_passthrough_cmd_decoder_ &&
+      gfx::HasExtension(extensions, "GL_ANGLE_base_vertex_base_instance")) {
+#else
+  if ((!is_passthrough_cmd_decoder_ &&
+       ((gl_version_info_->IsAtLeastGLES(3, 2) &&
+         gfx::HasExtension(extensions, "GL_EXT_base_instance")) ||
+        (gl_version_info_->is_desktop_core_profile &&
+         gl_version_info_->IsAtLeastGL(4, 2)))) ||
+      gfx::HasExtension(extensions, "GL_ANGLE_base_vertex_base_instance")) {
+#endif
+    // TODO(shrekshao): change condition to the following after workaround for
+    // Mac AMD and non-native base instance support are implemented, or when
+    // angle is universally used.
+    //
+    // if ((!is_passthrough_cmd_decoder_ &&
+    //      ((gl_version_info_->IsAtLeastGLES(3, 2) ||
+    //        gfx::HasExtension(extensions,
+    //          "GL_OES_draw_elements_base_vertex_base_instance") ||
+    //        gfx::HasExtension(extensions,
+    //          "GL_EXT_draw_elements_base_vertex_base_instance")) ||
+    //       (gl_version_info_->is_desktop_core_profile &&
+    //        gl_version_info_->IsAtLeastGL(3, 2)))) ||
+    //     gfx::HasExtension(extensions, "GL_ANGLE_base_vertex_base_instance"))
+    //     {
+    feature_flags_.webgl_draw_instanced_base_vertex_base_instance = true;
+    AddExtensionString("GL_WEBGL_draw_instanced_base_vertex_base_instance");
+    if (feature_flags_.webgl_multi_draw) {
+      feature_flags_.webgl_multi_draw_instanced_base_vertex_base_instance =
+          true;
+      AddExtensionString(
+          "GL_WEBGL_multi_draw_instanced_base_vertex_base_instance");
     }
   }
 

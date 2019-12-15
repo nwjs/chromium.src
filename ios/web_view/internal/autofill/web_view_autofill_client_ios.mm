@@ -163,11 +163,6 @@ void WebViewAutofillClientIOS::ShowLocalCardMigrationResults(
   NOTIMPLEMENTED();
 }
 
-void WebViewAutofillClientIOS::ShowWebauthnOfferDialog(
-    WebauthnOfferDialogCallback callback) {
-  NOTIMPLEMENTED();
-}
-
 void WebViewAutofillClientIOS::ConfirmSaveAutofillProfile(
     const AutofillProfile& profile,
     base::OnceClosure callback) {
@@ -186,6 +181,13 @@ void WebViewAutofillClientIOS::ConfirmSaveCreditCardLocally(
 
 void WebViewAutofillClientIOS::ConfirmAccountNameFixFlow(
     base::OnceCallback<void(const base::string16&)> callback) {
+  NOTIMPLEMENTED();
+}
+
+void WebViewAutofillClientIOS::ConfirmExpirationDateFixFlow(
+    const CreditCard& card,
+    base::OnceCallback<void(const base::string16&, const base::string16&)>
+        callback) {
   NOTIMPLEMENTED();
 }
 

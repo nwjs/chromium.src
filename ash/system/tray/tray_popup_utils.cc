@@ -18,6 +18,7 @@
 #include "ash/system/tray/hover_highlight_view.h"
 #include "ash/system/tray/size_range_layout.h"
 #include "ash/system/tray/tray_constants.h"
+#include "ash/system/tray/unfocusable_label.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/insets.h"
@@ -215,6 +216,13 @@ views::Label* TrayPopupUtils::CreateDefaultLabel() {
   return label;
 }
 
+UnfocusableLabel* TrayPopupUtils::CreateUnfocusableLabel() {
+  UnfocusableLabel* label = new UnfocusableLabel();
+  label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  label->SetSubpixelRenderingEnabled(false);
+  return label;
+}
+
 views::ImageView* TrayPopupUtils::CreateMainImageView() {
   auto* image = new views::ImageView;
   image->SetPreferredSize(
@@ -368,7 +376,7 @@ void TrayPopupUtils::InitializeAsCheckableRow(HoverHighlightView* container,
 void TrayPopupUtils::UpdateCheckMarkVisibility(HoverHighlightView* container,
                                                bool visible) {
   container->SetRightViewVisible(visible);
-  container->SetAccessiblityState(
+  container->SetAccessibilityState(
       visible ? HoverHighlightView::AccessibilityState::CHECKED_CHECKBOX
               : HoverHighlightView::AccessibilityState::UNCHECKED_CHECKBOX);
 }

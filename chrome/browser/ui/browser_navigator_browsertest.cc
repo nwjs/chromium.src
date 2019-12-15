@@ -106,7 +106,6 @@ bool BrowserNavigatorTest::OpenPOSTURLInNewForegroundTabAndGetTitle(
   param.url = url;
   param.initiator_origin = url::Origin();
   param.is_renderer_initiated = !is_browser_initiated;
-  param.uses_post = true;
   param.post_data = network::ResourceRequestBody::CreateFromBytes(
       post_data.data(), post_data.size());
 
@@ -1429,8 +1428,16 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
             browser()->tab_strip_model()->GetActiveWebContents()->GetURL());
 }
 
+// TODO(1024166): Timing out on linux-chromeos-dbg.
+#if defined(OS_CHROMEOS)
+#define MAYBE_NavigateFromBlankToOptionsInSameTab \
+  DISABLED_NavigateFromBlankToOptionsInSameTab
+#else
+#define MAYBE_NavigateFromBlankToOptionsInSameTab \
+  NavigateFromBlankToOptionsInSameTab
+#endif
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
-                       NavigateFromBlankToOptionsInSameTab) {
+                       MAYBE_NavigateFromBlankToOptionsInSameTab) {
   NavigateParams params(MakeNavigateParams());
   params.url = GURL(url::kAboutBlankURL);
   ui_test_utils::NavigateToURL(&params);
@@ -1447,8 +1454,16 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
             browser()->tab_strip_model()->GetActiveWebContents()->GetURL());
 }
 
+// TODO(1024166): Timing out on linux-chromeos-dbg.
+#if defined(OS_CHROMEOS)
+#define MAYBE_NavigateFromNTPToOptionsInSameTab \
+  DISABLED_NavigateFromNTPToOptionsInSameTab
+#else
+#define MAYBE_NavigateFromNTPToOptionsInSameTab \
+  NavigateFromNTPToOptionsInSameTab
+#endif
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
-                       NavigateFromNTPToOptionsInSameTab) {
+                       MAYBE_NavigateFromNTPToOptionsInSameTab) {
   NavigateParams params(MakeNavigateParams());
   params.url = GURL(chrome::kChromeUINewTabURL);
   ui_test_utils::NavigateToURL(&params);
@@ -1515,8 +1530,16 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
             browser()->tab_strip_model()->GetActiveWebContents()->GetURL());
 }
 
+// TODO(1024166): Timing out on linux-chromeos-dbg.
+#if defined(OS_CHROMEOS)
+#define MAYBE_NavigateFromNTPToOptionsPageInSameTab \
+  DISABLED_NavigateFromNTPToOptionsPageInSameTab
+#else
+#define MAYBE_NavigateFromNTPToOptionsPageInSameTab \
+  NavigateFromNTPToOptionsPageInSameTab
+#endif
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
-                       NavigateFromNTPToOptionsPageInSameTab) {
+                       MAYBE_NavigateFromNTPToOptionsPageInSameTab) {
   {
     content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
@@ -1598,7 +1621,13 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
             browser()->tab_strip_model()->GetActiveWebContents()->GetURL());
 }
 
-IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, CloseSingletonTab) {
+// TODO(1024166): Timing out on linux-chromeos-dbg.
+#if defined(OS_CHROMEOS)
+#define MAYBE_CloseSingletonTab DISABLED_CloseSingletonTab
+#else
+#define MAYBE_CloseSingletonTab CloseSingletonTab
+#endif
+IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, MAYBE_CloseSingletonTab) {
   for (int i = 0; i < 2; ++i) {
     content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,

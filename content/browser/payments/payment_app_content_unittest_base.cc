@@ -191,6 +191,7 @@ PaymentManager* PaymentAppContentUnitTestBase::CreatePaymentManager(
   registration_opt.scope = scope_url;
   worker_helper_->context()->RegisterServiceWorker(
       sw_script_url, registration_opt,
+      blink::mojom::FetchClientSettingsObject::New(),
       base::BindOnce(&RegisterServiceWorkerCallback, &called,
                      &registration_id));
   base::RunLoop().RunUntilIdle();

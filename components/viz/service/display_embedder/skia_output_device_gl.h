@@ -43,7 +43,7 @@ class SkiaOutputDeviceGL final : public SkiaOutputDevice {
       gpu::MailboxManager* mailbox_manager,
       scoped_refptr<gl::GLSurface> gl_surface,
       scoped_refptr<gpu::gles2::FeatureInfo> feature_info,
-      const DidSwapBufferCompleteCallback& did_swap_buffer_complete_callback);
+      DidSwapBufferCompleteCallback did_swap_buffer_complete_callback);
   ~SkiaOutputDeviceGL() override;
 
   void Initialize(GrContext* gr_context, gl::GLContext* gl_context);
@@ -65,14 +65,23 @@ class SkiaOutputDeviceGL final : public SkiaOutputDevice {
                      std::vector<ui::LatencyInfo> latency_info) override;
   void SetDrawRectangle(const gfx::Rect& draw_rectangle) override;
   void SetGpuVSyncEnabled(bool enabled) override;
+#if defined(OS_WIN)
   void SetEnableDCLayers(bool enable) override;
-  void ScheduleDCLayers(std::vector<DCLayerOverlay> dc_layers) override;
+  void ScheduleOverlays(SkiaOutputSurface::OverlayList overlays) override;
+#endif
   void EnsureBackbuffer() override;
   void DiscardBackbuffer() override;
   SkSurface* BeginPaint() override;
   void EndPaint(const GrBackendSemaphore& semaphore) override;
 
  private:
+  // Used as callback for SwapBuffersAsync and PostSubBufferAsync to finish
+  // operation
+  void DoFinishSwapBuffers(const gfx::Size& size,
+                           std::vector<ui::LatencyInfo> latency_info,
+                           gfx::SwapResult result,
+                           std::unique_ptr<gfx::GpuFence>);
+
   scoped_refptr<gl::GLImage> GetGLImageForMailbox(const gpu::Mailbox& mailbox);
 
   gpu::MailboxManager* const mailbox_manager_;
@@ -85,13 +94,6 @@ class SkiaOutputDeviceGL final : public SkiaOutputDevice {
   bool supports_alpha_ = false;
 
   base::WeakPtrFactory<SkiaOutputDeviceGL> weak_ptr_factory_{this};
-
-  // Used as callback for SwapBuffersAsync and PostSubBufferAsync to finish
-  // operation
-  void DoFinishSwapBuffers(const gfx::Size& size,
-                           std::vector<ui::LatencyInfo> latency_info,
-                           gfx::SwapResult result,
-                           std::unique_ptr<gfx::GpuFence>);
 
   DISALLOW_COPY_AND_ASSIGN(SkiaOutputDeviceGL);
 };

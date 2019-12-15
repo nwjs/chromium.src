@@ -24,24 +24,26 @@ MediaInterfaceFactoryHolder::~MediaInterfaceFactoryHolder() {
 media::mojom::InterfaceFactory* MediaInterfaceFactoryHolder::Get() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
-  if (!interface_factory_ptr_)
+  if (!interface_factory_remote_)
     ConnectToMediaService();
 
-  return interface_factory_ptr_.get();
+  return interface_factory_remote_.get();
 }
 
 void MediaInterfaceFactoryHolder::ConnectToMediaService() {
-  media::mojom::MediaServicePtr media_service;
+  mojo::Remote<media::mojom::MediaService> media_service;
 
   // TODO(slan): Use the BrowserContext Connector instead. See crbug.com/638950.
   service_manager::Connector* connector =
       ServiceManagerConnection::GetForProcess()->GetConnector();
-  connector->BindInterface(service_name_, &media_service);
+  connector->BindInterface(service_name_,
+                           media_service.BindNewPipeAndPassReceiver());
 
-  media_service->CreateInterfaceFactory(MakeRequest(&interface_factory_ptr_),
-                                        create_interface_provider_cb_.Run());
+  media_service->CreateInterfaceFactory(
+      interface_factory_remote_.BindNewPipeAndPassReceiver(),
+      create_interface_provider_cb_.Run());
 
-  interface_factory_ptr_.set_connection_error_handler(base::BindOnce(
+  interface_factory_remote_.set_disconnect_handler(base::BindOnce(
       &MediaInterfaceFactoryHolder::OnMediaServiceConnectionError,
       base::Unretained(this)));
 }
@@ -50,7 +52,7 @@ void MediaInterfaceFactoryHolder::OnMediaServiceConnectionError() {
   DVLOG(1) << __func__;
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
-  interface_factory_ptr_.reset();
+  interface_factory_remote_.reset();
 }
 
 }  // namespace content

@@ -63,20 +63,24 @@ class EngineInitializeChecker : public SingleClientStatusChangeChecker {
   explicit EngineInitializeChecker(ProfileSyncService* service)
       : SingleClientStatusChangeChecker(service) {}
 
-  bool IsExitConditionSatisfied() override {
+  bool IsExitConditionSatisfied(std::ostream* os) override {
+    *os << "Waiting for sync engine initialization to complete";
     if (service()->IsEngineInitialized())
       return true;
     // Engine initialization is blocked by an auth error.
-    if (HasAuthError(service()))
+    if (HasAuthError(service())) {
+      LOG(WARNING) << "Sync engine initialization blocked by auth error";
       return true;
+    }
     // Engine initialization is blocked by a failure to fetch Oauth2 tokens.
-    if (service()->IsRetryingAccessTokenFetchForTest())
+    if (service()->IsRetryingAccessTokenFetchForTest()) {
+      LOG(WARNING) << "Sync engine initialization blocked by failure to fetch "
+                      "access tokens";
       return true;
+    }
     // Still waiting on engine initialization.
     return false;
   }
-
-  std::string GetDebugMessage() const override { return "Engine Initialize"; }
 };
 
 class SyncSetupChecker : public SingleClientStatusChangeChecker {
@@ -87,7 +91,9 @@ class SyncSetupChecker : public SingleClientStatusChangeChecker {
       : SingleClientStatusChangeChecker(service),
         wait_for_state_(wait_for_state) {}
 
-  bool IsExitConditionSatisfied() override {
+  bool IsExitConditionSatisfied(std::ostream* os) override {
+    *os << "Waiting for sync setup to complete";
+
     syncer::SyncService::TransportState transport_state =
         service()->GetTransportState();
     if (transport_state == syncer::SyncService::TransportState::ACTIVE &&
@@ -114,8 +120,6 @@ class SyncSetupChecker : public SingleClientStatusChangeChecker {
     // Still waiting on sync setup.
     return false;
   }
-
-  std::string GetDebugMessage() const override { return "Sync Setup"; }
 
  private:
   const State wait_for_state_;
@@ -366,7 +370,7 @@ bool ProfileSyncServiceHarness::SetupSyncImpl(
   FinishSyncSetup();
 
   if ((signin_type_ == SigninType::UI_SIGNIN) &&
-      !login_ui_test_utils::DismissSyncConfirmationDialog(
+      !login_ui_test_utils::ConfirmSyncConfirmationDialog(
           chrome::FindBrowserWithProfile(profile_),
           base::TimeDelta::FromSeconds(30))) {
     LOG(ERROR) << "Failed to dismiss sync confirmation dialog.";
@@ -461,13 +465,18 @@ bool ProfileSyncServiceHarness::AwaitEngineInitialization() {
     return false;
   }
 
-  if (!service()->IsEngineInitialized()) {
-    LOG(ERROR) << "Service engine not initialized.";
+  if (HasAuthError(service())) {
+    LOG(ERROR) << "Credentials were rejected. Sync cannot proceed.";
     return false;
   }
 
-  if (HasAuthError(service())) {
-    LOG(ERROR) << "Credentials were rejected. Sync cannot proceed.";
+  if (service()->IsRetryingAccessTokenFetchForTest()) {
+    LOG(ERROR) << "Failed to fetch access token. Sync cannot proceed.";
+    return false;
+  }
+
+  if (!service()->IsEngineInitialized()) {
+    LOG(ERROR) << "Service engine not initialized.";
     return false;
   }
 

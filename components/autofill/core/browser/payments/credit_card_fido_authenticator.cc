@@ -61,16 +61,6 @@ CreditCardFIDOAuthenticator::CreditCardFIDOAuthenticator(AutofillDriver* driver,
 
 CreditCardFIDOAuthenticator::~CreditCardFIDOAuthenticator() {}
 
-void CreditCardFIDOAuthenticator::ShowWebauthnOfferDialog(
-    std::string card_authorization_token) {
-  card_authorization_token_ = card_authorization_token;
-  autofill_client_->ShowWebauthnOfferDialog(base::BindRepeating(
-      &CreditCardFIDOAuthenticator::OnWebauthnOfferDialogUserResponse,
-      weak_ptr_factory_.GetWeakPtr()));
-  AutofillMetrics::LogWebauthnOptInPromoShown(
-      /*is_checkout_flow=*/!card_authorization_token_.empty());
-}
-
 void CreditCardFIDOAuthenticator::Authenticate(
     const CreditCard* card,
     base::WeakPtr<Requester> requester,
@@ -105,8 +95,10 @@ void CreditCardFIDOAuthenticator::Register(std::string card_authorization_token,
 }
 
 void CreditCardFIDOAuthenticator::Authorize(
+    base::WeakPtr<Requester> requester,
     std::string card_authorization_token,
     base::Value request_options) {
+  requester_ = requester;
   card_authorization_token_ = card_authorization_token;
   if (IsValidRequestOptions(request_options)) {
     // If user is already opted-in, then a new card is trying to be
@@ -166,6 +158,51 @@ void CreditCardFIDOAuthenticator::SyncUserOptIn(
                                                   is_user_opted_in);
 }
 
+void CreditCardFIDOAuthenticator::CancelVerification() {
+  current_flow_ = NONE_FLOW;
+  // Full card request may not exist when this function is called. The full card
+  // request is created in OnDidGetAssertion() but the flow can be cancelled
+  // before than.
+  if (full_card_request_)
+    full_card_request_->OnFIDOVerificationCancelled();
+}
+
+#if !defined(OS_ANDROID)
+void CreditCardFIDOAuthenticator::OnWebauthnOfferDialogRequested(
+    std::string card_authorization_token) {
+  card_authorization_token_ = card_authorization_token;
+  AutofillMetrics::LogWebauthnOptInPromoShown(
+      /*is_checkout_flow=*/!card_authorization_token_.empty());
+}
+
+void CreditCardFIDOAuthenticator::OnWebauthnOfferDialogUserResponse(
+    bool did_accept) {
+  if (did_accept) {
+    // Wait until GetAssertion()/MakeCredential() to log user acceptance, since
+    // user still has the option to cancel the dialog while the challenge is
+    // being fetched.
+    Register(card_authorization_token_);
+  } else {
+    // If user declined, log user decision. User may have initially accepted the
+    // dialog, but then chose to cancel while the challenge was being fetched.
+    AutofillMetrics::LogWebauthnOptInPromoUserDecision(
+        /*is_checkout_flow=*/!card_authorization_token_.empty(),
+        current_flow_ == OPT_IN_FETCH_CHALLENGE_FLOW
+            ? AutofillMetrics::WebauthnOptInPromoUserDecisionMetric::
+                  kDeclinedAfterAccepting
+            : AutofillMetrics::WebauthnOptInPromoUserDecisionMetric::
+                  kDeclinedImmediately);
+    payments_client_->CancelRequest();
+    card_authorization_token_ = std::string();
+    current_flow_ = NONE_FLOW;
+    GetOrCreateFidoAuthenticationStrikeDatabase()->AddStrikes(
+        FidoAuthenticationStrikeDatabase::kStrikesToAddWhenOptInOfferDeclined);
+    ::autofill::prefs::SetCreditCardFIDOAuthEnabled(
+        autofill_client_->GetPrefs(), false);
+  }
+}
+#endif
+
 FidoAuthenticationStrikeDatabase*
 CreditCardFIDOAuthenticator::GetOrCreateFidoAuthenticationStrikeDatabase() {
   if (!fido_authentication_strike_database_) {
@@ -189,7 +226,7 @@ void CreditCardFIDOAuthenticator::GetAssertion(
   // closed, then the offer was declined during the fetching challenge process,
   // and thus returned early.
   if (current_flow_ == OPT_IN_WITH_CHALLENGE_FLOW) {
-    if (autofill_client_->CloseWebauthnOfferDialog()) {
+    if (autofill_client_->CloseWebauthnDialog()) {
       // Now that the dialog has closed and will proceed to a WebAuthn prompt,
       // the user must have accepted the dialog without cancelling.
       AutofillMetrics::LogWebauthnOptInPromoUserDecision(
@@ -199,6 +236,12 @@ void CreditCardFIDOAuthenticator::GetAssertion(
       current_flow_ = NONE_FLOW;
       return;
     }
+  }
+  if (current_flow_ == AUTHENTICATION_FLOW) {
+    // The cancel button in the verify pending dialog should be disabled when
+    // the OS authentication dialog is visible.
+    autofill_client_->UpdateWebauthnVerifyPendingCancelButton(
+        /*should_be_enabled=*/false);
   }
 #endif
   authenticator_->GetAssertion(
@@ -218,7 +261,7 @@ void CreditCardFIDOAuthenticator::MakeCredential(
   // level authentication dialog. If dialog is already closed, then the offer
   // was declined during the fetching challenge process, and thus returned
   // early.
-  if (autofill_client_->CloseWebauthnOfferDialog()) {
+  if (autofill_client_->CloseWebauthnDialog()) {
     // Now that the dialog has closed and will proceed to a WebAuthn prompt,
     // the user must have accepted the dialog without cancelling.
     AutofillMetrics::LogWebauthnOptInPromoUserDecision(
@@ -309,6 +352,8 @@ void CreditCardFIDOAuthenticator::OnDidGetAssertion(
     // Report failure to |requester_| if card unmasking was requested.
     if (current_flow_ == AUTHENTICATION_FLOW)
       requester_->OnFIDOAuthenticationComplete(/*did_succeed=*/false);
+    if (current_flow_ == FOLLOWUP_AFTER_CVC_AUTH_FLOW)
+      requester_->OnFidoAuthorizationComplete(/*did_succeed=*/false);
 
     // Treat failure to perform user verification as a strong signal not to
     // offer opt-in in the future.
@@ -323,6 +368,12 @@ void CreditCardFIDOAuthenticator::OnDidGetAssertion(
   }
 
   if (current_flow_ == AUTHENTICATION_FLOW) {
+#if !defined(OS_ANDROID)
+    // On desktop, enables the cancel button in the verify pending dialog again.
+    autofill_client_->UpdateWebauthnVerifyPendingCancelButton(
+        /*should_be_enabled=*/true);
+#endif
+
     base::Value response =
         ParseAssertionResponse(std::move(assertion_response));
     full_card_request_.reset(new payments::FullCardRequest(
@@ -334,6 +385,12 @@ void CreditCardFIDOAuthenticator::OnDidGetAssertion(
   } else {
     DCHECK(current_flow_ == FOLLOWUP_AFTER_CVC_AUTH_FLOW ||
            current_flow_ == OPT_IN_WITH_CHALLENGE_FLOW);
+    // The user facing portion of the authorization is complete, which should be
+    // reported so that the form can be filled if in the FOLLOWUP_AFTER_CVC
+    // flow.
+    if (current_flow_ == FOLLOWUP_AFTER_CVC_AUTH_FLOW)
+      requester_->OnFidoAuthorizationComplete(/*did_succeed=*/true);
+
     base::Value response = base::Value(base::Value::Type::DICTIONARY);
     response.SetKey("fido_assertion_info",
                     ParseAssertionResponse(std::move(assertion_response)));
@@ -378,8 +435,10 @@ void CreditCardFIDOAuthenticator::OnDidGetOptChangeResult(
 
   // End the flow if the server responded with an error.
   if (result != AutofillClient::PaymentsRpcResult::SUCCESS) {
+#if !defined(OS_ANDROID)
     if (current_flow_ == OPT_IN_FETCH_CHALLENGE_FLOW)
       autofill_client_->UpdateWebauthnOfferDialogWithError();
+#endif
     current_flow_ = NONE_FLOW;
     return;
   }
@@ -392,38 +451,11 @@ void CreditCardFIDOAuthenticator::OnDidGetOptChangeResult(
       Register(card_authorization_token_,
                std::move(response.fido_creation_options.value()));
     } else if (response.fido_request_options.has_value()) {
-      Authorize(card_authorization_token_,
+      Authorize(/*requester=*/nullptr, card_authorization_token_,
                 std::move(response.fido_request_options.value()));
     }
   } else {
     current_flow_ = NONE_FLOW;
-  }
-}
-
-void CreditCardFIDOAuthenticator::OnWebauthnOfferDialogUserResponse(
-    bool did_accept) {
-  if (did_accept) {
-    // Wait until GetAssertion()/MakeCredential() to log user acceptance, since
-    // user still has the option to cancel the dialog while the challenge is
-    // being fetched.
-    Register(card_authorization_token_);
-  } else {
-    // If user declined, log user decision. User may have initially accepted the
-    // dialog, but then chose to cancel while the challenge was being fetched.
-    AutofillMetrics::LogWebauthnOptInPromoUserDecision(
-        /*is_checkout_flow=*/!card_authorization_token_.empty(),
-        current_flow_ == OPT_IN_FETCH_CHALLENGE_FLOW
-            ? AutofillMetrics::WebauthnOptInPromoUserDecisionMetric::
-                  kDeclinedAfterAccepting
-            : AutofillMetrics::WebauthnOptInPromoUserDecisionMetric::
-                  kDeclinedImmediately);
-    payments_client_->CancelRequest();
-    card_authorization_token_ = std::string();
-    current_flow_ = NONE_FLOW;
-    GetOrCreateFidoAuthenticationStrikeDatabase()->AddStrikes(
-        FidoAuthenticationStrikeDatabase::kStrikesToAddWhenOptInOfferDeclined);
-    ::autofill::prefs::SetCreditCardFIDOAuthEnabled(
-        autofill_client_->GetPrefs(), false);
   }
 }
 

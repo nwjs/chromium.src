@@ -12,7 +12,6 @@
 
 #include "base/base64.h"
 #include "base/bind.h"
-#include "base/lazy_instance.h"
 #include "base/mac/scoped_nsobject.h"
 #include "base/no_destructor.h"
 #include "base/strings/sys_string_conversions.h"
@@ -46,9 +45,6 @@ namespace content {
 namespace views {
 
 namespace {
-
-base::LazyInstance<ui::GestureRecognizerImplMac>::Leaky
-    g_gesture_recognizer_instance = LAZY_INSTANCE_INITIALIZER;
 
 static base::RepeatingCallback<void(NativeWidgetMac*)>*
     g_init_native_widget_callback = nullptr;
@@ -740,7 +736,8 @@ bool NativeWidgetMac::IsTranslucentWindowOpacitySupported() const {
 }
 
 ui::GestureRecognizer* NativeWidgetMac::GetGestureRecognizer() {
-  return g_gesture_recognizer_instance.Pointer();
+  static base::NoDestructor<ui::GestureRecognizerImplMac> recognizer;
+  return recognizer.get();
 }
 
 void NativeWidgetMac::OnSizeConstraintsChanged() {
@@ -971,7 +968,7 @@ void NativeWidgetPrivate::ReparentNativeView(gfx::NativeView native_view,
   for (auto* child : widgets)
     child->NotifyNativeViewHierarchyWillChange();
 
-  // Update |brige_host|'s parent only if
+  // Update |bridge_host|'s parent only if
   // NativeWidgetNSWindowBridge::ReparentNativeView will.
   if (native_view == bridge_view) {
     window_host->SetParent(parent_window_host);

@@ -205,6 +205,8 @@ _CONFIG = [
 
             # PartitionAlloc
             'base::PartitionFree',
+            'base::PartitionAllocZeroFill',
+            'base::PartitionAllocReturnNull',
 
             # For TaskObserver.
             'base::PendingTask',
@@ -249,10 +251,12 @@ _CONFIG = [
 
             # cc::Layers.
             'cc::Layer',
+            'cc::LayerClient',
             'cc::PictureLayer',
             'cc::SurfaceLayer',
 
             # cc::Layer helper data structs.
+            'cc::BrowserControlsParams',
             'cc::ElementId',
             'cc::LayerPositionConstraint',
             'cc::OverscrollBehavior',
@@ -268,8 +272,7 @@ _CONFIG = [
             'cc::HORIZONTAL',
             'cc::VERTICAL',
             'cc::THUMB',
-            'cc::TRACK',
-            'cc::TICKMARKS',
+            'cc::TRACK_BUTTONS_TICKMARKS',
             'cc::BrowserControlsState',
             'cc::EventListenerClass',
             'cc::EventListenerProperties',
@@ -299,6 +302,7 @@ _CONFIG = [
             'cc::SnapFlingController',
             'cc::SnapSelectionStrategy',
             'cc::SnapStrictness',
+            'cc::TargetSnapAreaElementIds',
             'gfx::RectToSkRect',
             'gfx::ScrollOffset',
             'ui::input_types::ScrollGranularity',
@@ -325,6 +329,7 @@ _CONFIG = [
             'inspector_async_task::.+',
             'inspector_set_layer_tree_id::.+',
             'inspector_tracing_started_in_frame::.+',
+            'keywords::.+',
             'layered_api::.+',
             'layout_invalidation_reason::.+',
             'media_constraints_impl::.+',
@@ -386,9 +391,7 @@ _CONFIG = [
             'mojo::(?!WrapCallback).+',
             'mojo_base::BigBuffer.*',
             '(?:.+::)?mojom::.+',
-            "service_manager::BinderRegistry",
             'service_manager::InterfaceProvider',
-            'service_manager::ServiceFilter',
 
             # STL containers such as std::string and std::vector are discouraged
             # but still needed for interop with WebKit/common. Note that other
@@ -568,12 +571,21 @@ _CONFIG = [
             # Devtools binary protocol uses std::vector<uint8_t> for serialized
             # objects.
             'std::vector',
+            # [C]h[R]ome [D]ev[T]ools [P]rotocol implementation support library
+            # (see third_party/inspector_protocol/crdtp).
+            'crdtp::.+',
         ],
     },
     {
         'paths': ['third_party/blink/renderer/core/inspector/inspector_performance_agent.cc'],
         'allowed': [
             'base::subtle::TimeTicksNowIgnoringOverride',
+        ],
+    },
+    {
+        'paths': ['third_party/blink/renderer/core/scroll/scrollbar_theme_mac.mm'],
+        'allowed': [
+            'gfx::CocoaScrollbarPainter',
         ],
     },
     {
@@ -605,6 +617,7 @@ _CONFIG = [
         # display-related types.
         'allowed': [
             'base::MRUCache',
+            'gl::GpuPreference',
             'gpu::gles2::GLES2Interface',
             'gpu::MailboxHolder',
             'display::Display',
@@ -623,6 +636,9 @@ _CONFIG = [
     {
         'paths': [
             'third_party/blink/renderer/modules/encryptedmedia/',
+            'third_party/blink/renderer/modules/media/',
+            'third_party/blink/renderer/modules/media_capabilities/',
+            'third_party/blink/renderer/modules/video_raf/',
         ],
         'allowed': [
             'media::.+',
@@ -635,22 +651,6 @@ _CONFIG = [
         'allowed': [
             'media::.+',
             'libyuv::.+',
-        ]
-    },
-    {
-        'paths': [
-            'third_party/blink/renderer/modules/media/',
-        ],
-        'allowed': [
-            'media::.+',
-        ]
-    },
-    {
-        'paths': [
-            'third_party/blink/renderer/modules/media_capabilities/',
-        ],
-        'allowed': [
-            'media::.+',
         ]
     },
     {
@@ -727,6 +727,8 @@ _CONFIG = [
             'webrtc::EchoCanceller3Factory',
             'webrtc::ExperimentalAgc',
             'webrtc::MediaStreamTrackInterface',
+            'webrtc::ObserverInterface',
+            'webrtc::StreamConfig',
             'webrtc::TypingDetection',
             'webrtc::VideoTrackInterface',
         ]
@@ -757,9 +759,11 @@ _CONFIG = [
         'allowed': [
             'base::AutoLock',
             'base::Erase',
+            'base::Lock',
             'base::StringPrintf',
             'media::.+',
             'rtc::scoped_refptr',
+            'webrtc::AudioDeviceModule',
             'webrtc::AudioSourceInterface',
             'webrtc::AudioTransport',
             'webrtc::kAdmMaxDeviceNameSize',
@@ -867,12 +871,24 @@ _CONFIG = [
             'absl::.+',
             'base::AutoLock',
             'base::AutoUnlock',
+            'base::LazyInstance',
             'base::Lock',
             # TODO(crbug.com/787254): Remove base::BindOnce, base::Unretained,
-            # base::MessageLoopCurrent.
+            # base::Passed, base::Closure, base::MessageLoopCurrent,
+            # base::RetainedRef, base::EndsWith and base::CompareCase.
             'base::Bind.*',
-            "base::MessageLoopCurrent",
+            'base::Closure',
+            'base::CompareCase',
+            'base::EndsWith',
+            'base::MD5.*',
+            'base::MessageLoopCurrent',
+            'base::Passed',
+            'base::RetainedRef',
+            'base::StringPrintf',
+            'base::Value',
             'base::Unretained',
+            # TODO(crbug.com/787254): Replace base::Thread with the appropriate Blink class.
+            'base::Thread',
             'base::WrapRefCounted',
             'cricket::.*',
             'jingle_glue::JingleThreadWrapper',
@@ -910,7 +926,15 @@ _CONFIG = [
     {
         'paths': ['third_party/blink/renderer/core/fetch/fetch_request_data.cc'],
         'allowed': ['net::RequestPriority'],
-    }
+    },
+    {
+        'paths': ['third_party/blink/renderer/core/frame/local_frame_view.cc'],
+        'allowed': ['cc::frame_viewer_instrumentation::IsTracingLayerTreeSnapshots'],
+    },
+    {
+        'paths': ['third_party/blink/renderer/modules/webaudio/audio_worklet_thread.cc'],
+        'allowed': ['base::ThreadPriority'],
+    },
 ]
 
 

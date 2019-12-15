@@ -474,15 +474,15 @@ base::Optional<QueueTraits> FrameSchedulerImpl::CreateQueueTraitsForTaskType(
       } else {
         return PausableTaskQueueTraits();
       }
-    case TaskType::kInternalFreezableIPC:
+    case TaskType::kInternalNavigationAssociated:
       return FreezableTaskQueueTraits();
-    case TaskType::kInternalIPC:
     // Some tasks in the tests need to run when objects are paused e.g. to hook
     // when recovering from debugger JavaScript statetment.
     case TaskType::kInternalTest:
     // kWebLocks can be frozen if for entire page, but not for individual
     // frames. See https://crrev.com/c/1687716
     case TaskType::kWebLocks:
+    case TaskType::kInternalFrameLifecycleControl:
       return UnpausableTaskQueueTraits();
     case TaskType::kInternalTranslation:
       return ForegroundOnlyTaskQueueTraits();
@@ -491,7 +491,7 @@ base::Optional<QueueTraits> FrameSchedulerImpl::CreateQueueTraitsForTaskType(
     // time is paused.
     case TaskType::kInternalInspector:
     // Navigation IPCs do not run using virtual time to avoid hanging.
-    case TaskType::kInternalNavigationAssociated:
+    case TaskType::kInternalNavigationAssociatedUnfreezable:
       return DoesNotUseVirtualTimeTaskQueueTraits();
     case TaskType::kDeprecatedNone:
     case TaskType::kMainThreadTaskQueueV8:
@@ -1142,8 +1142,19 @@ FrameSchedulerImpl::CreateWebSchedulingTaskQueue(
   scoped_refptr<MainThreadTaskQueue> task_queue =
       frame_task_queue_controller_->NewWebSchedulingTaskQueue(
           PausableTaskQueueTraits(), priority);
-  return std::make_unique<WebSchedulingTaskQueueImpl>(priority,
-                                                      task_queue.get());
+  return std::make_unique<WebSchedulingTaskQueueImpl>(task_queue->AsWeakPtr());
+}
+
+void FrameSchedulerImpl::OnWebSchedulingTaskQueuePriorityChanged(
+    MainThreadTaskQueue* queue) {
+  UpdateQueuePolicy(queue,
+                    frame_task_queue_controller_->GetQueueEnabledVoter(queue));
+}
+
+const base::UnguessableToken& FrameSchedulerImpl::GetAgentClusterId() const {
+  if (!delegate_)
+    return base::UnguessableToken::Null();
+  return delegate_->GetAgentClusterId();
 }
 
 // static
@@ -1154,7 +1165,7 @@ FrameSchedulerImpl::ThrottleableTaskQueueTraits() {
       .SetCanBeFrozen(true)
       .SetCanBeDeferred(true)
       .SetCanBePaused(true)
-      .SetCanRunWhenVirtualTimePaused(true);
+      .SetCanRunWhenVirtualTimePaused(false);
 }
 
 // static
@@ -1165,7 +1176,7 @@ FrameSchedulerImpl::DeferrableTaskQueueTraits() {
       .SetCanBeFrozen(base::FeatureList::IsEnabled(
           blink::features::kStopNonTimersInBackground))
       .SetCanBePaused(true)
-      .SetCanRunWhenVirtualTimePaused(true);
+      .SetCanRunWhenVirtualTimePaused(false);
 }
 
 // static
@@ -1175,7 +1186,7 @@ FrameSchedulerImpl::PausableTaskQueueTraits() {
       .SetCanBeFrozen(base::FeatureList::IsEnabled(
           blink::features::kStopNonTimersInBackground))
       .SetCanBePaused(true)
-      .SetCanRunWhenVirtualTimePaused(true);
+      .SetCanRunWhenVirtualTimePaused(false);
 }
 
 // static
@@ -1189,19 +1200,19 @@ FrameSchedulerImpl::FreezableTaskQueueTraits() {
 // static
 MainThreadTaskQueue::QueueTraits
 FrameSchedulerImpl::UnpausableTaskQueueTraits() {
-  return QueueTraits().SetCanRunWhenVirtualTimePaused(true);
+  return QueueTraits().SetCanRunWhenVirtualTimePaused(false);
 }
 
 MainThreadTaskQueue::QueueTraits
 FrameSchedulerImpl::ForegroundOnlyTaskQueueTraits() {
   return ThrottleableTaskQueueTraits()
       .SetCanRunInBackground(false)
-      .SetCanRunWhenVirtualTimePaused(true);
+      .SetCanRunWhenVirtualTimePaused(false);
 }
 
 MainThreadTaskQueue::QueueTraits
 FrameSchedulerImpl::DoesNotUseVirtualTimeTaskQueueTraits() {
-  return QueueTraits().SetCanRunWhenVirtualTimePaused(false);
+  return QueueTraits().SetCanRunWhenVirtualTimePaused(true);
 }
 
 void FrameSchedulerImpl::SetPreemptedForCooperativeScheduling(

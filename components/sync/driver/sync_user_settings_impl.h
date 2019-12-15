@@ -48,6 +48,17 @@ class SyncUserSettingsImpl : public SyncUserSettings {
   UserSelectableTypeSet GetRegisteredSelectableTypes() const override;
   UserSelectableTypeSet GetForcedTypes() const override;
 
+#if defined(OS_CHROMEOS)
+  bool IsSyncAllOsTypesEnabled() const override;
+  UserSelectableOsTypeSet GetSelectedOsTypes() const override;
+  void SetSelectedOsTypes(bool sync_all_os_types,
+                          UserSelectableOsTypeSet types) override;
+  UserSelectableOsTypeSet GetRegisteredSelectableOsTypes() const override;
+
+  bool GetOsSyncFeatureEnabled() const override;
+  void SetOsSyncFeatureEnabled(bool enabled) override;
+#endif
+
   bool IsEncryptEverythingAllowed() const override;
   bool IsEncryptEverythingEnabled() const override;
   void EnableEncryptEverything() override;

@@ -38,12 +38,15 @@
 
 namespace {
 const char kAppID[] = "test_app_id";
-const char kFCMToken[] = "test_fcm_token";
-const char kFCMToken2[] = "test_fcm_token_2";
+const char kVapidFCMToken[] = "test_fcm_token";
+const char kVapidFCMToken2[] = "test_fcm_token_2";
+const char kSenderIdFCMToken[] = "sharing_fcm_token";
 const char kDevicep256dh[] = "test_p256_dh";
 const char kDevicep256dh2[] = "test_p256_dh_2";
+const char kSenderIdP256dh[] = "sharing_p256dh";
 const char kDeviceAuthSecret[] = "test_auth_secret";
 const char kDeviceAuthSecret2[] = "test_auth_secret_2";
+const char kSenderIdAuthSecret[] = "sharing_auth_secret";
 
 class MockInstanceIDDriver : public instance_id::InstanceIDDriver {
  public:
@@ -73,13 +76,16 @@ class FakeInstanceID : public instance_id::InstanceID {
                 const std::map<std::string, std::string>& options,
                 std::set<Flags> flags,
                 GetTokenCallback callback) override {
-    std::move(callback).Run(fcm_token_, result_);
+    if (authorized_entity == kSharingSenderID)
+      std::move(callback).Run(kSenderIdFCMToken, result_);
+    else
+      std::move(callback).Run(fcm_token_, result_);
   }
 
   void ValidateToken(const std::string& authorized_entity,
                      const std::string& scope,
                      const std::string& token,
-                     const ValidateTokenCallback& callback) override {
+                     ValidateTokenCallback callback) override {
     NOTIMPLEMENTED();
   }
 
@@ -103,7 +109,10 @@ class FakeInstanceID : public instance_id::InstanceID {
 
   void GetEncryptionInfo(const std::string& authorized_entity,
                          GetEncryptionInfoCallback callback) override {
-    std::move(callback).Run(p256dh_, auth_secret_);
+    if (authorized_entity == kSharingSenderID)
+      std::move(callback).Run(kSenderIdP256dh, kSenderIdAuthSecret);
+    else
+      std::move(callback).Run(p256dh_, auth_secret_);
   }
 
   void SetEncryptionInfo(const std::string& p256dh,
@@ -159,10 +168,6 @@ class SharingDeviceRegistrationTest : public testing::Test {
         base::BindLambdaForTesting([&](SharingDeviceRegistrationResult r) {
           result_ = r;
           local_sharing_info_ = sync_prefs_.GetLocalSharingInfo();
-          synced_sharing_info_ = sync_prefs_.GetSharingInfo(
-              fake_device_info_sync_service_.GetLocalDeviceInfoProvider()
-                  ->GetLocalDeviceInfo()
-                  ->guid());
           fcm_registration_ = sync_prefs_.GetFCMRegistration();
           run_loop.Quit();
         }));
@@ -175,10 +180,6 @@ class SharingDeviceRegistrationTest : public testing::Test {
         base::BindLambdaForTesting([&](SharingDeviceRegistrationResult r) {
           result_ = r;
           local_sharing_info_ = sync_prefs_.GetLocalSharingInfo();
-          synced_sharing_info_ = sync_prefs_.GetSharingInfo(
-              fake_device_info_sync_service_.GetLocalDeviceInfoProvider()
-                  ->GetLocalDeviceInfo()
-                  ->guid());
           fcm_registration_ = sync_prefs_.GetFCMRegistration();
           run_loop.Quit();
         }));
@@ -224,7 +225,6 @@ class SharingDeviceRegistrationTest : public testing::Test {
 
   // callback results
   base::Optional<syncer::DeviceInfo::SharingInfo> local_sharing_info_;
-  base::Optional<syncer::DeviceInfo::SharingInfo> synced_sharing_info_;
   base::Optional<SharingSyncPreference::FCMRegistration> fcm_registration_;
   SharingDeviceRegistrationResult result_;
 };
@@ -247,7 +247,7 @@ TEST_F(SharingDeviceRegistrationTest, IsSharedClipboardSupported_False) {
 
 TEST_F(SharingDeviceRegistrationTest, RegisterDeviceTest_Success) {
   SetInstanceIDFCMResult(instance_id::InstanceID::Result::SUCCESS);
-  SetInstanceIDFCMToken(kFCMToken);
+  SetInstanceIDFCMToken(kVapidFCMToken);
   fake_device_info_sync_service_.GetDeviceInfoTracker()->Add(
       fake_device_info_sync_service_.GetLocalDeviceInfoProvider()
           ->GetLocalDeviceInfo());
@@ -257,93 +257,26 @@ TEST_F(SharingDeviceRegistrationTest, RegisterDeviceTest_Success) {
   std::set<sync_pb::SharingSpecificFields::EnabledFeatures> enabled_features =
       GetExpectedEnabledFeatures();
   syncer::DeviceInfo::SharingInfo expected_sharing_info(
-      kFCMToken, kDevicep256dh, kDeviceAuthSecret, enabled_features);
+      {kVapidFCMToken, kDevicep256dh, kDeviceAuthSecret},
+      {kSenderIdFCMToken, kSenderIdP256dh, kSenderIdAuthSecret},
+      enabled_features);
 
   EXPECT_EQ(SharingDeviceRegistrationResult::kSuccess, result_);
   EXPECT_EQ(expected_sharing_info, local_sharing_info_);
-  EXPECT_EQ(expected_sharing_info, synced_sharing_info_);
   EXPECT_TRUE(fcm_registration_);
 
-  // Change VAPID key to force a re-register, which will return a different FCM
-  // token.
-  auto vapid_key = crypto::ECPrivateKey::Create();
-  ASSERT_TRUE(vapid_key);
-  std::vector<uint8_t> vapid_key_info;
-  ASSERT_TRUE(vapid_key->ExportPrivateKey(&vapid_key_info));
-  sync_prefs_.SetVapidKey(vapid_key_info);
-  vapid_key_manager_.RefreshCachedKey();
-  SetInstanceIDFCMToken(kFCMToken2);
-
+  SetInstanceIDFCMToken(kVapidFCMToken2);
+  fake_instance_id_.SetEncryptionInfo(kDevicep256dh2, kDeviceAuthSecret2);
   RegisterDeviceSync();
 
   // Device should be re-registered with the new FCM token.
   syncer::DeviceInfo::SharingInfo expected_synced_sharing_info_2(
-      kFCMToken2, kDevicep256dh, kDeviceAuthSecret, enabled_features);
+      {kVapidFCMToken2, kDevicep256dh2, kDeviceAuthSecret2},
+      {kSenderIdFCMToken, kSenderIdP256dh, kSenderIdAuthSecret},
+      enabled_features);
 
   EXPECT_EQ(SharingDeviceRegistrationResult::kSuccess, result_);
   EXPECT_EQ(expected_synced_sharing_info_2, local_sharing_info_);
-  EXPECT_EQ(expected_synced_sharing_info_2, synced_sharing_info_);
-  EXPECT_TRUE(fcm_registration_);
-}
-
-TEST_F(SharingDeviceRegistrationTest, RegisterDeviceTest_VapidKeysUnchanged) {
-  SetInstanceIDFCMToken(kFCMToken);
-  SetInstanceIDFCMResult(instance_id::InstanceID::Result::SUCCESS);
-  fake_device_info_sync_service_.GetDeviceInfoTracker()->Add(
-      fake_device_info_sync_service_.GetLocalDeviceInfoProvider()
-          ->GetLocalDeviceInfo());
-
-  RegisterDeviceSync();
-
-  EXPECT_EQ(SharingDeviceRegistrationResult::kSuccess, result_);
-
-  // Instance ID now returns a new token, however it shouldn't be invoked.
-  SetInstanceIDFCMToken(kFCMToken2);
-  // GCMDriver now returns new encryption info.
-  fake_instance_id_.SetEncryptionInfo(kDevicep256dh2, kDeviceAuthSecret2);
-
-  // Register device again without changing VAPID keys.
-  RegisterDeviceSync();
-
-  // Encryption info is updated with new value but FCM token is not updated
-  std::set<sync_pb::SharingSpecificFields::EnabledFeatures> enabled_features =
-      GetExpectedEnabledFeatures();
-  syncer::DeviceInfo::SharingInfo expected_sharing_info(
-      kFCMToken, kDevicep256dh2, kDeviceAuthSecret2, enabled_features);
-
-  EXPECT_EQ(SharingDeviceRegistrationResult::kSuccess, result_);
-  EXPECT_EQ(expected_sharing_info, local_sharing_info_);
-  EXPECT_EQ(expected_sharing_info, synced_sharing_info_);
-  EXPECT_TRUE(fcm_registration_);
-}
-
-TEST_F(SharingDeviceRegistrationTest, RegisterDeviceTest_Expired) {
-  SetInstanceIDFCMResult(instance_id::InstanceID::Result::SUCCESS);
-  fake_device_info_sync_service_.GetDeviceInfoTracker()->Add(
-      fake_device_info_sync_service_.GetLocalDeviceInfoProvider()
-          ->GetLocalDeviceInfo());
-
-  // First register the device.
-  RegisterDeviceSync();
-  EXPECT_EQ(SharingDeviceRegistrationResult::kSuccess, result_);
-
-  // Advance time so registration is expired.
-  task_environment_.FastForwardBy(kRegistrationExpiration);
-
-  // Register the device again, Instance.GetToken will be attempted once more,
-  // which will return a different FCM token.
-  SetInstanceIDFCMToken(kFCMToken2);
-  RegisterDeviceSync();
-
-  // Device should be registered with the new FCM token.
-  std::set<sync_pb::SharingSpecificFields::EnabledFeatures> enabled_features =
-      GetExpectedEnabledFeatures();
-  syncer::DeviceInfo::SharingInfo expected_sharing_info(
-      kFCMToken2, kDevicep256dh, kDeviceAuthSecret, enabled_features);
-
-  EXPECT_EQ(SharingDeviceRegistrationResult::kSuccess, result_);
-  EXPECT_EQ(expected_sharing_info, local_sharing_info_);
-  EXPECT_EQ(expected_sharing_info, synced_sharing_info_);
   EXPECT_TRUE(fcm_registration_);
 }
 
@@ -354,7 +287,6 @@ TEST_F(SharingDeviceRegistrationTest, RegisterDeviceTest_NetworkError) {
 
   EXPECT_EQ(SharingDeviceRegistrationResult::kFcmTransientError, result_);
   EXPECT_FALSE(local_sharing_info_);
-  EXPECT_FALSE(synced_sharing_info_);
   EXPECT_FALSE(fcm_registration_);
 }
 
@@ -365,7 +297,6 @@ TEST_F(SharingDeviceRegistrationTest, RegisterDeviceTest_FatalError) {
 
   EXPECT_EQ(SharingDeviceRegistrationResult::kFcmFatalError, result_);
   EXPECT_FALSE(local_sharing_info_);
-  EXPECT_FALSE(synced_sharing_info_);
   EXPECT_FALSE(fcm_registration_);
 }
 
@@ -379,14 +310,12 @@ TEST_F(SharingDeviceRegistrationTest, UnregisterDeviceTest_Success) {
   RegisterDeviceSync();
   EXPECT_EQ(SharingDeviceRegistrationResult::kSuccess, result_);
   EXPECT_TRUE(local_sharing_info_);
-  EXPECT_TRUE(synced_sharing_info_);
   EXPECT_TRUE(fcm_registration_);
 
   // Then unregister the device.
   UnregisterDeviceSync();
   EXPECT_EQ(SharingDeviceRegistrationResult::kSuccess, result_);
   EXPECT_FALSE(local_sharing_info_);
-  EXPECT_FALSE(synced_sharing_info_);
   EXPECT_FALSE(fcm_registration_);
 
   // Further unregister does nothing and returns kDeviceNotRegistered.
@@ -395,17 +324,18 @@ TEST_F(SharingDeviceRegistrationTest, UnregisterDeviceTest_Success) {
 
   // Register the device again, Instance.GetToken will be attempted once more,
   // which will return a different FCM token.
-  SetInstanceIDFCMToken(kFCMToken2);
+  SetInstanceIDFCMToken(kVapidFCMToken2);
   RegisterDeviceSync();
 
   // Device should be registered with the new FCM token.
   std::set<sync_pb::SharingSpecificFields::EnabledFeatures> enabled_features =
       GetExpectedEnabledFeatures();
   syncer::DeviceInfo::SharingInfo expected_sharing_info(
-      kFCMToken2, kDevicep256dh, kDeviceAuthSecret, enabled_features);
+      {kVapidFCMToken2, kDevicep256dh, kDeviceAuthSecret},
+      {kSenderIdFCMToken, kSenderIdP256dh, kSenderIdAuthSecret},
+      enabled_features);
 
   EXPECT_EQ(SharingDeviceRegistrationResult::kSuccess, result_);
   EXPECT_EQ(expected_sharing_info, local_sharing_info_);
-  EXPECT_EQ(expected_sharing_info, synced_sharing_info_);
   EXPECT_TRUE(fcm_registration_);
 }

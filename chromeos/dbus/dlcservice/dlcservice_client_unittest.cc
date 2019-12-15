@@ -4,8 +4,12 @@
 
 #include "chromeos/dbus/dlcservice/dlcservice_client.h"
 
+#include <algorithm>
+#include <atomic>
+#include <functional>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "base/bind.h"
 #include "base/run_loop.h"
@@ -36,18 +40,18 @@ class DlcserviceClientTest : public testing::Test {
         mock_bus_.get(), dlcservice::kDlcServiceServiceName,
         dbus::ObjectPath(dlcservice::kDlcServiceServicePath));
 
-    EXPECT_CALL(
+    ON_CALL(
         *mock_bus_.get(),
         GetObjectProxy(dlcservice::kDlcServiceServiceName,
                        dbus::ObjectPath(dlcservice::kDlcServiceServicePath)))
-        .WillOnce(Return(mock_proxy_.get()));
+        .WillByDefault(Return(mock_proxy_.get()));
 
-    EXPECT_CALL(*mock_proxy_.get(),
-                DoConnectToSignal(dlcservice::kDlcServiceInterface, _, _, _))
-        .WillOnce(Invoke(this, &DlcserviceClientTest::ConnectToSignal));
+    ON_CALL(*mock_proxy_.get(),
+            DoConnectToSignal(dlcservice::kDlcServiceInterface, _, _, _))
+        .WillByDefault(Invoke(this, &DlcserviceClientTest::ConnectToSignal));
 
-    EXPECT_CALL(*mock_proxy_.get(), DoCallMethodWithErrorResponse(_, _, _))
-        .WillOnce(
+    ON_CALL(*mock_proxy_.get(), DoCallMethodWithErrorResponse(_, _, _))
+        .WillByDefault(
             Invoke(this, &DlcserviceClientTest::CallMethodWithErrorResponse));
 
     DlcserviceClient::Initialize(mock_bus_.get());
@@ -108,13 +112,21 @@ TEST_F(DlcserviceClientTest, GetInstalledFailureTest) {
                                dlcservice::kGetInstalledMethod);
   method_call.SetSerial(123);
   err_response_ = dbus::ErrorResponse::FromMethodCall(
-      &method_call, DBUS_ERROR_FAILED, "dlcservice/INTERNAL:msg");
+      &method_call, DBUS_ERROR_FAILED, "some-unknown-error");
 
-  DlcserviceClient::GetInstalledCallback callback = base::BindOnce(
+  client_->GetInstalled(base::BindOnce(
       [](const std::string& err, const dlcservice::DlcModuleList&) {
         EXPECT_EQ(dlcservice::kErrorInternal, err);
-      });
-  client_->GetInstalled(std::move(callback));
+      }));
+  base::RunLoop().RunUntilIdle();
+
+  err_response_ = dbus::ErrorResponse::FromMethodCall(
+      &method_call, dlcservice::kErrorInvalidDlc, "Bad DLC ID.");
+
+  client_->GetInstalled(base::BindOnce(
+      [](const std::string& err, const dlcservice::DlcModuleList&) {
+        EXPECT_EQ(dlcservice::kErrorInvalidDlc, err);
+      }));
   base::RunLoop().RunUntilIdle();
 }
 
@@ -151,12 +163,70 @@ TEST_F(DlcserviceClientTest, InstallFailureTest) {
   err_response_ = dbus::ErrorResponse::FromMethodCall(
       &method_call, DBUS_ERROR_FAILED, "dlcservice/INTERNAL:msg");
 
-  DlcserviceClient::InstallCallback callback = base::BindOnce(
+  DlcserviceClient::InstallCallback install_callback = base::BindOnce(
       [](const std::string& err, const dlcservice::DlcModuleList&) {
         EXPECT_EQ(dlcservice::kErrorInternal, err);
       });
-  client_->Install(dlcservice::DlcModuleList(), std::move(callback));
+  client_->Install(dlcservice::DlcModuleList(), std::move(install_callback),
+                   DlcserviceClient::IgnoreProgress);
   base::RunLoop().RunUntilIdle();
+}
+
+TEST_F(DlcserviceClientTest, InstallProgressTest) {
+  ON_CALL(*mock_proxy_.get(), DoCallMethodWithErrorResponse(_, _, _))
+      .WillByDefault(Return());
+  std::atomic<size_t> counter{0};
+  DlcserviceClient::InstallCallback install_callback = base::BindOnce(
+      [](const std::string& err, const dlcservice::DlcModuleList&) {});
+  DlcserviceClient::ProgressCallback progress_callback = base::BindRepeating(
+      [](decltype(counter)* counter, double) { ++*counter; }, &counter);
+
+  client_->Install({}, std::move(install_callback),
+                   std::move(progress_callback));
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(0u, counter.load());
+
+  dbus::Signal signal("com.example.Interface", "SomeSignal");
+  dlcservice::InstallStatus install_status;
+  install_status.set_status(dlcservice::Status::RUNNING);
+
+  dbus::MessageWriter writer(&signal);
+  writer.AppendProtoAsArrayOfBytes(install_status);
+
+  client_->OnInstallStatusForTest(&signal);
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(1u, counter.load());
+}
+
+TEST_F(DlcserviceClientTest, PendingTaskTest) {
+  ON_CALL(*mock_proxy_.get(), DoCallMethodWithErrorResponse(_, _, _))
+      .WillByDefault(Return());
+  std::atomic<size_t> counter{0};
+
+  // All |Install()| request after the first should be queued.
+  for (size_t i = 0; i < 3; ++i) {
+    DlcserviceClient::InstallCallback install_callback =
+        base::BindOnce([](decltype(counter)* counter, const std::string& err,
+                          const dlcservice::DlcModuleList&) { ++*counter; },
+                       &counter);
+    client_->Install({}, std::move(install_callback),
+                     DlcserviceClient::IgnoreProgress);
+  }
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(0u, counter.load());
+
+  dbus::Signal signal("com.example.Interface", "SomeSignal");
+  dlcservice::InstallStatus install_status;
+  install_status.set_status(dlcservice::Status::COMPLETED);
+
+  dbus::MessageWriter writer(&signal);
+  writer.AppendProtoAsArrayOfBytes(install_status);
+
+  for (size_t i = 1; i < 100; ++i) {
+    client_->OnInstallStatusForTest(&signal);
+    base::RunLoop().RunUntilIdle();
+    EXPECT_EQ(i <= 3 ? i : 3, counter.load());
+  }
 }
 
 }  // namespace chromeos

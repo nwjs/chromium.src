@@ -55,8 +55,13 @@ const base::Feature kDefaultEnableGpuRasterization{
 
 // Enable out of process rasterization by default.  This can still be overridden
 // by --enable-oop-rasterization or --disable-oop-rasterization.
+#if defined(OS_ANDROID) || defined(OS_CHROMEOS) || defined(OS_MACOSX)
+const base::Feature kDefaultEnableOopRasterization{
+    "DefaultEnableOopRasterization", base::FEATURE_ENABLED_BY_DEFAULT};
+#else
 const base::Feature kDefaultEnableOopRasterization{
     "DefaultEnableOopRasterization", base::FEATURE_DISABLED_BY_DEFAULT};
+#endif
 
 // Allow putting a video swapchain underneath the main swapchain, so overlays
 // can be used even if there are controls on top of the video. It can be
@@ -67,11 +72,11 @@ const base::Feature kDirectCompositionUnderlays{
 #if defined(OS_WIN)
 // Use a high priority for GPU process on Windows.
 const base::Feature kGpuProcessHighPriorityWin{
-    "GpuProcessHighPriorityWin", base::FEATURE_DISABLED_BY_DEFAULT};
+    "GpuProcessHighPriorityWin", base::FEATURE_ENABLED_BY_DEFAULT};
 #endif
 
 // Use ThreadPriority::DISPLAY for GPU main, viz compositor and IO threads.
-#if defined(OS_ANDROID) || defined(OS_CHROMEOS)
+#if defined(OS_ANDROID) || defined(OS_CHROMEOS) || defined(OS_WIN)
 const base::Feature kGpuUseDisplayThreadPriority{
     "GpuUseDisplayThreadPriority", base::FEATURE_ENABLED_BY_DEFAULT};
 #else

@@ -140,7 +140,7 @@ Core::~Core() {
         node_controller_->io_task_runner();
     io_task_runner->PostTask(FROM_HERE,
                              base::BindOnce(&Core::PassNodeControllerToIOThread,
-                                            base::Passed(&node_controller_)));
+                                            std::move(node_controller_)));
   }
   base::trace_event::MemoryDumpManager::GetInstance()
       ->UnregisterAndDeleteDumpProviderSoon(std::move(handles_));
@@ -169,9 +169,8 @@ scoped_refptr<Dispatcher> Core::GetAndRemoveDispatcher(MojoHandle handle) {
   return dispatcher;
 }
 
-void Core::SetDefaultProcessErrorCallback(
-    const ProcessErrorCallback& callback) {
-  default_process_error_callback_ = callback;
+void Core::SetDefaultProcessErrorCallback(ProcessErrorCallback callback) {
+  default_process_error_callback_ = std::move(callback);
 }
 
 MojoHandle Core::CreatePartialMessagePipe(ports::PortRef* peer) {
@@ -252,8 +251,8 @@ void Core::ReleaseDispatchersForTransit(
     handles_->CancelTransit(dispatchers);
 }
 
-void Core::RequestShutdown(const base::Closure& callback) {
-  GetNodeController()->RequestShutdown(callback);
+void Core::RequestShutdown(base::OnceClosure callback) {
+  GetNodeController()->RequestShutdown(std::move(callback));
 }
 
 MojoHandle Core::ExtractMessagePipeFromInvitation(const std::string& name) {

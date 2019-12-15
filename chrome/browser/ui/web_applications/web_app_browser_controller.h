@@ -37,9 +37,8 @@ class WebAppBrowserController : public AppBrowserController {
   ~WebAppBrowserController() override;
 
   // AppBrowserController:
-  base::Optional<AppId> GetAppId() const override;
   bool CreatedForInstalledPwa() const override;
-  bool ShouldShowCustomTabBar() const override;
+  bool HasMinimalUiButtons() const override;
   gfx::ImageSkia GetWindowAppIcon() const override;
   gfx::ImageSkia GetWindowIcon() const override;
   base::Optional<SkColor> GetThemeColor() const override;
@@ -58,10 +57,9 @@ class WebAppBrowserController : public AppBrowserController {
  private:
   const AppRegistrar& registrar() const;
 
-  void OnReadIcon(SkBitmap bitmap);
+  void OnReadIcon(const SkBitmap& bitmap);
 
   WebAppProvider& provider_;
-  const AppId app_id_;
   mutable base::Optional<gfx::ImageSkia> app_icon_;
 
   base::OnceClosure callback_for_testing_;

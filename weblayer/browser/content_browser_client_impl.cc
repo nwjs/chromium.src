@@ -25,6 +25,8 @@
 #include "content/public/common/user_agent.h"
 #include "content/public/common/web_preferences.h"
 #include "content/public/common/window_container_type.mojom.h"
+#include "net/proxy_resolution/proxy_config.h"
+#include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/network_service.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
@@ -47,7 +49,13 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/android/path_utils.h"
+#include "base/bind.h"
+#include "base/task/post_task.h"
 #include "components/crash/content/browser/crash_handler_host_linux.h"
+#include "components/spellcheck/browser/spell_check_host_impl.h"  // nogncheck
+#include "content/public/browser/browser_task_traits.h"
+#include "content/public/browser/browser_thread.h"
+#include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "ui/base/resource/resource_bundle_android.h"
 #include "weblayer/browser/android_descriptors.h"
 #include "weblayer/browser/devtools_manager_delegate_android.h"
@@ -63,6 +71,15 @@
 #include "sandbox/win/src/sandbox.h"
 #include "services/service_manager/sandbox/win/sandbox_win.h"
 #endif
+
+namespace switches {
+// Specifies a list of hosts for whom we bypass proxy settings and use direct
+// connections. Ignored if --proxy-auto-detect or --no-proxy-server are also
+// specified. This is a comma-separated list of bypass rules. See:
+// "net/proxy_resolution/proxy_bypass_rules.h" for the format of these rules.
+// TODO(alexclarke): Find a better place for this.
+const char kProxyBypassList[] = "proxy-bypass-list";
+}  // namespace switches
 
 namespace {
 
@@ -191,6 +208,21 @@ ContentBrowserClientImpl::CreateNetworkContext(
     context_params->http_cache_path =
         ProfileImpl::GetCachePath(context).Append(FILE_PATH_LITERAL("Cache"));
   }
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kProxyServer)) {
+    std::string proxy_server =
+        command_line->GetSwitchValueASCII(switches::kProxyServer);
+    net::ProxyConfig proxy_config;
+    proxy_config.proxy_rules().ParseFromString(proxy_server);
+    if (command_line->HasSwitch(switches::kProxyBypassList)) {
+      std::string bypass_list =
+          command_line->GetSwitchValueASCII(switches::kProxyBypassList);
+      proxy_config.proxy_rules().bypass_rules.ParseFromString(bypass_list);
+    }
+    context_params->initial_proxy_config = net::ProxyConfigWithAnnotation(
+        proxy_config,
+        net::DefineNetworkTrafficAnnotation("undefined", "Nothing here yet."));
+  }
   content::GetNetworkService()->CreateNetworkContext(
       network_context.BindNewPipeAndPassReceiver(), std::move(context_params));
   return network_context;
@@ -279,7 +311,7 @@ ContentBrowserClientImpl::CreateThrottlesForNavigation(
   std::vector<std::unique_ptr<content::NavigationThrottle>> throttles;
   throttles.push_back(std::make_unique<SSLErrorNavigationThrottle>(
       handle, std::make_unique<SSLCertReporterImpl>(),
-      base::Bind(&HandleSSLError), base::Bind(&IsInHostedApp)));
+      base::BindOnce(&HandleSSLError), base::BindOnce(&IsInHostedApp)));
   return throttles;
 }
 
@@ -298,12 +330,21 @@ void ContentBrowserClientImpl::ExposeInterfacesToRenderer(
     service_manager::BinderRegistry* registry,
     blink::AssociatedInterfaceRegistry* associated_registry,
     content::RenderProcessHost* render_process_host) {
+#if defined(OS_ANDROID)
+  auto create_spellcheck_host =
+      [](mojo::PendingReceiver<spellcheck::mojom::SpellCheckHost> receiver) {
+        mojo::MakeSelfOwnedReceiver(std::make_unique<SpellCheckHostImpl>(),
+                                    std::move(receiver));
+      };
+  registry->AddInterface(
+      base::BindRepeating(create_spellcheck_host),
+      base::CreateSingleThreadTaskRunner({content::BrowserThread::UI}));
+
   if (base::FeatureList::IsEnabled(features::kWebLayerSafeBrowsing) &&
       IsSafebrowsingSupported()) {
-#if defined(OS_ANDROID)
     GetSafeBrowsingService()->AddInterface(registry, render_process_host);
-#endif
   }
+#endif  // defined(OS_ANDROID)
 }
 
 #if defined(OS_ANDROID)
@@ -335,11 +376,13 @@ void ContentBrowserClientImpl::GetAdditionalMappedFilesForChildProcess(
   fd = ui::GetLocalePackFd(&region);
   mappings->ShareWithRegion(kWebLayerLocalePakDescriptor, fd, region);
 
-  mappings->ShareWithRegion(kWebLayerSecondaryLocalePakDescriptor,
-                            base::GlobalDescriptors::GetInstance()->Get(
-                                kWebLayerSecondaryLocalePakDescriptor),
-                            base::GlobalDescriptors::GetInstance()->GetRegion(
-                                kWebLayerSecondaryLocalePakDescriptor));
+  if (!base::android::BundleUtils::IsBundle()) {
+    mappings->ShareWithRegion(kWebLayerSecondaryLocalePakDescriptor,
+                              base::GlobalDescriptors::GetInstance()->Get(
+                                  kWebLayerSecondaryLocalePakDescriptor),
+                              base::GlobalDescriptors::GetInstance()->GetRegion(
+                                  kWebLayerSecondaryLocalePakDescriptor));
+  }
 
   int crash_signal_fd =
       crashpad::CrashHandlerHost::Get()->GetDeathSignalSocket();

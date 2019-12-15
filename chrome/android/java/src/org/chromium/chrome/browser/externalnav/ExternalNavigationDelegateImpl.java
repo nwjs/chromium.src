@@ -24,12 +24,13 @@ import android.text.TextUtils;
 import android.view.WindowManager.BadTokenException;
 import android.webkit.MimeTypeMap;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.ApplicationState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.PackageManagerUtils;
 import org.chromium.base.PathUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.R;
@@ -43,6 +44,7 @@ import org.chromium.chrome.browser.instantapps.AuthenticatedProxyActivity;
 import org.chromium.chrome.browser.instantapps.InstantAppsHandler;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
 import org.chromium.chrome.browser.util.IntentUtils;
@@ -384,8 +386,9 @@ public class ExternalNavigationDelegateImpl implements ExternalNavigationDelegat
                             public void onClick(DialogInterface dialog, int which) {
                                 try {
                                     startActivity(intent, proxy);
-                                    if (mTab != null && !mTab.isClosing() && mTab.isInitialized()
-                                            && needsToCloseTab) {
+                                    TabImpl tab = (TabImpl) mTab;
+                                    if (mTab != null && !((TabImpl) tab).isClosing()
+                                            && ((TabImpl) tab).isInitialized() && needsToCloseTab) {
                                         closeTab();
                                     }
                                 } catch (ActivityNotFoundException e) {
@@ -458,7 +461,7 @@ public class ExternalNavigationDelegateImpl implements ExternalNavigationDelegat
     private void loadIntent(Intent intent, String referrerUrl, String fallbackUrl, Tab tab,
             boolean needsToCloseTab, boolean launchIncogntio) {
         boolean needsToStartIntent = false;
-        if (tab == null || tab.isClosing() || !tab.isInitialized()) {
+        if (tab == null || ((TabImpl) tab).isClosing() || !((TabImpl) tab).isInitialized()) {
             needsToStartIntent = true;
             needsToCloseTab = false;
         } else if (needsToCloseTab) {

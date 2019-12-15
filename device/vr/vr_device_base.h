@@ -29,13 +29,12 @@ class DEVICE_VR_EXPORT VRDeviceBase : public mojom::XRRuntime {
   explicit VRDeviceBase(mojom::XRDeviceId id);
   ~VRDeviceBase() override;
 
-  // VRDevice Implementation
+  // XRRuntime implementation
   void ListenToDeviceChanges(
       mojo::PendingAssociatedRemote<mojom::XRRuntimeEventListener> listener,
       mojom::XRRuntime::ListenToDeviceChangesCallback callback) final;
-  void SetListeningForActivate(bool is_listening) override;
-  void EnsureInitialized(EnsureInitializedCallback callback) override;
   void SetInlinePosesEnabled(bool enable) override;
+  void ShutdownSession(mojom::XRRuntime::ShutdownSessionCallback) override;
 
   virtual void RequestHitTest(
       mojom::XRRayPtr ray,
@@ -66,8 +65,6 @@ class DEVICE_VR_EXPORT VRDeviceBase : public mojom::XRRuntime {
   void OnStartPresenting();
   bool IsPresenting() { return presenting_; }  // Exposed for test.
   void SetVRDisplayInfo(mojom::VRDisplayInfoPtr display_info);
-  void OnActivate(mojom::VRDisplayEventReason reason,
-                  base::Callback<void(bool)> on_handled);
   void OnVisibilityStateChanged(mojom::XRVisibilityState visibility_state);
 
   mojom::VRDisplayInfoPtr display_info_;
@@ -75,8 +72,6 @@ class DEVICE_VR_EXPORT VRDeviceBase : public mojom::XRRuntime {
   bool inline_poses_enabled_ = true;
 
  private:
-  // TODO(https://crbug.com/842227): Rename methods to HandleOnXXX
-  virtual void OnListeningForActivate(bool listening);
 
   mojo::AssociatedRemote<mojom::XRRuntimeEventListener> listener_;
 

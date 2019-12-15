@@ -6,6 +6,7 @@
 #define ASH_WM_OVERVIEW_OVERVIEW_CONSTANTS_H_
 
 #include "ash/ash_export.h"
+#include "ash/wm/window_mini_view.h"
 #include "base/time/time.h"
 
 namespace ash {
@@ -24,7 +25,7 @@ constexpr int kWindowMargin = 5;
 ASH_EXPORT constexpr int kOverviewMargin = kWindowMargin * 2;
 
 // Height of an item header.
-constexpr int kHeaderHeightDp = 40;
+constexpr int kHeaderHeightDp = WindowMiniView::kHeaderHeightDp;
 
 // The opacity of the shield widget that is used to darken the background of
 // the grid.
@@ -34,11 +35,6 @@ constexpr float kShieldOpacity = 0.4f;
 // mode.
 constexpr float kWallpaperBlurSigma = 10.f;
 constexpr float kWallpaperClearBlurSigma = 0.f;
-
-// Amount of time we wait to unpause the occlusion tracker after a overview item
-// is finished dragging. Waits a bit longer than the overview item animation.
-constexpr base::TimeDelta kOcclusionPauseDurationForDrag =
-    base::TimeDelta::FromMilliseconds(300);
 
 }  // namespace ash
 

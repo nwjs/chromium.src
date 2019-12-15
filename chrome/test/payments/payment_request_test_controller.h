@@ -25,10 +25,11 @@ class PaymentRequestTestObserver {
   virtual void OnCanMakePaymentReturned() {}
   virtual void OnHasEnrolledInstrumentCalled() {}
   virtual void OnHasEnrolledInstrumentReturned() {}
-  virtual void OnShowInstrumentsReady() {}
+  virtual void OnShowAppsReady() {}
   virtual void OnNotSupportedError() {}
   virtual void OnConnectionTerminated() {}
   virtual void OnAbortCalled() {}
+  virtual void OnCompleteCalled() {}
 
  protected:
   virtual ~PaymentRequestTestObserver() {}
@@ -58,10 +59,11 @@ class PaymentRequestTestController {
   void OnCanMakePaymentReturned();
   void OnHasEnrolledInstrumentCalled();
   void OnHasEnrolledInstrumentReturned();
-  void OnShowInstrumentsReady();
+  void OnShowAppsReady();
   void OnNotSupportedError();
   void OnConnectionTerminated();
   void OnAbortCalled();
+  void OnCompleteCalled();
 
   PaymentRequestTestObserver* observer_ = nullptr;
 

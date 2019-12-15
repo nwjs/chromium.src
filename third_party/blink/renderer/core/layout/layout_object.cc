@@ -85,6 +85,7 @@
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/ng/custom/layout_ng_custom.h"
 #include "third_party/blink/renderer/core/layout/ng/layout_ng_block_flow.h"
+#include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_item.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_block_node.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_layout_result.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_unpositioned_float.h"
@@ -223,6 +224,8 @@ LayoutObject* LayoutObject::CreateObject(Element* element,
     }
     image->SetStyleInternal(nullptr);
     return image;
+  } else if (element->GetPseudoId() == kPseudoIdMarker) {
+    return LayoutObjectFactory::CreateListMarker(*element, style, legacy);
   }
 
   switch (style.Display()) {
@@ -234,6 +237,8 @@ LayoutObject* LayoutObject::CreateObject(Element* element,
     case EDisplay::kBlock:
     case EDisplay::kFlowRoot:
     case EDisplay::kInlineBlock:
+    case EDisplay::kMath:
+    case EDisplay::kInlineMath:
       return LayoutObjectFactory::CreateBlockFlow(*element, style, legacy);
     case EDisplay::kListItem:
       return LayoutObjectFactory::CreateListItem(*element, style, legacy);
@@ -849,11 +854,6 @@ LayoutFlowThread* LayoutObject::LocateFlowThreadContainingBlock() const {
 static inline bool ObjectIsRelayoutBoundary(const LayoutObject* object) {
   // FIXME: In future it may be possible to broaden these conditions in order to
   // improve performance.
-  if (object->IsTextControl())
-    return true;
-
-  if (object->IsSVGRoot())
-    return true;
 
   // LayoutInline can't be relayout roots since LayoutBlockFlow is responsible
   // for layouting them.
@@ -865,13 +865,16 @@ static inline bool ObjectIsRelayoutBoundary(const LayoutObject* object) {
   if (object->IsTablePart())
     return false;
 
+  // OOF-positioned objects which rely on their static-position for placement
+  // cannot be relayout boundaries (their final position would be incorrect).
   const ComputedStyle* style = object->Style();
+  if (object->IsOutOfFlowPositioned() &&
+      (style->HasAutoLeftAndRight() || style->HasAutoTopAndBottom()))
+    return false;
+
   if (object->ShouldApplyLayoutContainment() &&
       object->ShouldApplySizeContainment())
     return true;
-
-  if (!object->HasOverflowClip())
-    return false;
 
   // If either dimension is percent-based, intrinsic, or anything but fixed,
   // this object cannot form a re-layout boundary. A non-fixed computed logical
@@ -879,6 +882,15 @@ static inline bool ObjectIsRelayoutBoundary(const LayoutObject* object) {
   // inside. The same goes for for logical width, if this objects is inside a
   // shrink-to-fit container, for instance.
   if (!style->Width().IsFixed() || !style->Height().IsFixed())
+    return false;
+
+  if (object->IsTextControl())
+    return true;
+
+  if (object->IsSVGRoot())
+    return true;
+
+  if (!object->HasOverflowClip())
     return false;
 
   // Scrollbar parts can be removed during layout. Avoid the complexity of
@@ -1177,17 +1189,13 @@ LayoutObject* LayoutObject::ContainerForFixedPosition(
 
 LayoutBlock* LayoutObject::FindNonAnonymousContainingBlock(
     LayoutObject* container,
-    LayoutObject::AncestorSkipInfo* skip_info) const {
+    AncestorSkipInfo* skip_info) {
   // For inlines, we return the nearest non-anonymous enclosing
   // block. We don't try to return the inline itself. This allows us to avoid
   // having a positioned objects list in all LayoutInlines and lets us return a
   // strongly-typed LayoutBlock* result from this method. The
   // LayoutObject::Container() method can actually be used to obtain the inline
   // directly.
-  if (container && container->IsInline() && !container->IsAtomicInlineLevel()) {
-    container = container->ContainingBlock(skip_info);
-  }
-
   if (container && !container->IsLayoutBlock())
     container = container->ContainingBlock(skip_info);
 
@@ -1396,6 +1404,13 @@ void LayoutObject::RecalcVisualOverflow() {
   }
 }
 
+void LayoutObject::RecalcNormalFlowChildVisualOverflowIfNeeded() {
+  if (IsOutOfFlowPositioned() ||
+      (HasLayer() && ToLayoutBoxModelObject(this)->HasSelfPaintingLayer()))
+    return;
+  RecalcVisualOverflow();
+}
+
 const LayoutBoxModelObject* LayoutObject::EnclosingCompositedContainer() const {
   LayoutBoxModelObject* container = nullptr;
   // FIXME: CompositingState is not necessarily up to date for many callers of
@@ -1415,16 +1430,13 @@ bool LayoutObject::HasDistortingVisualEffects() const {
   // TODO(szager): Check occlusion information propagated from out-of-process
   // parent frame.
 
-  // TODO(szager): Remove CHECK's after diagnosing crash.
-  PaintLayer* enclosing_layer = EnclosingLayer();
-  CHECK(enclosing_layer);
-  CHECK(enclosing_layer->GetLayoutObject()
-            .FirstFragment()
-            .HasLocalBorderBoxProperties());
-  PropertyTreeState paint_properties = EnclosingLayer()
-                                           ->GetLayoutObject()
-                                           .FirstFragment()
-                                           .LocalBorderBoxProperties();
+  auto& first_fragment = EnclosingLayer()->GetLayoutObject().FirstFragment();
+  // This can happen for an iframe element which is outside the viewport and has
+  // therefore never been painted. In that case, we do the safe thing -- report
+  // it as having distorting visual effects.
+  if (!first_fragment.HasLocalBorderBoxProperties())
+    return true;
+  auto paint_properties = first_fragment.LocalBorderBoxProperties();
 
   // No filters, no blends, no opacity < 100%.
   for (const auto* effect = &paint_properties.Effect().Unalias(); effect;
@@ -1437,15 +1449,10 @@ bool LayoutObject::HasDistortingVisualEffects() const {
     }
   }
 
-  // TODO(szager): Remove CHECK's after diagnosing crash.
-  CHECK(GetDocument().IsActive());
-  LocalFrame* frame = GetDocument().GetFrame();
-  CHECK(frame);
-  LayoutView* layout_view = frame->LocalFrameRoot().ContentLayoutObject();
-  CHECK(layout_view);
-  CHECK(layout_view->FirstFragment().HasLocalBorderBoxProperties());
-  PropertyTreeState root_properties =
-      layout_view->FirstFragment().LocalBorderBoxProperties();
+  auto& local_frame_root = GetDocument().GetFrame()->LocalFrameRoot();
+  auto& root_fragment = local_frame_root.ContentLayoutObject()->FirstFragment();
+  CHECK(root_fragment.HasLocalBorderBoxProperties());
+  PropertyTreeState root_properties = root_fragment.LocalBorderBoxProperties();
 
   // The only allowed transforms are 2D translation and proportional up-scaling.
   const auto& translation_2d_or_matrix =
@@ -1581,22 +1588,6 @@ void LayoutObject::InvalidatePaint(
   ObjectPaintInvalidatorWithContext(*this, context).InvalidatePaint();
 }
 
-void LayoutObject::AdjustVisualRectForCompositedScrolling(
-    LayoutRect& rect,
-    const LayoutBoxModelObject& paint_invalidation_container) const {
-  if (CompositedScrollsWithRespectTo(paint_invalidation_container)) {
-    rect.Move(
-        -ToLayoutBox(paint_invalidation_container).ScrolledContentOffset());
-  }
-}
-
-LayoutRect LayoutObject::VisualRectIncludingCompositedScrolling(
-    const LayoutBoxModelObject& paint_invalidation_container) const {
-  LayoutRect rect(VisualRect());
-  AdjustVisualRectForCompositedScrolling(rect, paint_invalidation_container);
-  return rect;
-}
-
 void LayoutObject::ClearPreviousVisualRects() {
   DCHECK(!RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
 
@@ -1639,7 +1630,8 @@ bool LayoutObject::MapToVisualRectInAncestorSpaceInternalFastPath(
   AncestorSkipInfo skip_info(ancestor);
   while (!property_container->FirstFragment().HasLocalBorderBoxProperties()) {
     property_container = property_container->Container(&skip_info);
-    if (!property_container || skip_info.AncestorSkipped())
+    if (!property_container || skip_info.AncestorSkipped() ||
+        property_container->FirstFragment().NextFragment())
       return false;
   }
 
@@ -1941,6 +1933,7 @@ void LayoutObject::SetPseudoElementStyle(
     scoped_refptr<const ComputedStyle> pseudo_style) {
   DCHECK(pseudo_style->StyleType() == kPseudoIdBefore ||
          pseudo_style->StyleType() == kPseudoIdAfter ||
+         pseudo_style->StyleType() == kPseudoIdMarker ||
          pseudo_style->StyleType() == kPseudoIdFirstLetter);
 
   // FIXME: We should consider just making all pseudo items use an inherited
@@ -2092,8 +2085,10 @@ void LayoutObject::SetStyle(scoped_refptr<const ComputedStyle> style,
 
   if ((diff.NeedsPaintInvalidationObject() ||
        diff.NeedsPaintInvalidationSubtree()) &&
-      old_style && !old_style->ClipPathDataEquivalent(*style_))
+      old_style && !old_style->ClipPathDataEquivalent(*style_)) {
     InvalidateClipPathCache();
+    PaintingLayer()->SetNeedsCompositingInputsUpdate();
+  }
 
   if (diff.NeedsVisualRectUpdate())
     SetShouldCheckForPaintInvalidation();
@@ -2945,7 +2940,7 @@ RespectImageOrientationEnum LayoutObject::ShouldRespectImageOrientation(
   if (layout_object->GetDocument().IsImageDocument())
     return kRespectImageOrientation;
 
-  if (!IsHTMLImageElement(layout_object->GetNode()))
+  if (!IsA<HTMLImageElement>(layout_object->GetNode()))
     return kDoNotRespectImageOrientation;
 
   if (layout_object->GetDocument().GetSettings() &&
@@ -3342,17 +3337,27 @@ bool LayoutObject::HitTestAllPhases(HitTestResult& result,
 }
 
 Node* LayoutObject::NodeForHitTest() const {
-  Node* node = GetNode();
+  if (Node* node = GetNode())
+    return node;
 
   // If we hit the anonymous layoutObjects inside generated content we should
   // actually hit the generated content so walk up to the PseudoElement.
-  if (!node && Parent() && Parent()->IsBeforeOrAfterContent()) {
-    for (LayoutObject* layout_object = Parent(); layout_object && !node;
-         layout_object = layout_object->Parent())
-      node = layout_object->GetNode();
+  if (const LayoutObject* parent = Parent()) {
+    if (parent->IsBeforeOrAfterContent() ||
+        parent->StyleRef().StyleType() == kPseudoIdFirstLetter) {
+      for (; parent; parent = parent->Parent()) {
+        if (Node* node = parent->GetNode())
+          return node;
+      }
+    } else if (const LayoutNGListItem* list_item =
+                   LayoutNGListItem::FromMarkerOrMarkerContent(*this)) {
+      // If this is a list marker, or is inside of a list marker, return the
+      // list item.
+      return list_item->GetNode();
+    }
   }
 
-  return node;
+  return nullptr;
 }
 
 void LayoutObject::UpdateHitTestResult(HitTestResult& result,
@@ -3394,6 +3399,11 @@ void LayoutObject::ForceLayout() {
 const ComputedStyle* LayoutObject::FirstLineStyleWithoutFallback() const {
   DCHECK(GetDocument().GetStyleEngine().UsesFirstLineRules());
 
+  // Normal markers don't use ::first-line styles in Chromium, so be consistent
+  // and return null for content markers. This may need to change depending on
+  // https://github.com/w3c/csswg-drafts/issues/4506
+  if (IsMarkerContent())
+    return nullptr;
   if (IsBeforeOrAfterContent() || IsText()) {
     if (!Parent())
       return nullptr;
@@ -3595,7 +3605,7 @@ Element* LayoutObject::OffsetParent(const Element* base) const {
       break;
 
     if (!IsPositioned() &&
-        (IsHTMLTableElement(*node) || IsHTMLTableCellElement(*node)))
+        (IsA<HTMLTableElement>(*node) || IsHTMLTableCellElement(*node)))
       break;
 
     // Webkit specific extension where offsetParent stops at zoom level changes.

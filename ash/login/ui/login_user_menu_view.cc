@@ -41,8 +41,9 @@ constexpr int kUserMenuVerticalDistanceBetweenLabelsDp = 16;
 // Margin around remove user button.
 constexpr int kUserMenuMarginAroundRemoveUserButtonDp = 4;
 
-// Vertical spacing between the anchor view and user menu.
-constexpr int kAnchorViewUserMenuVerticalSpacingDp = 4;
+// Horizontal and vertical padding of login user menu view.
+constexpr int kHorizontalPaddingLoginUserMenuViewDp = 8;
+constexpr int kVerticalPaddingLoginUserMenuViewDp = 8;
 
 constexpr int kUserMenuRemoveUserButtonIdForTest = 1;
 }  // namespace
@@ -282,30 +283,10 @@ void LoginUserMenuView::ButtonPressed(views::Button* sender,
 }
 
 gfx::Point LoginUserMenuView::CalculatePosition() {
-  gfx::Point position = LoginBaseBubbleView::CalculatePosition();
-
-  if (GetAnchorView())
-    position.set_y(position.y() + kAnchorViewUserMenuVerticalSpacingDp);
-
-  gfx::Rect screen_bounds =
-      display::Screen::GetScreen()->GetPrimaryDisplay().bounds();
-
-  // In handling the cases where the bubble could go off screen, we assume that
-  // the bubble can go either off the right side or off the bottom side.
-  if (position.x() + width() > screen_bounds.right() && GetAnchorView()) {
-    // If bubble would go off the right side of the screen, go left instead
-    position.set_x(position.x() + GetAnchorView()->width() - width());
-  } else if (position.y() + height() > screen_bounds.bottom() &&
-             GetAnchorView()) {
-    // If bubble would go off the bottom of the screen, go to the right of the
-    // anchor and upward.
-    position.set_x(position.x() + kAnchorViewUserMenuVerticalSpacingDp +
-                   GetAnchorView()->width());
-    position.set_y(position.y() +
-                   (screen_bounds.bottom() - (position.y() + height())));
-  }
-
-  return position;
+  return CalculatePositionUsingDefaultStrategy(
+      PositioningStrategy::kShowOnRightSideOrLeftSide,
+      kHorizontalPaddingLoginUserMenuViewDp,
+      kVerticalPaddingLoginUserMenuViewDp);
 }
 
 void LoginUserMenuView::RequestFocus() {

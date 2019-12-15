@@ -9,8 +9,10 @@
 #include "chrome/browser/ui/web_applications/web_app_dialog_manager.h"
 #include "chrome/browser/ui/web_applications/web_app_ui_manager_impl.h"
 #include "chrome/browser/web_applications/components/app_icon_manager.h"
+#include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
+#include "content/public/browser/web_contents.h"
 #include "ui/gfx/favicon_size.h"
 #include "ui/gfx/image/image.h"
 #include "url/gurl.h"
@@ -18,18 +20,19 @@
 namespace web_app {
 
 WebAppBrowserController::WebAppBrowserController(Browser* browser)
-    : AppBrowserController(browser),
-      provider_(*WebAppProvider::Get(browser->profile())),
-      app_id_(GetAppIdFromApplicationName(browser->app_name())) {}
+    : AppBrowserController(browser,
+                           GetAppIdFromApplicationName(browser->app_name())),
+      provider_(*WebAppProvider::Get(browser->profile())) {}
 
 WebAppBrowserController::~WebAppBrowserController() = default;
 
-base::Optional<AppId> WebAppBrowserController::GetAppId() const {
-  return app_id_;
+bool WebAppBrowserController::CreatedForInstalledPwa() const {
+  return !registrar().IsShortcutApp(GetAppId());
 }
 
-bool WebAppBrowserController::CreatedForInstalledPwa() const {
-  return !registrar().IsShortcutApp(app_id_);
+bool WebAppBrowserController::HasMinimalUiButtons() const {
+  return registrar().GetAppEffectiveDisplayMode(GetAppId()) ==
+         DisplayMode::kMinimalUi;
 }
 
 bool WebAppBrowserController::IsHostedApp() const {
@@ -41,20 +44,17 @@ void WebAppBrowserController::SetReadIconCallbackForTesting(
   callback_for_testing_ = std::move(callback);
 }
 
-bool WebAppBrowserController::ShouldShowCustomTabBar() const {
-  // TODO(https://crbug.com/966290): Complete implementation.
-  return false;
-}
-
 gfx::ImageSkia WebAppBrowserController::GetWindowAppIcon() const {
   if (app_icon_)
     return *app_icon_;
   app_icon_ = GetFallbackAppIcon();
 
-  provider_.icon_manager().ReadSmallestIcon(
-      app_id_, gfx::kFaviconSize,
-      base::BindOnce(&WebAppBrowserController::OnReadIcon,
-                     weak_ptr_factory_.GetWeakPtr()));
+  if (provider_.icon_manager().HasSmallestIcon(GetAppId(), gfx::kFaviconSize)) {
+    provider_.icon_manager().ReadSmallestIcon(
+        GetAppId(), gfx::kFaviconSize,
+        base::BindOnce(&WebAppBrowserController::OnReadIcon,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
 
   return *app_icon_;
 }
@@ -69,15 +69,15 @@ base::Optional<SkColor> WebAppBrowserController::GetThemeColor() const {
   if (web_theme_color)
     return web_theme_color;
 
-  return registrar().GetAppThemeColor(app_id_);
+  return registrar().GetAppThemeColor(GetAppId());
 }
 
 GURL WebAppBrowserController::GetAppLaunchURL() const {
-  return registrar().GetAppLaunchURL(app_id_);
+  return registrar().GetAppLaunchURL(GetAppId());
 }
 
 bool WebAppBrowserController::IsUrlInAppScope(const GURL& url) const {
-  base::Optional<GURL> app_scope = registrar().GetAppScope(app_id_);
+  base::Optional<GURL> app_scope = registrar().GetAppScope(GetAppId());
   if (!app_scope)
     return false;
 
@@ -97,7 +97,7 @@ WebAppBrowserController* WebAppBrowserController::AsWebAppBrowserController() {
 }
 
 std::string WebAppBrowserController::GetAppShortName() const {
-  return registrar().GetAppShortName(app_id_);
+  return registrar().GetAppShortName(GetAppId());
 }
 
 base::string16 WebAppBrowserController::GetFormattedUrlOrigin() const {
@@ -107,32 +107,34 @@ base::string16 WebAppBrowserController::GetFormattedUrlOrigin() const {
 bool WebAppBrowserController::CanUninstall() const {
   return WebAppUiManagerImpl::Get(browser()->profile())
       ->dialog_manager()
-      .CanUninstallWebApp(app_id_);
+      .CanUninstallWebApp(GetAppId());
 }
 
 void WebAppBrowserController::Uninstall() {
   WebAppUiManagerImpl::Get(browser()->profile())
       ->dialog_manager()
-      .UninstallWebApp(app_id_, WebAppDialogManager::UninstallSource::kAppMenu,
+      .UninstallWebApp(GetAppId(),
+                       WebAppDialogManager::UninstallSource::kAppMenu,
                        browser()->window(), base::DoNothing());
 }
 
 bool WebAppBrowserController::IsInstalled() const {
-  return registrar().IsInstalled(app_id_);
+  return registrar().IsInstalled(GetAppId());
 }
 
 const AppRegistrar& WebAppBrowserController::registrar() const {
   return provider_.registrar();
 }
 
-void WebAppBrowserController::OnReadIcon(SkBitmap bitmap) {
+void WebAppBrowserController::OnReadIcon(const SkBitmap& bitmap) {
   if (bitmap.empty()) {
     DLOG(ERROR) << "Failed to read icon for web app";
     return;
   }
 
   app_icon_ = gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
-  web_contents()->NotifyNavigationStateChanged(content::INVALIDATE_TYPE_TAB);
+  if (auto* contents = web_contents())
+    contents->NotifyNavigationStateChanged(content::INVALIDATE_TYPE_TAB);
   if (callback_for_testing_)
     std::move(callback_for_testing_).Run();
 }

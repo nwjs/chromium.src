@@ -18,12 +18,11 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
+#include "base/sequenced_task_runner.h"
 #include "base/single_thread_task_runner.h"
 #include "base/threading/sequence_bound.h"
 #include "base/threading/thread.h"
 #include "base/time/time.h"
-#include "chromecast/media/cma/backend/mixer/loopback_handler.h"
-#include "chromecast/media/cma/backend/mixer/mixer_control.h"
 #include "chromecast/media/cma/backend/mixer/mixer_input.h"
 #include "chromecast/media/cma/backend/mixer/mixer_pipeline.h"
 #include "chromecast/public/cast_media_shlib.h"
@@ -38,6 +37,7 @@ namespace media {
 
 class AudioOutputRedirector;
 class InterleavedChannelMixer;
+class LoopbackHandler;
 class MixerServiceReceiver;
 class MixerOutputStream;
 class PostProcessingPipelineFactory;
@@ -64,17 +64,17 @@ class PostProcessingPipelineFactory;
 //    input sources, then the output sample rate is updated to match the input
 //    sample rate of the new source.
 //  * Otherwise, the output sample rate remains unchanged.
-class StreamMixer : public MixerControl {
+class StreamMixer {
  public:
-  // Returns the mixer instance for this process. Caller must not delete the
-  // returned instance!
-  static StreamMixer* Get();
-
-  StreamMixer();
-  // Only public to allow tests to create/destroy mixers.
-  ~StreamMixer() override;
+  StreamMixer(
+      scoped_refptr<base::SequencedTaskRunner> io_task_runner = nullptr);
+  ~StreamMixer();
 
   int num_output_channels() const { return num_output_channels_; }
+
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner() const {
+    return mixer_task_runner_;
+  }
 
   // Adds an input source to the mixer. The |input_source| must live at least
   // until input_source->FinalizeAudioPlayback() is called.
@@ -84,23 +84,12 @@ class StreamMixer : public MixerControl {
   // called on it; at this point it is safe to delete the input source.
   void RemoveInput(MixerInput::Source* input_source);
 
-  // Adds/removes a loopback audio observer. Observers are passed audio data
-  // just before it is written to output (prior to linearization filters).
-  void AddLoopbackAudioObserver(
-      CastMediaShlib::LoopbackAudioObserver* observer);
-  void RemoveLoopbackAudioObserver(
-      CastMediaShlib::LoopbackAudioObserver* observer);
-
   // Adds/removes an output redirector. Output redirectors take audio from
   // matching inputs and pass them to secondary output instead of the normal
   // mixer output.
   void AddAudioOutputRedirector(
       std::unique_ptr<AudioOutputRedirector> redirector);
   void RemoveAudioOutputRedirector(AudioOutputRedirector* redirector);
-  void ModifyAudioOutputRedirection(
-      AudioOutputRedirector* redirector,
-      std::vector<std::pair<AudioContentType, std::string>>
-          stream_match_patterns);
 
   // Sets the volume multiplier for the given content |type|.
   void SetVolume(AudioContentType type, float level);
@@ -123,15 +112,22 @@ class StreamMixer : public MixerControl {
   // connections.
   void UpdateStreamCounts();
 
+  // Sets the desired number of output channels that the mixer should use. The
+  // actual number of output channels may differ from this value.
+  void SetNumOutputChannels(int num_channels);
+
   // Test-only methods.
-  StreamMixer(std::unique_ptr<MixerOutputStream> output,
-              std::unique_ptr<base::Thread> mixer_thread,
-              scoped_refptr<base::SingleThreadTaskRunner> mixer_task_runner);
+  StreamMixer(
+      std::unique_ptr<MixerOutputStream> output,
+      std::unique_ptr<base::Thread> mixer_thread,
+      scoped_refptr<base::SingleThreadTaskRunner> mixer_task_runner,
+      scoped_refptr<base::SequencedTaskRunner> io_task_runner = nullptr);
   void ResetPostProcessorsForTest(
       std::unique_ptr<PostProcessingPipelineFactory> pipeline_factory,
       const std::string& pipeline_json);
   void SetNumOutputChannelsForTest(int num_output_channels);
   void EnableDynamicChannelCountForTest(bool enable);
+  LoopbackHandler* GetLoopbackHandlerForTest();
 
  private:
   class BaseExternalMediaVolumeChangeRequestObserver
@@ -155,9 +151,6 @@ class StreamMixer : public MixerControl {
     float limit = 1.0f;
     bool muted = false;
   };
-
-  // MixerControl implementation:
-  void SetNumOutputChannels(int num_channels) override;
 
   void SetNumOutputChannelsOnThread(int num_channels);
   void ResetPostProcessorsOnThread(CastMediaShlib::ResultCallback callback,
@@ -193,9 +186,7 @@ class StreamMixer : public MixerControl {
   std::unique_ptr<MixerPipeline> mixer_pipeline_;
   std::unique_ptr<base::Thread> mixer_thread_;
   scoped_refptr<base::SingleThreadTaskRunner> mixer_task_runner_;
-  std::unique_ptr<base::Thread> io_thread_;
-  scoped_refptr<base::SingleThreadTaskRunner> io_task_runner_;
-  std::unique_ptr<LoopbackHandler, LoopbackHandler::Deleter> loopback_handler_;
+  scoped_refptr<base::SequencedTaskRunner> io_task_runner_;
   std::unique_ptr<ThreadHealthChecker> health_checker_;
 
   std::unique_ptr<InterleavedChannelMixer> loopback_channel_mixer_;
@@ -242,6 +233,7 @@ class StreamMixer : public MixerControl {
   std::unique_ptr<BaseExternalMediaVolumeChangeRequestObserver>
       external_volume_observer_;
 
+  std::unique_ptr<LoopbackHandler> loopback_handler_;
   base::SequenceBound<MixerServiceReceiver> receiver_;
 
   base::WeakPtrFactory<StreamMixer> weak_factory_;

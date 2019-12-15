@@ -389,6 +389,9 @@ InterpretSafeBrowsingResult(safe_browsing::DownloadCheckResult result) {
 
     // This shouldn't be returned for Native File System write checks.
     case Result::ASYNC_SCANNING:
+    case Result::SENSITIVE_CONTENT_WARNING:
+    case Result::SENSITIVE_CONTENT_BLOCK:
+    case Result::DEEP_SCANNED_SAFE:
       NOTREACHED();
       return ChromeNativeFileSystemPermissionContext::AfterWriteCheckResult::
           kAllow;
@@ -576,7 +579,7 @@ bool ChromeNativeFileSystemPermissionContext::CanRequestWritePermission(
     const url::Origin& origin) {
   ContentSetting content_setting = content_settings()->GetContentSetting(
       origin.GetURL(), origin.GetURL(),
-      CONTENT_SETTINGS_TYPE_NATIVE_FILE_SYSTEM_WRITE_GUARD,
+      ContentSettingsType::NATIVE_FILE_SYSTEM_WRITE_GUARD,
       /*provider_id=*/std::string());
   DCHECK(content_setting == CONTENT_SETTING_ASK ||
          content_setting == CONTENT_SETTING_BLOCK);

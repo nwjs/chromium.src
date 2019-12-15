@@ -51,6 +51,9 @@ AutofillSaveCardInfoBarDelegateMobile::AutofillSaveCardInfoBarDelegateMobile(
       card_label_(card.NetworkAndLastFourDigits()),
       card_sub_label_(card.AbbreviatedExpirationDateForDisplay(false)),
       card_last_four_digits_(card.LastFourDigits()),
+      cardholder_name_(card.GetRawInfo(CREDIT_CARD_NAME_FULL)),
+      expiration_date_month_(card.Expiration2DigitMonthAsString()),
+      expiration_date_year_(card.Expiration4DigitYearAsString()),
       legal_message_lines_(legal_message_lines),
       is_off_the_record_(is_off_the_record) {
   DCHECK_EQ(upload, !upload_save_card_prompt_callback_.is_null());
@@ -149,11 +152,7 @@ bool AutofillSaveCardInfoBarDelegateMobile::Cancel() {
 }
 
 int AutofillSaveCardInfoBarDelegateMobile::GetButtons() const {
-  if (base::FeatureList::IsEnabled(features::kAutofillSaveCardShowNoThanks)) {
-    return BUTTON_OK | BUTTON_CANCEL;
-  } else {
-    return BUTTON_OK;
-  }
+  return BUTTON_OK | BUTTON_CANCEL;
 }
 
 base::string16 AutofillSaveCardInfoBarDelegateMobile::GetButtonLabel(

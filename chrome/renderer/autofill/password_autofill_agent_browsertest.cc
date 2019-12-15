@@ -360,10 +360,10 @@ class PasswordAutofillAgentTest : public ChromeRenderViewTest {
     password_field.form_control_type = "password";
     fill_data_.password_field = password_field;
 
-    PasswordAndRealm password2;
+    PasswordAndMetadata password2;
     password2.password = password2_;
     fill_data_.additional_logins[username2_] = password2;
-    PasswordAndRealm password3;
+    PasswordAndMetadata password3;
     password3.password = password3_;
     fill_data_.additional_logins[username3_] = password3;
 
@@ -416,6 +416,13 @@ class PasswordAutofillAgentTest : public ChromeRenderViewTest {
     scoped_feature_list_.InitAndEnableFeature(
         password_manager::features::kFillOnAccountSelect);
   }
+
+#if defined(OS_ANDROID)
+  void EnableTouchToFillFeature() {
+    scoped_feature_list_.InitAndEnableFeature(
+        autofill::features::kTouchToFillAndroid);
+  }
+#endif
 
   void EnableShowAutofillSignatures() {
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
@@ -1146,13 +1153,11 @@ TEST_F(PasswordAutofillAgentTest, SendPasswordFormsTest_FormWithoutPasswords) {
   LoadHTML(kFormWithoutPasswordsHTML);
   base::RunLoop().RunUntilIdle();
 
-  EXPECT_TRUE(fake_driver_.called_password_forms_parsed());
-  ASSERT_TRUE(fake_driver_.password_forms_parsed());
-  EXPECT_FALSE(fake_driver_.password_forms_parsed()->empty());
+  EXPECT_FALSE(fake_driver_.called_password_forms_parsed());
 
   EXPECT_TRUE(fake_driver_.called_password_forms_rendered());
   ASSERT_TRUE(fake_driver_.password_forms_rendered());
-  EXPECT_FALSE(fake_driver_.password_forms_rendered()->empty());
+  EXPECT_TRUE(fake_driver_.password_forms_rendered()->empty());
 }
 
 TEST_F(PasswordAutofillAgentTest,
@@ -1165,7 +1170,7 @@ TEST_F(PasswordAutofillAgentTest,
       "document.getElementById('random_field').type = 'password';";
   ExecuteJavaScriptForTests(script.c_str());
   base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(fake_driver_.called_password_forms_parsed());
+  EXPECT_FALSE(fake_driver_.called_password_forms_parsed());
 
   // When the user clicks on the field, a request to the store will be sent.
   EXPECT_TRUE(SimulateElementClick("random_field"));
@@ -1176,7 +1181,7 @@ TEST_F(PasswordAutofillAgentTest,
 
   EXPECT_TRUE(fake_driver_.called_password_forms_rendered());
   ASSERT_TRUE(fake_driver_.password_forms_rendered());
-  EXPECT_FALSE(fake_driver_.password_forms_rendered()->empty());
+  EXPECT_TRUE(fake_driver_.password_forms_rendered()->empty());
 }
 
 TEST_F(PasswordAutofillAgentTest, SendPasswordFormsTest_NonDisplayedForm) {
@@ -1755,7 +1760,6 @@ TEST_F(PasswordAutofillAgentTest, DontTryToShowTouchToFillReadonlyPassword) {
       password_autofill_agent_->TryToShowTouchToFill(password_element_));
 }
 
-#if defined(OS_ANDROID)
 TEST_F(PasswordAutofillAgentTest, DontShowTouchToFillOnSecurePageIfParamIsSet) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
@@ -1768,7 +1772,6 @@ TEST_F(PasswordAutofillAgentTest, DontShowTouchToFillOnSecurePageIfParamIsSet) {
   EXPECT_FALSE(
       password_autofill_agent_->TryToShowTouchToFill(password_element_));
 }
-#endif
 
 TEST_F(PasswordAutofillAgentTest, TouchToFillClosed) {
   SimulateOnFillPasswordForm(fill_data_);
@@ -3582,7 +3585,7 @@ TEST_F(PasswordAutofillAgentTest, PSLMatchedPasswordIsNotAutofill) {
   UpdateOriginForHTML(kFormWithPrefilledUsernameHTML);
 
   // Add PSL matched credentials with username equal to prefilled one.
-  PasswordAndRealm psl_credentials;
+  PasswordAndMetadata psl_credentials;
   psl_credentials.password = ASCIIToUTF16("pslpassword");
   // Non-empty realm means PSL matched credentials.
   psl_credentials.realm = "example.com";

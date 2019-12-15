@@ -5,6 +5,7 @@
 module apps.mojom;
 
 import "chrome/services/app_service/public/mojom/types.mojom";
+import "mojo/public/mojom/base/values.mojom";
 
 // An intermediary between M app consumers (e.g. app launcher UI, intent
 // pickers) and N app providers (also known as app platforms, e.g. Android
@@ -70,9 +71,39 @@ interface AppService {
       bool clear_site_data,
       bool report_abuse);
 
+  // Pauses an app to stop the current running app, and apply the icon effect.
+  PauseApp(
+      AppType app_type,
+      string app_id);
+
+  // Unpauses an app, and recover the icon effect for the app.
+  UnpauseApps(
+      AppType app_type,
+      string app_id);
+
   OpenNativeSettings(
       AppType app_type,
       string app_id);
+
+  // Set app identified by |app_id| as preferred app for |intent_filter|.
+  // |intent| is needed to set the preferred app in ARC.
+  // If the request is |from_publisher|, we would not sync the preferred
+  // app back to the publisher.
+  AddPreferredApp(
+      AppType app_type,
+      string app_id,
+      IntentFilter intent_filter,
+      Intent? intent,
+      bool from_publisher);
+
+  // Remove all preferred app setting for an |app_id|.
+  RemovePreferredApp(AppType app_type, string app_id);
+
+  // Reset app identified by |app_id| as preferred app for |intent_filter|.
+  RemovePreferredAppForFilter(
+      AppType app_type,
+      string app_id,
+      IntentFilter intent_filter);
 };
 
 interface Publisher {
@@ -121,8 +152,25 @@ interface Publisher {
       bool clear_site_data,
       bool report_abuse);
 
+  // Pauses an app to stop the current running app, and apply the icon effect.
+  PauseApp(
+      string app_id);
+
+  // Unpauses an app, and recover the icon effect for the app.
+  UnpauseApps(
+      string app_id);
+
   OpenNativeSettings(
       string app_id);
+
+  // Indicates that the app identified by |app_id| has been set as a preferred
+  // app for |intent_fitler|. This method is used by the App Service to sync
+  // the change to publishers. |intent| is needed to set the preferred app
+  // in ARC.
+  OnPreferredAppSet(
+      string app_id,
+      IntentFilter intent_filter,
+      Intent intent);
 };
 
 interface Subscriber {
@@ -133,6 +181,19 @@ interface Subscriber {
   //
   // See https://groups.google.com/a/chromium.org/d/msg/chromium-mojo/nFhBzGsb5Pg/V7t_8kNRAgAJ
   Clone(pending_receiver<Subscriber> receiver);
+
+  // Indicates that the app identified by |app_id| has been set as a preferred
+  // app for |intent_fitler|. This method is used by the App Service to sync
+  // the change from one subscriber to the others.
+  OnPreferredAppSet(string app_id,
+                    IntentFilter intent_filter);
+
+  // Indicates that the app identified by |app_id| is no longer a preferred
+  // app for |intent_filter|. This method is used by the App Service to sync
+  // the change to all subscribers.
+  OnPreferredAppRemoved(string app_id, IntentFilter intent_filter);
+
+  InitializePreferredApps(mojo_base.mojom.Value preferred_apps);
 };
 
 struct ConnectOptions {

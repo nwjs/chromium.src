@@ -41,18 +41,6 @@
 
 namespace net {
 
-#if defined(NTLM_PORTABLE)
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-enum class NtlmV2Usage : int {
-  kDisabledOverInsecure = 0,
-  kDisabledOverSecure,
-  kEnabledOverInsecure,
-  kEnabledOverSecure,
-  kMaxValue = kEnabledOverSecure
-};
-#endif
-
 class HttpAuthPreferences;
 
 // Code for handling HTTP NTLM authentication.
@@ -143,10 +131,6 @@ class NET_EXPORT_PRIVATE HttpAuthHandlerNTLM : public HttpAuthHandler {
   bool AllowsDefaultCredentials() override;
 
  protected:
-  // This function acquires a credentials handle in the SSPI implementation.
-  // It does nothing in the portable implementation.
-  int InitializeBeforeFirstChallenge();
-
   // HttpAuthHandler
   bool Init(HttpAuthChallengeTokenizer* tok, const SSLInfo& ssl_info) override;
   int GenerateAuthTokenImpl(const AuthCredentials* credentials,
@@ -179,7 +163,7 @@ class NET_EXPORT_PRIVATE HttpAuthHandlerNTLM : public HttpAuthHandler {
   static std::string CreateSPN(const GURL& origin);
 
 #if defined(NTLM_SSPI)
-  HttpAuthSSPI auth_sspi_;
+  HttpAuthSSPI mechanism_;
 #elif defined(NTLM_PORTABLE)
   ntlm::NtlmClient ntlm_client_;
 #endif
@@ -194,9 +178,9 @@ class NET_EXPORT_PRIVATE HttpAuthHandlerNTLM : public HttpAuthHandler {
   AuthCredentials credentials_;
   std::string channel_bindings_;
 
-  // The base64-encoded string following "NTLM" in the "WWW-Authenticate" or
-  // "Proxy-Authenticate" response header.
-  std::string auth_data_;
+  // Decoded authentication token that the server returned as part of an NTLM
+  // challenge.
+  std::string challenge_token_;
 
 #if defined(NTLM_SSPI)
   const HttpAuthPreferences* http_auth_preferences_;

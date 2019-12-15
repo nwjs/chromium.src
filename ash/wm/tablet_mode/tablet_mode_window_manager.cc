@@ -6,7 +6,9 @@
 
 #include <memory>
 
+#include "ash/display/screen_orientation_controller.h"
 #include "ash/public/cpp/app_types.h"
+#include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/ash_switches.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/window_properties.h"
@@ -15,6 +17,7 @@
 #include "ash/screen_util.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
+#include "ash/shell_delegate.h"
 #include "ash/wm/desks/desks_util.h"
 #include "ash/wm/mru_window_tracker.h"
 #include "ash/wm/overview/overview_controller.h"
@@ -42,18 +45,13 @@ namespace {
 // This function is called to check if window[i] is eligible to be carried over
 // to split view mode during clamshell <-> tablet mode transition or multi-user
 // switch transition. Returns true if windows[i] exists, is on |root_window|,
-// can snap in split view, and is not an ARC window.
-// TODO(xdai): Make it work for ARC windows. (see
-// https://crbug.com/922282 and
-// https://buganizer.corp.google.com/issues/123432223).
+// and can snap in split view on |root_window|.
 bool IsCarryOverCandidateForSplitView(
     const MruWindowTracker::WindowList& windows,
     size_t i,
     aura::Window* root_window) {
   return windows.size() > i && windows[i]->GetRootWindow() == root_window &&
-         CanSnapInSplitview(windows[i]) &&
-         static_cast<ash::AppType>(windows[i]->GetProperty(
-             aura::client::kAppType)) != AppType::ARC_APP;
+         SplitViewController::Get(root_window)->CanSnapWindow(windows[i]);
 }
 
 // Returns the windows that are going to be carried over to splitview during
@@ -240,6 +238,43 @@ aura::Window* TabletModeWindowManager::GetTopWindow() {
   return windows.empty() ? nullptr : windows[0];
 }
 
+// static
+bool TabletModeWindowManager::ShouldMinimizeTopWindowOnBack() {
+  if (!features::IsSwipingFromLeftEdgeToGoBackEnabled())
+    return false;
+
+  Shell* shell = Shell::Get();
+  if (!shell->tablet_mode_controller()->InTabletMode())
+    return false;
+
+  aura::Window* window = GetTopWindow();
+  if (!window)
+    return false;
+
+  // Do not minimize the window if it is in overview. This can avoid unnecessary
+  // window minimize animation.
+  OverviewController* overview_controller = Shell::Get()->overview_controller();
+  if (overview_controller->InOverviewSession() &&
+      overview_controller->overview_session()->IsWindowInOverview(window)) {
+    return false;
+  }
+
+  const int app_type = window->GetProperty(aura::client::kAppType);
+  if (app_type != static_cast<int>(AppType::BROWSER) &&
+      app_type != static_cast<int>(AppType::CHROME_APP)) {
+    return false;
+  }
+
+  WindowState* window_state = WindowState::Get(window);
+  if (!window_state || !window_state->CanMinimize() ||
+      window_state->IsMinimized()) {
+    return false;
+  }
+
+  // Minimize the window if it is at the bottom page.
+  return !shell->shell_delegate()->CanGoBack(window);
+}
+
 void TabletModeWindowManager::Init() {
   {
     ScopedObserveWindowAnimation scoped_observe(GetTopWindow(), this,
@@ -350,6 +385,7 @@ void TabletModeWindowManager::WindowStateDestroyed(aura::Window* window) {
 }
 
 void TabletModeWindowManager::SetIgnoreWmEventsForExit() {
+  is_exiting_ = true;
   for (auto& pair : window_state_map_)
     pair.second->set_ignore_wm_events(true);
 }
@@ -385,6 +421,12 @@ void TabletModeWindowManager::OnOverviewModeEndingAnimationComplete(
 void TabletModeWindowManager::OnSplitViewStateChanged(
     SplitViewController::State previous_state,
     SplitViewController::State state) {
+  // All TabletModeWindowState will ignore further WMEvents, but we still have
+  // to manually prevent sending maximizing events to ClientControlledState ARC
+  // windows e.g. ARC apps.
+  if (is_exiting_)
+    return;
+
   if (state != SplitViewController::State::kNoSnap)
     return;
   switch (

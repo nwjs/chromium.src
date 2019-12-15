@@ -222,8 +222,8 @@ class FrameProcessorTest : public ::testing::TestWithParam<bool> {
 
     do {
       read_callback_called_ = false;
-      stream->Read(base::Bind(&FrameProcessorTest::StoreStatusAndBuffer,
-                              base::Unretained(this)));
+      stream->Read(base::BindOnce(&FrameProcessorTest::StoreStatusAndBuffer,
+                                  base::Unretained(this)));
       base::RunLoop().RunUntilIdle();
     } while (++loop_count < 2 && read_callback_called_ &&
              last_read_status_ == DemuxerStream::kAborted);
@@ -248,8 +248,8 @@ class FrameProcessorTest : public ::testing::TestWithParam<bool> {
 
       do {
         read_callback_called_ = false;
-        stream->Read(base::Bind(&FrameProcessorTest::StoreStatusAndBuffer,
-                                base::Unretained(this)));
+        stream->Read(base::BindOnce(&FrameProcessorTest::StoreStatusAndBuffer,
+                                    base::Unretained(this)));
         base::RunLoop().RunUntilIdle();
         EXPECT_TRUE(read_callback_called_);
       } while (++loop_count < 2 &&
@@ -345,9 +345,9 @@ class FrameProcessorTest : public ::testing::TestWithParam<bool> {
         ASSERT_FALSE(audio_);
         audio_.reset(
             new ChunkDemuxerStream(DemuxerStream::AUDIO, MediaTrack::Id("1")));
-        AudioDecoderConfig decoder_config(kCodecVorbis, kSampleFormatPlanarF32,
-                                          CHANNEL_LAYOUT_STEREO, 1000,
-                                          EmptyExtraData(), Unencrypted());
+        AudioDecoderConfig decoder_config(
+            kCodecVorbis, kSampleFormatPlanarF32, CHANNEL_LAYOUT_STEREO, 1000,
+            EmptyExtraData(), EncryptionScheme::kUnencrypted);
         frame_processor_->OnPossibleAudioConfigUpdate(decoder_config);
         ASSERT_TRUE(
             audio_->UpdateAudioConfig(decoder_config, false, &media_log_));

@@ -11,7 +11,9 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
+#include "components/prefs/pref_registry_simple.h"
 #include "components/security_state/core/features.h"
+#include "components/security_state/core/security_state_pref_names.h"
 #include "net/ssl/ssl_cipher_suite_names.h"
 #include "net/ssl/ssl_connection_status_flags.h"
 
@@ -52,6 +54,14 @@ SecurityLevel GetSecurityLevelForNonSecureFieldTrial(
   // Default to dangerous on editing form fields and otherwise
   // warning.
   return input_events.insecure_field_edited ? DANGEROUS : WARNING;
+}
+
+SecurityLevel GetSecurityLevelForDisplayedMixedContent(bool suppress_warning) {
+  if (base::FeatureList::IsEnabled(features::kPassiveMixedContentWarning) &&
+      !suppress_warning) {
+    return kDisplayedInsecureContentWarningLevel;
+  }
+  return kDisplayedInsecureContentLevel;
 }
 
 std::string GetHistogramSuffixForSecurityLevel(
@@ -214,8 +224,12 @@ SecurityLevel GetSecurityLevel(
   DCHECK(!visible_security_state.ran_mixed_content);
   DCHECK(!visible_security_state.ran_content_with_cert_errors);
 
+  if (visible_security_state.displayed_mixed_content) {
+    return GetSecurityLevelForDisplayedMixedContent(
+        visible_security_state.should_suppress_mixed_content_warning);
+  }
+
   if (visible_security_state.contained_mixed_form ||
-      visible_security_state.displayed_mixed_content ||
       visible_security_state.displayed_content_with_cert_errors) {
     return kDisplayedInsecureContentLevel;
   }
@@ -253,6 +267,11 @@ bool HasMajorCertificateError(
   return is_cryptographic_with_certificate && is_major_cert_error;
 }
 
+void RegisterProfilePrefs(PrefRegistrySimple* registry) {
+  registry->RegisterBooleanPref(prefs::kStricterMixedContentTreatmentEnabled,
+                                true);
+}
+
 VisibleSecurityState::VisibleSecurityState()
     : malicious_content_status(MALICIOUS_CONTENT_STATUS_NONE),
       connection_info_initialized(false),
@@ -270,7 +289,8 @@ VisibleSecurityState::VisibleSecurityState()
       is_view_source(false),
       is_devtools(false),
       connection_used_legacy_tls(false),
-      should_suppress_legacy_tls_warning(false) {}
+      should_suppress_legacy_tls_warning(false),
+      should_suppress_mixed_content_warning(false) {}
 
 VisibleSecurityState::VisibleSecurityState(const VisibleSecurityState& other) =
     default;
@@ -323,6 +343,63 @@ bool IsSHA1InChain(const VisibleSecurityState& visible_security_state) {
   return visible_security_state.certificate &&
          (visible_security_state.cert_status &
           net::CERT_STATUS_SHA1_SIGNATURE_PRESENT);
+}
+
+// As an experiment, the info icon should be downgraded to a grey triangle for
+// non-secure connections (crbug.com/997972). This method helps distinguish
+// between cases where the NONE and WARNING security levels should map to
+// neutral (info) or insecure (triangle) for styling purposes.
+//
+// TODO(crbug.com/1015626): Clean this up once the experiment is fully
+// launched and security states refactored.
+bool ShouldDowngradeNeutralStyling(
+    security_state::SecurityLevel security_level,
+    GURL url,
+    IsOriginSecureCallback is_origin_secure_callback) {
+  // This method is only relevant if the info icon is shown, which only occurs
+  // for NONE and WARNING security states.
+  if (security_level != security_state::NONE &&
+      security_level != security_state::WARNING) {
+    return false;
+  }
+
+  // The state should not be downgraded unless the grey triangle experiment
+  // is enabled.
+  bool http_danger_warning_enabled = false;
+  if (base::FeatureList::IsEnabled(features::kMarkHttpAsFeature)) {
+    std::string parameter = base::GetFieldTrialParamValueByFeature(
+        features::kMarkHttpAsFeature,
+        features::kMarkHttpAsFeatureParameterName);
+    if (parameter ==
+        security_state::features::kMarkHttpAsParameterDangerWarning) {
+      http_danger_warning_enabled = true;
+    }
+  }
+  if (!http_danger_warning_enabled)
+    return false;
+
+  bool scheme_is_cryptographic = security_state::IsSchemeCryptographic(url);
+  bool origin_is_secure = scheme_is_cryptographic;
+  if (!scheme_is_cryptographic)
+    origin_is_secure = is_origin_secure_callback.Run(url);
+
+  // The grey danger triangle should be shown on HTTPS pages with passive
+  // mixed content. These pages currently use the NONE security state, but
+  // this is undergoing a refactor.
+  if (security_level == security_state::NONE && scheme_is_cryptographic)
+    return true;
+
+  // data: URLs should continue to have danger warnings even though data: is
+  // considered a secure origin.
+  if (url.SchemeIs(url::kDataScheme))
+    return true;
+
+  // The info icon should be used on non-HTTPS secure origins, but other
+  // WARNING states should use they grey danger triangle.
+  if (security_level == security_state::WARNING && !origin_is_secure)
+    return true;
+
+  return false;
 }
 
 }  // namespace security_state

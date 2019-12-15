@@ -14,6 +14,7 @@
 #include "content/browser/frame_host/frame_tree_node.h"
 #include "content/browser/service_worker/embedded_worker_test_helper.h"
 #include "content/browser/service_worker/service_worker_consts.h"
+#include "content/browser/service_worker/service_worker_container_host.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_database.h"
 #include "content/browser/service_worker/service_worker_disk_cache.h"
@@ -23,15 +24,16 @@
 #include "content/common/frame.mojom.h"
 #include "content/common/frame_messages.h"
 #include "content/common/frame_messages.mojom.h"
-#include "content/common/throttling_url_loader.h"
 #include "content/public/common/child_process_host.h"
 #include "content/public/common/transferrable_url_loader.mojom.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/io_buffer.h"
 #include "net/base/test_completion_callback.h"
 #include "net/http/http_response_info.h"
+#include "third_party/blink/public/common/loader/throttling_url_loader.h"
 
 namespace content {
 
@@ -46,16 +48,18 @@ class MockSharedURLLoaderFactory final
   MockSharedURLLoaderFactory() = default;
 
   // network::mojom::URLLoaderFactory:
-  void CreateLoaderAndStart(network::mojom::URLLoaderRequest request,
-                            int32_t routing_id,
-                            int32_t request_id,
-                            uint32_t options,
-                            const network::ResourceRequest& url_request,
-                            network::mojom::URLLoaderClientPtr client,
-                            const net::MutableNetworkTrafficAnnotationTag&
-                                traffic_annotation) override {
-    client->OnComplete(
-        network::URLLoaderCompletionStatus(net::ERR_NOT_IMPLEMENTED));
+  void CreateLoaderAndStart(
+      mojo::PendingReceiver<network::mojom::URLLoader> receiver,
+      int32_t routing_id,
+      int32_t request_id,
+      uint32_t options,
+      const network::ResourceRequest& url_request,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client,
+      const net::MutableNetworkTrafficAnnotationTag& traffic_annotation)
+      override {
+    mojo::Remote<network::mojom::URLLoaderClient>(std::move(client))
+        ->OnComplete(
+            network::URLLoaderCompletionStatus(net::ERR_NOT_IMPLEMENTED));
   }
   void Clone(mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver)
       override {
@@ -63,7 +67,7 @@ class MockSharedURLLoaderFactory final
   }
 
   // network::SharedURLLoaderFactory:
-  std::unique_ptr<network::SharedURLLoaderFactoryInfo> Clone() override {
+  std::unique_ptr<network::PendingSharedURLLoaderFactory> Clone() override {
     NOTREACHED();
     return nullptr;
   }
@@ -77,11 +81,11 @@ class MockSharedURLLoaderFactory final
 };
 
 // Returns MockSharedURLLoaderFactory.
-class MockSharedURLLoaderFactoryInfo final
-    : public network::SharedURLLoaderFactoryInfo {
+class MockPendingSharedURLLoaderFactory final
+    : public network::PendingSharedURLLoaderFactory {
  public:
-  MockSharedURLLoaderFactoryInfo() = default;
-  ~MockSharedURLLoaderFactoryInfo() override = default;
+  MockPendingSharedURLLoaderFactory() = default;
+  ~MockPendingSharedURLLoaderFactory() override = default;
 
  protected:
   scoped_refptr<network::SharedURLLoaderFactory> CreateFactory() override {
@@ -89,7 +93,7 @@ class MockSharedURLLoaderFactoryInfo final
   }
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(MockSharedURLLoaderFactoryInfo);
+  DISALLOW_COPY_AND_ASSIGN(MockPendingSharedURLLoaderFactory);
 };
 
 class FakeNavigationClient : public mojom::NavigationClient {
@@ -109,7 +113,7 @@ class FakeNavigationClient : public mojom::NavigationClient {
       network::mojom::URLResponseHeadPtr response_head,
       mojo::ScopedDataPipeConsumerHandle response_body,
       network::mojom::URLLoaderClientEndpointsPtr url_loader_client_endpoints,
-      std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+      std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
           subresource_loader_factories,
       base::Optional<std::vector<::content::mojom::TransferrableURLLoaderPtr>>
           subresource_overrides,
@@ -129,7 +133,7 @@ class FakeNavigationClient : public mojom::NavigationClient {
       bool has_stale_copy_in_cache,
       int error_code,
       const base::Optional<std::string>& error_page_content,
-      std::unique_ptr<blink::URLLoaderFactoryBundleInfo> subresource_loaders,
+      std::unique_ptr<blink::PendingURLLoaderFactoryBundle> subresource_loaders,
       CommitFailedNavigationCallback callback) override {
     std::move(callback).Run(nullptr, nullptr);
   }
@@ -224,9 +228,10 @@ void ServiceWorkerRemoteProviderEndpoint::BindForWindow(
       navigation_client_.BindNewPipeAndPassReceiver());
   navigation_client_->CommitNavigation(
       CreateCommonNavigationParams(), CreateCommitNavigationParams(),
-      network::ResourceResponseHead(), mojo::ScopedDataPipeConsumerHandle(),
-      nullptr, nullptr, base::nullopt, nullptr, std::move(info),
-      mojo::NullRemote(), base::UnguessableToken::Create(),
+      network::mojom::URLResponseHead::New(),
+      mojo::ScopedDataPipeConsumerHandle(), nullptr, nullptr, base::nullopt,
+      nullptr, std::move(info), mojo::NullRemote(),
+      base::UnguessableToken::Create(),
       base::BindOnce(
           [](std::unique_ptr<FrameHostMsg_DidCommitProvisionalLoad_Params>
                  validated_params,
@@ -263,7 +268,9 @@ base::WeakPtr<ServiceWorkerProviderHost> CreateProviderHostForWindow(
 
   // In production code this is called from NavigationRequest in the browser
   // process right before navigation commit.
-  host->OnBeginNavigationCommit(process_id, 1 /* route_id */);
+  host->container_host()->OnBeginNavigationCommit(
+      process_id, 1 /* route_id */,
+      network::mojom::CrossOriginEmbedderPolicy::kNone);
   return host;
 }
 
@@ -279,7 +286,7 @@ CreateProviderHostAndInfoForWindow(
   info->client_receiver = client_remote.InitWithNewEndpointAndPassReceiver();
   host_receiver = info->host_remote.InitWithNewEndpointAndPassReceiver();
   return std::make_unique<ServiceWorkerProviderHostAndInfo>(
-      ServiceWorkerProviderHost::PreCreateNavigationHost(
+      ServiceWorkerProviderHost::CreateForWindow(
           context, are_ancestors_secure, FrameTreeNode::kFrameTreeNodeInvalidId,
           std::move(host_receiver), std::move(client_remote)),
       std::move(info));
@@ -333,7 +340,7 @@ CreateProviderHostForServiceWorkerContext(
           &provider_info);
 
   host->CompleteStartWorkerPreparation(
-      process_id, mojo::MakeRequest(&provider_info->interface_provider),
+      process_id,
       provider_info->browser_interface_broker.InitWithNewPipeAndPassReceiver());
   output_endpoint->BindForServiceWorker(std::move(provider_info));
   return host;
@@ -652,12 +659,13 @@ ServiceWorkerUpdateCheckTestUtils::CreateUpdateCheckerPausedState(
     ServiceWorkerUpdatedScriptLoader::LoaderState network_loader_state,
     ServiceWorkerUpdatedScriptLoader::WriterState body_writer_state,
     mojo::ScopedDataPipeConsumerHandle network_consumer) {
-  network::mojom::URLLoaderClientPtr network_loader_client;
-  network::mojom::URLLoaderClientRequest network_loader_client_request =
-      mojo::MakeRequest(&network_loader_client);
+  mojo::PendingRemote<network::mojom::URLLoaderClient> network_loader_client;
+  mojo::PendingReceiver<network::mojom::URLLoaderClient>
+      network_loader_client_receiver =
+          network_loader_client.InitWithNewPipeAndPassReceiver();
   return std::make_unique<ServiceWorkerSingleScriptUpdateChecker::PausedState>(
       std::move(cache_writer), /*network_loader=*/nullptr,
-      std::move(network_loader_client_request), std::move(network_consumer),
+      std::move(network_loader_client_receiver), std::move(network_consumer),
       network_loader_state, body_writer_state);
 }
 

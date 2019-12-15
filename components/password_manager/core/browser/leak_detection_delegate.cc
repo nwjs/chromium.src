@@ -8,11 +8,11 @@
 #include "build/build_config.h"
 #include "components/autofill/core/common/password_form.h"
 #include "components/autofill/core/common/save_password_progress_logger.h"
+#include "components/password_manager/core/browser/compromised_credentials_table.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_check.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_check_factory_impl.h"
 #include "components/password_manager/core/browser/leak_detection_delegate_helper.h"
 #include "components/password_manager/core/browser/leak_detection_dialog_utils.h"
-#include "components/password_manager/core/browser/leaked_credentials_table.h"
 #include "components/password_manager/core/browser/password_feature_manager.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
@@ -83,12 +83,12 @@ void LeakDetectionDelegate::OnLeakDetectionDone(bool is_leaked,
       client_->GetProfilePasswordStore();
   if (base::FeatureList::IsEnabled(password_manager::features::kLeakHistory)) {
     if (is_leaked) {
-      password_store->AddLeakedCredentials(
-          LeakedCredentials(url, username, base::Time::Now()));
+      password_store->AddCompromisedCredentials(CompromisedCredentials(
+          url, username, base::Time::Now(), CompromiseType::kLeaked));
     } else {
       // If the credentials are not saved as leaked in the database, this call
       // will just get ignored.
-      password_store->RemoveLeakedCredentials(url, username);
+      password_store->RemoveCompromisedCredentials(url, username);
     }
   }
 
@@ -137,7 +137,7 @@ void LeakDetectionDelegate::OnError(LeakDetectionError error) {
         logger.LogMessage(Logger::STRING_LEAK_DETECTION_TOKEN_REQUEST_ERROR);
         break;
       case LeakDetectionError::kHashingFailure:
-        logger.LogMessage(Logger::STRING_LEAK_DETECTION_TOKEN_REQUEST_ERROR);
+        logger.LogMessage(Logger::STRING_LEAK_DETECTION_HASH_ERROR);
         break;
       case LeakDetectionError::kInvalidServerResponse:
         logger.LogMessage(

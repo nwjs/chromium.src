@@ -8,7 +8,6 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.test.filters.MediumTest;
-import android.support.test.filters.SmallTest;
 import android.util.Log;
 import android.util.Pair;
 
@@ -28,9 +27,8 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.browser.ChromeFeatureList;
-import org.chromium.chrome.browser.download.DownloadInfo.Builder;
 import org.chromium.chrome.browser.download.DownloadManagerServiceTest.MockDownloadNotifier.MethodID;
-import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.test.ChromeBrowserTestRule;
 import org.chromium.components.offline_items_collection.ContentId;
 import org.chromium.components.offline_items_collection.OfflineItem.Progress;
@@ -266,7 +264,7 @@ public class DownloadManagerServiceTest {
     }
 
     private DownloadInfo getDownloadInfo() {
-        return new Builder()
+        return new DownloadInfo.Builder()
                 .setBytesReceived(100)
                 .setDownloadGuid(UUID.randomUUID().toString())
                 .setFileName("test")
@@ -296,15 +294,15 @@ public class DownloadManagerServiceTest {
 
         // Now post multiple download updated calls and make sure all are received.
         DownloadInfo update1 =
-                Builder.fromDownloadInfo(downloadInfo)
+                DownloadInfo.Builder.fromDownloadInfo(downloadInfo)
                         .setProgress(new Progress(10, 100L, OfflineItemProgressUnit.PERCENTAGE))
                         .build();
         DownloadInfo update2 =
-                Builder.fromDownloadInfo(downloadInfo)
+                DownloadInfo.Builder.fromDownloadInfo(downloadInfo)
                         .setProgress(new Progress(30, 100L, OfflineItemProgressUnit.PERCENTAGE))
                         .build();
         DownloadInfo update3 =
-                Builder.fromDownloadInfo(downloadInfo)
+                DownloadInfo.Builder.fromDownloadInfo(downloadInfo)
                         .setProgress(new Progress(30, 100L, OfflineItemProgressUnit.PERCENTAGE))
                         .build();
         notifier.expect(MethodID.DOWNLOAD_PROGRESS, update1)
@@ -327,15 +325,15 @@ public class DownloadManagerServiceTest {
         createDownloadManagerService(notifier, LONG_UPDATE_DELAY_FOR_TEST);
         DownloadInfo downloadInfo = getDownloadInfo();
         DownloadInfo update1 =
-                Builder.fromDownloadInfo(downloadInfo)
+                DownloadInfo.Builder.fromDownloadInfo(downloadInfo)
                         .setProgress(new Progress(10, 100L, OfflineItemProgressUnit.PERCENTAGE))
                         .build();
         DownloadInfo update2 =
-                Builder.fromDownloadInfo(downloadInfo)
+                DownloadInfo.Builder.fromDownloadInfo(downloadInfo)
                         .setProgress(new Progress(10, 100L, OfflineItemProgressUnit.PERCENTAGE))
                         .build();
         DownloadInfo update3 =
-                Builder.fromDownloadInfo(downloadInfo)
+                DownloadInfo.Builder.fromDownloadInfo(downloadInfo)
                         .setProgress(new Progress(10, 100L, OfflineItemProgressUnit.PERCENTAGE))
                         .build();
 
@@ -390,8 +388,9 @@ public class DownloadManagerServiceTest {
                 (Runnable) () -> DownloadManagerService.setDownloadManagerService(mService));
         // Check that if an interrupted download cannot be resumed, it will trigger a download
         // failure.
-        DownloadInfo failure =
-                Builder.fromDownloadInfo(getDownloadInfo()).setIsResumable(false).build();
+        DownloadInfo failure = DownloadInfo.Builder.fromDownloadInfo(getDownloadInfo())
+                                       .setIsResumable(false)
+                                       .build();
         notifier.expect(MethodID.DOWNLOAD_FAILED, failure);
         mService.onDownloadInterrupted(failure, false);
         notifier.waitTillExpectedCallsComplete();
@@ -404,8 +403,9 @@ public class DownloadManagerServiceTest {
         MockDownloadNotifier notifier = new MockDownloadNotifier();
         createDownloadManagerService(notifier, UPDATE_DELAY_FOR_TEST);
         DownloadManagerService.disableNetworkListenerForTest();
-        DownloadInfo interrupted =
-                Builder.fromDownloadInfo(getDownloadInfo()).setIsResumable(true).build();
+        DownloadInfo interrupted = DownloadInfo.Builder.fromDownloadInfo(getDownloadInfo())
+                                           .setIsResumable(true)
+                                           .build();
         notifier.expect(MethodID.DOWNLOAD_INTERRUPTED, interrupted);
         mService.onDownloadInterrupted(interrupted, true);
         notifier.waitTillExpectedCallsComplete();
@@ -444,8 +444,9 @@ public class DownloadManagerServiceTest {
         MockDownloadNotifier notifier = new MockDownloadNotifier();
         createDownloadManagerService(notifier, UPDATE_DELAY_FOR_TEST);
         DownloadManagerService.disableNetworkListenerForTest();
-        DownloadInfo interrupted =
-                Builder.fromDownloadInfo(getDownloadInfo()).setIsResumable(true).build();
+        DownloadInfo interrupted = DownloadInfo.Builder.fromDownloadInfo(getDownloadInfo())
+                                           .setIsResumable(true)
+                                           .build();
         notifier.expect(MethodID.DOWNLOAD_PROGRESS, interrupted)
                 .andThen(MethodID.DOWNLOAD_INTERRUPTED, interrupted);
         mService.onDownloadUpdated(interrupted);
@@ -472,8 +473,9 @@ public class DownloadManagerServiceTest {
         MockDownloadNotifier notifier = new MockDownloadNotifier();
         createDownloadManagerService(notifier, UPDATE_DELAY_FOR_TEST);
         DownloadManagerService.disableNetworkListenerForTest();
-        DownloadInfo interrupted =
-                Builder.fromDownloadInfo(getDownloadInfo()).setIsResumable(true).build();
+        DownloadInfo interrupted = DownloadInfo.Builder.fromDownloadInfo(getDownloadInfo())
+                                           .setIsResumable(true)
+                                           .build();
         notifier.expect(MethodID.DOWNLOAD_PROGRESS, interrupted)
                 .andThen(MethodID.DOWNLOAD_INTERRUPTED, interrupted);
         mService.onDownloadUpdated(interrupted);
@@ -484,24 +486,5 @@ public class DownloadManagerServiceTest {
         int resumableIdCount = mService.mAutoResumableDownloadIds.size();
         mService.onConnectionTypeChanged(ConnectionType.CONNECTION_2G);
         Assert.assertEquals(resumableIdCount, mService.mAutoResumableDownloadIds.size());
-    }
-
-    /**
-     * Test to make sure {@link DownloadUtils#shouldAutoOpenDownload}
-     * returns the right result for varying MIME types and Content-Dispositions.
-     */
-    @Test
-    @SmallTest
-    @Feature({"Download"})
-    public void testshouldAutoOpenDownload() {
-        // Should not open any download type MIME types.
-        Assert.assertFalse(DownloadUtils.shouldAutoOpenDownload("application/download", true));
-        Assert.assertFalse(DownloadUtils.shouldAutoOpenDownload("application/x-download", true));
-        Assert.assertFalse(DownloadUtils.shouldAutoOpenDownload("application/octet-stream", true));
-        Assert.assertTrue(DownloadUtils.shouldAutoOpenDownload("application/pdf", true));
-        Assert.assertFalse(DownloadUtils.shouldAutoOpenDownload("application/pdf", false));
-        Assert.assertFalse(DownloadUtils.shouldAutoOpenDownload("application/x-download", true));
-        Assert.assertFalse(DownloadUtils.shouldAutoOpenDownload("application/x-download", true));
-        Assert.assertFalse(DownloadUtils.shouldAutoOpenDownload("application/x-download", true));
     }
 }

@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_contents_view.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_result_view.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/feature_engagement/buildflags.h"
 #include "components/omnibox/browser/autocomplete_input.h"
@@ -264,7 +265,7 @@ void OmniboxViewViews::SaveStateToTab(content::WebContents* tab) {
   // session here.  It may affect the selection status, so order is
   // also important.
   if (IsIMEComposing()) {
-    ConfirmCompositionText();
+    ConfirmCompositionText(/* keep_selection */ false);
     GetInputMethod()->CancelComposition(this);
   }
 
@@ -419,6 +420,8 @@ void OmniboxViewViews::RevertAll() {
 }
 
 void OmniboxViewViews::SetFocus(bool is_user_initiated) {
+  const bool already_focused = HasFocus();
+
   // Temporarily reveal the top-of-window views (if not already revealed) so
   // that the location bar view is visible and is considered focusable. When it
   // actually receives focus, ImmersiveFocusWatcher will add another lock to
@@ -446,6 +449,17 @@ void OmniboxViewViews::SetFocus(bool is_user_initiated) {
   // re-pressed. This occurs even if the omnibox is already focused and we
   // re-request focus (e.g. pressing ctrl-l twice).
   model()->ConsumeCtrlKey();
+
+  if (already_focused)
+    model()->ClearKeyword();
+
+  if (is_user_initiated) {
+    SelectAll(true);
+
+    // Only exit Query in Omnibox mode on focus command if the location bar was
+    // already focused to begin with, i.e. user presses Ctrl+L twice.
+    model()->Unelide(/*exit_query_in_omnibox=*/already_focused);
+  }
 }
 
 int OmniboxViewViews::GetTextWidth() const {
@@ -651,7 +665,7 @@ bool OmniboxViewViews::HandleEarlyTabActions(const ui::KeyEvent& event) {
   // If tabbing forwards (shift is not pressed) and suggestion button is not
   // selected, select it.
   if (!event.IsShiftDown()) {
-    if (MaybeFocusTabButton())
+    if (MaybeFocusSecondaryButton())
       return true;
   }
 
@@ -659,7 +673,7 @@ bool OmniboxViewViews::HandleEarlyTabActions(const ui::KeyEvent& event) {
   // the tab switch button.
   if (event.IsShiftDown()) {
     // If tab switch button is focused, unfocus it.
-    if (MaybeUnfocusTabButton())
+    if (MaybeUnfocusSecondaryButton())
       return true;
   }
 
@@ -667,12 +681,9 @@ bool OmniboxViewViews::HandleEarlyTabActions(const ui::KeyEvent& event) {
   model()->OnUpOrDownKeyPressed(event.IsShiftDown() ? -1 : 1);
   // If we shift-tabbed (and actually moved) to a suggestion with a tab
   // switch button, select it.
-  if (event.IsShiftDown() &&
-      model()->popup_model()->SelectedLineHasTabMatch()) {
+  if (event.IsShiftDown() && GetSecondaryButtonForSelectedLine()) {
     model()->popup_model()->SetSelectedLineState(
         OmniboxPopupModel::BUTTON_FOCUSED);
-    popup_view_->ProvideButtonFocusHint(
-        model()->popup_model()->selected_line());
   }
 
   return true;
@@ -698,9 +709,16 @@ bool OmniboxViewViews::TextAndUIDirectionMatch() const {
           base::i18n::RIGHT_TO_LEFT) == base::i18n::IsRTL();
 }
 
-bool OmniboxViewViews::SelectedSuggestionHasTabMatch() const {
-  return model()->popup_model() &&  // Can be null in tests.
-         model()->popup_model()->SelectedLineHasTabMatch();
+views::Button* OmniboxViewViews::GetSecondaryButtonForSelectedLine() const {
+  OmniboxPopupModel* popup_model = model()->popup_model();
+  if (!popup_model)
+    return nullptr;
+
+  size_t selected_line = popup_model->selected_line();
+  if (selected_line == OmniboxPopupModel::kNoMatch)
+    return nullptr;
+
+  return popup_view_->result_view_at(selected_line)->GetSecondaryButton();
 }
 
 bool OmniboxViewViews::DirectionAwareSelectionAtEnd() const {
@@ -709,27 +727,42 @@ bool OmniboxViewViews::DirectionAwareSelectionAtEnd() const {
   return TextAndUIDirectionMatch() ? SelectionAtEnd() : SelectionAtBeginning();
 }
 
-bool OmniboxViewViews::MaybeFocusTabButton() {
-  if (SelectedSuggestionHasTabMatch() &&
+bool OmniboxViewViews::MaybeFocusSecondaryButton() {
+  if (GetSecondaryButtonForSelectedLine() &&
       model()->popup_model()->selected_line_state() ==
           OmniboxPopupModel::NORMAL) {
     model()->popup_model()->SetSelectedLineState(
         OmniboxPopupModel::BUTTON_FOCUSED);
-    popup_view_->ProvideButtonFocusHint(
-        model()->popup_model()->selected_line());
     return true;
   }
   return false;
 }
 
-bool OmniboxViewViews::MaybeUnfocusTabButton() {
-  if (SelectedSuggestionHasTabMatch() &&
+bool OmniboxViewViews::MaybeUnfocusSecondaryButton() {
+  if (GetSecondaryButtonForSelectedLine() &&
       model()->popup_model()->selected_line_state() ==
           OmniboxPopupModel::BUTTON_FOCUSED) {
     model()->popup_model()->SetSelectedLineState(OmniboxPopupModel::NORMAL);
     return true;
   }
   return false;
+}
+
+bool OmniboxViewViews::MaybeTriggerSecondaryButton(const ui::KeyEvent& event) {
+  if (model()->popup_model()->selected_line_state() !=
+      OmniboxPopupModel::BUTTON_FOCUSED)
+    return false;
+
+  OmniboxPopupModel* popup_model = model()->popup_model();
+  if (!popup_model)
+    return false;
+
+  size_t selected_line = popup_model->selected_line();
+  if (selected_line == OmniboxPopupModel::kNoMatch)
+    return false;
+
+  return popup_view_->result_view_at(selected_line)
+      ->MaybeTriggerSecondaryButton(event);
 }
 
 void OmniboxViewViews::SetWindowTextAndCaretPos(const base::string16& text,
@@ -780,8 +813,8 @@ void OmniboxViewViews::OnTemporaryTextMaybeChanged(
   if (save_original_selection)
     saved_temporary_selection_ = GetSelectedRange();
   SetAccessibilityLabel(display_text, match);
-  int caret_pos = TextAndUIDirectionMatch() ? display_text.length() : 0;
-  SetWindowTextAndCaretPos(display_text, caret_pos, false, notify_text_changed);
+  SetWindowTextAndCaretPos(display_text, display_text.length(), false,
+                           notify_text_changed);
 }
 
 bool OmniboxViewViews::OnInlineAutocompleteTextMaybeChanged(
@@ -1059,11 +1092,10 @@ base::string16 OmniboxViewViews::GetLabelForCommandId(int command_id) const {
   // number of characters, the pixel width at which the url begins to elide is
   // derived from the truncated selection text. However, ideally there would be
   // a better way to do this.
-  const float kMaxSelectionPixelWidth = GetStringWidthF(
-      selection_text, Textfield::GetFontList(), gfx::Typesetter::BROWSER);
+  const float kMaxSelectionPixelWidth =
+      GetStringWidthF(selection_text, Textfield::GetFontList());
   base::string16 url = url_formatter::ElideUrl(
-      match.destination_url, Textfield::GetFontList(), kMaxSelectionPixelWidth,
-      gfx::Typesetter::BROWSER);
+      match.destination_url, Textfield::GetFontList(), kMaxSelectionPixelWidth);
 
   return l10n_util::GetStringFUTF16(IDS_PASTE_AND_GO, url);
 }
@@ -1293,6 +1325,7 @@ bool OmniboxViewViews::HandleAccessibleAction(
     ui::AXActionData set_selection_action_data;
     set_selection_action_data.action = ax::mojom::Action::kSetSelection;
     set_selection_action_data.anchor_node_id = action_data.anchor_node_id;
+    set_selection_action_data.focus_node_id = action_data.focus_node_id;
     set_selection_action_data.focus_offset =
         action_data.focus_offset - friendly_suggestion_text_prefix_length_;
     set_selection_action_data.anchor_offset =
@@ -1554,28 +1587,24 @@ bool OmniboxViewViews::HandleKeyEvent(views::Textfield* textfield,
   const bool command = event.IsCommandDown();
   switch (event.key_code()) {
     case ui::VKEY_RETURN:
-      if (model()->popup_model()->selected_line_state() ==
-          OmniboxPopupModel::BUTTON_FOCUSED) {
-        popup_view_->OpenMatch(WindowOpenDisposition::SWITCH_TO_TAB,
-                               event.time_stamp());
+      if (MaybeTriggerSecondaryButton(event)) {
+        return true;
+      } else if ((alt && !shift) || (shift && command)) {
+        model()->AcceptInput(WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                             event.time_stamp());
+      } else if (alt || command) {
+        model()->AcceptInput(WindowOpenDisposition::NEW_BACKGROUND_TAB,
+                             event.time_stamp());
+      } else if (shift) {
+        model()->AcceptInput(WindowOpenDisposition::NEW_WINDOW,
+                             event.time_stamp());
       } else {
-        if (alt || (shift && command)) {
-          model()->AcceptInput(WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                               event.time_stamp());
-        } else if (command) {
-          model()->AcceptInput(WindowOpenDisposition::NEW_BACKGROUND_TAB,
-                               event.time_stamp());
-        } else if (shift) {
-          model()->AcceptInput(WindowOpenDisposition::NEW_WINDOW,
+        if (model()->popup_model()->SelectedLineIsTabSwitchSuggestion()) {
+          model()->AcceptInput(WindowOpenDisposition::SWITCH_TO_TAB,
                                event.time_stamp());
         } else {
-          if (model()->popup_model()->SelectedLineIsTabSwitchSuggestion()) {
-            model()->AcceptInput(WindowOpenDisposition::SWITCH_TO_TAB,
-                                 event.time_stamp());
-          } else {
-            model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB,
-                                 event.time_stamp());
-          }
+          model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB,
+                               event.time_stamp());
         }
       }
       return true;
@@ -1647,10 +1676,10 @@ bool OmniboxViewViews::HandleKeyEvent(views::Textfield* textfield,
           model()->AcceptKeyword(OmniboxEventProto::SELECT_SUGGESTION);
           OnAfterPossibleChange(true);
           return true;
-        } else if (MaybeFocusTabButton()) {
+        } else if (MaybeFocusSecondaryButton()) {
           return true;
         }
-      } else if (MaybeUnfocusTabButton()) {
+      } else if (MaybeUnfocusSecondaryButton()) {
         return true;
       }
       break;
@@ -1702,15 +1731,9 @@ bool OmniboxViewViews::HandleKeyEvent(views::Textfield* textfield,
       break;
 
     case ui::VKEY_SPACE:
-      if (!(control || alt || shift)) {
-        if (SelectionAtEnd() &&
-            model()->popup_model()->selected_line_state() ==
-                OmniboxPopupModel::BUTTON_FOCUSED) {
-          popup_view_->OpenMatch(WindowOpenDisposition::SWITCH_TO_TAB,
-                                 event.time_stamp());
-          return true;
-        }
-      }
+      if (!control && !alt && !shift && SelectionAtEnd() &&
+          MaybeTriggerSecondaryButton(event))
+        return true;
       break;
 
     default:

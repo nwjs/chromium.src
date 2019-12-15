@@ -9,8 +9,11 @@
 #include "base/bind.h"
 #include "base/optional.h"
 #include "base/run_loop.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
+#include "base/test/task_environment.h"
 #include "base/time/time.h"
+#include "net/base/features.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/ip_address.h"
 #include "net/base/ip_endpoint.h"
@@ -24,12 +27,15 @@
 #include "net/dns/host_resolver_source.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/dns/public/dns_protocol.h"
+#include "net/dns/public/resolve_error_info.h"
 #include "net/log/net_log_with_source.h"
 #include "net/test/gtest_util.h"
 #include "net/test/test_with_task_environment.h"
 #include "net/url_request/url_request_context.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
+#include "url/origin.h"
 
 namespace net {
 
@@ -37,12 +43,22 @@ namespace {
 const IPEndPoint kEndpoint(IPAddress(1, 2, 3, 4), 100);
 }
 
-class ContextHostResolverTest : public TestWithTaskEnvironment {
+class ContextHostResolverTest : public ::testing::Test,
+                                public WithTaskEnvironment {
  protected:
+  // Use mock time to prevent the HostResolverManager's injected IPv6 probe
+  // result from timing out.
+  ContextHostResolverTest()
+      : WithTaskEnvironment(
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
+
+  ~ContextHostResolverTest() override = default;
+
   void SetUp() override {
     manager_ = std::make_unique<HostResolverManager>(
         HostResolver::ManagerOptions(),
         nullptr /* system_dns_config_notifier */, nullptr /* net_log */);
+    manager_->SetLastIPv6ProbeResultForTesting(true);
   }
 
   void SetMockDnsRules(MockDnsClientRuleList rules) {
@@ -90,11 +106,13 @@ TEST_F(ContextHostResolverTest, Resolve) {
   resolver->SetRequestContext(&context);
   std::unique_ptr<HostResolver::ResolveHostRequest> request =
       resolver->CreateRequest(HostPortPair("example.com", 100),
-                              NetLogWithSource(), base::nullopt);
+                              NetworkIsolationKey(), NetLogWithSource(),
+                              base::nullopt);
 
   TestCompletionCallback callback;
   int rv = request->Start(callback.callback());
   EXPECT_THAT(callback.GetResult(rv), test::IsOk());
+  EXPECT_THAT(request->GetResolveErrorInfo().error, test::IsError(net::OK));
   EXPECT_THAT(request->GetAddressResults().value().endpoints(),
               testing::ElementsAre(kEndpoint));
 }
@@ -116,7 +134,8 @@ TEST_F(ContextHostResolverTest, DestroyRequest) {
       manager_.get(), nullptr /* host_cache */);
   std::unique_ptr<HostResolver::ResolveHostRequest> request =
       resolver->CreateRequest(HostPortPair("example.com", 100),
-                              NetLogWithSource(), base::nullopt);
+                              NetworkIsolationKey(), NetLogWithSource(),
+                              base::nullopt);
   EXPECT_EQ(1u, resolver->GetNumActiveRequestsForTesting());
 
   TestCompletionCallback callback;
@@ -131,6 +150,29 @@ TEST_F(ContextHostResolverTest, DestroyRequest) {
   EXPECT_THAT(rv, test::IsError(ERR_IO_PENDING));
   EXPECT_FALSE(callback.have_result());
   EXPECT_EQ(0u, resolver->GetNumActiveRequestsForTesting());
+}
+
+TEST_F(ContextHostResolverTest, DohProbeRequest) {
+  // Set empty MockDnsClient rules to ensure DnsClient is mocked out.
+  MockDnsClientRuleList rules;
+  SetMockDnsRules(std::move(rules));
+
+  URLRequestContext context;
+  auto resolver = std::make_unique<ContextHostResolver>(
+      manager_.get(), HostCache::CreateDefaultCache());
+  resolver->SetRequestContext(&context);
+
+  std::unique_ptr<HostResolver::ProbeRequest> request =
+      resolver->CreateDohProbeRequest();
+
+  ASSERT_FALSE(dns_client_->factory()->doh_probes_running());
+
+  EXPECT_THAT(request->Start(), test::IsError(ERR_IO_PENDING));
+  EXPECT_TRUE(dns_client_->factory()->doh_probes_running());
+
+  request.reset();
+
+  EXPECT_FALSE(dns_client_->factory()->doh_probes_running());
 }
 
 // Test that cancelling a resolver cancels its (and only its) requests.
@@ -157,12 +199,14 @@ TEST_F(ContextHostResolverTest, DestroyResolver) {
       manager_.get(), nullptr /* host_cache */);
   std::unique_ptr<HostResolver::ResolveHostRequest> request1 =
       resolver1->CreateRequest(HostPortPair("example.com", 100),
-                               NetLogWithSource(), base::nullopt);
+                               NetworkIsolationKey(), NetLogWithSource(),
+                               base::nullopt);
   auto resolver2 = std::make_unique<ContextHostResolver>(
       manager_.get(), nullptr /* host_cache */);
   std::unique_ptr<HostResolver::ResolveHostRequest> request2 =
       resolver2->CreateRequest(HostPortPair("google.com", 100),
-                               NetLogWithSource(), base::nullopt);
+                               NetworkIsolationKey(), NetLogWithSource(),
+                               base::nullopt);
 
   TestCompletionCallback callback1;
   int rv1 = request1->Start(callback1.callback());
@@ -204,12 +248,14 @@ TEST_F(ContextHostResolverTest, DestroyResolver_RemainingRequests) {
       manager_.get(), nullptr /* host_cache */);
   std::unique_ptr<HostResolver::ResolveHostRequest> request1 =
       resolver1->CreateRequest(HostPortPair("example.com", 100),
-                               NetLogWithSource(), base::nullopt);
+                               NetworkIsolationKey(), NetLogWithSource(),
+                               base::nullopt);
   auto resolver2 = std::make_unique<ContextHostResolver>(
       manager_.get(), nullptr /* host_cache */);
   std::unique_ptr<HostResolver::ResolveHostRequest> request2 =
       resolver2->CreateRequest(HostPortPair("example.com", 100),
-                               NetLogWithSource(), base::nullopt);
+                               NetworkIsolationKey(), NetLogWithSource(),
+                               base::nullopt);
 
   TestCompletionCallback callback1;
   int rv1 = request1->Start(callback1.callback());
@@ -224,6 +270,7 @@ TEST_F(ContextHostResolverTest, DestroyResolver_RemainingRequests) {
   dns_client_->CompleteDelayedTransactions();
 
   EXPECT_THAT(callback2.GetResult(rv2), test::IsOk());
+  EXPECT_THAT(request2->GetResolveErrorInfo().error, test::IsError(net::OK));
   EXPECT_THAT(request2->GetAddressResults().value().endpoints(),
               testing::ElementsAre(kEndpoint));
 
@@ -248,7 +295,8 @@ TEST_F(ContextHostResolverTest, DestroyResolver_CompletedRequests) {
       manager_.get(), nullptr /* host_cache */);
   std::unique_ptr<HostResolver::ResolveHostRequest> request =
       resolver->CreateRequest(HostPortPair("example.com", 100),
-                              NetLogWithSource(), base::nullopt);
+                              NetworkIsolationKey(), NetLogWithSource(),
+                              base::nullopt);
 
   // Complete request and then destroy the resolver.
   TestCompletionCallback callback;
@@ -257,8 +305,30 @@ TEST_F(ContextHostResolverTest, DestroyResolver_CompletedRequests) {
   resolver = nullptr;
 
   // Expect completed results are still available.
+  EXPECT_THAT(request->GetResolveErrorInfo().error, test::IsError(net::OK));
   EXPECT_THAT(request->GetAddressResults().value().endpoints(),
               testing::ElementsAre(kEndpoint));
+}
+
+TEST_F(ContextHostResolverTest, DestroyResolver_DohProbeRequest) {
+  // Set empty MockDnsClient rules to ensure DnsClient is mocked out.
+  MockDnsClientRuleList rules;
+  SetMockDnsRules(std::move(rules));
+
+  URLRequestContext context;
+  auto resolver = std::make_unique<ContextHostResolver>(
+      manager_.get(), nullptr /* host_cache */);
+  resolver->SetRequestContext(&context);
+
+  std::unique_ptr<HostResolver::ProbeRequest> request =
+      resolver->CreateDohProbeRequest();
+
+  request->Start();
+  ASSERT_TRUE(dns_client_->factory()->doh_probes_running());
+
+  resolver.reset();
+
+  EXPECT_FALSE(dns_client_->factory()->doh_probes_running());
 }
 
 // Test a request created before resolver destruction but not yet started.
@@ -277,15 +347,36 @@ TEST_F(ContextHostResolverTest, DestroyResolver_DelayedStartRequest) {
       manager_.get(), nullptr /* host_cache */);
   std::unique_ptr<HostResolver::ResolveHostRequest> request =
       resolver->CreateRequest(HostPortPair("example.com", 100),
-                              NetLogWithSource(), base::nullopt);
+                              NetworkIsolationKey(), NetLogWithSource(),
+                              base::nullopt);
 
   resolver = nullptr;
 
   TestCompletionCallback callback;
   int rv = request->Start(callback.callback());
 
-  EXPECT_THAT(callback.GetResult(rv), test::IsError(ERR_FAILED));
+  EXPECT_THAT(callback.GetResult(rv), test::IsError(ERR_NAME_NOT_RESOLVED));
+  EXPECT_THAT(request->GetResolveErrorInfo().error, test::IsError(ERR_FAILED));
   EXPECT_FALSE(request->GetAddressResults());
+}
+
+TEST_F(ContextHostResolverTest, DestroyResolver_DelayedStartDohProbeRequest) {
+  // Set empty MockDnsClient rules to ensure DnsClient is mocked out.
+  MockDnsClientRuleList rules;
+  SetMockDnsRules(std::move(rules));
+
+  URLRequestContext context;
+  auto resolver = std::make_unique<ContextHostResolver>(
+      manager_.get(), nullptr /* host_cache */);
+  resolver->SetRequestContext(&context);
+
+  std::unique_ptr<HostResolver::ProbeRequest> request =
+      resolver->CreateDohProbeRequest();
+
+  resolver = nullptr;
+
+  EXPECT_THAT(request->Start(), test::IsError(ERR_FAILED));
+  EXPECT_FALSE(dns_client_->factory()->doh_probes_running());
 }
 
 TEST_F(ContextHostResolverTest, OnShutdown_PendingRequest) {
@@ -306,7 +397,8 @@ TEST_F(ContextHostResolverTest, OnShutdown_PendingRequest) {
   resolver->SetRequestContext(&context);
   std::unique_ptr<HostResolver::ResolveHostRequest> request =
       resolver->CreateRequest(HostPortPair("example.com", 100),
-                              NetLogWithSource(), base::nullopt);
+                              NetworkIsolationKey(), NetLogWithSource(),
+                              base::nullopt);
 
   TestCompletionCallback callback;
   int rv = request->Start(callback.callback());
@@ -319,6 +411,27 @@ TEST_F(ContextHostResolverTest, OnShutdown_PendingRequest) {
   base::RunLoop().RunUntilIdle();
   EXPECT_THAT(rv, test::IsError(ERR_IO_PENDING));
   EXPECT_FALSE(callback.have_result());
+}
+
+TEST_F(ContextHostResolverTest, OnShutdown_DohProbeRequest) {
+  // Set empty MockDnsClient rules to ensure DnsClient is mocked out.
+  MockDnsClientRuleList rules;
+  SetMockDnsRules(std::move(rules));
+
+  URLRequestContext context;
+  auto resolver = std::make_unique<ContextHostResolver>(
+      manager_.get(), nullptr /* host_cache */);
+  resolver->SetRequestContext(&context);
+
+  std::unique_ptr<HostResolver::ProbeRequest> request =
+      resolver->CreateDohProbeRequest();
+
+  request->Start();
+  ASSERT_TRUE(dns_client_->factory()->doh_probes_running());
+
+  resolver->OnShutdown();
+
+  EXPECT_FALSE(dns_client_->factory()->doh_probes_running());
 }
 
 TEST_F(ContextHostResolverTest, OnShutdown_CompletedRequests) {
@@ -338,7 +451,8 @@ TEST_F(ContextHostResolverTest, OnShutdown_CompletedRequests) {
   resolver->SetRequestContext(&context);
   std::unique_ptr<HostResolver::ResolveHostRequest> request =
       resolver->CreateRequest(HostPortPair("example.com", 100),
-                              NetLogWithSource(), base::nullopt);
+                              NetworkIsolationKey(), NetLogWithSource(),
+                              base::nullopt);
 
   // Complete request and then shutdown the resolver.
   TestCompletionCallback callback;
@@ -347,6 +461,7 @@ TEST_F(ContextHostResolverTest, OnShutdown_CompletedRequests) {
   resolver->OnShutdown();
 
   // Expect completed results are still available.
+  EXPECT_THAT(request->GetResolveErrorInfo().error, test::IsError(net::OK));
   EXPECT_THAT(request->GetAddressResults().value().endpoints(),
               testing::ElementsAre(kEndpoint));
 }
@@ -360,20 +475,44 @@ TEST_F(ContextHostResolverTest, OnShutdown_SubsequentRequests) {
 
   std::unique_ptr<HostResolver::ResolveHostRequest> request1 =
       resolver->CreateRequest(HostPortPair("example.com", 100),
-                              NetLogWithSource(), base::nullopt);
+                              NetworkIsolationKey(), NetLogWithSource(),
+                              base::nullopt);
   std::unique_ptr<HostResolver::ResolveHostRequest> request2 =
       resolver->CreateRequest(HostPortPair("127.0.0.1", 100),
-                              NetLogWithSource(), base::nullopt);
+                              NetworkIsolationKey(), NetLogWithSource(),
+                              base::nullopt);
 
   TestCompletionCallback callback1;
   int rv1 = request1->Start(callback1.callback());
   TestCompletionCallback callback2;
   int rv2 = request2->Start(callback2.callback());
 
-  EXPECT_THAT(callback1.GetResult(rv1), test::IsError(ERR_CONTEXT_SHUT_DOWN));
+  EXPECT_THAT(callback1.GetResult(rv1), test::IsError(ERR_NAME_NOT_RESOLVED));
+  EXPECT_THAT(request1->GetResolveErrorInfo().error,
+              test::IsError(ERR_CONTEXT_SHUT_DOWN));
   EXPECT_FALSE(request1->GetAddressResults());
-  EXPECT_THAT(callback2.GetResult(rv2), test::IsError(ERR_CONTEXT_SHUT_DOWN));
+  EXPECT_THAT(callback2.GetResult(rv2), test::IsError(ERR_NAME_NOT_RESOLVED));
+  EXPECT_THAT(request2->GetResolveErrorInfo().error,
+              test::IsError(ERR_CONTEXT_SHUT_DOWN));
   EXPECT_FALSE(request2->GetAddressResults());
+}
+
+TEST_F(ContextHostResolverTest, OnShutdown_SubsequentDohProbeRequest) {
+  // Set empty MockDnsClient rules to ensure DnsClient is mocked out.
+  MockDnsClientRuleList rules;
+  SetMockDnsRules(std::move(rules));
+
+  URLRequestContext context;
+  auto resolver = std::make_unique<ContextHostResolver>(
+      manager_.get(), nullptr /* host_cache */);
+  resolver->SetRequestContext(&context);
+  resolver->OnShutdown();
+
+  std::unique_ptr<HostResolver::ProbeRequest> request =
+      resolver->CreateDohProbeRequest();
+
+  EXPECT_THAT(request->Start(), test::IsError(ERR_CONTEXT_SHUT_DOWN));
+  EXPECT_FALSE(dns_client_->factory()->doh_probes_running());
 }
 
 // Test a request created before shutdown but not yet started.
@@ -394,15 +533,37 @@ TEST_F(ContextHostResolverTest, OnShutdown_DelayedStartRequest) {
   resolver->SetRequestContext(&context);
   std::unique_ptr<HostResolver::ResolveHostRequest> request =
       resolver->CreateRequest(HostPortPair("example.com", 100),
-                              NetLogWithSource(), base::nullopt);
+                              NetworkIsolationKey(), NetLogWithSource(),
+                              base::nullopt);
 
   resolver->OnShutdown();
 
   TestCompletionCallback callback;
   int rv = request->Start(callback.callback());
 
-  EXPECT_THAT(callback.GetResult(rv), test::IsError(ERR_CONTEXT_SHUT_DOWN));
+  EXPECT_THAT(callback.GetResult(rv), test::IsError(ERR_NAME_NOT_RESOLVED));
+  EXPECT_THAT(request->GetResolveErrorInfo().error,
+              test::IsError(ERR_CONTEXT_SHUT_DOWN));
   EXPECT_FALSE(request->GetAddressResults());
+}
+
+TEST_F(ContextHostResolverTest, OnShutdown_DelayedStartDohProbeRequest) {
+  // Set empty MockDnsClient rules to ensure DnsClient is mocked out.
+  MockDnsClientRuleList rules;
+  SetMockDnsRules(std::move(rules));
+
+  URLRequestContext context;
+  auto resolver = std::make_unique<ContextHostResolver>(
+      manager_.get(), nullptr /* host_cache */);
+  resolver->SetRequestContext(&context);
+
+  std::unique_ptr<HostResolver::ProbeRequest> request =
+      resolver->CreateDohProbeRequest();
+
+  resolver->OnShutdown();
+
+  EXPECT_THAT(request->Start(), test::IsError(ERR_CONTEXT_SHUT_DOWN));
+  EXPECT_FALSE(dns_client_->factory()->doh_probes_running());
 }
 
 TEST_F(ContextHostResolverTest, ResolveFromCache) {
@@ -411,12 +572,12 @@ TEST_F(ContextHostResolverTest, ResolveFromCache) {
 
   AddressList expected(kEndpoint);
   std::unique_ptr<HostCache> cache = HostCache::CreateDefaultCache();
-  cache->Set(
-      HostCache::Key("example.com", DnsQueryType::UNSPECIFIED,
-                     0 /* host_resolver_flags */, HostResolverSource::ANY),
-      HostCache::Entry(OK, expected, HostCache::Entry::SOURCE_DNS,
-                       base::TimeDelta::FromDays(1)),
-      clock.NowTicks(), base::TimeDelta::FromDays(1));
+  cache->Set(HostCache::Key("example.com", DnsQueryType::UNSPECIFIED,
+                            0 /* host_resolver_flags */,
+                            HostResolverSource::ANY, NetworkIsolationKey()),
+             HostCache::Entry(OK, expected, HostCache::Entry::SOURCE_DNS,
+                              base::TimeDelta::FromDays(1)),
+             clock.NowTicks(), base::TimeDelta::FromDays(1));
 
   auto resolver =
       std::make_unique<ContextHostResolver>(manager_.get(), std::move(cache));
@@ -430,11 +591,13 @@ TEST_F(ContextHostResolverTest, ResolveFromCache) {
       HostResolver::ResolveHostParameters::CacheUsage::STALE_ALLOWED;
   std::unique_ptr<HostResolver::ResolveHostRequest> request =
       resolver->CreateRequest(HostPortPair("example.com", 100),
-                              NetLogWithSource(), parameters);
+                              NetworkIsolationKey(), NetLogWithSource(),
+                              parameters);
 
   TestCompletionCallback callback;
   int rv = request->Start(callback.callback());
   EXPECT_THAT(callback.GetResult(rv), test::IsOk());
+  EXPECT_THAT(request->GetResolveErrorInfo().error, test::IsError(net::OK));
   EXPECT_THAT(request->GetAddressResults().value().endpoints(),
               testing::ElementsAre(kEndpoint));
   ASSERT_TRUE(request->GetStaleInfo());
@@ -458,7 +621,8 @@ TEST_F(ContextHostResolverTest, ResultsAddedToCache) {
 
   std::unique_ptr<HostResolver::ResolveHostRequest> caching_request =
       resolver->CreateRequest(HostPortPair("example.com", 103),
-                              NetLogWithSource(), base::nullopt);
+                              NetworkIsolationKey(), NetLogWithSource(),
+                              base::nullopt);
   TestCompletionCallback caching_callback;
   int rv = caching_request->Start(caching_callback.callback());
   EXPECT_THAT(caching_callback.GetResult(rv), test::IsOk());
@@ -467,13 +631,60 @@ TEST_F(ContextHostResolverTest, ResultsAddedToCache) {
   local_resolve_parameters.source = HostResolverSource::LOCAL_ONLY;
   std::unique_ptr<HostResolver::ResolveHostRequest> cached_request =
       resolver->CreateRequest(HostPortPair("example.com", 100),
-                              NetLogWithSource(), local_resolve_parameters);
+                              NetworkIsolationKey(), NetLogWithSource(),
+                              local_resolve_parameters);
 
   TestCompletionCallback callback;
   rv = cached_request->Start(callback.callback());
   EXPECT_THAT(callback.GetResult(rv), test::IsOk());
+  EXPECT_THAT(cached_request->GetResolveErrorInfo().error,
+              test::IsError(net::OK));
   EXPECT_THAT(cached_request->GetAddressResults().value().endpoints(),
               testing::ElementsAre(kEndpoint));
+}
+
+// Do a lookup with a NetworkIsolationKey, and then make sure the entry added to
+// the cache is in fact using that NetworkIsolationKey.
+TEST_F(ContextHostResolverTest, ResultsAddedToCacheWithNetworkIsolationKey) {
+  const url::Origin kOrigin = url::Origin::Create(GURL("https://origin.test/"));
+  const NetworkIsolationKey kNetworkIsolationKey(kOrigin, kOrigin);
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      features::kSplitHostCacheByNetworkIsolationKey);
+
+  MockDnsClientRuleList rules;
+  rules.emplace_back("example.com", dns_protocol::kTypeA, false /* secure */,
+                     MockDnsClientRule::Result(BuildTestDnsResponse(
+                         "example.com", kEndpoint.address())),
+                     false /* delay */);
+  rules.emplace_back("example.com", dns_protocol::kTypeAAAA, false /* secure */,
+                     MockDnsClientRule::Result(MockDnsClientRule::EMPTY),
+                     false /* delay */);
+  SetMockDnsRules(std::move(rules));
+
+  auto resolver = std::make_unique<ContextHostResolver>(
+      manager_.get(), HostCache::CreateDefaultCache());
+
+  std::unique_ptr<HostResolver::ResolveHostRequest> caching_request =
+      resolver->CreateRequest(HostPortPair("example.com", 103),
+                              kNetworkIsolationKey, NetLogWithSource(),
+                              base::nullopt);
+  TestCompletionCallback caching_callback;
+  int rv = caching_request->Start(caching_callback.callback());
+  EXPECT_THAT(caching_callback.GetResult(rv), test::IsOk());
+
+  HostCache::Key cache_key("example.com", DnsQueryType::UNSPECIFIED,
+                           0 /* host_resolver_flags */, HostResolverSource::ANY,
+                           kNetworkIsolationKey);
+  EXPECT_TRUE(
+      resolver->GetHostCache()->Lookup(cache_key, base::TimeTicks::Now()));
+
+  HostCache::Key cache_key_with_empty_nik(
+      "example.com", DnsQueryType::UNSPECIFIED, 0 /* host_resolver_flags */,
+      HostResolverSource::ANY, NetworkIsolationKey());
+  EXPECT_FALSE(resolver->GetHostCache()->Lookup(cache_key_with_empty_nik,
+                                                base::TimeTicks::Now()));
 }
 
 // Test HostCacheInvalidator that counts number of requested invalidations.

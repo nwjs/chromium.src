@@ -59,7 +59,7 @@ void CrostiniApps::ReInitializeForTesting(
 void CrostiniApps::Initialize(
     const mojo::Remote<apps::mojom::AppService>& app_service) {
   DCHECK(profile_);
-  if (!crostini::IsCrostiniUIAllowedForProfile(profile_)) {
+  if (!crostini::CrostiniFeatures::Get()->IsUIAllowed(profile_)) {
     return;
   }
   registry_ = crostini::CrostiniRegistryServiceFactory::GetForProfile(profile_);
@@ -164,7 +164,21 @@ void CrostiniApps::Uninstall(const std::string& app_id,
       ->QueueUninstallApplication(app_id);
 }
 
+void CrostiniApps::PauseApp(const std::string& app_id) {
+  NOTIMPLEMENTED();
+}
+
+void CrostiniApps::UnpauseApps(const std::string& app_id) {
+  NOTIMPLEMENTED();
+}
+
 void CrostiniApps::OpenNativeSettings(const std::string& app_id) {
+  NOTIMPLEMENTED();
+}
+
+void CrostiniApps::OnPreferredAppSet(const std::string& app_id,
+                                     apps::mojom::IntentFilterPtr intent_filter,
+                                     apps::mojom::IntentPtr intent) {
   NOTIMPLEMENTED();
 }
 
@@ -203,7 +217,7 @@ void CrostiniApps::OnCrostiniEnabledChanged() {
   // point to installing other Crostini apps.
   apps::mojom::AppPtr app = apps::mojom::App::New();
   app->app_type = apps::mojom::AppType::kCrostini;
-  app->app_id = crostini::kCrostiniTerminalId;
+  app->app_id = crostini::GetTerminalId();
   app->show_in_launcher = show;
   app->show_in_search = show;
   Publish(std::move(app));
@@ -293,6 +307,8 @@ apps::mojom::AppPtr CrostiniApps::Convert(
   // Management.
   app->show_in_management = apps::mojom::OptionalBool::kFalse;
 
+  app->paused = apps::mojom::OptionalBool::kFalse;
+
   return app;
 }
 
@@ -305,7 +321,7 @@ apps::mojom::IconKeyPtr CrostiniApps::NewIconKey(const std::string& app_id) {
   // Crostini Terminal icon (the UI for enabling and installing Crostini apps)
   // should be showable even before the user has installed their first Crostini
   // app and before bringing up an Crostini VM for the first time.
-  if (app_id == crostini::kCrostiniTerminalId) {
+  if (app_id == crostini::GetTerminalId()) {
     return apps::mojom::IconKey::New(
         apps::mojom::IconKey::kDoesNotChangeOverTime,
         IDR_LOGO_CROSTINI_TERMINAL, apps::IconEffects::kNone);

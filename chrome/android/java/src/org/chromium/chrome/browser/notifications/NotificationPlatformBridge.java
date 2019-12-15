@@ -21,12 +21,12 @@ import android.text.TextUtils;
 import android.text.style.StyleSpan;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.Promise;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.metrics.RecordHistogram;
@@ -38,11 +38,12 @@ import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.notifications.channels.ChannelDefinitions;
 import org.chromium.chrome.browser.notifications.channels.SiteChannelsManager;
 import org.chromium.chrome.browser.permissions.PermissionFieldTrial;
+import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
-import org.chromium.chrome.browser.preferences.PreferencesLauncher;
-import org.chromium.chrome.browser.preferences.website.SingleCategoryPreferences;
-import org.chromium.chrome.browser.preferences.website.SingleWebsitePreferences;
-import org.chromium.chrome.browser.preferences.website.SiteSettingsCategory;
+import org.chromium.chrome.browser.settings.PreferencesLauncher;
+import org.chromium.chrome.browser.settings.website.SingleCategoryPreferences;
+import org.chromium.chrome.browser.settings.website.SingleWebsitePreferences;
+import org.chromium.chrome.browser.settings.website.SiteSettingsCategory;
 import org.chromium.chrome.browser.usage_stats.NotificationSuspender;
 import org.chromium.chrome.browser.webapps.ChromeWebApkHost;
 import org.chromium.chrome.browser.webapps.WebApkServiceClient;
@@ -591,6 +592,7 @@ public class NotificationPlatformBridge {
                         .setHideLargeIcon(notificationType == NotificationType.PERMISSION_REQUEST);
 
         if (notificationType == NotificationType.PERMISSION_REQUEST) {
+            assert false; // Notification permission requests are not used anymore.
             @PermissionFieldTrial.UIFlavor
             int ui_flavor = PermissionFieldTrial.uiFlavorToUse();
 
@@ -629,7 +631,8 @@ public class NotificationPlatformBridge {
         // The Android framework applies a fallback vibration pattern for the sound when the device
         // is in vibrate mode, there is no custom pattern, and the vibration default has been
         // disabled. To truly prevent vibration, provide a custom empty pattern.
-        boolean vibrateEnabled = PrefServiceBridge.getInstance().isNotificationsVibrateEnabled();
+        boolean vibrateEnabled =
+                PrefServiceBridge.getInstance().getBoolean(Pref.NOTIFICATIONS_VIBRATE_ENABLED);
         if (!vibrateEnabled) {
             vibrationPattern = EMPTY_VIBRATION_PATTERN;
         }

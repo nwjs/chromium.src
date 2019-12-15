@@ -19,6 +19,7 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "net/base/net_errors.h"
+#include "net/base/network_isolation_key.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 #include "url/gurl.h"
@@ -53,7 +54,9 @@ class ProxyLookupRequest : public network::mojom::ProxyLookupClient {
         &ProxyLookupRequest::OnProxyLookupComplete, base::Unretained(this),
         net::ERR_ABORTED, base::nullopt));
 
+    // TODO(https://crbug.com/1021661): Pass in a non-empty NetworkIsolationKey.
     network_context->LookUpProxyForURL(source_url,
+                                       net::NetworkIsolationKey::Todo(),
                                        std::move(proxy_lookup_client));
   }
 
@@ -132,8 +135,9 @@ void ProxyResolutionServiceProvider::DbusResolveProxy(
   std::string source_url;
   if (!reader.PopString(&source_url)) {
     LOG(ERROR) << "Method call lacks source URL: " << method_call->ToString();
-    response_sender.Run(dbus::ErrorResponse::FromMethodCall(
-        method_call, DBUS_ERROR_INVALID_ARGS, "No source URL string arg"));
+    std::move(response_sender)
+        .Run(dbus::ErrorResponse::FromMethodCall(
+            method_call, DBUS_ERROR_INVALID_ARGS, "No source URL string arg"));
     return;
   }
 
@@ -179,7 +183,7 @@ void ProxyResolutionServiceProvider::NotifyProxyResolved(
   dbus::MessageWriter writer(response.get());
   writer.AppendString(pac_string);
   writer.AppendString(error);
-  response_sender.Run(std::move(response));
+  std::move(response_sender).Run(std::move(response));
 }
 
 network::mojom::NetworkContext*

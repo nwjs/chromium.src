@@ -280,10 +280,6 @@ base::string16 CollectedCookiesViews::GetWindowTitle() const {
   return l10n_util::GetStringUTF16(IDS_COLLECTED_COOKIES_DIALOG_TITLE);
 }
 
-int CollectedCookiesViews::GetDialogButtons() const {
-  return ui::DIALOG_BUTTON_OK;
-}
-
 bool CollectedCookiesViews::Accept() {
   // If the user closes our parent tab while we're still open, this method will
   // (eventually) be called in response to a WebContentsDestroyed() call from
@@ -313,13 +309,6 @@ void CollectedCookiesViews::DeleteDelegate() {
     destroying_ = true;
     web_contents_->RemoveUserData(UserDataKey());
   }
-}
-
-std::unique_ptr<views::View> CollectedCookiesViews::CreateExtraView() {
-  // The code in |Init|, which runs before this does, needs the button pane to
-  // already exist, so it is created there and this class holds ownership until
-  // this method is called.
-  return std::move(buttons_pane_);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -379,11 +368,12 @@ void CollectedCookiesViews::ViewHierarchyChanged(
 
 CollectedCookiesViews::CollectedCookiesViews(content::WebContents* web_contents)
     : web_contents_(web_contents) {
-  constrained_window::ShowWebModalDialogViews(this, web_contents);
-  chrome::RecordDialogCreation(chrome::DialogIdentifier::COLLECTED_COOKIES);
-
+  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_OK);
   DialogDelegate::set_button_label(ui::DIALOG_BUTTON_OK,
                                    l10n_util::GetStringUTF16(IDS_DONE));
+
+  constrained_window::ShowWebModalDialogViews(this, web_contents);
+  chrome::RecordDialogCreation(chrome::DialogIdentifier::COLLECTED_COOKIES);
 }
 
 void CollectedCookiesViews::Init() {
@@ -429,7 +419,7 @@ void CollectedCookiesViews::Init() {
   layout->StartRow(views::GridLayout::kFixedSize, single_column_layout_id);
   infobar_ = layout->AddView(std::make_unique<InfobarView>());
 
-  buttons_pane_ = CreateButtonsPane();
+  DialogDelegate::SetExtraView(CreateButtonsPane());
 
   EnableControls();
   ShowCookieInfo();

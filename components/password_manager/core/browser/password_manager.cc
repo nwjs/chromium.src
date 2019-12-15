@@ -23,7 +23,7 @@
 #include "components/autofill/core/common/form_data_predictions.h"
 #include "components/autofill/core/common/save_password_progress_logger.h"
 #include "components/password_manager/core/browser/browser_save_password_progress_logger.h"
-#include "components/password_manager/core/browser/form_saver_impl.h"
+#include "components/password_manager/core/browser/field_info_manager.h"
 #include "components/password_manager/core/browser/password_autofill_manager.h"
 #include "components/password_manager/core/browser/password_form_manager.h"
 #include "components/password_manager/core/browser/password_generation_frame_helper.h"
@@ -32,6 +32,7 @@
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_manager_onboarding.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
+#include "components/password_manager/core/browser/password_save_manager_impl.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -43,9 +44,13 @@
 #include "components/prefs/pref_registry_simple.h"
 #endif
 
+using autofill::ACCOUNT_CREATION_PASSWORD;
 using autofill::FormData;
 using autofill::FormStructure;
+using autofill::NEW_PASSWORD;
+using autofill::NOT_USERNAME;
 using autofill::PasswordForm;
+using autofill::SINGLE_USERNAME;
 using autofill::mojom::PasswordFormFieldPredictionType;
 #if defined(SYNC_PASSWORD_REUSE_DETECTION_ENABLED)
 using password_manager::metrics_util::GaiaPasswordHashChange;
@@ -123,9 +128,13 @@ PasswordFormManager* FindMatchedManagerByRendererId(
   return nullptr;
 }
 
-bool HasSingleUsernameVote(const FormStructure& form) {
-  for (const auto& field : form) {
-    if (field->server_type() == autofill::SINGLE_USERNAME)
+bool HasSingleUsernameVote(const FormPredictions& form) {
+  if (!base::FeatureList::IsEnabled(
+          password_manager::features::kUsernameFirstFlowFilling)) {
+    return false;
+  }
+  for (const auto& field : form.fields) {
+    if (field.type == autofill::SINGLE_USERNAME)
       return true;
   }
   return false;
@@ -133,18 +142,35 @@ bool HasSingleUsernameVote(const FormStructure& form) {
 
 // Returns true if at least one of the fields in |form| has a prediction to be a
 // new-password related field.
-bool HasNewPasswordVote(const FormStructure& form) {
+bool HasNewPasswordVote(const FormPredictions& form) {
   if (!base::FeatureList::IsEnabled(
           password_manager::features::
-              KEnablePasswordGenerationForClearTextFields))
+              KEnablePasswordGenerationForClearTextFields)) {
     return false;
-  for (const auto& field : form) {
-    if (field->server_type() == autofill::ACCOUNT_CREATION_PASSWORD ||
-        field->server_type() == autofill::NEW_PASSWORD) {
+  }
+  for (const auto& field : form.fields) {
+    if (field.type == ACCOUNT_CREATION_PASSWORD || field.type == NEW_PASSWORD)
       return true;
-    }
   }
   return false;
+}
+
+// Adds predictions to |predictions->fields| if |field_info_manager| has
+// predictions for corresponding fields. Predictions from |field_info_manager|
+// have priority over server predictions.
+void AddLocallySavedPredictions(FieldInfoManager* field_info_manager,
+                                FormPredictions* predictions) {
+  DCHECK(predictions);
+  if (!field_info_manager)
+    return;
+
+  for (PasswordFieldPrediction& field : predictions->fields) {
+    auto local_prediction = field_info_manager->GetFieldType(
+        predictions->form_signature, field.signature);
+    if (local_prediction != SINGLE_USERNAME && local_prediction != NOT_USERNAME)
+      continue;
+    field.type = local_prediction;
+  }
 }
 
 }  // namespace
@@ -152,8 +178,6 @@ bool HasNewPasswordVote(const FormStructure& form) {
 // static
 void PasswordManager::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
-  registry->RegisterBooleanPref(prefs::kBlacklistedCredentialsNormalized,
-                                false);
   registry->RegisterBooleanPref(
       prefs::kCredentialsEnableService, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
@@ -176,6 +200,9 @@ void PasswordManager::RegisterProfilePrefs(
   registry->RegisterBooleanPref(prefs::kWasOnboardingFeatureCheckedBefore,
                                 false);
 
+  registry->RegisterDictionaryPref(prefs::kAccountStorageOptedInAccounts);
+
+  registry->RegisterBooleanPref(prefs::kIsAccountStoreDefault, true);
 #if defined(OS_MACOSX)
   registry->RegisterIntegerPref(prefs::kKeychainMigrationStatus,
                                 4 /* MIGRATED_DELETED */);
@@ -251,7 +278,7 @@ void PasswordManager::SetGenerationElementAndReasonForForm(
   PasswordFormManager* form_manager = GetMatchedManager(driver, form);
   if (form_manager) {
     form_manager->SetGenerationElement(generation_element);
-    form_manager->SetGenerationPopupWasShown(true, is_manually_triggered);
+    form_manager->SetGenerationPopupWasShown(is_manually_triggered);
   }
 }
 
@@ -539,7 +566,7 @@ PasswordFormManager* PasswordManager::CreateFormManager(
       client_,
       driver ? driver->AsWeakPtr() : base::WeakPtr<PasswordManagerDriver>(),
       form, nullptr,
-      std::make_unique<FormSaverImpl>(client_->GetProfilePasswordStore()),
+      PasswordSaveManagerImpl::CreatePasswordSaveManagerImpl(client_),
       nullptr));
   form_managers_.back()->ProcessServerPredictions(predictions_);
   return form_managers_.back().get();
@@ -961,32 +988,38 @@ void PasswordManager::ProcessAutofillPredictions(
     int driver_id = driver ? driver->GetId() : 0;
     predictions_[form->form_signature()] =
         ConvertToFormPredictions(driver_id, *form);
+    AddLocallySavedPredictions(client_->GetFieldInfoManager(),
+                               &predictions_[form->form_signature()]);
   }
-  for (auto& manager : form_managers_)
-    manager->ProcessServerPredictions(predictions_);
 
-  // Create form managers for non-password forms with single usernames.
+  // Create form managers for non-password forms if |predictions_| has evidence
+  // that these forms are password related.
   for (const FormStructure* form : forms) {
     if (logger)
       logger->LogFormStructure(Logger::STRING_SERVER_PREDICTIONS, *form);
-    if (form->has_password_field())
-      continue;
-
-    // Do not skip the form if it either contains a field for the Username
-    // first flow or a clear-text password field.
-    if (!(HasSingleUsernameVote(*form) || HasNewPasswordVote(*form)))
-      continue;
-
     if (FindMatchedManagerByRendererId(form->unique_renderer_id(),
                                        form_managers_, driver)) {
       // The form manager is already created.
       continue;
     }
 
-    FormData form_data = form->ToFormData();
-    auto* manager = CreateFormManager(driver, form_data);
-    manager->ProcessServerPredictions(predictions_);
+    if (form->has_password_field())
+      continue;
+
+    const FormPredictions* form_predictions =
+        &predictions_[form->form_signature()];
+    // Do not skip the form if it either contains a field for the Username
+    // first flow or a clear-text password field.
+    if (!(HasSingleUsernameVote(*form_predictions) ||
+          HasNewPasswordVote(*form_predictions))) {
+      continue;
+    }
+
+    CreateFormManager(driver, form->ToFormData());
   }
+
+  for (auto& manager : form_managers_)
+    manager->ProcessServerPredictions(predictions_);
 }
 
 PasswordFormManager* PasswordManager::GetSubmittedManager() const {

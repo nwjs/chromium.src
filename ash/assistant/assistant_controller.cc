@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "ash/accessibility/accessibility_controller_impl.h"
+#include "ash/assistant/assistant_web_ui_controller.h"
 #include "ash/assistant/util/deep_link_util.h"
 #include "ash/public/cpp/android_intent_helper.h"
 #include "ash/public/cpp/ash_pref_names.h"
@@ -20,19 +21,19 @@
 #include "base/bind.h"
 #include "base/memory/scoped_refptr.h"
 #include "chromeos/services/assistant/public/cpp/assistant_prefs.h"
+#include "chromeos/services/assistant/public/features.h"
 #include "chromeos/services/assistant/public/mojom/assistant.mojom.h"
 #include "components/prefs/pref_registry_simple.h"
-#include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "mojo/public/cpp/bindings/pending_remote.h"
-#include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/remote_set.h"
-#include "services/content/public/mojom/constants.mojom.h"
 #include "services/content/public/mojom/navigable_contents_factory.mojom.h"
-#include "services/service_manager/public/cpp/connector.h"
 
 namespace ash {
 
 AssistantController::AssistantController() {
+  if (chromeos::assistant::features::IsAssistantWebContainerEnabled()) {
+    assistant_web_ui_controller_ =
+        std::make_unique<AssistantWebUiController>(this);
+  }
+
   assistant_state_controller_.AddObserver(this);
   chromeos::CrasAudioHandler::Get()->AddAudioObserver(this);
   AddObserver(this);
@@ -54,9 +55,10 @@ void AssistantController::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterIntegerPref(prefs::kAssistantNumWarmerWelcomeTriggered, 0);
 }
 
-void AssistantController::BindRequest(
-    chromeos::assistant::mojom::AssistantControllerRequest request) {
-  assistant_controller_bindings_.AddBinding(this, std::move(request));
+void AssistantController::BindReceiver(
+    mojo::PendingReceiver<chromeos::assistant::mojom::AssistantController>
+        receiver) {
+  assistant_controller_receivers_.Add(this, std::move(receiver));
 }
 
 void AssistantController::BindReceiver(
@@ -170,6 +172,7 @@ void AssistantController::OnDeepLinkReceived(
     case DeepLinkType::kLists:
     case DeepLinkType::kNotes:
     case DeepLinkType::kOnboarding:
+    case DeepLinkType::kProactiveSuggestions:
     case DeepLinkType::kQuery:
     case DeepLinkType::kReminders:
     case DeepLinkType::kSettings:
@@ -253,24 +256,7 @@ void AssistantController::OpenUrl(const GURL& url,
 
 void AssistantController::GetNavigableContentsFactory(
     mojo::PendingReceiver<content::mojom::NavigableContentsFactory> receiver) {
-  const UserSession* user_session =
-      Shell::Get()->session_controller()->GetUserSession(0);
-
-  if (!user_session) {
-    LOG(WARNING) << "Unable to retrieve active user session.";
-    return;
-  }
-
-  const base::Optional<base::Token>& service_instance_group =
-      user_session->user_info.service_instance_group;
-  if (!service_instance_group) {
-    LOG(ERROR) << "Unable to retrieve service instance group.";
-    return;
-  }
-
-  Shell::Get()->connector()->Connect(
-      service_manager::ServiceFilter::ByNameInGroup(
-          content::mojom::kServiceName, *service_instance_group),
+  Shell::Get()->shell_delegate()->BindNavigableContentsFactory(
       std::move(receiver));
 }
 
@@ -296,11 +282,8 @@ void AssistantController::NotifyDeepLinkReceived(const GURL& deep_link) {
   const std::map<std::string, std::string> params =
       assistant::util::GetDeepLinkParams(deep_link);
 
-  // TODO(wutao): Remove AssistantControllerObserver::OnDeepLinkReceived.
   for (AssistantControllerObserver& observer : observers_)
     observer.OnDeepLinkReceived(type, params);
-
-  view_delegate_.NotifyDeepLinkReceived(type, params);
 }
 
 void AssistantController::NotifyOpeningUrl(const GURL& url,
@@ -329,7 +312,7 @@ void AssistantController::OnLockedFullScreenStateChanged(bool enabled) {
 void AssistantController::BindController(
     mojo::PendingReceiver<chromeos::assistant::mojom::AssistantController>
         receiver) {
-  BindRequest(std::move(receiver));
+  BindReceiver(std::move(receiver));
 }
 
 void AssistantController::BindAlarmTimerController(

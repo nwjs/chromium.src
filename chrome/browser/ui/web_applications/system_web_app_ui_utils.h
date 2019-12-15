@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/optional.h"
+#include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/system_web_app_manager.h"
 #include "url/gurl.h"
@@ -22,13 +23,12 @@ class WebUIDataSource;
 namespace web_app {
 
 // Returns the system app type for the given App ID.
-base::Optional<SystemAppType> GetSystemWebAppTypeForAppId(
-    Profile* profile,
-    web_app::AppId app_id);
+base::Optional<SystemAppType> GetSystemWebAppTypeForAppId(Profile* profile,
+                                                          AppId app_id);
 
 // Returns the PWA system App ID for the given system app type.
-base::Optional<web_app::AppId> GetAppIdForSystemWebApp(Profile* profile,
-                                                       SystemAppType app_type);
+base::Optional<AppId> GetAppIdForSystemWebApp(Profile* profile,
+                                              SystemAppType app_type);
 
 // Launches a System App to the given URL, reusing any existing window for the
 // app. Returns the browser for the System App, or nullptr if launch/focus
@@ -36,6 +36,11 @@ base::Optional<web_app::AppId> GetAppIdForSystemWebApp(Profile* profile,
 Browser* LaunchSystemWebApp(Profile* profile,
                             SystemAppType app_type,
                             const GURL& url = GURL(),
+                            bool* did_create = nullptr);
+Browser* LaunchSystemWebApp(Profile* profile,
+                            SystemAppType app_type,
+                            const GURL& url,
+                            const apps::AppLaunchParams& params,
                             bool* did_create = nullptr);
 
 // Returns a browser that is hosting the given system app type, or nullptr if

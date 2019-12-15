@@ -4,13 +4,17 @@
 
 #include <vector>
 
+#include "ash/display/screen_orientation_controller.h"
 #include "ash/display/screen_orientation_controller_test_api.h"
 #include "ash/multi_user/multi_user_window_manager_impl.h"
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/event_rewriter_controller.h"
 #include "ash/public/cpp/multi_user_window_manager.h"
 #include "ash/public/cpp/multi_user_window_manager_delegate.h"
+#include "ash/public/cpp/shelf_types.h"
 #include "ash/screen_util.h"
+#include "ash/shelf/shelf.h"
+#include "ash/shelf/shelf_layout_manager.h"
 #include "ash/shell.h"
 #include "ash/sticky_keys/sticky_keys_controller.h"
 #include "ash/style/ash_color_provider.h"
@@ -43,12 +47,14 @@
 #include "ash/wm/workspace_controller.h"
 #include "base/stl_util.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/threading/thread_task_runner_handle.h"
 #include "components/session_manager/session_manager_types.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/window_parenting_client.h"
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/chromeos/events/event_rewriter_chromeos.h"
+#include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/compositor_extra/shadow.h"
 #include "ui/display/display.h"
 #include "ui/display/test/display_manager_test_api.h"
@@ -207,15 +213,15 @@ bool IsStackedBelow(aura::Window* win1, aura::Window* win2) {
 
 // Verifies DesksBarView layout under different screen sizes
 void DesksBarViewLayoutTestHelper(const DesksBarView* desks_bar_view,
-                                  bool use_small_screen_layout) {
+                                  bool use_compact_layout) {
   DCHECK(desks_bar_view);
   const NewDeskButton* button = desks_bar_view->new_desk_button();
-  EXPECT_EQ(button->IsLabelVisibleForTesting(), !use_small_screen_layout);
+  EXPECT_EQ(button->IsLabelVisibleForTesting(), !use_compact_layout);
 
   for (const auto& mini_view : desks_bar_view->mini_views()) {
     EXPECT_EQ(mini_view->GetDeskPreviewForTesting()->height(),
-              DeskPreviewView::GetHeight(use_small_screen_layout));
-    EXPECT_EQ(mini_view->IsLabelVisibleForTesting(), !use_small_screen_layout);
+              DeskPreviewView::GetHeight(use_compact_layout));
+    EXPECT_EQ(mini_view->IsLabelVisibleForTesting(), !use_compact_layout);
   }
 }
 
@@ -432,14 +438,14 @@ TEST_F(DesksTest, DesksBarViewScreenLayoutTest) {
   while (controller->CanCreateDesks()) {
     NewDesk();
     DesksBarViewLayoutTestHelper(desks_bar_view,
-                                 /*use_small_screen_layout=*/false);
+                                 /*use_compact_layout=*/false);
   };
 
   UpdateDisplay("500x480");
   ASSERT_TRUE(overview_controller->InOverviewSession());
   while (controller->CanRemoveDesks()) {
     DesksBarViewLayoutTestHelper(desks_bar_view,
-                                 /*use_small_screen_layout=*/true);
+                                 /*use_compact_layout=*/true);
     RemoveDesk(controller->desks().back().get());
   }
 
@@ -447,7 +453,7 @@ TEST_F(DesksTest, DesksBarViewScreenLayoutTest) {
   ASSERT_TRUE(overview_controller->InOverviewSession());
   while (controller->CanCreateDesks()) {
     DesksBarViewLayoutTestHelper(desks_bar_view,
-                                 /*use_small_screen_layout=*/false);
+                                 /*use_compact_layout=*/false);
     NewDesk();
   }
 }
@@ -1749,8 +1755,8 @@ TEST_F(
   EXPECT_TRUE(overview_controller->StartOverview());
   split_view_controller()->SnapWindow(win1.get(), SplitViewController::LEFT);
   EXPECT_EQ(win1.get(), split_view_controller()->left_window());
-  EXPECT_FALSE(CanSnapInSplitview(win2.get()));
-  EXPECT_FALSE(CanSnapInSplitview(win3.get()));
+  EXPECT_FALSE(split_view_controller()->CanSnapWindow(win2.get()));
+  EXPECT_FALSE(split_view_controller()->CanSnapWindow(win3.get()));
 
   // Switch to |desk_2| using its |mini_view|. Split view and overview should
   // end, but |win1| should retain its snapped state.
@@ -1949,7 +1955,7 @@ TEST_F(TabletModeDesksTest, RestoringUnsnappableWindowsInSplitView) {
   views::Widget* widget = views::Widget::GetWidgetForNativeWindow(window.get());
   widget->non_client_view()->set_client_view(
       new TestClientView(widget, gfx::Size(350, 100)));
-  EXPECT_FALSE(CanSnapInSplitview(window.get()));
+  EXPECT_FALSE(split_view_controller()->CanSnapWindow(window.get()));
 
   // Change to a portrait orientation and expect it's possible to snap the
   // window.
@@ -1959,7 +1965,7 @@ TEST_F(TabletModeDesksTest, RestoringUnsnappableWindowsInSplitView) {
                               display::Display::RotationSource::ACTIVE);
   EXPECT_EQ(test_api.GetCurrentOrientation(),
             OrientationLockType::kPortraitPrimary);
-  EXPECT_TRUE(CanSnapInSplitview(window.get()));
+  EXPECT_TRUE(split_view_controller()->CanSnapWindow(window.get()));
 
   // Snap the window in this orientation.
   split_view_controller()->SnapWindow(window.get(), SplitViewController::LEFT);
@@ -2040,6 +2046,48 @@ TEST_F(DesksTest, MiniViewsTouchGestures) {
   ASSERT_EQ(2u, controller->desks().size());
   EXPECT_FALSE(overview_controller->InOverviewSession());
   EXPECT_TRUE(controller->desks()[0]->is_active());
+}
+
+TEST_F(DesksTest, AutohiddenShelfAnimatesAfterDeskSwitch) {
+  Shelf* shelf = GetPrimaryShelf();
+  ShelfWidget* shelf_widget = shelf->shelf_widget();
+  const gfx::Rect shown_shelf_bounds = shelf_widget->GetWindowBoundsInScreen();
+
+  shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
+
+  // Enable animations so that we can make sure that they occur.
+  ui::ScopedAnimationDurationScaleMode regular_animations(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+
+  NewDesk();
+
+  // Create a window on the first desk so that the shelf will auto-hide there.
+  std::unique_ptr<views::Widget> widget = CreateTestWidget();
+  widget->Maximize();
+  // LayoutShelf() forces the animation to completion, at which point the
+  // shelf should go off the screen.
+  shelf->shelf_layout_manager()->LayoutShelf();
+  EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
+  EXPECT_EQ(SHELF_AUTO_HIDE_HIDDEN, shelf->GetAutoHideState());
+  const gfx::Rect hidden_shelf_bounds = shelf_widget->GetWindowBoundsInScreen();
+  EXPECT_NE(shown_shelf_bounds, hidden_shelf_bounds);
+
+  // Go to the second desk.
+  ActivateDesk(DesksController::Get()->desks()[1].get());
+  // The shelf should now want to show itself, but as the shelf animation is
+  // just starting, it should still be hidden. If this fails, the change was
+  // not animated.
+  EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
+  EXPECT_EQ(shelf_widget->GetWindowBoundsInScreen(), hidden_shelf_bounds);
+  // Let's wait until the shelf animates to a fully shown state.
+  while (shelf_widget->GetWindowBoundsInScreen() != shown_shelf_bounds) {
+    base::RunLoop run_loop;
+    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+        FROM_HERE, run_loop.QuitClosure(),
+        base::TimeDelta::FromMilliseconds(200));
+    run_loop.Run();
+  }
+  EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
 }
 
 class DesksWithSplitViewTest : public AshTestBase {
@@ -2129,9 +2177,10 @@ TEST_F(DesksWithSplitViewTest, SuccessfulDragToDeskRemovesSplitViewIndicators) {
   // Validate that before dropping, the SplitView indicators and the drop target
   // widget are created.
   EXPECT_TRUE(overview_grid->drop_target_widget());
-  EXPECT_EQ(IndicatorState::kDragArea,
-            overview_session->split_view_drag_indicators()
-                ->current_indicator_state());
+  EXPECT_EQ(SplitViewDragIndicators::WindowDraggingState::kFromOverview,
+            overview_session->grid_list()[0]
+                ->split_view_drag_indicators()
+                ->current_window_dragging_state());
   // Now drop the window, and validate the indicators and the drop target were
   // removed.
   GetEventGenerator()->ReleaseLeftButton();
@@ -2140,9 +2189,10 @@ TEST_F(DesksWithSplitViewTest, SuccessfulDragToDeskRemovesSplitViewIndicators) {
   EXPECT_FALSE(DoesActiveDeskContainWindow(window.get()));
   EXPECT_TRUE(overview_session->no_windows_widget_for_testing());
   EXPECT_FALSE(overview_grid->drop_target_widget());
-  EXPECT_EQ(IndicatorState::kNone,
-            overview_session->split_view_drag_indicators()
-                ->current_indicator_state());
+  EXPECT_EQ(SplitViewDragIndicators::WindowDraggingState::kNoDrag,
+            overview_session->grid_list()[0]
+                ->split_view_drag_indicators()
+                ->current_window_dragging_state());
 }
 
 namespace {
@@ -2666,7 +2716,7 @@ TEST_F(DesksAcceleratorsTest, CannotMoveAlwaysOnTopWindows) {
 // - Reusing containers when desks are removed and created.
 
 // Instantiate the parametrized tests.
-INSTANTIATE_TEST_SUITE_P(, DesksTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All, DesksTest, ::testing::Bool());
 
 }  // namespace
 

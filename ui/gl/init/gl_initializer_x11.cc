@@ -99,6 +99,7 @@ bool InitializeStaticEGLInternal(GLImplementation implementation) {
     base::FilePath module_path;
     if (!base::PathService::Get(base::DIR_MODULE, &module_path))
       return false;
+    module_path = module_path.Append("lib/");
 
     glesv2_path = module_path.Append(kGLESv2ANGLELibraryName);
     egl_path = module_path.Append(kEGLANGLELibraryName);
@@ -193,10 +194,10 @@ bool InitializeStaticGLBindings(GLImplementation implementation) {
   return false;
 }
 
-void InitializeDebugGLBindings() {
-  InitializeDebugGLBindingsEGL();
-  InitializeDebugGLBindingsGL();
-  InitializeDebugGLBindingsGLX();
+void InitializeLogGLBindings() {
+  InitializeLogGLBindingsEGL();
+  InitializeLogGLBindingsGL();
+  InitializeLogGLBindingsGLX();
 }
 
 void ShutdownGLPlatform() {

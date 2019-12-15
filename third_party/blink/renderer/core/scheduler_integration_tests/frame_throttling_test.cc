@@ -36,7 +36,7 @@ using testing::_;
 
 namespace blink {
 
-using namespace html_names;
+using html_names::kStyleAttr;
 
 // NOTE: This test uses <iframe sandbox> to create cross origin iframes.
 
@@ -218,7 +218,7 @@ TEST_P(FrameThrottlingTest, IntersectionObservationOverridesThrottling) {
       kCompositingUpdateRebuildTree);
   EXPECT_EQ(kCompositingUpdateRebuildTree,
             inner_view->Compositor()->pending_update_type_);
-  EXPECT_TRUE(inner_view->Layer()->NeedsRepaint());
+  EXPECT_TRUE(inner_view->Layer()->SelfNeedsRepaint());
 
   CompositeFrame();
   // ...but only for one frame.
@@ -230,7 +230,7 @@ TEST_P(FrameThrottlingTest, IntersectionObservationOverridesThrottling) {
                   ->ShouldDoFullPaintInvalidation());
   EXPECT_EQ(kCompositingUpdateRebuildTree,
             inner_view->Compositor()->pending_update_type_);
-  EXPECT_TRUE(inner_view->Layer()->NeedsRepaint());
+  EXPECT_TRUE(inner_view->Layer()->SelfNeedsRepaint());
 }
 
 TEST_P(FrameThrottlingTest, HiddenCrossOriginZeroByZeroFramesAreNotThrottled) {
@@ -285,7 +285,7 @@ TEST_P(FrameThrottlingTest, ThrottledLifecycleUpdate) {
   // TODO(skyostil): these expectations are either wrong, or the test is
   // not exercising the code correctly. PaintClean means the entire lifecycle
   // ran.
-  frame_element->setAttribute(kWidthAttr, "50");
+  frame_element->setAttribute(html_names::kWidthAttr, "50");
   CompositeFrame();
 
   if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {

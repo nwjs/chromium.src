@@ -54,7 +54,7 @@ class AppShimHost : public chrome::mojom::AppShimHost {
     // |files|, if non-empty, holds an array of files dragged onto the app
     // bundle or dock icon.
     virtual void OnShimFocus(AppShimHost* host,
-                             apps::AppShimFocusType focus_type,
+                             chrome::mojom::AppShimFocusType focus_type,
                              const std::vector<base::FilePath>& files) = 0;
 
     // Invoked when a profile is selected from the menu bar.
@@ -91,8 +91,8 @@ class AppShimHost : public chrome::mojom::AppShimHost {
   // Return the factory to use to create new widgets in the same process.
   remote_cocoa::ApplicationHost* GetRemoteCocoaApplicationHost() const;
 
-  // Return the app shim interface.
-  chrome::mojom::AppShim* GetAppShim() const;
+  // Return the app shim interface. Virtual for tests.
+  virtual chrome::mojom::AppShim* GetAppShim() const;
 
  protected:
   void ChannelError(uint32_t custom_reason, const std::string& description);
@@ -109,7 +109,7 @@ class AppShimHost : public chrome::mojom::AppShimHost {
   void OnShimProcessTerminated(bool recreate_shims_requested);
 
   // chrome::mojom::AppShimHost.
-  void FocusApp(apps::AppShimFocusType focus_type,
+  void FocusApp(chrome::mojom::AppShimFocusType focus_type,
                 const std::vector<base::FilePath>& files) override;
   void ProfileSelectedFromMenu(const base::FilePath& profile_path) override;
 

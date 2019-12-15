@@ -201,7 +201,7 @@ void Profile::RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   // in user's profile for other platforms as well.
   registry->RegisterStringPref(
       language::prefs::kApplicationLocale, std::string(),
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
+      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
   registry->RegisterStringPref(prefs::kApplicationLocaleBackup, std::string());
   registry->RegisterStringPref(prefs::kApplicationLocaleAccepted,
                                std::string());
@@ -272,6 +272,17 @@ bool Profile::IsGuestSession() const {
 
 bool Profile::IsSystemProfile() const {
   return is_system_profile_;
+}
+
+bool Profile::CanUseDiskWhenOffTheRecord() {
+#if defined(OS_CHROMEOS)
+  // Guest mode on ChromeOS uses an in-memory file system to store the profile
+  // in, so despite this being an off the record profile, it is still okay to
+  // store data on disk.
+  return IsGuestSession();
+#else
+  return false;
+#endif
 }
 
 bool Profile::ShouldRestoreOldSessionCookies() {

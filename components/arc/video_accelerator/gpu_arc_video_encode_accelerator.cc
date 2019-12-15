@@ -12,6 +12,7 @@
 #include "base/memory/unsafe_shared_memory_region.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/system/sys_info.h"
 #include "components/arc/video_accelerator/arc_video_accelerator_util.h"
 #include "media/base/color_plane_layout.h"
@@ -342,18 +343,16 @@ void GpuArcVideoEncodeAccelerator::UseBitstreamBuffer(
   // rather than pulling out the fd. https://crbug.com/713763.
   // TODO(rockot): Pass through a real size rather than |0|.
   base::UnguessableToken guid = base::UnguessableToken::Create();
-  base::SharedMemoryHandle shm_handle(base::FileDescriptor(fd.release(), true),
-                                      shmem_size, guid);
-  use_bitstream_cbs_.emplace(bitstream_buffer_serial_, std::move(callback));
-  accelerator_->UseOutputBitstreamBuffer(
-      media::BitstreamBuffer(bitstream_buffer_serial_, shm_handle,
-                             false /* read_only */, size, offset));
-
-  // Close |shm_handle| because it is actually duplicated on the ctor of
-  // media::BitstreamBuffer and it will not close itself on the dtor.
-  if (shm_handle.IsValid()) {
-    shm_handle.Close();
+  auto shm_region = base::subtle::PlatformSharedMemoryRegion::Take(
+      std::move(fd), base::subtle::PlatformSharedMemoryRegion::Mode::kUnsafe,
+      shmem_size, guid);
+  if (!shm_region.IsValid()) {
+    client_->NotifyError(Error::kInvalidArgumentError);
+    return;
   }
+  use_bitstream_cbs_.emplace(bitstream_buffer_serial_, std::move(callback));
+  accelerator_->UseOutputBitstreamBuffer(media::BitstreamBuffer(
+      bitstream_buffer_serial_, std::move(shm_region), size, offset));
 
   // Mask against 30 bits to avoid (undefined) wraparound on signed integer.
   bitstream_buffer_serial_ = (bitstream_buffer_serial_ + 1) & 0x3FFFFFFF;

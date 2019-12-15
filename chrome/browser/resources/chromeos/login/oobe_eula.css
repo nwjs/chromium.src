@@ -9,34 +9,24 @@ a {
 }
 
 #crosEulaFrame {
-  /* Works around the problem that webview height is not calculated
-   * correctly in flex layout. 207px is derived from en-US locale under
-   * the default 640px height of #eulaDialog. */
-  height: 207px;
+  min-height: 200px;
 }
 
-#crosEulaFrame,
 #installationSettings,
 #logging {
   font-size: 13px;
   min-height: unset;
 }
 
-#crosEulaFrame {
-  border: 1px solid rgb(218, 220, 224); /* #DADCE0 */
-  border-radius: 4px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .13);
-}
-
 #installationSettings {
-  margin-inline-start: 20px;
-  margin-top: 31px; /* = 44 - font size */
+  margin-inline-start: 16px;
+  margin-top: 16px;
 }
 
 #logging {
   color: rgba(0, 0, 0, 0.54);
-  margin-inline-start: 20px;
-  margin-top: 23px; /* = 36 - font size */
+  margin-inline-start: 16px;
+  margin-top: 16px;
 }
 
 cr-toggle {
@@ -47,6 +37,10 @@ cr-toggle {
   color: var(--google-grey-refresh-700); /* #5F6368 */
   line-height: 20px;
   margin-inline-start: 16px;
+}
+
+#usageStatsLabel {
+  cursor: pointer;
 }
 
 #settings-close-button {

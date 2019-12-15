@@ -20,7 +20,7 @@
 #include "build/build_config.h"
 #include "components/url_formatter/url_formatter.h"
 #include "content/browser/frame_host/navigation_controller_impl.h"
-#include "content/browser/web_package/bundled_exchanges_navigation_info.h"
+#include "content/browser/web_package/web_bundle_navigation_info.h"
 #include "content/common/content_constants_internal.h"
 #include "content/common/navigation_params.h"
 #include "content/common/page_state_serialization.h"
@@ -179,6 +179,48 @@ bool InSameTreePosition(FrameTreeNode* frame_tree_node,
   return true;
 }
 
+void InitRestoredTreeNode(BrowserContext* browser_context,
+                          NavigationEntryImpl::TreeNode* node) {
+  DCHECK(browser_context);
+  DCHECK(node);
+
+  // Check that this is a freshly restored entry.
+  FrameNavigationEntry* frame_entry = node->frame_entry.get();
+  DCHECK(!frame_entry->site_instance());
+
+  // Check that the entry has been already populated with required information.
+  DCHECK(frame_entry->page_state().IsValid());
+
+  // For about:blank and data: URLs create a SiteInstance based on the initiator
+  // origin.  See also https://crbug.com/1026474.
+  if (frame_entry->url().IsAboutBlank() ||
+      frame_entry->url().SchemeIs(url::kDataScheme)) {
+    // TODO(lukasza): We should consider also creating a SiteInstance if there
+    // is no initiator origin.  Doing this would allow us to
+    // 1) remove special-casing of data URLs in
+    //    SiteInstanceImpl::GetSiteForURLInternal where sometimes we use the
+    //    whole data URL as a site URL to avoid session restore trouble.
+    // 2) start asserting that an initialized FrameNavigationEntry should always
+    //    have a non-null SiteInstance.
+    if (frame_entry->initiator_origin().has_value()) {
+      url::SchemeHostPort initiator_tuple =
+          frame_entry->initiator_origin()->GetTupleOrPrecursorTupleIfOpaque();
+      frame_entry->set_site_instance(SiteInstanceImpl::CreateForURL(
+          browser_context, initiator_tuple.GetURL()));
+    }
+  }
+}
+
+void RecursivelyInitRestoredTreeNode(BrowserContext* browser_context,
+                                     NavigationEntryImpl::TreeNode* node) {
+  DCHECK(browser_context);
+  DCHECK(node);
+
+  InitRestoredTreeNode(browser_context, node);
+  for (const auto& child : node->children)
+    RecursivelyInitRestoredTreeNode(browser_context, child.get());
+}
+
 }  // namespace
 
 NavigationEntryImpl::TreeNode::TreeNode(
@@ -313,7 +355,6 @@ NavigationEntryImpl::NavigationEntryImpl(
                                          -1,
                                          std::move(blob_url_loader_factory)))),
       unique_id_(CreateUniqueEntryID()),
-      bindings_(kInvalidBindings),
       page_type_(PAGE_TYPE_NORMAL),
       update_virtual_url_with_url_(false),
       title_(title),
@@ -445,13 +486,6 @@ void NavigationEntryImpl::set_site_instance(
     scoped_refptr<SiteInstanceImpl> site_instance) {
   // TODO(creis): Update all callers and remove this method.
   frame_tree_->frame_entry->set_site_instance(std::move(site_instance));
-}
-
-void NavigationEntryImpl::SetBindings(int bindings) {
-  // Ensure this is set to a valid value, and that it stays the same once set.
-  CHECK_NE(bindings, kInvalidBindings);
-  CHECK(bindings_ == kInvalidBindings || bindings_ == bindings);
-  bindings_ = bindings;
 }
 
 const base::string16& NavigationEntryImpl::GetTitleForDisplay() {
@@ -628,6 +662,11 @@ int64_t NavigationEntryImpl::GetMainFrameDocumentSequenceNumber() {
   return frame_tree_->frame_entry->document_sequence_number();
 }
 
+void NavigationEntryImpl::InitRestoredEntry(BrowserContext* browser_context) {
+  DCHECK(browser_context);
+  RecursivelyInitRestoredTreeNode(browser_context, root_node());
+}
+
 void NavigationEntryImpl::SetCanLoadLocalResources(bool allow) {
   can_load_local_resources_ = allow;
 }
@@ -655,7 +694,6 @@ std::unique_ptr<NavigationEntryImpl> NavigationEntryImpl::CloneAndReplace(
 
   // Copy most state over, unless cleared in ResetForCommit.
   // Don't copy unique_id_, otherwise it won't be unique.
-  copy->bindings_ = bindings_;
   copy->page_type_ = page_type_;
   copy->virtual_url_ = virtual_url_;
   copy->update_virtual_url_with_url_ = update_virtual_url_with_url_;
@@ -685,10 +723,8 @@ std::unique_ptr<NavigationEntryImpl> NavigationEntryImpl::CloneAndReplace(
   copy->CloneDataFrom(*this);
   copy->replaced_entry_data_ = replaced_entry_data_;
   copy->should_skip_on_back_forward_ui_ = should_skip_on_back_forward_ui_;
-  if (bundled_exchanges_navigation_info_) {
-    copy->bundled_exchanges_navigation_info_ =
-        bundled_exchanges_navigation_info_->Clone();
-  }
+  if (web_bundle_navigation_info_)
+    copy->web_bundle_navigation_info_ = web_bundle_navigation_info_->Clone();
 
   return copy;
 }
@@ -702,7 +738,8 @@ NavigationEntryImpl::ConstructCommonNavigationParams(
     mojom::NavigationType navigation_type,
     PreviewsState previews_state,
     base::TimeTicks navigation_start,
-    base::TimeTicks input_start) {
+    base::TimeTicks input_start,
+    const blink::FramePolicy& frame_policy) {
   NavigationDownloadPolicy download_policy;
   if (IsViewSourceMode())
     download_policy.SetDisallowed(NavigationDownloadType::kViewSource);
@@ -715,7 +752,8 @@ NavigationEntryImpl::ConstructCommonNavigationParams(
       post_body ? post_body : post_data_, base::Optional<SourceLocation>(),
       has_started_from_context_menu(), has_user_gesture(), InitiatorCSPInfo(),
       std::vector<int>(), std::string(),
-      false /* is_history_navigation_in_new_child_frame */, input_start);
+      false /* is_history_navigation_in_new_child_frame */, input_start,
+      frame_policy);
 }
 
 mojom::CommitNavigationParamsPtr
@@ -765,7 +803,8 @@ NavigationEntryImpl::ConstructCommitNavigationParams(
           std::string(),
 #endif
           false, network::mojom::IPAddressSpace::kUnknown,
-          GURL() /* base_url_override_for_bundled_exchanges */);
+          GURL() /* web_bundle_physical_url */,
+          GURL() /* base_url_override_for_web_bundle */);
 #if defined(OS_ANDROID)
   if (NavigationControllerImpl::ValidateDataURLAsString(GetDataURLAsString())) {
     commit_params->data_url_as_string = GetDataURLAsString()->data();
@@ -954,16 +993,14 @@ GURL NavigationEntryImpl::GetHistoryURLForDataURL() {
   return GetBaseURLForDataURL().is_empty() ? GURL() : GetVirtualURL();
 }
 
-void NavigationEntryImpl::set_bundled_exchanges_navigation_info(
-    std::unique_ptr<BundledExchangesNavigationInfo>
-        bundled_exchanges_navigation_info) {
-  bundled_exchanges_navigation_info_ =
-      std::move(bundled_exchanges_navigation_info);
+void NavigationEntryImpl::set_web_bundle_navigation_info(
+    std::unique_ptr<WebBundleNavigationInfo> web_bundle_navigation_info) {
+  web_bundle_navigation_info_ = std::move(web_bundle_navigation_info);
 }
 
-BundledExchangesNavigationInfo*
-NavigationEntryImpl::bundled_exchanges_navigation_info() const {
-  return bundled_exchanges_navigation_info_.get();
+WebBundleNavigationInfo* NavigationEntryImpl::web_bundle_navigation_info()
+    const {
+  return web_bundle_navigation_info_.get();
 }
 
 }  // namespace content

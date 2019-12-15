@@ -83,8 +83,7 @@ class ShellSurfaceWidget : public views::Widget {
   DISALLOW_COPY_AND_ASSIGN(ShellSurfaceWidget);
 };
 
-class CustomFrameView : public ash::NonClientFrameViewAsh,
-                        public aura::WindowObserver {
+class CustomFrameView : public ash::NonClientFrameViewAsh {
  public:
   using ShapeRects = std::vector<gfx::Rect>;
 
@@ -99,16 +98,9 @@ class CustomFrameView : public ash::NonClientFrameViewAsh,
     SetVisible(enabled);
     if (!enabled)
       NonClientFrameViewAsh::SetShouldPaintHeader(false);
-
-    frame()->GetNativeWindow()->AddObserver(this);
   }
 
-  ~CustomFrameView() override {
-    if (frame() && frame()->GetNativeWindow() &&
-        frame()->GetNativeWindow()->HasObserver(this)) {
-      frame()->GetNativeWindow()->RemoveObserver(this);
-    }
-  }
+  ~CustomFrameView() override = default;
 
   // Overridden from ash::NonClientFrameViewAsh:
   void SetShouldPaintHeader(bool paint) override {
@@ -116,11 +108,6 @@ class CustomFrameView : public ash::NonClientFrameViewAsh,
       NonClientFrameViewAsh::SetShouldPaintHeader(paint);
       return;
     }
-  }
-
-  void OnWindowDestroying(aura::Window* window) override {
-    DCHECK_EQ(frame()->GetNativeWindow(), window);
-    window->RemoveObserver(this);
   }
 
   // Overridden from views::NonClientFrameView:
@@ -621,6 +608,11 @@ void ShellSurfaceBase::OnSetApplicationId(const char* application_id) {
   SetApplicationId(application_id);
 }
 
+void ShellSurfaceBase::OnActivationRequested() {
+  if (widget_ && HasPermissionToActivate(widget_->GetNativeWindow()))
+    this->Activate();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // SurfaceObserver overrides:
 
@@ -887,8 +879,8 @@ void ShellSurfaceBase::CreateShellSurfaceWidget(
                                  : views::Widget::InitParams::TYPE_WINDOW);
   params.ownership = views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET;
   params.delegate = this;
-  params.shadow_type = views::Widget::InitParams::SHADOW_TYPE_NONE;
-  params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
+  params.shadow_type = views::Widget::InitParams::ShadowType::kNone;
+  params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   params.show_state = show_state;
   // Make shell surface a transient child if |parent_| has been set and
   // container_ isn't specified.

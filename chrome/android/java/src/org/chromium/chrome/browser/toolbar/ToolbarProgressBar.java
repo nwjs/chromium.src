@@ -20,10 +20,10 @@ import android.widget.FrameLayout.LayoutParams;
 import android.widget.ProgressBar;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ui.widget.ClipDrawableProgressBar;
 import org.chromium.chrome.browser.util.ColorUtils;
@@ -434,7 +434,7 @@ public class ToolbarProgressBar extends ClipDrawableProgressBar {
     public void setThemeColor(int color, boolean isIncognito) {
         mThemeColor = color;
         boolean isDefaultTheme =
-                ColorUtils.isUsingDefaultToolbarColor(getResources(), isIncognito, mThemeColor);
+                ToolbarColors.isUsingDefaultToolbarColor(getResources(), isIncognito, mThemeColor);
 
         // All colors use a single path if using the status bar color as the background.
         if (mUseStatusBarColorAsBackground) {

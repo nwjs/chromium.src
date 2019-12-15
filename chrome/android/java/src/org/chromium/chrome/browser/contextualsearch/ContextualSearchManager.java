@@ -12,12 +12,12 @@ import android.view.ViewTreeObserver;
 import android.view.ViewTreeObserver.OnGlobalFocusChangeListener;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
 import org.chromium.base.SysUtils;
 import org.chromium.base.TimeUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.metrics.RecordUserAction;
@@ -37,11 +37,16 @@ import org.chromium.chrome.browser.externalnav.ExternalNavigationHandler;
 import org.chromium.chrome.browser.externalnav.ExternalNavigationHandler.OverrideUrlLoadingResult;
 import org.chromium.chrome.browser.externalnav.ExternalNavigationParams;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager.FullscreenListener;
+import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.gsa.GSAContextDisplaySelection;
 import org.chromium.chrome.browser.infobar.InfoBarContainer;
+import org.chromium.chrome.browser.preferences.Pref;
+import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -118,12 +123,17 @@ public class ContextualSearchManager
     // an existing tap-selection.
     private static final int TAP_ON_TAP_SELECTION_DELAY_MS = 100;
 
+    // Constants related to the Contextual Search preference.
+    private static final String CONTEXTUAL_SEARCH_DISABLED = "false";
+    private static final String CONTEXTUAL_SEARCH_ENABLED = "true";
+
     private final ObserverList<ContextualSearchObserver> mObservers =
             new ObserverList<ContextualSearchObserver>();
 
     private final ChromeActivity mActivity;
     private final ContextualSearchTabPromotionDelegate mTabPromotionDelegate;
     private final ViewTreeObserver.OnGlobalFocusChangeListener mOnFocusChangeListener;
+    private final FullscreenListener mFullscreenListener;
 
     /**
      * The {@link ContextualSearchInteractionRecorder} to use to record user interactions and apply
@@ -233,6 +243,19 @@ public class ContextualSearchManager
             }
         };
 
+        mFullscreenListener = new FullscreenListener() {
+            @Override
+            public void onEnterFullscreen(Tab tab, FullscreenOptions options) {
+                hideContextualSearch(StateChangeReason.UNKNOWN);
+            }
+
+            @Override
+            public void onExitFullscreen(Tab tab) {
+                hideContextualSearch(StateChangeReason.UNKNOWN);
+            }
+        };
+
+        mActivity.getFullscreenManager().addListener(mFullscreenListener);
         mSelectionController = new ContextualSearchSelectionController(activity, this);
         mNetworkCommunicator = this;
         mPolicy = new ContextualSearchPolicy(mSelectionController, mNetworkCommunicator);
@@ -278,6 +301,7 @@ public class ContextualSearchManager
         if (!mIsInitialized) return;
 
         hideContextualSearch(StateChangeReason.UNKNOWN);
+        mActivity.getFullscreenManager().removeListener(mFullscreenListener);
         mParentView.getViewTreeObserver().removeOnGlobalFocusChangeListener(mOnFocusChangeListener);
         ContextualSearchManagerJni.get().destroy(mNativeContextualSearchManagerPtr, this);
         stopListeningForHideNotifications();
@@ -469,8 +493,8 @@ public class ContextualSearchManager
         assert mSelectionController.getSelectionType() != SelectionType.UNDETERMINED;
         mWasActivatedByTap = mSelectionController.getSelectionType() == SelectionType.TAP;
 
-        Tracker tracker =
-                TrackerFactory.getTrackerForProfile(mActivity.getActivityTab().getProfile());
+        Tab tab = mActivity.getActivityTab();
+        Tracker tracker = TrackerFactory.getTrackerForProfile(((TabImpl) tab).getProfile());
         tracker.notifyEvent(mWasActivatedByTap
                         ? EventConstants.CONTEXTUAL_SEARCH_TRIGGERED_BY_TAP
                         : EventConstants.CONTEXTUAL_SEARCH_TRIGGERED_BY_LONGPRESS);
@@ -1737,6 +1761,39 @@ public class ContextualSearchManager
     public void disableContextReporting() {
         removeObserver(mContextReportingObserver);
         mContextReportingObserver = null;
+    }
+
+    /**
+     * @return Whether the Contextual Search feature was disabled by the user explicitly.
+     */
+    public static boolean isContextualSearchDisabled() {
+        return PrefServiceBridge.getInstance()
+                .getString(Pref.CONTEXTUAL_SEARCH_ENABLED)
+                .equals(CONTEXTUAL_SEARCH_DISABLED);
+    }
+
+    /**
+     * @return Whether the Contextual Search feature is disabled by policy.
+     */
+    public static boolean isContextualSearchDisabledByPolicy() {
+        return PrefServiceBridge.getInstance().isManagedPreference(Pref.CONTEXTUAL_SEARCH_ENABLED)
+                && isContextualSearchDisabled();
+    }
+
+    /**
+     * @return Whether the Contextual Search feature is uninitialized (preference unset by the
+     *         user).
+     */
+    public static boolean isContextualSearchUninitialized() {
+        return PrefServiceBridge.getInstance().getString(Pref.CONTEXTUAL_SEARCH_ENABLED).isEmpty();
+    }
+
+    /**
+     * @param enabled Whether Contextual Search should be enabled.
+     */
+    public static void setContextualSearchState(boolean enabled) {
+        PrefServiceBridge.getInstance().setString(Pref.CONTEXTUAL_SEARCH_ENABLED,
+                enabled ? CONTEXTUAL_SEARCH_ENABLED : CONTEXTUAL_SEARCH_DISABLED);
     }
 
     // ============================================================================================

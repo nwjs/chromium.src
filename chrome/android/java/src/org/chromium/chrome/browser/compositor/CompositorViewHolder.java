@@ -55,8 +55,9 @@ import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
-import org.chromium.chrome.browser.util.ColorUtils;
+import org.chromium.chrome.browser.toolbar.ToolbarColors;
 import org.chromium.components.content_capture.ContentCaptureConsumer;
+import org.chromium.components.content_capture.ContentCaptureConsumerImpl;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.UiUtils;
@@ -763,7 +764,8 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     @Override
-    public void onBottomControlsHeightChanged(int bottomControlsHeight) {
+    public void onBottomControlsHeightChanged(
+            int bottomControlsHeight, int bottomControlsMinHeight) {
         if (mTabVisible == null) return;
         Point viewportSize = getViewportSize();
         setSize(mTabVisible.getWebContents(), mTabVisible.getContentView(), viewportSize.x,
@@ -772,7 +774,8 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     @Override
-    public void onTopControlsHeightChanged(int topControlsHeight, boolean controlsResizeView) {
+    public void onTopControlsHeightChanged(
+            int topControlsHeight, int topControlsMinHeight, boolean controlsResizeView) {
         if (mTabVisible == null) return;
         Point viewportSize = getViewportSize();
         setSize(mTabVisible.getWebContents(), mTabVisible.getContentView(), viewportSize.x,
@@ -960,7 +963,7 @@ public class CompositorViewHolder extends FrameLayout
     @Override
     public int getBrowserControlsBackgroundColor() {
         return mTabVisible == null ? Color.WHITE
-                                   : ColorUtils.getToolbarSceneLayerBackground(mTabVisible);
+                                   : ToolbarColors.getToolbarSceneLayerBackground(mTabVisible);
     }
 
     @Override
@@ -1141,22 +1144,16 @@ public class CompositorViewHolder extends FrameLayout
 
         if (mTabVisible != null) initializeTab(mTabVisible);
 
-        if (mShouldCreateContentCaptureConsumer) {
-            mContentCaptureConsumer = createContentCaptureConsumer();
-            mShouldCreateContentCaptureConsumer = false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (mShouldCreateContentCaptureConsumer) {
+                mContentCaptureConsumer =
+                        ContentCaptureConsumerImpl.create(getContext(), this, getWebContents());
+                mShouldCreateContentCaptureConsumer = false;
+            }
         }
         if (mContentCaptureConsumer != null) {
             mContentCaptureConsumer.onWebContentsChanged(getWebContents());
         }
-    }
-
-    /**
-     * This method is used by subclass to provide ContentCaptureConsumer.
-     *
-     * @return the ContentCaptureConsumer or null if it is not available.
-     */
-    protected ContentCaptureConsumer createContentCaptureConsumer() {
-        return null;
     }
 
     /**

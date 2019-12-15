@@ -5,6 +5,9 @@
 package org.chromium.chrome.browser.tasks.tab_management;
 
 import android.content.Context;
+import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.LinearLayoutManager;
@@ -20,7 +23,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -53,13 +56,14 @@ public class TabListCoordinator implements Destroyable {
      *
      *  STRIP and GRID modes will have height equal to that of the container view.
      * */
-    @IntDef({TabListMode.GRID, TabListMode.STRIP, TabListMode.CAROUSEL})
+    @IntDef({TabListMode.GRID, TabListMode.STRIP, TabListMode.CAROUSEL, TabListMode.LIST})
     @Retention(RetentionPolicy.SOURCE)
     public @interface TabListMode {
         int GRID = 0;
         int STRIP = 1;
         int CAROUSEL = 2;
-        int NUM_ENTRIES = 3;
+        int LIST = 3;
+        int NUM_ENTRIES = 4;
     }
 
     static final int GRID_LAYOUT_SPAN_COUNT_PORTRAIT = 2;
@@ -114,8 +118,11 @@ public class TabListCoordinator implements Destroyable {
         RecyclerView.RecyclerListener recyclerListener = null;
         if (mMode == TabListMode.GRID || mMode == TabListMode.CAROUSEL) {
             mAdapter.registerType(UiType.SELECTABLE, () -> {
-                return (ViewGroup) LayoutInflater.from(context).inflate(
+                ViewGroup group = (ViewGroup) LayoutInflater.from(context).inflate(
                         R.layout.selectable_tab_grid_card_item, parentView, false);
+                group.setClickable(true);
+
+                return group;
             }, TabGridViewBinder::bindSelectableTab);
 
             mAdapter.registerType(UiType.CLOSABLE, () -> {
@@ -125,10 +132,18 @@ public class TabListCoordinator implements Destroyable {
                     group.getLayoutParams().width = context.getResources().getDimensionPixelSize(
                             R.dimen.tab_carousel_card_width);
                 }
+                group.setClickable(true);
                 return group;
             }, TabGridViewBinder::bindClosableTab);
 
             recyclerListener = (holder) -> {
+                int holderItemViewType = holder.getItemViewType();
+
+                if (holderItemViewType != UiType.CLOSABLE
+                        && holderItemViewType != UiType.SELECTABLE) {
+                    return;
+                }
+
                 ViewLookupCachingFrameLayout root = (ViewLookupCachingFrameLayout) holder.itemView;
                 ImageView thumbnail = (ImageView) root.fastFindViewById(R.id.tab_thumbnail);
                 if (thumbnail == null) return;
@@ -140,7 +155,22 @@ public class TabListCoordinator implements Destroyable {
                 return (ViewGroup) LayoutInflater.from(context).inflate(
                         R.layout.tab_strip_item, parentView, false);
             }, TabStripViewBinder::bind);
+        } else if (mMode == TabListMode.LIST) {
+            mAdapter.registerType(UiType.CLOSABLE, () -> {
+                ViewGroup group = (ViewGroup) LayoutInflater.from(context).inflate(
+                        R.layout.closable_tab_list_card_item, parentView, false);
+                group.setClickable(true);
 
+                ImageView actionButton = (ImageView) group.findViewById(R.id.action_button);
+                Resources resources = group.getResources();
+                int closeButtonSize =
+                        (int) resources.getDimension(R.dimen.tab_grid_close_button_size);
+                Bitmap bitmap = BitmapFactory.decodeResource(resources, R.drawable.btn_close);
+                Bitmap.createScaledBitmap(bitmap, closeButtonSize, closeButtonSize, true);
+                actionButton.setImageBitmap(bitmap);
+
+                return group;
+            }, TabListViewBinder::bindListTab);
         } else {
             throw new IllegalArgumentException(
                     "Attempting to create a tab list UI with invalid mode");
@@ -186,19 +216,25 @@ public class TabListCoordinator implements Destroyable {
             mMediator.registerOrientationListener(gridLayoutManager);
             mMediator.updateSpanCountForOrientation(
                     gridLayoutManager, context.getResources().getConfiguration().orientation);
-        } else if (mMode == TabListMode.STRIP || mMode == TabListMode.CAROUSEL) {
-            mRecyclerView.setLayoutManager(
-                    new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
+        } else if (mMode == TabListMode.STRIP || mMode == TabListMode.CAROUSEL
+                || mMode == TabListMode.LIST) {
+            mRecyclerView.setLayoutManager(new LinearLayoutManager(context,
+                    mMode == TabListMode.LIST ? LinearLayoutManager.VERTICAL
+                                              : LinearLayoutManager.HORIZONTAL,
+                    false));
         }
 
-        if (mMode == TabListMode.GRID && selectionDelegateProvider == null) {
+        if ((mMode == TabListMode.GRID || mMode == TabListMode.LIST)
+                && selectionDelegateProvider == null) {
             ItemTouchHelper touchHelper = new ItemTouchHelper(mMediator.getItemTouchHelperCallback(
                     context.getResources().getDimension(R.dimen.swipe_to_dismiss_threshold),
                     context.getResources().getDimension(R.dimen.tab_grid_merge_threshold),
                     context.getResources().getDimension(R.dimen.bottom_sheet_peek_height),
                     tabModelSelector.getCurrentModel().getProfile()));
             touchHelper.attachToRecyclerView(mRecyclerView);
+        }
 
+        if (mMode == TabListMode.GRID && selectionDelegateProvider == null) {
             // TODO(crbug.com/964406): unregister the listener when we don't need it.
             mRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(
                     this::updateThumbnailLocation);
@@ -322,5 +358,14 @@ public class TabListCoordinator implements Destroyable {
             MVCListAdapter.ViewBuilder<T> builder,
             PropertyModelChangeProcessor.ViewBinder<PropertyModel, T, PropertyKey> binder) {
         mAdapter.registerType(typeId, builder, binder);
+    }
+
+    /**
+     * Inserts a special {@link org.chromium.ui.modelutil.MVCListAdapter.ListItem} at given index of
+     * the model list.
+     * @see TabListMediator#addSpecialItemToModel(int, int, PropertyModel).
+     */
+    void addSpecialListItem(int index, @UiType int uiType, PropertyModel model) {
+        mMediator.addSpecialItemToModel(index, uiType, model);
     }
 }

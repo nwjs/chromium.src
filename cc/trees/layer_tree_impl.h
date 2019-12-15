@@ -15,6 +15,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "cc/base/synced_property.h"
+#include "cc/input/browser_controls_offset_manager.h"
 #include "cc/input/event_listener_properties.h"
 #include "cc/input/layer_selection_bound.h"
 #include "cc/input/overscroll_behavior.h"
@@ -22,11 +23,13 @@
 #include "cc/layers/layer_list_iterator.h"
 #include "cc/paint/discardable_image_map.h"
 #include "cc/resources/ui_resource_client.h"
+#include "cc/trees/browser_controls_params.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/layer_tree_host_impl.h"
 #include "cc/trees/property_tree.h"
 #include "cc/trees/swap_promise.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
+#include "ui/gfx/overlay_transform.h"
 
 namespace base {
 namespace trace_event {
@@ -95,10 +98,12 @@ class CC_EXPORT LayerTreeImpl {
   // This is the number of times a fixed point has to be hit continuously by a
   // layer to consider it as jittering.
   enum : int { kFixedPointHitsThreshold = 3 };
-  LayerTreeImpl(LayerTreeHostImpl* host_impl,
-                scoped_refptr<SyncedProperty<ScaleGroup>> page_scale_factor,
-                scoped_refptr<SyncedBrowserControls> top_controls_shown_ratio,
-                scoped_refptr<SyncedElasticOverscroll> elastic_overscroll);
+  LayerTreeImpl(
+      LayerTreeHostImpl* host_impl,
+      scoped_refptr<SyncedProperty<ScaleGroup>> page_scale_factor,
+      scoped_refptr<SyncedBrowserControls> top_controls_shown_ratio,
+      scoped_refptr<SyncedBrowserControls> bottom_controls_shown_ratio,
+      scoped_refptr<SyncedElasticOverscroll> elastic_overscroll);
   LayerTreeImpl(const LayerTreeImpl&) = delete;
   virtual ~LayerTreeImpl();
 
@@ -149,6 +154,8 @@ class CC_EXPORT LayerTreeImpl {
       base::flat_map<PaintImage::Id, PaintImage::DecodingMode>
           decoding_mode_map);
   bool IsActivelyScrolling() const;
+  int GetMSAASampleCountForRaster(
+      const scoped_refptr<DisplayItemList>& display_list);
 
   // Tree specific methods exposed to layer-impl tree.
   // ---------------------------------------------------------------------------
@@ -277,6 +284,9 @@ class CC_EXPORT LayerTreeImpl {
     return !presentation_callbacks_.empty();
   }
 
+  // The following viewport related property nodes will only ever be set on the
+  // main-frame's renderer (i.e. OOPIF and UI compositors will not have these
+  // set.
   using ViewportPropertyIds = LayerTreeHost::ViewportPropertyIds;
   void SetViewportPropertyIds(const ViewportPropertyIds& ids);
 
@@ -323,6 +333,13 @@ class CC_EXPORT LayerTreeImpl {
 
   SkColor background_color() const { return background_color_; }
   void set_background_color(SkColor color) { background_color_ = color; }
+
+  gfx::OverlayTransform display_transform_hint() const {
+    return display_transform_hint_;
+  }
+  void set_display_transform_hint(gfx::OverlayTransform hint) {
+    display_transform_hint_ = hint;
+  }
 
   void UpdatePropertyTreeAnimationFromMainThread();
 
@@ -415,6 +432,12 @@ class CC_EXPORT LayerTreeImpl {
   const SyncedBrowserControls* top_controls_shown_ratio() const {
     return top_controls_shown_ratio_.get();
   }
+  SyncedBrowserControls* bottom_controls_shown_ratio() {
+    return bottom_controls_shown_ratio_.get();
+  }
+  const SyncedBrowserControls* bottom_controls_shown_ratio() const {
+    return bottom_controls_shown_ratio_.get();
+  }
   gfx::Vector2dF current_elastic_overscroll() const {
     return elastic_overscroll()->Current(IsActiveTree());
   }
@@ -502,10 +525,6 @@ class CC_EXPORT LayerTreeImpl {
   // Used for accessing the task runner and debug assertions.
   TaskRunnerProvider* task_runner_provider() const;
 
-  void ApplyScroll(ScrollNode* scroll_node, ScrollState* scroll_state) {
-    host_impl_->ApplyScroll(scroll_node, scroll_state);
-  }
-
   // Call this function when you expect there to be a swap buffer.
   // See swap_promise.h for how to use SwapPromise.
   //
@@ -586,19 +605,31 @@ class CC_EXPORT LayerTreeImpl {
   // the viewport.
   void GetViewportSelection(viz::Selection<gfx::SelectionBound>* selection);
 
-  void set_browser_controls_shrink_blink_size(bool shrink);
   bool browser_controls_shrink_blink_size() const {
-    return browser_controls_shrink_blink_size_;
+    return browser_controls_params_.browser_controls_shrink_blink_size;
   }
-  bool SetCurrentBrowserControlsShownRatio(float ratio);
-  float CurrentBrowserControlsShownRatio() const {
+  bool SetCurrentBrowserControlsShownRatio(float top_ratio, float bottom_ratio);
+  float CurrentTopControlsShownRatio() const {
     return top_controls_shown_ratio_->Current(IsActiveTree());
   }
-  void SetTopControlsHeight(float top_controls_height);
-  float top_controls_height() const { return top_controls_height_; }
-  void PushBrowserControlsFromMainThread(float top_controls_shown_ratio);
-  void SetBottomControlsHeight(float bottom_controls_height);
-  float bottom_controls_height() const { return bottom_controls_height_; }
+  float CurrentBottomControlsShownRatio() const {
+    return bottom_controls_shown_ratio_->Current(IsActiveTree());
+  }
+  void SetBrowserControlsParams(const BrowserControlsParams& params);
+  float top_controls_height() const {
+    return browser_controls_params_.top_controls_height;
+  }
+  float top_controls_min_height() const {
+    return browser_controls_params_.top_controls_min_height;
+  }
+  void PushBrowserControlsFromMainThread(float top_controls_shown_ratio,
+                                         float bottom_controls_shown_ratio);
+  float bottom_controls_height() const {
+    return browser_controls_params_.bottom_controls_height;
+  }
+  float bottom_controls_min_height() const {
+    return browser_controls_params_.bottom_controls_min_height;
+  }
 
   void set_overscroll_behavior(const OverscrollBehavior& behavior);
   OverscrollBehavior overscroll_behavior() const {
@@ -681,8 +712,10 @@ class CC_EXPORT LayerTreeImpl {
   bool SetPageScaleFactorLimits(float min_page_scale_factor,
                                 float max_page_scale_factor);
   void DidUpdatePageScale();
-  void PushBrowserControls(const float* top_controls_shown_ratio);
-  bool ClampBrowserControlsShownRatio();
+  void PushBrowserControls(const float* top_controls_shown_ratio,
+                           const float* bottom_controls_shown_ratio);
+  bool ClampTopControlsShownRatio();
+  bool ClampBottomControlsShownRatio();
 
  private:
   friend class LayerTreeHost;
@@ -800,17 +833,14 @@ class CC_EXPORT LayerTreeImpl {
   EventListenerProperties event_listener_properties_
       [static_cast<size_t>(EventListenerClass::kLast) + 1];
 
-  // Whether or not Blink's viewport size was shrunk by the height of the top
-  // controls at the time of the last layout.
-  bool browser_controls_shrink_blink_size_;
-  float top_controls_height_;
-  float bottom_controls_height_;
+  BrowserControlsParams browser_controls_params_;
 
   OverscrollBehavior overscroll_behavior_;
 
   // The amount that the browser controls are shown from 0 (hidden) to 1 (fully
   // shown).
   scoped_refptr<SyncedBrowserControls> top_controls_shown_ratio_;
+  scoped_refptr<SyncedBrowserControls> bottom_controls_shown_ratio_;
 
   std::unique_ptr<PendingPageScaleAnimation> pending_page_scale_animation_;
 
@@ -821,6 +851,9 @@ class CC_EXPORT LayerTreeImpl {
   // Tracks the lifecycle which is used for enforcing dependencies between
   // lifecycle states. See: |LayerTreeLifecycle|.
   LayerTreeLifecycle lifecycle_;
+
+  // Display transform hint to tag frames generated from this tree.
+  gfx::OverlayTransform display_transform_hint_ = gfx::OVERLAY_TRANSFORM_NONE;
 
   std::vector<LayerTreeHost::PresentationTimeCallback> presentation_callbacks_;
 };

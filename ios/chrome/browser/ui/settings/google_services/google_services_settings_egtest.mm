@@ -96,8 +96,8 @@ TabModel* GetNormalTabModel() {
   std::unique_ptr<Decider> _webStatePolicyDecider(
       new Decider(GetNormalTabModel().webStateList->GetActiveWebState()));
   // Adds default identity.
-  ios::FakeChromeIdentityService::GetInstanceFromChromeProvider()->AddIdentity(
-      [SigninEarlGreyUtils fakeIdentity1]);
+  FakeChromeIdentity* fakeIdentity = [SigninEarlGreyUtils fakeIdentity1];
+  [SigninEarlGreyUtils addFakeIdentity:fakeIdentity];
   // Open "Google Services" settings.
   [self openGoogleServicesSettings];
   // Open sign-in.

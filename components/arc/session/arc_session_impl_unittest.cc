@@ -35,8 +35,8 @@ constexpr char kFakeGmail[] = "user@gmail.com";
 constexpr char kFakeGmailGaiaId[] = "1234567890";
 constexpr char kDefaultLocale[] = "en-US";
 
-ArcSession::UpgradeParams DefaultUpgradeParams() {
-  ArcSession::UpgradeParams params;
+UpgradeParams DefaultUpgradeParams() {
+  UpgradeParams params;
   params.locale = kDefaultLocale;
   return params;
 }
@@ -597,14 +597,14 @@ constexpr PackagesCacheModeState kPackagesCacheModeStates[] = {
      login_manager::UpgradeArcContainerRequest_PackageCacheMode_DEFAULT},
     {nullptr, false,
      login_manager::UpgradeArcContainerRequest_PackageCacheMode_DEFAULT},
-    {ArcSessionImpl::kPackagesCacheModeCopy, true,
+    {kPackagesCacheModeCopy, true,
      login_manager::UpgradeArcContainerRequest_PackageCacheMode_COPY_ON_INIT},
-    {ArcSessionImpl::kPackagesCacheModeCopy, false,
+    {kPackagesCacheModeCopy, false,
      login_manager::UpgradeArcContainerRequest_PackageCacheMode_DEFAULT},
-    {ArcSessionImpl::kPackagesCacheModeSkipCopy, true,
+    {kPackagesCacheModeSkipCopy, true,
      login_manager::
          UpgradeArcContainerRequest_PackageCacheMode_SKIP_SETUP_COPY_ON_INIT},
-    {ArcSessionImpl::kPackagesCacheModeCopy, false,
+    {kPackagesCacheModeCopy, false,
      login_manager::UpgradeArcContainerRequest_PackageCacheMode_DEFAULT},
 };
 
@@ -632,7 +632,7 @@ TEST_P(ArcSessionImplPackagesCacheModeTest, PackagesCacheModes) {
                 .packages_cache_mode());
 }
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          ArcSessionImplPackagesCacheModeTest,
                          ::testing::ValuesIn(kPackagesCacheModeStates));
 
@@ -656,7 +656,9 @@ TEST_P(ArcSessionImplGmsCoreCacheTest, GmsCoreCaches) {
                             .skip_gms_core_cache());
 }
 
-INSTANTIATE_TEST_SUITE_P(, ArcSessionImplGmsCoreCacheTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All,
+                         ArcSessionImplGmsCoreCacheTest,
+                         ::testing::Bool());
 
 TEST_F(ArcSessionImplTest, DemoSession) {
   auto arc_session = CreateArcSession();
@@ -664,7 +666,7 @@ TEST_F(ArcSessionImplTest, DemoSession) {
 
   const std::string demo_apps_path =
       "/run/imageloader/demo_mode_resources/android_apps.squash";
-  ArcSession::UpgradeParams params;
+  UpgradeParams params;
   params.is_demo_session = true;
   params.demo_session_apps_path = base::FilePath(demo_apps_path);
   params.locale = kDefaultLocale;
@@ -683,7 +685,7 @@ TEST_F(ArcSessionImplTest, DemoSessionWithoutOfflineDemoApps) {
   auto arc_session = CreateArcSession();
   arc_session->StartMiniInstance();
 
-  ArcSession::UpgradeParams params;
+  UpgradeParams params;
   params.is_demo_session = true;
   params.locale = kDefaultLocale;
   arc_session->RequestUpgrade(std::move(params));
@@ -701,7 +703,7 @@ TEST_F(ArcSessionImplTest, SupervisionTransitionShouldGraduate) {
   auto arc_session = CreateArcSession();
   arc_session->StartMiniInstance();
 
-  ArcSession::UpgradeParams params;
+  UpgradeParams params;
   params.supervision_transition = ArcSupervisionTransition::CHILD_TO_REGULAR;
   params.locale = kDefaultLocale;
   arc_session->RequestUpgrade(std::move(params));
@@ -731,9 +733,6 @@ TEST_F(ArcSessionImplTest, StartArcMiniContainerWithDensity) {
   EXPECT_EQ(240, chromeos::FakeSessionManagerClient::Get()
                      ->last_start_arc_mini_container_request()
                      .lcd_density());
-  EXPECT_EQ(2u, chromeos::FakeSessionManagerClient::Get()
-                    ->last_start_arc_mini_container_request()
-                    .num_cores_disabled());
 }
 
 TEST_F(ArcSessionImplTest, StartArcMiniContainerWithDensityAsync) {
@@ -754,9 +753,6 @@ TEST_F(ArcSessionImplTest, StartArcMiniContainerWithDensityAsync) {
   EXPECT_EQ(240, chromeos::FakeSessionManagerClient::Get()
                      ->last_start_arc_mini_container_request()
                      .lcd_density());
-  EXPECT_EQ(2u, chromeos::FakeSessionManagerClient::Get()
-                    ->last_start_arc_mini_container_request()
-                    .num_cores_disabled());
 }
 
 TEST_F(ArcSessionImplTest, StartArcMiniContainerWithDensityAsyncReversedOrder) {
@@ -776,9 +772,6 @@ TEST_F(ArcSessionImplTest, StartArcMiniContainerWithDensityAsyncReversedOrder) {
   EXPECT_EQ(240, chromeos::FakeSessionManagerClient::Get()
                      ->last_start_arc_mini_container_request()
                      .lcd_density());
-  EXPECT_EQ(2u, chromeos::FakeSessionManagerClient::Get()
-                    ->last_start_arc_mini_container_request()
-                    .num_cores_disabled());
 }
 
 TEST_F(ArcSessionImplTest, StartArcMiniContainerWithDensityAsyncCpuInfoEarly) {
@@ -798,9 +791,6 @@ TEST_F(ArcSessionImplTest, StartArcMiniContainerWithDensityAsyncCpuInfoEarly) {
   EXPECT_EQ(240, chromeos::FakeSessionManagerClient::Get()
                      ->last_start_arc_mini_container_request()
                      .lcd_density());
-  EXPECT_EQ(2u, chromeos::FakeSessionManagerClient::Get()
-                    ->last_start_arc_mini_container_request()
-                    .num_cores_disabled());
 }
 
 TEST_F(ArcSessionImplTest, StopWhileWaitingForLcdDensity) {

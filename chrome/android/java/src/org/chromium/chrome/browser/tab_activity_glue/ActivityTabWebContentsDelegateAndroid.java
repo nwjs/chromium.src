@@ -19,27 +19,30 @@ import androidx.annotation.Nullable;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
+import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.SwipeRefreshHandler;
+import org.chromium.chrome.browser.document.ChromeIntentUtil;
 import org.chromium.chrome.browser.document.DocumentWebContentsDelegate;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
+import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.media.PictureInPicture;
 import org.chromium.chrome.browser.policy.PolicyAuditor;
 import org.chromium.chrome.browser.policy.PolicyAuditor.AuditEvent;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabWebContentsDelegateAndroid;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.util.ChromeIntentUtil;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -80,7 +83,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
         return mActivity != null ? mActivity.getTabCreator(mTab.isIncognito()) : null;
     }
 
-    private FullscreenManager getFullscreenManager() {
+    private ChromeFullscreenManager getFullscreenManager() {
         return mActivity != null && !mActivity.isActivityFinishingOrDestroyed()
                 ? mActivity.getFullscreenManager()
                 : null;
@@ -142,7 +145,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
         String url = mWebContentsUrlMapping.remove(webContents);
 
         // Skip opening a new Tab if it doesn't make sense.
-        if (mTab.isClosing()) return false;
+        if (((TabImpl) mTab).isClosing()) return false;
 
         // Creating new Tabs asynchronously requires starting a new Activity to create the Tab,
         // so the Tab returned will always be null.  There's no way to know synchronously
@@ -163,8 +166,8 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
                 }
             } else if (disposition == WindowOpenDisposition.NEW_POPUP) {
                 PolicyAuditor auditor = AppHooks.get().getPolicyAuditor();
-                auditor.notifyAuditEvent(
-                        mTab.getApplicationContext(), AuditEvent.OPEN_POPUP_URL_SUCCESS, url, "");
+                auditor.notifyAuditEvent(ContextUtils.getApplicationContext(),
+                        AuditEvent.OPEN_POPUP_URL_SUCCESS, url, "");
             }
         }
 
@@ -182,7 +185,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
             Log.e(TAG, "Activity destroyed before calling activateContents().  Bailing out.");
             return;
         }
-        if (!mTab.isInitialized()) {
+        if (!((TabImpl) mTab).isInitialized()) {
             Log.e(TAG, "Tab not initialized before calling activateContents().  Bailing out.");
             return;
         }
@@ -219,7 +222,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
         Intent newIntent = ChromeIntentUtil.createBringTabToFrontIntent(mTab.getId());
         if (newIntent != null) {
             newIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            mTab.getApplicationContext().startActivity(newIntent);
+            ContextUtils.getApplicationContext().startActivity(newIntent);
         }
     }
 
@@ -281,8 +284,9 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
             case KeyEvent.KEYCODE_MEDIA_CLOSE:
             case KeyEvent.KEYCODE_MEDIA_EJECT:
             case KeyEvent.KEYCODE_MEDIA_AUDIO_TRACK:
-                AudioManager am = (AudioManager) mTab.getApplicationContext().getSystemService(
-                        Context.AUDIO_SERVICE);
+                AudioManager am =
+                        (AudioManager) ContextUtils.getApplicationContext().getSystemService(
+                                Context.AUDIO_SERVICE);
                 am.dispatchMediaKeyEvent(e);
                 break;
             default:
@@ -302,15 +306,48 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
     }
 
     @Override
+    public int getTopControlsMinHeight() {
+        FullscreenManager manager = getFullscreenManager();
+        return manager != null ? manager.getTopControlsMinHeight() : 0;
+    }
+
+    @Override
     public int getBottomControlsHeight() {
         FullscreenManager manager = getFullscreenManager();
         return manager != null ? manager.getBottomControlsHeight() : 0;
     }
 
     @Override
-    public boolean controlsResizeView() {
+    public int getBottomControlsMinHeight() {
         FullscreenManager manager = getFullscreenManager();
-        return manager != null ? ((ChromeFullscreenManager) manager).controlsResizeView() : false;
+        return manager != null ? manager.getBottomControlsMinHeight() : 0;
+    }
+
+    @Override
+    public boolean shouldAnimateBrowserControlsHeightChanges() {
+        FullscreenManager manager = getFullscreenManager();
+        return manager != null && manager.shouldAnimateBrowserControlsHeightChanges();
+    }
+
+    @Override
+    public boolean controlsResizeView() {
+        ChromeFullscreenManager manager = getFullscreenManager();
+        return manager != null ? manager.controlsResizeView() : false;
+    }
+
+    @Override
+    public void enterFullscreenModeForTab(boolean prefersNavigationBar) {
+        ChromeFullscreenManager manager = getFullscreenManager();
+        android.util.Log.i("crdebug", "enterFS cfm: " + manager);
+        if (manager != null) {
+            manager.onEnterFullscreen(mTab, new FullscreenOptions(prefersNavigationBar));
+        }
+    }
+
+    @Override
+    public void exitFullscreenModeForTab() {
+        ChromeFullscreenManager manager = getFullscreenManager();
+        if (manager != null) manager.onExitFullscreen(mTab);
     }
 
     @Override
@@ -322,6 +359,11 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
     @Override
     protected boolean isNightModeEnabled() {
         return mActivity != null ? mActivity.getNightModeStateProvider().isInNightMode() : false;
+    }
+
+    @Override
+    protected boolean isCustomTab() {
+        return mActivity != null && mActivity.isCustomTab();
     }
 
     private class RepostFormWarningHelper extends EmptyTabObserver {
@@ -349,7 +391,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
                 @Override
                 public void onDismiss(PropertyModel model, int dismissalCause) {
                     mTab.removeObserver(RepostFormWarningHelper.this);
-                    if (!mTab.isInitialized()) return;
+                    if (!((TabImpl) mTab).isInitialized()) return;
                     switch (dismissalCause) {
                         case DialogDismissalCause.POSITIVE_BUTTON_CLICKED:
                             mTab.getWebContents().getNavigationController().continuePendingReload();

@@ -26,6 +26,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/http/http_status_code.h"
 #include "net/quic/crypto/proof_source_chromium.h"
+#include "net/quic/quic_context.h"
 #include "net/test/cert_test_util.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_response.h"
@@ -83,9 +84,7 @@ std::unique_ptr<test_server::HttpResponse> HandleRequest(
   http_response->AddCustomHeader(
       "Alt-Svc",
       base::StringPrintf("quic=\"%s:%d\"; v=\"%u\"", kAltSvcHost, kAltSvcPort,
-                         HttpNetworkSession::Params()
-                             .quic_params.supported_versions[0]
-                             .transport_version));
+                         kDefaultSupportedQuicVersion.transport_version));
   http_response->set_code(HTTP_OK);
   http_response->set_content(kHelloOriginResponse);
   http_response->set_content_type("text/plain");
@@ -122,10 +121,11 @@ class URLRequestQuicPerfTest : public ::testing::Test {
         new HttpNetworkSession::Params);
     params->enable_quic = true;
     params->enable_user_alternate_protocol_ports = true;
-    params->quic_params.allow_remote_alt_svc = true;
+    quic_context_.params()->allow_remote_alt_svc = true;
     context_->set_host_resolver(host_resolver_.get());
     context_->set_http_network_session_params(std::move(params));
     context_->set_cert_verifier(&cert_verifier_);
+    context_->set_quic_context(&quic_context_);
     context_->Init();
   }
 
@@ -191,6 +191,7 @@ class URLRequestQuicPerfTest : public ::testing::Test {
   std::unique_ptr<TestURLRequestContext> context_;
   quic::QuicMemoryCacheBackend memory_cache_backend_;
   MockCertVerifier cert_verifier_;
+  QuicContext quic_context_;
 };
 
 void CheckScalarInDump(const MemoryAllocatorDump* dump,

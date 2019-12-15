@@ -387,14 +387,9 @@ void ThreadGroupImpl::Start(
     Optional<TimeDelta> may_block_threshold) {
   DCHECK(!replacement_thread_group_);
 
-  ScopedWorkersExecutor executor(this);
-
-  CheckedAutoLock auto_lock(lock_);
-
-  DCHECK(workers_.empty());
-
   in_start().may_block_without_delay =
-      FeatureList::IsEnabled(kMayBlockWithoutDelay);
+      FeatureList::IsEnabled(kMayBlockWithoutDelay) &&
+      priority_hint_ == ThreadPriority::NORMAL;
   in_start().may_block_threshold =
       may_block_threshold ? may_block_threshold.value()
                           : (priority_hint_ == ThreadPriority::NORMAL
@@ -404,6 +399,10 @@ void ThreadGroupImpl::Start(
       priority_hint_ == ThreadPriority::NORMAL ? kForegroundBlockedWorkersPoll
                                                : kBackgroundBlockedWorkersPoll;
 
+  ScopedWorkersExecutor executor(this);
+  CheckedAutoLock auto_lock(lock_);
+
+  DCHECK(workers_.empty());
   max_tasks_ = max_tasks;
   DCHECK_GE(max_tasks_, 1U);
   in_start().initial_max_tasks = max_tasks_;

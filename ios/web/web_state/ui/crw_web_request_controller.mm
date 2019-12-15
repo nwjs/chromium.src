@@ -426,7 +426,11 @@ enum class BackForwardNavigationType {
   context->SetIsPost([self.navigationHandler isCurrentNavigationItemPOST]);
   context->SetIsSameDocument(sameDocumentNavigation);
 
-  if (!IsWKInternalUrl(requestURL) && !placeholderNavigation) {
+  // If WKWebView.loading is used for WebState::IsLoading, do not set it for
+  // renderer-initated navigation otherwise WebState::IsLoading will remain true
+  // after hash change in the web page.
+  if (!IsWKInternalUrl(requestURL) && !placeholderNavigation &&
+      (!web::features::UseWKWebViewLoading() || !rendererInitiated)) {
     self.webState->SetIsLoading(true);
   }
 
@@ -477,12 +481,13 @@ enum class BackForwardNavigationType {
     // loading placeholder URL.
     return;
   }
-
-  if (![self.navigationHandler.navigationStates
-              lastNavigationWithPendingItemInNavigationContext]) {
-    self.webState->SetIsLoading(false);
-  } else {
-    // There is another pending navigation, so the state is still loading.
+  if (!web::features::UseWKWebViewLoading()) {
+    if (![self.navigationHandler.navigationStates
+                lastNavigationWithPendingItemInNavigationContext]) {
+      self.webState->SetIsLoading(false);
+    } else {
+      // There is another pending navigation, so the state is still loading.
+    }
   }
 
   self.webState->OnPageLoaded(currentURL, YES);
@@ -615,6 +620,15 @@ enum class BackForwardNavigationType {
   // the next request sent by this web view.
   web::UserAgentType itemUserAgentType =
       self.currentNavItem->GetUserAgentType();
+
+  if (itemUserAgentType == web::UserAgentType::AUTOMATIC) {
+    DCHECK(
+        base::FeatureList::IsEnabled(web::features::kDefaultToDesktopOnIPad));
+    itemUserAgentType = web::GetDefaultUserAgent(self.webView);
+    self.currentNavItem->SetUserAgentType(
+        itemUserAgentType, /*update_inherited_user_agent =*/false);
+  }
+
   if (itemUserAgentType != web::UserAgentType::NONE) {
     NSString* userAgentString = base::SysUTF8ToNSString(
         web::GetWebClient()->GetUserAgent(itemUserAgentType));

@@ -135,7 +135,15 @@ ContentBrowserClient::GetInitiatorSchemeBypassingDocumentBlocking() {
 }
 
 bool ContentBrowserClient::ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
-    base::StringPiece scheme) {
+    base::StringPiece scheme,
+    bool is_embedded_origin_secure) {
+  return false;
+}
+
+
+bool ContentBrowserClient::ShouldIgnoreSameSiteCookieRestrictionsWhenTopLevel(
+    base::StringPiece scheme,
+    bool is_embedded_origin_secure) {
   return false;
 }
 
@@ -143,16 +151,10 @@ bool ContentBrowserClient::IsNWOrigin(const url::Origin& origin, ResourceContext
   return false;
 }
 
-network::mojom::URLLoaderFactoryPtrInfo
-ContentBrowserClient::CreateURLLoaderFactoryForNetworkRequests(
+void ContentBrowserClient::OverrideURLLoaderFactoryParams(
     RenderProcessHost* process,
-    network::mojom::NetworkContext* network_context,
-    mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>*
-        header_client,
-    const url::Origin& request_initiator,
-    const base::Optional<net::NetworkIsolationKey>& network_isolation_key) {
-  return network::mojom::URLLoaderFactoryPtrInfo();
-}
+    const url::Origin& origin,
+    network::mojom::URLLoaderFactoryParams* factory_params) {}
 
 void ContentBrowserClient::GetAdditionalViewSourceSchemes(
     std::vector<std::string>* additional_schemes) {
@@ -212,8 +214,8 @@ bool ContentBrowserClient::ShouldSubframesTryToReuseExistingProcess(
 
 bool ContentBrowserClient::ShouldSwapBrowsingInstancesForNavigation(
     SiteInstance* site_instance,
-    const GURL& current_url,
-    const GURL& new_url) {
+    const GURL& current_effective_url,
+    const GURL& destination_effective_url) {
   return false;
 }
 
@@ -234,7 +236,7 @@ void ContentBrowserClient::GetHardwareSecureDecryptionCaps(
     const std::string& key_system,
     const base::flat_set<media::CdmProxy::Protocol>& cdm_proxy_protocols,
     base::flat_set<media::VideoCodec>* video_codecs,
-    base::flat_set<media::EncryptionMode>* encryption_schemes) {}
+    base::flat_set<media::EncryptionScheme>* encryption_schemes) {}
 
 bool ContentBrowserClient::ShouldAssignSiteForURL(const GURL& url) {
   return true;
@@ -380,6 +382,13 @@ bool ContentBrowserClient::AllowWorkerCacheStorage(
   return true;
 }
 
+bool ContentBrowserClient::AllowWorkerWebLocks(
+    const GURL& url,
+    BrowserContext* browser_context,
+    const std::vector<GlobalFrameRoutingId>& render_frames) {
+  return true;
+}
+
 ContentBrowserClient::AllowWebBluetoothResult
 ContentBrowserClient::AllowWebBluetooth(
     content::BrowserContext* browser_context,
@@ -421,8 +430,8 @@ void ContentBrowserClient::AllowCertificateError(
     const GURL& request_url,
     bool is_main_frame_request,
     bool strict_enforcement,
-    const base::Callback<void(CertificateRequestResultType)>& callback) {
-  callback.Run(CERTIFICATE_REQUEST_RESULT_TYPE_DENY);
+    base::OnceCallback<void(CertificateRequestResultType)> callback) {
+  std::move(callback).Run(CERTIFICATE_REQUEST_RESULT_TYPE_DENY);
 }
 
 base::OnceClosure ContentBrowserClient::SelectClientCertificate(
@@ -747,19 +756,15 @@ bool ContentBrowserClient::WillCreateURLLoaderFactory(
     int render_process_id,
     URLLoaderFactoryType type,
     const url::Origin& request_initiator,
+    base::Optional<int64_t> navigation_id,
     mojo::PendingReceiver<network::mojom::URLLoaderFactory>* factory_receiver,
     mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>*
         header_client,
-    bool* bypass_redirect_checks) {
+    bool* bypass_redirect_checks,
+    network::mojom::URLLoaderFactoryOverridePtr* factory_override) {
   DCHECK(browser_context);
   return false;
 }
-
-#if defined(OS_ANDROID)
-void ContentBrowserClient::WillCreateURLLoaderFactoryForAppCacheSubresource(
-    int render_process_id,
-    mojo::PendingRemote<network::mojom::URLLoaderFactory>* pending_factory) {}
-#endif
 
 bool ContentBrowserClient::WillInterceptWebSocket(RenderFrameHost*) {
   return false;
@@ -887,7 +892,7 @@ ContentBrowserClient::GetWebAuthenticationRequestDelegate(
 }
 
 std::unique_ptr<net::ClientCertStore>
-ContentBrowserClient::CreateClientCertStore(ResourceContext* resource_context) {
+ContentBrowserClient::CreateClientCertStore(BrowserContext* browser_context) {
   return nullptr;
 }
 
@@ -905,14 +910,14 @@ std::unique_ptr<LoginDelegate> ContentBrowserClient::CreateLoginDelegate(
 
 bool ContentBrowserClient::HandleExternalProtocol(
     const GURL& url,
-    WebContents::Getter web_contents_getter,
+    WebContents::OnceGetter web_contents_getter,
     int child_id,
     NavigationUIData* navigation_data,
     bool is_main_frame,
     ui::PageTransition page_transition,
     bool has_user_gesture,
     const base::Optional<url::Origin>& initiating_origin,
-    network::mojom::URLLoaderFactoryPtr* out_factory) {
+    mojo::PendingRemote<network::mojom::URLLoaderFactory>* out_factory) {
   return true;
 }
 
@@ -1031,5 +1036,10 @@ bool ContentBrowserClient::ArePersistentMediaDeviceIDsAllowed(
     const base::Optional<url::Origin>& top_frame_origin) {
   return false;
 }
+
+void ContentBrowserClient::FetchRemoteSms(
+    content::BrowserContext* browser_context,
+    const url::Origin& origin,
+    base::OnceCallback<void(base::Optional<std::string>)> callback) {}
 
 }  // namespace content

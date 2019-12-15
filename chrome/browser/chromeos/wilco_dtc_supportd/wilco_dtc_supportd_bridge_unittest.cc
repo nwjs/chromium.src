@@ -12,15 +12,15 @@
 #include "base/optional.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/test/task_environment.h"
+#include "chrome/browser/chromeos/wilco_dtc_supportd/fake_wilco_dtc_supportd_client.h"
 #include "chrome/browser/chromeos/wilco_dtc_supportd/wilco_dtc_supportd_bridge.h"
 #include "chrome/services/wilco_dtc_supportd/public/mojom/wilco_dtc_supportd.mojom.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
-#include "chromeos/dbus/dbus_thread_manager.h"
-#include "chromeos/dbus/fake_wilco_dtc_supportd_client.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/handle.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
@@ -138,13 +138,14 @@ class FakeWilcoDtcSupportdBridgeDelegate final
             mojo_wilco_dtc_supportd_service_factory) {}
 
   void CreateWilcoDtcSupportdServiceFactoryMojoInvitation(
-      wilco_dtc_supportd::mojom::WilcoDtcSupportdServiceFactoryPtr*
-          wilco_dtc_supportd_service_factory_mojo_ptr,
+      mojo::Remote<wilco_dtc_supportd::mojom::WilcoDtcSupportdServiceFactory>*
+          wilco_dtc_supportd_service_factory_mojo_remote,
       base::ScopedFD* remote_endpoint_fd) override {
     // Bind the Mojo pointer passed to the bridge with the
     // FakeMojoWilcoDtcSupportdServiceFactory implementation.
     mojo_wilco_dtc_supportd_service_factory_->Bind(
-        mojo::MakeRequest(wilco_dtc_supportd_service_factory_mojo_ptr));
+        wilco_dtc_supportd_service_factory_mojo_remote
+            ->BindNewPipeAndPassReceiver());
 
     // Return a fake file descriptor - its value is not used in the unit test
     // environment for anything except comparing with zero.
@@ -173,8 +174,7 @@ class MockWilcoDtcSupportdNotificationController
 class WilcoDtcSupportdBridgeTest : public testing::Test {
  protected:
   WilcoDtcSupportdBridgeTest() {
-    DBusThreadManager::Initialize();
-    CHECK(DBusThreadManager::Get()->IsUsingFakes());
+    WilcoDtcSupportdClient::InitializeFake();
 
     auto profile_manager = std::make_unique<TestingProfileManager>(
         TestingBrowserProcess::GetGlobal());
@@ -198,7 +198,7 @@ class WilcoDtcSupportdBridgeTest : public testing::Test {
 
   ~WilcoDtcSupportdBridgeTest() override {
     wilco_dtc_supportd_bridge_.reset();
-    DBusThreadManager::Shutdown();
+    WilcoDtcSupportdClient::Shutdown();
   }
 
   StrictMock<MockWilcoDtcSupportdNotificationController>*
@@ -212,7 +212,7 @@ class WilcoDtcSupportdBridgeTest : public testing::Test {
 
   FakeWilcoDtcSupportdClient* wilco_dtc_supportd_dbus_client() {
     WilcoDtcSupportdClient* const wilco_dtc_supportd_client =
-        DBusThreadManager::Get()->GetWilcoDtcSupportdClient();
+        WilcoDtcSupportdClient::Get();
     DCHECK(wilco_dtc_supportd_client);
     return static_cast<FakeWilcoDtcSupportdClient*>(wilco_dtc_supportd_client);
   }

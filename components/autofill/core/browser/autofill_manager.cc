@@ -526,15 +526,20 @@ void AutofillManager::RefetchCardsAndUpdatePopup(
 
 bool AutofillManager::ShouldParseForms(const std::vector<FormData>& forms,
                                        const base::TimeTicks timestamp) {
-  bool enabled = IsAutofillEnabled();
+  bool autofill_enabled = IsAutofillEnabled();
   sync_state_ = personal_data_ ? personal_data_->GetSyncSigninState()
                                : AutofillSyncSigninState::kNumSyncStates;
   if (!has_logged_autofill_enabled_) {
-    AutofillMetrics::LogIsAutofillEnabledAtPageLoad(enabled, sync_state_);
+    AutofillMetrics::LogIsAutofillEnabledAtPageLoad(autofill_enabled,
+                                                    sync_state_);
+    AutofillMetrics::LogIsAutofillProfileEnabledAtPageLoad(
+        IsAutofillProfileEnabled(), sync_state_);
+    AutofillMetrics::LogIsAutofillCreditCardEnabledAtPageLoad(
+        IsAutofillCreditCardEnabled(), sync_state_);
     has_logged_autofill_enabled_ = true;
   }
 
-  return enabled;
+  return autofill_enabled;
 }
 
 void AutofillManager::OnFormSubmittedImpl(const FormData& form,
@@ -570,10 +575,10 @@ void AutofillManager::OnFormSubmittedImpl(const FormData& form,
   autocomplete_history_manager_->OnWillSubmitForm(
       form_for_autocomplete, client_->IsAutocompleteEnabled());
 
-  if (IsProfileAutofillEnabled()) {
+  if (IsAutofillProfileEnabled()) {
     address_form_event_logger_->OnWillSubmitForm(sync_state_, *submitted_form);
   }
-  if (IsCreditCardAutofillEnabled()) {
+  if (IsAutofillCreditCardEnabled()) {
     credit_card_form_event_logger_->OnWillSubmitForm(sync_state_,
                                                      *submitted_form);
   }
@@ -591,11 +596,11 @@ void AutofillManager::OnFormSubmittedImpl(const FormData& form,
 
   submitted_form->set_submission_source(source);
 
-  if (IsProfileAutofillEnabled()) {
+  if (IsAutofillProfileEnabled()) {
     address_form_event_logger_->OnFormSubmitted(/*force_logging=*/false,
                                                 sync_state_, *submitted_form);
   }
-  if (IsCreditCardAutofillEnabled()) {
+  if (IsAutofillCreditCardEnabled()) {
     credit_card_form_event_logger_->OnFormSubmitted(
         enable_ablation_logging_, sync_state_, *submitted_form);
   }
@@ -608,8 +613,8 @@ void AutofillManager::OnFormSubmittedImpl(const FormData& form,
   // Update Personal Data with the form's submitted data.
   // Also triggers offering local/upload credit card save, if applicable.
   client_->GetFormDataImporter()->ImportFormData(*submitted_form,
-                                                 IsProfileAutofillEnabled(),
-                                                 IsCreditCardAutofillEnabled());
+                                                 IsAutofillProfileEnabled(),
+                                                 IsAutofillCreditCardEnabled());
 }
 
 bool AutofillManager::MaybeStartVoteUploadProcess(
@@ -1343,15 +1348,15 @@ void AutofillManager::OnDidEndTextFieldEditing() {
 }
 
 bool AutofillManager::IsAutofillEnabled() const {
-  return ::autofill::prefs::IsAutofillEnabled(client_->GetPrefs());
+  return IsAutofillProfileEnabled() || IsAutofillCreditCardEnabled();
 }
 
-bool AutofillManager::IsProfileAutofillEnabled() const {
-  return ::autofill::prefs::IsProfileAutofillEnabled(client_->GetPrefs());
+bool AutofillManager::IsAutofillProfileEnabled() const {
+  return ::autofill::prefs::IsAutofillProfileEnabled(client_->GetPrefs());
 }
 
-bool AutofillManager::IsCreditCardAutofillEnabled() const {
-  return ::autofill::prefs::IsCreditCardAutofillEnabled(client_->GetPrefs());
+bool AutofillManager::IsAutofillCreditCardEnabled() const {
+  return ::autofill::prefs::IsAutofillCreditCardEnabled(client_->GetPrefs());
 }
 
 // static
@@ -1375,9 +1380,6 @@ void AutofillManager::OnSuggestionsReturned(
     int query_id,
     bool autoselect_first_suggestion,
     const std::vector<Suggestion>& suggestions) {
-  external_delegate_->OnAutofillAvailabilityEvent(
-      !suggestions.empty() ? mojom::AutofillState::kAutocompleteAvailable
-                           : mojom::AutofillState::kNoSuggestions);
   external_delegate_->OnSuggestionsReturned(query_id, suggestions,
                                             autoselect_first_suggestion);
 }
@@ -1441,7 +1443,7 @@ void AutofillManager::Reset() {
       new AutofillMetrics::FormInteractionsUkmLogger(
           client_->GetUkmRecorder(), client_->GetUkmSourceId()));
   address_form_event_logger_.reset(new AddressFormEventLogger(
-      driver()->IsInMainFrame(), form_interactions_ukm_logger_.get()));
+      driver()->IsInMainFrame(), form_interactions_ukm_logger_.get(), client_));
   credit_card_form_event_logger_.reset(new CreditCardFormEventLogger(
       driver()->IsInMainFrame(), form_interactions_ukm_logger_.get(),
       personal_data_, client_));
@@ -1489,7 +1491,8 @@ AutofillManager::AutofillManager(
               client->GetUkmSourceId())),
       address_form_event_logger_(std::make_unique<AddressFormEventLogger>(
           driver->IsInMainFrame(),
-          form_interactions_ukm_logger_.get())),
+          form_interactions_ukm_logger_.get(),
+          client_)),
       credit_card_form_event_logger_(
           std::make_unique<CreditCardFormEventLogger>(
               driver->IsInMainFrame(),
@@ -1802,6 +1805,8 @@ void AutofillManager::OnFormsParsed(
 
   // Setup the url for metrics that we will collect for this form.
   form_interactions_ukm_logger_->OnFormsParsed(client_->GetUkmSourceId());
+
+  driver()->HandleParsedForms(form_structures);
 
   std::vector<FormStructure*> non_queryable_forms;
   std::vector<FormStructure*> queryable_forms;

@@ -54,7 +54,6 @@ function getEmptyPrinter_() {
       effectiveMakeAndModel: '',
       autoconf: false,
     },
-    printerPpdReferenceResolved: false,
     printerProtocol: 'ipp',
     printerQueue: 'ipp/print',
     printerStatus: '',
@@ -272,14 +271,13 @@ Polymer({
     newPrinter.printerPpdReference.effectiveMakeAndModel =
         info.ppdRefEffectiveMakeAndModel;
     newPrinter.printerPpdReference.autoconf = info.autoconf;
-    newPrinter.printerPpdReferenceResolved = info.ppdReferenceResolved;
 
     this.newPrinter = newPrinter;
 
 
     // Add the printer if it's configurable. Otherwise, forward to the
     // manufacturer dialog.
-    if (this.newPrinter.printerPpdReferenceResolved) {
+    if (info.ppdReferenceResolved) {
       settings.CupsPrintersBrowserProxyImpl.getInstance()
           .addCupsPrinter(this.newPrinter)
           .then(
@@ -345,6 +343,23 @@ Polymer({
     this.errorText_ = '';
   },
 
+  /**
+   * Keypress event handler. If enter is pressed, printer is added if
+   * |canAddPrinter_| is true.
+   * @param {!Event} event
+   * @private
+   */
+  onKeypress_: function(event) {
+    if (event.key != 'Enter') {
+      return;
+    }
+    event.stopPropagation();
+
+    if (this.canAddPrinter_()) {
+      this.addPressed_();
+    }
+  },
+
 });
 
 Polymer({
@@ -401,6 +416,20 @@ Polymer({
       type: String,
       value: '',
     },
+
+    /**
+     * Indicates whether the value in the Manufacturer dropdown is a valid
+     * printer manufacturer. Set by manufacturerDropdown.
+     * @private
+     */
+    isManufacturerInvalid_: Boolean,
+
+    /**
+     * Indicates whether the value in the Model dropdown is a valid printer
+     * model. Set by modelDropdown.
+     * @private
+     */
+    isModelInvalid_: Boolean,
   },
 
   observers: [
@@ -573,7 +602,8 @@ Polymer({
   canAddPrinter_: function(ppdManufacturer, ppdModel, printerPPDPath) {
     return !this.addPrinterInProgress_ &&
         settings.printing.isPPDInfoValid(
-            ppdManufacturer, ppdModel, printerPPDPath);
+            ppdManufacturer, ppdModel, printerPPDPath) &&
+        !this.isManufacturerInvalid_ && !this.isModelInvalid_;
   },
 });
 

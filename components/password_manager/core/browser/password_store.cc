@@ -24,7 +24,9 @@
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/password_form.h"
 #include "components/password_manager/core/browser/android_affiliation/affiliated_match_helper.h"
-#include "components/password_manager/core/browser/leaked_credentials_table.h"
+#include "components/password_manager/core/browser/compromised_credentials_observer.h"
+#include "components/password_manager/core/browser/compromised_credentials_table.h"
+#include "components/password_manager/core/browser/field_info_table.h"
 #include "components/password_manager/core/browser/password_leak_history_consumer.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
@@ -124,11 +126,13 @@ PasswordStore::PasswordStore()
       init_status_(InitStatus::kUnknown) {}
 
 bool PasswordStore::Init(const syncer::SyncableService::StartSyncFlare& flare,
-                         PrefService* prefs) {
+                         PrefService* prefs,
+                         base::RepeatingClosure sync_enabled_or_disabled_cb) {
   main_task_runner_ = base::SequencedTaskRunnerHandle::Get();
   DCHECK(main_task_runner_);
   background_task_runner_ = CreateBackgroundTaskRunner();
   DCHECK(background_task_runner_);
+  sync_enabled_or_disabled_cb_ = std::move(sync_enabled_or_disabled_cb);
 #if defined(SYNC_PASSWORD_REUSE_DETECTION_ENABLED)
   prefs_ = prefs;
   hash_password_manager_.set_prefs(prefs);
@@ -139,6 +143,11 @@ bool PasswordStore::Init(const syncer::SyncableService::StartSyncFlare& flare,
         base::BindOnce(&PasswordStore::InitOnBackgroundSequence, this, flare),
         base::BindOnce(&PasswordStore::OnInitCompleted, this));
   }
+
+  compromised_credentials_observer_ =
+      std::make_unique<CompromisedCredentialsObserver>(this);
+  compromised_credentials_observer_->Initialize();
+
   return true;
 }
 
@@ -336,37 +345,64 @@ void PasswordStore::GetSiteStats(const GURL& origin_domain,
       base::BindOnce(&PasswordStore::GetSiteStatsImpl, this, origin_domain));
 }
 
-void PasswordStore::AddLeakedCredentials(
-    const LeakedCredentials& leaked_credentials) {
+void PasswordStore::AddCompromisedCredentials(
+    const CompromisedCredentials& compromised_credentials) {
   DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
-  ScheduleTask(base::BindOnce(&PasswordStore::AddLeakedCredentialsImpl, this,
-                              leaked_credentials));
+  ScheduleTask(base::BindOnce(&PasswordStore::AddCompromisedCredentialsImpl,
+                              this, compromised_credentials));
 }
 
-void PasswordStore::RemoveLeakedCredentials(const GURL& url,
-                                            const base::string16& username) {
+void PasswordStore::RemoveCompromisedCredentials(
+    const GURL& url,
+    const base::string16& username) {
   DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
-  ScheduleTask(base::BindOnce(&PasswordStore::RemoveLeakedCredentialsImpl, this,
-                              url, username));
+  ScheduleTask(base::BindOnce(&PasswordStore::RemoveCompromisedCredentialsImpl,
+                              this, url, username));
 }
 
-void PasswordStore::GetAllLeakedCredentials(
+void PasswordStore::GetAllCompromisedCredentials(
     PasswordLeakHistoryConsumer* consumer) {
   DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
-  PostLeakedCredentialsTaskAndReplyToConsumerWithResult(
+  PostCompromisedCredentialsTaskAndReplyToConsumerWithResult(
       consumer,
-      base::BindOnce(&PasswordStore::GetAllLeakedCredentialsImpl, this));
+      base::BindOnce(&PasswordStore::GetAllCompromisedCredentialsImpl, this));
 }
 
-void PasswordStore::RemoveLeakedCredentialsByUrlAndTime(
+void PasswordStore::RemoveCompromisedCredentialsByUrlAndTime(
     base::RepeatingCallback<bool(const GURL&)> url_filter,
     base::Time remove_begin,
     base::Time remove_end,
     base::OnceClosure completion) {
   DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
   ScheduleTask(base::BindOnce(
-      &PasswordStore::RemoveLeakedCredentialsByUrlAndTimeInternal, this,
+      &PasswordStore::RemoveCompromisedCredentialsByUrlAndTimeInternal, this,
       std::move(url_filter), remove_begin, remove_end, std::move(completion)));
+}
+
+void PasswordStore::AddFieldInfo(const FieldInfo& field_info) {
+  DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
+  ScheduleTask(
+      base::BindOnce(&PasswordStore::AddFieldInfoImpl, this, field_info));
+}
+
+void PasswordStore::GetAllFieldInfo(PasswordStoreConsumer* consumer) {
+  DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
+  auto get_all_field_info_task =
+      base::BindOnce(&PasswordStore::GetAllFieldInfoImpl, this);
+  consumer->cancelable_task_tracker()->PostTaskAndReplyWithResult(
+      background_task_runner_.get(), FROM_HERE,
+      std::move(get_all_field_info_task),
+      base::BindOnce(&PasswordStoreConsumer::OnGetAllFieldInfo,
+                     consumer->GetWeakPtr()));
+}
+
+void PasswordStore::RemoveFieldInfoByTime(base::Time remove_begin,
+                                          base::Time remove_end,
+                                          base::OnceClosure completion) {
+  DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
+  ScheduleTask(base::BindOnce(&PasswordStore::RemoveFieldInfoByTimeInternal,
+                              this, remove_begin, remove_end,
+                              std::move(completion)));
 }
 
 void PasswordStore::AddObserver(Observer* observer) {
@@ -538,6 +574,7 @@ void PasswordStore::ScheduleEnterprisePasswordURLUpdate() {
 
 PasswordStore::~PasswordStore() {
   DCHECK(shutdown_called_);
+  compromised_credentials_observer_.reset(nullptr);
 }
 
 scoped_refptr<base::SequencedTaskRunner>
@@ -553,7 +590,7 @@ bool PasswordStore::InitOnBackgroundSequence(
     sync_bridge_.reset(new PasswordSyncBridge(
         std::make_unique<syncer::ClientTagBasedModelTypeProcessor>(
             syncer::PASSWORDS, base::DoNothing()),
-        /*password_store_sync=*/this));
+        /*password_store_sync=*/this, sync_enabled_or_disabled_cb_));
   } else {
     DCHECK(!syncable_service_);
     syncable_service_.reset(new PasswordSyncableService(this));
@@ -724,18 +761,17 @@ void PasswordStore::PostStatsTaskAndReplyToConsumerWithResult(
                      consumer->GetWeakPtr()));
 }
 
-void PasswordStore::PostLeakedCredentialsTaskAndReplyToConsumerWithResult(
+void PasswordStore::PostCompromisedCredentialsTaskAndReplyToConsumerWithResult(
     PasswordLeakHistoryConsumer* consumer,
-    LeakedCredentialsTask task) {
+    CompromisedCredentialsTask task) {
   consumer->cancelable_task_tracker()->PostTaskAndReplyWithResult(
       background_task_runner_.get(), FROM_HERE, std::move(task),
-      base::BindOnce(&PasswordLeakHistoryConsumer::OnGetLeakedCredentials,
+      base::BindOnce(&PasswordLeakHistoryConsumer::OnGetCompromisedCredentials,
                      consumer->GetWeakPtr()));
 }
 
 void PasswordStore::AddLoginInternal(const PasswordForm& form) {
   DCHECK(background_task_runner_->RunsTasksInCurrentSequence());
-  SCOPED_UMA_HISTOGRAM_TIMER("PasswordManager.StorePerformance.AddLogin");
   BeginTransaction();
   PasswordStoreChangeList changes = AddLoginImpl(form);
   NotifyLoginsChanged(changes);
@@ -748,7 +784,6 @@ void PasswordStore::AddLoginInternal(const PasswordForm& form) {
 
 void PasswordStore::UpdateLoginInternal(const PasswordForm& form) {
   DCHECK(background_task_runner_->RunsTasksInCurrentSequence());
-  SCOPED_UMA_HISTOGRAM_TIMER("PasswordManager.StorePerformance.UpdateLogin");
   BeginTransaction();
   PasswordStoreChangeList changes = UpdateLoginImpl(form);
   NotifyLoginsChanged(changes);
@@ -761,7 +796,6 @@ void PasswordStore::UpdateLoginInternal(const PasswordForm& form) {
 
 void PasswordStore::RemoveLoginInternal(const PasswordForm& form) {
   DCHECK(background_task_runner_->RunsTasksInCurrentSequence());
-  SCOPED_UMA_HISTOGRAM_TIMER("PasswordManager.StorePerformance.RemoveLogin");
   BeginTransaction();
   PasswordStoreChangeList changes = RemoveLoginImpl(form);
   NotifyLoginsChanged(changes);
@@ -861,13 +895,23 @@ void PasswordStore::UnblacklistInternal(
     main_task_runner_->PostTask(FROM_HERE, std::move(completion));
 }
 
-void PasswordStore::RemoveLeakedCredentialsByUrlAndTimeInternal(
+void PasswordStore::RemoveCompromisedCredentialsByUrlAndTimeInternal(
     const base::RepeatingCallback<bool(const GURL&)>& url_filter,
     base::Time remove_begin,
     base::Time remove_end,
     base::OnceClosure completion) {
   DCHECK(background_task_runner_->RunsTasksInCurrentSequence());
-  RemoveLeakedCredentialsByUrlAndTimeImpl(url_filter, remove_begin, remove_end);
+  RemoveCompromisedCredentialsByUrlAndTimeImpl(url_filter, remove_begin,
+                                               remove_end);
+  if (!completion.is_null())
+    main_task_runner_->PostTask(FROM_HERE, std::move(completion));
+}
+
+void PasswordStore::RemoveFieldInfoByTimeInternal(
+    base::Time remove_begin,
+    base::Time remove_end,
+    base::OnceClosure completion) {
+  RemoveFieldInfoByTimeImpl(remove_begin, remove_end);
   if (!completion.is_null())
     main_task_runner_->PostTask(FROM_HERE, std::move(completion));
 }
@@ -875,7 +919,6 @@ void PasswordStore::RemoveLeakedCredentialsByUrlAndTimeInternal(
 std::vector<std::unique_ptr<autofill::PasswordForm>>
 PasswordStore::GetLoginsImpl(const FormDigest& form) {
   DCHECK(background_task_runner_->RunsTasksInCurrentSequence());
-  SCOPED_UMA_HISTOGRAM_TIMER("PasswordManager.StorePerformance.GetLogins");
   return FillMatchingLogins(form);
 }
 
@@ -966,7 +1009,6 @@ void PasswordStore::ScheduleGetFilteredLoginsWithAffiliations(
 
 std::unique_ptr<PasswordForm> PasswordStore::GetLoginImpl(
     const PasswordForm& primary_key) {
-  SCOPED_UMA_HISTOGRAM_TIMER("PasswordManager.StorePerformance.GetLogin");
   DCHECK(background_task_runner_->RunsTasksInCurrentSequence());
   std::vector<std::unique_ptr<PasswordForm>> candidates(
       FillMatchingLogins(FormDigest(primary_key)));

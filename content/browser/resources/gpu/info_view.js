@@ -211,6 +211,19 @@ cr.define('gpu', function() {
         } else {
           diagnosticsDiv.hidden = true;
         }
+
+        if (gpuInfo.vulkanInfo) {
+          const vulkanInfo = new gpu.VulkanInfo(gpuInfo.vulkanInfo);
+          const data = [{
+            'description': 'info',
+            'value': vulkanInfo.toString(),
+            'id': 'vulkan-info-value'
+          }];
+          this.setTable_('vulkan-info', data);
+        } else {
+          this.setTable_('vulkan-info', []);
+        }
+
       } else {
         this.setText_('basic-info', '... loading ...');
         diagnosticsDiv.hidden = true;
@@ -240,6 +253,7 @@ cr.define('gpu', function() {
         'video_decode': 'Video Decode',
         'rasterization': 'Rasterization',
         'oop_rasterization': 'Out-of-process Rasterization',
+        'opengl': 'OpenGL',
         'metal': 'Metal',
         'vulkan': 'Vulkan',
         'multiple_raster_threads': 'Multiple Raster Threads',
@@ -249,7 +263,6 @@ cr.define('gpu', function() {
         'vpx_decode': 'VPx Video Decode',
         'webgl2': 'WebGL2',
         'viz_display_compositor': 'Viz Display Compositor',
-        'viz_hit_test_surface_layer': 'Viz Hit-test Surface Layer',
         'skia_renderer': 'Skia Renderer',
       };
 

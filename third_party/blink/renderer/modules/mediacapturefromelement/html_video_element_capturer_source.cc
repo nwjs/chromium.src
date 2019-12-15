@@ -12,11 +12,11 @@
 #include "cc/paint/skia_paint_canvas.h"
 #include "media/base/limits.h"
 #include "skia/ext/platform_canvas.h"
-#include "third_party/blink/public/platform/modules/mediastream/webrtc_uma_histograms.h"
 #include "third_party/blink/public/platform/web_media_player.h"
 #include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/public/web/modules/mediastream/media_stream_video_source.h"
+#include "third_party/blink/renderer/platform/mediastream/webrtc_uma_histograms.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
@@ -36,7 +36,7 @@ HtmlVideoElementCapturerSource::CreateFromWebMediaPlayerImpl(
     scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
   // Save histogram data so we can see how much HTML Video capture is used.
   // The histogram counts the number of calls to the JS API.
-  UpdateWebRTCMethodCount(blink::WebRTCAPIName::kVideoCaptureStream);
+  UpdateWebRTCMethodCount(RTCAPIName::kVideoCaptureStream);
 
   // TODO(crbug.com/963651): Remove the need for AsWeakPtr altogether.
   return base::WrapUnique(new HtmlVideoElementCapturerSource(

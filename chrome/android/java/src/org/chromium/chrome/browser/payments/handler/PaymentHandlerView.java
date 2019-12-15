@@ -4,23 +4,90 @@
 
 package org.chromium.chrome.browser.payments.handler;
 
-import android.content.Context;
+import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup.LayoutParams;
+import android.widget.FrameLayout;
 
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet;
-import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet.BottomSheetContent;
+import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.thinwebview.ThinWebView;
+import org.chromium.chrome.browser.thinwebview.ThinWebViewConstraints;
+import org.chromium.chrome.browser.thinwebview.ThinWebViewFactory;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetContent;
+import org.chromium.components.embedder_support.view.ContentView;
+import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.ActivityWindowAndroid;
 
 /** PaymentHandler UI. */
 /* package */ class PaymentHandlerView implements BottomSheetContent {
     private final View mToolbarView;
-    private final View mContentView;
+    private final FrameLayout mContentView;
+    private final ThinWebView mThinWebView;
+    private final Handler mReflowHandler = new Handler();
+    private final int mTabHeight;
+    private final int mToolbarHeightPx;
 
-    /* package */ PaymentHandlerView(Context context) {
-        mToolbarView = LayoutInflater.from(context).inflate(R.layout.payment_handler_toolbar, null);
-        mContentView = LayoutInflater.from(context).inflate(R.layout.payment_handler_content, null);
+    /**
+     * Construct the PaymentHandlerView.
+     *
+     * @param activity The activity where the bottome-sheet should be shown.
+     * @param webContents The web-content of the payment-handler web-app.
+     * @param webContentView The {@link ContentView} that has been contructed with the web-content.
+     */
+    /* package */ PaymentHandlerView(ChromeActivity activity, WebContents webContents,
+            ContentView webContentView, View toolbarView) {
+        mTabHeight = activity.getActivityTab().getView().getHeight();
+        mToolbarView = toolbarView;
+        mToolbarHeightPx =
+                activity.getResources().getDimensionPixelSize(R.dimen.sheet_tab_toolbar_height);
+        mContentView = (FrameLayout) LayoutInflater.from(activity).inflate(
+                R.layout.payment_handler_content, null);
+
+        ThinWebViewConstraints thinWebViewConstraints = new ThinWebViewConstraints();
+        thinWebViewConstraints.zOrderOnTop = true;
+        mThinWebView = ThinWebViewFactory.create(
+                activity, new ActivityWindowAndroid(activity), thinWebViewConstraints);
+        initContentView(activity, mThinWebView, webContents, webContentView);
+    }
+
+    /**
+     * Initialize the content view.
+     *
+     * @param activity The activity where the bottome-sheet should be shown.
+     * @param thinWebView The {@link ThinWebView} that was created with the activity.
+     * @param webContents The web-content of the payment-handler web-app.
+     * @param webContentView The {@link ContentView} that has been contructed with the web-content.
+     */
+    private void initContentView(ChromeActivity activity, ThinWebView thinWebView,
+            WebContents webContents, ContentView webContentView) {
+        assert webContentView.getParent() == null;
+        thinWebView.attachWebContents(webContents, webContentView);
+        mContentView.setPadding(
+                /*left=*/0, /*top=*/mToolbarHeightPx, /*right=*/0, /*bottom=*/0);
+        mContentView.addView(thinWebView.getView(), /*index=*/0);
+    }
+
+    /* A callback when the heightFraction property changed.*/
+    /* package */ void onHeightFractionChanged(float heightFraction) {
+        // Reflow the web-content when the bottom-sheet size stops changing.
+        mReflowHandler.removeCallbacksAndMessages(null);
+        mReflowHandler.postDelayed(() -> reflowWebContents(heightFraction), /*delayMillis=*/100);
+    }
+
+    /* Resize ThinWebView to reflow the web-contents. */
+    private void reflowWebContents(float heightFraction) {
+        // Scale mThinWebView to make the web-content fit into the visible area of the bottom-sheet.
+        if (mThinWebView.getView() == null) return;
+        LayoutParams params = (LayoutParams) mThinWebView.getView().getLayoutParams();
+        params.height = Math.max(0, (int) (mTabHeight * heightFraction) - mToolbarHeightPx);
+        mThinWebView.getView().setLayoutParams(params);
+    }
+
+    /* package */ int getToolbarHeightPx() {
+        return mToolbarHeightPx;
     }
 
     // BottomSheetContent:
@@ -41,44 +108,42 @@ import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet.BottomSheetCon
     }
 
     @Override
-    public void destroy() {}
+    public void destroy() {
+        mReflowHandler.removeCallbacksAndMessages(null);
+        mThinWebView.destroy();
+    }
 
     @Override
-    @BottomSheet.ContentPriority
+    @ContentPriority
     public int getPriority() {
         // If multiple bottom sheets are queued up to be shown, prioritize payment-handler, because
         // it's triggered by a user gesture, such as a click on <button>Buy this article</button>.
-        return BottomSheet.ContentPriority.HIGH;
+        return BottomSheetContent.ContentPriority.HIGH;
     }
 
     @Override
     public int getPeekHeight() {
-        return BottomSheet.HeightMode.DISABLED;
-    }
-
-    @Override
-    public boolean wrapContentEnabled() {
-        return false;
+        return BottomSheetContent.HeightMode.DISABLED;
     }
 
     @Override
     public int getSheetContentDescriptionStringId() {
-        return R.string.payment_request_payment_method_section_name;
+        return R.string.payment_handler_sheet_description;
     }
 
     @Override
     public int getSheetHalfHeightAccessibilityStringId() {
-        return R.string.payment_request_payment_method_section_name;
+        return R.string.payment_handler_sheet_opened_half;
     }
 
     @Override
     public int getSheetFullHeightAccessibilityStringId() {
-        return R.string.payment_request_payment_method_section_name;
+        return R.string.payment_handler_sheet_opened_full;
     }
 
     @Override
     public int getSheetClosedAccessibilityStringId() {
-        return R.string.payment_request_payment_method_section_name;
+        return R.string.payment_handler_sheet_closed;
     }
 
     @Override

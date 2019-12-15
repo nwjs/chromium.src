@@ -31,6 +31,7 @@
 #include "components/viz/service/viz_service_export.h"
 #include "gpu/command_buffer/common/texture_in_use_response.h"
 #include "ui/gfx/color_space.h"
+#include "ui/gfx/overlay_transform.h"
 #include "ui/gfx/swap_result.h"
 #include "ui/latency/latency_info.h"
 
@@ -148,8 +149,6 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
   void DidSwapWithSize(const gfx::Size& pixel_size) override;
   void DidReceivePresentationFeedback(
       const gfx::PresentationFeedback& feedback) override;
-  void DidFinishLatencyInfo(
-      const std::vector<ui::LatencyInfo>& latency_info) override;
 
   // LatestLocalSurfaceIdLookupDelegate implementation.
   LocalSurfaceId GetSurfaceAtAggregation(
@@ -172,7 +171,6 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
   void RemoveOverdrawQuads(CompositorFrame* frame);
 
   void SetSupportedFrameIntervals(std::vector<base::TimeDelta> intervals);
-  void SetDisplayTransformHint(gfx::OverlayTransform transform);
 
   base::ScopedClosureRunner GetCacheBackBufferCb();
 
@@ -261,7 +259,11 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
   base::OnceClosure no_pending_swaps_callback_;
 
   int64_t swapped_trace_id_ = 0;
+  int64_t last_swap_ack_trace_id_ = 0;
   int64_t last_presented_trace_id_ = 0;
+
+  // The height of the top-controls in the previously drawn frame.
+  float last_top_controls_visible_height_ = 0.f;
 
   DISALLOW_COPY_AND_ASSIGN(Display);
 };

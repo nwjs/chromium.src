@@ -44,7 +44,6 @@
 #include "third_party/blink/renderer/core/dom/document_parser.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/scriptable_document_parser.h"
-#include "third_party/blink/renderer/core/dom/user_gesture_indicator.h"
 #include "third_party/blink/renderer/core/dom/weak_identifier_map.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/deprecation.h"
@@ -173,6 +172,7 @@ DocumentLoader::DocumentLoader(
   ip_address_space_ = params_->ip_address_space;
   grant_load_local_resources_ = params_->grant_load_local_resources;
   force_fetch_cache_mode_ = params_->force_fetch_cache_mode;
+  frame_policy_ = params_->frame_policy;
 
   WebNavigationTimings& timings = params_->navigation_timings;
   if (!timings.input_start.is_null())
@@ -276,8 +276,8 @@ DocumentLoader::DocumentLoader(
     history_item_ = history_item;
   }
 
-  base_url_override_for_bundled_exchanges_ =
-      params_->base_url_override_for_bundled_exchanges;
+  web_bundle_physical_url_ = params_->web_bundle_physical_url;
+  base_url_override_for_web_bundle_ = params_->base_url_override_for_web_bundle;
 }
 
 FrameLoader& DocumentLoader::GetFrameLoader() const {
@@ -565,6 +565,17 @@ void DocumentLoader::SetHistoryItemStateForCommit(
   }
 }
 
+mojo::PendingReceiver<mojom::blink::WorkerTimingContainer>
+DocumentLoader::TakePendingWorkerTimingReceiver(int request_id) {
+  if (!GetServiceWorkerNetworkProvider())
+    return mojo::NullReceiver();
+  mojo::ScopedMessagePipeHandle pipe =
+      GetServiceWorkerNetworkProvider()->TakePendingWorkerTimingReceiver(
+          request_id);
+  return mojo::PendingReceiver<mojom::blink::WorkerTimingContainer>(
+      std::move(pipe));
+}
+
 void DocumentLoader::BodyCodeCacheReceived(mojo_base::BigBuffer data) {
   if (cached_metadata_handler_) {
     cached_metadata_handler_->SetSerializedCachedMetadata(std::move(data));
@@ -627,6 +638,9 @@ void DocumentLoader::BodyLoadingFinished(
           // which will be fixed with synchronous commit.
           // Main resource timing information is reported through the owner
           // to be passed to the parent frame, if appropriate.
+
+          // TODO(https://crbug.com/900700): Set a Mojo pending receiver for
+          // WorkerTimingContainer in |navigation_timing_info|.
           frame_->Owner()->AddResourceTiming(*navigation_timing_info_);
         }
         frame_->SetShouldSendResourceTimingInfoToParent(false);
@@ -742,14 +756,14 @@ void DocumentLoader::FinalizeMHTMLArchiveLoad() {
 void DocumentLoader::HandleRedirect(const KURL& current_request_url) {
   // Browser process should have already checked that redirecting url is
   // allowed to display content from the target origin.
-  // When the referrer page is in an unsigned bundled exchanges file in local
+  // When the referrer page is in an unsigned Web Bundle file in local
   // (eg: file:///tmp/a.wbn), Chrome internally redirects the navigation to the
-  // page (eg: https://example.com/page.html) inside the bundled exchanges file
+  // page (eg: https://example.com/page.html) inside the Web Bundle file
   // to the file's URL (file:///tmp/a.wbn?https://example.com/page.html). In
   // this case, CanDisplay() returns false, and
-  // base_url_override_for_bundled_exchanges must not be null.
+  // base_url_override_for_web_bundle must not be null.
   CHECK(SecurityOrigin::Create(current_request_url)->CanDisplay(url_) ||
-        !params_->base_url_override_for_bundled_exchanges.IsNull());
+        !params_->base_url_override_for_web_bundle.IsNull());
 
   DCHECK(!GetTiming().FetchStart().is_null());
   redirect_chain_.push_back(url_);
@@ -870,7 +884,7 @@ void DocumentLoader::HandleResponse() {
 void DocumentLoader::CommitNavigation() {
   CHECK_GE(state_, kCommitted);
 
-  KURL overriding_url = base_url_override_for_bundled_exchanges_;
+  KURL overriding_url = base_url_override_for_web_bundle_;
   if (loading_mhtml_archive_ && archive_)
     overriding_url = archive_->MainResource()->Url();
 
@@ -925,6 +939,9 @@ mojom::CommitResult DocumentLoader::CommitSameDocumentNavigation(
     std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) {
   DCHECK(!IsReloadLoadType(frame_load_type));
   DCHECK(frame_->GetDocument());
+
+  if (Page* page = frame_->GetPage())
+    page->HistoryNavigationVirtualTimePauser().UnpauseVirtualTime();
 
   if (!frame_->IsNavigationAllowed())
     return mojom::CommitResult::Aborted;
@@ -1162,7 +1179,8 @@ void DocumentLoader::StartLoadingInternal() {
   main_resource_identifier_ = CreateUniqueIdentifier();
 
   navigation_timing_info_ = ResourceTimingInfo::Create(
-      fetch_initiator_type_names::kDocument, GetTiming().NavigationStart());
+      fetch_initiator_type_names::kDocument, GetTiming().NavigationStart(),
+      mojom::RequestContextType::IFRAME);
   navigation_timing_info_->SetInitialURL(url_);
   report_timing_info_to_parent_ = ShouldReportTimingInfoToParent();
 
@@ -1480,6 +1498,7 @@ void DocumentLoader::InstallNewDocument(
           .WithSrcdocDocument(loading_srcdoc_)
           .WithBlockedByCSP(was_blocked_by_csp_)
           .WithGrantLoadLocalResources(grant_load_local_resources_)
+          .WithFramePolicy(frame_policy_)
           .WithNewRegistrationContext()
           .WithFeaturePolicyHeader(feature_policy.ToString())
           .WithOriginTrialsHeader(
@@ -1546,7 +1565,7 @@ void DocumentLoader::InstallNewDocument(
   bool should_clear_window_name =
       previous_security_origin && frame_->IsMainFrame() &&
       !frame_->Loader().Opener() &&
-      !document->GetSecurityOrigin()->IsSameSchemeHostPort(
+      !document->GetSecurityOrigin()->IsSameOriginWith(
           previous_security_origin);
   if (should_clear_window_name) {
     // TODO(andypaicu): experimentalSetNullName will just record the fact
@@ -1566,16 +1585,20 @@ void DocumentLoader::InstallNewDocument(
   if (!loading_url_as_javascript_)
     DidCommitNavigation();
 
-  // Determine if the load is from a document from the same origin to enable
-  // deferred commits to avoid white flash on load. We only want to delay
-  // commits on same origin loads to avoid confusing users. We also require
-  // that this be an html document served via http.
   if (initiator_origin) {
     const scoped_refptr<const SecurityOrigin> url_origin =
         SecurityOrigin::Create(Url());
-    document->SetDeferredCompositorCommitIsAllowed(
-        initiator_origin->IsSameSchemeHostPort(url_origin.get()) &&
-        Url().ProtocolIsInHTTPFamily() && document->IsHTMLDocument());
+
+    is_same_origin_navigation_ =
+        initiator_origin->IsSameOriginWith(url_origin.get()) &&
+        Url().ProtocolIsInHTTPFamily();
+
+    // If the load is from a document from the same origin then we enable
+    // deferred commits to avoid white flash on load. We only want to delay
+    // commits on same origin loads to avoid confusing users. We also require
+    // that this be an html document served via http.
+    document->SetDeferredCompositorCommitIsAllowed(is_same_origin_navigation_ &&
+                                                   document->IsHTMLDocument());
   } else {
     document->SetDeferredCompositorCommitIsAllowed(false);
   }
@@ -1635,15 +1658,6 @@ void DocumentLoader::CreateParserPostCommit() {
     OriginTrialContext::ActivateNavigationFeaturesFromInitiator(
         document, &initiator_origin_trial_features_);
   }
-
-  bool opted_out_mixed_autoupgrade = EqualIgnoringASCIICase(
-      response_.HttpHeaderField("mixed-content"), "noupgrade");
-
-  if (opted_out_mixed_autoupgrade) {
-    document->SetMixedAutoupgradeOptOut(true);
-  }
-  UMA_HISTOGRAM_BOOLEAN("MixedAutoupgrade.Navigation.OptedOut",
-                        opted_out_mixed_autoupgrade);
 
   ParserSynchronizationPolicy parsing_policy = kAllowAsynchronousParsing;
   if (loading_url_as_javascript_ ||
@@ -1725,11 +1739,12 @@ void DocumentLoader::ReportPreviewsIntervention() const {
   // Verify that certain types are not on main frame requests.
   DCHECK_NE(WebURLRequest::kClientLoFiAutoReload, previews_state_);
   DCHECK_NE(WebURLRequest::kLazyImageLoadDeferred, previews_state_);
+  DCHECK_NE(WebURLRequest::kSubresourceRedirectOn, previews_state_);
 
-  static_assert(
-      WebURLRequest::kPreviewsStateLast == WebURLRequest::kDeferAllScriptOn,
-      "If a new Preview type is added, verify that the Intervention "
-      "Report should be sent (or not sent) for that type.");
+  static_assert(WebURLRequest::kPreviewsStateLast ==
+                    WebURLRequest::kSubresourceRedirectOn,
+                "If a new Preview type is added, verify that the Intervention "
+                "Report should be sent (or not sent) for that type.");
 
   // If the preview type is not unspecified, off, or no transform, it is a
   // preview that needs to be reported.
@@ -1750,29 +1765,48 @@ void DocumentLoader::ParseAndPersistClientHints(
     const ResourceResponse& response) {
   const KURL& url = response.CurrentRequestUrl();
 
-  // The accept-ch-lifetime header is honored only on the navigation responses
-  // from a top level frame or with an origin matching the origin of the top
-  // level frame.
+  // The accept-ch header is honored only on the navigation responses from a top
+  // level frame or with an origin matching the origin of the to level frame.
   if (!frame_->IsMainFrame()) {
     bool is_first_party_origin =
         frame_->Tree()
             .Top()
             .GetSecurityContext()
             ->GetSecurityOrigin()
-            ->IsSameSchemeHostPort(SecurityOrigin::Create(url).get());
+            ->IsSameOriginWith(SecurityOrigin::Create(url).get());
     if (!is_first_party_origin)
       return;
   }
 
+  if (!response.HttpHeaderFields().Contains(http_names::kAcceptCH))
+    return;
+
   FrameClientHintsPreferencesContext hints_context(GetFrame());
+  // TODO(crbug.com/1017166): Kill ACHL header completely once feature ships.
   client_hints_preferences_.UpdateFromAcceptClientHintsLifetimeHeader(
       response.HttpHeaderField(http_names::kAcceptCHLifetime), url,
       &hints_context);
   client_hints_preferences_.UpdateFromAcceptClientHintsHeader(
       response.HttpHeaderField(http_names::kAcceptCH), url, &hints_context);
 
+  base::TimeDelta persist_duration;
+
+  // If the FeaturePolicyForClientHints feature is enabled, the lifetime
+  // should not expire. Setting the duration to "max" should essentially
+  // do the same thing.
+
+  if (RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled()) {
+    // JSON cannot store "non-finite" values (i.e. NaN or infinite) so
+    // base::TimeDelta::Max cannot be used. As this will be removed once
+    // the FeaturePolicyForClientHints feature is shipped, a reasonably
+    // large was chosen instead
+    persist_duration = base::TimeDelta::FromDays(1000000);
+  } else {
+    persist_duration = client_hints_preferences_.GetPersistDuration();
+  }
+
   // Notify content settings client of persistent client hints.
-  if (client_hints_preferences_.GetPersistDuration().InSeconds() <= 0)
+  if (persist_duration.InSeconds() <= 0)
     return;
 
   auto* settings_client = frame_->GetContentSettingsClient();
@@ -1784,8 +1818,8 @@ void DocumentLoader::ParseAndPersistClientHints(
   if (!settings_client->AllowScriptFromSource(allow_script, url))
     return;
   settings_client->PersistClientHints(
-      client_hints_preferences_.GetWebEnabledClientHints(),
-      client_hints_preferences_.GetPersistDuration(), url);
+      client_hints_preferences_.GetWebEnabledClientHints(), persist_duration,
+      url);
 }
 
 void DocumentLoader::InitializePrefetchedSignedExchangeManager() {

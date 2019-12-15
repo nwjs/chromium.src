@@ -688,9 +688,10 @@ bool CSPDirectiveList::AllowInline(
   if (IsMatchingNoncePresent(directive, nonce))
     return true;
 
-  if (inline_type == ContentSecurityPolicy::InlineType::kScript && element &&
-      IsHTMLScriptElement(element) &&
-      !ToHTMLScriptElement(element)->Loader()->IsParserInserted() &&
+  auto* html_script_element = DynamicTo<HTMLScriptElement>(element);
+  if (html_script_element &&
+      inline_type == ContentSecurityPolicy::InlineType::kScript &&
+      !html_script_element->Loader()->IsParserInserted() &&
       AllowDynamic(type)) {
     return true;
   }
@@ -862,8 +863,9 @@ bool CSPDirectiveList::AllowFromSource(
   return result;
 }
 
-bool CSPDirectiveList::AllowTrustedTypePolicy(const String& policy_name) const {
-  if (!trusted_types_ || trusted_types_->Allows(policy_name))
+bool CSPDirectiveList::AllowTrustedTypePolicy(const String& policy_name,
+                                              bool is_duplicate) const {
+  if (!trusted_types_ || trusted_types_->Allows(policy_name, is_duplicate))
     return true;
 
   ReportViolation(
@@ -879,7 +881,6 @@ bool CSPDirectiveList::AllowTrustedTypePolicy(const String& policy_name) const {
 
   return DenyIfEnforcingPolicy();
 }
-
 
 bool CSPDirectiveList::AllowAncestors(
     LocalFrame* frame,
@@ -1569,8 +1570,9 @@ bool CSPDirectiveList::Subsumes(const CSPDirectiveListVector& other) {
 WebContentSecurityPolicy CSPDirectiveList::ExposeForNavigationalChecks() const {
   WebContentSecurityPolicy policy;
   policy.disposition =
-      static_cast<mojom::ContentSecurityPolicyType>(header_type_);
-  policy.source = static_cast<WebContentSecurityPolicySource>(header_source_);
+      static_cast<network::mojom::ContentSecurityPolicyType>(header_type_);
+  policy.source =
+      static_cast<network::mojom::ContentSecurityPolicySource>(header_source_);
   for (const auto& directive :
        {child_src_, default_src_, form_action_, frame_src_, navigate_to_}) {
     if (directive) {

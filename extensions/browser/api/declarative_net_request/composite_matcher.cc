@@ -9,8 +9,10 @@
 #include <utility>
 
 #include "base/metrics/histogram_macros.h"
+#include "extensions/browser/api/declarative_net_request/action_tracker.h"
 #include "extensions/browser/api/declarative_net_request/flat/extension_ruleset_generated.h"
 #include "extensions/browser/api/declarative_net_request/request_action.h"
+#include "extensions/browser/api/declarative_net_request/request_params.h"
 #include "extensions/browser/api/declarative_net_request/utils.h"
 
 namespace extensions {
@@ -43,14 +45,6 @@ bool AreSortedPrioritiesUnique(const CompositeMatcher::MatcherList& matchers) {
   return true;
 }
 
-bool HasMatchingAllowRule(const RulesetMatcher* matcher,
-                          const RequestParams& params) {
-  if (!params.allow_rule_cache.contains(matcher))
-    params.allow_rule_cache[matcher] = matcher->HasMatchingAllowRule(params);
-
-  return params.allow_rule_cache[matcher];
-}
-
 }  // namespace
 
 RedirectActionInfo::RedirectActionInfo(base::Optional<RequestAction> action,
@@ -67,8 +61,9 @@ RedirectActionInfo::RedirectActionInfo(RedirectActionInfo&&) = default;
 RedirectActionInfo& RedirectActionInfo::operator=(RedirectActionInfo&& other) =
     default;
 
-CompositeMatcher::CompositeMatcher(MatcherList matchers)
-    : matchers_(std::move(matchers)) {
+CompositeMatcher::CompositeMatcher(MatcherList matchers,
+                                   ActionTracker* action_tracker)
+    : matchers_(std::move(matchers)), action_tracker_(action_tracker) {
   SortMatchersByPriority();
   DCHECK(AreIDsUnique(matchers_));
 }
@@ -108,7 +103,7 @@ base::Optional<RequestAction> CompositeMatcher::GetBlockOrCollapseAction(
       "SingleExtension");
 
   for (const auto& matcher : matchers_) {
-    if (HasMatchingAllowRule(matcher.get(), params))
+    if (HasAllowAction(*matcher, params))
       return base::nullopt;
 
     base::Optional<RequestAction> action =
@@ -130,7 +125,7 @@ RedirectActionInfo CompositeMatcher::GetRedirectAction(
 
   bool notify_request_withheld = false;
   for (const auto& matcher : matchers_) {
-    if (HasMatchingAllowRule(matcher.get(), params)) {
+    if (HasAllowAction(*matcher, params)) {
       return RedirectActionInfo(base::nullopt /* action */,
                                 false /* notify_request_withheld */);
     }
@@ -162,17 +157,20 @@ RedirectActionInfo CompositeMatcher::GetRedirectAction(
                             notify_request_withheld);
 }
 
-uint8_t CompositeMatcher::GetRemoveHeadersMask(const RequestParams& params,
-                                               uint8_t ignored_mask) const {
+uint8_t CompositeMatcher::GetRemoveHeadersMask(
+    const RequestParams& params,
+    uint8_t excluded_remove_headers_mask,
+    std::vector<RequestAction>* remove_headers_actions) const {
   uint8_t mask = 0;
   for (const auto& matcher : matchers_) {
     // The allow rule will override lower priority remove header rules.
-    if (HasMatchingAllowRule(matcher.get(), params))
+    if (HasAllowAction(*matcher, params))
       return mask;
-    mask |= matcher->GetRemoveHeadersMask(params, mask | ignored_mask);
+    mask |= matcher->GetRemoveHeadersMask(
+        params, mask | excluded_remove_headers_mask, remove_headers_actions);
   }
 
-  DCHECK(!(mask & ignored_mask));
+  DCHECK(!(mask & excluded_remove_headers_mask));
   return mask;
 }
 
@@ -197,6 +195,22 @@ void CompositeMatcher::SortMatchersByPriority() {
               return a->priority() > b->priority();
             });
   DCHECK(AreSortedPrioritiesUnique(matchers_));
+}
+
+bool CompositeMatcher::HasAllowAction(const RulesetMatcher& matcher,
+                                      const RequestParams& params) const {
+  if (!params.allow_rule_cache.contains(&matcher)) {
+    base::Optional<RequestAction> allow_action = matcher.GetAllowAction(params);
+    params.allow_rule_cache[&matcher] = allow_action.has_value();
+
+    // OnRuleMatched is called only once, when the allow action is entered into
+    // the cache. This is done because an allow rule might override an action
+    // multiple times during a request and extraneous matches should be ignored.
+    if (allow_action && action_tracker_ && params.request_info)
+      action_tracker_->OnRuleMatched(*allow_action, *params.request_info);
+  }
+
+  return params.allow_rule_cache[&matcher];
 }
 
 }  // namespace declarative_net_request

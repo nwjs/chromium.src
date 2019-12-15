@@ -97,13 +97,18 @@ base::Thread& GetNetworkServiceDedicatedThread() {
   return *thread;
 }
 
+// The instance NetworkService used when hosting the service in-process. This is
+// set up by |CreateInProcessNetworkServiceOnThread()| and destroyed by
+// |ShutDownNetworkService()|.
+network::NetworkService* g_in_process_instance = nullptr;
+
 void CreateInProcessNetworkServiceOnThread(
     mojo::PendingReceiver<network::mojom::NetworkService> receiver) {
   // The test interface doesn't need to be implemented in the in-process case.
   auto registry = std::make_unique<service_manager::BinderRegistry>();
   registry->AddInterface(base::BindRepeating(
       [](mojo::PendingReceiver<network::mojom::NetworkServiceTest>) {}));
-  static base::NoDestructor<network::NetworkService> service(
+  g_in_process_instance = new network::NetworkService(
       std::move(registry), std::move(receiver),
       true /* delay_initialization_until_set_client */);
 }
@@ -464,6 +469,10 @@ void ResetNetworkServiceForTesting() {
 void ShutDownNetworkService() {
   delete g_network_service_remote;
   g_network_service_remote = nullptr;
+  if (g_in_process_instance) {
+    GetNetworkTaskRunner()->DeleteSoon(FROM_HERE, g_in_process_instance);
+    g_in_process_instance = nullptr;
+  }
   GetNetworkTaskRunnerStorage().reset();
 }
 

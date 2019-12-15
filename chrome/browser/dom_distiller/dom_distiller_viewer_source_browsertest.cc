@@ -59,7 +59,7 @@ namespace {
 
 const char kGetLoadIndicatorClassName[] =
     "window.domAutomationController.send("
-    "document.getElementById('loadingIndicator').className)";
+    "document.getElementById('loading-indicator').className)";
 
 const char kGetContent[] =
     "window.domAutomationController.send("
@@ -118,7 +118,8 @@ class DomDistillerViewerSourceBrowserTest : public InProcessBrowserTest {
     auto service = std::make_unique<DomDistillerContextKeyedService>(
         std::move(distiller_factory), std::move(distiller_page_factory),
         std::make_unique<DistilledPagePrefs>(
-            Profile::FromBrowserContext(context)->GetPrefs()));
+            Profile::FromBrowserContext(context)->GetPrefs()),
+        /* distiller_ui_handle */ nullptr);
     if (expect_distillation_) {
       // There will only be destillation of an article if the database contains
       // the article.

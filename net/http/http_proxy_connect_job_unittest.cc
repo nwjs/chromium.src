@@ -56,8 +56,8 @@ class HttpProxyConnectJobTest : public ::testing::TestWithParam<HttpProxyType>,
                                 public WithTaskEnvironment {
  protected:
   HttpProxyConnectJobTest()
-      : WithTaskEnvironment(base::test::TaskEnvironment::TimeSource::MOCK_TIME),
-        field_trial_list_(nullptr) {
+      : WithTaskEnvironment(
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
     // Used a mock HostResolver that does not have a cache.
     session_deps_.host_resolver = std::make_unique<MockHostResolver>();
 
@@ -109,8 +109,8 @@ class HttpProxyConnectJobTest : public ::testing::TestWithParam<HttpProxyType>,
     if (GetParam() != HTTP)
       return nullptr;
     return base::MakeRefCounted<TransportSocketParams>(
-        HostPortPair(kHttpProxyHost, 80), disable_secure_dns,
-        OnHostResolutionCallback());
+        HostPortPair(kHttpProxyHost, 80), NetworkIsolationKey(),
+        disable_secure_dns, OnHostResolutionCallback());
   }
 
   scoped_refptr<SSLSocketParams> CreateHttpsProxyParams(
@@ -119,8 +119,8 @@ class HttpProxyConnectJobTest : public ::testing::TestWithParam<HttpProxyType>,
       return nullptr;
     return base::MakeRefCounted<SSLSocketParams>(
         base::MakeRefCounted<TransportSocketParams>(
-            HostPortPair(kHttpsProxyHost, 443), disable_secure_dns,
-            OnHostResolutionCallback()),
+            HostPortPair(kHttpsProxyHost, 443), NetworkIsolationKey(),
+            disable_secure_dns, OnHostResolutionCallback()),
         nullptr, nullptr, HostPortPair(kHttpsProxyHost, 443), SSLConfig(),
         PRIVACY_MODE_DISABLED, NetworkIsolationKey());
   }
@@ -255,8 +255,6 @@ class HttpProxyConnectJobTest : public ::testing::TestWithParam<HttpProxyType>,
   std::unique_ptr<TestNetworkQualityEstimator> network_quality_estimator_;
 
   std::unique_ptr<HttpNetworkSession> session_;
-
-  base::FieldTrialList field_trial_list_;
 
   SpdyTestUtil spdy_util_;
 
@@ -754,8 +752,9 @@ TEST_P(HttpProxyConnectJobTest, HaveAuth) {
                      ? (std::string("http://") + kHttpProxyHost)
                      : (std::string("https://") + kHttpsProxyHost));
   session_->http_auth_cache()->Add(
-      proxy_url, "MyRealm1", HttpAuth::AUTH_SCHEME_BASIC,
-      "Basic realm=MyRealm1", AuthCredentials(kFoo, kBar), "/");
+      proxy_url, HttpAuth::AUTH_PROXY, "MyRealm1", HttpAuth::AUTH_SCHEME_BASIC,
+      NetworkIsolationKey(), "Basic realm=MyRealm1",
+      AuthCredentials(kFoo, kBar), "/");
 
   for (IoMode io_mode : {SYNCHRONOUS, ASYNC}) {
     SCOPED_TRACE(io_mode);
@@ -885,8 +884,8 @@ TEST_P(HttpProxyConnectJobTest, SpdySessionKeyDisableSecureDns) {
   TestConnectJobDelegate test_delegate;
   auto ssl_params = base::MakeRefCounted<SSLSocketParams>(
       base::MakeRefCounted<TransportSocketParams>(
-          HostPortPair(kHttpsProxyHost, 443), true /* disable_secure_dns */,
-          OnHostResolutionCallback()),
+          HostPortPair(kHttpsProxyHost, 443), NetworkIsolationKey(),
+          true /* disable_secure_dns */, OnHostResolutionCallback()),
       nullptr, nullptr, HostPortPair(kHttpsProxyHost, 443), SSLConfig(),
       PRIVACY_MODE_DISABLED, NetworkIsolationKey());
   auto http_proxy_params = base::MakeRefCounted<HttpProxySocketParams>(

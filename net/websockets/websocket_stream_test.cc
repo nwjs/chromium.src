@@ -86,7 +86,14 @@ static url::Origin Origin() {
 }
 
 static GURL SiteForCookies() {
-  return GURL("http://www.example.org/foobar");
+  return GURL(kOrigin);
+}
+
+static net::NetworkIsolationKey CreateNetworkIsolationKey() {
+  // Top frame origin can be different but currently not testing in a
+  // third-party context so using the same kOrigin.
+  url::Origin top_frame_origin = url::Origin::Create(GURL(kOrigin));
+  return net::NetworkIsolationKey(top_frame_origin, Origin());
 }
 
 class WebSocketStreamCreateTest : public TestWithParam<HandshakeStreamType>,
@@ -158,7 +165,7 @@ class WebSocketStreamCreateTest : public TestWithParam<HandshakeStreamType>,
               WebSocketExtraHeadersToString(extra_response_headers)) +
               additional_data_);
       CreateAndConnectStream(socket_url, sub_protocols, Origin(),
-                             SiteForCookies(),
+                             SiteForCookies(), CreateNetworkIsolationKey(),
                              WebSocketExtraHeadersToHttpRequestHeaders(
                                  send_additional_request_headers),
                              std::move(timer_));
@@ -190,6 +197,8 @@ class WebSocketStreamCreateTest : public TestWithParam<HandshakeStreamType>,
     write_settings[spdy::SETTINGS_MAX_CONCURRENT_STREAMS] =
         kSpdyMaxConcurrentPushedStreams;
     write_settings[spdy::SETTINGS_INITIAL_WINDOW_SIZE] = 6 * 1024 * 1024;
+    write_settings[spdy::SETTINGS_MAX_HEADER_LIST_SIZE] =
+        kSpdyMaxHeaderListSize;
     frames_.push_back(spdy_util_.ConstructSpdySettings(write_settings));
     AddWrite(&frames_.back());
 
@@ -291,7 +300,7 @@ class WebSocketStreamCreateTest : public TestWithParam<HandshakeStreamType>,
     EXPECT_FALSE(request->is_pending());
 
     CreateAndConnectStream(socket_url, sub_protocols, Origin(),
-                           SiteForCookies(),
+                           SiteForCookies(), CreateNetworkIsolationKey(),
                            WebSocketExtraHeadersToHttpRequestHeaders(
                                send_additional_request_headers),
                            std::move(timer_));
@@ -318,7 +327,7 @@ class WebSocketStreamCreateTest : public TestWithParam<HandshakeStreamType>,
             WebSocketExtraHeadersToString(extra_request_headers)),
         response_body);
     CreateAndConnectStream(socket_url, sub_protocols, Origin(),
-                           SiteForCookies(),
+                           SiteForCookies(), CreateNetworkIsolationKey(),
                            WebSocketExtraHeadersToHttpRequestHeaders(
                                send_additional_request_headers),
                            nullptr);
@@ -341,7 +350,8 @@ class WebSocketStreamCreateTest : public TestWithParam<HandshakeStreamType>,
         WebSocketStandardRequest(socket_path, socket_host, Origin(), "", ""),
         WebSocketStandardResponse(extra_response_headers));
     CreateAndConnectStream(socket_url, sub_protocols, Origin(),
-                           SiteForCookies(), HttpRequestHeaders(), nullptr);
+                           SiteForCookies(), CreateNetworkIsolationKey(),
+                           HttpRequestHeaders(), nullptr);
   }
 
   // Like CreateAndConnectStandard(), but take raw mock data.
@@ -354,7 +364,8 @@ class WebSocketStreamCreateTest : public TestWithParam<HandshakeStreamType>,
 
     AddRawExpectations(std::move(socket_data));
     CreateAndConnectStream(GURL(url), sub_protocols, Origin(), SiteForCookies(),
-                           additional_headers, std::move(timer_));
+                           CreateNetworkIsolationKey(), additional_headers,
+                           std::move(timer_));
   }
 
  private:
@@ -389,13 +400,13 @@ class WebSocketStreamCreateTest : public TestWithParam<HandshakeStreamType>,
   std::vector<MockWrite> writes_;
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          WebSocketStreamCreateTest,
                          Values(BASIC_HANDSHAKE_STREAM));
 
 using WebSocketMultiProtocolStreamCreateTest = WebSocketStreamCreateTest;
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          WebSocketMultiProtocolStreamCreateTest,
                          Values(BASIC_HANDSHAKE_STREAM,
                                 HTTP2_HANDSHAKE_STREAM));
@@ -418,7 +429,7 @@ class WebSocketStreamCreateExtensionTest
   }
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          WebSocketStreamCreateExtensionTest,
                          Values(BASIC_HANDSHAKE_STREAM,
                                 HTTP2_HANDSHAKE_STREAM));
@@ -500,7 +511,7 @@ class WebSocketStreamCreateBasicAuthTest : public WebSocketStreamCreateTest {
   CommonAuthTestHelper helper_;
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          WebSocketStreamCreateBasicAuthTest,
                          Values(BASIC_HANDSHAKE_STREAM));
 
@@ -512,7 +523,7 @@ class WebSocketStreamCreateDigestAuthTest : public WebSocketStreamCreateTest {
   CommonAuthTestHelper helper_;
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          WebSocketStreamCreateDigestAuthTest,
                          Values(BASIC_HANDSHAKE_STREAM));
 

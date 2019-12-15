@@ -9,7 +9,6 @@
 
 #include "base/bind.h"
 #include "base/json/json_reader.h"
-#include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/test/test_timeouts.h"
 #include "build/build_config.h"
@@ -84,7 +83,8 @@ class TracingRenderWidgetHost : public RenderWidgetHostImpl {
                              process,
                              routing_id,
                              std::move(widget),
-                             hidden) {
+                             hidden,
+                             std::make_unique<FrameTokenMessageQueue>()) {
     ui::LatencyTracker::SetLatencyInfoProcessorForTesting(base::BindRepeating(
         &TracingRenderWidgetHost::HandleLatencyInfoAfterGpuSwap,
         base::Unretained(this)));

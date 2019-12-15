@@ -31,7 +31,6 @@
 <translation id="2560420686485554789">Chromium memerlukan akses storan untuk memuat turun fail</translation>
 <translation id="2572494885440352020">Pembantu Chromium</translation>
 <translation id="2587578672395088481">Chromium OS perlu dimulakan semula untuk melaksanakan kemas kini.</translation>
-<translation id="2647554856022461007">Chromium boleh menggunakan perkhidmatan web untuk meningkatkan pengalaman penyemakan imbas anda. Anda boleh memilih untuk melumpuhkan perkhidmatan ini. <ph name="BEGIN_LINK" />Ketahui lebih lanjut<ph name="END_LINK" /></translation>
 <translation id="2648074677641340862">Ralat sistem pengendalian berlaku semasa pemasangan. Sila muat turun Chromium semula.</translation>
 <translation id="2711502716910134313">Tab Chromium</translation>
 <translation id="2718390899429598676">Untuk keselamatan tambahan, Chromium akan menyulitkan data anda.</translation>
@@ -59,7 +58,6 @@
 <translation id="3340978935015468852">tetapan</translation>
 <translation id="3474745554856756813">Tindakan ini akan memadamkan <ph name="ITEMS_COUNT" /> item daripada peranti ini. Untuk mendapatkan kembali data anda kemudian, log masuk ke Chromium sebagai <ph name="USER_EMAIL" />.</translation>
 <translation id="3509308970982693815">Sila tutup semua tetingkap Chromium dan cuba lagi.</translation>
-<translation id="352783484088404971">Alih Keluar Daripada Chromium...</translation>
 <translation id="3575459661164320785">Terdapat perisian yang berbahaya pada komputer anda. Chromium boleh mengalih keluar perisian tersebut, memulihkan tetapan anda dan melumpuhkan sambungan supaya penyemak imbas anda dapat berfungsi seperti biasa semula.</translation>
 <translation id="358997566136285270">Logo Chromium</translation>
 <translation id="3639635944603682591">Data semakan imbas orang ini akan dipadamkan daripada peranti ini. Untuk memulihkan data itu, log masuk ke Chromium sebagai <ph name="USER_EMAIL" />.</translation>
@@ -84,7 +82,6 @@
 <translation id="4567424176335768812">Anda telah log masuk sebagai <ph name="USER_EMAIL_ADDRESS" />. Sekarang anda boleh mengakses penanda halaman, sejarah dan tetapan anda yang lain pada semua peranti yang anda gunakan untuk log masuk.</translation>
 <translation id="459535195905078186">Apl Chromium</translation>
 <translation id="4621240073146040695">Hampir terkini! Lancarkan semula Chromium untuk menyelesaikan kemas kini.</translation>
-<translation id="4661006601577405669">Versi Chromium pada masa hadapan akan dipasang secara automatik.</translation>
 <translation id="4677944499843243528">Nampaknya profil digunakan oleh proses Chromium lain (<ph name="PROCESS_ID" />) pada komputer lain (<ph name="HOST_NAME" />). Chromium telah mengunci profil supaya profil tidak rosak. Jika anda pasti tiada proses lain yang menggunakan profil ini, anda boleh membuka profil dan melancarkan semula Chromium.</translation>
 <translation id="469338717132742108">Dapatkan bantuan berkenaan Chromium OS</translation>
 <translation id="4708774505295300557">Sebelum ini, seseorang telah log masuk ke Chromium pada komputer ini sebagai <ph name="ACCOUNT_EMAIL_LAST" />. Sila buat pengguna Chromium baharu untuk mengasingkan maklumat anda.</translation>
@@ -110,7 +107,6 @@
 <translation id="5631814766731275228">Nama dan gambar Chromium</translation>
 <translation id="5634636535844844681">Chromium memerlukan Windows 7 atau lebih tinggi.</translation>
 <translation id="5653831366781983928">Sila mulakan semula Chromium sekarang</translation>
-<translation id="5680901439334282664">log masuk ke Chromium</translation>
 <translation id="5698481217667032250">Paparkan Chromium dalam bahasa ini</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5862307444128926510">Selamat datang ke Chromium</translation>
@@ -173,7 +169,6 @@ Chromium tidak dapat mengembalikan tetapan anda.</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium Dev</translation>
 <translation id="7451052299415159299">Chromium memerlukan kebenaran untuk mengakses kamera anda bagi tapak ini</translation>
 <translation id="7483335560992089831">Tidak boleh memasang versi Chromium yang sama dengan yang sedang dijalankan. Sila tutup Chromium dan cuba lagi.</translation>
-<translation id="751093125041325477">Versi Chromium pada masa hadapan akan dipasang secara automatik. Apabila muat turun ini selesai, Chromium akan dimulakan semula dan anda sudah boleh menggunakannya.</translation>
 <translation id="753534427205733210">{0,plural, =1{Chromium akan dilancarkan semula dalam masa seminit}other{Chromium akan dilancarkan semula dalam masa # minit}}</translation>
 <translation id="7549178288319965365">Mengenai Chromium OS</translation>
 <translation id="7561906087460245826">Kosongkan data daripada Chromium (<ph name="URL" />) juga</translation>

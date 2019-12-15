@@ -64,6 +64,8 @@ class LogManager;
 class MigratableCreditCard;
 class PersonalDataManager;
 class StrikeDatabase;
+enum class WebauthnDialogCallbackType;
+enum class WebauthnDialogState;
 struct Suggestion;
 
 namespace payments {
@@ -215,10 +217,10 @@ class AutofillClient : public RiskDataLoader {
   typedef base::RepeatingCallback<void(const std::string&)>
       MigrationDeleteCardCallback;
 
-  // Callback to run if the OK button or the cancel button in the
-  // WebauthnOfferDialog is clicked. Will pass to CreditCardFIDOAuthenticator a
-  // bool indicating if offer was accepted or declined.
-  typedef base::RepeatingCallback<void(bool)> WebauthnOfferDialogCallback;
+  // Callback to run if the OK button or the cancel button in a
+  // Webauthn dialog is clicked.
+  typedef base::RepeatingCallback<void(WebauthnDialogCallbackType)>
+      WebauthnDialogCallback;
 
   ~AutofillClient() override {}
 
@@ -307,31 +309,35 @@ class AutofillClient : public RiskDataLoader {
       MigrationDeleteCardCallback delete_local_card_callback) = 0;
 
 #if !defined(OS_ANDROID) && !defined(OS_IOS)
-  // Will show a dialog indicating the card verification is in progress. It is
-  // shown after verification starts only if the WebAuthn is enabled.
-  // Implemented only on desktop.
-  virtual void ShowVerifyPendingDialog(
-      base::OnceClosure cancel_card_verification_callback) = 0;
-
-  // Close the verify pending dialog once the card verificiation is completed or
-  // verification falls back to CVC.
-  virtual void CloseVerifyPendingDialog() = 0;
-#endif
+  // TODO(crbug.com/991037): Find a way to merge these two functions. Shouldn't
+  // use WebauthnDialogState as that state is a purely UI state (should not be
+  // accessible for managers?), and some of the states |KInactive| may be
+  // confusing here. Do we want to add another Enum?
 
   // Will show a dialog offering the option to use device's platform
   // authenticator in the future instead of CVC to verify the card being
-  // unmasked. Runs |callback| if the OK button or the cancel button in the
-  // dialog is clicked. This is only implemented on desktop.
+  // unmasked. Runs |offer_dialog_callback| if the OK button or the cancel
+  // button in the dialog is clicked.
   virtual void ShowWebauthnOfferDialog(
-      WebauthnOfferDialogCallback callback) = 0;
+      WebauthnDialogCallback offer_dialog_callback) = 0;
 
-  // Will close the WebAuthn offer dialog. Returns true if dialog was visible
-  // and has been closed. Implemented only on desktop.
-  virtual bool CloseWebauthnOfferDialog();
+  // Will show a dialog indicating the card verification is in progress. It is
+  // shown after verification starts only if the WebAuthn is enabled.
+  virtual void ShowWebauthnVerifyPendingDialog(
+      WebauthnDialogCallback verify_pending_dialog_callback) = 0;
 
-  // Will update the WebAuthn offer dialog content to the error state.
-  // Implemented only on desktop.
-  virtual void UpdateWebauthnOfferDialogWithError() {}
+  // Will update the WebAuthn dialog content when there is an error fetching the
+  // challenge.
+  virtual void UpdateWebauthnOfferDialogWithError() = 0;
+
+  // Will update the cancel button in the WebAuthn verify pending dialog.
+  virtual void UpdateWebauthnVerifyPendingCancelButton(
+      bool should_be_enabled) = 0;
+
+  // Will close the current visible WebAuthn dialog. Returns true if dialog was
+  // visible and has been closed.
+  virtual bool CloseWebauthnDialog() = 0;
+#endif
 
   // Runs |callback| if the |profile| should be imported as personal data.
   virtual void ConfirmSaveAutofillProfile(const AutofillProfile& profile,
@@ -353,9 +359,7 @@ class AutofillClient : public RiskDataLoader {
   // the card should be uploaded to payments with updated name from the user.
   virtual void ConfirmAccountNameFixFlow(
       base::OnceCallback<void(const base::string16&)> callback) = 0;
-#endif  // defined(OS_ANDROID) || defined(OS_IOS)
 
-#if defined(OS_ANDROID)
   // Display the expiration date fix flow prompt with the |card| details
   // and run the |callback| if the card should be uploaded to payments with
   // updated expiration date from the user.
@@ -363,7 +367,7 @@ class AutofillClient : public RiskDataLoader {
       const CreditCard& card,
       base::OnceCallback<void(const base::string16&, const base::string16&)>
           callback) = 0;
-#endif  // defined(OS_ANDROID)
+#endif  // defined(OS_ANDROID) || defined(OS_IOS)
 
   // Runs |callback| once the user makes a decision with respect to the
   // offer-to-save prompt. Displays the contents of |legal_message_lines|

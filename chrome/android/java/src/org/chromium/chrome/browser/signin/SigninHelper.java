@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.google.android.gms.auth.AccountChangeEvent;
 import com.google.android.gms.auth.GoogleAuthException;
@@ -17,7 +18,6 @@ import com.google.android.gms.auth.GoogleAuthUtil;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.signin.SigninManager.SignInCallback;
@@ -25,7 +25,7 @@ import org.chromium.chrome.browser.sync.ProfileSyncService;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.AccountTrackerService;
 import org.chromium.components.signin.ChromeSigninController;
-import org.chromium.components.signin.OAuth2TokenService;
+import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.signin.metrics.SignoutReason;
 
 import java.io.IOException;
@@ -102,8 +102,6 @@ public class SigninHelper {
 
     private final AccountTrackerService mAccountTrackerService;
 
-    private final OAuth2TokenService mOAuth2TokenService;
-
     public static SigninHelper get() {
         synchronized (LOCK) {
             if (sInstance == null) {
@@ -117,7 +115,6 @@ public class SigninHelper {
         mProfileSyncService = ProfileSyncService.get();
         mSigninManager = IdentityServicesProvider.getSigninManager();
         mAccountTrackerService = IdentityServicesProvider.getAccountTrackerService();
-        mOAuth2TokenService = IdentityServicesProvider.getOAuth2TokenService();
         mChromeSigninController = ChromeSigninController.get();
     }
 
@@ -185,7 +182,7 @@ public class SigninHelper {
         if (accountsChanged) {
             // Account details have changed so inform the token service that credentials
             // should now be available.
-            mOAuth2TokenService.updateAccountList();
+            mSigninManager.reloadAllAccountsFromSystem();
         }
     }
 
@@ -216,7 +213,7 @@ public class SigninHelper {
         // This is the correct account now.
         final Account account = AccountManagerFacade.createAccountFromName(newName);
 
-        mSigninManager.signIn(account, new SignInCallback() {
+        mSigninManager.signIn(SigninAccessPoint.ACCOUNT_RENAMED, account, new SignInCallback() {
             @Override
             public void onSignInComplete() {
                 validateAccountsInternal(true);

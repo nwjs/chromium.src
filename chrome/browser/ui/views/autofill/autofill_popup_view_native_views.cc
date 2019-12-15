@@ -424,6 +424,13 @@ void AutofillPopupItemView::CreateContent() {
   }
 
   AddChildView(std::move(all_labels));
+  const gfx::ImageSkia store_indicator_icon =
+      controller->layout_model().GetStoreIndicatorIconImage(line_number());
+  if (!store_indicator_icon.isNull()) {
+    AddSpacerWithSize(GetHorizontalMargin(),
+                      /*resize=*/true, layout_manager);
+    AddIcon(store_indicator_icon);
+  }
 }
 
 void AutofillPopupItemView::RefreshStyle() {
@@ -435,7 +442,8 @@ std::unique_ptr<views::View> AutofillPopupItemView::CreateValueLabel() {
   // TODO(crbug.com/831603): Remove elision responsibilities from controller.
   base::string16 text =
       popup_view()->controller()->GetElidedValueAt(line_number());
-  if (popup_view()->controller()
+  if (popup_view()
+          ->controller()
           ->GetSuggestionAt(line_number())
           .is_value_secondary) {
     return CreateSecondaryLabel(text);
@@ -513,8 +521,8 @@ AutofillPopupSuggestionView* AutofillPopupSuggestionView::Create(
 std::unique_ptr<views::Background>
 AutofillPopupSuggestionView::CreateBackground() {
   return is_selected() ? views::CreateSolidBackground(
-                            popup_view()->GetSelectedBackgroundColor())
-                      : nullptr;
+                             popup_view()->GetSelectedBackgroundColor())
+                       : nullptr;
 }
 
 int AutofillPopupSuggestionView::GetPrimaryTextStyle() {
@@ -661,8 +669,8 @@ void AutofillPopupFooterView::CreateContent() {
 
 std::unique_ptr<views::Background> AutofillPopupFooterView::CreateBackground() {
   return is_selected() ? views::CreateSolidBackground(
-                            popup_view()->GetSelectedBackgroundColor())
-                      : nullptr;
+                             popup_view()->GetSelectedBackgroundColor())
+                       : nullptr;
 }
 
 int AutofillPopupFooterView::GetPrimaryTextStyle() {
@@ -950,6 +958,8 @@ void AutofillPopupViewNativeViews::CreateChildViews() {
       case autofill::PopupItemId::POPUP_ITEM_ID_SCAN_CREDIT_CARD:
       case autofill::PopupItemId::POPUP_ITEM_ID_CREDIT_CARD_SIGNIN_PROMO:
       case autofill::PopupItemId::POPUP_ITEM_ID_ALL_SAVED_PASSWORDS_ENTRY:
+      case autofill::PopupItemId::POPUP_ITEM_ID_HIDE_AUTOFILL_SUGGESTIONS:
+      case autofill::PopupItemId::POPUP_ITEM_ID_PASSWORD_ACCOUNT_STORAGE_OPTIN:
       case autofill::PopupItemId::POPUP_ITEM_ID_SHOW_ACCOUNT_CARDS:
         // This is a footer, so this suggestion will be processed later. Don't
         // increment |line_number|, or else it will be skipped when adding

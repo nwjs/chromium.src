@@ -33,14 +33,17 @@ import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.LocationBarTablet;
 import org.chromium.chrome.browser.partnercustomizations.HomepageManager;
-import org.chromium.chrome.browser.preferences.ChromePreferenceManager;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.toolbar.HomeButton;
 import org.chromium.chrome.browser.toolbar.KeyboardNavigationListener;
 import org.chromium.chrome.browser.toolbar.TabCountProvider;
 import org.chromium.chrome.browser.toolbar.TabCountProvider.TabCountObserver;
+import org.chromium.chrome.browser.toolbar.ToolbarColors;
+import org.chromium.chrome.browser.ui.styles.ChromeColors;
 import org.chromium.chrome.browser.util.AccessibilityUtil;
-import org.chromium.chrome.browser.util.ColorUtils;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.widget.Toast;
@@ -300,7 +303,7 @@ public class ToolbarTablet extends ToolbarLayout
     private void displayNavigationPopup(boolean isForward, View anchorView) {
         Tab tab = getToolbarDataProvider().getTab();
         if (tab == null || tab.getWebContents() == null) return;
-        mNavigationPopup = new NavigationPopup(tab.getProfile(), getContext(),
+        mNavigationPopup = new NavigationPopup(((TabImpl) tab).getProfile(), getContext(),
                 tab.getWebContents().getNavigationController(),
                 isForward ? NavigationPopup.Type.TABLET_FORWARD : NavigationPopup.Type.TABLET_BACK);
         mNavigationPopup.show(anchorView);
@@ -365,7 +368,7 @@ public class ToolbarTablet extends ToolbarLayout
         if (mIsIncognito == null || mIsIncognito != incognito) {
             // TODO (amaralp): Have progress bar observe theme color and incognito changes directly.
             getProgressBar().setThemeColor(
-                    ColorUtils.getDefaultThemeColor(getResources(), incognito), isIncognito());
+                    ChromeColors.getDefaultThemeColor(getResources(), incognito), isIncognito());
 
             mIsIncognito = incognito;
         }
@@ -386,8 +389,8 @@ public class ToolbarTablet extends ToolbarLayout
     @Override
     public void onThemeColorChanged(int color, boolean shouldAnimate) {
         setBackgroundColor(color);
-        final int textBoxColor = ColorUtils.getTextBoxColorForToolbarBackground(
-                getResources(), false, color, isIncognito());
+        final int textBoxColor = ToolbarColors.getTextBoxColorForToolbarBackgroundInNonNativePage(
+                getResources(), color, isIncognito());
         mLocationBar.getBackground().setColorFilter(textBoxColor, PorterDuff.Mode.SRC_IN);
 
         mLocationBar.updateVisualsForState();
@@ -712,7 +715,7 @@ public class ToolbarTablet extends ToolbarLayout
     }
 
     private boolean isAccessibilityTabSwitcherPreferenceEnabled() {
-        return ChromePreferenceManager.getInstance().readBoolean(
-                ChromePreferenceManager.ACCESSIBILITY_TAB_SWITCHER, true);
+        return SharedPreferencesManager.getInstance().readBoolean(
+                ChromePreferenceKeys.ACCESSIBILITY_TAB_SWITCHER, true);
     }
 }

@@ -12,6 +12,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/display_lock/strict_yielding_display_lock_budget.h"
+#include "third_party/blink/renderer/core/dom/dom_token_list.h"
 #include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/editing/ephemeral_range.h"
@@ -169,6 +170,10 @@ class DisplayLockContextTest : public testing::Test,
                    DisplayLockContext* context) {
     ASSERT_TRUE(context->update_budget_);
     context->update_budget_ = std::move(budget);
+  }
+
+  bool ReattachWasBlocked(DisplayLockContext* context) {
+    return context->reattach_layout_tree_was_blocked_;
   }
 
   const int FAKE_FIND_ID = 1;
@@ -622,6 +627,65 @@ TEST_F(DisplayLockContextTest, CallUpdateStyleAndLayoutAfterChange) {
   EXPECT_TRUE(element->ChildNeedsReattachLayoutTree());
 }
 
+TEST_F(DisplayLockContextTest, CallUpdateStyleAndLayoutAfterChangeCSS) {
+  ResizeAndFocus();
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+    #container {
+      width: 100px;
+      height: 100px;
+      contain: style layout paint;
+    }
+    .bg {
+      background: blue;
+    }
+    .locked {
+      render-subtree: invisible skip-activation;
+    }
+    </style>
+    <body><div class=locked id="container"><b>t</b>esting<div id=inner></div></div></body>
+  )HTML");
+  auto* element = GetDocument().getElementById("container");
+  auto* inner = GetDocument().getElementById("inner");
+
+  // Sanity checks to ensure the element is locked.
+  EXPECT_FALSE(element->GetDisplayLockContext()->ShouldStyle(
+      DisplayLockLifecycleTarget::kChildren));
+  EXPECT_FALSE(element->GetDisplayLockContext()->ShouldLayout(
+      DisplayLockLifecycleTarget::kChildren));
+  EXPECT_FALSE(element->GetDisplayLockContext()->ShouldPaint(
+      DisplayLockLifecycleTarget::kChildren));
+  EXPECT_EQ(GetDocument().LockedDisplayLockCount(), 1);
+  EXPECT_EQ(GetDocument().ActivationBlockingDisplayLockCount(), 1);
+
+  EXPECT_TRUE(ReattachWasBlocked(element->GetDisplayLockContext()));
+  // Note that we didn't create a layout object for inner, since the layout tree
+  // attachment was blocked.
+  EXPECT_FALSE(inner->GetLayoutObject());
+
+  EXPECT_FALSE(element->NeedsStyleRecalc());
+  EXPECT_FALSE(element->ChildNeedsStyleRecalc());
+  EXPECT_FALSE(element->NeedsReattachLayoutTree());
+  EXPECT_FALSE(element->ChildNeedsReattachLayoutTree());
+
+  element->classList().Remove("locked");
+
+  // Class list changed, so we should need self style change.
+  EXPECT_TRUE(element->NeedsStyleRecalc());
+  EXPECT_FALSE(element->ChildNeedsStyleRecalc());
+  EXPECT_FALSE(element->NeedsReattachLayoutTree());
+  EXPECT_FALSE(element->ChildNeedsReattachLayoutTree());
+
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_FALSE(element->NeedsStyleRecalc());
+  EXPECT_FALSE(element->ChildNeedsStyleRecalc());
+  EXPECT_FALSE(element->NeedsReattachLayoutTree());
+  EXPECT_FALSE(element->ChildNeedsReattachLayoutTree());
+  // Because we upgraded our style change, we created a layout object for inner.
+  EXPECT_TRUE(inner->GetLayoutObject());
+}
+
 TEST_F(DisplayLockContextTest, LockedElementAndDescendantsAreNotFocusable) {
   ResizeAndFocus();
   SetHtmlInnerHTML(R"HTML(
@@ -961,7 +1025,7 @@ TEST_F(DisplayLockContextTest, ElementInTemplate) {
   EXPECT_EQ(GetDocument().ActivationBlockingDisplayLockCount(), 0);
 
   auto* template_el =
-      ToHTMLTemplateElement(GetDocument().getElementById("template"));
+      To<HTMLTemplateElement>(GetDocument().getElementById("template"));
   auto* child = To<Element>(template_el->content()->firstChild());
   EXPECT_FALSE(child->isConnected());
 
@@ -1509,7 +1573,8 @@ TEST_F(DisplayLockContextRenderingTest, FrameDocumentRemovedWhileAcquire) {
   auto* target = ChildDocument().getElementById("target");
   GetDocument().getElementById("frame")->remove();
 
-  target->EnsureDisplayLockContext().StartAcquire();
+  target->EnsureDisplayLockContext(DisplayLockContextCreateMethod::kAttribute)
+      .StartAcquire();
 }
 
 TEST_F(DisplayLockContextRenderingTest,
@@ -1541,6 +1606,75 @@ TEST_F(DisplayLockContextRenderingTest,
 
   ASSERT_TRUE(spanner_placeholder_object);
   EXPECT_FALSE(spanner_placeholder_object->CanBeSelectionLeaf());
+}
+
+TEST_F(DisplayLockContextRenderingTest, ObjectsNeedingLayoutConsidersLocks) {
+  SetHtmlInnerHTML(R"HTML(
+    <div id=a>
+      <div id=b>
+        <div id=c></div>
+        <div id=d></div>
+      </div>
+      <div id=e>
+        <div id=f></div>
+        <div id=g></div>
+      </div>
+    </div>
+  )HTML");
+
+  // Dirty all of the leaf nodes.
+  auto dirty_all = [this]() {
+    GetDocument().getElementById("c")->GetLayoutObject()->SetNeedsLayout(
+        "test");
+    GetDocument().getElementById("d")->GetLayoutObject()->SetNeedsLayout(
+        "test");
+    GetDocument().getElementById("f")->GetLayoutObject()->SetNeedsLayout(
+        "test");
+    GetDocument().getElementById("g")->GetLayoutObject()->SetNeedsLayout(
+        "test");
+  };
+
+  unsigned dirty_count = 0;
+  unsigned total_count = 0;
+  bool is_subtree = false;
+
+  dirty_all();
+  GetDocument().View()->CountObjectsNeedingLayout(dirty_count, total_count,
+                                                  is_subtree);
+  // 7 divs + body + html + layout view
+  EXPECT_EQ(dirty_count, 10u);
+  EXPECT_EQ(total_count, 10u);
+
+  GetDocument().getElementById("e")->setAttribute(
+      html_names::kRendersubtreeAttr, "invisible");
+  UpdateAllLifecyclePhasesForTest();
+
+  // Note that the dirty_all call propagate the dirty bit from the unlocked
+  // subtree all the way up to the layout view, so everything on the way up is
+  // dirtied.
+  dirty_all();
+  GetDocument().View()->CountObjectsNeedingLayout(dirty_count, total_count,
+                                                  is_subtree);
+  // Element with 2 children is locked, and it itself isn't dirty (just the
+  // children are). So, 10 - 3 = 7
+  EXPECT_EQ(dirty_count, 7u);
+  // We still see the locked element, so the total is 8.
+  EXPECT_EQ(total_count, 8u);
+
+  GetDocument().getElementById("a")->setAttribute(
+      html_names::kRendersubtreeAttr, "invisible");
+  UpdateAllLifecyclePhasesForTest();
+
+  // Note that this dirty_all call is now not propagating the dirty bits at all,
+  // since they are stopped at the top level div.
+  dirty_all();
+  GetDocument().View()->CountObjectsNeedingLayout(dirty_count, total_count,
+                                                  is_subtree);
+  // Top level element is locked and the dirty bits were not propagated, so we
+  // expect 0 dirty elements. The total should be 4 ('a' + body + html + layout
+  // view);
+  EXPECT_EQ(dirty_count, 0u);
+  EXPECT_EQ(total_count, 4u);
 }
 
 }  // namespace blink

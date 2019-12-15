@@ -26,15 +26,16 @@
 #include "base/test/thread_test_helper.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
+#include "components/services/storage/indexed_db/transactional_leveldb/transactional_leveldb_database.h"
+#include "content/browser/blob_storage/chrome_blob_storage_context.h"
 #include "content/browser/browser_main_loop.h"
 #include "content/browser/indexed_db/indexed_db_class_factory.h"
 #include "content/browser/indexed_db/indexed_db_context_impl.h"
 #include "content/browser/indexed_db/indexed_db_factory_impl.h"
 #include "content/browser/indexed_db/indexed_db_leveldb_coding.h"
+#include "content/browser/indexed_db/indexed_db_leveldb_env.h"
 #include "content/browser/indexed_db/indexed_db_origin_state.h"
 #include "content/browser/indexed_db/indexed_db_origin_state_handle.h"
-#include "content/browser/indexed_db/leveldb/leveldb_env.h"
-#include "content/browser/indexed_db/leveldb/transactional_leveldb_database.h"
 #include "content/browser/indexed_db/mock_browsertest_indexed_db_class_factory.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_context.h"
@@ -83,7 +84,6 @@ class IndexedDBBrowserTest : public ContentBrowserTest,
   void SetUp() override {
     GetTestClassFactory()->Reset();
     IndexedDBClassFactory::SetIndexedDBClassFactoryGetter(GetIDBClassFactory);
-    indexed_db::LevelDBFactory::SetFactoryGetterForTesting(GetLevelDBFactory);
     ContentBrowserTest::SetUp();
   }
 
@@ -252,10 +252,6 @@ class IndexedDBBrowserTest : public ContentBrowserTest,
   }
 
   static IndexedDBClassFactory* GetIDBClassFactory() {
-    return GetTestClassFactory();
-  }
-
-  static indexed_db::LevelDBFactory* GetLevelDBFactory() {
     return GetTestClassFactory();
   }
 
@@ -617,8 +613,9 @@ IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTest, EmptyBlob) {
 #else
   SimpleTest(GURL(test_url.spec()));
 #endif
-  // Test stores one blob and one file to disk, so expect two files.
-  EXPECT_EQ(2, RequestBlobFileCount(kFileOrigin));
+  // As both of these files are empty, they do not create BlobDataItems.
+  // As they can't be read, the backing files are immediately released.
+  EXPECT_EQ(0, RequestBlobFileCount(kFileOrigin));
 }
 
 // Very flaky on many bots. See crbug.com/459835

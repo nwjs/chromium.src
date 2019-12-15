@@ -73,6 +73,9 @@ class MockTaskExecutor : public TaskExecutor {
                    SingleThreadTaskRunnerThreadMode thread_mode));
 #endif  // defined(OS_WIN)
 
+  MOCK_METHOD0(GetContinuationTaskRunner,
+               const scoped_refptr<SequencedTaskRunner>&());
+
   TestSimpleTaskRunner* runner() const { return runner_.get(); }
 
  private:
@@ -279,6 +282,49 @@ TEST_F(PostTaskTestWithExecutor,
   run_loop.Run();
 }
 
+TEST_F(PostTaskTestWithExecutor, TaskRunnerTaskGetContinuationTaskRunner) {
+  auto task_runner = CreateTaskRunner({ThreadPool()});
+  RunLoop run_loop;
+
+  EXPECT_TRUE(task_runner->PostTask(FROM_HERE, BindLambdaForTesting([&]() {
+                                      // GetContinuationTaskRunner is
+                                      // meaningless in this context.
+                                      EXPECT_DCHECK_DEATH(
+                                          GetContinuationTaskRunner());
+                                      run_loop.Quit();
+                                    })));
+
+  run_loop.Run();
+}
+
+TEST_F(PostTaskTestWithExecutor,
+       SequencedTaskRunnerTaskGetContinuationTaskRunner) {
+  auto sequenced_task_runner = CreateSequencedTaskRunner({ThreadPool()});
+  RunLoop run_loop;
+
+  EXPECT_TRUE(sequenced_task_runner->PostTask(
+      FROM_HERE, BindLambdaForTesting([&]() {
+        EXPECT_EQ(GetContinuationTaskRunner(), sequenced_task_runner);
+        run_loop.Quit();
+      })));
+
+  run_loop.Run();
+}
+
+TEST_F(PostTaskTestWithExecutor,
+       SingleThreadTaskRunnerTaskGetContinuationTaskRunner) {
+  auto single_thread_task_runner = CreateSingleThreadTaskRunner({ThreadPool()});
+  RunLoop run_loop;
+
+  EXPECT_TRUE(single_thread_task_runner->PostTask(
+      FROM_HERE, BindLambdaForTesting([&]() {
+        EXPECT_EQ(GetContinuationTaskRunner(), single_thread_task_runner);
+        run_loop.Quit();
+      })));
+
+  run_loop.Run();
+}
+
 TEST_F(PostTaskTestWithExecutor, ThreadPoolCurrentThreadChangePriority) {
   auto single_thread_task_runner =
       CreateSingleThreadTaskRunner({ThreadPool(), TaskPriority::USER_BLOCKING});
@@ -353,6 +399,67 @@ TEST_F(PostTaskTestWithExecutor, PriorityInherited) {
   EXPECT_TRUE(PostTask(FROM_HERE, traits, DoNothing()));
   EXPECT_TRUE(executor_.runner()->HasPendingTask());
   executor_.runner()->ClearPendingTasks();
+}
+
+namespace {
+
+class FlagOnDelete {
+ public:
+  FlagOnDelete(bool* deleted) : deleted_(deleted) {}
+
+  // Required for RefCountedData.
+  FlagOnDelete(FlagOnDelete&& other) : deleted_(other.deleted_) {
+    other.deleted_ = nullptr;
+  }
+
+  ~FlagOnDelete() {
+    if (deleted_) {
+      EXPECT_FALSE(*deleted_);
+      *deleted_ = true;
+    }
+  }
+
+ private:
+  bool* deleted_;
+  DISALLOW_COPY_AND_ASSIGN(FlagOnDelete);
+};
+
+}  // namespace
+
+TEST_F(PostTaskTestWithExecutor, DeleteSoon) {
+  constexpr TaskTraits traits = {TestExtensionBoolTrait(),
+                                 TaskPriority::BEST_EFFORT};
+
+  bool deleted = false;
+  auto flag_on_delete = std::make_unique<FlagOnDelete>(&deleted);
+
+  EXPECT_CALL(executor_, CreateSequencedTaskRunner(traits)).Times(1);
+  base::DeleteSoon(FROM_HERE, traits, std::move(flag_on_delete));
+
+  EXPECT_FALSE(deleted);
+
+  EXPECT_TRUE(executor_.runner()->HasPendingTask());
+  executor_.runner()->RunPendingTasks();
+
+  EXPECT_TRUE(deleted);
+}
+
+TEST_F(PostTaskTestWithExecutor, ReleaseSoon) {
+  constexpr TaskTraits traits = {TestExtensionBoolTrait(),
+                                 TaskPriority::BEST_EFFORT};
+
+  bool deleted = false;
+  auto flag_on_delete = MakeRefCounted<RefCountedData<FlagOnDelete>>(&deleted);
+
+  EXPECT_CALL(executor_, CreateSequencedTaskRunner(traits)).Times(1);
+  base::ReleaseSoon(FROM_HERE, traits, std::move(flag_on_delete));
+
+  EXPECT_FALSE(deleted);
+
+  EXPECT_TRUE(executor_.runner()->HasPendingTask());
+  executor_.runner()->RunPendingTasks();
+
+  EXPECT_TRUE(deleted);
 }
 
 }  // namespace base

@@ -16,7 +16,6 @@
 
 #include "base/containers/circular_deque.h"
 #include "base/macros.h"
-#include "base/memory/shared_memory.h"
 #include "base/memory/weak_ptr.h"
 #include "base/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -41,6 +40,10 @@ namespace base {
 class WaitableEvent;
 }
 
+namespace blink {
+class ThrottlingURLLoader;
+}
+
 namespace net {
 struct RedirectInfo;
 }
@@ -58,7 +61,6 @@ struct NavigationResponseOverrideParameters;
 class RequestPeer;
 class ResourceDispatcherDelegate;
 struct SyncLoadResponse;
-class ThrottlingURLLoader;
 class URLLoaderClientImpl;
 
 // This class serves as a communication interface to the ResourceDispatcherHost
@@ -207,7 +209,7 @@ class CONTENT_EXPORT ResourceDispatcher {
     mojom::ResourceLoadInfoPtr resource_load_info;
 
     // For mojo loading.
-    std::unique_ptr<ThrottlingURLLoader> url_loader;
+    std::unique_ptr<blink::ThrottlingURLLoader> url_loader;
     std::unique_ptr<URLLoaderClientImpl> url_loader_client;
   };
   using PendingRequestMap = std::map<int, std::unique_ptr<PendingRequestInfo>>;

@@ -49,7 +49,6 @@ static bool check_msgtable() {
   exemptions.push_back(TestMsgStart);
   exemptions.push_back(BlinkTestMsgStart);
   exemptions.push_back(WebTestMsgStart);
-  exemptions.push_back(IPCTestMsgStart);
   exemptions.push_back(WorkerMsgStart);    // Now only used by tests.
   exemptions.push_back(ChromeUtilityPrintingMsgStart);  // BUILDFLAGS, sigh.
 
@@ -63,7 +62,6 @@ static bool check_msgtable() {
   exemptions.push_back(GinJavaBridgeMsgStart);
   exemptions.push_back(AndroidWebViewMsgStart);
   exemptions.push_back(ExtensionWorkerMsgStart);
-  exemptions.push_back(SurfaceViewManagerMsgStart);
 #endif  // !defined(OS_ANDROID)
 
 #if !defined(USE_OZONE)

@@ -159,12 +159,8 @@ float ReRange(const float score, const float min, const float max) {
 }  // namespace
 
 SearchResultRanker::SearchResultRanker(Profile* profile,
-                                       history::HistoryService* history_service,
-                                       service_manager::Connector* connector)
-    : connector_(connector),
-      history_service_observer_(this),
-      profile_(profile),
-      weak_factory_(this) {
+                                       history::HistoryService* history_service)
+    : history_service_observer_(this), profile_(profile), weak_factory_(this) {
   DCHECK(profile);
   DCHECK(history_service);
   history_service_observer_.Add(history_service);
@@ -220,7 +216,7 @@ void SearchResultRanker::InitializeRankers(
       const std::string config_json = GetFieldTrialParamValueByFeature(
           app_list_features::kEnableQueryBasedMixedTypesRanker, "config");
       query_mixed_config_converter_ = JsonConfigConverter::Convert(
-          connector_, config_json, "QueryBasedMixedTypes",
+          config_json, "QueryBasedMixedTypes",
           base::BindOnce(
               [](SearchResultRanker* ranker,
                  const RecurrenceRankerConfigProto& default_config,
@@ -267,7 +263,7 @@ void SearchResultRanker::InitializeRankers(
         app_list_features::kEnableZeroStateMixedTypesRanker, "config");
 
     zero_state_config_converter_ = JsonConfigConverter::Convert(
-        connector_, config_json, "ZeroStateGroups",
+        config_json, "ZeroStateGroups",
         base::BindOnce(
             [](SearchResultRanker* ranker,
                const RecurrenceRankerConfigProto& default_config,
@@ -589,11 +585,25 @@ void SearchResultRanker::OverrideZeroStateResults(
     if (candidate_override_index == -1)
       continue;
 
+    // TODO(crbug.com/1011221): Remove once the bug re. zero-state drive files
+    // not being shown is resolved.
+    VLOG(1) << "Zero state files override: newtype=" << static_cast<int>(group)
+            << " newpos=" << next_modifiable_index;
     // Override the result at |next_modifiable_index| with
     // |candidate_override_index| by swapping their scores.
     std::swap(result_ptrs[candidate_override_index]->score,
               result_ptrs[next_modifiable_index]->score);
     --next_modifiable_index;
+  }
+
+  // TODO(crbug.com/1011221): Remove once the bug re. zero-state drive files not
+  // being shown is resolved.
+  VLOG(1) << "Zero state files setting result scores";
+  for (const auto* result : result_ptrs) {
+    VLOG(1) << "Zero state files result score: type="
+            << static_cast<int>(
+                   RankingItemTypeFromSearchResult(*(result->result)))
+            << " score=" << result->score;
   }
 }
 
@@ -608,17 +618,6 @@ void SearchResultRanker::OnFilesOpened(
         {base::StrCat({"FileOpened-", file_open.path.value()})},
         {{"open_type", static_cast<int>(file_open.open_type)}});
   }
-}
-
-void SearchResultRanker::OnURLVisited(history::HistoryService* history_service,
-                                      ui::PageTransition transition,
-                                      const history::URLRow& row,
-                                      const history::RedirectList& redirects,
-                                      base::Time visit_time) {
-  // TODO(chareszhao): move this outside of SearchResultRanker.
-  CrOSActionRecorder::GetCrosActionRecorder()->RecordAction(
-      {base::StrCat({"URLVisited-", row.url().spec()})},
-      {{"PageTransition", static_cast<int>(transition)}});
 }
 
 void SearchResultRanker::OnURLsDeleted(

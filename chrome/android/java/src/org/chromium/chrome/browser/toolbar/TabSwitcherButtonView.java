@@ -9,17 +9,17 @@ import android.content.res.ColorStateList;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
+import org.chromium.chrome.browser.ui.widget.listmenu.ListMenuButton;
 
 /**
  * The Button used for switching tabs. Currently this class is only being used for the bottom
  * toolbar tab switcher button.
  */
-public class TabSwitcherButtonView extends ImageView {
+public class TabSwitcherButtonView extends ListMenuButton {
     /**
      * A drawable for the tab switcher icon.
      */
@@ -51,6 +51,15 @@ public class TabSwitcherButtonView extends ImageView {
             setClickable(false);
         }
         super.setOnClickListener(listener);
+    }
+
+    @Override
+    public void setOnLongClickListener(OnLongClickListener listener) {
+        if (mWrapper != null) {
+            mWrapper.setOnLongClickListener(listener);
+            setClickable(false);
+        }
+        super.setOnLongClickListener(listener);
     }
 
     @Override

@@ -46,6 +46,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/resource_type.h"
 #include "content/public/common/url_constants.h"
+#include "content/public/test/fake_local_frame.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_navigation_throttle.h"
 #include "content/public/test/test_navigation_throttle_inserter.h"
@@ -152,7 +153,7 @@ class MockNoiseProvider
     : public AdsPageLoadMetricsObserver::HeavyAdThresholdNoiseProvider {
  public:
   explicit MockNoiseProvider(int noise)
-      : HeavyAdThresholdNoiseProvider(), noise_(noise) {}
+      : HeavyAdThresholdNoiseProvider(true /* use_noise */), noise_(noise) {}
   ~MockNoiseProvider() override = default;
 
   int GetNetworkThresholdNoiseForFrame() const override { return noise_; }
@@ -324,17 +325,18 @@ class ErrorPageWaiter : public content::WebContentsObserver {
 
 // Mock frame remote. Processes calls to SendInterventionReport and waits
 // for all pending messages to be sent.
-class FrameRemoteTester : public blink::mojom::Frame {
+class FrameRemoteTester : public content::FakeLocalFrame {
  public:
   FrameRemoteTester() = default;
   ~FrameRemoteTester() override = default;
 
   void BindPendingReceiver(mojo::ScopedInterfaceEndpointHandle handle) {
-    receivers_.Add(this, mojo::PendingAssociatedReceiver<blink::mojom::Frame>(
-                             std::move(handle)));
+    receivers_.Add(this,
+                   mojo::PendingAssociatedReceiver<blink::mojom::LocalFrame>(
+                       std::move(handle)));
   }
 
-  // blink::mojom::Frame
+  // blink::mojom::LocalFrame
   void SendInterventionReport(const std::string& id,
                               const std::string& message) override {
     if (!on_empty_report_callback_)
@@ -348,10 +350,6 @@ class FrameRemoteTester : public blink::mojom::Frame {
     last_message_ = message;
     had_message_ = true;
   }
-
-  void GetTextSurroundingSelection(
-      uint32_t max_length,
-      GetTextSurroundingSelectionCallback callback) override {}
 
   // Sends an empty message and waits for it to be received. Returns true if any
   // other messages were received.
@@ -378,7 +376,7 @@ class FrameRemoteTester : public blink::mojom::Frame {
   // The message string for the last received non-empty intervention report.
   std::string last_message_;
   base::OnceClosure on_empty_report_callback_;
-  mojo::AssociatedReceiverSet<blink::mojom::Frame> receivers_;
+  mojo::AssociatedReceiverSet<blink::mojom::LocalFrame> receivers_;
 };
 
 }  // namespace
@@ -479,7 +477,7 @@ class AdsPageLoadMetricsObserverTest
         navigation_simulator->GetFinalRenderFrameHost()
             ->GetRemoteAssociatedInterfaces();
     remote_interfaces->OverrideBinderForTesting(
-        blink::mojom::Frame::Name_,
+        blink::mojom::LocalFrame::Name_,
         base::BindRepeating(&FrameRemoteTester::BindPendingReceiver,
                             base::Unretained(&frame_remote_tester_)));
 
@@ -1114,6 +1112,15 @@ TEST_F(AdsPageLoadMetricsObserverTest, MainFrameAdBytesRecorded) {
   // Verify page total for network bytes.
   histogram_tester().ExpectUniqueSample(
       SuffixedHistogram("Resources.Bytes.Ads2"), 20, 1);
+
+  // Verify main frame ad bytes recorded in UKM.
+  auto entries = test_ukm_recorder().GetEntriesByName(
+      ukm::builders::AdPageLoad::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+  EXPECT_EQ(
+      *test_ukm_recorder().GetEntryMetric(
+          entries.front(), ukm::builders::AdPageLoad::kMainframeAdBytesName),
+      ukm::GetExponentialBucketMinForBytes(10 * 1024));
 }
 
 // Tests that memory cache ad bytes are recorded correctly.
@@ -1186,6 +1193,10 @@ TEST_F(AdsPageLoadMetricsObserverTest, AdPageLoadUKM) {
           entries.front(),
           ukm::builders::AdPageLoad::kAdBytesPerSecondAfterInteractiveName),
       0);
+  EXPECT_EQ(
+      *test_ukm_recorder().GetEntryMetric(
+          entries.front(), ukm::builders::AdPageLoad::kMainframeAdBytesName),
+      ukm::GetExponentialBucketMinForBytes(20 * 1024));
   EXPECT_EQ(*ukm_recorder.GetEntryMetric(
                 entries.front(), ukm::builders::AdPageLoad::kAdCpuTimeName),
             500);
@@ -1366,6 +1377,9 @@ TEST_F(AdsPageLoadMetricsObserverTest, TestCpuTimingMetrics) {
   CheckCpuHistograms("Cpu.AdFrames.PerFrame", "Unactivated", /*pre_tasks=*/500,
                      /*pre_time=*/2000, /*post_tasks=*/1000,
                      /*post_time=*/2000);
+  histogram_tester().ExpectUniqueSample(
+      SuffixedHistogram("Cpu.AdFrames.Aggregate.TotalUsage"),
+      /*total_task_time=*/500 + 1000, 1);
 
   auto entries = test_ukm_recorder().GetEntriesByName(
       ukm::builders::AdFrameLoad::kEntryName);
@@ -1424,6 +1438,9 @@ TEST_F(AdsPageLoadMetricsObserverTest,
   CheckCpuHistograms("Cpu.AdFrames.PerFrame", "Unactivated", /*pre_tasks=*/500,
                      /*pre_time=*/2000, /*post_tasks=*/1000,
                      /*post_time=*/1500);
+  histogram_tester().ExpectUniqueSample(
+      SuffixedHistogram("Cpu.AdFrames.Aggregate.TotalUsage"),
+      /*total_task_time=*/500 + 1000, 1);
 
   auto entries = test_ukm_recorder().GetEntriesByName(
       ukm::builders::AdFrameLoad::kEntryName);
@@ -1485,6 +1502,9 @@ TEST_F(AdsPageLoadMetricsObserverTest, TestCpuTimingMetricsOnActivation) {
                      /*pre_tasks=*/500 + 500, /*pre_time=*/2500,
                      /*post_tasks=*/500,
                      /*post_time=*/1500);
+  histogram_tester().ExpectUniqueSample(
+      SuffixedHistogram("Cpu.AdFrames.Aggregate.TotalUsage"),
+      /*total_task_time=*/1000 + 500, 1);
 
   auto entries = test_ukm_recorder().GetEntriesByName(
       ukm::builders::AdFrameLoad::kEntryName);
@@ -1540,6 +1560,8 @@ TEST_F(AdsPageLoadMetricsObserverTest, TestNoReportingWhenAlwaysBackgrounded) {
   CheckCpuHistograms("Cpu.AdFrames.PerFrame", "Unactivated", 0, 0, 0, 0);
   CheckCpuHistograms("Cpu.AdFrames.PerFrame", "Activated", 0, 0, 0, 0);
   histogram_tester().ExpectTotalCount(
+      SuffixedHistogram("Cpu.AdFrames.Aggregate.TotalUsage"), 0);
+  histogram_tester().ExpectTotalCount(
       SuffixedHistogram("Cpu.AdFrames.PerFrame.PeakWindowedPercent"), 0);
   histogram_tester().ExpectTotalCount(
       SuffixedHistogram("Cpu.AdFrames.PerFrame.PeakWindowStartTime"), 0);
@@ -1587,6 +1609,9 @@ TEST_F(AdsPageLoadMetricsObserverTest, TestCpuTimingMetricsNoInteractive) {
   CheckCpuHistograms("Cpu.AdFrames.PerFrame", "Activated", 0, 0, 0, 0);
   CheckCpuHistograms("Cpu.AdFrames.PerFrame", "Unactivated", /*pre_tasks=*/500,
                      /*pre_time=*/2000, /*post_tasks=*/0, /*post_time=*/0);
+  histogram_tester().ExpectUniqueSample(
+      SuffixedHistogram("Cpu.AdFrames.Aggregate.TotalUsage"),
+      /*total_task_time=*/500, 1);
 
   auto entries = test_ukm_recorder().GetEntriesByName(
       ukm::builders::AdFrameLoad::kEntryName);
@@ -1634,6 +1659,8 @@ TEST_F(AdsPageLoadMetricsObserverTest, TestCpuTimingMetricsShortTimeframes) {
       SuffixedHistogram("Cpu.AdFrames.PerFrame.PeakWindowedPercent"), 0);
   histogram_tester().ExpectTotalCount(
       SuffixedHistogram("Cpu.AdFrames.PerFrame.PeakWindowStartTime"), 0);
+  histogram_tester().ExpectTotalCount(
+      SuffixedHistogram("Cpu.AdFrames.Aggregate.TotalUsage"), 0);
   histogram_tester().ExpectTotalCount(
       SuffixedHistogram("Cpu.FullPage.PeakWindowedPercent"), 0);
   histogram_tester().ExpectTotalCount(
@@ -1756,6 +1783,8 @@ TEST_F(AdsPageLoadMetricsObserverTest, HeavyAdFeatureOff_UMARecorded) {
 
   histogram_tester().ExpectTotalCount(
       SuffixedHistogram("HeavyAds.InterventionType2"), 0);
+  histogram_tester().ExpectTotalCount(
+      SuffixedHistogram("HeavyAds.IgnoredByReload"), 0);
 
   // There were heavy ads on the page and the page was navigated not reloaded.
   histogram_tester().ExpectUniqueSample(
@@ -2005,9 +2034,6 @@ TEST_F(AdsPageLoadMetricsObserverTest,
   feature_list.InitAndEnableFeature(features::kHeavyAdIntervention);
 
   RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
-
-  OverrideHeavyAdNoiseProvider(
-      std::make_unique<MockNoiseProvider>(0 /* network noise */));
   RenderFrameHost* ad_frame = CreateAndNavigateSubFrame(kAdUrl, main_frame);
 
   // Add enough data to trigger the intervention.
@@ -2026,9 +2052,6 @@ TEST_F(AdsPageLoadMetricsObserverTest,
   feature_list.InitAndDisableFeature(features::kHeavyAdIntervention);
 
   RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
-
-  OverrideHeavyAdNoiseProvider(
-      std::make_unique<MockNoiseProvider>(0 /* network noise */));
   RenderFrameHost* ad_frame = CreateAndNavigateSubFrame(kAdUrl, main_frame);
 
   // Add enough data to trigger the intervention.
@@ -2050,9 +2073,6 @@ TEST_F(AdsPageLoadMetricsObserverTest, HeavyAdPageReload_MetricsRecorded) {
   feature_list.InitAndEnableFeature(features::kHeavyAdIntervention);
 
   RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
-
-  OverrideHeavyAdNoiseProvider(
-      std::make_unique<MockNoiseProvider>(0 /* network noise */));
   RenderFrameHost* ad_frame = CreateAndNavigateSubFrame(kAdUrl, main_frame);
 
   // Add enough data to trigger the intervention.
@@ -2069,6 +2089,35 @@ TEST_F(AdsPageLoadMetricsObserverTest, HeavyAdPageReload_MetricsRecorded) {
       SuffixedHistogram("HeavyAds.UserDidReload"), true, 1);
 }
 
+// Verifies when a user reloads a page we do not trigger the heavy ad
+// intevention.
+TEST_F(AdsPageLoadMetricsObserverTest, HeavyAdPageReload_InterventionIgnored) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kHeavyAdIntervention);
+
+  RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
+
+  // Reload the page.
+  NavigationSimulator::Reload(web_contents());
+
+  RenderFrameHost* ad_frame = CreateAndNavigateSubFrame(kAdUrl, main_frame);
+
+  // Add enough data to trigger the intervention.
+  ResourceDataUpdate(ad_frame, ResourceCached::kNotCached,
+                     (heavy_ad_thresholds::kMaxNetworkBytes / 1024) + 1);
+
+  // Verify we did not trigger the intervention.
+  EXPECT_FALSE(HasInterventionReportsAfterFlush(ad_frame));
+  histogram_tester().ExpectUniqueSample(
+      SuffixedHistogram("HeavyAds.IgnoredByReload"), true, 1);
+
+  // Send another data update to the frame to ensure we do not record
+  // IgnoredByReload multiple times for a single frame.
+  ResourceDataUpdate(ad_frame, ResourceCached::kNotCached, 1);
+  histogram_tester().ExpectTotalCount(
+      SuffixedHistogram("HeavyAds.IgnoredByReload"), 1);
+}
+
 // Verifies when there is no heavy ad on the page, we do not record aggregate
 // heavy ad metrics.
 TEST_F(AdsPageLoadMetricsObserverTest,
@@ -2077,9 +2126,6 @@ TEST_F(AdsPageLoadMetricsObserverTest,
   feature_list.InitAndEnableFeature(features::kHeavyAdIntervention);
 
   RenderFrameHost* main_frame = NavigateMainFrame(kNonAdUrl);
-
-  OverrideHeavyAdNoiseProvider(
-      std::make_unique<MockNoiseProvider>(0 /* network noise */));
   RenderFrameHost* ad_frame = CreateAndNavigateSubFrame(kAdUrl, main_frame);
 
   // Don't load enough to reach the heavy ad threshold.
@@ -2117,7 +2163,7 @@ TEST_F(AdsPageLoadMetricsObserverTest,
        HeavyAdBlocklistDisabled_InterventionNotBlocked) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures({features::kHeavyAdIntervention},
-                                {features::kHeavyAdBlocklist});
+                                {features::kHeavyAdPrivacyMitigations});
 
   // Fill up the blocklist to verify the blocklist logic is correctly ignored
   // when disabled.
@@ -2137,6 +2183,8 @@ TEST_F(AdsPageLoadMetricsObserverTest,
   histogram_tester().ExpectUniqueSample(
       SuffixedHistogram("HeavyAds.InterventionType2"),
       FrameData::HeavyAdStatus::kNetwork, 1);
+  histogram_tester().ExpectUniqueSample(
+      SuffixedHistogram("HeavyAds.IgnoredByReload"), false, 1);
 
   // This histogram should not be recorded when the blocklist is disabled.
   histogram_tester().ExpectTotalCount(

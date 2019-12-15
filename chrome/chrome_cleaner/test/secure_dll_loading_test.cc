@@ -44,12 +44,6 @@ class SecureDLLLoadingTest : public testing::TestWithParam<base::string16> {
   }
 
   base::Process LaunchProcess(bool disable_secure_dll_loading) {
-    base::ScopedTempDir log_dir;
-    if (!log_dir.CreateUniqueTempDir()) {
-      ADD_FAILURE() << "Precondition failed: could not create log dir";
-      return base::Process();
-    }
-
     std::unique_ptr<base::WaitableEvent> init_done_notifier =
         chrome_cleaner::CreateInheritableEvent(
             base::WaitableEvent::ResetPolicy::AUTOMATIC,
@@ -122,13 +116,13 @@ class SecureDLLLoadingTest : public testing::TestWithParam<base::string16> {
   base::FilePath empty_dll_path_;
 };
 
-INSTANTIATE_TEST_CASE_P(SecureDLLLoading,
-                        SecureDLLLoadingTest,
-                        // The value names cannot include ".exe" because "."
-                        // is not a valid character in a test case name.
-                        ::testing::Values(L"software_reporter_tool",
-                                          L"chrome_cleanup_tool"),
-                        chrome_cleaner::GetParamNameForTest());
+INSTANTIATE_TEST_SUITE_P(SecureDLLLoading,
+                         SecureDLLLoadingTest,
+                         // The value names cannot include ".exe" because "."
+                         // is not a valid character in a test case name.
+                         ::testing::Values(L"software_reporter_tool",
+                                           L"chrome_cleanup_tool"),
+                         chrome_cleaner::GetParamNameForTest());
 
 #if !BUILDFLAG(IS_OFFICIAL_CHROME_CLEANER_BUILD)
 TEST_P(SecureDLLLoadingTest, Disabled) {

@@ -2,39 +2,40 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "third_party/blink/public/web/modules/peerconnection/rtc_rtp_sender_impl.h"
+#include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_sender_impl.h"
 
 #include <memory>
 #include <utility>
 
 #include "base/bind.h"
 #include "base/logging.h"
-#include "third_party/blink/public/platform/web_rtc_dtmf_sender_handler.h"
 #include "third_party/blink/public/platform/web_rtc_stats.h"
+#include "third_party/blink/renderer/platform/peerconnection/rtc_dtmf_sender_handler.h"
+#include "third_party/blink/renderer/platform/peerconnection/rtc_void_request.h"
 #include "third_party/blink/renderer/platform/wtf/thread_safe_ref_counted.h"
 
 namespace blink {
 
 namespace {
 
-// TODO(hbos): Replace WebRTCVoidRequest with something resolving promises based
+// TODO(hbos): Replace RTCVoidRequest with something resolving promises based
 // on RTCError, as to surface both exception type and error message.
 // https://crbug.com/790007
-void OnReplaceTrackCompleted(blink::WebRTCVoidRequest request, bool result) {
+void OnReplaceTrackCompleted(blink::RTCVoidRequest* request, bool result) {
   if (result) {
-    request.RequestSucceeded();
+    request->RequestSucceeded();
   } else {
-    request.RequestFailed(
+    request->RequestFailed(
         webrtc::RTCError(webrtc::RTCErrorType::INVALID_MODIFICATION));
   }
 }
 
-void OnSetParametersCompleted(blink::WebRTCVoidRequest request,
+void OnSetParametersCompleted(blink::RTCVoidRequest* request,
                               webrtc::RTCError result) {
   if (result.ok())
-    request.RequestSucceeded();
+    request->RequestSucceeded();
   else
-    request.RequestFailed(result);
+    request->RequestFailed(result);
 }
 
 }  // namespace
@@ -208,12 +209,13 @@ class RTCRtpSenderImpl::RTCRtpSenderInternal
                        base::Unretained(webrtc_track), std::move(callback)));
   }
 
-  std::unique_ptr<blink::WebRTCDTMFSenderHandler> GetDtmfSender() const {
+  std::unique_ptr<blink::RtcDtmfSenderHandler> GetDtmfSender() const {
     // The webrtc_sender() is a proxy, so this is a blocking call to the
     // webrtc signalling thread.
     DCHECK(main_task_runner_->BelongsToCurrentThread());
     auto dtmf_sender = webrtc_sender_->GetDtmfSender();
-    return blink::CreateRTCDTMFSenderHandler(main_task_runner_, dtmf_sender);
+    return std::make_unique<RtcDtmfSenderHandler>(main_task_runner_,
+                                                  dtmf_sender);
   }
 
   std::unique_ptr<webrtc::RtpParameters> GetParameters() {
@@ -238,13 +240,9 @@ class RTCRtpSenderImpl::RTCRtpSenderInternal
       // one, we copy the members one by one over the old struct, effectively
       // patching the changes done by the user.
       const auto& encoding = encodings[i];
-      new_parameters.encodings[i].codec_payload_type =
-          encoding.codec_payload_type;
-      new_parameters.encodings[i].dtx = encoding.dtx;
       new_parameters.encodings[i].active = encoding.active;
       new_parameters.encodings[i].bitrate_priority = encoding.bitrate_priority;
       new_parameters.encodings[i].network_priority = encoding.network_priority;
-      new_parameters.encodings[i].ptime = encoding.ptime;
       new_parameters.encodings[i].max_bitrate_bps = encoding.max_bitrate_bps;
       new_parameters.encodings[i].max_framerate = encoding.max_framerate;
       new_parameters.encodings[i].rid = encoding.rid;
@@ -419,7 +417,8 @@ void RTCRtpSenderImpl::set_state(RtpSenderState state) {
   internal_->set_state(std::move(state));
 }
 
-std::unique_ptr<blink::WebRTCRtpSender> RTCRtpSenderImpl::ShallowCopy() const {
+std::unique_ptr<blink::RTCRtpSenderPlatform> RTCRtpSenderImpl::ShallowCopy()
+    const {
   return std::make_unique<RTCRtpSenderImpl>(*this);
 }
 
@@ -450,14 +449,14 @@ blink::WebVector<blink::WebString> RTCRtpSenderImpl::StreamIds() const {
 }
 
 void RTCRtpSenderImpl::ReplaceTrack(blink::WebMediaStreamTrack with_track,
-                                    blink::WebRTCVoidRequest request) {
+                                    blink::RTCVoidRequest* request) {
   internal_->ReplaceTrack(
       std::move(with_track),
-      base::BindOnce(&OnReplaceTrackCompleted, std::move(request)));
+      WTF::Bind(&OnReplaceTrackCompleted, WrapPersistent(request)));
 }
 
-std::unique_ptr<blink::WebRTCDTMFSenderHandler>
-RTCRtpSenderImpl::GetDtmfSender() const {
+std::unique_ptr<blink::RtcDtmfSenderHandler> RTCRtpSenderImpl::GetDtmfSender()
+    const {
   return internal_->GetDtmfSender();
 }
 
@@ -468,10 +467,10 @@ std::unique_ptr<webrtc::RtpParameters> RTCRtpSenderImpl::GetParameters() const {
 void RTCRtpSenderImpl::SetParameters(
     blink::WebVector<webrtc::RtpEncodingParameters> encodings,
     webrtc::DegradationPreference degradation_preference,
-    blink::WebRTCVoidRequest request) {
+    blink::RTCVoidRequest* request) {
   internal_->SetParameters(
       std::move(encodings), degradation_preference,
-      base::BindOnce(&OnSetParametersCompleted, std::move(request)));
+      WTF::Bind(&OnSetParametersCompleted, WrapPersistent(request)));
 }
 
 void RTCRtpSenderImpl::GetStats(
@@ -500,16 +499,16 @@ bool RTCRtpSenderImpl::RemoveFromPeerConnection(
 }
 
 RTCRtpSenderOnlyTransceiver::RTCRtpSenderOnlyTransceiver(
-    std::unique_ptr<blink::WebRTCRtpSender> sender)
+    std::unique_ptr<blink::RTCRtpSenderPlatform> sender)
     : sender_(std::move(sender)) {
   DCHECK(sender_);
 }
 
 RTCRtpSenderOnlyTransceiver::~RTCRtpSenderOnlyTransceiver() {}
 
-blink::WebRTCRtpTransceiverImplementationType
+RTCRtpTransceiverPlatformImplementationType
 RTCRtpSenderOnlyTransceiver::ImplementationType() const {
-  return blink::WebRTCRtpTransceiverImplementationType::kPlanBSenderOnly;
+  return RTCRtpTransceiverPlatformImplementationType::kPlanBSenderOnly;
 }
 
 uintptr_t RTCRtpSenderOnlyTransceiver::Id() const {
@@ -522,13 +521,13 @@ blink::WebString RTCRtpSenderOnlyTransceiver::Mid() const {
   return blink::WebString();
 }
 
-std::unique_ptr<blink::WebRTCRtpSender> RTCRtpSenderOnlyTransceiver::Sender()
-    const {
+std::unique_ptr<blink::RTCRtpSenderPlatform>
+RTCRtpSenderOnlyTransceiver::Sender() const {
   return sender_->ShallowCopy();
 }
 
-std::unique_ptr<blink::WebRTCRtpReceiver>
-RTCRtpSenderOnlyTransceiver::Receiver() const {
+std::unique_ptr<RTCRtpReceiverPlatform> RTCRtpSenderOnlyTransceiver::Receiver()
+    const {
   NOTIMPLEMENTED();
   return nullptr;
 }

@@ -62,7 +62,6 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/storage_partition.h"
-#include "content/public/browser/system_connector.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/drop_data.h"
 #include "extensions/browser/api/file_handlers/app_file_handler_util.h"
@@ -95,11 +94,11 @@
 #include "extensions/common/permissions/permissions_data.h"
 #include "net/base/filename_util.h"
 #include "storage/browser/blob/shareable_file_reference.h"
-#include "storage/browser/fileapi/external_mount_points.h"
-#include "storage/browser/fileapi/file_system_context.h"
-#include "storage/browser/fileapi/file_system_operation.h"
-#include "storage/browser/fileapi/file_system_operation_runner.h"
-#include "storage/browser/fileapi/isolated_context.h"
+#include "storage/browser/file_system/external_mount_points.h"
+#include "storage/browser/file_system/file_system_context.h"
+#include "storage/browser/file_system/file_system_operation.h"
+#include "storage/browser/file_system/file_system_operation_runner.h"
+#include "storage/browser/file_system/isolated_context.h"
 #include "third_party/re2/src/re2/re2.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -1210,8 +1209,7 @@ DeveloperPrivateInstallDroppedFileFunction::Run() {
 
   ExtensionService* service = GetExtensionService(browser_context());
   if (path.MatchesExtension(FILE_PATH_LITERAL(".zip"))) {
-    ZipFileInstaller::Create(content::GetSystemConnector(),
-                             MakeRegisterInExtensionServiceCallback(service))
+    ZipFileInstaller::Create(MakeRegisterInExtensionServiceCallback(service))
         ->LoadFromZipFile(path);
   } else {
     auto prompt = std::make_unique<ExtensionInstallPrompt>(web_contents);
@@ -1487,7 +1485,7 @@ void DeveloperPrivateLoadDirectoryFunction::Load() {
 void DeveloperPrivateLoadDirectoryFunction::ClearExistingDirectoryContent(
     const base::FilePath& project_path) {
   // Clear the project directory before copying new files.
-  base::DeleteFile(project_path, true /*recursive*/);
+  base::DeleteFileRecursively(project_path);
 
   pending_copy_operations_count_ = 1;
 

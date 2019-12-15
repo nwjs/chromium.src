@@ -28,6 +28,7 @@ class CastDecoderBuffer;
 class CmaBackend;
 class MediaPipelineBackendWrapper;
 class ActiveMediaPipelineBackendWrapper;
+class MediaResourceTracker;
 
 // This class tracks all created media backends, tracking whether or not volume
 // feedback sounds should be enabled based on the currently active backends.
@@ -82,8 +83,9 @@ class MediaPipelineBackendManager {
     NUM_DECODER_TYPES
   };
 
-  explicit MediaPipelineBackendManager(
-      scoped_refptr<base::SingleThreadTaskRunner> media_task_runner);
+  MediaPipelineBackendManager(
+      scoped_refptr<base::SingleThreadTaskRunner> media_task_runner,
+      MediaResourceTracker* media_resource_tracker);
   ~MediaPipelineBackendManager();
 
   // Creates a CMA backend. Must be called on the same thread as
@@ -111,9 +113,8 @@ class MediaPipelineBackendManager {
   void RemoveAllowVolumeFeedbackObserver(AllowVolumeFeedbackObserver* observer);
 
   // Add/remove a playing audio stream that is not accounted for by a
-  // CmaBackend instance (for example, direct audio output using
-  // CastMediaShlib::AddDirectAudioSource()). |sfx| indicates whether or not
-  // the stream is a sound effects stream (has no effect on volume feedback).
+  // CmaBackend instance. |sfx| indicates whether or not the stream is a sound
+  // effects stream (has no effect on volume feedback).
   void AddExtraPlayingStream(bool sfx, const AudioContentType type);
   void RemoveExtraPlayingStream(bool sfx, const AudioContentType type);
 
@@ -156,6 +157,7 @@ class MediaPipelineBackendManager {
   void EnterPowerSaveMode();
 
   const scoped_refptr<base::SingleThreadTaskRunner> media_task_runner_;
+  MediaResourceTracker* const media_resource_tracker_;
 
   // Total count of decoders created
   int decoder_count_[NUM_DECODER_TYPES];

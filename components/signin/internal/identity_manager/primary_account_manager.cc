@@ -107,8 +107,9 @@ void PrimaryAccountManager::Initialize(PrefService* local_state) {
 
   bool consented =
       client_->GetPrefs()->GetBoolean(prefs::kGoogleServicesConsentedToSync);
+  CoreAccountId account_id = CoreAccountId::FromString(pref_account_id);
   CoreAccountInfo account_info =
-      account_tracker_service_->GetAccountInfo(CoreAccountId(pref_account_id));
+      account_tracker_service_->GetAccountInfo(account_id);
   if (consented) {
     DCHECK(!account_info.account_id.empty());
     // First reset the state, because SetAuthenticatedAccountInfo can only be
@@ -180,7 +181,7 @@ void PrimaryAccountManager::SetAuthenticatedAccountInfo(
         client_->GetPrefs()->GetBoolean(prefs::kGoogleServicesConsentedToSync);
 
     DCHECK(pref_account_id.empty() || !consented_to_sync ||
-           pref_account_id == account_info.account_id.id)
+           pref_account_id == account_info.account_id.ToString())
         << "account_id=" << account_info.account_id
         << " pref_account_id=" << pref_account_id;
   }
@@ -192,7 +193,7 @@ void PrimaryAccountManager::SetAuthenticatedAccountInfo(
   // user is signed in the corresponding preferences should match. Doing it here
   // as opposed to on signin allows us to catch the upgrade scenario.
   client_->GetPrefs()->SetString(prefs::kGoogleServicesLastAccountId,
-                                 account_info.account_id.id);
+                                 account_info.account_id.ToString());
   client_->GetPrefs()->SetString(prefs::kGoogleServicesLastUsername,
                                  account_info.email);
 
@@ -207,7 +208,7 @@ void PrimaryAccountManager::SetPrimaryAccountInternal(
   primary_account_info_ = account_info;
 
   PrefService* prefs = client_->GetPrefs();
-  const std::string& account_id = primary_account_info_.account_id.id;
+  const std::string& account_id = primary_account_info_.account_id.ToString();
   if (account_id.empty()) {
     DCHECK(!consented_to_sync);
     prefs->ClearPref(prefs::kGoogleServicesAccountId);
@@ -326,7 +327,7 @@ void PrimaryAccountManager::OnSignoutDecisionReached(
 
   const CoreAccountInfo account_info = GetAuthenticatedAccountInfo();
   client_->GetPrefs()->ClearPref(prefs::kGoogleServicesHostedDomain);
-  SetPrimaryAccountInternal(CoreAccountInfo(), /*consented_to_sync=*/false);
+  SetPrimaryAccountInternal(account_info, /*consented_to_sync=*/false);
 
   // Revoke all tokens before sending signed_out notification, because there
   // may be components that don't listen for token service events when the
@@ -350,10 +351,8 @@ void PrimaryAccountManager::OnSignoutDecisionReached(
       break;
   }
 
-  for (Observer& observer : observers_) {
+  for (Observer& observer : observers_)
     observer.GoogleSignedOut(account_info);
-    observer.UnconsentedPrimaryAccountChanged(primary_account_info());
-  }
 }
 
 void PrimaryAccountManager::OnRefreshTokensLoaded() {

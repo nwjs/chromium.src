@@ -7,6 +7,7 @@
 
 #include "ash/ash_export.h"
 #include "ash/public/cpp/shelf_config.h"
+#include "ash/public/cpp/shelf_types.h"
 #include "ui/views/widget/widget.h"
 
 namespace ash {
@@ -55,10 +56,19 @@ class ASH_EXPORT HotseatWidget : public views::Widget,
   // Sets the focus cycler and adds the hotseat to the cycle.
   void SetFocusCycler(FocusCycler* focus_cycler);
 
+  bool IsShowingShelfMenu() const;
+
   ShelfView* GetShelfView();
   const ShelfView* GetShelfView() const;
 
+  void SetState(HotseatState state);
+  HotseatState state() const { return state_; }
+
   ScrollableShelfView* scrollable_shelf_view() {
+    return scrollable_shelf_view_;
+  }
+
+  const ScrollableShelfView* scrollable_shelf_view() const {
     return scrollable_shelf_view_;
   }
 
@@ -72,6 +82,8 @@ class ASH_EXPORT HotseatWidget : public views::Widget,
 
  private:
   class DelegateView;
+
+  HotseatState state_ = HotseatState::kShown;
 
   // View containing the shelf items within an active user session. Owned by
   // the views hierarchy.

@@ -77,33 +77,58 @@ void TaskTracingInfo::AppendAsTraceFormat(std::string* out) const {
   out->append(tmp);
 }
 
-const char* GetTaskPrioritySuffix(TaskPriority priority) {
-  switch (priority) {
-    case TaskPriority::BEST_EFFORT:
-      return "BackgroundTaskPriority";
-    case TaskPriority::USER_VISIBLE:
-      return "UserVisibleTaskPriority";
-    case TaskPriority::USER_BLOCKING:
-      return "UserBlockingTaskPriority";
-  }
+// Constructs a histogram to track latency which is logging to
+// "ThreadPool.{histogram_name}.{histogram_label}.{task_type_suffix}".
+HistogramBase* GetLatencyHistogram(StringPiece histogram_name,
+                                   StringPiece histogram_label,
+                                   StringPiece task_type_suffix) {
+  DCHECK(!histogram_name.empty());
+  DCHECK(!task_type_suffix.empty());
+
+  if (histogram_label.empty())
+    return nullptr;
+
+  // Mimics the UMA_HISTOGRAM_HIGH_RESOLUTION_CUSTOM_TIMES macro. The minimums
+  // and maximums were chosen to place the 1ms mark at around the 70% range
+  // coverage for buckets giving us good info for tasks that have a latency
+  // below 1ms (most of them) and enough info to assess how bad the latency is
+  // for tasks that exceed this threshold.
+  const std::string histogram = JoinString(
+      {"ThreadPool", histogram_name, histogram_label, task_type_suffix}, ".");
+  return Histogram::FactoryMicrosecondsTimeGet(
+      histogram, TimeDelta::FromMicroseconds(1),
+      TimeDelta::FromMilliseconds(20), 50,
+      HistogramBase::kUmaTargetedHistogramFlag);
 }
 
-// Records |time_sample| to the histogram |histogram_name|.|priority suffix|,
-// where |priority_suffix| is derived from |priority|.
-//
-// The minimums and maximums were chosen to place the 1ms mark at around the 70%
-// range coverage for buckets giving us good info for tasks that have a latency
-// below 1ms (most of them) and enough info to assess how bad the latency is for
-// tasks that exceed this threshold.
-#define STATIC_LATENCY_HISTOGRAM_POINTER_GROUP(histogram_name, priority, \
-                                               time_sample)              \
-  STATIC_HISTOGRAM_POINTER_GROUP(                                        \
-      histogram_name, static_cast<int>(priority),                        \
-      static_cast<int>(TaskPriority::HIGHEST) + 1, AddTime(time_sample), \
-      Histogram::FactoryMicrosecondsTimeGet(                             \
-          histogram_name, TimeDelta::FromMicroseconds(1),                \
-          TimeDelta::FromMilliseconds(20), 50,                           \
-          HistogramBase::kUmaTargetedHistogramFlag));
+// Constructs a histogram to track task count which is logging to
+// "ThreadPool.{histogram_name}.{histogram_label}.{task_type_suffix}".
+HistogramBase* GetCountHistogram(StringPiece histogram_name,
+                                 StringPiece histogram_label,
+                                 StringPiece task_type_suffix) {
+  DCHECK(!histogram_name.empty());
+  DCHECK(!task_type_suffix.empty());
+
+  if (histogram_label.empty())
+    return nullptr;
+
+  // Mimics the UMA_HISTOGRAM_CUSTOM_COUNTS macro.
+  const std::string histogram = JoinString(
+      {"ThreadPool", histogram_name, histogram_label, task_type_suffix}, ".");
+  // 500 was chosen as the maximum number of tasks run while queuing because
+  // values this high would likely indicate an error, beyond which knowing the
+  // actual number of tasks is not informative.
+  return Histogram::FactoryGet(histogram, 1, 500, 50,
+                               HistogramBase::kUmaTargetedHistogramFlag);
+}
+
+// Returns a histogram stored in an array indexed by task priority.
+// TODO(jessemckenna): use the STATIC_HISTOGRAM_POINTER_GROUP macro from
+// histogram_macros.h instead.
+HistogramBase* GetHistogramForTaskPriority(TaskPriority task_priority,
+                                           HistogramBase* const histograms[3]) {
+  return histograms[static_cast<int>(task_priority)];
+}
 
 bool HasLogBestEffortTasksSwitch() {
   // The CommandLine might not be initialized if ThreadPool is initialized in a
@@ -113,18 +138,20 @@ bool HasLogBestEffortTasksSwitch() {
              switches::kLogBestEffortTasks);
 }
 
-// Needed for PostTaskHere and CurrentThread. This executor lives for the
-// duration of a threadpool task invocation.
+// Needed for GetContinuationTaskRunner and CurrentThread. This executor lives
+// for the duration of a threadpool task invocation.
 class EphemeralTaskExecutor : public TaskExecutor {
  public:
   // |sequenced_task_runner| and |single_thread_task_runner| must outlive this
-  // EphemeralTaskExecutor.
-  EphemeralTaskExecutor(SequencedTaskRunner* sequenced_task_runner,
-                        SingleThreadTaskRunner* single_thread_task_runner,
-                        const TaskTraits* sequence_traits)
-      : sequenced_task_runner_(sequenced_task_runner),
+  // EphemeralTaskExecutor. Note |single_thread_task_runner| may be null.
+  EphemeralTaskExecutor(
+      scoped_refptr<SequencedTaskRunner> sequenced_task_runner,
+      SingleThreadTaskRunner* single_thread_task_runner,
+      const TaskTraits* sequence_traits)
+      : sequenced_task_runner_(std::move(sequenced_task_runner)),
         single_thread_task_runner_(single_thread_task_runner),
         sequence_traits_(sequence_traits) {
+    DCHECK(sequenced_task_runner_);
     SetTaskExecutorForCurrentThread(this);
   }
 
@@ -170,6 +197,11 @@ class EphemeralTaskExecutor : public TaskExecutor {
   }
 #endif  // defined(OS_WIN)
 
+  const scoped_refptr<SequencedTaskRunner>& GetContinuationTaskRunner()
+      override {
+    return sequenced_task_runner_;
+  }
+
  private:
   // Currently ignores |traits.priority()|.
   void CheckTraitsCompatibleWithSequenceTraits(const TaskTraits& traits) {
@@ -186,7 +218,7 @@ class EphemeralTaskExecutor : public TaskExecutor {
                sequence_traits_->with_base_sync_primitives());
   }
 
-  SequencedTaskRunner* const sequenced_task_runner_;
+  const scoped_refptr<SequencedTaskRunner> sequenced_task_runner_;
   SingleThreadTaskRunner* const single_thread_task_runner_;
   const TaskTraits* const sequence_traits_;
 };
@@ -283,6 +315,7 @@ class TaskTracker::State {
   DISALLOW_COPY_AND_ASSIGN(State);
 };
 
+// TODO(jessemckenna): Write a helper function to avoid code duplication below.
 TaskTracker::TaskTracker(StringPiece histogram_label)
     : histogram_label_(histogram_label),
       has_log_best_effort_tasks_switch_(HasLogBestEffortTasksSwitch()),
@@ -290,6 +323,35 @@ TaskTracker::TaskTracker(StringPiece histogram_label)
       can_run_policy_(CanRunPolicy::kAll),
       flush_cv_(flush_lock_.CreateConditionVariable()),
       shutdown_lock_(&flush_lock_),
+      task_latency_histograms_{GetLatencyHistogram("TaskLatencyMicroseconds",
+                                                   histogram_label,
+                                                   "BackgroundTaskPriority"),
+                               GetLatencyHistogram("TaskLatencyMicroseconds",
+                                                   histogram_label,
+                                                   "UserVisibleTaskPriority"),
+                               GetLatencyHistogram("TaskLatencyMicroseconds",
+                                                   histogram_label,
+                                                   "UserBlockingTaskPriority")},
+      heartbeat_latency_histograms_{
+          GetLatencyHistogram("HeartbeatLatencyMicroseconds",
+                              histogram_label,
+                              "BackgroundTaskPriority"),
+          GetLatencyHistogram("HeartbeatLatencyMicroseconds",
+                              histogram_label,
+                              "UserVisibleTaskPriority"),
+          GetLatencyHistogram("HeartbeatLatencyMicroseconds",
+                              histogram_label,
+                              "UserBlockingTaskPriority")},
+      num_tasks_run_while_queuing_histograms_{
+          GetCountHistogram("NumTasksRunWhileQueuing",
+                            histogram_label,
+                            "BackgroundTaskPriority"),
+          GetCountHistogram("NumTasksRunWhileQueuing",
+                            histogram_label,
+                            "UserVisibleTaskPriority"),
+          GetCountHistogram("NumTasksRunWhileQueuing",
+                            histogram_label,
+                            "UserBlockingTaskPriority")},
       tracked_ref_factory_(this) {}
 
 TaskTracker::~TaskTracker() = default;
@@ -472,13 +534,9 @@ void TaskTracker::RecordLatencyHistogram(TaskPriority priority,
   if (histogram_label_.empty())
     return;
 
-  auto get_latency_histogram_name = [this, priority]() {
-    return JoinString({"ThreadPool.TaskLatencyMicroseconds", histogram_label_,
-                       GetTaskPrioritySuffix(priority)},
-                      ".");
-  };
-  STATIC_LATENCY_HISTOGRAM_POINTER_GROUP(get_latency_histogram_name(), priority,
-                                         TimeTicks::Now() - posted_time);
+  const TimeDelta task_latency = TimeTicks::Now() - posted_time;
+  GetHistogramForTaskPriority(priority, task_latency_histograms_)
+      ->AddTimeMicrosecondsGranularity(task_latency);
 }
 
 void TaskTracker::RecordHeartbeatLatencyAndTasksRunWhileQueuingHistograms(
@@ -488,29 +546,12 @@ void TaskTracker::RecordHeartbeatLatencyAndTasksRunWhileQueuingHistograms(
   if (histogram_label_.empty())
     return;
 
-  auto get_heartbeat_latency_histogram_name = [this, priority]() {
-    return JoinString({"ThreadPool.HeartbeatLatencyMicroseconds",
-                       histogram_label_, GetTaskPrioritySuffix(priority)},
-                      ".");
-  };
-  STATIC_LATENCY_HISTOGRAM_POINTER_GROUP(get_heartbeat_latency_histogram_name(),
-                                         priority,
-                                         TimeTicks::Now() - posted_time);
+  const TimeDelta task_latency = TimeTicks::Now() - posted_time;
+  GetHistogramForTaskPriority(priority, heartbeat_latency_histograms_)
+      ->AddTimeMicrosecondsGranularity(task_latency);
 
-  auto get_num_tasks_run_while_queuing_histogram_name = [this, priority]() {
-    return JoinString({"ThreadPool.NumTasksRunWhileQueuing", histogram_label_,
-                       GetTaskPrioritySuffix(priority)},
-                      ".");
-  };
-  STATIC_HISTOGRAM_POINTER_GROUP(
-      get_num_tasks_run_while_queuing_histogram_name(),
-      static_cast<int>(priority), static_cast<int>(TaskPriority::HIGHEST) + 1,
-      Add(GetNumTasksRun() - num_tasks_run_when_posted),
-      // 500 was chosen as the maximum number of tasks run while queuing because
-      // values this high would likely indicate an error, beyond which knowing
-      // the actual number of tasks is not informative.
-      Histogram::FactoryGet(get_num_tasks_run_while_queuing_histogram_name(), 1,
-                            500, 50, HistogramBase::kUmaTargetedHistogramFlag));
+  GetHistogramForTaskPriority(priority, num_tasks_run_while_queuing_histograms_)
+      ->Add(GetNumTasksRun() - num_tasks_run_when_posted);
 }
 
 int TaskTracker::GetNumTasksRun() const {

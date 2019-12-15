@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "third_party/blink/public/web/modules/peerconnection/rtc_rtp_transceiver_impl.h"
+#include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_transceiver_impl.h"
 
 #include "base/bind.h"
 #include "base/logging.h"
@@ -146,6 +146,10 @@ base::Optional<std::string> RtpTransceiverState::mid() const {
   return mid_;
 }
 
+void RtpTransceiverState::set_mid(base::Optional<std::string> mid) {
+  mid_ = mid;
+}
+
 bool RtpTransceiverState::stopped() const {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
   return stopped_;
@@ -222,6 +226,8 @@ class RTCRtpTransceiverImpl::RTCRtpTransceiverInternal
     sender_->set_state(std::move(sender_state));
     receiver_->set_state(state_.MoveReceiverState());
   }
+
+  void set_mid(base::Optional<std::string> mid) { state_.set_mid(mid); }
 
   blink::RTCRtpSenderImpl* content_sender() {
     DCHECK(main_task_runner_->BelongsToCurrentThread());
@@ -330,9 +336,9 @@ void RTCRtpTransceiverImpl::set_state(RtpTransceiverState transceiver_state,
   internal_->set_state(std::move(transceiver_state), update_mode);
 }
 
-blink::WebRTCRtpTransceiverImplementationType
+RTCRtpTransceiverPlatformImplementationType
 RTCRtpTransceiverImpl::ImplementationType() const {
-  return blink::WebRTCRtpTransceiverImplementationType::kFullTransceiver;
+  return RTCRtpTransceiverPlatformImplementationType::kFullTransceiver;
 }
 
 uintptr_t RTCRtpTransceiverImpl::Id() const {
@@ -345,11 +351,17 @@ blink::WebString RTCRtpTransceiverImpl::Mid() const {
              : blink::WebString();  // IsNull()
 }
 
-std::unique_ptr<blink::WebRTCRtpSender> RTCRtpTransceiverImpl::Sender() const {
+void RTCRtpTransceiverImpl::SetMid(base::Optional<blink::WebString> mid) {
+  internal_->set_mid(mid ? base::Optional<std::string>(mid->Utf8())
+                         : base::nullopt);
+}
+
+std::unique_ptr<blink::RTCRtpSenderPlatform> RTCRtpTransceiverImpl::Sender()
+    const {
   return internal_->content_sender()->ShallowCopy();
 }
 
-std::unique_ptr<blink::WebRTCRtpReceiver> RTCRtpTransceiverImpl::Receiver()
+std::unique_ptr<RTCRtpReceiverPlatform> RTCRtpTransceiverImpl::Receiver()
     const {
   return internal_->content_receiver()->ShallowCopy();
 }

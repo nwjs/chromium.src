@@ -11,13 +11,13 @@ import android.os.Handler;
 import androidx.annotation.CallSuper;
 
 import org.chromium.base.BuildInfo;
+import org.chromium.base.ContextUtils;
 import org.chromium.base.ObserverList.RewindableIterator;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.findinpage.FindMatchRectsDetails;
 import org.chromium.chrome.browser.findinpage.FindNotificationDetails;
-import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.media.MediaCaptureNotificationService;
 import org.chromium.chrome.browser.policy.PolicyAuditor;
 import org.chromium.chrome.browser.policy.PolicyAuditorJni;
@@ -31,12 +31,12 @@ import org.chromium.content_public.browser.WebContents;
  * some calls to the registered {@link TabObserver}.
  */
 public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateAndroid {
-    protected final Tab mTab;
+    protected final TabImpl mTab;
     protected Handler mHandler;
     private final Runnable mCloseContentsRunnable;
 
     public TabWebContentsDelegateAndroid(Tab tab) {
-        mTab = tab;
+        mTab = (TabImpl) tab;
         mHandler = new Handler();
         mCloseContentsRunnable = () -> {
             RewindableIterator<TabObserver> observers = mTab.getTabObservers();
@@ -99,13 +99,6 @@ public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateA
     }
 
     @Override
-    public void onLoadProgressChanged(int progress) {
-        // TODO(jinsukkim): Move this interface to WebContentsObserver.
-        if (!mTab.isLoading()) return;
-        mTab.notifyLoadProgress(progress);
-    }
-
-    @Override
     public void loadingStateChanged(boolean toDifferentDocument) {
         boolean isLoading = mTab.getWebContents() != null && mTab.getWebContents().isLoading();
         if (isLoading) {
@@ -123,19 +116,19 @@ public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateA
 
     @Override
     public void enterFullscreenModeForTab(boolean prefersNavigationBar) {
-        mTab.enterFullscreenMode(new FullscreenOptions(prefersNavigationBar));
+        assert false : "Fullscreen mode switching is supported on ChromeActivity only.";
     }
 
     @Override
     public void exitFullscreenModeForTab() {
-        mTab.exitFullscreenMode();
+        assert false : "Fullscreen mode switching is supported on ChromeActivity only.";
     }
 
     @Override
     public void navigationStateChanged(int flags) {
         if ((flags & InvalidateTypes.TAB) != 0) {
             MediaCaptureNotificationService.updateMediaNotificationForTab(
-                    mTab.getApplicationContext(), mTab.getId(), mTab.getWebContents(),
+                    ContextUtils.getApplicationContext(), mTab.getId(), mTab.getWebContents(),
                     mTab.getUrl());
         }
         if ((flags & InvalidateTypes.TITLE) != 0) {
@@ -155,7 +148,7 @@ public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateA
         PolicyAuditor auditor = AppHooks.get().getPolicyAuditor();
         auditor.notifyCertificateFailure(
                 PolicyAuditorJni.get().getCertificateFailure(mTab.getWebContents()),
-                mTab.getApplicationContext());
+                ContextUtils.getApplicationContext());
         RewindableIterator<TabObserver> observers = mTab.getTabObservers();
         while (observers.hasNext()) {
             observers.next().onSSLStateUpdated(mTab);
@@ -276,12 +269,30 @@ public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateA
     }
 
     /**
+     * Return true if app banners are to be permitted in this tab. May need to be overridden.
+     * @return true if app banners are permitted, and false otherwise.
+     */
+    @CalledByNative
+    protected boolean canShowAppBanners() {
+        return true;
+    }
+
+    /**
      * @return the Webapp manifest scope, which is used to allow frames within the scope to
      *         autoplay media unmuted.
      */
     @CalledByNative
     protected String getManifestScope() {
         return null;
+    }
+
+    /**
+     * Checks if the associated tab is currently presented in the context of custom tabs.
+     * @return true if this is currently a custom tab.
+     */
+    @CalledByNative
+    protected boolean isCustomTab() {
+        return false;
     }
 
     @NativeMethods

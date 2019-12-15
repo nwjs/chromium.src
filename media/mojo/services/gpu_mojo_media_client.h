@@ -61,9 +61,9 @@ class GpuMojoMediaClient : public MojoMediaClient {
       const gfx::ColorSpace& target_color_space) final;
   std::unique_ptr<CdmFactory> CreateCdmFactory(
       service_manager::mojom::InterfaceProvider* interface_provider) final;
-#if BUILDFLAG(ENABLE_LIBRARY_CDMS)
+#if BUILDFLAG(ENABLE_CDM_PROXY)
   std::unique_ptr<CdmProxy> CreateCdmProxy(const base::Token& cdm_guid) final;
-#endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
+#endif  // BUILDFLAG(ENABLE_CDM_PROXY)
 
  private:
   gpu::GpuPreferences gpu_preferences_;
@@ -72,10 +72,10 @@ class GpuMojoMediaClient : public MojoMediaClient {
   scoped_refptr<base::SingleThreadTaskRunner> gpu_task_runner_;
   base::WeakPtr<MediaGpuChannelManager> media_gpu_channel_manager_;
   AndroidOverlayMojoFactoryCB android_overlay_factory_cb_;
-#if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+#if defined(OS_CHROMEOS) && BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
   // Indirectly owned by GpuChildThread.
   gpu::GpuMemoryBufferFactory* const gpu_memory_buffer_factory_;
-#endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+#endif  // defined(OS_CHROMEOS) && BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
   CdmProxyFactoryCB cdm_proxy_factory_cb_;
 #if defined(OS_WIN)
   base::Optional<SupportedVideoDecoderConfigs> d3d11_supported_configs_;

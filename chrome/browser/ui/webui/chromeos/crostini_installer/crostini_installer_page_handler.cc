@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/optional.h"
 #include "chrome/browser/chromeos/crostini/crostini_installer_ui_delegate.h"
 
 namespace chromeos {
@@ -25,7 +26,10 @@ CrostiniInstallerPageHandler::CrostiniInstallerPageHandler(
 CrostiniInstallerPageHandler::~CrostiniInstallerPageHandler() = default;
 
 void CrostiniInstallerPageHandler::Install() {
+  // TODO(crbug.com/1016195): Web page should allow input container username,
+  // and here we will pass that to Install().
   installer_ui_delegate_->Install(
+      crostini::CrostiniManager::RestartOptions{},
       base::BindRepeating(&CrostiniInstallerPageHandler::OnProgressUpdate,
                           weak_ptr_factory_.GetWeakPtr()),
       base::BindOnce(&CrostiniInstallerPageHandler::OnInstallFinished,
@@ -49,16 +53,16 @@ void CrostiniInstallerPageHandler::Close() {
 void CrostiniInstallerPageHandler::OnProgressUpdate(
     crostini::mojom::InstallerState installer_state,
     double progress_fraction) {
-  // TODO(lxj)
+  page_->OnProgressUpdate(installer_state, progress_fraction);
 }
 
 void CrostiniInstallerPageHandler::OnInstallFinished(
     crostini::mojom::InstallerError error) {
-  // TODO(lxj)
+  page_->OnInstallFinished(error);
 }
 
 void CrostiniInstallerPageHandler::OnCanceled() {
-  // TODO(lxj)
+  page_->OnCanceled();
 }
 
 }  // namespace chromeos

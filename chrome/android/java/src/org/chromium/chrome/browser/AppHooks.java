@@ -12,13 +12,13 @@ import android.content.pm.PackageManager;
 import android.view.View;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.banners.AppDetailsDelegate;
@@ -45,9 +45,9 @@ import org.chromium.chrome.browser.partnerbookmarks.PartnerBookmarksProviderIter
 import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomizations;
 import org.chromium.chrome.browser.password_manager.GooglePasswordManagerUIProvider;
 import org.chromium.chrome.browser.policy.PolicyAuditor;
-import org.chromium.chrome.browser.preferences.LocationSettings;
 import org.chromium.chrome.browser.rlz.RevenueStats;
 import org.chromium.chrome.browser.services.AndroidEduOwnerCheckCallback;
+import org.chromium.chrome.browser.settings.LocationSettings;
 import org.chromium.chrome.browser.signin.GoogleActivityController;
 import org.chromium.chrome.browser.survey.SurveyController;
 import org.chromium.chrome.browser.tab.AuthenticatorNavigationInterceptor;

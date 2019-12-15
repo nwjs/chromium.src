@@ -16,14 +16,15 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.MenuOrKeyboardActionController;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
@@ -32,7 +33,6 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
@@ -95,7 +95,8 @@ public class TabSwitcherCoordinator
                 context, container, tabModelSelector, tabContentManager, null);
 
         mMediator = new TabSwitcherMediator(this, containerViewModel, tabModelSelector,
-                fullscreenManager, container, mTabSelectionEditorCoordinator.getController(), mode);
+                fullscreenManager, container, mTabSelectionEditorCoordinator.getController(),
+                tabContentManager, mode);
 
         mMultiThumbnailCardProvider =
                 new MultiThumbnailCardProvider(context, tabContentManager, tabModelSelector);
@@ -144,10 +145,10 @@ public class TabSwitcherCoordinator
 
         if (mode == TabListCoordinator.TabListMode.GRID) {
             if (ChromeFeatureList.isEnabled(ChromeFeatureList.CLOSE_TAB_SUGGESTIONS)) {
-                mTabListCoordinator.registerItemType(TabProperties.UiType.SUGGESTION, () -> {
+                mTabListCoordinator.registerItemType(TabProperties.UiType.MESSAGE, () -> {
                     return (ViewGroup) LayoutInflater.from(context).inflate(
-                            R.layout.tab_suggestion_card_item, container, false);
-                }, TabGridMessageCardViewBinder::bind);
+                            R.layout.tab_grid_message_card_item, container, false);
+                }, MessageCardViewBinder::bind);
             }
 
             assert mTabListCoordinator.getContainerView().getLayoutManager()
@@ -162,7 +163,7 @@ public class TabSwitcherCoordinator
                                                    .getAdapter()
                                                    .getItemViewType(position);
 
-                            if (itemType == TabProperties.UiType.SUGGESTION) return 2;
+                            if (itemType == TabProperties.UiType.MESSAGE) return 2;
                             return 1;
                         }
                     });
@@ -256,7 +257,7 @@ public class TabSwitcherCoordinator
     @Override
     @VisibleForTesting
     public int getSoftCleanupDelayForTesting() {
-        return mMediator.getCleanupDelayForTesting();
+        return mMediator.getSoftCleanupDelayForTesting();
     }
 
     @Override
@@ -283,6 +284,7 @@ public class TabSwitcherCoordinator
             }
         }
 
+        mMediator.registerFirstMeaningfulPaintRecorder();
         return mTabListCoordinator.resetWithListOfTabs(tabs, quickMode, mruMode);
     }
 

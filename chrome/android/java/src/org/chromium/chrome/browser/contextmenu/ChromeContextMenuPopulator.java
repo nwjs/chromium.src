@@ -22,10 +22,11 @@ import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTa
 import org.chromium.chrome.browser.contextmenu.ChromeContextMenuItem.Item;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.locale.LocaleManager;
-import org.chromium.chrome.browser.preferences.ChromePreferenceManager;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.share.LensUtils;
-import org.chromium.chrome.browser.share.ShareHelper;
+import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareParams;
 import org.chromium.chrome.browser.util.UrlUtilities;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -47,6 +48,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     private static final String TAG = "CCMenuPopulator";
     private final ContextMenuItemDelegate mDelegate;
     private final @ContextMenuMode int mMode;
+    private final ShareDelegate mShareDelegate;
     private boolean mEnableLensWithSearchByImageText;
 
     /**
@@ -240,10 +242,14 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
      * Builds a {@link ChromeContextMenuPopulator}.
      * @param delegate The {@link ContextMenuItemDelegate} that will be notified with actions
      *                 to perform when menu items are selected.
+     * @param shareDelegate The {@link ShareDelegate} that will be notified when a share action is
+     *                      performed.
      * @param mode Defines the context menu mode
      */
-    public ChromeContextMenuPopulator(ContextMenuItemDelegate delegate, @ContextMenuMode int mode) {
+    public ChromeContextMenuPopulator(ContextMenuItemDelegate delegate, ShareDelegate shareDelegate,
+            @ContextMenuMode int mode) {
         mDelegate = delegate;
+        mShareDelegate = shareDelegate;
         mMode = mode;
     }
 
@@ -435,8 +441,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     }
                 } catch (URISyntaxException ignore) {
                 }
-                if (ChromePreferenceManager.getInstance().readBoolean(
-                            ChromePreferenceManager.CHROME_DEFAULT_BROWSER, false)
+                if (SharedPreferencesManager.getInstance().readBoolean(
+                            ChromePreferenceKeys.CHROME_DEFAULT_BROWSER, false)
                         && addNewEntries) {
                     if (mDelegate.isIncognitoSupported()) {
                         tab.add(0, new ChromeContextMenuItem(Item.OPEN_IN_CHROME_INCOGNITO_TAB));
@@ -546,11 +552,11 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         } else if (itemId == R.id.contextmenu_share_link) {
             ContextMenuUma.record(params, ContextMenuUma.Action.SHARE_LINK);
             ShareParams linkShareParams =
-                    new ShareParams.Builder(helper.getActivity(), params.getUrl(), params.getUrl())
+                    new ShareParams.Builder(helper.getWindow(), params.getUrl(), params.getUrl())
                             .setShareDirectly(false)
                             .setSaveLastUsed(true)
                             .build();
-            ShareHelper.share(linkShareParams);
+            mShareDelegate.share(linkShareParams);
         } else if (itemId == R.id.contextmenu_search_with_google_lens) {
             ContextMenuUma.record(params, ContextMenuUma.Action.SEARCH_WITH_GOOGLE_LENS);
             helper.searchWithGoogleLens(mDelegate.isIncognito());

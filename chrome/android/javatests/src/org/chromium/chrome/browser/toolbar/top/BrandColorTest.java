@@ -27,9 +27,11 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabTestUtils;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
+import org.chromium.chrome.browser.ui.styles.ChromeColors;
 import org.chromium.chrome.browser.util.ColorUtils;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -109,7 +111,7 @@ public class BrandColorTest {
         mActivityTestRule.startMainActivityWithURL(url);
         mToolbar = (ToolbarPhone) mActivityTestRule.getActivity().findViewById(R.id.toolbar);
         mToolbarDataProvider = mToolbar.getToolbarDataProvider();
-        mDefaultColor = ColorUtils.getDefaultThemeColor(
+        mDefaultColor = ChromeColors.getDefaultThemeColor(
                 mActivityTestRule.getActivity().getResources(), /* isIncognito = */ false);
         // TODO(https://crbug.com/871805): Use helper class to determine whether dark status icons
         // are supported.
@@ -239,10 +241,11 @@ public class BrandColorTest {
         CriteriaHelper.pollUiThread(new Criteria() {
             @Override
             public boolean isSatisfied() {
-                return mActivityTestRule.getActivity().getActivityTab().isShowingInterstitialPage();
+                return ((TabImpl) mActivityTestRule.getActivity().getActivityTab())
+                        .isShowingInterstitialPage();
             }
         });
-        checkForBrandColor(ColorUtils.getDefaultThemeColor(
+        checkForBrandColor(ChromeColors.getDefaultThemeColor(
                 mActivityTestRule.getActivity().getResources(), false));
     }
 }

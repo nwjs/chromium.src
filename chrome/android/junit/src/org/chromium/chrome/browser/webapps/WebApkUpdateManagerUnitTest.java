@@ -35,6 +35,7 @@ import org.robolectric.shadows.ShadowLooper;
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
 import org.chromium.base.PathUtils;
+import org.chromium.base.metrics.test.DisableHistogramsRule;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.JniMocker;
@@ -42,7 +43,6 @@ import org.chromium.chrome.browser.ShortcutHelper;
 import org.chromium.chrome.browser.background_task_scheduler.ChromeBackgroundTaskFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.util.test.ShadowUrlUtilities;
-import org.chromium.chrome.test.support.DisableHistogramsRule;
 import org.chromium.content_public.common.ScreenOrientationValues;
 import org.chromium.webapk.lib.common.WebApkConstants;
 import org.chromium.webapk.lib.common.WebApkMetaDataKeys;
@@ -131,11 +131,10 @@ public class WebApkUpdateManagerUnitTest {
                 Bitmap badgeIcon, String[] iconUrls, String[] iconHashes,
                 @WebDisplayMode int displayMode, int orientation, long themeColor,
                 long backgroundColor, String shareTargetAction, String shareTargetParamTitle,
-                String shareTargetParamText, String shareTargetParamUrl,
-                boolean shareTargetParamIsMethodPost, boolean shareTargetParamIsEncTypeMultipart,
-                String[] shareTargetParamFileNames, Object[] shareTargetParamAccepts,
-                String manifestUrl, String webApkPackage, int webApkVersion,
-                boolean isManifestStale, @WebApkUpdateReason int updateReason,
+                String shareTargetParamText, boolean shareTargetParamIsMethodPost,
+                boolean shareTargetParamIsEncTypeMultipart, String[] shareTargetParamFileNames,
+                Object[] shareTargetParamAccepts, String manifestUrl, String webApkPackage,
+                int webApkVersion, boolean isManifestStale, @WebApkUpdateReason int updateReason,
                 Callback<Boolean> callback) {}
 
         @Override
@@ -372,7 +371,7 @@ public class WebApkUpdateManagerUnitTest {
                 manifestData.startUrl, WebApkDistributor.BROWSER,
                 manifestData.iconUrlToMurmur2HashMap,
                 new WebApkInfo.ShareTarget(manifestData.shareTargetAction,
-                        manifestData.shareTargetParamTitle, null, null,
+                        manifestData.shareTargetParamTitle, null,
                         manifestData.shareTargetMethod != null
                                 && manifestData.shareTargetMethod.equals(SHARE_TARGET_METHOD_POST),
                         manifestData.shareTargetEncType != null

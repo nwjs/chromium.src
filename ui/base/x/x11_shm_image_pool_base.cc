@@ -12,12 +12,16 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
+#include "base/command_line.h"
+#include "base/environment.h"
 #include "base/location.h"
+#include "base/strings/string_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "ui/events/platform/platform_event_dispatcher.h"
 #include "ui/events/platform/platform_event_source.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/x/x11_switches.h"
 
 namespace ui {
 
@@ -49,6 +53,30 @@ std::size_t MaxShmSegmentSize() {
   static std::size_t max_size = MaxShmSegmentSizeImpl();
   return max_size;
 }
+
+#if !defined(OS_CHROMEOS)
+bool ShouldUseMitShm() {
+  std::unique_ptr<base::Environment> env = base::Environment::Create();
+
+  // Used by QT.
+  if (env->HasVar("QT_X11_NO_MITSHM"))
+    return false;
+
+  // Used by JRE.
+  std::string j2d_use_mitshm;
+  if (env->GetVar("J2D_USE_MITSHM", &j2d_use_mitshm) &&
+      (j2d_use_mitshm == "0" ||
+       base::LowerCaseEqualsASCII(j2d_use_mitshm, "false"))) {
+    return false;
+  }
+
+  // Used by GTK.
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kNoXshm))
+    return false;
+
+  return true;
+}
+#endif
 
 }  // namespace
 
@@ -89,6 +117,11 @@ bool XShmImagePoolBase::Resize(const gfx::Size& pixel_size) {
 
   if (!event_task_runner_)
     return false;
+
+#if !defined(OS_CHROMEOS)
+  if (!ShouldUseMitShm())
+    return false;
+#endif
 
   if (!ui::QueryShmSupport())
     return false;
@@ -165,11 +198,9 @@ bool XShmImagePoolBase::Resize(const gfx::Size& pixel_size) {
   for (std::size_t i = 0; i < frame_states_.size(); ++i) {
     FrameState& state = frame_states_[i];
     state.image->data = state.shminfo_.shmaddr;
-    SkImageInfo image_info = SkImageInfo::Make(
-        state.image->width, state.image->height,
-        state.image->byte_order == LSBFirst ? kBGRA_8888_SkColorType
-                                            : kRGBA_8888_SkColorType,
-        kPremul_SkAlphaType);
+    SkImageInfo image_info =
+        SkImageInfo::Make(state.image->width, state.image->height,
+                          ColorTypeForVisual(visual_), kPremul_SkAlphaType);
     state.bitmap = SkBitmap();
     if (!state.bitmap.installPixels(image_info, state.image->data,
                                     state.image->bytes_per_line)) {

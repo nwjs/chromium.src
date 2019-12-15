@@ -76,6 +76,8 @@ SkColor SkColorFromColorId(ui::NativeTheme::ColorId color_id) {
     case ui::NativeTheme::kColorId_DialogBackground:
     case ui::NativeTheme::kColorId_BubbleBackground:
       return GetBgColor("");
+    case ui::NativeTheme::kColorId_DialogForeground:
+      return GetFgColor("GtkLabel");
     case ui::NativeTheme::kColorId_BubbleFooterBackground:
       return GetBgColor("#statusbar");
 
@@ -102,6 +104,7 @@ SkColor SkColorFromColorId(ui::NativeTheme::ColorId color_id) {
     case ui::NativeTheme::kColorId_FocusedMenuItemBackgroundColor:
       return GetBgColor("GtkMenu#menu GtkMenuItem#menuitem:hover");
     case ui::NativeTheme::kColorId_EnabledMenuItemForegroundColor:
+    case ui::NativeTheme::kColorId_MenuDropIndicator:
       return GetFgColor("GtkMenu#menu GtkMenuItem#menuitem GtkLabel");
     case ui::NativeTheme::kColorId_SelectedMenuItemForegroundColor:
       return GetFgColor("GtkMenu#menu GtkMenuItem#menuitem:hover GtkLabel");
@@ -119,14 +122,10 @@ SkColor SkColorFromColorId(ui::NativeTheme::ColorId color_id) {
             "GtkMenu#menu GtkSeparator#separator.horizontal");
       }
       return GetFgColor("GtkMenu#menu GtkMenuItem#menuitem.separator");
-    case ui::NativeTheme::kColorId_TouchableMenuItemLabelColor:
-    case ui::NativeTheme::kColorId_ActionableSubmenuVerticalSeparatorColor:
-      return gfx::kPlaceholderColor;
     // Fallback to the same colors as Aura.
     case ui::NativeTheme::kColorId_HighlightedMenuItemBackgroundColor:
     case ui::NativeTheme::kColorId_HighlightedMenuItemForegroundColor:
-    case ui::NativeTheme::kColorId_MenuItemAlertBackgroundColorMax:
-    case ui::NativeTheme::kColorId_MenuItemAlertBackgroundColorMin:
+    case ui::NativeTheme::kColorId_MenuItemAlertBackgroundColor:
       return ui::NativeTheme::GetInstanceForNativeUi()->GetSystemColor(
           color_id);
 
@@ -134,6 +133,7 @@ SkColor SkColorFromColorId(ui::NativeTheme::ColorId color_id) {
     case ui::NativeTheme::kColorId_LabelEnabledColor:
       return GetFgColor("GtkLabel");
     case ui::NativeTheme::kColorId_LabelDisabledColor:
+    case ui::NativeTheme::kColorId_LabelSecondaryColor:
       return GetFgColor("GtkLabel:disabled");
     case ui::NativeTheme::kColorId_LabelTextSelectionColor:
       return GetFgColor(GtkVersionCheck(3, 20) ? "GtkLabel #selection"
@@ -180,11 +180,10 @@ SkColor SkColorFromColorId(ui::NativeTheme::ColorId color_id) {
 
     // Button
     case ui::NativeTheme::kColorId_ButtonEnabledColor:
+    case ui::NativeTheme::kColorId_ButtonUncheckedColor:
       return GetFgColor("GtkButton#button.text-button GtkLabel");
     case ui::NativeTheme::kColorId_ButtonDisabledColor:
       return GetFgColor("GtkButton#button.text-button:disabled GtkLabel");
-    case ui::NativeTheme::kColorId_ButtonHoverColor:
-      return GetFgColor("GtkButton#button.text-button:hover GtkLabel");
     case ui::NativeTheme::kColorId_ButtonPressedShade:
       return SK_ColorTRANSPARENT;
 
@@ -297,8 +296,8 @@ SkColor SkColorFromColorId(ui::NativeTheme::ColorId color_id) {
       // theme should be used.
       ui::NativeTheme* fallback_theme =
           color_utils::IsDark(GetBgColor(""))
-              ? ui::NativeTheme::GetInstanceForNativeUi()
-              : ui::NativeThemeDarkAura::instance();
+              ? ui::NativeThemeDarkAura::instance()
+              : ui::NativeTheme::GetInstanceForNativeUi();
       return fallback_theme->GetSystemColor(color_id);
     }
 

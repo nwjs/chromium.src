@@ -55,15 +55,10 @@
     <dimen name="default_rounded_corner_radius">8dp</dimen>
 
     <!-- Custom Menu dimensions -->
-    <dimen name="menu_width">258dp</dimen>
-    <!-- The amount to fade the edges of the menu to indicate more content is available
-         via scrolling. -->
-    <dimen name="menu_vertical_fade_distance">15dp</dimen>
-    <dimen name="menu_badge_translation_y_distance">6dp</dimen>
-    <dimen name="menu_negative_vertical_offset_not_top_anchored">8dp</dimen>
+    <dimen name="tab_switcher_menu_width">222dp</dimen>
+    <dimen name="tab_switcher_menu_vertical_padding">8dp</dimen>
 
-    <!-- Menu button dragging related dimensions -->
-    <dimen name="auto_scroll_full_velocity">500dp</dimen>
+    <dimen name="menu_badge_translation_y_distance">6dp</dimen>
 
     <!-- Infobar dimensions -->
     <!-- Text size of the infobar message and other controls. -->
@@ -138,9 +133,11 @@
     <dimen name="overlay_panel_bar_height">70dp</dimen>
 
     <!-- Preview tab dimensions -->
-    <dimen name="preview_tab_toolbar_height">70dp</dimen>
     <dimen name="preview_tab_favicon_size">24dp</dimen>
-    <dimen name="preview_tab_security_icon_size">16dp</dimen>
+    <dimen name="preview_tab_security_icon_size">22dp</dimen>
+
+    <!-- Sheet tab toolbar dimensions -->
+    <dimen name="sheet_tab_toolbar_height">70dp</dimen>
 
     <!-- Autofill keyboard accessory dimensions -->
     <dimen name="keyboard_accessory_height_with_shadow">56dp</dimen>
@@ -276,6 +273,11 @@
     <dimen name="toolbar_button_width">48dp</dimen>
     <dimen name="toolbar_identity_disc_size">24dp</dimen>
     <dimen name="toolbar_identity_disc_size_duet">32dp</dimen>
+
+    <!-- Bottom Toolbar -->
+    <dimen name="split_toolbar_button_height">24dp</dimen>
+    <dimen name="split_toolbar_button_width">@dimen/split_toolbar_button_height</dimen>
+    <dimen name="bottom_toolbar_button_wrapper_width">56dp</dimen>
 
     <dimen name="toolbar_edge_padding">8dp</dimen>
     <dimen name="location_bar_vertical_margin">8dp</dimen>
@@ -504,8 +506,10 @@
     <dimen name="circular_monogram_size">20dp</dimen>
     <dimen name="circular_monogram_text_size">14dp</dimen>
 
+    <!-- Contact Picker dimensions -->
+    <dimen name="contact_picker_icon_size">36dp</dimen>
+
     <!-- Photo Picker dimensions -->
-    <dimen name="photo_picker_selected_padding">12dp</dimen>
     <dimen name="photo_picker_label_gap">10dp</dimen>
     <dimen name="photo_picker_tile_min_size">100dp</dimen>
     <dimen name="photo_picker_tile_gap">4dp</dimen>
@@ -613,6 +617,7 @@
     <dimen name="bottom_sheet_min_full_half_distance">140dp</dimen>
     <dimen name="bottom_sheet_peek_height">56dp</dimen>
     <dimen name="bottom_sheet_toolbar_shadow_height">16dp</dimen>
+    <dimen name="bottom_sheet_shadow_top_offset">10dp</dimen>
 
     <!--  Miscellaneous dimensions -->
     <dimen name="text_bubble_menu_anchor_y_inset">14dp</dimen>
@@ -631,7 +636,6 @@
     <dimen name="revamped_context_menu_list_lateral_padding">16dp</dimen>
     <dimen name="revamped_context_menu_bottom_padding">8dp</dimen>
     <dimen name="revamped_context_menu_header_vertical_padding">16dp</dimen>
-    <dimen name="revamped_context_menu_divider_padding">8dp</dimen>
     <dimen name="revamped_context_menu_header_image_max_size">60dp</dimen>
     <dimen name="revamped_context_menu_header_circle_bg_diameter">48dp</dimen>
     <dimen name="revamped_context_menu_header_circle_bg_lateral_margin">6dp</dimen>

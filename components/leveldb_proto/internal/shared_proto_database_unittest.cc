@@ -6,7 +6,6 @@
 
 #include "base/bind.h"
 #include "base/files/scoped_temp_dir.h"
-#include "base/message_loop/message_loop.h"
 #include "base/test/task_environment.h"
 #include "base/threading/thread.h"
 #include "build/build_config.h"
@@ -38,10 +37,9 @@ inline void GetClientFromTaskRunner(SharedProtoDatabase* db,
 class SharedProtoDatabaseTest : public testing::Test {
  public:
   void SetUp() override {
-    temp_dir_ = std::make_unique<base::ScopedTempDir>();
-    ASSERT_TRUE(temp_dir_->CreateUniqueTempDir());
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     db_ = base::WrapRefCounted(
-        new SharedProtoDatabase("client", temp_dir_->GetPath()));
+        new SharedProtoDatabase("client", temp_dir_.GetPath()));
   }
 
   void TearDown() override {}
@@ -92,9 +90,9 @@ class SharedProtoDatabaseTest : public testing::Test {
   ProtoLevelDBWrapper* wrapper() { return db_->db_wrapper_.get(); }
 
  private:
+  base::ScopedTempDir temp_dir_;
   base::test::TaskEnvironment task_environment_;
 
-  std::unique_ptr<base::ScopedTempDir> temp_dir_;
   scoped_refptr<SharedProtoDatabase> db_;
 };
 

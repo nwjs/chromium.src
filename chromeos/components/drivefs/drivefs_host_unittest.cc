@@ -22,7 +22,7 @@
 #include "chromeos/components/drivefs/fake_drivefs.h"
 #include "chromeos/components/drivefs/mojom/drivefs.mojom-test-utils.h"
 #include "chromeos/components/drivefs/mojom/drivefs.mojom.h"
-#include "chromeos/components/drivefs/pending_connection_manager.h"
+#include "chromeos/components/mojo_bootstrap/pending_connection_manager.h"
 #include "chromeos/disks/mock_disk_mount_manager.h"
 #include "components/drive/drive_notification_manager.h"
 #include "components/drive/drive_notification_observer.h"
@@ -165,12 +165,12 @@ class MockIdentityAccessor {
   MOCK_METHOD3(
       GetAccessToken,
       std::pair<base::Optional<std::string>, GoogleServiceAuthError::State>(
-          const std::string& account_id,
+          const CoreAccountId& account_id,
           const ::identity::ScopeSet& scopes,
           const std::string& consumer_id));
 
   void OnGetAccessToken(
-      const std::string& account_id,
+      const CoreAccountId& account_id,
       const ::identity::ScopeSet& scopes,
       const std::string& consumer_id,
       identity::mojom::IdentityAccessor::GetAccessTokenCallback callback) {
@@ -342,7 +342,8 @@ class DriveFsHostTest : public ::testing::Test, public mojom::DriveFsBootstrap {
     token_ = StartMount();
     DispatchMountSuccessEvent(token_);
 
-    ASSERT_TRUE(PendingConnectionManager::Get().OpenIpcChannel(token_, {}));
+    ASSERT_TRUE(mojo_bootstrap::PendingConnectionManager::Get().OpenIpcChannel(
+        token_, {}));
     {
       base::RunLoop run_loop;
       bootstrap_receiver_.set_disconnect_handler(run_loop.QuitClosure());
@@ -358,8 +359,7 @@ class DriveFsHostTest : public ::testing::Test, public mojom::DriveFsBootstrap {
                 OnMounted(base::FilePath("/media/drivefsroot/salt-g-ID")))
         .WillOnce(RunQuitClosure(&quit_closure));
     // Eventually we must attempt unmount.
-    EXPECT_CALL(*disk_manager_, UnmountPath("/media/drivefsroot/salt-g-ID",
-                                            chromeos::UNMOUNT_OPTIONS_LAZY, _));
+    EXPECT_CALL(*disk_manager_, UnmountPath("/media/drivefsroot/salt-g-ID", _));
     SendOnMounted();
     run_loop.Run();
     ASSERT_TRUE(host_->IsMounted());
@@ -471,7 +471,7 @@ TEST_F(DriveFsHostTest, OnMountFailedFromMojo) {
 
 TEST_F(DriveFsHostTest, OnMountFailedFromDbus) {
   ASSERT_FALSE(host_->IsMounted());
-  EXPECT_CALL(*disk_manager_, UnmountPath(_, _, _)).Times(0);
+  EXPECT_CALL(*disk_manager_, UnmountPath(_, _)).Times(0);
 
   auto token = StartMount();
 
@@ -488,17 +488,18 @@ TEST_F(DriveFsHostTest, OnMountFailedFromDbus) {
   run_loop.Run();
 
   ASSERT_FALSE(host_->IsMounted());
-  EXPECT_FALSE(PendingConnectionManager::Get().OpenIpcChannel(token, {}));
+  EXPECT_FALSE(mojo_bootstrap::PendingConnectionManager::Get().OpenIpcChannel(
+      token, {}));
 }
 
 TEST_F(DriveFsHostTest, DestroyBeforeMojoConnection) {
   auto token = StartMount();
   DispatchMountSuccessEvent(token);
-  EXPECT_CALL(*disk_manager_, UnmountPath("/media/drivefsroot/salt-g-ID",
-                                          chromeos::UNMOUNT_OPTIONS_LAZY, _));
+  EXPECT_CALL(*disk_manager_, UnmountPath("/media/drivefsroot/salt-g-ID", _));
 
   host_.reset();
-  EXPECT_FALSE(PendingConnectionManager::Get().OpenIpcChannel(token, {}));
+  EXPECT_FALSE(mojo_bootstrap::PendingConnectionManager::Get().OpenIpcChannel(
+      token, {}));
 }
 
 TEST_F(DriveFsHostTest, MountWhileAlreadyMounted) {
@@ -529,7 +530,7 @@ TEST_F(DriveFsHostTest, GetAccessToken_UnmountDuringMojoRequest) {
   ASSERT_NO_FATAL_FAILURE(DoMount());
 
   EXPECT_CALL(mock_identity_accessor_,
-              GetAccessToken("test@example.com", _, "drivefs"))
+              GetAccessToken(CoreAccountId("test@example.com"), _, "drivefs"))
       .WillOnce(testing::DoAll(
           testing::InvokeWithoutArgs([&]() { host_->Unmount(); }),
           testing::Return(std::make_pair(
@@ -707,7 +708,7 @@ TEST_F(DriveFsHostTest, Remount_CachedOnceOnly) {
   ASSERT_NO_FATAL_FAILURE(DoMount());
 
   EXPECT_CALL(mock_identity_accessor_,
-              GetAccessToken("test@example.com", _, "drivefs"))
+              GetAccessToken(CoreAccountId("test@example.com"), _, "drivefs"))
       .WillOnce(testing::Return(
           std::make_pair("auth token", GoogleServiceAuthError::NONE)))
       .WillOnce(testing::Return(

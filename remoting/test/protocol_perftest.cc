@@ -155,6 +155,9 @@ class ProtocolPerfTest
   protocol::CursorShapeStub* GetCursorShapeStub() override {
     return &cursor_shape_stub_;
   }
+  protocol::KeyboardLayoutStub* GetKeyboardLayoutStub() override {
+    return nullptr;
+  }
 
   // protocol::FrameConsumer interface.
   std::unique_ptr<webrtc::DesktopFrame> AllocateFrame(
@@ -319,7 +322,7 @@ class ProtocolPerfTest
         protocol::GetSharedSecretHash(kHostId, kHostPin);
     std::unique_ptr<protocol::AuthenticatorFactory> auth_factory =
         protocol::Me2MeHostAuthenticatorFactory::CreateWithPin(
-            true, kHostOwner, host_cert, key_pair, std::vector<std::string>(),
+            kHostOwner, host_cert, key_pair, std::vector<std::string>(),
             host_pin_hash, nullptr);
     host_->SetAuthenticatorFactory(std::move(auth_factory));
 

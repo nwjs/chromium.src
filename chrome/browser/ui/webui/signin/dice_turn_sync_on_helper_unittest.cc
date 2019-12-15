@@ -21,7 +21,6 @@
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
-#include "chrome/browser/signin/scoped_account_consistency.h"
 #include "chrome/browser/signin/test_signin_client_builder.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/test/base/scoped_testing_local_state.h"
@@ -35,8 +34,6 @@
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/sync/driver/mock_sync_service.h"
 #include "components/sync/driver/sync_user_settings_mock.h"
-#include "components/unified_consent/feature.h"
-#include "components/unified_consent/scoped_unified_consent.h"
 #include "components/unified_consent/url_keyed_data_collection_consent_helper.h"
 #include "content/public/test/browser_task_environment.h"
 #include "google_apis/gaia/google_service_auth_error.h"
@@ -46,7 +43,7 @@
 using ::testing::AtLeast;
 using ::testing::Return;
 
-class DiceTurnSyncOnHelperTestBase;
+class DiceTurnSyncOnHelperTest;
 
 namespace {
 
@@ -71,7 +68,7 @@ std::unique_ptr<TestingProfile> BuildTestingProfile(
 class TestDiceTurnSyncOnHelperDelegate : public DiceTurnSyncOnHelper::Delegate {
  public:
   explicit TestDiceTurnSyncOnHelperDelegate(
-      DiceTurnSyncOnHelperTestBase* test_fixture);
+      DiceTurnSyncOnHelperTest* test_fixture);
   ~TestDiceTurnSyncOnHelperDelegate() override;
 
  private:
@@ -91,7 +88,7 @@ class TestDiceTurnSyncOnHelperDelegate : public DiceTurnSyncOnHelper::Delegate {
   void ShowSyncSettings() override;
   void SwitchToProfile(Profile* new_profile) override;
 
-  DiceTurnSyncOnHelperTestBase* test_fixture_;
+  DiceTurnSyncOnHelperTest* test_fixture_;
 };
 
 // Simple ProfileManager creating testing profiles.
@@ -148,10 +145,10 @@ class FakeUserPolicySigninService : public policy::UserPolicySigninService {
   void RegisterForPolicyWithAccountId(
       const std::string& username,
       const CoreAccountId& account_id,
-      const PolicyRegistrationCallback& callback) override {
+      PolicyRegistrationCallback callback) override {
     EXPECT_EQ(email_, username);
     EXPECT_EQ(account_id_, account_id);
-    callback.Run(dm_token_, client_id_);
+    std::move(callback).Run(dm_token_, client_id_);
   }
 
   // policy::UserPolicySigninServiceBase:
@@ -160,8 +157,8 @@ class FakeUserPolicySigninService : public policy::UserPolicySigninService {
       const std::string& dm_token,
       const std::string& client_id,
       scoped_refptr<network::SharedURLLoaderFactory> test_shared_loader_factory,
-      const PolicyFetchCallback& callback) override {
-    callback.Run(true);
+      PolicyFetchCallback callback) override {
+    std::move(callback).Run(true);
   }
 
  private:
@@ -199,9 +196,9 @@ std::unique_ptr<TestingProfile> BuildTestingProfile(
 
 }  // namespace
 
-class DiceTurnSyncOnHelperTestBase : public testing::Test {
+class DiceTurnSyncOnHelperTest : public testing::Test {
  public:
-  DiceTurnSyncOnHelperTestBase()
+  DiceTurnSyncOnHelperTest()
       : local_state_(TestingBrowserProcess::GetGlobal()) {}
 
   void SetUp() override {
@@ -221,7 +218,7 @@ class DiceTurnSyncOnHelperTestBase : public testing::Test {
     EXPECT_FALSE(initial_device_id_.empty());
   }
 
-  ~DiceTurnSyncOnHelperTestBase() override {
+  ~DiceTurnSyncOnHelperTest() override {
     DCHECK(delegate_destroyed_);
     // Destroy extra profiles.
     TestingBrowserProcess::GetGlobal()->SetProfileManager(nullptr);
@@ -427,33 +424,8 @@ class DiceTurnSyncOnHelperTestBase : public testing::Test {
   bool sync_settings_shown_ = false;
 };
 
-// Test class with only DiceMigration enabled.
-class DiceTurnSyncOnHelperTest : public DiceTurnSyncOnHelperTestBase {
- public:
-  DiceTurnSyncOnHelperTest() = default;
-
- private:
-  ScopedAccountConsistencyDiceMigration scoped_dice_;
-};
-
-// Test class with Dice and UnifiedConsent enabled.
-class DiceTurnSyncOnHelperTestWithUnifiedConsent
-    : public DiceTurnSyncOnHelperTestBase {
- public:
-  DiceTurnSyncOnHelperTestWithUnifiedConsent()
-      : scoped_unified_consent_(
-            unified_consent::UnifiedConsentFeatureState::kEnabled) {}
-  ~DiceTurnSyncOnHelperTestWithUnifiedConsent() override {}
-
- private:
-  ScopedAccountConsistencyDice scoped_dice_;
-  unified_consent::ScopedUnifiedConsent scoped_unified_consent_;
-};
-
-// TestDiceTurnSyncOnHelperDelegate implementation.
-
 TestDiceTurnSyncOnHelperDelegate::TestDiceTurnSyncOnHelperDelegate(
-    DiceTurnSyncOnHelperTestBase* test_fixture)
+    DiceTurnSyncOnHelperTest* test_fixture)
     : test_fixture_(test_fixture) {}
 
 TestDiceTurnSyncOnHelperDelegate::~TestDiceTurnSyncOnHelperDelegate() {
@@ -716,33 +688,9 @@ TEST_F(DiceTurnSyncOnHelperTest, StartSync) {
 }
 
 // Tests that the user is signed in and Sync configuration is complete.
+// Also tests that turning sync on enables URL-keyed anonymized data collection.
 // Regression test for http://crbug.com/812546
 TEST_F(DiceTurnSyncOnHelperTest, ShowSyncDialogForEndConsumerAccount) {
-  // Set expectations.
-  expected_sync_confirmation_shown_ = true;
-  sync_confirmation_result_ = LoginUIService::SyncConfirmationUIClosedResult::
-      SYNC_WITH_DEFAULT_SETTINGS;
-  SetExpectationsForSyncStartupCompleted();
-  EXPECT_CALL(
-      *GetMockSyncService()->GetMockUserSettings(),
-      SetFirstSetupComplete(syncer::SyncFirstSetupCompleteSource::BASIC_FLOW))
-      .Times(1);
-
-  // Signin flow.
-  EXPECT_FALSE(identity_manager()->HasPrimaryAccount());
-  CreateDiceTurnOnSyncHelper(
-      DiceTurnSyncOnHelper::SigninAbortedMode::REMOVE_ACCOUNT);
-
-  // Check expectations.
-  EXPECT_TRUE(identity_manager()->HasAccountWithRefreshToken(account_id()));
-  EXPECT_EQ(account_id(), identity_manager()->GetPrimaryAccountId());
-  CheckDelegateCalls();
-}
-
-// Tests that the user enabled unified consent,
-TEST_F(DiceTurnSyncOnHelperTestWithUnifiedConsent,
-       ShowSyncDialogForEndConsumerAccount_UnifiedConsentEnabled) {
-  ASSERT_TRUE(unified_consent::IsUnifiedConsentFeatureEnabled());
   // Set expectations.
   expected_sync_confirmation_shown_ = true;
   sync_confirmation_result_ = LoginUIService::SyncConfirmationUIClosedResult::

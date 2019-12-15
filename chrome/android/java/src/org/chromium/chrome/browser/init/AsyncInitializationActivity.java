@@ -24,11 +24,11 @@ import android.view.WindowManager;
 
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.StrictModeContext;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.library_loader.LoaderErrors;
 import org.chromium.base.library_loader.ProcessInitException;
@@ -248,7 +248,7 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
     @CallSuper
     @Override
     public void onStartupFailure() {
-        throw new ProcessInitException(LoaderErrors.LOADER_ERROR_NATIVE_STARTUP_FAILED);
+        throw new ProcessInitException(LoaderErrors.NATIVE_STARTUP_FAILED);
     }
 
     /**

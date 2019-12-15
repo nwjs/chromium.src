@@ -84,7 +84,6 @@ component("gpu") {
   # TODO(crbug.com/1006266): consider using |use_chromeos_video_acceleration|.
   if (use_v4l2_codec || use_vaapi) {
     public_deps += [
-      ":image_processor",
       ":video_frame_mapper",
       "//media/gpu/chromeos",
       "//media/gpu/linux:common",
@@ -181,6 +180,8 @@ component("gpu") {
       "windows/d3d11_video_decoder_client.h",
       "windows/d3d11_video_decoder_impl.cc",
       "windows/d3d11_video_decoder_impl.h",
+      "windows/d3d11_video_device_format_support.cc",
+      "windows/d3d11_video_device_format_support.h",
       "windows/d3d11_video_processor_proxy.cc",
       "windows/d3d11_video_processor_proxy.h",
       "windows/d3d11_vp9_accelerator.cc",
@@ -255,8 +256,6 @@ source_set("common") {
     "h264_dpb.cc",
     "h264_dpb.h",
     "macros.h",
-    "video_frame_converter.cc",
-    "video_frame_converter.h",
     "vp9_decoder.cc",
     "vp9_decoder.h",
     "vp9_picture.cc",
@@ -311,51 +310,6 @@ source_set("command_buffer_helper") {
 
 # TODO(crbug.com/1006266): consider using |use_chromeos_video_acceleration|.
 if (use_v4l2_codec || use_vaapi) {
-  source_set("image_processor") {
-    defines = [ "MEDIA_GPU_IMPLEMENTATION" ]
-    sources = [
-      "image_processor_factory.cc",
-      "libyuv_image_processor.cc",
-      "libyuv_image_processor.h",
-    ]
-
-    public_deps = [
-      ":image_processor_common",
-    ]
-
-    deps = [
-      ":video_frame_mapper",
-      "//third_party/libyuv",
-      "//ui/gl",
-    ]
-
-    if (use_v4l2_codec) {
-      deps += [ "//media/gpu/v4l2" ]
-    }
-
-    if (use_vaapi) {
-      deps += [ "//media/gpu/vaapi" ]
-    }
-  }
-
-  source_set("image_processor_common") {
-    defines = [ "MEDIA_GPU_IMPLEMENTATION" ]
-    sources = [
-      "image_processor.cc",
-      "image_processor.h",
-      "image_processor_factory.h",
-    ]
-
-    public_deps = [
-      ":buildflags",
-      ":common",
-      "//base",
-      "//media",
-      "//media/gpu/chromeos:fourcc",
-      "//ui/gfx/geometry",
-    ]
-  }
-
   source_set("video_frame_mapper") {
     defines = [ "MEDIA_GPU_IMPLEMENTATION" ]
     sources = [
@@ -393,20 +347,25 @@ if (use_v4l2_codec || use_vaapi) {
 }
 
 # TODO(watk): Run this on bots. http://crbug.com/461437
-if (is_win || is_android || use_v4l2_codec || use_vaapi) {
+if (is_android) {
   test("video_decode_accelerator_unittest") {
     data = [
       "//media/test/data/",
     ]
 
     deps = [
+      ":android_video_decode_accelerator_unittests",
       ":common",
       ":gpu",
       "//base",
       "//base/test:test_support",
+      "//gpu/command_buffer/service:android_texture_owner_unittests",
       "//media:test_support",
+      "//media/base/android:media_java",
+      "//media/test:run_all_unittests",
       "//mojo/core/embedder",
       "//testing/gtest",
+      "//ui/android:ui_java",
       "//ui/base",
       "//ui/display/manager",
       "//ui/gfx",
@@ -418,51 +377,6 @@ if (is_win || is_android || use_v4l2_codec || use_vaapi) {
     ]
 
     configs += [ "//third_party/khronos:khronos_headers" ]
-
-    if (is_win || is_chromeos || use_v4l2_codec) {
-      sources = [
-        "test/fake_video_decode_accelerator.cc",
-        "test/fake_video_decode_accelerator.h",
-        "video_decode_accelerator_unittest.cc",
-      ]
-      deps += [
-        "test:decode_helpers",
-        "test:frame_file_writer",
-        "test:frame_validator",
-        "//mojo/core/embedder",
-        "//ui/display",
-        "//ui/display/types",
-        "//ui/platform_window",
-      ]
-    }
-
-    if (is_android) {
-      deps += [
-        ":android_video_decode_accelerator_unittests",
-        "//gpu/command_buffer/service:android_texture_owner_unittests",
-        "//media/base/android:media_java",
-        "//media/test:run_all_unittests",
-        "//ui/android:ui_java",
-      ]
-    }
-
-    if (is_win) {
-      # TODO(https://crbug.com/167187): Fix size_t to int truncations.
-      configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
-      deps += [
-        "//third_party/angle:libEGL",
-        "//third_party/angle:libGLESv2",
-      ]
-    }
-
-    if (use_x11) {
-      configs += [ "//build/config/linux:x11" ]
-      deps += [ "//ui/gfx/x" ]
-    }
-
-    if (use_ozone) {
-      deps += [ "//ui/ozone" ]
-    }
   }
 }
 
@@ -599,6 +513,7 @@ source_set("unit_tests") {
       "windows/d3d11_decryptor_unittest.cc",
       "windows/d3d11_texture_selector_unittest.cc",
       "windows/d3d11_video_decoder_unittest.cc",
+      "windows/d3d11_video_device_format_support_unittest.cc",
       "windows/d3d11_video_processor_proxy_unittest.cc",
       "windows/supported_profile_helpers_unittest.cc",
     ]
@@ -640,26 +555,6 @@ if (use_v4l2_codec || use_vaapi) {
       "test:video_player",
       "test:video_player_test_environment",
       "//media:test_support",
-      "//testing/gtest",
-    ]
-  }
-
-  test("image_processor_test") {
-    sources = [
-      "image_processor_test.cc",
-    ]
-    deps = [
-      ":buildflags",
-      ":gpu",
-      "test:frame_file_writer",
-      "test:frame_validator",
-      "test:helpers",
-      "test:image_processor",
-      "test:render_helpers",
-      "//base/test:test_support",
-      "//media:test_support",
-      "//media/gpu/chromeos:fourcc",
-      "//mojo/core/embedder",
       "//testing/gtest",
     ]
   }

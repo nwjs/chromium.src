@@ -57,6 +57,7 @@
 #include "ui/gl/buildflags.h"
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_switches.h"
+#include "ui/gl/gpu_preference.h"
 #include "ui/gl/gpu_switching_manager.h"
 
 #if defined(OS_ANDROID)
@@ -140,7 +141,7 @@ void UpdateFeatureStats(const gpu::GpuFeatureInfo& gpu_feature_info) {
       *base::CommandLine::ForCurrentProcess();
   const gpu::GpuFeatureType kGpuFeatures[] = {
       gpu::GPU_FEATURE_TYPE_ACCELERATED_2D_CANVAS,
-      gpu::GPU_FEATURE_TYPE_GPU_COMPOSITING,
+      gpu::GPU_FEATURE_TYPE_ACCELERATED_GL,
       gpu::GPU_FEATURE_TYPE_GPU_RASTERIZATION,
       gpu::GPU_FEATURE_TYPE_OOP_RASTERIZATION,
       gpu::GPU_FEATURE_TYPE_ACCELERATED_WEBGL,
@@ -282,6 +283,17 @@ bool SwiftShaderAllowed() {
 #endif
 }
 
+// These values are logged to UMA. Entries should not be renumbered and numeric
+// values should never be reused. Please keep in sync with "CompositingMode" in
+// src/tools/metrics/histograms/enums.xml.
+enum class CompositingMode {
+  kSoftware = 0,
+  kGL = 1,
+  kVulkan = 2,
+  kMetal = 3,
+  kMaxValue = kMetal
+};
+
 }  // anonymous namespace
 
 GpuDataManagerImplPrivate::GpuDataManagerImplPrivate(GpuDataManagerImpl* owner)
@@ -307,6 +319,13 @@ GpuDataManagerImplPrivate::GpuDataManagerImplPrivate(GpuDataManagerImpl* owner)
   // For testing only.
   if (command_line->HasSwitch(switches::kDisableDomainBlockingFor3DAPIs))
     domain_blocking_enabled_ = false;
+
+  // Do not change kTimerInterval without also changing the UMA histogram name,
+  // as histogram data from before/after the change will not be comparable.
+  constexpr base::TimeDelta kTimerInterval = base::TimeDelta::FromMinutes(5);
+  compositing_mode_timer_.Start(
+      FROM_HERE, kTimerInterval, this,
+      &GpuDataManagerImplPrivate::RecordCompositingMode);
 }
 
 GpuDataManagerImplPrivate::~GpuDataManagerImplPrivate() {
@@ -596,10 +615,6 @@ void GpuDataManagerImplPrivate::UpdateGpuFeatureInfo(
     const base::Optional<gpu::GpuFeatureInfo>&
         gpu_feature_info_for_hardware_gpu) {
   gpu_feature_info_ = gpu_feature_info;
-  if (IsGpuCompositingDisabled()) {
-    gpu_feature_info_.status_values[gpu::GPU_FEATURE_TYPE_GPU_COMPOSITING] =
-        gpu::kGpuFeatureStatusDisabled;
-  }
   if (!gpu_feature_info_for_hardware_gpu_.IsInitialized()) {
     if (gpu_feature_info_for_hardware_gpu.has_value()) {
       DCHECK(gpu_feature_info_for_hardware_gpu->IsInitialized());
@@ -639,14 +654,10 @@ bool GpuDataManagerImplPrivate::IsGpuCompositingDisabled() const {
 }
 
 void GpuDataManagerImplPrivate::SetGpuCompositingDisabled() {
-  disable_gpu_compositing_ = true;
-
-  if (gpu_feature_info_.IsInitialized() &&
-      gpu_feature_info_.status_values[gpu::GPU_FEATURE_TYPE_GPU_COMPOSITING] ==
-          gpu::kGpuFeatureStatusEnabled) {
-    gpu_feature_info_.status_values[gpu::GPU_FEATURE_TYPE_GPU_COMPOSITING] =
-        gpu::kGpuFeatureStatusDisabled;
-    NotifyGpuInfoUpdate();
+  if (!IsGpuCompositingDisabled()) {
+    disable_gpu_compositing_ = true;
+    if (gpu_feature_info_.IsInitialized())
+      NotifyGpuInfoUpdate();
   }
 }
 
@@ -807,25 +818,36 @@ std::unique_ptr<base::ListValue> GpuDataManagerImplPrivate::GetLogMessages()
 void GpuDataManagerImplPrivate::HandleGpuSwitch() {
   base::AutoUnlock unlock(owner_->lock_);
   // Notify observers in the browser process.
-  ui::GpuSwitchingManager::GetInstance()->NotifyGpuSwitched();
+  ui::GpuSwitchingManager::GetInstance()->NotifyGpuSwitched(
+      active_gpu_heuristic_);
   // Pass the notification to the GPU process to notify observers there.
-  GpuProcessHost::CallOnIO(GPU_PROCESS_KIND_SANDBOXED, false /* force_create */,
-                           base::BindOnce([](GpuProcessHost* host) {
-                             if (host)
-                               host->gpu_service()->GpuSwitched();
-                           }));
+  GpuProcessHost::CallOnIO(
+      GPU_PROCESS_KIND_SANDBOXED, false /* force_create */,
+      base::BindOnce(
+          [](gl::GpuPreference active_gpu, GpuProcessHost* host) {
+            if (host)
+              host->gpu_service()->GpuSwitched(active_gpu);
+          },
+          active_gpu_heuristic_));
 }
 
 bool GpuDataManagerImplPrivate::UpdateActiveGpu(uint32_t vendor_id,
                                                 uint32_t device_id) {
+  // Heuristics for dual-GPU detection.
+  bool is_dual_gpu = gpu_info_.secondary_gpus.size() == 1;
+  const uint32_t kIntelID = 0x8086;
+  bool saw_intel_gpu = false;
+  bool saw_non_intel_gpu = false;
+
   if (gpu_info_.gpu.vendor_id == vendor_id &&
       gpu_info_.gpu.device_id == device_id) {
     // The primary GPU is active.
     if (gpu_info_.gpu.active)
       return false;
     gpu_info_.gpu.active = true;
-    for (size_t ii = 0; ii < gpu_info_.secondary_gpus.size(); ++ii)
+    for (size_t ii = 0; ii < gpu_info_.secondary_gpus.size(); ++ii) {
       gpu_info_.secondary_gpus[ii].active = false;
+    }
   } else {
     // A secondary GPU is active.
     for (size_t ii = 0; ii < gpu_info_.secondary_gpus.size(); ++ii) {
@@ -839,6 +861,26 @@ bool GpuDataManagerImplPrivate::UpdateActiveGpu(uint32_t vendor_id,
       }
     }
     gpu_info_.gpu.active = false;
+  }
+  active_gpu_heuristic_ = gl::GpuPreference::kDefault;
+  if (is_dual_gpu) {
+    if (gpu_info_.gpu.vendor_id == kIntelID) {
+      saw_intel_gpu = true;
+    } else {
+      saw_non_intel_gpu = true;
+    }
+    if (gpu_info_.secondary_gpus[0].vendor_id == kIntelID) {
+      saw_intel_gpu = true;
+    } else {
+      saw_non_intel_gpu = true;
+    }
+    if (saw_intel_gpu && saw_non_intel_gpu) {
+      if (vendor_id == kIntelID) {
+        active_gpu_heuristic_ = gl::GpuPreference::kLowPower;
+      } else {
+        active_gpu_heuristic_ = gl::GpuPreference::kHighPerformance;
+      }
+    }
   }
   GetContentClient()->SetGpuInfo(gpu_info_);
   NotifyGpuInfoUpdate();
@@ -966,10 +1008,12 @@ gpu::GpuMode GpuDataManagerImplPrivate::GetGpuMode() const {
 }
 
 void GpuDataManagerImplPrivate::FallBackToNextGpuMode() {
-#if defined(OS_ANDROID) || defined(OS_CHROMEOS)
+#if defined(OS_ANDROID) || defined(OS_CHROMEOS) || defined(OS_FUCHSIA)
   // Android and Chrome OS can't switch to software compositing. If the GPU
   // process initialization fails or GPU process is too unstable then crash the
   // browser process to reset everything.
+  // On Fuchsia Vulkan must be used when it's enabled by the WebEngine embedder.
+  // Falling back to SW compositing in that case is not supported.
 #if defined(OS_ANDROID)
   FatalGpuProcessLaunchFailureOnBackground();
 #endif
@@ -996,6 +1040,18 @@ void GpuDataManagerImplPrivate::FallBackToNextGpuMode() {
       NOTREACHED();
   }
 #endif
+}
+
+void GpuDataManagerImplPrivate::RecordCompositingMode() {
+  CompositingMode compositing_mode;
+  if (IsGpuCompositingDisabled()) {
+    compositing_mode = CompositingMode::kSoftware;
+  } else {
+    // TODO(penghuang): Record kVulkan here if we're using Vulkan.
+    compositing_mode = CompositingMode::kGL;
+  }
+
+  UMA_HISTOGRAM_ENUMERATION("GPU.CompositingMode", compositing_mode);
 }
 
 }  // namespace content

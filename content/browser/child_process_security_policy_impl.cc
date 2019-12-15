@@ -37,13 +37,13 @@
 #include "content/public/common/url_constants.h"
 #include "net/base/filename_util.h"
 #include "net/base/url_util.h"
-#include "net/url_request/url_request.h"
+#include "net/net_buildflags.h"
 #include "services/network/public/cpp/resource_request_body.h"
-#include "storage/browser/fileapi/file_permission_policy.h"
-#include "storage/browser/fileapi/file_system_context.h"
-#include "storage/browser/fileapi/file_system_url.h"
-#include "storage/browser/fileapi/isolated_context.h"
-#include "storage/common/fileapi/file_system_util.h"
+#include "storage/browser/file_system/file_permission_policy.h"
+#include "storage/browser/file_system/file_system_context.h"
+#include "storage/browser/file_system/file_system_url.h"
+#include "storage/browser/file_system/isolated_context.h"
+#include "storage/common/file_system/file_system_util.h"
 #include "url/gurl.h"
 #include "url/url_canon.h"
 #include "url/url_constants.h"
@@ -130,17 +130,31 @@ base::debug::CrashKeyString* GetRequestedOriginCrashKey() {
   return requested_origin_key;
 }
 
+base::debug::CrashKeyString* GetKilledProcessOriginLockKey() {
+  static auto* crash_key = base::debug::AllocateCrashKeyString(
+      "killed_process_origin_lock", base::debug::CrashKeySize::Size64);
+  return crash_key;
+}
+
+base::debug::CrashKeyString* GetCanAccessDataFailureReasonKey() {
+  static auto* crash_key = base::debug::AllocateCrashKeyString(
+      "can_access_data_failure_reason", base::debug::CrashKeySize::Size64);
+  return crash_key;
+}
+
 void LogCanAccessDataForOriginCrashKeys(
     const std::string& expected_process_lock,
     const std::string& killed_process_origin_lock,
-    const std::string& requested_origin) {
+    const std::string& requested_origin,
+    const std::string& failure_reason) {
   base::debug::SetCrashKeyString(bad_message::GetRequestedSiteURLKey(),
                                  expected_process_lock);
-  base::debug::SetCrashKeyString(bad_message::GetKilledProcessOriginLockKey(),
+  base::debug::SetCrashKeyString(GetKilledProcessOriginLockKey(),
                                  killed_process_origin_lock);
-
-  auto* requested_origin_key = GetRequestedOriginCrashKey();
-  base::debug::SetCrashKeyString(requested_origin_key, requested_origin);
+  base::debug::SetCrashKeyString(GetRequestedOriginCrashKey(),
+                                 requested_origin);
+  base::debug::SetCrashKeyString(GetCanAccessDataFailureReasonKey(),
+                                 failure_reason);
 }
 
 }  // namespace
@@ -355,7 +369,7 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
     }
   }
 
-  const GURL& origin_lock() { return origin_lock_; }
+  const GURL& origin_lock() const { return origin_lock_; }
 
   BrowsingInstanceId lowest_browsing_instance_id() {
     return lowest_browsing_instance_id_;
@@ -521,6 +535,10 @@ ChildProcessSecurityPolicyImpl::ChildProcessSecurityPolicyImpl() {
   // We know about these schemes and believe them to be safe.
   RegisterWebSafeScheme(url::kHttpScheme);
   RegisterWebSafeScheme(url::kHttpsScheme);
+#if BUILDFLAG(ENABLE_WEBSOCKETS)
+  RegisterWebSafeScheme(url::kWsScheme);
+  RegisterWebSafeScheme(url::kWssScheme);
+#endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
   RegisterWebSafeScheme(url::kFtpScheme);
   RegisterWebSafeScheme(url::kDataScheme);
   RegisterWebSafeScheme("feed");
@@ -935,8 +953,7 @@ bool ChildProcessSecurityPolicyImpl::CanRequestURL(
   }
 
   // Also allow URLs destined for ShellExecute and not the browser itself.
-  return !GetContentClient()->browser()->IsHandledURL(url) &&
-         !net::URLRequest::IsHandledURL(url);
+  return !GetContentClient()->browser()->IsHandledURL(url);
 }
 
 bool ChildProcessSecurityPolicyImpl::CanRedirectToURL(const GURL& url) {
@@ -1276,10 +1293,11 @@ CanCommitStatus ChildProcessSecurityPolicyImpl::CanCommitOriginAndUrl(
     // origin's precursor information.
     // TODO(acolwell): Remove this once process selection for about: URLs has
     // been fixed to always match the precursor info.
-    if (url_origin.opaque() && (url.IsAboutBlank() || url.IsAboutSrcdoc()) &&
+    if (url_origin.opaque() && url.IsAboutBlank() &&
         !actual_origin_lock.is_empty()) {
       return CanCommitStatus::CAN_COMMIT_ORIGIN_AND_URL;
     }
+
     return CanCommitStatus::CANNOT_COMMIT_URL;
   }
 
@@ -1350,15 +1368,10 @@ bool ChildProcessSecurityPolicyImpl::CanAccessDataForOrigin(
       if (security_state && security_state->origin_lock().is_empty())
         return true;
 
-      std::string killed_process_origin_lock;
-      if (!security_state) {
-        killed_process_origin_lock = "(child id not found)";
-      } else {
-        killed_process_origin_lock = security_state->origin_lock().spec();
-      }
-      LogCanAccessDataForOriginCrashKeys("(empty)" /* expected_process_lock */,
-                                         killed_process_origin_lock,
-                                         origin.GetDebugString());
+      LogCanAccessDataForOriginCrashKeys(
+          "(empty)" /* expected_process_lock */,
+          GetKilledProcessOriginLock(security_state), origin.GetDebugString(),
+          "opaque_origin_without_precursor_in_locked_process");
 
       return false;
     } else {
@@ -1391,7 +1404,13 @@ bool ChildProcessSecurityPolicyImpl::CanAccessDataForOrigin(int child_id,
     browser_or_resource_context = security_state->GetBrowserOrResourceContext();
 
   GURL expected_process_lock;
-  if (security_state && browser_or_resource_context) {
+  std::string failure_reason;
+
+  if (!security_state) {
+    failure_reason = "no_security_state";
+  } else if (!browser_or_resource_context) {
+    failure_reason = "no_browser_or_resource_context";
+  } else {
     IsolationContext isolation_context(
         security_state->lowest_browsing_instance_id(),
         browser_or_resource_context);
@@ -1404,6 +1423,7 @@ bool ChildProcessSecurityPolicyImpl::CanAccessDataForOrigin(int child_id,
       // from origins that require exactly the same lock.
       if (actual_process_lock == expected_process_lock)
         return true;
+      failure_reason = "lock_mismatch";
     } else {
       // Citadel-style enforcement - an unlocked process should not be able to
       // access data from origins that require a lock.
@@ -1446,25 +1466,17 @@ bool ChildProcessSecurityPolicyImpl::CanAccessDataForOrigin(int child_id,
           SiteInstanceImpl::ShouldLockToOrigin(isolation_context, site_url);
       if (!should_lock_target)
         return true;
+      failure_reason = " citadel_enforcement";
 #endif
     }
   }
 
   // Returning false here will result in a renderer kill.  Set some crash
   // keys that will help understand the circumstances of that kill.
-  std::string killed_process_origin_lock;
-  if (!security_state) {
-    killed_process_origin_lock = "(child id not found)";
-  } else if (!browser_or_resource_context) {
-    killed_process_origin_lock = "(context is null)";
-  } else if (security_state->origin_lock().is_empty()) {
-    killed_process_origin_lock = "(no lock - citadel-enforcement)";
-  } else {
-    killed_process_origin_lock = security_state->origin_lock().spec();
-  }
-  LogCanAccessDataForOriginCrashKeys(expected_process_lock.spec(),
-                                     killed_process_origin_lock,
-                                     url.GetOrigin().spec());
+  LogCanAccessDataForOriginCrashKeys(
+      expected_process_lock.possibly_invalid_spec(),
+      GetKilledProcessOriginLock(security_state), url.GetOrigin().spec(),
+      failure_reason);
   return false;
 }
 
@@ -1863,6 +1875,32 @@ ChildProcessSecurityPolicyImpl::ParseIsolatedOrigins(
     patterns.emplace_back(origin_string);
 
   return patterns;
+}
+
+// static
+std::string ChildProcessSecurityPolicyImpl::GetKilledProcessOriginLock(
+    const SecurityState* security_state) {
+  std::string killed_process_origin_lock;
+  if (!security_state)
+    return "(child id not found)";
+
+  if (!security_state->GetBrowserOrResourceContext())
+    return "(context is null)";
+
+  if (security_state->origin_lock().is_empty())
+    return "(none)";
+
+  return security_state->origin_lock().possibly_invalid_spec();
+}
+
+void ChildProcessSecurityPolicyImpl::LogKilledProcessOriginLock(int child_id) {
+  base::AutoLock lock(lock_);
+  const auto itr = security_state_.find(child_id);
+  const SecurityState* security_state =
+      itr != security_state_.end() ? itr->second.get() : nullptr;
+
+  base::debug::SetCrashKeyString(GetKilledProcessOriginLockKey(),
+                                 GetKilledProcessOriginLock(security_state));
 }
 
 }  // namespace content

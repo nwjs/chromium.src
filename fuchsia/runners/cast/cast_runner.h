@@ -5,6 +5,8 @@
 #ifndef FUCHSIA_RUNNERS_CAST_CAST_RUNNER_H_
 #define FUCHSIA_RUNNERS_CAST_CAST_RUNNER_H_
 
+#include <fuchsia/sys/cpp/fidl.h>
+#include <fuchsia/web/cpp/fidl.h>
 #include <memory>
 #include <set>
 #include <vector>
@@ -59,6 +61,9 @@ class CastRunner : public WebContentRunner {
   // Starts a component once all configuration data is available.
   void MaybeStartComponent(
       CastComponent::CastComponentParams* pending_component_params);
+
+  // Cancels the launch of a component.
+  void CancelComponentLaunch(CastComponent::CastComponentParams* params);
 
   void CreateAndRegisterCastComponent(
       CastComponent::CastComponentParams params);

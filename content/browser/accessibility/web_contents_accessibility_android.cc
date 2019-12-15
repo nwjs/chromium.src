@@ -697,13 +697,35 @@ jboolean WebContentsAccessibilityAndroid::PopulateAccessibilityNodeInfo(
   Java_WebContentsAccessibilityImpl_setAccessibilityNodeInfoClassName(
       env, obj, info,
       base::android::ConvertUTF8ToJavaString(env, node->GetClassName()));
+
+  ScopedJavaLocalRef<jintArray> suggestion_starts_java;
+  ScopedJavaLocalRef<jintArray> suggestion_ends_java;
+  ScopedJavaLocalRef<jobjectArray> suggestion_text_java;
+  std::vector<int> suggestion_starts;
+  std::vector<int> suggestion_ends;
+  node->GetSuggestions(&suggestion_starts, &suggestion_ends);
+  if (suggestion_starts.size() && suggestion_ends.size()) {
+    suggestion_starts_java = base::android::ToJavaIntArray(
+        env, suggestion_starts.data(), suggestion_starts.size());
+    suggestion_ends_java = base::android::ToJavaIntArray(
+        env, suggestion_ends.data(), suggestion_ends.size());
+
+    // Currently we don't retrieve the text of each suggestion, so
+    // store a blank string for now.
+    std::vector<std::string> suggestion_text(suggestion_starts.size());
+    suggestion_text_java =
+        base::android::ToJavaArrayOfStrings(env, suggestion_text);
+  }
+
   Java_WebContentsAccessibilityImpl_setAccessibilityNodeInfoText(
       env, obj, info,
       base::android::ConvertUTF16ToJavaString(env, node->GetInnerText()),
       node->IsLink(), node->IsEditableText(),
       base::android::ConvertUTF16ToJavaString(
           env, node->GetInheritedString16Attribute(
-                   ax::mojom::StringAttribute::kLanguage)));
+                   ax::mojom::StringAttribute::kLanguage)),
+      suggestion_starts_java, suggestion_ends_java, suggestion_text_java);
+
   base::string16 element_id;
   if (node->GetHtmlAttribute("id", &element_id)) {
     Java_WebContentsAccessibilityImpl_setAccessibilityNodeInfoViewIdResourceName(
@@ -736,7 +758,8 @@ jboolean WebContentsAccessibilityAndroid::PopulateAccessibilityNodeInfo(
       base::android::ConvertUTF16ToJavaString(env, node->GetHint()),
       node->GetIntAttribute(ax::mojom::IntAttribute::kTextSelStart),
       node->GetIntAttribute(ax::mojom::IntAttribute::kTextSelEnd),
-      node->HasImage(), node->IsContentInvalid());
+      node->HasImage(), node->IsContentInvalid(),
+      base::android::ConvertUTF16ToJavaString(env, node->GetTargetUrl()));
 
   Java_WebContentsAccessibilityImpl_setAccessibilityNodeInfoLollipopAttributes(
       env, obj, info, node->CanOpenPopup(), node->IsContentInvalid(),
@@ -844,6 +867,13 @@ void WebContentsAccessibilityAndroid::Click(JNIEnv* env,
                                             const JavaParamRef<jobject>& obj,
                                             jint unique_id) {
   BrowserAccessibilityAndroid* node = GetAXFromUniqueID(unique_id);
+
+  // If it's a heading consisting of only a link, click the link.
+  if (node->IsHeadingLink()) {
+    node = static_cast<BrowserAccessibilityAndroid*>(
+        node->InternalChildrenBegin().get());
+  }
+
   if (node)
     node->manager()->DoDefaultAction(*node);
 }
@@ -1045,6 +1075,36 @@ jint WebContentsAccessibilityAndroid::GetTextLength(
   return text.size();
 }
 
+void WebContentsAccessibilityAndroid::AddSpellingErrorForTesting(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& obj,
+    jint unique_id,
+    jint start_offset,
+    jint end_offset) {
+  BrowserAccessibility* node = GetAXFromUniqueID(unique_id);
+  CHECK(node);
+
+  while (node->GetRole() != ax::mojom::Role::kStaticText &&
+         node->InternalChildCount() > 0) {
+    node = node->InternalChildrenBegin().get();
+  }
+
+  CHECK(node->GetRole() == ax::mojom::Role::kStaticText);
+  base::string16 text = node->GetInnerText();
+  CHECK_LT(start_offset, static_cast<int>(text.size()));
+  CHECK_LE(end_offset, static_cast<int>(text.size()));
+
+  ui::AXNodeData data = node->GetData();
+  data.AddIntListAttribute(ax::mojom::IntListAttribute::kMarkerStarts,
+                           {start_offset});
+  data.AddIntListAttribute(ax::mojom::IntListAttribute::kMarkerEnds,
+                           {end_offset});
+  data.AddIntListAttribute(
+      ax::mojom::IntListAttribute::kMarkerTypes,
+      {static_cast<int>(ax::mojom::MarkerType::kSuggestion)});
+  node->node()->SetData(data);
+}
+
 jboolean WebContentsAccessibilityAndroid::PreviousAtGranularity(
     JNIEnv* env,
     const JavaParamRef<jobject>& obj,
@@ -1091,6 +1151,11 @@ void WebContentsAccessibilityAndroid::MoveAccessibilityFocus(
   // as that will result in loading inline text boxes for the whole tree.
   if (node != node->manager()->GetRoot())
     node->manager()->LoadInlineTextBoxes(*node);
+
+  // Auto-focus links, because some websites have skip links that are
+  // only visible when focused. See http://crbug.com/657157
+  if (node->IsLink() && node->manager()->GetFocus() != node)
+    node->manager()->SetFocus(*node);
 }
 
 bool WebContentsAccessibilityAndroid::IsSlider(JNIEnv* env,
@@ -1214,6 +1279,10 @@ WebContentsAccessibilityAndroid::GetCharacterBoundingBoxes(
     return nullptr;
   }
 
+  float dip_scale = use_zoom_for_dsf_enabled_
+                        ? 1 / root_manager_->device_scale_factor()
+                        : 1.0;
+
   gfx::Rect object_bounds = node->GetUnclippedRootFrameBoundsRect();
   int coords[4 * len];
   for (int i = 0; i < len; i++) {
@@ -1221,6 +1290,9 @@ WebContentsAccessibilityAndroid::GetCharacterBoundingBoxes(
         start + i, start + i + 1);
     if (char_bounds.IsEmpty())
       char_bounds = object_bounds;
+
+    char_bounds = gfx::ScaleToEnclosingRect(char_bounds, dip_scale, dip_scale);
+
     coords[4 * i + 0] = char_bounds.x();
     coords[4 * i + 1] = char_bounds.y();
     coords[4 * i + 2] = char_bounds.right();

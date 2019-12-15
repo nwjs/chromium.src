@@ -14,6 +14,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/threading/thread_checker.h"
+#include "build/build_config.h"
 #include "components/viz/service/display/skia_output_surface.h"
 #include "components/viz/test/test_context_provider.h"
 #include "gpu/command_buffer/common/sync_token.h"
@@ -73,8 +74,7 @@ class FakeSkiaOutputSurface : public SkiaOutputSurface {
       SkYUVColorSpace yuv_color_space,
       sk_sp<SkColorSpace> dst_color_space,
       bool has_alpha) override;
-  gpu::SyncToken SkiaSwapBuffers(OutputSurfaceFrame frame,
-                                 bool wants_sync_token) override;
+  void SkiaSwapBuffers(OutputSurfaceFrame frame) override;
   SkCanvas* BeginPaintRenderPass(const RenderPassId& id,
                                  const gfx::Size& surface_size,
                                  ResourceFormat format,
@@ -89,8 +89,11 @@ class FakeSkiaOutputSurface : public SkiaOutputSurface {
       bool mipmap,
       sk_sp<SkColorSpace> color_space) override;
   void RemoveRenderPassResource(std::vector<RenderPassId> ids) override;
+  void ScheduleOverlays(OverlayList overlays,
+                        std::vector<gpu::SyncToken> sync_tokens) override {}
+#if defined(OS_WIN)
   void SetEnableDCLayers(bool enable) override {}
-  void ScheduleDCLayers(std::vector<DCLayerOverlay> overlays) override {}
+#endif
   void CopyOutput(RenderPassId id,
                   const copy_output::RenderPassGeometry& geometry,
                   const gfx::ColorSpace& color_space,
@@ -120,9 +123,6 @@ class FakeSkiaOutputSurface : public SkiaOutputSurface {
       std::vector<gpu::SyncToken> sync_tokens,
       base::flat_set<gpu::Mailbox> promotion_denied,
       base::flat_map<gpu::Mailbox, gfx::Rect> possible_promotions) override;
-  void RenderToOverlay(gpu::SyncToken sync_token,
-                       gpu::Mailbox overlay_candidate_mailbox,
-                       const gfx::Rect& bounds) override;
 
  private:
   explicit FakeSkiaOutputSurface(

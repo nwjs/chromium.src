@@ -150,13 +150,14 @@ SkColor BrowserNonClientFrameView::GetFrameColor(
   if (frame_->ShouldUseTheme())
     return GetThemeProviderForProfile()->GetColor(color_id);
 
+  // Use app theme color if it is set, but not for apps with tabs.
   web_app::AppBrowserController* app_controller =
       browser_view_->browser()->app_controller();
-  if (app_controller && app_controller->GetThemeColor())
+  if (app_controller && app_controller->GetThemeColor() &&
+      !app_controller->has_tab_strip())
     return *app_controller->GetThemeColor();
 
-  return ThemeProperties::GetDefaultColor(color_id,
-                                          browser_view_->IsIncognito());
+  return GetUnthemedColor(color_id);
 }
 
 void BrowserNonClientFrameView::UpdateFrameColor() {
@@ -400,11 +401,18 @@ BrowserNonClientFrameView::GetThemeProviderForProfile() const {
 }
 
 SkColor BrowserNonClientFrameView::GetThemeOrDefaultColor(int color_id) const {
+  if (!frame_->ShouldUseTheme())
+    return GetUnthemedColor(color_id);
+
   // During shutdown, there may no longer be a widget, and thus no theme
   // provider.
   const auto* theme_provider = GetThemeProvider();
-  return frame_->ShouldUseTheme() && theme_provider
-             ? theme_provider->GetColor(color_id)
-             : ThemeProperties::GetDefaultColor(color_id,
-                                                browser_view_->IsIncognito());
+  return theme_provider ? theme_provider->GetColor(color_id)
+                        : gfx::kPlaceholderColor;
+}
+
+SkColor BrowserNonClientFrameView::GetUnthemedColor(int color_id) const {
+  DCHECK(!frame_->ShouldUseTheme());
+  return ThemeProperties::GetDefaultColor(color_id,
+                                          browser_view_->IsIncognito());
 }

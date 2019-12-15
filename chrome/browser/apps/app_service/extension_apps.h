@@ -13,9 +13,13 @@
 #include "chrome/browser/apps/app_service/app_icon_factory.h"
 #include "chrome/browser/apps/app_service/icon_key_util.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs.h"
+#include "chrome/services/app_service/public/cpp/instance.h"
+#include "chrome/services/app_service/public/cpp/instance_registry.h"
 #include "chrome/services/app_service/public/mojom/app_service.mojom.h"
 #include "components/content_settings/core/browser/content_settings_observer.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/prefs/pref_change_registrar.h"
+#include "extensions/browser/app_window/app_window_registry.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_prefs_observer.h"
 #include "extensions/browser/extension_registry.h"
@@ -28,6 +32,7 @@
 class Profile;
 
 namespace extensions {
+class AppWindow;
 class ExtensionSet;
 }
 
@@ -42,14 +47,22 @@ class ExtensionAppsEnableFlow;
 //
 // See chrome/services/app_service/README.md.
 class ExtensionApps : public apps::mojom::Publisher,
+                      public extensions::AppWindowRegistry::Observer,
                       public extensions::ExtensionPrefsObserver,
                       public extensions::ExtensionRegistryObserver,
                       public content_settings::Observer,
                       public ArcAppListPrefs::Observer {
  public:
+  // Record uninstall dialog action for Web apps and Chrome apps.
+  static void RecordUninstallCanceledAction(Profile* profile,
+                                            const std::string& app_id);
+
+  static bool ShowPauseAppDialog(const std::string& app_id);
+
   ExtensionApps(const mojo::Remote<apps::mojom::AppService>& app_service,
                 Profile* profile,
-                apps::mojom::AppType app_type);
+                apps::mojom::AppType app_type,
+                apps::InstanceRegistry* instance_registry);
   ~ExtensionApps() override;
 
   void FlushMojoCallsForTesting();
@@ -88,13 +101,23 @@ class ExtensionApps : public apps::mojom::Publisher,
   void Uninstall(const std::string& app_id,
                  bool clear_site_data,
                  bool report_abuse) override;
+  void PauseApp(const std::string& app_id) override;
+  void UnpauseApps(const std::string& app_id) override;
   void OpenNativeSettings(const std::string& app_id) override;
+  void OnPreferredAppSet(const std::string& app_id,
+                         apps::mojom::IntentFilterPtr intent_filter,
+                         apps::mojom::IntentPtr intent) override;
 
   // content_settings::Observer overrides.
   void OnContentSettingChanged(const ContentSettingsPattern& primary_pattern,
                                const ContentSettingsPattern& secondary_pattern,
                                ContentSettingsType content_type,
                                const std::string& resource_identifier) override;
+
+  // Overridden from AppWindowRegistry::Observer:
+  void OnAppWindowAdded(extensions::AppWindow* app_window) override;
+  void OnAppWindowShown(extensions::AppWindow* app_window,
+                        bool was_hidden) override;
 
   // extensions::ExtensionPrefsObserver overrides.
   void OnExtensionLastLaunchTimeChanged(
@@ -142,6 +165,12 @@ class ExtensionApps : public apps::mojom::Publisher,
   static bool ShouldShow(const extensions::Extension* extension,
                          Profile* profile);
 
+  // Handles profile prefs kHideWebStoreIcon changes.
+  void OnHideWebStoreIconPrefChanged();
+
+  // Update the show_in_xxx fields for the App structure.
+  void UpdateShowInFields(const std::string& app_id);
+
   void PopulatePermissions(const extensions::Extension* extension,
                            std::vector<mojom::PermissionPtr>* target);
   void PopulateIntentFilters(const base::Optional<GURL>& app_scope,
@@ -161,6 +190,10 @@ class ExtensionApps : public apps::mojom::Publisher,
   // remove the Chrome app badge.
   void ApplyChromeBadge(const std::string& arc_package_name);
 
+  void SetIconEffect(const std::string& app_id);
+
+  void RegisterInstance(extensions::AppWindow* app_window, InstanceState state);
+
   mojo::Receiver<apps::mojom::Publisher> receiver_{this};
   mojo::RemoteSet<apps::mojom::Subscriber> subscribers_;
 
@@ -178,10 +211,23 @@ class ExtensionApps : public apps::mojom::Publisher,
 
   apps::mojom::AppType app_type_;
 
+  apps::InstanceRegistry* instance_registry_;
+  ScopedObserver<extensions::AppWindowRegistry,
+                 extensions::AppWindowRegistry::Observer>
+      app_window_registry_{this};
+
   using EnableFlowPtr = std::unique_ptr<ExtensionAppsEnableFlow>;
   std::map<std::string, EnableFlowPtr> enable_flow_map_;
 
+  std::set<std::string> paused_apps_;
+
   ArcAppListPrefs* arc_prefs_ = nullptr;
+
+  // app_service_ is owned by the object that owns this object.
+  apps::mojom::AppService* app_service_;
+
+  // Registrar used to monitor the profile prefs.
+  PrefChangeRegistrar profile_pref_change_registrar_;
 
   base::WeakPtrFactory<ExtensionApps> weak_factory_{this};
 

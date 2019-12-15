@@ -803,7 +803,7 @@ bool FrameFetchContext::IsFirstPartyOrigin(const KURL& url) const {
       .Top()
       .GetSecurityContext()
       ->GetSecurityOrigin()
-      ->IsSameSchemeHostPort(SecurityOrigin::Create(url).get());
+      ->IsSameOriginWith(SecurityOrigin::Create(url).get());
 }
 
 bool FrameFetchContext::ShouldBlockRequestByInspector(const KURL& url) const {
@@ -908,7 +908,7 @@ bool FrameFetchContext::ShouldBlockFetchAsCredentialedSubresource(
   // TODO(mkwst): This doesn't work when the subresource is an iframe.
   // See https://crbug.com/756846.
   if (Url().User() == url.User() && Url().Pass() == url.Pass() &&
-      SecurityOrigin::Create(url)->IsSameSchemeHostPort(
+      SecurityOrigin::Create(url)->IsSameOriginWith(
           GetResourceFetcherProperties()
               .GetFetchClientSettingsObject()
               .GetSecurityOrigin())) {
@@ -1039,6 +1039,11 @@ bool FrameFetchContext::CalculateIfAdSubresource(
   return GetFrame()->GetAdTracker()->CalculateIfAdSubresource(
       &frame_or_imported_document_->GetDocument(), resource_request, type,
       known_ad);
+}
+
+mojo::PendingReceiver<mojom::blink::WorkerTimingContainer>
+FrameFetchContext::TakePendingWorkerTimingReceiver(int request_id) {
+  return MasterDocumentLoader()->TakePendingWorkerTimingReceiver(request_id);
 }
 
 base::Optional<ResourceRequestBlockedReason> FrameFetchContext::CanRequest(

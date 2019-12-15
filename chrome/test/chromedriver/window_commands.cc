@@ -368,12 +368,13 @@ Status WindowViewportSize(Session* session,
 
 Status ProcessPauseAction(const base::DictionaryValue* action_item,
                           base::DictionaryValue* action) {
-  if (action_item->HasKey("duration")) {
-    int duration;
-    if (!action_item->GetInteger("duration", &duration) || duration < 0)
-      return Status(kInvalidArgument, "'duration' must be a non-negative int");
+  int duration = 0;
+  bool has_value = false;
+  if (!GetOptionalInt(action_item, "duration", &duration, &has_value) ||
+      duration < 0)
+    return Status(kInvalidArgument, "'duration' must be a non-negative int");
+  if (has_value)
     action->SetInteger("duration", duration);
-  }
   return Status(kOk);
 }
 
@@ -513,7 +514,7 @@ Status ExecuteWindowCommand(const WindowCommand& command,
   if (status.code() == kUnexpectedAlertOpen)
     return Status(kOk);
   if (status.code() == kUnexpectedAlertOpen_Keep)
-    return Status(kUnexpectedAlertOpen);
+    return Status(kUnexpectedAlertOpen, status.message());
   return status;
 }
 
@@ -731,8 +732,7 @@ Status ExecuteGetPageSource(Session* session,
                             std::unique_ptr<base::Value>* value,
                             Timeout* timeout) {
   const char kGetPageSource[] =
-      " () => document.documentElement"
-      " ? document.documentElement.outerHTML : ''";
+      " () => (document.documentElement || {}).outerHTML || ''";
 
   base::ListValue args;
   return web_view->CallFunction(
@@ -1359,7 +1359,9 @@ Status ExecutePerformActions(Session* session,
         if (action_type == "pause") {
           GetOptionalInt(action, "duration", &duration);
           tick_duration = std::max(tick_duration, duration);
-        } else {
+        }
+
+        if (type != "none") {
           bool async_dispatch_event = true;
           if (j == last_action_index) {
             async_dispatch_event = false;
@@ -1367,28 +1369,30 @@ Status ExecutePerformActions(Session* session,
           }
 
           if (type == "key") {
-            std::list<KeyEvent> dispatch_key_events;
-            KeyEventBuilder builder;
-            Status status = ConvertKeyActionToKeyEvent(action, input_state,
-                                                       action_type == "keyDown",
-                                                       &dispatch_key_events);
-            if (status.IsError())
-              return status;
-
-            if (dispatch_key_events.size() > 0) {
-              const KeyEvent& event = dispatch_key_events.front();
-              if (action_type == "keyDown") {
-                session->input_cancel_list.emplace_back(
-                    action_input_states[j], nullptr, nullptr, &event);
-                session->sticky_modifiers |= KeyToKeyModifiers(event.key);
-              } else if (action_type == "keyUp") {
-                session->sticky_modifiers &= ~KeyToKeyModifiers(event.key);
-              }
-
-              Status status = web_view->DispatchKeyEvents(dispatch_key_events,
-                                                          async_dispatch_event);
+            if (action_type != "pause") {
+              std::list<KeyEvent> dispatch_key_events;
+              KeyEventBuilder builder;
+              Status status = ConvertKeyActionToKeyEvent(
+                  action, input_state, action_type == "keyDown",
+                  &dispatch_key_events);
               if (status.IsError())
                 return status;
+
+              if (dispatch_key_events.size() > 0) {
+                const KeyEvent& event = dispatch_key_events.front();
+                if (action_type == "keyDown") {
+                  session->input_cancel_list.emplace_back(
+                      action_input_states[j], nullptr, nullptr, &event);
+                  session->sticky_modifiers |= KeyToKeyModifiers(event.key);
+                } else if (action_type == "keyUp") {
+                  session->sticky_modifiers &= ~KeyToKeyModifiers(event.key);
+                }
+
+                Status status = web_view->DispatchKeyEvents(
+                    dispatch_key_events, async_dispatch_event);
+                if (status.IsError())
+                  return status;
+              }
             }
           } else if (type == "pointer") {
             std::string pointer_type;
@@ -1434,54 +1438,57 @@ Status ExecutePerformActions(Session* session,
             }
 
             if (pointer_type == "mouse" || pointer_type == "pen") {
-              std::list<MouseEvent> dispatch_mouse_events;
-              int click_count = 0;
-              if (action_type == "pointerDown" || action_type == "pointerUp") {
-                std::string button;
-                action->GetString("button", &button);
-                button_type[id] = button;
-                click_count = 1;
-              } else if (buttons[id] == 0) {
-                button_type[id].clear();
+              if (action_type != "pause") {
+                std::list<MouseEvent> dispatch_mouse_events;
+                int click_count = 0;
+                if (action_type == "pointerDown" ||
+                    action_type == "pointerUp") {
+                  std::string button;
+                  action->GetString("button", &button);
+                  button_type[id] = button;
+                  click_count = 1;
+                } else if (buttons[id] == 0) {
+                  button_type[id].clear();
+                }
+                MouseEvent event(StringToMouseEventType(action_type),
+                                 StringToMouseButton(button_type[id]),
+                                 action_locations[id].x(),
+                                 action_locations[id].y(), 0, buttons[id],
+                                 click_count);
+                event.pointer_type = StringToPointerType(pointer_type);
+                event.modifiers = session->sticky_modifiers;
+                if (event.type == kPressedMouseEventType) {
+                  base::TimeTicks timestamp = base::TimeTicks::Now();
+                  bool is_repeated_click = IsRepeatedClickEvent(
+                      event.x, event.y, session->mouse_position.x,
+                      session->mouse_position.y, session->click_count,
+                      timestamp, session->mouse_click_timestamp);
+                  event.click_count = is_repeated_click ? 2 : 1;
+                  buttons[id] |= StringToModifierMouseButton(button_type[id]);
+                  session->mouse_position = WebPoint(event.x, event.y);
+                  session->click_count = event.click_count;
+                  session->mouse_click_timestamp = timestamp;
+                  session->input_cancel_list.emplace_back(
+                      action_input_states[j], &event, nullptr, nullptr);
+                  action_input_states[j]->SetInteger(
+                      "pressed",
+                      action_input_states[j]->FindKey("pressed")->GetInt() |
+                          (1 << event.button));
+                } else if (event.type == kReleasedMouseEventType) {
+                  event.click_count = session->click_count;
+                  buttons[id] &= ~StringToModifierMouseButton(button_type[id]);
+                  action_input_states[j]->SetInteger(
+                      "pressed",
+                      action_input_states[j]->FindKey("pressed")->GetInt() &
+                          ~(1 << event.button));
+                }
+                dispatch_mouse_events.push_back(event);
+                Status status = web_view->DispatchMouseEvents(
+                    dispatch_mouse_events, session->GetCurrentFrameId(),
+                    async_dispatch_event);
+                if (status.IsError())
+                  return status;
               }
-              MouseEvent event(StringToMouseEventType(action_type),
-                               StringToMouseButton(button_type[id]),
-                               action_locations[id].x(),
-                               action_locations[id].y(), 0, buttons[id],
-                               click_count);
-              event.pointer_type = StringToPointerType(pointer_type);
-              event.modifiers = session->sticky_modifiers;
-              if (event.type == kPressedMouseEventType) {
-                base::TimeTicks timestamp = base::TimeTicks::Now();
-                bool is_repeated_click = IsRepeatedClickEvent(
-                    event.x, event.y, session->mouse_position.x,
-                    session->mouse_position.y, session->click_count, timestamp,
-                    session->mouse_click_timestamp);
-                event.click_count = is_repeated_click ? 2 : 1;
-                buttons[id] |= StringToModifierMouseButton(button_type[id]);
-                session->mouse_position = WebPoint(event.x, event.y);
-                session->click_count = event.click_count;
-                session->mouse_click_timestamp = timestamp;
-                session->input_cancel_list.emplace_back(
-                    action_input_states[j], &event, nullptr, nullptr);
-                action_input_states[j]->SetInteger(
-                    "pressed",
-                    action_input_states[j]->FindKey("pressed")->GetInt() |
-                        (1 << event.button));
-              } else if (event.type == kReleasedMouseEventType) {
-                event.click_count = session->click_count;
-                buttons[id] &= ~StringToModifierMouseButton(button_type[id]);
-                action_input_states[j]->SetInteger(
-                    "pressed",
-                    action_input_states[j]->FindKey("pressed")->GetInt() &
-                        ~(1 << event.button));
-              }
-              dispatch_mouse_events.push_back(event);
-              Status status = web_view->DispatchMouseEvents(
-                  dispatch_mouse_events, session->GetCurrentFrameId(),
-                  async_dispatch_event);
-              if (status.IsError())
-                return status;
             } else if (pointer_type == "touch") {
               if (action_type == "pointerDown")
                 has_touch_start[id] = true;
@@ -1496,14 +1503,16 @@ Status ExecutePerformActions(Session* session,
                 action_input_states[j]->SetInteger("pressed", 0);
               }
               if (has_touch_start[id]) {
+                if (event.type == kPause)
+                  event.type = kTouchMove;
                 event.id = dispatch_touch_events.size();
                 dispatch_touch_events.push_back(event);
-                if (j == last_touch_index) {
-                  Status status = web_view->DispatchTouchEventWithMultiPoints(
-                      dispatch_touch_events, async_dispatch_event);
-                  if (status.IsError())
-                    return status;
-                }
+              }
+              if (j == last_touch_index) {
+                Status status = web_view->DispatchTouchEventWithMultiPoints(
+                    dispatch_touch_events, async_dispatch_event);
+                if (status.IsError())
+                  return status;
               }
               if (action_type == "pointerUp")
                 has_touch_start[id] = false;
@@ -1512,12 +1521,12 @@ Status ExecutePerformActions(Session* session,
             action_input_states[j]->SetInteger("y", action_locations[id].y());
           }
         }
-
-        if (tick_duration > 0) {
-          base::PlatformThread::Sleep(
-              base::TimeDelta::FromMilliseconds(tick_duration));
-        }
       }
+    }
+
+    if (tick_duration > 0) {
+      base::PlatformThread::Sleep(
+          base::TimeDelta::FromMilliseconds(tick_duration));
     }
   }
 

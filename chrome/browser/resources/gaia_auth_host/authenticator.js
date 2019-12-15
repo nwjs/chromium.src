@@ -203,6 +203,16 @@ cr.define('cr.login', function() {
   };
 
   /**
+   * Old or not supported on Chrome OS messages.
+   * @type {!Array<string>}
+   * @const
+   */
+  const IGNORED_MESSAGES_FROM_GAIA = [
+    'clearOldAttempts',
+    'showConfirmCancel',
+  ];
+
+  /**
    * Initializes the authenticator component.
    */
   class Authenticator extends cr.EventTarget {
@@ -344,6 +354,9 @@ cr.define('cr.login', function() {
       this.webviewEventManager_.addEventListener(
           this.samlHandler_, 'apiPasswordAdded',
           this.onSamlApiPasswordAdded_.bind(this));
+      this.webviewEventManager_.addEventListener(
+          this.samlHandler_, 'challengeMachineKeyRequired',
+          this.onChallengeMachineKeyRequired_.bind(this));
 
       this.webviewEventManager_.addEventListener(
           this.webview_, 'droplink', this.onDropLink_.bind(this));
@@ -762,7 +775,7 @@ cr.define('cr.login', function() {
       const msg = e.data;
       if (msg.method in messageHandlers) {
         messageHandlers[msg.method].call(this, msg);
-      } else {
+      } else if (!IGNORED_MESSAGES_FROM_GAIA.includes(msg.method)) {
         console.warn('Unrecognized message from GAIA: ' + msg.method);
       }
     }
@@ -1057,6 +1070,16 @@ cr.define('cr.login', function() {
     }
 
     /**
+     * Invoked when |samlHandler_| fires 'challengeMachineKeyRequired' event.
+     * @private
+     */
+    onChallengeMachineKeyRequired_(e) {
+      cr.sendWithPromise(
+            'samlChallengeMachineKey', e.detail.url, e.detail.challenge)
+          .then(e.detail.callback);
+    }
+
+    /**
      * Invoked when a link is dropped on the webview.
      * @private
      */
@@ -1124,6 +1147,10 @@ cr.define('cr.login', function() {
      * @private
      */
     onLoadAbort_(e) {
+      if (this.samlHandler_.isIntentionalAbort()) {
+        return;
+      }
+
       this.dispatchEvent(new CustomEvent(
           'loadAbort', {detail: {error_code: e.code, src: e.url}}));
     }

@@ -60,6 +60,14 @@ bool SearchResultBaseView::SelectNextResultAction(bool reverse_tab_order) {
   return true;
 }
 
+void SearchResultBaseView::NotifyA11yResultSelected() {
+  if (actions_view_ && actions_view_->HasSelectedAction()) {
+    actions_view_->NotifyA11yResultSelected();
+    return;
+  }
+  NotifyAccessibilityEvent(ax::mojom::Event::kSelection, true);
+}
+
 void SearchResultBaseView::SetResult(SearchResult* result) {
   OnResultChanging(result);
   ClearResult();
@@ -79,6 +87,9 @@ base::string16 SearchResultBaseView::ComputeAccessibleName() const {
   if (!result())
     return base::string16();
 
+  if (!result()->accessible_name().empty())
+    return result()->accessible_name();
+
   base::string16 accessible_name = result()->title();
   if (!result()->title().empty() && !result()->details().empty())
     accessible_name += base::ASCIIToUTF16(", ");
@@ -94,6 +105,7 @@ void SearchResultBaseView::UpdateAccessibleName() {
 void SearchResultBaseView::ClearResult() {
   if (result_)
     result_->RemoveObserver(this);
+  SetSelected(false, base::nullopt);
   result_ = nullptr;
 }
 

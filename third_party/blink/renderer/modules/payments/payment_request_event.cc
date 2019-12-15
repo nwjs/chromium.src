@@ -13,7 +13,14 @@
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/core/workers/worker_location.h"
-#include "third_party/blink/renderer/modules/payments/payment_method_change_response.h"
+#include "third_party/blink/renderer/modules/payments/address_errors.h"
+#include "third_party/blink/renderer/modules/payments/payment_currency_amount.h"
+#include "third_party/blink/renderer/modules/payments/payment_details_modifier.h"
+#include "third_party/blink/renderer/modules/payments/payment_item.h"
+#include "third_party/blink/renderer/modules/payments/payment_method_data.h"
+#include "third_party/blink/renderer/modules/payments/payment_options.h"
+#include "third_party/blink/renderer/modules/payments/payment_request_details_update.h"
+#include "third_party/blink/renderer/modules/payments/payment_shipping_option.h"
 #include "third_party/blink/renderer/modules/payments/payments_validators.h"
 #include "third_party/blink/renderer/modules/service_worker/respond_with_observer.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_global_scope.h"
@@ -145,7 +152,7 @@ ScriptPromise PaymentRequestEvent::openWindow(ScriptState* script_state,
     return promise;
   }
 
-  if (!context->GetSecurityOrigin()->IsSameSchemeHostPort(
+  if (!context->GetSecurityOrigin()->IsSameOriginWith(
           SecurityOrigin::Create(parsed_url_to_open).get())) {
     resolver->Resolve(v8::Null(script_state->GetIsolate()));
     return promise;
@@ -338,11 +345,11 @@ void PaymentRequestEvent::Trace(blink::Visitor* visitor) {
 }
 
 void PaymentRequestEvent::OnChangePaymentRequestDetailsResponse(
-    payments::mojom::blink::PaymentMethodChangeResponsePtr response) {
+    payments::mojom::blink::PaymentRequestDetailsUpdatePtr response) {
   if (!change_payment_request_details_resolver_)
     return;
 
-  auto* dictionary = MakeGarbageCollected<PaymentMethodChangeResponse>();
+  auto* dictionary = MakeGarbageCollected<PaymentRequestDetailsUpdate>();
   if (!response->error.IsNull() && !response->error.IsEmpty()) {
     dictionary->setError(response->error);
   }

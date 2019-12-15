@@ -37,16 +37,6 @@ std::string RoleToString(ax::mojom::Role role) {
       return result.append("Alert");
     case ax::mojom::Role::kAnchor:
       return result.append("Anchor");
-    case ax::mojom::Role::kAnnotationAttribution:
-      return result.append("AnnotationAttribution");
-    case ax::mojom::Role::kAnnotationCommentary:
-      return result.append("AnnotationCommentary");
-    case ax::mojom::Role::kAnnotationPresence:
-      return result.append("AnnotationPresence");
-    case ax::mojom::Role::kAnnotationRevision:
-      return result.append("AnnotationRevision");
-    case ax::mojom::Role::kAnnotationSuggestion:
-      return result.append("AnnotationSuggestion");
     case ax::mojom::Role::kApplication:
       return result.append("Application");
     case ax::mojom::Role::kArticle:
@@ -65,6 +55,8 @@ std::string RoleToString(ax::mojom::Role role) {
       return result.append("Caption");
     case ax::mojom::Role::kCell:
       return result.append("Cell");
+    case ax::mojom::Role::kCode:
+      return result.append("Code");
     case ax::mojom::Role::kCheckBox:
       return result.append("CheckBox");
     case ax::mojom::Role::kColorWell:
@@ -77,6 +69,10 @@ std::string RoleToString(ax::mojom::Role role) {
       return result.append("ComboBoxGrouping");
     case ax::mojom::Role::kComboBoxMenuButton:
       return result.append("ComboBoxMenuButton");
+    case ax::mojom::Role::kComment:
+      return result.append("Comment");
+    case ax::mojom::Role::kCommentSection:
+      return result.append("CommentSection");
     case ax::mojom::Role::kComplementary:
       return result.append("Complementary");
     case ax::mojom::Role::kContentDeletion:
@@ -187,6 +183,8 @@ std::string RoleToString(ax::mojom::Role role) {
       return result.append("Document");
     case ax::mojom::Role::kEmbeddedObject:
       return result.append("EmbeddedObject");
+    case ax::mojom::Role::kEmphasis:
+      return result.append("Emphasis");
     case ax::mojom::Role::kFigcaption:
       return result.append("Figcaption");
     case ax::mojom::Role::kFigure:
@@ -301,10 +299,14 @@ std::string RoleToString(ax::mojom::Role role) {
       return result.append("RadioGroup");
     case ax::mojom::Role::kRegion:
       return result.append("Region");
-    case ax::mojom::Role::kRowHeader:
-      return result.append("RowHeader");
+    case ax::mojom::Role::kRevision:
+      return result.append("Revision");
     case ax::mojom::Role::kRow:
       return result.append("Row");
+    case ax::mojom::Role::kRowGroup:
+      return result.append("RowGroup");
+    case ax::mojom::Role::kRowHeader:
+      return result.append("RowHeader");
     case ax::mojom::Role::kRuby:
       return result.append("Ruby");
     case ax::mojom::Role::kRubyAnnotation:
@@ -331,8 +333,12 @@ std::string RoleToString(ax::mojom::Role role) {
       return result.append("StaticText");
     case ax::mojom::Role::kStatus:
       return result.append("Status");
+    case ax::mojom::Role::kStrong:
+      return result.append("Strong");
     case ax::mojom::Role::kSwitch:
       return result.append("Switch");
+    case ax::mojom::Role::kSuggestion:
+      return result.append("Suggestion");
     case ax::mojom::Role::kTabList:
       return result.append("TabList");
     case ax::mojom::Role::kTabPanel:
@@ -1987,6 +1993,8 @@ std::string WebAXObjectProxy::DescriptionFrom() {
       return "contents";
     case ax::mojom::DescriptionFrom::kRelatedElement:
       return "relatedElement";
+    case ax::mojom::DescriptionFrom::kTitle:
+      return "title";
   }
 
   NOTREACHED();

@@ -9,6 +9,9 @@
 
 #include <stdint.h>
 
+#include <map>
+#include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -38,6 +41,7 @@
 #include "extensions/common/view_type.h"
 #include "ipc/ipc_message_macros.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 #define IPC_MESSAGE_START ExtensionMsgStart
 
@@ -234,6 +238,9 @@ IPC_STRUCT_BEGIN(ExtensionMsg_ExternalConnectionInfo)
 
   // The URL of the frame that initiated the request.
   IPC_STRUCT_MEMBER(GURL, source_url)
+
+  // The origin of the object that initiated the request.
+  IPC_STRUCT_MEMBER(base::Optional<url::Origin>, source_origin)
 
   // The process ID of the webview that initiated the request.
   IPC_STRUCT_MEMBER(int, guest_process_id)
@@ -919,11 +926,6 @@ IPC_MESSAGE_ROUTED0(ExtensionHostMsg_IncrementLazyKeepaliveCount)
 // Informs the browser there is one less thing keeping the lazy background page
 // alive.
 IPC_MESSAGE_ROUTED0(ExtensionHostMsg_DecrementLazyKeepaliveCount)
-
-// Fetches a globally unique ID (for the lifetime of the browser) from the
-// browser process.
-IPC_SYNC_MESSAGE_CONTROL0_1(ExtensionHostMsg_GenerateUniqueID,
-                            int /* unique_id */)
 
 // Notify the browser that an app window is ready and can resume resource
 // requests.

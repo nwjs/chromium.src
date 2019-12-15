@@ -147,16 +147,16 @@ bool SerializerMarkupAccumulator::ShouldIgnoreAttribute(
 
 bool SerializerMarkupAccumulator::ShouldIgnoreElement(
     const Element& element) const {
-  if (IsHTMLScriptElement(element))
+  if (IsA<HTMLScriptElement>(element))
     return true;
-  if (IsHTMLNoScriptElement(element))
+  if (IsA<HTMLNoScriptElement>(element))
     return true;
   auto* meta = DynamicTo<HTMLMetaElement>(element);
   if (meta && meta->ComputeEncoding().IsValid()) {
     return true;
   }
   // This is done in serializing document.StyleSheets.
-  if (IsHTMLStyleElement(element))
+  if (IsA<HTMLStyleElement>(element))
     return true;
   return delegate_.ShouldIgnoreElement(element);
 }
@@ -216,7 +216,7 @@ void SerializerMarkupAccumulator::AppendStylesheets(Document* document,
     StyleSheet* sheet = sheets.item(i);
     if (!sheet->IsCSSStyleSheet() || sheet->disabled())
       continue;
-    if (style_element_only && !IsHTMLStyleElement(sheet->ownerNode()))
+    if (style_element_only && !IsA<HTMLStyleElement>(sheet->ownerNode()))
       continue;
 
     StringBuilder pseudo_sheet_url_builder;
@@ -383,7 +383,7 @@ void FrameSerializer::AddResourceForElement(Document& document,
         const_cast<Element&>(element).PresentationAttributeStyle(), document);
   }
 
-  if (const auto* image = ToHTMLImageElementOrNull(element)) {
+  if (const auto* image = DynamicTo<HTMLImageElement>(element)) {
     AtomicString image_url_value;
     const Element* parent = element.parentElement();
     if (parent && IsA<HTMLPictureElement>(parent)) {
@@ -394,23 +394,23 @@ void FrameSerializer::AddResourceForElement(Document& document,
       // Otherwise, it is single <img> element. We should get image url
       // contained in href attribute. ImageSourceURL() may return a different
       // URL from srcset attribute.
-      image_url_value = image->getAttribute(html_names::kSrcAttr);
+      image_url_value = image->FastGetAttribute(html_names::kSrcAttr);
     }
     ImageResourceContent* cached_image = image->CachedImage();
     AddImageToResources(cached_image, document.CompleteURL(image_url_value));
-  } else if (const auto* input = ToHTMLInputElementOrNull(element)) {
+  } else if (const auto* input = DynamicTo<HTMLInputElement>(element)) {
     if (input->type() == input_type_names::kImage && input->ImageLoader()) {
       KURL image_url = input->Src();
       ImageResourceContent* cached_image = input->ImageLoader()->GetContent();
       AddImageToResources(cached_image, image_url);
     }
-  } else if (const auto* link = ToHTMLLinkElementOrNull(element)) {
+  } else if (const auto* link = DynamicTo<HTMLLinkElement>(element)) {
     if (CSSStyleSheet* sheet = link->sheet()) {
       KURL sheet_url =
-          document.CompleteURL(link->getAttribute(html_names::kHrefAttr));
+          document.CompleteURL(link->FastGetAttribute(html_names::kHrefAttr));
       SerializeCSSStyleSheet(*sheet, sheet_url);
     }
-  } else if (const auto* style = ToHTMLStyleElementOrNull(element)) {
+  } else if (const auto* style = DynamicTo<HTMLStyleElement>(element)) {
     if (CSSStyleSheet* sheet = style->sheet())
       SerializeCSSStyleSheet(*sheet, NullURL());
   } else if (IsHTMLPlugInElement(element)) {

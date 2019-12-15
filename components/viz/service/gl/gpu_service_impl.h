@@ -32,11 +32,13 @@
 #include "gpu/ipc/service/gpu_config.h"
 #include "gpu/ipc/service/x_util.h"
 #include "gpu/vulkan/buildflags.h"
-#include "mojo/public/cpp/bindings/binding_set.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/shared_remote.h"
 #include "services/viz/privileged/mojom/gl/gpu_host.mojom.h"
 #include "services/viz/privileged/mojom/gl/gpu_service.mojom.h"
+#include "skia/buildflags.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
 #include "ui/gfx/native_widget_types.h"
 
@@ -68,6 +70,7 @@ namespace viz {
 
 class VulkanContextProvider;
 class MetalContextProvider;
+class DawnContextProvider;
 
 // This runs in the GPU process, and communicates with the gpu host (which is
 // the window server) over the mojom APIs. This is responsible for setting up
@@ -85,7 +88,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
                      gpu_feature_info_for_hardware_gpu,
                  const gpu::GpuExtraInfo& gpu_extra_info,
                  gpu::VulkanImplementation* vulkan_implementation,
-                 base::OnceClosure exit_callback);
+                 base::OnceCallback<void(bool /*immediately*/)> exit_callback);
 
   ~GpuServiceImpl() override;
 
@@ -98,7 +101,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
       gpu::SyncPointManager* sync_point_manager = nullptr,
       gpu::SharedImageManager* shared_image_manager = nullptr,
       base::WaitableEvent* shutdown_event = nullptr);
-  void Bind(mojom::GpuServiceRequest request);
+  void Bind(mojo::PendingReceiver<mojom::GpuService> pending_receiver);
 
   scoped_refptr<gpu::SharedContextState> GetContextState();
 
@@ -165,7 +168,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
                     const std::string& key,
                     const std::string& data) override;
   void WakeUpGpu() override;
-  void GpuSwitched() override;
+  void GpuSwitched(gl::GpuPreference active_gpu_heuristic) override;
   void DestroyAllChannels() override;
   void OnBackgroundCleanup() override;
   void OnBackgrounded() override;
@@ -195,6 +198,8 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
                          const std::string& shader) override;
   void MaybeExitOnContextLost() override;
   bool IsExiting() const override;
+  gpu::Scheduler* GetGpuScheduler() override;
+
 #if defined(OS_WIN)
   void SendCreatedChildWindow(gpu::SurfaceHandle parent_window,
                               gpu::SurfaceHandle child_window) override;
@@ -234,7 +239,6 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
   gpu::SyncPointManager* sync_point_manager() {
     return gpu_channel_manager_->sync_point_manager();
   }
-  gpu::Scheduler* scheduler() { return scheduler_.get(); }
 
   base::TaskRunner* main_runner() { return main_runner_.get(); }
 
@@ -254,13 +258,26 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
   }
 
 #if BUILDFLAG(ENABLE_VULKAN)
-  bool is_using_vulkan() const { return !!vulkan_context_provider_; }
+  bool is_using_vulkan() const {
+    return !!vulkan_context_provider_ &&
+           gpu_preferences_.gr_context_type == gpu::GrContextType::kVulkan;
+  }
   VulkanContextProvider* vulkan_context_provider() {
     return vulkan_context_provider_.get();
   }
 #else
   bool is_using_vulkan() const { return false; }
   VulkanContextProvider* vulkan_context_provider() { return nullptr; }
+#endif
+
+#if BUILDFLAG(SKIA_USE_DAWN)
+  bool is_using_dawn() const { return !!dawn_context_provider_; }
+  DawnContextProvider* dawn_context_provider() {
+    return dawn_context_provider_.get();
+  }
+#else
+  bool is_using_dawn() const { return false; }
+  DawnContextProvider* dawn_context_provider() { return nullptr; }
 #endif
 
   void set_oopd_enabled() { oopd_enabled_ = true; }
@@ -339,6 +356,9 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
   scoped_refptr<VulkanContextProvider> vulkan_context_provider_;
 #endif
   std::unique_ptr<MetalContextProvider> metal_context_provider_;
+#if BUILDFLAG(SKIA_USE_DAWN)
+  std::unique_ptr<DawnContextProvider> dawn_context_provider_;
+#endif
 
   std::unique_ptr<gpu::GpuMemoryBufferFactory> gpu_memory_buffer_factory_;
 
@@ -348,7 +368,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
   base::WaitableEvent* shutdown_event_ = nullptr;
 
   // Callback that safely exits GPU process.
-  base::OnceClosure exit_callback_;
+  base::OnceCallback<void(bool)> exit_callback_;
   base::AtomicFlag is_exiting_;
 
   // Used for performing hardware decode acceleration of images. This is shared
@@ -358,9 +378,10 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
 
   base::Time start_time_;
 
-  // Used to track the task to bind a GpuServiceRequest on the io thread.
+  // Used to track the task to bind |receiver_| on the IO thread.
   base::CancelableTaskTracker bind_task_tracker_;
-  std::unique_ptr<mojo::BindingSet<mojom::GpuService>> bindings_;
+  // Should only be accessed on the IO thread after creation.
+  mojo::Receiver<mojom::GpuService> receiver_{this};
 
 #if defined(OS_WIN)
   // Used to track if the Dx Diag task on a different thread is still running.

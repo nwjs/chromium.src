@@ -2,9 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://tab-strip/tab_list.js';
-
 import {webUIListenerCallback} from 'chrome://resources/js/cr.m.js';
+import {FocusOutlineManager} from 'chrome://resources/js/cr/ui/focus_outline_manager.m.js';
+import {setScrollAnimationEnabledForTesting} from 'chrome://tab-strip/tab_list.js';
 import {TabStripEmbedderProxy} from 'chrome://tab-strip/tab_strip_embedder_proxy.js';
 import {TabsApiProxy} from 'chrome://tab-strip/tabs_api_proxy.js';
 
@@ -58,26 +58,38 @@ suite('TabList', () => {
   const tabs = [
     {
       active: true,
+      alertStates: [],
       id: 0,
       index: 0,
+      pinned: false,
       title: 'Tab 1',
     },
     {
       active: false,
+      alertStates: [],
       id: 1,
       index: 1,
+      pinned: false,
       title: 'Tab 2',
     },
     {
       active: false,
+      alertStates: [],
       id: 2,
       index: 2,
+      pinned: false,
       title: 'Tab 3',
     },
   ];
 
   function pinTabAt(tab, index) {
     const changeInfo = {index: index, pinned: true};
+    const updatedTab = Object.assign({}, tab, changeInfo);
+    webUIListenerCallback('tab-updated', updatedTab);
+  }
+
+  function unpinTabAt(tab, index) {
+    const changeInfo = {index: index, pinned: false};
     const updatedTab = Object.assign({}, tab, changeInfo);
     webUIListenerCallback('tab-updated', updatedTab);
   }
@@ -93,6 +105,7 @@ suite('TabList', () => {
 
   setup(() => {
     document.body.innerHTML = '';
+    document.body.style.margin = 0;
 
     testTabsApiProxy = new TestTabsApiProxy();
     testTabsApiProxy.setTabs(tabs);
@@ -104,7 +117,14 @@ suite('TabList', () => {
       '--background-color': 'white',
       '--foreground-color': 'black',
     });
+    testTabStripEmbedderProxy.setLayout({
+      '--height': '100px',
+      '--width': '150px',
+    });
+    testTabStripEmbedderProxy.setVisible(true);
     TabStripEmbedderProxy.instance_ = testTabStripEmbedderProxy;
+
+    setScrollAnimationEnabledForTesting(false);
 
     tabList = document.createElement('tabstrip-tab-list');
     document.body.appendChild(tabList);
@@ -134,6 +154,38 @@ suite('TabList', () => {
     assertEquals(tabList.style.getPropertyValue('--foreground-color'), 'blue');
   });
 
+  test('sets layout variables on init', async () => {
+    await testTabStripEmbedderProxy.whenCalled('getLayout');
+    assertEquals(tabList.style.getPropertyValue('--height'), '100px');
+    assertEquals(tabList.style.getPropertyValue('--width'), '150px');
+  });
+
+  test('updates layout variables when layout changes', async () => {
+    webUIListenerCallback('layout-changed', {
+      '--height': '10000px',
+      '--width': '10px',
+    });
+    await testTabStripEmbedderProxy.whenCalled('getLayout');
+    assertEquals(tabList.style.getPropertyValue('--height'), '10000px');
+    assertEquals(tabList.style.getPropertyValue('--width'), '10px');
+  });
+
+  test('calculates the correct unpinned tab width and height', async () => {
+    webUIListenerCallback('layout-changed', {
+      '--tabstrip-tab-thumbnail-height': '132px',
+      '--tabstrip-tab-thumbnail-width': '200px',
+      '--tabstrip-tab-title-height': '15px',
+    });
+    await testTabStripEmbedderProxy.whenCalled('getLayout');
+
+    const tabListStyle = window.getComputedStyle(tabList);
+    assertEquals(
+        tabListStyle.getPropertyValue('--tabstrip-tab-height').trim(),
+        'calc(15px + 132px)');
+    assertEquals(
+        tabListStyle.getPropertyValue('--tabstrip-tab-width').trim(), '200px');
+  });
+
   test('creates a tab element for each tab', () => {
     const tabElements = getUnpinnedTabs();
     assertEquals(tabs.length, tabElements.length);
@@ -144,6 +196,8 @@ suite('TabList', () => {
 
   test('adds a new tab element when a tab is added in same window', () => {
     const appendedTab = {
+      active: false,
+      alertStates: [],
       id: 3,
       index: 3,
       title: 'New tab',
@@ -154,6 +208,8 @@ suite('TabList', () => {
     assertEquals(tabElements[tabs.length].tab, appendedTab);
 
     const prependedTab = {
+      active: false,
+      alertStates: [],
       id: 4,
       index: 0,
       title: 'New tab',
@@ -162,19 +218,6 @@ suite('TabList', () => {
     tabElements = getUnpinnedTabs();
     assertEquals(tabs.length + 2, tabElements.length);
     assertEquals(tabElements[0].tab, prependedTab);
-  });
-
-  test('adds a new tab element to the start when it is active', async () => {
-    const newActiveTab = {
-      active: true,
-      id: 3,
-      index: 3,
-      title: 'New tab',
-    };
-    webUIListenerCallback('tab-created', newActiveTab);
-    const [tabId, newIndex] = await testTabsApiProxy.whenCalled('moveTab');
-    assertEquals(tabId, newActiveTab.id);
-    assertEquals(newIndex, 0);
   });
 
   test('removes a tab when tab is removed from current window', async () => {
@@ -205,6 +248,8 @@ suite('TabList', () => {
 
   test('adds a pinned tab to its designated container', () => {
     webUIListenerCallback('tab-created', {
+      active: false,
+      alertStates: [],
       index: 0,
       title: 'New pinned tab',
       pinned: true,
@@ -247,44 +292,6 @@ suite('TabList', () => {
     assertEquals(tabElementsBeforeMove[0], tabElementsAfterMove[2]);
     assertEquals(tabElementsBeforeMove[1], tabElementsAfterMove[0]);
     assertEquals(tabElementsBeforeMove[2], tabElementsAfterMove[1]);
-  });
-
-  test('activating a tab off-screen scrolls to it', async () => {
-    testTabStripEmbedderProxy.setVisible(true);
-
-    const scrollPadding = 32;
-
-    // Mock the width of each tab element
-    const tabElements = getUnpinnedTabs();
-    tabElements.forEach((tabElement) => {
-      tabElement.style.width = '200px';
-    });
-
-    // Mock the scrolling parent such that it cannot fit only 1 tab at a time
-    const fakeScroller = {
-      offsetWidth: 300,
-      scrollLeft: 0,
-    };
-    tabList.scrollingParent_ = fakeScroller;
-
-    // The 2nd tab should be off-screen to the right, so activating it should
-    // scroll so that the element's right edge is aligned with the screen's
-    // right edge
-    webUIListenerCallback('tab-active-changed', tabs[1].id);
-    let activeTab = getUnpinnedTabs()[1];
-    await tabList.animationPromises;
-    assertEquals(
-        fakeScroller.scrollLeft,
-        activeTab.offsetLeft + activeTab.offsetWidth -
-            fakeScroller.offsetWidth + scrollPadding);
-
-    // The 1st tab should be now off-screen to the left, so activating it should
-    // scroll so that the element's left edge is aligned with the screen's
-    // left edge
-    webUIListenerCallback('tab-active-changed', tabs[0].id);
-    activeTab = getUnpinnedTabs()[0];
-    await tabList.animationPromises;
-    assertEquals(fakeScroller.scrollLeft, activeTab.offsetLeft - scrollPadding);
   });
 
   test('dragstart sets a drag image offset by the event coordinates', () => {
@@ -343,19 +350,180 @@ suite('TabList', () => {
     assertEquals(newIndex, dragOverIndex);
   });
 
+  test('tracks and untracks thumbnails based on viewport', async () => {
+    // Wait for slideIn animations to complete updating widths and reset
+    // resolvers to track new calls.
+    await tabList.animationPromises;
+    await testTabsApiProxy.whenCalled('setThumbnailTracked');
+    testTabsApiProxy.reset();
+    const tabElements = getUnpinnedTabs();
+
+    // Update width such that at most one tab can fit in the viewport at once.
+    tabList.style.setProperty('--tabstrip-tab-width', `${window.innerWidth}px`);
+
+    // At this point, the only visible tab should be the first tab. The second
+    // tab should fit within the rootMargin of the IntersectionObserver. The
+    // third tab should not be intersecting.
+    let [tabId, thumbnailTracked] =
+        await testTabsApiProxy.whenCalled('setThumbnailTracked');
+    assertEquals(tabId, tabElements[2].tab.id);
+    assertEquals(thumbnailTracked, false);
+    assertEquals(testTabsApiProxy.getCallCount('setThumbnailTracked'), 1);
+    testTabsApiProxy.reset();
+
+    // Scroll such that the second tab is now the only visible tab. At this
+    // point, all 3 tabs should fit within the root and rootMargin of the
+    // IntersectionObserver. Since the 3rd tab was not being tracked before,
+    // it should be the only tab to become tracked.
+    tabList.scrollLeft = tabElements[1].offsetLeft;
+    [tabId, thumbnailTracked] =
+        await testTabsApiProxy.whenCalled('setThumbnailTracked');
+    assertEquals(tabId, tabElements[2].tab.id);
+    assertEquals(thumbnailTracked, true);
+    assertEquals(testTabsApiProxy.getCallCount('setThumbnailTracked'), 1);
+    testTabsApiProxy.reset();
+
+    // Scroll such that the third tab is now the only visible tab. At this
+    // point, the first tab should be outside of the rootMargin of the
+    // IntersectionObserver.
+    tabList.scrollLeft = tabElements[2].offsetLeft;
+    [tabId, thumbnailTracked] =
+        await testTabsApiProxy.whenCalled('setThumbnailTracked');
+    assertEquals(tabId, tabElements[0].tab.id);
+    assertEquals(thumbnailTracked, false);
+    assertEquals(testTabsApiProxy.getCallCount('setThumbnailTracked'), 1);
+  });
+
+  test('tracks and untracks thumbnails based on pinned state', async () => {
+    await tabList.animationPromises;
+    await testTabsApiProxy.whenCalled('setThumbnailTracked');
+    testTabsApiProxy.reset();
+
+    // Update width such that at all tabs can fit and do not fire the
+    // IntersectionObserver based on intersection alone.
+    tabList.style.setProperty(
+        '--tabstrip-tab-width', `${window.innerWidth / tabs.length}px`);
+
+    // Pinning the third tab should untrack thumbnails for the tab
+    pinTabAt(tabs[2], 0);
+    let [tabId, thumbnailTracked] =
+        await testTabsApiProxy.whenCalled('setThumbnailTracked');
+    assertEquals(tabId, tabs[2].id);
+    assertEquals(thumbnailTracked, false);
+    testTabsApiProxy.reset();
+
+    // Unpinning the tab should re-track the thumbnails
+    unpinTabAt(tabs[2], 0);
+    [tabId, thumbnailTracked] =
+        await testTabsApiProxy.whenCalled('setThumbnailTracked');
+
+    assertEquals(tabId, tabs[2].id);
+    assertEquals(thumbnailTracked, true);
+  });
+
+  test('should update thumbnail track status on visibilitychange', async () => {
+    await tabList.animationPromises;
+    await testTabsApiProxy.whenCalled('setThumbnailTracked');
+    testTabsApiProxy.reset();
+
+    testTabStripEmbedderProxy.setVisible(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    // The tab strip should force untrack thumbnails for all tabs.
+    await testTabsApiProxy.whenCalled('setThumbnailTracked');
+    assertEquals(
+        testTabsApiProxy.getCallCount('setThumbnailTracked'), tabs.length);
+    testTabsApiProxy.reset();
+
+    // Update width such that at all tabs can fit
+    tabList.style.setProperty(
+        '--tabstrip-tab-width', `${window.innerWidth / tabs.length}px`);
+
+    testTabStripEmbedderProxy.setVisible(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    await testTabsApiProxy.whenCalled('setThumbnailTracked');
+    assertEquals(
+        testTabsApiProxy.getCallCount('setThumbnailTracked'), tabs.length);
+  });
+
   test(
-      'when the tab strip closes, the active tab should move to the start',
-      async () => {
-        // Mock activating the 2nd tab
-        webUIListenerCallback('tab-active-changed', tabs[1].id);
-        testTabsApiProxy.resetResolver('moveTab');
-
-        // Mock tab strip going from visible to hidden
-        testTabStripEmbedderProxy.setVisible(false);
-        document.dispatchEvent(new Event('visibilitychange'));
-
-        const [moveId, newIndex] = await testTabsApiProxy.whenCalled('moveTab');
-        assertEquals(moveId, tabs[1].id);
-        assertEquals(newIndex, 0);
+      'focusing on tab strip with the keyboard adds a class and focuses ' +
+          'the first tab',
+      () => {
+        webUIListenerCallback('received-keyboard-focus');
+        assertEquals(document.activeElement, tabList);
+        assertEquals(tabList.shadowRoot.activeElement, getUnpinnedTabs()[0]);
+        assertTrue(FocusOutlineManager.forDocument(document).visible);
       });
+
+  test('blurring the tab strip blurs the active element', () => {
+    // First, make sure tab strip has keyboard focus.
+    webUIListenerCallback('received-keyboard-focus');
+
+    window.dispatchEvent(new Event('blur'));
+    assertEquals(tabList.shadowRoot.activeElement, null);
+  });
+
+  test('should update the ID when a tab is replaced', () => {
+    assertEquals(getUnpinnedTabs()[0].tab.id, 0);
+    webUIListenerCallback('tab-replaced', tabs[0].id, 1000);
+    assertEquals(getUnpinnedTabs()[0].tab.id, 1000);
+  });
+
+  test('has custom context menu', async () => {
+    let event = new Event('contextmenu');
+    event.clientX = 1;
+    event.clientY = 2;
+    document.dispatchEvent(event);
+
+    const contextMenuArgs =
+        await testTabStripEmbedderProxy.whenCalled('showBackgroundContextMenu');
+    assertEquals(contextMenuArgs[0], 1);
+    assertEquals(contextMenuArgs[1], 2);
+  });
+
+  test('scrolls to active tabs', async () => {
+    await tabList.animationPromises;
+
+    const scrollPadding = 32;
+    const tabWidth = 200;
+    const viewportWidth = 300;
+
+    // Mock the width of each tab element.
+    tabList.style.setProperty(
+        '--tabstrip-tab-thumbnail-width', `${tabWidth}px`);
+    tabList.style.setProperty('--tabstrip-tab-spacing', '0px');
+    const tabElements = getUnpinnedTabs();
+    tabElements.forEach(tabElement => {
+      tabElement.style.width = `${tabWidth}px`;
+    });
+
+    // Mock the scroller size such that it cannot fit only 1 tab at a time.
+    tabList.style.setProperty(
+        '--tabstrip-viewport-width', `${viewportWidth}px`);
+    tabList.style.width = `${viewportWidth}px`;
+
+    // Verify the scrollLeft is currently at its default state of 0, and then
+    // send a visibilitychange event to cause a scroll.
+    assertEquals(tabList.scrollLeft, 0);
+    webUIListenerCallback('tab-active-changed', tabs[1].id);
+    testTabStripEmbedderProxy.setVisible(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    // The 2nd tab should be off-screen to the right, so activating it should
+    // scroll so that the element's right edge is aligned with the screen's
+    // right edge.
+    let activeTab = getUnpinnedTabs()[1];
+    assertEquals(
+        tabList.scrollLeft + tabList.offsetWidth,
+        activeTab.offsetLeft + activeTab.offsetWidth + scrollPadding);
+
+    // The 1st tab should be now off-screen to the left, so activating it should
+    // scroll so that the element's left edge is aligned with the screen's
+    // left edge.
+    webUIListenerCallback('tab-active-changed', tabs[0].id);
+    activeTab = getUnpinnedTabs()[0];
+    assertEquals(tabList.scrollLeft, 0);
+  });
 });

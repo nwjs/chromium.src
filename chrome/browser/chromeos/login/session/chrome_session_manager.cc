@@ -15,9 +15,11 @@
 #include "chrome/browser/chromeos/app_mode/kiosk_app_launch_error.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_cryptohome_remover.h"
+#include "chrome/browser/chromeos/app_mode/web_app/web_kiosk_app_manager.h"
 #include "chrome/browser/chromeos/arc/session/arc_service_launcher.h"
 #include "chrome/browser/chromeos/boot_times_recorder.h"
-#include "chrome/browser/chromeos/child_accounts/consumer_status_reporting_service_factory.h"
+#include "chrome/browser/chromeos/child_accounts/child_status_reporting_service_factory.h"
+#include "chrome/browser/chromeos/child_accounts/child_user_service_factory.h"
 #include "chrome/browser/chromeos/child_accounts/screen_time_controller_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
 #include "chrome/browser/chromeos/lock_screen_apps/state_controller.h"
@@ -67,8 +69,10 @@ namespace {
 // Whether kiosk auto launch should be started.
 bool ShouldAutoLaunchKioskApp(const base::CommandLine& command_line) {
   KioskAppManager* app_manager = KioskAppManager::Get();
+  WebKioskAppManager* web_app_manager = WebKioskAppManager::Get();
   return command_line.HasSwitch(switches::kLoginManager) &&
-         app_manager->IsAutoLaunchEnabled() &&
+         (app_manager->IsAutoLaunchEnabled() ||
+          web_app_manager->GetAutoLaunchAccountId().is_valid()) &&
          KioskAppLaunchError::Get() == KioskAppLaunchError::NONE &&
          // IsOobeCompleted() is needed to prevent kiosk session start in case
          // of enterprise rollback, when keeping the enrollment, policy, not
@@ -168,7 +172,8 @@ void StartUserSession(Profile* user_profile, const std::string& login_user_id) {
         user_profile);
 
     if (user->GetType() == user_manager::USER_TYPE_CHILD) {
-      ConsumerStatusReportingServiceFactory::GetForBrowserContext(user_profile);
+      ChildStatusReportingServiceFactory::GetForBrowserContext(user_profile);
+      ChildUserServiceFactory::GetForBrowserContext(user_profile);
       ScreenTimeControllerFactory::GetForBrowserContext(user_profile);
     }
 
@@ -262,21 +267,6 @@ void ChromeSessionManager::Initialize(
     return;
   } else if (is_running_test) {
     oobe_configuration_->CheckConfiguration();
-  }
-
-  if (login_account_id == user_manager::StubAccountId()) {
-    // Start a user session with stub user. This also happens on a dev machine
-    // when running Chrome w/o login flow. See PreEarlyInitialization().
-    // In these contexts, emulate as if sync has been initialized.
-    VLOG(1) << "Starting Chrome with stub login.";
-
-    std::string login_user_id = login_account_id.GetUserEmail();
-    IdentityManagerFactory::GetForProfile(profile)
-        ->GetPrimaryAccountMutator()
-        ->DeprecatedSetPrimaryAccountAndUpdateAccountInfo(login_user_id,
-                                                          login_user_id);
-    StartUserSession(profile, login_user_id);
-    return;
   }
 
   VLOG(1) << "Starting Chrome with a user session.";

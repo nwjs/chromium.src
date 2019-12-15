@@ -110,10 +110,11 @@ class MockActionDelegate : public ActionDelegate {
                void(const Selector& selector,
                     base::OnceCallback<void(const ClientStatus&)> callback));
 
-  MOCK_METHOD2(
-      CollectUserData,
-      void(std::unique_ptr<CollectUserDataOptions> collect_user_data_options,
-           std::unique_ptr<UserData> user_data));
+  MOCK_METHOD1(CollectUserData,
+               void(CollectUserDataOptions* collect_user_data_options));
+  MOCK_METHOD1(
+      WriteUserData,
+      void(base::OnceCallback<void(UserData*, UserData::FieldChange*)>));
 
   MOCK_METHOD1(OnGetFullCard,
                void(base::OnceCallback<void(const autofill::CreditCard& card,
@@ -203,6 +204,7 @@ class MockActionDelegate : public ActionDelegate {
   MOCK_METHOD0(GetWebsiteLoginFetcher, WebsiteLoginFetcher*());
   MOCK_METHOD0(GetWebContents, content::WebContents*());
   MOCK_METHOD0(GetAccountEmailAddress, std::string());
+  MOCK_METHOD0(GetLocale, std::string());
   MOCK_METHOD1(SetDetails, void(std::unique_ptr<Details> details));
   MOCK_METHOD1(SetInfoBox, void(const InfoBox& info_box));
   MOCK_METHOD0(ClearInfoBox, void());
@@ -215,10 +217,12 @@ class MockActionDelegate : public ActionDelegate {
   MOCK_METHOD1(SetPeekMode,
                void(ConfigureBottomSheetProto::PeekMode peek_mode));
   MOCK_METHOD0(GetPeekMode, ConfigureBottomSheetProto::PeekMode());
-  MOCK_METHOD2(
+  MOCK_METHOD3(
       SetForm,
       bool(std::unique_ptr<FormProto> form,
-           base::RepeatingCallback<void(const FormProto::Result*)> callback));
+           base::RepeatingCallback<void(const FormProto::Result*)>
+               changed_callback,
+           base::OnceCallback<void(const ClientStatus&)> cancel_callback));
 
   void WaitForWindowHeightChange(
       base::OnceCallback<void(const ClientStatus&)> callback) override {

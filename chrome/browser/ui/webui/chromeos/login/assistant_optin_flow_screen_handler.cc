@@ -49,12 +49,12 @@ constexpr StaticOobeScreenId AssistantOptInFlowScreenView::kScreenId;
 
 AssistantOptInFlowScreenHandler::AssistantOptInFlowScreenHandler(
     JSCallsContainer* js_calls_container)
-    : BaseScreenHandler(kScreenId, js_calls_container), client_binding_(this) {
+    : BaseScreenHandler(kScreenId, js_calls_container) {
   set_user_acted_method_path("login.AssistantOptInFlowScreen.userActed");
 }
 
 AssistantOptInFlowScreenHandler::~AssistantOptInFlowScreenHandler() {
-  if (client_binding_)
+  if (client_receiver_.is_bound())
     StopSpeakerIdEnrollment();
   if (ash::AssistantState::Get())
     ash::AssistantState::Get()->RemoveObserver(this);
@@ -75,6 +75,7 @@ void AssistantOptInFlowScreenHandler::DeclareLocalizedValues(
                IDS_ASSISTANT_VALUE_PROP_SKIP_BUTTON);
   builder->Add("assistantOptinRetryButton",
                IDS_ASSISTANT_VALUE_PROP_RETRY_BUTTON);
+  builder->Add("assistantUserImage", IDS_ASSISTANT_OOBE_USER_IMAGE);
   builder->Add("assistantVoiceMatchTitle", IDS_ASSISTANT_VOICE_MATCH_TITLE);
   builder->Add("assistantVoiceMatchMessage", IDS_ASSISTANT_VOICE_MATCH_MESSAGE);
   builder->Add("assistantVoiceMatchNoDspMessage",
@@ -293,7 +294,7 @@ void AssistantOptInFlowScreenHandler::BindAssistantSettingsManager() {
   AssistantServiceConnection::GetForProfile(
       ProfileManager::GetActiveUserProfile())
       ->service()
-      ->BindSettingsManager(mojo::MakeRequest(&settings_manager_));
+      ->BindSettingsManager(settings_manager_.BindNewPipeAndPassReceiver());
 
   if (initialized_) {
     SendGetSettingsRequest();
@@ -311,8 +312,8 @@ void AssistantOptInFlowScreenHandler::SendGetSettingsRequest() {
 
 void AssistantOptInFlowScreenHandler::StopSpeakerIdEnrollment() {
   settings_manager_->StopSpeakerIdEnrollment(base::DoNothing());
-  // Close the binding so it can be used again if enrollment is retried.
-  client_binding_.Close();
+  // Reset the receiver so it can be used again if enrollment is retried.
+  client_receiver_.reset();
 }
 
 void AssistantOptInFlowScreenHandler::ReloadContent(const base::Value& dict) {
@@ -330,14 +331,6 @@ void AssistantOptInFlowScreenHandler::OnGetSettingsResponse(
       base::TimeTicks::Now() - send_request_time_;
   UMA_HISTOGRAM_TIMES("Assistant.OptInFlow.GetSettingsRequestTime",
                       time_since_request_sent);
-
-  if (ProfileManager::GetActiveUserProfile()->GetPrefs()->GetBoolean(
-          assistant::prefs::kAssistantDisabledByPolicy)) {
-    DVLOG(1) << "Assistant is disabled by domain policy. Skip Assistant "
-                "opt-in flow.";
-    HandleFlowFinished();
-    return;
-  }
 
   assistant::SettingsUi settings_ui;
   if (!settings_ui.ParseFromString(settings)) {
@@ -531,10 +524,9 @@ void AssistantOptInFlowScreenHandler::HandleVoiceMatchScreenUserAction(
       prefs->SetBoolean(assistant::prefs::kAssistantHotwordEnabled, true);
     }
 
-    assistant::mojom::SpeakerIdEnrollmentClientPtr client_ptr;
-    client_binding_.Bind(mojo::MakeRequest(&client_ptr));
     settings_manager_->StartSpeakerIdEnrollment(
-        flow_type_ == ash::FlowType::kSpeakerIdRetrain, std::move(client_ptr));
+        flow_type_ == ash::FlowType::kSpeakerIdRetrain,
+        client_receiver_.BindNewPipeAndPassRemote());
   }
 }
 

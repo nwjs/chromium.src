@@ -12,13 +12,14 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
 import android.util.Pair;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.instantapps.InstantAppsHandler;
@@ -83,11 +84,6 @@ public class InstalledAppProviderImpl implements InstalledAppProvider {
     @Override
     public void filterInstalledApps(
             final RelatedApplication[] relatedApps, final FilterInstalledAppsResponse callback) {
-        if (mFrameUrlDelegate.isIncognito()) {
-            callback.call(new RelatedApplication[0]);
-            return;
-        }
-
         final URI frameUrl = mFrameUrlDelegate.getUrl();
 
         // Use an AsyncTask to execute the installed/related checks on a background thread (so as
@@ -163,6 +159,13 @@ public class InstalledAppProviderImpl implements InstalledAppProvider {
 
         for (RelatedApplication installedApp : installedApps) {
             setVersionInfo(installedApp);
+        }
+
+        // Don't expose the related apps if in incognito mode. This is done at
+        // the last stage to prevent using this API as an incognito detector by
+        // timing how long it takes the Promise to resolve.
+        if (mFrameUrlDelegate.isIncognito()) {
+            return Pair.create(new RelatedApplication[0], delayMillis);
         }
 
         RelatedApplication[] installedAppsArray = new RelatedApplication[installedApps.size()];

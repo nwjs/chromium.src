@@ -23,6 +23,7 @@
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
+#include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/sequenced_task_runner.h"
 #include "base/strings/string_number_conversions.h"
@@ -75,7 +76,6 @@
 #include "chrome/browser/policy/schema_registry_service_builder.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/prefs/chrome_pref_service_factory.h"
-#include "chrome/browser/prefs/in_process_service_factory_factory.h"
 #include "chrome/browser/prefs/pref_service_syncable_util.h"
 #include "chrome/browser/prefs/profile_pref_store_manager.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
@@ -153,34 +153,22 @@
 #include "content/public/browser/url_data_source.h"
 #include "content/public/common/content_constants.h"
 #include "extensions/buildflags/buildflags.h"
-#include "google_apis/google_api_keys.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
+#include "services/data_decoder/public/cpp/data_decoder.h"
 #include "services/identity/identity_service.h"
-#include "services/image_annotation/image_annotation_service.h"
-#include "services/image_annotation/public/mojom/constants.mojom.h"
 #include "services/network/public/cpp/features.h"
-#include "services/preferences/public/cpp/in_process_service_factory.h"
 #include "services/preferences/public/mojom/preferences.mojom.h"
 #include "services/preferences/public/mojom/tracked_preference_validation_delegate.mojom.h"
 #include "services/service_manager/public/cpp/service.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/android_sms/android_sms_app_manager.h"
-#include "chrome/browser/chromeos/android_sms/android_sms_pairing_state_tracker_impl.h"
-#include "chrome/browser/chromeos/android_sms/android_sms_service_factory.h"
 #include "chrome/browser/chromeos/arc/session/arc_service_launcher.h"
-#include "chrome/browser/chromeos/authpolicy/auth_policy_credentials_manager.h"
-#include "chrome/browser/chromeos/cryptauth/gcm_device_info_provider_impl.h"
-#include "chrome/browser/chromeos/device_sync/device_sync_client_factory.h"
 #include "chrome/browser/chromeos/locale_change_guard.h"
 #include "chrome/browser/chromeos/login/session/user_session_manager.h"
-#include "chrome/browser/chromeos/multidevice_setup/auth_token_validator_factory.h"
-#include "chrome/browser/chromeos/multidevice_setup/auth_token_validator_impl.h"
-#include "chrome/browser/chromeos/multidevice_setup/oobe_completion_tracker_factory.h"
 #include "chrome/browser/chromeos/policy/active_directory_policy_manager.h"
 #include "chrome/browser/chromeos/policy/user_cloud_policy_manager_chromeos.h"
 #include "chrome/browser/chromeos/policy/user_policy_manager_builder_chromeos.h"
@@ -191,13 +179,9 @@
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chromeos/components/account_manager/account_manager.h"
 #include "chromeos/components/account_manager/account_manager_factory.h"
-#include "chromeos/services/multidevice_setup/multidevice_setup_service.h"
-#include "chromeos/services/multidevice_setup/public/mojom/constants.mojom.h"
-#include "chromeos/services/multidevice_setup/public/mojom/multidevice_setup.mojom.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
-
 #endif
 
 #if defined(OS_ANDROID)
@@ -254,13 +238,6 @@ const int kCreateSessionServiceDelayMS = 500;
 // Value written to prefs for EXIT_CRASHED and EXIT_SESSION_ENDED.
 const char kPrefExitTypeCrashed[] = "Crashed";
 const char kPrefExitTypeSessionEnded[] = "SessionEnded";
-
-// Returns the Chrome Google API key for the channel of this build.
-std::string APIKeyForChannel() {
-  if (chrome::GetChannel() == version_info::Channel::STABLE)
-    return google_apis::GetAPIKey();
-  return google_apis::GetNonStableAPIKey();
-}
 
 // Gets the creation time for |path|, returning base::Time::Now() on failure.
 base::Time GetCreationTimeForPath(const base::FilePath& path) {
@@ -427,7 +404,7 @@ void ProfileImpl::RegisterProfilePrefs(
 #if defined(OS_CHROMEOS)
   registry->RegisterBooleanPref(
       prefs::kOobeMarketingOptInScreenFinished, false,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
 #endif  // defined(OS_CHROMEOS)
 #if !defined(OS_ANDROID)
   registry->RegisterBooleanPref(prefs::kShowCastIconInToolbar, false);
@@ -1112,7 +1089,7 @@ PrefService* ProfileImpl::GetOffTheRecordPrefs() {
 PrefService* ProfileImpl::GetReadOnlyOffTheRecordPrefs() {
   if (!dummy_otr_prefs_) {
     dummy_otr_prefs_ = CreateIncognitoPrefServiceSyncable(
-        prefs_.get(), CreateExtensionPrefStore(this, true), nullptr);
+        prefs_.get(), CreateExtensionPrefStore(this, true));
   }
   return dummy_otr_prefs_.get();
 }
@@ -1287,44 +1264,6 @@ bool ProfileImpl::ShouldEnableOutOfBlinkCors() {
   if (cors_legacy_mode_enabled_.value())
     return false;
   return base::FeatureList::IsEnabled(network::features::kOutOfBlinkCors);
-}
-
-std::unique_ptr<service_manager::Service> ProfileImpl::HandleServiceRequest(
-    const std::string& service_name,
-    service_manager::mojom::ServiceRequest request) {
-  if (service_name == prefs::mojom::kServiceName) {
-    return InProcessPrefServiceFactoryFactory::GetInstanceForKey(key_.get())
-        ->CreatePrefService(std::move(request));
-  }
-
-  if (service_name == image_annotation::mojom::kServiceName) {
-    return std::make_unique<image_annotation::ImageAnnotationService>(
-        std::move(request), APIKeyForChannel(), GetURLLoaderFactory());
-  }
-
-#if defined(OS_CHROMEOS)
-  if (service_name == chromeos::multidevice_setup::mojom::kServiceName) {
-    chromeos::android_sms::AndroidSmsService* android_sms_service =
-        chromeos::android_sms::AndroidSmsServiceFactory::GetForBrowserContext(
-            this);
-    return std::make_unique<
-        chromeos::multidevice_setup::MultiDeviceSetupService>(
-        std::move(request), GetPrefs(),
-        chromeos::device_sync::DeviceSyncClientFactory::GetForProfile(this),
-        chromeos::multidevice_setup::AuthTokenValidatorFactory ::GetForProfile(
-            this),
-        chromeos::multidevice_setup::OobeCompletionTrackerFactory::
-            GetForProfile(this),
-        android_sms_service ? android_sms_service->android_sms_app_manager()
-                            : nullptr,
-        android_sms_service
-            ? android_sms_service->android_sms_pairing_state_tracker()
-            : nullptr,
-        chromeos::GcmDeviceInfoProviderImpl::GetInstance());
-  }
-#endif  // defined(OS_CHROMEOS)
-
-  return nullptr;
 }
 
 std::string ProfileImpl::GetMediaDeviceIDSalt() {

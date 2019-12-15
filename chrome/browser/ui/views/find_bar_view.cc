@@ -39,7 +39,6 @@
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/bubble/bubble_border.h"
-#include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/image_button_factory.h"
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/label.h"
@@ -49,14 +48,13 @@
 #include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget.h"
 
-// An ImageButton that has a centered circular highlight.
-class FindBarView::FindBarButton : public views::ImageButton {
- public:
-  explicit FindBarButton(views::ButtonListener* listener)
-      : ImageButton(listener) {
-    views::InstallCircleHighlightPathGenerator(this);
-  }
-};
+namespace {
+void SetCommonButtonAttributes(views::ImageButton* button) {
+  views::ConfigureVectorImageButton(button);
+  views::InstallCircleHighlightPathGenerator(button);
+  button->SetFocusForPlatform();
+}
+}  // namespace
 
 class FindBarView::MatchCountLabel : public views::Label {
  public:
@@ -88,6 +86,9 @@ class FindBarView::MatchCountLabel : public views::Label {
   }
 
   void SetResult(const FindNotificationDetails& result) {
+    if (last_result_ && result == *last_result_)
+      return;
+
     last_result_ = result;
     SetText(l10n_util::GetStringFUTF16(
         IDS_FIND_IN_PAGE_COUNT,
@@ -132,30 +133,27 @@ FindBarView::FindBarView(FindBarHost* host) : find_bar_host_(host) {
   separator->set_can_process_events_within_subtree(false);
   separator_ = AddChildView(std::move(separator));
 
-  auto find_previous_button = std::make_unique<FindBarButton>(this);
-  views::ConfigureVectorImageButton(find_previous_button.get());
+  auto find_previous_button = std::make_unique<views::ImageButton>(this);
+  SetCommonButtonAttributes(find_previous_button.get());
   find_previous_button->SetID(VIEW_ID_FIND_IN_PAGE_PREVIOUS_BUTTON);
-  find_previous_button->SetFocusForPlatform();
   find_previous_button->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_FIND_IN_PAGE_PREVIOUS_TOOLTIP));
   find_previous_button->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_ACCNAME_PREVIOUS));
   find_previous_button_ = AddChildView(std::move(find_previous_button));
 
-  auto find_next_button = std::make_unique<FindBarButton>(this);
-  views::ConfigureVectorImageButton(find_next_button.get());
+  auto find_next_button = std::make_unique<views::ImageButton>(this);
+  SetCommonButtonAttributes(find_next_button.get());
   find_next_button->SetID(VIEW_ID_FIND_IN_PAGE_NEXT_BUTTON);
-  find_next_button->SetFocusForPlatform();
   find_next_button->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_FIND_IN_PAGE_NEXT_TOOLTIP));
   find_next_button->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_ACCNAME_NEXT));
   find_next_button_ = AddChildView(std::move(find_next_button));
 
-  auto close_button = std::make_unique<FindBarButton>(this);
-  views::ConfigureVectorImageButton(close_button.get());
+  auto close_button = std::make_unique<views::ImageButton>(this);
+  SetCommonButtonAttributes(close_button.get());
   close_button->SetID(VIEW_ID_FIND_IN_PAGE_CLOSE_BUTTON);
-  close_button->SetFocusForPlatform();
   close_button->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_FIND_IN_PAGE_CLOSE_TOOLTIP));
   close_button->SetAnimationDuration(base::TimeDelta());
@@ -419,7 +417,7 @@ void FindBarView::Find(const base::string16& search_text) {
   } else {
     find_tab_helper->StopFinding(FindOnPageSelectionAction::kClear);
     UpdateForResult(find_tab_helper->find_result(), base::string16());
-    find_bar_host_->MoveWindowIfNecessary(gfx::Rect());
+    find_bar_host_->MoveWindowIfNecessary();
 
     // Clearing the text box should clear the prepopulate state so that when
     // we close and reopen the Find box it doesn't show the search we just
@@ -451,7 +449,7 @@ void FindBarView::OnThemeChanged() {
                   0xFF);
   auto border = std::make_unique<views::BubbleBorder>(
       views::BubbleBorder::NONE, views::BubbleBorder::SMALL_SHADOW, bg_color);
-  // TODO(sajadm): Remove when fixing https://crbug.com/822075 and use
+  // TODO(tluk): Remove when fixing https://crbug.com/822075 and use
   // EMPHASIS_HIGH metric values from the LayoutProvider to get the
   // corner radius.
   border->SetCornerRadius(2);

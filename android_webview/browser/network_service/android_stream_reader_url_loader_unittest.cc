@@ -4,6 +4,8 @@
 
 #include "android_webview/browser/network_service/android_stream_reader_url_loader.h"
 
+#include <utility>
+
 #include "android_webview/browser/input_stream.h"
 #include "base/run_loop.h"
 #include "base/test/task_environment.h"
@@ -36,7 +38,7 @@ void VerifyHeaderNameAndValue(net::HttpResponseHeaders* headers,
 // for the input stream and puts it in the IOBuffer |nb_reads| times.
 class FakeInputStream : public InputStream {
  public:
-  explicit FakeInputStream() : contents_(""), nb_reads_(0) {}
+  FakeInputStream() : contents_(""), nb_reads_(0) {}
   explicit FakeInputStream(std::string contents)
       : contents_(contents), nb_reads_(1) {}
   explicit FakeInputStream(std::string contents, int nb_reads)
@@ -84,7 +86,7 @@ class FakeFailingInputStream : public InputStream {
 class TestResponseDelegate
     : public AndroidStreamReaderURLLoader::ResponseDelegate {
  public:
-  TestResponseDelegate(std::unique_ptr<InputStream> input_stream)
+  explicit TestResponseDelegate(std::unique_ptr<InputStream> input_stream)
       : input_stream_(std::move(input_stream)) {}
   TestResponseDelegate(std::unique_ptr<InputStream> input_stream,
                        const std::string custom_mime_type)
@@ -176,7 +178,7 @@ class AndroidStreamReaderURLLoaderTest : public ::testing::Test {
       network::TestURLLoaderClient* client,
       std::unique_ptr<InputStream> input_stream) {
     return new AndroidStreamReaderURLLoader(
-        request, client->CreateInterfacePtr(),
+        request, client->CreateRemote(),
         net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS),
         std::make_unique<TestResponseDelegate>(std::move(input_stream)));
   }
@@ -188,7 +190,7 @@ class AndroidStreamReaderURLLoaderTest : public ::testing::Test {
       std::unique_ptr<InputStream> input_stream,
       const std::string custom_mime_type) {
     return new AndroidStreamReaderURLLoader(
-        request, client->CreateInterfacePtr(),
+        request, client->CreateRemote(),
         net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS),
         std::make_unique<TestResponseDelegate>(std::move(input_stream),
                                                custom_mime_type));
@@ -204,7 +206,7 @@ class AndroidStreamReaderURLLoaderTest : public ::testing::Test {
       const std::string custom_header_name,
       const std::string custom_header_value) {
     return new AndroidStreamReaderURLLoader(
-        request, client->CreateInterfacePtr(),
+        request, client->CreateRemote(),
         net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS),
         std::make_unique<TestResponseDelegate>(
             std::move(input_stream), custom_status, custom_header_name,

@@ -33,6 +33,7 @@
     {
       name: "AmbientLightSensor",
       feature_policy_name: "ambient-light-sensor",
+      depends_on: ["SensorExtraClasses"],
     },
     {
       name: "Autoplay",
@@ -103,11 +104,6 @@
       depends_on: ["FeaturePolicyForClientHints"],
     },
     {
-      name: "DocumentAccess",
-      feature_policy_name: "document-access",
-      depends_on: ["ExperimentalProductivityFeatures"],
-    },
-    {
       name: "DocumentDomain",
       feature_policy_name: "document-domain",
     },
@@ -117,8 +113,8 @@
       depends_on: ["ExperimentalProductivityFeatures"],
     },
     {
-      name: "DownloadsWithoutUserActivation",
-      feature_policy_name: "downloads-without-user-activation",
+      name: "Downloads",
+      feature_policy_name: "downloads",
       depends_on: ["FeaturePolicyForSandbox"],
     },
     {
@@ -245,6 +241,11 @@
       depends_on: ["FeaturePolicyForSandbox"],
     },
     {
+      name: "PublicKeyCredentials",
+      feature_policy_name: "publickey-credentials",
+      depends_on: ["WebAuthenticationFeaturePolicy"],
+    },
+    {
       name: "Script",
       feature_policy_name: "scripts",
       depends_on: ["FeaturePolicyForSandbox"],
@@ -308,11 +309,5 @@
       feature_policy_name: "xr-spatial-tracking",
       depends_on: ["WebXR"],
     },
-    // TODO(crbug.com/960132): WebVR added manually in feature_policy_helper.cc.
-    // {
-    //   name: "WebVr",
-    //   feature_policy_name: "vr",
-    //   depends_on: ["WebVR"],
-    // },
   ],
 }

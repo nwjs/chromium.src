@@ -49,7 +49,6 @@ class WebLocalFrame;
 class WebPlugin;
 class WebPrescientNetworking;
 class WebServiceWorkerContextProxy;
-class WebMediaStreamRendererFactory;
 class WebThemeEngine;
 class WebURL;
 class WebURLRequest;
@@ -59,6 +58,10 @@ struct WebURLError;
 
 namespace media {
 class KeySystemProperties;
+}
+
+namespace mojo {
+class BinderMap;
 }
 
 namespace content {
@@ -81,6 +84,11 @@ class CONTENT_EXPORT ContentRendererClient {
 
   // Notifies us that the RenderThread has been created.
   virtual void RenderThreadStarted() {}
+
+  // Allows the embedder to make Mojo interfaces available to the browser
+  // process. Binders can be added to |*binders| to service incoming interface
+  // binding requests from RenderProcessHost::BindReceiver().
+  virtual void ExposeInterfacesToBrowser(mojo::BinderMap* binders) {}
 
   // Notifies that a new RenderFrame has been created.
   virtual void RenderFrameCreated(RenderFrame* render_frame) {}
@@ -233,12 +241,17 @@ class CONTENT_EXPORT ContentRendererClient {
   // |url|. If the function returns a valid |new_url|, the request must be
   // updated to use it. The |attach_same_site_cookies| output parameter
   // determines whether SameSite cookies should be attached to the request.
+  // The |site_for_cookies| is the site_for_cookies of the request. (This is
+  // approximately the URL of the main frame. It is empty in the case of
+  // cross-site iframes.)
+  //
   // TODO(nasko): When moved over to Network Service, find a way to perform
   // this check on the browser side, so untrusted renderer processes cannot
   // influence whether SameSite cookies are attached.
   virtual void WillSendRequest(blink::WebLocalFrame* frame,
                                ui::PageTransition transition_type,
                                const blink::WebURL& url,
+                               const blink::WebURL& site_for_cookies,
                                const url::Origin* initiator_origin,
                                GURL* new_url,
                                bool* attach_same_site_cookies);
@@ -251,7 +264,11 @@ class CONTENT_EXPORT ContentRendererClient {
   // See blink::Platform.
   virtual uint64_t VisitedLinkHash(const char* canonical_url, size_t length);
   virtual bool IsLinkVisited(uint64_t link_hash);
-  virtual blink::WebPrescientNetworking* GetPrescientNetworking();
+
+  // Creates a WebPrescientNetworking instance for |render_frame|. The returned
+  // instance is owned by the frame. May return null.
+  virtual std::unique_ptr<blink::WebPrescientNetworking>
+  CreatePrescientNetworking(RenderFrame* render_frame);
 
   // Returns true if the given Pepper plugin is external (requiring special
   // startup steps).
@@ -262,10 +279,6 @@ class CONTENT_EXPORT ContentRendererClient {
   // worthwhile precaution when the plugin provides an active scripting
   // language.
   virtual bool IsOriginIsolatedPepperPlugin(const base::FilePath& plugin_path);
-
-  // Allows an embedder to provide a blink::WebMediaStreamRendererFactory.
-  virtual std::unique_ptr<blink::WebMediaStreamRendererFactory>
-  CreateMediaStreamRendererFactory();
 
   // Allows embedder to register the key system(s) it supports by populating
   // |key_systems|.
@@ -420,11 +433,11 @@ class CONTENT_EXPORT ContentRendererClient {
   // most once.
   virtual void DidSetUserAgent(const std::string& user_agent);
 
-  // Returns true if |url| still requires native HTML imports. Used for Web UI
-  // pages.
-  // TODO(https://crbug.com/937747): Remove this function, when all WebUIs have
-  // been migrated to use the HTML Imports Polyfill.
-  virtual bool RequiresHtmlImports(const GURL& url);
+  // Returns true if |url| still requires native Web Components v0 features.
+  // Used for Web UI pages.
+  // TODO(937747): Remove this function when all WebUIs can function without
+  // Web Components v0.
+  virtual bool RequiresWebComponentsV0(const GURL& url);
 
   // Optionally returns audio renderer algorithm parameters.
   virtual base::Optional<::media::AudioRendererAlgorithmParameters>

@@ -19,8 +19,8 @@ import android.provider.MediaStore.MediaColumns;
 import android.text.TextUtils;
 import android.util.Pair;
 
-import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContentUriUtils;
@@ -28,7 +28,6 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.library_loader.LibraryProcessType;
@@ -41,16 +40,15 @@ import org.chromium.chrome.browser.download.DownloadManagerBridge.DownloadEnqueu
 import org.chromium.chrome.browser.download.DownloadNotificationUmaHelper.UmaBackgroundDownload;
 import org.chromium.chrome.browser.download.DownloadNotificationUmaHelper.UmaDownloadResumption;
 import org.chromium.chrome.browser.download.items.OfflineContentAggregatorFactory;
-import org.chromium.chrome.browser.download.ui.BackendProvider;
 import org.chromium.chrome.browser.externalnav.ExternalNavigationDelegateImpl;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.media.MediaViewerUtils;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.util.ConversionUtils;
-import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.components.download.DownloadState;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
@@ -69,8 +67,6 @@ import org.chromium.net.RegistrationPolicyAlwaysRegister;
 import org.chromium.ui.widget.Toast;
 
 import java.io.File;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -87,22 +83,9 @@ import java.util.concurrent.RejectedExecutionException;
  * handles all Android DownloadManager interactions. And DownloadManagerService should not know
  * download Id issued by Android DownloadManager.
  */
-public class DownloadManagerService
-        implements DownloadController.DownloadNotificationService,
-                   NetworkChangeNotifierAutoDetect.Observer, DownloadServiceDelegate,
-                   BackendProvider.DownloadDelegate, ProfileManager.Observer {
-    // Download status.
-    @IntDef({DownloadStatus.IN_PROGRESS, DownloadStatus.COMPLETE, DownloadStatus.FAILED,
-            DownloadStatus.CANCELLED, DownloadStatus.INTERRUPTED})
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface DownloadStatus {
-        int IN_PROGRESS = 0;
-        int COMPLETE = 1;
-        int FAILED = 2;
-        int CANCELLED = 3;
-        int INTERRUPTED = 4;
-    }
-
+public class DownloadManagerService implements DownloadController.DownloadNotificationService,
+                                               NetworkChangeNotifierAutoDetect.Observer,
+                                               DownloadServiceDelegate, ProfileManager.Observer {
     private static final String TAG = "DownloadService";
     private static final String DOWNLOAD_DIRECTORY = "Download";
     private static final String DOWNLOAD_UMA_ENTRY = "DownloadUmaEntry";
@@ -364,7 +347,7 @@ public class DownloadManagerService
         if (downloadInfo.getBytesReceived() == 0) {
             status = DownloadStatus.FAILED;
         } else {
-            mimeType = DownloadUtils.remapGenericMimeType(
+            mimeType = MimeUtils.remapGenericMimeType(
                     mimeType, downloadInfo.getOriginalUrl(), downloadInfo.getFileName());
         }
         DownloadInfo newInfo =
@@ -603,12 +586,11 @@ public class DownloadManagerService
                             info.getFileName(), info.getDescription(), info.getMimeType(),
                             info.getFilePath(), info.getBytesReceived(), info.getOriginalUrl(),
                             info.getReferrer(), info.getDownloadGuid());
-                    success = systemDownloadId != DownloadItem.INVALID_DOWNLOAD_ID;
+                    success = systemDownloadId != DownloadConstants.INVALID_DOWNLOAD_ID;
                     if (success) item.setSystemDownloadId(systemDownloadId);
                 }
                 boolean canResolve = success
-                        && (DownloadUtils.isOMADownloadDescription(
-                                    item.getDownloadInfo().getMimeType())
+                        && (MimeUtils.isOMADownloadDescription(item.getDownloadInfo().getMimeType())
                                 || canResolveDownloadItem(item, isSupportedMimeType));
                 return Pair.create(success, canResolve);
             }
@@ -655,7 +637,7 @@ public class DownloadManagerService
      * @param download A download item.
      */
     private void handleAutoOpenAfterDownload(DownloadItem download) {
-        if (DownloadUtils.isOMADownloadDescription(download.getDownloadInfo().getMimeType())) {
+        if (MimeUtils.isOMADownloadDescription(download.getDownloadInfo().getMimeType())) {
             mOMADownloadHandler.handleOMADownload(
                     download.getDownloadInfo(), download.getSystemDownloadId());
             return;
@@ -826,8 +808,7 @@ public class DownloadManagerService
         downloadItem.setSystemDownloadId(response.downloadId);
         if (!response.result) {
             onDownloadFailed(downloadItem, response.failureReason);
-            recordDownloadCompletionStats(
-                    true, DownloadManagerService.DownloadStatus.FAILED, 0, 0, 0, 0);
+            recordDownloadCompletionStats(true, DownloadStatus.FAILED, 0, 0, 0, 0);
             return;
         }
 
@@ -841,7 +822,7 @@ public class DownloadManagerService
             boolean isSupportedMimeType, String originalUrl, String referrer,
             @Nullable String mimeType) {
         assert !ThreadUtils.runningOnUiThread();
-        if (downloadId == DownloadItem.INVALID_DOWNLOAD_ID) {
+        if (downloadId == DownloadConstants.INVALID_DOWNLOAD_ID) {
             if (!ContentUriUtils.isContentUri(filePath)) return null;
             return getLaunchIntentFromDownloadUri(
                     filePath, isSupportedMimeType, originalUrl, referrer, mimeType);
@@ -939,7 +920,7 @@ public class DownloadManagerService
     public static boolean canResolveDownload(
             String filePath, String mimeType, long systemDownloadId) {
         assert !ThreadUtils.runningOnUiThread();
-        if (DownloadUtils.isOMADownloadDescription(mimeType)) return true;
+        if (MimeUtils.isOMADownloadDescription(mimeType)) return true;
 
         Intent intent = getLaunchIntentForDownload(filePath, systemDownloadId,
                 DownloadManagerService.isSupportedMimeType(mimeType), null, null, mimeType);
@@ -1174,7 +1155,6 @@ public class DownloadManagerService
      * @param isOffTheRecord Whether the download is off the record.
      * @param externallyRemoved If the file is externally removed by other applications.
      */
-    @Override
     public void removeDownload(
             final String downloadGuid, boolean isOffTheRecord, boolean externallyRemoved) {
         mHandler.post(() -> {
@@ -1196,7 +1176,6 @@ public class DownloadManagerService
      * @param mimeType MIME type of the file.
      * @return Whether the download is openable by the browser.
      */
-    @Override
     public boolean isDownloadOpenableInBrowser(boolean isOffTheRecord, String mimeType) {
         // TODO(qinmin): for audio and video, check if the codec is supported by Chrome.
         return isSupportedMimeType(mimeType);
@@ -1254,9 +1233,8 @@ public class DownloadManagerService
     public void onSuccessNotificationShown(
             DownloadInfo info, boolean canResolve, int notificationId, long systemDownloadId) {
         if (!ChromeFeatureList.isEnabled(ChromeFeatureList.DOWNLOAD_OFFLINE_CONTENT_PROVIDER)) {
-            if (canResolve
-                    && DownloadUtils.shouldAutoOpenDownload(
-                            info.getMimeType(), info.hasUserGesture())) {
+            if (canResolve && MimeUtils.canAutoOpenMimeType(info.getMimeType())
+                    && info.hasUserGesture()) {
                 DownloadItem item = new DownloadItem(false, info);
                 item.setSystemDownloadId(systemDownloadId);
                 handleAutoOpenAfterDownload(item);
@@ -1379,6 +1357,7 @@ public class DownloadManagerService
         builder.setBytesReceived(result.bytesDownloaded);
         if (!TextUtils.isEmpty(result.fileName)) builder.setFileName(result.fileName);
         if (!TextUtils.isEmpty(result.mimeType)) builder.setMimeType(result.mimeType);
+        builder.setFilePath(result.filePath);
         item.setDownloadInfo(builder.build());
 
         if (result.downloadStatus == DownloadStatus.IN_PROGRESS) return;
@@ -1394,15 +1373,12 @@ public class DownloadManagerService
 
                         @Override
                         protected void onPostExecute(Boolean canResolve) {
-                            if (DownloadUtils.shouldAutoOpenDownload(
-                                        result.mimeType, item.getDownloadInfo().hasUserGesture())
-                                    && canResolve) {
+                            if (MimeUtils.canAutoOpenMimeType(result.mimeType)
+                                    && item.getDownloadInfo().hasUserGesture() && canResolve) {
                                 handleAutoOpenAfterDownload(item);
                             } else {
                                 getInfoBarController(item.getDownloadInfo().isOffTheRecord())
-                                        .onItemUpdated(DownloadInfo.createOfflineItem(
-                                                               item.getDownloadInfo()),
-                                                null);
+                                        .onItemUpdated(DownloadItem.createOfflineItem(item), null);
                             }
                         }
                     }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
@@ -1598,14 +1574,12 @@ public class DownloadManagerService
     }
 
     /** Adds a new DownloadObserver to the list. */
-    @Override
     public void addDownloadObserver(DownloadObserver observer) {
         mDownloadObservers.addObserver(observer);
         DownloadSharedPreferenceHelper.getInstance().addObserver(observer);
     }
 
     /** Removes a DownloadObserver from the list. */
-    @Override
     public void removeDownloadObserver(DownloadObserver observer) {
         mDownloadObservers.removeObserver(observer);
         DownloadSharedPreferenceHelper.getInstance().removeObserver(observer);
@@ -1618,7 +1592,6 @@ public class DownloadManagerService
      *
      * @param isOffTheRecord Whether or not to get downloads for the off the record profile.
      */
-    @Override
     public void getAllDownloads(boolean isOffTheRecord) {
         DownloadManagerServiceJni.get().getAllDownloads(
                 getNativeDownloadManagerService(), DownloadManagerService.this, isOffTheRecord);
@@ -1628,7 +1601,6 @@ public class DownloadManagerService
      * Fires an Intent that alerts the DownloadNotificationService that an action must be taken
      * for a particular item.
      */
-    @Override
     public void broadcastDownloadAction(DownloadItem downloadItem, String action) {
         Context appContext = ContextUtils.getApplicationContext();
             Intent intent = DownloadNotificationFactory.buildActionIntent(appContext, action,
@@ -1638,7 +1610,6 @@ public class DownloadManagerService
             appContext.startService(intent);
     }
 
-    @Override
     public void renameDownload(ContentId id, String name,
             Callback<Integer /*RenameResult*/> callback, boolean isOffTheRecord) {
         DownloadManagerServiceJni.get().renameDownload(getNativeDownloadManagerService(),
@@ -1674,7 +1645,6 @@ public class DownloadManagerService
      * Checks if the files associated with any downloads have been removed by an external action.
      * @param isOffTheRecord Whether or not to check downloads for the off the record profile.
      */
-    @Override
     public void checkForExternallyRemovedDownloads(boolean isOffTheRecord) {
         DownloadManagerServiceJni.get().checkForExternallyRemovedDownloads(
                 getNativeDownloadManagerService(), DownloadManagerService.this, isOffTheRecord);
@@ -1832,11 +1802,10 @@ public class DownloadManagerService
             public Boolean doInBackground() {
                 DownloadInfo info = downloadItem.getDownloadInfo();
                 boolean isSupportedMimeType = isSupportedMimeType(info.getMimeType());
-                boolean canResolve = DownloadUtils.isOMADownloadDescription(info.getMimeType())
+                boolean canResolve = MimeUtils.isOMADownloadDescription(info.getMimeType())
                         || canResolveDownloadItem(downloadItem, isSupportedMimeType);
-                return canResolve
-                        && DownloadUtils.shouldAutoOpenDownload(
-                                info.getMimeType(), info.hasUserGesture());
+                return canResolve && MimeUtils.canAutoOpenMimeType(info.getMimeType())
+                        && info.hasUserGesture();
             }
             @Override
             protected void onPostExecute(Boolean result) {
@@ -2059,7 +2028,6 @@ public class DownloadManagerService
      * @param downloadGuid Download GUID.
      * @param isOffTheRecord Whether the download is off the record.
      */
-    @Override
     public void updateLastAccessTime(String downloadGuid, boolean isOffTheRecord) {
         if (TextUtils.isEmpty(downloadGuid)) return;
 

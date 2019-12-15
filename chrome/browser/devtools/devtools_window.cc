@@ -421,10 +421,8 @@ DevToolsWindow::~DevToolsWindow() {
   DCHECK(it != instances->end());
   instances->erase(it);
 
-  if (!close_callback_.is_null()) {
-    close_callback_.Run();
-    close_callback_ = base::Closure();
-  }
+  if (!close_callback_.is_null())
+    std::move(close_callback_).Run();
   // Defer deletion of the main web contents, since we could get here
   // via RenderFrameHostImpl method that expects WebContents to live
   // for some time. See http://crbug.com/997299 for details.
@@ -1086,13 +1084,8 @@ GURL DevToolsWindow::GetDevToolsURL(Profile* profile,
                                     bool has_other_clients) {
   std::string url;
 
-// Modules are always bundled in CrOS.
-#if defined(OS_CHROMEOS)
-  std::string remote_base = "?";
-#else
   std::string remote_base =
       "?remoteBase=" + DevToolsUI::GetRemoteBaseURL().spec();
-#endif
 
   const std::string valid_frontend =
       frontend_url.empty() ? chrome::kChromeUIDevToolsURL : frontend_url;
@@ -1242,7 +1235,8 @@ void DevToolsWindow::WebContentsCreated(WebContents* source_contents,
     // is resized when the frame is rendered. Force rendering of the toolbox at
     // all times, to make sure that a frame can be rendered even when the
     // inspected WebContents fully covers the toolbox. https://crbug.com/828307
-    toolbox_web_contents_->IncrementCapturerCount(gfx::Size());
+    toolbox_web_contents_->IncrementCapturerCount(gfx::Size(),
+                                                  /* stay_hidden */ false);
   }
 }
 
@@ -1551,10 +1545,8 @@ void DevToolsWindow::OnLoadCompleted() {
 
 void DevToolsWindow::ReadyForTest() {
   ready_for_test_ = true;
-  if (!ready_for_test_callback_.is_null()) {
-    ready_for_test_callback_.Run();
-    ready_for_test_callback_ = base::Closure();
-  }
+  if (!ready_for_test_callback_.is_null())
+    std::move(ready_for_test_callback_).Run();
 }
 
 void DevToolsWindow::ConnectionReady() {

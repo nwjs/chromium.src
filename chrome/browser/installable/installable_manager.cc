@@ -11,6 +11,8 @@
 #include "base/callback.h"
 #include "base/stl_util.h"
 #include "base/strings/string_util.h"
+#include "base/task/post_task.h"
+#include "base/task/task_traits.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
@@ -34,8 +36,6 @@
 #endif
 
 namespace {
-
-const char kPngExtension[] = ".png";
 
 // This constant is the icon size on Android (48dp) multiplied by the scale
 // factor of a Nexus 5 device (3x). It is the currently advertised minimum icon
@@ -95,7 +95,43 @@ int GetIdealPrimaryAdaptiveLauncherIconSizeInPx() {
 
 using IconPurpose = blink::Manifest::ImageResource::Purpose;
 
-// Returns true if |manifest| specifies a PNG icon that either
+struct ImageTypeDetails {
+  const char* extension;
+  const char* mimetype;
+};
+
+constexpr ImageTypeDetails kSupportedImageTypes[] = {
+    {".png", "image/png"},
+// TODO(https://crbug.com/578122): Add SVG support for Android.
+// TODO(https://crbug.com/466958): Add WebP support for Android.
+#if !defined(OS_ANDROID)
+    {".svg", "image/svg+xml"},
+    {".webp", "image/webp"},
+#endif
+};
+
+bool IsIconTypeSupported(const blink::Manifest::ImageResource& icon) {
+  // The type field is optional. If it isn't present, fall back on checking
+  // the src extension.
+  if (icon.type.empty()) {
+    std::string filename = icon.src.ExtractFileName();
+    for (const ImageTypeDetails& details : kSupportedImageTypes) {
+      if (base::EndsWith(filename, details.extension,
+                         base::CompareCase::INSENSITIVE_ASCII)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  for (const ImageTypeDetails& details : kSupportedImageTypes) {
+    if (base::EqualsASCII(icon.type, details.mimetype))
+      return true;
+  }
+  return false;
+}
+
+// Returns true if |manifest| specifies an SVG or PNG icon that either
 // 1. has IconPurpose::ANY, with height and width >= kMinimumPrimaryIconSizeInPx
 // (or size "any")
 // 2. if maskable icon is preferred, has IconPurpose::MASKABLE with height and
@@ -104,12 +140,7 @@ using IconPurpose = blink::Manifest::ImageResource::Purpose;
 bool DoesManifestContainRequiredIcon(const blink::Manifest& manifest,
                                      bool prefer_maskable_icon) {
   for (const auto& icon : manifest.icons) {
-    // The type field is optional. If it isn't present, fall back on checking
-    // the src extension, and allow the icon if the extension ends with png.
-    if (!base::EqualsASCII(icon.type, "image/png") &&
-        !(icon.type.empty() && base::EndsWith(
-            icon.src.ExtractFileName(), kPngExtension,
-            base::CompareCase::INSENSITIVE_ASCII)))
+    if (!IsIconTypeSupported(icon))
       continue;
 
     if (!(base::Contains(icon.purpose,
@@ -422,6 +453,17 @@ void InstallableManager::SetManifestDependentTasksComplete() {
   SetIconFetched(IconPurpose::MASKABLE);
 }
 
+void InstallableManager::CleanupAndStartNextTask() {
+  // Sites can always register a service worker after we finish checking, so
+  // don't cache a missing service worker error to ensure we always check
+  // again.
+  if (worker_error() == NO_MATCHING_SERVICE_WORKER)
+    worker_ = std::make_unique<ServiceWorkerProperty>();
+
+  task_queue_.Next();
+  WorkOnTask();
+}
+
 void InstallableManager::RunCallback(
     InstallableTask task,
     std::vector<InstallableStatusCode> errors) {
@@ -458,17 +500,14 @@ void InstallableManager::WorkOnTask() {
   auto errors = GetErrors(params);
   bool check_passed = errors.empty();
   if ((!check_passed && !params.is_debug_mode) || IsComplete(params)) {
+    // Yield the UI thread before processing the next task. If this object is
+    // deleted in the meantime, the next task naturally won't run.
+    base::PostTask(FROM_HERE, {base::CurrentThread()},
+                   base::BindOnce(&InstallableManager::CleanupAndStartNextTask,
+                                  weak_factory_.GetWeakPtr()));
+
     auto task = std::move(task_queue_.Current());
     RunCallback(std::move(task), std::move(errors));
-
-    // Sites can always register a service worker after we finish checking, so
-    // don't cache a missing service worker error to ensure we always check
-    // again.
-    if (worker_error() == NO_MATCHING_SERVICE_WORKER)
-      worker_ = std::make_unique<ServiceWorkerProperty>();
-
-    task_queue_.Next();
-    WorkOnTask();
     return;
   }
 

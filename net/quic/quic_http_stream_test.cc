@@ -656,9 +656,9 @@ class QuicHttpStreamTest : public ::testing::TestWithParam<TestParams>,
     if (version_.transport_version != quic::QUIC_VERSION_99) {
       return "";
     }
-    quic::HttpEncoder encoder;
     std::unique_ptr<char[]> buffer;
-    auto header_length = encoder.SerializeDataFrameHeader(body_len, &buffer);
+    auto header_length =
+        quic::HttpEncoder::SerializeDataFrameHeader(body_len, &buffer);
     return std::string(buffer.get(), header_length);
   }
 
@@ -698,7 +698,7 @@ class QuicHttpStreamTest : public ::testing::TestWithParam<TestParams>,
   const quic::ParsedQuicVersion version_;
   const bool client_headers_include_h2_stream_dependency_;
 
-  BoundTestNetLog net_log_;
+  RecordingBoundTestNetLog net_log_;
   quic::test::MockSendAlgorithm* send_algorithm_;
   scoped_refptr<TestTaskRunner> runner_;
   std::unique_ptr<MockWrite[]> mock_writes_;

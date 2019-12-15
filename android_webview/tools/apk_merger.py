@@ -26,7 +26,7 @@ anything.
 
 To use this script, you need to
 1. Build 32-bit APK as usual.
-2. Build 64-bit APK with GN variable build_apk_secondary_abi=false OR true.
+2. Build 64-bit APK.
 3. Use this script to merge the 2 APKs.
 
 """
@@ -181,7 +181,7 @@ def MergeApk(args, tmp_apk, tmp_dir_32, tmp_dir_64):
   if args.bundle:
     # if merging a bundle we must ignore the bundle specific
     # proto files as they will always be different.
-    ignores += ['BundleConfig.pb', 'native.pb', 'resources.pb']
+    ignores += ['BundleConfig.pb', 'native.pb']
 
   dcmp = filecmp.dircmp(
       tmp_dir_64,

@@ -46,7 +46,7 @@ class ProfileSyncServiceFactoryTest : public testing::Test {
 
   // Returns the collection of default datatypes.
   std::vector<syncer::ModelType> DefaultDatatypes() {
-    static_assert(41 == syncer::ModelType::NUM_ENTRIES,
+    static_assert(40 == syncer::ModelType::NUM_ENTRIES,
                   "When adding a new type, you probably want to add it here as "
                   "well (assuming it is already enabled).");
 
@@ -79,15 +79,12 @@ class ProfileSyncServiceFactoryTest : public testing::Test {
     datatypes.push_back(syncer::SEARCH_ENGINES);
 #endif  // !defined(OS_ANDROID)
 
-#if BUILDFLAG(ENABLE_APP_LIST)
-    datatypes.push_back(syncer::APP_LIST);
-#endif  // BUILDFLAG(ENABLE_APP_LIST)
-
 #if defined(OS_LINUX) || defined(OS_WIN)
     datatypes.push_back(syncer::DICTIONARY);
 #endif
 
 #if defined(OS_CHROMEOS)
+    datatypes.push_back(syncer::APP_LIST);
     if (arc::IsArcAllowedForProfile(profile()))
       datatypes.push_back(syncer::ARC_PACKAGE);
     if (chromeos::features::IsSplitSettingsSyncEnabled()) {

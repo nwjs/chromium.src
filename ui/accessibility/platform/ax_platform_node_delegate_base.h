@@ -71,7 +71,7 @@ class AX_EXPORT AXPlatformNodeDelegateBase : public AXPlatformNodeDelegate {
    public:
     ChildIteratorBase(AXPlatformNodeDelegateBase* parent, int index);
     ChildIteratorBase(const ChildIteratorBase& it);
-    ~ChildIteratorBase() override {}
+    ~ChildIteratorBase() override = default;
     bool operator==(const ChildIterator& rhs) const override;
     bool operator!=(const ChildIterator& rhs) const override;
     void operator++() override;
@@ -79,9 +79,9 @@ class AX_EXPORT AXPlatformNodeDelegateBase : public AXPlatformNodeDelegate {
     void operator--() override;
     void operator--(int) override;
     gfx::NativeViewAccessible GetNativeViewAccessible() const override;
-
-   protected:
     int GetIndexInParent() const override;
+    AXPlatformNodeDelegate& operator*() const override;
+    AXPlatformNodeDelegate* operator->() const override;
 
    private:
     int index_;
@@ -148,6 +148,9 @@ class AX_EXPORT AXPlatformNodeDelegateBase : public AXPlatformNodeDelegate {
 
   // Get whether this node is in web content.
   bool IsWebContent() const override;
+
+  // Returns true if the caret or selection is visible on this object.
+  bool HasVisibleCaretOrSelection() const override;
 
   // Get another node from this same tree.
   AXPlatformNode* GetFromNodeID(int32_t id) override;
@@ -277,6 +280,8 @@ class AX_EXPORT AXPlatformNodeDelegateBase : public AXPlatformNodeDelegate {
   bool ShouldIgnoreHoveredStateForTesting() override;
 
  protected:
+  std::string SubtreeToStringHelper(size_t level) override;
+
   // Given a list of node ids, return the nodes in this delegate's tree to
   // which they correspond.
   std::set<ui::AXPlatformNode*> GetNodesForNodeIds(

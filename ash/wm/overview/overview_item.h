@@ -8,7 +8,6 @@
 #include <memory>
 
 #include "ash/ash_export.h"
-#include "ash/wm/overview/caption_container_view.h"
 #include "ash/wm/overview/overview_session.h"
 #include "ash/wm/overview/scoped_overview_transform_window.h"
 #include "ash/wm/window_state_observer.h"
@@ -26,17 +25,18 @@ class Shadow;
 }  // namespace ui
 
 namespace views {
+class ImageButton;
 class Widget;
 }  // namespace views
 
 namespace ash {
 class DragWindowController;
 class OverviewGrid;
+class OverviewItemView;
 class RoundedLabelWidget;
 
 // This class represents an item in overview mode.
-class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
-                                public views::ButtonListener,
+class ASH_EXPORT OverviewItem : public views::ButtonListener,
                                 public aura::WindowObserver,
                                 public WindowStateObserver {
  public:
@@ -120,7 +120,7 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
 
   // Shows/Hides window item during window dragging. Used when swiping up a
   // window from shelf.
-  void SetVisibleDuringWindowDragging(bool visible);
+  void SetVisibleDuringWindowDragging(bool visible, bool animate);
 
   ScopedOverviewTransformWindow::GridWindowFillMode GetWindowDimensionsType()
       const;
@@ -194,12 +194,12 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
   // If kNewOverviewLayout is on, use this function for handling events.
   void HandleGestureEventForTabletModeLayout(ui::GestureEvent* event);
 
-  // CaptionContainerView::EventDelegate:
-  void HandleMouseEvent(const ui::MouseEvent& event) override;
-  void HandleGestureEvent(ui::GestureEvent* event) override;
-  bool ShouldIgnoreGestureEvents() override;
-  void OnHighlightedViewActivated() override;
-  void OnHighlightedViewClosed() override;
+  // Handles events forwarded from |overview_item_view_|.
+  void HandleMouseEvent(const ui::MouseEvent& event);
+  void HandleGestureEvent(ui::GestureEvent* event);
+  bool ShouldIgnoreGestureEvents();
+  void OnHighlightedViewActivated();
+  void OnHighlightedViewClosed();
 
   // views::ButtonListener:
   void ButtonPressed(views::Button* sender, const ui::Event& event) override;
@@ -213,7 +213,6 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
                              const gfx::Rect& new_bounds,
                              ui::PropertyChangeReason reason) override;
   void OnWindowDestroying(aura::Window* window) override;
-  void OnWindowTitleChanged(aura::Window* window) override;
 
   // WindowStateObserver:
   void OnPostWindowStateTypeChange(WindowState* window_state,
@@ -223,9 +222,7 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
 
   views::Widget* item_widget() { return item_widget_.get(); }
 
-  CaptionContainerView* caption_container_view() {
-    return caption_container_view_;
-  }
+  OverviewItemView* overview_item_view() { return overview_item_view_; }
 
   OverviewGrid* overview_grid() { return overview_grid_; }
 
@@ -259,8 +256,12 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
 
   void set_disable_mask(bool disable) { disable_mask_ = disable; }
 
+  void set_unclipped_size(base::Optional<gfx::Size> unclipped_size) {
+    unclipped_size_ = unclipped_size;
+  }
+
   views::ImageButton* GetCloseButtonForTesting();
-  float GetCloseButtonVisibilityForTesting() const;
+  float GetCloseButtonOpacityForTesting() const;
   float GetTitlebarOpacityForTesting() const;
   gfx::Rect GetShadowBoundsForTesting();
   RoundedLabelWidget* cannot_snap_widget_for_testing() {
@@ -273,7 +274,7 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
  private:
   friend class OverviewSessionRoundedCornerTest;
   friend class OverviewSessionTest;
-  class OverviewCloseButton;
+  FRIEND_TEST_ALL_PREFIXES(SplitViewOverviewSessionTest, Clipping);
   FRIEND_TEST_ALL_PREFIXES(SplitViewOverviewSessionTest,
                            OverviewUnsnappableIndicatorVisibility);
 
@@ -315,15 +316,12 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
   // using |animation_type|.
   void AnimateOpacity(float opacity, OverviewAnimationType animation_type);
 
-  // Allows a test to directly set animation state.
-  gfx::SlideAnimation* GetBackgroundViewAnimation();
-
   // Called before dragging. Scales up the window a little bit to indicate its
   // selection and stacks the window at the top of the Z order in order to keep
   // it visible while dragging around.
   void StartDrag();
 
-  // TODO(sammiequon): Current events go from CaptionContainerView to
+  // TODO(sammiequon): Current events go from OverviewItemView to
   // OverviewItem to OverviewSession to OverviewWindowDragController. We may be
   // able to shorten this pipeline.
   void HandlePressEvent(const gfx::PointF& location_in_screen,
@@ -347,7 +345,9 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
   // The contained Window's wrapper.
   ScopedOverviewTransformWindow transform_window_;
 
-  // The target bounds this overview item is fit within.
+  // The target bounds this overview item is fit within. When in splitview,
+  // |item_widget_| is fit within these bounds, but the window itself is
+  // transformed to |unclipped_size_|, and then clipped.
   gfx::RectF target_bounds_;
 
   // True if running SetItemBounds. This prevents recursive calls resulting from
@@ -356,15 +356,13 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
   bool in_bounds_update_ = false;
 
   // A widget stacked under the |transform_window_|. The widget has
-  // |caption_container_view_| as its contents view. The widget is backed by a
+  // |overview_item_view_| as its contents view. The widget is backed by a
   // NOT_DRAWN layer since most of its surface is transparent.
   std::unique_ptr<views::Widget> item_widget_;
 
   // The view associated with |item_widget_|. Contains a title, close button and
   // maybe a backdrop. Forwards certain events to |this|.
-  CaptionContainerView* caption_container_view_ = nullptr;
-
-  OverviewCloseButton* close_button_ = nullptr;
+  OverviewItemView* overview_item_view_ = nullptr;
 
   // A widget with text that may show up on top of |transform_window_| to notify
   // users this window cannot be snapped.
@@ -411,9 +409,18 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
 
   bool prepared_for_overview_ = false;
 
-  // Stores the last translations of the windows affected by SetBounds. Used for
-  // ease of calculations when swiping away overview mode using home launcher
-  // gesture.
+  // This has a value when there is a snapped window, or a window about to be
+  // snapped (triggering a splitview preview area). This will be set when items
+  // are positioned in OverviewGrid. The bounds delivered in |SetBounds| are the
+  // true bounds of this item, but we want to maintain the aspect ratio of the
+  // window, who's bounds are not set to split view size. So in |SetItemBounds|,
+  // we transform the window not to |target_bounds_| but to this value, and then
+  // apply clipping on the window to |target_bounds_|.
+  base::Optional<gfx::Size> unclipped_size_ = base::nullopt;
+
+  // Stores the last translations of the windows affected by |SetBounds|. Used
+  // for ease of calculations when swiping away overview mode using home
+  // launcher gesture.
   base::flat_map<aura::Window*, int> translation_y_map_;
 
   // The shadow around the overview window. Shadows the original window, not

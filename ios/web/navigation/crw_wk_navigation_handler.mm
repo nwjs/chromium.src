@@ -266,7 +266,9 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
               decisionHandler(WKNavigationActionPolicyCancel);
               if (action.targetFrame.mainFrame) {
                 [self.pendingNavigationInfo setCancelled:YES];
-                self.webStateImpl->SetIsLoading(false);
+                if (!web::features::UseWKWebViewLoading()) {
+                  self.webStateImpl->SetIsLoading(false);
+                }
               }
             }
           }));
@@ -368,18 +370,20 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
 
       if (!self.beingDestroyed &&
           [self shouldClosePageOnNativeApplicationLoad]) {
-        // Loading was started for user initiated navigations and should be
-        // stopped because no other WKWebView callbacks are called.
-        // TODO(crbug.com/767092): Loading should not start until
-        // webView.loading is changed to YES.
-        self.webStateImpl->SetIsLoading(false);
+        if (!web::features::UseWKWebViewLoading()) {
+          // Loading was started for user initiated navigations and should be
+          // stopped because no other WKWebView callbacks are called.
+          // TODO(crbug.com/767092): Loading should not start until
+          // webView.loading is changed to YES.
+          self.webStateImpl->SetIsLoading(false);
+        }
         self.webStateImpl->CloseWebState();
         decisionHandler(WKNavigationActionPolicyCancel);
         return;
       }
     }
 
-    if (!self.beingDestroyed) {
+    if (!web::features::UseWKWebViewLoading() && !self.beingDestroyed) {
       // Loading was started for user initiated navigations and should be
       // stopped because no other WKWebView callbacks are called.
       // TODO(crbug.com/767092): Loading should not start until webView.loading
@@ -426,7 +430,7 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
             strongSelf.webStateImpl->OnNavigationStarted(context.get());
             strongSelf.webStateImpl->OnNavigationFinished(context.get());
             strongSelf->_safeBrowsingWarningDetectionTimer.Stop();
-            if (!existingContext) {
+            if (!web::features::UseWKWebViewLoading() && !existingContext) {
               // If there's an existing context, observers will already be aware
               // of a load in progress. Otherwise, observers need to be notified
               // here, so that if the user decides to go back to the previous
@@ -492,11 +496,13 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
     self.pendingNavigationInfo.cancelled = YES;
   }
 
-  if (web::GetWebClient()->IsSlimNavigationManagerEnabled() &&
-      !WKResponse.forMainFrame && !webView.loading) {
-    // This is the terminal callback for iframe navigation and there is no
-    // pending main frame navigation. Last chance to flip IsLoading to false.
-    self.webStateImpl->SetIsLoading(false);
+  if (!web::features::UseWKWebViewLoading()) {
+    if (web::GetWebClient()->IsSlimNavigationManagerEnabled() &&
+        !WKResponse.forMainFrame && !webView.loading) {
+      // This is the terminal callback for iframe navigation and there is no
+      // pending main frame navigation. Last chance to flip IsLoading to false.
+      self.webStateImpl->SetIsLoading(false);
+    }
   }
 
   handler(shouldRenderResponse ? WKNavigationResponsePolicyAllow
@@ -713,7 +719,9 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
   // This must be reset at the end, since code above may need information about
   // the pending load.
   self.pendingNavigationInfo = nil;
-  _certVerificationErrors->Clear();
+  if (!web::IsWKWebViewSSLCertError(error)) {
+    _certVerificationErrors->Clear();
+  }
   // Remove the navigation to immediately get rid of pending item.
   if (web::WKNavigationState::NONE !=
       [self.navigationStates stateForNavigation:navigation]) {
@@ -736,7 +744,11 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
   BOOL committedNavigation =
       [self.navigationStates isCommittedNavigation:navigation];
 
-  _certVerificationErrors->Clear();
+  web::NavigationContextImpl* context =
+      [self.navigationStates contextForNavigation:navigation];
+  if (!web::IsWKWebViewSSLCertError(context->GetError())) {
+    _certVerificationErrors->Clear();
+  }
 
   // Invariant: Every |navigation| should have a |context|. Note that violation
   // of this invariant is currently observed in production, but the cause is not
@@ -744,8 +756,6 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
   // they arise.
   // TODO(crbug.com/864769): Remove nullptr checks on |context| in this method
   // once the root cause of the invariant violation is found.
-  web::NavigationContextImpl* context =
-      [self.navigationStates contextForNavigation:navigation];
   DCHECK(context);
   UMA_HISTOGRAM_BOOLEAN("IOS.CommittedNavigationHasContext", context);
 
@@ -1058,9 +1068,12 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
 
   [self.delegate navigationHandler:self didFinishNavigation:context];
 
-  // Remove the navigation to immediately get rid of pending item.
+  // Remove the navigation to immediately get rid of pending item. Navigation
+  // should not be cleared, however, in the case of a committed interstitial
+  // for an SSL error.
   if (web::WKNavigationState::NONE !=
-      [self.navigationStates stateForNavigation:navigation]) {
+          [self.navigationStates stateForNavigation:navigation] &&
+      !web::IsWKWebViewSSLCertError(context->GetError())) {
     [self.navigationStates removeNavigation:navigation];
   }
 }
@@ -1402,11 +1415,15 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
   }
 
   ui::PageTransition transition = ui::PAGE_TRANSITION_AUTO_SUBFRAME;
+  NSString* HTTPMethod = @"GET";
   if (WKResponse.forMainFrame) {
     web::NavigationContextImpl* context =
         [self contextForPendingMainFrameNavigationWithURL:responseURL];
     context->SetIsDownload(true);
     context->ReleaseItem();
+    if (context->IsPost()) {
+      HTTPMethod = @"POST";
+    }
     // Navigation callbacks can only be called for the main frame.
     self.webStateImpl->OnNavigationFinished(context);
     transition = context->GetPageTransition();
@@ -1423,8 +1440,8 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
   web::DownloadController::FromBrowserState(
       self.webStateImpl->GetBrowserState())
       ->CreateDownloadTask(self.webStateImpl, [NSUUID UUID].UUIDString,
-                           responseURL, contentDisposition, contentLength,
-                           MIMEType, transition);
+                           responseURL, HTTPMethod, contentDisposition,
+                           contentLength, MIMEType, transition);
 }
 
 // Updates URL for navigation context and navigation item.
@@ -1716,7 +1733,8 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
               navigationContext->GetUrl());
           return;
         } else if (!PageTransitionIsNewNavigation(transition)) {
-          if (transition & ui::PAGE_TRANSITION_RELOAD) {
+          if (!web::features::UseWKWebViewLoading() &&
+              transition & ui::PAGE_TRANSITION_RELOAD) {
             self.webStateImpl->SetIsLoading(false);
           }
           return;
@@ -1757,7 +1775,9 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
         self.navigationManagerImpl->DiscardNonCommittedItems();
         [self.navigationStates removeNavigation:navigation];
       }
-      self.webStateImpl->SetIsLoading(false);
+      if (!web::features::UseWKWebViewLoading()) {
+        self.webStateImpl->SetIsLoading(false);
+      }
       return;
     }
 
@@ -1768,7 +1788,9 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
         // item and fail the navigation.
         navigationContext->ReleaseItem();
         self.webStateImpl->OnNavigationFinished(navigationContext);
-        self.webStateImpl->SetIsLoading(false);
+        if (!web::features::UseWKWebViewLoading()) {
+          self.webStateImpl->SetIsLoading(false);
+        }
         self.webStateImpl->OnPageLoaded(navigationContext->GetUrl(), false);
         return;
       }
@@ -1778,7 +1800,7 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
   web::NavigationManager* navManager =
       self.webStateImpl->GetNavigationManager();
   web::NavigationItem* lastCommittedItem = navManager->GetLastCommittedItem();
-  if (lastCommittedItem) {
+  if (lastCommittedItem && !web::IsWKWebViewSSLCertError(error)) {
     // Reset SSL status for last committed navigation to avoid showing security
     // status for error pages.
     if (!lastCommittedItem->GetSSL().Equals(web::SSLStatus())) {
@@ -1885,7 +1907,7 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
 
     case web::ErrorRetryCommand::kLoadError:
       [self loadErrorPageForNavigationItem:item
-                         navigationContext:context
+                         navigationContext:originalNavigation
                                    webView:webView];
       break;
 
@@ -1946,13 +1968,52 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
 
 // Loads the error page.
 - (void)loadErrorPageForNavigationItem:(web::NavigationItemImpl*)item
-                     navigationContext:(web::NavigationContextImpl*)context
+                     navigationContext:(WKNavigation*)navigation
                                webView:(WKWebView*)webView {
+  web::NavigationContextImpl* context =
+      [self.navigationStates contextForNavigation:navigation];
   NSError* error = context->GetError();
   DCHECK(error);
   DCHECK_EQ(item->GetUniqueID(), context->GetNavigationItemUniqueID());
 
-  if (web::IsWKWebViewSSLCertError(error)) {
+  net::SSLInfo info;
+  base::Optional<net::SSLInfo> ssl_info = base::nullopt;
+
+  if (web::IsWKWebViewSSLCertError(error) &&
+      base::FeatureList::IsEnabled(web::features::kSSLCommittedInterstitials)) {
+    web::GetSSLInfoFromWKWebViewSSLCertError(error, &info);
+    if (info.cert) {
+      // Retrieve verification results from _certVerificationErrors cache to
+      // avoid unnecessary recalculations. Verification results are cached for
+      // the leaf cert, because the cert chain in
+      // |didReceiveAuthenticationChallenge:| is the OS constructed chain, while
+      // |chain| is the chain from the server.
+      NSArray* chain = error.userInfo[web::kNSErrorPeerCertificateChainKey];
+      NSURL* requestURL = error.userInfo[web::kNSErrorFailingURLKey];
+      NSString* host = requestURL.host;
+      scoped_refptr<net::X509Certificate> leafCert;
+      if (chain.count && host.length) {
+        // The complete cert chain may not be available, so the leaf cert is
+        // used as a key to retrieve _certVerificationErrors, as well as for
+        // storing the cert decision.
+        leafCert = web::CreateCertFromChain(@[ chain.firstObject ]);
+        if (leafCert) {
+          auto error = _certVerificationErrors->Get(
+              {leafCert, base::SysNSStringToUTF8(host)});
+          bool cacheHit = error != _certVerificationErrors->end();
+          if (cacheHit) {
+            info.is_fatal_cert_error = error->second.is_recoverable;
+            info.cert_status = error->second.status;
+          }
+          UMA_HISTOGRAM_BOOLEAN("WebController.CertVerificationErrorsCacheHit",
+                                cacheHit);
+        }
+      }
+    }
+    ssl_info = base::make_optional<net::SSLInfo>(info);
+  } else if (web::IsWKWebViewSSLCertError(error) &&
+             !base::FeatureList::IsEnabled(
+                 web::features::kSSLCommittedInterstitials)) {
     // This could happen only if certificate is absent or could not be parsed.
     error = web::NetErrorFromError(error, net::ERR_SSL_SERVER_CERT_BAD_FORMAT);
 #if defined(DEBUG)
@@ -1966,10 +2027,12 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
   NSString* failingURLString =
       error.userInfo[NSURLErrorFailingURLStringErrorKey];
   GURL failingURL(base::SysNSStringToUTF8(failingURLString));
+  GURL itemURL = item->GetURL();
+  int itemID = item->GetUniqueID();
   web::GetWebClient()->PrepareErrorPage(
       self.webStateImpl, failingURL, error, context->IsPost(),
-      self.webStateImpl->GetBrowserState()->IsOffTheRecord(),
-      base::BindOnce(^(NSString* errorHTML) {
+      self.webStateImpl->GetBrowserState()->IsOffTheRecord(), ssl_info,
+      context->GetNavigationId(), base::BindOnce(^(NSString* errorHTML) {
         if (errorHTML) {
           WKNavigation* navigation =
               [webView loadHTMLString:errorHTML
@@ -1980,7 +2043,7 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
                   /*has_user_gesture=*/false, ui::PAGE_TRANSITION_FIRST,
                   /*is_renderer_initiated=*/false);
           loadHTMLContext->SetLoadingErrorPage(true);
-          loadHTMLContext->SetNavigationItemUniqueID(item->GetUniqueID());
+          loadHTMLContext->SetNavigationItemUniqueID(itemID);
 
           [self.navigationStates setContext:std::move(loadHTMLContext)
                               forNavigation:navigation];
@@ -1996,7 +2059,8 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
         // released after
         // |self.navigationManagerImpl->CommitPendingItem(context->ReleaseItem()|.
         // Remove this once navigation refactor is done.
-        GURL itemURL = item->GetURL();
+        web::NavigationContextImpl* context =
+            [self.navigationStates contextForNavigation:navigation];
         self.navigationManagerImpl->CommitPendingItem(context->ReleaseItem());
         if (web::GetWebClient()->IsSlimNavigationManagerEnabled()) {
           [self.delegate navigationHandler:self
@@ -2024,10 +2088,25 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
           self.webStateImpl->OnNavigationFinished(context);
         }
 
+        // For SSL cert error pages, SSLStatus needs to be set manually because
+        // the placeholder navigation for the error page is committed and
+        // there is no server trust (since there's no network navigation), which
+        // is required to create a cert in CRWSSLStatusUpdater.
+        if (web::IsWKWebViewSSLCertError(context->GetError())) {
+          web::SSLStatus& SSLStatus =
+              self.navigationManagerImpl->GetLastCommittedItem()->GetSSL();
+          SSLStatus.cert_status = info.cert_status;
+          SSLStatus.certificate = info.cert;
+          SSLStatus.security_style = web::SECURITY_STYLE_AUTHENTICATION_BROKEN;
+          self.webStateImpl->DidChangeVisibleSecurityState();
+        }
+
         [self.delegate navigationHandler:self
               didCompleteLoadWithSuccess:NO
                               forContext:context];
-        self.webStateImpl->SetIsLoading(false);
+        if (!web::features::UseWKWebViewLoading()) {
+          self.webStateImpl->SetIsLoading(false);
+        }
         self.webStateImpl->OnPageLoaded(failingURL, NO);
       }));
 }

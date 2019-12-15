@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_SAFE_BROWSING_REALTIME_POLICY_ENGINE_H_
 #define COMPONENTS_SAFE_BROWSING_REALTIME_POLICY_ENGINE_H_
 
+#include "build/build_config.h"
 #include "content/public/common/resource_type.h"
 
 namespace content {
@@ -13,15 +14,20 @@ class BrowserContext;
 
 namespace safe_browsing {
 
+#if defined(OS_ANDROID)
+// A parameter controlled by finch experiment.
+// On Android, performs real time URL lookup only if |kRealTimeUrlLookupEnabled|
+// is enabled, and system memory is larger than threshold.
+const char kRealTimeUrlLookupMemoryThresholdMb[] =
+    "SafeBrowsingRealTimeUrlLookupMemoryThresholdMb";
+#endif
+
 // This class implements the logic to decide whether the real time lookup
 // feature is enabled for a given user/profile.
 class RealTimePolicyEngine {
  public:
   RealTimePolicyEngine() = delete;
   ~RealTimePolicyEngine() = delete;
-
-  // Is the feature to sync high confidence allowlist enabled?
-  static bool IsFetchAllowlistEnabled();
 
   // Return true if full URL lookups are enabled for |resource_type|.
   static bool CanPerformFullURLLookupForResourceType(

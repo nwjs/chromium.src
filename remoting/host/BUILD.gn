@@ -62,6 +62,8 @@ source_set("base") {
     "logging_linux.cc",
     "logging_mac.cc",
     "logging_win.cc",
+    "switches.cc",
+    "switches.h",
     "username.cc",
     "username.h",
   ]
@@ -176,10 +178,6 @@ static_library("common") {
     "ftl_host_change_notification_listener.h",
     "ftl_signaling_connector.cc",
     "ftl_signaling_connector.h",
-    "gcd_rest_client.cc",
-    "gcd_rest_client.h",
-    "gcd_state_updater.cc",
-    "gcd_state_updater.h",
     "heartbeat_sender.cc",
     "heartbeat_sender.h",
     "host_attributes.cc",
@@ -238,6 +236,11 @@ static_library("common") {
     "ipc_video_frame_capturer.h",
     "it2me_desktop_environment.cc",
     "it2me_desktop_environment.h",
+    "keyboard_layout_monitor.cc",
+    "keyboard_layout_monitor.h",
+    "keyboard_layout_monitor_linux.cc",
+    "keyboard_layout_monitor_mac.cc",
+    "keyboard_layout_monitor_win.cc",
     "me2me_desktop_environment.cc",
     "me2me_desktop_environment.h",
     "mouse_cursor_monitor_proxy.cc",
@@ -284,8 +287,6 @@ static_library("common") {
     "single_window_input_injector_linux.cc",
     "single_window_input_injector_mac.cc",
     "single_window_input_injector_win.cc",
-    "switches.cc",
-    "switches.h",
     "test_echo_extension.cc",
     "test_echo_extension.h",
     "test_echo_extension_session.cc",
@@ -335,7 +336,7 @@ static_library("common") {
     "//remoting/protocol",
     "//remoting/resources",
     "//services/network:network_service",
-    "//third_party/webrtc/modules/desktop_capture",
+    "//third_party/webrtc_overrides:webrtc_component",
 
     # //remoting uses the power_save_blocker directly. See crbug.com/689423
     "//services/device/wake_lock/power_save_blocker",
@@ -425,13 +426,11 @@ static_library("common") {
       "Carbon.framework",
     ]
 
-    deps += [
-      ":remoting_version",
-      "//third_party/google_toolbox_for_mac",
-    ]
+    deps += [ ":remoting_version" ]
   }
 
   if (is_win) {
+    libs += [ "crypt32.lib" ]
     deps += [
       # On Windows, we use //media/gpu/MediaFoundationVideoEncodeAcceleratorWin
       # to detect whether HW encoder is supported by the system.
@@ -472,8 +471,7 @@ static_library("test_support") {
     "//remoting/host/file_transfer:test_support",
     "//third_party/libjingle_xmpp",
     "//third_party/protobuf:protobuf_lite",
-    "//third_party/webrtc/modules/desktop_capture",
-    "//third_party/webrtc_overrides:init_webrtc",
+    "//third_party/webrtc_overrides:webrtc_component",
   ]
 }
 
@@ -495,8 +493,6 @@ source_set("unit_tests") {
     "desktop_session_agent_unittest.cc",
     "ftl_host_change_notification_listener_unittest.cc",
     "ftl_signaling_connector_unittest.cc",
-    "gcd_rest_client_unittest.cc",
-    "gcd_state_updater_unittest.cc",
     "heartbeat_sender_unittest.cc",
     "host_attributes_unittest.cc",
     "host_config_unittest.cc",
@@ -611,7 +607,7 @@ if (enable_remoting_host) {
 
     deps = [
       "//third_party/libjingle_xmpp",
-      "//third_party/webrtc_overrides:init_webrtc",
+      "//third_party/webrtc_overrides:webrtc_component",
     ]
 
     configs += [ "//build/config/compiler:wexit_time_destructors" ]
@@ -699,7 +695,7 @@ if (enable_remoting_host) {
     script = "//remoting/tools/build/remoting_localize.py"
     args = [
              "--locale_dir",
-             rebase_path(webapp_locale_dir, root_build_dir),
+             rebase_path(resources_locale_dir, root_build_dir),
              "--variables",
              rebase_path(branding_path, root_build_dir),
              "--template",
@@ -745,9 +741,7 @@ if (enable_me2me_host) {
       "//remoting/host",
       "//remoting/proto",
       "//third_party/libjingle_xmpp",
-      "//third_party/webrtc/api:scoped_refptr",
-      "//third_party/webrtc/modules/desktop_capture",
-      "//third_party/webrtc_overrides:init_webrtc",
+      "//third_party/webrtc_overrides:webrtc_component",
     ]
 
     if (is_posix) {

@@ -211,6 +211,25 @@ class CrxInstaller : public base::RefCountedThreadSafe<CrxInstaller> {
   virtual ~CrxInstaller() {}
 };
 
+// Defines an interface to handle |action| elements in the update response.
+// The current implementation only handles run actions bound to a CRX, meaning
+// that such CRX is unpacked and an executable file, contained inside the CRX,
+// is run, then the results of the invocation are collected by the callback.
+class ActionHandler : public base::RefCountedThreadSafe<ActionHandler> {
+ public:
+  using Callback =
+      base::OnceCallback<void(bool succeeded, int error_code, int extra_code1)>;
+
+  virtual void Handle(const base::FilePath& action,
+                      const std::string& session_id,
+                      Callback callback) = 0;
+
+ protected:
+  friend class base::RefCountedThreadSafe<ActionHandler>;
+
+  virtual ~ActionHandler() = default;
+};
+
 // A dictionary of installer-specific, arbitrary name-value pairs, which
 // may be used in the update checks requests.
 using InstallerAttributes = std::map<std::string, std::string>;
@@ -228,6 +247,8 @@ struct CrxComponent {
   std::vector<uint8_t> pk_hash;
 
   scoped_refptr<CrxInstaller> installer;
+  scoped_refptr<ActionHandler> action_handler;
+
   std::string app_id;
 
   // The current version if the CRX is updated. Otherwise, "0" or "0.0" if
@@ -241,7 +262,7 @@ struct CrxComponent {
   // Optional.
   // Valid values for the name part of an attribute match
   // ^[-_a-zA-Z0-9]{1,256}$ and valid values the value part of an attribute
-  // match ^[-.,;+_=a-zA-Z0-9]{0,256}$ .
+  // match ^[-.,;+_=$a-zA-Z0-9]{0,256}$ .
   InstallerAttributes installer_attributes;
 
   // Specifies that the CRX can be background-downloaded in some cases.
@@ -299,9 +320,9 @@ class UpdateClient : public base::RefCounted<UpdateClient> {
       // Sent before the update client does an update check.
       COMPONENT_CHECKING_FOR_UPDATES = 1,
 
-      // Sent when there is a new version of a registered CRX. After
-      // the notification is sent the CRX will be downloaded unless the
-      // update client inserts a
+      // Sent when there is a new version of a registered CRX. The CRX will be
+      // downloaded after the notification unless the update client inserts
+      // a wait because of a throttling policy.
       COMPONENT_UPDATE_FOUND,
 
       // Sent when a CRX is in the update queue but it can't be acted on

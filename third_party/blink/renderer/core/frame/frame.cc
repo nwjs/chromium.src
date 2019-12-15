@@ -38,7 +38,6 @@
 #include "third_party/blink/renderer/core/dom/document_type.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
-#include "third_party/blink/renderer/core/dom/user_gesture_indicator.h"
 #include "third_party/blink/renderer/core/execution_context/window_agent_factory.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
@@ -209,7 +208,7 @@ void Frame::NotifyUserActivationInLocalTree() {
   // See the "Same-origin Visibility" section in |UserActivationState| class
   // doc.
   auto* local_frame = DynamicTo<LocalFrame>(this);
-  if (local_frame && RuntimeEnabledFeatures::UserActivationV2Enabled() &&
+  if (local_frame &&
       RuntimeEnabledFeatures::UserActivationSameOriginVisibilityEnabled()) {
     const SecurityOrigin* security_origin =
         local_frame->GetSecurityContext()->GetSecurityOrigin();
@@ -329,6 +328,17 @@ void Frame::Initialize() {
     owner_->SetContentFrame(*this);
   else
     page_->SetMainFrame(this);
+}
+
+void Frame::FocusImpl() {
+  // This uses FocusDocumentView rather than SetFocusedFrame so that blur
+  // events are properly dispatched on any currently focused elements.
+  // It is currently only used when replicating focus changes for
+  // cross-process frames so |notify_embedder| is false to avoid sending
+  // DidFocus updates from FocusController to the browser process,
+  // which already knows the latest focused frame.
+  GetPage()->GetFocusController().FocusDocumentView(
+      this, false /* notify_embedder */);
 }
 
 STATIC_ASSERT_ENUM(FrameDetachType::kRemove,

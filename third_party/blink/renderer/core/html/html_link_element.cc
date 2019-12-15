@@ -51,11 +51,9 @@
 
 namespace blink {
 
-using namespace html_names;
-
 HTMLLinkElement::HTMLLinkElement(Document& document,
                                  const CreateElementFlags flags)
-    : HTMLElement(kLinkTag, document),
+    : HTMLElement(html_names::kLinkTag, document),
       link_loader_(LinkLoader::Create(this)),
       referrer_policy_(network::mojom::ReferrerPolicy::kDefault),
       sizes_(MakeGarbageCollected<DOMTokenList>(*this, html_names::kSizesAttr)),
@@ -64,41 +62,36 @@ HTMLLinkElement::HTMLLinkElement(Document& document,
 
 HTMLLinkElement::~HTMLLinkElement() = default;
 
-const AttrNameToTrustedType& HTMLLinkElement::GetCheckedAttributeTypes() const {
-  DEFINE_STATIC_LOCAL(AttrNameToTrustedType, attribute_map,
-                      ({{"href", SpecificTrustedType::kTrustedURL}}));
-  return attribute_map;
-}
-
 void HTMLLinkElement::ParseAttribute(
     const AttributeModificationParams& params) {
   const QualifiedName& name = params.name;
   const AtomicString& value = params.new_value;
-  if (name == kRelAttr) {
+  if (name == html_names::kRelAttr) {
     rel_attribute_ = LinkRelAttribute(value);
-    if (rel_attribute_.IsImport()) {
+    if (rel_attribute_.IsImport() &&
+        RuntimeEnabledFeatures::HTMLImportsEnabled(&GetDocument())) {
       Deprecation::CountDeprecation(&GetDocument(), WebFeature::kHTMLImports);
     }
     rel_list_->DidUpdateAttributeValue(params.old_value, value);
     Process();
-  } else if (name == kHrefAttr) {
+  } else if (name == html_names::kHrefAttr) {
     // Log href attribute before logging resource fetching in process().
     LogUpdateAttributeIfIsolatedWorldAndInDocument("link", params);
     Process();
-  } else if (name == kTypeAttr) {
+  } else if (name == html_names::kTypeAttr) {
     type_ = value;
     Process();
-  } else if (name == kAsAttr) {
+  } else if (name == html_names::kAsAttr) {
     as_ = value;
     Process();
-  } else if (name == kReferrerpolicyAttr) {
+  } else if (name == html_names::kReferrerpolicyAttr) {
     if (!value.IsNull()) {
       SecurityPolicy::ReferrerPolicyFromString(
           value, kDoNotSupportReferrerPolicyLegacyKeywords, &referrer_policy_);
       UseCounter::Count(GetDocument(),
                         WebFeature::kHTMLLinkElementReferrerPolicyAttribute);
     }
-  } else if (name == kSizesAttr) {
+  } else if (name == html_names::kSizesAttr) {
     sizes_->DidUpdateAttributeValue(params.old_value, value);
     WebVector<WebSize> web_icon_sizes =
         WebIconSizesParser::ParseIconSizes(value);
@@ -106,26 +99,26 @@ void HTMLLinkElement::ParseAttribute(
     for (wtf_size_t i = 0; i < icon_sizes_.size(); ++i)
       icon_sizes_[i] = web_icon_sizes[i];
     Process();
-  } else if (name == kMediaAttr) {
+  } else if (name == html_names::kMediaAttr) {
     media_ = value.LowerASCII();
     Process();
-  } else if (name == kScopeAttr) {
+  } else if (name == html_names::kScopeAttr) {
     scope_ = value;
     Process();
-  } else if (name == kIntegrityAttr) {
+  } else if (name == html_names::kIntegrityAttr) {
     integrity_ = value;
-  } else if (name == kImportanceAttr &&
+  } else if (name == html_names::kImportanceAttr &&
              RuntimeEnabledFeatures::PriorityHintsEnabled(&GetDocument())) {
     UseCounter::Count(GetDocument(), WebFeature::kPriorityHints);
     importance_ = value;
-  } else if (name == kDisabledAttr) {
+  } else if (name == html_names::kDisabledAttr) {
     UseCounter::Count(GetDocument(), WebFeature::kHTMLLinkElementDisabled);
     if (params.reason == AttributeModificationReason::kByParser)
       UseCounter::Count(GetDocument(), WebFeature::kHTMLLinkElementDisabledByParser);
     if (LinkStyle* link = GetLinkStyle())
       link->SetDisabledState(!value.IsNull());
   } else {
-    if (name == kTitleAttr) {
+    if (name == html_names::kTitleAttr) {
       if (LinkStyle* link = GetLinkStyle())
         link->SetSheetTitle(value);
     }
@@ -150,7 +143,7 @@ bool HTMLLinkElement::ShouldLoadLink() {
       return false;
   }
 
-  const KURL& href = GetNonEmptyURLAttribute(kHrefAttr);
+  const KURL& href = GetNonEmptyURLAttribute(html_names::kHrefAttr);
   return !href.PotentiallyDanglingMarkup();
 }
 
@@ -184,27 +177,15 @@ LinkResource* HTMLLinkElement::LinkResourceToProcess() {
 
   if (!link_) {
     if (rel_attribute_.IsImport()) {
-      // Only create an import link when HTML imports are enabled. Either:
-      // 1) For chrome internal resources only, if HTMLImportsOnlyChromeEnabled.
-      // 2) The WebComponentsV0 origin trial is enabled.
-      bool imports_enabled =
-          RuntimeEnabledFeatures::HTMLImportsOnlyChromeEnabled() &&
-          (Href().Protocol() == "chrome" ||
-           Href().Protocol() == "chrome-extension");
-      if (!imports_enabled) {
-        imports_enabled =
-            RuntimeEnabledFeatures::HTMLImportsEnabled(&GetDocument());
-      }
-      if (imports_enabled) {
-        link_ = MakeGarbageCollected<LinkImport>(this);
-      } else {
+      // Only create an import link when HTML imports are enabled.
+      if (!RuntimeEnabledFeatures::HTMLImportsEnabled(&GetDocument()))
         return nullptr;
-      }
+      link_ = MakeGarbageCollected<LinkImport>(this);
     } else if (rel_attribute_.IsManifest()) {
       link_ = MakeGarbageCollected<LinkManifest>(this);
     } else {
       auto* link = MakeGarbageCollected<LinkStyle>(this);
-      if (FastHasAttribute(kDisabledAttr)) {
+      if (FastHasAttribute(html_names::kDisabledAttr)) {
         UseCounter::Count(GetDocument(), WebFeature::kHTMLLinkElementDisabled);
         link->SetDisabledState(true);
       }
@@ -241,7 +222,8 @@ void HTMLLinkElement::Process() {
 Node::InsertionNotificationRequest HTMLLinkElement::InsertedInto(
     ContainerNode& insertion_point) {
   HTMLElement::InsertedInto(insertion_point);
-  LogAddElementIfIsolatedWorldAndInDocument("link", kRelAttr, kHrefAttr);
+  LogAddElementIfIsolatedWorldAndInDocument("link", html_names::kRelAttr,
+                                            html_names::kHrefAttr);
   if (!insertion_point.isConnected())
     return kInsertionDone;
   DCHECK(isConnected());
@@ -375,37 +357,39 @@ void HTMLLinkElement::StartLoadingDynamicSheet() {
 }
 
 bool HTMLLinkElement::IsURLAttribute(const Attribute& attribute) const {
-  return attribute.GetName().LocalName() == kHrefAttr ||
+  return attribute.GetName().LocalName() == html_names::kHrefAttr ||
          HTMLElement::IsURLAttribute(attribute);
 }
 
 bool HTMLLinkElement::HasLegalLinkAttribute(const QualifiedName& name) const {
-  return name == kHrefAttr || HTMLElement::HasLegalLinkAttribute(name);
+  return name == html_names::kHrefAttr ||
+         HTMLElement::HasLegalLinkAttribute(name);
 }
 
 const QualifiedName& HTMLLinkElement::SubResourceAttributeName() const {
   // If the link element is not css, ignore it.
-  if (DeprecatedEqualIgnoringCase(getAttribute(kTypeAttr), "text/css")) {
+  if (DeprecatedEqualIgnoringCase(FastGetAttribute(html_names::kTypeAttr),
+                                  "text/css")) {
     // FIXME: Add support for extracting links of sub-resources which
     // are inside style-sheet such as @import, @font-face, url(), etc.
-    return kHrefAttr;
+    return html_names::kHrefAttr;
   }
   return HTMLElement::SubResourceAttributeName();
 }
 
 KURL HTMLLinkElement::Href() const {
-  const String& url = getAttribute(kHrefAttr);
+  const String& url = FastGetAttribute(html_names::kHrefAttr);
   if (url.IsEmpty())
     return KURL();
   return GetDocument().CompleteURL(url);
 }
 
 const AtomicString& HTMLLinkElement::Rel() const {
-  return getAttribute(kRelAttr);
+  return FastGetAttribute(html_names::kRelAttr);
 }
 
 const AtomicString& HTMLLinkElement::GetType() const {
-  return getAttribute(kTypeAttr);
+  return FastGetAttribute(html_names::kTypeAttr);
 }
 
 bool HTMLLinkElement::Async() const {

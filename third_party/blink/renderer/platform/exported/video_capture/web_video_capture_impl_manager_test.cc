@@ -18,6 +18,8 @@
 #include "third_party/blink/public/platform/modules/video_capture/web_video_capture_impl_manager.h"
 #include "third_party/blink/renderer/platform/video_capture/gpu_memory_buffer_test_support.h"
 #include "third_party/blink/renderer/platform/video_capture/video_capture_impl.h"
+#include "third_party/blink/renderer/platform/wtf/cross_thread_copier.h"
+#include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 
 using media::BindToCurrentLoop;
 using ::testing::_;
@@ -50,12 +52,12 @@ class MockVideoCaptureImpl : public VideoCaptureImpl,
  public:
   MockVideoCaptureImpl(const media::VideoCaptureSessionId& session_id,
                        PauseResumeCallback* pause_callback,
-                       base::Closure destruct_callback)
+                       base::OnceClosure destruct_callback)
       : VideoCaptureImpl(session_id),
         pause_callback_(pause_callback),
-        destruct_callback_(destruct_callback) {}
+        destruct_callback_(std::move(destruct_callback)) {}
 
-  ~MockVideoCaptureImpl() override { destruct_callback_.Run(); }
+  ~MockVideoCaptureImpl() override { std::move(destruct_callback_).Run(); }
 
  private:
   void Start(const base::UnguessableToken& device_id,
@@ -103,7 +105,7 @@ class MockVideoCaptureImpl : public VideoCaptureImpl,
   MOCK_METHOD2(OnLog, void(const base::UnguessableToken&, const String&));
 
   PauseResumeCallback* const pause_callback_;
-  const base::Closure destruct_callback_;
+  base::OnceClosure destruct_callback_;
 
   DISALLOW_COPY_AND_ASSIGN(MockVideoCaptureImpl);
 };
@@ -111,7 +113,7 @@ class MockVideoCaptureImpl : public VideoCaptureImpl,
 class MockVideoCaptureImplManager : public WebVideoCaptureImplManager {
  public:
   MockVideoCaptureImplManager(PauseResumeCallback* pause_callback,
-                              base::Closure stop_capture_callback)
+                              base::RepeatingClosure stop_capture_callback)
       : pause_callback_(pause_callback),
         stop_capture_callback_(stop_capture_callback) {}
   ~MockVideoCaptureImplManager() override {}
@@ -126,7 +128,7 @@ class MockVideoCaptureImplManager : public WebVideoCaptureImplManager {
   }
 
   PauseResumeCallback* const pause_callback_;
-  const base::Closure stop_capture_callback_;
+  const base::RepeatingClosure stop_capture_callback_;
 
   DISALLOW_COPY_AND_ASSIGN(MockVideoCaptureImplManager);
 };
@@ -216,10 +218,12 @@ class VideoCaptureImplManagerTest : public ::testing::Test,
                                  const media::VideoCaptureParams& params) {
     return manager_->StartCapture(
         id, params,
-        base::Bind(&VideoCaptureImplManagerTest::OnStateUpdate,
-                   base::Unretained(this), id),
-        base::Bind(&VideoCaptureImplManagerTest::OnFrameReady,
-                   base::Unretained(this)));
+        ConvertToBaseRepeatingCallback(CrossThreadBindRepeating(
+            &VideoCaptureImplManagerTest::OnStateUpdate,
+            CrossThreadUnretained(this), id)),
+        ConvertToBaseRepeatingCallback(
+            CrossThreadBindRepeating(&VideoCaptureImplManagerTest::OnFrameReady,
+                                     CrossThreadUnretained(this))));
   }
 
   base::test::TaskEnvironment task_environment_;

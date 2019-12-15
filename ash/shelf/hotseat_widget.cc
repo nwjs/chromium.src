@@ -6,6 +6,7 @@
 
 #include "ash/focus_cycler.h"
 #include "ash/keyboard/ui/keyboard_ui_controller.h"
+#include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/public/cpp/wallpaper_controller_observer.h"
@@ -31,12 +32,6 @@ bool IsScrollableShelfEnabled() {
   return chromeos::switches::ShouldShowScrollableShelf();
 }
 
-bool ShouldShowHotseat() {
-  return chromeos::switches::ShouldShowShelfHotseat() &&
-         Shell::Get()->tablet_mode_controller() &&
-         Shell::Get()->tablet_mode_controller()->InTabletMode();
-}
-
 }  // namespace
 
 class HotseatWidget::DelegateView : public views::WidgetDelegateView,
@@ -50,10 +45,18 @@ class HotseatWidget::DelegateView : public views::WidgetDelegateView,
   // Initializes the view.
   void Init(ScrollableShelfView* scrollable_shelf_view,
             ui::Layer* parent_layer);
+
   // Updates the hotseat background.
   void UpdateOpaqueBackground();
+
   // Updates the hotseat background when tablet mode changes.
   void OnTabletModeChanged();
+
+  // Hides |opaque_background_| immediately or with animation.
+  void HideOpaqueBackground(bool animate);
+
+  // Shows |opaque_background_| immediately.
+  void ShowOpaqueBackground();
 
   // views::WidgetDelegateView:
   bool CanActivate() const override;
@@ -65,8 +68,13 @@ class HotseatWidget::DelegateView : public views::WidgetDelegateView,
   void set_focus_cycler(FocusCycler* focus_cycler) {
     focus_cycler_ = focus_cycler;
   }
+
  private:
+  // Returns whether the hotseat background should be shown.
+  bool ShouldShowHotseatBackground() const;
+
   void SetParentLayer(ui::Layer* layer);
+
   FocusCycler* focus_cycler_ = nullptr;
   // A background layer that may be visible depending on HotseatState.
   ui::Layer opaque_background_;
@@ -100,7 +108,7 @@ void HotseatWidget::DelegateView::Init(
 }
 
 void HotseatWidget::DelegateView::UpdateOpaqueBackground() {
-  if (!ShouldShowHotseat()) {
+  if (!ShouldShowHotseatBackground()) {
     opaque_background_.SetVisible(false);
     return;
   }
@@ -118,7 +126,10 @@ void HotseatWidget::DelegateView::UpdateOpaqueBackground() {
   if (opaque_background_.bounds() != background_bounds)
     opaque_background_.SetBounds(background_bounds);
 
-  opaque_background_.SetBackgroundBlur(ShelfConfig::Get()->shelf_blur_radius());
+  if (features::IsBackgroundBlurEnabled()) {
+    opaque_background_.SetBackgroundBlur(
+        ShelfConfig::Get()->shelf_blur_radius());
+  }
 }
 
 void HotseatWidget::DelegateView::OnTabletModeChanged() {
@@ -143,6 +154,12 @@ void HotseatWidget::DelegateView::OnWallpaperColorsChanged() {
   UpdateOpaqueBackground();
 }
 
+bool HotseatWidget::DelegateView::ShouldShowHotseatBackground() const {
+  return chromeos::switches::ShouldShowShelfHotseat() &&
+         Shell::Get()->tablet_mode_controller() &&
+         Shell::Get()->tablet_mode_controller()->InTabletMode();
+}
+
 void HotseatWidget::DelegateView::SetParentLayer(ui::Layer* layer) {
   layer->Add(&opaque_background_);
   ReorderLayers();
@@ -164,7 +181,7 @@ void HotseatWidget::Initialize(aura::Window* container, Shelf* shelf) {
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.name = "HotseatWidget";
   params.delegate = delegate_view_;
-  params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
+  params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.parent = container;
   Init(std::move(params));
@@ -179,7 +196,8 @@ void HotseatWidget::Initialize(aura::Window* container, Shelf* shelf) {
     // The shelf view observes the shelf model and creates icons as items are
     // added to the model.
     shelf_view_ = GetContentsView()->AddChildView(std::make_unique<ShelfView>(
-        ShelfModel::Get(), shelf, /*drag_and_drop_host=*/nullptr));
+        ShelfModel::Get(), shelf, /*drag_and_drop_host=*/nullptr,
+        /*shelf_button_delegate=*/nullptr));
     shelf_view_->Init();
   }
   delegate_view_->Init(scrollable_shelf_view(), GetLayer());
@@ -213,21 +231,6 @@ bool HotseatWidget::OnNativeWidgetActivationChanged(bool active) {
 
 void HotseatWidget::OnShelfConfigUpdated() {
   set_manually_extended(false);
-}
-
-ShelfView* HotseatWidget::GetShelfView() {
-  if (IsScrollableShelfEnabled()) {
-    DCHECK(scrollable_shelf_view_);
-    return scrollable_shelf_view_->shelf_view();
-  }
-
-  DCHECK(shelf_view_);
-  return shelf_view_;
-}
-
-const ShelfView* HotseatWidget::GetShelfView() const {
-  return const_cast<const ShelfView*>(
-      const_cast<HotseatWidget*>(this)->GetShelfView());
 }
 
 bool HotseatWidget::IsShowingOverflowBubble() const {
@@ -275,6 +278,32 @@ void HotseatWidget::SetFocusCycler(FocusCycler* focus_cycler) {
   delegate_view_->set_focus_cycler(focus_cycler);
   if (focus_cycler)
     focus_cycler->AddWidget(this);
+}
+
+ShelfView* HotseatWidget::GetShelfView() {
+  if (IsScrollableShelfEnabled()) {
+    DCHECK(scrollable_shelf_view_);
+    return scrollable_shelf_view_->shelf_view();
+  }
+
+  DCHECK(shelf_view_);
+  return shelf_view_;
+}
+
+bool HotseatWidget::IsShowingShelfMenu() const {
+  return GetShelfView()->IsShowingMenu();
+}
+
+const ShelfView* HotseatWidget::GetShelfView() const {
+  return const_cast<const ShelfView*>(
+      const_cast<HotseatWidget*>(this)->GetShelfView());
+}
+
+void HotseatWidget::SetState(HotseatState state) {
+  if (state_ == state)
+    return;
+
+  state_ = state;
 }
 
 }  // namespace ash

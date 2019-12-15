@@ -270,6 +270,14 @@ IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, Playback_AudioOnly_MP4_FLAC) {
   RunMultipleFileTest(std::string(), "bear-flac-cenc.mp4", media::kEnded);
 }
 
+IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, Playback_AudioOnly_MP4_OPUS) {
+#if defined(OS_ANDROID)
+  if (!media::MediaCodecUtil::IsOpusDecoderAvailable())
+    return;
+#endif
+  RunMultipleFileTest(std::string(), "bear-opus-cenc.mp4", media::kEnded);
+}
+
 IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, Playback_VideoOnly_MP4_VP9) {
   // MP4 without MSE is not support yet, http://crbug.com/170793.
   if (CurrentSourceType() != SrcType::MSE) {
@@ -352,17 +360,13 @@ IN_PROC_BROWSER_TEST_P(EncryptedMediaTest,
   TestConfigChange(ConfigChangeType::ENCRYPTED_TO_ENCRYPTED);
 }
 
-IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, FrameSizeChangeVideo) {
+// Fails on Android (https://crbug.com/778245 and https://crbug.com/1023638).
 #if defined(OS_ANDROID)
-  // https://crbug.com/778245
-  if (base::android::BuildInfo::GetInstance()->sdk_int() <
-      base::android::SDK_VERSION_MARSHMALLOW) {
-    DVLOG(0) << "Skipping test - FrameSizeChange is flaky on KitKat and "
-                "Lollipop devices.";
-    return;
-  }
+#define MAYBE_FrameSizeChangeVideo DISABLED_FrameSizeChangeVideo
+#else
+#define MAYBE_FrameSizeChangeVideo FrameSizeChangeVideo
 #endif
-
+IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, MAYBE_FrameSizeChangeVideo) {
   TestFrameSizeChange();
 }
 
@@ -383,26 +387,20 @@ IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, Playback_Encryption_CENS) {
 }
 
 IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, Playback_Encryption_CBCS) {
-  std::string expected_result =
-      BUILDFLAG(ENABLE_CBCS_ENCRYPTION_SCHEME) ? media::kEnded : media::kError;
   RunMultipleFileTest("bear-640x360-v_frag-cbcs.mp4",
-                      "bear-640x360-a_frag-cbcs.mp4", expected_result);
+                      "bear-640x360-a_frag-cbcs.mp4", media::kEnded);
 }
 
 IN_PROC_BROWSER_TEST_P(EncryptedMediaTest,
                        Playback_Encryption_CBCS_Video_CENC_Audio) {
-  std::string expected_result =
-      BUILDFLAG(ENABLE_CBCS_ENCRYPTION_SCHEME) ? media::kEnded : media::kError;
   RunMultipleFileTest("bear-640x360-v_frag-cbcs.mp4",
-                      "bear-640x360-a_frag-cenc.mp4", expected_result);
+                      "bear-640x360-a_frag-cenc.mp4", media::kEnded);
 }
 
 IN_PROC_BROWSER_TEST_P(EncryptedMediaTest,
                        Playback_Encryption_CENC_Video_CBCS_Audio) {
-  std::string expected_result =
-      BUILDFLAG(ENABLE_CBCS_ENCRYPTION_SCHEME) ? media::kEnded : media::kError;
   RunMultipleFileTest("bear-640x360-v_frag-cenc.mp4",
-                      "bear-640x360-a_frag-cbcs.mp4", expected_result);
+                      "bear-640x360-a_frag-cbcs.mp4", media::kEnded);
 }
 #endif  // BUILDFLAG(USE_PROPRIETARY_CODECS)
 

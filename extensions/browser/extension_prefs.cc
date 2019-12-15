@@ -29,6 +29,7 @@
 #include "extensions/browser/extension_prefs_factory.h"
 #include "extensions/browser/extension_prefs_observer.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/extension_util.h"
 #include "extensions/browser/install_flag.h"
 #include "extensions/browser/pref_names.h"
 #include "extensions/common/constants.h"
@@ -135,11 +136,17 @@ constexpr const char kPrefAllowFileAccess[] = "newAllowFileAccess";
 constexpr const char kPrefActivePermissions[] = "active_permissions";
 constexpr const char kPrefGrantedPermissions[] = "granted_permissions";
 
-// A preference indicating if an extension should be granted all the requested
-// host permissions without requiring explicit runtime permission from the user.
-// The preference name is different for legacy reasons.
+// Pref that was previously used to indicate if host permissions should be
+// withheld. Due to the confusing name and the need to logically invert it when
+// being used, we transitioned to use kPrefWithholdingPermissions
+// instead.
 const char kGrantExtensionAllHostPermissions[] =
     "extension_can_script_all_urls";
+
+// A preference indicating if requested host permissions are being withheld from
+// the extension, requiring them to be granted through the permissions API or
+// runtime host permissions.
+const char kPrefWithholdingPermissions[] = "withholding_permissions";
 
 // The set of permissions that were granted at runtime, rather than at install
 // time. This includes permissions granted through the permissions API and
@@ -212,6 +219,10 @@ constexpr const char kPrefDNRDynamicRulesetChecksum[] =
 // automatically badged to the matched action count for a tab. False by default.
 constexpr const char kPrefDNRUseActionCountAsBadgeText[] =
     "dnr_use_action_count_as_badge_text";
+
+// The default value to use for permission withholding when setting the pref on
+// installation or for extensions where the pref has not been set.
+constexpr bool kDefaultWithholdingBehavior = false;
 
 // Provider of write access to a dictionary storing extension prefs.
 class ScopedExtensionPrefUpdate : public prefs::ScopedDictionaryPrefUpdate {
@@ -1032,28 +1043,28 @@ void ExtensionPrefs::SetActivePermissions(const std::string& extension_id,
       extension_id, kPrefActivePermissions, permissions);
 }
 
-void ExtensionPrefs::SetShouldWithholdPermissions(
-    const ExtensionId& extension_id,
-    bool should_withhold) {
-  // NOTE: For legacy reasons, the preference stores whether the extension was
-  // allowed access to all its host permissions, rather than if Chrome should
-  // withhold permissions. Invert the boolean for backwards compatibility.
-  bool permissions_allowed = !should_withhold;
-  UpdateExtensionPref(extension_id, kGrantExtensionAllHostPermissions,
-                      std::make_unique<base::Value>(permissions_allowed));
+void ExtensionPrefs::SetWithholdingPermissions(const ExtensionId& extension_id,
+                                               bool should_withhold) {
+  UpdateExtensionPref(extension_id, kPrefWithholdingPermissions,
+                      std::make_unique<base::Value>(should_withhold));
 }
 
-base::Optional<bool> ExtensionPrefs::GetShouldWithholdPermissions(
+bool ExtensionPrefs::GetWithholdingPermissions(
     const ExtensionId& extension_id) const {
   bool permissions_allowed = false;
-  if (!ReadPrefAsBoolean(extension_id, kGrantExtensionAllHostPermissions,
-                         &permissions_allowed)) {
-    return base::nullopt;
+  if (ReadPrefAsBoolean(extension_id, kPrefWithholdingPermissions,
+                        &permissions_allowed)) {
+    return permissions_allowed;
   }
-  // NOTE: For legacy reasons, the preference stores whether the extension was
-  // allowed access to all its host permissions, rather than if Chrome should
-  // withhold permissions. Invert the boolean for backwards compatibility.
-  return !permissions_allowed;
+
+  // If no pref was found, we use the default.
+  return kDefaultWithholdingBehavior;
+}
+
+bool ExtensionPrefs::HasWithholdingPermissionsSetting(
+    const ExtensionId& extension_id) const {
+  const base::DictionaryValue* ext = GetExtensionPref(extension_id);
+  return ext && ext->HasKey(kPrefWithholdingPermissions);
 }
 
 std::unique_ptr<const PermissionSet>
@@ -1871,6 +1882,16 @@ void ExtensionPrefs::ClearExternalUninstallForTesting(const ExtensionId& id) {
   DeleteExtensionPrefs(id);
 }
 
+bool ExtensionPrefs::HasUserSeenExtensionsCheckupOnStartup() {
+  return prefs_->GetBoolean(pref_names::kExtensionCheckupOnStartup);
+}
+
+void ExtensionPrefs::SetUserHasSeenExtensionsCheckupOnStartup(
+    bool has_seen_extensions_checkup_on_startup) {
+  prefs_->SetBoolean(pref_names::kExtensionCheckupOnStartup,
+                     has_seen_extensions_checkup_on_startup);
+}
+
 const char ExtensionPrefs::kFakeObsoletePrefForTesting[] =
     "__fake_obsolete_pref_for_testing";
 
@@ -1897,6 +1918,8 @@ ExtensionPrefs::ExtensionPrefs(
   }
 
   InitPrefStore();
+
+  MigrateToNewWithholdingPref();
 }
 
 AppSorting* ExtensionPrefs::app_sorting() const {
@@ -1942,6 +1965,8 @@ void ExtensionPrefs::RegisterProfilePrefs(
 #endif
 
   registry->RegisterBooleanPref(pref_names::kBlockExternalExtensions, false);
+
+  registry->RegisterBooleanPref(pref_names::kExtensionCheckupOnStartup, false);
 }
 
 template <class ExtensionIdContainer>
@@ -2004,8 +2029,19 @@ void ExtensionPrefs::PopulateExtensionInfoPrefs(
     extension_dict->SetBoolean(kPrefBlacklist, true);
   if (dnr_ruleset_checksum)
     extension_dict->SetInteger(kPrefDNRRulesetChecksum, *dnr_ruleset_checksum);
-  if (extension->creation_flags() & Extension::WITHHOLD_PERMISSIONS)
-    extension_dict->SetBoolean(kGrantExtensionAllHostPermissions, false);
+
+  if (util::CanWithholdPermissionsFromExtension(*extension)) {
+    // If the withhold permission creation flag is present it takes precedence
+    // over any previous stored value.
+    if (extension->creation_flags() & Extension::WITHHOLD_PERMISSIONS) {
+      extension_dict->SetBoolean(kPrefWithholdingPermissions, true);
+    } else if (!HasWithholdingPermissionsSetting(extension->id())) {
+      // If no withholding creation flag was specified and there is no value
+      // stored already, we set the default value.
+      extension_dict->SetBoolean(kPrefWithholdingPermissions,
+                                 kDefaultWithholdingBehavior);
+    }
+  }
 
   base::FilePath::StringType path = MakePathRelative(install_directory_,
                                                      extension->path());
@@ -2168,6 +2204,49 @@ void ExtensionPrefs::MigrateObsoleteExtensionPrefs() {
     std::unique_ptr<prefs::DictionaryValueUpdate> inner_update = update.Get();
     for (const char* key : kObsoleteKeys)
       inner_update->Remove(key, nullptr);
+  }
+}
+
+void ExtensionPrefs::MigrateToNewWithholdingPref() {
+  std::unique_ptr<ExtensionsInfo> extensions_info(GetInstalledExtensionsInfo());
+
+  for (const auto& info : *extensions_info) {
+    const ExtensionId& extension_id = info->extension_id;
+    // The manifest may be null in some cases, such as unpacked extensions
+    // retrieved from the Preference file.
+    if (!info->extension_manifest)
+      continue;
+
+    // If the new key is present in the prefs already, we don't need to check
+    // further.
+    bool value = false;
+    if (ReadPrefAsBoolean(extension_id, kPrefWithholdingPermissions, &value)) {
+      continue;
+    }
+
+    // We only want to migrate extensions we can actually withhold permissions
+    // from.
+    Manifest::Type type =
+        Manifest::GetTypeFromManifestValue(*info->extension_manifest);
+    Manifest::Location location = info->extension_location;
+    if (!util::CanWithholdPermissionsFromExtension(extension_id, type,
+                                                   location))
+      continue;
+
+    bool old_pref_value = false;
+    // If there was an old preference set, use the same (conceptual) value.
+    // Otherwise, use the default setting.
+    bool new_pref_value = kDefaultWithholdingBehavior;
+    if (ReadPrefAsBoolean(extension_id, kGrantExtensionAllHostPermissions,
+                          &old_pref_value)) {
+      // We invert the value as the previous pref stored if the extension was
+      // granted all the requested permissions, whereas the new pref stores if
+      // requested permissions are currently being withheld.
+      new_pref_value = !old_pref_value;
+    }
+
+    UpdateExtensionPref(extension_id, kPrefWithholdingPermissions,
+                        std::make_unique<base::Value>(new_pref_value));
   }
 }
 

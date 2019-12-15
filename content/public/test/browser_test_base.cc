@@ -19,7 +19,6 @@
 #include "base/i18n/icu_util.h"
 #include "base/location.h"
 #include "base/macros.h"
-#include "base/message_loop/message_loop.h"
 #include "base/message_loop/message_loop_current.h"
 #include "base/rand_util.h"
 #include "base/run_loop.h"
@@ -109,8 +108,9 @@
 namespace content {
 namespace {
 
-// See kRunManualTestsFlag in "content_switches.cc".
-const char kManualTestPrefix[] = "MANUAL_";
+// Whether an instance of BrowserTestBase has already been created in this
+// process. Browser tests should each be run in a new process.
+bool g_instance_already_created = false;
 
 #if defined(OS_POSIX)
 // On SIGSEGV or SIGTERM (sent by the runner on timeouts), dump a stack trace
@@ -146,10 +146,10 @@ void RunTaskOnRendererThread(base::OnceClosure task,
   base::PostTask(FROM_HERE, {BrowserThread::UI}, std::move(quit_task));
 }
 
-void TraceStopTracingComplete(const base::Closure& quit,
-                                   const base::FilePath& file_path) {
+void TraceStopTracingComplete(base::OnceClosure quit,
+                              const base::FilePath& file_path) {
   LOG(ERROR) << "Tracing written to: " << file_path.value();
-  quit.Run();
+  std::move(quit).Run();
 }
 
 // See SetInitialWebContents comment for more information.
@@ -177,6 +177,11 @@ BrowserTestBase::BrowserTestBase()
       enable_pixel_output_(false),
       use_software_compositing_(false),
       set_up_called_(false) {
+  CHECK(!g_instance_already_created)
+      << "Each browser test should be run in a new process. If you are adding "
+         "a new browser test suite that runs on Android, please add it to "
+         "//build/android/pylib/gtest/gtest_test_instance.py.";
+  g_instance_already_created = true;
 #if defined(OS_LINUX)
   ui::test::EnableTestConfigForPlatformWindows();
 #endif
@@ -211,9 +216,6 @@ BrowserTestBase::~BrowserTestBase() {
 
 void BrowserTestBase::SetUp() {
   set_up_called_ = true;
-
-  if (BrowserTestBase::ShouldSkipManualTests())
-    GTEST_SKIP();
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 
@@ -253,6 +255,8 @@ void BrowserTestBase::SetUp() {
     if (command_line->HasSwitch(switches::kUseVulkan)) {
       command_line->AppendSwitchASCII(
           switches::kUseVulkan, switches::kVulkanImplementationNameSwiftshader);
+      command_line->AppendSwitchASCII(
+          switches::kGrContextType, switches::kGrContextTypeVulkan);
     }
 #endif
   }
@@ -374,7 +378,7 @@ void BrowserTestBase::SetUp() {
   base::FeatureList::ClearInstanceForTesting();
 
   auto created_main_parts_closure =
-      std::make_unique<CreatedMainPartsClosure>(base::Bind(
+      std::make_unique<CreatedMainPartsClosure>(base::BindOnce(
           &BrowserTestBase::CreatedBrowserMainParts, base::Unretained(this)));
 
 #if defined(OS_ANDROID)
@@ -388,7 +392,6 @@ void BrowserTestBase::SetUp() {
 
 #ifdef V8_USE_EXTERNAL_STARTUP_DATA
   gin::V8Initializer::LoadV8Snapshot();
-  gin::V8Initializer::LoadV8Natives();
 #endif
 
   ContentMainDelegate* delegate = GetContentMainDelegateForTesting();
@@ -453,9 +456,9 @@ void BrowserTestBase::SetUp() {
     // run.
     base::RunLoop loop{base::RunLoop::Type::kNestableTasksAllowed};
 
-    auto ui_task = std::make_unique<base::Closure>(
-        base::Bind(&BrowserTestBase::WaitUntilJavaIsReady,
-                   base::Unretained(this), loop.QuitClosure()));
+    auto ui_task = std::make_unique<base::OnceClosure>(
+        base::BindOnce(&BrowserTestBase::WaitUntilJavaIsReady,
+                       base::Unretained(this), loop.QuitClosure()));
 
     // The MainFunctionParams must out-live all the startup tasks running.
     MainFunctionParams params(*command_line);
@@ -497,7 +500,7 @@ void BrowserTestBase::SetUp() {
   // for the test harness to be able to delete temp dirs.
   base::ThreadRestrictions::SetIOAllowed(true);
 #else   // defined(OS_ANDROID)
-  auto ui_task = std::make_unique<base::Closure>(base::Bind(
+  auto ui_task = std::make_unique<base::OnceClosure>(base::BindOnce(
       &BrowserTestBase::ProxyRunTestOnMainThreadLoop, base::Unretained(this)));
   GetContentMainParams()->ui_task = ui_task.release();
   GetContentMainParams()->created_main_parts_closure =
@@ -538,14 +541,6 @@ void BrowserTestBase::SimulateNetworkServiceCrash() {
   // Need to re-initialize the network process.
   initialized_network_process_ = false;
   InitializeNetworkProcess();
-}
-
-bool BrowserTestBase::ShouldSkipManualTests() {
-  return (base::StartsWith(
-              ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-              kManualTestPrefix, base::CompareCase::SENSITIVE) &&
-          !base::CommandLine::ForCurrentProcess()->HasSwitch(
-              switches::kRunManualTestsFlag));
 }
 
 #if defined(OS_ANDROID)
@@ -687,8 +682,8 @@ void BrowserTestBase::ProxyRunTestOnMainThreadLoop() {
     base::RunLoop run_loop;
     TracingController::GetInstance()->StopTracing(
         TracingControllerImpl::CreateFileEndpoint(
-            trace_file, base::Bind(&TraceStopTracingComplete,
-                                   run_loop.QuitClosure(), trace_file)));
+            trace_file, base::BindOnce(&TraceStopTracingComplete,
+                                       run_loop.QuitClosure(), trace_file)));
     run_loop.Run();
   }
 

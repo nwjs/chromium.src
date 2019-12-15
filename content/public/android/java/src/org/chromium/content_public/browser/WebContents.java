@@ -10,8 +10,8 @@ import android.os.Parcelable;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.VisibleForTesting;
 import org.chromium.ui.OverscrollRefreshHandler;
 import org.chromium.ui.base.EventForwarder;
 import org.chromium.ui.base.ViewAndroidDelegate;
@@ -344,9 +344,9 @@ public interface WebContents extends Parcelable {
     int getThemeColor();
 
     /**
-     * @return Current page load progress on a scale of 0 to 100.
+     * @return Current page load progress on a scale of 0 to 1.
      */
-    int getLoadProgress();
+    float getLoadProgress();
 
     /**
      * Initiate extraction of text, HTML, and other information for clipping puposes (smart clip)

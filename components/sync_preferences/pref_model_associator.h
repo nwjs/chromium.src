@@ -81,6 +81,9 @@ class PrefModelAssociator : public syncer::SyncableService {
   // begins).
   void RegisterPref(const std::string& name);
 
+  // See |legacy_model_type_preferences_|.
+  void RegisterPrefWithLegacyModelType(const std::string& name);
+
   // Process a local preference change. This can trigger new SyncChanges being
   // sent to the syncer.
   void ProcessPrefChange(const std::string& name);
@@ -101,12 +104,13 @@ class PrefModelAssociator : public syncer::SyncableService {
   bool CreatePrefSyncData(const std::string& name,
                           const base::Value& value,
                           syncer::SyncData* sync_data) const;
-  // Returns true if the pref under the given name is pulled down from sync.
-  // Note this does not refer to SYNCABLE_PREF.
-  bool IsPrefSynced(const std::string& name) const;
 
   // Returns true if the specified preference is registered for syncing.
   bool IsPrefRegistered(const std::string& name) const;
+
+  // See |legacy_model_type_preferences_|.
+  // Exposed for testing.
+  bool IsLegacyModelTypePref(const std::string& name) const;
 
   // Adds a SyncedPrefObserver to watch for changes to a specific pref.
   void AddSyncedPrefObserver(const std::string& name,
@@ -119,9 +123,11 @@ class PrefModelAssociator : public syncer::SyncableService {
   // Returns the PrefModelAssociatorClient for this object.
   const PrefModelAssociatorClient* client() const { return client_; }
 
- private:
-  friend class PrefServiceSyncableTest;
+  // Returns true if the pref under the given name is pulled down from sync.
+  // Note this does not refer to SYNCABLE_PREF.
+  bool IsPrefSyncedForTesting(const std::string& name) const;
 
+ private:
   // Create an association for a given preference. If |sync_pref| is valid,
   // signifying that sync has data for this preference, we reconcile their data
   // with ours and append a new UPDATE SyncChange to |sync_changes|. If
@@ -187,6 +193,13 @@ class PrefModelAssociator : public syncer::SyncableService {
   // whether a preference change should update an existing sync node or create
   // a new sync node.
   PreferenceSet synced_preferences_;
+
+  // Preferences that have migrated to a new ModelType. They are included here
+  // so updates can be sent back to older clients with this old ModelType.
+  // Updates received from older clients will be ignored. The common case is
+  // migration from PREFERENCES to OS_PREFERENCES. This field can be removed
+  // after 10/2020.
+  PreferenceSet legacy_model_type_preferences_;
 
   // The PrefService we are syncing to.
   PrefServiceSyncable* pref_service_ = nullptr;

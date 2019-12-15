@@ -31,6 +31,8 @@ import org.chromium.chrome.browser.WebContentsFactory;
 import org.chromium.chrome.browser.datareduction.DataReductionPromoUtils;
 import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
 import org.chromium.chrome.browser.tab.SadTab;
+import org.chromium.chrome.browser.tab.TabTestUtils;
+import org.chromium.chrome.browser.tab.TabWebContentsDelegateAndroid;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.InfoBarTestAnimationListener;
@@ -113,6 +115,11 @@ public class InfoBarTest {
                 return infobars.size() == 1 && infobars.get(0) instanceof DataReductionPromoInfoBar;
             }
         });
+    }
+
+    private TabWebContentsDelegateAndroid getTabWebContentsDelegate() {
+        return TabTestUtils.getTabWebContentsDelegate(
+                mActivityTestRule.getActivity().getActivityTab());
     }
 
     @Before
@@ -463,10 +470,7 @@ public class InfoBarTest {
         // Fake an unresponsive renderer signal.
         PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT, () -> {
             CommandLine.getInstance().appendSwitch(ChromeSwitches.ENABLE_HUNG_RENDERER_INFOBAR);
-            mActivityTestRule.getActivity()
-                    .getActivityTab()
-                    .getTabWebContentsDelegateAndroid()
-                    .rendererUnresponsive();
+            getTabWebContentsDelegate().rendererUnresponsive();
         });
         mListener.addInfoBarAnimationFinished("InfoBar not added");
 
@@ -477,12 +481,8 @@ public class InfoBarTest {
         Assert.assertTrue(InfoBarUtil.hasSecondaryButton(infoBars.get(0)));
 
         // Fake a responsive renderer signal.
-        PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT, () -> {
-            mActivityTestRule.getActivity()
-                    .getActivityTab()
-                    .getTabWebContentsDelegateAndroid()
-                    .rendererResponsive();
-        });
+        PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT,
+                () -> { getTabWebContentsDelegate().rendererResponsive(); });
         mListener.removeInfoBarAnimationFinished("InfoBar not removed.");
         Assert.assertTrue("Wrong infobar count", mActivityTestRule.getInfoBars().isEmpty());
     }
@@ -500,10 +500,7 @@ public class InfoBarTest {
         // Fake an unresponsive renderer signal.
         PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT, () -> {
             CommandLine.getInstance().appendSwitch(ChromeSwitches.ENABLE_HUNG_RENDERER_INFOBAR);
-            mActivityTestRule.getActivity()
-                    .getActivityTab()
-                    .getTabWebContentsDelegateAndroid()
-                    .rendererUnresponsive();
+            getTabWebContentsDelegate().rendererUnresponsive();
         });
         mListener.addInfoBarAnimationFinished("InfoBar not added");
 
@@ -547,8 +544,8 @@ public class InfoBarTest {
         mActivityTestRule.getInfoBarContainer().addAnimationListener(removeListener);
         PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT, () -> {
             WebContents newContents = WebContentsFactory.createWebContents(false, false);
-            mActivityTestRule.getActivity().getActivityTab().swapWebContents(
-                    newContents, false, false);
+            TabTestUtils.swapWebContents(
+                    mActivityTestRule.getActivity().getActivityTab(), newContents, false, false);
         });
         mActivityTestRule.loadUrl(HELLO_WORLD_URL);
         removeListener.removeInfoBarAnimationFinished("InfoBar not removed.");

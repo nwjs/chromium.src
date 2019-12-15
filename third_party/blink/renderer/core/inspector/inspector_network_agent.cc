@@ -552,6 +552,9 @@ BuildObjectForResourceResponse(const ResourceResponse& response,
     case SecurityStyle::kSecure:
       security_state = protocol::Security::SecurityStateEnum::Secure;
       break;
+    case SecurityStyle::kInsecureBroken:
+      security_state = protocol::Security::SecurityStateEnum::InsecureBroken;
+      break;
   }
 
   // Use mime type from cached resource in case the one in response is empty.
@@ -1541,7 +1544,7 @@ Response InspectorNetworkAgent::getCertificate(
   for (auto& resource : resources_data_->Resources()) {
     scoped_refptr<const SecurityOrigin> resource_origin =
         SecurityOrigin::Create(resource->RequestedURL());
-    if (resource_origin->IsSameSchemeHostPort(security_origin.get()) &&
+    if (resource_origin->IsSameOriginWith(security_origin.get()) &&
         resource->Certificate().size()) {
       for (auto& cert : resource->Certificate()) {
         (*certificate)

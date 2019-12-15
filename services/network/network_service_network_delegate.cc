@@ -7,7 +7,6 @@
 #include <string>
 
 #include "base/bind.h"
-#include "base/debug/dump_without_crashing.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "components/domain_reliability/monitor.h"
@@ -55,6 +54,7 @@ void NetworkServiceNetworkDelegate::MaybeTruncateReferrer(
     const GURL& effective_url) {
   if (!enable_referrers_) {
     request->SetReferrer(std::string());
+    request->set_referrer_policy(net::URLRequest::NO_REFERRER);
     return;
   }
 
@@ -137,13 +137,14 @@ int NetworkServiceNetworkDelegate::OnHeadersReceived(
     const net::HttpResponseHeaders* original_response_headers,
     scoped_refptr<net::HttpResponseHeaders>* override_response_headers,
     const net::IPEndPoint& endpoint,
-    GURL* allowed_unsafe_redirect_url) {
+    base::Optional<GURL>* preserve_fragment_on_redirect_url) {
   auto chain = base::MakeRefCounted<PendingCallbackChain>(std::move(callback));
   URLLoader* url_loader = URLLoader::ForRequest(*request);
   if (url_loader) {
     chain->AddResult(url_loader->OnHeadersReceived(
         chain->CreateCallback(), original_response_headers,
-        override_response_headers, endpoint, allowed_unsafe_redirect_url));
+        override_response_headers, endpoint,
+        preserve_fragment_on_redirect_url));
   }
 
 #if !defined(OS_IOS)
@@ -151,7 +152,7 @@ int NetworkServiceNetworkDelegate::OnHeadersReceived(
   if (web_socket) {
     chain->AddResult(web_socket->OnHeadersReceived(
         chain->CreateCallback(), original_response_headers,
-        override_response_headers, allowed_unsafe_redirect_url));
+        override_response_headers, preserve_fragment_on_redirect_url));
   }
 #endif  // !defined(OS_IOS)
 
@@ -267,14 +268,6 @@ bool NetworkServiceNetworkDelegate::
 
   LOG(ERROR) << "Cancelling request to " << target_url
              << " with invalid referrer " << referrer_url;
-  // Record information to help debug issues like http://crbug.com/422871.
-  if (target_url.SchemeIsHTTPOrHTTPS()) {
-    auto referrer_policy = request.referrer_policy();
-    base::debug::Alias(&referrer_policy);
-    DEBUG_ALIAS_FOR_GURL(target_buf, target_url);
-    DEBUG_ALIAS_FOR_GURL(referrer_buf, referrer_url);
-    base::debug::DumpWithoutCrashing();
-  }
   return true;
 }
 

@@ -209,6 +209,8 @@ std::string MigrationCauseToString(MigrationCause cause) {
       return "OnPathDegrading";
     case CHANGE_PORT_ON_PATH_DEGRADING:
       return "ChangePortOnPathDegrading";
+    case NEW_NETWORK_CONNECTED_POST_PATH_DEGRADING:
+      return "NewNetworkConnectedPostPathDegrading";
     default:
       QUIC_NOTREACHED();
       break;
@@ -284,6 +286,13 @@ class QuicServerPushHelper : public ServerPushDelegate::ServerPushHelper {
 
   const GURL& GetURL() const override { return request_url_; }
 
+  NetworkIsolationKey GetNetworkIsolationKey() const override {
+    if (session_) {
+      return session_->quic_session_key().network_isolation_key();
+    }
+    return NetworkIsolationKey();
+  }
+
  private:
   base::WeakPtr<QuicChromiumClientSession> session_;
   const GURL request_url_;
@@ -303,7 +312,7 @@ QuicChromiumClientSession::Handle::Handle(
       quic_error_(quic::QUIC_NO_ERROR),
       port_migration_detected_(false),
       server_id_(session_->server_id()),
-      quic_version_(session->connection()->transport_version()),
+      quic_version_(session->connection()->version()),
       push_handle_(nullptr),
       was_ever_used_(false) {
   DCHECK(session_);
@@ -326,7 +335,7 @@ void QuicChromiumClientSession::Handle::OnCryptoHandshakeConfirmed() {
 }
 
 void QuicChromiumClientSession::Handle::OnSessionClosed(
-    quic::QuicTransportVersion quic_version,
+    quic::ParsedQuicVersion quic_version,
     int net_error,
     quic::QuicErrorCode quic_error,
     bool port_migration_detected,
@@ -368,12 +377,12 @@ void QuicChromiumClientSession::Handle::PopulateNetErrorDetails(
   }
 }
 
-quic::QuicTransportVersion QuicChromiumClientSession::Handle::GetQuicVersion()
+quic::ParsedQuicVersion QuicChromiumClientSession::Handle::GetQuicVersion()
     const {
   if (!session_)
     return quic_version_;
 
-  return session_->connection()->transport_version();
+  return session_->GetQuicVersion();
 }
 
 void QuicChromiumClientSession::Handle::ResetPromised(
@@ -690,7 +699,7 @@ QuicChromiumClientSession::QuicChromiumClientSession(
     std::unique_ptr<DatagramClientSocket> socket,
     QuicStreamFactory* stream_factory,
     QuicCryptoClientStreamFactory* crypto_client_stream_factory,
-    quic::QuicClock* clock,
+    const quic::QuicClock* clock,
     TransportSecurityState* transport_security_state,
     SSLConfigService* ssl_config_service,
     std::unique_ptr<QuicServerInfo> server_info,
@@ -784,19 +793,20 @@ QuicChromiumClientSession::QuicChromiumClientSession(
       ignore_read_error_(false),
       headers_include_h2_stream_dependency_(
           headers_include_h2_stream_dependency &&
-          this->connection()->transport_version() >= quic::QUIC_VERSION_43) {
+          this->connection()->transport_version() >= quic::QUIC_VERSION_43),
+      max_allowed_push_id_(max_allowed_push_id) {
   // Make sure connection migration and goaway on path degrading are not turned
   // on at the same time.
   DCHECK(!(migrate_session_early_v2_ && go_away_on_path_degrading_));
   DCHECK(!(allow_port_migration_ && go_away_on_path_degrading_));
 
-  quic::QuicSpdyClientSessionBase::SetMaxAllowedPushId(max_allowed_push_id);
   default_network_ = default_network;
   auto* socket_raw = socket.get();
   sockets_.push_back(std::move(socket));
   packet_readers_.push_back(std::make_unique<QuicChromiumPacketReader>(
       sockets_.back().get(), clock, this, yield_after_packets,
       yield_after_duration, net_log_));
+  CHECK_EQ(packet_readers_.size(), sockets_.size());
   crypto_stream_.reset(
       crypto_client_stream_factory->CreateQuicCryptoClientStream(
           session_key.server_id(), this,
@@ -821,7 +831,7 @@ QuicChromiumClientSession::QuicChromiumClientSession(
   connect_timing_.dns_start = dns_resolution_start_time;
   connect_timing_.dns_end = dns_resolution_end_time;
   if (!retransmittable_on_wire_timeout.IsZero()) {
-    connection->set_retransmittable_on_wire_timeout(
+    connection->set_initial_retransmittable_on_wire_timeout(
         retransmittable_on_wire_timeout);
   }
 }
@@ -940,6 +950,7 @@ QuicChromiumClientSession::~QuicChromiumClientSession() {
 }
 
 void QuicChromiumClientSession::Initialize() {
+  quic::QuicSpdyClientSessionBase::SetMaxAllowedPushId(max_allowed_push_id_);
   set_max_inbound_header_list_size(kQuicMaxHeaderListSize);
   quic::QuicSpdyClientSessionBase::Initialize();
   SetHpackEncoderDebugVisitor(std::make_unique<HpackEncoderDebugVisitor>());
@@ -1018,9 +1029,9 @@ void QuicChromiumClientSession::OnStreamFrame(
 void QuicChromiumClientSession::AddHandle(Handle* handle) {
   if (going_away_) {
     RecordUnexpectedObservers(ADD_OBSERVER);
-    handle->OnSessionClosed(connection()->transport_version(), ERR_UNEXPECTED,
-                            error(), port_migration_detected_,
-                            GetConnectTiming(), WasConnectionEverUsed());
+    handle->OnSessionClosed(connection()->version(), ERR_UNEXPECTED, error(),
+                            port_migration_detected_, GetConnectTiming(),
+                            WasConnectionEverUsed());
     return;
   }
 
@@ -1545,43 +1556,26 @@ void QuicChromiumClientSession::OnCryptoHandshakeEvent(
     std::move(callback_).Run(OK);
   }
   if (event == HANDSHAKE_CONFIRMED) {
-    if (stream_factory_)
-      stream_factory_->set_is_quic_known_to_work_on_current_network(true);
-
-    // Update |connect_end| only when handshake is confirmed. This should also
-    // take care of any failed 0-RTT request.
-    connect_timing_.connect_end = tick_clock_->NowTicks();
-    DCHECK_LE(connect_timing_.connect_start, connect_timing_.connect_end);
-    UMA_HISTOGRAM_TIMES(
-        "Net.QuicSession.HandshakeConfirmedTime",
-        connect_timing_.connect_end - connect_timing_.connect_start);
-    // Track how long it has taken to finish handshake after we have finished
-    // DNS host resolution.
-    if (!connect_timing_.dns_end.is_null()) {
-      UMA_HISTOGRAM_TIMES(
-          "Net.QuicSession.HostResolution.HandshakeConfirmedTime",
-          tick_clock_->NowTicks() - connect_timing_.dns_end);
-    }
-
-    auto it = handles_.begin();
-    while (it != handles_.end()) {
-      Handle* handle = *it;
-      ++it;
-      handle->OnCryptoHandshakeConfirmed();
-    }
-
-    NotifyRequestsOfConfirmation(OK);
-    // Attempt to migrate back to the default network after handshake has been
-    // confirmed if the session is not created on the default network.
-    if (migrate_session_on_network_change_v2_ &&
-        default_network_ != NetworkChangeNotifier::kInvalidNetworkHandle &&
-        GetDefaultSocket()->GetBoundNetwork() != default_network_) {
-      current_migration_cause_ = ON_MIGRATE_BACK_TO_DEFAULT_NETWORK;
-      StartMigrateBackToDefaultNetworkTimer(
-          base::TimeDelta::FromSeconds(kMinRetryTimeForDefaultNetworkSecs));
-    }
+    OnCryptoHandshakeComplete();
   }
   quic::QuicSpdySession::OnCryptoHandshakeEvent(event);
+}
+
+void QuicChromiumClientSession::SetDefaultEncryptionLevel(
+    quic::EncryptionLevel level) {
+  if (!callback_.is_null() &&
+      (!require_confirmation_ || level == quic::ENCRYPTION_FORWARD_SECURE ||
+       level == quic::ENCRYPTION_ZERO_RTT)) {
+    // TODO(rtenneti): Currently for all CryptoHandshakeEvent events, callback_
+    // could be called because there are no error events in CryptoHandshakeEvent
+    // enum. If error events are added to CryptoHandshakeEvent, then the
+    // following code needs to changed.
+    std::move(callback_).Run(OK);
+  }
+  if (level == quic::ENCRYPTION_FORWARD_SECURE) {
+    OnCryptoHandshakeComplete();
+  }
+  quic::QuicSpdySession::SetDefaultEncryptionLevel(level);
 }
 
 void QuicChromiumClientSession::OnCryptoHandshakeMessageSent(
@@ -1747,6 +1741,7 @@ void QuicChromiumClientSession::OnConnectionClosed(
     std::move(callback_).Run(ERR_QUIC_PROTOCOL_ERROR);
   }
 
+  CHECK_EQ(sockets_.size(), packet_readers_.size());
   for (auto& socket : sockets_) {
     socket->Close();
   }
@@ -2022,6 +2017,7 @@ void QuicChromiumClientSession::OnProbeSucceeded(
   net_log_.AddEventWithInt64Params(
       NetLogEventType::QUIC_CONNECTION_MIGRATION_SUCCESS_AFTER_PROBING,
       "migrate_to_network", network);
+  HistogramAndLogMigrationSuccess(net_log_, connection_id());
   if (network == default_network_) {
     DVLOG(1) << "Client successfully migrated to default network: "
              << default_network_;
@@ -2082,7 +2078,13 @@ void QuicChromiumClientSession::OnNetworkConnected(
     return;
 
   if (connection()->IsPathDegrading()) {
-    current_migration_cause_ = CHANGE_NETWORK_ON_PATH_DEGRADING;
+    base::TimeDelta duration =
+        tick_clock_->NowTicks() - most_recent_path_degrading_timestamp_;
+    UMA_HISTOGRAM_CUSTOM_TIMES("Net.QuicNetworkDegradingDurationTillConnected",
+                               duration, base::TimeDelta::FromMilliseconds(1),
+                               base::TimeDelta::FromMinutes(10), 50);
+
+    current_migration_cause_ = NEW_NETWORK_CONNECTED_POST_PATH_DEGRADING;
   }
 
   if (wait_for_new_network_) {
@@ -2427,9 +2429,9 @@ void QuicChromiumClientSession::CloseAllHandles(int net_error) {
   while (!handles_.empty()) {
     Handle* handle = *handles_.begin();
     handles_.erase(handle);
-    handle->OnSessionClosed(connection()->transport_version(), net_error,
-                            error(), port_migration_detected_,
-                            GetConnectTiming(), WasConnectionEverUsed());
+    handle->OnSessionClosed(connection()->version(), net_error, error(),
+                            port_migration_detected_, GetConnectTiming(),
+                            WasConnectionEverUsed());
   }
 }
 
@@ -2969,6 +2971,43 @@ void QuicChromiumClientSession::NotifyFactoryOfSessionClosed() {
     stream_factory_->OnSessionClosed(this);
 }
 
+void QuicChromiumClientSession::OnCryptoHandshakeComplete() {
+  if (stream_factory_)
+    stream_factory_->set_is_quic_known_to_work_on_current_network(true);
+
+  // Update |connect_end| only when handshake is confirmed. This should also
+  // take care of any failed 0-RTT request.
+  connect_timing_.connect_end = tick_clock_->NowTicks();
+  DCHECK_LE(connect_timing_.connect_start, connect_timing_.connect_end);
+  UMA_HISTOGRAM_TIMES(
+      "Net.QuicSession.HandshakeConfirmedTime",
+      connect_timing_.connect_end - connect_timing_.connect_start);
+  // Track how long it has taken to finish handshake after we have finished
+  // DNS host resolution.
+  if (!connect_timing_.dns_end.is_null()) {
+    UMA_HISTOGRAM_TIMES("Net.QuicSession.HostResolution.HandshakeConfirmedTime",
+                        tick_clock_->NowTicks() - connect_timing_.dns_end);
+  }
+
+  auto it = handles_.begin();
+  while (it != handles_.end()) {
+    Handle* handle = *it;
+    ++it;
+    handle->OnCryptoHandshakeConfirmed();
+  }
+
+  NotifyRequestsOfConfirmation(OK);
+  // Attempt to migrate back to the default network after handshake has been
+  // confirmed if the session is not created on the default network.
+  if (migrate_session_on_network_change_v2_ &&
+      default_network_ != NetworkChangeNotifier::kInvalidNetworkHandle &&
+      GetDefaultSocket()->GetBoundNetwork() != default_network_) {
+    current_migration_cause_ = ON_MIGRATE_BACK_TO_DEFAULT_NETWORK;
+    StartMigrateBackToDefaultNetworkTimer(
+        base::TimeDelta::FromSeconds(kMinRetryTimeForDefaultNetworkSecs));
+  }
+}
+
 MigrationResult QuicChromiumClientSession::Migrate(
     NetworkChangeNotifier::NetworkHandle network,
     IPEndPoint peer_address,
@@ -3056,7 +3095,7 @@ bool QuicChromiumClientSession::MigrateToSocket(
     std::unique_ptr<DatagramClientSocket> socket,
     std::unique_ptr<QuicChromiumPacketReader> reader,
     std::unique_ptr<QuicChromiumPacketWriter> writer) {
-  DCHECK_EQ(sockets_.size(), packet_readers_.size());
+  CHECK_EQ(sockets_.size(), packet_readers_.size());
 
   // TODO(zhongyi): figure out whether we want to limit the number of
   // connection migrations for v2, which includes migration on platform signals,
@@ -3198,8 +3237,8 @@ QuicChromiumClientSession::GetConnectTiming() {
   return connect_timing_;
 }
 
-quic::QuicTransportVersion QuicChromiumClientSession::GetQuicVersion() const {
-  return connection()->transport_version();
+quic::ParsedQuicVersion QuicChromiumClientSession::GetQuicVersion() const {
+  return connection()->version();
 }
 
 size_t QuicChromiumClientSession::EstimateMemoryUsage() const {

@@ -331,7 +331,7 @@ void InspectorDOMAgent::Unbind(Node* node, NodeToIdMap* nodes_map) {
     if (element->GetPseudoElement(kPseudoIdAfter))
       Unbind(element->GetPseudoElement(kPseudoIdAfter), nodes_map);
 
-    if (auto* link_element = ToHTMLLinkElementOrNull(*element)) {
+    if (auto* link_element = DynamicTo<HTMLLinkElement>(*element)) {
       if (link_element->IsImport() && link_element->import())
         Unbind(link_element->import(), nodes_map);
     }
@@ -1271,14 +1271,16 @@ Response InspectorDOMAgent::setFileInputFiles(
   Response response = AssertNode(node_id, backend_node_id, object_id, node);
   if (!response.isSuccess())
     return response;
-  if (!IsHTMLInputElement(*node) ||
-      ToHTMLInputElement(*node).type() != input_type_names::kFile)
+
+  auto* html_input_element = DynamicTo<HTMLInputElement>(node);
+  if (!html_input_element ||
+      html_input_element->type() != input_type_names::kFile)
     return Response::Error("Node is not a file input element");
 
   Vector<String> paths;
   for (const String& file : *files)
     paths.push_back(file);
-  ToHTMLInputElement(node)->SetFilesFromPaths(paths);
+  To<HTMLInputElement>(node)->SetFilesFromPaths(paths);
   return Response::OK();
 }
 
@@ -1526,7 +1528,7 @@ std::unique_ptr<protocol::DOM::Node> InspectorDOMAgent::BuildObjectForNode(
       force_push_children = true;
     }
 
-    if (auto* link_element = ToHTMLLinkElementOrNull(*element)) {
+    if (auto* link_element = DynamicTo<HTMLLinkElement>(*element)) {
       if (link_element->IsImport() && link_element->import() &&
           InnerParentNode(link_element->import()) == link_element) {
         value->setImportedDocument(BuildObjectForNode(
@@ -1535,7 +1537,7 @@ std::unique_ptr<protocol::DOM::Node> InspectorDOMAgent::BuildObjectForNode(
       force_push_children = true;
     }
 
-    if (auto* template_element = ToHTMLTemplateElementOrNull(*element)) {
+    if (auto* template_element = DynamicTo<HTMLTemplateElement>(*element)) {
       value->setTemplateContent(BuildObjectForNode(
           template_element->content(), 0, pierce, nodes_map, flatten_result));
       force_push_children = true;
@@ -1806,7 +1808,7 @@ void InspectorDOMAgent::CollectNodes(
     if (pierce && root)
       CollectNodes(root, depth, pierce, filter, result);
 
-    if (auto* link_element = ToHTMLLinkElementOrNull(*element)) {
+    if (auto* link_element = DynamicTo<HTMLLinkElement>(*element)) {
       if (link_element->IsImport() && link_element->import() &&
           InnerParentNode(link_element->import()) == link_element) {
         CollectNodes(link_element->import(), depth, pierce, filter, result);

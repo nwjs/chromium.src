@@ -42,6 +42,7 @@
 #include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/renderer/platform/geometry/float_rect.h"
+#include "third_party/blink/renderer/platform/geometry/geometry_as_json.h"
 #include "third_party/blink/renderer/platform/geometry/layout_rect.h"
 #include "third_party/blink/renderer/platform/geometry/region.h"
 #include "third_party/blink/renderer/platform/graphics/bitmap_image.h"
@@ -88,14 +89,12 @@ GraphicsLayer::GraphicsLayer(GraphicsLayerClient& client)
   layer_ = cc::PictureLayer::Create(this);
   CcLayer()->SetIsDrawable(draws_content_ && contents_visible_);
   CcLayer()->SetHitTestable(hit_testable_);
-  CcLayer()->SetLayerClient(weak_ptr_factory_.GetWeakPtr());
 
   UpdateTrackingRasterInvalidations();
 }
 
 GraphicsLayer::~GraphicsLayer() {
   CcLayer()->ClearClient();
-  CcLayer()->SetLayerClient(nullptr);
   SetContentsLayer(nullptr);
 
 #if DCHECK_IS_ON()
@@ -117,21 +116,67 @@ IntRect GraphicsLayer::VisualRect() const {
   return IntRect(layer_state_->offset, IntSize(Size()));
 }
 
+void GraphicsLayer::AppendAdditionalInfoAsJSON(LayerTreeFlags flags,
+                                               const cc::Layer& layer,
+                                               JSONObject& json) const {
+  // Only the primary layer associated with GraphicsLayer adds additional
+  // information.  Other layer state, such as raster invalidations, don't
+  // disambiguate between specific layers.
+  if (&layer != layer_.get())
+    return;
+
+  if ((flags & kLayerTreeIncludesPaintInvalidations) &&
+      Client().IsTrackingRasterInvalidations() &&
+      GetRasterInvalidationTracking()) {
+    GetRasterInvalidationTracking()->AsJSON(&json);
+  }
+
+  GraphicsLayerPaintingPhase painting_phase = PaintingPhase();
+  if ((flags & kLayerTreeIncludesPaintingPhases) && painting_phase) {
+    auto painting_phases_json = std::make_unique<JSONArray>();
+    if (painting_phase & kGraphicsLayerPaintBackground)
+      painting_phases_json->PushString("GraphicsLayerPaintBackground");
+    if (painting_phase & kGraphicsLayerPaintForeground)
+      painting_phases_json->PushString("GraphicsLayerPaintForeground");
+    if (painting_phase & kGraphicsLayerPaintMask)
+      painting_phases_json->PushString("GraphicsLayerPaintMask");
+    if (painting_phase & kGraphicsLayerPaintOverflowContents)
+      painting_phases_json->PushString("GraphicsLayerPaintOverflowContents");
+    if (painting_phase & kGraphicsLayerPaintCompositedScroll)
+      painting_phases_json->PushString("GraphicsLayerPaintCompositedScroll");
+    if (painting_phase & kGraphicsLayerPaintDecoration)
+      painting_phases_json->PushString("GraphicsLayerPaintDecoration");
+    json.SetArray("paintingPhases", std::move(painting_phases_json));
+  }
+
+  if (flags &
+      (kLayerTreeIncludesDebugInfo | kLayerTreeIncludesCompositingReasons)) {
+    bool debug = flags & kLayerTreeIncludesDebugInfo;
+    {
+      auto squashing_disallowed_reasons_json = std::make_unique<JSONArray>();
+      SquashingDisallowedReasons squashing_disallowed_reasons =
+          GetSquashingDisallowedReasons();
+      auto names = debug ? SquashingDisallowedReason::Descriptions(
+                               squashing_disallowed_reasons)
+                         : SquashingDisallowedReason::ShortNames(
+                               squashing_disallowed_reasons);
+      for (const char* name : names)
+        squashing_disallowed_reasons_json->PushString(name);
+      json.SetArray("squashingDisallowedReasons",
+                    std::move(squashing_disallowed_reasons_json));
+    }
+  }
+
+#if DCHECK_IS_ON()
+  if (HasLayerState() && DrawsContent() &&
+      (flags & kLayerTreeIncludesPaintRecords))
+    json.SetValue("paintRecord", RecordAsJSON(*CapturePaintRecord()));
+#endif
+}
+
 void GraphicsLayer::SetHasWillChangeTransformHint(
     bool has_will_change_transform) {
   CcLayer()->SetHasWillChangeTransformHint(has_will_change_transform);
-}
-
-void GraphicsLayer::SetCompositingReasons(CompositingReasons reasons) {
-  CcLayer()->set_compositing_reasons(reasons);
-}
-
-CompositingReasons GraphicsLayer::GetCompositingReasons() const {
-  return CcLayer()->compositing_reasons();
-}
-
-void GraphicsLayer::SetOwnerNodeId(int node_id) {
-  CcLayer()->set_owner_node_id(node_id);
 }
 
 void GraphicsLayer::SetParent(GraphicsLayer* layer) {
@@ -418,7 +463,6 @@ void GraphicsLayer::UnregisterContentsLayer(cc::Layer* layer) {
   DCHECK(g_registered_layer_set);
   CHECK(g_registered_layer_set->Contains(layer->id()));
   g_registered_layer_set->erase(layer->id());
-  layer->SetLayerClient(nullptr);
 }
 
 void GraphicsLayer::SetContentsTo(cc::Layer* layer,
@@ -469,17 +513,11 @@ void GraphicsLayer::ClearContentsLayerIfUnregistered() {
 }
 
 void GraphicsLayer::SetContentsLayer(cc::Layer* contents_layer) {
-  // If we have a previous contents layer which is still registered, then unset
-  // this client pointer. If unregistered, it has already nulled out the client
-  // pointer and may have been deleted.
-  if (contents_layer_ && g_registered_layer_set->Contains(contents_layer_id_))
-    contents_layer_->SetLayerClient(nullptr);
   contents_layer_ = contents_layer;
   if (!contents_layer_) {
     contents_layer_id_ = 0;
     return;
   }
-  contents_layer_->SetLayerClient(weak_ptr_factory_.GetWeakPtr());
   contents_layer_id_ = contents_layer_->id();
 }
 
@@ -545,14 +583,6 @@ String GraphicsLayer::DebugName(const cc::Layer* layer) const {
 
   NOTREACHED();
   return "";
-}
-
-void GraphicsLayer::SetPosition(const gfx::PointF& point) {
-  CcLayer()->SetPosition(point);
-}
-
-const gfx::PointF& GraphicsLayer::GetPosition() const {
-  return CcLayer()->position();
 }
 
 const gfx::Size& GraphicsLayer::Size() const {
@@ -670,13 +700,6 @@ void GraphicsLayer::SetNeedsDisplay() {
                           PaintInvalidationReason::kFullLayer);
 }
 
-void GraphicsLayer::SetNeedsDisplayRecursively() {
-  for (auto* child : children_) {
-    child->SetNeedsDisplayRecursively();
-  }
-  SetNeedsDisplay();
-}
-
 void GraphicsLayer::SetNeedsDisplayInRect(const IntRect& rect) {
   DCHECK(PaintsContentOrHitTest());
   CcLayer()->SetNeedsDisplayRect(rect);
@@ -726,7 +749,6 @@ void GraphicsLayer::SetContentsToImage(
             .TakePaintImage();
     if (!image_layer_) {
       image_layer_ = cc::PictureImageLayer::Create();
-      image_layer_->set_owner_node_id(CcLayer()->owner_node_id());
       RegisterContentsLayer(image_layer_.get());
     }
     image_layer_->SetImage(std::move(paint_image), matrix,
@@ -757,43 +779,6 @@ void GraphicsLayer::SetPaintingPhase(GraphicsLayerPaintingPhase phase) {
     return;
   painting_phase_ = phase;
   SetNeedsDisplay();
-}
-
-std::unique_ptr<base::trace_event::TracedValue> GraphicsLayer::TakeDebugInfo(
-    const cc::Layer* layer) {
-  auto traced_value = std::make_unique<base::trace_event::TracedValue>();
-
-  traced_value->SetString("layer_name", LayerDebugName(layer));
-
-  traced_value->BeginArray("compositing_reasons");
-  for (const char* description :
-       CompositingReason::Descriptions(GetCompositingReasons()))
-    traced_value->AppendString(description);
-  traced_value->EndArray();
-
-  traced_value->BeginArray("squashing_disallowed_reasons");
-  for (const char* description :
-       SquashingDisallowedReason::Descriptions(squashing_disallowed_reasons_))
-    traced_value->AppendString(description);
-  traced_value->EndArray();
-
-  if (auto node_id = layer_->owner_node_id())
-    traced_value->SetInteger("owner_node", node_id);
-
-  if (auto* tracking = GetRasterInvalidationTracking()) {
-    tracking->AddToTracedValue(*traced_value);
-    tracking->ClearInvalidations();
-  }
-
-  return traced_value;
-}
-
-std::string GraphicsLayer::LayerDebugName(const cc::Layer* layer) const {
-  return DebugName(layer).Utf8();
-}
-
-void GraphicsLayer::DidChangeScrollbarsHiddenIfOverlay(bool hidden) {
-  client_.SetOverlayScrollbarsHidden(hidden);
 }
 
 PaintController& GraphicsLayer::GetPaintController() const {

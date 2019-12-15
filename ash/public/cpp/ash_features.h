@@ -11,6 +11,16 @@
 namespace ash {
 namespace features {
 
+// Enables the UI to support Ambient EQ if the device supports it.
+// See https://crbug.com/1021193 for more details.
+ASH_PUBLIC_EXPORT extern const base::Feature kAllowAmbientEQ;
+
+// Enables the Auto Night Light feature which sets the default schedule type to
+// sunset-to-sunrise until the user changes it to something else. This feature
+// is not exposed to the end user, and is enabled only via cros_config for
+// certain devices.
+ASH_PUBLIC_EXPORT extern const base::Feature kAutoNightLight;
+
 // Enables the docked (a.k.a. picture-in-picture) magnifier.
 // TODO(afakhry): Remove this after the feature is fully launched.
 // https://crbug.com/709824.
@@ -98,11 +108,6 @@ ASH_PUBLIC_EXPORT extern const base::Feature kViewsLogin;
 // Enables the Virtual Desks feature.
 ASH_PUBLIC_EXPORT extern const base::Feature kVirtualDesks;
 
-// Enables the touchpad 4-finger gestures to switch desks.
-// This flag is only effective if the Virtual Desks feature is enabled (see
-// `kVirtualDesks`).
-ASH_PUBLIC_EXPORT extern const base::Feature kVirtualDesksGestures;
-
 // Enables using the BluetoothSystem Mojo interface for Bluetooth operations.
 ASH_PUBLIC_EXPORT extern const base::Feature kUseBluetoothSystemInAsh;
 
@@ -134,8 +139,9 @@ ASH_PUBLIC_EXPORT extern const base::Feature kSwipingFromLeftEdgeToGoBack;
 // launched.
 ASH_PUBLIC_EXPORT extern const base::Feature kDragFromShelfToHomeOrOverview;
 
-// Enables swiping from shelf on home screen to enter overview.
-ASH_PUBLIC_EXPORT extern const base::Feature kHomerviewGesture;
+ASH_PUBLIC_EXPORT bool IsAllowAmbientEQEnabled();
+
+ASH_PUBLIC_EXPORT bool IsAutoNightLightEnabled();
 
 ASH_PUBLIC_EXPORT bool IsHideArcMediaNotificationsEnabled();
 
@@ -163,8 +169,6 @@ ASH_PUBLIC_EXPORT bool IsViewsLoginEnabled();
 
 ASH_PUBLIC_EXPORT bool IsVirtualDesksEnabled();
 
-ASH_PUBLIC_EXPORT bool IsVirtualDesksGesturesEnabled();
-
 ASH_PUBLIC_EXPORT bool IsSupervisedUserDeprecationNoticeEnabled();
 
 ASH_PUBLIC_EXPORT bool IsSwapSideVolumeButtonsForOrientationEnabled();
@@ -178,8 +182,6 @@ ASH_PUBLIC_EXPORT bool IsSwipingFromLeftEdgeToGoBackEnabled();
 ASH_PUBLIC_EXPORT bool IsDragFromShelfToHomeOrOverviewEnabled();
 
 ASH_PUBLIC_EXPORT bool IsReduceDisplayNotificationsEnabled();
-
-ASH_PUBLIC_EXPORT bool IsHomerviewGestureEnabled();
 
 }  // namespace features
 }  // namespace ash

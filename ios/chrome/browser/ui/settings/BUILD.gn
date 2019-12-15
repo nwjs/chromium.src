@@ -15,6 +15,7 @@ source_set("settings_root") {
     "settings_root_view_controlling.h",
   ]
   deps = [
+    ":settings_root_constants",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/browser_state",
     "//ios/chrome/browser/ui:feature_flags",
@@ -34,6 +35,17 @@ source_set("settings_root") {
     "//ios/public/provider/chrome/browser/user_feedback",
     "//ios/third_party/material_components_ios",
     "//ui/base",
+  ]
+}
+
+source_set("settings_root_constants") {
+  configs += [ "//build/config/compiler:enable_arc" ]
+  sources = [
+    "settings_root_table_constants.h",
+    "settings_root_table_constants.mm",
+  ]
+  deps = [
+    "//base",
   ]
 }
 
@@ -71,6 +83,7 @@ source_set("settings") {
     "voice_search_table_view_controller.mm",
   ]
   deps = [
+    ":constants",
     ":settings_root",
     "resources:app_icon_placeholder",
     "resources:encryption_error",
@@ -169,6 +182,7 @@ source_set("settings") {
     "//ios/chrome/browser/ui/table_view",
     "//ios/chrome/browser/ui/table_view:styler",
     "//ios/chrome/browser/ui/table_view/cells",
+    "//ios/chrome/browser/ui/table_view/cells:cells_constants",
     "//ios/chrome/browser/ui/table_view/cells/resources:table_view_cell_check_mark",
     "//ios/chrome/browser/voice",
     "//ios/chrome/browser/web:web",
@@ -183,7 +197,6 @@ source_set("settings") {
     "//ios/public/provider/chrome/browser/user_feedback",
     "//ios/public/provider/chrome/browser/voice",
     "//ios/third_party/material_components_ios",
-    "//ios/third_party/material_roboto_font_loader_ios",
     "//net",
     "//ui/base",
     "//url",
@@ -197,6 +210,15 @@ source_set("settings") {
     "LocalAuthentication.framework",
     "UIKit.framework",
   ]
+}
+
+source_set("constants") {
+  configs += [ "//build/config/compiler:enable_arc" ]
+  sources = [
+    "settings_table_view_controller_constants.h",
+    "settings_table_view_controller_constants.mm",
+  ]
+  libs = [ "Foundation.framework" ]
 }
 
 source_set("test_support") {
@@ -282,6 +304,8 @@ source_set("unit_tests") {
     "//ios/chrome/browser/browsing_data",
     "//ios/chrome/browser/browsing_data:counters",
     "//ios/chrome/browser/content_settings",
+    "//ios/chrome/browser/favicon",
+    "//ios/chrome/browser/history",
     "//ios/chrome/browser/mailto:feature_flags",
     "//ios/chrome/browser/main:test_support",
     "//ios/chrome/browser/passwords",
@@ -319,8 +343,30 @@ source_set("unit_tests") {
   ]
 }
 
-source_set("eg_tests") {
+source_set("eg_test_support") {
+  defines = [ "CHROME_EARL_GREY_1" ]
   configs += [ "//build/config/compiler:enable_arc" ]
+  testonly = true
+  sources = [
+    "block_popups_app_interface.h",
+    "block_popups_app_interface.mm",
+  ]
+  deps = [
+    "//base",
+    "//components/content_settings/core/browser",
+    "//components/content_settings/core/common",
+    "//ios/chrome/browser/browser_state",
+    "//ios/chrome/browser/content_settings",
+    "//ios/chrome/test/app:test_support",
+  ]
+}
+
+source_set("eg_tests") {
+  defines = [ "CHROME_EARL_GREY_1" ]
+  configs += [
+    "//build/config/compiler:enable_arc",
+    "//build/config/ios:xctest_config",
+  ]
   testonly = true
   sources = [
     "block_popups_egtest.mm",
@@ -330,7 +376,8 @@ source_set("eg_tests") {
   ]
 
   deps = [
-    ":settings",
+    ":constants",
+    ":eg_test_support",
     "//base",
     "//base/test:test_support",
     "//build:branding_buildflags",
@@ -375,8 +422,60 @@ source_set("eg_tests") {
     "//ui/base",
     "//url",
   ]
-  libs = [
-    "UIKit.framework",
-    "XCTest.framework",
+  libs = [ "UIKit.framework" ]
+}
+
+source_set("eg_app_support+eg2") {
+  defines = [ "CHROME_EARL_GREY_2" ]
+  configs += [ "//build/config/compiler:enable_arc" ]
+  testonly = true
+  sources = [
+    "block_popups_app_interface.h",
+    "block_popups_app_interface.mm",
+  ]
+  deps = [
+    "//base",
+    "//components/content_settings/core/browser",
+    "//ios/chrome/browser/browser_state",
+    "//ios/chrome/browser/content_settings",
+    "//ios/chrome/test/app:test_support",
+  ]
+  public_deps = [
+    "//components/content_settings/core/common",
+  ]
+}
+
+source_set("eg_test_support+eg2") {
+  defines = [ "CHROME_EARL_GREY_2" ]
+  configs += [ "//build/config/compiler:enable_arc" ]
+  testonly = true
+  sources = [
+    "block_popups_app_interface.h",
+  ]
+  public_deps = [
+    "//components/content_settings/core/common",
+  ]
+}
+
+source_set("eg2_tests") {
+  defines = [ "CHROME_EARL_GREY_2" ]
+  configs += [
+    "//build/config/compiler:enable_arc",
+    "//build/config/ios:xctest_config",
+  ]
+  testonly = true
+  sources = [
+    "block_popups_egtest.mm",
+  ]
+  deps = [
+    ":eg_test_support+eg2",
+    "//base",
+    "//ios/chrome/app/strings",
+    "//ios/chrome/test/earl_grey:eg_test_support+eg2",
+    "//ios/testing/earl_grey:eg_test_support+eg2",
+    "//ios/third_party/earl_grey2:test_lib",
+    "//ios/web/public/test/http_server",
+    "//ui/base",
+    "//url",
   ]
 }

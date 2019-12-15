@@ -14,11 +14,14 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
+#include "base/feature_list.h"
 #include "base/hash/hash.h"
 #include "base/i18n/rtl.h"
-#include "base/lazy_instance.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/no_destructor.h"
 #include "base/strings/string16.h"
+#include "base/time/time.h"
+#include "components/metrics/android_metrics_provider.h"
 #include "components/metrics/call_stack_profile_metrics_provider.h"
 #include "components/metrics/cpu_metrics_provider.h"
 #include "components/metrics/enabled_state_provider.h"
@@ -35,10 +38,10 @@
 #include "components/version_info/android/channel_getter.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/network_service_instance.h"
+#include "content/public/browser/notification_service.h"
+#include "content/public/browser/notification_types.h"
 
 namespace android_webview {
-
-base::LazyInstance<AwMetricsServiceClient>::Leaky g_lazy_instance_;
 
 namespace {
 
@@ -50,10 +53,18 @@ namespace {
 // as a separate client).
 const double kStableSampledInRate = 0.02;
 
-// Sample non-stable channels also at 2%. We intend to raise this to 99% in the
-// future (for consistency with Chrome and to exercise the out-of-sample code
-// path).
-const double kBetaDevCanarySampledInRate = 0.02;
+// Sample non-stable channels at 99%, to boost volume for pre-stable
+// experiments. We choose 99% instead of 100% for consistency with Chrome and to
+// exercise the out-of-sample code path.
+const double kBetaDevCanarySampledInRate = 0.99;
+
+// As a mitigation to preserve use privacy, the privacy team has asked that we
+// upload package name with no more than 10% of UMA clients. This is to mitigate
+// fingerprinting for users on low-usage applications (if an app only has a
+// a small handful of users, there's a very good chance many of them won't be
+// uploading UMA records due to sampling). Do not change this constant without
+// consulting with the privacy team.
+const double kPackageNameLimitRate = 0.10;
 
 // Callbacks for metrics::MetricsStateManager::Create. Store/LoadClientInfo
 // allow Windows Chrome to back up ClientInfo. They're no-ops for WebView.
@@ -65,40 +76,39 @@ std::unique_ptr<metrics::ClientInfo> LoadClientInfo() {
   return client_info;
 }
 
-// WebView metrics are sampled at (possibly) different rates depending on
-// channel, based on the client ID. Sampling is hard-coded (rather than
-// controlled via variations, as in Chrome) because:
-// - WebView is slow to download the variations seed and propagate it to each
-//   app, so we'd miss metrics from the first few runs of each app.
-// - WebView uses the low-entropy source for all studies, so there would be
-//   crosstalk between the metrics sampling study and all other studies.
-bool IsInSample(const std::string& client_id) {
-  DCHECK(!client_id.empty());
-
-  double sampled_in_rate = kBetaDevCanarySampledInRate;
-
-  // Down-sample unknown channel as a precaution in case it ends up being
-  // shipped to Stable users.
-  version_info::Channel channel = version_info::android::GetChannel();
-  if (channel == version_info::Channel::STABLE ||
-      channel == version_info::Channel::UNKNOWN) {
-    sampled_in_rate = kStableSampledInRate;
-  }
-
-  // client_id comes from base::GenerateGUID(), so its value is random/uniform,
-  // except for a few bit positions with fixed values, and some hyphens. Rather
-  // than separating the random payload from the fixed bits, just hash the whole
-  // thing, to produce a new random/~uniform value.
-  uint32_t hash = base::PersistentHash(client_id);
+bool UintFallsInBottomPercentOfValues(uint32_t value, double percent) {
+  DCHECK_GT(percent, 0);
+  DCHECK_LT(percent, 1.00);
 
   // Since hashing is ~uniform, the chance that the value falls in the bottom
   // X% of possible values is X%. UINT32_MAX fits within the range of integers
   // that can be expressed precisely by a 64-bit double. Casting back to a
-  // uint32_t means the effective sample rate is within a 1/UINT32_MAX error
-  // margin.
-  uint32_t sampled_in_threshold =
-      static_cast<uint32_t>(static_cast<double>(UINT32_MAX) * sampled_in_rate);
-  return hash < sampled_in_threshold;
+  // uint32_t means we can determine if the value falls within the bottom X%,
+  // within a 1/UINT32_MAX error margin.
+  uint32_t value_threshold =
+      static_cast<uint32_t>(static_cast<double>(UINT32_MAX) * percent);
+  return value < value_threshold;
+}
+
+// Normally kMetricsReportingEnabledTimestamp would be set by the
+// MetricsStateManager. However, it assumes kMetricsClientID and
+// kMetricsReportingEnabledTimestamp are always set together. Because WebView
+// previously persisted kMetricsClientID but not
+// kMetricsReportingEnabledTimestamp, we violated this invariant, and need to
+// manually set this pref to correct things.
+//
+// TODO(https://crbug.com/995544): remove this (and its call site) when the
+// kMetricsReportingEnabledTimestamp pref has been persisted for one or two
+// milestones.
+void SetReportingEnabledDateIfNotSet(PrefService* prefs) {
+  if (prefs->HasPrefPath(metrics::prefs::kMetricsReportingEnabledTimestamp))
+    return;
+  // Arbitrarily, backfill the date with 2014-01-01 00:00:00.000 UTC. This date
+  // is within the range of dates the backend will accept.
+  base::Time backfill_date =
+      base::Time::FromDeltaSinceWindowsEpoch(base::TimeDelta::FromDays(150845));
+  prefs->SetInt64(metrics::prefs::kMetricsReportingEnabledTimestamp,
+                  backfill_date.ToTimeT());
 }
 
 std::unique_ptr<metrics::MetricsService> CreateMetricsService(
@@ -110,6 +120,8 @@ std::unique_ptr<metrics::MetricsService> CreateMetricsService(
   service->RegisterMetricsProvider(
       std::make_unique<metrics::NetworkMetricsProvider>(
           content::CreateNetworkConnectionTrackerAsyncGetter()));
+  service->RegisterMetricsProvider(
+      std::make_unique<metrics::AndroidMetricsProvider>());
   service->RegisterMetricsProvider(
       std::make_unique<metrics::CPUMetricsProvider>());
   service->RegisterMetricsProvider(
@@ -159,13 +171,13 @@ void PopulateSystemInstallDateIfNecessary(PrefService* prefs) {
 
 // static
 AwMetricsServiceClient* AwMetricsServiceClient::GetInstance() {
-  AwMetricsServiceClient* client = g_lazy_instance_.Pointer();
-  DCHECK_CALLED_ON_VALID_SEQUENCE(client->sequence_checker_);
-  return client;
+  static base::NoDestructor<AwMetricsServiceClient> client;
+  DCHECK_CALLED_ON_VALID_SEQUENCE(client.get()->sequence_checker_);
+  return client.get();
 }
 
-AwMetricsServiceClient::AwMetricsServiceClient() {}
-AwMetricsServiceClient::~AwMetricsServiceClient() {}
+AwMetricsServiceClient::AwMetricsServiceClient() = default;
+AwMetricsServiceClient::~AwMetricsServiceClient() = default;
 
 void AwMetricsServiceClient::Initialize(PrefService* pref_service) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -193,8 +205,14 @@ void AwMetricsServiceClient::MaybeStartMetrics() {
     if (app_consent_ && user_consent_or_flag) {
       metrics_service_ = CreateMetricsService(metrics_state_manager_.get(),
                                               this, pref_service_);
+      // Register for notifications so we can detect when the user or app are
+      // interacting with WebView. We use these as signals to wake up the
+      // MetricsService.
+      RegisterForNotifications();
       metrics_state_manager_->ForceClientIdCreation();
+      SetReportingEnabledDateIfNotSet(pref_service_);
       is_in_sample_ = IsInSample();
+      is_in_package_name_sample_ = IsInPackageNameSample();
       if (IsReportingEnabled()) {
         // WebView has no shutdown sequence, so there's no need for a matching
         // Stop() call.
@@ -202,8 +220,21 @@ void AwMetricsServiceClient::MaybeStartMetrics() {
       }
     } else {
       pref_service_->ClearPref(metrics::prefs::kMetricsClientID);
+      pref_service_->ClearPref(
+          metrics::prefs::kMetricsReportingEnabledTimestamp);
     }
   }
+}
+
+void AwMetricsServiceClient::RegisterForNotifications() {
+  registrar_.Add(this, content::NOTIFICATION_LOAD_START,
+                 content::NotificationService::AllSources());
+  registrar_.Add(this, content::NOTIFICATION_LOAD_STOP,
+                 content::NotificationService::AllSources());
+  registrar_.Add(this, content::NOTIFICATION_RENDERER_PROCESS_CLOSED,
+                 content::NotificationService::AllSources());
+  registrar_.Add(this, content::NOTIFICATION_RENDER_WIDGET_HOST_HANG,
+                 content::NotificationService::AllSources());
 }
 
 void AwMetricsServiceClient::SetHaveMetricsConsent(bool user_consent,
@@ -213,6 +244,18 @@ void AwMetricsServiceClient::SetHaveMetricsConsent(bool user_consent,
   user_consent_ = user_consent;
   app_consent_ = app_consent;
   MaybeStartMetrics();
+}
+
+void AwMetricsServiceClient::SetFastStartupForTesting(
+    bool fast_startup_for_testing) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  fast_startup_for_testing_ = fast_startup_for_testing;
+}
+
+void AwMetricsServiceClient::SetUploadIntervalForTesting(
+    const base::TimeDelta& upload_interval) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  overridden_upload_interval_ = upload_interval;
 }
 
 std::unique_ptr<const base::FieldTrial::EntropyProvider>
@@ -297,21 +340,96 @@ base::TimeDelta AwMetricsServiceClient::GetStandardUploadInterval() {
   // controlled by the platform logging mechanism. Since this mechanism has its
   // own logic for rate-limiting on cellular connections, we disable the
   // component-layer logic.
+  if (!overridden_upload_interval_.is_zero()) {
+    return overridden_upload_interval_;
+  }
   return metrics::GetUploadInterval(false /* use_cellular_upload_interval */);
 }
 
+bool AwMetricsServiceClient::ShouldStartUpFastForTesting() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return fast_startup_for_testing_;
+}
+
 std::string AwMetricsServiceClient::GetAppPackageName() {
-  JNIEnv* env = base::android::AttachCurrentThread();
-  base::android::ScopedJavaLocalRef<jstring> j_app_name =
-      Java_AwMetricsServiceClient_getAppPackageName(env);
-  if (j_app_name)
-    return ConvertJavaStringToUTF8(env, j_app_name);
+  if (is_in_package_name_sample_ && CanRecordPackageNameForAppType()) {
+    JNIEnv* env = base::android::AttachCurrentThread();
+    base::android::ScopedJavaLocalRef<jstring> j_app_name =
+        Java_AwMetricsServiceClient_getAppPackageName(env);
+    if (j_app_name)
+      return ConvertJavaStringToUTF8(env, j_app_name);
+  }
   return std::string();
+}
+
+void AwMetricsServiceClient::Observe(
+    int type,
+    const content::NotificationSource& source,
+    const content::NotificationDetails& details) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  switch (type) {
+    case content::NOTIFICATION_LOAD_STOP:
+    case content::NOTIFICATION_LOAD_START:
+    case content::NOTIFICATION_RENDERER_PROCESS_CLOSED:
+    case content::NOTIFICATION_RENDER_WIDGET_HOST_HANG:
+      if (base::FeatureList::IsEnabled(features::kWebViewWakeMetricsService))
+        metrics_service_->OnApplicationNotIdle();
+      break;
+    default:
+      NOTREACHED();
+  }
+}
+
+// WebView metrics are sampled at (possibly) different rates depending on
+// channel, based on the client ID. Sampling is hard-coded (rather than
+// controlled via variations, as in Chrome) because:
+// - WebView is slow to download the variations seed and propagate it to each
+//   app, so we'd miss metrics from the first few runs of each app.
+// - WebView uses the low-entropy source for all studies, so there would be
+//   crosstalk between the metrics sampling study and all other studies.
+double AwMetricsServiceClient::GetSampleRate() {
+  double sampled_in_rate = kBetaDevCanarySampledInRate;
+
+  // Down-sample unknown channel as a precaution in case it ends up being
+  // shipped to Stable users.
+  version_info::Channel channel = version_info::android::GetChannel();
+  if (channel == version_info::Channel::STABLE ||
+      channel == version_info::Channel::UNKNOWN) {
+    sampled_in_rate = kStableSampledInRate;
+  }
+  return sampled_in_rate;
 }
 
 bool AwMetricsServiceClient::IsInSample() {
   // Called in MaybeStartMetrics(), after metrics_service_ is created.
-  return ::android_webview::IsInSample(metrics_service_->GetClientId());
+  return IsInSample(base::PersistentHash(metrics_service_->GetClientId()));
+}
+
+bool AwMetricsServiceClient::IsInSample(uint32_t value) {
+  return UintFallsInBottomPercentOfValues(value, GetSampleRate());
+}
+
+bool AwMetricsServiceClient::CanRecordPackageNameForAppType() {
+  // Check with Java side, to see if it's OK to log the package name for this
+  // type of app (see Java side for the specific requirements).
+  JNIEnv* env = base::android::AttachCurrentThread();
+  return Java_AwMetricsServiceClient_canRecordPackageNameForAppType(env);
+}
+
+bool AwMetricsServiceClient::IsInPackageNameSample() {
+  // Check if this client falls within the group for which it's acceptable to
+  // log package name. This guarantees we enforce the privacy requirement
+  // because we never log package names for more than kPackageNameLimitRate
+  // percent of clients. We'll actually log package name for less than this,
+  // because we also filter out packages for certain types of apps (see
+  // CanRecordPackageNameForAppType()).
+  return IsInPackageNameSample(
+      base::PersistentHash(metrics_service_->GetClientId()));
+}
+
+bool AwMetricsServiceClient::IsInPackageNameSample(uint32_t value) {
+  return UintFallsInBottomPercentOfValues(value, kPackageNameLimitRate);
 }
 
 // static
@@ -320,6 +438,22 @@ void JNI_AwMetricsServiceClient_SetHaveMetricsConsent(JNIEnv* env,
                                                       jboolean app_consent) {
   AwMetricsServiceClient::GetInstance()->SetHaveMetricsConsent(user_consent,
                                                                app_consent);
+}
+
+// static
+void JNI_AwMetricsServiceClient_SetFastStartupForTesting(
+    JNIEnv* env,
+    jboolean fast_startup_for_testing) {
+  AwMetricsServiceClient::GetInstance()->SetFastStartupForTesting(
+      fast_startup_for_testing);
+}
+
+// static
+void JNI_AwMetricsServiceClient_SetUploadIntervalForTesting(
+    JNIEnv* env,
+    jlong upload_interval_ms) {
+  AwMetricsServiceClient::GetInstance()->SetUploadIntervalForTesting(
+      base::TimeDelta::FromMilliseconds(upload_interval_ms));
 }
 
 }  // namespace android_webview

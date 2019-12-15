@@ -15,7 +15,8 @@
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/geometry/dip_util.h"
-#include "ui/platform_window/platform_window_base.h"
+#include "ui/platform_window/extensions/workspace_extension.h"
+#include "ui/platform_window/platform_window.h"
 #include "ui/platform_window/platform_window_init_properties.h"
 #include "ui/views/corewm/tooltip_aura.h"
 #include "ui/views/widget/desktop_aura/desktop_drag_drop_client_ozone.h"
@@ -84,13 +85,13 @@ ui::PlatformWindowInitProperties ConvertWidgetInitParamsToInitProperties(
     properties.parent_widget = params.parent->GetHost()->GetAcceleratedWidget();
 
   switch (params.opacity) {
-    case Widget::InitParams::WindowOpacity::INFER_OPACITY:
+    case Widget::InitParams::WindowOpacity::kInferred:
       properties.opacity = ui::PlatformWindowOpacity::kInferOpacity;
       break;
-    case Widget::InitParams::WindowOpacity::OPAQUE_WINDOW:
+    case Widget::InitParams::WindowOpacity::kOpaque:
       properties.opacity = ui::PlatformWindowOpacity::kOpaqueWindow;
       break;
-    case Widget::InitParams::WindowOpacity::TRANSLUCENT_WINDOW:
+    case Widget::InitParams::WindowOpacity::kTranslucent:
       properties.opacity = ui::PlatformWindowOpacity::kTranslucentWindow;
       break;
   }
@@ -140,7 +141,12 @@ void DesktopWindowTreeHostPlatform::Init(const Widget::InitParams& params) {
   // Calculate initial bounds.
   properties.bounds = ToPixelRect(params.bounds);
 
+  // Set extensions delegate.
+  DCHECK(!properties.workspace_extension_delegate);
+  properties.workspace_extension_delegate = this;
+
   CreateAndSetPlatformWindow(std::move(properties));
+
   // Disable compositing on tooltips as a workaround for
   // https://crbug.com/442111.
   CreateCompositor(viz::FrameSinkId(),
@@ -390,7 +396,9 @@ gfx::Rect DesktopWindowTreeHostPlatform::GetRestoredBounds() const {
 }
 
 std::string DesktopWindowTreeHostPlatform::GetWorkspace() const {
-  return std::string();
+  auto* workspace_extension = ui::GetWorkspaceExtension(*platform_window());
+  return workspace_extension ? workspace_extension->GetWorkspace()
+                             : std::string();
 }
 
 gfx::Rect DesktopWindowTreeHostPlatform::GetWorkAreaBoundsInScreen() const {
@@ -457,10 +465,16 @@ ui::ZOrderLevel DesktopWindowTreeHostPlatform::GetZOrderLevel() const {
 }
 
 void DesktopWindowTreeHostPlatform::SetVisibleOnAllWorkspaces(
-    bool always_visible) {}
+    bool always_visible) {
+  auto* workspace_extension = ui::GetWorkspaceExtension(*platform_window());
+  if (workspace_extension)
+    workspace_extension->SetVisibleOnAllWorkspaces(always_visible);
+}
 
 bool DesktopWindowTreeHostPlatform::IsVisibleOnAllWorkspaces() const {
-  return false;
+  auto* workspace_extension = ui::GetWorkspaceExtension(*platform_window());
+  return workspace_extension ? workspace_extension->IsVisibleOnAllWorkspaces()
+                             : false;
 }
 
 bool DesktopWindowTreeHostPlatform::SetWindowTitle(
@@ -502,9 +516,7 @@ void DesktopWindowTreeHostPlatform::EndMoveLoop() {
 
 void DesktopWindowTreeHostPlatform::SetVisibilityChangedAnimationsEnabled(
     bool value) {
-#if defined(OS_WIN)
   platform_window()->SetVisibilityChangedAnimationsEnabled(value);
-#endif
 }
 
 NonClientFrameView* DesktopWindowTreeHostPlatform::CreateNonClientFrameView() {
@@ -560,6 +572,7 @@ bool DesktopWindowTreeHostPlatform::IsFullscreen() const {
 
 void DesktopWindowTreeHostPlatform::SetOpacity(float opacity) {
   GetContentWindow()->layer()->SetOpacity(opacity);
+  platform_window()->SetOpacity(opacity);
 }
 
 void DesktopWindowTreeHostPlatform::SetAspectRatio(
@@ -683,6 +696,10 @@ base::Optional<gfx::Size>
 DesktopWindowTreeHostPlatform::GetMaximumSizeForWindow() {
   return ToPixelRect(gfx::Rect(native_widget_delegate()->GetMaximumSize()))
       .size();
+}
+
+void DesktopWindowTreeHostPlatform::OnWorkspaceChanged() {
+  OnHostWorkspaceChanged();
 }
 
 gfx::Rect DesktopWindowTreeHostPlatform::ToDIPRect(

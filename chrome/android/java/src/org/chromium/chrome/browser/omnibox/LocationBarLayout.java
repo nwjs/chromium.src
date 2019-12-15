@@ -25,11 +25,11 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ObserverList;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.CachedMetrics.EnumeratedHistogramSample;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
@@ -42,7 +42,6 @@ import org.chromium.chrome.browser.native_page.NativePageFactory;
 import org.chromium.chrome.browser.ntp.FakeboxDelegate;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.ntp.NewTabPageUma;
-import org.chromium.chrome.browser.omnibox.LocationBar.OmniboxFocusReason;
 import org.chromium.chrome.browser.omnibox.UrlBar.ScrollType;
 import org.chromium.chrome.browser.omnibox.UrlBarCoordinator.SelectionState;
 import org.chromium.chrome.browser.omnibox.geo.GeolocationHeader;
@@ -52,13 +51,14 @@ import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinatorFactory;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteDelegate;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionListEmbedder;
-import org.chromium.chrome.browser.preferences.privacy.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
+import org.chromium.chrome.browser.settings.privacy.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tasks.ReturnToChromeExperimentsUtil;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.top.ToolbarActionModeCallback;
+import org.chromium.chrome.browser.ui.styles.ChromeColors;
 import org.chromium.chrome.browser.ui.widget.CompositeTouchDelegate;
 import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.chrome.browser.util.ColorUtils;
@@ -367,7 +367,10 @@ public class LocationBarLayout extends FrameLayout
 
     /** Focuses the current page. */
     private void focusCurrentTab() {
-        if (mToolbarDataProvider.hasTab()) getCurrentTab().requestFocus();
+        if (mToolbarDataProvider.hasTab()) {
+            View view = getCurrentTab().getView();
+            if (view != null) view.requestFocus();
+        }
     }
 
     @Override
@@ -1078,13 +1081,13 @@ public class LocationBarLayout extends FrameLayout
     public void updateVisualsForState() {
         // If the location bar is focused, the toolbar background color would be the default color
         // regardless of whether it is branded or not.
-        final int defaultPrimaryColor =
-                ColorUtils.getDefaultThemeColor(getResources(), mToolbarDataProvider.isIncognito());
+        final int defaultPrimaryColor = ChromeColors.getDefaultThemeColor(
+                getResources(), mToolbarDataProvider.isIncognito());
         final int primaryColor =
                 mUrlHasFocus ? defaultPrimaryColor : mToolbarDataProvider.getPrimaryColor();
         final boolean useDarkColors = !ColorUtils.shouldUseLightForegroundOnBackground(primaryColor);
 
-        int id = ColorUtils.getIconTintRes(!useDarkColors);
+        int id = ChromeColors.getIconTintRes(!useDarkColors);
         ColorStateList colorStateList = AppCompatResources.getColorStateList(getContext(), id);
         ApiCompatibilityUtils.setImageTintList(mMicButton, colorStateList);
         ApiCompatibilityUtils.setImageTintList(mDeleteButton, colorStateList);

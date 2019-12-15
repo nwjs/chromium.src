@@ -16,17 +16,22 @@ import android.widget.TextView;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Log;
-import org.chromium.base.VisibleForTesting;
+import org.chromium.base.Supplier;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
 import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.GlobalDiscardableReferencePool;
 import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
+import org.chromium.chrome.browser.image_fetcher.ImageFetcher;
+import org.chromium.chrome.browser.image_fetcher.ImageFetcherConfig;
+import org.chromium.chrome.browser.image_fetcher.ImageFetcherFactory;
 import org.chromium.chrome.browser.init.AsyncInitializationActivity;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.StartStopWithNativeObserver;
@@ -43,6 +48,7 @@ import org.chromium.chrome.browser.omnibox.suggestions.entity.EntitySuggestionPr
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
+import org.chromium.chrome.browser.util.ConversionUtils;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.DeviceFormFactor;
@@ -84,8 +90,10 @@ class AutocompleteMediator
         }
     }
 
-    private static final String TAG = "cr_Autocomplete";
+    private static final String TAG = "Autocomplete";
     private static final int SUGGESTION_NOT_FOUND = -1;
+
+    private static final int MAX_IMAGE_CACHE_SIZE = 500 * ConversionUtils.BYTES_PER_KILOBYTE;
 
     // Delay triggering the omnibox results upon key press to allow the location bar to repaint
     // with the new characters.
@@ -156,6 +164,8 @@ class AutocompleteMediator
     private ActivityLifecycleDispatcher mLifecycleDispatcher;
     private ActivityTabTabObserver mTabObserver;
 
+    private ImageFetcher mImageFetcher;
+
     public AutocompleteMediator(Context context, AutocompleteDelegate delegate,
             UrlBarEditingTextStateProvider textProvider, PropertyModel listPropertyModel) {
         mContext = context;
@@ -165,18 +175,23 @@ class AutocompleteMediator
         mCurrentModels = new ArrayList<>();
         mAutocomplete = new AutocompleteController(this);
         mHandler = new Handler();
+        Supplier<ImageFetcher> imageFetcherSupplier = this::getImageFetcher;
         mBasicSuggestionProcessor = new BasicSuggestionProcessor(mContext, this, textProvider);
-        mAnswerSuggestionProcessor = new AnswerSuggestionProcessor(mContext, this, textProvider);
+        mAnswerSuggestionProcessor =
+                new AnswerSuggestionProcessor(mContext, this, textProvider, imageFetcherSupplier);
         mEditUrlProcessor = new EditUrlSuggestionProcessor(
                 mContext, this, delegate, (suggestion) -> onSelection(suggestion, 0));
-        mEntitySuggestionProcessor = new EntitySuggestionProcessor(mContext, this);
+        mEntitySuggestionProcessor =
+                new EntitySuggestionProcessor(mContext, this, imageFetcherSupplier);
     }
 
     public void destroy() {
-        mAnswerSuggestionProcessor.destroy();
-        mAnswerSuggestionProcessor = null;
         if (mTabObserver != null) {
             mTabObserver.destroy();
+        }
+        if (mImageFetcher != null) {
+            mImageFetcher.destroy();
+            mImageFetcher = null;
         }
         if (mOverviewModeObserver != null) {
             mOverviewModeBehavior.removeOverviewModeObserver(mOverviewModeObserver);
@@ -199,6 +214,22 @@ class AutocompleteMediator
     private void clearSuggestions() {
         mCurrentModels.clear();
         notifyPropertyModelsChanged();
+    }
+
+    private ImageFetcher getImageFetcher() {
+        if (getCurrentProfile() == null) {
+            return null;
+        }
+        if (mImageFetcher == null) {
+            mImageFetcher = ImageFetcherFactory.createImageFetcher(
+                    ImageFetcherConfig.IN_MEMORY_ONLY,
+                    GlobalDiscardableReferencePool.getReferencePool(), MAX_IMAGE_CACHE_SIZE);
+        }
+        return mImageFetcher;
+    }
+
+    private Profile getCurrentProfile() {
+        return mDataProvider != null ? mDataProvider.getProfile() : null;
     }
 
     /**
@@ -252,8 +283,7 @@ class AutocompleteMediator
         return mCurrentModels.get(index).suggestion;
     }
 
-    @Override
-    public void notifyPropertyModelsChanged() {
+    private void notifyPropertyModelsChanged() {
         if (mPreventSuggestionListPropertyChanges) return;
         ModelList suggestions = mListPropertyModel.get(SuggestionListProperties.SUGGESTION_MODELS);
         suggestions.clear();
@@ -261,11 +291,6 @@ class AutocompleteMediator
             PropertyModel model = mCurrentModels.get(i).model;
             suggestions.add(new ListItem(mCurrentModels.get(i).processor.getViewTypeId(), model));
         }
-    }
-
-    @Override
-    public Profile getCurrentProfile() {
-        return mDataProvider != null ? mDataProvider.getProfile() : null;
     }
 
     /**
@@ -287,7 +312,7 @@ class AutocompleteMediator
             @Override
             public void onOverviewModeStartedShowing(boolean showToolbar) {
                 if (mDataProvider.shouldShowLocationBarInOverviewMode()) {
-                    AutocompleteController.nativePrefetchZeroSuggestResults();
+                    AutocompleteControllerJni.get().prefetchZeroSuggestResults();
                 }
             }
         };
@@ -324,7 +349,6 @@ class AutocompleteMediator
             PropertyModel model = mCurrentModels.get(i).model;
             model.set(SuggestionCommonProperties.LAYOUT_DIRECTION, layoutDirection);
         }
-        if (!mCurrentModels.isEmpty()) notifyPropertyModelsChanged();
     }
 
     /**
@@ -339,7 +363,6 @@ class AutocompleteMediator
             PropertyModel model = mCurrentModels.get(i).model;
             model.set(SuggestionCommonProperties.USE_DARK_COLORS, useDarkColors);
         }
-        if (!mCurrentModels.isEmpty()) notifyPropertyModelsChanged();
     }
 
     /**
@@ -409,7 +432,7 @@ class AutocompleteMediator
                 private void maybeTriggerCacheRefresh(String url) {
                     if (url == null) return;
                     if (!UrlConstants.NTP_URL.equals(url)) return;
-                    AutocompleteController.nativePrefetchZeroSuggestResults();
+                    AutocompleteControllerJni.get().prefetchZeroSuggestResults();
                 }
             };
         }
@@ -438,6 +461,8 @@ class AutocompleteMediator
             // Prevent any upcoming omnibox suggestions from showing once a URL is loaded (and as
             // a consequence the omnibox is unfocused).
             hideSuggestions();
+
+            if (mImageFetcher != null) mImageFetcher.clear();
         }
         if (mEditUrlProcessor != null) mEditUrlProcessor.onUrlFocusChange(hasFocus);
         mAnswerSuggestionProcessor.onUrlFocusChange(hasFocus);
@@ -545,14 +570,6 @@ class AutocompleteMediator
                                 : Math.max(maxTextWidth - maxMatchContentsWidth, 0));
             }
         };
-    }
-
-    @Override
-    public boolean isActiveModel(PropertyModel model) {
-        for (int i = 0; i < mCurrentModels.size(); i++) {
-            if (mCurrentModels.get(i).model.equals(model)) return true;
-        }
-        return false;
     }
 
     /**

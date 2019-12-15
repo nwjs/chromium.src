@@ -4,18 +4,21 @@
 
 #include "third_party/blink/renderer/core/paint/compositing/compositing_reason_finder.h"
 
+#include "base/feature_list.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
+#include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 
-#include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/public/common/features.h"
 
 namespace blink {
 
@@ -135,6 +138,21 @@ CompositingReasons CompositingReasonFinder::DirectReasonsForPaintProperties(
   if (style.HasBackdropFilter())
     reasons |= CompositingReason::kBackdropFilter;
 
+  if (auto* scrollable_area = layer->GetScrollableArea()) {
+    if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+      bool force_prefer_compositing_to_lcd_text =
+          reasons != CompositingReason::kNone;
+      if (scrollable_area->ComputeNeedsCompositedScrolling(
+              force_prefer_compositing_to_lcd_text)) {
+        reasons |= CompositingReason::kOverflowScrolling;
+      }
+    } else if (scrollable_area->UsesCompositedScrolling()) {
+      // For pre-CompositeAfterPaint, just let |reasons| reflect the current
+      // composited scrolling status.
+      reasons |= CompositingReason::kOverflowScrolling;
+    }
+  }
+
   return reasons;
 }
 
@@ -143,13 +161,14 @@ bool CompositingReasonFinder::RequiresCompositingFor3DTransform(
   // Note that we ask the layoutObject if it has a transform, because the style
   // may have transforms, but the layoutObject may be an inline that doesn't
   // support them.
-  return layout_object.HasTransformRelatedProperty() &&
-         layout_object.StyleRef().Has3DTransformOperation() &&
-         // Don't composite "trivial" 3D transforms such as translateZ(0) on
-         // low-end devices. These devices are much more sensitive to memory
-         // and per-composited-layer commit overhead.
-         (!Platform::Current()->IsLowEndDevice() ||
-          layout_object.StyleRef().Transform().HasNonTrivial3DComponent());
+  if (!layout_object.HasTransformRelatedProperty())
+    return false;
+
+  // Don't composite "trivial" 3D transforms such as translateZ(0).
+  if (base::FeatureList::IsEnabled(blink::features::kDoNotCompositeTrivial3D))
+    return layout_object.StyleRef().HasNonTrivial3DTransformOperation();
+
+  return layout_object.StyleRef().Has3DTransformOperation();
 }
 
 CompositingReasons CompositingReasonFinder::NonStyleDeterminedDirectReasons(
@@ -184,19 +203,33 @@ CompositingReasons CompositingReasonFinder::NonStyleDeterminedDirectReasons(
       layer.CompositingContainer()->GetLayoutObject().IsVideo())
     direct_reasons |= CompositingReason::kVideoOverlay;
 
+  const Node* node = layer.GetLayoutObject().GetNode();
+
   // Special case for immersive-ar DOM overlay mode, see also
   // PaintLayerCompositor::ApplyXrImmersiveDomOverlayIfNeeded()
-  if (const Node* node = layer.GetLayoutObject().GetNode()) {
-    if (node->IsElementNode() && node->GetDocument().IsImmersiveArOverlay() &&
-        node == Fullscreen::FullscreenElementFrom(node->GetDocument())) {
-      direct_reasons |= CompositingReason::kImmersiveArOverlay;
-    }
+  if (node && node->IsElementNode() &&
+      node->GetDocument().IsImmersiveArOverlay() &&
+      node == Fullscreen::FullscreenElementFrom(node->GetDocument())) {
+    direct_reasons |= CompositingReason::kImmersiveArOverlay;
   }
 
   if (layer.IsRootLayer() &&
       (RequiresCompositingForScrollableFrame(*layout_object.View()) ||
        layout_object.GetFrame()->IsLocalRoot())) {
     direct_reasons |= CompositingReason::kRoot;
+  }
+
+  // Composite all cross-origin iframes, to improve compositor hit testing for
+  // input event targeting. crbug.com/1014273
+  if (node && node->IsFrameOwnerElement() &&
+      base::FeatureList::IsEnabled(
+          blink::features::kCompositeCrossOriginIframes)) {
+    if (Frame* iframe_frame = To<HTMLFrameOwnerElement>(node)->ContentFrame()) {
+      if (!iframe_frame->GetSecurityContext()->GetSecurityOrigin()->CanAccess(
+              node->GetDocument().GetSecurityOrigin())) {
+        direct_reasons |= CompositingReason::kCrossOriginIframe;
+      }
+    }
   }
 
   direct_reasons |= layout_object.AdditionalCompositingReasons();

@@ -4,7 +4,9 @@
 
 #include "ui/platform_window/x11/x11_window.h"
 
+#include "base/strings/string_number_conversions.h"
 #include "base/trace_event/trace_event.h"
+#include "ui/base/buildflags.h"
 #include "ui/base/x/x11_util.h"
 #include "ui/base/x/x11_util_internal.h"
 #include "ui/display/screen.h"
@@ -14,11 +16,17 @@
 #include "ui/events/platform/platform_event_source.h"
 #include "ui/events/platform/x11/x11_event_source.h"
 #include "ui/gfx/x/x11.h"
-#include "ui/platform_window/platform_window_delegate_linux.h"
+#include "ui/platform_window/common/platform_window_defaults.h"
+#include "ui/platform_window/extensions/workspace_extension_delegate.h"
+#include "ui/platform_window/extensions/x11_extension_delegate.h"
 #include "ui/platform_window/x11/x11_window_manager.h"
 
 #if defined(USE_OZONE)
 #include "ui/events/ozone/events_ozone.h"
+#endif
+
+#if BUILDFLAG(USE_ATK)
+#include "ui/platform_window/x11/atk_event_conversion.h"
 #endif
 
 namespace ui {
@@ -83,11 +91,16 @@ ui::XWindow::Configuration ConvertInitPropertiesToXWindowConfig(
 
 }  // namespace
 
-X11Window::X11Window(PlatformWindowDelegateLinux* platform_window_delegate)
+X11Window::X11Window(PlatformWindowDelegate* platform_window_delegate)
     : platform_window_delegate_(platform_window_delegate) {
   // Set a class property key, which allows |this| to be used for interactive
   // events, e.g. move or resize.
   SetWmMoveResizeHandler(this, static_cast<WmMoveResizeHandler*>(this));
+
+  // Set extensions property key that extends the interface of this platform
+  // implementation.
+  SetWorkspaceExtension(this, static_cast<WorkspaceExtension*>(this));
+  SetX11Extension(this, static_cast<X11Extension*>(this));
 }
 
 X11Window::~X11Window() {
@@ -102,6 +115,9 @@ void X11Window::Initialize(PlatformWindowInitProperties properties) {
   gfx::Size adjusted_size_in_pixels =
       AdjustSizeForDisplay(config.bounds.size());
   config.bounds.set_size(adjusted_size_in_pixels);
+
+  workspace_extension_delegate_ = properties.workspace_extension_delegate;
+  x11_extension_delegate_ = properties.x11_extension_delegate;
 
   Init(config);
 }
@@ -207,7 +223,7 @@ void X11Window::ReleaseCapture() {
 }
 
 bool X11Window::HasCapture() const {
-  return X11WindowManager::GetInstance()->event_grabber() == this;
+  return X11WindowManager::GetInstance()->located_events_grabber() == this;
 }
 
 void X11Window::ToggleFullscreen() {
@@ -311,14 +327,6 @@ void X11Window::Deactivate() {
   XWindow::Deactivate();
 }
 
-bool X11Window::IsSyncExtensionAvailable() const {
-  return ui::IsSyncExtensionAvailable();
-}
-
-void X11Window::OnCompleteSwapAfterResize() {
-  XWindow::NotifySwapAfterResize();
-}
-
 void X11Window::SetUseNativeFrame(bool use_native_frame) {
   XWindow::SetUseNativeFrame(use_native_frame);
 }
@@ -386,37 +394,13 @@ void X11Window::StackAtTop() {
   XWindow::StackXWindowAtTop();
 }
 
-base::Optional<int> X11Window::GetWorkspace() const {
-  return XWindow::workspace();
-}
-
-void X11Window::SetVisibleOnAllWorkspaces(bool always_visible) {
-  XWindow::SetXWindowVisibleOnAllWorkspaces(always_visible);
-}
-
-bool X11Window::IsVisibleOnAllWorkspaces() const {
-  return XWindow::IsXWindowVisibleOnAllWorkspaces();
-}
-
 void X11Window::FlashFrame(bool flash_frame) {
   XWindow::SetFlashFrameHint(flash_frame);
-}
-
-gfx::Rect X11Window::GetXRootWindowOuterBounds() const {
-  return XWindow::GetOutterBounds();
-}
-
-bool X11Window::ContainsPointInXRegion(const gfx::Point& point) const {
-  return XWindow::ContainsPointInRegion(point);
 }
 
 void X11Window::SetShape(std::unique_ptr<ShapeRects> native_shape,
                          const gfx::Transform& transform) {
   return XWindow::SetXWindowShape(std::move(native_shape), transform);
-}
-
-void X11Window::SetOpacityForXWindow(float opacity) {
-  XWindow::SetXWindowOpacity(opacity);
 }
 
 void X11Window::SetAspectRatio(const gfx::SizeF& aspect_ratio) {
@@ -439,8 +423,66 @@ bool X11Window::IsTranslucentWindowOpacitySupported() const {
   return ui::XVisualManager::GetInstance()->ArgbVisualAvailable();
 }
 
+void X11Window::SetOpacity(float opacity) {
+  XWindow::SetXWindowOpacity(opacity);
+}
+
+std::string X11Window::GetWorkspace() const {
+  base::Optional<int> workspace_id = XWindow::workspace();
+  return workspace_id.has_value() ? base::NumberToString(workspace_id.value())
+                                  : std::string();
+}
+
+void X11Window::SetVisibleOnAllWorkspaces(bool always_visible) {
+  XWindow::SetXWindowVisibleOnAllWorkspaces(always_visible);
+}
+
+bool X11Window::IsVisibleOnAllWorkspaces() const {
+  return XWindow::IsXWindowVisibleOnAllWorkspaces();
+}
+
+void X11Window::SetWorkspaceExtensionDelegate(
+    WorkspaceExtensionDelegate* delegate) {
+  workspace_extension_delegate_ = delegate;
+}
+
+bool X11Window::IsSyncExtensionAvailable() const {
+  return ui::IsSyncExtensionAvailable();
+}
+
+void X11Window::OnCompleteSwapAfterResize() {
+  XWindow::NotifySwapAfterResize();
+}
+
+gfx::Rect X11Window::GetXRootWindowOuterBounds() const {
+  return XWindow::GetOutterBounds();
+}
+
+bool X11Window::ContainsPointInXRegion(const gfx::Point& point) const {
+  return XWindow::ContainsPointInRegion(point);
+}
+
 void X11Window::LowerXWindow() {
   XWindow::LowerWindow();
+}
+
+void X11Window::SetX11ExtensionDelegate(X11ExtensionDelegate* delegate) {
+  x11_extension_delegate_ = delegate;
+}
+
+bool X11Window::HandleAsAtkEvent(XEvent* xev) {
+#if !BUILDFLAG(USE_ATK)
+  // TODO(crbug.com/1014934): Support ATK in Ozone/X11.
+  NOTREACHED();
+  return false;
+#else
+  DCHECK(xev);
+  if (!x11_extension_delegate_ ||
+      (xev->type != KeyPress && xev->type != KeyRelease))
+    return false;
+  auto atk_key_event = AtkKeyEventFromXEvent(xev);
+  return x11_extension_delegate_->OnAtkKeyEvent(atk_key_event.get());
+#endif
 }
 
 bool X11Window::CanDispatchEvent(const PlatformEvent& xev) {
@@ -458,9 +500,17 @@ uint32_t X11Window::DispatchEvent(const PlatformEvent& event) {
   TRACE_EVENT1("views", "X11PlatformWindow::Dispatch", "event->type",
                event->type);
 
-  ProcessEvent(event);
+  if (!HandleAsAtkEvent(event))
+    ProcessEvent(event);
   return POST_DISPATCH_STOP_PROPAGATION;
 #else
+  // Notify that the mouse gets physically entered to the window regardless of
+  // the grab. This is used to update the mouse cursor state.
+  auto* window_manager = X11WindowManager::GetInstance();
+  DCHECK(window_manager);
+  if (event->IsMouseEvent())
+    window_manager->MouseOnWindow(this);
+
   OnXWindowEvent(event);
   return POST_DISPATCH_STOP_PROPAGATION;
 #endif
@@ -510,55 +560,57 @@ void X11Window::OnXWindowIsActiveChanged(bool active) {
 }
 
 void X11Window::OnXWindowMapped() {
-  platform_window_delegate_->OnXWindowMapped();
+  if (x11_extension_delegate_)
+    x11_extension_delegate_->OnXWindowMapped();
 }
 
 void X11Window::OnXWindowUnmapped() {
-  platform_window_delegate_->OnXWindowUnmapped();
+  if (x11_extension_delegate_)
+    x11_extension_delegate_->OnXWindowUnmapped();
 }
 
 void X11Window::OnXWindowWorkspaceChanged() {
-  platform_window_delegate_->OnWorkspaceChanged();
+  if (workspace_extension_delegate_)
+    workspace_extension_delegate_->OnWorkspaceChanged();
 }
 
 void X11Window::OnXWindowLostPointerGrab() {
-  platform_window_delegate_->OnLostMouseGrab();
+  if (x11_extension_delegate_)
+    x11_extension_delegate_->OnLostMouseGrab();
 }
 
 void X11Window::OnXWindowEvent(ui::Event* event) {
   DCHECK_NE(window(), x11::None);
+  DCHECK(event);
 
   auto* window_manager = X11WindowManager::GetInstance();
   DCHECK(window_manager);
 
-  // If another X11PlatformWindow has capture == set self as the event grabber,
-  // the |event| must be rerouted to that grabber. Otherwise, just send the
-  // event.
-  auto* event_grabber = window_manager->event_grabber();
-  if (!event_grabber || event_grabber == this) {
-    if (event->IsMouseEvent())
-      window_manager->MouseOnWindow(this);
-#if defined(USE_OZONE)
-    DispatchEventFromNativeUiEvent(
-        event, base::BindOnce(&PlatformWindowDelegate::DispatchEvent,
-                              base::Unretained(platform_window_delegate())));
-#else
-    platform_window_delegate_->DispatchEvent(event);
-#endif
+  // If |event| is a located event (mouse, touch, etc) and another X11 window
+  // is set as the current located events grabber, the |event| must be
+  // re-routed to that grabber. Otherwise, just send the event.
+  auto* located_events_grabber = window_manager->located_events_grabber();
+  if (event->IsLocatedEvent() && located_events_grabber &&
+      located_events_grabber != this) {
+    if (event->IsMouseEvent() ||
+        (event->IsTouchEvent() && event->type() == ui::ET_TOUCH_PRESSED)) {
+      // Another X11Window has installed itself as capture. Translate the
+      // event's location and dispatch to the other.
+      ConvertEventLocationToTargetLocation(located_events_grabber->GetBounds(),
+                                           GetBounds(),
+                                           event->AsLocatedEvent());
+    }
+    located_events_grabber->OnXWindowEvent(event);
     return;
   }
 
-  DCHECK(event_grabber);
-
-  if (event->IsMouseEvent() ||
-      (event->IsTouchEvent() && event->type() == ui::ET_TOUCH_PRESSED)) {
-    // Another X11PlatformWindow has installed itself as capture. Translate the
-    // event's location and dispatch to the other.
-    ConvertEventLocationToTargetLocation(event_grabber->GetBounds(),
-                                         GetBounds(), event->AsLocatedEvent());
-  }
-
-  event_grabber->OnXWindowEvent(event);
+#if defined(USE_OZONE)
+  DispatchEventFromNativeUiEvent(
+      event, base::BindOnce(&PlatformWindowDelegate::DispatchEvent,
+                            base::Unretained(platform_window_delegate())));
+#else
+  platform_window_delegate_->DispatchEvent(event);
+#endif
 }
 
 void X11Window::OnXWindowSelectionEvent(XEvent* xev) {
@@ -571,11 +623,6 @@ void X11Window::OnXWindowDragDropEvent(XEvent* xev) {
     x_event_delegate_->OnXWindowDragDropEvent(xev);
 }
 
-void X11Window::OnXWindowRawKeyEvent(XEvent* xev) {
-  if (x_event_delegate_)
-    x_event_delegate_->OnXWindowRawKeyEvent(xev);
-}
-
 base::Optional<gfx::Size> X11Window::GetMinimumSizeForXWindow() {
   return platform_window_delegate_->GetMinimumSizeForWindow();
 }
@@ -586,7 +633,8 @@ base::Optional<gfx::Size> X11Window::GetMaximumSizeForXWindow() {
 
 void X11Window::GetWindowMaskForXWindow(const gfx::Size& size,
                                         SkPath* window_mask) {
-  platform_window_delegate_->GetWindowMask(size, window_mask);
+  if (x11_extension_delegate_)
+    x11_extension_delegate_->GetWindowMask(size, window_mask);
 }
 
 void X11Window::DispatchHostWindowDragMovement(
@@ -607,7 +655,7 @@ gfx::Size X11Window::AdjustSizeForDisplay(
   return requested_size_in_pixels;
 #else
   auto* screen = display::Screen::GetScreen();
-  if (screen) {
+  if (screen && !UseTestConfigForPlatformWindows()) {
     std::vector<display::Display> displays = screen->GetAllDisplays();
     // Compare against all monitor sizes. The window manager can move the window
     // to whichever monitor it wants.

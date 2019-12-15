@@ -153,6 +153,7 @@ void AppsNavigationThrottle::OnIntentPickerClosed(
       break;
     case PickerEntryType::kArc:
     case PickerEntryType::kDevice:
+    case PickerEntryType::kMacNative:
       NOTREACHED();
   }
   PickerAction action =
@@ -288,6 +289,8 @@ AppsNavigationThrottle::Platform AppsNavigationThrottle::GetDestinationPlatform(
       return Platform::ARC;
     case PickerAction::PWA_APP_PRESSED:
       return Platform::PWA;
+    case PickerAction::MAC_NATIVE_APP_PRESSED:
+      return Platform::MAC_NATIVE;
     case PickerAction::ERROR_BEFORE_PICKER:
     case PickerAction::ERROR_AFTER_PICKER:
     case PickerAction::DIALOG_DEACTIVATED:
@@ -335,6 +338,8 @@ AppsNavigationThrottle::PickerAction AppsNavigationThrottle::GetPickerAction(
           return PickerAction::PWA_APP_PRESSED;
         case PickerEntryType::kDevice:
           return PickerAction::DEVICE_PRESSED;
+        case PickerEntryType::kMacNative:
+          return PickerAction::MAC_NATIVE_APP_PRESSED;
       }
   }
 
@@ -384,11 +389,12 @@ void AppsNavigationThrottle::CloseOrGoBack(content::WebContents* web_contents) {
 }
 
 // static
-bool AppsNavigationThrottle::ContainsOnlyPwas(
+bool AppsNavigationThrottle::ContainsOnlyPwasAndMacApps(
     const std::vector<apps::IntentPickerAppInfo>& apps) {
   return std::all_of(apps.begin(), apps.end(),
                      [](const apps::IntentPickerAppInfo& app_info) {
-                       return app_info.type == PickerEntryType::kWeb;
+                       return app_info.type == PickerEntryType::kWeb ||
+                              app_info.type == PickerEntryType::kMacNative;
                      });
 }
 
@@ -402,10 +408,12 @@ bool AppsNavigationThrottle::ShouldShowPersistenceOptions(
   // This function is also used to hide the "Stay In Chrome" button when the
   // "Remember my choice" option is hidden such that the bubble is easy to
   // understand.
-  return !ContainsOnlyPwas(apps);
+  // TODO(avi): When Chrome gains a UI for managing the persistence of PWAs,
+  // reuse that UI for managing the persistent behavior of Universal Links.
+  return !ContainsOnlyPwasAndMacApps(apps);
 }
 
-bool AppsNavigationThrottle::ShouldDeferNavigationForArc(
+bool AppsNavigationThrottle::ShouldDeferNavigation(
     content::NavigationHandle* handle) {
   return false;
 }
@@ -486,7 +494,7 @@ AppsNavigationThrottle::HandleRequest() {
   constexpr bool kAllowFormSubmit = false;
 
   // Ignore navigations with the CLIENT_REDIRECT qualifier on.
-  constexpr bool kAllowClientRedirect = false;
+  constexpr bool kAllowClientRedirect = true;
 
   ui::PageTransition page_transition = handle->GetPageTransition();
   content::WebContents* web_contents = handle->GetWebContents();
@@ -502,7 +510,7 @@ AppsNavigationThrottle::HandleRequest() {
   if (!ShouldOverrideUrlLoading(starting_url_, url))
     return content::NavigationThrottle::PROCEED;
 
-  if (ShouldDeferNavigationForArc(handle)) {
+  if (ShouldDeferNavigation(handle)) {
     // Handling is now deferred to ArcIntentPickerAppFetcher, which
     // asynchronously queries ARC for apps, and runs
     // OnDeferredNavigationProcessed() with an action based on whether an

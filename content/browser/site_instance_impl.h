@@ -71,10 +71,10 @@ class CONTENT_EXPORT SiteInstanceImpl final : public SiteInstance,
   // without converting them to effective URLs first.  This is useful for
   // avoiding OOPIFs when otherwise same-site URLs may look cross-site via
   // their effective URLs.
-  static bool IsSameWebSite(const IsolationContext& isolation_context,
-                            const GURL& src_url,
-                            const GURL& dest_url,
-                            bool should_compare_effective_urls);
+  static bool IsSameSite(const IsolationContext& isolation_context,
+                         const GURL& src_url,
+                         const GURL& dest_url,
+                         bool should_compare_effective_urls);
 
   // SiteInstance interface overrides.
   int32_t GetId() override;
@@ -88,6 +88,7 @@ class CONTENT_EXPORT SiteInstanceImpl final : public SiteInstance,
   size_t GetRelatedActiveContentsCount() override;
   bool RequiresDedicatedProcess() override;
   bool IsSameSiteWithURL(const GURL& url) override;
+  bool IsGuest() override;
 
   // The policy to apply when selecting a RenderProcessHost for the
   // SiteInstance. If no suitable RenderProcessHost for the SiteInstance exists
@@ -205,10 +206,10 @@ class CONTENT_EXPORT SiteInstanceImpl final : public SiteInstance,
   // avoid dedicating an unused SiteInstance to it (e.g., in a new tab).
   bool HasRelatedSiteInstance(const GURL& url);
 
-  // Returns whether this SiteInstance has a process that is the wrong type for
-  // the given URL.  If so, the browser should force a process swap when
-  // navigating to the URL.
-  bool HasWrongProcessForURL(const GURL& url);
+  // Returns whether this SiteInstance is compatible with and can host the given
+  // |url|. If not, the browser should force a SiteInstance swap when
+  // navigating to |url|.
+  bool IsSuitableForURL(const GURL& url);
 
   // Increase the number of active frames in this SiteInstance. This is
   // increased when a frame is created.

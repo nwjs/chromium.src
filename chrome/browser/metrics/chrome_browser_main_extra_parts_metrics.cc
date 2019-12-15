@@ -63,8 +63,8 @@
 #endif  // defined(USE_OZONE) || defined(USE_X11)
 
 #if defined(OS_WIN)
+#include "base/win/scoped_handle.h"
 #include "base/win/windows_version.h"
-#include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/shell_integration_win.h"
 #include "printing/backend/win_helper.h"
 #endif  // defined(OS_WIN)
@@ -206,6 +206,10 @@ void RecordMicroArchitectureStats() {
                            base::SysInfo::NumberOfProcessors());
 }
 
+#if defined(OS_WIN)
+bool IsApplockerRunning();
+#endif  // defined(OS_WIN)
+
 // Called on a background thread, with low priority to avoid slowing down
 // startup with metrics that aren't trivial to compute.
 void RecordStartupMetrics() {
@@ -225,12 +229,21 @@ void RecordStartupMetrics() {
   DCHECK(patch_level) << "Windows version too high!";
   base::UmaHistogramSparse("Windows.PatchLevel", patch_level);
 
+  // Record installed UCRT version information. This is of particular interest
+  // on Windows 7 due to Windows 7 crashes - https://crbug.com/920704
+  UMA_HISTOGRAM_ENUMERATION("Windows.UCRTVersion", os_info.UcrtVersion(),
+                            base::win::Version::WIN_LAST);
+
   UMA_HISTOGRAM_BOOLEAN("Windows.HasHighResolutionTimeTicks",
                         base::TimeTicks::IsHighResolution());
 
   // Metric of interest specifically for Windows 7 printing.
   UMA_HISTOGRAM_BOOLEAN("Windows.HasOpenXpsSupport",
                         printing::XPSModule::IsOpenXpsCapable());
+
+  // Determine if Applocker is enabled and running. This does not check if
+  // Applocker rules are being enforced.
+  UMA_HISTOGRAM_BOOLEAN("Windows.ApplockerRunning", IsApplockerRunning());
 #endif  // defined(OS_WIN)
 
   bluetooth_utility::ReportBluetoothAvailability();
@@ -528,6 +541,49 @@ void RecordIsPinnedToTaskbarHistogram() {
 void RecordVrStartupHistograms() {
   vr::XRRuntimeManager::RecordVrStartupHistograms();
 }
+
+class ScHandleTraits {
+ public:
+  typedef SC_HANDLE Handle;
+
+  ScHandleTraits() = delete;
+  ScHandleTraits(const ScHandleTraits&) = delete;
+  ScHandleTraits& operator=(const ScHandleTraits&) = delete;
+
+  // Closes the handle.
+  static bool CloseHandle(SC_HANDLE handle) {
+    return ::CloseServiceHandle(handle) != FALSE;
+  }
+
+  // Returns true if the handle value is valid.
+  static bool IsHandleValid(SC_HANDLE handle) { return handle != nullptr; }
+
+  // Returns null handle value.
+  static SC_HANDLE NullHandle() { return nullptr; }
+};
+
+typedef base::win::GenericScopedHandle<ScHandleTraits,
+                                       base::win::DummyVerifierTraits>
+    ScopedScHandle;
+
+bool IsApplockerRunning() {
+  ScopedScHandle scm_handle(
+      ::OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT));
+  if (!scm_handle.IsValid())
+    return false;
+
+  ScopedScHandle service_handle(
+      ::OpenServiceW(scm_handle.Get(), L"appid", SERVICE_QUERY_STATUS));
+  if (!service_handle.IsValid())
+    return false;
+
+  SERVICE_STATUS status;
+  if (!::QueryServiceStatus(service_handle.Get(), &status))
+    return false;
+
+  return status.dwCurrentState == SERVICE_RUNNING;
+}
+
 #endif  // defined(OS_WIN)
 
 }  // namespace
@@ -549,24 +605,6 @@ void ChromeBrowserMainExtraPartsMetrics::PreBrowserStart() {
   flags_ui::PrefServiceFlagsStorage flags_storage(
       g_browser_process->local_state());
   about_flags::RecordUMAStatistics(&flags_storage);
-
-#if defined(OS_WIN)
-  ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial("ChromeWinClang",
-#if defined(__clang__)
-                                                            "Enabled"
-#else
-                                                            "Disabled"
-#endif
-                                                            );
-  // Log once here at browser start rather than at each renderer launch.
-  ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial("ChromeWinMultiDll",
-#if defined(CHROME_MULTIPLE_DLL_BROWSER)
-                                                            "Enabled"
-#else
-                                                            "Disabled"
-#endif
-                                                            );
-#endif  // defined(OS_WIN)
 }
 
 void ChromeBrowserMainExtraPartsMetrics::PostBrowserStart() {

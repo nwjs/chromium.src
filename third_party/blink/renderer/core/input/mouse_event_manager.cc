@@ -594,10 +594,10 @@ WebInputEventResult MouseEventManager::HandleMouseFocus(
   for (; element; element = element->ParentOrShadowHostElement()) {
     if (element->IsFocusable() && element->IsFocusedElementInDocument())
       return WebInputEventResult::kNotHandled;
-    if (element->IsMouseFocusable())
+    if (element->IsMouseFocusable() || element->DelegatesFocus())
       break;
   }
-  DCHECK(!element || element->IsMouseFocusable());
+  DCHECK(!element || element->IsMouseFocusable() || element->DelegatesFocus());
 
   // To fix <rdar://problem/4895428> Can't drag selected ToDo, we don't focus
   // a node on mouse down if it's selected and inside a focused node. It will
@@ -628,7 +628,8 @@ WebInputEventResult MouseEventManager::HandleMouseFocus(
   // If focus shift is blocked, we eat the event. Note we should never
   // clear swallowEvent if the page already set it (e.g., by canceling
   // default behavior).
-  if (element && SlideFocusOnShadowHostIfNecessary(*element))
+  if (element && !element->IsMouseFocusable() &&
+      SlideFocusOnShadowHostIfNecessary(*element))
     return WebInputEventResult::kHandledSystem;
 
   // We call setFocusedElement even with !element in order to blur
@@ -645,30 +646,12 @@ WebInputEventResult MouseEventManager::HandleMouseFocus(
 
 bool MouseEventManager::SlideFocusOnShadowHostIfNecessary(
     const Element& element) {
-  if (element.AuthorShadowRoot() &&
-      element.AuthorShadowRoot()->delegatesFocus()) {
-    Document* doc = frame_->GetDocument();
-    UseCounter::Count(doc, WebFeature::kDelegateFocus);
-    Element* focused_element = doc->FocusedElement();
-    if (focused_element &&
-        element.IsShadowIncludingInclusiveAncestorOf(*focused_element)) {
-      // If the inner element is already focused, do nothing.
-      return true;
-    }
-
-    // If the host has a focusable inner element, focus it. Otherwise, the host
-    // takes focus.
-    Page* page = frame_->GetPage();
-    DCHECK(page);
-    Element* found =
-        page->GetFocusController().FindFocusableElementInShadowHost(element);
-    if (found && element.IsShadowIncludingInclusiveAncestorOf(*found)) {
-      // Use WebFocusTypeForward instead of WebFocusTypeMouse here to mean the
-      // focus has slided.
-      found->focus(FocusParams(SelectionBehaviorOnFocus::kReset,
-                               kWebFocusTypeForward, nullptr));
-      return true;
-    }
+  if (Element* delegated_target = element.GetFocusableArea()) {
+    // Use WebFocusTypeForward instead of WebFocusTypeMouse here to mean the
+    // focus has slided.
+    delegated_target->focus(FocusParams(SelectionBehaviorOnFocus::kReset,
+                                        kWebFocusTypeForward, nullptr));
+    return true;
   }
   return false;
 }
@@ -758,12 +741,12 @@ void MouseEventManager::MayUpdateHoverWhenContentUnderMouseChanged(
 }
 
 void MouseEventManager::MayUpdateHoverAfterScroll(
-    const FloatQuad& scroller_rect_in_frame) {
+    const FloatRect& scroller_rect_in_frame) {
   LocalFrameView* view = frame_->View();
   if (!view)
     return;
 
-  if (!scroller_rect_in_frame.ContainsPoint(
+  if (!scroller_rect_in_frame.Contains(
           view->ViewportToFrame(last_known_mouse_position_)))
     return;
 

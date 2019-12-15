@@ -78,21 +78,6 @@ UIImage* GetOmniboxSuggestionIconForAutocompleteMatchType(
 
 #pragma mark - Security icons.
 
-NSString* GetLocationBarSecurityIconTypeAssetName(
-    LocationBarSecurityIconType iconType) {
-  switch (iconType) {
-    case INSECURE:
-      return @"location_bar_insecure";
-    case SECURE:
-      return @"location_bar_secure";
-    case DANGEROUS:
-      return @"location_bar_dangerous";
-    case LOCATION_BAR_SECURITY_ICON_TYPE_COUNT:
-      NOTREACHED();
-      return @"location_bar_insecure";
-  }
-}
-
 // Returns the asset with "always template" rendering mode.
 UIImage* GetLocationBarSecurityIcon(LocationBarSecurityIconType iconType) {
   NSString* imageName = GetLocationBarSecurityIconTypeAssetName(iconType);
@@ -102,17 +87,20 @@ UIImage* GetLocationBarSecurityIcon(LocationBarSecurityIconType iconType) {
 
 // Converts the |security_level| to an appropriate security icon type.
 LocationBarSecurityIconType GetLocationBarSecurityIconTypeForSecurityState(
-    security_state::SecurityLevel security_level) {
+    security_state::SecurityLevel security_level,
+    bool should_downgrade) {
   switch (security_level) {
     case security_state::NONE:
     case security_state::WARNING:
-      return INSECURE;
+      if (should_downgrade)
+        return NOT_SECURE_WARNING;
+      return INFO;
     case security_state::EV_SECURE:
     case security_state::SECURE:
     case security_state::SECURE_WITH_POLICY_INSTALLED_CERT:
       return SECURE;
     case security_state::DANGEROUS:
-      return DANGEROUS;
+      return NOT_SECURE_WARNING;
     case security_state::SECURITY_LEVEL_COUNT:
       NOTREACHED();
       return LOCATION_BAR_SECURITY_ICON_TYPE_COUNT;
@@ -122,9 +110,11 @@ LocationBarSecurityIconType GetLocationBarSecurityIconTypeForSecurityState(
 // Converts the |security_level| to an appropriate icon in "always template"
 // rendering mode.
 UIImage* GetLocationBarSecurityIconForSecurityState(
-    security_state::SecurityLevel security_level) {
+    security_state::SecurityLevel security_level,
+    bool should_downgrade) {
   LocationBarSecurityIconType iconType =
-      GetLocationBarSecurityIconTypeForSecurityState(security_level);
+      GetLocationBarSecurityIconTypeForSecurityState(security_level,
+                                                     should_downgrade);
   return GetLocationBarSecurityIcon(iconType);
 }
 

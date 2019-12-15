@@ -31,14 +31,13 @@
 #include "chrome/browser/download/chrome_download_manager_delegate.h"
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
+#include "chrome/browser/heavy_ad_intervention/heavy_ad_service.h"
+#include "chrome/browser/heavy_ad_intervention/heavy_ad_service_factory.h"
 #include "chrome/browser/native_file_system/chrome_native_file_system_permission_context.h"
 #include "chrome/browser/native_file_system/native_file_system_permission_context_factory.h"
 #include "chrome/browser/permissions/permission_manager.h"
 #include "chrome/browser/permissions/permission_manager_factory.h"
-#include "chrome/browser/plugins/chrome_plugin_service_filter.h"
-#include "chrome/browser/plugins/plugin_prefs.h"
 #include "chrome/browser/prefs/browser_prefs.h"
-#include "chrome/browser/prefs/in_process_service_factory_factory.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/prefs/pref_service_syncable_util.h"
 #include "chrome/browser/profiles/profile_key.h"
@@ -73,10 +72,6 @@
 #include "net/http/transport_security_state.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "services/network/public/mojom/network_context.mojom.h"
-#include "services/preferences/public/cpp/in_process_service_factory.h"
-#include "services/preferences/public/cpp/pref_service_main.h"
-#include "services/preferences/public/mojom/preferences.mojom.h"
-#include "services/service_manager/public/cpp/service.h"
 #include "storage/browser/database/database_tracker.h"
 
 #if defined(OS_ANDROID)
@@ -100,6 +95,11 @@
 #include "extensions/browser/extension_pref_store.h"
 #include "extensions/browser/extension_pref_value_map_factory.h"
 #include "extensions/common/extension.h"
+#endif
+
+#if BUILDFLAG(ENABLE_PLUGINS)
+#include "chrome/browser/plugins/chrome_plugin_service_filter.h"
+#include "chrome/browser/plugins/plugin_prefs.h"
 #endif
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
@@ -131,9 +131,7 @@ OffTheRecordProfileImpl::OffTheRecordProfileImpl(Profile* real_profile)
   BrowserContext::Initialize(this, profile_->GetPath());
   prefs_ = CreateIncognitoPrefServiceSyncable(
       PrefServiceSyncableFromProfile(profile_),
-      CreateExtensionPrefStore(profile_, true),
-      InProcessPrefServiceFactoryFactory::GetInstanceForKey(key_.get())
-          ->CreateDelegate());
+      CreateExtensionPrefStore(profile_, true));
 
   key_->SetPrefs(prefs_.get());
   SimpleKeyMap::GetInstance()->Associate(this, key_.get());
@@ -187,6 +185,8 @@ void OffTheRecordProfileImpl::Init() {
 
   // AccessibilityLabelsService has a default prefs behavior in incognito.
   AccessibilityLabelsService::InitOffTheRecordPrefs(this);
+
+  HeavyAdServiceFactory::GetForBrowserContext(this)->InitializeOffTheRecord();
 }
 
 OffTheRecordProfileImpl::~OffTheRecordProfileImpl() {
@@ -376,18 +376,6 @@ PrefService* OffTheRecordProfileImpl::GetOffTheRecordPrefs() {
 DownloadManagerDelegate* OffTheRecordProfileImpl::GetDownloadManagerDelegate() {
   return DownloadCoreServiceFactory::GetForBrowserContext(this)
       ->GetDownloadManagerDelegate();
-}
-
-std::unique_ptr<service_manager::Service>
-OffTheRecordProfileImpl::HandleServiceRequest(
-    const std::string& service_name,
-    service_manager::mojom::ServiceRequest request) {
-  if (service_name == prefs::mojom::kServiceName) {
-    return InProcessPrefServiceFactoryFactory::GetInstanceForKey(key_.get())
-        ->CreatePrefService(std::move(request));
-  }
-
-  return nullptr;
 }
 
 policy::SchemaRegistryService*

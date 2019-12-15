@@ -3,7 +3,6 @@
 <translationbundle lang="am">
 <translation id="1001534784610492198">የጫኝው መዝገብ ተሰናክሏል ወይም ትክክል አይደለም። እባክዎ Google Chromeን እንደገና ያውርዱ።</translation>
 <translation id="102763973188675173">Google Chromeን ያብጁና ይቆጣጠሩ። ዝማኔ ይገኛል።</translation>
-<translation id="1035334672863811645">ወደ Chrome ይግቡ</translation>
 <translation id="1051826050538111504">በእርስዎ ኮምፒውተር ላይ ጎጂ ሶፍትዌር አለ። Chrome የእርስዎን አሰሳ እንደገና በጤናማነት እንዲሠራ ለማድረግ ሊያስወግደው፣ የእርስዎን ቅንብሮች እንደነበሩ ሊመልሳቸው እና ቅጥያዎችን ሊያሰናክል ይችላል።</translation>
 <translation id="1065672644894730302">አማራጮችዎ ሊነበቡ አልቻሉም።
 
@@ -77,7 +76,6 @@
 <translation id="3065168410429928842">የChrome ትር</translation>
 <translation id="3080151273017101988">Google Chrome ሲዘጋ የጀርባ መተግበሪያዎችን ማሂዱን ይቀጥሉ</translation>
 <translation id="3089968997497233615">አዲስና ደህንነቱ ይበልጥ የተጠበቀ የGoogle Chrome ስሪት ይገኛል።</translation>
-<translation id="3138848678222082288">የወደፊት የChrome ስሪቶች በራስ-ሰር ይጫናሉ። ይህ ውርድ ሲጠናቀቅ Chrome ዳግም ይነሳና እርስዎ ይቀጥላሉ።</translation>
 <translation id="3149510190863420837">Chrome መተግበሪያዎች</translation>
 <translation id="3282568296779691940">Chrome ውስጥ ይግቡ</translation>
 <translation id="3340978935015468852">ቅንብሮች</translation>
@@ -98,7 +96,6 @@
 <translation id="3718181793972440140">ይሄ 1 ንጥል ከዚህ መሣሪያዎ ይሰርዘዋል። ውሂብዎን በኋላ ላይ ሰርስረው ለማውጣት እንደ <ph name="USER_EMAIL" /> ሆነው ወደ Chrome ይግቡ።</translation>
 <translation id="3735758079232443276">ይህ «<ph name="EXTENSION_NAME" />» ቅጥያ Chromeን ሲጀምሩት የሚታየውን ገጽ ቀይሮታል።</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">ከChrome አስወግድ</translation>
 <translation id="386202838227397562">እባክዎ ሁሉንም የChrome መስኮቶች ይዝጉና እንደገና ይሞክሩ።</translation>
 <translation id="3873044882194371212">አገናኝ በChrome ማንነት የ&amp;ማያሳውቅ መስኮት ውስጥ ክፈት</translation>
 <translation id="3889417619312448367">Google Chromeን አራግፍ</translation>
@@ -183,7 +180,6 @@ Google Chrome ቅንጅቶችዎን ማስመለስ አልቻለም።</translat
 <translation id="677276454032249905">የሆነው ሆኖ ከChrome ይወጣ?</translation>
 <translation id="683440813066116847">Google Chrome Canary ለmDNS ትራፊክ ለመፍቀድ የውስጥ ደንብ።</translation>
 <translation id="6885412569789873916">የChrome ቅድመ-ይሁነታ መተግበሪያዎች</translation>
-<translation id="6906909733186691861">የወደፊት የChrome ስሪቶች በራስ-ሰር ይጫናሉ።</translation>
 <translation id="6943584222992551122">የእዚህ ሰው የአሰሳ ውሂብ ከዚህ መሣሪያ ይሰረዛል። ውሂቡን መልሰው ለማግኘት እንደ <ph name="USER_EMAIL" /> ሆነው ወደ Chrome ይግቡ።</translation>
 <translation id="6967962315388095737">የmDNS ትራፊክን ለመፍቀድ የGoogle Chrome ቅድመ-ይሁንታ የውስጥ ደንብ።</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> ይህን መሣሪያ ከመጠቀምዎ በፊት የሚከተለውን የአገልግሎት ውል እንዲያነቡ እና እንዲቀበሉ ይፈለጋል። ይህ ውል የGoogle Chrome ስርዓተ ክወና ውሉን አያስፋፋውም፣ አይቀይረውም ወይም አይገድበውም።</translation>
@@ -234,7 +230,6 @@ Google Chrome ቅንጅቶችዎን ማስመለስ አልቻለም።</translat
 <translation id="8521348052903287641">የmDNS ትራፊክን ለመፍቀድ የGoogle Chrome ገንቢ የውስጥ ደንብ።</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">አዲስ የGoogle Chrome ስሪት አለ፣ እና ከመቼውም በበለጠ ፈጣን ነው።</translation>
-<translation id="8606668294522778825">Google Chrome የአሰሳ ተሞክሮዎን ለማሻሻል የድር አገልግሎቶችን ሊጠቀም ይችላል። እነዚህን አገልግሎቶች በአማራጭነት ሊያሰናክሏቸው ይችላሉ። <ph name="BEGIN_LINK" />ተጨማሪ ለመረዳት<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome መልስ አይሰጥም። አሁን ዳግም ይጀምር?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome በ1 ደቂቃ ውስጥ ዳግም ይጀመራል}one{Chrome በ# ደቂቃዎች ውስጥ ዳግም ይጀመራል}other{Chrome በ# ደቂቃዎች ውስጥ ዳግም ይጀመራል}}</translation>
 <translation id="8669527147644353129">Google Chrome አጋዥ</translation>

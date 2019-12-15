@@ -23,8 +23,7 @@
 #include "ui/events/event.h"
 #include "ui/events/keyboard_hook.h"
 #include "ui/events/keycodes/dom/dom_code.h"
-#include "ui/events/keycodes/dom/dom_keyboard_layout_map.h"
-#include "ui/platform_window/platform_window_base.h"
+#include "ui/platform_window/platform_window.h"
 #include "ui/platform_window/platform_window_init_properties.h"
 
 #if defined(USE_OZONE)
@@ -38,6 +37,8 @@
 
 #if defined(USE_X11)
 #include "ui/platform_window/x11/x11_window.h"  // nogncheck
+#else
+#include "ui/events/keycodes/dom/dom_keyboard_layout_map.h"
 #endif
 
 namespace aura {
@@ -59,8 +60,7 @@ WindowTreeHostPlatform::WindowTreeHostPlatform(
   bounds_in_pixels_ = properties.bounds;
   CreateCompositor(viz::FrameSinkId(),
                    /* force_software_compositor */ false,
-                   use_external_begin_frame_control,
-                   /* are_events_in_pixels */ true, trace_environment_name);
+                   use_external_begin_frame_control, trace_environment_name);
   CreateAndSetPlatformWindow(std::move(properties));
 }
 
@@ -86,7 +86,7 @@ void WindowTreeHostPlatform::CreateAndSetPlatformWindow(
 }
 
 void WindowTreeHostPlatform::SetPlatformWindow(
-    std::unique_ptr<ui::PlatformWindowBase> window) {
+    std::unique_ptr<ui::PlatformWindow> window) {
   platform_window_ = std::move(window);
 }
 
@@ -163,7 +163,7 @@ bool WindowTreeHostPlatform::IsKeyLocked(ui::DomCode dom_code) {
 
 base::flat_map<std::string, std::string>
 WindowTreeHostPlatform::GetKeyboardLayoutMap() {
-#if !defined(X11)
+#if !defined(USE_X11)
   return ui::GenerateDomKeyboardLayoutMap();
 #else
   NOTIMPLEMENTED();

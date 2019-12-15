@@ -13,8 +13,9 @@
 #include "ash/assistant/model/assistant_interaction_model_observer.h"
 #include "ash/assistant/model/assistant_query.h"
 #include "ash/assistant/model/assistant_response.h"
-#include "ash/assistant/model/assistant_ui_element.h"
 #include "ash/assistant/model/assistant_ui_model.h"
+#include "ash/assistant/model/ui/assistant_card_element.h"
+#include "ash/assistant/model/ui/assistant_text_element.h"
 #include "ash/assistant/ui/assistant_ui_constants.h"
 #include "ash/assistant/util/assistant_util.h"
 #include "ash/assistant/util/deep_link_util.h"
@@ -273,7 +274,7 @@ void AssistantInteractionController::OnHighlighterEnabledChanged(
       // Skip setting input modality to stylus when the embedded Assistant
       // feature is enabled to prevent highlighter aborting sessions in
       // OnUiModeChanged.
-      if (!app_list_features::IsEmbeddedAssistantUIEnabled())
+      if (!app_list_features::IsAssistantLauncherUIEnabled())
         model_.SetInputModality(InputModality::kStylus);
       break;
     case HighlighterEnabledState::kDisabledByUser:
@@ -407,8 +408,8 @@ void AssistantInteractionController::OnInteractionStarted(
     // set the pending query from outside of the interaction lifecycle, the
     // pending query type will always be |kNull| here.
     if (model_.pending_query().type() == AssistantQueryType::kNull) {
-      model_.SetPendingQuery(
-          std::make_unique<AssistantTextQuery>(metadata->query));
+      model_.SetPendingQuery(std::make_unique<AssistantTextQuery>(
+          metadata->query, metadata->source));
     }
     model_.CommitPendingQuery();
     model_.SetMicState(MicState::kClosed);
@@ -801,7 +802,7 @@ void AssistantInteractionController::OnUiVisible(
     should_attempt_warmer_welcome_ = false;
     // When the embedded Assistant feature is enabled, we call ShowUi(kStylus)
     // OnHighlighterSelectionRecognized. But we are not actually using stylus.
-    if (!app_list_features::IsEmbeddedAssistantUIEnabled())
+    if (!app_list_features::IsAssistantLauncherUIEnabled())
       model_.SetInputModality(InputModality::kStylus);
     return;
   }
@@ -874,10 +875,12 @@ void AssistantInteractionController::StartProactiveSuggestionsInteraction(
   const std::string& description = proactive_suggestions->description();
   const std::string& search_query = proactive_suggestions->search_query();
 
-  model_.SetPendingQuery(std::make_unique<AssistantTextQuery>(description));
+  model_.SetPendingQuery(std::make_unique<AssistantTextQuery>(
+      description, AssistantQuerySource::kProactiveSuggestions));
 
   OnInteractionStarted(AssistantInteractionMetadata::New(
-      AssistantInteractionType::kText, /*query=*/description));
+      AssistantInteractionType::kText,
+      AssistantQuerySource::kProactiveSuggestions, /*query=*/description));
 
   OnHtmlResponse(proactive_suggestions->html(), /*fallback=*/std::string());
 
@@ -912,7 +915,7 @@ void AssistantInteractionController::StartTextInteraction(
   model_.SetPendingQuery(
       std::make_unique<AssistantTextQuery>(text, query_source));
 
-  assistant_->StartTextInteraction(text, allow_tts);
+  assistant_->StartTextInteraction(text, query_source, allow_tts);
 }
 
 void AssistantInteractionController::StartVoiceInteraction() {

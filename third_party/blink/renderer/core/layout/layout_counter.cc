@@ -161,6 +161,7 @@ static bool PlanCounter(LayoutObject& object,
       break;
     case kPseudoIdBefore:
     case kPseudoIdAfter:
+    case kPseudoIdMarker:
       break;
     default:
       return false;  // Counters are forbidden from all other pseudo elements.
@@ -190,7 +191,7 @@ static bool PlanCounter(LayoutObject& object,
         is_reset = true;
         return true;
       }
-      if (IsHTMLUListElement(*e) || IsHTMLMenuElement(*e) ||
+      if (IsA<HTMLUListElement>(*e) || IsA<HTMLMenuElement>(*e) ||
           IsA<HTMLDirectoryElement>(*e)) {
         value = 0;
         is_reset = true;
@@ -483,7 +484,8 @@ scoped_refptr<StringImpl> LayoutCounter::OriginalText() const {
                          // pseudo elements
       PseudoId container_style = before_after_container->StyleRef().StyleType();
       if ((container_style == kPseudoIdBefore) ||
-          (container_style == kPseudoIdAfter))
+          (container_style == kPseudoIdAfter) ||
+          (container_style == kPseudoIdMarker))
         break;
       before_after_container = before_after_container->Parent();
     }

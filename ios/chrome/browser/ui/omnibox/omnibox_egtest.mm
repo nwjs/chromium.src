@@ -6,9 +6,12 @@
 #import <XCTest/XCTest.h>
 
 #include "base/bind.h"
+#include "base/mac/foundation_util.h"
 #include "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#include "components/variations/variations_http_header_provider.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
+#import "ios/chrome/browser/ui/omnibox/omnibox_app_interface.h"
 #import "ios/chrome/browser/ui/omnibox/popup/omnibox_popup_row.h"
 #include "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -16,7 +19,9 @@
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers_app_interface.h"
 #import "ios/chrome/test/earl_grey/chrome_test_case.h"
-#import "ios/chrome/test/earl_grey/hardware_keyboard_util.h"
+#import "ios/testing/earl_grey/earl_grey_test.h"
+#import "ios/testing/hardware_keyboard_util.h"
+#include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -39,6 +44,11 @@ const char kPage2[] = "This is the second page";
 const char kPage2Title[] = "Title 2";
 const char kPage2URL[] = "/page2.html";
 
+// Web page to try X-Client-Data header.
+const char kHeaderPageURL[] = "/page3.html";
+const char kHeaderPageSuccess[] = "header found!";
+const char kHeaderPageFailure[] = "header failure";
+
 // Provides responses for the different pages.
 std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
     const net::test_server::HttpRequest& request) {
@@ -57,6 +67,15 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
     http_response->set_content(
         "<html><head><title>" + std::string(kPage2Title) +
         "</title></head><body>" + std::string(kPage2) + "</body></html>");
+    return std::move(http_response);
+  }
+
+  if (request.relative_url == kHeaderPageURL) {
+    std::string result = kHeaderPageFailure;
+    if (request.headers.find("X-Client-Data") != request.headers.end()) {
+      result = kHeaderPageSuccess;
+    }
+    http_response->set_content("<html><body>" + result + "</body></html>");
     return std::move(http_response);
   }
 
@@ -107,6 +126,56 @@ id<GREYMatcher> SearchCopiedTextButton() {
 }
 
 }  //  namespace
+
+@interface OmniboxTestCase : ChromeTestCase
+@end
+
+@implementation OmniboxTestCase
+
+- (void)setUp {
+  [super setUp];
+
+  // Start a server to be able to navigate to a web page.
+  self.testServer->RegisterRequestHandler(
+      base::BindRepeating(&StandardResponse));
+  GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
+}
+
+// Tests that the XClientData header is sent when navigating to
+// https://google.com through the omnibox.
+- (void)testXClientData {
+  // Rewrite the google URL to localhost URL.
+  [OmniboxAppInterface rewriteGoogleURLToLocalhost];
+
+  // Force variations to send the requests.
+  GREYAssertEqual(
+      variations::VariationsHttpHeaderProvider::ForceIdsResult::SUCCESS,
+      variations::VariationsHttpHeaderProvider::GetInstance()
+          ->ForceVariationIds(
+              /*variation_ids=*/{"100"}, /*command_line_variation_ids=*/""),
+      @"Variation not enabled.");
+
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::FakeOmnibox()]
+      performAction:grey_tap()];
+  [ChromeEarlGrey
+      waitForSufficientlyVisibleElementWithMatcher:chrome_test_util::Omnibox()];
+
+  // The headers are only sent with https requests.
+  GURL::Replacements httpsReplacements;
+  httpsReplacements.SetSchemeStr(url::kHttpsScheme);
+
+  NSString* URL = base::SysUTF8ToNSString(
+      self.testServer->GetURL("www.google.com", kHeaderPageURL)
+          .ReplaceComponents(httpsReplacements)
+          .spec());
+
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
+      performAction:grey_typeText([NSString stringWithFormat:@"%@\n", URL])];
+
+  [ChromeEarlGrey waitForWebStateContainingText:kHeaderPageSuccess];
+}
+
+@end
 
 #pragma mark - Steady state tests
 
@@ -484,6 +553,44 @@ id<GREYMatcher> SearchCopiedTextButton() {
       assertWithMatcher:grey_notNil()];
   [[EarlGrey selectElementWithMatcher:SelectAllButton()]
       assertWithMatcher:grey_nil()];
+}
+
+- (void)testNoDefaultMatch {
+  NSString* copiedText = @"test no default match1";
+
+  // Put some text in pasteboard.
+  UIPasteboard.generalPasteboard.string = copiedText;
+
+  // Copying can take a while, wait for it to happen.
+  GREYCondition* copyCondition =
+      [GREYCondition conditionWithName:@"test text copied condition"
+                                 block:^BOOL {
+                                   return [UIPasteboard.generalPasteboard.string
+                                       isEqualToString:copiedText];
+                                 }];
+  // Wait for copy to happen or timeout after 5 seconds.
+  GREYAssertTrue([copyCondition waitWithTimeout:5],
+                 @"Copying test text failed");
+
+  // Focus the omnibox.
+  [self focusFakebox];
+
+  // Make sure that:
+  // 1. Chrome didn't crash (See crbug.com/1024885 for historic context)
+  // 2. There's nothing in the omnibox
+  // 3. There's a "text you copied" match
+
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
+      assertWithMatcher:chrome_test_util::OmniboxText("")];
+
+  // Returns the popup row containing the |url| as suggestion.
+  id<GREYMatcher> textYouCopiedMatch =
+      grey_allOf(grey_kindOfClassName(@"OmniboxPopupRow"),
+                 grey_descendant(grey_accessibilityLabel(
+                     [NSString stringWithFormat:@"\"%@\"", copiedText])),
+                 nil);
+  [[EarlGrey selectElementWithMatcher:textYouCopiedMatch]
+      assertWithMatcher:grey_notNil()];
 }
 
 #pragma mark - Helpers

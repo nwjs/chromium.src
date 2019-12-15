@@ -20,8 +20,6 @@
 #include "third_party/blink/public/common/mediastream/media_devices.h"
 #include "third_party/blink/public/mojom/mediastream/media_devices.mojom-blink.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom-blink.h"
-#include "third_party/blink/public/platform/modules/mediastream/media_stream_audio_processor_options.h"
-#include "third_party/blink/public/platform/modules/mediastream/media_stream_audio_source.h"
 #include "third_party/blink/public/platform/modules/mediastream/media_stream_audio_track.h"
 #include "third_party/blink/public/platform/modules/mediastream/web_platform_media_stream_track.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
@@ -30,14 +28,17 @@
 #include "third_party/blink/public/platform/web_media_stream_track.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_vector.h"
-#include "third_party/blink/public/web/modules/mediastream/media_stream_constraints_util.h"
 #include "third_party/blink/public/web/modules/mediastream/media_stream_video_track.h"
-#include "third_party/blink/public/web/modules/mediastream/mock_media_stream_video_source.h"
 #include "third_party/blink/public/web/modules/mediastream/web_media_stream_device_observer.h"
 #include "third_party/blink/public/web/web_heap.h"
+#include "third_party/blink/renderer/modules/mediastream/media_stream_constraints_util.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_constraints_util_video_content.h"
 #include "third_party/blink/renderer/modules/mediastream/mock_constraint_factory.h"
+#include "third_party/blink/renderer/modules/mediastream/mock_media_stream_video_source.h"
 #include "third_party/blink/renderer/modules/mediastream/mock_mojo_media_stream_dispatcher_host.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
+#include "third_party/blink/renderer/platform/mediastream/media_stream_audio_processor_options.h"
+#include "third_party/blink/renderer/platform/mediastream/media_stream_audio_source.h"
 #include "third_party/blink/renderer/platform/testing/io_task_runner_testing_platform_support.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
@@ -161,10 +162,10 @@ class MockMediaStreamVideoCapturerSource
     : public blink::MockMediaStreamVideoSource {
  public:
   MockMediaStreamVideoCapturerSource(const blink::MediaStreamDevice& device,
-                                     const SourceStoppedCallback& stop_callback)
+                                     SourceStoppedCallback stop_callback)
       : blink::MockMediaStreamVideoSource() {
     SetDevice(device);
-    SetStopCallback(stop_callback);
+    SetStopCallback(std::move(stop_callback));
   }
 
   MOCK_METHOD1(ChangeSourceImpl,
@@ -362,10 +363,10 @@ class UserMediaProcessorUnderTest : public UserMediaProcessor {
   // UserMediaProcessor overrides.
   std::unique_ptr<blink::MediaStreamVideoSource> CreateVideoSource(
       const blink::MediaStreamDevice& device,
-      const blink::WebPlatformMediaStreamSource::SourceStoppedCallback&
-          stop_callback) override {
-    video_source_ =
-        new MockMediaStreamVideoCapturerSource(device, stop_callback);
+      blink::WebPlatformMediaStreamSource::SourceStoppedCallback stop_callback)
+      override {
+    video_source_ = new MockMediaStreamVideoCapturerSource(
+        device, std::move(stop_callback));
     return base::WrapUnique(video_source_);
   }
 
@@ -627,8 +628,8 @@ class UserMediaClientTest : public ::testing::Test {
       factory.basic().frame_rate.SetExact(*frame_rate);
 
     auto* apply_constraints_request =
-        blink::ApplyConstraintsRequest::CreateForTesting(
-            web_track, factory.CreateWebMediaConstraints());
+        MakeGarbageCollected<blink::ApplyConstraintsRequest>(
+            web_track, factory.CreateWebMediaConstraints(), nullptr);
     user_media_client_impl_->ApplyConstraints(apply_constraints_request);
     base::RunLoop().RunUntilIdle();
   }

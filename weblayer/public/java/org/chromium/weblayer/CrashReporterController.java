@@ -15,6 +15,7 @@ import org.chromium.weblayer_private.interfaces.APICallException;
 import org.chromium.weblayer_private.interfaces.ICrashReporterController;
 import org.chromium.weblayer_private.interfaces.ICrashReporterControllerClient;
 import org.chromium.weblayer_private.interfaces.ObjectWrapper;
+import org.chromium.weblayer_private.interfaces.StrictModeWorkaround;
 
 /**
  * Provides an API to allow WebLayer embedders to control the handling of crash reports.
@@ -146,6 +147,7 @@ public final class CrashReporterController {
             extends ICrashReporterControllerClient.Stub {
         @Override
         public void onPendingCrashReports(String[] localIds) {
+            StrictModeWorkaround.apply();
             for (CrashReporterCallback callback : mCallbacks) {
                 callback.onPendingCrashReports(localIds);
             }
@@ -153,6 +155,7 @@ public final class CrashReporterController {
 
         @Override
         public void onCrashDeleted(String localId) {
+            StrictModeWorkaround.apply();
             for (CrashReporterCallback callback : mCallbacks) {
                 callback.onCrashDeleted(localId);
             }
@@ -160,6 +163,7 @@ public final class CrashReporterController {
 
         @Override
         public void onCrashUploadSucceeded(String localId, String reportId) {
+            StrictModeWorkaround.apply();
             for (CrashReporterCallback callback : mCallbacks) {
                 callback.onCrashUploadSucceeded(localId, reportId);
             }
@@ -167,6 +171,7 @@ public final class CrashReporterController {
 
         @Override
         public void onCrashUploadFailed(String localId, String failureReason) {
+            StrictModeWorkaround.apply();
             for (CrashReporterCallback callback : mCallbacks) {
                 callback.onCrashUploadFailed(localId, failureReason);
             }

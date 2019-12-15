@@ -16,7 +16,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
-#include "chrome/android/chrome_jni_headers/DownloadInfo_jni.h"
 #include "chrome/android/chrome_jni_headers/DownloadItem_jni.h"
 #include "chrome/android/chrome_jni_headers/DownloadManagerService_jni.h"
 #include "chrome/browser/android/chrome_feature_list.h"
@@ -26,6 +25,7 @@
 #include "chrome/browser/download/android/download_controller.h"
 #include "chrome/browser/download/android/download_startup_utils.h"
 #include "chrome/browser/download/android/download_utils.h"
+#include "chrome/browser/download/android/jni_headers/DownloadInfo_jni.h"
 #include "chrome/browser/download/android/service/download_task_scheduler.h"
 #include "chrome/browser/download/offline_item_utils.h"
 #include "chrome/browser/download/simple_download_manager_coordinator_factory.h"
@@ -130,20 +130,6 @@ DownloadManagerService* DownloadManagerService::GetInstance() {
 ScopedJavaLocalRef<jobject> DownloadManagerService::CreateJavaDownloadInfo(
     JNIEnv* env,
     download::DownloadItem* item) {
-  bool user_initiated =
-      (item->GetTransitionType() & ui::PAGE_TRANSITION_FROM_ADDRESS_BAR) ||
-      PageTransitionCoreTypeIs(item->GetTransitionType(),
-                               ui::PAGE_TRANSITION_TYPED) ||
-      PageTransitionCoreTypeIs(item->GetTransitionType(),
-                               ui::PAGE_TRANSITION_AUTO_BOOKMARK) ||
-      PageTransitionCoreTypeIs(item->GetTransitionType(),
-                               ui::PAGE_TRANSITION_GENERATED) ||
-      PageTransitionCoreTypeIs(item->GetTransitionType(),
-                               ui::PAGE_TRANSITION_RELOAD) ||
-      PageTransitionCoreTypeIs(item->GetTransitionType(),
-                               ui::PAGE_TRANSITION_KEYWORD);
-  bool has_user_gesture = item->HasUserGesture() || user_initiated;
-
   base::TimeDelta time_delta;
   bool time_remaining_known = item->TimeRemaining(&time_delta);
   std::string original_url = item->GetOriginalUrl().SchemeIs(url::kDataScheme)
@@ -160,8 +146,8 @@ ScopedJavaLocalRef<jobject> DownloadManagerService::CreateJavaDownloadInfo(
       item->GetReceivedBytes(), item->GetTotalBytes(),
       browser_context ? browser_context->IsOffTheRecord() : false,
       item->GetState(), item->PercentComplete(), item->IsPaused(),
-      has_user_gesture, item->CanResume(), item->IsParallelDownload(),
-      ConvertUTF8ToJavaString(env, original_url),
+      DownloadUtils::IsDownloadUserInitiated(item), item->CanResume(),
+      item->IsParallelDownload(), ConvertUTF8ToJavaString(env, original_url),
       ConvertUTF8ToJavaString(env, item->GetReferrerUrl().spec()),
       time_remaining_known ? time_delta.InMilliseconds()
                            : kUnknownRemainingTime,
@@ -551,7 +537,7 @@ void DownloadManagerService::RetryDownloadInternal(
           }
         })");
   auto download_url_params = std::make_unique<download::DownloadUrlParameters>(
-      item->GetURL(), traffic_annotation);
+      item->GetURL(), traffic_annotation, item->GetNetworkIsolationKey());
 
   // Retry allows redirect.
   download_url_params->set_cross_origin_redirects(

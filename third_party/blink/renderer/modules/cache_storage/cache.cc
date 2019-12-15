@@ -10,6 +10,7 @@
 #include "base/optional.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "third_party/blink/public/common/cache_storage/cache_storage_utils.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/callback_promise_adapter.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
@@ -75,6 +76,42 @@ bool HasJavascriptMimeType(const Response* response) {
   return MIMETypeRegistry::IsSupportedJavaScriptMIMEType(mime_type);
 }
 
+enum class CodeCachePolicy {
+  // Use the default policy.  Currently that policy generates full code cache
+  // when a script is stored during service worker install.
+  kAuto,
+  // Do not generate code cache when putting a script in cache_storage.
+  kNone,
+};
+
+CodeCachePolicy GetCodeCachePolicy(ExecutionContext* context,
+                                   const Response* response) {
+  DCHECK(context);
+  if (!RuntimeEnabledFeatures::CacheStorageCodeCacheHintEnabled(context))
+    return CodeCachePolicy::kAuto;
+
+  // We should never see an opaque response here.  We should have bailed out
+  // from generating code cache when we failed to determine its mime type.
+  // It's important we don't look at the header hint for opaque responses since
+  // it could leak cross-origin information.
+  DCHECK_NE(response->GetResponse()->GetType(),
+            network::mojom::FetchResponseType::kOpaque);
+
+  String header_name(
+      features::kCacheStorageCodeCacheHintHeaderName.Get().data());
+  String header_value;
+  if (!response->InternalHeaderList()->Get(header_name, header_value))
+    return CodeCachePolicy::kAuto;
+
+  // Count the hint usage regardless of its value.
+  context->CountUse(mojom::WebFeature::kCacheStorageCodeCacheHint);
+
+  if (header_value.LowerASCII() == "none")
+    return CodeCachePolicy::kNone;
+
+  return CodeCachePolicy::kAuto;
+}
+
 bool ShouldGenerateV8CodeCache(ScriptState* script_state,
                                const Response* response) {
   ExecutionContext* context = ExecutionContext::From(script_state);
@@ -82,14 +119,20 @@ bool ShouldGenerateV8CodeCache(ScriptState* script_state,
   if (!global_scope)
     return false;
 
-  if (!global_scope->IsInstalling())
+  if (!response->InternalBodyBuffer())
     return false;
 
   if (!HasJavascriptMimeType(response))
     return false;
 
-  if (!response->InternalBodyBuffer())
+  auto policy = GetCodeCachePolicy(context, response);
+  if (policy == CodeCachePolicy::kNone)
     return false;
+
+  DCHECK_EQ(policy, CodeCachePolicy::kAuto);
+  if (!global_scope->IsInstalling())
+    return false;
+
   return true;
 }
 
@@ -348,7 +391,7 @@ class Cache::BlobHandleCallbackForPut final
                            Response* response)
       : index_(index), barrier_callback_(barrier_callback) {
     fetch_api_request_ = request->CreateFetchAPIRequest();
-    fetch_api_response_ = response->PopulateFetchAPIResponse();
+    fetch_api_response_ = response->PopulateFetchAPIResponse(request->url());
   }
   ~BlobHandleCallbackForPut() override = default;
 
@@ -400,7 +443,7 @@ class Cache::CodeCacheHandleCallbackForPut final
         mime_type_(response->InternalMIMEType()),
         trace_id_(trace_id) {
     fetch_api_request_ = request->CreateFetchAPIRequest();
-    fetch_api_response_ = response->PopulateFetchAPIResponse();
+    fetch_api_response_ = response->PopulateFetchAPIResponse(request->url());
     url_ = fetch_api_request_->url;
   }
   ~CodeCacheHandleCallbackForPut() override = default;
@@ -420,9 +463,10 @@ class Cache::CodeCacheHandleCallbackForPut final
 
     auto blob_data = std::make_unique<BlobData>();
     blob_data->SetContentType(mime_type_);
-    blob_data->AppendBytes(array_buffer->Data(), array_buffer->ByteLength());
+    blob_data->AppendBytes(array_buffer->Data(),
+                           array_buffer->ByteLengthAsSizeT());
     batch_operation->response->blob = BlobDataHandle::Create(
-        std::move(blob_data), array_buffer->ByteLength());
+        std::move(blob_data), array_buffer->ByteLengthAsSizeT());
 
     scoped_refptr<CachedMetadata> cached_metadata =
         GenerateFullCodeCache(array_buffer);
@@ -477,12 +521,12 @@ class Cache::CodeCacheHandleCallbackForPut final
     // See crbug.com/743311.
     std::unique_ptr<TextResourceDecoder> text_decoder =
         std::make_unique<TextResourceDecoder>(
-            TextResourceDecoderOptions::CreateAlwaysUseUTF8ForText());
+            TextResourceDecoderOptions::CreateUTF8Decode());
 
     return V8CodeCache::GenerateFullCodeCache(
         script_state_,
         text_decoder->Decode(static_cast<const char*>(array_buffer->Data()),
-                             array_buffer->ByteLength()),
+                             array_buffer->ByteLengthAsSizeT()),
         url_, text_decoder->Encoding(), opaque_mode_);
   }
 
@@ -995,7 +1039,8 @@ ScriptPromise Cache::PutImpl(ScriptState* script_state,
         mojom::blink::BatchOperation::New();
     batch_operation->operation_type = mojom::blink::OperationType::kPut;
     batch_operation->request = requests[i]->CreateFetchAPIRequest();
-    batch_operation->response = responses[i]->PopulateFetchAPIResponse();
+    batch_operation->response =
+        responses[i]->PopulateFetchAPIResponse(requests[i]->url());
     barrier_callback->OnSuccess(i, std::move(batch_operation));
   }
 

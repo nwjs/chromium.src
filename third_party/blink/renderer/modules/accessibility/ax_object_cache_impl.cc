@@ -179,7 +179,7 @@ Node* AXObjectCacheImpl::FocusedElement() {
 
   // See if there's a page popup, for example a calendar picker.
   Element* adjusted_focused_element = document_->AdjustedFocusedElement();
-  if (auto* input = ToHTMLInputElementOrNull(adjusted_focused_element)) {
+  if (auto* input = DynamicTo<HTMLInputElement>(adjusted_focused_element)) {
     if (AXObject* ax_popup = input->PopupRootAXObject()) {
       if (Element* focused_element_in_popup =
               ax_popup->GetDocument()->FocusedElement())
@@ -391,8 +391,8 @@ static bool NodeHasRole(Node* node, const String& role) {
     return false;
 
   // TODO(accessibility) support role strings with multiple roles.
-  return EqualIgnoringASCIICase(element->getAttribute(html_names::kRoleAttr),
-                                role);
+  return EqualIgnoringASCIICase(
+      element->FastGetAttribute(html_names::kRoleAttr), role);
 }
 
 AXObject* AXObjectCacheImpl::CreateFromRenderer(LayoutObject* layout_object) {
@@ -403,7 +403,7 @@ AXObject* AXObjectCacheImpl::CreateFromRenderer(LayoutObject* layout_object) {
   // ul/ol/dl type (it shouldn't be a list if aria says otherwise).
   if (NodeHasRole(node, "list") || NodeHasRole(node, "directory") ||
       (NodeHasRole(node, g_null_atom) &&
-       (IsHTMLUListElement(node) || IsA<HTMLOListElement>(node) ||
+       (IsA<HTMLUListElement>(node) || IsA<HTMLOListElement>(node) ||
         IsA<HTMLDListElement>(node))))
     return MakeGarbageCollected<AXList>(layout_object, *this);
 
@@ -414,8 +414,9 @@ AXObject* AXObjectCacheImpl::CreateFromRenderer(LayoutObject* layout_object) {
   if (IsA<HTMLOptionElement>(node))
     return MakeGarbageCollected<AXListBoxOption>(layout_object, *this);
 
-  if (IsHTMLInputElement(node) &&
-      ToHTMLInputElement(node)->type() == input_type_names::kRadio)
+  auto* html_input_element = DynamicTo<HTMLInputElement>(node);
+  if (html_input_element &&
+      html_input_element->type() == input_type_names::kRadio)
     return MakeGarbageCollected<AXRadioInput>(layout_object, *this);
 
   if (layout_object->IsSVGRoot())
@@ -605,7 +606,7 @@ AXObject* AXObjectCacheImpl::GetOrCreate(ax::mojom::Role role) {
 
 ContainerNode* FindParentTable(Node* node) {
   ContainerNode* parent = node->parentNode();
-  while (parent && !IsHTMLTableElement(*parent))
+  while (parent && !IsA<HTMLTableElement>(*parent))
     parent = parent->parentNode();
   return parent;
 }
@@ -615,7 +616,7 @@ void AXObjectCacheImpl::ContainingTableRowsOrColsMaybeChanged(Node* node) {
   // removal of a <tr> or <td>.
   // Get parent table from DOM, because AXObject/layout tree are incomplete.
   ContainerNode* containing_table = nullptr;
-  if (IsHTMLTableCellElement(node) || IsHTMLTableRowElement(node))
+  if (IsHTMLTableCellElement(node) || IsA<HTMLTableRowElement>(node))
     containing_table = FindParentTable(node);
 
   if (containing_table) {
@@ -773,8 +774,8 @@ AXObject::InOrderTraversalIterator AXObjectCacheImpl::InOrderTraversalEnd() {
 
 void AXObjectCacheImpl::DeferTreeUpdateInternal(Node* node,
                                                 base::OnceClosure callback) {
-  tree_update_callback_queue_.push_back(
-      MakeGarbageCollected<TreeUpdateParams>(node, std::move(callback)));
+  tree_update_callback_queue_.push_back(MakeGarbageCollected<TreeUpdateParams>(
+      node, ComputeEventFrom(), std::move(callback)));
 }
 
 void AXObjectCacheImpl::DeferTreeUpdate(
@@ -990,10 +991,15 @@ void AXObjectCacheImpl::ProcessUpdatesAfterLayout(Document& document) {
     base::OnceClosure& callback = tree_update->callback;
     if (node->GetDocument() != document) {
       tree_update_callback_queue_.push_back(
-          MakeGarbageCollected<TreeUpdateParams>(node, std::move(callback)));
+          MakeGarbageCollected<TreeUpdateParams>(node, tree_update->event_from,
+                                                 std::move(callback)));
       continue;
     }
+    bool saved_is_handling_action = is_handling_action_;
+    if (tree_update->event_from == ax::mojom::EventFrom::kAction)
+      is_handling_action_ = true;
     std::move(callback).Run();
+    is_handling_action_ = saved_is_handling_action;
   }
 }
 
@@ -1395,7 +1401,8 @@ void AXObjectCacheImpl::HandleAttributeChangedWithCleanLayout(
              attr_name == html_names::kAriaLabeledbyAttr ||
              attr_name == html_names::kAriaLabelledbyAttr) {
     TextChangedWithCleanLayout(element);
-  } else if (attr_name == html_names::kAriaDescribedbyAttr) {
+  } else if (attr_name == html_names::kAriaDescriptionAttr ||
+             attr_name == html_names::kAriaDescribedbyAttr) {
     // TODO do we need a DescriptionChanged() ?
     TextChangedWithCleanLayout(element);
   } else if (attr_name == html_names::kAriaCheckedAttr ||
@@ -1630,30 +1637,24 @@ void AXObjectCacheImpl::HandleFocusedUIElementChanged(
     Element* new_focused_element) {
   RemoveValidationMessageObject();
 
-  if (!new_focused_element)
+  if (!new_focused_element) {
+    // When focus is cleared, implicitly focus the document by sending a blur.
+    DeferTreeUpdate(&AXObjectCacheImpl::HandleNodeLostFocusWithCleanLayout,
+                    GetDocument().documentElement());
     return;
+  }
 
   Page* page = new_focused_element->GetDocument().GetPage();
   if (!page)
     return;
 
-  if (RuntimeEnabledFeatures::AccessibilityExposeDisplayNoneEnabled()) {
-    if (old_focused_element) {
-      DeferTreeUpdate(&AXObjectCacheImpl::HandleNodeLostFocusWithCleanLayout,
-                      old_focused_element);
-    }
-
-    DeferTreeUpdate(&AXObjectCacheImpl::HandleNodeGainedFocusWithCleanLayout,
-                    this->FocusedElement());
-  } else {
-    AXObject* focused_object = this->FocusedObject();
-    if (!focused_object)
-      return;
-
-    AXObject* old_focused_object = Get(old_focused_element);
-    PostNotification(old_focused_object, ax::mojom::Event::kBlur);
-    PostNotification(focused_object, ax::mojom::Event::kFocus);
+  if (old_focused_element) {
+    DeferTreeUpdate(&AXObjectCacheImpl::HandleNodeLostFocusWithCleanLayout,
+                    old_focused_element);
   }
+
+  DeferTreeUpdate(&AXObjectCacheImpl::HandleNodeGainedFocusWithCleanLayout,
+                  this->FocusedElement());
 }
 
 void AXObjectCacheImpl::HandleInitialFocus() {

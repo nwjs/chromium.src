@@ -3,7 +3,6 @@
 <translationbundle lang="te">
 <translation id="1001534784610492198">ఇన్‌స్టాలర్ ఆర్కైవ్ పాడైంది లేదా చెల్లదు. దయచేసి Google Chromeను మ‌ళ్లీ డౌన్‌లోడ్ చేయండి.</translation>
 <translation id="102763973188675173">Google Chromeను అనుకూలీకరించండి మరియు నియంత్రించండి. అప్‌డేట్ అందుబాటులో ఉంది.</translation>
-<translation id="1035334672863811645">Chromeకు సైన్ ఇన్ చేయండి</translation>
 <translation id="1051826050538111504">మీ కంప్యూటర్‌లో మీ భద్రతకు హాని కలిగించే సాఫ్ట్‌వేర్‌ ఉంది. మీ బ్రౌజర్‌ని మళ్లీ సాధారణంగా పని చేసేలా చేయడానికి Chrome దానిని తీసివేసి, మీ సెట్టింగ్‌లను పునరుద్ధరించి, ఎక్స్‌టెన్షన్‌లను నిలిపివేయగలదు.</translation>
 <translation id="1065672644894730302">మీ ప్రాధాన్యతలు చదవబడలేవు. కొన్ని లక్షణాలు అందుబాటులో ఉండకపోవచ్చు మరియు ప్రాధాన్యతలకు మార్పులు సేవ్ చేయబడకపోవచ్చు.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> మునుపు Chromeని ఉపయోగించింది</translation>
@@ -73,7 +72,6 @@
 <translation id="3065168410429928842">Chrome ట్యాబ్</translation>
 <translation id="3080151273017101988">Google Chromeను మూసివేసినపుడు, యాప్‌లను నేపథ్యంలో అమలు చేయడాన్ని కొనసాగించు</translation>
 <translation id="3089968997497233615">Google Chrome యొక్క కొత్తదైన, మరింత సురక్షిత వెర్షన్ అందుబాటులో ఉంది.</translation>
-<translation id="3138848678222082288">Chrome యొక్క భవిష్యత్తు వెర్షన్‌లు ఆటోమేటిక్‌గా ఇన్‌స్టాల్ చేయబడతాయి. ఈ డౌన్‌లోడ్ పూర్తయినప్పుడు, Chrome పునఃప్రారంభించబడుతుంది, మీరు మీ పనిని కొనసాగించవచ్చు.</translation>
 <translation id="3149510190863420837">Chrome యాప్‌లు</translation>
 <translation id="3282568296779691940">Chromeకు సైన్ ఇన్ చేయండి</translation>
 <translation id="3340978935015468852">సెట్టింగ్‌లు</translation>
@@ -94,7 +92,6 @@
 <translation id="3718181793972440140">ఇది ఈ పరికరం నుండి 1 అంశాన్ని తొలగిస్తుంది. మీ డేటాను తర్వాత తిరిగి పొందడానికి, Chromeకు <ph name="USER_EMAIL" /> లాగా సైన్ ఇన్ చేయండి.</translation>
 <translation id="3735758079232443276"><ph name="EXTENSION_NAME" /> పొడిగింపు మీరు Chromeని ప్రారంభించినప్పుడు చూపబడే పేజీని మార్చింది.</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Chrome నుండి తీసివేయి...</translation>
 <translation id="386202838227397562">దయచేసి అన్ని Google Chrome విండోలను మూసివేసి, మళ్ళీ ప్రయత్నించండి.</translation>
 <translation id="3873044882194371212">Chrome అ&amp;జ్ఞాత విండోలో లింక్‌ను తెరువు</translation>
 <translation id="3889417619312448367">Google Chromeను అన్‌ఇన్‌స్టాల్ చేయండి</translation>
@@ -175,7 +172,6 @@
 <translation id="677276454032249905">ఏదేమైనా Chrome నుండి నిష్క్రమించాలా?</translation>
 <translation id="683440813066116847">mDNS ట్రాఫిక్‌ను అనుమతించడానికి Google Chrome కెనరీ కోసం ఇన్‌బౌండ్ నియమం.</translation>
 <translation id="6885412569789873916">Chrome బీటా యాప్‌లు</translation>
-<translation id="6906909733186691861">Chrome యొక్క భవిష్యత్తు వెర్షన్‌లు ఆటోమేటిక్‌గా ఇన్‌స్టాల్ చేయబడతాయి.</translation>
 <translation id="6943584222992551122">ఈ వ్యక్తి బ్రౌజింగ్ డేటా ఈ పరికరం నుండి తొలగించబడుతుంది. డేటాను పునరుద్ధరించడానికి, <ph name="USER_EMAIL" />గా Chromeకి సైన్ ఇన్ చేయండి.</translation>
 <translation id="6967962315388095737">mDNS ట్రాఫిక్‌ను అనుమతించడానికి Google Chrome బీటా కోసం ఇన్‌బౌండ్ నియమం.</translation>
 <translation id="6982337800632491844">మీరు ఈ పరికరాన్ని ఉపయోగించడానికి ముందు సేవా నిబంధనలను చదివి, అంగీకరించాలని <ph name="DOMAIN" /> కోరుతోంది. ఈ నిబంధనలు Google Chrome OS నిబంధనలను విస్తరింపజేయవు, సవరించవు లేదా పరిమితం చేయవు.</translation>
@@ -226,7 +222,6 @@
 <translation id="8521348052903287641">mDNS ట్రాఫిక్‌ను అనుమతించడానికి Google Chrome డెవలపర్ కోసం ఇన్‌బౌండ్ నియమం.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Google Chrome యొక్క కొత్త వెర్షన్ అందుబాటులో ఉంది, ఇది మునుపటి కంటే వేగవంతంగా ఉంటుంది.</translation>
-<translation id="8606668294522778825">Google Chrome మీ బ్రౌజింగ్ అనుభవాన్ని మెరుగుపరచడానికి వెబ్ సేవ‌లు ఉపయోగించవచ్చు. మీరు ఈ సేవ‌లు ఐచ్ఛికంగా నిలిపివేయవచ్చు. <ph name="BEGIN_LINK" />మరింత తెలుసుకోండి<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome స్పందించడం లేదు. ఇప్పుడే పునఃప్రారంభించాలా?</translation>
 <translation id="8625237574518804553">{0,plural, =1{1 నిమిషంలో Chrome తిరిగి ప్రారంభించబడుతుంది}other{# నిమిషాల్లో Chrome తిరిగి ప్రారంభించబడుతుంది}}</translation>
 <translation id="8669527147644353129">Google Chrome సహాయకారుడు</translation>

@@ -31,7 +31,6 @@
 <translation id="2560420686485554789">Dosya indirmek için Chromium'un depolama alanına erişmesi gerekiyor</translation>
 <translation id="2572494885440352020">Chromium Yardımcısı</translation>
 <translation id="2587578672395088481">Güncellemenin uygulanması için Chromium OS yeniden başlatılmalıdır.</translation>
-<translation id="2647554856022461007">Chromium, göz atma deneyiminizi iyileştirmek için web hizmetleri kullanabilir. İsteğe bağlı olarak bu hizmetleri devre dışı bırakabilirsiniz. <ph name="BEGIN_LINK" />Daha fazla bilgi<ph name="END_LINK" /></translation>
 <translation id="2648074677641340862">Yükleme sırasında bir işletim sistemi hatası oluştu. Lütfen Chromium'u yeniden indirin.</translation>
 <translation id="2711502716910134313">Chromium Sekmesi</translation>
 <translation id="2718390899429598676">Chromium ek güvenlik için verilerinizi şifreler.</translation>
@@ -57,7 +56,6 @@
 <translation id="3340978935015468852">ayarlar</translation>
 <translation id="3474745554856756813">Bu işlem, <ph name="ITEMS_COUNT" /> öğeyi bu cihazdan silecektir. Verilerinizi daha sonra geri almak için Chromium'da <ph name="USER_EMAIL" /> hesabıyla oturum açın.</translation>
 <translation id="3509308970982693815">Lütfen tüm Chromium pencerelerini kapatıp tekrar deneyin.</translation>
-<translation id="352783484088404971">Chromium'dan Kaldır...</translation>
 <translation id="3575459661164320785">Bilgisayarınızda zararlı yazılım var. Chromium, tarayıcınızın tekrar normal şekilde çalışmasını sağlamak için bunu kaldırabilir, ayarlarınızı geri yükleyebilir ve uzantıları devre dışı bırakabilir.</translation>
 <translation id="358997566136285270">Chromium logosu</translation>
 <translation id="3639635944603682591">Bu kullanıcının tarama verileri bu cihazdan silinecektir. Verileri kurtarmak için Chromium'da <ph name="USER_EMAIL" /> olarak oturum açın.</translation>
@@ -82,7 +80,6 @@
 <translation id="4567424176335768812"><ph name="USER_EMAIL_ADDRESS" /> olarak oturum açtınız. Şimdi oturum açtığınız tüm cihazlarda yer işaretlerinize, geçmişinize ve diğer ayarlarınıza erişebilirsiniz.</translation>
 <translation id="459535195905078186">Chromium Uygulamaları</translation>
 <translation id="4621240073146040695">Az kaldı! Güncellemeyi tamamlamak için Chromium'u yeniden başlatın.</translation>
-<translation id="4661006601577405669">Chromium'un gelecek sürümleri otomatik olarak yüklenecektir.</translation>
 <translation id="4677944499843243528">Profilin başka bir bilgisayarda (<ph name="HOST_NAME" />) başka bir Chromium işlemi (<ph name="PROCESS_ID" />) tarafından kullanıldığı anlaşılıyor. Chromium, profili bozulmaması için kilitledi. Bu profili başka hiçbir işlemin kullanmadığından eminseniz profilin kilidini açabilir ve Chromium'u tekrar başlatabilirsiniz.</translation>
 <translation id="469338717132742108">Chromium OS ile ilgili yardım alın</translation>
 <translation id="4708774505295300557">Birisi daha önce bu bilgisayarda <ph name="ACCOUNT_EMAIL_LAST" /> olarak Chromium oturumu açmış. Bilgilerinizi ayrı tutmak için yeni bir Chromium kullanıcısı oluşturun.</translation>
@@ -108,7 +105,6 @@
 <translation id="5631814766731275228">Chromium adı ve resmi</translation>
 <translation id="5634636535844844681">Chromium, Windows 7 veya daha sonraki bir sürümü gerektirir.</translation>
 <translation id="5653831366781983928">Lütfen Chromium'u şimdi yeniden başlatın</translation>
-<translation id="5680901439334282664">Chromium'da oturum açın</translation>
 <translation id="5698481217667032250">Chromium'u bu dilde görüntüle</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5862307444128926510">Chromium'a Hoş Geldiniz</translation>
@@ -171,7 +167,6 @@ Chromium ayarlarınızı kurtaramıyor.</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium Dev</translation>
 <translation id="7451052299415159299">Chromium'un bu sitede kameranıza erişmesi için izin gerekiyor</translation>
 <translation id="7483335560992089831">Şu anda çalışan aynı Chromium sürümünü yükleyemezsiniz. Lütfen Chromium'u kapatın ve yeniden deneyin.</translation>
-<translation id="751093125041325477">Chromium'un gelecek sürümleri otomatik olarak yüklenecektir. Bu indirme işlemi tamamlandığında Chromium yeniden başlatılacak ve çalışmalarınıza devam edebileceksiniz.</translation>
 <translation id="753534427205733210">{0,plural, =1{Chromium 1 dakika içinde yeniden başlatılacak}other{Chromium # dakika içinde yeniden başlatılacak}}</translation>
 <translation id="7549178288319965365">Chromium OS hakkında</translation>
 <translation id="7561906087460245826">Chromium'daki verileri de temizle (<ph name="URL" />)</translation>

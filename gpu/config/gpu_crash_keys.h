@@ -37,7 +37,8 @@ extern GPU_EXPORT crash_reporter::CrashKeyString<1024> current_shader_0;
 extern GPU_EXPORT crash_reporter::CrashKeyString<1024> current_shader_1;
 extern GPU_EXPORT crash_reporter::CrashKeyString<4>
     gpu_watchdog_kill_after_power_resume;
-
+extern GPU_EXPORT crash_reporter::CrashKeyString<4>
+    gpu_watchdog_crashed_in_gpu_init;
 }  // namespace crash_keys
 }  // namespace gpu
 

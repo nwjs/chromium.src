@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/ios/ios_util.h"
+#import "ios/chrome/browser/ui/autofill/autofill_app_interface.h"
 #import "ios/chrome/browser/ui/settings/autofill/features.h"
 #include "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -94,7 +95,7 @@ id<GREYMatcher> CardNumberIconView(NSString* icon_type) {
       ensureAppLaunchedWithFeaturesEnabled:{kSettingsAddPaymentMethod,
                                             kCreditCardScanner}
                                   disabled:{}
-                              forceRestart:NO];
+                            relaunchPolicy:NoForceRelaunchAndResetState];
 }
 
 - (void)setUp {
@@ -110,38 +111,23 @@ id<GREYMatcher> CardNumberIconView(NSString* icon_type) {
 }
 
 - (void)tearDown {
-  [ChromeEarlGrey clearCreditCards];
+  [AutofillAppInterface clearCreditCardStore];
   [super tearDown];
 }
 
 #pragma mark - Test that all fields on the 'Add Credit Card' screen appear
 
-// Tests that 'Name on Card' field appears on screen.
-- (void)testNameOnCardFieldIsPresent {
+// Tests the different fixed elements (labels, buttons) are present on the
+// screen.
+- (void)testElementsPresent {
   [[EarlGrey selectElementWithMatcher:NameOnCardField()]
       assertWithMatcher:grey_sufficientlyVisible()];
-}
-
-// Tests that 'Card Number' field appears on screen.
-- (void)testCardNumberFieldIsPresent {
   [[EarlGrey selectElementWithMatcher:CardNumberField()]
       assertWithMatcher:grey_sufficientlyVisible()];
-}
-
-// Tests that 'Month of Expiry' field appears on screen.
-- (void)testMonthOfExpiryFieldIsPresent {
   [[EarlGrey selectElementWithMatcher:MonthOfExpiryField()]
       assertWithMatcher:grey_sufficientlyVisible()];
-}
-
-// Tests that 'Year of Expiry' field appears on screen.
-- (void)testYearOfExpiryFieldIsPresent {
   [[EarlGrey selectElementWithMatcher:YearOfExpiryField()]
       assertWithMatcher:grey_sufficientlyVisible()];
-}
-
-// Tests that 'Use Camera' button appears on screen only for iOS 13.
-- (void)testUseCameraButtonIsPresent {
   if (@available(iOS 13, *)) {
     [[EarlGrey selectElementWithMatcher:UseCameraButton()]
         assertWithMatcher:grey_sufficientlyVisible()];
@@ -149,6 +135,10 @@ id<GREYMatcher> CardNumberIconView(NSString* icon_type) {
     [[EarlGrey selectElementWithMatcher:UseCameraButton()]
         assertWithMatcher:grey_nil()];
   }
+
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::AddCreditCardCancelButton()]
+      performAction:grey_tap()];
 }
 
 #pragma mark - Test top toolbar buttons
@@ -203,7 +193,7 @@ id<GREYMatcher> CardNumberIconView(NSString* icon_type) {
 // and the new card number appears on the Autofill Credit Card 'Payment Methods'
 // screen.
 - (void)testAddButtonOnValidNumber {
-  [ChromeEarlGrey clearCreditCards];
+  [AutofillAppInterface clearCreditCardStore];
   [[EarlGrey selectElementWithMatcher:CardNumberTextField()]
       performAction:grey_typeText(@"4111111111111111")];
   [[EarlGrey selectElementWithMatcher:MonthOfExpiryTextField()]

@@ -228,27 +228,6 @@
         "test": "browser_tests"
       },
       {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_browser_tests.filter"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_browser_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "none",
-              "os": "Mac-10.10"
-            }
-          ]
-        },
-        "test": "browser_tests"
-      },
-      {
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -346,22 +325,6 @@
           ]
         },
         "test": "chromedriver_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "none",
-              "os": "Mac-10.10"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "merge": {
@@ -746,27 +709,6 @@
             }
           ],
           "shards": 3
-        },
-        "test": "interactive_ui_tests"
-      },
-      {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_interactive_ui_tests.filter"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_interactive_ui_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "none",
-              "os": "Mac-10.10"
-            }
-          ]
         },
         "test": "interactive_ui_tests"
       },
@@ -1329,6 +1271,23 @@
           ]
         },
         "test": "wtf_unittests"
+      },
+      {
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "name": "xr_browser_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "none",
+              "os": "Mac-10.10"
+            }
+          ]
+        },
+        "test": "xr_browser_tests"
       }
     ],
     "isolated_scripts": [
@@ -1537,7 +1496,7 @@
         "args": [
           "--num-retries=3"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -1554,7 +1513,7 @@
               "os": "Mac-10.10.5"
             }
           ],
-          "shards": 20
+          "shards": 25
         }
       }
     ]
@@ -1776,27 +1735,6 @@
         "test": "browser_tests"
       },
       {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_browser_tests.filter"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_browser_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "none",
-              "os": "Mac-10.11"
-            }
-          ]
-        },
-        "test": "browser_tests"
-      },
-      {
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1894,22 +1832,6 @@
           ]
         },
         "test": "chromedriver_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "none",
-              "os": "Mac-10.11"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "merge": {
@@ -2294,27 +2216,6 @@
             }
           ],
           "shards": 3
-        },
-        "test": "interactive_ui_tests"
-      },
-      {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_interactive_ui_tests.filter"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_interactive_ui_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "none",
-              "os": "Mac-10.11"
-            }
-          ]
         },
         "test": "interactive_ui_tests"
       },
@@ -2877,6 +2778,23 @@
           ]
         },
         "test": "wtf_unittests"
+      },
+      {
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "name": "xr_browser_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "none",
+              "os": "Mac-10.11"
+            }
+          ]
+        },
+        "test": "xr_browser_tests"
       }
     ],
     "isolated_scripts": [
@@ -3085,7 +3003,7 @@
         "args": [
           "--num-retries=3"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -3102,7 +3020,7 @@
               "os": "Mac-10.11.6"
             }
           ],
-          "shards": 20
+          "shards": 25
         }
       }
     ]
@@ -3324,27 +3242,6 @@
         "test": "browser_tests"
       },
       {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_browser_tests.filter"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_browser_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "8086:0a2e",
-              "os": "Mac-10.12.6"
-            }
-          ]
-        },
-        "test": "browser_tests"
-      },
-      {
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -3442,22 +3339,6 @@
           ]
         },
         "test": "chromedriver_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "8086:0a2e",
-              "os": "Mac-10.12.6"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "merge": {
@@ -3842,27 +3723,6 @@
             }
           ],
           "shards": 3
-        },
-        "test": "interactive_ui_tests"
-      },
-      {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_interactive_ui_tests.filter"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_interactive_ui_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "8086:0a2e",
-              "os": "Mac-10.12.6"
-            }
-          ]
         },
         "test": "interactive_ui_tests"
       },
@@ -4425,6 +4285,23 @@
           ]
         },
         "test": "wtf_unittests"
+      },
+      {
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "name": "xr_browser_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "8086:0a2e",
+              "os": "Mac-10.12.6"
+            }
+          ]
+        },
+        "test": "xr_browser_tests"
       }
     ],
     "isolated_scripts": [
@@ -4678,7 +4555,7 @@
         "args": [
           "--num-retries=3"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -4695,7 +4572,7 @@
               "os": "Mac-10.12.6"
             }
           ],
-          "shards": 20
+          "shards": 25
         }
       }
     ]
@@ -4917,27 +4794,6 @@
         "test": "browser_tests"
       },
       {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_browser_tests.filter"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_browser_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "none",
-              "os": "Mac-10.13.6"
-            }
-          ]
-        },
-        "test": "browser_tests"
-      },
-      {
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -5035,22 +4891,6 @@
           ]
         },
         "test": "chromedriver_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "none",
-              "os": "Mac-10.13.6"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "merge": {
@@ -5435,27 +5275,6 @@
             }
           ],
           "shards": 3
-        },
-        "test": "interactive_ui_tests"
-      },
-      {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_interactive_ui_tests.filter"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_interactive_ui_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "none",
-              "os": "Mac-10.13.6"
-            }
-          ]
         },
         "test": "interactive_ui_tests"
       },
@@ -6018,6 +5837,23 @@
           ]
         },
         "test": "wtf_unittests"
+      },
+      {
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "name": "xr_browser_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "none",
+              "os": "Mac-10.13.6"
+            }
+          ]
+        },
+        "test": "xr_browser_tests"
       }
     ],
     "isolated_scripts": [
@@ -6249,7 +6085,7 @@
         "args": [
           "--num-retries=3"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -6266,7 +6102,7 @@
               "os": "Mac-10.13.6"
             }
           ],
-          "shards": 20
+          "shards": 25
         }
       }
     ],
@@ -6500,27 +6336,6 @@
         "test": "browser_tests"
       },
       {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_browser_tests.filter"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_browser_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "none",
-              "os": "Mac-10.13.6"
-            }
-          ]
-        },
-        "test": "browser_tests"
-      },
-      {
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -6618,22 +6433,6 @@
           ]
         },
         "test": "chromedriver_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "none",
-              "os": "Mac-10.13.6"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "merge": {
@@ -7018,27 +6817,6 @@
             }
           ],
           "shards": 3
-        },
-        "test": "interactive_ui_tests"
-      },
-      {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_interactive_ui_tests.filter"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_interactive_ui_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "gpu": "none",
-              "os": "Mac-10.13.6"
-            }
-          ]
         },
         "test": "interactive_ui_tests"
       },
@@ -7601,6 +7379,23 @@
           ]
         },
         "test": "wtf_unittests"
+      },
+      {
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "name": "xr_browser_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "gpu": "none",
+              "os": "Mac-10.13.6"
+            }
+          ]
+        },
+        "test": "xr_browser_tests"
       }
     ],
     "isolated_scripts": [
@@ -7783,7 +7578,7 @@
           "--num-retries=3",
           "--debug"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -7811,7 +7606,7 @@
         "args": [
           "--num-retries=3"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -7833,11 +7628,6 @@
           "shards": 12
         }
       }
-    ]
-  },
-  "mac-jumbo-rel": {
-    "additional_compile_targets": [
-      "all"
     ]
   }
 }

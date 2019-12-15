@@ -22,6 +22,7 @@ import org.chromium.base.JNIUtils;
 import org.chromium.base.PathUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.annotations.MainDex;
+import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.memory.MemoryPressureMonitor;
 import org.chromium.base.multidex.ChromiumMultiDexInstaller;
 import org.chromium.base.task.AsyncTask;
@@ -38,9 +39,9 @@ import org.chromium.chrome.browser.dependency_injection.ChromeAppComponent;
 import org.chromium.chrome.browser.dependency_injection.ChromeAppModule;
 import org.chromium.chrome.browser.dependency_injection.DaggerChromeAppComponent;
 import org.chromium.chrome.browser.dependency_injection.ModuleFactoryOverrides;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.metrics.UmaUtils;
 import org.chromium.chrome.browser.night_mode.SystemNightModeMonitor;
-import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.vr.OnExitVrRequestListener;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.components.embedder_support.application.FontPreloadingWorkaround;
@@ -139,7 +140,9 @@ public class ChromeApplication extends Application {
         AsyncTask.takeOverAndroidThreadPool();
         JNIUtils.setClassLoader(getClassLoader());
         ResourceBundle.setAvailablePakLocales(
-                LocaleConfig.COMPRESSED_LOCALES, LocaleConfig.UNCOMPRESSED_LOCALES);
+                ProductConfig.COMPRESSED_LOCALES, ProductConfig.UNCOMPRESSED_LOCALES);
+        LibraryLoader.getInstance().setConfiguration(
+                ProductConfig.USE_CHROMIUM_LINKER, ProductConfig.USE_MODERN_LINKER);
 
         if (isBrowserProcess) {
             TraceEvent.end("ChromeApplication.attachBaseContext");

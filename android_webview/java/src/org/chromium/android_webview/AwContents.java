@@ -45,6 +45,7 @@ import android.webkit.JavascriptInterface;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.android_webview.gfx.AwDrawFnImpl;
 import org.chromium.android_webview.gfx.AwFunctor;
@@ -61,7 +62,6 @@ import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.CalledByNativeUnchecked;
 import org.chromium.base.annotations.JNINamespace;
@@ -1623,9 +1623,11 @@ public class AwContents implements SmartClipProvider {
 
     public void findAllAsync(String searchString) {
         if (TRACE) Log.i(TAG, "%s findAllAsync", this);
-        if (!isDestroyed(WARN)) {
-            AwContentsJni.get().findAllAsync(mNativeAwContents, AwContents.this, searchString);
+        if (isDestroyed(WARN)) return;
+        if (searchString == null) {
+            throw new IllegalArgumentException("Search string shouldn't be null");
         }
+        AwContentsJni.get().findAllAsync(mNativeAwContents, AwContents.this, searchString);
     }
 
     public void findNext(boolean forward) {
@@ -1643,12 +1645,12 @@ public class AwContents implements SmartClipProvider {
     }
 
     /**
-     * @return load progress of the WebContents.
+     * @return load progress of the WebContents, on a scale of 0-100.
      */
     public int getMostRecentProgress() {
         if (isDestroyed(WARN)) return 0;
-        // WebContentsDelegateAndroid conveniently caches the most recent notified value for us.
-        return mWebContentsDelegate.getMostRecentProgress();
+        if (!mWebContents.isLoading()) return 100;
+        return Math.round(100 * mWebContents.getLoadProgress());
     }
 
     public Bitmap getFavicon() {
@@ -3064,6 +3066,9 @@ public class AwContents implements SmartClipProvider {
         if (TRACE) Log.i(TAG, "%s insertVisualStateCallback", this);
         if (isDestroyed(NO_WARN)) throw new IllegalStateException(
                 "insertVisualStateCallback cannot be called after the WebView has been destroyed");
+        if (callback == null) {
+            throw new IllegalArgumentException("VisualStateCallback shouldn't be null");
+        }
         AwContentsJni.get().insertVisualStateCallback(
                 mNativeAwContents, AwContents.this, requestId, callback);
     }

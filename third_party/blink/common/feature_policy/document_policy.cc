@@ -50,22 +50,15 @@ PolicyValue DocumentPolicy::GetFeatureValue(
   }
 }
 
-void DocumentPolicy::SetHeaderPolicy(
-    const ParsedDocumentPolicy& parsed_header) {
-  for (const ParsedDocumentPolicyDeclaration& parsed_declaration :
-       parsed_header) {
-    mojom::FeaturePolicyFeature feature = parsed_declaration.feature;
-    // TODO(iclelland): Generate this switch block
-    switch (feature) {
-      case mojom::FeaturePolicyFeature::kFontDisplay:
-        font_display_ = parsed_declaration.value.BoolValue();
-        break;
-      case mojom::FeaturePolicyFeature::kUnoptimizedLosslessImages:
-        unoptimized_lossless_images_ = parsed_declaration.value.DoubleValue();
-        break;
-      default:
-        NOTREACHED();
-    }
+bool DocumentPolicy::IsFeatureSupported(
+    mojom::FeaturePolicyFeature feature) const {
+  // TODO(iclelland): Generate this switch block
+  switch (feature) {
+    case mojom::FeaturePolicyFeature::kFontDisplay:
+    case mojom::FeaturePolicyFeature::kUnoptimizedLosslessImages:
+      return true;
+    default:
+      return false;
   }
 }
 
@@ -123,4 +116,15 @@ const DocumentPolicy::FeatureState& DocumentPolicy::GetFeatureDefaults() {
   return *default_feature_list;
 }
 
+bool DocumentPolicy::IsPolicyCompatible(
+    const DocumentPolicy::FeatureState& incoming_policy) {
+  const DocumentPolicy::FeatureState& state = GetFeatureState();
+  for (const auto& e : incoming_policy) {
+    // feature value > threshold => enabled
+    // value_a > value_b => value_a less strict than value_b
+    if (state.at(e.first) > e.second)
+      return false;
+  }
+  return true;
+}
 }  // namespace blink

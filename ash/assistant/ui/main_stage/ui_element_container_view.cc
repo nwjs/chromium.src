@@ -8,9 +8,12 @@
 
 #include "ash/assistant/model/assistant_interaction_model_observer.h"
 #include "ash/assistant/model/assistant_response.h"
-#include "ash/assistant/model/assistant_ui_element.h"
+#include "ash/assistant/model/ui/assistant_card_element.h"
+#include "ash/assistant/model/ui/assistant_text_element.h"
+#include "ash/assistant/model/ui/assistant_ui_element.h"
 #include "ash/assistant/ui/assistant_ui_constants.h"
 #include "ash/assistant/ui/assistant_view_delegate.h"
+#include "ash/assistant/ui/assistant_view_ids.h"
 #include "ash/assistant/ui/main_stage/animated_container_view.h"
 #include "ash/assistant/ui/main_stage/assistant_card_element_view.h"
 #include "ash/assistant/ui/main_stage/assistant_text_element_view.h"
@@ -64,13 +67,13 @@ constexpr int kEmbeddedUiElementAnimationMoveUpDistanceDip = 32;
 // Helpers ---------------------------------------------------------------------
 
 int GetFirstCardMarginTopDip() {
-  return app_list_features::IsEmbeddedAssistantUIEnabled()
+  return app_list_features::IsAssistantLauncherUIEnabled()
              ? kEmbeddedUiFirstCardMarginTopDip
              : kMainUiFirstCardMarginTopDip;
 }
 
 int GetPaddingBottomDip() {
-  return app_list_features::IsEmbeddedAssistantUIEnabled()
+  return app_list_features::IsAssistantLauncherUIEnabled()
              ? kEmbeddedUiPaddingBottomDip
              : kMainUiPaddingBottomDip;
 }
@@ -214,7 +217,7 @@ using EmbeddedUiTextAnimator = EmbeddedUiAnimator;
 
 std::unique_ptr<ElementAnimator> CreateCardAnimator(
     AssistantCardElementView* card_element) {
-  if (app_list_features::IsEmbeddedAssistantUIEnabled())
+  if (app_list_features::IsAssistantLauncherUIEnabled())
     return std::make_unique<EmbeddedUiCardAnimator>(card_element);
   else
     return std::make_unique<MainUiCardAnimator>(card_element);
@@ -222,7 +225,7 @@ std::unique_ptr<ElementAnimator> CreateCardAnimator(
 
 std::unique_ptr<ElementAnimator> CreateTextAnimator(
     AssistantTextElementView* text_element) {
-  if (app_list_features::IsEmbeddedAssistantUIEnabled())
+  if (app_list_features::IsAssistantLauncherUIEnabled())
     return std::make_unique<EmbeddedUiTextAnimator>(text_element);
   else
     return std::make_unique<MainUiTextAnimator>(text_element);
@@ -234,12 +237,11 @@ std::unique_ptr<ElementAnimator> CreateTextAnimator(
 
 UiElementContainerView::UiElementContainerView(AssistantViewDelegate* delegate)
     : AnimatedContainerView(delegate) {
+  SetID(AssistantViewID::kUiElementContainer);
   InitLayout();
 }
 
-UiElementContainerView::~UiElementContainerView() {
-  delegate()->RemoveInteractionModelObserver(this);
-}
+UiElementContainerView::~UiElementContainerView() = default;
 
 const char* UiElementContainerView::GetClassName() const {
   return "UiElementContainerView";
@@ -290,7 +292,7 @@ void UiElementContainerView::OnCommittedQueryChanged(
 
 void UiElementContainerView::HandleResponse(const AssistantResponse& response) {
   for (const auto& ui_element : response.GetUiElements()) {
-    switch (ui_element->GetType()) {
+    switch (ui_element->type()) {
       case AssistantUiElementType::kCard:
         OnCardElementAdded(
             static_cast<const AssistantCardElement*>(ui_element.get()));

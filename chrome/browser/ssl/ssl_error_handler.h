@@ -96,6 +96,7 @@ class SSLErrorHandler : public content::WebContentsUserData<SSLErrorHandler>,
     WWW_MISMATCH_FOUND_IN_SAN = 10,
     SHOW_MITM_SOFTWARE_INTERSTITIAL = 11,
     OS_REPORTS_CAPTIVE_PORTAL = 12,
+    SHOW_BLOCKED_INTERCEPTION_INTERSTITIAL = 13,
     SSL_ERROR_HANDLER_EVENT_COUNT
   };
 
@@ -121,7 +122,9 @@ class SSLErrorHandler : public content::WebContentsUserData<SSLErrorHandler>,
     virtual void ShowBadClockInterstitial(
         const base::Time& now,
         ssl_errors::ClockState clock_state) = 0;
+    virtual void ShowBlockedInterceptionInterstitial() = 0;
     virtual void ReportNetworkConnectivity(base::OnceClosure callback) = 0;
+    virtual bool HasBlockedInterception() const = 0;
   };
 
   // Entry point for the class. All parameters except
@@ -168,15 +171,12 @@ class SSLErrorHandler : public content::WebContentsUserData<SSLErrorHandler>,
   bool IsTimerRunningForTesting() const;
 
  protected:
-  SSLErrorHandler(
-      std::unique_ptr<Delegate> delegate,
-      content::WebContents* web_contents,
-      Profile* profile,
-      int cert_error,
-      const net::SSLInfo& ssl_info,
-      const GURL& request_url,
-      const base::Callback<void(content::CertificateRequestResultType)>&
-          callback);
+  SSLErrorHandler(std::unique_ptr<Delegate> delegate,
+                  content::WebContents* web_contents,
+                  Profile* profile,
+                  int cert_error,
+                  const net::SSLInfo& ssl_info,
+                  const GURL& request_url);
 
   // Called when an SSL cert error is encountered. Triggers a captive portal
   // check and fires a one shot timer to wait for a "captive portal detected"
@@ -194,6 +194,7 @@ class SSLErrorHandler : public content::WebContentsUserData<SSLErrorHandler>,
   void ShowBadClockInterstitial(const base::Time& now,
                                 ssl_errors::ClockState clock_state);
   void ShowDynamicInterstitial(const DynamicInterstitialInfo interstitial);
+  void ShowBlockedInterceptionInterstitial();
 
   // Gets the result of whether the suggested URL is valid. Displays
   // common name mismatch interstitial or ssl interstitial accordingly.
@@ -229,8 +230,6 @@ class SSLErrorHandler : public content::WebContentsUserData<SSLErrorHandler>,
   const int cert_error_;
   const net::SSLInfo ssl_info_;
   const GURL request_url_;
-  base::Callback<void(content::CertificateRequestResultType)>
-      decision_callback_;
 
   content::NotificationRegistrar registrar_;
   base::OneShotTimer timer_;

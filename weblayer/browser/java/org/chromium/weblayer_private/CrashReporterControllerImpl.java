@@ -21,6 +21,7 @@ import org.chromium.components.minidump_uploader.CrashFileManager;
 import org.chromium.weblayer_private.interfaces.ICrashReporterController;
 import org.chromium.weblayer_private.interfaces.ICrashReporterControllerClient;
 import org.chromium.weblayer_private.interfaces.IObjectWrapper;
+import org.chromium.weblayer_private.interfaces.StrictModeWorkaround;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -73,6 +74,7 @@ public final class CrashReporterControllerImpl extends ICrashReporterController.
 
     @Override
     public void deleteCrash(String localId) {
+        StrictModeWorkaround.apply();
         AsyncTask.THREAD_POOL_EXECUTOR.execute(() -> {
             deleteCrashOnBackgroundThread(localId);
             try {
@@ -85,6 +87,7 @@ public final class CrashReporterControllerImpl extends ICrashReporterController.
 
     @Override
     public void uploadCrash(String localId) {
+        StrictModeWorkaround.apply();
         AsyncTask.THREAD_POOL_EXECUTOR.execute(() -> {
             File minidumpFile = getCrashFileManager().getCrashFileWithLocalId(localId);
             MinidumpUploader.Result result = new MinidumpUploader().upload(minidumpFile);
@@ -107,6 +110,7 @@ public final class CrashReporterControllerImpl extends ICrashReporterController.
 
     @Override
     public @Nullable Bundle getCrashKeys(String localId) {
+        StrictModeWorkaround.apply();
         JSONObject data = readSidecar(localId);
         if (data == null) {
             return null;
@@ -126,6 +130,7 @@ public final class CrashReporterControllerImpl extends ICrashReporterController.
 
     @Override
     public void checkForPendingCrashReports() {
+        StrictModeWorkaround.apply();
         AsyncTask.THREAD_POOL_EXECUTOR.execute(() -> {
             try {
                 mClient.onPendingCrashReports(getPendingMinidumpsOnBackgroundThread());
@@ -137,6 +142,7 @@ public final class CrashReporterControllerImpl extends ICrashReporterController.
 
     @Override
     public void setClient(ICrashReporterControllerClient client) {
+        StrictModeWorkaround.apply();
         mClient = client;
         if (mIsNativeInitialized) {
             processNewMinidumps();

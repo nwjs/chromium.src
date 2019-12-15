@@ -73,19 +73,6 @@ enum NigoriMigrationState {
   MIGRATION_STATE_SIZE,
 };
 
-// Enumeration of possible values for a key derivation method (including a
-// special value of "not set"). Used in UMA metrics. Do not re-order or delete
-// these entries; they are used in a UMA histogram.  Please edit
-// SyncCustomPassphraseKeyDerivationMethodState in enums.xml if a value is
-// added.
-enum class KeyDerivationMethodStateForMetrics {
-  NOT_SET = 0,
-  UNSUPPORTED = 1,
-  PBKDF2_HMAC_SHA1_1003 = 2,
-  SCRYPT_8192_8_11 = 3,
-  kMaxValue = SCRYPT_8192_8_11
-};
-
 // The new passphrase state is sufficient to determine whether a nigori node
 // is migrated to support keystore encryption. In addition though, we also
 // want to verify the conditions for proper keystore encryption functionality.
@@ -312,7 +299,7 @@ SyncEncryptionHandlerImpl::SyncEncryptionHandlerImpl(
     const base::RepeatingCallback<std::string()>& random_salt_generator)
     : user_share_(user_share),
       encryptor_(encryptor),
-      vault_unsafe_(SensitiveTypes(), kInitialPassphraseType),
+      vault_unsafe_(AlwaysEncryptedUserTypes(), kInitialPassphraseType),
       encrypt_everything_(false),
       nigori_overwrite_count_(0),
       random_salt_generator_(random_salt_generator),
@@ -1310,13 +1297,13 @@ bool SyncEncryptionHandlerImpl::UpdateEncryptedTypesFromNigori(
 
   ModelTypeSet nigori_encrypted_types;
   nigori_encrypted_types = syncable::GetEncryptedTypesFromNigori(nigori);
-  nigori_encrypted_types.PutAll(SensitiveTypes());
+  nigori_encrypted_types.PutAll(AlwaysEncryptedUserTypes());
 
   // If anything more than the sensitive types were encrypted, and
   // encrypt_everything is not explicitly set to false, we assume it means
   // a client intended to enable encrypt everything.
   if (!nigori.has_encrypt_everything() &&
-      !Difference(nigori_encrypted_types, SensitiveTypes()).Empty()) {
+      !Difference(nigori_encrypted_types, AlwaysEncryptedUserTypes()).Empty()) {
     if (!encrypt_everything_) {
       encrypt_everything_ = true;
       *encrypted_types = EncryptableUserTypes();

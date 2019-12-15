@@ -25,7 +25,7 @@
 #include "storage/browser/blob/blob_data_builder.h"
 #include "storage/browser/blob/blob_impl.h"
 #include "storage/browser/blob/blob_storage_context.h"
-#include "storage/browser/fileapi/file_stream_reader.h"
+#include "storage/browser/file_system/file_stream_reader.h"
 #include "storage/browser/test/async_file_test_helper.h"
 #include "storage/browser/test/test_file_system_context.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -522,11 +522,10 @@ TEST_F(NativeFileSystemFileWriterAfterWriteChecksTest, Allow) {
   EXPECT_EQ(result, NativeFileSystemStatus::kOk);
   EXPECT_EQ(bytes_written, 3u);
 
-  std::vector<uint8_t> raw_expected_hash;
-  ASSERT_TRUE(base::HexStringToBytes(
+  std::string expected_hash;
+  ASSERT_TRUE(base::HexStringToString(
       "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD",
-      &raw_expected_hash));
-  std::string expected_hash(raw_expected_hash.begin(), raw_expected_hash.end());
+      &expected_hash));
 
   EXPECT_CALL(
       permission_context_,

@@ -33,7 +33,7 @@ StatusAreaOverflowButtonTray::IconView::IconView()
   layer()->SetFillsBoundsOpaquely(false);
 
   gfx::ImageSkia image = gfx::CreateVectorIcon(
-      kOverflowShelfLeftIcon, ShelfConfig::Get()->shelf_icon_color());
+      kOverflowShelfRightIcon, ShelfConfig::Get()->shelf_icon_color());
   SetImage(image);
 
   const int vertical_padding = (kTrayItemSize - image.height()) / 2;
@@ -52,6 +52,10 @@ void StatusAreaOverflowButtonTray::IconView::ToggleState(State state) {
     slide_animation_->Show();
   else if (state == CLICK_TO_COLLAPSE)
     slide_animation_->Hide();
+
+  // TODO(tengs): Currently, the collpase/expand animation is not fully spec'd,
+  // so skip it for now.
+  slide_animation_->End();
 }
 
 void StatusAreaOverflowButtonTray::IconView::AnimationEnded(
@@ -83,14 +87,17 @@ void StatusAreaOverflowButtonTray::IconView::UpdateRotation() {
 
 StatusAreaOverflowButtonTray::StatusAreaOverflowButtonTray(Shelf* shelf)
     : TrayBackgroundView(shelf), icon_(new IconView()) {
-  SetInkDropMode(InkDropMode::ON);
-
   tray_container()->AddChildView(icon_);
 }
 
 StatusAreaOverflowButtonTray::~StatusAreaOverflowButtonTray() {}
 
 void StatusAreaOverflowButtonTray::ClickedOutsideBubble() {}
+
+void StatusAreaOverflowButtonTray::ResetStateToCollapsed() {
+  state_ = CLICK_TO_EXPAND;
+  icon_->ToggleState(state_);
+}
 
 base::string16 StatusAreaOverflowButtonTray::GetAccessibleNameForTray() {
   return l10n_util::GetStringUTF16(
@@ -103,20 +110,27 @@ void StatusAreaOverflowButtonTray::HideBubbleWithView(
 
 void StatusAreaOverflowButtonTray::Initialize() {
   TrayBackgroundView::Initialize();
-
-  // TODO(tengs): Make this tray button visible when the device is in tablet
-  // mode and the status area width exceeds the maximum desirable width.
-  SetVisible(false);
+  SetVisiblePreferred(false);
 }
 
 bool StatusAreaOverflowButtonTray::PerformAction(const ui::Event& event) {
-  // TODO(tengs): Toggle the visibility of other trays based on the button state
-  // and the amount of available width in the shelf.
-
   state_ = state_ == CLICK_TO_COLLAPSE ? CLICK_TO_EXPAND : CLICK_TO_COLLAPSE;
   icon_->ToggleState(state_);
-
+  shelf()->GetStatusAreaWidget()->UpdateCollapseState();
   return false;
+}
+
+void StatusAreaOverflowButtonTray::SetVisiblePreferred(bool visible_preferred) {
+  // The visibility of the overflow tray button is completed controlled by the
+  // StatusAreaWidget, so we bypass all default visibility logic from
+  // TrayBackgroundView.
+  views::View::SetVisible(visible_preferred);
+}
+
+void StatusAreaOverflowButtonTray::UpdateAfterStatusAreaCollapseChange() {
+  // The visibility of the overflow tray button is completed controlled by the
+  // StatusAreaWidget, so we bypass all default visibility logic from
+  // TrayBackgroundView.
 }
 
 const char* StatusAreaOverflowButtonTray::GetClassName() const {

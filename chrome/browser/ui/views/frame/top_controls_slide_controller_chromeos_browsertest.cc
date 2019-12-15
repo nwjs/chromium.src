@@ -787,9 +787,11 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, DisplayRotation) {
 
   // Try all possible rotations. Changing display rotation should *not* unhide
   // top chrome.
-  const std::vector<display::Display::Rotation> rotations_to_try = {
-      display::Display::ROTATE_90, display::Display::ROTATE_180,
-      display::Display::ROTATE_270, display::Display::ROTATE_0,
+  const std::vector<ash::mojom::DisplayRotationOptions> rotations_to_try = {
+      ash::mojom::DisplayRotationOptions::k90Degrees,
+      ash::mojom::DisplayRotationOptions::k180Degrees,
+      ash::mojom::DisplayRotationOptions::k270Degrees,
+      ash::mojom::DisplayRotationOptions::kZeroDegrees,
   };
 
   mojo::Remote<ash::mojom::CrosDisplayConfigController> cros_display_config;
@@ -1132,7 +1134,7 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestPermissionBubble) {
   // request bubble resulting in top chrome unhiding.
   auto decided = [](ContentSetting) {};
   PermissionRequestImpl permission_request(
-      url, CONTENT_SETTINGS_TYPE_GEOLOCATION, true /* user_gesture */,
+      url, ContentSettingsType::GEOLOCATION, true /* user_gesture */,
       base::BindRepeating(decided), base::DoNothing() /* delete_callback */);
   auto* permission_manager =
       PermissionRequestManager::FromWebContents(active_contents);
@@ -1141,7 +1143,7 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestPermissionBubble) {
   waiter.WaitForRatio(1.f);
   EXPECT_FLOAT_EQ(top_controls_slide_controller()->GetShownRatio(), 1.f);
   CheckBrowserLayout(browser_view(), TopChromeShownState::kFullyShown);
-  EXPECT_TRUE(permission_manager->IsBubbleVisible());
+  EXPECT_TRUE(permission_manager->IsRequestInProgress());
 
   // It shouldn't be possible to hide top-chrome as long as the bubble is
   // visible.
@@ -1149,10 +1151,8 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestPermissionBubble) {
                                TopChromeShownState::kFullyShown);
 
   // Dismiss the bubble.
-  EXPECT_TRUE(permission_manager->GetBubbleWindow());
-  views::Widget::GetWidgetForNativeView(permission_manager->GetBubbleWindow())
-      ->CloseNow();
-  EXPECT_FALSE(permission_manager->IsBubbleVisible());
+  permission_manager->Closing();
+  EXPECT_FALSE(permission_manager->IsRequestInProgress());
   content::WaitForResizeComplete(active_contents);
 
   // Now it is possible to hide top-chrome again.

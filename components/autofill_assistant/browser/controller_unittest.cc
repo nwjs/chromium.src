@@ -13,6 +13,7 @@
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
+#include "components/autofill_assistant/browser/device_context.h"
 #include "components/autofill_assistant/browser/features.h"
 #include "components/autofill_assistant/browser/mock_controller_observer.h"
 #include "components/autofill_assistant/browser/mock_personal_data_manager.h"
@@ -69,6 +70,7 @@ class FakeClient : public Client {
   std::string GetAccountEmailAddress() override { return ""; }
   std::string GetLocale() override { return ""; }
   std::string GetCountryCode() override { return ""; }
+  DeviceContext GetDeviceContext() override { return DeviceContext(); }
   MOCK_METHOD1(Shutdown, void(Metrics::DropOutReason reason));
   MOCK_METHOD0(AttachUI, void());
   MOCK_METHOD0(DestroyUI, void());
@@ -80,8 +82,7 @@ class FakeClient : public Client {
 // Same as non-mock, but provides default mock callbacks.
 struct MockCollectUserDataOptions : public CollectUserDataOptions {
   MockCollectUserDataOptions() {
-    base::MockOnceCallback<void(std::unique_ptr<UserData>)>
-        mock_confirm_callback;
+    base::MockOnceCallback<void(UserData*)> mock_confirm_callback;
     confirm_callback = mock_confirm_callback.Get();
     base::MockOnceCallback<void(int)> mock_actions_callback;
     additional_actions_callback = mock_actions_callback.Get();
@@ -1230,6 +1231,7 @@ TEST_F(ControllerTest, TrackReportsFirstSetOfScripts) {
                          base::Unretained(controller_.get()),
                          base::Unretained(&first_check_done)));
   EXPECT_FALSE(first_check_done);
+  EXPECT_FALSE(controller_->HasRunFirstCheck());
 
   ASSERT_TRUE(get_scripts_callback);
 
@@ -1240,6 +1242,7 @@ TEST_F(ControllerTest, TrackReportsFirstSetOfScripts) {
   std::move(get_scripts_callback).Run(true, response_str);
 
   EXPECT_TRUE(first_check_done);
+  EXPECT_TRUE(controller_->HasRunFirstCheck());
 }
 
 TEST_F(ControllerTest, TrackReportsNoScripts) {
@@ -1446,9 +1449,10 @@ TEST_F(ControllerTest, UserDataFormEmpty) {
       .Times(1);
   EXPECT_CALL(mock_observer_, OnCollectUserDataOptionsChanged(Not(nullptr)))
       .Times(1);
-  EXPECT_CALL(mock_observer_, OnUserDataChanged(Not(nullptr))).Times(1);
-  controller_->SetCollectUserDataOptions(std::move(options),
-                                         std::move(user_data));
+  EXPECT_CALL(mock_observer_,
+              OnUserDataChanged(Not(nullptr), UserData::FieldChange::ALL))
+      .Times(1);
+  controller_->SetCollectUserDataOptions(options.get());
 }
 
 TEST_F(ControllerTest, UserDataFormContactInfo) {
@@ -1463,9 +1467,12 @@ TEST_F(ControllerTest, UserDataFormContactInfo) {
   EXPECT_CALL(mock_observer_, OnUserActionsChanged(UnorderedElementsAre(
                                   Property(&UserAction::enabled, Eq(false)))))
       .Times(1);
-  controller_->SetCollectUserDataOptions(std::move(options),
-                                         std::move(user_data));
+  controller_->SetCollectUserDataOptions(options.get());
 
+  EXPECT_CALL(
+      mock_observer_,
+      OnUserDataChanged(Not(nullptr), UserData::FieldChange::CONTACT_PROFILE))
+      .Times(1);
   EXPECT_CALL(mock_observer_, OnUserActionsChanged(UnorderedElementsAre(
                                   Property(&UserAction::enabled, Eq(true)))))
       .Times(1);
@@ -1493,8 +1500,7 @@ TEST_F(ControllerTest, UserDataFormCreditCard) {
   EXPECT_CALL(mock_observer_, OnUserActionsChanged(UnorderedElementsAre(
                                   Property(&UserAction::enabled, Eq(false)))))
       .Times(1);
-  controller_->SetCollectUserDataOptions(std::move(options),
-                                         std::move(user_data));
+  controller_->SetCollectUserDataOptions(options.get());
 
   // Credit card without billing address is invalid.
   auto credit_card = std::make_unique<autofill::CreditCard>(
@@ -1502,6 +1508,13 @@ TEST_F(ControllerTest, UserDataFormCreditCard) {
   autofill::test::SetCreditCardInfo(credit_card.get(), "Marion Mitchell",
                                     "4111 1111 1111 1111", "01", "2020",
                                     /* billing_address_id = */ "");
+  EXPECT_CALL(mock_observer_,
+              OnUserDataChanged(Not(nullptr), UserData::FieldChange::CARD))
+      .Times(1);
+  EXPECT_CALL(
+      mock_observer_,
+      OnUserDataChanged(Not(nullptr), UserData::FieldChange::BILLING_ADDRESS))
+      .Times(1);
   EXPECT_CALL(mock_observer_, OnUserActionsChanged(UnorderedElementsAre(
                                   Property(&UserAction::enabled, Eq(false)))))
       .Times(1);
@@ -1517,6 +1530,13 @@ TEST_F(ControllerTest, UserDataFormCreditCard) {
                                  "123 Zoo St.", "unit 5", "Hollywood", "CA",
                                  "91601", "US", "16505678910");
   credit_card->set_billing_address_id(billing_address->guid());
+  EXPECT_CALL(mock_observer_,
+              OnUserDataChanged(Not(nullptr), UserData::FieldChange::CARD))
+      .Times(1);
+  EXPECT_CALL(
+      mock_observer_,
+      OnUserDataChanged(Not(nullptr), UserData::FieldChange::BILLING_ADDRESS))
+      .Times(1);
   EXPECT_CALL(mock_observer_, OnUserActionsChanged(UnorderedElementsAre(
                                   Property(&UserAction::enabled, Eq(true)))))
       .Times(1);
@@ -1538,11 +1558,14 @@ TEST_F(ControllerTest, SetTermsAndConditions) {
   EXPECT_CALL(mock_observer_, OnUserActionsChanged(UnorderedElementsAre(
                                   Property(&UserAction::enabled, Eq(false)))))
       .Times(1);
-  controller_->SetCollectUserDataOptions(std::move(options),
-                                         std::move(user_data));
+  controller_->SetCollectUserDataOptions(options.get());
 
   EXPECT_CALL(mock_observer_, OnUserActionsChanged(UnorderedElementsAre(
                                   Property(&UserAction::enabled, Eq(true)))))
+      .Times(1);
+  EXPECT_CALL(mock_observer_,
+              OnUserDataChanged(Not(nullptr),
+                                UserData::FieldChange::TERMS_AND_CONDITIONS))
       .Times(1);
   controller_->SetTermsAndConditions(TermsAndConditionsState::ACCEPTED);
   EXPECT_THAT(controller_->GetUserData()->terms_and_conditions,
@@ -1558,11 +1581,14 @@ TEST_F(ControllerTest, SetLoginOption) {
   EXPECT_CALL(mock_observer_, OnUserActionsChanged(UnorderedElementsAre(
                                   Property(&UserAction::enabled, Eq(false)))))
       .Times(1);
-  controller_->SetCollectUserDataOptions(std::move(options),
-                                         std::move(user_data));
+  controller_->SetCollectUserDataOptions(options.get());
 
   EXPECT_CALL(mock_observer_, OnUserActionsChanged(UnorderedElementsAre(
                                   Property(&UserAction::enabled, Eq(true)))))
+      .Times(1);
+  EXPECT_CALL(
+      mock_observer_,
+      OnUserDataChanged(Not(nullptr), UserData::FieldChange::LOGIN_CHOICE))
       .Times(1);
   controller_->SetLoginOption("1");
   EXPECT_THAT(controller_->GetUserData()->login_choice_identifier, Eq("1"));
@@ -1577,8 +1603,7 @@ TEST_F(ControllerTest, SetShippingAddress) {
   EXPECT_CALL(mock_observer_, OnUserActionsChanged(UnorderedElementsAre(
                                   Property(&UserAction::enabled, Eq(false)))))
       .Times(1);
-  controller_->SetCollectUserDataOptions(std::move(options),
-                                         std::move(user_data));
+  controller_->SetCollectUserDataOptions(options.get());
 
   auto shipping_address = std::make_unique<autofill::AutofillProfile>(
       base::GenerateGUID(), "https://www.example.com");
@@ -1586,9 +1611,11 @@ TEST_F(ControllerTest, SetShippingAddress) {
                                  "Morrison", "marion@me.xyz", "Fox",
                                  "123 Zoo St.", "unit 5", "Hollywood", "CA",
                                  "91601", "US", "16505678910");
-  ON_CALL(*fake_client_.GetPersonalDataManager(),
-          GetProfileByGUID(shipping_address->guid()))
-      .WillByDefault(Return(shipping_address.get()));
+
+  EXPECT_CALL(
+      mock_observer_,
+      OnUserDataChanged(Not(nullptr), UserData::FieldChange::SHIPPING_ADDRESS))
+      .Times(1);
   EXPECT_CALL(mock_observer_, OnUserActionsChanged(UnorderedElementsAre(
                                   Property(&UserAction::enabled, Eq(true)))))
       .Times(1);
@@ -1601,20 +1628,27 @@ TEST_F(ControllerTest, SetShippingAddress) {
 
 TEST_F(ControllerTest, SetAdditionalValues) {
   auto options = std::make_unique<MockCollectUserDataOptions>();
-  auto user_data = std::make_unique<UserData>();
 
-  user_data->additional_values_to_store["key1"] = "123456789";
-  user_data->additional_values_to_store["key2"] = "";
-  user_data->additional_values_to_store["key3"] = "";
+  base::OnceCallback<void(UserData*, UserData::FieldChange*)> callback =
+      base::BindOnce([](UserData* user_data, UserData::FieldChange* change) {
+        user_data->additional_values_to_store["key1"] = "123456789";
+        user_data->additional_values_to_store["key2"] = "";
+        user_data->additional_values_to_store["key3"] = "";
+        *change = UserData::FieldChange::ADDITIONAL_VALUES;
+      });
+
+  controller_->WriteUserData(std::move(callback));
 
   testing::InSequence seq;
   EXPECT_CALL(mock_observer_, OnUserActionsChanged(UnorderedElementsAre(
                                   Property(&UserAction::enabled, Eq(true)))))
       .Times(1);
-  controller_->SetCollectUserDataOptions(std::move(options),
-                                         std::move(user_data));
+  controller_->SetCollectUserDataOptions(options.get());
 
-  EXPECT_CALL(mock_observer_, OnUserDataChanged(Not(nullptr))).Times(2);
+  EXPECT_CALL(
+      mock_observer_,
+      OnUserDataChanged(Not(nullptr), UserData::FieldChange::ADDITIONAL_VALUES))
+      .Times(2);
   controller_->SetAdditionalValue("key2", "value2");
   controller_->SetAdditionalValue("key3", "value3");
   EXPECT_EQ(controller_->GetUserData()->additional_values_to_store.at("key1"),
@@ -1642,6 +1676,26 @@ TEST_F(ControllerTest, SetOverlayColors) {
   controller_->Start(url, std::move(context));
 }
 
+TEST_F(ControllerTest, SetDateTimeRange) {
+  auto options = std::make_unique<MockCollectUserDataOptions>();
+  auto user_data = std::make_unique<UserData>();
+  controller_->SetCollectUserDataOptions(options.get());
+
+  EXPECT_CALL(mock_observer_,
+              OnUserDataChanged(Not(nullptr),
+                                UserData::FieldChange::DATE_TIME_RANGE_START))
+      .Times(1);
+  controller_->SetDateTimeRangeStart(2019, 11, 14, 9, 42, 0);
+  EXPECT_EQ(controller_->GetUserData()->date_time_range_start.date().day(), 14);
+
+  EXPECT_CALL(mock_observer_,
+              OnUserDataChanged(Not(nullptr),
+                                UserData::FieldChange::DATE_TIME_RANGE_END))
+      .Times(1);
+  controller_->SetDateTimeRangeEnd(2019, 11, 15, 9, 42, 0);
+  EXPECT_EQ(controller_->GetUserData()->date_time_range_end.date().day(), 15);
+}
+
 TEST_F(ControllerTest, ChangeClientSettings) {
   SupportsScriptResponseProto response;
   response.mutable_client_settings()->set_periodic_script_check_interval_ms(1);
@@ -1651,6 +1705,27 @@ TEST_F(ControllerTest, ChangeClientSettings) {
                   Field(&ClientSettings::periodic_script_check_interval,
                         base::TimeDelta::FromMilliseconds(1))));
   Start();
+}
+
+TEST_F(ControllerTest, WriteUserData) {
+  auto options = std::make_unique<MockCollectUserDataOptions>();
+  auto user_data = std::make_unique<UserData>();
+  controller_->SetCollectUserDataOptions(options.get());
+
+  EXPECT_CALL(mock_observer_,
+              OnUserDataChanged(Not(nullptr),
+                                UserData::FieldChange::TERMS_AND_CONDITIONS))
+      .Times(1);
+
+  base::OnceCallback<void(UserData*, UserData::FieldChange*)> callback =
+      base::BindOnce([](UserData* data, UserData::FieldChange* change) {
+        data->terms_and_conditions = TermsAndConditionsState::ACCEPTED;
+        *change = UserData::FieldChange::TERMS_AND_CONDITIONS;
+      });
+
+  controller_->WriteUserData(std::move(callback));
+  EXPECT_EQ(controller_->GetUserData()->terms_and_conditions,
+            TermsAndConditionsState::ACCEPTED);
 }
 
 }  // namespace autofill_assistant

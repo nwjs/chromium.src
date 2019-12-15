@@ -25,6 +25,7 @@
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_item.h"
+#include "ash/wm/overview/overview_item_view.h"
 #include "ash/wm/overview/overview_test_util.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
@@ -161,7 +162,7 @@ class DockedMagnifierTest : public NoSessionAshTestBase,
   DISALLOW_COPY_AND_ASSIGN(DockedMagnifierTest);
 };
 
-INSTANTIATE_TEST_SUITE_P(, DockedMagnifierTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All, DockedMagnifierTest, ::testing::Bool());
 
 // Tests that the Fullscreen and Docked Magnifiers are mutually exclusive.
 // TODO(afakhry): Update this test to use ash::MagnificationController once
@@ -397,7 +398,7 @@ TEST_P(DockedMagnifierTest, OverviewTabbing) {
   OverviewItem* item = GetOverviewItemForWindow(window.get());
   ASSERT_TRUE(item);
   const auto label_bounds_in_screen =
-      item->caption_container_view()->title_label()->GetBoundsInScreen();
+      item->overview_item_view()->title_label()->GetBoundsInScreen();
   const gfx::Point expected_point_of_interest(
       label_bounds_in_screen.x(), label_bounds_in_screen.CenterPoint().y());
   TestMagnifierLayerTransform(expected_point_of_interest, root_window);

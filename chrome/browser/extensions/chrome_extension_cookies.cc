@@ -172,14 +172,14 @@ void ChromeExtensionCookies::OnContentSettingChanged(
   if (!io_data_)  // null after shutdown.
     return;
 
-  if (content_type != CONTENT_SETTINGS_TYPE_COOKIES &&
-      content_type != CONTENT_SETTINGS_TYPE_DEFAULT) {
+  if (content_type != ContentSettingsType::COOKIES &&
+      content_type != ContentSettingsType::DEFAULT) {
     return;
   }
 
   ContentSettingsForOneType settings;
   HostContentSettingsMapFactory::GetForProfile(profile_)->GetSettingsForOneType(
-      CONTENT_SETTINGS_TYPE_COOKIES, std::string(), &settings);
+      ContentSettingsType::COOKIES, std::string(), &settings);
 
   // Safe since |io_data_| is non-null so no IOData deletion is queued.
   base::PostTask(
@@ -209,8 +209,8 @@ void ChromeExtensionCookies::Shutdown() {
   // Note: during tests this may be called with IO thread == UI thread. If this
   // were to use unique_ptr<.., DeleteOnIOThread> that case would result in
   // unwanted synchronous deletion; hence DeleteSoon is used by hand.
-  content::BrowserThread::DeleteSoon(content::BrowserThread::IO, FROM_HERE,
-                                     std::move(io_data_));
+  base::DeleteSoon(FROM_HERE, {content::BrowserThread::IO},
+                   std::move(io_data_));
   profile_ = nullptr;
 }
 

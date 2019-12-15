@@ -99,6 +99,8 @@ gfx::NativeViewAccessible AXPlatformNodeBase::ChildAtIndex(int index) {
 }
 
 int AXPlatformNodeBase::GetIndexInParent() {
+  if (delegate_)
+    return delegate_->GetIndexInParent();
   return -1;
 }
 
@@ -410,11 +412,7 @@ bool AXPlatformNodeBase::IsPlainTextField() const {
   // We need to check both the role and editable state, because some ARIA text
   // fields may in fact not be editable, whilst some editable fields might not
   // have the role.
-  return !GetData().HasState(ax::mojom::State::kRichlyEditable) &&
-         (GetData().role == ax::mojom::Role::kTextField ||
-          GetData().role == ax::mojom::Role::kTextFieldWithComboBox ||
-          GetData().role == ax::mojom::Role::kSearchBox ||
-          GetBoolAttribute(ax::mojom::BoolAttribute::kEditableRoot));
+  return GetData().IsPlainTextField();
 }
 
 bool AXPlatformNodeBase::IsRichTextField() const {
@@ -497,10 +495,11 @@ base::string16 AXPlatformNodeBase::GetRangeValueText() const {
 base::string16
 AXPlatformNodeBase::GetRoleDescriptionFromImageAnnotationStatusOrFromAttribute()
     const {
-  if (GetData().GetImageAnnotationStatus() ==
-          ax::mojom::ImageAnnotationStatus::kEligibleForAnnotation ||
-      GetData().GetImageAnnotationStatus() ==
-          ax::mojom::ImageAnnotationStatus::kSilentlyEligibleForAnnotation) {
+  if (GetData().role == ax::mojom::Role::kImage &&
+      (GetData().GetImageAnnotationStatus() ==
+           ax::mojom::ImageAnnotationStatus::kEligibleForAnnotation ||
+       GetData().GetImageAnnotationStatus() ==
+           ax::mojom::ImageAnnotationStatus::kSilentlyEligibleForAnnotation)) {
     return GetDelegate()->GetLocalizedRoleDescriptionForUnlabeledImage();
   }
 
@@ -744,7 +743,7 @@ bool AXPlatformNodeBase::IsChildOfLeaf() const {
 
 bool AXPlatformNodeBase::IsInvisibleOrIgnored() const {
   const AXNodeData& data = GetData();
-  return data.HasState(ax::mojom::State::kInvisible) || ui::IsIgnored(data);
+  return data.HasState(ax::mojom::State::kInvisible) || data.IsIgnored();
 }
 
 bool AXPlatformNodeBase::IsScrollable() const {
@@ -778,7 +777,7 @@ bool AXPlatformNodeBase::IsVerticallyScrollable() const {
 
 base::string16 AXPlatformNodeBase::GetValue() const {
   // Expose slider value.
-  if (IsRangeValueSupported(GetData()))
+  if (GetData().IsRangeValueSupported())
     return GetRangeValueText();
 
   // On Windows, the value of a document should be its URL.
@@ -1022,7 +1021,7 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
   }
 
   // Expose slider value.
-  if (IsRangeValueSupported(GetData())) {
+  if (GetData().IsRangeValueSupported()) {
     std::string value = base::UTF16ToUTF8(GetRangeValueText());
     if (!value.empty())
       AddAttributeToList("valuetext", value, attributes);
@@ -1138,9 +1137,7 @@ void AXPlatformNodeBase::UpdateComputedHypertext() {
     return;
   }
 
-  int child_count = GetChildCount();
-
-  if (!child_count) {
+  if (!GetChildCount()) {
     if (IsRichTextField()) {
       // We don't want to expose any associated label in IA2 Hypertext.
       return;
@@ -1156,10 +1153,8 @@ void AXPlatformNodeBase::UpdateComputedHypertext() {
   // the character index of each embedded object character to the id of the
   // child object it points to.
   base::string16 hypertext;
-  for (int i = 0; i < child_count; ++i) {
-    const auto* child = FromNativeViewAccessible(ChildAtIndex(i));
-
-    DCHECK(child);
+  for (AXPlatformNodeBase* child = GetFirstChild(); child;
+       child = child->GetNextSibling()) {
     // Similar to Firefox, we don't expose text-only objects in IA2 hypertext.
     if (child->IsTextOnlyObject()) {
       hypertext_.hypertext +=
@@ -1227,6 +1222,8 @@ bool AXPlatformNodeBase::ScrollToNode(ScrollType scroll_type) {
       ax::mojom::ScrollAlignment::kScrollAlignmentCenter;
   action_data.vertical_scroll_alignment =
       ax::mojom::ScrollAlignment::kScrollAlignmentCenter;
+  action_data.scroll_behavior =
+      ax::mojom::ScrollBehavior::kDoNotScrollIfVisible;
   action_data.target_rect = r;
   GetDelegate()->AccessibilityPerformAction(action_data);
   return true;
@@ -1290,13 +1287,15 @@ int32_t AXPlatformNodeBase::GetHypertextOffsetFromChild(
     AXPlatformNodeBase* child) {
   // TODO(dougt) DCHECK(child.owner()->PlatformGetParent() == owner());
 
+  if (IsLeaf())
+    return -1;
+
   // Handle the case when we are dealing with a text-only child.
-  // Note that this object might be a platform leaf, e.g. an ARIA searchbox.
-  // Also, text-only children should not be present at tree roots and so no
+  // Text-only children should not be present at tree roots and so no
   // cross-tree traversal is necessary.
   if (child->IsTextOnlyObject()) {
     int32_t hypertext_offset = 0;
-    int32_t index_in_parent = child->GetDelegate()->GetIndexInParent();
+    int32_t index_in_parent = child->GetIndexInParent();
     DCHECK_GE(index_in_parent, 0);
     DCHECK_LT(index_in_parent, static_cast<int32_t>(GetChildCount()));
     for (uint32_t i = 0; i < static_cast<uint32_t>(index_in_parent); ++i) {
@@ -1377,9 +1376,9 @@ int AXPlatformNodeBase::GetHypertextOffsetFromEndpoint(
   }
 
   AXPlatformNodeBase* common_parent = this;
-  int32_t index_in_common_parent = GetDelegate()->GetIndexInParent();
+  int32_t index_in_common_parent = GetIndexInParent();
   while (common_parent && !endpoint_object->IsDescendantOf(common_parent)) {
-    index_in_common_parent = common_parent->GetDelegate()->GetIndexInParent();
+    index_in_common_parent = common_parent->GetIndexInParent();
     common_parent = static_cast<AXPlatformNodeBase*>(
         FromNativeViewAccessible(common_parent->GetParent()));
   }
@@ -1420,8 +1419,7 @@ int AXPlatformNodeBase::GetHypertextOffsetFromEndpoint(
         common_parent->GetDelegate()->ChildAtIndex(i)));
     DCHECK(child);
     if (endpoint_object->IsDescendantOf(child)) {
-      endpoint_index_in_common_parent =
-          child->GetDelegate()->GetIndexInParent();
+      endpoint_index_in_common_parent = child->GetIndexInParent();
       break;
     }
   }
@@ -1473,6 +1471,13 @@ void AXPlatformNodeBase::GetSelectionOffsets(int* selection_start,
       GetIntAttribute(ax::mojom::IntAttribute::kTextSelEnd, selection_end)) {
     return;
   }
+
+  GetSelectionOffsetsFromTree(selection_start, selection_end);
+}
+
+void AXPlatformNodeBase::GetSelectionOffsetsFromTree(int* selection_start,
+                                                     int* selection_end) {
+  DCHECK(selection_start && selection_end);
 
   *selection_start = GetUnignoredSelectionAnchor();
   *selection_end = GetUnignoredSelectionFocus();
@@ -1642,10 +1647,12 @@ int AXPlatformNodeBase::FindTextBoundary(
     int offset,
     AXTextBoundaryDirection direction,
     ax::mojom::TextAffinity affinity) const {
-  base::Optional<int> boundary_offset =
-      GetDelegate()->FindTextBoundary(boundary, offset, direction, affinity);
-  if (boundary_offset.has_value())
-    return *boundary_offset;
+  if (boundary != AXTextBoundary::kSentenceStart) {
+    base::Optional<int> boundary_offset =
+        GetDelegate()->FindTextBoundary(boundary, offset, direction, affinity);
+    if (boundary_offset.has_value())
+      return *boundary_offset;
+  }
 
   std::vector<int32_t> unused_line_start_offsets;
   return static_cast<int>(

@@ -15,6 +15,7 @@
 #include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
+#include "base/files/file_util.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/macros.h"
@@ -131,9 +132,18 @@ std::unique_ptr<ui::TouchSelectionController> CreateSelectionController(
 }
 
 gfx::RectF GetSelectionRect(const ui::TouchSelectionController& controller) {
-  gfx::RectF rect = controller.GetRectBetweenBounds();
-  if (rect.IsEmpty())
-    return rect;
+  // When the touch handles are on the same line, the rect may become simply a
+  // one-dimensional rect, and still need to union the handle rect to avoid the
+  // context menu covering the touch handle. See detailed comments in
+  // TouchSelectionController::GetRectBetweenBounds(). Ensure that the |rect| is
+  // not empty by adding a pixel width or height to avoid the wrong menu
+  // position.
+  gfx::RectF rect = controller.GetVisibleRectBetweenBounds();
+  if (rect.IsEmpty()) {
+    gfx::SizeF size = rect.size();
+    size.SetToMax(gfx::SizeF(1.0f, 1.0f));
+    rect.set_size(size);
+  }
 
   rect.Union(controller.GetStartHandleRect());
   rect.Union(controller.GetEndHandleRect());
@@ -218,6 +228,7 @@ RenderWidgetHostViewAndroid::RenderWidgetHostViewAndroid(
                         this),
       stylus_text_selector_(this),
       using_browser_compositor_(CompositorImpl::IsInitialized()),
+      using_viz_for_webview_(features::IsUsingVizForWebView()),
       synchronous_compositor_client_(nullptr),
       observing_root_window_(false),
       fallback_cursor_mode_enabled_(
@@ -240,7 +251,7 @@ RenderWidgetHostViewAndroid::RenderWidgetHostViewAndroid(
   if (is_showing_)
     local_surface_id_allocator_.GenerateId();
 
-  if (using_browser_compositor_) {
+  if (using_browser_compositor_ || using_viz_for_webview_) {
     delegated_frame_host_client_ =
         std::make_unique<DelegatedFrameHostClientAndroid>(this);
     delegated_frame_host_ = std::make_unique<ui::DelegatedFrameHostAndroid>(
@@ -1365,6 +1376,10 @@ void RenderWidgetHostViewAndroid::OnDidUpdateVisualPropertiesComplete(
     const cc::RenderFrameMetadata& metadata) {
   SynchronizeVisualProperties(cc::DeadlinePolicy::UseDefaultDeadline(),
                               metadata.local_surface_id_allocation);
+  if (delegated_frame_host_) {
+    delegated_frame_host_->SetTopControlsVisibleHeight(
+        metadata.top_controls_height * metadata.top_controls_shown_ratio);
+  }
   // We've just processed new RenderFrameMetadata and potentially embedded a
   // new surface for that data. Check if we need to evict it.
   EvictFrameIfNecessary();
@@ -1524,7 +1539,7 @@ void RenderWidgetHostViewAndroid::StartObservingRootWindow() {
   SendBeginFramePaused();
   view_.GetWindowAndroid()->AddObserver(this);
   // When using browser compositor, DelegatedFrameHostAndroid provides the BFS.
-  if (!using_browser_compositor_)
+  if (!using_browser_compositor_ && !using_viz_for_webview_)
     SetBeginFrameSource(view_.GetWindowAndroid()->GetBeginFrameSource());
 
   ui::WindowAndroidCompositor* compositor =
@@ -1705,14 +1720,6 @@ InputEventAckState RenderWidgetHostViewAndroid::FilterInputEvent(
                              false /* force_create */, base::Bind(&WakeUpGpu));
   }
 
-  return INPUT_EVENT_ACK_STATE_NOT_CONSUMED;
-}
-
-InputEventAckState RenderWidgetHostViewAndroid::FilterChildGestureEvent(
-    const blink::WebGestureEvent& gesture_event) {
-  if (overscroll_controller_ &&
-      overscroll_controller_->WillHandleGestureEvent(gesture_event))
-    return INPUT_EVENT_ACK_STATE_CONSUMED;
   return INPUT_EVENT_ACK_STATE_NOT_CONSUMED;
 }
 
@@ -2226,7 +2233,7 @@ bool RenderWidgetHostViewAndroid::WantsAnimateOnlyBeginFrames() const {
 void RenderWidgetHostViewAndroid::SendBeginFramePaused() {
   bool paused = begin_frame_paused_ || !observing_root_window_;
 
-  if (!using_browser_compositor_) {
+  if (!using_browser_compositor_ && !using_viz_for_webview_) {
     if (sync_compositor_)
       sync_compositor_->SetBeginFramePaused(paused);
   } else if (renderer_compositor_frame_sink_) {
@@ -2404,8 +2411,6 @@ void RenderWidgetHostViewAndroid::TakeFallbackContentFrom(
     RenderWidgetHostView* view) {
   DCHECK(!static_cast<RenderWidgetHostViewBase*>(view)
               ->IsRenderWidgetHostViewChildFrame());
-  DCHECK(!static_cast<RenderWidgetHostViewBase*>(view)
-              ->IsRenderWidgetHostViewGuest());
   base::Optional<SkColor> color = view->GetBackgroundColor();
   if (color)
     SetBackgroundColor(*color);

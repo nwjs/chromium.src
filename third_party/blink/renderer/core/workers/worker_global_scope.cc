@@ -28,6 +28,7 @@
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 
 #include "base/memory/scoped_refptr.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_source_code.h"
@@ -186,7 +187,7 @@ ScriptValue WorkerGlobalScope::importNWBin(ScriptState* state, DOMArrayBuffer* b
   v8::Isolate* isolate = state->GetIsolate();
   v8::HandleScope handle_scope(isolate);
   uint8_t *data = static_cast<uint8_t*>(buffer->Data());
-  int64_t length = buffer->ByteLength();
+  int64_t length = buffer->ByteLengthAsSizeT();
   v8::Handle<v8::String> source_string = v8::String::NewFromUtf8(isolate, "", v8::NewStringType::kNormal).ToLocalChecked();
   v8::ScriptCompiler::CachedData* cache;
   cache = new v8::ScriptCompiler::CachedData(
@@ -356,10 +357,6 @@ bool WorkerGlobalScope::IsSecureContext(String& error_message) const {
   return false;
 }
 
-service_manager::InterfaceProvider* WorkerGlobalScope::GetInterfaceProvider() {
-  return &interface_provider_;
-}
-
 BrowserInterfaceBrokerProxy& WorkerGlobalScope::GetBrowserInterfaceBroker() {
   return browser_interface_broker_proxy_;
 }
@@ -486,7 +483,6 @@ WorkerGlobalScope::WorkerGlobalScope(
       script_type_(creation_params->script_type),
       user_agent_(creation_params->user_agent),
       thread_(thread),
-      timers_(GetTaskRunner(TaskType::kJavascriptTimer)),
       time_origin_(time_origin),
       font_selector_(MakeGarbageCollected<OffscreenFontSelector>(this)),
       script_eval_state_(ScriptEvalState::kPauseAfterFetch) {
@@ -503,15 +499,9 @@ WorkerGlobalScope::WorkerGlobalScope(
       creation_params->outside_content_security_policy_headers);
   SetWorkerSettings(std::move(creation_params->worker_settings));
 
-  // TODO(sammc): Require a valid |creation_params->interface_provider| once all
-  // worker types provide a valid |creation_params->interface_provider|.
-  if (creation_params->interface_provider.is_valid()) {
-    interface_provider_.Bind(
-        mojo::MakeProxy(service_manager::mojom::InterfaceProviderPtrInfo(
-            creation_params->interface_provider.PassHandle(),
-            service_manager::mojom::InterfaceProvider::Version_)));
-  }
-
+  // TODO(sammc): Require a valid |creation_params->browser_interface_broker|
+  // once all worker types provide a valid
+  // |creation_params->browser_interface_broker|.
   if (creation_params->browser_interface_broker.is_valid()) {
     auto pipe = creation_params->browser_interface_broker.PassPipe();
     browser_interface_broker_proxy_.Bind(
@@ -545,7 +535,7 @@ NOINLINE void WorkerGlobalScope::InitializeURL(const KURL& url) {
   if (GetSecurityOrigin()->IsOpaque()) {
     DCHECK(SecurityOrigin::Create(url)->IsOpaque());
   } else {
-    DCHECK(GetSecurityOrigin()->IsSameSchemeHostPort(
+    DCHECK(GetSecurityOrigin()->IsSameOriginWith(
         SecurityOrigin::Create(url).get()));
   }
   url_ = url;
@@ -576,7 +566,6 @@ TrustedTypePolicyFactory* WorkerGlobalScope::GetTrustedTypes() const {
 void WorkerGlobalScope::Trace(blink::Visitor* visitor) {
   visitor->Trace(location_);
   visitor->Trace(navigator_);
-  visitor->Trace(timers_);
   visitor->Trace(pending_error_events_);
   visitor->Trace(font_selector_);
   visitor->Trace(trusted_types_);

@@ -1,13 +1,13 @@
 {
   "sandbox": {
     "features": [
-      "isolated-persistent-storage",
-      "deprecated-ambient-replace-as-executable"
+      "isolated-persistent-storage"
     ],
     "services": [
-      "fuchsia.deprecatedtimezone.Timezone",
+      "fuchsia.accessibility.semantics.SemanticsManager",
       "fuchsia.device.NameProvider",
       "fuchsia.fonts.Provider",
+      "fuchsia.intl.PropertyProvider",
       "fuchsia.logger.LogSink",
       "fuchsia.media.Audio",
       "fuchsia.media.drm.Widevine",

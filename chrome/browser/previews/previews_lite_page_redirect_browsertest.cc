@@ -21,7 +21,6 @@
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -41,6 +40,7 @@
 #include "chrome/browser/previews/previews_lite_page_redirect_url_loader_interceptor.h"
 #include "chrome/browser/previews/previews_service.h"
 #include "chrome/browser/previews/previews_service_factory.h"
+#include "chrome/browser/previews/previews_test_util.h"
 #include "chrome/browser/previews/previews_ui_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -108,29 +108,6 @@ const char kPreviewsHost[] = "litepages.googlezip.net";
 // on it.
 const char kBlacklistedHost[] = "blacklisted.com";
 
-// Retries fetching |histogram_name| until it contains at least |count| samples.
-void RetryForHistogramUntilCountReached(base::HistogramTester* histogram_tester,
-                                        const std::string& histogram_name,
-                                        size_t count) {
-  while (true) {
-    base::ThreadPoolInstance::Get()->FlushForTesting();
-    base::RunLoop().RunUntilIdle();
-
-    content::FetchHistogramsFromChildProcesses();
-    SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
-
-    const std::vector<base::Bucket> buckets =
-        histogram_tester->GetAllSamples(histogram_name);
-    size_t total_count = 0;
-    for (const auto& bucket : buckets) {
-      total_count += bucket.count;
-    }
-    if (total_count >= count) {
-      break;
-    }
-  }
-}
-
 }  // namespace
 
 class BasePreviewsLitePageRedirectServerBrowserTest
@@ -140,8 +117,6 @@ class BasePreviewsLitePageRedirectServerBrowserTest
   BasePreviewsLitePageRedirectServerBrowserTest() {}
 
   ~BasePreviewsLitePageRedirectServerBrowserTest() override {}
-
-  virtual bool UseOptimizationGuideKeyedServiceImplementation() const = 0;
 
   virtual bool ShouldEnableDRPHoldback() const = 0;
 
@@ -234,6 +209,10 @@ class BasePreviewsLitePageRedirectServerBrowserTest
         https_server_->GetURL(kOriginHost, "/image_decoding/droids.jpg");
     ASSERT_TRUE(https_media_url_.SchemeIs(url::kHttpsScheme));
 
+    https_subframe_url_ =
+        https_server_->GetURL(kOriginHost, "/previews/iframe_blank.html");
+    ASSERT_TRUE(https_subframe_url_.SchemeIs(url::kHttpsScheme));
+
     // Set up http server with resource monitor and redirect handler.
     http_server_ = std::make_unique<net::EmbeddedTestServer>(
         net::EmbeddedTestServer::TYPE_HTTP);
@@ -251,9 +230,9 @@ class BasePreviewsLitePageRedirectServerBrowserTest
         http_server_->GetURL(kOriginHost, "/previews/lite_page_test.html");
     ASSERT_TRUE(base_http_lite_page_url_.SchemeIs(url::kHttpScheme));
 
-    subframe_url_ =
+    http_subframe_url_ =
         http_server_->GetURL(kOriginHost, "/previews/iframe_blank.html");
-    ASSERT_TRUE(subframe_url_.SchemeIs(url::kHttpScheme));
+    ASSERT_TRUE(http_subframe_url_.SchemeIs(url::kHttpScheme));
 
     http_to_https_redirect_url_ =
         http_server_->GetURL(kOriginHost, "/previews/to_https_redirect.html");
@@ -320,15 +299,6 @@ class BasePreviewsLitePageRedirectServerBrowserTest
          network::features::kReporting},
         {network::features::kNetworkErrorLogging});
 
-    opt_guide_keyed_service_feature_list_.emplace();
-    if (UseOptimizationGuideKeyedServiceImplementation()) {
-      opt_guide_keyed_service_feature_list_->InitWithFeatures(
-          {optimization_guide::features::kOptimizationGuideKeyedService}, {});
-    } else {
-      opt_guide_keyed_service_feature_list_->InitWithFeatures(
-          {}, {optimization_guide::features::kOptimizationGuideKeyedService});
-    }
-
     drp_holdback_feature_list_.emplace();
     drp_holdback_feature_list_->InitWithFeatureState(
         data_reduction_proxy::features::kDataReductionProxyHoldback,
@@ -337,7 +307,6 @@ class BasePreviewsLitePageRedirectServerBrowserTest
 
   void TearDown() override {
     drp_holdback_feature_list_.reset();
-    opt_guide_keyed_service_feature_list_.reset();
     scoped_feature_list_.reset();
     scoped_parameterized_feature_list_.reset();
   }
@@ -625,7 +594,8 @@ class BasePreviewsLitePageRedirectServerBrowserTest
     return https_redirect_loop_url_;
   }
   const GURL& client_redirect_url() const { return client_redirect_url_; }
-  const GURL& subframe_url() const { return subframe_url_; }
+  const GURL& http_subframe_url() const { return http_subframe_url_; }
+  const GURL& https_subframe_url() const { return https_subframe_url_; }
 
   int origin_probe_count() const { return origin_probe_count_; }
   void set_origin_probe_success(bool success) {
@@ -912,8 +882,6 @@ class BasePreviewsLitePageRedirectServerBrowserTest
   base::Optional<base::test::ScopedFeatureList>
       scoped_parameterized_feature_list_;
   base::Optional<base::test::ScopedFeatureList> scoped_feature_list_;
-  base::Optional<base::test::ScopedFeatureList>
-      opt_guide_keyed_service_feature_list_;
   base::Optional<base::test::ScopedFeatureList> drp_holdback_feature_list_;
   std::unique_ptr<net::EmbeddedTestServer> previews_server_;
   std::unique_ptr<net::EmbeddedTestServer> https_server_;
@@ -930,7 +898,8 @@ class BasePreviewsLitePageRedirectServerBrowserTest
   GURL https_redirect_loop_url_;
   GURL https_to_https_redirect_url_;
   GURL client_redirect_url_;
-  GURL subframe_url_;
+  GURL http_subframe_url_;
+  GURL https_subframe_url_;
   GURL previews_server_url_;
   GURL slow_http_url_;
   bool origin_probe_success_ = true;
@@ -942,40 +911,23 @@ class BasePreviewsLitePageRedirectServerBrowserTest
   base::OnceClosure waiting_for_report_closure_;
 };
 
-// First param is true if testing using the OptimizationGuideKeyedService
-// implementation. Second param is true if DRP holdback should be enabled.
+// Param is true if DRP holdback should be enabled.
 class PreviewsLitePageRedirectServerBrowserTest
     : public BasePreviewsLitePageRedirectServerBrowserTest,
-      public ::testing::WithParamInterface<std::tuple<bool, bool>> {
+      public ::testing::WithParamInterface<bool> {
  public:
-  bool UseOptimizationGuideKeyedServiceImplementation() const override {
-    return std::get<0>(GetParam());
-  }
-  bool ShouldEnableDRPHoldback() const override {
-    return std::get<1>(GetParam());
-  }
+  bool ShouldEnableDRPHoldback() const override { return GetParam(); }
 };
 
-// First param is true if testing using the OptimizationGuideKeyedService
-// implementation. Second param is true if DRP holdback should be
-// enabled.
+// Param is true if DRP holdback should be enabled.
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     PreviewsLitePageRedirectServerBrowserTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
-
-// Previews InfoBar (which these tests trigger) does not work on Mac.
-// See https://crbug.com/782322 for detail.
-// Also occasional flakes on win7 (https://crbug.com/789542).
-#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_CHROMEOS)
-#define DISABLE_ON_WIN_MAC_CHROMESOS(x) DISABLED_##x
-#else
-#define DISABLE_ON_WIN_MAC_CHROMESOS(x) x
-#endif
+    ::testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsTriggering)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsTriggering)) {
   // TODO(crbug.com/874150): Use ExpectUniqueSample in these tests.
   // The histograms in these tests can only be checked by the expected bucket,
   // and not by a unique sample. This is because each navigation to a preview
@@ -1017,7 +969,6 @@ IN_PROC_BROWSER_TEST_P(
     params.window_action = NavigateParams::SHOW_WINDOW;
     params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
     params.is_renderer_initiated = false;
-    params.uses_post = true;
     params.post_data = network::ResourceRequestBody::CreateFromBytes(
         post_data.data(), post_data.size());
 
@@ -1142,21 +1093,17 @@ IN_PROC_BROWSER_TEST_P(
   }
 
   {
-    // Verify a subframe navigation does not trigger a preview.
-    const base::string16 kSubframeTitle = base::ASCIIToUTF16("Subframe");
-    base::HistogramTester histogram_tester;
-    ui_test_utils::NavigateToURL(browser(), subframe_url());
+    // Verify a subframe navigation does not trigger a preview on an ineligible
+    // page.
+    ui_test_utils::NavigateToURL(browser(), http_subframe_url());
+    VerifyPreviewNotLoaded();
+  }
 
-    // Navigate in the subframe and wait for it to finish. The waiting is
-    // accomplished by |ExecuteScriptAndExtractString| which waits for
-    // |window.domAutomationController.send| in the HTML page.
-    std::string result;
-    EXPECT_TRUE(ExecuteScriptAndExtractString(
-        GetWebContents()->GetMainFrame(),
-        "window.open(\"" + HttpsLitePageURL(kSuccess).spec() +
-            "\", \"subframe\")",
-        &result));
-    EXPECT_EQ(kSubframeTitle, base::ASCIIToUTF16(result));
+  {
+    // Verify a subframe navigation does not trigger a preview on a preview
+    // page..
+    ui_test_utils::NavigateToURL(browser(), https_subframe_url());
+    VerifyPreviewLoaded();
   }
 
   {
@@ -1172,7 +1119,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsOriginProbe_Success)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsOriginProbe_Success)) {
   set_origin_probe_success(true);
 
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
@@ -1182,7 +1129,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsOriginProbe_Fail)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsOriginProbe_Fail)) {
   set_origin_probe_success(false);
 
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
@@ -1192,7 +1139,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsReloadSoftOptOut)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsReloadSoftOptOut)) {
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
   VerifyPreviewLoaded();
 
@@ -1202,7 +1149,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsNoChromeProxyHeader)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsNoChromeProxyHeader)) {
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
   VerifyPreviewLoaded();
 
@@ -1240,13 +1187,13 @@ class PreviewsLitePageRedirectServerBrowserTestWithAlwaysHoldback
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTestWithAlwaysHoldback,
-    DISABLE_ON_WIN_MAC_CHROMESOS(CoinFlipHoldbackTriggering)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(CoinFlipHoldbackTriggering)) {
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
   VerifyPreviewNotLoaded();
 }
 
 IN_PROC_BROWSER_TEST_P(PreviewsLitePageRedirectServerBrowserTest,
-                       DISABLE_ON_WIN_MAC_CHROMESOS(PredictorShownAndHidden)) {
+                       DISABLE_ON_WIN_MAC_CHROMEOS(PredictorShownAndHidden)) {
   base::HistogramTester histogram_tester;
   GetWebContents()->WasHidden();
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
@@ -1265,7 +1212,7 @@ IN_PROC_BROWSER_TEST_P(PreviewsLitePageRedirectServerBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsLoadOriginal)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsLoadOriginal)) {
   base::HistogramTester histogram_tester;
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
   VerifyPreviewLoaded();
@@ -1285,7 +1232,7 @@ IN_PROC_BROWSER_TEST_P(
 }
 
 IN_PROC_BROWSER_TEST_P(PreviewsLitePageRedirectServerBrowserTest,
-                       DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsRedirect)) {
+                       DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsRedirect)) {
   {
     // Verify the preview is triggered when an HTTP page redirects to HTTPS.
     base::HistogramTester histogram_tester;
@@ -1331,7 +1278,7 @@ IN_PROC_BROWSER_TEST_P(PreviewsLitePageRedirectServerBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_P(PreviewsLitePageRedirectServerBrowserTest,
-                       DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsResponse)) {
+                       DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsResponse)) {
   {
     // Verify the preview is not triggered when the server responds with bypass
     // 307.
@@ -1386,7 +1333,7 @@ IN_PROC_BROWSER_TEST_P(PreviewsLitePageRedirectServerBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsAuthFailure)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsAuthFailure)) {
   // Verify the preview is not triggered when the server responds with 403.
   base::HistogramTester histogram_tester;
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kAuthFailure));
@@ -1406,7 +1353,7 @@ IN_PROC_BROWSER_TEST_P(
 }
 
 IN_PROC_BROWSER_TEST_P(PreviewsLitePageRedirectServerBrowserTest,
-                       DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsLoadshed)) {
+                       DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsLoadshed)) {
   PreviewsService* previews_service =
       PreviewsServiceFactory::GetForProfile(browser()->profile());
   ASSERT_TRUE(previews_service);
@@ -1452,7 +1399,7 @@ IN_PROC_BROWSER_TEST_P(PreviewsLitePageRedirectServerBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePageURLNotReportedToHistory)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePageURLNotReportedToHistory)) {
   base::CancelableTaskTracker tracker_;
   history::HistoryService* history_service =
       HistoryServiceFactory::GetForProfile(browser()->profile(),
@@ -1510,7 +1457,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsReportSavings)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsReportSavings)) {
   PrefService* prefs = browser()->profile()->GetPrefs();
   prefs->SetBoolean(data_reduction_proxy::prefs::kDataUsageReportingEnabled,
                     true);
@@ -1533,7 +1480,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsClientRedirect)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsClientRedirect)) {
   // Navigate to a non-preview first.
   ui_test_utils::NavigateToURL(browser(), https_media_url());
   VerifyPreviewNotLoaded();
@@ -1548,7 +1495,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsNavigation)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsNavigation)) {
   // Use a sequence of different URLs, otherwise forward/back doesn't work as
   // expected.
   const auto url1 = GURL(HttpsLitePageURL(kSuccess).spec() + "&z=1");
@@ -1647,7 +1594,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePageSendsInterventionReport)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePageSendsInterventionReport)) {
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
   VerifyPreviewLoaded();
   WaitForInterventionReport();
@@ -1688,15 +1635,14 @@ class PreviewsLitePageRedirectServerTimeoutBrowserTest
   }
 };
 
-// First param is true if testing using the OptimizationGuideKeyedService
-// implementation. Second param is true if DRP holdback should be enabled.
+// Param is true if DRP holdback should be enabled.
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     PreviewsLitePageRedirectServerTimeoutBrowserTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+    ::testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(PreviewsLitePageRedirectServerTimeoutBrowserTest,
-                       DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsTimeout)) {
+                       DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsTimeout)) {
   {
     // Ensure that a hung previews navigation doesn't wind up at the previews
     // server.
@@ -1723,7 +1669,7 @@ IN_PROC_BROWSER_TEST_P(PreviewsLitePageRedirectServerTimeoutBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerTimeoutBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(
+    DISABLE_ON_WIN_MAC_CHROMEOS(
         LitePagePreviewsOriginProbe_ExternalFailureReported)) {
   set_origin_probe_success(true);
 
@@ -1736,7 +1682,9 @@ IN_PROC_BROWSER_TEST_P(
       "Previews.ServerLitePage.ServerResponse",
       previews::LitePageRedirectServerResponse::kTimeout, 1);
 
-  WaitForServerProbe();
+  RetryForHistogramUntilCountReached(
+      &histogram_tester,
+      "Availability.Prober.DidSucceed.AfterReportedFailure.Litepages", 1);
 
   histogram_tester.ExpectUniqueSample(
       "Availability.Prober.DidSucceed.AfterReportedFailure.Litepages", true, 1);
@@ -1755,16 +1703,14 @@ class PreviewsLitePageRedirectServerBadServerBrowserTest
   }
 };
 
-// First param is true if testing using the OptimizationGuideKeyedService
-// implementation. Second param is true if DRP holdback should be enabled.
+// Param is true if DRP holdback should be enabled.
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     PreviewsLitePageRedirectServerBadServerBrowserTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+    ::testing::Bool());
 
-IN_PROC_BROWSER_TEST_P(
-    PreviewsLitePageRedirectServerBadServerBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsBadServer)) {
+IN_PROC_BROWSER_TEST_P(PreviewsLitePageRedirectServerBadServerBrowserTest,
+                       DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsBadServer)) {
   // TODO(crbug.com/874150): Use ExpectUniqueSample in this tests.
   // The histograms in this tests can only be checked by the expected bucket,
   // and not by a unique sample. This is because each navigation to a preview
@@ -1803,16 +1749,15 @@ class PreviewsLitePageRedirectServerDataSaverBrowserTest
   }
 };
 
-// First param is true if testing using the OptimizationGuideKeyedService
-// implementation. Second param is true if DRP holdback should be enabled.
+// Param is true if DRP holdback should be enabled.
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     PreviewsLitePageRedirectServerDataSaverBrowserTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+    ::testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerDataSaverBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsDSTriggering)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsDSTriggering)) {
   // Verify the preview is not triggered on HTTPS pageloads without DataSaver.
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
   VerifyPreviewNotLoaded();
@@ -1841,16 +1786,15 @@ class PreviewsLitePageRedirectServerNoDataSaverHeaderBrowserTest
   }
 };
 
-// First param is true if testing using the OptimizationGuideKeyedService
-// implementation. Second param is true if DRP holdback should be enabled.
+// Param is true if DRP holdback should be enabled.
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     PreviewsLitePageRedirectServerNoDataSaverHeaderBrowserTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+    ::testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerNoDataSaverHeaderBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsDSNoHeaderTriggering)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsDSNoHeaderTriggering)) {
   // Verify the preview is not triggered on HTTPS pageloads without data saver.
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
   VerifyPreviewNotLoaded();
@@ -1883,16 +1827,15 @@ class PreviewsLitePageRedirectNotificationDSEnabledBrowserTest
   }
 };
 
-// First param is true if testing using the OptimizationGuideKeyedService
-// implementation. Second param is true if DRP holdback should be enabled.
+// Pecond param is true if DRP holdback should be enabled.
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     PreviewsLitePageRedirectNotificationDSEnabledBrowserTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+    ::testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectNotificationDSEnabledBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsInfoBarDataSaverUser)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsInfoBarDataSaverUser)) {
   // Ensure the preview is not shown the first time before the infobar is shown
   // for users who have DRP enabled.
   base::HistogramTester histogram_tester;
@@ -1944,16 +1887,15 @@ class PreviewsLitePageRedirectDSDisabledBrowserTest
   }
 };
 
-// First param is true if testing using the OptimizationGuideKeyedService
-// implementation. Second param is true if DRP holdback should be enabled.
+// Param is true if DRP holdback should be enabled.
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     PreviewsLitePageRedirectDSDisabledBrowserTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+    ::testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectDSDisabledBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsInfoBarNonDataSaverUser)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsInfoBarNonDataSaverUser)) {
   base::HistogramTester histogram_tester;
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
   VerifyPreviewNotLoaded();
@@ -1977,16 +1919,15 @@ class PreviewsLitePageRedirectControlBrowserTest
   }
 };
 
-// First param is true if testing using the OptimizationGuideKeyedService
-// implementation. Second param is true if DRP holdback should be enabled.
+// Param is true if DRP holdback should be enabled.
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     PreviewsLitePageRedirectControlBrowserTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+    ::testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectControlBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsControlGroup)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsControlGroup)) {
   base::HistogramTester histogram_tester;
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
   VerifyPreviewNotLoaded();
@@ -2033,10 +1974,6 @@ class PreviewsLitePageRedirectServerNetworkIsolationBrowserTest
     BasePreviewsLitePageRedirectServerBrowserTest::SetUp();
   }
 
-  bool UseOptimizationGuideKeyedServiceImplementation() const override {
-    return false;
-  }
-
   bool ShouldEnableDRPHoldback() const override { return false; }
 
  private:
@@ -2045,7 +1982,7 @@ class PreviewsLitePageRedirectServerNetworkIsolationBrowserTest
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectServerNetworkIsolationBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(PreconnectToPreviewsServer)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(PreconnectToPreviewsServer)) {
   base::HistogramTester histogram_tester;
 
   ui_test_utils::NavigateToURL(browser(), https_media_url());
@@ -2114,17 +2051,16 @@ class PreviewsLitePageRedirectAndPageHintsBrowserTest
   }
 };
 
-// First param is true if testing using the OptimizationGuideKeyedService
-// implementation. Second param is true if DRP holdback should be enabled.
+// Param is true if DRP holdback should be enabled.
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     PreviewsLitePageRedirectAndPageHintsBrowserTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+    ::testing::Bool());
 
 // Regression test for crbug.com/954554.
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectAndPageHintsBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(PreviewsServerIsInBloomFilter)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(PreviewsServerIsInBloomFilter)) {
   optimization_guide::BloomFilter blacklist_bloom_filter(7, 511);
   blacklist_bloom_filter.Add(previews_server_url().host());
   blacklist_bloom_filter.Add("subdomain." + previews_server_url().host());
@@ -2159,7 +2095,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     PreviewsLitePageRedirectAndPageHintsBrowserTest,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LitePagePreviewsDoesNotOverridePageHints)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LitePagePreviewsDoesNotOverridePageHints)) {
   base::HistogramTester histogram_tester;
 
   // Whitelist test URL for resource loading hints.
@@ -2357,31 +2293,30 @@ class CoinFlipHoldbackExperimentBrowserTestWithCoinFlipHoldbackDisabled
   base::test::ScopedFeatureList feature_list_;
 };
 
-// First param is true if testing using the OptimizationGuideKeyedService
-// implementation. Second param is true if DRP holdback should be enabled.
+// Param is true if DRP holdback should be enabled.
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     CoinFlipHoldbackExperimentBrowserTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+    ::testing::Bool());
 
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     CoinFlipHoldbackExperimentBrowserTestWithRandomNavigationCoinFlip,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+    ::testing::Bool());
 
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     CoinFlipHoldbackExperimentBrowserTestWithoutRandomNavigationCoinFlip,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+    ::testing::Bool());
 
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     CoinFlipHoldbackExperimentBrowserTestWithCoinFlipHoldbackDisabled,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+    ::testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithCoinFlipHoldbackDisabled,
-    DISABLE_ON_WIN_MAC_CHROMESOS(NoPreviews_NoCoinFlip)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(NoPreviews_NoCoinFlip)) {
   // Set ECT so that we are sure to not trigger any preview.
   g_browser_process->network_quality_tracker()
       ->ReportEffectiveConnectionTypeForTesting(
@@ -2398,7 +2333,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithCoinFlipHoldbackDisabled,
-    DISABLE_ON_WIN_MAC_CHROMESOS(BothPreviewsAllowedWantLPR_NoCoinFlip)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(BothPreviewsAllowedWantLPR_NoCoinFlip)) {
   RunTest(false /* redirect_navigation*/, true /* allow_lite_page_redirect*/,
           true /* allow_resource_loading*/);
 
@@ -2410,7 +2345,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithCoinFlipHoldbackDisabled,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LPRAllowed_NoCoinFlip)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LPRAllowed_NoCoinFlip)) {
   RunTest(false /* redirect_navigation*/, true /* allow_lite_page_redirect*/,
           false /* allow_resource_loading*/);
 
@@ -2422,7 +2357,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithCoinFlipHoldbackDisabled,
-    DISABLE_ON_WIN_MAC_CHROMESOS(RLHAllowed_NoCoinFlip)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(RLHAllowed_NoCoinFlip)) {
   RunTest(false /* redirect_navigation*/, false /* allow_lite_page_redirect*/,
           true /* allow_resource_loading*/);
 
@@ -2434,7 +2369,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithCoinFlipHoldbackDisabled,
-    DISABLE_ON_WIN_MAC_CHROMESOS(NoPreviews_WithRedirect_NoCoinFlip)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(NoPreviews_WithRedirect_NoCoinFlip)) {
   // Set ECT so that we are sure to not trigger any preview.
   g_browser_process->network_quality_tracker()
       ->ReportEffectiveConnectionTypeForTesting(
@@ -2451,7 +2386,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithCoinFlipHoldbackDisabled,
-    DISABLE_ON_WIN_MAC_CHROMESOS(
+    DISABLE_ON_WIN_MAC_CHROMEOS(
         BothPreviewsAllowedWantLPR_WithRedirect_NoCoinFlip)) {
   RunTest(true /* redirect_navigation*/, true /* allow_lite_page_redirect*/,
           true /* allow_resource_loading*/);
@@ -2464,7 +2399,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithCoinFlipHoldbackDisabled,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LPRAllowed_WithRedirect_NoCoinFlip)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LPRAllowed_WithRedirect_NoCoinFlip)) {
   RunTest(true /* redirect_navigation*/, true /* allow_lite_page_redirect*/,
           false /* allow_resource_loading */);
 
@@ -2476,7 +2411,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithCoinFlipHoldbackDisabled,
-    DISABLE_ON_WIN_MAC_CHROMESOS(RLHAllowed_WithRedirect_NoCoinFlip)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(RLHAllowed_WithRedirect_NoCoinFlip)) {
   RunTest(true /* redirect_navigation*/, false /* allow_lite_page_redirect*/,
           true /* allow_resource_loading*/);
 
@@ -2488,7 +2423,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithoutRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(NoPreviews_CoinFlipEnabled_Allowed)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(NoPreviews_CoinFlipEnabled_Allowed)) {
   // Set ECT so that we are sure to not trigger any preview.
   g_browser_process->network_quality_tracker()
       ->ReportEffectiveConnectionTypeForTesting(
@@ -2505,7 +2440,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithoutRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(
+    DISABLE_ON_WIN_MAC_CHROMEOS(
         BothPreviewsAllowedWantLPR_CoinFlipEnabled_Allowed)) {
   RunTest(false /* redirect_navigation*/, true /* allow_lite_page_redirect*/,
           true /* allow_resource_loading*/);
@@ -2518,7 +2453,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithoutRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LPRAllowed_CoinFlipEnabled_Allowed)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LPRAllowed_CoinFlipEnabled_Allowed)) {
   RunTest(false /* redirect_navigation*/, true /* allow_lite_page_redirect*/,
           false /* allow_resource_loading*/);
 
@@ -2530,7 +2465,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithoutRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(RLHAllowed_CoinFlipEnabled_Allowed)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(RLHAllowed_CoinFlipEnabled_Allowed)) {
   RunTest(false /* redirect_navigation*/, false /* allow_lite_page_redirect*/,
           true /* allow_resource_loading*/);
 
@@ -2542,7 +2477,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithoutRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(
+    DISABLE_ON_WIN_MAC_CHROMEOS(
         NoPreviews_WithRedirect_CoinFlipEnabled_Allowed)) {
   // Set ECT so that we are sure to not trigger any preview.
   g_browser_process->network_quality_tracker()
@@ -2560,7 +2495,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithoutRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(
+    DISABLE_ON_WIN_MAC_CHROMEOS(
         BothPreviewsAllowedWantLPR_WithRedirect_CoinFlipEnabled_Allowed)) {
   RunTest(true /* redirect_navigation*/, true /* allow_lite_page_redirect*/,
           true /* allow_resource_loading*/);
@@ -2573,7 +2508,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithoutRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(
+    DISABLE_ON_WIN_MAC_CHROMEOS(
         LPRAllowed_WithRedirect_CoinFlipEnabled_Allowed)) {
   RunTest(true /* redirect_navigation*/, true /* allow_lite_page_redirect*/,
           false /* allow_resource_loading */);
@@ -2586,7 +2521,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithoutRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(
+    DISABLE_ON_WIN_MAC_CHROMEOS(
         RLHAllowed_WithRedirect_CoinFlipEnabled_Allowed)) {
   RunTest(true /* redirect_navigation*/, false /* allow_lite_page_redirect*/,
           true /* allow_resource_loading*/);
@@ -2599,7 +2534,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(NoPreviews_CoinFlipEnabled_Holdback)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(NoPreviews_CoinFlipEnabled_Holdback)) {
   // Set ECT so that we are sure to not trigger any preview.
   g_browser_process->network_quality_tracker()
       ->ReportEffectiveConnectionTypeForTesting(
@@ -2616,7 +2551,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(
+    DISABLE_ON_WIN_MAC_CHROMEOS(
         BothPreviewsAllowedWantLPR_CoinFlipEnabled_Holdback)) {
   RunTest(false /* redirect_navigation*/, true /* allow_lite_page_redirect*/,
           true /* allow_resource_loading*/);
@@ -2629,7 +2564,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(LPRAllowed_CoinFlipEnabled_Holdback)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(LPRAllowed_CoinFlipEnabled_Holdback)) {
   RunTest(false /* redirect_navigation*/, true /* allow_lite_page_redirect*/,
           false /* allow_resource_loading*/);
 
@@ -2641,7 +2576,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(RLHAllowed_CoinFlipEnabled_Holdback)) {
+    DISABLE_ON_WIN_MAC_CHROMEOS(RLHAllowed_CoinFlipEnabled_Holdback)) {
   RunTest(false /* redirect_navigation*/, false /* allow_lite_page_redirect*/,
           true /* allow_resource_loading*/);
 
@@ -2653,7 +2588,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(
+    DISABLE_ON_WIN_MAC_CHROMEOS(
         BothPreviewsAllowedWantLPR_WithRedirect_CoinFlipEnabled_Holdback)) {
   RunTest(true /* redirect_navigation*/, true /* allow_lite_page_redirect*/,
           true /* allow_resource_loading*/);
@@ -2666,7 +2601,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(
+    DISABLE_ON_WIN_MAC_CHROMEOS(
         LPRAllowed_WithRedirect_CoinFlipEnabled_Holdback)) {
   RunTest(true /* redirect_navigation*/, true /* allow_lite_page_redirect*/,
           false /* allow_resource_loading */);
@@ -2679,7 +2614,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     CoinFlipHoldbackExperimentBrowserTestWithRandomNavigationCoinFlip,
-    DISABLE_ON_WIN_MAC_CHROMESOS(
+    DISABLE_ON_WIN_MAC_CHROMEOS(
         RLHAllowed_WithRedirect_CoinFlipEnabled_Holdback)) {
   RunTest(true /* redirect_navigation*/, false /* allow_lite_page_redirect*/,
           true /* allow_resource_loading*/);

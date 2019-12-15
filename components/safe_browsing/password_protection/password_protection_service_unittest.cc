@@ -330,7 +330,7 @@ class PasswordProtectionServiceTest : public ::testing::TestWithParam<bool> {
     GURL invalid_hostname("http://invalid.com");
     std::unique_ptr<base::DictionaryValue> verdict_dictionary =
         base::DictionaryValue::From(content_setting_map_->GetWebsiteSetting(
-            invalid_hostname, GURL(), CONTENT_SETTINGS_TYPE_PASSWORD_PROTECTION,
+            invalid_hostname, GURL(), ContentSettingsType::PASSWORD_PROTECTION,
             std::string(), nullptr));
 
     if (!verdict_dictionary)
@@ -351,7 +351,7 @@ class PasswordProtectionServiceTest : public ::testing::TestWithParam<bool> {
                     password_type))),
         std::move(invalid_cache_expression_entry));
     content_setting_map_->SetWebsiteSettingDefaultScope(
-        invalid_hostname, GURL(), CONTENT_SETTINGS_TYPE_PASSWORD_PROTECTION,
+        invalid_hostname, GURL(), ContentSettingsType::PASSWORD_PROTECTION,
         std::string(), std::move(verdict_dictionary));
   }
 
@@ -904,7 +904,7 @@ TEST_P(PasswordProtectionServiceTest,
 
   // Initiate a saved password entry request (w/ no sync password).
   AccountInfo account_info;
-  account_info.account_id = "account_id";
+  account_info.account_id = CoreAccountId("account_id");
   account_info.email = "email";
   account_info.gaia = "gaia";
   EXPECT_CALL(*password_protection_service_, GetSignedInNonSyncAccount(_))
@@ -1121,7 +1121,7 @@ TEST_P(PasswordProtectionServiceTest, VerifyShouldShowModalWarning) {
   EXPECT_CALL(*password_protection_service_, IsPrimaryAccountSignedIn())
       .WillRepeatedly(Return(true));
   AccountInfo account_info;
-  account_info.account_id = "account_id";
+  account_info.account_id = CoreAccountId("account_id");
   account_info.email = "email";
   account_info.gaia = "gaia";
   EXPECT_CALL(*password_protection_service_, GetSignedInNonSyncAccount(_))
@@ -1279,7 +1279,7 @@ TEST_P(PasswordProtectionServiceTest, VerifyIsSupportedPasswordTypeForPinging) {
   EXPECT_CALL(*password_protection_service_, IsPrimaryAccountSignedIn())
       .WillRepeatedly(Return(true));
   AccountInfo account_info;
-  account_info.account_id = "account_id";
+  account_info.account_id = CoreAccountId("account_id");
   account_info.email = "email";
   account_info.gaia = "gaia";
   EXPECT_CALL(*password_protection_service_, GetSignedInNonSyncAccount(_))

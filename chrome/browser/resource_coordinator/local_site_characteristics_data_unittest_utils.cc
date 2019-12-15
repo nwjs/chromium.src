@@ -11,12 +11,11 @@
 #include "chrome/browser/resource_coordinator/local_site_characteristics_data_store_factory.h"
 #include "chrome/browser/resource_coordinator/local_site_characteristics_webcontents_observer.h"
 #include "chrome/browser/resource_coordinator/tab_helper.h"
-#include "chrome/browser/resource_coordinator/tab_manager_features.h"
-#include "components/performance_manager/performance_manager_impl.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/system_connector.h"
 #include "content/public/browser/web_contents.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
 
 namespace resource_coordinator {
 namespace testing {
@@ -93,11 +92,6 @@ void NoopLocalSiteCharacteristicsDatabase::GetDatabaseSize(
   std::move(callback).Run(base::nullopt, base::nullopt);
 }
 
-ChromeTestHarnessWithLocalDB::ChromeTestHarnessWithLocalDB() {
-  scoped_feature_list_.InitAndEnableFeature(
-      features::kSiteCharacteristicsDatabase);
-}
-
 ChromeTestHarnessWithLocalDB::~ChromeTestHarnessWithLocalDB() = default;
 
 void ChromeTestHarnessWithLocalDB::SetUp() {
@@ -111,9 +105,9 @@ void ChromeTestHarnessWithLocalDB::SetUp() {
   LocalSiteCharacteristicsDataStoreFactory::EnableForTesting();
 
   // TODO(siggi): Can this die now?
-  service_manager::mojom::ConnectorRequest connector_request;
+  mojo::PendingReceiver<service_manager::mojom::Connector> connector_receiver;
   content::SetSystemConnectorForTesting(
-      service_manager::Connector::Create(&connector_request));
+      service_manager::Connector::Create(&connector_receiver));
   ChromeRenderViewHostTestHarness::SetUp();
 }
 

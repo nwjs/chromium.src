@@ -4,8 +4,7 @@
 
 package org.chromium.chrome.browser.autofill_assistant.user_data;
 
-import static android.view.View.IMPORTANT_FOR_ACCESSIBILITY_AUTO;
-import static android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO;
+import static org.chromium.chrome.browser.autofill_assistant.AssistantAccessibilityUtils.setAccessibility;
 
 import android.content.Context;
 import android.support.annotation.Nullable;
@@ -17,7 +16,6 @@ import android.widget.TextView;
 import androidx.annotation.DrawableRes;
 
 import org.chromium.chrome.autofill_assistant.R;
-import org.chromium.ui.UiUtils;
 
 import java.util.List;
 
@@ -38,11 +36,7 @@ public class AssistantLoginSection extends AssistantCollectUserDataSection<Assis
         assert oldItem != null;
         assert oldItem.getInfoPopup() != null;
 
-        new UiUtils.CompatibleAlertDialogBuilder(mContext, R.style.Theme_Chromium_AlertDialog)
-                .setTitle(oldItem.getInfoPopup().getTitle())
-                .setMessage(oldItem.getInfoPopup().getText())
-                .setPositiveButton(R.string.close, (dialog, which) -> {})
-                .show();
+        oldItem.getInfoPopup().show(mContext);
     }
 
     @Override
@@ -59,11 +53,7 @@ public class AssistantLoginSection extends AssistantCollectUserDataSection<Assis
             sublabelView.setVisibility(View.GONE);
         } else {
             sublabelView.setText(option.getSublabel());
-            sublabelView.setContentDescription(option.getSublabelAccessibilityHint());
-            sublabelView.setImportantForAccessibility(
-                    TextUtils.isEmpty(option.getSublabelAccessibilityHint())
-                            ? IMPORTANT_FOR_ACCESSIBILITY_NO
-                            : IMPORTANT_FOR_ACCESSIBILITY_AUTO);
+            setAccessibility(sublabelView, option.getSublabelAccessibilityHint());
         }
     }
 

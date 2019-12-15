@@ -109,7 +109,7 @@ constexpr int kUnifiedNotificationCenterSpacing = 16;
 constexpr int kUnifiedTrayIconSize = 20;
 constexpr int kUnifiedTraySpacingBetweenIcons = 6;
 constexpr int kUnifiedTrayBatteryWidth = 10;
-constexpr int kUnifiedTrayCornerRadius = 20;
+constexpr int kUnifiedTrayCornerRadius = 16;
 constexpr int kUnifiedTrayContentPadding = 12;
 constexpr int kUnifiedTopShortcutSpacing = 16;
 constexpr int kUnifiedNotificationHiddenLineHeight = 20;
@@ -135,6 +135,13 @@ constexpr gfx::Insets kStackedNotificationIconsContainerPadding(1, 16, 0, 8);
 constexpr int kStackedNotificationBarMaxIcons = 3;
 constexpr int kStackedNotificationBarIconSpacing = 6;
 constexpr int kStackedNotificationIconSize = 18;
+constexpr int kNotificationIconAnimationLowPosition = 7;
+constexpr int kNotificationIconAnimationHighPosition = -3;
+constexpr double kNotificationIconAnimationScaleFactor = 0.77;
+constexpr int kNotificationIconAnimationUpDurationMs = 50;
+constexpr int kNotificationIconAnimationDownDurationMs = 17;
+constexpr int kNotificationIconAnimationOutDurationMs = 67;
+constexpr double kNotificationCenterDragExpandThreshold = 0.8;
 
 // Constants used in FeaturePodsView of UnifiedSystemTray.
 constexpr gfx::Size kUnifiedFeaturePodIconSize(48, 48);
@@ -180,6 +187,9 @@ constexpr int kUnifiedTopShortcutButtonMinSpacing = 4;
 // Constants used in the title row of a detailed view in UnifiedSystemTray.
 constexpr gfx::Insets kUnifiedDetailedViewTitlePadding(0, 0, 0, 16);
 constexpr int kUnifiedDetailedViewTitleRowHeight = 64;
+
+constexpr int kStatusAreaLeftPaddingForOverflow = 100;
+constexpr int kStatusAreaForceCollapseAvailableWidth = 200;
 
 }  // namespace ash
 

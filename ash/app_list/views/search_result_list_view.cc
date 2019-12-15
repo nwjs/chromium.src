@@ -21,9 +21,11 @@
 #include "ash/public/cpp/app_list/app_list_metrics.h"
 #include "ash/public/cpp/app_list/vector_icons/vector_icons.h"
 #include "ash/resources/vector_icons/vector_icons.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/time/time.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/events/event.h"
 #include "ui/gfx/animation/linear_animation.h"
 #include "ui/gfx/geometry/insets.h"
@@ -44,8 +46,8 @@ constexpr base::TimeDelta kZeroStateImpressionThreshold =
 constexpr SkColor kListVerticalBarIconColor =
     SkColorSetARGB(0xFF, 0xE8, 0xEA, 0xED);
 
-bool IsEmbeddedAssistantUiEnabled(AppListViewDelegate* view_delegate) {
-  if (!app_list_features::IsEmbeddedAssistantUIEnabled())
+bool IsAssistantSearchEnabled(AppListViewDelegate* view_delegate) {
+  if (!app_list_features::IsAssistantSearchEnabled())
     return false;
 
   return view_delegate && view_delegate->IsAssistantAllowedAndEnabled();
@@ -143,6 +145,24 @@ void LogFileImpressions(SearchResultType result_type) {
                             result_type, SEARCH_RESULT_TYPE_BOUNDARY);
 }
 
+void LogDriveQuickAccessResultsPresent(
+    const std::vector<SearchResult*>& results) {
+  DriveQuickAccessResultPresence value =
+      DriveQuickAccessResultPresence::kAbsent;
+  for (size_t i = 0; i < results.size(); ++i) {
+    if (!IsDriveQuickAccess(*results[i]))
+      continue;
+    if (i < AppListConfig::instance().max_search_result_list_items()) {
+      value = DriveQuickAccessResultPresence::kPresentAndShown;
+    } else {
+      value = DriveQuickAccessResultPresence::kPresentAndNotShown;
+    }
+    break;
+  }
+
+  UMA_HISTOGRAM_ENUMERATION(kDriveQuickAccessResultPresence, value);
+}
+
 }  // namespace
 
 SearchResultListView::SearchResultListView(AppListMainView* main_view,
@@ -209,10 +229,23 @@ int SearchResultListView::DoUpdate() {
           results(), SearchResultDisplayType::kList, /*excludes=*/{},
           results_container_->children().size());
 
+  // TODO(crbug.com/1011221): This must be removed before M80 stable, as it is
+  // expensive and may introduce UI jank.
+  if (view_delegate_->GetSearchModel()->search_box()->text().empty()) {
+    // We need to get more items than are displayed here in order to see whether
+    // there are Drive QuickAccess results present in the list but not
+    // displayed. 20 items is the maximum number that can exist for zero state:
+    // 5 recent queries, 5 Driive QuickAccess files, and 10 local files. This is
+    // too expensive to run on stable, as it may introduce UI jank.
+    LogDriveQuickAccessResultsPresent(
+        SearchModel::FilterSearchResultsByDisplayType(
+            results(), SearchResultDisplayType::kList, /*excludes=*/{}, 20));
+  }
+
   const size_t display_size = display_results.size();
   std::vector<const gfx::VectorIcon*> assistant_item_icons(display_size,
                                                            nullptr);
-  if (IsEmbeddedAssistantUiEnabled(view_delegate_))
+  if (IsAssistantSearchEnabled(view_delegate_))
     CalculateDisplayIcons(display_results, &assistant_item_icons);
 
   bool found_zero_state_file = false;
@@ -238,6 +271,13 @@ int SearchResultListView::DoUpdate() {
         // Reset |display_icon_|.
         result_view->SetDisplayIcon(gfx::ImageSkia());
       }
+      if (IsAssistantSearchEnabled(view_delegate_) &&
+          display_results[i]->is_omnibox_search()) {
+        display_results[i]->set_accessible_name(l10n_util::GetStringFUTF16(
+            IDS_ASH_ASSISTANT_QUERY_ACCESSIBILITY_ANNOUNCEMENT,
+            display_results[i]->title()));
+      }
+
       result_view->SetResult(display_results[i]);
       result_view->SetVisible(true);
     } else {
@@ -310,7 +350,8 @@ int SearchResultListView::GetHeightForWidth(int w) const {
 }
 
 void SearchResultListView::SearchResultActivated(SearchResultView* view,
-                                                 int event_flags) {
+                                                 int event_flags,
+                                                 bool by_button_press) {
   if (view_delegate_ && view->result()) {
     RecordSearchResultOpenSource(view->result(), view_delegate_->GetModel(),
                                  view_delegate_->GetSearchModel());
@@ -323,7 +364,8 @@ void SearchResultListView::SearchResultActivated(SearchResultView* view,
     view_delegate_->OpenSearchResult(
         view->result()->id(), event_flags,
         AppListLaunchedFrom::kLaunchedFromSearchBox,
-        AppListLaunchType::kSearchResult, -1 /* suggestion_index */);
+        AppListLaunchType::kSearchResult, -1 /* suggestion_index */,
+        !by_button_press && view->is_default_result() /* launch_as_default */);
   }
 }
 

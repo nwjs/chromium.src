@@ -13,4 +13,31 @@ bool IsSuccess(InstallResultCode code) {
          code == InstallResultCode::kSuccessAlreadyInstalled;
 }
 
+DisplayMode ResolveEffectiveDisplayMode(DisplayMode app_display_mode,
+                                        DisplayMode user_display_mode) {
+  switch (user_display_mode) {
+    case DisplayMode::kBrowser:
+      return DisplayMode::kBrowser;
+    case DisplayMode::kUndefined:
+    case DisplayMode::kMinimalUi:
+    case DisplayMode::kFullscreen:
+      NOTREACHED();
+      FALLTHROUGH;
+    case DisplayMode::kStandalone:
+      break;
+  }
+
+  switch (app_display_mode) {
+    case DisplayMode::kBrowser:
+    case DisplayMode::kMinimalUi:
+      return DisplayMode::kMinimalUi;
+    case DisplayMode::kUndefined:
+      NOTREACHED();
+      FALLTHROUGH;
+    case DisplayMode::kStandalone:
+    case DisplayMode::kFullscreen:
+      return DisplayMode::kStandalone;
+  }
+}
+
 }  // namespace web_app

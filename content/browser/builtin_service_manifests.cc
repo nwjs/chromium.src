@@ -8,10 +8,6 @@
 #include "base/no_destructor.h"
 #include "build/build_config.h"
 #include "content/public/app/content_browser_manifest.h"
-#include "content/public/app/content_gpu_manifest.h"
-#include "content/public/app/content_plugin_manifest.h"
-#include "content/public/app/content_renderer_manifest.h"
-#include "content/public/app/content_utility_manifest.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
@@ -20,12 +16,9 @@
 #include "media/mojo/services/cdm_manifest.h"
 #include "media/mojo/services/media_manifest.h"
 #include "services/audio/public/cpp/manifest.h"
-#include "services/data_decoder/public/cpp/manifest.h"
 #include "services/device/public/cpp/manifest.h"
 #include "services/media_session/public/cpp/manifest.h"
-#include "services/metrics/public/cpp/manifest.h"
 #include "services/service_manager/public/cpp/manifest_builder.h"
-#include "services/tracing/manifest.h"
 
 namespace content {
 
@@ -43,15 +36,6 @@ const std::vector<service_manager::Manifest>& GetBuiltinServiceManifests() {
       std::vector<service_manager::Manifest>{
           GetContentBrowserManifest(),
 
-          // NOTE: Content child processes are of course not running in the
-          // browser process, but the distinction between "in-process" and
-          // "out-of-process" manifests is temporary. For now, this is the right
-          // place for these manifests.
-          GetContentGpuManifest(),
-          GetContentPluginManifest(),
-          GetContentRendererManifest(),
-          GetContentUtilityManifest(),
-
           audio::GetManifest(IsAudioServiceOutOfProcess()
                                  ? service_manager::Manifest::ExecutionMode::
                                        kOutOfProcessBuiltin
@@ -63,11 +47,8 @@ const std::vector<service_manager::Manifest>& GetBuiltinServiceManifests() {
 #endif
           media::GetMediaManifest(),
           media::GetMediaRendererManifest(),
-          data_decoder::GetManifest(),
           device::GetManifest(),
           media_session::GetManifest(),
-          metrics::GetManifest(),
-          tracing::GetManifest(),
       }};
   return *manifests;
 }

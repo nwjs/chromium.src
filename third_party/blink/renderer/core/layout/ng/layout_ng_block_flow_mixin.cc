@@ -11,6 +11,7 @@
 #include "third_party/blink/renderer/core/layout/hit_test_location.h"
 #include "third_party/blink/renderer/core/layout/layout_analyzer.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
+#include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_cursor.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_node_data.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_physical_line_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/layout_box_utils.h"
@@ -205,6 +206,9 @@ bool LayoutNGBlockFlowMixin<
   if (PaintFragment())
     return false;
 
+  if (Base::StyleRef().HasColumnRule())
+    return false;
+
   return Base::PaintedOutputOfObjectHasNoEffectRegardlessOfSize();
 }
 
@@ -274,6 +278,14 @@ void LayoutNGBlockFlowMixin<Base>::SetPaintFragment(
 
 template <typename Base>
 void LayoutNGBlockFlowMixin<Base>::Paint(const PaintInfo& paint_info) const {
+  // Avoid painting dirty objects because descendants maybe already destroyed.
+  if (UNLIKELY(Base::NeedsLayout() &&
+               !Base::LayoutBlockedByDisplayLock(
+                   DisplayLockLifecycleTarget::kChildren))) {
+    NOTREACHED();
+    return;
+  }
+
   if (UNLIKELY(RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled())) {
     if (const NGPhysicalBoxFragment* fragment = CurrentFragment()) {
       if (fragment->HasItems()) {
@@ -283,17 +295,19 @@ void LayoutNGBlockFlowMixin<Base>::Paint(const PaintInfo& paint_info) const {
     }
   }
 
-  if (UNLIKELY(RuntimeEnabledFeatures::LayoutNGFragmentPaintEnabled())) {
+  if (const NGPaintFragment* paint_fragment = PaintFragment()) {
+    NGBoxFragmentPainter(*paint_fragment).Paint(paint_info);
+    return;
+  }
+
+  if (RuntimeEnabledFeatures::LayoutNGFragmentPaintEnabled()) {
     if (const NGPhysicalBoxFragment* fragment = CurrentFragment()) {
-      NGBoxFragmentPainter(*fragment, PaintFragment()).Paint(paint_info);
+      NGBoxFragmentPainter(*fragment).Paint(paint_info);
       return;
     }
   }
 
-  if (const NGPaintFragment* paint_fragment = PaintFragment())
-    NGBoxFragmentPainter(*paint_fragment).Paint(paint_info);
-  else
-    LayoutBlockFlow::Paint(paint_info);
+  Base::Paint(paint_info);
 }
 
 template <typename Base>
@@ -302,29 +316,37 @@ bool LayoutNGBlockFlowMixin<Base>::NodeAtPoint(
     const HitTestLocation& hit_test_location,
     const PhysicalOffset& accumulated_offset,
     HitTestAction action) {
-  const NGPaintFragment* paint_fragment = PaintFragment();
-  if (!paint_fragment) {
-    return LayoutBlockFlow::NodeAtPoint(result, hit_test_location,
-                                        accumulated_offset, action);
+  if (const NGPaintFragment* paint_fragment = PaintFragment()) {
+    if (!this->IsEffectiveRootScroller()) {
+      // Check if we need to do anything at all.
+      // If we have clipping, then we can't have any spillout.
+      PhysicalRect overflow_box = Base::HasOverflowClip()
+                                      ? Base::PhysicalBorderBoxRect()
+                                      : Base::PhysicalVisualOverflowRect();
+      overflow_box.Move(accumulated_offset);
+      if (!hit_test_location.Intersects(overflow_box))
+        return false;
+    }
+    if (Base::IsInSelfHitTestingPhase(action) && Base::HasOverflowClip() &&
+        Base::HitTestOverflowControl(result, hit_test_location,
+                                     accumulated_offset))
+      return true;
+
+    return NGBoxFragmentPainter(*paint_fragment)
+        .NodeAtPoint(result, hit_test_location, accumulated_offset, action);
   }
 
-  if (!this->IsEffectiveRootScroller()) {
-    // Check if we need to do anything at all.
-    // If we have clipping, then we can't have any spillout.
-    PhysicalRect overflow_box = Base::HasOverflowClip()
-                                    ? Base::PhysicalBorderBoxRect()
-                                    : Base::PhysicalVisualOverflowRect();
-    overflow_box.Move(accumulated_offset);
-    if (!hit_test_location.Intersects(overflow_box))
-      return false;
+  if (UNLIKELY(RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled())) {
+    if (const NGPhysicalBoxFragment* fragment = CurrentFragment()) {
+      if (fragment->HasItems()) {
+        return NGBoxFragmentPainter(*fragment).NodeAtPoint(
+            result, hit_test_location, accumulated_offset, action);
+      }
+    }
   }
-  if (Base::IsInSelfHitTestingPhase(action) && Base::HasOverflowClip() &&
-      Base::HitTestOverflowControl(result, hit_test_location,
-                                   accumulated_offset))
-    return true;
 
-  return NGBoxFragmentPainter(*paint_fragment)
-      .NodeAtPoint(result, hit_test_location, accumulated_offset, action);
+  return LayoutBlockFlow::NodeAtPoint(result, hit_test_location,
+                                      accumulated_offset, action);
 }
 
 template <typename Base>
@@ -340,17 +362,25 @@ PositionWithAffinity LayoutNGBlockFlowMixin<Base>::PositionForPoint(
   if (!Base::ChildrenInline())
     return LayoutBlock::PositionForPoint(point);
 
-  if (!PaintFragment())
-    return Base::CreatePositionWithAffinity(0);
+  if (const NGPaintFragment* paint_fragment = PaintFragment()) {
+    // The given offset is relative to this |LayoutBlockFlow|. Convert to the
+    // contents offset.
+    PhysicalOffset point_in_contents = point;
+    Base::OffsetForContents(point_in_contents);
+    if (const PositionWithAffinity position =
+            paint_fragment->PositionForPoint(point_in_contents))
+      return position;
+  } else if (const NGFragmentItems* items = Base::FragmentItems()) {
+    // The given offset is relative to this |LayoutBlockFlow|. Convert to the
+    // contents offset.
+    PhysicalOffset point_in_contents = point;
+    Base::OffsetForContents(point_in_contents);
+    NGInlineCursor cursor(*items);
+    if (const PositionWithAffinity position =
+            cursor.PositionForPoint(point_in_contents))
+      return position;
+  }
 
-  // The given offset is relative to this |LayoutBlockFlow|. Convert to the
-  // contents offset.
-  PhysicalOffset point_in_contents = point;
-  Base::OffsetForContents(point_in_contents);
-  const PositionWithAffinity ng_position =
-      PaintFragment()->PositionForPoint(point_in_contents);
-  if (ng_position.IsNotNull())
-    return ng_position;
   return Base::CreatePositionWithAffinity(0);
 }
 

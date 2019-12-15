@@ -3,7 +3,6 @@
 <translationbundle lang="mr">
 <translation id="1001534784610492198">इन्स्टॉलर संग्रहण भ्रष्ट किंवा चुकीचा आहे. कृपया Google Chrome पुन्हा डाउनलोड करा.</translation>
 <translation id="102763973188675173">Google Chrome कस्टमाइझ करा आणि नियंत्रित करा. अपडेट उपलब्ध आहे.</translation>
-<translation id="1035334672863811645">Chrome मध्ये साइन इन करा</translation>
 <translation id="1051826050538111504">तुमच्या काँप्युटरवर हानिकारक सॉफ्टवेअर आहे. Chrome ते काढून टाकून तुमचा ब्राउझर पुन्हा नीट चालावा यासाठी तुमच्या सेटिंग्ज रिस्टोअर आणि एक्स्टेंशन बंद करू शकते.</translation>
 <translation id="1065672644894730302">तुमची प्राधान्ये वाचता आली नाहीत.
 काही वैशिष्‍ट्ये अनुपलब्ध असू शकतात आणि प्राधान्यांमधील बदल सेव्ह केले जाणार नाहीत.</translation>
@@ -76,7 +75,6 @@
 <translation id="3065168410429928842">Chrome टॅब</translation>
 <translation id="3080151273017101988">जेव्हा Google Chrome बंद असेल तेव्हा पार्श्वभूमीत ॲप्लिकेशन चालणे सुरू ठेवा</translation>
 <translation id="3089968997497233615">Google Chrome ची नवीन, सुरक्षित आवृत्ती उपलब्ध आहे.</translation>
-<translation id="3138848678222082288">Chrome च्या भविष्यातील आवृत्त्या आपोआप इंस्टॉल केल्या जातील. हे डाउनलोड पूर्ण होईल तेव्हा Chrome रीस्टार्ट होईल आणि तुम्ही ते पुन्हा वापरू शकाल.</translation>
 <translation id="3149510190863420837">Chrome Apps</translation>
 <translation id="3282568296779691940">Chrome वर साइन इन करा</translation>
 <translation id="3340978935015468852">सेटिंग्ज</translation>
@@ -97,7 +95,6 @@
 <translation id="3718181793972440140">हे या डिव्‍हाइस मधून 1 आयटम हटवेल. नंतर तुमचा डेटा पुनर्प्राप्त करण्‍यासाठी, Chrome मध्ये <ph name="USER_EMAIL" /> म्हणून साइन इन करा.</translation>
 <translation id="3735758079232443276">तुम्ही Chrome सुरू करता तेव्हा कोणते पेज दर्शविले जाते हे "<ph name="EXTENSION_NAME" />" एक्स्टेंशनने बदलले आहे.</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Chrome मधून काढून टाका...</translation>
 <translation id="386202838227397562">कृपया सर्व Google Chrome विंडो बंद करा आणि पुन्हा प्रयत्न करा.</translation>
 <translation id="3873044882194371212">लिंक Chrome गुप्त विंडोमध्ये उघडा</translation>
 <translation id="3889417619312448367">Google Chrome अनइंस्टॉल करा</translation>
@@ -181,7 +178,6 @@ Google Chrome तुमची सेटिंग्ज पुन्हा मि
 <translation id="677276454032249905">तरीही Chrome बंद करायचे?</translation>
 <translation id="683440813066116847">mDNS रहदारीस अनुमती देण्यासाठी Google Chrome कॅनरी साठी अंतर्गामी नियम.</translation>
 <translation id="6885412569789873916">Chrome बीटा ॲप</translation>
-<translation id="6906909733186691861">Chrome च्या भविष्यातील आवृत्त्या आपोआप इंस्टॉल केल्या जातील.</translation>
 <translation id="6943584222992551122">या व्यक्तीचा ब्राउझिंग डेटा या डिव्हाइसवरून हटवला जाईल. डेटा रीकव्हर करण्यासाठी, Chrome वर <ph name="USER_EMAIL" /> म्हणून साइन इन करा.</translation>
 <translation id="6967962315388095737">Google Chrome बीटाचा mDNS रहदारीस अनुमती देण्यासाठी इनबाउंड नियम.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> ला हे डिव्हाइस वापरण्यापूर्वी तुम्ही खालील सेवा अटी वाचणे आणि स्वीकारणे आवश्यक आहे. या अटी Google Chrome OS अटींना विस्तृत, सुधारित किंवा मर्यादित करत नाहीत.</translation>
@@ -232,7 +228,6 @@ Google Chrome तुमची सेटिंग्ज पुन्हा मि
 <translation id="8521348052903287641">Google Chrome विकासकाने mDNS रहदारीस अनुमती देण्यासाठी इनबाउंड नियम.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Google Chrome ची नवीन आवृत्ती उपलब्ध आहे, आणि ही नेहमीपेक्षा द्रुत आहे. </translation>
-<translation id="8606668294522778825">Google Chrome तुमच्या ब्राउझिंग अनुभवात सुधारणा करण्यासाठी वेब सेवा वापरू शकते. तुमच्याकडे या सेवा बंद करण्याचा पर्याय आहे. <ph name="BEGIN_LINK" />अधिक जाणून घ्या<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome प्रतिसाद देत नाही. त्वरित पुन्हा लाँच करायचा?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome एका मिनिटामध्ये पुन्हा लॉंच होईल}other{Chrome # मिनिटांमध्ये पुन्हा लॉंच होईल}}</translation>
 <translation id="8669527147644353129">Google Chrome मदतनीस</translation>

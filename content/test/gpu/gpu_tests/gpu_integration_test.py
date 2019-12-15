@@ -4,8 +4,8 @@
 
 import logging
 import re
+import sys
 
-from telemetry.core import android_platform
 from telemetry.testing import serially_executed_browser_test_case
 from telemetry.util import screenshot
 from typ import json_results
@@ -164,7 +164,7 @@ class GpuIntegrationTest(
 
   def _RunGpuTest(self, url, test_name, *args):
     expected_results, should_retry_on_failure = (
-        self.GetExpectationsForTest())
+        self.GetExpectationsForTest()[:2])
     try:
       # TODO(nednguyen): For some reason the arguments are getting wrapped
       # in another tuple sometimes (like in the WebGL extension tests).
@@ -199,14 +199,7 @@ class GpuIntegrationTest(
         # stacks could slow down the tests' running time unacceptably.
         # We also don't do this if the browser failed to startup.
         if self.browser is not None:
-          # TODO(https://crbug.com/1008075): Remove this split once stack
-          # symbolization is standardized across all platforms.
-          if isinstance(self.browser.platform,
-              android_platform.AndroidPlatform):
-            _, output = self.browser.GetStackTrace()
-            logging.error(output)
-          else:
-            self.browser.LogSymbolizedUnsymbolizedMinidumps(logging.ERROR)
+          self.browser.CollectDebugData(logging.ERROR)
         # This failure might have been caused by a browser or renderer
         # crash, so restart the browser to make sure any state doesn't
         # propagate to the next test iteration.
@@ -216,6 +209,34 @@ class GpuIntegrationTest(
       if ResultType.Failure in expected_results:
         logging.warning(
           '%s was expected to fail, but passed.\n', test_name)
+
+  def _IsIntel(self, vendor_id):
+    return vendor_id == 0x8086
+
+  def _IsIntelGPUActive(self):
+    gpu = self.browser.GetSystemInfo().gpu
+    # The implementation of GetSystemInfo guarantees that the first entry in the
+    # GPU devices list is the active GPU.
+    return self._IsIntel(gpu.devices[0].vendor_id)
+
+  def _IsDualGPUMacLaptop(self):
+    if sys.platform != 'darwin':
+      return False
+    system_info = self.browser.GetSystemInfo()
+    if not system_info:
+      self.fail("Browser doesn't support GetSystemInfo")
+    gpu = system_info.gpu
+    if not gpu:
+      self.fail('Target machine must have a GPU')
+    if len(gpu.devices) != 2:
+      return False
+    if (self._IsIntel(gpu.devices[0].vendor_id) and not
+        self._IsIntel(gpu.devices[1].vendor_id)):
+      return True
+    if (not self._IsIntel(gpu.devices[0].vendor_id) and
+        self._IsIntel(gpu.devices[1].vendor_id)):
+      return True
+    return False
 
   @classmethod
   def GenerateGpuTests(cls, options):

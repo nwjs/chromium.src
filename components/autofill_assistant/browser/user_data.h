@@ -42,7 +42,7 @@ struct LoginChoice {
   LoginChoice(const std::string& id,
               const std::string& label,
               const std::string& sublabel,
-              const std::string& sublabel_accessibility_hint,
+              const base::Optional<std::string>& sublabel_accessibility_hint,
               int priority,
               const base::Optional<InfoPopupProto>& info_popup);
   LoginChoice(const LoginChoice& another);
@@ -55,17 +55,44 @@ struct LoginChoice {
   // The sublabel to display to the user.
   std::string sublabel;
   // The a11y hint for |sublabel|.
-  std::string sublabel_accessibility_hint;
+  base::Optional<std::string> sublabel_accessibility_hint;
   // The priority to pre-select this choice (-1 == not set/automatic).
   int preselect_priority = -1;
   // The popup to show to provide more information about this login choice.
   base::Optional<InfoPopupProto> info_popup;
 };
 
+// Tuple for holding credit card and billing address;
+struct PaymentInstrument {
+  PaymentInstrument();
+  PaymentInstrument(std::unique_ptr<autofill::CreditCard> card,
+                    std::unique_ptr<autofill::AutofillProfile> billing_address);
+  ~PaymentInstrument();
+
+  std::unique_ptr<autofill::CreditCard> card;
+  std::unique_ptr<autofill::AutofillProfile> billing_address;
+};
+
 // Struct for holding the user data.
 struct UserData {
   UserData();
   ~UserData();
+
+  enum class FieldChange {
+    NONE,
+    ALL,
+    CONTACT_PROFILE,
+    CARD,
+    SHIPPING_ADDRESS,
+    BILLING_ADDRESS,
+    LOGIN_CHOICE,
+    TERMS_AND_CONDITIONS,
+    DATE_TIME_RANGE_START,
+    DATE_TIME_RANGE_END,
+    ADDITIONAL_VALUES,
+    AVAILABLE_PROFILES,
+    AVAILABLE_PAYMENT_INSTRUMENTS,
+  };
 
   bool succeed = false;
   std::unique_ptr<autofill::AutofillProfile> contact_profile;
@@ -79,6 +106,9 @@ struct UserData {
 
   // A set of additional key/value pairs to be stored in client_memory.
   std::map<std::string, std::string> additional_values_to_store;
+
+  std::vector<std::unique_ptr<autofill::AutofillProfile>> available_profiles;
+  std::vector<std::unique_ptr<PaymentInstrument>> available_payment_instruments;
 };
 
 // Struct for holding the payment request options.
@@ -113,8 +143,9 @@ struct CollectUserDataOptions {
   DateTimeRangeProto date_time_range;
   std::vector<UserFormSectionProto> additional_prepended_sections;
   std::vector<UserFormSectionProto> additional_appended_sections;
+  base::Optional<GenericUserInterfaceProto> generic_user_interface;
 
-  base::OnceCallback<void(std::unique_ptr<UserData>)> confirm_callback;
+  base::OnceCallback<void(UserData*)> confirm_callback;
   base::OnceCallback<void(int)> additional_actions_callback;
   base::OnceCallback<void(int)> terms_link_callback;
 };

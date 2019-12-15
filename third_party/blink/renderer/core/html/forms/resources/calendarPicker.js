@@ -121,19 +121,14 @@ function formatJapaneseImperialEra(year, month) {
   if (year <= 1867 || year == 1868 && month <= 9)
     return '';
   if (!japaneseEraFormatter) {
-    japaneseEraFormatter =
-        new Intl.DateTimeFormat('ja-JP-u-ca-japanese', {era: 'long'});
+    japaneseEraFormatter = new Intl.DateTimeFormat(
+        'ja-JP-u-ca-japanese', {era: 'long', year: 'numeric'});
   }
   // Produce the era for day 16 because it's almost the midpoint of a month.
   // 275760-09-13 is the last valid date in ECMAScript. We apply day 7 in that
   // case because it's the midpoint between 09-01 and 09-13.
   let sampleDay = year == 275760 && month == 8 ? 7 : 16;
-  let sampleDayString =
-      japaneseEraFormatter.format(new Date(year, month, sampleDay));
-  let nenIndex = sampleDayString.indexOf('\u5e74');
-  if (nenIndex == -1)
-    return '';
-  let yearPart = sampleDayString.substring(0, nenIndex + 1);
+  let yearPart = japaneseEraFormatter.format(new Date(year, month, sampleDay));
 
   // We don't show an imperial era if it is greater than 99 because of space
   // limitation.
@@ -881,6 +876,8 @@ function openCalendarPicker() {
       return initializeMonthPicker(global.params);
     } else if (global.params.mode == 'time') {
       return initializeTimePicker(global.params);
+    } else if (global.params.mode == 'datetime-local') {
+      return initializeDateTimeLocalPicker(global.params);
     }
   }
 
@@ -2505,10 +2502,11 @@ YearListView.prototype.onClick = function(event) {
   ListView.prototype.onClick.call(this, event);
   var year = this.selectedRow + 1;
   if (this.selectedRow !== oldSelectedRow) {
-    var month = this.highlightedMonth ? this.highlightedMonth.month : 0;
+    // Always start with first month when changing the year.
+    const month = new Month(year, 0);
+    this.highlightMonth(month);
     this.dispatchEvent(
-        YearListView.EventTypeYearListViewDidSelectMonth, this,
-        new Month(year, month));
+        YearListView.EventTypeYearListViewDidSelectMonth, this, month);
     this.scrollView.scrollTo(this.selectedRow * YearListCell.GetHeight(), true);
   } else {
     var monthButton = enclosingNodeOrSelfWithClass(
@@ -4331,6 +4329,10 @@ CalendarPicker.prototype.setSelection = function(dayOrWeekOrMonth) {
   this.calendarTableView.setNeedsUpdateCells(true);
 };
 
+CalendarPicker.prototype.getSelectedValue = function() {
+  return this._selection.toString();
+};
+
 /**
  * Select the specified date, commit it, and close the popup.
  * @param {?DateType} dayOrWeekOrMonth
@@ -4340,6 +4342,12 @@ CalendarPicker.prototype.setSelectionAndCommit = function(dayOrWeekOrMonth) {
   // Redraw the widget immidiately, and wait for some time to give feedback to
   // a user.
   this.element.offsetLeft;
+
+  // CalendarPicker doesn't handle the submission when used for datetime-local.
+  if (global.params.isFormControlsRefreshEnabled &&
+      this.type == 'datetime-local')
+    return;
+
   var value = this._selection.toString();
   if (CalendarPicker.commitDelayMs == 0) {
     // For testing.
@@ -4451,14 +4459,16 @@ CalendarPicker.prototype.onCalendarTableKeyDown = function(event) {
     if (global.params.isLocaleRTL ? key == 'ArrowRight' : key == 'ArrowLeft') {
       eventHandled = this._moveHighlight(this._highlight.previous());
     } else if (key == 'ArrowUp') {
-      eventHandled = this._moveHighlight(
-          this._highlight.previous(this.type === 'date' ? DaysPerWeek : 1));
+      eventHandled = this._moveHighlight(this._highlight.previous(
+          this.type === 'date' || this.type === 'datetime-local' ? DaysPerWeek :
+                                                                   1));
     } else if (
         global.params.isLocaleRTL ? key == 'ArrowLeft' : key == 'ArrowRight') {
       eventHandled = this._moveHighlight(this._highlight.next());
     } else if (key == 'ArrowDown') {
-      eventHandled = this._moveHighlight(
-          this._highlight.next(this.type === 'date' ? DaysPerWeek : 1));
+      eventHandled = this._moveHighlight(this._highlight.next(
+          this.type === 'date' || this.type === 'datetime-local' ? DaysPerWeek :
+                                                                   1));
     } else if (key == 'Enter') {
       this.setSelectionAndCommit(this._highlight);
     }

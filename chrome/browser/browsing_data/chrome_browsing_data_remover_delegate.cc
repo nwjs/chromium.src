@@ -16,6 +16,7 @@
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/callback_helpers.h"
+#include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/task/post_task.h"
@@ -52,6 +53,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
+#include "chrome/browser/permissions/adaptive_quiet_notification_permission_ui_enabler.h"
 #include "chrome/browser/permissions/permission_decision_auto_blocker.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
@@ -90,6 +92,7 @@
 #include "components/omnibox/browser/omnibox_pref_names.h"
 #include "components/open_from_clipboard/clipboard_recent_content.h"
 #include "components/password_manager/core/browser/password_store.h"
+#include "components/password_manager/core/common/password_manager_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/previews/content/previews_ui_service.h"
 #include "components/search_engines/template_url_service.h"
@@ -662,7 +665,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     base::RecordAction(UserMetricsAction("ClearBrowsingData_Cookies"));
 
     host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
-        CONTENT_SETTINGS_TYPE_CLIENT_HINTS, base::Time(), base::Time::Max(),
+        ContentSettingsType::CLIENT_HINTS, base::Time(), base::Time::Max(),
         website_settings_filter);
 
     // Clear the safebrowsing cookies only if time period is for "all time".  It
@@ -713,7 +716,11 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     }
 
     host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
-        CONTENT_SETTINGS_TYPE_USB_CHOOSER_DATA, delete_begin_, delete_end_,
+        ContentSettingsType::USB_CHOOSER_DATA, delete_begin_, delete_end_,
+        HostContentSettingsMap::PatternSourcePredicate());
+
+    host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
+        ContentSettingsType::BLUETOOTH_CHOOSER_DATA, delete_begin_, delete_end_,
         HostContentSettingsMap::PatternSourcePredicate());
 
     auto* handler_registry =
@@ -730,11 +737,11 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     zoom_map->ClearZoomLevels(delete_begin_, delete_end_);
 
     host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
-        CONTENT_SETTINGS_TYPE_SERIAL_CHOOSER_DATA, delete_begin_, delete_end_,
+        ContentSettingsType::SERIAL_CHOOSER_DATA, delete_begin_, delete_end_,
         HostContentSettingsMap::PatternSourcePredicate());
 
     host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
-        CONTENT_SETTINGS_TYPE_HID_CHOOSER_DATA, delete_begin_, delete_end_,
+        ContentSettingsType::HID_CHOOSER_DATA, delete_begin_, delete_end_,
         HostContentSettingsMap::PatternSourcePredicate());
 #else
     // Reset the Default Search Engine permissions to their default.
@@ -765,7 +772,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
   // DATA_TYPE_DURABLE_PERMISSION
   if (remove_mask & DATA_TYPE_DURABLE_PERMISSION) {
     host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
-        CONTENT_SETTINGS_TYPE_DURABLE_STORAGE, base::Time(), base::Time::Max(),
+        ContentSettingsType::DURABLE_STORAGE, base::Time(), base::Time::Max(),
         website_settings_filter);
   }
 
@@ -775,24 +782,32 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     base::RecordAction(UserMetricsAction("ClearBrowsingData_SiteUsageData"));
 
     host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
-        CONTENT_SETTINGS_TYPE_SITE_ENGAGEMENT, base::Time(), base::Time::Max(),
+        ContentSettingsType::SITE_ENGAGEMENT, base::Time(), base::Time::Max(),
         website_settings_filter);
 
     if (MediaEngagementService::IsEnabled()) {
       MediaEngagementService::Get(profile_)->ClearDataBetweenTime(delete_begin_,
                                                                   delete_end_);
     }
+
+    auto* permission_ui_enabler =
+        AdaptiveQuietNotificationPermissionUiEnabler::GetForProfile(profile_);
+    permission_ui_enabler->ClearInteractionHistory(delete_begin_, delete_end_);
   }
 
   if ((remove_mask & DATA_TYPE_SITE_USAGE_DATA) ||
       (remove_mask & DATA_TYPE_HISTORY)) {
     host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
-        CONTENT_SETTINGS_TYPE_APP_BANNER, base::Time(), base::Time::Max(),
+        ContentSettingsType::APP_BANNER, base::Time(), base::Time::Max(),
         website_settings_filter);
 
 #if !defined(OS_ANDROID)
     host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
-        CONTENT_SETTINGS_TYPE_INTENT_PICKER_DISPLAY, delete_begin_, delete_end_,
+        ContentSettingsType::INSTALLED_WEB_APP_METADATA, delete_begin_,
+        delete_end_, website_settings_filter);
+
+    host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
+        ContentSettingsType::INTENT_PICKER_DISPLAY, delete_begin_, delete_end_,
         website_settings_filter);
 #endif
 
@@ -801,7 +816,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
 
 #if BUILDFLAG(ENABLE_PLUGINS)
     host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
-        CONTENT_SETTINGS_TYPE_PLUGINS_DATA, base::Time(), base::Time::Max(),
+        ContentSettingsType::PLUGINS_DATA, base::Time(), base::Time::Max(),
         website_settings_filter);
 #endif
   }
@@ -858,9 +873,16 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
           nullable_filter, delete_begin_, delete_end_,
           base::AdaptCallbackForRepeating(CreateTaskCompletionClosure(
               TracingDataType::kPasswordsStatistics)));
-      password_store->RemoveLeakedCredentialsByUrlAndTime(
-          nullable_filter, delete_begin_, delete_end_,
-          CreateTaskCompletionClosure(TracingDataType::kLeakedCredentials));
+      if (base::FeatureList::IsEnabled(
+              password_manager::features::kLeakHistory)) {
+        password_store->RemoveCompromisedCredentialsByUrlAndTime(
+            nullable_filter, delete_begin_, delete_end_,
+            CreateTaskCompletionClosure(
+                TracingDataType::kCompromisedCredentials));
+      }
+      password_store->RemoveFieldInfoByTime(
+          delete_begin_, delete_end_,
+          CreateTaskCompletionClosure(TracingDataType::kFieldInfo));
     }
   }
 
@@ -902,13 +924,23 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
   //////////////////////////////////////////////////////////////////////////////
   // DATA_TYPE_CACHE
   if (remove_mask & content::BrowsingDataRemover::DATA_TYPE_CACHE) {
-    // Tell the renderers to clear their cache.
+    // Tell the renderers associated with |profile_| to clear their cache.
     // TODO(crbug.com/668114): Renderer cache is a platform concept, and should
     // live in BrowsingDataRemoverImpl. However, WebCacheManager itself is
     // a component with dependency on content/browser. Untangle these
     // dependencies or reimplement the relevant part of WebCacheManager
     // in content/browser.
-    web_cache::WebCacheManager::GetInstance()->ClearCache();
+    // TODO(crbug.com/1022757): add a test for this.
+    for (content::RenderProcessHost::iterator iter =
+             content::RenderProcessHost::AllHostsIterator();
+         !iter.IsAtEnd(); iter.Advance()) {
+      content::RenderProcessHost* render_process_host = iter.GetCurrentValue();
+      if (render_process_host->GetBrowserContext() == profile_ &&
+          render_process_host->IsInitializedAndNotDead()) {
+        web_cache::WebCacheManager::GetInstance()->ClearCacheForProcess(
+            render_process_host->GetID());
+      }
+    }
 
 #if BUILDFLAG(ENABLE_NACL)
     base::PostTask(

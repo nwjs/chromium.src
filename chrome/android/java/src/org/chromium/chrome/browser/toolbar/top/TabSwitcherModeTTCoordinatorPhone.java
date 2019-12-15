@@ -12,12 +12,13 @@ import android.view.ViewStub;
 import androidx.annotation.Nullable;
 
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.appmenu.AppMenuButtonHelper;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.IncognitoStateProvider;
 import org.chromium.chrome.browser.toolbar.TabCountProvider;
-import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.browser.toolbar.ToolbarManager;
+import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
 
 /**
@@ -38,6 +39,7 @@ class TabSwitcherModeTTCoordinatorPhone implements TemplateUrlServiceObserver {
     private TabModelSelector mTabModelSelector;
     private IncognitoStateProvider mIncognitoStateProvider;
     private boolean mAccessibilityEnabled;
+    private boolean mIsBottomToolbarVisible;
 
     private TabSwitcherModeTTPhone mTabSwitcherModeToolbar;
 
@@ -172,7 +174,7 @@ class TabSwitcherModeTTCoordinatorPhone implements TemplateUrlServiceObserver {
         final float targetAlpha = shouldShowTabSwitcherToolbar ? 1.0f : 0.0f;
         mTabSwitcherModeToolbar.animate()
                 .alpha(targetAlpha)
-                .setDuration(TopToolbarCoordinator.TAB_SWITCHER_MODE_NORMAL_ANIMATION_DURATION_MS)
+                .setDuration(ToolbarManager.TAB_SWITCHER_MODE_NORMAL_ANIMATION_DURATION_MS)
                 .setListener(new AnimatorListenerAdapter() {
                     @Override
                     public void onAnimationStart(Animator animation) {
@@ -188,6 +190,19 @@ class TabSwitcherModeTTCoordinatorPhone implements TemplateUrlServiceObserver {
                         }
                     }
                 });
+    }
+
+    /**
+     * @param isVisible Whether the bottom toolbar is visible.
+     */
+    void onBottomToolbarVisibilityChanged(boolean isVisible) {
+        if (mIsBottomToolbarVisible == isVisible) {
+            return;
+        }
+        mIsBottomToolbarVisible = isVisible;
+        if (mTabSwitcherModeToolbar != null) {
+            mTabSwitcherModeToolbar.onBottomToolbarVisibilityChanged(isVisible);
+        }
     }
 
     private void initializeTabSwitcherToolbar() {
@@ -224,5 +239,6 @@ class TabSwitcherModeTTCoordinatorPhone implements TemplateUrlServiceObserver {
         if (mAccessibilityEnabled) {
             mTabSwitcherModeToolbar.onAccessibilityStatusChanged(mAccessibilityEnabled);
         }
+        mTabSwitcherModeToolbar.onBottomToolbarVisibilityChanged(mIsBottomToolbarVisible);
     }
 }

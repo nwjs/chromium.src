@@ -63,6 +63,18 @@ PasswordProtectionService::PasswordProtectionService(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   if (history_service)
     history_service_observer_.Add(history_service);
+
+  common_spoofed_domains_ = {
+      "login.live.com"
+      "facebook.com",
+      "box.com",
+      "paypal.com",
+      "apple.com",
+      "yahoo.com",
+      "adobe.com",
+      "amazon.com",
+      "linkedin.com",
+      "att.com"};
 }
 
 PasswordProtectionService::~PasswordProtectionService() {
@@ -292,6 +304,7 @@ void PasswordProtectionService::RequestFinished(
                                response->verdict_type())) {
       username_for_last_shown_warning_ = request->username();
       reused_password_account_type_for_last_shown_warning_ = password_type;
+      saved_passwords_matching_domains_ = request->matching_domains();
       ShowModalWarning(request->web_contents(), request->request_outcome(),
                        response->verdict_type(), response->verdict_token(),
                        password_type);
@@ -302,19 +315,29 @@ void PasswordProtectionService::RequestFinished(
 
   request->HandleDeferredNavigations();
 
-#if defined(SYNC_PASSWORD_REUSE_WARNING_ENABLED)
   // If the request is canceled, the PasswordProtectionService is already
   // partially destroyed, and we won't be able to log accurate metrics.
   if (outcome != RequestOutcome::CANCELED) {
     auto verdict =
         response ? response->verdict_type()
                  : LoginReputationClientResponse::VERDICT_TYPE_UNSPECIFIED;
-    auto is_phishing_url = verdict == LoginReputationClientResponse::PHISHING;
-    MaybeReportPasswordReuseDetected(request->web_contents(),
-                                     request->username(),
-                                     request->password_type(), is_phishing_url);
-  }
+
+#if defined(SYNC_PASSWORD_REUSE_WARNING_ENABLED)
+    MaybeReportPasswordReuseDetected(
+        request->web_contents(), request->username(), request->password_type(),
+        verdict == LoginReputationClientResponse::PHISHING);
 #endif
+
+    // Persist a bit in CompromisedCredentials table when saved password is
+    // reused on a phishing or low reputation site.
+    auto is_unsafe_url =
+        verdict == LoginReputationClientResponse::PHISHING ||
+        verdict == LoginReputationClientResponse::LOW_REPUTATION;
+    if (is_unsafe_url) {
+      PersistPhishedSavedPasswordCredential(request->username(),
+                                            request->matching_domains());
+    }
+  }
 
   // Remove request from |pending_requests_| list. If it triggers warning, add
   // it into the !warning_reqeusts_| list.

@@ -123,8 +123,6 @@
 
 namespace blink {
 
-using namespace html_names;
-
 bool IsBackForwardLoadType(WebFrameLoadType type) {
   return type == WebFrameLoadType::kBackForward;
 }
@@ -207,6 +205,10 @@ void FrameLoader::Init() {
 
   auto navigation_params = std::make_unique<WebNavigationParams>();
   navigation_params->url = KURL(g_empty_string);
+  navigation_params->frame_policy =
+      frame_->Owner() ? base::make_optional(frame_->Owner()->GetFramePolicy())
+                      : base::nullopt;
+
   provisional_document_loader_ = Client()->CreateDocumentLoader(
       frame_, kWebNavigationTypeOther, std::move(navigation_params),
       nullptr /* extra_data */);
@@ -228,7 +230,7 @@ void FrameLoader::Init() {
     frame_->SetLifecycleState(mojom::FrameLifecycleState::kPaused);
 
   if (HTMLFrameOwnerElement* ownerElement = frame_->DeprecatedLocalOwner()) {
-    setUserAgentOverride(ownerElement->FastGetAttribute(kNwuseragentAttr));
+    setUserAgentOverride(ownerElement->FastGetAttribute(html_names::kNwuseragentAttr));
   }
   TakeObjectSnapshot();
 }
@@ -677,8 +679,15 @@ void FrameLoader::StartNavigation(const FrameLoadRequest& passed_request,
   WebNavigationType navigation_type = DetermineNavigationType(
       frame_load_type, resource_request.HttpBody() || request.Form(),
       request.GetTriggeringEventInfo() != TriggeringEventInfo::kNotFromEvent);
-  resource_request.SetRequestContext(
-      DetermineRequestContextFromNavigationType(navigation_type));
+  mojom::RequestContextType request_context_type =
+      DetermineRequestContextFromNavigationType(navigation_type);
+
+  // TODO(lyf): handle `frame` context type. https://crbug.com/1019716
+  if (mojom::RequestContextType::LOCATION == request_context_type &&
+      !frame_->IsMainFrame()) {
+    request_context_type = mojom::RequestContextType::IFRAME;
+  }
+  resource_request.SetRequestContext(request_context_type);
   request.SetFrameType(frame_->IsMainFrame()
                            ? network::mojom::RequestContextFrameType::kTopLevel
                            : network::mojom::RequestContextFrameType::kNested);
@@ -748,8 +757,11 @@ void FrameLoader::StartNavigation(const FrameLoadRequest& passed_request,
   }
 
   if (url.ProtocolIsJavaScript()) {
-    frame_->GetDocument()->ProcessJavaScriptUrl(
-        url, request.ShouldCheckMainWorldContentSecurityPolicy());
+    if (!origin_document ||
+        origin_document->CanExecuteScripts(kAboutToExecuteScript)) {
+      frame_->GetDocument()->ProcessJavaScriptUrl(
+          url, request.ShouldCheckMainWorldContentSecurityPolicy());
+    }
     return;
   }
 
@@ -1145,6 +1157,10 @@ void FrameLoader::CommitDocumentLoader(
     }
     // TODO(dgozman): make DidCreateScriptContext notification call currently
     // triggered by installing new document happen here, after commit.
+  }
+  if (document_loader_->LoadType() == WebFrameLoadType::kBackForward) {
+    if (Page* page = frame_->GetPage())
+      page->HistoryNavigationVirtualTimePauser().UnpauseVirtualTime();
   }
 
   // Load the document if needed.
@@ -1614,9 +1630,9 @@ void FrameLoader::ModifyRequestForCSP(
                                         "1");
   }
 
-  MixedContentChecker::UpgradeInsecureRequest(resource_request,
-                                              fetch_client_settings_object,
-                                              document_for_logging, frame_type);
+  MixedContentChecker::UpgradeInsecureRequest(
+      resource_request, fetch_client_settings_object, document_for_logging,
+      frame_type, frame_->GetContentSettingsClient());
 }
 
 void FrameLoader::ReportLegacyTLSVersion(const KURL& url,

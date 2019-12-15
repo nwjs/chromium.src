@@ -48,11 +48,13 @@ EVENT_TYPE(REQUEST_ALIVE)
 //
 //   {
 //     "host": <Hostname associated with the request>,
-//     "address_family": <The address family to restrict results to>,
+//     "dns_query_type": <The type of the DNS query>,
 //     "allow_cached_response": <Whether it is ok to return a result from
 //                               the host cache>,
 //     "is_speculative": <Whether this request was started by the DNS
 //                        prefetcher>
+//     "network_isolation_key": <NetworkIsolationKey associated with the
+//                               request>
 //   }
 //
 // If an error occurred, the END phase will contain these parameters:
@@ -822,6 +824,7 @@ EVENT_TYPE(SOCKET_POOL_CONNECTING_N_SOCKETS)
 //      "method": <The method ("POST" or "GET" or "HEAD" etc..)>,
 //      "load_flags": <Numeric value of the combined load flags>,
 //      "privacy_mode": <True if privacy mode is enabled for the request>
+//      "network_isolation_key": <NIK associated with the request>
 //      "priority": <Numeric priority of the request>,
 //      "traffic_annotation": <int32 for the request's TrafficAnnotationTag>,
 //      "upload_id" <String of upload body identifier, if present>,
@@ -2095,6 +2098,74 @@ EVENT_TYPE(QUIC_SESSION_MAX_STREAMS_FRAME_SENT)
 //  }
 EVENT_TYPE(QUIC_SESSION_MAX_STREAMS_FRAME_RECEIVED)
 
+// Session sent a PADDING frame.
+//  {
+//    "num_padding_bytes": <The number of padding bytes>
+//  }
+EVENT_TYPE(QUIC_SESSION_PADDING_FRAME_SENT)
+
+// Session received a PADDING frame.
+//  {
+//    "num_padding_bytes": <The number of padding bytes>
+//  }
+EVENT_TYPE(QUIC_SESSION_PADDING_FRAME_RECEIVED)
+
+// Session sent a NEW_CONNECITON_ID frame.
+//  {
+//    "connection_id": <The new connection id>
+//    "sequencer_number": <Connection id sequence number that specifies the
+//    order that connection ids must be used in.>
+//    "retire_prior_to": <retire prior to>
+//  }
+EVENT_TYPE(QUIC_SESSION_NEW_CONNECTION_ID_FRAME_SENT)
+
+// Session received a NEW_CONNECITON_ID frame.
+//  {
+//    "connection_id": <The new connection id>
+//    "sequence_number": <Connection id sequence number that specifies the
+//    order that connection ids must be used in.>
+//    "retire_prior_to": <retire prior to>
+//  }
+EVENT_TYPE(QUIC_SESSION_NEW_CONNECTION_ID_FRAME_RECEIVED)
+
+// Session sent a NEW_TOKEN frame.
+//  {
+//    "token": <String representation of the token>
+//  }
+EVENT_TYPE(QUIC_SESSION_NEW_TOKEN_FRAME_SENT)
+
+// Session received a NEW_TOKEN frame.
+//  {
+//    "token": <String representation of the token>
+//  }
+EVENT_TYPE(QUIC_SESSION_NEW_TOKEN_FRAME_RECEIVED)
+
+// Session sent a RETIRE_CONNECTION_ID frame.
+//  {
+//    "sequence_number": <Connection id sequence number that specifies the
+//    order that connection ids must be used in.>
+//  }
+EVENT_TYPE(QUIC_SESSION_RETIRE_CONNECTION_ID_FRAME_SENT)
+
+// Session received a RETIRE_CONNECTION_ID frame.
+//  {
+//    "sequence_number": <Connection id sequence number that specifies the
+//    order that connection ids must be used in.>
+//  }
+EVENT_TYPE(QUIC_SESSION_RETIRE_CONNECTION_ID_FRAME_RECEIVED)
+
+// Session sent a MESSAGE frame.
+//  {
+//    "message_length": <the length of the message>
+//  }
+EVENT_TYPE(QUIC_SESSION_MESSAGE_FRAME_SENT)
+
+// Session received a MESSAGE frame.
+//  {
+//    "message_length": <the length of the message>
+//  }
+EVENT_TYPE(QUIC_SESSION_MESSAGE_FRAME_RECEIVED)
+
 // ------------------------------------------------------------------------
 // QuicHttpStream
 // ------------------------------------------------------------------------
@@ -2739,7 +2810,11 @@ EVENT_TYPE(CERT_VERIFIER_REQUEST)
 //   "certificates": <A list of PEM encoded certificates, the first one
 //                    being the certificate to verify and the remaining
 //                    being intermediate certificates to assist path
-//                    building. Only present when byte logging is enabled.>
+//                    building.>
+//   "ocsp_response": <Optionally, a PEM encoded stapled OCSP response.>
+//   "sct_list": <Optionally, a PEM encoded SignedCertificateTimestampList.>
+//   "host": <The hostname verification is being performed for.>
+//   "verifier_flags": <The CertVerifier::VerifyFlags.>
 // }
 //
 // The END phase event parameters are:

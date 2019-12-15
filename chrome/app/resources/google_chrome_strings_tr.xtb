@@ -3,7 +3,6 @@
 <translationbundle lang="tr">
 <translation id="1001534784610492198">Yükleyici arşivi bozuk veya geçersiz. Lütfen Google Chrome'u yeniden indirin.</translation>
 <translation id="102763973188675173">Google Chrome'u özelleştirin ve kontrol edin. Güncelleme mevcut.</translation>
-<translation id="1035334672863811645">Chrome'da oturum açın</translation>
 <translation id="1051826050538111504">Bilgisayarınızda zararlı yazılım var. Chrome, tarayıcınızın tekrar normal şekilde çalışmasını sağlamak için bunu kaldırabilir, ayarlarınızı geri yükleyebilir ve uzantıları devre dışı bırakabilir.</translation>
 <translation id="1065672644894730302">Tercihleriniz okunamıyor. Bazı özellikler kullanılamayabilir. Tercihlerde yapılan değişiklikler kaydedilmeyecektir.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> önceden Chrome kullanıyordu</translation>
@@ -73,7 +72,6 @@
 <translation id="3065168410429928842">Chrome Sekmesi</translation>
 <translation id="3080151273017101988">Google Chrome kapandığında arka plan uygulamaları çalıştırmaya devam et</translation>
 <translation id="3089968997497233615">Google Chrome'un kullanabileceğiniz yeni, daha güvenli bir sürümü var.</translation>
-<translation id="3138848678222082288">Chrome'un gelecek sürümleri otomatik olarak yüklenecektir. Bu indirme işlemi tamamlandığında Chrome yeniden başlatılacak ve çalışmalarınıza devam edebileceksiniz.</translation>
 <translation id="3149510190863420837">Chrome Uygulamaları</translation>
 <translation id="3282568296779691940">Chrome'da oturum aç</translation>
 <translation id="3340978935015468852">ayarlar</translation>
@@ -94,7 +92,6 @@
 <translation id="3718181793972440140">Bu işlem, 1 öğeyi bu cihazdan silecektir. Verilerinizi daha sonra geri almak için Chrome'da <ph name="USER_EMAIL" /> hesabıyla oturum açın.</translation>
 <translation id="3735758079232443276">"<ph name="EXTENSION_NAME" />" uzantısı, Chrome'u başlattığınızda gösterilen sayfayı değiştirdi.</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Chrome'dan Kaldır...</translation>
 <translation id="386202838227397562">Lütfen tüm Google Chrome pencerelerini kapatıp tekrar deneyin.</translation>
 <translation id="3873044882194371212">Bağlantıyı Chrome &amp;gizli penceresinde aç</translation>
 <translation id="3889417619312448367">Google Chrome'u Kaldır</translation>
@@ -177,7 +174,6 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="677276454032249905">Yine de Chrome'dan çıkılsın mı?</translation>
 <translation id="683440813066116847">Google Chrome Canary'nin mDNS trafiğine izin vermeyi sağlayan gelen trafik kuralı.</translation>
 <translation id="6885412569789873916">Chrome Beta Uygulamaları</translation>
-<translation id="6906909733186691861">Chrome'un gelecek sürümleri otomatik olarak yüklenecektir.</translation>
 <translation id="6943584222992551122">Bu kullanıcının göz atma verileri bu cihazdan silinecektir. Verileri kurtarmak için Chrome'da <ph name="USER_EMAIL" /> olarak oturum açın.</translation>
 <translation id="6967962315388095737">Google Chrome Beta'nın mDNS trafiğine izin vermeyi sağlayan gelen trafik kuralı.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" />, bu cihazı kullanmadan önce aşağıdaki Hizmet Şartları'nı okuyup kabul etmenizi gerektirmektedir. Bu şartlar, Google Chromium OS Şartları'nın kapsamını genişletmez, değiştirmez veya sınırlamaz.</translation>
@@ -228,7 +224,6 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="8521348052903287641">Google Chrome Dev'in mDNS trafiğine izin vermeyi sağlayan gelen trafik kuralı.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Kullanabileceğiniz yeni bir Google Chrome sürümü var ve bu sürüm, her zamankinden daha hızlı.</translation>
-<translation id="8606668294522778825">Google Chrome, göz atma deneyiminizi iyileştirmek için web hizmetleri kullanabilir. İsterseniz, bu hizmetleri devre dışı bırakabilirsiniz. <ph name="BEGIN_LINK" />Daha fazla bilgi edinin<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome yanıt vermiyor. Yeniden başlatılsın mı?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome 1 dakika içinde yeniden başlatılacak}other{Chrome # dakika içinde yeniden başlatılacak}}</translation>
 <translation id="8669527147644353129">Google Chrome Helper</translation>

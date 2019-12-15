@@ -10,6 +10,7 @@
 #include <string>
 
 #include "ash/app_list/app_list_metrics.h"
+#include "ash/app_list/app_list_util.h"
 #include "ash/app_list/model/app_list_folder_item.h"
 #include "ash/app_list/model/app_list_item.h"
 #include "ash/app_list/model/app_list_model.h"
@@ -149,7 +150,8 @@ class DragAfterPageFlipTask : public ash::PaginationModelObserver {
 
  private:
   // PaginationModelObserver overrides:
-  void TotalPagesChanged() override {}
+  void TotalPagesChanged(int previous_page_count, int new_page_count) override {
+  }
   void SelectedPageChanged(int old_selected, int new_selected) override {
     view_->UpdateDragFromItem(AppsGridView::MOUSE, drag_event_);
   }
@@ -199,7 +201,10 @@ class AppsGridViewTest : public views::ViewsTestBase,
     parent->SetBounds(gfx::Rect(gfx::Point(0, 0), gfx::Size(1024, 768)));
     delegate_ = std::make_unique<AppListTestViewDelegate>();
     app_list_view_ = new AppListView(delegate_.get());
-    app_list_view_->InitView(create_as_tablet_mode_, parent);
+    app_list_view_->InitView(
+        create_as_tablet_mode_, parent,
+        base::BindRepeating(&UpdateActivationForAppListView, app_list_view_,
+                            create_as_tablet_mode_));
     app_list_view_->Show(false /*is_side_shelf*/, create_as_tablet_mode_);
     contents_view_ = app_list_view_->app_list_main_view()->contents_view();
     apps_grid_view_ = contents_view_->GetAppsContainerView()->apps_grid_view();
@@ -362,7 +367,7 @@ class AppsGridViewTest : public views::ViewsTestBase,
   DISALLOW_COPY_AND_ASSIGN(AppsGridViewTest);
 };
 
-INSTANTIATE_TEST_SUITE_P(, AppsGridViewTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All, AppsGridViewTest, testing::Bool());
 
 class TestAppsGridViewFolderDelegate : public AppsGridViewFolderDelegate {
  public:
@@ -1853,7 +1858,7 @@ TEST_P(AppsGridViewTabletTest, Basic) {
       1);
 }
 
-INSTANTIATE_TEST_SUITE_P(, AppsGridViewTabletTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All, AppsGridViewTabletTest, testing::Bool());
 
 // Test various dragging behaviors only allowed when apps grid gap (part of
 // home launcher feature) is enabled.
@@ -2175,6 +2180,63 @@ TEST_P(AppsGridGapTest, MoveItemToPreviousFullPage) {
       model_content.append(",PageBreakItem");
   }
   EXPECT_EQ(model_content, model_->GetModelContent());
+}
+
+TEST_F(AppsGridViewTest, CreateANewPageWithKeyboardLogsMetrics) {
+  base::HistogramTester histogram_tester;
+  model_->PopulateApps(2);
+
+  // Select first app and move it with the keyboard down to create a new page.
+  AppListItemView* moving_item = GetItemViewAt(0);
+  apps_grid_view_->GetFocusManager()->SetFocusedView(moving_item);
+  SimulateKeyPress(ui::VKEY_DOWN, ui::EF_CONTROL_DOWN);
+  SimulateKeyReleased(ui::VKEY_DOWN, ui::EF_NONE);
+
+  ASSERT_EQ(apps_grid_view_->pagination_model()->total_pages(), 2);
+  histogram_tester.ExpectBucketCount(
+      "Apps.AppList.AppsGridAddPage",
+      AppListPageCreationType::kMovingAppWithKeyboard, 1);
+}
+
+TEST_F(AppsGridViewTest, CreateANewPageByDraggingLogsMetrics) {
+  base::HistogramTester histogram_tester;
+  model_->PopulateApps(2);
+
+  PageFlipWaiter page_flip_waiter(GetPaginationModel());
+  // Drag down the first item until a new page is created.
+  gfx::Point from = GetItemRectOnCurrentPageAt(0, 0).CenterPoint();
+  const gfx::Rect apps_grid_bounds = apps_grid_view_->GetLocalBounds();
+  gfx::Point to =
+      gfx::Point(apps_grid_bounds.width() / 2, apps_grid_bounds.bottom() + 1);
+
+  // For fullscreen, drag to the bottom/right of bounds.
+  page_flip_waiter.Reset();
+  SimulateDrag(AppsGridView::MOUSE, from, to);
+
+  EXPECT_EQ(to, GetDragViewCenter());
+
+  while (test_api_->HasPendingPageFlip())
+    page_flip_waiter.Wait();
+
+  apps_grid_view_->EndDrag(false /*cancel*/);
+
+  ASSERT_EQ(apps_grid_view_->pagination_model()->total_pages(), 2);
+  histogram_tester.ExpectBucketCount("Apps.AppList.AppsGridAddPage",
+                                     AppListPageCreationType::kDraggingApp, 1);
+}
+
+TEST_F(AppsGridViewTest, CreateANewPageByAddingAppLogsMetrics) {
+  base::HistogramTester histogram_tester;
+  model_->PopulateApps(GetTilesPerPage(0));
+
+  // Add an item to simulate installing or syncing, the metric should be
+  // recorded.
+  model_->CreateAndAddItem("Extra App");
+
+  ASSERT_EQ(apps_grid_view_->pagination_model()->total_pages(), 2);
+  histogram_tester.ExpectBucketCount("Apps.AppList.AppsGridAddPage",
+                                     AppListPageCreationType::kSyncOrInstall,
+                                     1);
 }
 
 }  // namespace test

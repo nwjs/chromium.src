@@ -35,7 +35,8 @@ class PermissionRequestNotificationAndroid final
       PermissionPrompt::Delegate* delegate);
 
   // Returns true if we should show the permission request as a notification.
-  static bool ShouldShowAsNotification(ContentSettingsType type);
+  static bool ShouldShowAsNotification(content::WebContents* web_contents,
+                                       ContentSettingsType type);
 
   // Converts an origin string into a notification id.
   static std::string NotificationIdForOrigin(const std::string& origin);

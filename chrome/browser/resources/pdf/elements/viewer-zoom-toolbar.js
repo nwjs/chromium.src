@@ -2,15 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'chrome://resources/cr_elements/icons.m.js';
+import './icons.js';
+import './viewer-zoom-button.js';
+
+import {assert} from 'chrome://resources/js/assert.m.js';
+import {html, Polymer} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {FittingType} from '../pdf_fitting_type.js';
+
 /**
  * @typedef {{
  *   fittingType: !FittingType,
  *   userInitiated: boolean,
  * }}
  */
-let FitToChangedEvent;
-
-(function() {
+export let FitToChangedEvent;
 
 const FIT_TO_PAGE_BUTTON_STATE = 0;
 const FIT_TO_WIDTH_BUTTON_STATE = 1;
@@ -18,23 +24,15 @@ const FIT_TO_WIDTH_BUTTON_STATE = 1;
 Polymer({
   is: 'viewer-zoom-toolbar',
 
+  _template: html`{__html_template__}`,
+
   properties: {
-    newPrintPreview: {
-      type: Boolean,
-      reflectToAttribute: true,
-    },
+    isPrintPreview: Boolean,
 
     /** @private */
     keyboardNavigationActive_: {
       type: Boolean,
       value: false,
-    },
-
-    /** @private */
-    showOnLeft_: {
-      type: Boolean,
-      computed: 'computeShowOnLeft_(newPrintPreview)',
-      reflectToAttribute: true,
     },
   },
 
@@ -45,20 +43,7 @@ Polymer({
   },
 
   /** @private {boolean} */
-  isPrintPreview_: false,
-
-  /** @private {boolean} */
   visible_: true,
-
-  /** @param {boolean} isPrintPreview */
-  setIsPrintPreview: function(isPrintPreview) {
-    this.isPrintPreview_ = isPrintPreview;
-  },
-
-  /** @return {boolean} */
-  isPrintPreview: function() {
-    return this.isPrintPreview_;
-  },
 
   /** @return {boolean} */
   isVisible: function() {
@@ -70,7 +55,7 @@ Polymer({
     // This can only happen when the plugin is shown within Print Preview using
     // keyboard navigation.
     if (!this.visible_) {
-      assert(this.isPrintPreview_);
+      assert(this.isPrintPreview);
       this.fire('keyboard-navigation-active', true);
       this.show();
     }
@@ -78,7 +63,7 @@ Polymer({
 
   /** @private */
   onKeyUp_: function() {
-    if (this.isPrintPreview_) {
+    if (this.isPrintPreview) {
       this.fire('keyboard-navigation-active', true);
     }
     this.keyboardNavigationActive_ = true;
@@ -86,19 +71,10 @@ Polymer({
 
   /** @private */
   onPointerDown_: function() {
-    if (this.isPrintPreview_) {
+    if (this.isPrintPreview) {
       this.fire('keyboard-navigation-active', false);
     }
     this.keyboardNavigationActive_ = false;
-  },
-
-  /**
-   * @return {boolean} Whether to show the zoom toolbar on the left side of the
-   *     viewport.
-   * @private
-   */
-  computeShowOnLeft_: function() {
-    return isRTL() !== this.newPrintPreview;
   },
 
   /**
@@ -195,4 +171,3 @@ Polymer({
     }
   },
 });
-})();

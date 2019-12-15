@@ -81,19 +81,18 @@
 
 namespace blink {
 
-using namespace html_names;
-
 // Upper limit of list_items_. According to the HTML standard, options larger
 // than this limit doesn't work well because |selectedIndex| IDL attribute is
 // signed.
 static const unsigned kMaxListItems = INT_MAX;
 
 HTMLSelectElement::HTMLSelectElement(Document& document)
-    : HTMLFormControlElementWithState(kSelectTag, document),
+    : HTMLFormControlElementWithState(html_names::kSelectTag, document),
       type_ahead_(this),
       size_(0),
       last_on_change_option_(nullptr),
       is_multiple_(false),
+      is_in_non_contiguous_selection_(false),
       active_selection_state_(false),
       should_recalc_list_items_(false),
       is_autofilled_by_preview_(false),
@@ -110,8 +109,9 @@ bool HTMLSelectElement::CanAssignToSelectSlot(const Node& node) {
   // Even if options/optgroups are not rendered as children of LayoutMenuList,
   // we still need to add them to the flat tree through slotting since we need
   // their ComputedStyle for popup rendering.
-  return node.HasTagName(kOptionTag) || node.HasTagName(kOptgroupTag) ||
-         node.HasTagName(kHrTag);
+  return node.HasTagName(html_names::kOptionTag) ||
+         node.HasTagName(html_names::kOptgroupTag) ||
+         node.HasTagName(html_names::kHrTag);
 }
 
 const AtomicString& HTMLSelectElement::FormControlType() const {
@@ -296,7 +296,7 @@ void HTMLSelectElement::SetSuggestedValue(const String& value) {
 
 bool HTMLSelectElement::IsPresentationAttribute(
     const QualifiedName& name) const {
-  if (name == kAlignAttr) {
+  if (name == html_names::kAlignAttr) {
     // Don't map 'align' attribute. This matches what Firefox, Opera and IE do.
     // See http://bugs.webkit.org/show_bug.cgi?id=12072
     return false;
@@ -307,7 +307,7 @@ bool HTMLSelectElement::IsPresentationAttribute(
 
 void HTMLSelectElement::ParseAttribute(
     const AttributeModificationParams& params) {
-  if (params.name == kSizeAttr) {
+  if (params.name == html_names::kSizeAttr) {
     unsigned old_size = size_;
     if (!ParseHTMLNonNegativeInteger(params.new_value, size_))
       size_ = 0;
@@ -318,9 +318,9 @@ void HTMLSelectElement::ParseAttribute(
       if (!UsesMenuList())
         SaveListboxActiveSelection();
     }
-  } else if (params.name == kMultipleAttr) {
+  } else if (params.name == html_names::kMultipleAttr) {
     ParseMultipleAttribute(params.new_value);
-  } else if (params.name == kAccesskeyAttr) {
+  } else if (params.name == html_names::kAccesskeyAttr) {
     // FIXME: ignore for the moment.
     //
   } else {
@@ -646,6 +646,7 @@ void HTMLSelectElement::UpdateListBoxSelection(bool deselect_other_options,
     ++i;
   }
 
+  UpdateMultiSelectListBoxFocus();
   SetNeedsValidityCheck();
   if (scroll)
     ScrollToSelection();
@@ -681,6 +682,20 @@ void HTMLSelectElement::ListBoxOnChange() {
     DispatchInputEvent();
     DispatchChangeEvent();
   }
+}
+
+void HTMLSelectElement::UpdateMultiSelectListBoxFocus() {
+  if (!is_multiple_)
+    return;
+
+  for (auto* const option : GetOptionList()) {
+    if (option->IsDisabledFormControl() || !option->GetLayoutObject())
+      continue;
+    bool is_focused =
+        (option == active_selection_end_) && is_in_non_contiguous_selection_;
+    option->SetMultiSelectFocusedState(is_focused);
+  }
+  ScrollToSelection();
 }
 
 void HTMLSelectElement::DispatchInputAndChangeEventForMenuList() {
@@ -1259,7 +1274,8 @@ void HTMLSelectElement::AppendToFormData(FormData& form_data) {
 
 void HTMLSelectElement::ResetImpl() {
   for (auto* const option : GetOptionList()) {
-    option->SetSelectedState(option->FastHasAttribute(kSelectedAttr));
+    option->SetSelectedState(
+        option->FastHasAttribute(html_names::kSelectedAttr));
     option->SetDirty(false);
   }
   ResetToDefaultSelection();
@@ -1565,12 +1581,14 @@ void HTMLSelectElement::ListBoxDefaultEventHandler(Event& event) {
         !mouse_event.ButtonDown())
       return;
 
-    if (LayoutObject* object = GetLayoutObject())
-      object->GetFrameView()->UpdateAllLifecyclePhasesExceptPaint();
+    LayoutObject* layout_object = GetLayoutObject();
+    if (layout_object) {
+      layout_object->GetFrameView()->UpdateAllLifecyclePhasesExceptPaint();
 
-    if (Page* page = GetDocument().GetPage()) {
-      page->GetAutoscrollController().StartAutoscrollForSelection(
-          GetLayoutObject());
+      if (Page* page = GetDocument().GetPage()) {
+        page->GetAutoscrollController().StartAutoscrollForSelection(
+            layout_object);
+      }
     }
     // Mousedown didn't happen in this element.
     if (last_on_change_selection_.IsEmpty())
@@ -1669,6 +1687,21 @@ void HTMLSelectElement::ListBoxDefaultEventHandler(Event& event) {
         return;
     }
 
+    bool is_control_key = false;
+#if defined(OS_MACOSX)
+    is_control_key = ToKeyboardEvent(event).metaKey();
+#else
+    is_control_key = ToKeyboardEvent(event).ctrlKey();
+#endif
+
+    if (is_multiple_ && ToKeyboardEvent(event).keyCode() == ' ' &&
+        is_control_key && active_selection_end_) {
+      // Use ctrl+space to toggle selection change.
+      ToggleSelection(*active_selection_end_);
+      event.SetDefaultHandled();
+      return;
+    }
+
     if (end_option && handled) {
       // Save the selection so it can be compared to the new selection
       // when dispatching change events immediately after making the new
@@ -1677,12 +1710,14 @@ void HTMLSelectElement::ListBoxDefaultEventHandler(Event& event) {
 
       SetActiveSelectionEnd(end_option);
 
+      is_in_non_contiguous_selection_ = is_multiple_ && is_control_key;
       bool select_new_item =
           !is_multiple_ || ToKeyboardEvent(event).shiftKey() ||
-          !IsSpatialNavigationEnabled(GetDocument().GetFrame());
+          (!IsSpatialNavigationEnabled(GetDocument().GetFrame()) &&
+           !is_in_non_contiguous_selection_);
       if (select_new_item)
         active_selection_state_ = true;
-      // If the anchor is unitialized, or if we're going to deselect all
+      // If the anchor is uninitialized, or if we're going to deselect all
       // other options, then set the anchor index equal to the end index.
       bool deselect_others =
           !is_multiple_ ||
@@ -1694,9 +1729,12 @@ void HTMLSelectElement::ListBoxDefaultEventHandler(Event& event) {
       }
 
       ScrollToOption(end_option);
-      if (select_new_item) {
-        UpdateListBoxSelection(deselect_others);
-        ListBoxOnChange();
+      if (select_new_item || is_in_non_contiguous_selection_) {
+        if (select_new_item) {
+          UpdateListBoxSelection(deselect_others);
+          ListBoxOnChange();
+        }
+        UpdateMultiSelectListBoxFocus();
       } else {
         ScrollToSelection();
       }
@@ -1714,7 +1752,8 @@ void HTMLSelectElement::ListBoxDefaultEventHandler(Event& event) {
         Form()->SubmitImplicitly(event, false);
       event.SetDefaultHandled();
     } else if (is_multiple_ && key_code == ' ' &&
-               IsSpatialNavigationEnabled(GetDocument().GetFrame())) {
+               (IsSpatialNavigationEnabled(GetDocument().GetFrame()) ||
+                is_in_non_contiguous_selection_)) {
       HTMLOptionElement* option = active_selection_end_;
       // If there's no active selection,
       // act as if "ArrowDown" had been pressed.
@@ -1722,13 +1761,17 @@ void HTMLSelectElement::ListBoxDefaultEventHandler(Event& event) {
         option = NextSelectableOption(LastSelectedOption());
       if (option) {
         // Use space to toggle selection change.
-        active_selection_state_ = !active_selection_state_;
-        UpdateSelectedState(option, true /*multi*/, false /*shift*/);
-        ListBoxOnChange();
+        ToggleSelection(*option);
         event.SetDefaultHandled();
       }
     }
   }
+}
+
+void HTMLSelectElement::ToggleSelection(HTMLOptionElement& option) {
+  active_selection_state_ = !active_selection_state_;
+  UpdateSelectedState(&option, true /*multi*/, false /*shift*/);
+  ListBoxOnChange();
 }
 
 void HTMLSelectElement::DefaultEventHandler(Event& event) {

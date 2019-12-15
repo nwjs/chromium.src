@@ -11,7 +11,6 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/macros.h"
-#include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
 #include "base/task/post_task.h"
@@ -19,6 +18,7 @@
 #include "base/task/sequence_manager/test/sequence_manager_for_test.h"
 #include "base/task/task_executor.h"
 #include "base/test/bind_test_util.h"
+#include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
@@ -46,6 +46,7 @@ namespace scheduler {
 // To avoid symbol collisions in jumbo builds.
 namespace main_thread_scheduler_impl_unittest {
 
+using testing::IsNull;
 using testing::Mock;
 using testing::NotNull;
 using InputEventState = WebThreadScheduler::InputEventState;
@@ -860,7 +861,7 @@ class MainThreadSchedulerImplTest
   DISALLOW_COPY_AND_ASSIGN(MainThreadSchedulerImplTest);
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          MainThreadSchedulerImplTest,
                          testing::Values(AntiStarvationLogic::kEnabled,
                                          AntiStarvationLogic::kDisabled),
@@ -1335,7 +1336,7 @@ class DefaultUseCaseTest : public MainThreadSchedulerImplTest {
   }
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          DefaultUseCaseTest,
                          testing::Values(AntiStarvationLogic::kEnabled,
                                          AntiStarvationLogic::kDisabled),
@@ -2135,83 +2136,23 @@ TEST_P(MainThreadSchedulerImplTest, CurrentThread) {
                 {base::CurrentThread(), base::TaskPriority::BEST_EFFORT}));
 }
 
-class MainThreadSchedulerImplWithMessageLoopTest
-    : public MainThreadSchedulerImplTest {
- public:
-  MainThreadSchedulerImplWithMessageLoopTest()
-      : message_loop_(new base::MessageLoop()) {}
-  ~MainThreadSchedulerImplWithMessageLoopTest() override = default;
+TEST_P(MainThreadSchedulerImplTest, GetContinuationTaskRunner) {
+  scoped_refptr<MainThreadTaskQueue> timer_tq = scheduler_->NewTimerTaskQueue(
+      MainThreadTaskQueue::QueueType::kFrameThrottleable, nullptr);
+  auto task_runner = timer_tq->CreateTaskRunner(TaskType::kJavascriptTimer);
 
-  void SetUp() override {
-    clock_.Advance(base::TimeDelta::FromMilliseconds(5));
-    Initialize(std::make_unique<MainThreadSchedulerImplForTest>(
-        base::sequence_manager::SequenceManagerForTest::CreateOnCurrentThread(
-            base::sequence_manager::SequenceManager::Settings::Builder()
-                .SetTickClock(&clock_)
-                .SetAntiStarvationLogicForPrioritiesDisabled(
-                    GetParam() == AntiStarvationLogic::kDisabled)
-                .Build()),
-        base::nullopt));
-  }
+  base::RunLoop run_loop;
+  task_runner->PostTask(FROM_HERE, base::BindLambdaForTesting([&]() {
+                          EXPECT_EQ(task_runner,
+                                    base::GetContinuationTaskRunner());
+                          run_loop.Quit();
+                        }));
+  run_loop.Run();
+}
 
-  // Needed for EnableIdleTasks().
-  base::TimeTicks Now() override { return clock_.NowTicks(); }
-
-  void PostFromNestedRunloop(
-      Vector<std::pair<SingleThreadIdleTaskRunner::IdleTask, bool>>* tasks) {
-    for (std::pair<SingleThreadIdleTaskRunner::IdleTask, bool>& pair : *tasks) {
-      if (pair.second) {
-        idle_task_runner_->PostIdleTask(FROM_HERE, std::move(pair.first));
-      } else {
-        idle_task_runner_->PostNonNestableIdleTask(FROM_HERE,
-                                                   std::move(pair.first));
-      }
-    }
-    EnableIdleTasks();
-    base::RunLoop(base::RunLoop::Type::kNestableTasksAllowed).RunUntilIdle();
-  }
-
- private:
-  std::unique_ptr<base::MessageLoop> message_loop_;
-  base::SimpleTestTickClock clock_;
-
-  DISALLOW_COPY_AND_ASSIGN(MainThreadSchedulerImplWithMessageLoopTest);
-};
-
-INSTANTIATE_TEST_SUITE_P(,
-                         MainThreadSchedulerImplWithMessageLoopTest,
-                         testing::Values(AntiStarvationLogic::kEnabled,
-                                         AntiStarvationLogic::kDisabled),
-                         GetTestNameSuffix);
-
-TEST_P(MainThreadSchedulerImplWithMessageLoopTest,
-       NonNestableIdleTaskDoesntExecuteInNestedLoop) {
-  Vector<String> order;
-  idle_task_runner_->PostIdleTask(
-      FROM_HERE, base::BindOnce(&AppendToVectorIdleTestTask, &order, "1"));
-  idle_task_runner_->PostIdleTask(
-      FROM_HERE, base::BindOnce(&AppendToVectorIdleTestTask, &order, "2"));
-
-  Vector<std::pair<SingleThreadIdleTaskRunner::IdleTask, bool>>
-      tasks_to_post_from_nested_loop;
-  tasks_to_post_from_nested_loop.push_back(std::make_pair(
-      base::BindOnce(&AppendToVectorIdleTestTask, &order, "3"), false));
-  tasks_to_post_from_nested_loop.push_back(std::make_pair(
-      base::BindOnce(&AppendToVectorIdleTestTask, &order, "4"), true));
-  tasks_to_post_from_nested_loop.push_back(std::make_pair(
-      base::BindOnce(&AppendToVectorIdleTestTask, &order, "5"), true));
-
-  default_task_runner_->PostTask(
-      FROM_HERE,
-      base::BindOnce(
-          &MainThreadSchedulerImplWithMessageLoopTest::PostFromNestedRunloop,
-          base::Unretained(this),
-          base::Unretained(&tasks_to_post_from_nested_loop)));
-
-  EnableIdleTasks();
-  base::RunLoop().RunUntilIdle();
-  // Note we expect task 3 to run last because it's non-nestable.
-  EXPECT_THAT(order, testing::ElementsAre("1", "2", "4", "5", "3"));
+TEST_P(MainThreadSchedulerImplTest,
+       GetContinuationTaskRunnerWithNoTaskRunning) {
+  EXPECT_DCHECK_DEATH(base::GetContinuationTaskRunner());
 }
 
 TEST_P(MainThreadSchedulerImplTest, TestBeginMainFrameNotExpectedUntil) {
@@ -3213,9 +3154,9 @@ TEST_P(MainThreadSchedulerImplTest, VirtualTimePauser) {
   scheduler_->SetVirtualTimePolicy(
       PageSchedulerImpl::VirtualTimePolicy::kDeterministicLoading);
 
-  WebScopedVirtualTimePauser pauser =
-      scheduler_->CreateWebScopedVirtualTimePauser(
-          "test", WebScopedVirtualTimePauser::VirtualTaskDuration::kInstant);
+  WebScopedVirtualTimePauser pauser(
+      scheduler_.get(),
+      WebScopedVirtualTimePauser::VirtualTaskDuration::kInstant, "test");
 
   base::TimeTicks before = scheduler_->GetVirtualTimeDomain()->Now();
   EXPECT_TRUE(scheduler_->VirtualTimeAllowedToAdvance());
@@ -3234,9 +3175,9 @@ TEST_P(MainThreadSchedulerImplTest, VirtualTimePauserNonInstantTask) {
   scheduler_->SetVirtualTimePolicy(
       PageSchedulerImpl::VirtualTimePolicy::kDeterministicLoading);
 
-  WebScopedVirtualTimePauser pauser =
-      scheduler_->CreateWebScopedVirtualTimePauser(
-          "test", WebScopedVirtualTimePauser::VirtualTaskDuration::kNonInstant);
+  WebScopedVirtualTimePauser pauser(
+      scheduler_.get(),
+      WebScopedVirtualTimePauser::VirtualTaskDuration::kNonInstant, "test");
 
   base::TimeTicks before = scheduler_->GetVirtualTimeDomain()->Now();
   pauser.PauseVirtualTime();
@@ -3254,9 +3195,9 @@ TEST_P(MainThreadSchedulerImplTest, VirtualTimeWithOneQueueWithoutVirtualTime) {
   scheduler_->SetVirtualTimePolicy(
       PageSchedulerImpl::VirtualTimePolicy::kDeterministicLoading);
 
-  WebScopedVirtualTimePauser pauser =
-      scheduler_->CreateWebScopedVirtualTimePauser(
-          "test", WebScopedVirtualTimePauser::VirtualTaskDuration::kNonInstant);
+  WebScopedVirtualTimePauser pauser(
+      scheduler_.get(),
+      WebScopedVirtualTimePauser::VirtualTaskDuration::kNonInstant, "test");
 
   // Test will pass if the queue without virtual is the last one in the
   // iteration order. Create 100 of them and ensure that it is created in the
@@ -3268,7 +3209,7 @@ TEST_P(MainThreadSchedulerImplTest, VirtualTimeWithOneQueueWithoutVirtualTime) {
     task_queues.push_back(scheduler_->NewTaskQueue(
         MainThreadTaskQueue::QueueCreationParams(
             MainThreadTaskQueue::QueueType::kFrameThrottleable)
-            .SetCanRunWhenVirtualTimePaused(i != 42)));
+            .SetCanRunWhenVirtualTimePaused(i == 42)));
   }
 
   // This should install a fence on all queues with virtual time.
@@ -3514,7 +3455,7 @@ class MainThreadSchedulerImplWithInitalVirtualTimeTest
   }
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          MainThreadSchedulerImplWithInitalVirtualTimeTest,
                          testing::Values(AntiStarvationLogic::kEnabled,
                                          AntiStarvationLogic::kDisabled),
@@ -3538,7 +3479,7 @@ class CompositingExperimentWithExplicitSignalsTest
             {}) {}
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          CompositingExperimentWithExplicitSignalsTest,
                          testing::Values(AntiStarvationLogic::kEnabled,
                                          AntiStarvationLogic::kDisabled),
@@ -3580,7 +3521,7 @@ class CompositingExperimentWithImplicitSignalsTest
              kUseWillBeginMainFrameForCompositingPrioritization}) {}
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          CompositingExperimentWithImplicitSignalsTest,
                          testing::Values(AntiStarvationLogic::kEnabled,
                                          AntiStarvationLogic::kDisabled),
@@ -3705,7 +3646,7 @@ class VeryHighPriorityForCompositingAlwaysExperimentTest
                                     {}) {}
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          VeryHighPriorityForCompositingAlwaysExperimentTest,
                          testing::Values(AntiStarvationLogic::kEnabled,
                                          AntiStarvationLogic::kDisabled),
@@ -3731,7 +3672,7 @@ class VeryHighPriorityForCompositingWhenFastExperimentTest
                                     {}) {}
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          VeryHighPriorityForCompositingWhenFastExperimentTest,
                          testing::Values(AntiStarvationLogic::kEnabled,
                                          AntiStarvationLogic::kDisabled),
@@ -3787,7 +3728,7 @@ class VeryHighPriorityForCompositingAlternatingExperimentTest
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    ,
+    All,
     VeryHighPriorityForCompositingAlternatingExperimentTest,
     testing::Values(AntiStarvationLogic::kEnabled,
                     AntiStarvationLogic::kDisabled),
@@ -3828,7 +3769,7 @@ class VeryHighPriorityForCompositingAfterDelayExperimentTest
                                     {}) {}
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          VeryHighPriorityForCompositingAfterDelayExperimentTest,
                          testing::Values(AntiStarvationLogic::kEnabled,
                                          AntiStarvationLogic::kDisabled),
@@ -3848,7 +3789,7 @@ TEST_P(VeryHighPriorityForCompositingAfterDelayExperimentTest,
 
 TEST_P(VeryHighPriorityForCompositingAfterDelayExperimentTest,
        TestCompositorPolicy_FirstCompositorTaskSetToVeryHighPriority) {
-  // 1.5ms task to complete the countdown and prioritze compositing.
+  // 150ms task to complete the countdown and prioritze compositing.
   AdvanceTimeWithTask(0.15);
 
   Vector<String> run_order;
@@ -3884,7 +3825,7 @@ class VeryHighPriorityForCompositingBudgetExperimentTest
                                     {}) {}
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          VeryHighPriorityForCompositingBudgetExperimentTest,
                          testing::Values(AntiStarvationLogic::kEnabled,
                                          AntiStarvationLogic::kDisabled),
@@ -3944,6 +3885,126 @@ TEST_P(VeryHighPriorityForCompositingBudgetExperimentTest,
   // before default tasks.
   EXPECT_THAT(run_order,
               testing::ElementsAre("P1", "C1", "C2", "D1", "D2", "I1"));
+  EXPECT_EQ(UseCase::kNone, CurrentUseCase());
+}
+
+class VeryHighPriorityForCompositingAlternatingBeginMainFrameExperimentTest
+    : public MainThreadSchedulerImplTest {
+ public:
+  VeryHighPriorityForCompositingAlternatingBeginMainFrameExperimentTest()
+      : MainThreadSchedulerImplTest({kVeryHighPriorityForCompositingAlternating,
+                                     kPrioritizeCompositingUntilBeginMainFrame},
+                                    {}) {}
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    VeryHighPriorityForCompositingAlternatingBeginMainFrameExperimentTest,
+    testing::Values(AntiStarvationLogic::kEnabled,
+                    AntiStarvationLogic::kDisabled),
+    GetTestNameSuffix);
+
+TEST_P(VeryHighPriorityForCompositingAlternatingBeginMainFrameExperimentTest,
+       TestCompositorPolicy_AlternatingCompositorTasks) {
+  Vector<String> run_order;
+  PostTestTasks(&run_order, "C1 D1 C2 D2");
+
+  base::RunLoop().RunUntilIdle();
+  EXPECT_THAT(run_order, testing::ElementsAre("C1", "C2", "D1", "D2"));
+  EXPECT_EQ(UseCase::kNone, CurrentUseCase());
+
+  // Next compositor task is the BeginMainFrame. Compositor priority is set
+  // to normal for a single task before being prioritized again.
+  DoMainFrame();
+
+  run_order.clear();
+  PostTestTasks(&run_order, "C1 D1 D2 C2");
+
+  base::RunLoop().RunUntilIdle();
+  EXPECT_THAT(run_order, testing::ElementsAre("C1", "D1", "C2", "D2"));
+  EXPECT_EQ(UseCase::kNone, CurrentUseCase());
+}
+
+class VeryHighPriorityForCompositingAfterDelayUntilBeginMainFrameExperimentTest
+    : public MainThreadSchedulerImplTest {
+ public:
+  VeryHighPriorityForCompositingAfterDelayUntilBeginMainFrameExperimentTest()
+      : MainThreadSchedulerImplTest({kVeryHighPriorityForCompositingAfterDelay,
+                                     kPrioritizeCompositingUntilBeginMainFrame},
+                                    {}) {}
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    VeryHighPriorityForCompositingAfterDelayUntilBeginMainFrameExperimentTest,
+    testing::Values(AntiStarvationLogic::kEnabled,
+                    AntiStarvationLogic::kDisabled),
+    GetTestNameSuffix);
+
+TEST_P(
+    VeryHighPriorityForCompositingAfterDelayUntilBeginMainFrameExperimentTest,
+    TestCompositorPolicy_FirstCompositorTaskSetToVeryHighPriority) {
+  // 150ms task to complete the countdown and prioritze compositing.
+  AdvanceTimeWithTask(0.15);
+
+  Vector<String> run_order;
+  PostTestTasks(&run_order, "D1 C1 D2 C2 P1");
+
+  base::RunLoop().RunUntilIdle();
+  EXPECT_THAT(run_order, testing::ElementsAre("P1", "C1", "C2", "D1", "D2"));
+  EXPECT_EQ(UseCase::kNone, CurrentUseCase());
+
+  // Next compositor task is the BeginMainFrame.
+  DoMainFrame();
+  run_order.clear();
+  PostTestTasks(&run_order, "C1 D1 D2 C2 P1");
+
+  base::RunLoop().RunUntilIdle();
+  EXPECT_THAT(run_order, testing::ElementsAre("P1", "C1", "D1", "D2", "C2"));
+  EXPECT_EQ(UseCase::kNone, CurrentUseCase());
+}
+
+class VeryHighPriorityForCompositingBudgetBeginMainFrameExperimentTest
+    : public MainThreadSchedulerImplTest {
+ public:
+  VeryHighPriorityForCompositingBudgetBeginMainFrameExperimentTest()
+      : MainThreadSchedulerImplTest({kVeryHighPriorityForCompositingBudget,
+                                     kPrioritizeCompositingUntilBeginMainFrame},
+                                    {}) {}
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    VeryHighPriorityForCompositingBudgetBeginMainFrameExperimentTest,
+    testing::Values(AntiStarvationLogic::kEnabled,
+                    AntiStarvationLogic::kDisabled),
+    GetTestNameSuffix);
+
+TEST_P(
+    VeryHighPriorityForCompositingBudgetBeginMainFrameExperimentTest,
+    TestCompositorPolicy_CompositorPriorityNonBeginMainFrameDoesntExhaustBudget) {
+  // 1000ms compositor task will not exhaust the budget.
+  RunSlowCompositorTask();
+
+  Vector<String> run_order;
+  PostTestTasks(&run_order, "D1 C1 D2 C2 P1");
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_THAT(run_order, testing::ElementsAre("P1", "C1", "C2", "D1", "D2"));
+  EXPECT_EQ(UseCase::kNone, CurrentUseCase());
+}
+
+TEST_P(VeryHighPriorityForCompositingBudgetBeginMainFrameExperimentTest,
+       TestCompositorPolicy_CompositorPriorityBeginMainFrameExhaustsBudget) {
+  // 1000ms BeginMainFrame will exhaust the budget.
+  DoMainFrame();
+  RunSlowCompositorTask();
+
+  Vector<String> run_order;
+  PostTestTasks(&run_order, "D1 C1 D2 C2 P1");
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_THAT(run_order, testing::ElementsAre("P1", "D1", "C1", "D2", "C2"));
   EXPECT_EQ(UseCase::kNone, CurrentUseCase());
 }
 

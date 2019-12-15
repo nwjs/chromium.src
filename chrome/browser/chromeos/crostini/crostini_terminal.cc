@@ -5,10 +5,15 @@
 #include "chrome/browser/chromeos/crostini/crostini_terminal.h"
 
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
+#include "chrome/browser/extensions/api/terminal/terminal_extension_helper.h"
 #include "chrome/browser/ui/ash/window_properties.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
+#include "chrome/browser/ui/web_applications/system_web_app_ui_utils.h"
+#include "chrome/browser/web_applications/system_web_app_manager.h"
+#include "chrome/common/chrome_features.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
 #include "net/base/escape.h"
 
@@ -18,9 +23,13 @@ GURL GenerateVshInCroshUrl(Profile* profile,
                            const std::string& vm_name,
                            const std::string& container_name,
                            const std::vector<std::string>& terminal_args) {
-  std::string vsh_crosh = base::StringPrintf(
-      "chrome-extension://%s/html/crosh.html?command=vmshell",
-      kCrostiniCroshBuiltinAppId);
+  std::string vsh_crosh =
+      std::string(chrome::kChromeUITerminalURL) + "html/terminal.html";
+  if (!base::FeatureList::IsEnabled(features::kTerminalSystemApp)) {
+    vsh_crosh =
+        extensions::TerminalExtensionHelper::GetCroshURL(profile).spec();
+  }
+  vsh_crosh += "?command=vmshell";
   std::string vm_name_param = net::EscapeQueryParamValue(
       base::StringPrintf("--vm_name=%s", vm_name.c_str()), false);
   std::string container_name_param = net::EscapeQueryParamValue(
@@ -78,6 +87,12 @@ void LaunchContainerTerminal(Profile* profile,
                              const std::vector<std::string>& terminal_args) {
   GURL vsh_in_crosh_url =
       GenerateVshInCroshUrl(profile, vm_name, container_name, terminal_args);
+  if (base::FeatureList::IsEnabled(features::kTerminalSystemApp)) {
+    web_app::LaunchSystemWebApp(profile, web_app::SystemAppType::TERMINAL,
+                                vsh_in_crosh_url);
+    return;
+  }
+
   apps::AppLaunchParams launch_params = GenerateTerminalAppLaunchParams();
 
   Browser* browser =

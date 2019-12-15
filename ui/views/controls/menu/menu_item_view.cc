@@ -338,37 +338,18 @@ void MenuItemView::RemoveAllMenuItems() {
 
 MenuItemView* MenuItemView::AppendMenuItem(int item_id,
                                            const base::string16& label,
-                                           Type type) {
-  return AppendMenuItemImpl(item_id, label, base::string16(), nullptr,
-                            gfx::ImageSkia(), type, ui::NORMAL_SEPARATOR);
+                                           const gfx::ImageSkia& icon) {
+  return AppendMenuItemImpl(item_id, label, icon, NORMAL);
 }
 
 MenuItemView* MenuItemView::AppendSubMenu(int item_id,
-                                          const base::string16& label) {
-  return AppendMenuItemImpl(item_id, label, base::string16(), nullptr,
-                            gfx::ImageSkia(), SUBMENU, ui::NORMAL_SEPARATOR);
-}
-
-MenuItemView* MenuItemView::AppendSubMenuWithIcon(int item_id,
-                                                  const base::string16& label,
-                                                  const gfx::ImageSkia& icon) {
-  return AppendMenuItemImpl(item_id, label, base::string16(), nullptr, icon,
-                            SUBMENU, ui::NORMAL_SEPARATOR);
-}
-
-MenuItemView* MenuItemView::AppendMenuItemWithLabel(
-    int item_id,
-    const base::string16& label) {
-  return AppendMenuItem(item_id, label, NORMAL);
-}
-
-MenuItemView* MenuItemView::AppendDelegateMenuItem(int item_id) {
-  return AppendMenuItem(item_id, base::string16(), NORMAL);
+                                          const base::string16& label,
+                                          const gfx::ImageSkia& icon) {
+  return AppendMenuItemImpl(item_id, label, icon, SUBMENU);
 }
 
 void MenuItemView::AppendSeparator() {
-  AppendMenuItemImpl(0, base::string16(), base::string16(), nullptr,
-                     gfx::ImageSkia(), SEPARATOR, ui::NORMAL_SEPARATOR);
+  AppendMenuItemImpl(0, base::string16(), gfx::ImageSkia(), SEPARATOR);
 }
 
 void MenuItemView::AddSeparatorAt(int index) {
@@ -379,24 +360,13 @@ void MenuItemView::AddSeparatorAt(int index) {
                 /*separator_style=*/ui::NORMAL_SEPARATOR);
 }
 
-MenuItemView* MenuItemView::AppendMenuItemWithIcon(int item_id,
-                                                   const base::string16& label,
-                                                   const gfx::ImageSkia& icon) {
-  return AppendMenuItemImpl(item_id, label, base::string16(), nullptr, icon,
-                            NORMAL, ui::NORMAL_SEPARATOR);
-}
-
-MenuItemView* MenuItemView::AppendMenuItemImpl(
-    int item_id,
-    const base::string16& label,
-    const base::string16& minor_text,
-    const gfx::VectorIcon* minor_icon,
-    const gfx::ImageSkia& icon,
-    Type type,
-    ui::MenuSeparatorType separator_style) {
+MenuItemView* MenuItemView::AppendMenuItemImpl(int item_id,
+                                               const base::string16& label,
+                                               const gfx::ImageSkia& icon,
+                                               Type type) {
   const int index = submenu_ ? int{submenu_->children().size()} : 0;
-  return AddMenuItemAt(index, item_id, label, minor_text, minor_icon, icon,
-                       nullptr, type, separator_style);
+  return AddMenuItemAt(index, item_id, label, base::string16(), nullptr, icon,
+                       nullptr, type, ui::NORMAL_SEPARATOR);
 }
 
 SubmenuView* MenuItemView::CreateSubmenu() {
@@ -862,7 +832,7 @@ void MenuItemView::Init(MenuItemView* parent,
     vertical_separator_->SetFocusBehavior(FocusBehavior::NEVER);
     const MenuConfig& config = MenuConfig::instance();
     vertical_separator_->SetColor(GetNativeTheme()->GetSystemColor(
-        ui::NativeTheme::kColorId_ActionableSubmenuVerticalSeparatorColor));
+        ui::NativeTheme::kColorId_MenuSeparatorColor));
     vertical_separator_->SetPreferredSize(
         gfx::Size(config.actionable_submenu_vertical_separator_width,
                   config.actionable_submenu_vertical_separator_height));
@@ -1003,8 +973,8 @@ void MenuItemView::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
     const gfx::VectorIcon& radio_icon =
         toggled ? kMenuRadioSelectedIcon : kMenuRadioEmptyIcon;
     const SkColor radio_icon_color = GetNativeTheme()->GetSystemColor(
-        toggled ? ui::NativeTheme::kColorId_ProminentButtonColor
-                : ui::NativeTheme::kColorId_ButtonEnabledColor);
+        toggled ? ui::NativeTheme::kColorId_ButtonEnabledColor
+                : ui::NativeTheme::kColorId_ButtonUncheckedColor);
     radio_check_image_view_->SetImage(
         gfx::CreateVectorIcon(radio_icon, kMenuCheckSize, radio_icon_color));
   }
@@ -1044,14 +1014,10 @@ void MenuItemView::PaintBackground(gfx::Canvas* canvas,
               : ui::NativeTheme::kColorId_HighlightedMenuItemBackgroundColor;
       color = GetNativeTheme()->GetSystemColor(color_id);
     } else {
-      const SkColor color_max = GetNativeTheme()->GetSystemColor(
-          ui::NativeTheme::kColorId_MenuItemAlertBackgroundColorMax);
-      const SkColor color_min = GetNativeTheme()->GetSystemColor(
-          ui::NativeTheme::kColorId_MenuItemAlertBackgroundColorMin);
-      color = color_utils::AlphaBlend(
-          color_max, color_min,
-          static_cast<float>(
-              GetMenuController()->GetAlertAnimation()->GetCurrentValue()));
+      color = GetNativeTheme()->GetSystemColor(
+          ui::NativeTheme::kColorId_MenuItemAlertBackgroundColor);
+      const auto* animation = GetMenuController()->GetAlertAnimation();
+      color = SkColorSetA(color, animation->CurrentValueBetween(0x4D, 0x1A));
     }
 
     DCHECK_NE(color, gfx::kPlaceholderColor);
@@ -1107,7 +1073,8 @@ void MenuItemView::PaintMinorIconAndText(
       max_minor_text_width, available_height);
   minor_text_bounds.set_x(GetMirroredXForRect(minor_text_bounds));
 
-  auto render_text = gfx::RenderText::CreateHarfBuzzInstance();
+  std::unique_ptr<gfx::RenderText> render_text =
+      gfx::RenderText::CreateRenderText();
   if (!minor_text.empty()) {
     render_text->SetText(minor_text);
     render_text->SetFontList(style.font_list);

@@ -23,6 +23,7 @@
 #include "build/build_config.h"
 #include "components/rlz/rlz_tracker_delegate.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
 
@@ -175,14 +176,15 @@ class RLZTracker::WrapperURLLoaderFactory
       : url_loader_factory_(std::move(url_loader_factory)),
         main_thread_task_runner_(base::SequencedTaskRunnerHandle::Get()) {}
 
-  void CreateLoaderAndStart(network::mojom::URLLoaderRequest loader,
-                            int32_t routing_id,
-                            int32_t request_id,
-                            uint32_t options,
-                            const network::ResourceRequest& request,
-                            network::mojom::URLLoaderClientPtr client,
-                            const net::MutableNetworkTrafficAnnotationTag&
-                                traffic_annotation) override {
+  void CreateLoaderAndStart(
+      mojo::PendingReceiver<network::mojom::URLLoader> loader,
+      int32_t routing_id,
+      int32_t request_id,
+      uint32_t options,
+      const network::ResourceRequest& request,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client,
+      const net::MutableNetworkTrafficAnnotationTag& traffic_annotation)
+      override {
     if (main_thread_task_runner_->RunsTasksInCurrentSequence()) {
       url_loader_factory_->CreateLoaderAndStart(
           std::move(loader), routing_id, request_id, options, request,

@@ -34,8 +34,6 @@ class HTMLButtonElement final : public HTMLFormControlElement {
  public:
   explicit HTMLButtonElement(Document&);
 
-  const AttrNameToTrustedType& GetCheckedAttributeTypes() const override;
-
   void setType(const AtomicString&);
 
   const AtomicString& Value() const;
@@ -77,6 +75,8 @@ class HTMLButtonElement final : public HTMLFormControlElement {
 
   bool IsOptionalFormControl() const override { return true; }
   bool RecalcWillValidate() const override;
+
+  int DefaultTabIndex() const override;
 
   // TODO(crbug.com/1013385): Remove PreDispatchEventHandler, DidPreventDefault,
   //   and DefaultEventHandlerInternal. They are here to temporarily fix form

@@ -43,7 +43,7 @@ class ProfileSyncServiceFactoryTest : public PlatformTest {
  protected:
   // Returns the collection of default datatypes.
   std::vector<syncer::ModelType> DefaultDatatypes() {
-    static_assert(41 == syncer::ModelType::NUM_ENTRIES,
+    static_assert(40 == syncer::ModelType::NUM_ENTRIES,
                   "When adding a new type, you probably want to add it here as "
                   "well (assuming it is already enabled).");
 
@@ -56,8 +56,6 @@ class ProfileSyncServiceFactoryTest : public PlatformTest {
     datatypes.push_back(syncer::AUTOFILL_WALLET_METADATA);
     datatypes.push_back(syncer::BOOKMARKS);
     datatypes.push_back(syncer::DEVICE_INFO);
-    datatypes.push_back(syncer::FAVICON_TRACKING);
-    datatypes.push_back(syncer::FAVICON_IMAGES);
     datatypes.push_back(syncer::HISTORY_DELETE_DIRECTIVES);
     if (!base::FeatureList::IsEnabled(switches::kSyncUSSPasswords)) {
       // Password store factory is null for testing. For directory

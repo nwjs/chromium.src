@@ -5,6 +5,7 @@
 #include "ash/app_list/views/app_list_view.h"
 
 #include <algorithm>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -349,6 +350,16 @@ void AppListView::StateAnimationMetricsReporter::RecordMetricsInTablet(
           "EnterFullscreenSearch",
           value);
       break;
+    case TabletModeAnimationTransition::kFadeInOverview:
+      UMA_HISTOGRAM_PERCENTAGE(
+          "Apps.HomeLauncherTransition.AnimationSmoothness.FadeInOverview",
+          value);
+      break;
+    case TabletModeAnimationTransition::kFadeOutOverview:
+      UMA_HISTOGRAM_PERCENTAGE(
+          "Apps.HomeLauncherTransition.AnimationSmoothness.FadeOutOverview",
+          value);
+      break;
   }
 }
 
@@ -578,13 +589,19 @@ bool AppListView::ShortAnimationsForTesting() {
   return short_animations_for_testing;
 }
 
-void AppListView::InitView(bool is_tablet_mode, gfx::NativeView parent) {
+void AppListView::InitView(
+    bool is_tablet_mode,
+    gfx::NativeView parent,
+    base::RepeatingClosure on_bounds_animation_ended_callback) {
   base::AutoReset<bool> auto_reset(&is_building_, true);
   time_shown_ = base::Time::Now();
   UpdateAppListConfig(parent);
   InitContents(is_tablet_mode);
   InitWidget(parent);
   InitChildWidget();
+
+  on_bounds_animation_ended_callback_ =
+      std::move(on_bounds_animation_ended_callback);
 }
 
 void AppListView::InitContents(bool is_tablet_mode) {
@@ -616,7 +633,7 @@ void AppListView::InitWidget(gfx::NativeView parent) {
   params.name = "AppList";
   params.parent = parent;
   params.delegate = this;
-  params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
+  params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   params.layer_type = ui::LAYER_NOT_DRAWN;
 
   views::Widget* widget = new views::Widget;
@@ -630,6 +647,12 @@ void AppListView::InitWidget(gfx::NativeView parent) {
   widget->GetFocusManager()->set_arrow_key_traversal_enabled_for_widget(true);
 
   widget->GetNativeView()->AddObserver(this);
+
+  // Directs A11y focus ring from search box view to AppListView's descendants
+  // (like ExpandArrowView) without focusing on the whole app list window when
+  // using search + arrow button.
+  search_box_view_->GetViewAccessibility().OverrideNextFocus(GetWidget());
+  search_box_view_->GetViewAccessibility().OverridePreviousFocus(GetWidget());
 }
 
 void AppListView::InitChildWidget() {
@@ -640,7 +663,7 @@ void AppListView::InitChildWidget() {
       views::Widget::InitParams::TYPE_CONTROL);
   search_box_widget_params.parent = GetWidget()->GetNativeView();
   search_box_widget_params.opacity =
-      views::Widget::InitParams::TRANSLUCENT_WINDOW;
+      views::Widget::InitParams::WindowOpacity::kTranslucent;
   search_box_widget_params.name = "SearchBoxView";
   search_box_widget_params.delegate = search_box_view_;
 
@@ -664,6 +687,12 @@ void AppListView::InitChildWidget() {
   search_box_widget->SetFocusTraversableParentView(search_box_focus_host);
   search_box_widget->SetFocusTraversableParent(
       GetWidget()->GetFocusTraversable());
+
+  // Directs A11y focus ring from AppListView's descendants (like
+  // ExpandArrowView) to search box view without focusing on the whole app list
+  // window when using search + arrow button.
+  GetViewAccessibility().OverrideNextFocus(search_box_widget);
+  GetViewAccessibility().OverridePreviousFocus(search_box_widget);
 }
 
 void AppListView::Show(bool is_side_shelf, bool is_tablet_mode) {
@@ -689,7 +718,8 @@ void AppListView::Show(bool is_side_shelf, bool is_tablet_mode) {
   CloseKeyboardIfVisible();
 
   OnTabletModeChanged(is_tablet_mode);
-  app_list_main_view_->ShowAppListWhenReady();
+  // Widget may be activated by |on_bounds_animation_ended_callback_|.
+  GetWidget()->ShowInactive();
 
   UMA_HISTOGRAM_TIMES(kAppListCreationTimeHistogram,
                       base::Time::Now() - time_shown_.value());
@@ -731,15 +761,14 @@ bool AppListView::HandleCloseOpenSearchBox() {
 }
 
 bool AppListView::Back() {
-  return app_list_main_view_->contents_view()->Back();
+  if (app_list_main_view_)
+    return app_list_main_view_->contents_view()->Back();
+
+  return false;
 }
 
 void AppListView::OnPaint(gfx::Canvas* canvas) {
   views::WidgetDelegateView::OnPaint(canvas);
-  if (!next_paint_callback_.is_null()) {
-    next_paint_callback_.Run();
-    next_paint_callback_.Reset();
-  }
 }
 
 const char* AppListView::GetClassName() const {
@@ -780,7 +809,13 @@ void AppListView::Layout() {
   // Exclude the shelf height from the contents bounds to avoid apps grid from
   // overlapping with shelf.
   gfx::Rect main_bounds = contents_bounds;
-  main_bounds.Inset(0, 0, 0, delegate_->GetShelfHeight());
+  if (is_side_shelf()) {
+    // Set both horizontal insets so the app list remains centered on the
+    // screen.
+    main_bounds.Inset(delegate_->GetShelfHeight(), 0);
+  } else {
+    main_bounds.Inset(0, 0, 0, delegate_->GetShelfHeight());
+  }
 
   app_list_main_view_->SetBoundsRect(main_bounds);
 
@@ -808,7 +843,15 @@ SkColor AppListView::GetAppListBackgroundShieldColorForTest() {
   return app_list_background_shield_->GetColorForTest();
 }
 
+bool AppListView::IsShowingEmbeddedAssistantUI() const {
+  return app_list_main_view()->contents_view()->IsShowingEmbeddedAssistantUI();
+}
+
 void AppListView::UpdateAppListConfig(aura::Window* parent_window) {
+  // For side shelf, extra horizontal margin is needed to ensure the apps grid
+  // does not overlap with shelf.
+  const int side_shelf_width =
+      is_side_shelf() ? delegate_->GetShelfHeight() : 0;
   // Create the app list configuration override if it's needed for the current
   // display bounds and the available apps grid size.
   std::unique_ptr<AppListConfig> new_config =
@@ -817,8 +860,8 @@ void AppListView::UpdateAppListConfig(aura::Window* parent_window) {
               ->GetDisplayNearestView(parent_window)
               .work_area()
               .size(),
-          AppsContainerView::GetMinimumGridHorizontalMargin(),
-          delegate_->GetShelfHeight(), app_list_config_.get());
+          delegate_->GetShelfHeight(), side_shelf_width,
+          app_list_config_.get());
 
   if (!new_config)
     return;
@@ -853,7 +896,7 @@ void AppListView::HandleClickOrTap(ui::LocatedEvent* event) {
   }
 
   // Close embedded Assistant UI if it is shown.
-  if (app_list_main_view()->contents_view()->IsShowingEmbeddedAssistantUI()) {
+  if (IsShowingEmbeddedAssistantUI()) {
     Back();
     search_box_view_->ClearSearchAndDeactivateSearchBox();
     return;
@@ -878,8 +921,8 @@ void AppListView::HandleClickOrTap(ui::LocatedEvent* event) {
     if (!is_tablet_mode())
       return;
 
-    // Home launcher is shown on top of wallpaper with trasparent background. So
-    // trigger the wallpaper context menu for the same events.
+    // Home launcher is shown on top of wallpaper with transparent background.
+    // So trigger the wallpaper context menu for the same events.
     gfx::Point onscreen_location(event->location());
     ConvertPointToScreen(this, &onscreen_location);
     delegate_->ShowWallpaperContextMenu(
@@ -1042,7 +1085,6 @@ void AppListView::EndDrag(const gfx::Point& location) {
       }
     }
   }
-  UpdateChildViewsYPositionAndOpacity();
   initial_drag_point_ = gfx::Point();
 }
 
@@ -1371,7 +1413,7 @@ void AppListView::OnGestureEvent(ui::GestureEvent* event) {
         search_box_view_->NotifyGestureEvent();
 
       if (event->location().y() < kAppListHomeLaucherGesturesThreshold) {
-        if (delegate_->ProcessHomeLauncherGesture(event, gfx::Point())) {
+        if (delegate_->ProcessHomeLauncherGesture(event)) {
           SetIsInDrag(false);
           event->SetHandled();
           HandleClickOrTap(event);
@@ -1393,9 +1435,7 @@ void AppListView::OnGestureEvent(ui::GestureEvent* event) {
       break;
     }
     case ui::ET_GESTURE_SCROLL_UPDATE: {
-      gfx::Point location_in_screen = event->location();
-      views::View::ConvertPointToScreen(this, &location_in_screen);
-      if (delegate_->ProcessHomeLauncherGesture(event, location_in_screen)) {
+      if (delegate_->ProcessHomeLauncherGesture(event)) {
         SetIsInDrag(true);
         event->SetHandled();
         return;
@@ -1411,9 +1451,7 @@ void AppListView::OnGestureEvent(ui::GestureEvent* event) {
       break;
     }
     case ui::ET_GESTURE_END: {
-      gfx::Point location_in_screen = event->location();
-      views::View::ConvertPointToScreen(this, &location_in_screen);
-      if (delegate_->ProcessHomeLauncherGesture(event, location_in_screen)) {
+      if (delegate_->ProcessHomeLauncherGesture(event)) {
         SetIsInDrag(false);
         event->SetHandled();
         return;
@@ -1537,7 +1575,7 @@ void AppListView::SetState(ash::AppListViewState new_state) {
   if (is_in_drag_ && app_list_state_ != ash::AppListViewState::kClosed)
     app_list_main_view_->contents_view()->UpdateYPositionAndOpacity();
 
-  if (GetWidget()->IsActive()) {
+  if (GetWidget()->IsActive() && !IsShowingEmbeddedAssistantUI()) {
     // Reset the focus to initially focused view. This should be
     // done before updating visibility of views, because setting
     // focused view invisible automatically moves focus to next
@@ -1839,6 +1877,16 @@ int AppListView::GetCurrentAppListHeight() const {
 }
 
 float AppListView::GetAppListTransitionProgress(int flags) const {
+  // During transition between home and overview in tablet mode, the app list
+  // widget gets scaled down from full screen state - if this is the case,
+  // the app list layout should match the current app list state, so return
+  // the progress for the current app list state.
+  const gfx::Transform transform = GetWidget()->GetLayer()->transform();
+  if (is_tablet_mode_ && transform.IsScaleOrTranslation() &&
+      !transform.IsIdentityOrTranslation()) {
+    return GetTransitionProgressForState(app_list_state_);
+  }
+
   int current_height = GetCurrentAppListHeight();
   if (flags & kProgressFlagWithTransform) {
     current_height -=
@@ -2000,6 +2048,19 @@ void AppListView::OnBoundsAnimationCompleted() {
   // Layout if the animation was completed.
   if (!was_animation_interrupted)
     Layout();
+
+  if (on_bounds_animation_ended_callback_)
+    on_bounds_animation_ended_callback_.Run();
+}
+
+gfx::Rect AppListView::GetItemScreenBoundsInFirstGridPage(
+    const std::string& id) const {
+  const AppsGridView* apps_grid_view = app_list_main_view_->contents_view()
+                                           ->GetAppsContainerView()
+                                           ->apps_grid_view();
+  gfx::Rect item_bounds = apps_grid_view->GetExpectedItemBoundsInFirstPage(id);
+  ConvertRectToScreen(apps_grid_view, &item_bounds);
+  return item_bounds;
 }
 
 void AppListView::SetShelfHasRoundedCorners(bool shelf_has_rounded_corners) {
@@ -2032,7 +2093,7 @@ void AppListView::RedirectKeyEventToSearchBox(ui::KeyEvent* event) {
     return;
 
   // Allow text input inside the Assistant page.
-  if (app_list_main_view()->contents_view()->IsShowingEmbeddedAssistantUI())
+  if (IsShowingEmbeddedAssistantUI())
     return;
 
   views::Textfield* search_box = search_box_view_->search_box();
@@ -2122,13 +2183,7 @@ bool AppListView::CloseKeyboardIfVisible() {
 }
 
 void AppListView::OnParentWindowBoundsChanged() {
-  // Set the widget size to fit the new display metrics.
-  GetWidget()->GetNativeView()->SetBounds(
-      GetPreferredWidgetBoundsForState(app_list_state_));
-
-  // Update the widget bounds to accomodate the new work
-  // area.
-  SetState(app_list_state_);
+  EnsureWidgetBoundsMatchCurrentState();
 }
 
 float AppListView::GetAppListBackgroundOpacityDuringDragging() {

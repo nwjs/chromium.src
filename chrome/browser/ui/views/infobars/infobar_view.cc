@@ -90,6 +90,11 @@ gfx::Insets GetCloseButtonSpacing() {
 InfoBarView::InfoBarView(std::unique_ptr<infobars::InfoBarDelegate> delegate)
     : infobars::InfoBar(std::move(delegate)),
       views::ExternalFocusTracker(this, nullptr) {
+  // Make Infobar animation aligned to the Compositor.
+  SetNotifier(std::make_unique<
+              gfx::AnimationDelegateNotifier<views::AnimationDelegateViews>>(
+      this, this));
+
   set_owned_by_client();  // InfoBar deletes itself at the appropriate time.
 
   // Clip child layers; without this, buttons won't look correct during
@@ -215,8 +220,8 @@ void InfoBarView::OnPaint(gfx::Canvas* canvas) {
     const SkColor color =
         GetColor(ThemeProperties::COLOR_TOOLBAR_CONTENT_AREA_SEPARATOR);
     const gfx::Rect local_bounds = GetLocalBounds();
-    canvas->DrawLine(gfx::Point(local_bounds.x(), local_bounds.y()),
-                     gfx::Point(local_bounds.right(), local_bounds.y()), color);
+    canvas->DrawSharpLine({local_bounds.x(), local_bounds.y()},
+                          {local_bounds.right(), local_bounds.y()}, color);
   }
 }
 

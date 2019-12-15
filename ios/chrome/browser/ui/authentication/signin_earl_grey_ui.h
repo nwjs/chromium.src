@@ -7,21 +7,22 @@
 
 #import <Foundation/Foundation.h>
 
-#import "ios/chrome/browser/ui/authentication/cells/signin_promo_view.h"
+#import "ios/chrome/browser/ui/authentication/cells/signin_promo_view_constants.h"
 
-@class ChromeIdentity;
+@class FakeChromeIdentity;
 
 // Methods used for the EarlGrey tests, related to UI.
 @interface SigninEarlGreyUI : NSObject
 
-// Calls [SigninEarlGreyUI signinWithIdentity:identity isManagedAccount:NO].
-+ (void)signinWithIdentity:(ChromeIdentity*)identity;
+// Calls [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity
+// isManagedAccount:NO].
++ (void)signinWithFakeIdentity:(FakeChromeIdentity*)fakeIdentity;
 
 // Adds the identity (if not already added), and perform a sign-in. if
-// |isManagedAccount| is true, |identity| needs to be a managed account and the
-// managed dialog is expected while signing in.
-+ (void)signinWithIdentity:(ChromeIdentity*)identity
-          isManagedAccount:(BOOL)isManagedAccount;
+// |isManagedAccount| is true, |fakeIdentity| needs to be a managed account and
+// the managed dialog is expected while signing in.
++ (void)signinWithFakeIdentity:(FakeChromeIdentity*)fakeIdentity
+              isManagedAccount:(BOOL)isManagedAccount;
 
 // Taps on the settings link in the sign-in view. The sign-in view has to be
 // opened before calling this method.

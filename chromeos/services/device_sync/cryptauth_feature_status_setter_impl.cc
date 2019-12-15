@@ -203,10 +203,6 @@ void CryptAuthFeatureStatusSetterImpl::ProcessRequestQueue() {
   request.mutable_context()->mutable_client_metadata()->set_invocation_reason(
       cryptauthv2::ClientMetadata::FEATURE_TOGGLED);
   request.mutable_context()->set_device_id(client_app_metadata_->instance_id());
-
-  // TODO(https://crbug.com/990430): This is the IID token for the v2 Enrollment
-  // service. A different IID token for the v2 DeviceSync service might be
-  // necessary.
   request.mutable_context()->set_device_id_token(
       client_app_metadata_->instance_id_token());
 
@@ -217,8 +213,8 @@ void CryptAuthFeatureStatusSetterImpl::ProcessRequestQueue() {
   cryptauthv2::DeviceFeatureStatus::FeatureStatus* feature_status =
       device_feature_status->add_feature_statuses();
   feature_status->set_feature_type(
-      SoftwareFeatureToEnabledCryptAuthFeatureTypeString(
-          pending_requests_.front().feature));
+      CryptAuthFeatureTypeToString(CryptAuthFeatureTypeFromSoftwareFeature(
+          pending_requests_.front().feature)));
 
   switch (pending_requests_.front().status_change) {
     case FeatureStatusChange::kEnableExclusively:
@@ -289,14 +285,16 @@ void CryptAuthFeatureStatusSetterImpl::FinishAttempt(
     base::Optional<NetworkRequestError> error) {
   DCHECK(!pending_requests_.empty());
 
+  Request current_request = std::move(pending_requests_.front());
+  pending_requests_.pop();
+
   if (error) {
-    std::move(pending_requests_.front().error_callback).Run(*error);
+    std::move(current_request.error_callback).Run(*error);
   } else {
     PA_LOG(VERBOSE) << "SetFeatureStatus attempt succeeded.";
-    std::move(pending_requests_.front().success_callback).Run();
+    std::move(current_request.success_callback).Run();
   }
 
-  pending_requests_.pop();
   SetState(State::kIdle);
   ProcessRequestQueue();
 }

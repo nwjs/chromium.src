@@ -12,6 +12,8 @@
 #include "extensions/common/api/dns.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/net_errors.h"
+#include "net/base/network_isolation_key.h"
+#include "net/dns/public/resolve_error_info.h"
 
 using content::BrowserThread;
 using extensions::api::dns::ResolveCallbackResolveInfo;
@@ -34,13 +36,15 @@ ExtensionFunction::ResponseAction DnsResolveFunction::Run() {
   // hostname you'd like to resolve, even though it doesn't use that value in
   // determining its answer.
   net::HostPortPair host_port_pair(params->hostname, 0);
+  // TODO(https://crbug.com/997049): Pass in a non-empty NetworkIsolationKey.
   content::BrowserContext::GetDefaultStoragePartition(browser_context())
       ->GetNetworkContext()
-      ->ResolveHost(host_port_pair, nullptr,
+      ->ResolveHost(host_port_pair, net::NetworkIsolationKey::Todo(), nullptr,
                     receiver_.BindNewPipeAndPassRemote());
   receiver_.set_disconnect_handler(
       base::BindOnce(&DnsResolveFunction::OnComplete, base::Unretained(this),
-                     net::ERR_FAILED, base::nullopt));
+                     net::ERR_NAME_NOT_RESOLVED,
+                     net::ResolveErrorInfo(net::ERR_FAILED), base::nullopt));
 
   // Balanced in OnComplete().
   AddRef();
@@ -49,12 +53,13 @@ ExtensionFunction::ResponseAction DnsResolveFunction::Run() {
 
 void DnsResolveFunction::OnComplete(
     int result,
+    const net::ResolveErrorInfo& resolve_error_info,
     const base::Optional<net::AddressList>& resolved_addresses) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   receiver_.reset();
 
   ResolveCallbackResolveInfo resolve_info;
-  resolve_info.result_code = result;
+  resolve_info.result_code = resolve_error_info.error;
   if (result == net::OK) {
     DCHECK(resolved_addresses.has_value() && !resolved_addresses->empty());
     resolve_info.address = std::make_unique<std::string>(

@@ -21,6 +21,10 @@ cast_source_set("graphics") {
     "//ui/gfx",
   ]
 
+  public_deps = [
+    "//chromecast/ui/mojom",
+  ]
+
   if (use_aura) {
     sources += [
       "accessibility/accessibility_cursor_ring_layer.cc",
@@ -81,7 +85,7 @@ cast_source_set("graphics") {
     sources += [
       "cast_window_manager_default.cc",
       "cast_window_manager_default.h",
-      "rounded_window_corners.h",
+      "rounded_window_corners_default.cc",
     ]
   }
 

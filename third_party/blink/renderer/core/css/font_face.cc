@@ -142,7 +142,7 @@ FontFace* FontFace::Create(ExecutionContext* context,
   FontFace* font_face =
       MakeGarbageCollected<FontFace>(context, family, descriptors);
   font_face->InitCSSFontFace(static_cast<const unsigned char*>(source->Data()),
-                             source->ByteLength());
+                             source->ByteLengthAsSizeT());
   return font_face;
 }
 
@@ -154,7 +154,7 @@ FontFace* FontFace::Create(ExecutionContext* context,
       MakeGarbageCollected<FontFace>(context, family, descriptors);
   font_face->InitCSSFontFace(
       static_cast<const unsigned char*>(source->BaseAddress()),
-      source->byteLength());
+      source->byteLengthAsSizeT());
   return font_face;
 }
 

@@ -267,13 +267,8 @@ static bool NeedsScrollNode(const LayoutObject& object,
   if (!object.HasOverflowClip())
     return false;
 
-  // TODO(pdr): CAP has invalidation issues (crbug.com/732611) as well as
-  // subpixel issues (crbug.com/693741) which prevent us from compositing the
-  // root scroller.
-  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
-    if (direct_compositing_reasons & CompositingReason::kRootScroller)
-      return true;
-  }
+  if (direct_compositing_reasons & CompositingReason::kRootScroller)
+    return true;
 
   return ToLayoutBox(object).GetScrollableArea()->ScrollsOverflow();
 }
@@ -565,17 +560,19 @@ void FragmentPaintPropertyTreeBuilder::UpdateStickyTranslation() {
         constraint->is_anchored_right = layout_constraint.is_anchored_right;
         constraint->is_anchored_top = layout_constraint.is_anchored_top;
         constraint->is_anchored_bottom = layout_constraint.is_anchored_bottom;
-        constraint->left_offset = layout_constraint.left_offset;
-        constraint->right_offset = layout_constraint.right_offset;
-        constraint->top_offset = layout_constraint.top_offset;
-        constraint->bottom_offset = layout_constraint.bottom_offset;
+        constraint->left_offset = layout_constraint.left_offset.ToFloat();
+        constraint->right_offset = layout_constraint.right_offset.ToFloat();
+        constraint->top_offset = layout_constraint.top_offset.ToFloat();
+        constraint->bottom_offset = layout_constraint.bottom_offset.ToFloat();
         constraint->constraint_box_rect =
-            RoundedIntRect(box_model.ComputeStickyConstrainingRect());
-        constraint->scroll_container_relative_sticky_box_rect = RoundedIntRect(
-            layout_constraint.scroll_container_relative_sticky_box_rect);
-        constraint
-            ->scroll_container_relative_containing_block_rect = RoundedIntRect(
-            layout_constraint.scroll_container_relative_containing_block_rect);
+            PixelSnappedIntRect(box_model.ComputeStickyConstrainingRect());
+        constraint->scroll_container_relative_sticky_box_rect =
+            PixelSnappedIntRect(
+                layout_constraint.scroll_container_relative_sticky_box_rect);
+        constraint->scroll_container_relative_containing_block_rect =
+            PixelSnappedIntRect(
+                layout_constraint
+                    .scroll_container_relative_containing_block_rect);
         if (PaintLayer* sticky_box_shifting_ancestor =
                 layout_constraint.nearest_sticky_layer_shifting_sticky_box) {
           constraint->nearest_element_shifting_sticky_box =
@@ -755,9 +752,6 @@ void FragmentPaintPropertyTreeBuilder::UpdateTransform() {
           state.rendering_context_id =
               PtrHash<const LayoutObject>::GetHash(&object_);
         }
-        state.direct_compositing_reasons =
-            full_context_.direct_compositing_reasons &
-            CompositingReasonsForTransformProperty();
         // TODO(flackr): This only needs to consider composited transform
         // animations. This is currently a cyclic dependency but we could
         // calculate most of the compositable animation reasons up front to
@@ -767,9 +761,11 @@ void FragmentPaintPropertyTreeBuilder::UpdateTransform() {
                 object_, full_context_.direct_compositing_reasons);
       }
 
+      state.direct_compositing_reasons =
+          full_context_.direct_compositing_reasons &
+          CompositingReasonsForTransformProperty();
       state.flags.flattens_inherited_transform =
           context_.current.should_flatten_inherited_transform;
-
       state.backface_visibility =
           object_.HasHiddenBackface()
               ? TransformPaintPropertyNode::BackfaceVisibility::kHidden
@@ -1546,8 +1542,7 @@ static PhysicalRect OverflowClipRect(const LayoutBox& box,
 static bool CanOmitOverflowClip(const LayoutObject& object) {
   DCHECK(NeedsOverflowClip(object));
 
-  if (object.IsLayoutView() && object.GetFrame()->IsMainFrame() &&
-      !object.GetFrame()->GetSettings()->GetMainFrameClipsContent()) {
+  if (object.IsLayoutView() && !object.GetFrame()->ClipsContent()) {
     return true;
   }
 
@@ -1775,7 +1770,8 @@ static MainThreadScrollingReasons GetMainThreadScrollingReasons(
     return reasons;
 
   if (object.IsLayoutView()) {
-    if (object.GetFrameView()->HasBackgroundAttachmentFixedObjects()) {
+    if (object.GetFrameView()
+            ->RequiresMainThreadScrollingForBackgroundAttachmentFixed()) {
       reasons |=
           cc::MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects;
     }
@@ -1864,7 +1860,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
         }
       }
 
-      state.compositor_element_id = scrollable_area->GetCompositorElementId();
+      state.compositor_element_id = scrollable_area->GetScrollElementId();
 
       state.overscroll_behavior = cc::OverscrollBehavior(
           static_cast<cc::OverscrollBehavior::OverscrollBehaviorType>(
@@ -1882,8 +1878,10 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
       OnUpdateScroll(properties_->UpdateScroll(*context_.current.scroll,
                                                std::move(state)));
 
-      if (scrollable_area->VerticalScrollbar() ||
-          scrollable_area->HasLayerForVerticalScrollbar()) {
+      // Create opacity effect nodes for overlay scrollbars for their fade
+      // animation in the compositor.
+      if (scrollable_area->VerticalScrollbar() &&
+          scrollable_area->VerticalScrollbar()->IsOverlayScrollbar()) {
         EffectPaintPropertyNode::State effect_state;
         effect_state.local_transform_space = context_.current.transform;
         effect_state.direct_compositing_reasons =
@@ -1898,8 +1896,8 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
         OnClear(properties_->ClearVerticalScrollbarEffect());
       }
 
-      if (scrollable_area->HorizontalScrollbar() ||
-          scrollable_area->HasLayerForHorizontalScrollbar()) {
+      if (scrollable_area->HorizontalScrollbar() &&
+          scrollable_area->HorizontalScrollbar()->IsOverlayScrollbar()) {
         EffectPaintPropertyNode::State effect_state;
         effect_state.local_transform_space = context_.current.transform;
         effect_state.direct_compositing_reasons =
@@ -1935,21 +1933,14 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
           context_.current.should_flatten_inherited_transform;
       state.direct_compositing_reasons =
           full_context_.direct_compositing_reasons &
-          (CompositingReason::kRootScroller |
-           CompositingReasonsForTransformProperty());
+          CompositingReason::kDirectReasonsForScrollTranslationProperty;
       state.rendering_context_id = context_.current.rendering_context_id;
       state.scroll = properties_->Scroll();
       auto effective_change_type = properties_->UpdateScrollTranslation(
           *context_.current.transform, std::move(state));
-      bool known_to_be_composited =
-          RuntimeEnabledFeatures::CompositeAfterPaintEnabled()
-              ? properties_->ScrollTranslation()->HasDirectCompositingReasons()
-              : box.GetScrollableArea()->NeedsCompositedScrolling();
-      // TODO(crbug.com/953322): We need to fix this to work with CAP as well.
-      if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
-          effective_change_type ==
+      if (effective_change_type ==
               PaintPropertyChangeType::kChangedOnlySimpleValues &&
-          known_to_be_composited) {
+          properties_->ScrollTranslation()->HasDirectCompositingReasons()) {
         if (auto* paint_artifact_compositor =
                 object_.GetFrameView()->GetPaintArtifactCompositor()) {
           bool updated =
@@ -2282,7 +2273,7 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffset() {
         DCHECK(full_context_.container_for_fixed_position ==
                box_model_object.Container());
         context_.current = context_.fixed_position;
-        // Fixed-position elements that are fixed to the vieport have a
+        // Fixed-position elements that are fixed to the viewport have a
         // transform above the scroll of the LayoutView. Child content is
         // relative to that transform, and hence the fixed-position element.
         if (context_.fixed_position.fixed_position_children_fixed_to_root)

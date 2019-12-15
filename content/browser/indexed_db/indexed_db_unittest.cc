@@ -10,16 +10,19 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/test/bind_test_util.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/time/default_clock.h"
+#include "components/services/storage/indexed_db/scopes/scopes_lock_manager.h"
+#include "components/services/storage/indexed_db/transactional_leveldb/transactional_leveldb_database.h"
 #include "content/browser/indexed_db/indexed_db_connection.h"
 #include "content/browser/indexed_db/indexed_db_context_impl.h"
 #include "content/browser/indexed_db/indexed_db_execution_context_connection_tracker.h"
 #include "content/browser/indexed_db/indexed_db_factory_impl.h"
+#include "content/browser/indexed_db/indexed_db_leveldb_coding.h"
+#include "content/browser/indexed_db/indexed_db_leveldb_env.h"
 #include "content/browser/indexed_db/indexed_db_origin_state.h"
-#include "content/browser/indexed_db/leveldb/leveldb_env.h"
-#include "content/browser/indexed_db/leveldb/transactional_leveldb_database.h"
 #include "content/browser/indexed_db/mock_indexed_db_callbacks.h"
 #include "content/browser/indexed_db/mock_indexed_db_database_callbacks.h"
 #include "content/public/browser/storage_partition.h"
@@ -66,7 +69,7 @@ class LevelDBLock {
 };
 
 std::unique_ptr<LevelDBLock> LockForTesting(const base::FilePath& file_name) {
-  leveldb::Env* env = LevelDBEnv::Get();
+  leveldb::Env* env = IndexedDBLevelDBEnv::Get();
   base::FilePath lock_path = file_name.AppendASCII("LOCK");
   leveldb::FileLock* lock = nullptr;
   leveldb::Status status = env->LockFile(lock_path.AsUTF8Unsafe(), &lock);
@@ -342,6 +345,27 @@ TEST_F(IndexedDBTest, ForceCloseOpenDatabasesOnCommitFailure) {
 
   EXPECT_TRUE(db_callbacks->forced_close_called());
   EXPECT_FALSE(factory->IsBackingStoreOpen(kTestOrigin));
+}
+
+TEST(ScopesLockManager, TestRangeDifferences) {
+  ScopeLockRange range_db1;
+  ScopeLockRange range_db2;
+  ScopeLockRange range_db1_os1;
+  ScopeLockRange range_db1_os2;
+  for (int64_t i = 0; i < 512; ++i) {
+    range_db1 = GetDatabaseLockRange(i);
+    range_db2 = GetDatabaseLockRange(i + 1);
+    range_db1_os1 = GetObjectStoreLockRange(i, i);
+    range_db1_os2 = GetObjectStoreLockRange(i, i + 1);
+    EXPECT_TRUE(range_db1.IsValid() && range_db2.IsValid() &&
+                range_db1_os1.IsValid() && range_db1_os2.IsValid());
+    EXPECT_LT(range_db1, range_db2);
+    EXPECT_LT(range_db1, range_db1_os1);
+    EXPECT_LT(range_db1, range_db1_os2);
+    EXPECT_LT(range_db1_os1, range_db1_os2);
+    EXPECT_LT(range_db1_os1, range_db2);
+    EXPECT_LT(range_db1_os2, range_db2);
+  }
 }
 
 }  // namespace content

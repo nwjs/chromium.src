@@ -14,9 +14,13 @@
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
+#include "third_party/blink/renderer/platform/graphics/paint/geometry_mapper.h"
 
 namespace blink {
 
+// TODO(wangxianzhu): Though these tests don't directly apply in
+// CompositeAfterPaint, we should ensure the cases are tested in
+// CompositeAfterPaint mode if applicable.
 class CompositedLayerMappingTest : public RenderingTest {
  public:
   CompositedLayerMappingTest()
@@ -998,12 +1002,12 @@ TEST_F(CompositedLayerMappingTest,
       true);
   SetBodyInnerHTML(R"HTML(
     <div id='container' style='position: relative; z-index: 1; overflow:
-    scroll; width: 300px; height: 300px'>
-        <div id='negative-composited-child' style='background-color: red;
-    width: 1px; height: 1px; position: absolute; backface-visibility:
-    hidden; z-index: -1'></div>
-        <div style='background-color: blue; width: 2000px; height: 2000px;
-    position: relative; top: 10px'></div>
+                               scroll; width: 300px; height: 300px'>
+      <div id='negative-composited-child' style='background-color: red;
+               width: 1px; height: 1px; position: absolute;
+               backface-visibility: hidden; z-index: -1'></div>
+      <div style='background-color: blue; width: 2000px; height: 2000px;
+                  position: relative; top: 10px'></div>
     </div>
   )HTML");
 
@@ -1251,10 +1255,22 @@ TEST_F(CompositedLayerMappingTest,
   // the sticky element.
   EXPECT_EQ(PhysicalOffset(0, 100), sticky->StickyPositionOffset());
 
-  // On the CompositedLayerMapping side however, the offset should have been
-  // removed so that the compositor can take care of it.
-  EXPECT_FLOAT_EQ(0, main_graphics_layer->GetPosition().x());
-  EXPECT_FLOAT_EQ(0, main_graphics_layer->GetPosition().y());
+  GraphicsLayer* root_scrolling_layer =
+      GetDocument().GetLayoutView()->Layer()->GraphicsLayerBacking();
+  const PropertyTreeState& root_layer_state =
+      root_scrolling_layer->GetPropertyTreeState();
+  const PropertyTreeState& sticky_layer_state =
+      main_graphics_layer->GetPropertyTreeState();
+  auto transform_from_sticky_to_root =
+      GeometryMapper::SourceToDestinationProjection(
+          sticky_layer_state.Transform(), root_layer_state.Transform());
+  // Irrespective of if the ancestor scroller is composited or not, the sticky
+  // position element should be at the same location.
+  auto sticky_position_relative_to_root =
+      transform_from_sticky_to_root.MapPoint(
+          FloatPoint(main_graphics_layer->GetOffsetFromTransformNode()));
+  EXPECT_FLOAT_EQ(8, sticky_position_relative_to_root.X());
+  EXPECT_FLOAT_EQ(8, sticky_position_relative_to_root.Y());
 }
 
 TEST_F(CompositedLayerMappingTest,
@@ -1287,8 +1303,22 @@ TEST_F(CompositedLayerMappingTest,
       FloatPoint(scrollable_area->ScrollPosition().Y(), 100));
   UpdateAllLifecyclePhasesForTest();
 
-  EXPECT_FLOAT_EQ(0, main_graphics_layer->GetPosition().x());
-  EXPECT_FLOAT_EQ(100, main_graphics_layer->GetPosition().y());
+  GraphicsLayer* root_scrolling_layer =
+      GetDocument().GetLayoutView()->Layer()->GraphicsLayerBacking();
+  const PropertyTreeState& root_layer_state =
+      root_scrolling_layer->GetPropertyTreeState();
+  const PropertyTreeState& sticky_layer_state =
+      main_graphics_layer->GetPropertyTreeState();
+  auto transform_from_sticky_to_root =
+      GeometryMapper::SourceToDestinationProjection(
+          sticky_layer_state.Transform(), root_layer_state.Transform());
+  // Irrespective of if the ancestor scroller is composited or not, the sticky
+  // position element should be at the same location.
+  auto sticky_position_relative_to_root =
+      transform_from_sticky_to_root.MapPoint(
+          FloatPoint(main_graphics_layer->GetOffsetFromTransformNode()));
+  EXPECT_FLOAT_EQ(8, sticky_position_relative_to_root.X());
+  EXPECT_FLOAT_EQ(8, sticky_position_relative_to_root.Y());
 }
 
 TEST_F(CompositedLayerMappingTest,
@@ -1381,7 +1411,7 @@ TEST_F(CompositedLayerMappingTest, ScrollingContainerBoundsChange) {
       ToLayoutBoxModelObject(GetLayoutObjectByElementId("scroller"));
   PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
 
-  cc::Layer* scrolling_layer = scrollable_area->LayerForScrolling()->CcLayer();
+  cc::Layer* scrolling_layer = scrollable_area->LayerForScrolling();
   EXPECT_EQ(0, scrolling_layer->CurrentScrollOffset().y());
   EXPECT_EQ(150, scrolling_layer->bounds().height());
   EXPECT_EQ(100, scrolling_layer->scroll_container_bounds().height());
@@ -1486,8 +1516,6 @@ TEST_F(CompositedLayerMappingTest, ScrollLayerSizingSubpixelAccumulation) {
 }
 
 TEST_F(CompositedLayerMappingTest, SquashingScroll) {
-  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
-    return;
   SetHtmlInnerHTML(R"HTML(
     <style>
       * { margin: 0 }
@@ -1509,8 +1537,6 @@ TEST_F(CompositedLayerMappingTest, SquashingScroll) {
 }
 
 TEST_F(CompositedLayerMappingTest, SquashingScrollInterestRect) {
-  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
-    return;
   SetHtmlInnerHTML(R"HTML(
     <style>
       * { margin: 0 }
@@ -1535,9 +1561,6 @@ TEST_F(CompositedLayerMappingTest, SquashingScrollInterestRect) {
 
 TEST_F(CompositedLayerMappingTest,
        SquashingBoundsUnderCompositedScrollingWithTransform) {
-  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
-    return;
-
   SetHtmlInnerHTML(R"HTML(
     <div id=scroller style="will-change: transform; overflow: scroll;
         width: 200px; height: 400px;">
@@ -1565,14 +1588,11 @@ TEST_F(CompositedLayerMappingTest,
   UpdateAllLifecyclePhasesForTest();
 
   // 100px down from squashing's main graphics layer.
-  EXPECT_EQ(FloatPoint(0, 100),
-            squashed->GraphicsLayerBacking()->GetPosition());
+  EXPECT_EQ(IntPoint(0, 100),
+            squashed->GraphicsLayerBacking()->GetOffsetFromTransformNode());
 }
 
 TEST_F(CompositedLayerMappingTest, ContentsNotOpaqueWithForegroundLayer) {
-  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
-    return;
-
   SetHtmlInnerHTML(R"HTML(
     <style>
       div {
@@ -1595,9 +1615,6 @@ TEST_F(CompositedLayerMappingTest, ContentsNotOpaqueWithForegroundLayer) {
 }
 
 TEST_F(CompositedLayerMappingTest, EmptyBoundsDoesntDrawContent) {
-  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
-    return;
-
   SetHtmlInnerHTML(R"HTML(
     <style>
       div {
@@ -1617,9 +1634,6 @@ TEST_F(CompositedLayerMappingTest, EmptyBoundsDoesntDrawContent) {
 }
 
 TEST_F(CompositedLayerMappingTest, TouchActionRectsWithoutContent) {
-  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
-    return;
-
   SetBodyInnerHTML(
       "<div id='target' style='will-change: transform; width: 100px;"
       "    height: 100px; touch-action: none;'></div>");
@@ -1639,9 +1653,6 @@ TEST_F(CompositedLayerMappingTest, TouchActionRectsWithoutContent) {
 }
 
 TEST_F(CompositedLayerMappingTest, ContentsOpaque) {
-  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
-    return;
-
   SetHtmlInnerHTML(R"HTML(
     <style>
       div {
@@ -1663,15 +1674,115 @@ TEST_F(CompositedLayerMappingTest, ContentsOpaque) {
 }
 
 TEST_F(CompositedLayerMappingTest, NullOverflowControlsHostLayer) {
-  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
-    return;
-
   SetHtmlInnerHTML("<div id='target' style='will-change: transform'></div>");
   CompositedLayerMapping* mapping =
       ToLayoutBoxModelObject(GetLayoutObjectByElementId("target"))
           ->Layer()
           ->GetCompositedLayerMapping();
   EXPECT_FALSE(mapping->DetachLayerForOverflowControls());
+}
+
+TEST_F(CompositedLayerMappingTest, CompositedHiddenAnimatingLayer) {
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+    @keyframes slide {
+      0% { transform: translate3d(0px, 0px, 0px); }
+      100% { transform: translate3d(100px, 0px, 1px); }
+    }
+
+    div {
+      width: 123px;
+      height: 234px;
+      animation-duration: 2s;
+      animation-name: slide;
+      animation-iteration-count: infinite;
+      animation-direction: alternate;
+    }
+    </style>
+    <div id="animated"></div>
+  )HTML");
+
+  PaintLayer* animated =
+      ToLayoutBoxModelObject(GetLayoutObjectByElementId("animated"))->Layer();
+  CompositedLayerMapping* mapping = animated->GetCompositedLayerMapping();
+  ASSERT_TRUE(mapping);
+  EXPECT_TRUE(mapping->MainGraphicsLayer()->GetCompositingReasons() &
+              CompositingReason::kActiveTransformAnimation);
+
+  // We still composite the animated layer even if visibility: hidden.
+  // TODO(crbug.com/937573): Is this necessary?
+  GetDocument()
+      .getElementById("animated")
+      ->setAttribute(html_names::kStyleAttr, "visibility: hidden");
+  UpdateAllLifecyclePhasesForTest();
+  mapping = animated->GetCompositedLayerMapping();
+  ASSERT_TRUE(mapping);
+  EXPECT_TRUE(mapping->MainGraphicsLayer()->GetCompositingReasons() &
+              CompositingReason::kActiveTransformAnimation);
+}
+
+TEST_F(CompositedLayerMappingTest,
+       RepaintScrollableAreaLayersInMainThreadScrolling) {
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+      #scroller {
+        width: 200px;
+        height: 100px;
+        overflow: scroll;
+        opacity: 0.8; /*MainThreadScrollingReason::kHasOpacityAndLCDText*/
+      }
+      #child {
+        width: 100px;
+        height: 200px;
+        transform: translate3d(0, 0, 0);
+      }
+      #uncorrelated {
+        transform: translate3d(0, 0, 0);
+        height: 100px;
+        width: 100px;
+        background-color: red;
+      }
+    </style>
+    <div id="scroller">
+      <div id="child">
+      </div>
+    </div>
+    <div id="uncorrelated"></div>
+  )HTML");
+
+  PaintLayer* scroller =
+      ToLayoutBoxModelObject(GetLayoutObjectByElementId("scroller"))->Layer();
+
+  PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  ASSERT_TRUE(scrollable_area->VerticalScrollbar()->IsOverlayScrollbar());
+
+  ASSERT_FALSE(scrollable_area->NeedsCompositedScrolling());
+  EXPECT_FALSE(scrollable_area->VerticalScrollbar()->VisualRect().IsEmpty());
+
+  GraphicsLayer* vertical_scrollbar_layer =
+      scrollable_area->GraphicsLayerForVerticalScrollbar();
+  ASSERT_TRUE(vertical_scrollbar_layer);
+
+  CompositedLayerMapping* mapping = scroller->GetCompositedLayerMapping();
+  ASSERT_TRUE(mapping);
+
+  // Input events, animations and DOM changes, etc, can trigger cc::ProxyMain::
+  // BeginMainFrame, which may check if all graphics layers need repaint.
+  //
+  // We shouldn't repaint scrollable area layer which has no paint invalidation
+  // in many uncorrelated BeginMainFrame scenes, such as moving mouse over the
+  // non-scrollbar area, animating or DOM changes in another composited layer.
+  GetDocument()
+      .getElementById("uncorrelated")
+      ->setAttribute(html_names::kStyleAttr, "width: 200px");
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  EXPECT_FALSE(mapping->NeedsRepaint(*vertical_scrollbar_layer));
+
+  GetDocument().getElementById("child")->setAttribute(html_names::kStyleAttr,
+                                                      "height: 300px");
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  EXPECT_TRUE(mapping->NeedsRepaint(*vertical_scrollbar_layer));
 }
 
 }  // namespace blink

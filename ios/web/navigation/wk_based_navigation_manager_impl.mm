@@ -161,7 +161,8 @@ void WKBasedNavigationManagerImpl::AddTransientItem(const GURL& url) {
   // only entry in back/forward history.
   if (item) {
     DCHECK(item->GetUserAgentType() != UserAgentType::NONE);
-    transient_item_->SetUserAgentType(item->GetUserAgentType());
+    transient_item_->SetUserAgentType(item->GetUserAgentForInheritance(),
+                                      /*update_inherited_user_agent =*/true);
   }
 }
 
@@ -511,6 +512,9 @@ NavigationItem* WKBasedNavigationManagerImpl::GetVisibleItem() const {
     bool is_user_initiated = pending_item->NavigationInitiationType() ==
                              NavigationInitiationType::BROWSER_INITIATED;
     bool safe_to_show_pending = is_user_initiated && pending_item_index_ == -1;
+    if (web::features::UseWKWebViewLoading()) {
+      safe_to_show_pending = safe_to_show_pending && GetWebState()->IsLoading();
+    }
     if (safe_to_show_pending) {
       return pending_item;
     }

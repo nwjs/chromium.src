@@ -17,11 +17,12 @@
 #include "base/run_loop.h"
 #include "base/task/post_task.h"
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/interstitials/security_interstitial_idn_test.h"
 #include "chrome/browser/interstitials/security_interstitial_page_test_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/certificate_reporting_service_test_utils.h"
-#include "chrome/browser/ssl/cert_report_helper.h"
 #include "chrome/browser/ssl/certificate_reporting_test_utils.h"
+#include "chrome/browser/ssl/chrome_security_blocking_page_factory.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -32,6 +33,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/captive_portal/captive_portal_detector.h"
 #include "components/prefs/pref_service.h"
+#include "components/security_interstitials/content/cert_report_helper.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
 #include "components/security_interstitials/content/ssl_cert_reporter.h"
 #include "components/security_state/core/security_state.h"
@@ -70,35 +72,6 @@ enum ExpectWiFiSSID {
 enum ExpectLoginURL {
   EXPECT_LOGIN_URL_NO,
   EXPECT_LOGIN_URL_YES
-};
-
-class CaptivePortalBlockingPageForTesting : public CaptivePortalBlockingPage {
- public:
-  CaptivePortalBlockingPageForTesting(
-      content::WebContents* web_contents,
-      const GURL& request_url,
-      const GURL& login_url,
-      std::unique_ptr<SSLCertReporter> ssl_cert_reporter,
-      const net::SSLInfo& ssl_info,
-      const base::Callback<void(content::CertificateRequestResultType)>&
-          callback,
-      bool is_wifi,
-      const std::string& wifi_ssid)
-      : CaptivePortalBlockingPage(web_contents,
-                                  request_url,
-                                  login_url,
-                                  std::move(ssl_cert_reporter),
-                                  ssl_info,
-                                  net::ERR_CERT_COMMON_NAME_INVALID,
-                                  callback),
-        is_wifi_(is_wifi),
-        wifi_ssid_(wifi_ssid) {}
-
- private:
-  bool IsWifiConnection() const override { return is_wifi_; }
-  std::string GetWiFiSSID() const override { return wifi_ssid_; }
-  const bool is_wifi_;
-  const std::string wifi_ssid_;
 };
 
 // A NavigationThrottle that observes failed requests and shows a captive portal
@@ -148,11 +121,11 @@ CaptivePortalTestingNavigationThrottle::WillFailRequest() {
       net::ImportCertFromFile(net::GetTestCertsDirectory(), "ok_cert.pem");
   ssl_info.cert_status = net::CERT_STATUS_COMMON_NAME_INVALID;
   CaptivePortalBlockingPage* blocking_page =
-      new CaptivePortalBlockingPageForTesting(
+      ChromeSecurityBlockingPageFactory::CreateCaptivePortalBlockingPage(
           navigation_handle()->GetWebContents(), GURL(kBrokenSSL), login_url_,
           std::move(ssl_cert_reporter_), ssl_info,
-          base::Callback<void(content::CertificateRequestResultType)>(),
-          is_wifi_connection_, wifi_ssid_);
+          net::ERR_CERT_COMMON_NAME_INVALID);
+  blocking_page->OverrideWifiInfoForTesting(is_wifi_connection_, wifi_ssid_);
 
   std::string html = blocking_page->GetHTMLContents();
   // Hand the blocking page back to the WebContents's
@@ -451,10 +424,10 @@ class CaptivePortalBlockingPageIDNTest : public SecurityInterstitialIDNTest {
     net::SSLInfo empty_ssl_info;
     // Blocking page is owned by the interstitial.
     CaptivePortalBlockingPage* blocking_page =
-        new CaptivePortalBlockingPageForTesting(
+        ChromeSecurityBlockingPageFactory::CreateCaptivePortalBlockingPage(
             contents, GURL(kBrokenSSL), request_url, nullptr, empty_ssl_info,
-            base::Callback<void(content::CertificateRequestResultType)>(),
-            false, "");
+            net::ERR_CERT_COMMON_NAME_INVALID);
+    blocking_page->OverrideWifiInfoForTesting(false, "");
     return blocking_page;
   }
 };

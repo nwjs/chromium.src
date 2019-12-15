@@ -12,14 +12,12 @@
 #include "base/run_loop.h"
 #include "base/task/post_task.h"
 #include "base/test/bind_test_util.h"
-#include "components/services/leveldb/leveldb_database_impl.h"
-#include "components/services/leveldb/public/cpp/util.h"
+#include "components/services/storage/dom_storage/async_dom_storage_database.h"
 #include "components/services/storage/dom_storage/dom_storage_database.h"
+#include "components/services/storage/dom_storage/storage_area_test_util.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/dom_storage/session_storage_data_map.h"
 #include "content/browser/dom_storage/session_storage_metadata.h"
-#include "content/browser/dom_storage/test/storage_area_test_util.h"
-#include "content/browser/site_instance_impl.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_browser_context.h"
 #include "content/test/gmock_util.h"
@@ -34,12 +32,15 @@ namespace content {
 
 namespace {
 
-using leveldb::StdStringToUint8Vector;
 using NamespaceEntry = SessionStorageMetadata::NamespaceEntry;
 
 constexpr const int kTestProcessIdOrigin1 = 11;
 constexpr const int kTestProcessIdAllOrigins = 12;
 constexpr const int kTestProcessIdOrigin3 = 13;
+
+std::vector<uint8_t> StdStringToUint8Vector(const std::string& s) {
+  return std::vector<uint8_t>(s.begin(), s.end());
+}
 
 MATCHER(OKStatus, "Equality matcher for type OK leveldb::Status") {
   return arg.ok();
@@ -68,10 +69,11 @@ class SessionStorageNamespaceImplMojoTest
         test_origin3_(url::Origin::Create(GURL("https://host3.com/"))) {}
   ~SessionStorageNamespaceImplMojoTest() override = default;
 
-  void WriteBatch(std::vector<leveldb::mojom::BatchedOperationPtr> operations) {
+  void RunBatch(
+      std::vector<storage::AsyncDomStorageDatabase::BatchDatabaseTask> tasks) {
     base::RunLoop loop(base::RunLoop::Type::kNestableTasksAllowed);
-    database_->Write(
-        std::move(operations),
+    database_->RunBatchDatabaseTasks(
+        std::move(tasks),
         base::BindLambdaForTesting([&](leveldb::Status) { loop.Quit(); }));
     loop.Run();
   }
@@ -79,19 +81,18 @@ class SessionStorageNamespaceImplMojoTest
   void SetUp() override {
     // Create a database that already has a namespace saved.
     base::RunLoop loop;
-    database_ = leveldb::LevelDBDatabaseImpl::OpenInMemory(
+    database_ = storage::AsyncDomStorageDatabase::OpenInMemory(
         base::nullopt, "SessionStorageNamespaceImplMojoTest",
         base::CreateSequencedTaskRunner({base::MayBlock(), base::ThreadPool()}),
         base::BindLambdaForTesting([&](leveldb::Status) { loop.Quit(); }));
     loop.Run();
 
     metadata_.SetupNewDatabase();
-    std::vector<leveldb::mojom::BatchedOperationPtr> save_operations;
+    std::vector<storage::AsyncDomStorageDatabase::BatchDatabaseTask> save_tasks;
     auto entry = metadata_.GetOrCreateNamespaceEntry(test_namespace_id1_);
-    auto map_id =
-        metadata_.RegisterNewMap(entry, test_origin1_, &save_operations);
+    auto map_id = metadata_.RegisterNewMap(entry, test_origin1_, &save_tasks);
     DCHECK(map_id->KeyPrefix() == StdStringToUint8Vector("map-0-"));
-    WriteBatch(std::move(save_operations));
+    RunBatch(std::move(save_tasks));
 
     // Put some data in one of the maps.
     base::RunLoop put_loop;
@@ -156,10 +157,10 @@ class SessionStorageNamespaceImplMojoTest
   scoped_refptr<SessionStorageMetadata::MapData> RegisterNewAreaMap(
       NamespaceEntry namespace_entry,
       const url::Origin& origin) {
-    std::vector<leveldb::mojom::BatchedOperationPtr> save_operations;
+    std::vector<storage::AsyncDomStorageDatabase::BatchDatabaseTask> save_tasks;
     auto map_data =
-        metadata_.RegisterNewMap(namespace_entry, origin, &save_operations);
-    WriteBatch(std::move(save_operations));
+        metadata_.RegisterNewMap(namespace_entry, origin, &save_tasks);
+    RunBatch(std::move(save_tasks));
     return map_data;
   }
 
@@ -168,12 +169,12 @@ class SessionStorageNamespaceImplMojoTest
       const std::string& destination_namespace,
       const SessionStorageNamespaceImplMojo::OriginAreas& areas_to_clone)
       override {
-    std::vector<leveldb::mojom::BatchedOperationPtr> save_operations;
+    std::vector<storage::AsyncDomStorageDatabase::BatchDatabaseTask> save_tasks;
     auto namespace_entry =
         metadata_.GetOrCreateNamespaceEntry(destination_namespace);
     metadata_.RegisterShallowClonedNamespace(source_namespace, namespace_entry,
-                                             &save_operations);
-    WriteBatch(std::move(save_operations));
+                                             &save_tasks);
+    RunBatch(std::move(save_tasks));
 
     auto it = namespaces_.find(destination_namespace);
     if (it == namespaces_.end()) {
@@ -212,7 +213,7 @@ class SessionStorageNamespaceImplMojoTest
       data_maps_;
 
   testing::StrictMock<MockListener> listener_;
-  std::unique_ptr<leveldb::LevelDBDatabaseImpl> database_;
+  std::unique_ptr<storage::AsyncDomStorageDatabase> database_;
 };
 
 TEST_F(SessionStorageNamespaceImplMojoTest, MetadataLoad) {
@@ -237,7 +238,7 @@ TEST_F(SessionStorageNamespaceImplMojoTest, MetadataLoad) {
                          leveldb_1.BindNewEndpointAndPassReceiver());
 
   std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(leveldb_1.get(), &data));
+  EXPECT_TRUE(storage::test::GetAllSync(leveldb_1.get(), &data));
   EXPECT_EQ(1ul, data.size());
   EXPECT_TRUE(base::Contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key1"),
@@ -274,12 +275,12 @@ TEST_F(SessionStorageNamespaceImplMojoTest, MetadataLoadWithMapOperations) {
   EXPECT_CALL(listener_, OnCommitResult(OKStatus()))
       .Times(1)
       .WillOnce(testing::Invoke([&](auto error) { commit_loop.Quit(); }));
-  test::PutSync(leveldb_1.get(), StdStringToUint8Vector("key2"),
-                StdStringToUint8Vector("data2"), base::nullopt, "");
+  storage::test::PutSync(leveldb_1.get(), StdStringToUint8Vector("key2"),
+                         StdStringToUint8Vector("data2"), base::nullopt, "");
   commit_loop.Run();
 
   std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(leveldb_1.get(), &data));
+  EXPECT_TRUE(storage::test::GetAllSync(leveldb_1.get(), &data));
   EXPECT_EQ(2ul, data.size());
   EXPECT_TRUE(base::Contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key1"),
@@ -334,12 +335,12 @@ TEST_F(SessionStorageNamespaceImplMojoTest, CloneBeforeBind) {
   EXPECT_CALL(listener_,
               OnDataMapCreation(StdStringToUint8Vector("1"), testing::_))
       .Times(1);
-  test::PutSync(leveldb_2.get(), StdStringToUint8Vector("key2"),
-                StdStringToUint8Vector("data2"), base::nullopt, "");
+  storage::test::PutSync(leveldb_2.get(), StdStringToUint8Vector("key2"),
+                         StdStringToUint8Vector("data2"), base::nullopt, "");
   commit_loop.Run();
 
   std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(leveldb_2.get(), &data));
+  EXPECT_TRUE(storage::test::GetAllSync(leveldb_2.get(), &data));
   EXPECT_EQ(2ul, data.size());
   EXPECT_TRUE(base::Contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key1"),
@@ -404,19 +405,19 @@ TEST_F(SessionStorageNamespaceImplMojoTest, CloneAfterBind) {
   EXPECT_CALL(listener_, OnCommitResult(OKStatus()))
       .Times(1)
       .WillOnce(testing::Invoke([&](auto error) { commit_loop.Quit(); }));
-  test::PutSync(leveldb_n2_o2.get(), StdStringToUint8Vector("key2"),
-                StdStringToUint8Vector("data2"), base::nullopt, "");
+  storage::test::PutSync(leveldb_n2_o2.get(), StdStringToUint8Vector("key2"),
+                         StdStringToUint8Vector("data2"), base::nullopt, "");
   commit_loop.Run();
 
   std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(leveldb_n2_o1.get(), &data));
+  EXPECT_TRUE(storage::test::GetAllSync(leveldb_n2_o1.get(), &data));
   EXPECT_EQ(1ul, data.size());
   EXPECT_TRUE(base::Contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key1"),
                                         StdStringToUint8Vector("data1"))));
 
   data.clear();
-  EXPECT_TRUE(test::GetAllSync(leveldb_n2_o2.get(), &data));
+  EXPECT_TRUE(storage::test::GetAllSync(leveldb_n2_o2.get(), &data));
   EXPECT_EQ(1ul, data.size());
   EXPECT_TRUE(base::Contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key2"),
@@ -451,7 +452,7 @@ TEST_F(SessionStorageNamespaceImplMojoTest, RemoveOriginData) {
   ss_namespace.FlushForTesting();
 
   // Create an observer to make sure the deletion is observed.
-  testing::StrictMock<test::MockLevelDBObserver> mock_observer;
+  testing::StrictMock<storage::test::MockLevelDBObserver> mock_observer;
   mojo::AssociatedReceiver<blink::mojom::StorageAreaObserver> observer_receiver(
       &mock_observer);
   leveldb_1->AddObserver(observer_receiver.BindNewEndpointAndPassRemote());
@@ -469,7 +470,7 @@ TEST_F(SessionStorageNamespaceImplMojoTest, RemoveOriginData) {
   commit_loop.Run();
 
   std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(leveldb_1.get(), &data));
+  EXPECT_TRUE(storage::test::GetAllSync(leveldb_1.get(), &data));
   EXPECT_EQ(0ul, data.size());
 
   // Check that the observer was notified.

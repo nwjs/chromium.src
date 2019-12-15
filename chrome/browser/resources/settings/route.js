@@ -19,6 +19,7 @@
  *   ANDROID_APPS: (undefined|!settings.Route),
  *   ANDROID_APPS_DETAILS: (undefined|!settings.Route),
  *   CROSTINI: (undefined|!settings.Route),
+ *   CROSTINI_ANDROID_ADB: (undefined|!settings.Route),
  *   CROSTINI_DETAILS: (undefined|!settings.Route),
  *   CROSTINI_EXPORT_IMPORT: (undefined|!settings.Route),
  *   CROSTINI_SHARED_PATHS: (undefined|!settings.Route),
@@ -68,6 +69,7 @@
  *   MULTIDEVICE_FEATURES: (undefined|!settings.Route),
  *   NETWORK_DETAIL: (undefined|!settings.Route),
  *   ON_STARTUP: (undefined|!settings.Route),
+ *   OS_SYNC: (undefined|!settings.Route),
  *   PASSWORDS: (undefined|!settings.Route),
  *   PAYMENTS: (undefined|!settings.Route),
  *   PEOPLE: (undefined|!settings.Route),
@@ -347,10 +349,7 @@ cr.define('settings', function() {
           r.SITE_SETTINGS.createChild('unsandboxedPlugins');
       r.SITE_SETTINGS_MIDI_DEVICES = r.SITE_SETTINGS.createChild('midiDevices');
       r.SITE_SETTINGS_USB_DEVICES = r.SITE_SETTINGS.createChild('usbDevices');
-      if (loadTimeData.getBoolean('enableExperimentalWebPlatformFeatures')) {
-        r.SITE_SETTINGS_SERIAL_PORTS =
-            r.SITE_SETTINGS.createChild('serialPorts');
-      }
+      r.SITE_SETTINGS_SERIAL_PORTS = r.SITE_SETTINGS.createChild('serialPorts');
       r.SITE_SETTINGS_ZOOM_LEVELS = r.SITE_SETTINGS.createChild('zoomLevels');
       r.SITE_SETTINGS_PDF_DOCUMENTS =
           r.SITE_SETTINGS.createChild('pdfDocuments');
@@ -474,6 +473,7 @@ cr.define('settings', function() {
     if (loadTimeData.valueExists('showCrostini') &&
         loadTimeData.getBoolean('showCrostini')) {
       r.CROSTINI = r.BASIC.createSection('/crostini', 'crostini');
+      r.CROSTINI_ANDROID_ADB = r.CROSTINI.createChild('/crostini/androidAdb');
       r.CROSTINI_DETAILS = r.CROSTINI.createChild('/crostini/details');
       if (loadTimeData.valueExists('showCrostiniExportImport') &&
           loadTimeData.getBoolean('showCrostiniExportImport')) {
@@ -519,6 +519,10 @@ cr.define('settings', function() {
       r.ACCESSIBILITY = r.ADVANCED.createSection('/accessibility', 'a11y');
 
       if (!loadTimeData.getBoolean('isGuest')) {
+        if (loadTimeData.valueExists('splitSettingsSyncEnabled') &&
+            loadTimeData.getBoolean('splitSettingsSyncEnabled')) {
+          r.OS_SYNC = r.PEOPLE.createChild('/osSync');
+        }
         // Personalization
         r.PERSONALIZATION =
             r.BASIC.createSection('/personalization', 'personalization');

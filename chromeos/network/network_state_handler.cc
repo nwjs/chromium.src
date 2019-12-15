@@ -1034,11 +1034,13 @@ void NetworkStateHandler::RequestScan(const NetworkTypePattern& type) {
     else if (type.Equals(NetworkTypePattern::WiFi()))
       return;  // Skip notify if disabled and wifi only requested.
   }
-  if (type.Equals(NetworkTypePattern::Cellular())) {
-    // Only request a Cellular scan if Cellular is requested explicitly.
+  if (type.Equals(NetworkTypePattern::Cellular()) ||
+      type.Equals(NetworkTypePattern::Mobile())) {
+    // Only request a Cellular scan if Cellular or Mobile is requested
+    // explicitly.
     if (IsTechnologyEnabled(NetworkTypePattern::Cellular()))
       shill_property_handler_->RequestScanByType(shill::kTypeCellular);
-    else
+    else if (type.Equals(NetworkTypePattern::Cellular()))
       return;  // Skip notify if disabled and cellular only requested.
   }
 
@@ -1352,8 +1354,12 @@ void NetworkStateHandler::UpdateNetworkServiceProperty(
   SCOPED_NET_LOG_IF_SLOW();
   bool changed = false;
   NetworkState* network = GetModifiableNetworkState(service_path);
-  if (!network)
+  if (!network || !network->update_received()) {
+    // Shill may send a service property update before processing Chrome's
+    // initial GetProperties request. If this occurs, the initial request will
+    // include the changed property value so we can ignore this update.
     return;
+  }
   std::string prev_connection_state = network->connection_state();
   bool prev_is_captive_portal = network->is_captive_portal();
   std::string prev_profile_path = network->profile_path();

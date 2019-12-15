@@ -5,10 +5,14 @@
 #include "components/safe_browsing/realtime/url_lookup_service.h"
 
 #include "base/base64url.h"
+#include "base/metrics/histogram_macros.h"
+#include "base/strings/string_piece.h"
 #include "base/time/time.h"
 #include "components/safe_browsing/db/v4_protocol_manager_util.h"
 #include "content/public/browser/browser_thread.h"
+#include "net/base/ip_address.h"
 #include "net/base/load_flags.h"
+#include "net/base/url_util.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -52,14 +56,10 @@ void RealTimeUrlLookupService::StartLookup(
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   DCHECK(url.is_valid());
 
-  RTLookupRequest request;
-  request.set_url(SanitizeURL(url).spec());
-  request.set_lookup_type(RTLookupRequest::NAVIGATION);
-  std::string req_data, req_base64;
-  request.SerializeToString(&req_data);
-  base::Base64UrlEncode(req_data, base::Base64UrlEncodePolicy::INCLUDE_PADDING,
-                        &req_base64);
-  // TODO(vakh): Add the correct chrome_policy field below.
+  std::unique_ptr<RTLookupRequest> request = FillRequestProto(url);
+
+  std::string req_data;
+  request->SerializeToString(&req_data);
   net::NetworkTrafficAnnotationTag traffic_annotation =
       net::DefineNetworkTrafficAnnotation("safe_browsing_realtime_url_lookup",
                                           R"(
@@ -86,9 +86,9 @@ void RealTimeUrlLookupService::StartLookup(
             "and browsing better (Sends URLs of pages you visit to Google)' in "
             "Chromium settings under Privacy."
           chrome_policy {
-            SafeBrowsingEnabled {
+            SafeBrowsingRealTimeLookupEnabled {
               policy_options {mode: MANDATORY}
-              SafeBrowsingEnabled: false
+              SafeBrowsingRealTimeLookupEnabled: false
             }
           }
         })");
@@ -108,11 +108,11 @@ void RealTimeUrlLookupService::StartLookup(
   owned_loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
       url_loader_factory_.get(),
       base::BindOnce(&RealTimeUrlLookupService::OnURLLoaderComplete,
-                     GetWeakPtr(), loader));
+                     GetWeakPtr(), loader, base::TimeTicks::Now()));
 
   pending_requests_[owned_loader.release()] = std::move(response_callback);
 
-  std::move(request_callback).Run(std::make_unique<RTLookupRequest>(request));
+  std::move(request_callback).Run(std::move(request));
 }
 
 RealTimeUrlLookupService::~RealTimeUrlLookupService() {
@@ -127,11 +127,15 @@ RealTimeUrlLookupService::~RealTimeUrlLookupService() {
 
 void RealTimeUrlLookupService::OnURLLoaderComplete(
     network::SimpleURLLoader* url_loader,
+    base::TimeTicks request_start_time,
     std::unique_ptr<std::string> response_body) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
 
   auto it = pending_requests_.find(url_loader);
   DCHECK(it != pending_requests_.end()) << "Request not found";
+
+  UMA_HISTOGRAM_TIMES("SafeBrowsing.RT.Network.Time",
+                      base::TimeTicks::Now() - request_start_time);
 
   int net_error = url_loader->NetError();
   int response_code = 0;
@@ -151,7 +155,32 @@ void RealTimeUrlLookupService::OnURLLoaderComplete(
 }
 
 bool RealTimeUrlLookupService::CanCheckUrl(const GURL& url) const {
-  return url.SchemeIsHTTPOrHTTPS();
+  if (!url.SchemeIsHTTPOrHTTPS()) {
+    return false;
+  }
+
+  if (net::IsLocalhost(url)) {
+    // Includes: "//localhost/", "//localhost.localdomain/", "//127.0.0.1/"
+    return false;
+  }
+
+  net::IPAddress ip_address;
+  if (url.HostIsIPAddress() && ip_address.AssignFromIPLiteral(url.host()) &&
+      !ip_address.IsPubliclyRoutable()) {
+    // Includes: "//192.168.1.1/", "//172.16.2.2/", "//10.1.1.1/"
+    return false;
+  }
+
+  return true;
+}
+
+std::unique_ptr<RTLookupRequest> RealTimeUrlLookupService::FillRequestProto(
+    const GURL& url) {
+  auto request = std::make_unique<RTLookupRequest>();
+  request->set_url(SanitizeURL(url).spec());
+  request->set_lookup_type(RTLookupRequest::NAVIGATION);
+  // TODO(crbug.com/1017499): Set ChromeUserPopulation.
+  return request;
 }
 
 void RealTimeUrlLookupService::ExitBackoff() {

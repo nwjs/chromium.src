@@ -54,10 +54,6 @@ class ExtensionAppShimHandler : public AppShimHostBootstrap::Client,
    public:
     virtual ~Delegate() {}
 
-    // Create an avatar menu (disable-able for tests).
-    virtual std::unique_ptr<AvatarMenu> CreateAvatarMenu(
-        AvatarMenuObserver* observer);
-
     // Return the profile for |path|, only if it is already loaded.
     virtual Profile* ProfileForPath(const base::FilePath& path);
 
@@ -103,6 +99,13 @@ class ExtensionAppShimHandler : public AppShimHostBootstrap::Client,
                            const extensions::Extension* extension,
                            const std::vector<base::FilePath>& files);
 
+    // Open the specified URL in a new Chrome window. This is the fallback when
+    // an app shim exists, but there is no profile or extension for it. If
+    // |profile_path| is specified, then that profile is preferred, otherwise,
+    // the last used profile is used.
+    virtual void OpenAppURLInBrowserWindow(const base::FilePath& profile_path,
+                                           const GURL& url);
+
     // Launch the shim process for an app.
     virtual void LaunchShim(Profile* profile,
                             const extensions::Extension* extension,
@@ -144,8 +147,9 @@ class ExtensionAppShimHandler : public AppShimHostBootstrap::Client,
 
   // Instructs the shim to request user attention. Returns false if there is no
   // shim for this window.
-  void RequestUserAttentionForWindow(extensions::AppWindow* app_window,
-                                     AppShimAttentionType attention_type);
+  void RequestUserAttentionForWindow(
+      extensions::AppWindow* app_window,
+      chrome::mojom::AppShimAttentionType attention_type);
 
   // AppShimHostBootstrap::Client:
   void OnShimProcessConnected(
@@ -159,7 +163,7 @@ class ExtensionAppShimHandler : public AppShimHostBootstrap::Client,
       base::OnceClosure terminated_callback) override;
   void OnShimProcessDisconnected(AppShimHost* host) override;
   void OnShimFocus(AppShimHost* host,
-                   AppShimFocusType focus_type,
+                   chrome::mojom::AppShimFocusType focus_type,
                    const std::vector<base::FilePath>& files) override;
   void OnShimSelectedProfile(AppShimHost* host,
                              const base::FilePath& profile_path) override;
@@ -197,6 +201,16 @@ class ExtensionAppShimHandler : public AppShimHostBootstrap::Client,
   void set_delegate(Delegate* delegate);
   content::NotificationRegistrar& registrar() { return registrar_; }
 
+  // Called when profile menu items may have changed. Rebuilds the profile
+  // menu item list and sends updated lists to all apps.
+  void UpdateAllProfileMenus();
+
+  // Update |profile_menu_items_| from |avatar_menu_|. Virtual for tests.
+  virtual void RebuildProfileMenuItemsFromAvatarMenu();
+
+  // The list of all profiles that might appear in the menu.
+  std::vector<chrome::mojom::ProfileMenuItemPtr> profile_menu_items_;
+
  private:
   // The state for an individual app, and for the profile-scoped app info.
   struct ProfileState;
@@ -208,11 +222,32 @@ class ExtensionAppShimHandler : public AppShimHostBootstrap::Client,
   // Close one specified app.
   void CloseShimForApp(Profile* profile, const std::string& app_id);
 
-  // Continuation of OnShimProcessConnected, once the profile has loaded.
-  void OnShimProcessConnectedAndAppLoaded(
+  // This is called by OnShimProcessConnected if the app shim was launched by
+  // Chrome, and should connect to an already-existing AppShimHost.
+  void OnShimProcessConnectedForRegisterOnly(
+      std::unique_ptr<AppShimHostBootstrap> bootstrap);
+
+  // This is called by OnShimProcessConnected when the shim was was launched
+  // not by Chrome, and needs to launch the app (that is, open a new app
+  // window).
+  void OnShimProcessConnectedForLaunch(
+      std::unique_ptr<AppShimHostBootstrap> bootstrap);
+
+  // Continuation of OnShimProcessConnectedForLaunch, once all of the profiles
+  // to use have been loaded. The list of profiles to launch is in
+  // |profile_paths_to_launch|. The first entry corresponds to the bootstrap-
+  // specified profile, and may be a blank path.
+  void OnShimProcessConnectedAndProfilesToLaunchLoaded(
       std::unique_ptr<AppShimHostBootstrap> bootstrap,
-      Profile* profile,
-      const extensions::Extension* extension);
+      const std::vector<base::FilePath>& profile_paths_to_launch);
+
+  // The final step of both paths for OnShimProcessConnected. This will connect
+  // |bootstrap| to |profile_state|'s AppShimHost, if possible. The value of
+  // |profile_state| is non-null if and only if |result| is success.
+  void OnShimProcessConnectedAndAllLaunchesDone(
+      ProfileState* profile_state,
+      chrome::mojom::AppShimLaunchResult result,
+      std::unique_ptr<AppShimHostBootstrap> bootstrap);
 
   // Continuation of OnShimSelectedProfile, once the profile has loaded.
   void OnShimSelectedProfileAndAppLoaded(
@@ -235,7 +270,7 @@ class ExtensionAppShimHandler : public AppShimHostBootstrap::Client,
                     LoadProfileAppCallback callback);
 
   // Update the profiles menu for the specified host.
-  void UpdateHostProfileMenu(AppShimHost* host);
+  void UpdateAppProfileMenu(AppState* app_state);
 
   std::unique_ptr<Delegate> delegate_;
 

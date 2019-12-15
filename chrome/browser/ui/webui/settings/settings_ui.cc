@@ -47,6 +47,9 @@
 #include "chrome/browser/ui/webui/settings/settings_security_key_handler.h"
 #include "chrome/browser/ui/webui/settings/settings_startup_pages_handler.h"
 #include "chrome/browser/ui/webui/settings/site_settings_handler.h"
+#include "chrome/browser/web_applications/components/app_registrar.h"
+#include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -56,7 +59,6 @@
 #include "components/favicon_base/favicon_url_parser.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/pref_registry/pref_registry_syncable.h"
-#include "components/unified_consent/feature.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
@@ -89,7 +91,7 @@
 #include "chrome/browser/chromeos/android_sms/android_sms_app_manager.h"
 #include "chrome/browser/chromeos/android_sms/android_sms_service_factory.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
-#include "chrome/browser/chromeos/crostini/crostini_util.h"
+#include "chrome/browser/chromeos/crostini/crostini_features.h"
 #include "chrome/browser/chromeos/login/demo_mode/demo_session.h"
 #include "chrome/browser/chromeos/login/quick_unlock/quick_unlock_utils.h"
 #include "chrome/browser/chromeos/multidevice_setup/multidevice_setup_client_factory.h"
@@ -162,6 +164,10 @@ void SettingsUI::RegisterProfilePrefs(
   registry->RegisterBooleanPref(prefs::kImportDialogSearchEngine, true);
 }
 
+web_app::AppRegistrar& GetRegistrarForProfile(Profile* profile) {
+  return web_app::WebAppProvider::Get(profile)->registrar();
+}
+
 SettingsUI::SettingsUI(content::WebUI* web_ui)
 #if defined(OS_CHROMEOS)
     : ui::MojoWebUIController(web_ui, /*enable_chrome_send =*/true),
@@ -208,7 +214,8 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   AddSettingsPageUIHandler(std::make_unique<ProfileInfoHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<ProtocolHandlersHandler>());
   AddSettingsPageUIHandler(std::make_unique<SearchEnginesHandler>(profile));
-  AddSettingsPageUIHandler(std::make_unique<SiteSettingsHandler>(profile));
+  AddSettingsPageUIHandler(std::make_unique<SiteSettingsHandler>(
+      profile, GetRegistrarForProfile(profile)));
   AddSettingsPageUIHandler(std::make_unique<StartupPagesHandler>(web_ui));
   AddSettingsPageUIHandler(std::make_unique<SecurityKeysPINHandler>());
   AddSettingsPageUIHandler(std::make_unique<SecurityKeysResetHandler>());
@@ -257,15 +264,8 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 #endif  // !defined(OS_CHROMEOS)
 
   html_source->AddBoolean(
-      "a11yEnhancements",
-      base::FeatureList::IsEnabled(features::kWebUIA11yEnhancements));
-
-  html_source->AddBoolean(
       "privacySettingsRedesignEnabled",
       base::FeatureList::IsEnabled(features::kPrivacySettingsRedesign));
-
-  html_source->AddBoolean("unifiedConsentEnabled",
-                          unified_consent::IsUnifiedConsentFeatureEnabled());
 
   html_source->AddBoolean(
       "navigateToGooglePasswordManager",
@@ -377,8 +377,8 @@ void SettingsUI::InitOSWebUIHandlers(Profile* profile,
       std::make_unique<chromeos::settings::AccessibilityHandler>(web_ui));
   web_ui->AddMessageHandler(
       std::make_unique<chromeos::settings::AndroidAppsHandler>(profile));
-  if (crostini::IsCrostiniUIAllowedForProfile(profile,
-                                              false /* check_policy */)) {
+  if (crostini::CrostiniFeatures::Get()->IsUIAllowed(profile,
+                                                     /*check_policy=*/false)) {
     web_ui->AddMessageHandler(
         std::make_unique<chromeos::settings::CrostiniHandler>(profile));
   }
@@ -390,11 +390,16 @@ void SettingsUI::InitOSWebUIHandlers(Profile* profile,
       std::make_unique<chromeos::settings::FingerprintHandler>(profile));
   web_ui->AddMessageHandler(
       std::make_unique<chromeos::settings::GoogleAssistantHandler>(profile));
-  if (g_browser_process->local_state()->GetBoolean(prefs::kKerberosEnabled)) {
-    // Note that UI is also dependent on this pref.
-    web_ui->AddMessageHandler(
-        std::make_unique<chromeos::settings::KerberosAccountsHandler>());
+
+  std::unique_ptr<chromeos::settings::KerberosAccountsHandler>
+      kerberos_accounts_handler =
+          chromeos::settings::KerberosAccountsHandler::CreateIfKerberosEnabled(
+              profile);
+  if (kerberos_accounts_handler) {
+    // Note that the UI is enabled only if Kerberos is enabled.
+    web_ui->AddMessageHandler(std::move(kerberos_accounts_handler));
   }
+
   web_ui->AddMessageHandler(
       std::make_unique<chromeos::settings::KeyboardHandler>());
 
@@ -487,11 +492,11 @@ void SettingsUI::InitOSWebUIHandlers(Profile* profile,
                           ash::stylus_utils::HasInternalStylus());
 
   html_source->AddBoolean("showCrostini",
-                          crostini::IsCrostiniUIAllowedForProfile(
-                              profile, false /* check_policy */));
+                          crostini::CrostiniFeatures::Get()->IsUIAllowed(
+                              profile, /*check_policy=*/false));
 
-  html_source->AddBoolean("allowCrostini",
-                          crostini::IsCrostiniUIAllowedForProfile(profile));
+  html_source->AddBoolean(
+      "allowCrostini", crostini::CrostiniFeatures::Get()->IsUIAllowed(profile));
 
   html_source->AddBoolean("showPluginVm",
                           plugin_vm::IsPluginVmEnabled(profile));

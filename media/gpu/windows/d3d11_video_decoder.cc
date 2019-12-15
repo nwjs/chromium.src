@@ -28,6 +28,7 @@
 #include "media/gpu/windows/d3d11_video_context_wrapper.h"
 #include "media/gpu/windows/d3d11_video_decoder_impl.h"
 #include "media/gpu/windows/supported_profile_helpers.h"
+#include "media/media_buildflags.h"
 #include "ui/gl/gl_angle_util_win.h"
 #include "ui/gl/gl_switches.h"
 
@@ -160,12 +161,13 @@ HRESULT D3D11VideoDecoder::InitializeAcceleratedDecoder(
   if (!SUCCEEDED(hr))
     return hr;
 
+  profile_ = config.profile();
   if (config.codec() == kCodecVP9) {
     accelerated_video_decoder_ = std::make_unique<VP9Decoder>(
         std::make_unique<D3D11VP9Accelerator>(
             this, media_log_.get(), proxy_context, video_decoder, video_device_,
             std::move(video_context)),
-        config.color_space_info());
+        profile_, config.color_space_info());
     return hr;
   }
 
@@ -174,7 +176,7 @@ HRESULT D3D11VideoDecoder::InitializeAcceleratedDecoder(
         std::make_unique<D3D11H264Accelerator>(
             this, media_log_.get(), proxy_context, video_decoder, video_device_,
             std::move(video_context)),
-        config.color_space_info());
+        profile_, config.color_space_info());
     return hr;
   }
 
@@ -271,16 +273,18 @@ void D3D11VideoDecoder::Initialize(const VideoDecoderConfig& config,
   }
 
   // TODO(liberato): dxva does this.  don't know if we need to.
-  ComD3D11Multithread multi_threaded;
-  hr = device_->QueryInterface(IID_PPV_ARGS(&multi_threaded));
-  if (!SUCCEEDED(hr)) {
-    NotifyError("Failed to query ID3D11Multithread");
-    return;
+  if (!base::FeatureList::IsEnabled(kD3D11VideoDecoderSkipMultithreaded)) {
+    ComD3D11Multithread multi_threaded;
+    hr = device_->QueryInterface(IID_PPV_ARGS(&multi_threaded));
+    if (!SUCCEEDED(hr)) {
+      NotifyError("Failed to query ID3D11Multithread");
+      return;
+    }
+    // TODO(liberato): This is a hack, since the unittest returns
+    // success without providing |multi_threaded|.
+    if (multi_threaded)
+      multi_threaded->SetMultithreadProtected(TRUE);
   }
-  // TODO(liberato): This is a hack, since the unittest returns
-  // success without providing |multi_threaded|.
-  if (multi_threaded)
-    multi_threaded->SetMultithreadProtected(TRUE);
 
   UINT config_count = 0;
   hr = video_device_->GetVideoDecoderConfigCount(
@@ -333,7 +337,7 @@ void D3D11VideoDecoder::Initialize(const VideoDecoderConfig& config,
   }
 
   CdmProxyContext* proxy_context = nullptr;
-#if BUILDFLAG(ENABLE_LIBRARY_CDMS)
+#if BUILDFLAG(ENABLE_CDM_PROXY)
   if (cdm_context)
     proxy_context = cdm_context->GetCdmProxyContext();
 #endif
@@ -505,6 +509,13 @@ void D3D11VideoDecoder::DoDecode() {
     if (state_ == State::kError)
       return;
 
+    // If somebody cleared the buffer, then stop and post.
+    // TODO(liberato): It's unclear to me how this might happen.  If it does
+    // fix the crash, then more investigation is required.  Please see
+    // crbug.com/1012464 for more information.
+    if (!current_buffer_)
+      break;
+
     media::AcceleratedVideoDecoder::DecodeResult result =
         accelerated_video_decoder_->Decode();
     // TODO(liberato): switch + class enum.
@@ -519,7 +530,13 @@ void D3D11VideoDecoder::DoDecode() {
       if (picture_buffers_.size())
         return;
       CreatePictureBuffers();
-    } else if (result == media::AcceleratedVideoDecoder::kAllocateNewSurfaces) {
+    } else if (result == media::AcceleratedVideoDecoder::kConfigChange) {
+      if (profile_ != accelerated_video_decoder_->GetProfile()) {
+        // TODO(crbug.com/1022246): Handle profile change.
+        LOG(ERROR) << "Profile change is not supported";
+        NotifyError("Profile change is not supported");
+        return;
+      }
       CreatePictureBuffers();
     } else if (result == media::AcceleratedVideoDecoder::kTryAgain) {
       state_ = State::kWaitingForNewKey;
@@ -611,8 +628,7 @@ void D3D11VideoDecoder::CreatePictureBuffers() {
     DCHECK(!buffer->in_picture_use());
   picture_buffers_.clear();
 
-  // Create each picture buffer.1
-  const int textures_per_picture = 2;  // From the VDA
+  // Create each picture buffer.
   for (size_t i = 0; i < TextureSelector::BUFFER_COUNT; i++) {
     auto tex_wrapper = texture_selector_->CreateTextureWrapper(
         device_, video_device_, device_context_, in_texture, size);
@@ -625,7 +641,7 @@ void D3D11VideoDecoder::CreatePictureBuffers() {
         new D3D11PictureBuffer(std::move(tex_wrapper), size, i));
     if (!picture_buffers_[i]->Init(get_helper_cb_, video_device_,
                                    texture_selector_->DecoderGuid(),
-                                   textures_per_picture, media_log_->Clone())) {
+                                   media_log_->Clone())) {
       NotifyError("Unable to allocate PictureBuffer");
       return;
     }
@@ -682,7 +698,14 @@ void D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
   // For NV12, overlay is allowed by default. If the decoder is going to support
   // non-NV12 textures, then this may have to be conditionally set. Also note
   // that ALLOW_OVERLAY is required for encrypted video path.
-  frame->metadata()->SetBoolean(VideoFrameMetadata::ALLOW_OVERLAY, true);
+  // Since all of our picture buffers allow overlay, we just use the finch
+  // feature.  However, we may choose to set ALLOW_OVERLAY to false even if
+  // the finch flag is enabled.  We may not choose to set ALLOW_OVERLAY if the
+  // flag is off, however.
+  const bool allow_overlay =
+      base::FeatureList::IsEnabled(kD3D11VideoDecoderAllowOverlay);
+  frame->metadata()->SetBoolean(VideoFrameMetadata::ALLOW_OVERLAY,
+                                allow_overlay);
 
   if (config_.is_encrypted()) {
     frame->metadata()->SetBoolean(VideoFrameMetadata::PROTECTED_VIDEO, true);
@@ -735,6 +758,7 @@ void D3D11VideoDecoder::NotifyError(const char* reason) {
 
   if (current_decode_cb_)
     std::move(current_decode_cb_).Run(DecodeStatus::DECODE_ERROR);
+  current_buffer_ = nullptr;
 
   for (auto& queue_pair : input_buffer_queue_)
     std::move(queue_pair.second).Run(DecodeStatus::DECODE_ERROR);

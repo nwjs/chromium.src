@@ -16,6 +16,7 @@
 #include "base/macros.h"
 #include "base/observer_list.h"
 #include "base/run_loop.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
@@ -1103,7 +1104,7 @@ TEST_P(ArcSessionManagerPolicyTest, SkippingTerms) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    ,
+    All,
     ArcSessionManagerPolicyTest,
     // testing::Values is incompatible with move-only types, hence ints are used
     // as a proxy for base::Value.
@@ -1300,7 +1301,7 @@ class ArcSessionOobeOptInNegotiatorTest
   DISALLOW_COPY_AND_ASSIGN(ArcSessionOobeOptInNegotiatorTest);
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          ArcSessionOobeOptInNegotiatorTest,
                          ::testing::Values(true, false));
 
@@ -1459,7 +1460,7 @@ class ArcSessionRetryTest
   DISALLOW_COPY_AND_ASSIGN(ArcSessionRetryTest);
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          ArcSessionRetryTest,
                          ::testing::ValuesIn(kRetryTestCases));
 
@@ -1516,6 +1517,32 @@ TEST_P(ArcSessionRetryTest, ContainerRestarted) {
   EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
 
   arc_session_manager()->Shutdown();
+}
+
+// Verifies Initialize() generates the serial number for ARC.
+TEST_F(ArcSessionManagerTest, SerialNumber) {
+  arc_session_manager()->SetProfile(profile());
+  EXPECT_TRUE(
+      profile()->GetPrefs()->GetString(prefs::kArcSerialNumber).empty());
+  arc_session_manager()->Initialize();
+  // Check that the serial number Initialize() has generated is not empty.
+  const std::string serial_number =
+      profile()->GetPrefs()->GetString(prefs::kArcSerialNumber);
+  EXPECT_FALSE(serial_number.empty());
+  // ..and it's a hex number.
+  std::vector<uint8_t> dummy;
+  EXPECT_TRUE(base::HexStringToBytes(serial_number, &dummy));
+}
+
+// Verifies Initialize() generates the serial number for ARC.
+TEST_F(ArcSessionManagerTest, SerialNumber_Existing) {
+  constexpr char kDummySerialNumber[] = "A1C55A0D52D2F8E874D5";
+  profile()->GetPrefs()->SetString(prefs::kArcSerialNumber, kDummySerialNumber);
+  arc_session_manager()->SetProfile(profile());
+  arc_session_manager()->Initialize();
+  // Check that Initialize() does not clear the existing serial number.
+  EXPECT_EQ(kDummySerialNumber,
+            profile()->GetPrefs()->GetString(prefs::kArcSerialNumber));
 }
 
 }  // namespace

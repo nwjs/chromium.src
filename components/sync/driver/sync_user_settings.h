@@ -13,7 +13,6 @@
 #include "components/sync/base/model_type.h"
 #include "components/sync/base/passphrase_enums.h"
 #include "components/sync/base/user_selectable_type.h"
-#include "components/sync/driver/data_type_encryption_handler.h"
 
 namespace syncer {
 
@@ -30,9 +29,9 @@ enum class SyncFirstSetupCompleteSource {
 };
 
 // This class encapsulates all the user-configurable bits of Sync.
-class SyncUserSettings : public syncer::DataTypeEncryptionHandler {
+class SyncUserSettings {
  public:
-  ~SyncUserSettings() override = default;
+  virtual ~SyncUserSettings() = default;
 
   // Whether the user wants Sync to run. This is false by default, but gets set
   // to true early in the Sync setup flow, after the user has pressed "turn on
@@ -73,6 +72,21 @@ class SyncUserSettings : public syncer::DataTypeEncryptionHandler {
   // not guaranteed to be registered.
   virtual UserSelectableTypeSet GetForcedTypes() const = 0;
 
+#if defined(OS_CHROMEOS)
+  // As above, but for Chrome OS-specific data types. These are controlled by
+  // toggles in the OS Settings UI.
+  virtual bool IsSyncAllOsTypesEnabled() const = 0;
+  virtual UserSelectableOsTypeSet GetSelectedOsTypes() const = 0;
+  virtual void SetSelectedOsTypes(bool sync_all_os_types,
+                                  UserSelectableOsTypeSet types) = 0;
+  virtual UserSelectableOsTypeSet GetRegisteredSelectableOsTypes() const = 0;
+
+  // Whether the OS sync feature is enabled. Implies the user has consented.
+  // Exists in this interface for easier mocking in tests.
+  virtual bool GetOsSyncFeatureEnabled() const = 0;
+  virtual void SetOsSyncFeatureEnabled(bool enabled) = 0;
+#endif  // defined(OS_CHROMEOS)
+
   // Encryption state.
   // Note that all of this state may only be queried or modified if the Sync
   // engine is initialized.
@@ -87,11 +101,11 @@ class SyncUserSettings : public syncer::DataTypeEncryptionHandler {
   virtual void EnableEncryptEverything() = 0;
 
   // The current set of encrypted data types.
-  ModelTypeSet GetEncryptedDataTypes() const override = 0;
+  virtual ModelTypeSet GetEncryptedDataTypes() const = 0;
   // Whether a passphrase is required for encryption or decryption to proceed.
   // Note that Sync might still be working fine if the user has disabled all
   // encrypted data types.
-  bool IsPassphraseRequired() const override = 0;
+  virtual bool IsPassphraseRequired() const = 0;
   // Whether a passphrase is required to decrypt the data for any currently
   // enabled data type.
   virtual bool IsPassphraseRequiredForPreferredDataTypes() const = 0;

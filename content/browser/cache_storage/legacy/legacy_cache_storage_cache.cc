@@ -449,13 +449,13 @@ LegacyCacheStorageCache::CreateMemoryCache(
     LegacyCacheStorage* cache_storage,
     scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner,
     scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
-    base::WeakPtr<storage::BlobStorageContext> blob_context,
+    scoped_refptr<BlobStorageContextWrapper> blob_storage_context,
     std::unique_ptr<crypto::SymmetricKey> cache_padding_key) {
   LegacyCacheStorageCache* cache = new LegacyCacheStorageCache(
       origin, owner, cache_name, base::FilePath(), cache_storage,
       std::move(scheduler_task_runner), std::move(quota_manager_proxy),
-      std::move(blob_context), 0 /* cache_size */, 0 /* cache_padding */,
-      std::move(cache_padding_key));
+      std::move(blob_storage_context), 0 /* cache_size */,
+      0 /* cache_padding */, std::move(cache_padding_key));
   cache->SetObserver(cache_storage);
   cache->InitBackend();
   return base::WrapUnique(cache);
@@ -471,14 +471,14 @@ LegacyCacheStorageCache::CreatePersistentCache(
     const base::FilePath& path,
     scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner,
     scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
-    base::WeakPtr<storage::BlobStorageContext> blob_context,
+    scoped_refptr<BlobStorageContextWrapper> blob_storage_context,
     int64_t cache_size,
     int64_t cache_padding,
     std::unique_ptr<crypto::SymmetricKey> cache_padding_key) {
   LegacyCacheStorageCache* cache = new LegacyCacheStorageCache(
       origin, owner, cache_name, path, cache_storage,
       std::move(scheduler_task_runner), std::move(quota_manager_proxy),
-      std::move(blob_context), cache_size, cache_padding,
+      std::move(blob_storage_context), cache_size, cache_padding,
       std::move(cache_padding_key));
   cache->SetObserver(cache_storage);
   cache->InitBackend();
@@ -922,7 +922,7 @@ LegacyCacheStorageCache::LegacyCacheStorageCache(
     LegacyCacheStorage* cache_storage,
     scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner,
     scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
-    base::WeakPtr<storage::BlobStorageContext> blob_context,
+    scoped_refptr<BlobStorageContextWrapper> blob_storage_context,
     int64_t cache_size,
     int64_t cache_padding,
     std::unique_ptr<crypto::SymmetricKey> cache_padding_key)
@@ -943,7 +943,7 @@ LegacyCacheStorageCache::LegacyCacheStorageCache(
       cache_entry_handler_(
           CacheStorageCacheEntryHandler::CreateCacheEntryHandler(
               owner,
-              std::move(blob_context))),
+              std::move(blob_storage_context))),
       memory_only_(path.empty()) {
   DCHECK(!origin_.opaque());
   DCHECK(quota_manager_proxy_.get());
@@ -1644,7 +1644,7 @@ void LegacyCacheStorageCache::PutDidDeleteEntry(
                      weak_ptr_factory_.GetWeakPtr(), std::move(put_context)));
 
   DCHECK(scheduler_->IsRunningExclusiveOperation());
-  disk_cache::EntryResult result = backend_ptr->CreateEntry(
+  disk_cache::EntryResult result = backend_ptr->OpenOrCreateEntry(
       request_.url.spec(), net::HIGHEST, create_entry_callback);
 
   if (result.net_error() != net::ERR_IO_PENDING)
@@ -1762,21 +1762,7 @@ void LegacyCacheStorageCache::PutDidWriteHeaders(
                                                0 /* side_data_size */);
   }
 
-  // The metadata is written, now for the response content. The data is streamed
-  // from the blob into the cache entry.
-  if (put_context->response->blob &&
-      !put_context->response->blob->uuid.empty()) {
-    PutWriteBlobToCache(std::move(put_context), INDEX_RESPONSE_BODY);
-    return;
-  }
-
-  if (put_context->side_data_blob) {
-    DCHECK_EQ(owner_, CacheStorageOwner::kBackgroundFetch);
-    PutWriteBlobToCache(std::move(put_context), INDEX_SIDE_DATA);
-    return;
-  }
-
-  PutComplete(std::move(put_context), CacheStorageError::kSuccess);
+  PutWriteBlobToCache(std::move(put_context), INDEX_RESPONSE_BODY);
 }
 
 void LegacyCacheStorageCache::PutWriteBlobToCache(
@@ -1809,10 +1795,41 @@ void LegacyCacheStorageCache::PutWriteBlobToCache(
     case INDEX_HEADERS:
       NOTREACHED();
   }
-  DCHECK(blob);
 
   ScopedWritableEntry entry(put_context->cache_entry.release());
 
+  // If there isn't blob data for this index, then we may need to clear any
+  // pre-existing data.  This can happen under rare circumstances if a stale
+  // file is present and accepted by OpenOrCreateEntry().
+  if (!blob) {
+    disk_cache::Entry* temp_entry_ptr = entry.get();
+
+    net::CompletionRepeatingCallback clear_callback =
+        base::AdaptCallbackForRepeating(base::BindOnce(
+            &LegacyCacheStorageCache::PutWriteBlobToCacheComplete,
+            weak_ptr_factory_.GetWeakPtr(), std::move(put_context),
+            disk_cache_body_index, std::move(entry)));
+
+    // If there is no pre-existing data, then proceed to the next
+    // step immediately.
+    if (temp_entry_ptr->GetDataSize(disk_cache_body_index) != 0) {
+      std::move(clear_callback).Run(net::OK);
+      return;
+    }
+
+    // There is pre-existing data and we need to truncate it.
+    int rv = temp_entry_ptr->WriteData(
+        disk_cache_body_index, /* offset = */ 0, /* buf = */ nullptr,
+        /* buf_len = */ 0, clear_callback, /* truncate = */ true);
+
+    if (rv != net::ERR_IO_PENDING)
+      std::move(clear_callback).Run(rv);
+
+    return;
+  }
+
+  // We have real data, so stream it into the entry.  This will overwrite
+  // any existing data.
   auto blob_to_cache = std::make_unique<CacheStorageBlobToDiskCache>();
   CacheStorageBlobToDiskCache* blob_to_cache_raw = blob_to_cache.get();
   BlobToDiskCacheIDMap::KeyType blob_to_cache_key =
@@ -1822,12 +1839,13 @@ void LegacyCacheStorageCache::PutWriteBlobToCache(
       std::move(entry), disk_cache_body_index, std::move(blob), blob_size,
       base::BindOnce(&LegacyCacheStorageCache::PutDidWriteBlobToCache,
                      weak_ptr_factory_.GetWeakPtr(), std::move(put_context),
-                     blob_to_cache_key));
+                     blob_to_cache_key, disk_cache_body_index));
 }
 
 void LegacyCacheStorageCache::PutDidWriteBlobToCache(
     std::unique_ptr<PutContext> put_context,
     BlobToDiskCacheIDMap::KeyType blob_to_cache_key,
+    int disk_cache_body_index,
     ScopedWritableEntry entry,
     bool success) {
   DCHECK(entry);
@@ -1836,18 +1854,30 @@ void LegacyCacheStorageCache::PutDidWriteBlobToCache(
                          TRACE_ID_GLOBAL(put_context->trace_id),
                          TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
 
-  put_context->cache_entry = std::move(entry);
-
   active_blob_to_disk_cache_writers_.Remove(blob_to_cache_key);
 
-  if (!success) {
+  PutWriteBlobToCacheComplete(std::move(put_context), disk_cache_body_index,
+                              std::move(entry),
+                              (success ? net::OK : net::ERR_FAILED));
+}
+
+void LegacyCacheStorageCache::PutWriteBlobToCacheComplete(
+    std::unique_ptr<PutContext> put_context,
+    int disk_cache_body_index,
+    ScopedWritableEntry entry,
+    int rv) {
+  DCHECK(entry);
+
+  put_context->cache_entry = std::move(entry);
+
+  if (rv != net::OK) {
     PutComplete(
         std::move(put_context),
         MakeErrorStorage(ErrorStorageType::kPutDidWriteBlobToCacheFailed));
     return;
   }
 
-  if (put_context->side_data_blob) {
+  if (disk_cache_body_index == INDEX_RESPONSE_BODY) {
     PutWriteBlobToCache(std::move(put_context), INDEX_SIDE_DATA);
     return;
   }
@@ -2242,8 +2272,7 @@ void LegacyCacheStorageCache::CreateBackend(ErrorCallback callback) {
   DCHECK(scheduler_->IsRunningExclusiveOperation());
   int rv = disk_cache::CreateCacheBackend(
       cache_type, net::CACHE_BACKEND_SIMPLE, path_, max_bytes,
-      false, /* force */
-      nullptr, backend,
+      disk_cache::ResetHandling::kNeverReset, nullptr, backend,
       base::BindOnce(&LegacyCacheStorageCache::DeleteBackendCompletedIO,
                      weak_ptr_factory_.GetWeakPtr()),
       create_cache_callback);

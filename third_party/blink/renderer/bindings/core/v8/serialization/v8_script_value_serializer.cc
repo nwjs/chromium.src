@@ -271,8 +271,10 @@ bool V8ScriptValueSerializer::WriteDOMObject(ScriptWrappable* wrappable,
         execution_context->CountUse(
             mojom::WebFeature::kOriginCleanImageBitmapTransfer);
       } else {
-        execution_context->CountUse(
-            mojom::WebFeature::kNonOriginCleanImageBitmapTransfer);
+        exception_state.ThrowDOMException(
+            DOMExceptionCode::kDataCloneError,
+            "Non-origin-clean ImageBitmap cannot be transferred.");
+        return false;
       }
 
       DCHECK_LE(index, std::numeric_limits<uint32_t>::max());
@@ -286,8 +288,10 @@ bool V8ScriptValueSerializer::WriteDOMObject(ScriptWrappable* wrappable,
       execution_context->CountUse(
           mojom::WebFeature::kOriginCleanImageBitmapSerialization);
     } else {
-      execution_context->CountUse(
-          mojom::WebFeature::kNonOriginCleanImageBitmapSerialization);
+      exception_state.ThrowDOMException(
+          DOMExceptionCode::kDataCloneError,
+          "Non-origin-clean ImageBitmap cannot be cloned.");
+      return false;
     }
     WriteTag(kImageBitmapTag);
     SerializedColorParams color_params(image_bitmap->GetCanvasColorParams());
@@ -330,9 +334,8 @@ bool V8ScriptValueSerializer::WriteDOMObject(ScriptWrappable* wrappable,
     WriteUint32(image_data->width());
     WriteUint32(image_data->height());
     DOMArrayBufferBase* pixel_buffer = image_data->BufferBase();
-    uint32_t pixel_buffer_length =
-        SafeCast<uint32_t>(pixel_buffer->ByteLength());
-    WriteUint32(pixel_buffer_length);
+    size_t pixel_buffer_length = pixel_buffer->ByteLengthAsSizeT();
+    WriteUint64(base::strict_cast<uint64_t>(pixel_buffer_length));
     WriteRawBytes(pixel_buffer->Data(), pixel_buffer_length);
     return true;
   }
@@ -513,6 +516,7 @@ bool V8ScriptValueSerializer::WriteDOMObject(ScriptWrappable* wrappable,
     WriteUint64(canvas->PlaceholderCanvasId());
     WriteUint32(canvas->ClientId());
     WriteUint32(canvas->SinkId());
+    WriteUint32(canvas->FilterQuality() == kNone_SkFilterQuality ? 0 : 1);
     return true;
   }
   if (wrapper_type_info == V8ReadableStream::GetWrapperTypeInfo() &&
@@ -625,13 +629,11 @@ bool V8ScriptValueSerializer::WriteFile(File* file,
     size_t index = blob_info_array_->size();
     DCHECK_LE(index, std::numeric_limits<uint32_t>::max());
     uint64_t size;
-    double last_modified_ms = InvalidFileTime();
-    file->CaptureSnapshot(size, last_modified_ms);
-    // FIXME: transition WebBlobInfo.lastModified to be milliseconds-based also.
-    double last_modified = last_modified_ms / kMsPerSecond;
+    base::Optional<base::Time> last_modified_time;
+    file->CaptureSnapshot(size, last_modified_time);
     blob_info_array_->emplace_back(file->GetBlobDataHandle(), file->GetPath(),
-                                   file->name(), file->type(), last_modified,
-                                   size);
+                                   file->name(), file->type(),
+                                   last_modified_time, size);
     WriteUint32(static_cast<uint32_t>(index));
   } else {
     WriteUTF8String(file->HasBackingFile() ? file->GetPath() : g_empty_string);
@@ -644,11 +646,12 @@ bool V8ScriptValueSerializer::WriteFile(File* file,
     if (file->HasValidSnapshotMetadata()) {
       WriteUint32(1);
       uint64_t size;
-      double last_modified_ms;
-      file->CaptureSnapshot(size, last_modified_ms);
+      base::Optional<base::Time> last_modified;
+      file->CaptureSnapshot(size, last_modified);
       DCHECK_NE(size, std::numeric_limits<uint64_t>::max());
       WriteUint64(size);
-      WriteDouble(last_modified_ms);
+      WriteDouble(last_modified ? last_modified->ToJsTimeIgnoringNull()
+                                : std::numeric_limits<double>::quiet_NaN());
     } else {
       WriteUint32(0);
     }

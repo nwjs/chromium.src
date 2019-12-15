@@ -5,6 +5,8 @@
 Polymer({
   is: 'oobe-dialog',
 
+  behaviors: [CrScrollableBehavior],
+
   properties: {
     /**
      * Controls visibility of the bottom-buttons element.
@@ -55,6 +57,22 @@ Polymer({
       reflectToAttribute: true,
       observer: 'onfullScreenDialogChanged_',
     },
+
+    /**
+     * Shows overlay on top of the bottom buttons.
+     */
+    showButtonsOverlay: {
+      type: Boolean,
+      value: false,
+    },
+
+    /**
+     * If true footer would be shrunk as much as possible to fit container.
+     */
+    footerShrinkable: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   focus: function() {
@@ -79,8 +97,16 @@ Polymer({
    * Scroll to the bottom of footer container.
    */
   scrollToBottom: function() {
-    var el = this.$$('#footer-container');
+    var el = this.$$('#top-scroll-container');
     el.scrollTop = el.scrollHeight;
+  },
+
+
+  /**
+   * Updates the scroll behaviour.
+   */
+  updateScroll: function() {
+    this.requestUpdateScroll();
   },
 
   /**
@@ -101,6 +127,7 @@ Polymer({
       focusedElements[0].focus();
 
     this.fire('show-dialog');
+    this.updateScroll();
   },
 
   /** @private */

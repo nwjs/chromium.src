@@ -126,7 +126,8 @@ public class AutofillAssistantUiTest {
 
         // Bottom sheet is shown in the BottomSheet when creating the AssistantCoordinator.
         ViewGroup bottomSheetContent =
-                bottomSheetController.getBottomSheet().findViewById(R.id.autofill_assistant);
+                bottomSheetController.getBottomSheetViewForTesting().findViewById(
+                        R.id.autofill_assistant);
         Assert.assertNotNull(bottomSheetContent);
 
         // Disable bottom sheet content animations. This is a workaround for http://crbug/943483.
@@ -171,6 +172,7 @@ public class AutofillAssistantUiTest {
                                 AssistantDetailsModel.DETAILS,
                                 new AssistantDetails(movieTitle, /* titleMaxLines = */ 1,
                                         /* imageUrl = */ "",
+                                        /* imageAccessibilityHint = */ "",
                                         /* imageClickthroughData = */ null,
                                         /* showImage = */ false,
                                         /* totalPriceLabel = */ "",
@@ -248,7 +250,8 @@ public class AutofillAssistantUiTest {
 
         // Bottom sheet is shown in the BottomSheet when creating the AssistantCoordinator.
         ViewGroup bottomSheetContent =
-                bottomSheetController.getBottomSheet().findViewById(R.id.autofill_assistant);
+                bottomSheetController.getBottomSheetViewForTesting().findViewById(
+                        R.id.autofill_assistant);
         Assert.assertNotNull(bottomSheetContent);
 
         // Disable bottom sheet content animations. This is a workaround for http://crbug/943483.

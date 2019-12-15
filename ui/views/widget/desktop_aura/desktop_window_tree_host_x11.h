@@ -5,21 +5,10 @@
 #ifndef UI_VIEWS_WIDGET_DESKTOP_AURA_DESKTOP_WINDOW_TREE_HOST_X11_H_
 #define UI_VIEWS_WIDGET_DESKTOP_AURA_DESKTOP_WINDOW_TREE_HOST_X11_H_
 
-#include <stddef.h>
-#include <stdint.h>
-
-#include <list>
 #include <memory>
-#include <set>
-#include <string>
-#include <vector>
 
-#include "base/containers/flat_set.h"
 #include "base/macros.h"
-#include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
-#include "ui/gfx/geometry/rect.h"
-#include "ui/gfx/geometry/size.h"
 #include "ui/gfx/x/x11_types.h"
 #include "ui/platform_window/platform_window_delegate.h"
 #include "ui/platform_window/x11/x11_window.h"
@@ -62,18 +51,17 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11 : public DesktopWindowTreeHostLinux,
  private:
   friend class DesktopWindowTreeHostX11HighDPITest;
 
-  // PlatformWindowDelegate overrides:
+  // X11ExtensionDelegate overrides:
   //
-  // DWTHX11 temporarily overrides the PlatformWindowDelegate methods instead of
-  // underlying DWTHPlatform and WTHPlatform. Eventually, these will be removed
-  // from here as we progress in https://crbug.com/990756.
+  // DWTHX11 temporarily overrides the X11ExtensionDelegate
+  // methods instead of underlying DWTHPlatform and WTHPlatform. Eventually,
+  // these will be removed from here as we progress in https://crbug.com/990756.
   void OnXWindowMapped() override;
   void OnXWindowUnmapped() override;
 
   // Overridden from ui::XEventDelegate.
   void OnXWindowSelectionEvent(XEvent* xev) override;
   void OnXWindowDragDropEvent(XEvent* xev) override;
-  void OnXWindowRawKeyEvent(XEvent* xev) override;
 
   // Casts PlatformWindow into XWindow and returns the result. This is a temp
   // solution to access XWindow, which is subclassed by the X11Window, which is
@@ -87,9 +75,6 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11 : public DesktopWindowTreeHostLinux,
 
   base::ObserverList<DesktopWindowTreeHostObserverX11>::Unchecked
       observer_list_;
-
-  // The display and the native X window hosting the root window.
-  base::WeakPtrFactory<DesktopWindowTreeHostX11> weak_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(DesktopWindowTreeHostX11);
 };

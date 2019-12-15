@@ -327,6 +327,12 @@ const base::Optional<url::Origin>& FakeDownloadItem::GetRequestInitiator()
   return dummy_origin;
 }
 
+const net::NetworkIsolationKey& FakeDownloadItem::GetNetworkIsolationKey()
+    const {
+  NOTREACHED();
+  return dummy_network_isolation_key;
+}
+
 std::string FakeDownloadItem::GetSuggestedFilename() const {
   NOTREACHED();
   return std::string();
@@ -362,6 +368,10 @@ bool FakeDownloadItem::IsSavePackageDownload() const {
   return false;
 }
 
+download::DownloadSource FakeDownloadItem::GetDownloadSource() const {
+  return download::DownloadSource::UNKNOWN;
+}
+
 const base::FilePath& FakeDownloadItem::GetFullPath() const {
   return dummy_file_path;
 }
@@ -391,9 +401,8 @@ const std::string& FakeDownloadItem::GetHash() const {
   return hash_;
 }
 
-void FakeDownloadItem::DeleteFile(const base::Callback<void(bool)>& callback) {
+void FakeDownloadItem::DeleteFile(base::OnceCallback<void(bool)> callback) {
   NOTREACHED();
-  callback.Run(false);
 }
 
 download::DownloadFile* FakeDownloadItem::GetDownloadFile() {

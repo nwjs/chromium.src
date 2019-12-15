@@ -40,6 +40,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/utf_string_conversions.h"
+#include "content/browser/appcache/appcache.h"
 #include "url/gurl.h"
 
 namespace content {
@@ -218,9 +219,8 @@ GURL ParseUrlToken(base::StringPiece url_token, const GURL& manifest_url) {
   return url;
 }
 
-bool ScopeMatches(const GURL& manifest_url, const GURL& namespace_url) {
-  return base::StartsWith(namespace_url.spec(),
-                          manifest_url.GetWithoutFilename().spec(),
+bool IsUrlWithinScope(const GURL& url, const GURL& scope) {
+  return base::StartsWith(url.spec(), scope.spec(),
                           base::CompareCase::SENSITIVE);
 }
 
@@ -348,6 +348,7 @@ AppCacheManifest::AppCacheManifest() = default;
 AppCacheManifest::~AppCacheManifest() = default;
 
 bool ParseManifest(const GURL& manifest_url,
+                   const std::string& manifest_scope,
                    const char* manifest_bytes,
                    int manifest_size,
                    ParseMode parse_mode,
@@ -358,6 +359,8 @@ bool ParseManifest(const GURL& manifest_url,
   DCHECK(manifest.explicit_urls.empty());
   DCHECK(manifest.fallback_namespaces.empty());
   DCHECK(manifest.online_whitelist_namespaces.empty());
+  DCHECK_EQ(manifest.parser_version, -1);
+  DCHECK_EQ(manifest.scope, "");
   DCHECK(!manifest.online_whitelist_all);
   DCHECK(!manifest.did_ignore_intercept_namespaces);
   DCHECK(!manifest.did_ignore_fallback_namespaces);
@@ -407,6 +410,28 @@ bool ParseManifest(const GURL& manifest_url,
   // The character after "CACHE MANIFEST" must be a whitespace character.
   if (!data.empty() && !IsWhiteSpace(data[0]))
     return false;
+
+  if (!manifest_url.is_valid())
+    return false;
+
+  if (!AppCache::CheckValidManifestScope(manifest_url, manifest_scope))
+    return false;
+
+  // Manifest parser version handling.
+  //
+  // Version 0: Pre-manifest scope, a manifest's scope for resources listed in
+  // the FALLBACK and CHROMIUM-INTERCEPT sections can span the entire origin.
+  //
+  // Version 1: Manifests have a scope, resources listed in the FALLBACK and
+  // CHROMIUM-INTERCEPT sections must exist within that scope or be ignored.
+  // Changing the manifest, the scope, or the version of the manifest will
+  // trigger a refetch of the manifest.
+  //
+  // This code generates manifests with parser version 1.
+  manifest.parser_version = 1;
+  manifest.scope = manifest_scope;
+
+  const GURL manifest_scope_url = manifest_url.Resolve(manifest_scope);
 
   // The spec requires ignoring any characters on the first line after the
   // signature and its following whitespace.
@@ -499,7 +524,10 @@ bool ParseManifest(const GURL& manifest_url,
         continue;
       }
 
-      if (manifest_url.GetOrigin() != namespace_url.GetOrigin())
+      if (namespace_url.GetOrigin() != manifest_url.GetOrigin())
+        continue;
+
+      if (!IsUrlWithinScope(namespace_url, manifest_scope_url))
         continue;
 
       // The only supported verb is "return".
@@ -531,15 +559,19 @@ bool ParseManifest(const GURL& manifest_url,
     }
 
     if (mode == Mode::kFallback) {
-      if (manifest_url.GetOrigin() != namespace_url.GetOrigin())
+      if (namespace_url.GetOrigin() != manifest_url.GetOrigin())
         continue;
 
       if (parse_mode != PARSE_MANIFEST_ALLOWING_DANGEROUS_FEATURES) {
-        if (!ScopeMatches(manifest_url, namespace_url)) {
+        if (!IsUrlWithinScope(namespace_url,
+                              manifest_url.GetWithoutFilename())) {
           manifest.did_ignore_fallback_namespaces = true;
           continue;
         }
       }
+
+      if (!IsUrlWithinScope(namespace_url, manifest_scope_url))
+        continue;
 
       base::StringPiece fallback_url_token;
       std::tie(fallback_url_token, line) = SplitLineToken(line);

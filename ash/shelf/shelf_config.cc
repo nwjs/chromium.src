@@ -26,7 +26,8 @@ const int kDenseShelfScreenSizeThreshold = 600;
 
 // Returns whether tablet mode is currently active.
 bool IsTabletMode() {
-  return Shell::Get()->tablet_mode_controller()->InTabletMode();
+  return Shell::Get()->tablet_mode_controller() &&
+         Shell::Get()->tablet_mode_controller()->InTabletMode();
 }
 
 }  // namespace
@@ -57,7 +58,8 @@ ShelfConfig::ShelfConfig()
       shelf_tooltip_preview_max_width_(192),
       shelf_tooltip_preview_max_ratio_(1.5),    // = 3/2
       shelf_tooltip_preview_min_ratio_(0.666),  // = 2/3
-      shelf_blur_radius_(30) {
+      shelf_blur_radius_(30),
+      mousewheel_scroll_offset_threshold_(20) {
   UpdateIsDense();
 }
 
@@ -120,22 +122,15 @@ void ShelfConfig::OnAppListVisibilityWillChange(bool shown,
 }
 
 int ShelfConfig::shelf_size() const {
-  // Before the hotseat redesign, the shelf always has the same size.
-  if (!chromeos::switches::ShouldShowShelfHotseat())
-    return 56;
-
-  // In clamshell mode, the shelf always has the same size.
-  if (!IsTabletMode())
-    return 48;
-
-  if (is_in_app())
-    return in_app_shelf_size();
-
-  return is_dense_ ? 48 : 56;
+  return GetShelfSize(false /*ignore_in_app_state*/);
 }
 
 int ShelfConfig::in_app_shelf_size() const {
   return is_dense_ ? 36 : 40;
+}
+
+int ShelfConfig::system_shelf_size() const {
+  return GetShelfSize(true /*ignore_in_app_state*/);
 }
 
 int ShelfConfig::hotseat_size() const {
@@ -173,7 +168,7 @@ int ShelfConfig::control_size() const {
 
 int ShelfConfig::control_border_radius() const {
   return (chromeos::switches::ShouldShowShelfHotseat() && is_in_app() &&
-          Shell::Get()->tablet_mode_controller()->InTabletMode())
+          IsTabletMode())
              ? 0
              : control_size() / 2;
 }
@@ -184,6 +179,18 @@ int ShelfConfig::overflow_button_margin() const {
 
 int ShelfConfig::home_button_edge_spacing() const {
   return (shelf_size() - control_size()) / 2;
+}
+
+base::TimeDelta ShelfConfig::hotseat_background_animation_duration() const {
+  // This matches the duration of the maximize/minimize animation.
+  return base::TimeDelta::FromMilliseconds(300);
+}
+
+base::TimeDelta ShelfConfig::shelf_animation_duration() const {
+  if (chromeos::switches::ShouldShowShelfHotseat())
+    return hotseat_background_animation_duration();
+
+  return base::TimeDelta::FromMilliseconds(200);
 }
 
 int ShelfConfig::status_area_hit_region_padding() const {
@@ -216,11 +223,27 @@ void ShelfConfig::UpdateIsDense() {
   OnShelfConfigUpdated();
 }
 
+int ShelfConfig::GetShelfSize(bool ignore_in_app_state) const {
+  // Before the hotseat redesign, the shelf always has the same size.
+  if (!chromeos::switches::ShouldShowShelfHotseat())
+    return 56;
+
+  // In clamshell mode, the shelf always has the same size.
+  if (!IsTabletMode())
+    return 48;
+
+  if (!ignore_in_app_state && is_in_app())
+    return in_app_shelf_size();
+
+  return is_dense_ ? 48 : 56;
+}
+
 SkColor ShelfConfig::GetShelfControlButtonColor() const {
   if (chromeos::switches::ShouldShowShelfHotseat() && IsTabletMode() &&
       Shell::Get()->session_controller()->GetSessionState() ==
-          session_manager::SessionState::ACTIVE)
+          session_manager::SessionState::ACTIVE) {
     return is_in_app() ? SK_ColorTRANSPARENT : GetDefaultShelfColor();
+  }
   return shelf_control_permanent_highlight_background_;
 }
 
@@ -238,13 +261,15 @@ SkColor ShelfConfig::GetMaximizedShelfColor() const {
 SkColor ShelfConfig::GetDefaultShelfColor() const {
   if (!features::IsBackgroundBlurEnabled()) {
     return AshColorProvider::Get()->GetBaseLayerColor(
-        AshColorProvider::BaseLayerType::kTransparentWithoutBlur,
+        AshColorProvider::BaseLayerType::kTransparent90,
         AshColorProvider::AshColorMode::kDark);
   }
 
   SkColor final_color = AshColorProvider::Get()->GetBaseLayerColor(
-      AshColorProvider::BaseLayerType::kTransparentWithBlur,
+      IsTabletMode() ? AshColorProvider::BaseLayerType::kTransparent60
+                     : AshColorProvider::BaseLayerType::kTransparent74,
       AshColorProvider::AshColorMode::kDark);
+  int final_alpha = SkColorGetA(final_color);
 
   if (!Shell::Get()->wallpaper_controller())
     return final_color;
@@ -261,7 +286,7 @@ SkColor ShelfConfig::GetDefaultShelfColor() const {
   final_color = color_utils::GetResultingPaintColor(
       SkColorSetA(SK_ColorBLACK, 127), dark_muted_color);
 
-  return SkColorSetA(final_color, 189);  // 74% opacity
+  return SkColorSetA(final_color, final_alpha);
 }
 
 int ShelfConfig::GetShelfControlButtonBlurRadius() const {

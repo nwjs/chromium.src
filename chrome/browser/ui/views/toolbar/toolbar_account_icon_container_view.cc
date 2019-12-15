@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_account_icon_container_view.h"
 
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/views/autofill/payments/local_card_migration_icon_view.h"
@@ -18,7 +17,14 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
+#include "ui/views/layout/flex_layout_types.h"
+#include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget.h"
+
+// static
+const char ToolbarAccountIconContainerView::
+    kToolbarAccountIconContainerViewClassName[] =
+        "ToolbarAccountIconContainerView";
 
 ToolbarAccountIconContainerView::ToolbarAccountIconContainerView(
     Browser* browser)
@@ -40,6 +46,10 @@ ToolbarAccountIconContainerView::ToolbarAccountIconContainerView(
   page_action_icon_container_view_ =
       AddChildView(std::make_unique<PageActionIconContainerView>(params));
 
+  avatar_->SetProperty(views::kFlexBehaviorKey,
+                       views::FlexSpecification::ForSizeRule(
+                           views::MinimumFlexSizeRule::kScaleToMinimum,
+                           views::MaximumFlexSizeRule::kPreferred));
   AddMainButton(avatar_);
 }
 
@@ -78,9 +88,8 @@ void ToolbarAccountIconContainerView::OnThemeChanged() {
   UpdateAllIcons();
 }
 
-SkColor ToolbarAccountIconContainerView::GetIconColor() const {
-  return GetThemeProvider()->GetColor(
-      ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
+const char* ToolbarAccountIconContainerView::GetClassName() const {
+  return kToolbarAccountIconContainerViewClassName;
 }
 
 const views::View::Views& ToolbarAccountIconContainerView::GetChildren() const {

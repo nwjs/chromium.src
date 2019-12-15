@@ -49,8 +49,8 @@
 #if defined(OS_CHROMEOS)
 #include "media/gpu/chromeos/chromeos_video_decoder_factory.h"
 #if BUILDFLAG(USE_V4L2_CODEC) || BUILDFLAG(USE_VAAPI)
-#include "media/gpu/linux/mailbox_video_frame_converter.h"
-#include "media/gpu/linux/platform_video_frame_pool.h"
+#include "media/gpu/chromeos/mailbox_video_frame_converter.h"
+#include "media/gpu/chromeos/platform_video_frame_pool.h"
 #endif  // BUILDFLAG(USE_V4L2_CODEC) || BUILDFLAG(USE_VAAPI)
 #endif  // defined(OS_CHROMEOS)
 
@@ -119,9 +119,9 @@ GpuMojoMediaClient::GpuMojoMediaClient(
       gpu_task_runner_(std::move(gpu_task_runner)),
       media_gpu_channel_manager_(std::move(media_gpu_channel_manager)),
       android_overlay_factory_cb_(std::move(android_overlay_factory_cb)),
-#if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+#if defined(OS_CHROMEOS) && BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
       gpu_memory_buffer_factory_(gpu_memory_buffer_factory),
-#endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+#endif  // defined(OS_CHROMEOS) && BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
       cdm_proxy_factory_cb_(std::move(cdm_proxy_factory_cb)) {
 }
 
@@ -253,7 +253,8 @@ std::unique_ptr<VideoDecoder> GpuMojoMediaClient::CreateVideoDecoder(
                                 command_buffer_id->channel_token,
                                 command_buffer_id->route_id));
         video_decoder = ChromeosVideoDecoderFactory::Create(
-            task_runner, std::move(frame_pool), std::move(frame_converter));
+            task_runner, std::move(frame_pool), std::move(frame_converter),
+            gpu_memory_buffer_factory_);
 #endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
       } else {
         video_decoder = VdaVideoDecoder::Create(
@@ -311,7 +312,7 @@ std::unique_ptr<CdmFactory> GpuMojoMediaClient::CreateCdmFactory(
 #endif  // defined(OS_ANDROID)
 }
 
-#if BUILDFLAG(ENABLE_LIBRARY_CDMS)
+#if BUILDFLAG(ENABLE_CDM_PROXY)
 std::unique_ptr<CdmProxy> GpuMojoMediaClient::CreateCdmProxy(
     const base::Token& cdm_guid) {
   if (cdm_proxy_factory_cb_)
@@ -319,6 +320,6 @@ std::unique_ptr<CdmProxy> GpuMojoMediaClient::CreateCdmProxy(
 
   return nullptr;
 }
-#endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
+#endif  // BUILDFLAG(ENABLE_CDM_PROXY)
 
 }  // namespace media

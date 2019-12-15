@@ -4,10 +4,12 @@
 
 #include "fuchsia/engine/browser/frame_impl.h"
 
+#include <lib/sys/cpp/component_context.h>
 #include <lib/ui/scenic/cpp/view_ref_pair.h>
 #include <limits>
 
 #include "base/bind_helpers.h"
+#include "base/fuchsia/default_context.h"
 #include "base/fuchsia/fuchsia_logging.h"
 #include "base/json/json_writer.h"
 #include "base/strings/strcat.h"
@@ -24,6 +26,7 @@
 #include "content/public/common/was_activated_option.mojom.h"
 #include "fuchsia/base/mem_buffer_util.h"
 #include "fuchsia/base/message_port.h"
+#include "fuchsia/engine/browser/accessibility_bridge.h"
 #include "fuchsia/engine/browser/context_impl.h"
 #include "fuchsia/engine/browser/web_engine_devtools_controller.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
@@ -35,6 +38,8 @@
 #include "ui/aura/window.h"
 #include "ui/aura/window_tree_host_platform.h"
 #include "ui/base/ime/input_method_base.h"
+#include "ui/gfx/switches.h"
+#include "ui/ozone/public/ozone_switches.h"
 #include "ui/platform_window/platform_window_init_properties.h"
 #include "ui/wm/core/base_focus_rules.h"
 #include "url/gurl.h"
@@ -220,7 +225,34 @@ logging::LogSeverity ConsoleLogLevelToLoggingSeverity(
              level);
 }
 
+bool IsHeadless() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kHeadless);
+}
+
+using FrameImplMap =
+    base::small_map<std::map<content::WebContents*, FrameImpl*>>;
+
+FrameImplMap& WebContentsToFrameImplMap() {
+  static base::NoDestructor<FrameImplMap> frame_impl_map;
+  return *frame_impl_map;
+}
+
 }  // namespace
+
+// static
+FrameImpl* FrameImpl::FromRenderFrameHost(
+    content::RenderFrameHost* render_frame_host) {
+  content::WebContents* web_contents =
+      content::WebContents::FromRenderFrameHost(render_frame_host);
+  if (!web_contents)
+    return nullptr;
+
+  auto& map = WebContentsToFrameImplMap();
+  auto it = map.find(web_contents);
+  if (it == map.end())
+    return nullptr;
+  return it->second;
+}
 
 FrameImpl::FrameImpl(std::unique_ptr<content::WebContents> web_contents,
                      ContextImpl* context,
@@ -231,6 +263,9 @@ FrameImpl::FrameImpl(std::unique_ptr<content::WebContents> web_contents,
       log_level_(kLogSeverityNone),
       url_request_rewrite_rules_manager_(web_contents_.get()),
       binding_(this, std::move(frame_request)) {
+  DCHECK(!WebContentsToFrameImplMap()[web_contents_.get()]);
+  WebContentsToFrameImplMap()[web_contents_.get()] = this;
+
   web_contents_->SetDelegate(this);
   Observe(web_contents_.get());
 
@@ -245,8 +280,19 @@ FrameImpl::FrameImpl(std::unique_ptr<content::WebContents> web_contents,
 }
 
 FrameImpl::~FrameImpl() {
-  TearDownView();
+  DestroyWindowTreeHost();
   context_->devtools_controller()->OnFrameDestroyed(web_contents_.get());
+
+  auto& map = WebContentsToFrameImplMap();
+  auto it = WebContentsToFrameImplMap().find(web_contents_.get());
+  DCHECK(it != map.end() && it->second == this);
+  map.erase(it);
+}
+
+void FrameImpl::BindAudioConsumerProvider(
+    mojo::PendingReceiver<media::mojom::FuchsiaAudioConsumerProvider>
+        receiver) {
+  audio_consumer_provider_service_.Bind(std::move(receiver));
 }
 
 zx::unowned_channel FrameImpl::GetBindingChannelForTest() const {
@@ -268,23 +314,6 @@ FrameImpl::OriginScopedScript& FrameImpl::OriginScopedScript::operator=(
 }
 
 FrameImpl::OriginScopedScript::~OriginScopedScript() = default;
-
-void FrameImpl::TearDownView() {
-  if (window_tree_host_) {
-    aura::client::SetFocusClient(root_window(), nullptr);
-    wm::SetActivationClient(root_window(), nullptr);
-    root_window()->RemovePreTargetHandler(focus_controller_.get());
-    web_contents_->GetNativeView()->Hide();
-    window_tree_host_->Hide();
-    window_tree_host_->compositor()->SetVisible(false);
-    window_tree_host_ = nullptr;
-
-    // Allows posted focus events to process before the FocusController is torn
-    // down.
-    content::BrowserThread::DeleteSoon(content::BrowserThread::UI, FROM_HERE,
-                                       std::move(focus_controller_));
-  }
-}
 
 void FrameImpl::ExecuteJavaScriptInternal(std::vector<std::string> origins,
                                           fuchsia::mem::Buffer script,
@@ -451,6 +480,30 @@ void FrameImpl::MaybeSendPopup() {
   popup_ack_outstanding_ = true;
 }
 
+void FrameImpl::DestroyWindowTreeHost() {
+  if (!window_tree_host_)
+    return;
+
+  aura::client::SetFocusClient(root_window(), nullptr);
+  wm::SetActivationClient(root_window(), nullptr);
+  root_window()->RemovePreTargetHandler(focus_controller_.get());
+  web_contents_->GetNativeView()->Hide();
+  window_tree_host_->Hide();
+  window_tree_host_->compositor()->SetVisible(false);
+  window_tree_host_.reset();
+
+  // Allows posted focus events to process before the FocusController is torn
+  // down.
+  base::DeleteSoon(FROM_HERE, {content::BrowserThread::UI},
+                   std::move(focus_controller_));
+}
+
+void FrameImpl::CloseAndDestroyFrame(zx_status_t error) {
+  DCHECK(binding_.is_bound());
+  binding_.Close(error);
+  context_->DestroyFrame(this);
+}
+
 void FrameImpl::OnPopupListenerDisconnected(zx_status_t status) {
   ZX_LOG_IF(WARNING, status != ZX_ERR_PEER_CLOSED, status)
       << "Popup listener disconnected.";
@@ -458,36 +511,42 @@ void FrameImpl::OnPopupListenerDisconnected(zx_status_t status) {
 }
 
 void FrameImpl::CreateView(fuchsia::ui::views::ViewToken view_token) {
+  if (IsHeadless()) {
+    LOG(WARNING) << "CreateView() called on a HEADLESS Context.";
+    CloseAndDestroyFrame(ZX_ERR_INVALID_ARGS);
+    return;
+  }
+
   // If a View to this Frame is already active then disconnect it.
-  TearDownView();
+  DestroyWindowTreeHost();
 
   ui::PlatformWindowInitProperties properties;
   properties.view_token = std::move(view_token);
   properties.view_ref_pair = scenic::ViewRefPair::New();
 
-  window_tree_host_ =
-      std::make_unique<FrameWindowTreeHost>(std::move(properties));
-  window_tree_host_->InitHost();
+  // Create a ViewRef and register it to the Fuchsia SemanticsManager.
+  fuchsia::ui::views::ViewRef accessibility_view_ref;
+  zx_status_t status = properties.view_ref_pair.view_ref.reference.duplicate(
+      ZX_RIGHT_SAME_RIGHTS, &accessibility_view_ref.reference);
+  if (status == ZX_OK) {
+    fuchsia::accessibility::semantics::SemanticsManagerPtr semantics_manager;
+    if (test_semantics_manager_ptr_) {
+      semantics_manager = std::move(test_semantics_manager_ptr_);
+    } else {
+      semantics_manager =
+          base::fuchsia::ComponentContextForCurrentProcess()
+              ->svc()
+              ->Connect<fuchsia::accessibility::semantics::SemanticsManager>();
+    }
+    accessibility_bridge_ = std::make_unique<AccessibilityBridge>(
+        std::move(semantics_manager), std::move(accessibility_view_ref),
+        web_contents_.get());
+  } else {
+    ZX_LOG(ERROR, status) << "zx_object_duplicate";
+  }
 
-  window_tree_host_->window()->GetHost()->AddEventRewriter(
-      &discarding_event_filter_);
-  focus_controller_ =
-      std::make_unique<wm::FocusController>(new FrameFocusRules);
-
-  aura::client::SetFocusClient(root_window(), focus_controller_.get());
-  wm::SetActivationClient(root_window(), focus_controller_.get());
-
-  // Add hooks which automatically set the focus state when input events are
-  // received.
-  root_window()->AddPreTargetHandler(focus_controller_.get());
-
-  // Track child windows for enforcement of window management policies and
-  // propagate window manager events to them (e.g. window resizing).
-  root_window()->SetLayoutManager(new LayoutManagerImpl());
-
-  root_window()->AddChild(web_contents_->GetNativeView());
-  web_contents_->GetNativeView()->Show();
-  window_tree_host_->Show();
+  SetWindowTreeHost(
+      std::make_unique<FrameWindowTreeHost>(std::move(properties)));
 }
 
 void FrameImpl::GetNavigationController(
@@ -670,8 +729,52 @@ void FrameImpl::SetUrlRequestRewriteRules(
     SetUrlRequestRewriteRulesCallback callback) {
   zx_status_t error = url_request_rewrite_rules_manager_.OnRulesUpdated(
       std::move(rules), std::move(callback));
-  if (error != ZX_OK)
-    binding_.Close(error);
+  if (error != ZX_OK) {
+    CloseAndDestroyFrame(error);
+    return;
+  }
+}
+
+void FrameImpl::EnableHeadlessRendering() {
+  if (!IsHeadless()) {
+    LOG(ERROR) << "EnableHeadlessRendering() on non-HEADLESS Context.";
+    CloseAndDestroyFrame(ZX_ERR_INVALID_ARGS);
+    return;
+  }
+
+  SetWindowTreeHost(std::make_unique<FrameWindowTreeHost>(
+      ui::PlatformWindowInitProperties()));
+}
+
+void FrameImpl::DisableHeadlessRendering() {
+  if (!IsHeadless()) {
+    LOG(ERROR)
+        << "Attempted to disable headless rendering on non-HEADLESS Context.";
+    CloseAndDestroyFrame(ZX_ERR_INVALID_ARGS);
+    return;
+  }
+
+  DestroyWindowTreeHost();
+}
+
+void FrameImpl::SetWindowTreeHost(
+    std::unique_ptr<aura::WindowTreeHost> window_tree_host) {
+  DCHECK(!window_tree_host_);
+
+  window_tree_host_ = std::move(window_tree_host);
+  window_tree_host_->InitHost();
+  focus_controller_ =
+      std::make_unique<wm::FocusController>(new FrameFocusRules);
+  aura::client::SetFocusClient(root_window(), focus_controller_.get());
+  wm::SetActivationClient(root_window(), focus_controller_.get());
+  root_window()->SetLayoutManager(new LayoutManagerImpl());
+  root_window()->AddChild(web_contents_->GetNativeView());
+  web_contents_->GetNativeView()->Show();
+  window_tree_host_->Show();
+}
+
+void FrameImpl::SetMediaSessionId(uint64_t session_id) {
+  audio_consumer_provider_service_.set_session_id(session_id);
 }
 
 void FrameImpl::CloseContents(content::WebContents* source) {

@@ -27,18 +27,6 @@ var CrElementsV3BrowserTest = class extends PolymerTest {
   get webuiHost() {
     return 'dummyurl';
   }
-
-  /** @override */
-  get runAccessibilityChecks() {
-    return true;
-  }
-
-  /** @override */
-  setUp() {
-    PolymerTest.prototype.setUp.call(this);
-    // We aren't loading the main document.
-    this.accessibilityAuditConfig.ignoreSelectors('humanLangMissing', 'html');
-  }
 };
 
 // eslint-disable-next-line no-var
@@ -88,15 +76,9 @@ var CrElementsDrawerV3Test = class extends CrElementsV3BrowserTest {
 };
 
 // https://crbug.com/1008122
-GEN('#if defined(OS_MACOSX) && defined(NDEBUG)');
-GEN('# define MAYBE_CrElementsDrawerV3Test_All \\');
-GEN('     DISABLED_All');
-GEN('#else');
-GEN('# define MAYBE_CrElementsDrawerV3Test_All  \\');
-GEN('     All');
-GEN('#endif');
 TEST_F(
-    'CrElementsDrawerV3Test', 'MAYBE_CrElementsDrawerV3Test_All', function() {
+    'CrElementsDrawerV3Test', 'DISABLED_CrElementsDrawerV3Test_All',
+    function() {
       mocha.run();
     });
 
@@ -181,6 +163,18 @@ var CrElementsSearchFieldV3Test = class extends CrElementsV3BrowserTest {
 };
 
 TEST_F('CrElementsSearchFieldV3Test', 'All', function() {
+  mocha.run();
+});
+
+// eslint-disable-next-line no-var
+var CrElementsSplitterV3Test = class extends CrElementsV3BrowserTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://test?module=cr_elements/cr_splitter_test.m.js';
+  }
+};
+
+TEST_F('CrElementsSplitterV3Test', 'All', function() {
   mocha.run();
 });
 

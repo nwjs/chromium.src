@@ -125,7 +125,12 @@ class MockContentVerifierDelegate : public ContentVerifierDelegate {
                     scoped_refptr<ContentVerifyJob> verify_job) override;
   void Shutdown() override;
 
+  // Modifier.
+  void SetVerifierSourceType(VerifierSourceType type);
+
  private:
+  VerifierSourceType verifier_source_type_ = VerifierSourceType::SIGNED_HASHES;
+
   DISALLOW_COPY_AND_ASSIGN(MockContentVerifierDelegate);
 };
 

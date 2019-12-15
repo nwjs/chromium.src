@@ -175,6 +175,9 @@ extern const char kDeviceLoginScreenInputMethods[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS)
 extern const char kDeviceLoginScreenSystemInfoEnforced[];
 
+COMPONENT_EXPORT(CHROMEOS_SETTINGS)
+extern const char kDeviceShowNumericKeyboardForPassword[];
+
 COMPONENT_EXPORT(CHROMEOS_SETTINGS) extern const char kPerUserTimezoneEnabled[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS)
 extern const char kFineGrainedTimeZoneResolveEnabled[];
@@ -231,6 +234,9 @@ extern const char kDeviceSecondFactorAuthenticationMode[];
 
 COMPONENT_EXPORT(CHROMEOS_SETTINGS)
 extern const char kDevicePowerwashAllowed[];
+
+COMPONENT_EXPORT(CHROMEOS_SETTINGS)
+extern const char kDeviceWebBasedAttestationAllowedUrls[];
 
 }  // namespace chromeos
 

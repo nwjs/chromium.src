@@ -10,7 +10,7 @@
 #include "base/component_export.h"
 #include "base/files/scoped_file.h"
 #include "base/observer_list.h"
-#include "chromeos/dbus/concierge/service.pb.h"
+#include "chromeos/dbus/concierge/concierge_service.pb.h"
 #include "chromeos/dbus/dbus_client.h"
 #include "chromeos/dbus/dbus_method_call_status.h"
 #include "dbus/object_proxy.h"
@@ -211,13 +211,6 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) ConciergeClient : public DBusClient {
   virtual void DetachUsbDevice(
       const vm_tools::concierge::DetachUsbDeviceRequest& request,
       DBusMethodCallback<vm_tools::concierge::DetachUsbDeviceResponse>
-          callback) = 0;
-
-  // Lists all the USB devices currently attached to a given VM.
-  // |callback| is called once the method call has finished.
-  virtual void ListUsbDevices(
-      const vm_tools::concierge::ListUsbDeviceRequest& request,
-      DBusMethodCallback<vm_tools::concierge::ListUsbDeviceResponse>
           callback) = 0;
 
   // Starts ARCVM if there is not already one running.

@@ -39,10 +39,10 @@
 #include "build/build_config.h"
 #include "cc/layers/picture_layer.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/media/media_player_action.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "third_party/blink/public/common/plugin/plugin_action.h"
 #include "third_party/blink/public/platform/web_float_point.h"
-#include "third_party/blink/public/platform/web_image.h"
 #include "third_party/blink/public/platform/web_input_event.h"
 #include "third_party/blink/public/platform/web_menu_source_type.h"
 #include "third_party/blink/public/platform/web_scroll_into_view_params.h"
@@ -58,11 +58,9 @@
 #include "third_party/blink/public/web/web_input_element.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/public/web/web_meaningful_layout.h"
-#include "third_party/blink/public/web/web_media_player_action.h"
 #include "third_party/blink/public/web/web_node.h"
 #include "third_party/blink/public/web/web_plugin.h"
 #include "third_party/blink/public/web/web_range.h"
-#include "third_party/blink/public/web/web_scoped_user_gesture.h"
 #include "third_party/blink/public/web/web_view_client.h"
 #include "third_party/blink/public/web/web_widget_client.h"
 #include "third_party/blink/public/web/web_window_features.h"
@@ -74,7 +72,6 @@
 #include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/text.h"
-#include "third_party/blink/renderer/core/dom/user_gesture_indicator.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
 #include "third_party/blink/renderer/core/editing/ephemeral_range.h"
@@ -138,6 +135,7 @@
 #include "third_party/blink/renderer/core/page/page_popup_client.h"
 #include "third_party/blink/renderer/core/page/pointer_lock_controller.h"
 #include "third_party/blink/renderer/core/page/scrolling/fragment_anchor.h"
+#include "third_party/blink/renderer/core/page/scrolling/scrolling_coordinator.h"
 #include "third_party/blink/renderer/core/page/scrolling/top_document_root_scroller_controller.h"
 #include "third_party/blink/renderer/core/paint/compositing/paint_layer_compositor.h"
 #include "third_party/blink/renderer/core/paint/first_meaningful_paint_detector.h"
@@ -289,7 +287,9 @@ WebViewImpl::WebViewImpl(WebViewClient* client,
       Page::CreateOrdinary(page_clients, opener ? opener->GetPage() : nullptr);
   CoreInitializer::GetInstance().ProvideModulesToPage(*AsView().page,
                                                       AsView().client);
-  SetIsHidden(is_hidden, /*is_initial_state=*/true);
+  SetVisibilityState(
+      is_hidden ? PageVisibilityState::kHidden : PageVisibilityState::kVisible,
+      /*is_initial_state=*/true);
 
   // When not compositing, keep the Page in the loop so that it will paint all
   // content into the root layer, as multiple layers can only be used when
@@ -371,11 +371,6 @@ void WebViewImpl::HandleMouseDown(LocalFrame& main_frame,
   }
 
   PageWidgetEventHandler::HandleMouseDown(main_frame, event);
-
-  if (event.button == WebMouseEvent::Button::kLeft && mouse_capture_element_) {
-    mouse_capture_gesture_token_ =
-        main_frame.GetEventHandler().TakeLastMouseDownGestureToken();
-  }
 
   if (page_popup_ && page_popup &&
       page_popup_->HasSamePopupClient(page_popup.get())) {
@@ -1331,10 +1326,9 @@ void WebViewImpl::DidUpdateBrowserControls() {
 
   WebWidgetClient* client = main_frame->LocalRootFrameWidget()->Client();
   DCHECK(client);
-  client->SetBrowserControlsShownRatio(GetBrowserControls().ShownRatio());
-  client->SetBrowserControlsHeight(GetBrowserControls().TopHeight(),
-                                   GetBrowserControls().BottomHeight(),
-                                   GetBrowserControls().ShrinkViewport());
+  client->SetBrowserControlsShownRatio(GetBrowserControls().TopShownRatio(),
+                                       GetBrowserControls().BottomShownRatio());
+  client->SetBrowserControlsParams(GetBrowserControls().Params());
 
   VisualViewport& visual_viewport = GetPage()->GetVisualViewport();
 
@@ -1355,13 +1349,10 @@ BrowserControls& WebViewImpl::GetBrowserControls() {
   return GetPage()->GetBrowserControls();
 }
 
-void WebViewImpl::ResizeViewWhileAnchored(float top_controls_height,
-                                          float bottom_controls_height,
-                                          bool browser_controls_shrink_layout) {
+void WebViewImpl::ResizeViewWhileAnchored(cc::BrowserControlsParams params) {
   DCHECK(MainFrameImpl());
 
-  GetBrowserControls().SetHeight(top_controls_height, bottom_controls_height,
-                                 browser_controls_shrink_layout);
+  GetBrowserControls().SetParams(params);
 
   {
     // Avoids unnecessary invalidations while various bits of state in
@@ -1390,13 +1381,21 @@ void WebViewImpl::ResizeWithBrowserControls(
     float top_controls_height,
     float bottom_controls_height,
     bool browser_controls_shrink_layout) {
+  ResizeWithBrowserControls(
+      new_size, {top_controls_height, GetBrowserControls().TopMinHeight(),
+                 bottom_controls_height, GetBrowserControls().BottomMinHeight(),
+                 GetBrowserControls().AnimateHeightChanges(),
+                 browser_controls_shrink_layout});
+}
+
+void WebViewImpl::ResizeWithBrowserControls(
+    const WebSize& new_size,
+    cc::BrowserControlsParams browser_controls_params) {
   if (should_auto_resize_)
     return;
 
   if (size_ == new_size &&
-      GetBrowserControls().TopHeight() == top_controls_height &&
-      GetBrowserControls().BottomHeight() == bottom_controls_height &&
-      GetBrowserControls().ShrinkViewport() == browser_controls_shrink_layout)
+      GetBrowserControls().Params() == browser_controls_params)
     return;
 
   if (GetPage()->MainFrame() && !GetPage()->MainFrame()->IsLocalFrame()) {
@@ -1407,9 +1406,7 @@ void WebViewImpl::ResizeWithBrowserControls(
     size_ = new_size;
     GetPageScaleConstraintsSet().DidChangeInitialContainingBlockSize(size_);
     GetPage()->GetVisualViewport().SetSize(size_);
-    GetPage()->GetBrowserControls().SetHeight(top_controls_height,
-                                              bottom_controls_height,
-                                              browser_controls_shrink_layout);
+    GetPage()->GetBrowserControls().SetParams(browser_controls_params);
     return;
   }
 
@@ -1434,12 +1431,10 @@ void WebViewImpl::ResizeWithBrowserControls(
     RotationViewportAnchor anchor(*view, visual_viewport,
                                   viewport_anchor_coords,
                                   GetPageScaleConstraintsSet());
-    ResizeViewWhileAnchored(top_controls_height, bottom_controls_height,
-                            browser_controls_shrink_layout);
+    ResizeViewWhileAnchored(browser_controls_params);
   } else {
     ResizeViewportAnchor::ResizeScope resize_scope(*resize_viewport_anchor_);
-    ResizeViewWhileAnchored(top_controls_height, bottom_controls_height,
-                            browser_controls_shrink_layout);
+    ResizeViewWhileAnchored(browser_controls_params);
   }
   SendResizeEventForMainFrame();
 }
@@ -1824,8 +1819,6 @@ WebInputEventResult WebViewImpl::HandleCapturedMouseEvent(
   if (input_event.GetType() == WebInputEvent::kMouseUp)
     MouseCaptureLost();
 
-  std::unique_ptr<UserGestureIndicator> gesture_indicator;
-
   AtomicString event_type;
   switch (input_event.GetType()) {
     case WebInputEvent::kMouseEnter:
@@ -1843,14 +1836,10 @@ WebInputEventResult WebViewImpl::HandleCapturedMouseEvent(
       break;
     case WebInputEvent::kMouseDown:
       event_type = event_type_names::kMousedown;
-      gesture_indicator = LocalFrame::NotifyUserActivation(
-          element->GetDocument().GetFrame(), UserGestureToken::kNewGesture);
-      mouse_capture_gesture_token_ = gesture_indicator->CurrentToken();
+      LocalFrame::NotifyUserActivation(element->GetDocument().GetFrame());
       break;
     case WebInputEvent::kMouseUp:
       event_type = event_type_names::kMouseup;
-      gesture_indicator = std::make_unique<UserGestureIndicator>(
-          std::move(mouse_capture_gesture_token_));
       break;
     default:
       NOTREACHED();
@@ -2086,15 +2075,6 @@ void WebViewImpl::SetFocusedFrame(WebFrame* frame) {
   core_frame->GetPage()->GetFocusController().SetFocusedFrame(core_frame);
 }
 
-void WebViewImpl::FocusDocumentView(WebFrame* frame) {
-  // This is currently only used when replicating focus changes for
-  // cross-process frames, and |notifyEmbedder| is disabled to avoid sending
-  // duplicate frameFocused updates from FocusController to the browser
-  // process, which already knows the latest focused frame.
-  GetPage()->GetFocusController().FocusDocumentView(
-      WebFrame::ToCoreFrame(*frame), false /* notifyEmbedder */);
-}
-
 void WebViewImpl::SetInitialFocus(bool reverse) {
   if (!AsView().page)
     return;
@@ -2145,8 +2125,8 @@ static bool IsElementEditable(const Element* element) {
       return true;
   }
 
-  return EqualIgnoringASCIICase(element->getAttribute(html_names::kRoleAttr),
-                                "textbox");
+  return EqualIgnoringASCIICase(
+      element->FastGetAttribute(html_names::kRoleAttr), "textbox");
 }
 
 bool WebViewImpl::ScrollFocusedEditableElementIntoView() {
@@ -2765,7 +2745,7 @@ void WebViewImpl::PerformPluginAction(const PluginAction& action,
   HitTestResult result =
       HitTestResultForRootFramePos(PhysicalOffset(IntPoint(location)));
   Node* node = result.InnerNode();
-  if (!IsHTMLObjectElement(*node) && !IsHTMLEmbedElement(*node))
+  if (!IsA<HTMLObjectElement>(*node) && !IsA<HTMLEmbedElement>(*node))
     return;
 
   LayoutObject* object = node->GetLayoutObject();
@@ -3218,29 +3198,23 @@ bool WebViewImpl::TabsToLinks() const {
   return tabs_to_links_;
 }
 
-void WebViewImpl::SetRootGraphicsLayer(GraphicsLayer* graphics_layer) {
-  DCHECK(MainFrameImpl());
+void WebViewImpl::SetRootLayer(scoped_refptr<cc::Layer> layer) {
+  if (!MainFrameImpl()) {
+    DCHECK(!layer);
+    return;
+  }
 
-  // In CAP, SetRootLayer() is used instead.
-  DCHECK(!RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
-
-  VisualViewport& visual_viewport = GetPage()->GetVisualViewport();
-  visual_viewport.AttachLayerTree(graphics_layer);
-  if (graphics_layer) {
-    root_graphics_layer_ = visual_viewport.RootGraphicsLayer();
-    root_layer_ = root_graphics_layer_->CcLayer();
+  root_layer_ = std::move(layer);
+  WebWidgetClient* widget_client = MainFrameImpl()->FrameWidgetImpl()->Client();
+  if (root_layer_) {
     UpdateDeviceEmulationTransform();
-    MainFrameImpl()->FrameWidgetImpl()->Client()->SetRootLayer(root_layer_);
+    widget_client->SetRootLayer(root_layer_);
   } else {
-    root_graphics_layer_ = nullptr;
-    root_layer_ = nullptr;
-    WebWidgetClient* widget_client =
-        MainFrameImpl()->FrameWidgetImpl()->Client();
     widget_client->SetRootLayer(nullptr);
 
     // When the document in an already-attached main frame is being replaced by
-    // a navigation then SetRootGraphicsLayer(nullptr) will be called. Since we
-    // are navigating, defer BeginMainFrames until the new document is ready for
+    // a navigation then SetRootLayer(nullptr) will be called. Since we are
+    // navigating, defer BeginMainFrames until the new document is ready for
     // them.
     //
     // TODO(crbug.com/936696): This should not be needed once we always swap
@@ -3249,34 +3223,10 @@ void WebViewImpl::SetRootGraphicsLayer(GraphicsLayer* graphics_layer) {
   }
 }
 
-void WebViewImpl::SetRootLayer(scoped_refptr<cc::Layer> layer) {
-  DCHECK(MainFrameImpl());
-  DCHECK(layer);
-
-  root_layer_ = std::move(layer);
-  MainFrameImpl()->FrameWidgetImpl()->Client()->SetRootLayer(root_layer_);
-}
-
 void WebViewImpl::InvalidateRect(const IntRect& rect) {
   // This is only for WebViewPlugin.
   if (!does_composite_ && AsView().client)
     AsView().client->DidInvalidateRect(rect);
-}
-
-PaintLayerCompositor* WebViewImpl::Compositor() const {
-  WebLocalFrameImpl* frame = MainFrameImpl();
-  if (!frame)
-    return nullptr;
-
-  Document* document = frame->GetFrame()->GetDocument();
-  if (!document || !document->GetLayoutView())
-    return nullptr;
-
-  return document->GetLayoutView()->Compositor();
-}
-
-GraphicsLayer* WebViewImpl::RootGraphicsLayer() {
-  return root_graphics_layer_;
 }
 
 void WebViewImpl::SetAnimationHost(cc::AnimationHost* animation_host) {
@@ -3296,8 +3246,9 @@ void WebViewImpl::ApplyViewportChanges(const ApplyViewportChangesArgs& args) {
   FloatPoint visual_viewport_offset = visual_viewport.VisibleRect().Location();
   visual_viewport_offset.Move(args.inner_delta.x(), args.inner_delta.y());
 
-  GetBrowserControls().SetShownRatio(GetBrowserControls().ShownRatio() +
-                                     args.browser_controls_delta);
+  GetBrowserControls().SetShownRatio(
+      GetBrowserControls().TopShownRatio() + args.top_controls_delta,
+      GetBrowserControls().BottomShownRatio() + args.bottom_controls_delta);
 
   SetPageScaleFactorAndLocation(PageScaleFactor() * args.page_scale_delta,
                                 args.is_pinch_gesture_active,
@@ -3348,7 +3299,7 @@ Node* WebViewImpl::FindNodeFromScrollableCompositorElementId(
   if (!GetPage())
     return nullptr;
 
-  if (element_id == GetPage()->GetVisualViewport().GetCompositorElementId()) {
+  if (element_id == GetPage()->GetVisualViewport().GetScrollElementId()) {
     // Return the Document in this case since the window.visualViewport DOM
     // object is not a node.
     if (MainFrameImpl())
@@ -3413,15 +3364,17 @@ PageScheduler* WebViewImpl::Scheduler() const {
   return GetPage()->GetPageScheduler();
 }
 
-void WebViewImpl::SetIsHidden(bool hidden, bool is_initial_state) {
+void WebViewImpl::SetVisibilityState(PageVisibilityState visibility_state,
+                                     bool is_initial_state) {
   DCHECK(GetPage());
-  GetPage()->SetIsHidden(hidden, is_initial_state);
-  GetPage()->GetPageScheduler()->SetPageVisible(!hidden);
+  GetPage()->SetVisibilityState(visibility_state, is_initial_state);
+  GetPage()->GetPageScheduler()->SetPageVisible(visibility_state ==
+                                                PageVisibilityState::kVisible);
 }
 
-bool WebViewImpl::IsHidden() {
+PageVisibilityState WebViewImpl::GetVisibilityState() {
   DCHECK(GetPage());
-  return !GetPage()->IsPageVisible();
+  return GetPage()->GetVisibilityState();
 }
 
 void WebViewImpl::ForceNextWebGLContextCreationToFail() {
@@ -3461,13 +3414,19 @@ void WebViewImpl::SetPageFrozen(bool frozen) {
 }
 
 void WebViewImpl::PutPageIntoBackForwardCache() {
-  SetIsHidden(/*is_hidden=*/true, /*is_initial_state=*/false);
+  SetVisibilityState(PageVisibilityState::kHidden, /*is_initial_state=*/false);
 
   Page* page = AsView().page;
-  if (page && page->MainFrame() && page->MainFrame()->DomWindow() &&
-      page->MainFrame()->DomWindow()->IsLocalDOMWindow())
-    page->MainFrame()->DomWindow()->ToLocalDOMWindow()->DispatchPagehideEvent(
-        PageTransitionEventPersistence::kPageTransitionEventPersisted);
+  if (page) {
+    for (Frame* frame = page->MainFrame(); frame;
+         frame = frame->Tree().TraverseNext()) {
+      if (frame->DomWindow() && frame->DomWindow()->IsLocalDOMWindow()) {
+        frame->DomWindow()->ToLocalDOMWindow()->DispatchPagehideEvent(
+            PageTransitionEventPersistence::kPageTransitionEventPersisted);
+      }
+    }
+  }
+
   // Freeze the page.
   Scheduler()->SetPageFrozen(/*frozen =*/true);
   // Hook eviction.
@@ -3482,7 +3441,8 @@ void WebViewImpl::PutPageIntoBackForwardCache() {
   }
 }
 
-void WebViewImpl::RestorePageFromBackForwardCache() {
+void WebViewImpl::RestorePageFromBackForwardCache(
+    base::TimeTicks navigation_start) {
   // Unhook eviction.
   Page* page = AsView().page;
   if (page) {
@@ -3497,11 +3457,16 @@ void WebViewImpl::RestorePageFromBackForwardCache() {
 
   // Resume the page.
   Scheduler()->SetPageFrozen(/*frozen =*/false);
-  if (page && page->MainFrame() && page->MainFrame()->DomWindow() &&
-      page->MainFrame()->DomWindow()->IsLocalDOMWindow())
-    page->MainFrame()->DomWindow()->ToLocalDOMWindow()->DispatchPageshowEvent(
-        PageTransitionEventPersistence::kPageTransitionEventPersisted);
-  SetIsHidden(/*is_hidden=*/false, /*is_initial_state=*/false);
+  if (page) {
+    for (Frame* frame = page->MainFrame(); frame;
+         frame = frame->Tree().TraverseNext()) {
+      if (frame->DomWindow() && frame->DomWindow()->IsLocalDOMWindow()) {
+        frame->DomWindow()->ToLocalDOMWindow()->DispatchPersistedPageshowEvent(
+            navigation_start);
+      }
+    }
+  }
+  SetVisibilityState(PageVisibilityState::kVisible, /*is_initial_state=*/false);
 }
 
 WebWidget* WebViewImpl::MainFrameWidget() {

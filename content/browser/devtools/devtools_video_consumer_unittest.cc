@@ -42,9 +42,10 @@ class MockFrameSinkVideoCapturer : public viz::mojom::FrameSinkVideoCapturer {
 
   bool is_bound() const { return receiver_.is_bound(); }
 
-  void Bind(viz::mojom::FrameSinkVideoCapturerRequest request) {
+  void Bind(
+      mojo::PendingReceiver<viz::mojom::FrameSinkVideoCapturer> receiver) {
     DCHECK(!receiver_.is_bound());
-    receiver_.Bind(std::move(request));
+    receiver_.Bind(std::move(receiver));
   }
 
   void Reset() {
@@ -131,10 +132,12 @@ class MockFrameSinkVideoCapturer : public viz::mojom::FrameSinkVideoCapturer {
 class MockFrameSinkVideoConsumerFrameCallbacks
     : public viz::mojom::FrameSinkVideoConsumerFrameCallbacks {
  public:
-  MockFrameSinkVideoConsumerFrameCallbacks() {}
+  MockFrameSinkVideoConsumerFrameCallbacks() = default;
 
-  void Bind(viz::mojom::FrameSinkVideoConsumerFrameCallbacksRequest request) {
-    receiver_.Bind(std::move(request));
+  void Bind(
+      mojo::PendingReceiver<viz::mojom::FrameSinkVideoConsumerFrameCallbacks>
+          receiver) {
+    receiver_.Bind(std::move(receiver));
   }
 
   MOCK_METHOD0(Done, void());
@@ -185,8 +188,9 @@ class DevToolsVideoConsumerTest : public testing::Test {
   }
 
   void SimulateFrameCapture(base::ReadOnlySharedMemoryRegion data) {
-    viz::mojom::FrameSinkVideoConsumerFrameCallbacksPtr callbacks_ptr;
-    callbacks.Bind(mojo::MakeRequest(&callbacks_ptr));
+    mojo::PendingRemote<viz::mojom::FrameSinkVideoConsumerFrameCallbacks>
+        callbacks_remote;
+    callbacks.Bind(callbacks_remote.InitWithNewPipeAndPassReceiver());
 
     media::mojom::VideoFrameInfoPtr info = media::mojom::VideoFrameInfo::New(
         base::TimeDelta(), base::Value(base::Value::Type::DICTIONARY), kFormat,
@@ -195,7 +199,7 @@ class DevToolsVideoConsumerTest : public testing::Test {
 
     consumer_->OnFrameCaptured(std::move(data), std::move(info),
                                gfx::Rect(kResolution),
-                               std::move(callbacks_ptr));
+                               std::move(callbacks_remote));
   }
 
   void StartCaptureWithMockCapturer() {
@@ -234,9 +238,8 @@ class DevToolsVideoConsumerTest : public testing::Test {
     return std::make_unique<viz::ClientFrameSinkVideoCapturer>(
         base::BindRepeating(
             [](base::WeakPtr<DevToolsVideoConsumerTest> self,
-               viz::mojom::FrameSinkVideoCapturerRequest request) {
-              self->capturer_.Bind(std::move(request));
-            },
+               mojo::PendingReceiver<viz::mojom::FrameSinkVideoCapturer>
+                   receiver) { self->capturer_.Bind(std::move(receiver)); },
             weak_factory_.GetWeakPtr()));
   }
 

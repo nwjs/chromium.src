@@ -47,11 +47,6 @@
 
 namespace {
 
-// Parameters and defaults for the |kRecurrentInterstitialFeature| field trial.
-
-// This parameter controls whether the count of recurrent errors is
-// per-browsing-session or persisted to a pref, accumulating across browsing
-// sessions. Default is "in-memory".
 #if defined(OS_ANDROID)
 ChromeSSLHostStateDelegate::RecurrentInterstitialMode
     kRecurrentInterstitialDefaultMode =
@@ -156,7 +151,7 @@ bool DoesRecurrentInterstitialPrefMeetThreshold(Profile* profile,
   // Assume that the values in the list are in increasing order;
   // UpdateRecurrentInterstitialPref() maintains this ordering. Check if there
   // are more than |threshold| values after the cutoff time.
-  base::span<const base::Value> error_list = list_value->GetList();
+  base::Value::ConstListView error_list = list_value->GetList();
   for (size_t i = 0; i < error_list.size(); i++) {
     if (base::Time::FromJsTime(error_list[i].GetDouble()) >= cutoff_time)
       return base::MakeStrictNum(error_list.size() - i) >= threshold;
@@ -195,7 +190,7 @@ void MigrateOldSettings(HostContentSettingsMap* map) {
   // leave in some code to remove old-format settings for a long time.
   // crbug.com/569734.
   ContentSettingsForOneType settings;
-  map->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS,
+  map->GetSettingsForOneType(ContentSettingsType::SSL_CERT_DECISIONS,
                              std::string(), &settings);
   for (const ContentSettingPatternSource& setting : settings) {
     // Migrate user preference settings only.
@@ -211,25 +206,25 @@ void MigrateOldSettings(HostContentSettingsMap* map) {
       if (setting.primary_pattern == setting.secondary_pattern &&
           url.is_valid()) {
         value = map->GetWebsiteSetting(url, url,
-                                       CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS,
+                                       ContentSettingsType::SSL_CERT_DECISIONS,
                                        std::string(), nullptr);
       }
       // Remove the old pattern.
       map->SetWebsiteSettingCustomScope(
           setting.primary_pattern, setting.secondary_pattern,
-          CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS, std::string(), nullptr);
+          ContentSettingsType::SSL_CERT_DECISIONS, std::string(), nullptr);
       // Set the new pattern.
       if (value) {
         map->SetWebsiteSettingDefaultScope(
-            url, GURL(), CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS,
-            std::string(), std::move(value));
+            url, GURL(), ContentSettingsType::SSL_CERT_DECISIONS, std::string(),
+            std::move(value));
       }
     }
   }
 }
 
 bool HostFilterToPatternFilter(
-    const base::Callback<bool(const std::string&)>& host_filter,
+    base::OnceCallback<bool(const std::string&)> host_filter,
     const ContentSettingsPattern& primary_pattern,
     const ContentSettingsPattern& secondary_pattern) {
   // We only ever set origin-scoped exceptions which are of the form
@@ -237,7 +232,7 @@ bool HostFilterToPatternFilter(
   // against its host.
   GURL url = GURL(primary_pattern.ToString());
   DCHECK(url.is_valid());
-  return host_filter.Run(url.host());
+  return std::move(host_filter).Run(url.host());
 }
 
 }  // namespace
@@ -265,7 +260,7 @@ void ChromeSSLHostStateDelegate::AllowCert(const std::string& host,
   HostContentSettingsMap* map =
       HostContentSettingsMapFactory::GetForProfile(profile_);
   std::unique_ptr<base::Value> value(map->GetWebsiteSetting(
-      url, url, CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS, std::string(), NULL));
+      url, url, ContentSettingsType::SSL_CERT_DECISIONS, std::string(), NULL));
 
   if (!value.get() || !value->is_dict())
     value.reset(new base::DictionaryValue());
@@ -289,24 +284,24 @@ void ChromeSSLHostStateDelegate::AllowCert(const std::string& host,
   // The map takes ownership of the value, so it is released in the call to
   // SetWebsiteSettingDefaultScope.
   map->SetWebsiteSettingDefaultScope(url, GURL(),
-                                     CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS,
+                                     ContentSettingsType::SSL_CERT_DECISIONS,
                                      std::string(), std::move(value));
 }
 
 void ChromeSSLHostStateDelegate::Clear(
-    const base::Callback<bool(const std::string&)>& host_filter) {
+    base::RepeatingCallback<bool(const std::string&)> host_filter) {
   // Convert host matching to content settings pattern matching. Content
   // settings deletion is done synchronously on the UI thread, so we can use
   // |host_filter| by reference.
   HostContentSettingsMap::PatternSourcePredicate pattern_filter;
   if (!host_filter.is_null()) {
     pattern_filter =
-        base::Bind(&HostFilterToPatternFilter, std::cref(host_filter));
+        base::BindRepeating(&HostFilterToPatternFilter, host_filter);
   }
 
   HostContentSettingsMapFactory::GetForProfile(profile_)
       ->ClearSettingsForOneTypeWithPredicate(
-          CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS, base::Time(),
+          ContentSettingsType::SSL_CERT_DECISIONS, base::Time(),
           base::Time::Max(), pattern_filter);
 }
 
@@ -318,7 +313,7 @@ ChromeSSLHostStateDelegate::QueryPolicy(const std::string& host,
       HostContentSettingsMapFactory::GetForProfile(profile_);
   GURL url = GetSecureGURLForHost(host);
   std::unique_ptr<base::Value> value(map->GetWebsiteSetting(
-      url, url, CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS, std::string(), NULL));
+      url, url, ContentSettingsType::SSL_CERT_DECISIONS, std::string(), NULL));
 
   // If the appropriate flag is set, let requests on localhost go
   // through even if there are certificate errors. Errors on localhost
@@ -394,7 +389,7 @@ void ChromeSSLHostStateDelegate::RevokeUserAllowExceptions(
       HostContentSettingsMapFactory::GetForProfile(profile_);
 
   map->SetWebsiteSettingDefaultScope(url, GURL(),
-                                     CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS,
+                                     ContentSettingsType::SSL_CERT_DECISIONS,
                                      std::string(), nullptr);
 }
 
@@ -406,7 +401,7 @@ bool ChromeSSLHostStateDelegate::HasAllowException(const std::string& host) {
       HostContentSettingsMapFactory::GetForProfile(profile_);
 
   std::unique_ptr<base::Value> value(map->GetWebsiteSetting(
-      url, url, CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS, std::string(), NULL));
+      url, url, ContentSettingsType::SSL_CERT_DECISIONS, std::string(), NULL));
 
   if (!value.get() || !value->is_dict())
     return false;

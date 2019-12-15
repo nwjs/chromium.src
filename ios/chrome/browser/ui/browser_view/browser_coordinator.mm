@@ -7,20 +7,21 @@
 #include <memory>
 
 #include "base/scoped_observer.h"
+#include "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/app_launcher/app_launcher_abuse_detector.h"
 #import "ios/chrome/browser/app_launcher/app_launcher_tab_helper.h"
 #import "ios/chrome/browser/autofill/autofill_tab_helper.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
+#include "ios/chrome/browser/download/download_directory_util.h"
 #import "ios/chrome/browser/download/pass_kit_tab_helper.h"
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/store_kit/store_kit_coordinator.h"
 #import "ios/chrome/browser/store_kit/store_kit_tab_helper.h"
-#import "ios/chrome/browser/tabs/tab_model.h"
 #import "ios/chrome/browser/tabs/tab_title_util.h"
 #import "ios/chrome/browser/ui/alert_coordinator/repost_form_coordinator.h"
 #import "ios/chrome/browser/ui/app_launcher/app_launcher_coordinator.h"
 #import "ios/chrome/browser/ui/autofill/form_input_accessory/form_input_accessory_coordinator.h"
-#import "ios/chrome/browser/ui/autofill/manual_fill/all_password_coordinator.h"
+#import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_all_password_coordinator.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_injection_handler.h"
 #import "ios/chrome/browser/ui/badges/badge_popup_menu_coordinator.h"
 #import "ios/chrome/browser/ui/browser_container/browser_container_coordinator.h"
@@ -42,7 +43,7 @@
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_coordinator.h"
 #import "ios/chrome/browser/ui/settings/autofill/autofill_add_credit_card_coordinator.h"
 #import "ios/chrome/browser/ui/snackbar/snackbar_coordinator.h"
-#import "ios/chrome/browser/ui/translate/translate_infobar_coordinator.h"
+#import "ios/chrome/browser/ui/translate/legacy_translate_infobar_coordinator.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
 #import "ios/chrome/browser/url_loading/url_loading_service.h"
 #import "ios/chrome/browser/url_loading/url_loading_service_factory.h"
@@ -68,8 +69,8 @@
 // Whether the coordinator is started.
 @property(nonatomic, assign, getter=isStarted) BOOL started;
 
-// Handles command dispatching.
-@property(nonatomic, strong) CommandDispatcher* dispatcher;
+// Handles command dispatching, provided by the Browser instance.
+@property(nonatomic, weak) CommandDispatcher* dispatcher;
 
 // The coordinator managing the container view controller.
 @property(nonatomic, strong)
@@ -144,7 +145,7 @@
 // Coordinator for the translate infobar's language selection and translate
 // option popup menus.
 @property(nonatomic, strong)
-    TranslateInfobarCoordinator* translateInfobarCoordinator;
+    LegacyTranslateInfobarCoordinator* translateInfobarCoordinator;
 
 @end
 
@@ -157,13 +158,20 @@
 
 #pragma mark - ChromeCoordinator
 
+- (instancetype)initWithBaseViewController:(UIViewController*)viewController
+                                   browser:(Browser*)browser {
+  if (self = [super initWithBaseViewController:viewController
+                                       browser:browser]) {
+    _dispatcher = browser->GetCommandDispatcher();
+  }
+  return self;
+}
 - (void)start {
   if (self.started)
     return;
 
   DCHECK(self.browserState);
   DCHECK(!self.viewController);
-  self.dispatcher = [[CommandDispatcher alloc] init];
   [self startBrowserContainer];
   [self createViewController];
   [self startChildCoordinators];
@@ -193,10 +201,6 @@
 }
 
 #pragma mark - Public
-
-- (TabModel*)tabModel {
-  return self.browser->GetTabModel();
-}
 
 - (void)setActive:(BOOL)active {
   DCHECK_EQ(_active, self.viewController.active);
@@ -242,7 +246,7 @@
   BrowserViewControllerDependencyFactory* factory =
       [[BrowserViewControllerDependencyFactory alloc]
           initWithBrowserState:self.browserState
-                  webStateList:self.tabModel.webStateList];
+                  webStateList:self.browser->GetWebStateList()];
   _viewController = [[BrowserViewController alloc]
                      initWithBrowser:self.browser
                    dependencyFactory:factory
@@ -283,27 +287,26 @@
 
   self.ARQuickLookCoordinator = [[ARQuickLookCoordinator alloc]
       initWithBaseViewController:self.viewController
-                    browserState:self.browserState
-                    webStateList:self.tabModel.webStateList];
+                         browser:self.browser];
   [self.ARQuickLookCoordinator start];
 
   self.injectionHandler = [[ManualFillInjectionHandler alloc]
-        initWithWebStateList:self.tabModel.webStateList
+        initWithWebStateList:self.browser->GetWebStateList()
       securityAlertPresenter:self];
   self.formInputAccessoryCoordinator = [[FormInputAccessoryCoordinator alloc]
       initWithBaseViewController:self.viewController
                     browserState:self.browserState
-                    webStateList:self.tabModel.webStateList
+                    webStateList:self.browser->GetWebStateList()
                 injectionHandler:self.injectionHandler
                       dispatcher:static_cast<id<BrowserCoordinatorCommands>>(
                                      self.dispatcher)];
   self.formInputAccessoryCoordinator.navigator = self;
   [self.formInputAccessoryCoordinator start];
 
-  self.translateInfobarCoordinator = [[TranslateInfobarCoordinator alloc]
+  self.translateInfobarCoordinator = [[LegacyTranslateInfobarCoordinator alloc]
       initWithBaseViewController:self.viewController
                     browserState:self.browserState
-                    webStateList:self.tabModel.webStateList
+                    webStateList:self.browser->GetWebStateList()
                       dispatcher:static_cast<id<SnackbarCommands>>(
                                      self.dispatcher)];
   [self.translateInfobarCoordinator start];
@@ -312,9 +315,8 @@
       initWithBaseViewController:self.viewController
                     browserState:self.browserState];
   self.pageInfoCoordinator.dispatcher = self.dispatcher;
-
   self.pageInfoCoordinator.presentationProvider = self.viewController;
-  self.pageInfoCoordinator.tabModel = self.tabModel;
+  self.pageInfoCoordinator.webStateList = self.browser->GetWebStateList();
 
   self.passKitCoordinator = [[PassKitCoordinator alloc]
       initWithBaseViewController:self.viewController];
@@ -429,7 +431,8 @@
 
 - (void)printTab {
   DCHECK(self.printController);
-  web::WebState* webState = self.tabModel.webStateList->GetActiveWebState();
+  web::WebState* webState =
+      self.browser->GetWebStateList()->GetActiveWebState();
   [self.printController printView:webState->GetView()
                         withTitle:tab_util::GetTabTitle(webState)];
 }
@@ -439,6 +442,26 @@
       initWithBaseViewController:self.viewController
                     browserState:self.browserState];
   [self.readingListCoordinator start];
+}
+
+- (void)showDownloadsFolder {
+  base::FilePath download_dir;
+  if (!GetDownloadsDirectory(&download_dir)) {
+    return;
+  }
+  UIDocumentPickerViewController* documentPicker =
+      [[UIDocumentPickerViewController alloc]
+          initWithDocumentTypes:@[ @"public.data" ]
+                         inMode:UIDocumentPickerModeImport];
+  documentPicker.modalPresentationStyle = UIModalPresentationFormSheet;
+  if (@available(iOS 13, *)) {
+    NSURL* URL =
+        [NSURL fileURLWithPath:base::SysUTF8ToNSString(download_dir.value())];
+    documentPicker.directoryURL = URL;
+  }
+  [self.viewController presentViewController:documentPicker
+                                    animated:YES
+                                  completion:nil];
 }
 
 - (void)showRecentTabs {
@@ -458,10 +481,8 @@
 
   self.recentTabsCoordinator = [[RecentTabsCoordinator alloc]
       initWithBaseViewController:self.viewController
-                    browserState:self.browserState];
+                         browser:self.browser];
   self.recentTabsCoordinator.loadStrategy = UrlLoadStrategy::NORMAL;
-  self.recentTabsCoordinator.dispatcher = self.applicationCommandHandler;
-  self.recentTabsCoordinator.webStateList = self.tabModel.webStateList;
   [self.recentTabsCoordinator start];
 }
 
@@ -560,7 +581,7 @@
   _scopedWebStateListObserver =
       std::make_unique<ScopedObserver<WebStateList, WebStateListObserver>>(
           _webStateListObserverBridge.get());
-  _scopedWebStateListObserver->Add(self.tabModel.webStateList);
+  _scopedWebStateListObserver->Add(self.browser->GetWebStateList());
 }
 
 // Removes observer for WebStateList.
@@ -571,11 +592,11 @@
 
 // Installs delegates for each WebState in WebStateList.
 - (void)installDelegatesForAllWebStates {
-  self.openInMediator =
-      [[OpenInMediator alloc] initWithWebStateList:self.tabModel.webStateList];
+  self.openInMediator = [[OpenInMediator alloc]
+      initWithWebStateList:self.browser->GetWebStateList()];
 
-  for (int i = 0; i < self.tabModel.webStateList->count(); i++) {
-    web::WebState* webState = self.tabModel.webStateList->GetWebStateAt(i);
+  for (int i = 0; i < self.browser->GetWebStateList()->count(); i++) {
+    web::WebState* webState = self.browser->GetWebStateList()->GetWebStateAt(i);
     [self installDelegatesForWebState:webState];
   }
 }
@@ -607,8 +628,8 @@
   // OpenInMediator is controlled directly monitors the webStateList and should
   // be deleted.
   self.openInMediator = nil;
-  for (int i = 0; i < self.tabModel.webStateList->count(); i++) {
-    web::WebState* webState = self.tabModel.webStateList->GetWebStateAt(i);
+  for (int i = 0; i < self.browser->GetWebStateList()->count(); i++) {
+    web::WebState* webState = self.browser->GetWebStateList()->GetWebStateAt(i);
     [self uninstallDelegatesForWebState:webState];
   }
 }

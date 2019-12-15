@@ -11,6 +11,8 @@ import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.text.TextUtils;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.ApplicationState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
@@ -20,11 +22,10 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.CpuFeatures;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
-import org.chromium.base.library_loader.LibraryLoaderConfig;
+import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.library_loader.Linker;
 import org.chromium.base.process_launcher.ChildConnectionAllocator;
 import org.chromium.base.process_launcher.ChildProcessConnection;
@@ -35,6 +36,7 @@ import org.chromium.content.app.ChromiumLinkerParams;
 import org.chromium.content.app.SandboxedProcessService;
 import org.chromium.content.common.ContentSwitchUtils;
 import org.chromium.content_public.browser.ChildProcessImportance;
+import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.common.ContentSwitches;
 
 import java.io.IOException;
@@ -129,7 +131,7 @@ public final class ChildProcessLauncherHelperImpl {
                             ContentChildProcessConstants.EXTRA_CPU_COUNT, CpuFeatures.getCount());
                     connectionBundle.putLong(
                             ContentChildProcessConstants.EXTRA_CPU_FEATURES, CpuFeatures.getMask());
-                    if (LibraryLoaderConfig.useChromiumLinker()) {
+                    if (LibraryLoader.getInstance().useChromiumLinker()) {
                         connectionBundle.putBundle(Linker.EXTRA_LINKER_SHARED_RELROS,
                                 Linker.getInstance().getSharedRelros());
                     }
@@ -365,7 +367,7 @@ public final class ChildProcessLauncherHelperImpl {
         }
 
         if (sSandboxedChildConnectionAllocator == null) {
-            Log.w(TAG,
+            Log.d(TAG,
                     "Create a new ChildConnectionAllocator with package name = %s,"
                             + " sandboxed = true",
                     packageName);
@@ -598,7 +600,7 @@ public final class ChildProcessLauncherHelperImpl {
     private static void initLinker() {
         assert LauncherThread.runningOnLauncherThread();
         if (sLinkerInitialized) return;
-        if (LibraryLoaderConfig.useChromiumLinker()) {
+        if (LibraryLoader.getInstance().useChromiumLinker()) {
             sLinkerLoadAddress = Linker.getInstance().getBaseLoadAddress();
             if (sLinkerLoadAddress == 0) {
                 Log.i(TAG, "Shared RELRO support disabled!");
@@ -616,7 +618,7 @@ public final class ChildProcessLauncherHelperImpl {
 
         // Always wait for the shared RELROs in service processes.
         final boolean waitForSharedRelros = true;
-        if (LibraryLoaderConfig.areTestsEnabled()) {
+        if (LibraryLoader.getInstance().areTestsEnabled()) {
             Linker linker = Linker.getInstance();
             return new ChromiumLinkerParams(sLinkerLoadAddress, waitForSharedRelros,
                     linker.getTestRunnerClassNameForTesting(),

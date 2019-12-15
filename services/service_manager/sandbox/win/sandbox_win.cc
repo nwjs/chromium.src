@@ -18,7 +18,6 @@
 #include "base/hash/hash.h"
 #include "base/hash/sha1.h"
 #include "base/logging.h"
-#include "base/memory/shared_memory.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -326,16 +325,6 @@ sandbox::ResultCode AddGenericPolicy(sandbox::TargetPolicy* policy) {
   result = policy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
                            sandbox::TargetPolicy::FILES_ALLOW_ANY,
                            L"\\??\\pipe\\chrome.*");
-  if (result != sandbox::SBOX_ALL_OK)
-    return result;
-
-  // Add the policy for the server side of nacl pipe. It is just a file
-  // in the \pipe\ namespace. We restrict it to pipes that start with
-  // "chrome.nacl" so the sandboxed process cannot connect to
-  // system services.
-  result = policy->AddRule(sandbox::TargetPolicy::SUBSYS_NAMED_PIPES,
-                           sandbox::TargetPolicy::NAMEDPIPES_ALLOW_ANY,
-                           L"\\\\.\\pipe\\chrome.nacl.*");
   if (result != sandbox::SBOX_ALL_OK)
     return result;
 

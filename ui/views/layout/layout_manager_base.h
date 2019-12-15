@@ -49,7 +49,7 @@ class VIEWS_EXPORT LayoutManagerBase : public LayoutManager {
   gfx::Size GetPreferredSize(const View* host) const override;
   gfx::Size GetMinimumSize(const View* host) const override;
   int GetPreferredHeightForWidth(const View* host, int width) const override;
-  void Layout(View* host) override;
+  void Layout(View* host) final;
 
  protected:
   LayoutManagerBase();
@@ -102,6 +102,11 @@ class VIEWS_EXPORT LayoutManagerBase : public LayoutManager {
   // visibility for all children currently included in the layout.
   virtual ProposedLayout CalculateProposedLayout(
       const SizeBounds& size_bounds) const = 0;
+
+  // Does the actual work of laying out the host view and its children.
+  // Default implementation is just getting the proposed layout for the host
+  // size and then applying it.
+  virtual void LayoutImpl();
 
   // Applies |layout| to the children of the host view.
   void ApplyLayout(const ProposedLayout& layout);
@@ -164,7 +169,10 @@ class VIEWS_EXPORT LayoutManagerBase : public LayoutManager {
   void Installed(View* host) final;
   void ViewAdded(View* host, View* view) final;
   void ViewRemoved(View* host, View* view) final;
-  void ViewVisibilitySet(View* host, View* view, bool visible) final;
+  void ViewVisibilitySet(View* host,
+                         View* view,
+                         bool old_visibility,
+                         bool new_visibility) final;
 
   void AddOwnedLayoutInternal(std::unique_ptr<LayoutManagerBase> owned_layout);
 

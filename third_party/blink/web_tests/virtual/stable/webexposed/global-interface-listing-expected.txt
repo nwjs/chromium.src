@@ -876,6 +876,11 @@ interface CompositionEvent : UIEvent
     getter data
     method constructor
     method initCompositionEvent
+interface CompressionStream
+    attribute @@toStringTag
+    getter readable
+    getter writable
+    method constructor
 interface ConstantSourceNode : AudioScheduledSourceNode
     attribute @@toStringTag
     getter offset
@@ -1203,6 +1208,11 @@ interface DataTransferItemList
     method clear
     method constructor
     method remove
+interface DecompressionStream
+    attribute @@toStringTag
+    getter readable
+    getter writable
+    method constructor
 interface DelayNode : AudioNode
     attribute @@toStringTag
     getter delayTime
@@ -1447,7 +1457,6 @@ interface Document : Node
     method queryCommandValue
     method querySelector
     method querySelectorAll
-    method registerElement
     method releaseEvents
     method webkitCancelFullScreen
     method webkitExitFullscreen
@@ -1656,7 +1665,6 @@ interface Element : Node
     method closest
     method computedStyleMap
     method constructor
-    method createShadowRoot
     method getAttribute
     method getAttributeNS
     method getAttributeNames
@@ -1664,7 +1672,6 @@ interface Element : Node
     method getAttributeNodeNS
     method getBoundingClientRect
     method getClientRects
-    method getDestinationInsertionPoints
     method getElementsByClassName
     method getElementsByTagName
     method getElementsByTagNameNS
@@ -1797,6 +1804,13 @@ interface External
     method AddSearchProvider
     method IsSearchProviderInstalled
     method constructor
+interface FeaturePolicy
+    attribute @@toStringTag
+    method allowedFeatures
+    method allowsFeature
+    method constructor
+    method features
+    method getAllowlistForFeature
 interface FederatedCredential : Credential
     attribute @@toStringTag
     getter iconURL
@@ -2845,7 +2859,6 @@ interface HTMLLinkElement : HTMLElement
     getter hreflang
     getter imageSizes
     getter imageSrcset
-    getter import
     getter integrity
     getter media
     getter referrerPolicy
@@ -4513,6 +4526,7 @@ interface OffscreenCanvasRenderingContext2D
     method fillText
     method getImageData
     method getLineDash
+    method getTransform
     method isPointInPath
     method isPointInStroke
     method lineTo
@@ -4667,6 +4681,7 @@ interface PaymentManager
     getter instruments
     getter userHint
     method constructor
+    method enableDelegations
     setter userHint
 interface PaymentMethodChangeEvent : PaymentRequestUpdateEvent
     attribute @@toStringTag
@@ -4865,6 +4880,12 @@ interface PerformanceTiming
     getter unloadEventStart
     method constructor
     method toJSON
+interface PeriodicSyncManager
+    attribute @@toStringTag
+    method constructor
+    method getTags
+    method register
+    method unregister
 interface PeriodicWave
     attribute @@toStringTag
     method constructor
@@ -6639,6 +6660,7 @@ interface ServiceWorkerContainer : EventTarget
     getter controller
     getter oncontrollerchange
     getter onmessage
+    getter onmessageerror
     getter ready
     method constructor
     method getRegistration
@@ -6647,6 +6669,7 @@ interface ServiceWorkerContainer : EventTarget
     method startMessages
     setter oncontrollerchange
     setter onmessage
+    setter onmessageerror
 interface ServiceWorkerRegistration : EventTarget
     attribute @@toStringTag
     getter active
@@ -6655,6 +6678,7 @@ interface ServiceWorkerRegistration : EventTarget
     getter navigationPreload
     getter onupdatefound
     getter paymentManager
+    getter periodicSync
     getter pushManager
     getter scope
     getter sync
@@ -6874,7 +6898,6 @@ interface Text : CharacterData
     getter assignedSlot
     getter wholeText
     method constructor
-    method getDestinationInsertionPoints
     method splitText
 interface TextDecoder
     attribute @@toStringTag

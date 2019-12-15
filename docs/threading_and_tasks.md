@@ -241,27 +241,23 @@ sequenced_task_runner->PostTask(FROM_HERE, base::BindOnce(&TaskA));
 sequenced_task_runner->PostTask(FROM_HERE, base::BindOnce(&TaskB));
 ```
 
-### Posting to the Current Sequence
+### Posting to the Current (Virtual) Thread
 
-The `base::SequencedTaskRunner` to which the current task was posted can be
-obtained via
-[`base::SequencedTaskRunnerHandle::Get()`](https://cs.chromium.org/chromium/src/base/threading/sequenced_task_runner_handle.h).
-
-*** note
-**NOTE:** it is invalid to call `base::SequencedTaskRunnerHandle::Get()` from a
-parallel task, but it is valid from a single-threaded task (a
-`base::SingleThreadTaskRunner` is a `base::SequencedTaskRunner`).
-***
+The preferred way of posting to the current (virtual) thread is via
+`base::SequencedTaskRunnerHandle::Get()`.
 
 ```cpp
-// The task will run after any task that has already been posted
-// to the SequencedTaskRunner to which the current task was posted
-// (in particular, it will run after the current task completes).
-// It is also guaranteed that it won’t run concurrently with any
-// task posted to that SequencedTaskRunner.
-base::SequencedTaskRunnerHandle::Get()->
-    PostTask(FROM_HERE, base::BindOnce(&Task));
+// The task will run on the current (virtual) thread's default task queue.
+base::SequencedTaskRunnerHandle::Get()->PostTask(
+    FROM_HERE, base::BindOnce(&Task);
 ```
+
+Note that SequencedTaskRunnerHandle::Get() returns the default queue for the
+current virtual thread. On threads with multiple task queues (e.g.
+BrowserThread::UI) this can be a different queue than the one the current task
+belongs to. The "current" task runner is intentionally not exposed via a static
+getter. Either you know it already and can post to it directly or you don't and
+the only sensible destination is the default queue.
 
 ## Using Sequences Instead of Locks
 
@@ -379,33 +375,6 @@ single_thread_task_runner->PostTask(FROM_HERE, base::BindOnce(&TaskB));
 Remember that we [prefer sequences to physical
 threads](#prefer-sequences-to-physical-threads) and that this thus should rarely
 be necessary.
-
-### Posting to the Current Thread
-
-*** note
-**IMPORTANT:** To post a task that needs mutual exclusion with the current
-sequence of tasks but doesn’t absolutely need to run on the current thread, use
-`base::SequencedTaskRunnerHandle::Get()` instead of
-`base::ThreadTaskRunnerHandle::Get()` (ref. [Posting to the Current
-Sequence](#Posting-to-the-Current-Sequence)). That will better document the
-requirements of the posted task and will avoid unnecessarily making your API
-thread-affine. In a single-thread task, `base::SequencedTaskRunnerHandle::Get()`
-is equivalent to `base::ThreadTaskRunnerHandle::Get()`.
-***
-
-To post a task to the current thread, use
-[`base::ThreadTaskRunnerHandle`](https://cs.chromium.org/chromium/src/base/threading/thread_task_runner_handle.h).
-
-```cpp
-// The task will run on the current thread in the future.
-base::ThreadTaskRunnerHandle::Get()->PostTask(
-    FROM_HERE, base::BindOnce(&Task));
-```
-
-*** note
-**NOTE:** It is invalid to call `base::ThreadTaskRunnerHandle::Get()` from a parallel
-or a sequenced task.
-***
 
 ## Posting Tasks to a COM Single-Thread Apartment (STA) Thread (Windows)
 

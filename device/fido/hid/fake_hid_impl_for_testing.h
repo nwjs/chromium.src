@@ -107,12 +107,13 @@ class FakeFidoHidManager : public device::mojom::HidManager {
 
   // device::mojom::HidManager implementation:
   void GetDevicesAndSetClient(
-      device::mojom::HidManagerClientAssociatedPtrInfo client,
+      mojo::PendingAssociatedRemote<device::mojom::HidManagerClient> client,
       GetDevicesCallback callback) override;
   void GetDevices(GetDevicesCallback callback) override;
   void Connect(
       const std::string& device_guid,
       mojo::PendingRemote<mojom::HidConnectionClient> connection_client,
+      mojo::PendingRemote<mojom::HidConnectionWatcher> watcher,
       ConnectCallback callback) override;
   void AddReceiver(mojo::ScopedMessagePipeHandle handle);
   void AddReceiver2(mojo::PendingReceiver<device::mojom::HidManager> receiver);

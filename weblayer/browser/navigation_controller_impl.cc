@@ -54,19 +54,6 @@ NavigationControllerImpl::GetNavigationEntryDisplayUri(
 }
 #endif
 
-void NavigationControllerImpl::NotifyLoadProgressChanged(double progress) {
-#if defined(OS_ANDROID)
-  if (java_controller_) {
-    TRACE_EVENT0("weblayer",
-                 "Java_NavigationControllerImpl_loadProgressChanged");
-    Java_NavigationControllerImpl_loadProgressChanged(
-        AttachCurrentThread(), java_controller_, progress);
-  }
-#endif
-  for (auto& observer : observers_)
-    observer.LoadProgressChanged(progress);
-}
-
 void NavigationControllerImpl::AddObserver(NavigationObserver* observer) {
   observers_.AddObserver(observer);
 }
@@ -231,6 +218,19 @@ void NavigationControllerImpl::DidStartLoading() {
 
 void NavigationControllerImpl::DidStopLoading() {
   NotifyLoadStateChanged();
+}
+
+void NavigationControllerImpl::LoadProgressChanged(double progress) {
+#if defined(OS_ANDROID)
+  if (java_controller_) {
+    TRACE_EVENT0("weblayer",
+                 "Java_NavigationControllerImpl_loadProgressChanged");
+    Java_NavigationControllerImpl_loadProgressChanged(
+        AttachCurrentThread(), java_controller_, progress);
+  }
+#endif
+  for (auto& observer : observers_)
+    observer.LoadProgressChanged(progress);
 }
 
 void NavigationControllerImpl::DidFirstVisuallyNonEmptyPaint() {

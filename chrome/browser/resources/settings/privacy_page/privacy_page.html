@@ -39,7 +39,6 @@
   <link rel="import" href="chrome://resources/cr_components/certificate_manager/certificate_manager.html">
 </if>
 <link rel="import" href="privacy_page_browser_proxy.html">
-<link rel="import" href="personalization_options.html">
 
 <dom-module id="settings-privacy-page">
   <template>
@@ -83,32 +82,36 @@
     <settings-animated-pages id="pages" section="privacy"
         focus-config="[[focusConfig_]]">
       <div route-path="default">
-        <template is="dom-if" if="[[!unifiedConsentEnabled_]]">
-          <div class="settings-box first">
-            <p class="privacy-explanation">
-              $i18nRaw{improveBrowsingExperience}
-            </p>
-          </div>
+        <template is="dom-if" if="[[!privacySettingsRedesignEnabled_]]">
+          <cr-link-row id="syncLinkRow"
+              label="$i18n{syncAndNonPersonalizedServices}"
+              sub-label="$i18n{syncAndGoogleServicesPrivacyDescription}"
+              on-click="onSyncAndGoogleServicesClick_">
+          </cr-link-row>
         </template>
-        <cr-link-row label="$i18n{syncAndNonPersonalizedServices}"
-            sub-label="$i18n{syncAndGoogleServicesPrivacyDescription}"
-            on-click="onSyncAndGoogleServicesClick_"
-            hidden="[[!unifiedConsentEnabled_]]"></cr-link-row>
+        <template is="dom-if" if="[[privacySettingsRedesignEnabled_]]">
+          <settings-toggle-button id="safeBrowsingToggle"
+              pref="{{prefs.safebrowsing.enabled}}"
+              label="$i18n{safeBrowsingEnableProtection}"
+              sub-label="$i18n{safeBrowsingEnableProtectionDesc}">
+          </settings-toggle-button>
+          <settings-toggle-button id="safeBrowsingReportingToggle"
+              pref="{{prefs.safebrowsing.scout_reporting_enabled}}"
+              label="$i18n{safeBrowsingEnableExtendedReporting}"
+              sub-label="$i18n{safeBrowsingEnableExtendedReportingDesc}">
+          </settings-toggle-button>
+        </template>
 <if expr="not chromeos">
-        <settings-toggle-button id="signinAllowedToggle"
-            pref="{{prefs.signin.allowed_on_next_startup}}"
-            label="$i18n{signinAllowedTitle}"
-            sub-label="$i18n{signinAllowedDescription}"
-            on-settings-boolean-control-change="onSigninAllowedChange_"
-            no-set-pref>
-        </settings-toggle-button>
-</if><!-- not chromeos -->
-        <template is="dom-if" if="[[!unifiedConsentEnabled_]]">
-          <settings-personalization-options prefs="{{prefs}}"
-              page-visibility="[[pageVisibility]]"
-              unified-consent-enabled="[[unifiedConsentEnabled_]]">
-          </settings-personalization-options>
+        <template is="dom-if" if="[[!privacySettingsRedesignEnabled_]]">
+          <settings-toggle-button id="signinAllowedToggle"
+              pref="{{prefs.signin.allowed_on_next_startup}}"
+              label="$i18n{signinAllowedTitle}"
+              sub-label="$i18n{signinAllowedDescription}"
+              on-settings-boolean-control-change="onSigninAllowedChange_"
+              no-set-pref>
+          </settings-toggle-button>
         </template>
+</if><!-- not chromeos -->
         <settings-toggle-button id="doNotTrack"
             pref="{{prefs.enable_do_not_track}}" label="$i18n{doNotTrack}"
             on-settings-boolean-control-change="onDoNotTrackChange_"
@@ -117,13 +120,15 @@
         <settings-toggle-button id="canMakePaymentToggle"
             aria-label="$i18n{canMakePaymentToggleLabel}"
             label="$i18n{canMakePaymentToggleLabel}"
-            pref="{{prefs.payments.can_make_payment_enabled}}">
+            pref="{{prefs.payments.can_make_payment_enabled}}"
+            on-settings-boolean-control-change="onCanMakePaymentChange_">
         </settings-toggle-button>
         <settings-toggle-button hidden="[[!pageVisibility.networkPrediction]]"
             pref="{{prefs.net.network_prediction_options}}"
             label="$i18n{networkPredictionEnabled}"
             sub-label="$i18n{networkPredictionEnabledDesc}"
-            numeric-unchecked-value="[[networkPredictionUncheckedValue_]]">
+            numeric-unchecked-value="[[networkPredictionUncheckedValue_]]"
+            on-settings-boolean-control-change="onNetworkPredictionChange_">
         </settings-toggle-button>
 <if expr="chromeos">
         <settings-toggle-button
@@ -262,7 +267,8 @@
           <category-default-setting category="{{ContentSettingsTypes.COOKIES}}"
               toggle-off-label="$i18n{siteSettingsBlocked}"
               toggle-on-label="$i18n{siteSettingsCookiesAllowedRecommended}"
-              sub-option-label="$i18n{deleteDataPostSession}">
+              sub-option-label="$i18n{deleteDataPostSession}"
+              sub-option-mode="toggle">
           </category-default-setting>
           <settings-toggle-button
               pref="{{prefs.profile.block_third_party_cookies}}"
@@ -433,11 +439,29 @@
         <settings-subpage page-title="$i18n{siteSettingsCategoryNotifications}"
             search-label="$i18n{siteSettingsAllSitesSearch}"
             search-term="{{searchFilter_}}">
-          <category-default-setting
-              toggle-off-label="$i18n{siteSettingsBlocked}"
-              toggle-on-label="$i18n{siteSettingsAskBeforeSendingRecommended}"
-              category="{{ContentSettingsTypes.NOTIFICATIONS}}">
-          </category-default-setting>
+          <template is="dom-if" if="[[enableQuietNotificationPromptsSetting_]]">
+            <category-default-setting
+                toggle-off-label="$i18n{siteSettingsCategoryNotifications}"
+                toggle-on-label="$i18n{siteSettingsCategoryNotifications}"
+                toggle-off-description="$i18n{siteSettingsNotificationsBlock}"
+                toggle-on-description="$i18n{siteSettingsNotificationsAsk}"
+                category="{{ContentSettingsTypes.NOTIFICATIONS}}"
+                sub-option-as-checkbox-pref="{{prefs.profile.content_settings.enable_quiet_permission_ui.notifications}}"
+                sub-option-label=
+                    "$i18n{siteSettingsEnableQuietNotificationPrompts}"
+                sub-option-mode="checkbox">
+            </category-default-setting>
+          </template>
+          <template is="dom-if" if="[[!enableQuietNotificationPromptsSetting_]]">
+            <category-default-setting
+                toggle-off-label="$i18n{siteSettingsCategoryNotifications}"
+                toggle-on-label="$i18n{siteSettingsCategoryNotifications}"
+                toggle-off-description="$i18n{siteSettingsNotificationsBlock}"
+                toggle-on-description="$i18n{siteSettingsNotificationsAsk}"
+                category="{{ContentSettingsTypes.NOTIFICATIONS}}"
+                sub-option-mode="none">
+            </category-default-setting>
+          </template>
           <category-setting-exceptions
               category="{{ContentSettingsTypes.NOTIFICATIONS}}"
               block-header="$i18n{siteSettingsBlock}"
@@ -462,7 +486,7 @@
               target="_blank"
               href="https://www.macromedia.com/support/documentation/en/flashplayer/help/settings_manager07.html">
             <div class="start">$i18n{adobeFlashStorage}</div>
-            <cr-icon-button actionable class="icon-external"
+            <cr-icon-button class="icon-external"
                 aria-label="$i18n{adobeFlashStorage}"></cr-icon-button>
           </a>
 </if>
@@ -556,21 +580,19 @@
           </chooser-exception-list>
         </settings-subpage>
       </template>
-      <template is="dom-if" if="[[enableExperimentalWebPlatformFeatures_]]">
-        <template is="dom-if" route-path="/content/serialPorts" no-search>
-          <settings-subpage page-title="$i18n{siteSettingsSerialPorts}">
-            <category-default-setting
-                toggle-off-label="$i18n{siteSettingsSerialPortsBlock}"
-                toggle-on-label=
-                    "$i18n{siteSettingsSerialPortsAskRecommended}"
-                category="{{ContentSettingsTypes.SERIAL_PORTS}}">
-            </category-default-setting>
-            <chooser-exception-list
-                category="{{ContentSettingsTypes.SERIAL_PORTS}}"
-                chooser-type="{{ChooserType.SERIAL_PORTS}}">
-            </chooser-exception-list>
-          </settings-subpage>
-        </template>
+      <template is="dom-if" route-path="/content/serialPorts" no-search>
+        <settings-subpage page-title="$i18n{siteSettingsSerialPorts}">
+          <category-default-setting
+              toggle-off-label="$i18n{siteSettingsSerialPortsBlock}"
+              toggle-on-label=
+                  "$i18n{siteSettingsSerialPortsAskRecommended}"
+              category="{{ContentSettingsTypes.SERIAL_PORTS}}">
+          </category-default-setting>
+          <chooser-exception-list
+              category="{{ContentSettingsTypes.SERIAL_PORTS}}"
+              chooser-type="{{ChooserType.SERIAL_PORTS}}">
+          </chooser-exception-list>
+        </settings-subpage>
       </template>
       <template is="dom-if" if="[[enableNativeFileSystemWriteContentSetting_]]">
         <template is="dom-if" route-path="/content/filesystem" no-search>
@@ -703,10 +725,12 @@
       </template>
     </settings-animated-pages>
 
-    <template is="dom-if" if="[[showSignoutDialog_]]" restamp>
-      <settings-signout-dialog sync-status="[[syncStatus]]"
-          on-close="onSignoutDialogClosed_">
-      </settings-signout-dialog>
+    <template is="dom-if" if="[[!privacySettingsRedesignEnabled_]]">
+      <template is="dom-if" if="[[showSignoutDialog_]]" restamp>
+        <settings-signout-dialog sync-status="[[syncStatus]]"
+            on-close="onSignoutDialogClosed_">
+        </settings-signout-dialog>
+      </template>
     </template>
 
 <if expr="not chromeos">

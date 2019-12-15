@@ -16,13 +16,13 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.DiscardableReferencePool;
 import org.chromium.base.Log;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
@@ -57,7 +57,7 @@ import org.chromium.chrome.browser.suggestions.tile.TileGroupDelegateImpl;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.TabHidingType;
-import org.chromium.chrome.browser.tab.TabBrowserControlsState;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
@@ -67,7 +67,6 @@ import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationEntry;
-import org.chromium.content_public.common.BrowserControlsState;
 import org.chromium.ui.mojom.WindowOpenDisposition;
 
 import java.net.URI;
@@ -124,13 +123,16 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
     public void onContentOffsetChanged(int offset) {}
 
     @Override
-    public void onControlsOffsetChanged(int topOffset, int bottomOffset, boolean needsAnimate) {}
+    public void onControlsOffsetChanged(int topOffset, int bottomOffset, boolean needsAnimate) {
+        updateMargins();
+    }
 
     @Override
     public void onToggleOverlayVideoMode(boolean enabled) {}
 
     @Override
-    public void onBottomControlsHeightChanged(int bottomControlsHeight) {
+    public void onBottomControlsHeightChanged(
+            int bottomControlsHeight, int bottomControlsMinHeight) {
         updateMargins();
     }
 
@@ -229,7 +231,7 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
             mIsLoaded = true;
             NewTabPageUma.recordNTPImpression(NewTabPageUma.NTP_IMPRESSION_REGULAR);
             // If not visible when loading completes, wait until onShown is received.
-            if (!mTab.isHidden()) recordNTPShown();
+            if (!((TabImpl) mTab).isHidden()) recordNTPShown();
         }
     }
 
@@ -282,7 +284,7 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
         mActivityTabProvider = activityTabProvider;
         mActivityLifecycleDispatcher = activityLifecycleDispatcher;
         mTab = nativePageHost.getActiveTab();
-        Profile profile = mTab.getProfile();
+        Profile profile = ((TabImpl) mTab).getProfile();
 
         SuggestionsDependencyFactory depsFactory = SuggestionsDependencyFactory.getInstance();
         SuggestionsSource suggestionsSource = depsFactory.createSuggestionSource(profile);
@@ -318,11 +320,6 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
             @Override
             public void onPageLoadStarted(Tab tab, String url) {
                 saveLastScrollPosition();
-            }
-
-            @Override
-            public void onBrowserControlsConstraintsUpdated(Tab tab, int constraints) {
-                updateMargins();
             }
         };
         mTab.addObserver(mTabObserver);
@@ -433,10 +430,8 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
                 ((ViewGroup.MarginLayoutParams) view.getLayoutParams());
         if (layoutParams == null) return;
 
-        final @BrowserControlsState int constraints = TabBrowserControlsState.getConstraints(mTab);
-        layoutParams.bottomMargin = (constraints != BrowserControlsState.HIDDEN)
-                ? mFullscreenManager.getBottomControlsHeight()
-                : 0;
+        layoutParams.bottomMargin = mFullscreenManager.getBottomControlsHeight()
+                - mFullscreenManager.getBottomControlOffset();
 
         view.setLayoutParams(layoutParams);
 
@@ -547,6 +542,13 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
      */
     public boolean isLocationBarShownInNTP() {
         return mNewTabPageManager.isLocationBarShownInNTP();
+    }
+
+    /**
+     * @return Whether the location bar has been scrolled to top in the NTP.
+     */
+    public boolean isLocationBarScrolledToTopInNtp() {
+        return mNewTabPageLayout.getToolbarTransitionPercentage() == 1;
     }
 
     /**
@@ -674,7 +676,7 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
         assert !mIsDestroyed;
         assert !ViewCompat
                 .isAttachedToWindow(getView()) : "Destroy called before removed from window";
-        if (mIsLoaded && !mTab.isHidden()) recordNTPHidden();
+        if (mIsLoaded && !((TabImpl) mTab).isHidden()) recordNTPHidden();
 
         mNewTabPageManager.onDestroy();
         mTileGroupDelegate.destroy();

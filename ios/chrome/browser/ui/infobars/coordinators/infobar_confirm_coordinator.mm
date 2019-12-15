@@ -25,7 +25,8 @@
 @property(nonatomic, strong) InfobarBannerViewController* bannerViewController;
 // InfobarModalViewController owned by this Coordinator.
 @property(nonatomic, strong) InfobarModalViewController* modalViewController;
-
+// YES if the Infobar has been Accepted.
+@property(nonatomic, assign) BOOL infobarAccepted;
 @end
 
 @implementation InfobarConfirmCoordinator
@@ -52,6 +53,7 @@
 - (void)start {
   if (!self.started) {
     self.started = YES;
+    self.infobarAccepted = NO;
     self.bannerViewController =
         [[InfobarBannerViewController alloc] initWithDelegate:self
                                                 presentsModal:self.hasBadge
@@ -89,6 +91,10 @@
   return YES;
 }
 
+- (BOOL)isInfobarAccepted {
+  return self.infobarAccepted;
+}
+
 - (void)infobarBannerWasPresented {
   // NO-OP.
 }
@@ -97,12 +103,17 @@
   // NO-OP.
 }
 
-- (void)dismissBannerWhenInteractionIsFinished {
+- (void)dismissBannerIfReady {
   [self.bannerViewController dismissWhenInteractionIsFinished];
+}
+
+- (BOOL)infobarActionInProgress {
+  return NO;
 }
 
 - (void)performInfobarAction {
   self.confirmInfobarDelegate->Accept();
+  self.infobarAccepted = YES;
 }
 
 - (void)infobarBannerWillBeDismissed:(BOOL)userInitiated {

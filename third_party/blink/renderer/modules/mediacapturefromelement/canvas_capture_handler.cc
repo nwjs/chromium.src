@@ -12,16 +12,16 @@
 #include "base/rand_util.h"
 #include "components/viz/common/gl_helper.h"
 #include "media/base/limits.h"
-#include "third_party/blink/public/platform/modules/mediastream/webrtc_uma_histograms.h"
 #include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
 #include "third_party/blink/public/platform/web_media_stream_source.h"
 #include "third_party/blink/public/platform/web_string.h"
-#include "third_party/blink/public/web/modules/mediastream/media_stream_constraints_util.h"
 #include "third_party/blink/public/web/modules/mediastream/media_stream_video_source.h"
 #include "third_party/blink/public/web/modules/mediastream/media_stream_video_track.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/modules/mediastream/media_stream_constraints_util.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_video_capturer_source.h"
 #include "third_party/blink/renderer/platform/graphics/web_graphics_context_3d_provider_wrapper.h"
+#include "third_party/blink/renderer/platform/mediastream/webrtc_uma_histograms.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/base64.h"
 #include "third_party/libyuv/include/libyuv.h"
@@ -164,7 +164,7 @@ CanvasCaptureHandler::CreateCanvasCaptureHandler(
     blink::WebMediaStreamTrack* track) {
   // Save histogram data so we can see how much CanvasCapture is used.
   // The histogram counts the number of calls to the JS API.
-  UpdateWebRTCMethodCount(blink::WebRTCAPIName::kCanvasCaptureStream);
+  UpdateWebRTCMethodCount(RTCAPIName::kCanvasCaptureStream);
 
   return std::unique_ptr<CanvasCaptureHandler>(new CanvasCaptureHandler(
       frame, size, frame_rate, std::move(io_task_runner), track));
@@ -538,8 +538,8 @@ void CanvasCaptureHandler::AddVideoCapturerSourceToVideoTrack(
 
   web_track->Initialize(webkit_source);
   web_track->SetPlatformTrack(std::make_unique<blink::MediaStreamVideoTrack>(
-      media_stream_source, blink::MediaStreamVideoSource::ConstraintsCallback(),
-      true));
+      media_stream_source,
+      blink::MediaStreamVideoSource::ConstraintsOnceCallback(), true));
 }
 
 }  // namespace blink

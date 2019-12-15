@@ -20,7 +20,7 @@ import org.chromium.content_public.browser.WebContents;
  * classes communicate with it.
  */
 public class CastWebContentsIntentUtils {
-    private static final String TAG = "cr_CastWebUtil";
+    private static final String TAG = "CastWebUtil";
 
     static final String ACTION_DATA_SCHEME = "cast";
     static final String ACTION_DATA_AUTHORITY = "webcontents";
@@ -175,14 +175,6 @@ public class CastWebContentsIntentUtils {
         if (DEBUG) Log.d(TAG, "onGesture with uri:" + uri + " type:" + gestureType);
         Intent intent = new Intent(ACTION_ON_GESTURE, uri);
         intent.putExtra(INTENT_EXTRA_GESTURE_TYPE, gestureType);
-        return intent;
-    }
-
-    // CastWebContentsActivity -> CastWebContentsComponent.Receiver
-    // -> CastContentWindowAndroid
-    public static Intent onKeyDown(String instanceId, int keyCode) {
-        Intent intent = new Intent(ACTION_KEY_EVENT, getInstanceUri(instanceId));
-        intent.putExtra(INTENT_EXTRA_KEY_CODE, keyCode);
         return intent;
     }
 

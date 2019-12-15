@@ -63,12 +63,8 @@ class VR_EXPORT VRServiceImpl : public device::mojom::VRService,
   void SupportsSession(
       device::mojom::XRSessionOptionsPtr options,
       device::mojom::VRService::SupportsSessionCallback callback) override;
-  void ExitPresent() override;
+  void ExitPresent(ExitPresentCallback on_exited) override;
   void SetFramesThrottled(bool throttled) override;
-  // device::mojom::VRService WebVR compatibility functions
-  void GetImmersiveVRDisplayInfo(
-      device::mojom::VRService::GetImmersiveVRDisplayInfoCallback callback)
-      override;
 
   void InitializationComplete();
 
@@ -81,11 +77,6 @@ class VR_EXPORT VRServiceImpl : public device::mojom::VRService,
   void OnExitPresent();
   void OnVisibilityStateChanged(
       device::mojom::XRVisibilityState visibility_state);
-  void OnActivate(device::mojom::VRDisplayEventReason reason,
-                  base::OnceCallback<void(bool)> on_handled);
-  void OnDeactivate(device::mojom::VRDisplayEventReason reason);
-  bool ListeningForActivate() { return !!display_client_; }
-  bool InFocusedFrame() { return in_focused_frame_; }
   void OnDisplayInfoChanged();
   void RuntimesChanged();
 
@@ -94,10 +85,6 @@ class VR_EXPORT VRServiceImpl : public device::mojom::VRService,
   }
 
   content::WebContents* GetWebContents();
-
-  void SetListeningForActivate(
-      mojo::PendingRemote<device::mojom::VRDisplayClient> display_client)
-      override;
 
  private:
   // content::WebContentsObserver implementation
@@ -108,7 +95,6 @@ class VR_EXPORT VRServiceImpl : public device::mojom::VRService,
   void OnWebContentsFocusChanged(content::RenderWidgetHost* host, bool focused);
 
   void ResolvePendingRequests();
-  bool IsSecureContextRequirementSatisfied();
 
   // Returns currently active instance of SessionMetricsHelper from WebContents.
   // If the instance is not present on WebContents, it will be created with the
@@ -117,17 +103,26 @@ class VR_EXPORT VRServiceImpl : public device::mojom::VRService,
 
   bool InternalSupportsSession(device::mojom::XRSessionOptions* options);
   void OnInlineSessionCreated(
+      device::mojom::XRSessionOptionsPtr options,
       device::mojom::XRDeviceId session_runtime_id,
       device::mojom::VRService::RequestSessionCallback callback,
       const std::set<device::mojom::XRSessionFeature>& enabled_features,
       device::mojom::XRSessionPtr session,
       mojo::PendingRemote<device::mojom::XRSessionController> controller);
-
-  void OnSessionCreated(
+  void OnImmersiveSessionCreated(
+      device::mojom::XRSessionOptionsPtr options,
       device::mojom::XRDeviceId session_runtime_id,
       device::mojom::VRService::RequestSessionCallback callback,
       const std::set<device::mojom::XRSessionFeature>& enabled_features,
       device::mojom::XRSessionPtr session);
+
+  void OnSessionCreated(
+      device::mojom::XRSessionOptionsPtr options,
+      device::mojom::XRDeviceId session_runtime_id,
+      device::mojom::VRService::RequestSessionCallback callback,
+      const std::set<device::mojom::XRSessionFeature>& enabled_features,
+      device::mojom::XRSessionPtr session,
+      WebXRSessionTracker* session_metrics_tracker);
   void DoRequestSession(
       device::mojom::XRSessionOptionsPtr options,
       device::mojom::VRService::RequestSessionCallback callback,
@@ -162,9 +157,6 @@ class VR_EXPORT VRServiceImpl : public device::mojom::VRService,
 
   // List of callbacks to run when initialization is completed.
   std::vector<base::OnceCallback<void()>> pending_requests_;
-
-  // This is required for WebVR 1.1 backwards compatibility.
-  mojo::Remote<device::mojom::VRDisplayClient> display_client_;
 
   bool initialization_complete_ = false;
   bool in_focused_frame_ = false;

@@ -28,6 +28,7 @@
 #include "chrome/browser/media/router/media_routes_observer.h"
 #include "chrome/browser/media/router/presentation/presentation_service_delegate_impl.h"
 #include "chrome/browser/media/router/providers/wired_display/wired_display_media_route_provider.h"
+#include "chrome/browser/media/webrtc/desktop_media_picker_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -82,6 +83,12 @@ MediaSource GetSourceForRouteObserver(const std::vector<MediaSource>& sources) {
       sources.begin(), sources.end(),
       [](const auto& source) { return source.IsCastPresentationUrl(); });
   return source_it != sources.end() ? *source_it : MediaSource(std::string());
+}
+
+void MaybeReportCastingSource(MediaCastMode cast_mode,
+                              const RouteRequestResult& result) {
+  if (result.result_code() == RouteRequestResult::OK)
+    MediaRouterMetrics::RecordMediaRouterCastingSource(cast_mode);
 }
 
 }  // namespace
@@ -237,7 +244,6 @@ void MediaRouterViewsUI::RemoveObserver(
 void MediaRouterViewsUI::StartCasting(const std::string& sink_id,
                                       MediaCastMode cast_mode) {
   CreateRoute(sink_id, cast_mode);
-  UpdateSinks();
 }
 
 void MediaRouterViewsUI::StopCasting(const std::string& route_id) {
@@ -314,6 +320,7 @@ bool MediaRouterViewsUI::CreateRoute(const MediaSink::Id& sink_id,
   } else {
     params = GetRouteParameters(sink_id, cast_mode);
   }
+
   if (!params) {
     SendIssueForUnableToCast(cast_mode, sink_id);
     return false;
@@ -326,18 +333,19 @@ bool MediaRouterViewsUI::CreateRoute(const MediaSink::Id& sink_id,
                      std::move(params->presentation_callback),
                      std::move(params->route_result_callbacks)),
       params->timeout, params->incognito);
+
+  // TODO(crbug.com/1015203): This call to UpdateSinks() was originally in
+  // StartCasting(), but it causes Chrome to crash when the desktop picker
+  // dialog is shown, so for now we just don't call it in that case.  Move it
+  // back once the problem is resolved.
+  if (cast_mode != MediaCastMode::DESKTOP_MIRROR)
+    UpdateSinks();
+
   return true;
 }
 
 void MediaRouterViewsUI::TerminateRoute(const MediaRoute::Id& route_id) {
   GetMediaRouter()->TerminateRoute(route_id);
-}
-
-void MediaRouterViewsUI::MaybeReportCastingSource(
-    MediaCastMode cast_mode,
-    const RouteRequestResult& result) {
-  if (result.result_code() == RouteRequestResult::OK)
-    MediaRouterMetrics::RecordMediaRouterCastingSource(cast_mode);
 }
 
 std::vector<MediaSinkWithCastModes> MediaRouterViewsUI::GetEnabledSinks()
@@ -403,7 +411,8 @@ void MediaRouterViewsUI::RemoveIssue(const Issue::Id& issue_id) {
 
 void MediaRouterViewsUI::OpenFileDialog() {
   if (!media_router_file_dialog_) {
-    media_router_file_dialog_ = std::make_unique<MediaRouterFileDialog>(this);
+    media_router_file_dialog_ =
+        std::make_unique<MediaRouterFileDialog>(weak_factory_.GetWeakPtr());
   }
 
   media_router_file_dialog_->OpenFileDialog(GetBrowser());
@@ -616,8 +625,7 @@ base::Optional<RouteParameters> MediaRouterViewsUI::GetRouteParameters(
   // HandleCreateSessionRequestRouteResponse(), which closes the dialog and
   // destroys |this|.
   params.route_result_callbacks.push_back(
-      base::BindOnce(&MediaRouterViewsUI::MaybeReportCastingSource,
-                     weak_factory_.GetWeakPtr(), cast_mode));
+      base::BindOnce(&MaybeReportCastingSource, cast_mode));
 
   // There are 3 cases. In cases (1) and (3) the MediaRouterViewsUI will need to
   // be notified via OnRouteResponseReceived(). In case (2) the dialog will be
@@ -891,8 +899,7 @@ base::Optional<RouteParameters> MediaRouterViewsUI::GetLocalFileRouteParameters(
       GetPresentationRequestSourceName()));
 
   params.route_result_callbacks.push_back(
-      base::BindOnce(&MediaRouterViewsUI::MaybeReportCastingSource,
-                     weak_factory_.GetWeakPtr(), MediaCastMode::LOCAL_FILE));
+      base::BindOnce(&MaybeReportCastingSource, MediaCastMode::LOCAL_FILE));
 
   params.route_result_callbacks.push_back(
       base::BindOnce(&MediaRouterViewsUI::MaybeReportFileInformation,

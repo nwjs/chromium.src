@@ -74,6 +74,8 @@ TEST(OptimizationGuideNavigationDataTest,
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.Hints.NavigationHostCoverage.BeforeCommit", 0);
   histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.Hints.NavigationHostCoverage.AtCommit", 0);
+  histogram_tester.ExpectTotalCount(
       "OptimizationGuide.HintCache.HasHint.AtCommit", 0);
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.HintCache.HostMatch.AtCommit", 0);
@@ -94,6 +96,8 @@ TEST(OptimizationGuideNavigationDataTest,
       "OptimizationGuide.HintCache.HasHint.BeforeCommit", false, 1);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.Hints.NavigationHostCoverage.BeforeCommit", true, 1);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.Hints.NavigationHostCoverage.AtCommit", 0);
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.HintCache.HasHint.AtCommit", 0);
   histogram_tester.ExpectTotalCount(
@@ -116,7 +120,34 @@ TEST(OptimizationGuideNavigationDataTest,
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.Hints.NavigationHostCoverage.BeforeCommit", false, 1);
   histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.Hints.NavigationHostCoverage.AtCommit", 0);
+  histogram_tester.ExpectTotalCount(
       "OptimizationGuide.HintCache.HasHint.AtCommit", 0);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.HintCache.HostMatch.AtCommit", 0);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.HintCache.PageMatch.AtCommit", 0);
+}
+
+TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsHintCacheNoHintButCoveredByFetchAtCommit) {
+  base::HistogramTester histogram_tester;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.set_has_hint_before_commit(false);
+  data.set_has_hint_after_commit(false);
+  data.set_was_host_covered_by_fetch_at_navigation_start(false);
+  data.set_was_host_covered_by_fetch_at_commit(true);
+  data.RecordMetrics(/*has_committed=*/true);
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.HintCache.HasHint.BeforeCommit", false, 1);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.Hints.NavigationHostCoverage.BeforeCommit", false, 1);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.Hints.NavigationHostCoverage.AtCommit", true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.HintCache.HasHint.AtCommit", false, 1);
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.HintCache.HostMatch.AtCommit", 0);
   histogram_tester.ExpectTotalCount(
@@ -137,6 +168,8 @@ TEST(OptimizationGuideNavigationDataTest,
       "OptimizationGuide.HintCache.HasHint.BeforeCommit", 0);
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.Hints.NavigationHostCoverage.BeforeCommit", 0);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.Hints.NavigationHostCoverage.AtCommit", false, 1);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintCache.HasHint.AtCommit", false, 1);
   histogram_tester.ExpectTotalCount(
@@ -159,6 +192,8 @@ TEST(OptimizationGuideNavigationDataTest,
       "OptimizationGuide.HintCache.HasHint.BeforeCommit", 0);
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.Hints.NavigationHostCoverage.BeforeCommit", 0);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.Hints.NavigationHostCoverage.AtCommit", true, 1);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintCache.HasHint.AtCommit", true, 1);
   histogram_tester.ExpectUniqueSample(
@@ -184,6 +219,8 @@ TEST(OptimizationGuideNavigationDataTest,
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.Hints.NavigationHostCoverage.BeforeCommit", true, 1);
   histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.Hints.NavigationHostCoverage.AtCommit", true, 1);
+  histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintCache.HasHint.AtCommit", true, 1);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintCache.HostMatch.AtCommit", true, 1);
@@ -205,6 +242,8 @@ TEST(OptimizationGuideNavigationDataTest,
       "OptimizationGuide.HintCache.HasHint.BeforeCommit", true, 1);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.Hints.NavigationHostCoverage.BeforeCommit", true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.Hints.NavigationHostCoverage.AtCommit", true, 1);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintCache.HasHint.AtCommit", true, 1);
   histogram_tester.ExpectUniqueSample(
@@ -228,6 +267,8 @@ TEST(OptimizationGuideNavigationDataTest,
       "OptimizationGuide.HintCache.HasHint.BeforeCommit", true, 1);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.Hints.NavigationHostCoverage.BeforeCommit", true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.Hints.NavigationHostCoverage.AtCommit", true, 1);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintCache.HasHint.AtCommit", true, 1);
   histogram_tester.ExpectUniqueSample(
@@ -434,6 +475,271 @@ TEST(OptimizationGuideNavigationDataTest,
 }
 
 TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsOptimizationTargetModelVersion) {
+  base::test::TaskEnvironment env;
+
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.SetModelVersionForOptimizationTarget(
+      optimization_guide::proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, 2);
+  data.RecordMetrics(/*has_committed=*/false);
+
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::OptimizationGuide::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+  auto* entry = entries[0];
+  EXPECT_TRUE(ukm_recorder.EntryHasMetric(
+      entry,
+      ukm::builders::OptimizationGuide::kPainfulPageLoadModelVersionName));
+  ukm_recorder.ExpectEntryMetric(
+      entry, ukm::builders::OptimizationGuide::kPainfulPageLoadModelVersionName,
+      2);
+}
+
+TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsModelVersionForOptimizationTargetHasNoCorrespondingUkm) {
+  base::test::TaskEnvironment env;
+
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.SetModelVersionForOptimizationTarget(
+      optimization_guide::proto::OPTIMIZATION_TARGET_UNKNOWN, 2);
+  data.RecordMetrics(/*has_committed=*/false);
+
+  // Make sure UKM not recorded for all empty values.
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::OptimizationGuide::kEntryName);
+  EXPECT_TRUE(entries.empty());
+}
+
+TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsOptimizationTargetModelPredictionScore) {
+  base::test::TaskEnvironment env;
+
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.SetModelPredictionScoreForOptimizationTarget(
+      optimization_guide::proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, 0.123);
+  data.RecordMetrics(/*has_committed=*/false);
+
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::OptimizationGuide::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+  auto* entry = entries[0];
+  EXPECT_TRUE(ukm_recorder.EntryHasMetric(
+      entry, ukm::builders::OptimizationGuide::
+                 kPainfulPageLoadModelPredictionScoreName));
+  ukm_recorder.ExpectEntryMetric(entry,
+                                 ukm::builders::OptimizationGuide::
+                                     kPainfulPageLoadModelPredictionScoreName,
+                                 12);
+}
+
+TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsModelPredictionScoreOptimizationTargetHasNoCorrespondingUkm) {
+  base::test::TaskEnvironment env;
+
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.SetModelPredictionScoreForOptimizationTarget(
+      optimization_guide::proto::OPTIMIZATION_TARGET_UNKNOWN, 0.123);
+  data.RecordMetrics(/*has_committed=*/false);
+
+  // Make sure UKM not recorded for all empty values.
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::OptimizationGuide::kEntryName);
+  EXPECT_TRUE(entries.empty());
+}
+
+TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsHintCoverageHasHintBeforeCommitNoFetch) {
+  base::test::TaskEnvironment env;
+
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.set_has_hint_before_commit(true);
+  data.RecordMetrics(/*has_committed=*/false);
+
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::OptimizationGuide::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+  auto* entry = entries[0];
+  EXPECT_TRUE(ukm_recorder.EntryHasMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName));
+  ukm_recorder.ExpectEntryMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName,
+      static_cast<int>(
+          optimization_guide::NavigationHostCoveredStatus::kCovered));
+}
+
+TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsHintCoverageHasHintAfterCommitNoFetch) {
+  base::test::TaskEnvironment env;
+
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.set_has_hint_after_commit(true);
+  data.RecordMetrics(/*has_committed=*/true);
+
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::OptimizationGuide::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+  auto* entry = entries[0];
+  EXPECT_TRUE(ukm_recorder.EntryHasMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName));
+  ukm_recorder.ExpectEntryMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName,
+      static_cast<int>(
+          optimization_guide::NavigationHostCoveredStatus::kCovered));
+}
+
+TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsHintCoverageNoHintHasFetchBeforeCommit) {
+  base::test::TaskEnvironment env;
+
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.set_has_hint_before_commit(false);
+  data.set_was_host_covered_by_fetch_at_navigation_start(true);
+  data.RecordMetrics(/*has_committed=*/false);
+
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::OptimizationGuide::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+  auto* entry = entries[0];
+  EXPECT_TRUE(ukm_recorder.EntryHasMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName));
+  ukm_recorder.ExpectEntryMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName,
+      static_cast<int>(
+          optimization_guide::NavigationHostCoveredStatus::kCovered));
+}
+
+TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsHintCoverageNoHintHasFetchAtCommit) {
+  base::test::TaskEnvironment env;
+
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.set_has_hint_after_commit(false);
+  data.set_was_host_covered_by_fetch_at_commit(true);
+  data.RecordMetrics(/*has_committed=*/true);
+
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::OptimizationGuide::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+  auto* entry = entries[0];
+  EXPECT_TRUE(ukm_recorder.EntryHasMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName));
+  ukm_recorder.ExpectEntryMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName,
+      static_cast<int>(
+          optimization_guide::NavigationHostCoveredStatus::kCovered));
+}
+
+TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsHintCoverageNoHintOrFetchBeforeCommitAndNoFetchAttempted) {
+  base::test::TaskEnvironment env;
+
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.set_has_hint_before_commit(false);
+  data.set_was_host_covered_by_fetch_at_navigation_start(false);
+  data.RecordMetrics(/*has_committed=*/true);
+
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::OptimizationGuide::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+  auto* entry = entries[0];
+  EXPECT_TRUE(ukm_recorder.EntryHasMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName));
+  ukm_recorder.ExpectEntryMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName,
+      static_cast<int>(
+          optimization_guide::NavigationHostCoveredStatus::kFetchNotAttempted));
+}
+
+TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsHintCoverageNoHintOrFetchAtCommitAndNoFetchAttempted) {
+  base::test::TaskEnvironment env;
+
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.set_has_hint_after_commit(false);
+  data.set_was_host_covered_by_fetch_at_commit(false);
+  data.RecordMetrics(/*has_committed=*/true);
+
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::OptimizationGuide::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+  auto* entry = entries[0];
+  EXPECT_TRUE(ukm_recorder.EntryHasMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName));
+  ukm_recorder.ExpectEntryMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName,
+      static_cast<int>(
+          optimization_guide::NavigationHostCoveredStatus::kFetchNotAttempted));
+}
+
+TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsHintCoverageNoHintOrFetchBeforeCommitButFetchAttempted) {
+  base::test::TaskEnvironment env;
+
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.set_has_hint_before_commit(false);
+  data.set_was_host_covered_by_fetch_at_navigation_start(false);
+  data.set_was_hint_for_host_attempted_to_be_fetched(true);
+  data.RecordMetrics(/*has_committed=*/true);
+
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::OptimizationGuide::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+  auto* entry = entries[0];
+  EXPECT_TRUE(ukm_recorder.EntryHasMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName));
+  ukm_recorder.ExpectEntryMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName,
+      static_cast<int>(optimization_guide::NavigationHostCoveredStatus::
+                           kFetchNotSuccessful));
+}
+
+TEST(OptimizationGuideNavigationDataTest,
+     RecordMetricsHintCoverageNoHintOrFetchAtCommitButFetchAttempted) {
+  base::test::TaskEnvironment env;
+
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
+
+  OptimizationGuideNavigationData data(/*navigation_id=*/3);
+  data.set_has_hint_after_commit(false);
+  data.set_was_host_covered_by_fetch_at_commit(false);
+  data.set_was_hint_for_host_attempted_to_be_fetched(true);
+  data.RecordMetrics(/*has_committed=*/true);
+
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::OptimizationGuide::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+  auto* entry = entries[0];
+  EXPECT_TRUE(ukm_recorder.EntryHasMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName));
+  ukm_recorder.ExpectEntryMetric(
+      entry, ukm::builders::OptimizationGuide::kNavigationHostCoveredName,
+      static_cast<int>(optimization_guide::NavigationHostCoveredStatus::
+                           kFetchNotSuccessful));
+}
+
+TEST(OptimizationGuideNavigationDataTest,
      RecordMetricsMultipleOptimizationTypes) {
   base::HistogramTester histogram_tester;
 
@@ -536,7 +842,19 @@ TEST(OptimizationGuideNavigationDataTest, DeepCopy) {
           optimization_guide::proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD));
   EXPECT_EQ(base::nullopt, data->has_hint_before_commit());
   EXPECT_EQ(base::nullopt, data->has_hint_after_commit());
+  EXPECT_EQ(base::nullopt,
+            data->was_host_covered_by_fetch_at_navigation_start());
+  EXPECT_EQ(base::nullopt, data->was_host_covered_by_fetch_at_commit());
+  EXPECT_EQ(base::nullopt, data->was_hint_for_host_attempted_to_be_fetched());
   EXPECT_FALSE(data->has_page_hint_value());
+  EXPECT_EQ(
+      base::nullopt,
+      data->GetModelVersionForOptimizationTarget(
+          optimization_guide::proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD));
+  EXPECT_EQ(
+      base::nullopt,
+      data->GetModelPredictionScoreForOptimizationTarget(
+          optimization_guide::proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD));
 
   data->set_serialized_hint_version_string("123abc");
   data->SetDecisionForOptimizationType(
@@ -548,10 +866,17 @@ TEST(OptimizationGuideNavigationDataTest, DeepCopy) {
   data->set_serialized_hint_version_string("123abc");
   data->set_has_hint_before_commit(true);
   data->set_has_hint_after_commit(true);
+  data->set_was_host_covered_by_fetch_at_navigation_start(true);
+  data->set_was_host_covered_by_fetch_at_commit(true);
+  data->set_was_hint_for_host_attempted_to_be_fetched(true);
   optimization_guide::proto::PageHint page_hint;
   page_hint.set_page_pattern("pagepattern");
   data->set_page_hint(
       std::make_unique<optimization_guide::proto::PageHint>(page_hint));
+  data->SetModelVersionForOptimizationTarget(
+      optimization_guide::proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, 123);
+  data->SetModelPredictionScoreForOptimizationTarget(
+      optimization_guide::proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, 0.12);
 
   OptimizationGuideNavigationData data_copy(*data);
   EXPECT_EQ(3, data_copy.navigation_id());
@@ -564,7 +889,19 @@ TEST(OptimizationGuideNavigationDataTest, DeepCopy) {
           optimization_guide::proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD));
   EXPECT_TRUE(data_copy.has_hint_before_commit().value());
   EXPECT_TRUE(data_copy.has_hint_after_commit().value());
+  EXPECT_TRUE(
+      data_copy.was_host_covered_by_fetch_at_navigation_start().value());
+  EXPECT_TRUE(data_copy.was_host_covered_by_fetch_at_commit().value());
+  EXPECT_TRUE(data_copy.was_hint_for_host_attempted_to_be_fetched().value());
   EXPECT_EQ("123abc", *(data_copy.serialized_hint_version_string()));
   EXPECT_TRUE(data_copy.has_page_hint_value());
   EXPECT_EQ("pagepattern", data_copy.page_hint()->page_pattern());
+  EXPECT_EQ(
+      123,
+      *data_copy.GetModelVersionForOptimizationTarget(
+          optimization_guide::proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD));
+  EXPECT_EQ(
+      0.12,
+      *data_copy.GetModelPredictionScoreForOptimizationTarget(
+          optimization_guide::proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD));
 }

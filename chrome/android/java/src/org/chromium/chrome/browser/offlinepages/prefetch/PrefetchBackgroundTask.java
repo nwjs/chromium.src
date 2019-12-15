@@ -6,14 +6,15 @@ package org.chromium.chrome.browser.offlinepages.prefetch;
 
 import android.content.Context;
 
-import org.chromium.base.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.DeviceConditions;
 import org.chromium.chrome.browser.background_task_scheduler.NativeBackgroundTask;
-import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.components.background_task_scheduler.TaskIds;
 import org.chromium.components.background_task_scheduler.TaskParameters;
 import org.chromium.net.ConnectionType;

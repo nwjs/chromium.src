@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/android/preferences/preferences_launcher.h"
+#include "chrome/browser/android/preferences/autofill/autofill_profile_bridge.h"
 #include "chrome/browser/autofill/manual_filling_controller.h"
 #include "chrome/browser/autofill/manual_filling_utils.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
@@ -51,7 +51,7 @@ UserInfo TranslateCard(const CreditCard* data, bool enabled) {
                                       enabled));
 
   if (data->HasValidExpirationDate()) {
-    AddSimpleField(data->ExpirationMonthAsString(), &user_info, enabled);
+    AddSimpleField(data->Expiration2DigitMonthAsString(), &user_info, enabled);
     AddSimpleField(data->Expiration4DigitYearAsString(), &user_info, enabled);
   } else {
     AddSimpleField(base::string16(), &user_info, enabled);
@@ -112,8 +112,7 @@ void CreditCardAccessoryControllerImpl::OnFillingTriggered(
 void CreditCardAccessoryControllerImpl::OnOptionSelected(
     AccessoryAction selected_action) {
   if (selected_action == AccessoryAction::MANAGE_CREDIT_CARDS) {
-    chrome::android::PreferencesLauncher::ShowAutofillCreditCardSettings(
-        web_contents_);
+    autofill::ShowAutofillCreditCardSettings(web_contents_);
     return;
   }
   NOTREACHED() << "Unhandled selected action: "

@@ -6,6 +6,12 @@ import("//build/buildflag_header.gni")
 import("//chromecast/chromecast.gni")
 import("//third_party/protobuf/proto_library.gni")
 
+buildflag_header("buildflags") {
+  header = "buildflags.h"
+
+  flags = [ "HAVE_FULL_MIXER=$have_full_mixer" ]
+}
+
 proto_library("proto") {
   proto_out_dir = "chromecast/media/audio/mixer_service"
   sources = [
@@ -15,6 +21,7 @@ proto_library("proto") {
 
 cast_source_set("common") {
   sources = [
+    "constants.cc",
     "constants.h",
     "conversions.cc",
     "conversions.h",
@@ -23,7 +30,9 @@ cast_source_set("common") {
   ]
 
   deps = [
+    ":buildflags",
     "//base",
+    "//chromecast/net:io_buffer_pool",
     "//chromecast/public",
     "//chromecast/public/media",
     "//net",
@@ -42,10 +51,10 @@ cast_source_set("connection") {
   ]
 
   deps = [
+    ":audio_socket_service",
     ":common",
     "//base",
     "//chromecast/base",
-    "//chromecast/media/audio:audio_buildflags",
     "//net",
   ]
 }
@@ -59,12 +68,10 @@ cast_source_set("output_stream_connection") {
   deps = [
     ":common",
     ":connection",
-    "//base",
-    "//net",
-  ]
-
-  public_deps = [
     ":proto",
+    "//base",
+    "//chromecast/net:io_buffer_pool",
+    "//net",
   ]
 }
 
@@ -79,6 +86,54 @@ cast_source_set("control_connection") {
     ":connection",
     ":proto",
     "//base",
+    "//chromecast/public",
+    "//net",
+  ]
+}
+
+cast_source_set("mixer_control") {
+  sources = [
+    "mixer_control.cc",
+    "mixer_control.h",
+  ]
+
+  deps = [
+    ":common",
+    ":control_connection",
+    "//base",
+    "//chromecast/media/audio:audio_io_thread",
+  ]
+}
+
+cast_source_set("loopback_connection") {
+  sources = [
+    "loopback_connection.cc",
+    "loopback_connection.h",
+  ]
+
+  deps = [
+    ":common",
+    ":connection",
+    ":proto",
+    "//base",
+    "//chromecast/net:io_buffer_pool",
+    "//chromecast/public/media",
+    "//net",
+  ]
+}
+
+cast_source_set("redirected_audio_connection") {
+  sources = [
+    "redirected_audio_connection.cc",
+    "redirected_audio_connection.h",
+  ]
+
+  deps = [
+    ":common",
+    ":connection",
+    ":proto",
+    "//base",
+    "//chromecast/net:io_buffer_pool",
     "//chromecast/public",
     "//net",
   ]

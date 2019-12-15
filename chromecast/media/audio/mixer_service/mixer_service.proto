@@ -52,6 +52,9 @@ message OutputStreamParams {
   // If |true|, playback will not start until a start timestamp has been
   // provided via a SetStartTimestamp message.
   optional bool use_start_timestamp = 13;
+
+  // If |true|, this stream will not be included in the mixer's stream counts.
+  optional bool ignore_for_stream_count = 14;
 }
 
 // Indicates that we want to start playing the sample with PTS |start_pts|
@@ -103,6 +106,7 @@ message StreamConfig {
   optional SampleFormat sample_format = 1;
   optional int32 sample_rate = 2;
   optional int32 num_channels = 3;
+  optional int32 data_size = 4;  // Expected size of audio data in bytes.
 }
 
 // Sent to indicate that the mixer should stream loopback audio data back over
@@ -114,8 +118,8 @@ message LoopbackDataRequest {}
 message RedirectionRequest {
   optional int32 order = 1;
   optional int32 num_channels = 2;
-  optional bool apply_volume = 4;
-  optional int64 extra_delay_microseconds = 5;
+  optional bool apply_volume = 3;
+  optional int64 extra_delay_microseconds = 4;
 }
 
 // Sets the patterns to determine which audio output streams should be
@@ -166,6 +170,11 @@ message StreamCount {
   optional int32 sfx = 2;
 }
 
+// Sets the desired number of output channels used by the mixer.
+message NumOutputChannels {
+  optional int32 channels = 1;
+}
+
 // Indicates an error on an audio stream.
 message Error {
   enum Type {
@@ -197,4 +206,5 @@ message Generic {
   optional RequestStreamCount request_stream_count = 18;
   optional StreamCount stream_count = 19;
   optional Error error = 20;
+  optional NumOutputChannels set_num_output_channels = 21;
 }

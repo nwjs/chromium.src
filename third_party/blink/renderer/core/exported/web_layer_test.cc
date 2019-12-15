@@ -5,6 +5,8 @@
 #include "build/build_config.h"
 #include "cc/layers/picture_layer.h"
 #include "cc/trees/effect_node.h"
+#include "cc/trees/layer_tree_host.h"
+#include "cc/trees/scroll_and_scale_set.h"
 #include "cc/trees/transform_node.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/web/web_script_source.h"
@@ -63,6 +65,12 @@ class WebLayerListTest : public PaintTestConfigurations, public testing::Test {
     return paint_artifact_compositor()
         ->GetExtraDataForTesting()
         ->content_layers.size();
+  }
+
+  size_t ScrollbarLayerCount() {
+    return paint_artifact_compositor()
+        ->GetExtraDataForTesting()
+        ->scrollbar_layers.size();
   }
 
   cc::Layer* ContentLayerAt(size_t index) {
@@ -134,6 +142,7 @@ TEST_P(WebLayerListTest, DidScrollCallbackAfterScrollableAreaChanges) {
   EXPECT_NE(nullptr, scrollable_area);
 
   auto initial_content_layer_count = ContentLayerCount();
+  auto initial_scrollbar_layer_count = ScrollbarLayerCount();
   auto initial_scroll_hit_test_layer_count = ScrollHitTestLayerCount();
 
   cc::Layer* overflow_scroll_layer = nullptr;
@@ -149,7 +158,12 @@ TEST_P(WebLayerListTest, DidScrollCallbackAfterScrollableAreaChanges) {
   // Ensure a synthetic impl-side scroll offset propagates to the scrollable
   // area using the DidScroll callback.
   EXPECT_EQ(ScrollOffset(), scrollable_area->GetScrollOffset());
-  overflow_scroll_layer->SetScrollOffsetFromImplSide(gfx::ScrollOffset(0, 1));
+  cc::ScrollAndScaleSet scroll_and_scale_set;
+  scroll_and_scale_set.scrolls.push_back({scrollable_area->GetScrollElementId(),
+                                          gfx::ScrollOffset(0, 1),
+                                          base::nullopt});
+  overflow_scroll_layer->layer_tree_host()->ApplyScrollAndScale(
+      &scroll_and_scale_set);
   UpdateAllLifecyclePhases();
   EXPECT_EQ(ScrollOffset(0, 1), scrollable_area->GetScrollOffset());
 
@@ -167,14 +181,20 @@ TEST_P(WebLayerListTest, DidScrollCallbackAfterScrollableAreaChanges) {
   // The web scroll layer has not been deleted yet and we should be able to
   // apply impl-side offsets without crashing.
   EXPECT_EQ(ContentLayerCount(), initial_content_layer_count);
-  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+    EXPECT_EQ(ScrollbarLayerCount(), initial_scrollbar_layer_count);
     EXPECT_EQ(ScrollHitTestLayerCount(), initial_scroll_hit_test_layer_count);
+  }
   overflow_scroll_layer->SetScrollOffsetFromImplSide(gfx::ScrollOffset(0, 3));
 
   UpdateAllLifecyclePhases();
-  EXPECT_LT(ContentLayerCount(), initial_content_layer_count);
-  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+    EXPECT_EQ(ContentLayerCount(), initial_content_layer_count);
+    EXPECT_LT(ScrollbarLayerCount(), initial_scrollbar_layer_count);
     EXPECT_LT(ScrollHitTestLayerCount(), initial_scroll_hit_test_layer_count);
+  } else {
+    EXPECT_LT(ContentLayerCount(), initial_content_layer_count);
+  }
 }
 
 TEST_P(WebLayerListTest, FrameViewScroll) {
@@ -210,7 +230,11 @@ TEST_P(WebLayerListTest, FrameViewScroll) {
   // Ensure a synthetic impl-side scroll offset propagates to the scrollable
   // area using the DidScroll callback.
   EXPECT_EQ(ScrollOffset(), scrollable_area->GetScrollOffset());
-  scroll_layer->SetScrollOffsetFromImplSide(gfx::ScrollOffset(0, 1));
+  cc::ScrollAndScaleSet scroll_and_scale_set;
+  scroll_and_scale_set.scrolls.push_back({scrollable_area->GetScrollElementId(),
+                                          gfx::ScrollOffset(0, 1),
+                                          base::nullopt});
+  scroll_layer->layer_tree_host()->ApplyScrollAndScale(&scroll_and_scale_set);
   UpdateAllLifecyclePhases();
   EXPECT_EQ(ScrollOffset(0, 1), scrollable_area->GetScrollOffset());
 }

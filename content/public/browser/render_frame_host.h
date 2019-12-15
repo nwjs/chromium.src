@@ -14,9 +14,9 @@
 #include "base/optional.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
-#include "content/public/browser/page_visibility_state.h"
 #include "content/public/common/browser_controls_state.h"
 #include "content/public/common/isolated_world_ids.h"
+#include "content/public/common/page_visibility_state.h"
 #include "ipc/ipc_listener.h"
 #include "ipc/ipc_sender.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -26,9 +26,9 @@
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
 #include "third_party/blink/public/common/scheduler/web_scheduler_tracked_feature.h"
-#include "third_party/blink/public/common/sudden_termination_disabler_type.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom.h"
+#include "third_party/blink/public/mojom/frame/sudden_termination_disabler_type.mojom.h"
 #include "third_party/blink/public/mojom/loader/pause_subresource_loading_handle.mojom-forward.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/gfx/geometry/rect.h"
@@ -38,7 +38,7 @@
 
 namespace blink {
 class AssociatedInterfaceProvider;
-struct WebMediaPlayerAction;
+struct MediaPlayerAction;
 namespace mojom {
 enum class FeaturePolicyFeature;
 }  // namespace mojom
@@ -52,6 +52,10 @@ class Value;
 namespace features {
 CONTENT_EXPORT extern const base::Feature kCrashReporting;
 }  // namespace features
+
+namespace net {
+class NetworkIsolationKey;
+}
 
 namespace service_manager {
 class InterfaceProvider;
@@ -185,6 +189,11 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // Returns the last committed origin of the frame.
   virtual const url::Origin& GetLastCommittedOrigin() = 0;
 
+  // Returns the network isolation key used for subresources from the currently
+  // committed navigation. It's set on commit and does not change until the next
+  // navigation is committed.
+  virtual const net::NetworkIsolationKey& GetNetworkIsolationKey() = 0;
+
   // Returns the associated widget's native view.
   virtual gfx::NativeView GetNativeView() = 0;
 
@@ -217,8 +226,9 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
       int32_t world_id = ISOLATED_WORLD_ID_GLOBAL) = 0;
 
   // This runs the JavaScript, but without restrictions. THIS IS ONLY FOR TESTS.
-  // This version adds a fake UserGestureIndicator to test functionality that
-  // requires such a user gesture. https://crbug.com/408426
+  // Unlike the method above, this one triggers a fake user activation
+  // notification to test functionalities that are gated by user
+  // activation.
   virtual void ExecuteJavaScriptWithUserGestureForTests(
       const base::string16& javascript,
       int32_t world_id = ISOLATED_WORLD_ID_GLOBAL) = 0;
@@ -298,7 +308,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
 
   // Text surrounding selection.
   virtual void RequestTextSurroundingSelection(
-      blink::mojom::Frame::GetTextSurroundingSelectionCallback callback,
+      blink::mojom::LocalFrame::GetTextSurroundingSelectionCallback callback,
       int max_length) = 0;
 
   // Generates an intervention report in this frame.
@@ -312,6 +322,11 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // Returns a bitwise OR of bindings types that have been enabled for this
   // RenderFrame. See BindingsPolicy for details.
   virtual int GetEnabledBindings() = 0;
+
+  // Sets a property with the given name and value on the WebUI object
+  // associated with this RenderFrameHost, if one exists.
+  virtual void SetWebUIProperty(const std::string& name,
+                                const std::string& value) = 0;
 
 #if defined(OS_ANDROID)
   // Returns an InterfaceProvider for Java-implemented interfaces that are
@@ -330,7 +345,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // Check whether the specific Blink feature is currently preventing fast
   // shutdown of the frame.
   virtual bool GetSuddenTerminationDisablerState(
-      blink::SuddenTerminationDisablerType disabler_type) = 0;
+      blink::mojom::SuddenTerminationDisablerType disabler_type) = 0;
 
   // Returns true if the given |threshold_value| is below the threshold value
   // specified in the policy for |feature| for this RenderFrameHost. See
@@ -357,7 +372,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // Run the given action on the media player location at the given point.
   virtual void ExecuteMediaPlayerActionAtLocation(
       const gfx::Point& location,
-      const blink::WebMediaPlayerAction& action) = 0;
+      const blink::MediaPlayerAction& action) = 0;
 
   // Creates a Network Service-backed factory from appropriate |NetworkContext|.
   // If this returns true, any redirect safety checks should be bypassed in
@@ -438,6 +453,9 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // Reloads the frame if it is live. It initiates a reload but doesn't wait for
   // it to finish.
   virtual void Reload() = 0;
+
+  // Returns true if this frame has fired DOMContentLoaded.
+  virtual bool IsDOMContentLoaded() = 0;
 
  private:
   // This interface should only be implemented inside content.

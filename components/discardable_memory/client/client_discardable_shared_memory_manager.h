@@ -46,7 +46,7 @@ class DISCARDABLE_MEMORY_EXPORT ClientDiscardableSharedMemoryManager
                     base::trace_event::ProcessMemoryDump* pmd) override;
 
   // Release memory and associated resources that have been purged.
-  void ReleaseFreeMemory();
+  void ReleaseFreeMemory() override;
 
   bool LockSpan(DiscardableSharedMemoryHeap::Span* span);
   void UnlockSpan(DiscardableSharedMemoryHeap::Span* span);
@@ -62,7 +62,7 @@ class DISCARDABLE_MEMORY_EXPORT ClientDiscardableSharedMemoryManager
     size_t freelist_size;
   };
 
-  Statistics GetStatistics() const;
+  size_t GetBytesAllocated() const override;
 
  private:
   std::unique_ptr<base::DiscardableSharedMemory>

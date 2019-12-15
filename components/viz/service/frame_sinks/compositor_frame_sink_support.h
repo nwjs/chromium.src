@@ -19,6 +19,7 @@
 #include "components/viz/common/quads/compositor_frame.h"
 #include "components/viz/common/surfaces/surface_info.h"
 #include "components/viz/common/surfaces/surface_range.h"
+#include "components/viz/service/frame_sinks/begin_frame_tracker.h"
 #include "components/viz/service/frame_sinks/surface_resource_holder.h"
 #include "components/viz/service/frame_sinks/surface_resource_holder_client.h"
 #include "components/viz/service/frame_sinks/video_capture/capturable_frame_sink.h"
@@ -296,7 +297,7 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
   // clients would be able to capture content for which they are not authorized.
   bool allow_copy_output_requests_;
 
-  // TODO(crbug.com/754872): Remove once tab capture has moved into VIZ.
+  // Used for tests only.
   AggregatedDamageCallback aggregated_damage_callback_;
 
   uint64_t last_frame_index_ = kFrameIndexStart - 1;
@@ -327,6 +328,8 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
   bool callback_received_begin_frame_ = true;
   bool callback_received_receive_ack_ = true;
   uint32_t trace_sequence_ = 0;
+
+  BeginFrameTracker begin_frame_tracker_;
 
   // Maps |frame_token| to the timestamp when that frame was received. This
   // timestamp is combined with the information received in OnSurfacePresented()

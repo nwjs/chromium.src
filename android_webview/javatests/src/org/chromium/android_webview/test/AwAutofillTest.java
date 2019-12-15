@@ -14,6 +14,7 @@ import android.content.Context;
 import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.os.Build;
+import android.os.Build.VERSION;
 import android.os.Bundle;
 import android.os.LocaleList;
 import android.os.Parcel;
@@ -24,7 +25,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStructure;
-import android.view.ViewStructure.HtmlInfo.Builder;
+import android.view.ViewStructure.HtmlInfo;
 import android.view.WindowManager;
 import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillValue;
@@ -47,7 +48,6 @@ import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.test.util.CallbackHelper;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.MetricsUtils;
@@ -125,7 +125,7 @@ public class AwAutofillTest {
         /**
          * Implementation of Builder
          */
-        public static class AwBuilder extends Builder {
+        public static class AwBuilder extends HtmlInfo.Builder {
             private String mTag;
             private ArrayList<Pair<String, String>> mAttributes;
             public AwBuilder(String tag) {
@@ -134,7 +134,7 @@ public class AwAutofillTest {
             }
 
             @Override
-            public Builder addAttribute(String name, String value) {
+            public HtmlInfo.Builder addAttribute(String name, String value) {
                 mAttributes.add(new Pair<String, String>(name, value));
                 return this;
             }
@@ -254,7 +254,7 @@ public class AwAutofillTest {
         }
 
         @Override
-        public Builder newHtmlInfoBuilder(String tag) {
+        public HtmlInfo.Builder newHtmlInfoBuilder(String tag) {
             return new AwBuilder(tag);
         }
 
@@ -1816,7 +1816,6 @@ public class AwAutofillTest {
 
     @Test
     @SmallTest
-    @DisabledTest
     @Feature({"AndroidWebView"})
     public void testPageScrollTriggerViewExitAndEnter() throws Throwable {
         TestWebServer webServer = TestWebServer.start();
@@ -1838,12 +1837,18 @@ public class AwAutofillTest {
             // AUTOFILL_VIEW_ENTERED.
             scrollToBottom();
             dispatchDownAndUpKeyEvents(KeyEvent.KEYCODE_B);
+            List<Integer> expectedValues = new ArrayList<>();
 
+            // On Android version below P scroll triggers additional
+            // AUTOFILL_VIEW_ENTERED (@see AwAutofillProvider#onTextFieldDidScroll).
+            if (VERSION.SDK_INT < Build.VERSION_CODES.P) {
+                expectedValues.add(AUTOFILL_VIEW_ENTERED);
+            }
             // Check if NotifyVirtualValueChanged() called again and with extra AUTOFILL_VIEW_EXITED
             // and AUTOFILL_VIEW_ENTERED
-            waitForCallbackAndVerifyTypes(cnt,
-                    new Integer[] {
-                            AUTOFILL_VIEW_EXITED, AUTOFILL_VIEW_ENTERED, AUTOFILL_VALUE_CHANGED});
+            expectedValues.addAll(Arrays.asList(
+                AUTOFILL_VIEW_EXITED, AUTOFILL_VIEW_ENTERED, AUTOFILL_VALUE_CHANGED));
+            waitForCallbackAndVerifyTypes(cnt, expectedValues.toArray(new Integer[0]));
         } finally {
             webServer.shutdown();
         }

@@ -173,8 +173,6 @@ void SearchBoxView::UpdateModel(bool initiated_by_user) {
   search_model_->search_box()->RemoveObserver(this);
   search_model_->search_box()->Update(search_box()->GetText(),
                                       initiated_by_user);
-  search_model_->search_box()->SetSelectionModel(
-      search_box()->GetSelectionModel());
   search_model_->search_box()->AddObserver(this);
 }
 
@@ -634,7 +632,8 @@ bool SearchBoxView::HandleKeyEvent(views::Textfield* sender,
         selection_controller->selected_result();
     if (selected_result && selected_result->result())
       selected_result->OnKeyEvent(&event);
-    selection_controller->ResetSelection(nullptr);
+    // Reset the selected result to the default result.
+    selection_controller->ResetSelection(nullptr, true /* default_selection */);
     search_box()->SetText(base::string16());
     return true;
   }
@@ -747,11 +746,6 @@ void SearchBoxView::HintTextChanged() {
   search_box()->SetPlaceholderText(search_box_model->hint_text());
   search_box()->SetAccessibleName(search_box_model->accessible_name());
   SchedulePaint();
-}
-
-void SearchBoxView::SelectionModelChanged() {
-  search_box()->SelectSelectionModel(
-      search_model_->search_box()->selection_model());
 }
 
 void SearchBoxView::Update() {

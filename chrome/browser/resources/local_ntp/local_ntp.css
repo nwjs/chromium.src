@@ -131,7 +131,6 @@ body.hide-fakebox #fakebox {
 
 #fakebox,
 #realbox {
-  background: white;
   border-radius: 22px;
   box-sizing: border-box;
   font-size: 16px;
@@ -153,12 +152,33 @@ body.hide-fakebox #fakebox {
   max-width: 584px;
 }
 
+.google-g-icon {
+  background-image:
+      url(../../../../ui/webui/resources/images/200-logo_googleg.png);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 14px;
+  bottom: 0;
+  left: 16px;
+  position: absolute;
+  top: 0;
+  width: 24px;
+}
+
+[dir=rtl] .google-g-icon {
+  left: auto;
+  right: 16px;
+}
+
 #fakebox {
+  background: white;
   cursor: text;
 }
 
 #realbox {
+  background-color: var(--search-box-bg, white);
   border: none;
+  color: var(--search-box-text);
   display: block;
   outline: none;
   padding-inline-end: 48px;
@@ -174,11 +194,16 @@ body.hide-fakebox #fakebox {
 }
 
 #realbox::placeholder {
-  color: rgb(117, 117, 117);
+  color: var(--search-box-placeholder, rgb(117, 117, 117));
 }
 
 #realbox:focus::placeholder {
   color: transparent;
+}
+
+#realbox:focus,
+.show-matches #realbox {
+  background-color: var(--search-box-results-bg, white);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -193,9 +218,21 @@ body.hide-fakebox #fakebox {
   display: none;
 }
 
+/* The realbox is a "loupe" (.search-icon) by default, but when the selection
+ * ends up on match with a different icon, the realbox also gets that icon.
+ * Example: typing the start of a URL with a favicon or the user pressing
+ * up/down to select matches sets a background-image here and disables the
+ * -webkit-mask applied by .search-icon. */
+#realbox-icon {
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: 24px;
+}
+
 #realbox-matches {
-  background: white;
-  border-radius: 8px;
+  background-color: var(--search-box-results-bg, white);
+  border-radius: 16px;
+  color: var(--search-box-results-text);
   display: none;
   left: 0;
   overflow: hidden;
@@ -221,6 +258,7 @@ body.hide-fakebox #fakebox {
   background-repeat: no-repeat;
   background-size: 24px;
   font-size: 16px;
+  line-height: 1;
   outline: none;
   overflow: hidden;
   padding-bottom: 8px;
@@ -241,11 +279,16 @@ body.hide-fakebox #fakebox {
   padding-inline-end: 48px;
 }
 
+#realbox-matches a:last-of-type {
+  margin-bottom: 8px;  /* Last result is tight with border-radius. */
+}
+
 .clock-icon,
 .search-icon {
   -webkit-mask-position: center;
   -webkit-mask-repeat: no-repeat;
-  background-color: rgb(117, 117, 117);
+  -webkit-mask-size: 16px;
+  background-color: var(--search-box-icon, rgb(117, 117, 117));
   bottom: 0;
   left: 16px;
   position: absolute;
@@ -255,13 +298,15 @@ body.hide-fakebox #fakebox {
 
 .clock-icon {
   -webkit-mask-image: url(icons/clock.svg);
-  -webkit-mask-size: 16px;
 }
 
 .search-icon {
   -webkit-mask-image:
       url(../../../../ui/webui/resources/images/icon_search.svg);
-  -webkit-mask-size: 20px;
+}
+
+#realbox-input-wrapper > .search-icon {
+  -webkit-mask-size: 20px;  /* Loupe in realbox is bigger than in matches. */
 }
 
 html[dir=rtl] :-webkit-any(.clock-icon, .search-icon) {
@@ -269,11 +314,11 @@ html[dir=rtl] :-webkit-any(.clock-icon, .search-icon) {
 }
 
 #realbox-matches a:-webkit-any(:hover, .selected) {
-  background-color: rgb(var(--GG100-rgb));
+  background-color: var(--search-box-results-bg-hovered, rgb(232, 232, 233));
 }
 
 #realbox-matches a:focus-within {
-  background-color: rgb(var(--GG200-rgb));
+  background-color: var(--search-box-results-bg-selected, rgb(219, 219, 220));
 }
 
 #realbox-matches .match {
@@ -281,11 +326,11 @@ html[dir=rtl] :-webkit-any(.clock-icon, .search-icon) {
 }
 
 #realbox-matches .dim {
-  color: rgb(var(--GG600-rgb));
+  color: var(--search-box-results-dim, rgb(var(--GG600-rgb)));
 }
 
 #realbox-matches .url {
-  color: rgb(var(--GB600-rgb));
+  color: var(--search-box-results-url, rgb(var(--GB600-rgb)));
 }
 
 #realbox-matches .remove-match {
@@ -303,11 +348,11 @@ html[dir=rtl] :-webkit-any(.clock-icon, .search-icon) {
 }
 
 #realbox-matches .remove-match:hover {
-  background-color: rgba(var(--GG900-rgb), .08);
+  background-color: var(--remove-match-hovered, rgba(var(--GG900-rgb), .08));
 }
 
 #realbox-matches .remove-match:focus-within {
-  background-color: rgba(var(--GG900-rgb), .16);
+  background-color: var(--remove-match-focused, rgba(var(--GG900-rgb), .16));
 }
 
 #realbox-matches .remove-icon {
@@ -315,12 +360,12 @@ html[dir=rtl] :-webkit-any(.clock-icon, .search-icon) {
   width: 100%;
 }
 
-#realbox-matches a:-webkit-any(:hover, :focus-within) .remove-icon {
+#realbox-matches a:-webkit-any(:hover, :focus-within, .selected) .remove-icon {
   -webkit-mask-image: url(../../../../ui/webui/resources/images/icon_clear.svg);
   -webkit-mask-position: center;
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: 16px;
-  background-color: rgb(var(--GG900-rgb));
+  background-color: var(--search-box-icon, rgb(var(--GG900-rgb)));
 }
 
 #fakebox > input {
@@ -408,7 +453,8 @@ html[dir=rtl] .microphone-icon {
   right: auto;
 }
 
-#realbox-input-wrapper :-webkit-any(.search-icon, .microphone-icon) {
+#realbox-input-wrapper > :-webkit-any(.google-g-icon, .microphone-icon,
+                                      .search-icon) {
   z-index: 3;
 }
 

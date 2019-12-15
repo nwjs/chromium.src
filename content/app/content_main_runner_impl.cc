@@ -212,7 +212,7 @@ void LoadV8SnapshotFile() {
   base::ScopedFD fd =
       file_descriptor_store.MaybeTakeFD(snapshot_data_descriptor, &region);
   if (fd.is_valid()) {
-    base::File file(fd.release());
+    base::File file(std::move(fd));
     gin::V8Initializer::LoadV8SnapshotFromFile(std::move(file), &region,
                                                kSnapshotType);
     return;
@@ -221,24 +221,6 @@ void LoadV8SnapshotFile() {
 
 #if !defined(CHROME_MULTIPLE_DLL_BROWSER)
   gin::V8Initializer::LoadV8Snapshot(kSnapshotType);
-#endif  // !CHROME_MULTIPLE_DLL_BROWSER
-}
-
-void LoadV8NativesFile() {
-#if defined(OS_POSIX) && !defined(OS_MACOSX)
-  base::FileDescriptorStore& file_descriptor_store =
-      base::FileDescriptorStore::GetInstance();
-  base::MemoryMappedFile::Region region;
-  base::ScopedFD fd =
-      file_descriptor_store.MaybeTakeFD(kV8NativesDataDescriptor, &region);
-  if (fd.is_valid()) {
-    base::File file(fd.release());
-    gin::V8Initializer::LoadV8NativesFromFile(std::move(file), &region);
-    return;
-  }
-#endif  // OS_POSIX && !OS_MACOSX
-#if !defined(CHROME_MULTIPLE_DLL_BROWSER)
-  gin::V8Initializer::LoadV8Natives();
 #endif  // !CHROME_MULTIPLE_DLL_BROWSER
 }
 #endif  // V8_USE_EXTERNAL_STARTUP_DATA
@@ -250,7 +232,6 @@ void InitializeV8IfNeeded(const base::CommandLine& command_line,
 
 #if defined(V8_USE_EXTERNAL_STARTUP_DATA)
   LoadV8SnapshotFile();
-  LoadV8NativesFile();
 #endif  // V8_USE_EXTERNAL_STARTUP_DATA
 }
 

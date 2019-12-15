@@ -33,7 +33,6 @@
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/menu_manager.h"
 #include "chrome/browser/extensions/updater/chrome_update_client_config.h"
-#include "chrome/browser/extensions/user_script_listener.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/profiles/profile.h"
@@ -57,6 +56,7 @@
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/browser/extensions_browser_interface_binders.h"
 #include "extensions/browser/mojo/interface_registration.h"
 #include "extensions/browser/pref_names.h"
 #include "extensions/browser/url_request_util.h"
@@ -194,11 +194,11 @@ base::FilePath ChromeExtensionsBrowserClient::GetBundleResourcePath(
 
 void ChromeExtensionsBrowserClient::LoadResourceFromResourceBundle(
     const network::ResourceRequest& request,
-    network::mojom::URLLoaderRequest loader,
+    mojo::PendingReceiver<network::mojom::URLLoader> loader,
     const base::FilePath& resource_relative_path,
     int resource_id,
     const std::string& content_security_policy,
-    network::mojom::URLLoaderClientPtr client,
+    mojo::PendingRemote<network::mojom::URLLoaderClient> client,
     bool send_cors_header) {
   chrome_url_request_util::LoadResourceFromResourceBundle(
       request, std::move(loader), resource_relative_path, resource_id,
@@ -337,6 +337,14 @@ void ChromeExtensionsBrowserClient::RegisterExtensionInterfaces(
     const Extension* extension) const {
   RegisterInterfacesForExtension(registry, render_frame_host, extension);
   RegisterChromeInterfacesForExtension(registry, render_frame_host, extension);
+}
+
+void ChromeExtensionsBrowserClient::RegisterBrowserInterfaceBindersForFrame(
+    service_manager::BinderMapWithContext<content::RenderFrameHost*>* map,
+    content::RenderFrameHost* render_frame_host,
+    const Extension* extension) const {
+  PopulateExtensionFrameBinders(map, render_frame_host, extension);
+  PopulateChromeFrameBindersForExtension(map, render_frame_host, extension);
 }
 
 std::unique_ptr<RuntimeAPIDelegate>
@@ -522,11 +530,7 @@ ChromeExtensionsBrowserClient::GetSystemNetworkContext() {
 }
 
 UserScriptListener* ChromeExtensionsBrowserClient::GetUserScriptListener() {
-  // Create lazily since this accesses g_browser_process which may not be set up
-  // when ChromeExtensionsBrowserClient is created.
-  if (!user_script_listener_)
-    user_script_listener_ = std::make_unique<UserScriptListener>();
-  return user_script_listener_.get();
+  return &user_script_listener_;
 }
 
 std::string ChromeExtensionsBrowserClient::GetUserAgent() const {

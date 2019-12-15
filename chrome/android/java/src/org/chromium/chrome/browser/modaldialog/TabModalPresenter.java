@@ -16,7 +16,8 @@ import android.view.ViewGroup.MarginLayoutParams;
 import android.view.ViewStub;
 import android.widget.FrameLayout;
 
-import org.chromium.base.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel;
@@ -26,7 +27,7 @@ import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabAttributeKeys;
 import org.chromium.chrome.browser.tab.TabAttributes;
-import org.chromium.chrome.browser.tab.TabBrowserControlsState;
+import org.chromium.chrome.browser.tab.TabBrowserControlsConstraintsHelper;
 import org.chromium.content_public.browser.SelectionPopupController;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.BrowserControlsState;
@@ -187,7 +188,8 @@ public class TabModalPresenter
     public void onToggleOverlayVideoMode(boolean enabled) {}
 
     @Override
-    public void onBottomControlsHeightChanged(int bottomControlsHeight) {
+    public void onBottomControlsHeightChanged(
+            int bottomControlsHeight, int bottomControlsMinHeight) {
         mBottomControlsHeight = bottomControlsHeight;
         mShouldUpdateContainerLayoutParams = true;
     }
@@ -319,11 +321,6 @@ public class TabModalPresenter
                 mDidClearTextControls = true;
             }
 
-            // TODO(https://crbug.com/956260): Provide AppMenuHandler rather than pulling off
-            // ToolbarManager.
-            // Hide app menu in case it is opened.
-            mChromeActivity.getToolbarManager().getAppMenuHandler().hideAppMenu();
-
             // Force toolbar to show and disable overflow menu.
             onTabModalDialogStateChanged(true);
 
@@ -356,13 +353,13 @@ public class TabModalPresenter
         TabAttributes.from(mActiveTab).set(TabAttributeKeys.MODAL_DIALOG_SHOWING, isShowing);
 
         // Make sure to exit fullscreen mode before showing the tab modal dialog view.
-        if (isShowing) mActiveTab.exitFullscreenMode();
+        mChromeFullscreenManager.onExitFullscreen(mActiveTab);
 
         // Also need to update browser control state after dismissal to refresh the constraints.
         if (isShowing && areRendererInputEventsIgnored()) {
             mChromeFullscreenManager.showAndroidControls(true);
         } else {
-            TabBrowserControlsState.update(mActiveTab, BrowserControlsState.SHOWN,
+            TabBrowserControlsConstraintsHelper.update(mActiveTab, BrowserControlsState.SHOWN,
                     !mChromeFullscreenManager.offsetOverridden());
         }
     }

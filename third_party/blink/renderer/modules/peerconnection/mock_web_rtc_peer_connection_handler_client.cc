@@ -1,12 +1,12 @@
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-#include "third_party/blink/public/web/modules/peerconnection/mock_web_rtc_peer_connection_handler_client.h"
+#include "third_party/blink/renderer/modules/peerconnection/mock_web_rtc_peer_connection_handler_client.h"
 
 #include "base/logging.h"
 #include "third_party/blink/public/platform/web_media_stream.h"
-#include "third_party/blink/public/platform/web_rtc_rtp_receiver.h"
 #include "third_party/blink/public/platform/web_string.h"
+#include "third_party/blink/renderer/platform/peerconnection/rtc_rtp_receiver_platform.h"
 
 using testing::_;
 
@@ -30,14 +30,14 @@ MockWebRTCPeerConnectionHandlerClient::
     ~MockWebRTCPeerConnectionHandlerClient() {}
 
 void MockWebRTCPeerConnectionHandlerClient::didGenerateICECandidateWorker(
-    scoped_refptr<blink::WebRTCICECandidate> candidate) {
+    scoped_refptr<RTCIceCandidatePlatform> candidate) {
   candidate_sdp_ = candidate->Candidate().Utf8();
   candidate_mline_index_ = candidate->SdpMLineIndex();
   candidate_mid_ = candidate->SdpMid().Utf8();
 }
 
 void MockWebRTCPeerConnectionHandlerClient::didAddReceiverWorker(
-    std::unique_ptr<blink::WebRTCRtpReceiver>* web_rtp_receiver) {
+    std::unique_ptr<RTCRtpReceiverPlatform>* web_rtp_receiver) {
   blink::WebVector<blink::WebString> stream_ids =
       (*web_rtp_receiver)->StreamIds();
   DCHECK_EQ(1u, stream_ids.size());
@@ -45,7 +45,7 @@ void MockWebRTCPeerConnectionHandlerClient::didAddReceiverWorker(
 }
 
 void MockWebRTCPeerConnectionHandlerClient::didRemoveReceiverWorker(
-    std::unique_ptr<blink::WebRTCRtpReceiver>* web_rtp_receiver) {
+    std::unique_ptr<RTCRtpReceiverPlatform>* web_rtp_receiver) {
   remote_stream_id_ = blink::WebString();
 }
 

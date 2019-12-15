@@ -30,8 +30,8 @@
     <link rel="stylesheet" href="oobe_popup_overlay.css">
     <style include="shared-style multidevice-setup-shared ">
       multidevice-setup {
-        --multidevice-setup-height: var(--oobe-dialog-host-height);
-        --multidevice-setup-width: var(--oobe-dialog-host-width);
+        --multidevice-setup-height: 100%;
+        --multidevice-setup-width: 100%;
         --iron-pages-overflow: auto;
       }
 
@@ -115,7 +115,7 @@
             class="multidevice-help-overlay-close-top
                 multidevice-help-overlay-close-button"
             on-click="hideWebviewOverlay_"
-            title="[[getOverlayCloseTopTitle_()]]">
+            title="[[i18nDynamic(locale, 'arcOverlayClose')]]">
         </div>
         <div id="multidevice-help-overlay-webview-container">
           <div class="multidevice-help-overlay-webview-loading
@@ -133,7 +133,7 @@
               on-click="hideWebviewOverlay_">
             <!-- TODO(crbug.com/894537): Use string that is specific to
                     MultiDevice. -->
-            <div i18n-content="arcOverlayClose"></div>
+            <div>[[i18nDynamic(locale, 'arcOverlayClose')]]</div>
           </oobe-text-button>
         </div>
       </div>

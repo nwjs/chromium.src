@@ -5,6 +5,7 @@
 #include "components/safe_browsing/realtime/policy_engine.h"
 
 #include "base/test/scoped_feature_list.h"
+#include "build/build_config.h"
 #include "components/safe_browsing/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/features.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
@@ -14,6 +15,11 @@
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_browser_context.h"
 #include "testing/platform_test.h"
+
+#if defined(OS_ANDROID)
+#include "base/strings/string_number_conversions.h"
+#include "base/system/sys_info.h"
+#endif
 
 namespace safe_browsing {
 
@@ -39,19 +45,58 @@ class RealTimePolicyEngineTest : public PlatformTest {
   sync_preferences::TestingPrefServiceSyncable pref_service_;
 };
 
-TEST_F(RealTimePolicyEngineTest,
-       TestCanPerformFullURLLookup_DisabledFetchAllowlist) {
+#if defined(OS_ANDROID)
+// Real time URL check on Android is controlled by system memory size, the
+// following tests test that logic.
+TEST_F(RealTimePolicyEngineTest, TestCanPerformFullURLLookup_LargeMemorySize) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(kRealTimeUrlLookupFetchAllowlist);
+  int system_memory_size = base::SysInfo::AmountOfPhysicalMemoryMB();
+  int memory_size_threshold = system_memory_size - 1;
+  feature_list.InitWithFeaturesAndParameters(
+      /* enabled_features */ {{kRealTimeUrlLookupEnabled,
+                               {{kRealTimeUrlLookupMemoryThresholdMb,
+                                 base::NumberToString(
+                                     memory_size_threshold)}}}},
+      /* disabled_features */ {});
+  pref_service_.SetUserPref(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled,
+      std::make_unique<base::Value>(true));
+  EXPECT_TRUE(CanPerformFullURLLookup());
+}
+
+TEST_F(RealTimePolicyEngineTest, TestCanPerformFullURLLookup_SmallMemorySize) {
+  base::test::ScopedFeatureList feature_list;
+  int system_memory_size = base::SysInfo::AmountOfPhysicalMemoryMB();
+  int memory_size_threshold = system_memory_size + 1;
+  feature_list.InitWithFeaturesAndParameters(
+      /* enabled_features */ {{kRealTimeUrlLookupEnabled,
+                               {{kRealTimeUrlLookupMemoryThresholdMb,
+                                 base::NumberToString(
+                                     memory_size_threshold)}}}},
+      /* disabled_features */ {});
+  pref_service_.SetUserPref(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled,
+      std::make_unique<base::Value>(true));
   EXPECT_FALSE(CanPerformFullURLLookup());
 }
 
+TEST_F(RealTimePolicyEngineTest,
+       TestCanPerformFullURLLookup_DisabledUrlLookupWithLargeMemorySize) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      /* enabled_features */ {},
+      /* disabled_features */ {kRealTimeUrlLookupEnabled});
+  EXPECT_FALSE(CanPerformFullURLLookup());
+}
+#endif  // defined(OS_ANDROID)
+
 TEST_F(RealTimePolicyEngineTest, TestCanPerformFullURLLookup_EnabledByPolicy) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(kRealTimeUrlLookupFetchAllowlist);
-  pref_service_.SetUserPref(prefs::kSafeBrowsingRealTimeLookupEnabled,
-                            std::make_unique<base::Value>(true));
-  EXPECT_TRUE(CanPerformFullURLLookup());
+  pref_service_.SetManagedPref(prefs::kSafeBrowsingRealTimeLookupEnabled,
+                               std::make_unique<base::Value>(true));
+  // Verifies that setting the pref still doesn't enable the feature.
+  // See crbug.com/1030815 for details.
+  EXPECT_FALSE(CanPerformFullURLLookup());
 }
 
 TEST_F(RealTimePolicyEngineTest,
@@ -84,9 +129,6 @@ TEST_F(RealTimePolicyEngineTest, TestCanPerformFullURLLookup_EnabledUserOptin) {
 
 TEST_F(RealTimePolicyEngineTest,
        TestCanPerformFullURLLookup_EnabledMainFrameOnly) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(kRealTimeUrlLookupFetchAllowlist);
-
   for (int i = 0; i <= static_cast<int>(content::ResourceType::kMaxValue);
        i++) {
     content::ResourceType resource_type = static_cast<content::ResourceType>(i);

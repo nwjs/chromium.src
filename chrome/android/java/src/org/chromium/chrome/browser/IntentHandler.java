@@ -25,12 +25,12 @@ import android.util.Pair;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.FileUtils;
 import org.chromium.base.Log;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
@@ -40,7 +40,6 @@ import org.chromium.chrome.browser.externalnav.ExternalNavigationDelegateImpl;
 import org.chromium.chrome.browser.externalnav.IntentWithGesturesHandler;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinatorFactory;
-import org.chromium.chrome.browser.rappor.RapporServiceBridge;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
@@ -54,7 +53,6 @@ import org.chromium.content_public.common.Referrer;
 import org.chromium.net.HttpUtil;
 import org.chromium.network.mojom.ReferrerPolicy;
 import org.chromium.ui.base.PageTransition;
-import org.chromium.webapk.lib.common.WebApkConstants;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -96,11 +94,6 @@ public class IntentHandler {
      * Tab ID to use when creating a new Tab.
      */
     public static final String EXTRA_TAB_ID = "com.android.chrome.tab_id";
-
-    /**
-     * Parcelable FullscreenOptions to use when creating a new Tab.
-     */
-    public static final String EXTRA_FULLSCREEN_OPTIONS = "com.android.chrome.fullscreen_options";
 
     /**
      * The tab id of the parent tab, if any.
@@ -411,12 +404,6 @@ public class IntentHandler {
         int externalId = determineExternalIntentSource(intent);
         RecordHistogram.recordEnumeratedHistogram(
                 "MobileIntent.PageLoadDueToExternalApp", externalId, ExternalAppId.NUM_ENTRIES);
-        if (externalId == ExternalAppId.OTHER) {
-            String appId = IntentUtils.safeGetStringExtra(intent, Browser.EXTRA_APPLICATION_ID);
-            if (!TextUtils.isEmpty(appId)) {
-                RapporServiceBridge.sampleString("Android.PageLoadDueToExternalApp", appId);
-            }
-        }
     }
 
     /**
@@ -429,9 +416,6 @@ public class IntentHandler {
                 IntentHandler.EXTRA_EXTERNAL_NAV_PACKAGES);
         if (packages != null && packages.size() > 0) {
             RecordUserAction.record("MobileExternalNavigationReceived");
-            for (String name : packages) {
-                RapporServiceBridge.sampleString("Android.ExternalNavigationNotChosen", name);
-            }
         }
     }
 
@@ -791,6 +775,9 @@ public class IntentHandler {
 
         // We do some logging to determine what kinds of headers developers are inserting.
         IntentHeadersRecorder recorder = shouldLogHeaders ? new IntentHeadersRecorder() : null;
+        boolean firstParty = shouldLogHeaders
+                ? IntentHandler.notSecureIsIntentChromeOrFirstParty(intent)
+                : false;
 
         for (String key : bundleExtraHeaders.keySet()) {
             String value = bundleExtraHeaders.getString(key);
@@ -798,9 +785,9 @@ public class IntentHandler {
             // Strip the custom header that can only be added by ourselves.
             if ("x-chrome-intent-type".equals(key.toLowerCase(Locale.US))) continue;
 
-            if (shouldLogHeaders) recorder.recordHeader(key, value);
-
             if (!HttpUtil.isAllowedHeader(key, value)) continue;
+
+            if (shouldLogHeaders) recorder.recordHeader(key, value, firstParty);
 
             if (extraHeaders.length() != 0) extraHeaders.append("\n");
             extraHeaders.append(key);
@@ -808,9 +795,7 @@ public class IntentHandler {
             extraHeaders.append(value);
         }
 
-        if (shouldLogHeaders) {
-            recorder.report(IntentHandler.notSecureIsIntentChromeOrFirstParty(intent));
-        }
+        if (shouldLogHeaders) recorder.report(firstParty);
         return extraHeaders.length() == 0 ? null : extraHeaders.toString();
     }
 
@@ -839,20 +824,6 @@ public class IntentHandler {
      */
     public static long getTimestampFromIntent(Intent intent) {
         return intent.getLongExtra(EXTRA_TIMESTAMP_MS, -1);
-    }
-
-    /**
-     * Adds provided WebAPK's shell launch timestamp to an intent.
-     */
-    public static void addShellLaunchTimestampToIntent(Intent intent, long timestamp) {
-        intent.putExtra(WebApkConstants.EXTRA_WEBAPK_LAUNCH_TIME, timestamp);
-    }
-
-    /**
-     * @return the WebAPK's shell launch timestamp associated with an intent, or -1.
-     */
-    public static long getWebApkShellLaunchTimestampFromIntent(Intent intent) {
-        return intent.getLongExtra(WebApkConstants.EXTRA_WEBAPK_LAUNCH_TIME, -1);
     }
 
     /**

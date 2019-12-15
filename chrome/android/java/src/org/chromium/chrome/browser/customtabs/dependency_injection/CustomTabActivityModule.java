@@ -4,10 +4,14 @@
 
 package org.chromium.chrome.browser.customtabs.dependency_injection;
 
+import org.chromium.chrome.browser.browserservices.BrowserServicesActivityTabController;
+import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.ClientAppDataRegister;
 import org.chromium.chrome.browser.browserservices.trustedwebactivityui.TwaIntentHandlingStrategy;
-import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
+import org.chromium.chrome.browser.browserservices.trustedwebactivityui.controller.TwaVerifier;
+import org.chromium.chrome.browser.browserservices.trustedwebactivityui.controller.Verifier;
 import org.chromium.chrome.browser.customtabs.CustomTabNightModeStateController;
+import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabController;
 import org.chromium.chrome.browser.customtabs.content.CustomTabIntentHandler.IntentIgnoringCriterion;
 import org.chromium.chrome.browser.customtabs.content.CustomTabIntentHandlingStrategy;
 import org.chromium.chrome.browser.customtabs.content.DefaultCustomTabIntentHandlingStrategy;
@@ -24,12 +28,12 @@ import dagger.Reusable;
  */
 @Module
 public class CustomTabActivityModule {
-    private final CustomTabIntentDataProvider mIntentDataProvider;
+    private final BrowserServicesIntentDataProvider mIntentDataProvider;
     private final CustomTabNightModeStateController mNightModeController;
     private final IntentIgnoringCriterion mIntentIgnoringCriterion;
     private final StartupTabPreloader mStartupTabPreloader;
 
-    public CustomTabActivityModule(CustomTabIntentDataProvider intentDataProvider,
+    public CustomTabActivityModule(BrowserServicesIntentDataProvider intentDataProvider,
             CustomTabNightModeStateController nightModeController,
             IntentIgnoringCriterion intentIgnoringCriterion,
             StartupTabPreloader startupTabPreloader) {
@@ -40,8 +44,14 @@ public class CustomTabActivityModule {
     }
 
     @Provides
-    public CustomTabIntentDataProvider provideIntentDataProvider() {
+    public BrowserServicesIntentDataProvider providesBrowserServicesIntentDataProvider() {
         return mIntentDataProvider;
+    }
+
+    @Provides
+    public BrowserServicesActivityTabController provideTabController(
+            CustomTabActivityTabController customTabActivityTabController) {
+        return customTabActivityTabController;
     }
 
     @Provides
@@ -59,6 +69,12 @@ public class CustomTabActivityModule {
             Lazy<DefaultCustomTabIntentHandlingStrategy> defaultHandler,
             Lazy<TwaIntentHandlingStrategy> twaHandler) {
         return mIntentDataProvider.isTrustedWebActivity() ? twaHandler.get() : defaultHandler.get();
+    }
+
+    @Provides
+    public Verifier provideVerifierDelegate(Lazy<TwaVerifier> twaVerifierDelegate) {
+        // TODO(peconn): Add handing of WebAPK/A2HS delegate.
+        return twaVerifierDelegate.get();
     }
 
     @Provides

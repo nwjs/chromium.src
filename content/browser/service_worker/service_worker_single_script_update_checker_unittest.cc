@@ -12,10 +12,10 @@
 #include "base/test/scoped_feature_list.h"
 #include "content/browser/service_worker/embedded_worker_test_helper.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
-#include "content/browser/service_worker/service_worker_storage.h"
 #include "content/browser/service_worker/service_worker_test_utils.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_browser_context.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/data_pipe_utils.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_util.h"
@@ -120,9 +120,14 @@ class ServiceWorkerSingleScriptUpdateCheckerTest : public testing::Test {
       std::unique_ptr<ServiceWorkerResponseWriter> writer,
       network::TestURLLoaderFactory* loader_factory,
       base::Optional<CheckResult>* out_check_result) {
+    auto fetch_client_settings_object =
+        blink::mojom::FetchClientSettingsObject::New(
+            network::mojom::ReferrerPolicy::kDefault, GURL(main_script_url),
+            blink::mojom::InsecureRequestsPolicy::kDoNotUpgrade);
     return std::make_unique<ServiceWorkerSingleScriptUpdateChecker>(
         GURL(url), url == main_script_url, GURL(main_script_url), scope,
-        force_bypass_cache, update_via_cache, time_since_last_check,
+        force_bypass_cache, update_via_cache,
+        std::move(fetch_client_settings_object), time_since_last_check,
         net::HttpRequestHeaders(),
         base::BindRepeating([](BrowserContext* context) { return context; },
                             browser_context_.get()),
@@ -470,7 +475,7 @@ TEST_P(ServiceWorkerSingleScriptUpdateCheckerToggleAsyncTest,
   ASSERT_EQ(1u, loader_factory->pending_requests()->size());
 
   // |client| simulates sending the data from the network to the update checker.
-  network::mojom::URLLoaderClientPtr client =
+  mojo::Remote<network::mojom::URLLoaderClient> client =
       std::move(loader_factory->GetPendingRequest(0)->client);
 
   // Simulate sending the response head.

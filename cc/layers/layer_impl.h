@@ -40,9 +40,6 @@
 #include "ui/gfx/transform.h"
 
 namespace base {
-namespace trace_event {
-class TracedValue;
-}
 class DictionaryValue;
 }
 
@@ -54,6 +51,7 @@ class RenderPass;
 namespace cc {
 
 class AppendQuadsData;
+struct LayerDebugInfo;
 class LayerTreeImpl;
 class MicroBenchmarkImpl;
 class PrioritizedTile;
@@ -300,8 +298,11 @@ class CC_EXPORT LayerImpl {
     return wheel_event_handler_region_;
   }
 
+  // The main thread may commit multiple times before the impl thread actually
+  // draws, so we need to accumulate (i.e. union) any update changes that have
+  // occurred on the main thread until we draw.
   // Note this rect is in layer space (not content space).
-  void SetUpdateRect(const gfx::Rect& update_rect);
+  void UnionUpdateRect(const gfx::Rect& update_rect);
   const gfx::Rect& update_rect() const { return update_rect_; }
 
   // Denotes an area that is damaged and needs redraw. This is in the layer's
@@ -370,7 +371,7 @@ class CC_EXPORT LayerImpl {
 
   virtual void RunMicroBenchmark(MicroBenchmarkImpl* benchmark);
 
-  void SetDebugInfo(std::unique_ptr<base::trace_event::TracedValue> debug_info);
+  void UpdateDebugInfo(LayerDebugInfo* debug_info);
 
   void set_contributes_to_drawn_render_surface(bool is_member) {
     contributes_to_drawn_render_surface_ = is_member;
@@ -536,8 +537,7 @@ class CC_EXPORT LayerImpl {
   DrawProperties draw_properties_;
   PerformanceProperties<LayerImpl> performance_properties_;
 
-  std::unique_ptr<base::trace_event::TracedValue> owned_debug_info_;
-  base::trace_event::TracedValue* debug_info_;
+  std::unique_ptr<LayerDebugInfo> debug_info_;
 
   // Cache of all regions represented by any touch action from
   // |touch_action_region_|.

@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <utility>
+#include <vector>
+
 #include "chromeos/services/multidevice_setup/multidevice_setup_impl.h"
 
 #include "base/memory/ptr_util.h"
@@ -179,18 +182,20 @@ void MultiDeviceSetupImpl::GetEligibleHostDevices(
     eligible_remote_devices.push_back(remote_device_ref.GetRemoteDevice());
   }
 
-  // Sort from most-recently-updated to least-recently-updated. The timestamp
-  // used is provided by the back-end and indicates the last time at which the
-  // device's metadata was updated on the server. Note that this does not
-  // provide us with the last time that a user actually used this device, but it
-  // is a good estimate.
-  std::sort(eligible_remote_devices.begin(), eligible_remote_devices.end(),
-            [](const auto& first_device, const auto& second_device) {
-              return first_device.last_update_time_millis >
-                     second_device.last_update_time_millis;
-            });
-
   std::move(callback).Run(eligible_remote_devices);
+}
+
+void MultiDeviceSetupImpl::GetEligibleActiveHostDevices(
+    GetEligibleActiveHostDevicesCallback callback) {
+  std::vector<mojom::HostDevicePtr> eligible_active_hosts;
+  for (const auto& host_device :
+       eligible_host_devices_provider_->GetEligibleActiveHostDevices()) {
+    eligible_active_hosts.push_back(
+        mojom::HostDevice::New(host_device.remote_device.GetRemoteDevice(),
+                               host_device.connectivity_status));
+  }
+
+  std::move(callback).Run(std::move(eligible_active_hosts));
 }
 
 void MultiDeviceSetupImpl::SetHostDevice(const std::string& host_device_id,

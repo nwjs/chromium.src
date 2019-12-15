@@ -6,6 +6,7 @@
 #define ASH_SYSTEM_MESSAGE_CENTER_UNIFIED_MESSAGE_CENTER_BUBBLE_H_
 
 #include "ash/system/tray/tray_bubble_base.h"
+#include "ash/system/tray/tray_bubble_view.h"
 #include "ui/views/view_observer.h"
 #include "ui/views/widget/widget_observer.h"
 
@@ -15,18 +16,24 @@ class Widget;
 
 namespace ash {
 
-class TrayBubbleView;
 class UnifiedSystemTray;
 class UnifiedMessageCenterView;
 
 // Manages the bubble that contains UnifiedMessageCenterView.
 // Shows the bubble on the constructor, and closes the bubble on the destructor.
 class ASH_EXPORT UnifiedMessageCenterBubble : public TrayBubbleBase,
+                                              public TrayBubbleView::Delegate,
                                               public views::ViewObserver,
                                               public views::WidgetObserver {
  public:
   explicit UnifiedMessageCenterBubble(UnifiedSystemTray* tray);
   ~UnifiedMessageCenterBubble() override;
+
+  // We need the code to show the bubble explicitly separated from the
+  // contructor. This is to prevent trigerring the TrayEventFilter from within
+  // the constructor. Doing so can cause a crash when the TrayEventFilter tries
+  // to reference the message center bubble before it is fully instantiated.
+  void ShowBubble();
 
   // Calculate the height usable for the bubble.
   int CalculateAvailableHeight();
@@ -59,8 +66,6 @@ class ASH_EXPORT UnifiedMessageCenterBubble : public TrayBubbleBase,
   views::Widget* GetBubbleWidget() const override;
 
   // views::ViewObserver:
-  void OnViewVisibilityChanged(views::View* observed_view,
-                               views::View* starting_view) override;
   void OnViewPreferredSizeChanged(views::View* observed_view) override;
 
   // views::WidgetObserver:
@@ -71,7 +76,10 @@ class ASH_EXPORT UnifiedMessageCenterBubble : public TrayBubbleBase,
   }
 
  private:
+  class Border;
+
   UnifiedSystemTray* const tray_;
+  std::unique_ptr<Border> border_;
 
   views::Widget* bubble_widget_ = nullptr;
   TrayBubbleView* bubble_view_ = nullptr;

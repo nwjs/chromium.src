@@ -6,6 +6,7 @@ include_rules = [
     "+third_party/blink/renderer/platform/p2p",
     "+third_party/blink/renderer/platform/peerconnection",
     "+third_party/blink/renderer/platform/media_capabilities",
+    "+third_party/blink/renderer/platform/mediastream",
     "+third_party/blink/renderer/platform/webrtc",
 
     # Dependencies.
@@ -27,6 +28,7 @@ include_rules = [
 
 specific_include_rules = {
     ".*_test\.cc": [
+        "+base/task/task_traits.h",
         "+base/threading/thread.h",
         "+gpu/command_buffer/common/mailbox.h",
         "+media/video/mock_gpu_video_accelerator_factories.h",

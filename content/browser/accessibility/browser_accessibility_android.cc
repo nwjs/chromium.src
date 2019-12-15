@@ -49,52 +49,6 @@ enum {
 // android.view.accessibility.AccessibilityNodeInfo.RangeInfo in Java:
 enum { ANDROID_VIEW_ACCESSIBILITY_RANGE_TYPE_FLOAT = 1 };
 
-static bool HasListAncestor(const content::BrowserAccessibility* node) {
-  if (node == nullptr)
-    return false;  // Base case
-
-  if (ui::IsStaticList(node->GetRole()))
-    return true;
-
-  return HasListAncestor(node->InternalGetParent());
-}
-
-static bool HasListDescendant(const content::BrowserAccessibility* current,
-                              const content::BrowserAccessibility* root) {
-  // Only check role of descendants
-  if (current != root) {
-    if (ui::IsStaticList(current->GetRole()))
-      return true;
-  }
-
-  for (auto it = current->InternalChildrenBegin();
-       it != current->InternalChildrenEnd(); ++it) {
-    if (HasListDescendant(it.get(), root))
-      return true;
-  }
-  return false;
-}
-
-/*
-Determines:
-1. If this is an ancestor of any lists
-2. If this list is a descendant of any lists
-Talkback uses this information to report if the list has levels, and if so,
-which level is currently selected
-*/
-static bool IsHierarchicalList(const content::BrowserAccessibility* node) {
-  // Only makes sense to run if |node| is already a list
-  DCHECK(ui::IsStaticList(node->GetRole()));
-
-  if (node == nullptr)
-    return false;
-
-  bool found_list_in_descendants = HasListDescendant(node, node);
-  bool found_list_in_ancestors = HasListAncestor(node->InternalGetParent());
-
-  return (found_list_in_descendants || found_list_in_ancestors);
-}
-
 }  // namespace
 
 namespace content {
@@ -174,8 +128,9 @@ bool BrowserAccessibilityAndroid::PlatformIsLeafIncludingIgnored() const {
     return false;
   }
 
-  // Date and time controls should drop their children.
+  // Button, date and time controls should drop their children.
   switch (GetRole()) {
+    case ax::mojom::Role::kButton:
     case ax::mojom::Role::kDate:
     case ax::mojom::Role::kDateTime:
     case ax::mojom::Role::kInputTime:
@@ -230,6 +185,9 @@ bool BrowserAccessibilityAndroid::IsClickable() const {
        ax::mojom::DefaultActionVerb::kClickAncestor)) {
     return true;
   }
+
+  if (IsHeadingLink())
+    return true;
 
   if (!IsEnabled()) {
     // TalkBack won't announce a control as disabled unless it's also marked
@@ -341,8 +299,7 @@ bool BrowserAccessibilityAndroid::IsHeading() const {
 }
 
 bool BrowserAccessibilityAndroid::IsHierarchical() const {
-  return (GetRole() == ax::mojom::Role::kTree ||
-          (ui::IsStaticList(GetRole()) && IsHierarchicalList(this)));
+  return (GetRole() == ax::mojom::Role::kTree || IsHierarchicalList());
 }
 
 bool BrowserAccessibilityAndroid::IsLink() const {
@@ -412,6 +369,15 @@ bool BrowserAccessibilityAndroid::IsInterestingOnAndroid() const {
   // Otherwise, the interesting nodes are leaf nodes with non-whitespace text.
   return PlatformIsLeaf() &&
          !base::ContainsOnlyChars(GetInnerText(), base::kWhitespaceUTF16);
+}
+
+bool BrowserAccessibilityAndroid::IsHeadingLink() const {
+  if (!(GetRole() == ax::mojom::Role::kHeading && InternalChildCount() == 1))
+    return false;
+
+  BrowserAccessibilityAndroid* child =
+      static_cast<BrowserAccessibilityAndroid*>(InternalChildrenBegin().get());
+  return child->IsLink();
 }
 
 const BrowserAccessibilityAndroid*
@@ -512,7 +478,8 @@ base::string16 BrowserAccessibilityAndroid::GetInnerText() const {
     }
   }
 
-  if (text.empty() && (ui::IsLink(GetRole()) || ui::IsImage(GetRole())) &&
+  if (text.empty() &&
+      (ui::IsLink(GetRole()) || ui::IsImageOrVideo(GetRole())) &&
       !HasExplicitlyEmptyName()) {
     base::string16 url = GetString16Attribute(ax::mojom::StringAttribute::kUrl);
     text = ui::AXUrlBaseText(url);
@@ -556,16 +523,37 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
   content::ContentClient* content_client = content::GetContentClient();
 
   // As a special case, if we have a heading level return a string like
-  // "heading level 1", etc.
+  // "heading level 1", etc. - and if the heading consists of a link,
+  // append the word link as well.
   if (GetRole() == ax::mojom::Role::kHeading) {
+    base::string16 role_description;
     int level = GetIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel);
     if (level >= 1 && level <= 6) {
       std::vector<base::string16> values;
       values.push_back(base::NumberToString16(level));
-      return base::ReplaceStringPlaceholders(
+      role_description = base::ReplaceStringPlaceholders(
           content_client->GetLocalizedString(IDS_AX_ROLE_HEADING_WITH_LEVEL),
           values, nullptr);
+    } else {
+      role_description =
+          content_client->GetLocalizedString(IDS_AX_ROLE_HEADING);
     }
+
+    if (IsHeadingLink()) {
+      role_description += base::ASCIIToUTF16(" ") +
+                          content_client->GetLocalizedString(IDS_AX_ROLE_LINK);
+    }
+
+    return role_description;
+  }
+
+  // If this node is a link and the parent is a heading, return the role
+  // description of the parent (e.g. "heading 1 link").
+  if (ui::IsLink(GetRole()) && PlatformGetParent()) {
+    BrowserAccessibilityAndroid* parent =
+        static_cast<BrowserAccessibilityAndroid*>(PlatformGetParent());
+    if (parent->IsHeadingLink())
+      return parent->GetRoleDescription();
   }
 
   int message_id = -1;
@@ -581,21 +569,6 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
       break;
     case ax::mojom::Role::kAnchor:
       // No role description.
-      break;
-    case ax::mojom::Role::kAnnotationAttribution:
-      message_id = IDS_AX_ROLE_ANNOTATION_ATTRIBUTION;
-      break;
-    case ax::mojom::Role::kAnnotationCommentary:
-      message_id = IDS_AX_ROLE_ANNOTATION_COMMENTARY;
-      break;
-    case ax::mojom::Role::kAnnotationPresence:
-      message_id = IDS_AX_ROLE_ANNOTATION_PRESENCE;
-      break;
-    case ax::mojom::Role::kAnnotationRevision:
-      message_id = IDS_AX_ROLE_ANNOTATION_REVISION;
-      break;
-    case ax::mojom::Role::kAnnotationSuggestion:
-      message_id = IDS_AX_ROLE_ANNOTATION_SUGGESTION;
       break;
     case ax::mojom::Role::kApplication:
       message_id = IDS_AX_ROLE_APPLICATION;
@@ -633,6 +606,9 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
     case ax::mojom::Role::kClient:
       // No role description.
       break;
+    case ax::mojom::Role::kCode:
+      // No role description.
+      break;
     case ax::mojom::Role::kColorWell:
       message_id = IDS_AX_ROLE_COLOR_WELL;
       break;
@@ -647,6 +623,12 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
       break;
     case ax::mojom::Role::kComboBoxMenuButton:
       // No role descripotion.
+      break;
+    case ax::mojom::Role::kComment:
+      message_id = IDS_AX_ROLE_COMMENT;
+      break;
+    case ax::mojom::Role::kCommentSection:
+      message_id = IDS_AX_ROLE_COMMENT_SECTION;
       break;
     case ax::mojom::Role::kComplementary:
       message_id = IDS_AX_ROLE_COMPLEMENTARY;
@@ -815,6 +797,9 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
       break;
     case ax::mojom::Role::kEmbeddedObject:
       message_id = IDS_AX_ROLE_EMBEDDED_OBJECT;
+      break;
+    case ax::mojom::Role::kEmphasis:
+      // No role description.
       break;
     case ax::mojom::Role::kFeed:
       message_id = IDS_AX_ROLE_FEED;
@@ -998,14 +983,20 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
     case ax::mojom::Role::kRegion:
       message_id = IDS_AX_ROLE_REGION;
       break;
+    case ax::mojom::Role::kRevision:
+      message_id = IDS_AX_ROLE_REVISION;
+      break;
     case ax::mojom::Role::kRootWebArea:
+      // No role description.
+      break;
+    case ax::mojom::Role::kRow:
+      // No role description.
+      break;
+    case ax::mojom::Role::kRowGroup:
       // No role description.
       break;
     case ax::mojom::Role::kRowHeader:
       message_id = IDS_AX_ROLE_ROW_HEADER;
-      break;
-    case ax::mojom::Role::kRow:
-      // No role description.
       break;
     case ax::mojom::Role::kRuby:
       // No role description.
@@ -1049,6 +1040,12 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
       break;
     case ax::mojom::Role::kStatus:
       message_id = IDS_AX_ROLE_STATUS;
+      break;
+    case ax::mojom::Role::kStrong:
+      // No role description.
+      break;
+    case ax::mojom::Role::kSuggestion:
+      message_id = IDS_AX_ROLE_SUGGESTION;
       break;
     case ax::mojom::Role::kSwitch:
       message_id = IDS_AX_ROLE_SWITCH;
@@ -1656,6 +1653,76 @@ bool BrowserAccessibilityAndroid::HasFocusableNonOptionChild() const {
   return false;
 }
 
+base::string16 BrowserAccessibilityAndroid::GetTargetUrl() const {
+  if (ui::IsImageOrVideo(GetRole()) || ui::IsLink(GetRole()))
+    return GetString16Attribute(ax::mojom::StringAttribute::kUrl);
+
+  return {};
+}
+
+void BrowserAccessibilityAndroid::GetSuggestions(
+    std::vector<int>* suggestion_starts,
+    std::vector<int>* suggestion_ends) const {
+  DCHECK(suggestion_starts);
+  DCHECK(suggestion_ends);
+
+  if (!IsRichTextField() && !IsPlainTextField())
+    return;
+
+  // TODO: using FindTextOnlyObjectsInRange or NextInTreeOrder doesn't
+  // work because Android's PlatformIsLeafIncludingIgnored implementation
+  // deliberately excludes a lot of nodes. We need a version of
+  // FindTextOnlyObjectsInRange and/or NextInTreeOrder that only walk
+  // the internal tree.
+  BrowserAccessibility* node = InternalGetFirstChild();
+  int start_offset = 0;
+  while (node && node != this) {
+    if (node->IsTextOnlyObject()) {
+      const std::vector<int32_t>& marker_types =
+          node->GetData().GetIntListAttribute(
+              ax::mojom::IntListAttribute::kMarkerTypes);
+      if (!marker_types.empty()) {
+        const std::vector<int>& marker_starts =
+            node->GetData().GetIntListAttribute(
+                ax::mojom::IntListAttribute::kMarkerStarts);
+        const std::vector<int>& marker_ends =
+            node->GetData().GetIntListAttribute(
+                ax::mojom::IntListAttribute::kMarkerEnds);
+
+        for (size_t i = 0; i < marker_types.size(); ++i) {
+          // On Android, both spelling errors and alternatives from dictation
+          // are both encoded as suggestions.
+          if (!(marker_types[i] &
+                static_cast<int32_t>(ax::mojom::MarkerType::kSuggestion))) {
+            continue;
+          }
+
+          int suggestion_start = start_offset + marker_starts[i];
+          int suggestion_end = start_offset + marker_ends[i];
+          suggestion_starts->push_back(suggestion_start);
+          suggestion_ends->push_back(suggestion_end);
+        }
+      }
+      start_offset += node->GetText().length();
+    }
+
+    // Implementation of NextInTreeOrder, but walking the internal tree.
+    if (node->InternalChildCount()) {
+      node = node->InternalGetFirstChild();
+    } else {
+      while (node && node != this) {
+        BrowserAccessibility* sibling = node->InternalGetNextSibling();
+        if (sibling) {
+          node = sibling;
+          break;
+        }
+
+        node = node->InternalGetParent();
+      }
+    }
+  }
+}
+
 bool BrowserAccessibilityAndroid::HasNonEmptyValue() const {
   return IsEditableText() && !GetValue().empty();
 }
@@ -1673,7 +1740,7 @@ bool BrowserAccessibilityAndroid::HasCharacterLocations() const {
 }
 
 bool BrowserAccessibilityAndroid::HasImage() const {
-  if (ui::IsImage(GetRole()))
+  if (ui::IsImageOrVideo(GetRole()))
     return true;
 
   for (auto it = InternalChildrenBegin(); it != InternalChildrenEnd(); ++it) {
@@ -1699,7 +1766,7 @@ bool BrowserAccessibilityAndroid::HasOnlyTextAndImageChildren() const {
   for (auto it = InternalChildrenBegin(); it != InternalChildrenEnd(); ++it) {
     BrowserAccessibility* child = it.get();
     if (child->GetRole() != ax::mojom::Role::kStaticText &&
-        !ui::IsImage(child->GetRole())) {
+        !ui::IsImageOrVideo(child->GetRole())) {
       return false;
     }
   }

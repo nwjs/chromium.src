@@ -26,6 +26,7 @@
 #include "build/build_config.h"
 #include "cc/input/overscroll_behavior.h"
 #include "cc/input/touch_action.h"
+#include "cc/trees/browser_controls_params.h"
 #include "cc/trees/layer_tree_settings.h"
 #include "cc/trees/managed_memory_policy.h"
 #include "components/viz/common/surfaces/local_surface_id.h"
@@ -52,8 +53,8 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "services/network/public/mojom/referrer_policy.mojom.h"
-#include "third_party/blink/public/common/frame/occlusion_state.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
+#include "third_party/blink/public/platform/viewport_intersection_state.h"
 #include "third_party/blink/public/platform/web_input_event.h"
 #include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/platform/web_text_input_info.h"
@@ -492,10 +493,9 @@ class CONTENT_EXPORT RenderWidget
   void StopDeferringCommits(cc::PaintHoldingCommitTrigger) override;
   void RequestBeginMainFrameNotExpected(bool request) override;
   int GetLayerTreeId() const override;
-  void SetBrowserControlsShownRatio(float ratio) override;
-  void SetBrowserControlsHeight(float top_height,
-                                float bottom_height,
-                                bool shrink_viewport) override;
+  void SetBrowserControlsShownRatio(float top_ratio,
+                                    float bottom_ratio) override;
+  void SetBrowserControlsParams(cc::BrowserControlsParams params) override;
   viz::FrameSinkId GetFrameSinkId() override;
 
   // Returns the scale being applied to the document in blink by the device
@@ -777,9 +777,8 @@ class CONTENT_EXPORT RenderWidget
   void OnGetFPS();
   void OnUpdateScreenRects(const gfx::Rect& widget_screen_rect,
                            const gfx::Rect& window_screen_rect);
-  void OnSetViewportIntersection(const gfx::Rect& viewport_intersection,
-                                 const gfx::Rect& compositor_visible_rect,
-                                 blink::FrameOcclusionState occlusion_state);
+  void OnSetViewportIntersection(
+      const blink::ViewportIntersectionState& intersection_state);
   void OnSetIsInert(bool);
   void OnSetInheritedEffectiveTouchAction(cc::TouchAction touch_action);
   void OnUpdateRenderThrottlingStatus(bool is_throttled,
@@ -1078,8 +1077,12 @@ class CONTENT_EXPORT RenderWidget
 
   scoped_refptr<FrameSwapMessageQueue> frame_swap_message_queue_;
 
-  // Lists of RenderFrameProxy objects that need to be notified of
-  // compositing-related events (e.g. DidCommitCompositorFrame).
+  // Lists of RenderFrameProxy objects for which this RenderWidget is their
+  // local root. Each of these represents a child local root RenderWidget in
+  // another RenderView frame tree. For values that are propagated from
+  // a parent RenderWidget to its children, they are plumbed through the
+  // RenderFrameProxys in this list, which bounce those values through the
+  // browser to the child RenderWidget in the correct process.
   base::ObserverList<RenderFrameProxy>::Unchecked render_frame_proxies_;
 
   // A list of RenderFrames associated with this RenderWidget. Notifications
@@ -1143,13 +1146,9 @@ class CONTENT_EXPORT RenderWidget
   // Object to record tab switch time into this RenderWidget
   TabSwitchTimeRecorder tab_switch_time_recorder_;
 
-  // Whether or not Blink's viewport size should be shrunk by the height of the
-  // URL-bar.
-  bool browser_controls_shrink_blink_size_ = false;
-  // The height of the browser top controls.
-  float top_controls_height_ = 0.f;
-  // The height of the browser bottom controls.
-  float bottom_controls_height_ = 0.f;
+  // Browser controls params such as top and bottom controls heights, whether
+  // controls shrink blink size etc.
+  cc::BrowserControlsParams browser_controls_params_;
 
   // The last seen page scale state, which comes from the main frame and is
   // propagated through the RenderWidget tree. This state is passed to any new

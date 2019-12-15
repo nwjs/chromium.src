@@ -24,6 +24,12 @@ const char kLocalSyncBackendDir[] = "local-sync-backend-dir";
 #if defined(OS_ANDROID)
 const base::Feature kSyncManualStartAndroid{"SyncManualStartAndroid",
                                             base::FEATURE_ENABLED_BY_DEFAULT};
-#endif
+
+const base::Feature kSyncUseSessionsUnregisterDelay{
+    "SyncUseSessionsUnregisterDelay", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kSyncErrorInfoBarAndroid{"SyncErrorInfoBarAndroid",
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
+#endif  // defined(OS_ANDROID)
 
 }  // namespace switches

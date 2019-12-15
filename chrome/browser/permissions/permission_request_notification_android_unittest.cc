@@ -70,6 +70,8 @@ class PermissionRequestNotificationAndroidTest : public testing::Test {
         std::make_unique<NotificationDisplayServiceTester>(profile_);
   }
 
+  TestingProfile* profile() { return profile_; }
+
   content::BrowserTaskEnvironment task_environment_;
   TestingProfile* profile_;
   TestingProfileManager profile_manager_;
@@ -169,19 +171,4 @@ TEST_F(PermissionRequestNotificationAndroidTest, Closing_CallsDelegateClosing) {
       PermissionRequestNotificationAndroid::NotificationIdForOrigin(
           kExampleUrl),
       true);
-}
-
-TEST_F(PermissionRequestNotificationAndroidTest, ShouldShowAsNotification) {
-  EXPECT_FALSE(PermissionRequestNotificationAndroid::ShouldShowAsNotification(
-      CONTENT_SETTINGS_TYPE_NOTIFICATIONS));
-  EXPECT_FALSE(PermissionRequestNotificationAndroid::ShouldShowAsNotification(
-      CONTENT_SETTINGS_TYPE_GEOLOCATION));
-
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kQuietNotificationPrompts);
-
-  EXPECT_TRUE(PermissionRequestNotificationAndroid::ShouldShowAsNotification(
-      CONTENT_SETTINGS_TYPE_NOTIFICATIONS));
-  EXPECT_FALSE(PermissionRequestNotificationAndroid::ShouldShowAsNotification(
-      CONTENT_SETTINGS_TYPE_GEOLOCATION));
 }

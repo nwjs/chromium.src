@@ -16,6 +16,9 @@ def _setup_sys_path():
     root_dir = os.path.join(this_dir, *(['..'] * expected_path.count('/')))
 
     sys.path = [
+        # //third_party/blink/renderer/bindings/scripts/web_idl
+        os.path.join(root_dir, 'third_party', 'blink', 'renderer', 'bindings',
+                     'scripts'),
         # //third_party/blink/renderer/build/scripts/blinkbuild
         os.path.join(root_dir, 'third_party', 'blink', 'renderer', 'build',
                      'scripts'),
@@ -26,7 +29,11 @@ def _setup_sys_path():
 
 _setup_sys_path()
 
-from .clang_format import init_clang_format
+
+from . import clang_format
+from .dictionary import generate_dictionaries
+from .interface import generate_interfaces
+from .path_manager import PathManager
 
 
 def _setup_clang_format():
@@ -41,13 +48,13 @@ def _setup_clang_format():
     command_path = os.path.abspath(
         os.path.join(root_dir, 'third_party', 'depot_tools', command_name))
 
-    init_clang_format(command_path=command_path)
+    clang_format.init(command_path=command_path)
 
 
-_setup_clang_format()
-
-from .example import run_example
-
-__all__ = [
-    "run_example",
-]
+def init(output_dirs):
+    """
+    Args:
+        output_dirs: Pairs of component and output directory.
+    """
+    _setup_clang_format()
+    PathManager.init(output_dirs)

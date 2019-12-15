@@ -61,7 +61,6 @@
 #include "extensions/browser/guest_view/extensions_guest_view_message_filter.h"
 #include "extensions/browser/guest_view/web_view/web_view_renderer_state.h"
 #include "extensions/browser/info_map.h"
-#include "extensions/browser/io_thread_extension_message_filter.h"
 #include "extensions/browser/url_loader_factory_manager.h"
 #include "extensions/browser/url_request_util.h"
 #include "extensions/browser/view_type_utils.h"
@@ -530,9 +529,10 @@ bool ChromeContentBrowserClientExtensionsPart::
 
 // static
 bool ChromeContentBrowserClientExtensionsPart::
-    ShouldSwapBrowsingInstancesForNavigation(SiteInstance* site_instance,
-                                             const GURL& current_url,
-                                             const GURL& new_url) {
+    ShouldSwapBrowsingInstancesForNavigation(
+        SiteInstance* site_instance,
+        const GURL& current_effective_url,
+        const GURL& destination_effective_url) {
   // If we don't have an ExtensionRegistry, then rely on the SiteInstance logic
   // in RenderFrameHostManager to decide when to swap.
   ExtensionRegistry* registry =
@@ -554,27 +554,29 @@ bool ChromeContentBrowserClientExtensionsPart::
   // check is just doing the same for top-level frames.  See
   // https://crbug.com/590068.
   const Extension* current_extension =
-      registry->enabled_extensions().GetExtensionOrAppByURL(current_url);
+      registry->enabled_extensions().GetExtensionOrAppByURL(
+          current_effective_url);
   bool is_current_url_for_web_store =
       current_extension && current_extension->id() == kWebStoreAppId;
 
-  const Extension* new_extension =
-      registry->enabled_extensions().GetExtensionOrAppByURL(new_url);
-  bool is_new_url_for_web_store =
-      new_extension && new_extension->id() == kWebStoreAppId;
+  const Extension* dest_extension =
+      registry->enabled_extensions().GetExtensionOrAppByURL(
+          destination_effective_url);
+  bool is_dest_url_for_web_store =
+      dest_extension && dest_extension->id() == kWebStoreAppId;
 
   // First do a process check.  We should force a BrowsingInstance swap if we
   // are going to Chrome Web Store, but the current process doesn't know about
   // CWS, even if current_extension somehow corresponds to CWS.
   ProcessMap* process_map = ProcessMap::Get(site_instance->GetBrowserContext());
-  if (is_new_url_for_web_store && site_instance->HasProcess() &&
-      !process_map->Contains(new_extension->id(),
+  if (is_dest_url_for_web_store && site_instance->HasProcess() &&
+      !process_map->Contains(dest_extension->id(),
                              site_instance->GetProcess()->GetID()))
     return true;
 
   // Otherwise, swap BrowsingInstances when transitioning to/from Chrome Web
   // Store.
-  return is_current_url_for_web_store != is_new_url_for_web_store;
+  return is_current_url_for_web_store != is_dest_url_for_web_store;
 }
 
 // static
@@ -638,18 +640,12 @@ ChromeContentBrowserClientExtensionsPart::GetVpnServiceProxy(
 }
 
 // static
-network::mojom::URLLoaderFactoryPtrInfo
-ChromeContentBrowserClientExtensionsPart::
-    CreateURLLoaderFactoryForNetworkRequests(
-        content::RenderProcessHost* process,
-        network::mojom::NetworkContext* network_context,
-        mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>*
-            header_client,
-        const url::Origin& request_initiator,
-        const base::Optional<net::NetworkIsolationKey>& network_isolation_key) {
-  return URLLoaderFactoryManager::CreateFactory(
-      process, network_context, header_client, request_initiator,
-      network_isolation_key);
+void ChromeContentBrowserClientExtensionsPart::OverrideURLLoaderFactoryParams(
+    content::RenderProcessHost* process,
+    const url::Origin& origin,
+    network::mojom::URLLoaderFactoryParams* factory_params) {
+  URLLoaderFactoryManager::OverrideURLLoaderFactoryParams(process, origin,
+                                                          factory_params);
 }
 
 // static
@@ -673,7 +669,6 @@ void ChromeContentBrowserClientExtensionsPart::RenderProcessWillLaunch(
 
   host->AddFilter(new ChromeExtensionMessageFilter(id, profile));
   host->AddFilter(new ExtensionMessageFilter(id, profile));
-  host->AddFilter(new IOThreadExtensionMessageFilter());
   host->AddFilter(new ExtensionsGuestViewMessageFilter(id, profile));
   if (extensions::ExtensionsClient::Get()
           ->ExtensionAPIEnabledInExtensionServiceWorkers()) {

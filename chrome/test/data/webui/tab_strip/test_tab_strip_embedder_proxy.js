@@ -9,17 +9,29 @@ export class TestTabStripEmbedderProxy extends TestBrowserProxy {
     super([
       'closeContainer',
       'getColors',
+      'getLayout',
       'isVisible',
       'observeThemeChanges',
+      'showBackgroundContextMenu',
       'showTabContextMenu',
+      'reportTabActivationDuration',
+      'reportTabDataReceivedDuration',
+      'reportTabCreationDuration',
     ]);
 
+    this.colors_ = {};
+    this.layout_ = {};
     this.visible_ = false;
   }
 
   getColors() {
     this.methodCalled('getColors');
     return Promise.resolve(this.colors_);
+  }
+
+  getLayout() {
+    this.methodCalled('getLayout');
+    return Promise.resolve(this.layout_);
   }
 
   isVisible() {
@@ -29,6 +41,10 @@ export class TestTabStripEmbedderProxy extends TestBrowserProxy {
 
   setColors(colors) {
     this.colors_ = colors;
+  }
+
+  setLayout(layout) {
+    this.layout_ = layout;
   }
 
   setVisible(visible) {
@@ -44,7 +60,23 @@ export class TestTabStripEmbedderProxy extends TestBrowserProxy {
     return Promise.resolve();
   }
 
+  showBackgroundContextMenu(locationX, locationY) {
+    this.methodCalled('showBackgroundContextMenu', [locationX, locationY]);
+  }
+
   showTabContextMenu(tabId, locationX, locationY) {
     this.methodCalled('showTabContextMenu', [tabId, locationX, locationY]);
+  }
+
+  reportTabActivationDuration(durationMs) {
+    this.methodCalled('reportTabActivationDuration', [durationMs]);
+  }
+
+  reportTabDataReceivedDuration(tabCount, durationMs) {
+    this.methodCalled('reportTabDataReceivedDuration', [tabCount, durationMs]);
+  }
+
+  reportTabCreationDuration(tabCount, durationMs) {
+    this.methodCalled('reportTabCreationDuration', [tabCount, durationMs]);
   }
 }

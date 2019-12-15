@@ -54,14 +54,16 @@ class FakeBaseTabStripController : public TabStripController {
   void CreateNewTab() override;
   void CreateNewTabWithLocation(const base::string16& loc) override;
   void StackedLayoutMaybeChanged() override;
-  void OnStartedDraggingTabs() override;
-  void OnStoppedDraggingTabs() override;
+  void OnStartedDragging() override;
+  void OnStoppedDragging() override;
   void OnKeyboardFocusedTabChanged(base::Optional<int> index) override;
   const TabGroupVisualData* GetVisualDataForGroup(
       TabGroupId group_id) const override;
   void SetVisualDataForGroup(TabGroupId group,
                              TabGroupVisualData visual_data) override;
-  std::vector<int> ListTabsInGroup(TabGroupId group_id) const override;
+  std::vector<int> ListTabsInGroup(TabGroupId group) const override;
+  void UngroupAllTabsInGroup(TabGroupId group) override;
+  void AddNewTabInGroup(TabGroupId group) override;
   bool IsFrameCondensed() const override;
   bool HasVisibleBackgroundTabShapes() const override;
   bool EverHasVisibleBackgroundTabShapes() const override;
@@ -73,6 +75,7 @@ class FakeBaseTabStripController : public TabStripController {
       BrowserFrameActiveState active_state) const override;
   base::string16 GetAccessibleTabName(const Tab* tab) const override;
   Profile* GetProfile() const override;
+  const Browser* GetBrowser() const override;
 
  private:
   void SetActiveIndex(int new_index);

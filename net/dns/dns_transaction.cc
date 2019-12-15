@@ -395,6 +395,8 @@ class DnsHTTPAttempt : public DnsAttempt, public URLRequest::Delegate {
     }
 
     request_->SetExtraRequestHeaders(extra_request_headers);
+    // Disable secure DNS for any DoH server hostname lookups to avoid deadlock.
+    request_->SetDisableSecureDns(true);
     // Bypass proxy settings and certificate-related network fetches (currently
     // just OCSP and CRL requests) to avoid deadlock. AIA requests and the
     // Negotiate scheme for HTTP authentication may also cause deadlocks, but
@@ -430,6 +432,10 @@ class DnsHTTPAttempt : public DnsAttempt, public URLRequest::Delegate {
     DCHECK_NE(net::ERR_IO_PENDING, net_error);
     std::string content_type;
     if (net_error != OK) {
+      // Update the error code if there was an issue resolving the secure
+      // server hostname.
+      if (IsDnsError(net_error))
+        net_error = ERR_DNS_SECURE_RESOLVER_HOSTNAME_RESOLUTION_FAILED;
       ResponseCompleted(net_error);
       return;
     }

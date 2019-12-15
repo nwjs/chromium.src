@@ -22,8 +22,6 @@
 #include "build/build_config.h"
 #include "content/common/inter_process_time_ticks_converter.h"
 #include "content/common/navigation_params.h"
-#include "content/common/throttling_url_loader.h"
-#include "content/public/common/navigation_policy.h"
 #include "content/public/common/origin_util.h"
 #include "content/public/common/resource_type.h"
 #include "content/public/common/url_utils.h"
@@ -46,6 +44,7 @@
 #include "services/network/public/cpp/url_loader_completion_status.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/loader/mime_sniffing_throttle.h"
+#include "third_party/blink/public/common/loader/throttling_url_loader.h"
 
 namespace content {
 
@@ -93,7 +92,7 @@ int GetInitialRequestID() {
 }
 
 // Determines if the loader should be restarted on a redirect using
-// ThrottlingURLLoader::FollowRedirectForcingRestart.
+// blink::ThrottlingURLLoader::FollowRedirectForcingRestart.
 bool RedirectRequiresLoaderRestart(const GURL& original_url,
                                    const GURL& redirect_url) {
   // Restart is needed if the URL is no longer handled by network service.
@@ -432,7 +431,7 @@ void ResourceDispatcher::StartSync(
     std::unique_ptr<RequestPeer> peer) {
   CheckSchemeForReferrerPolicy(*request);
 
-  std::unique_ptr<network::SharedURLLoaderFactoryInfo> factory_info =
+  std::unique_ptr<network::PendingSharedURLLoaderFactory> pending_factory =
       url_loader_factory->Clone();
   base::WaitableEvent redirect_or_response_event(
       base::WaitableEvent::ResetPolicy::MANUAL,
@@ -452,7 +451,7 @@ void ResourceDispatcher::StartSync(
       FROM_HERE,
       base::BindOnce(&SyncLoadContext::StartAsyncWithWaitableEvent,
                      std::move(request), routing_id, task_runner,
-                     traffic_annotation, std::move(factory_info),
+                     traffic_annotation, std::move(pending_factory),
                      std::move(throttles), base::Unretained(response),
                      base::Unretained(&redirect_or_response_event),
                      base::Unretained(terminate_sync_load_event_), timeout,
@@ -557,8 +556,8 @@ int ResourceDispatcher::StartAsync(
     request->load_flags |= net::LOAD_IGNORE_LIMITS;
   }
 
-  std::unique_ptr<ThrottlingURLLoader> url_loader =
-      ThrottlingURLLoader::CreateLoaderAndStart(
+  std::unique_ptr<blink::ThrottlingURLLoader> url_loader =
+      blink::ThrottlingURLLoader::CreateLoaderAndStart(
           std::move(url_loader_factory), std::move(throttles), routing_id,
           request_id, options, request.get(), client.get(), traffic_annotation,
           std::move(loading_task_runner));
@@ -641,15 +640,13 @@ void ResourceDispatcher::ContinueForNavigation(int request_id) {
   if (!GetPendingRequestInfo(request_id))
     return;
 
-  if (response_override->response_body.is_valid()) {
-    DCHECK(IsNavigationImmediateResponseBodyEnabled());
-    client_ptr->OnStartLoadingResponseBody(
-        std::move(response_override->response_body));
+  DCHECK(response_override->response_body.is_valid());
+  client_ptr->OnStartLoadingResponseBody(
+      std::move(response_override->response_body));
 
-    // Abort if the request is cancelled.
-    if (!GetPendingRequestInfo(request_id))
-      return;
-  }
+  // Abort if the request is cancelled.
+  if (!GetPendingRequestInfo(request_id))
+    return;
 
   DCHECK(response_override->url_loader_client_endpoints);
   client_ptr->Bind(std::move(response_override->url_loader_client_endpoints));

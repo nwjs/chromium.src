@@ -191,14 +191,16 @@ class CONTENT_EXPORT BrowserAccessibilityManager : public ui::AXTreeObserver,
   // view lost focus.
   virtual void OnWindowBlurred();
 
-  // Notify the accessibility manager about page navigation.
-  // TODO(domfarolino, dmazzoni): Implement WebContentsObserver methods that
-  // correspond to the ones we provide today, so we can stop being manually
-  // notified of navigation events when they happen.
-  void UserIsNavigatingAway();
   virtual void UserIsReloading();
-  void NavigationSucceeded();
-  void NavigationFailed();
+
+  // WebContentsObserver implementation.
+  // Notify the accessibility manager about page navigation.
+  // BrowserAccessibilityManager used to be manually notified at the same time
+  // WebContentsObserver's DidStartLoading(), DidStopLoading(), and
+  // DidFinishNavigation() methods were called. Since then, it was determined
+  // BrowserAccessibilityManager does not need to distinguish between
+  // DidFinishNavigation() and DidStopLoading().
+  void DidStartLoading() override;
   void DidStopLoading() override;
 
   // Keep track of if this page is hidden by an interstitial, in which case
@@ -216,7 +218,7 @@ class CONTENT_EXPORT BrowserAccessibilityManager : public ui::AXTreeObserver,
 
   // For testing only, register a function to be called when focus changes
   // in any BrowserAccessibilityManager.
-  static void SetFocusChangeCallbackForTesting(const base::Closure& callback);
+  static void SetFocusChangeCallbackForTesting(base::RepeatingClosure callback);
 
   // For testing only, register a function to be called when
   // a generated event is fired from this BrowserAccessibilityManager.
@@ -249,7 +251,9 @@ class CONTENT_EXPORT BrowserAccessibilityManager : public ui::AXTreeObserver,
       ax::mojom::ScrollAlignment horizontal_scroll_alignment =
           ax::mojom::ScrollAlignment::kScrollAlignmentCenter,
       ax::mojom::ScrollAlignment vertical_scroll_alignment =
-          ax::mojom::ScrollAlignment::kScrollAlignmentCenter);
+          ax::mojom::ScrollAlignment::kScrollAlignmentCenter,
+      ax::mojom::ScrollBehavior scroll_behavior =
+          ax::mojom::ScrollBehavior::kDoNotScrollIfVisible);
   void ScrollToPoint(const BrowserAccessibility& node, gfx::Point point);
   void SetAccessibilityFocus(const BrowserAccessibility& node);
   void SetFocus(const BrowserAccessibility& node);
@@ -403,6 +407,7 @@ class CONTENT_EXPORT BrowserAccessibilityManager : public ui::AXTreeObserver,
   void OnNodeWillBeDeleted(ui::AXTree* tree, ui::AXNode* node) override;
   void OnSubtreeWillBeDeleted(ui::AXTree* tree, ui::AXNode* node) override;
   void OnNodeCreated(ui::AXTree* tree, ui::AXNode* node) override;
+  void OnNodeDeleted(ui::AXTree* tree, int32_t node_id) override;
   void OnNodeReparented(ui::AXTree* tree, ui::AXNode* node) override;
   void OnAtomicUpdateFinished(
       ui::AXTree* tree,

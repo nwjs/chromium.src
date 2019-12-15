@@ -159,46 +159,7 @@ void LayoutBlock::WillBeDestroyed() {
 
 void LayoutBlock::StyleWillChange(StyleDifference diff,
                                   const ComputedStyle& new_style) {
-  const ComputedStyle* old_style = Style();
-
   SetIsAtomicInlineLevel(new_style.IsDisplayInlineType());
-
-  if (old_style && Parent()) {
-    bool old_style_contains_fixed_position = ComputeIsFixedContainer(old_style);
-    bool old_style_contains_absolute_position =
-        ComputeIsAbsoluteContainer(old_style);
-    bool new_style_contains_fixed_position =
-        ComputeIsFixedContainer(&new_style);
-    bool new_style_contains_absolute_position =
-        ComputeIsAbsoluteContainer(&new_style);
-
-    if ((old_style_contains_fixed_position &&
-         !new_style_contains_fixed_position) ||
-        (old_style_contains_absolute_position &&
-         !new_style_contains_absolute_position)) {
-      // Clear our positioned objects list. Our absolute and fixed positioned
-      // descendants will be inserted into our containing block's positioned
-      // objects list during layout.
-      RemovePositionedObjects(nullptr, kNewContainingBlock);
-    }
-    if (!old_style_contains_absolute_position &&
-        new_style_contains_absolute_position) {
-      // Remove our absolutely positioned descendants from their current
-      // containing block.
-      // They will be inserted into our positioned objects list during layout.
-      if (LayoutBlock* cb = ContainingBlockForAbsolutePosition())
-        cb->RemovePositionedObjects(this, kNewContainingBlock);
-    }
-    if (!old_style_contains_fixed_position &&
-        new_style_contains_fixed_position) {
-      // Remove our fixed positioned descendants from their current containing
-      // block.
-      // They will be inserted into our positioned objects list during layout.
-      if (LayoutBlock* cb = ContainingBlockForFixedPosition())
-        cb->RemovePositionedObjects(this, kNewContainingBlock);
-    }
-  }
-
   LayoutBox::StyleWillChange(diff, new_style);
 }
 
@@ -1241,7 +1202,7 @@ bool LayoutBlock::HitTestChildren(HitTestResult& result,
   DCHECK(!ChildrenInline());
   PhysicalOffset scrolled_offset = accumulated_offset;
   if (HasOverflowClip())
-    scrolled_offset -= PhysicalOffset(ScrolledContentOffset());
+    scrolled_offset -= PhysicalOffset(PixelSnappedScrolledContentOffset());
   HitTestAction child_hit_test = hit_test_action;
   if (hit_test_action == kHitTestChildBlockBackgrounds)
     child_hit_test = kHitTestChildBlockBackground;
@@ -1428,7 +1389,7 @@ PositionWithAffinity LayoutBlock::PositionForPoint(
 
 void LayoutBlock::OffsetForContents(PhysicalOffset& offset) const {
   if (HasOverflowClip())
-    offset += PhysicalOffset(ScrolledContentOffset());
+    offset += PhysicalOffset(PixelSnappedScrolledContentOffset());
 }
 
 void LayoutBlock::ScrollbarsChanged(bool horizontal_scrollbar_changed,
@@ -1443,14 +1404,18 @@ void LayoutBlock::ComputeIntrinsicLogicalWidths(
     LayoutUnit& max_logical_width) const {
   int scrollbar_width = ScrollbarLogicalWidth();
 
-  // Size-contained elements don't consider their contents for preferred sizing.
-  if (ShouldApplySizeContainment()) {
-    // For multicol containers we need the column gaps. So allow descending into
-    // the flow thread, which will take care of that.
-    const auto* block_flow = DynamicTo<LayoutBlockFlow>(this);
-    if (!block_flow || !block_flow->MultiColumnFlowThread()) {
+  // See if we can early out sooner if the logical width is overridden or we're
+  // size contained. Note that for multicol containers we need the column gaps.
+  // So allow descending into the flow thread, which will take care of that.
+  const auto* block_flow = DynamicTo<LayoutBlockFlow>(this);
+  if (!block_flow || !block_flow->MultiColumnFlowThread()) {
+    if (HasOverrideIntrinsicContentLogicalWidth()) {
       max_logical_width = min_logical_width =
-          ContentLogicalWidthForSizeContainment() + LayoutUnit(scrollbar_width);
+          OverrideIntrinsicContentLogicalWidth() + LayoutUnit(scrollbar_width);
+      return;
+    }
+    if (ShouldApplySizeContainment()) {
+      max_logical_width = min_logical_width = LayoutUnit(scrollbar_width);
       return;
     }
   }
@@ -1706,7 +1671,7 @@ bool LayoutBlock::HasLineIfEmpty() const {
     return true;
 
   if (auto* shadow_root = DynamicTo<ShadowRoot>(GetNode())) {
-    if (IsHTMLInputElement(shadow_root->host()))
+    if (IsA<HTMLInputElement>(shadow_root->host()))
       return true;
   }
 
@@ -2131,15 +2096,6 @@ bool LayoutBlock::RecalcNormalFlowChildLayoutOverflowIfNeeded(
   return layout_object->RecalcLayoutOverflow();
 }
 
-void LayoutBlock::RecalcNormalFlowChildVisualOverflowIfNeeded(
-    LayoutObject* layout_object) {
-  if (layout_object->IsOutOfFlowPositioned() ||
-      (layout_object->HasLayer() &&
-       ToLayoutBoxModelObject(layout_object)->HasSelfPaintingLayer()))
-    return;
-  layout_object->RecalcVisualOverflow();
-}
-
 bool LayoutBlock::RecalcChildLayoutOverflow() {
   DCHECK(!IsTable());
   DCHECK(ChildNeedsLayoutOverflowRecalc());
@@ -2173,7 +2129,7 @@ void LayoutBlock::RecalcChildVisualOverflow() {
     To<LayoutBlockFlow>(this)->RecalcInlineChildrenVisualOverflow();
   } else {
     for (LayoutBox* box = FirstChildBox(); box; box = box->NextSiblingBox()) {
-      RecalcNormalFlowChildVisualOverflowIfNeeded(box);
+      box->RecalcNormalFlowChildVisualOverflowIfNeeded();
     }
   }
 

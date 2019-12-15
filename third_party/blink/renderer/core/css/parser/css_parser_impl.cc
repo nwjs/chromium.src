@@ -73,7 +73,7 @@ MutableCSSPropertyValueSet::SetResult CSSParserImpl::ParseValue(
     const String& string,
     bool important,
     const CSSParserContext* context) {
-  CSSParserImpl parser(context);
+  STACK_UNINITIALIZED CSSParserImpl parser(context);
   StyleRule::RuleType rule_type = StyleRule::kStyle;
   if (declaration->CssParserMode() == kCSSViewportRuleMode)
     rule_type = StyleRule::kViewport;
@@ -99,7 +99,7 @@ MutableCSSPropertyValueSet::SetResult CSSParserImpl::ParseVariableValue(
     bool important,
     const CSSParserContext* context,
     bool is_animation_tainted) {
-  CSSParserImpl parser(context);
+  STACK_UNINITIALIZED CSSParserImpl parser(context);
   CSSTokenizer tokenizer(value);
   // TODO(crbug.com/661854): Use streams instead of ranges
   const auto tokens = tokenizer.TokenizeToEOF();
@@ -265,12 +265,15 @@ ParseSheetResult CSSParserImpl::ParseStyleSheet(
   ParseSheetResult result = ParseSheetResult::kSucceeded;
   bool first_rule_valid = parser.ConsumeRuleList(
       stream, kTopLevelRuleList,
-      [&style_sheet, &result, allow_import_rules](StyleRuleBase* rule) {
+      [&style_sheet, &result, allow_import_rules,
+       context](StyleRuleBase* rule) {
         if (rule->IsCharsetRule())
           return;
-        if (rule->IsImportRule() && !allow_import_rules) {
-          result = ParseSheetResult::kHasUnallowedImportRule;
-          return;
+        if (rule->IsImportRule()) {
+          if (!allow_import_rules || context->IsForMarkupSanitization()) {
+            result = ParseSheetResult::kHasUnallowedImportRule;
+            return;
+          }
         }
         style_sheet->ParserAppendRule(rule);
       });

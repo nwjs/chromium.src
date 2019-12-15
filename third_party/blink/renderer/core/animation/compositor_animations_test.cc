@@ -103,7 +103,7 @@ CSSPaintImageGenerator* ProvideOverrideGenerator(
 }
 }  // namespace
 
-using namespace css_test_helpers;
+using css_test_helpers::RegisterProperty;
 
 class AnimationCompositorAnimationsTest : public PaintTestConfigurations,
                                           public RenderingTest {
@@ -345,7 +345,7 @@ class AnimationCompositorAnimationsTest : public PaintTestConfigurations,
                                      LinearTimingFunction::Shared(),
                                      EffectModel::kCompositeReplace),
             compositor_keyframe_value_(
-                CompositorKeyframeDouble::Create(offset)) {}
+                MakeGarbageCollected<CompositorKeyframeDouble>(offset)) {}
       bool IsNeutral() const final { return true; }
       PropertySpecificKeyframe* CloneWithOffset(double) const final {
         NOTREACHED();

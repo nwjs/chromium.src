@@ -32,6 +32,7 @@
 <translation id="1294929383540927798">更改锁定屏幕通知设置</translation>
 <translation id="1301069673413256657">GSM</translation>
 <translation id="1302880136325416935">显示蓝牙设置。<ph name="STATE_TEXT" /></translation>
+<translation id="1312604459020188865">信号强度为 <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="1316069254387866896">一律显示任务栏</translation>
 <translation id="1341651618736211726">溢出</translation>
 <translation id="1346748346194534595">向右</translation>
@@ -47,7 +48,6 @@
 <translation id="1516740043221086139">“勿扰”模式已开启。</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{显示通知设置。针对 1 个应用关闭通知}other{显示通知设置。针对 # 个应用关闭通知}}</translation>
 <translation id="1525508553941733066">关闭</translation>
-<translation id="1537254971476575106">全屏放大镜</translation>
 <translation id="15373452373711364">大号鼠标光标</translation>
 <translation id="1546492247443594934">桌面 2</translation>
 <translation id="1550523713251050646">点击即可查看更多选项</translation>
@@ -63,6 +63,7 @@
 <translation id="1747827819627189109">屏幕键盘已启用</translation>
 <translation id="1761222317188459878">切换网络连接设置。<ph name="STATE_TEXT" /></translation>
 <translation id="1771761307086386028">向右滚动</translation>
+<translation id="181103072419391116">信号强度为 <ph name="SIGNAL_STRENGTH" />，由您的管理员管理</translation>
 <translation id="1812997170047690955">我屏幕上有什么内容？</translation>
 <translation id="1823873187264960516">以太网：<ph name="ADDRESS" /></translation>
 <translation id="1836215606488044471">智能助理（正在加载中…）</translation>
@@ -79,6 +80,7 @@
 <translation id="1957958912175573503">设置语言</translation>
 <translation id="1962969542251276847">锁定屏幕</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="1972950159383891558"><ph name="USERNAME" />，您好！</translation>
 <translation id="1978498689038657292">文字输入</translation>
 <translation id="1993072747612765854">详细了解最新的 <ph name="SYSTEM_APP_NAME" />更新</translation>
 <translation id="1995660704900986789">关机</translation>
@@ -94,11 +96,13 @@
 <translation id="2148902151539191989">返回</translation>
 <translation id="2208323208084708176">统一桌面模式</translation>
 <translation id="2220572644011485463">PIN 码或密码</translation>
+<translation id="2222338659135520253">必须登录</translation>
 <translation id="225680501294068881">正在查找设备...</translation>
 <translation id="2268130516524549846">蓝牙已停用</translation>
 <translation id="2268813581635650749">全部退出</translation>
 <translation id="2277103315734023688">快进</translation>
 <translation id="2292698582925480719">显示比例</translation>
+<translation id="2298170939937364391">已启用全屏放大镜。再按一次 Ctrl+搜索键+M 组合键即可将其停用。</translation>
 <translation id="2302092602801625023">该帐号由 Family Link 管理</translation>
 <translation id="2303600792989757991">“切换窗口”概述</translation>
 <translation id="2339073806695260576">点按任务栏中的触控笔按钮即可开始记事、截取屏幕截图以及使用激光笔/放大镜。</translation>
@@ -116,13 +120,14 @@
 <translation id="2484513351006226581">按 <ph name="KEYBOARD_SHORTCUT" />键可切换键盘布局。</translation>
 <translation id="2501920221385095727">粘滞键</translation>
 <translation id="2509468283778169019">CAPS LOCK 已打开</translation>
-<translation id="2532589005999780174">高反差模式</translation>
+<translation id="2517825809102302935">仅针对今晚关闭</translation>
 <translation id="2542089167727451762">请点按您的个人资料图片</translation>
 <translation id="255671100581129685">无法在公用自助终端使用 Google 助理。</translation>
 <translation id="256712445991462162">停靠的放大镜</translation>
 <translation id="2575685495496069081">多帐号登录已被停用</translation>
 <translation id="2582112259361606227">重启以进行更新</translation>
 <translation id="2617342710774726426">SIM 卡已被锁定</translation>
+<translation id="2621713457727696555">已受到安全保护</translation>
 <translation id="2653659639078652383">提交</translation>
 <translation id="2658778018866295321">点击并拖动</translation>
 <translation id="2700493154570097719">设置键盘</translation>
@@ -159,15 +164,15 @@
 <translation id="3139942575505304791">桌面 1</translation>
 <translation id="315116470104423982">移动数据</translation>
 <translation id="3151786313568798007">方向</translation>
-<translation id="3152934361839663679">您的设备所连接的显示器的数量已达到上限，因此系统断开了与其中一个屏幕的连接。</translation>
 <translation id="3153444934357957346">使用多帐号登录时，一次最多只能登入 <ph name="MULTI_PROFILE_USER_LIMIT" /> 个帐号。</translation>
 <translation id="3154351730702813399">此设备的管理员可能会监控您的浏览活动。</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{已连接到 1 台设备}other{已连接到 # 台设备}}</translation>
+<translation id="3217205077783620295">已开启声音，使用切换开关可将音频静音。</translation>
 <translation id="3226991577105957773">+另外 <ph name="COUNT" /> 条</translation>
 <translation id="3236488194889173876">没有可用的移动网络</translation>
 <translation id="3249513730522716925">窗口“<ph name="WINDOW_TITLE" />”已由桌面 <ph name="ACTIVE_DESK" /> 移至桌面 <ph name="TARGET_DESK" /></translation>
 <translation id="3255483164551725916">你能做些什么？</translation>
-<translation id="3277674767125718685">当前已开启声音。</translation>
+<translation id="3290356915286466215">未受到安全保护</translation>
 <translation id="3294437725009624529">访客</translation>
 <translation id="3308453408813785101">日后“<ph name="USER_EMAIL_ADDRESS" />”仍能登录。</translation>
 <translation id="3321628682574733415">家长访问代码不正确</translation>
@@ -183,7 +188,9 @@
 <translation id="3445925074670675829">USB-C 设备</translation>
 <translation id="3454224730401036106">您已切换到一个更安全的网络连接</translation>
 <translation id="3465223694362104965">这部设备当前连接的键盘已不同于您上次登录时所用的键盘。请确保您信任此键盘，然后再使用它。</translation>
+<translation id="3465356146291925647">由您的管理员管理</translation>
 <translation id="3477079411857374384">Ctrl+Shift+空格键</translation>
+<translation id="3485319357743610354"><ph name="SECURITY_STATUS" />，<ph name="CONNECTION_STATUS" />，信号强度为 <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="3510164367642747937">突出显示鼠标光标</translation>
 <translation id="3513798432020909783">该帐号由 <ph name="MANAGER_EMAIL" /> 管理</translation>
 <translation id="3573179567135747900">重新更改为“<ph name="FROM_LOCALE" />”（需要重启）</translation>
@@ -250,6 +257,7 @@
 <translation id="4430019312045809116">音量</translation>
 <translation id="4450893287417543264">不再显示</translation>
 <translation id="4477350412780666475">下一曲</translation>
+<translation id="4477892968187500306">此设备可能包含未经 Google 验证的应用。</translation>
 <translation id="4479639480957787382">以太网</translation>
 <translation id="4481530544597605423">未配对的设备</translation>
 <translation id="4505050298327493054">处于活动状态的桌面。</translation>
@@ -287,6 +295,7 @@
 <translation id="4924411785043111640">重启并重置</translation>
 <translation id="495046168593986294">向上滚动</translation>
 <translation id="4961318399572185831">投射屏幕</translation>
+<translation id="5018302031617932556">护眼模式可让您更舒适地在黯淡的光线下查看屏幕或阅读文字。点按即可更改。</translation>
 <translation id="5030687792513154421">时间到</translation>
 <translation id="5035236842988137213"><ph name="DEVICE_NAME" />已连接到新手机</translation>
 <translation id="5083553833479578423">启用更多 Google 助理功能。</translation>
@@ -297,6 +306,7 @@
 <translation id="523505283826916779">无障碍设置</translation>
 <translation id="5260676007519551770">桌面 4</translation>
 <translation id="5283198616748585639">加 1 分钟</translation>
+<translation id="5286194356314741248">正在扫描</translation>
 <translation id="5302048478445481009">语言</translation>
 <translation id="5313326810920013265">蓝牙设置</translation>
 <translation id="5331975486040154427">USB-C 设备（左侧后端端口）</translation>
@@ -322,8 +332,10 @@
 <translation id="5682642926269496722">当前用户帐号无法使用 Google 助理。</translation>
 <translation id="5691772641933328258">无法识别指纹</translation>
 <translation id="5710450975648804523">“请勿打扰”模式已开启</translation>
+<translation id="573413375004481890">此设备无法支持您的所有显示屏，因此断开了与其中一个显示屏的连接</translation>
 <translation id="574392208103952083">中</translation>
 <translation id="5744083938413354016">点按拖动</translation>
+<translation id="5745612484876805746">护眼模式会于日落时自动开启</translation>
 <translation id="5750765938512549687">蓝牙已关闭</translation>
 <translation id="576453121877257266">当前已开启护眼模式。</translation>
 <translation id="5777841717266010279">要停止屏幕共享吗？</translation>
@@ -345,6 +357,7 @@
 <translation id="5992218262414051481">已启用高反差模式。再按一次 Ctrl+搜索键+H 组合键即可关闭此模式。</translation>
 <translation id="6018164090099858612">正在退出镜像模式</translation>
 <translation id="602001110135236999">向左滚动</translation>
+<translation id="6025324406281560198"><ph name="SECURITY_STATUS" />，<ph name="CONNECTION_STATUS" />，信号强度为 <ph name="SIGNAL_STRENGTH" />，由您的管理员管理</translation>
 <translation id="6040143037577758943">关闭</translation>
 <translation id="6043212731627905357">该显示器与您的<ph name="DEVICE_TYPE" />不兼容（系统不支持该显示器）。</translation>
 <translation id="6043994281159824495">立即退出</translation>
@@ -368,6 +381,7 @@
 <translation id="6376931439017688372">蓝牙已开启</translation>
 <translation id="639644700271529076">CAPS LOCK 已关闭</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="6424520630891723617"><ph name="SECURITY_STATUS" />，信号强度为 <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="642644398083277086">清除所有通知</translation>
 <translation id="643147933154517414">大功告成</translation>
 <translation id="6445835306623867477">正在将“<ph name="ROUTE_TITLE" />”投射至“<ph name="RECEIVER_NAME" />”</translation>
@@ -381,9 +395,11 @@
 <translation id="6521655319214113338">手写输入</translation>
 <translation id="6528179044667508675">请勿打扰</translation>
 <translation id="6537270692134705506">获取屏幕截图</translation>
+<translation id="6537924328260219877">信号强度为 <ph name="SIGNAL_STRENGTH" />，剩余电量为 <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">正在投射到<ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">询问您的管理员</translation>
 <translation id="6585808820553845416">会话将在<ph name="SESSION_TIME_REMAINING" />后结束。</translation>
+<translation id="661203523074512333"><ph name="SECURITY_STATUS" />，信号强度为 <ph name="SIGNAL_STRENGTH" />，由您的管理员管理</translation>
 <translation id="6627638273713273709">搜索键+Shift+K</translation>
 <translation id="6637729079642709226">更改时间</translation>
 <translation id="6650933572246256093">蓝牙设备“<ph name="DEVICE_NAME" />”需要配对许可。请在该设备上输入以下配对密钥：<ph name="PASSKEY" /></translation>
@@ -415,6 +431,7 @@
 <translation id="7015766095477679451">您需要等到<ph name="COME_BACK_TIME" /> 才能再次使用此设备。</translation>
 <translation id="7025533177575372252">将您的<ph name="DEVICE_NAME" />连接到手机</translation>
 <translation id="7029814467594812963">退出会话</translation>
+<translation id="703425375924687388"><ph name="QUERY_NAME" />，Google 助理</translation>
 <translation id="7042322267639375032">收起状态区</translation>
 <translation id="7066646422045619941">您的管理员已禁用此网络。</translation>
 <translation id="7067196344162293536">自动旋转</translation>
@@ -476,12 +493,12 @@
 <translation id="7904094684485781019">此帐号的管理员已停用多帐号登录。</translation>
 <translation id="7933084174919150729">Google 助理仅适用于主要个人资料。</translation>
 <translation id="79341161159229895">该帐号由 <ph name="FIRST_PARENT_EMAIL" /> 和 <ph name="SECOND_PARENT_EMAIL" /> 管理</translation>
+<translation id="7955885781510802139">高对比度模式</translation>
 <translation id="7977927628060636163">正在搜索移动网络…</translation>
 <translation id="7982789257301363584">网络</translation>
 <translation id="7984197416080286869">指纹尝试次数过多</translation>
 <translation id="7994370417837006925">多帐号登录</translation>
 <translation id="8000066093800657092">未连接任何网络</translation>
-<translation id="8029241286966751120">已启用全屏放大镜。再按一次 Ctrl+搜索键+M 组合键即可将其停用。</translation>
 <translation id="8030169304546394654">连接已断开</translation>
 <translation id="8054466585765276473">正在计算续航时间。</translation>
 <translation id="8061464966246066292">高对比度</translation>
@@ -497,6 +514,8 @@
 <translation id="8192202700944119416">已隐藏通知。</translation>
 <translation id="8203795194971602413">点击鼠标右键</translation>
 <translation id="8236042855478648955">该休息了</translation>
+<translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />，信号强度为 <ph name="SIGNAL_STRENGTH" />，剩余电量为 <ph name="BATTERY_STATUS" /></translation>
+<translation id="826107067893790409">按 Enter 键即可为 <ph name="USER_EMAIL_ADDRESS" /> 解锁</translation>
 <translation id="8261506727792406068">删除</translation>
 <translation id="8297006494302853456">弱</translation>
 <translation id="8308637677604853869">上一菜单</translation>
@@ -506,7 +525,6 @@
 <translation id="8388750414311082622">无法移除最后一个桌面。</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> 的“选项”菜单</translation>
 <translation id="8394567579869570560">您的家长锁定了此设备</translation>
-<translation id="8406981827175133772">全屏放大镜</translation>
 <translation id="8425213833346101688">更改</translation>
 <translation id="8427213022735114808">语音输入功能会将您的语音内容发送给 Google，以便能在任何文本字段中进行语音输入。</translation>
 <translation id="8428213095426709021">设置</translation>
@@ -521,10 +539,12 @@
 <translation id="8513108775083588393">自动旋转屏幕</translation>
 <translation id="8517041960877371778">您的 <ph name="DEVICE_TYPE" /> 在开启时可能无法充电。</translation>
 <translation id="8627191004499078455">已连接到<ph name="DEVICE_NAME" /></translation>
+<translation id="8637598503828012618"><ph name="CONNECTION_STATUS" />，信号强度为 <ph name="SIGNAL_STRENGTH" />，由您的管理员管理</translation>
 <translation id="8639760480004882931">剩余电量：<ph name="PERCENTAGE" /></translation>
 <translation id="8649101189709089199">随选朗读</translation>
 <translation id="8652175077544655965">关闭设置</translation>
 <translation id="8653151467777939995">显示通知设置。通知已开启</translation>
+<translation id="8663756353922886599"><ph name="CONNECTION_STATUS" />，信号强度为 <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="8664753092453405566">显示网络列表。<ph name="STATE_TEXT" /></translation>
 <translation id="8673028979667498656">270°</translation>
 <translation id="8676770494376880701">已连接低功率充电器</translation>
@@ -533,6 +553,7 @@
 <translation id="8734991477317290293">当前连接的键盘可能会试图窃取您的击键操作</translation>
 <translation id="8735953464173050365">显示键盘设置。已选择<ph name="KEYBOARD_NAME" /></translation>
 <translation id="875593634123171288">显示 VPN 设置</translation>
+<translation id="8785070478575117577">连接到“<ph name="NETWORK_NAME" />”</translation>
 <translation id="8814190375133053267">Wi-Fi</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8843682306134542540">切换旋转锁定设置。<ph name="STATE_TEXT" /></translation>
@@ -551,9 +572,9 @@
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">目前使用的是“<ph name="IME_NAME" />”</translation>
 <translation id="899350903320462459">以 <ph name="LOGIN_ID" /> 身份解锁设备即可执行通知操作</translation>
-<translation id="8995603266996330174">由 <ph name="DOMAIN" /> 管理</translation>
 <translation id="9017320285115481645">输入 Family Link 家长访问码。</translation>
 <translation id="9029474291399787231">有可用的 Adobe Flash Player 更新</translation>
+<translation id="9047624247355796468">打开“<ph name="NETWORK_NAME" />”的设置。</translation>
 <translation id="9056839673611986238">设备将被回滚</translation>
 <translation id="9070640332319875144">Google 助理设置</translation>
 <translation id="9072519059834302790">电池电量将在 <ph name="TIME_LEFT" />后耗尽</translation>
@@ -565,8 +586,11 @@
 <translation id="9091626656156419976">已移除显示器“<ph name="DISPLAY_NAME" />”</translation>
 <translation id="9151726767154816831">重新启动并通过 Powerwash 来进行更新</translation>
 <translation id="9179259655489829027">借助此功能，您无需使用密码即可快速访问任何已登录的用户。请仅对您信任的帐号使用此功能。</translation>
+<translation id="9183456764293710005">全屏放大镜</translation>
 <translation id="9193626018745640770">正在投射至不明接收器</translation>
 <translation id="9194617393863864469">登录其他用户帐号…</translation>
+<translation id="9201374708878217446"><ph name="CONNECTION_STATUS" />，由您的管理员管理</translation>
+<translation id="9205817095063786319">设备由 <ph name="DOMAIN" /> 管理</translation>
 <translation id="9210037371811586452">正在退出统一桌面模式</translation>
 <translation id="9211681782751733685">电池电量将在 <ph name="TIME_REMAINING" />后充满。</translation>
 <translation id="9215934040295798075">设置壁纸</translation>

@@ -68,15 +68,6 @@ Polymer({
       value: () => [],
     },
 
-    /**
-     * Duration of the undo toast in ms
-     * @private
-     */
-    toastDuration_: {
-      type: Number,
-      value: 5000,
-    },
-
     /** @override */
     subpageRoute: {
       type: Object,
@@ -270,8 +261,8 @@ Polymer({
          * @type {function(!Array<PasswordManagerProxy.ExceptionEntry>):void}
          */
         (this.setPasswordExceptionsListener_));
-    if (cr.toastManager.getInstance().isToastOpen) {
-      cr.toastManager.getInstance().hide();
+    if (cr.toastManager.getToastManager().isToastOpen) {
+      cr.toastManager.getToastManager().hide();
     }
   },
 
@@ -370,9 +361,10 @@ Polymer({
   onMenuRemovePasswordTap_: function() {
     this.passwordManager_.removeSavedPassword(
         this.activePassword.item.entry.id);
-    cr.toastManager.getInstance().show(
-        this.i18n('passwordDeleted'),
-        /* showUndo */ true);
+    cr.toastManager.getToastManager().show(this.i18n('passwordDeleted'));
+    this.fire('iron-announce', {
+      text: this.i18n('undoDescription'),
+    });
     /** @type {CrActionMenuElement} */ (this.$.menu).close();
   },
 
@@ -392,10 +384,12 @@ Polymer({
     }
   },
 
-  onUndoButtonTap_: function() {
+  /** @private */
+  onUndoButtonClick_: function() {
     this.passwordManager_.undoRemoveSavedPasswordOrException();
-    cr.toastManager.getInstance().hide();
+    cr.toastManager.getToastManager().hide();
   },
+
   /**
    * Fires an event that should delete the password exception.
    * @param {!ExceptionEntryEntryEvent} e The polymer event.

@@ -136,7 +136,6 @@ suite('SiteDetails', function() {
           settings.ContentSettingsTypes.PROTECTED_CONTENT);
     }
     const experimentalSiteDetailsContentSettingsTypes = [
-      settings.ContentSettingsTypes.SERIAL_PORTS,
       settings.ContentSettingsTypes.BLUETOOTH_SCANNING,
     ];
 
@@ -428,7 +427,7 @@ suite('SiteDetails', function() {
       },
       clearUsage: function(origin) {},
     });
-    let api = document.createElement('mock1-website-usage-private-api');
+    const api = document.createElement('mock1-website-usage-private-api');
     testElement.$.usageApi = api;
     parent.appendChild(api);
     Polymer.dom.flush();

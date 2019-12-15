@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/frame/deprecation.h"
 
 #include <bitset>
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink.h"
 #include "third_party/blink/public/mojom/reporting/reporting.mojom-blink.h"
@@ -22,6 +23,7 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/workers/worker_or_worklet_global_scope.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+#include "third_party/blink/renderer/platform/wtf/date_math.h"
 
 using blink::WebFeature;
 
@@ -43,110 +45,74 @@ const char kChromeLoadTimesPaintTiming[] =
 
 enum Milestone {
   kUnknown,
-  kM61,
-  kM62,
-  kM64,
-  kM65,
-  kM70,
-  kM71,
-  kM72,
-  kM75,
-  kM76,
-  kM77,
-  kM78,
-  kM79,
-  kM80,
-  kM81,
-  kM82,
+  kM61 = 61,
+  kM62 = 62,
+  kM64 = 64,
+  kM65 = 65,
+  kM70 = 70,
+  kM71 = 71,
+  kM72 = 72,
+  kM75 = 75,
+  kM76 = 76,
+  kM77 = 77,
+  kM78 = 78,
+  kM79 = 79,
+  kM80 = 80,
+  kM81 = 81,
+  kM82 = 82,
 };
 
-// Returns estimated milestone dates as human-readable strings.
-const char* MilestoneString(Milestone milestone) {
+// Returns estimated milestone dates as milliseconds since January 1, 1970.
+base::Time::Exploded MilestoneDate(Milestone milestone) {
   // These are the Estimated Stable Dates:
   // https://www.chromium.org/developers/calendar
-
+  // All dates except for kUnknown are at 04:00:00 GMT.
   switch (milestone) {
     case kUnknown:
-      return "";
+      break;
     case kM61:
-      return "M61, around September 2017";
+      return {2017, 9, 0, 5, 4};
     case kM62:
-      return "M62, around October 2017";
+      return {2017, 10, 0, 17, 4};
     case kM64:
-      return "M64, around January 2018";
+      return {2018, 1, 0, 23, 4};
     case kM65:
-      return "M65, around March 2018";
+      return {2018, 3, 0, 6, 4};
     case kM70:
-      return "M70, around October 2018";
+      return {2018, 10, 0, 16, 4};
     case kM71:
-      return "M71, around December 2018";
+      return {2018, 12, 0, 4, 4};
     case kM72:
-      return "M72, around January 2019";
+      return {2019, 1, 0, 29, 4};
     case kM75:
-      return "M75, around June 2019";
+      return {2019, 6, 0, 4, 4};
     case kM76:
-      return "M76, around July 2019";
+      return {2019, 7, 0, 30, 4};
     case kM77:
-      return "M77, around September 2019";
+      return {2019, 9, 0, 10, 4};
     case kM78:
-      return "M78, around October 2019";
+      return {2019, 10, 0, 22, 4};
     case kM79:
-      return "M79, around December 2019";
+      return {2019, 12, 0, 10, 4};
     case kM80:
-      return "M80, around February 2020";
+      return {2020, 2, 0, 4, 4};
     case kM81:
-      return "M81, around March 2020";
+      return {2020, 3, 0, 17, 4};
     case kM82:
-      return "M82, around April 2020";
+      return {2020, 4, 0, 28, 4};
   }
 
   NOTREACHED();
-  return nullptr;
+  return {1970, 1, 0, 1, 0};
 }
 
-// Returns estimated milestone dates as milliseconds since January 1, 1970.
-double MilestoneDate(Milestone milestone) {
-  // These are the Estimated Stable Dates:
-  // https://www.chromium.org/developers/calendar
-  // All are at 04:00:00 GMT.
-  // TODO(yoichio): We should have something like "Time(March, 6, 2018)".
-  switch (milestone) {
-    case kUnknown:
-      return 0;
-    case kM61:
-      return 1504584000000;  // September 5, 2017.
-    case kM62:
-      return 1508212800000;  // October 17, 2017.
-    case kM64:
-      return 1516683600000;  // January 23, 2018.
-    case kM65:
-      return 1520312400000;  // March 6, 2018.
-    case kM70:
-      return 1539662400000;  // October 16, 2018.
-    case kM71:
-      return 1543899600000;  // December 4, 2018.
-    case kM72:
-      return 1548734400000;  // January 29, 2019.
-    case kM75:
-      return 1559620800000;  // June 4, 2019.
-    case kM76:
-      return 1564459200000;  // Jul 30, 2019.
-    case kM77:
-      return 1568088000000;  // September 10, 2019.
-    case kM78:
-      return 1571716800000;  // October 22, 2019.
-    case kM79:
-      return 1575950400000;  // December 10, 2019.
-    case kM80:
-      return 1580788800000;  // February 4, 2020.
-    case kM81:
-      return 1584417600000;  // March 17, 2020.
-    case kM82:
-      return 1588046400000;  // April 28, 2020.
-  }
-
-  NOTREACHED();
-  return 0;
+// Returns estimated milestone dates as human-readable strings.
+String MilestoneString(Milestone milestone) {
+  if (milestone == kUnknown)
+    return "";
+  base::Time::Exploded date = MilestoneDate(milestone);
+  return String::Format("M%d, around %s %d", milestone,
+                        WTF::kMonthFullName[date.month - 1], date.year);
 }
 
 struct DeprecationInfo {
@@ -166,7 +132,7 @@ String WillBeRemoved(const char* feature,
   return String::Format(
       "%s is deprecated and will be removed in %s. See "
       "https://www.chromestatus.com/features/%s for more details.",
-      feature, MilestoneString(milestone), details);
+      feature, MilestoneString(milestone).Ascii().c_str(), details);
 }
 
 String ReplacedWillBeRemoved(const char* feature,
@@ -176,7 +142,8 @@ String ReplacedWillBeRemoved(const char* feature,
   return String::Format(
       "%s is deprecated and will be removed in %s. Please use %s instead. See "
       "https://www.chromestatus.com/features/%s for more details.",
-      feature, MilestoneString(milestone), replacement, details);
+      feature, MilestoneString(milestone).Ascii().c_str(), replacement,
+      details);
 }
 
 DeprecationInfo GetDeprecationInfo(WebFeature feature) {
@@ -366,16 +333,13 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
               "https://www.chromestatus.com/features/4964279606312960 for more "
               "details."};
 
-    case WebFeature::kVREyeParametersOffset:
-      return {"VREyeParametersOffset", kUnknown,
-              ReplacedBy("VREyeParameters.offset",
-                         "view matrices provided by VRFrameData")};
-
     case WebFeature::kCSSSelectorInternalMediaControlsOverlayCastButton:
-      return {
-          "CSSSelectorInternalMediaControlsOverlayCastButton", kM61,
-          WillBeRemoved("-internal-media-controls-overlay-cast-button selector",
-                        kM61, "5714245488476160")};
+      return {"CSSSelectorInternalMediaControlsOverlayCastButton", kUnknown,
+              "The disableRemotePlayback attribute should be used in order to "
+              "disable the default Cast integration instead of using "
+              "-internal-media-controls-overlay-cast-button selector. See "
+              "https://www.chromestatus.com/feature/5714245488476160 for more "
+              "details."};
 
     case WebFeature::kSelectionAddRangeIntersect:
       return {
@@ -394,7 +358,7 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
                              "https://www.chromestatus.com/features/"
                              "5654810086866944 "
                              "for more details.",
-                             MilestoneString(kM62))};
+                             MilestoneString(kM62).Ascii().c_str())};
 
     case WebFeature::kCanRequestURLHTTPContainingNewline:
       return {
@@ -500,7 +464,7 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
                          "no longer allowed since %s. See "
                          "https://www.chromestatus.com/feature/"
                          "5687444770914304 for more details",
-                         MilestoneString(kM71))};
+                         MilestoneString(kM71).Ascii().c_str())};
 
     case WebFeature::kRTCPeerConnectionComplexPlanBSdpUsingDefaultSdpSemantics:
       return {"RTCPeerConnectionComplexPlanBSdpUsingDefaultSdpSemantics", kM72,
@@ -513,7 +477,7 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
                   "clients expecting Unified Plan. For more information about "
                   "how to prepare for the switch, see "
                   "https://webrtc.org/web-apis/chrome/unified-plan/.",
-                  MilestoneString(kM72))};
+                  MilestoneString(kM72).Ascii().c_str())};
 
     case WebFeature::kNoSysexWebMIDIWithoutPermission:
       return {"NoSysexWebMIDIWithoutPermission", kM77,
@@ -522,7 +486,7 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
                   "not specified in the MIDIOptions since %s. See "
                   "https://www.chromestatus.com/feature/5138066234671104 for "
                   "more details.",
-                  MilestoneString(kM77))};
+                  MilestoneString(kM77).Ascii().c_str())};
 
     case WebFeature::kCustomCursorIntersectsViewport:
       return {
@@ -536,14 +500,6 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
       return {"V8AtomicsWake", kM76,
               ReplacedWillBeRemoved("Atomics.wake", "Atomics.notify", kM76,
                                     "6228189936353280")};
-
-    case WebFeature::kVRGetDisplays:
-      return {"WebVR", kM79,
-              String::Format("WebVR is deprecated and will be removed as soon "
-                             "as %s. Please use WebXR instead.  See "
-                             "https://www.chromestatus.com/feature/"
-                             "4532810371039232 for details.",
-                             MilestoneString(kM79))};
 
     case WebFeature::kCSSValueAppearanceCheckboxForOthersRendered:
       return {"CSSValueAppearanceCheckboxForOthersRendered", kM79,
@@ -704,6 +660,13 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
                             "elements other than <button> and <input "
                             "type=button/color/reset/submit>",
                             kM80, "4867142128238592")};
+    case WebFeature::kObsoleteWebrtcTlsVersion:
+      return {"ObsoleteWebRtcCipherSuite", kM81,
+              String::Format(
+                  "Your partner is negotiating an obsolete (D)TLS version. "
+                  "Support for this will be removed in %s. "
+                  "Please check with your partner to have this fixed.",
+                  MilestoneString(kM81).Ascii().c_str())};
 
     // Features that aren't deprecated don't have a deprecation message.
     default:
@@ -837,9 +800,16 @@ void Deprecation::GenerateReport(const LocalFrame* frame, WebFeature feature) {
   Document* document = frame->GetDocument();
 
   // Construct the deprecation report.
-  double removal_date = MilestoneDate(info.anticipated_removal);
+  base::Optional<base::Time> optional_removal_date;
+  if (info.anticipated_removal != kUnknown) {
+    base::Time removal_date;
+    bool result = base::Time::FromUTCExploded(
+        MilestoneDate(info.anticipated_removal), &removal_date);
+    DCHECK(result);
+    optional_removal_date = removal_date;
+  }
   DeprecationReportBody* body = MakeGarbageCollected<DeprecationReportBody>(
-      info.id, removal_date, info.message);
+      info.id, optional_removal_date, info.message);
   Report* report = MakeGarbageCollected<Report>(
       ReportType::kDeprecation, document->Url().GetString(), body);
 

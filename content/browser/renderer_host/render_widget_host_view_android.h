@@ -138,8 +138,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
                               InputEventAckState ack_result) override;
   InputEventAckState FilterInputEvent(
       const blink::WebInputEvent& input_event) override;
-  InputEventAckState FilterChildGestureEvent(
-      const blink::WebGestureEvent& gesture_event) override;
   void GestureEventAck(const blink::WebGestureEvent& event,
                        InputEventAckState ack_result) override;
   bool OnUnconsumedKeyboardEventAck(
@@ -277,6 +275,9 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void set_text_suggestion_host(
       TextSuggestionHostAndroid* text_suggestion_host) {
     text_suggestion_host_ = text_suggestion_host;
+  }
+  TextSuggestionHostAndroid* text_suggestion_host() const {
+    return text_suggestion_host_;
   }
   void set_gesture_listener_manager(GestureListenerManager* manager) {
     gesture_listener_manager_ = manager;
@@ -542,6 +543,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   gfx::Rect default_bounds_;
 
   const bool using_browser_compositor_;
+  const bool using_viz_for_webview_;
   std::unique_ptr<SynchronousCompositorHost> sync_compositor_;
 
   SynchronousCompositorClient* synchronous_compositor_client_;

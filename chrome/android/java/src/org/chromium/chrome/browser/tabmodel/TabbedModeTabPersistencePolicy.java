@@ -9,6 +9,7 @@ import android.os.StrictMode;
 import android.util.Pair;
 import android.util.SparseBooleanArray;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.annotation.WorkerThread;
 
 import org.chromium.base.Callback;
@@ -17,14 +18,13 @@ import org.chromium.base.Log;
 import org.chromium.base.PathUtils;
 import org.chromium.base.StreamUtil;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.BackgroundOnlyAsyncTask;
 import org.chromium.base.task.TaskRunner;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.tab.TabState;
-import org.chromium.chrome.browser.util.FeatureUtilities;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;

@@ -20,6 +20,10 @@ const base::Feature kInstantTetheringBackgroundAdvertisementSupport{
 const base::Feature kAmbientModeFeature{"ChromeOSAmbientMode",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Controls whether to enable ARC ADB sideloading support.
+const base::Feature kArcAdbSideloadingFeature{
+    "ArcAdbSideloading", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables or disables auto screen-brightness adjustment when ambient light
 // changes.
 const base::Feature kAutoScreenBrightness{"AutoScreenBrightness",
@@ -47,6 +51,10 @@ const base::Feature kCameraSystemWebApp{"CameraSystemWebApp",
 const base::Feature kCrostiniBackup{"CrostiniBackup",
                                     base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Enables or disables Crostini using Buster container images.
+const base::Feature kCrostiniUseBusterImage{"CrostiniUseBusterImage",
+                                            base::FEATURE_ENABLED_BY_DEFAULT};
+
 // Enables or disables Crostini GPU support.
 const base::Feature kCrostiniGpuSupport{"CrostiniGpuSupport",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
@@ -57,9 +65,26 @@ const base::Feature kCrostiniUsbAllowUnsupported{
 
 // Enables or disables the new WebUI Crostini installer.
 const base::Feature kCrostiniWebUIInstaller{"CrostiniWebUIInstaller",
-                                            base::FEATURE_DISABLED_BY_DEFAULT};
+                                            base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Enables or disables the CryptAuth v2 DeviceSync flow.
+// Enables or disables the new WebUI Crostini upgrader.
+const base::Feature kCrostiniWebUIUpgrader{"CrostiniWebUIUpgrader",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Deprecates the CryptAuth v1 DeviceSync flow. Note: During the first phase
+// of the v2 DeviceSync rollout, v1 and v2 DeviceSync run in parallel. This flag
+// is needed to deprecate the v1 service during the second phase of the rollout.
+// kCryptAuthV2DeviceSync should be enabled before this flag is flipped.
+const base::Feature kCryptAuthV1DeviceSyncDeprecate{
+    "CryptAuthV1DeviceSyncDeprecate", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables or disables using Cryptauth's GetDevicesActivityStatus API.
+const base::Feature kCryptAuthV2DeviceActivityStatus{
+    "CryptAuthV2DeviceActivityStatus", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables or disables the CryptAuth v2 DeviceSync flow. Regardless of this
+// flag, v1 DeviceSync will continue to operate until it is deprecated via the
+// feature flag kCryptAuthV1DeviceSyncDeprecate.
 const base::Feature kCryptAuthV2DeviceSync{"CryptAuthV2DeviceSync",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -85,13 +110,13 @@ const base::Feature kDriveFs{"DriveFS", base::FEATURE_ENABLED_BY_DEFAULT};
 const base::Feature kDriveFsMirroring{"DriveFsMirroring",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
 
+// If enabled, allows Unicorn users to add secondary EDU accounts.
+const base::Feature kEduCoexistence{"EduCoexistence",
+                                    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // If enabled shows the visual signals feedback panel.
 const base::Feature kEnableFileManagerFeedbackPanel{
     "EnableFeedbackPanel", base::FEATURE_ENABLED_BY_DEFAULT};
-
-// Enable the piex-wasm module for raw image preview image extraction.
-const base::Feature kEnableFileManagerPiexWasm{
-    "PiexWasm", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables Device End Of Lifetime warning notifications.
 const base::Feature kEolWarningNotifications{"EolWarningNotifications",
@@ -252,10 +277,22 @@ const base::Feature kUseSearchClickForRightClick{
 const base::Feature kVideoPlayerNativeControls{
     "VideoPlayerNativeControls", base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Enable or disable bordered key for virtual keyboard on Chrome OS.
+const base::Feature kVirtualKeyboardBorderedKey{
+    "VirtualKeyboardBorderedKey", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enable or disable resizable floating virtual keyboard on Chrome OS.
+const base::Feature kVirtualKeyboardFloatingResizable{
+    "VirtualKeyboardFloatingResizable", base::FEATURE_DISABLED_BY_DEFAULT};
+
 ////////////////////////////////////////////////////////////////////////////////
 
 bool IsAmbientModeEnabled() {
   return base::FeatureList::IsEnabled(kAmbientModeFeature);
+}
+
+bool IsEduCoexistenceEnabled() {
+  return base::FeatureList::IsEnabled(kEduCoexistence);
 }
 
 bool IsImeDecoderWithSandboxEnabled() {
@@ -279,8 +316,21 @@ bool IsSplitSettingsSyncEnabled() {
   return base::FeatureList::IsEnabled(kSplitSettingsSync);
 }
 
+bool ShouldDeprecateV1DeviceSync() {
+  return ShouldUseV2DeviceSync() &&
+         base::FeatureList::IsEnabled(
+             chromeos::features::kCryptAuthV1DeviceSyncDeprecate);
+}
+
 bool ShouldShowPlayStoreInDemoMode() {
   return base::FeatureList::IsEnabled(kShowPlayInDemoMode);
+}
+
+bool ShouldUseV2DeviceSync() {
+  return base::FeatureList::IsEnabled(
+             chromeos::features::kCryptAuthV2Enrollment) &&
+         base::FeatureList::IsEnabled(
+             chromeos::features::kCryptAuthV2DeviceSync);
 }
 
 }  // namespace features

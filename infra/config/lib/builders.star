@@ -44,6 +44,7 @@ os = struct(
 
     MAC_10_12 = 'Mac-10.12',
     MAC_10_13 = 'Mac-10.13',
+    MAC_10_14 = 'Mac-10.14',
     MAC_DEFAULT = 'Mac-10.13',
     MAC_ANY = 'Mac',
 
@@ -66,6 +67,10 @@ goma = struct(
         RBE_STAGING = {
             'server_host': 'staging-goma.chromium.org',
             'rpc_extra_params': '?staging',
+        },
+        RBE_TOT = {
+            'server_host': 'staging-goma.chromium.org',
+            'rpc_extra_params': '?tot',
         },
     ),
     jobs = struct(
@@ -117,6 +122,16 @@ def _default(name, value):
   return getattr(defaults, name).get() if value == _DEFAULT else value
 
 
+def _chromium_tests_property(*, bucketed_triggers):
+  chromium_tests = {}
+
+  bucketed_triggers = _default('bucketed_triggers', bucketed_triggers)
+  if bucketed_triggers:
+    chromium_tests['bucketed_triggers'] = True
+
+  return chromium_tests or None
+
+
 def _goma_property(*, goma_backend, goma_debug, goma_enable_ats, goma_jobs):
   goma = {}
 
@@ -162,6 +177,7 @@ defaults = struct(
     # Our custom arguments
     auto_builder_dimension = lucicfg.var(default = _COMPUTE),
     builderless = lucicfg.var(default = _COMPUTE),
+    bucketed_triggers = lucicfg.var(default = False),
     configure_kitchen = lucicfg.var(default = False),
     cores = lucicfg.var(),
     cpu = lucicfg.var(),
@@ -198,6 +214,7 @@ def builder(
     mastername=_DEFAULT,
     pool=_DEFAULT,
     ssd=_DEFAULT,
+    bucketed_triggers=_DEFAULT,
     configure_kitchen=_DEFAULT,
     goma_backend=_DEFAULT,
     goma_debug=_DEFAULT,
@@ -252,6 +269,10 @@ def builder(
       If True, emits a 'ssd:1' dimension. If False, emits a 'ssd:0' parameter.
       By default, considered False if builderless is considered True and
       otherwise None.
+    * bucketed_triggers - a boolean indicating whether jobs triggered by the
+      builder being defined should have the bucket prepended to the builder name
+      to trigger. If True, the 'bucketed_triggers' field will be set in the
+      '$build/chromium_tests' property. By default, considered False.
     * configure_kitchen - a boolean indicating whether to configure kitchen. If
       True, emits a property to set the 'git_auth' and 'devshell' fields of the
       '$kitchen' property. By default, considered False.
@@ -340,6 +361,12 @@ def builder(
         'devshell': True,
         'git_auth': True,
     }
+
+  chromium_tests = _chromium_tests_property(
+      bucketed_triggers = bucketed_triggers,
+  )
+  if chromium_tests != None:
+    properties['$build/chromium_tests'] = chromium_tests
 
   goma = _goma_property(
       goma_backend = goma_backend,

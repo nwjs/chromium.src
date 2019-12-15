@@ -134,20 +134,6 @@ LogicalRect ExpandSelectionRectToLineHeight(
           {rect.size.inline_size, selection_bottom - selection_top}};
 }
 
-LogicalRect ExpandSelectionRectToLineHeight(
-    const LogicalRect& rect,
-    const NGPaintFragment& paint_fragment) {
-  // Compute the rect of the containing line box relative to |paint_fragment|.
-  const NGPaintFragment* current_line = paint_fragment.ContainerLineBox();
-  DCHECK(current_line);
-  const PhysicalRect line_physical_rect(
-      current_line->InlineOffsetToContainerBox() -
-          paint_fragment.InlineOffsetToContainerBox(),
-      current_line->Size());
-  return ExpandSelectionRectToLineHeight(
-      rect, ComputeLogicalRectFor(line_physical_rect, paint_fragment));
-}
-
 LogicalRect ExpandSelectionRectToLineHeight(const LogicalRect& rect,
                                             const NGInlineCursor& cursor) {
   NGInlineCursor line(cursor);
@@ -192,55 +178,8 @@ base::Optional<PositionWithAffinity> PositionForPointInChild(
   return base::nullopt;
 }
 
-// ::before, ::after and ::first-letter can be hit test targets.
-bool CanBeHitTestTargetPseudoNode(const Node& node) {
-  auto* pseudo_element = DynamicTo<PseudoElement>(node);
-  if (!pseudo_element)
-    return false;
-  switch (pseudo_element->GetPseudoId()) {
-    case kPseudoIdBefore:
-    case kPseudoIdAfter:
-    case kPseudoIdFirstLetter:
-      return true;
-    default:
-      return false;
-  }
-}
-
 bool IsLastBRInPage(const LayoutObject& layout_object) {
   return layout_object.IsBR() && !layout_object.NextInPreOrder();
-}
-
-const LayoutObject* ListMarkerFromMarkerOrMarkerContent(
-    const LayoutObject* object) {
-  if (object->IsLayoutNGListMarkerIncludingInside())
-    return object;
-
-  // Check if this is a marker content.
-  if (object->IsAnonymous()) {
-    const LayoutObject* parent = object->Parent();
-    if (parent && parent->IsLayoutNGListMarkerIncludingInside())
-      return parent;
-  }
-
-  return nullptr;
-}
-
-// TODO(yosin): Move to "ng_selection_painter.cc"
-PhysicalRect ComputeLocalRect(const NGInlineCursor& cursor,
-                              unsigned start_offset,
-                              unsigned end_offset) {
-  DCHECK_LE(start_offset, end_offset);
-  if (const NGPaintFragment* paint_fragment = cursor.CurrentPaintFragment()) {
-    return To<NGPhysicalTextFragment>(paint_fragment->PhysicalFragment())
-        .LocalRect(start_offset, end_offset);
-  }
-  if (const NGFragmentItem* item = cursor.CurrentItem()) {
-    return item->LocalRect(cursor.Items().Text(item->UsesFirstLineStyle()),
-                           start_offset, end_offset);
-  }
-  NOTREACHED();
-  return PhysicalRect();
 }
 
 }  // namespace
@@ -252,7 +191,6 @@ NGPaintFragment::NGPaintFragment(
     : physical_fragment_(std::move(fragment)),
       offset_(offset),
       parent_(parent),
-      is_layout_object_destroyed_(false),
       is_dirty_inline_(false) {
   // TODO(crbug.com/924449): Once we get the caller passes null physical
   // fragment, we'll change to DCHECK().
@@ -281,8 +219,7 @@ NGPaintFragment::~NGPaintFragment() {
 }
 
 void NGPaintFragment::CreateContext::SkipDestroyedPreviousInstances() {
-  while (UNLIKELY(previous_instance &&
-                  previous_instance->is_layout_object_destroyed_)) {
+  while (UNLIKELY(previous_instance && !previous_instance->IsAlive())) {
     previous_instance = std::move(previous_instance->next_sibling_);
     painting_layer_needs_repaint = true;
   }
@@ -380,7 +317,7 @@ scoped_refptr<NGPaintFragment> NGPaintFragment::CreateOrReuse(
       previous_instance->physical_fragment_ = std::move(fragment);
       previous_instance->offset_ = offset;
       previous_instance->next_for_same_layout_object_ = nullptr;
-      CHECK(!previous_instance->is_layout_object_destroyed_);
+      CHECK(previous_instance->IsAlive());
       previous_instance->is_dirty_inline_ = false;
       // Destroy children of previous instances if the new instance doesn't have
       // any children. Otherwise keep them in case these previous children maybe
@@ -605,24 +542,6 @@ void NGPaintFragment::ClearAssociationWithLayoutObject() {
   }
 }
 
-const NGPaintFragment* NGPaintFragment::GetForInlineContainer(
-    const LayoutObject* layout_object) {
-  DCHECK(layout_object && layout_object->IsInline());
-  if (LayoutBlockFlow* block_flow = layout_object->ContainingNGBlockFlow()) {
-    if (const NGPaintFragment* fragment = block_flow->PaintFragment())
-      return fragment;
-
-    // TODO(kojii): IsLayoutFlowThread should probably be done in
-    // ContainingNGBlockFlow(), but there seem to be both expectations today.
-    // This needs cleanup.
-    if (block_flow->IsLayoutFlowThread()) {
-      DCHECK(block_flow->Parent() && block_flow->Parent()->IsLayoutBlockFlow());
-      return block_flow->Parent()->PaintFragment();
-    }
-  }
-  return nullptr;
-}
-
 NGPaintFragment::FragmentRange NGPaintFragment::InlineFragmentsFor(
     const LayoutObject* layout_object) {
   DCHECK(layout_object);
@@ -632,26 +551,6 @@ NGPaintFragment::FragmentRange NGPaintFragment::InlineFragmentsFor(
   if (layout_object->IsInLayoutNGInlineFormattingContext())
     return FragmentRange(layout_object->FirstInlineFragment());
   return FragmentRange(nullptr, false);
-}
-
-NGPaintFragment::FragmentRange NGPaintFragment::SafeInlineFragmentsFor(
-    const LayoutObject* layout_object) {
-  auto fragments = InlineFragmentsFor(layout_object);
-  if (!fragments.IsInLayoutNGInlineFormattingContext())
-    return fragments;
-
-  // TODO(kojii): If the block flow is dirty, children of these fragments
-  // maybe already deleted. crbug.com/963103
-  const LayoutBlockFlow* block_flow =
-      layout_object->RootInlineFormattingContext();
-  if (UNLIKELY(block_flow->NeedsLayout()))
-    return FragmentRange(nullptr);
-
-  // TODO(kojii): The root of this inline formatting context should have a
-  // PaintFragment, but it looks like there's a case it doesn't stand.
-  // crbug.com/969096
-  CHECK(block_flow->PaintFragment() || fragments.IsEmpty());
-  return fragments;
 }
 
 const NGPaintFragment* NGPaintFragment::LastForSameLayoutObject() const {
@@ -668,7 +567,7 @@ NGPaintFragment* NGPaintFragment::LastForSameLayoutObject() {
 void NGPaintFragment::LayoutObjectWillBeDestroyed() {
   for (NGPaintFragment* fragment = this; fragment;
        fragment = fragment->next_for_same_layout_object_) {
-    fragment->is_layout_object_destroyed_ = true;
+    fragment->PhysicalFragment().LayoutObjectWillBeDestroyed();
   }
 }
 
@@ -1009,7 +908,7 @@ PhysicalRect ComputeLocalSelectionRectForText(
     const NGInlineCursor& cursor,
     const LayoutSelectionStatus& selection_status) {
   const PhysicalRect selection_rect =
-      ComputeLocalRect(cursor, selection_status.start, selection_status.end);
+      cursor.CurrentLocalRect(selection_status.start, selection_status.end);
   LogicalRect logical_rect = ComputeLogicalRectFor(selection_rect, cursor);
   // Let LocalRect for line break have a space width to paint line break
   // when it is only character in a line or only selected in a line.
@@ -1031,14 +930,17 @@ PhysicalRect ComputeLocalSelectionRectForText(
   return physical_rect;
 }
 
-PhysicalRect NGPaintFragment::ComputeLocalSelectionRectForReplaced() const {
-  DCHECK(GetLayoutObject()->IsLayoutReplaced());
-  const PhysicalRect selection_rect = PhysicalFragment().LocalRect();
-  LogicalRect logical_rect = ComputeLogicalRectFor(selection_rect, *this);
+// TODO(yosin): We should move |ComputeLocalSelectionRectForReplaced()| to
+// "ng_selection_painter.cc".
+PhysicalRect ComputeLocalSelectionRectForReplaced(
+    const NGInlineCursor& cursor) {
+  DCHECK(cursor.CurrentLayoutObject()->IsLayoutReplaced());
+  const PhysicalRect selection_rect = PhysicalRect({}, cursor.CurrentSize());
+  LogicalRect logical_rect = ComputeLogicalRectFor(selection_rect, cursor);
   const LogicalRect line_height_expanded_rect =
-      ExpandSelectionRectToLineHeight(logical_rect, *this);
+      ExpandSelectionRectToLineHeight(logical_rect, cursor);
   const PhysicalRect physical_rect =
-      ComputePhysicalRectFor(line_height_expanded_rect, *this);
+      ComputePhysicalRectFor(line_height_expanded_rect, cursor);
   return physical_rect;
 }
 
@@ -1048,8 +950,10 @@ PositionWithAffinity NGPaintFragment::PositionForPointInText(
   if (text_fragment.IsGeneratedText())
     return PositionWithAffinity();
   const unsigned text_offset = text_fragment.TextOffsetForPoint(point);
+  NGInlineCursor cursor;
+  cursor.MoveTo(*this);
   const NGCaretPosition unadjusted_position{
-      this, NGCaretPositionType::kAtTextOffset, text_offset};
+      cursor, NGCaretPositionType::kAtTextOffset, text_offset};
   if (RuntimeEnabledFeatures::BidiCaretAffinityEnabled())
     return unadjusted_position.ToPositionInDOMTreeWithAffinity();
   if (text_offset > text_fragment.StartOffset() &&
@@ -1216,44 +1120,6 @@ PositionWithAffinity NGPaintFragment::PositionForPoint(
 
   DCHECK(PhysicalFragment().IsInline() || PhysicalFragment().IsLineBox());
   return PositionForPointInInlineLevelBox(point);
-}
-
-Node* NGPaintFragment::NodeForHitTest() const {
-  if (GetNode())
-    return GetNode();
-
-  if (PhysicalFragment().IsLineBox())
-    return Parent()->NodeForHitTest();
-
-  // When the fragment is a list marker, return the list item.
-  if (const LayoutObject* object = GetLayoutObject()) {
-    if (const LayoutObject* marker =
-            ListMarkerFromMarkerOrMarkerContent(object)) {
-      if (const LayoutNGListItem* list_item =
-              LayoutNGListItem::FromMarker(*marker))
-        return list_item->GetNode();
-      return nullptr;
-    }
-  }
-
-  for (const NGPaintFragment* runner = Parent(); runner;
-       runner = runner->Parent()) {
-    // When the fragment is inside a ::first-letter, ::before or ::after pseudo
-    // node, return the pseudo node.
-    if (Node* node = runner->GetNode()) {
-      if (CanBeHitTestTargetPseudoNode(*node))
-        return node;
-      return nullptr;
-    }
-
-    // When the fragment is inside a list marker, return the list item.
-    if (runner->GetLayoutObject() &&
-        runner->GetLayoutObject()->IsLayoutNGListMarker()) {
-      return runner->NodeForHitTest();
-    }
-  }
-
-  return nullptr;
 }
 
 String NGPaintFragment::DebugName() const {

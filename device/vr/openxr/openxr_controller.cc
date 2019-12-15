@@ -7,9 +7,9 @@
 #include <stdint.h>
 
 #include "base/logging.h"
+#include "base/stl_util.h"
 #include "device/gamepad/public/cpp/gamepads.h"
 #include "device/vr/openxr/openxr_util.h"
-#include "device/vr/public/mojom/vr_service.mojom.h"
 #include "device/vr/util/xr_standard_gamepad_builder.h"
 #include "ui/gfx/geometry/quaternion.h"
 #include "ui/gfx/transform_util.h"
@@ -18,8 +18,12 @@ namespace device {
 
 namespace {
 
-constexpr char kMicrosoftInteractionProfileName[] =
+constexpr char kMicrosoftMotionControllerInteractionProfile[] =
     "/interaction_profiles/microsoft/motion_controller";
+
+const static std::map<std::string, std::vector<std::string>> profile_map = {
+    {kMicrosoftMotionControllerInteractionProfile,
+     {"windows-mixed-reality", "generic-trigger-squeeze-touchpad-thumbstick"}}};
 
 const char* GetStringFromType(OpenXrHandednessType type) {
   switch (type) {
@@ -33,20 +37,12 @@ const char* GetStringFromType(OpenXrHandednessType type) {
   }
 }
 
-mojom::XRGamepadButtonPtr GetXRGamepadButtonPtr(
-    base::Optional<GamepadButton> button) {
-  mojom::XRGamepadButtonPtr ret = mojom::XRGamepadButton::New();
-  ret->pressed = button->pressed;
-  ret->touched = button->touched;
-  ret->value = button->value;
-  return ret;
-}
-
 }  // namespace
 
 OpenXrController::OpenXrController()
     : description_(nullptr),
       type_(OpenXrHandednessType::kCount),  // COUNT refers to invalid.
+      instance_(XR_NULL_HANDLE),
       session_(XR_NULL_HANDLE),
       action_set_(XR_NULL_HANDLE),
       grip_pose_action_{XR_NULL_HANDLE},
@@ -70,111 +66,116 @@ XrResult OpenXrController::Initialize(
     XrSession session,
     std::map<XrPath, std::vector<XrActionSuggestedBinding>>* bindings) {
   type_ = type;
+  instance_ = instance;
   session_ = session;
   std::string handedness_string = GetStringFromType(type_);
+
+  top_level_user_path_string_ = std::string("/user/hand/") + handedness_string;
 
   std::string action_set_name = handedness_string + "_action_set";
   XrActionSetCreateInfo action_set_create_info = {
       XR_TYPE_ACTION_SET_CREATE_INFO};
 
-  errno_t error =
-      strcpy_s(action_set_create_info.actionSetName, action_set_name.c_str());
+  errno_t error = strcpy_s(action_set_create_info.actionSetName,
+                           base::size(action_set_create_info.actionSetName),
+                           action_set_name.c_str());
   DCHECK(!error);
   error = strcpy_s(action_set_create_info.localizedActionSetName,
+                   base::size(action_set_create_info.localizedActionSetName),
                    action_set_name.c_str());
   DCHECK(!error);
 
-  XrResult xr_result;
+  RETURN_IF_XR_FAILED(
+      xrCreateActionSet(instance_, &action_set_create_info, &action_set_));
 
   RETURN_IF_XR_FAILED(
-      xrCreateActionSet(instance, &action_set_create_info, &action_set_));
-
-  RETURN_IF_XR_FAILED(InitializeMicrosoftMotionControllerActions(
-      instance, handedness_string, bindings));
+      InitializeMicrosoftMotionControllerActions(handedness_string, bindings));
 
   RETURN_IF_XR_FAILED(InitializeMicrosoftMotionControllerSpaces());
 
-  return xr_result;
+  return XR_SUCCESS;
 }
 
 XrResult OpenXrController::InitializeMicrosoftMotionControllerActions(
-    XrInstance instance,
     const std::string& type_string,
     std::map<XrPath, std::vector<XrActionSuggestedBinding>>* bindings) {
-  XrResult xr_result;
-
-  const std::string binding_prefix = "/user/hand/" + type_string + "/input/";
+  const std::string binding_prefix = top_level_user_path_string_ + "/input/";
   const std::string name_prefix = type_string + "_controller_";
 
   RETURN_IF_XR_FAILED(CreateAction(
-      instance, XR_ACTION_TYPE_BOOLEAN_INPUT, kMicrosoftInteractionProfileName,
+      XR_ACTION_TYPE_BOOLEAN_INPUT,
+      kMicrosoftMotionControllerInteractionProfile,
       binding_prefix + "trigger/value", name_prefix + "trigger_button_press",
       &(button_action_map_[OpenXrButtonType::kTrigger].press_action),
       bindings));
 
   RETURN_IF_XR_FAILED(CreateAction(
-      instance, XR_ACTION_TYPE_FLOAT_INPUT, kMicrosoftInteractionProfileName,
+      XR_ACTION_TYPE_FLOAT_INPUT, kMicrosoftMotionControllerInteractionProfile,
       binding_prefix + "trigger/value", name_prefix + "trigger_button_value",
       &(button_action_map_[OpenXrButtonType::kTrigger].value_action),
       bindings));
 
   RETURN_IF_XR_FAILED(CreateAction(
-      instance, XR_ACTION_TYPE_BOOLEAN_INPUT, kMicrosoftInteractionProfileName,
+      XR_ACTION_TYPE_BOOLEAN_INPUT,
+      kMicrosoftMotionControllerInteractionProfile,
       binding_prefix + "thumbstick/click",
       name_prefix + "thumbstick_button_press",
       &(button_action_map_[OpenXrButtonType::kThumbstick].press_action),
       bindings));
 
   RETURN_IF_XR_FAILED(CreateAction(
-      instance, XR_ACTION_TYPE_BOOLEAN_INPUT, kMicrosoftInteractionProfileName,
+      XR_ACTION_TYPE_BOOLEAN_INPUT,
+      kMicrosoftMotionControllerInteractionProfile,
       binding_prefix + "squeeze/click", name_prefix + "squeeze_button_press",
       &(button_action_map_[OpenXrButtonType::kSqueeze].press_action),
       bindings));
 
   RETURN_IF_XR_FAILED(CreateAction(
-      instance, XR_ACTION_TYPE_BOOLEAN_INPUT, kMicrosoftInteractionProfileName,
+      XR_ACTION_TYPE_BOOLEAN_INPUT,
+      kMicrosoftMotionControllerInteractionProfile,
       binding_prefix + "trackpad/click", name_prefix + "trackpad_button_press",
       &(button_action_map_[OpenXrButtonType::kTrackpad].press_action),
       bindings));
 
   RETURN_IF_XR_FAILED(CreateAction(
-      instance, XR_ACTION_TYPE_BOOLEAN_INPUT, kMicrosoftInteractionProfileName,
+      XR_ACTION_TYPE_BOOLEAN_INPUT,
+      kMicrosoftMotionControllerInteractionProfile,
       binding_prefix + "trackpad/touch", name_prefix + "trackpad_button_touch",
       &(button_action_map_[OpenXrButtonType::kTrackpad].touch_action),
       bindings));
 
-  RETURN_IF_XR_FAILED(CreateAction(
-      instance, XR_ACTION_TYPE_VECTOR2F_INPUT, kMicrosoftInteractionProfileName,
-      binding_prefix + "trackpad", name_prefix + "trackpad_axis",
-      &(axis_action_map_[OpenXrAxisType::kTrackpad]), bindings));
+  RETURN_IF_XR_FAILED(
+      CreateAction(XR_ACTION_TYPE_VECTOR2F_INPUT,
+                   kMicrosoftMotionControllerInteractionProfile,
+                   binding_prefix + "trackpad", name_prefix + "trackpad_axis",
+                   &(axis_action_map_[OpenXrAxisType::kTrackpad]), bindings));
 
   RETURN_IF_XR_FAILED(CreateAction(
-      instance, XR_ACTION_TYPE_VECTOR2F_INPUT, kMicrosoftInteractionProfileName,
+      XR_ACTION_TYPE_VECTOR2F_INPUT,
+      kMicrosoftMotionControllerInteractionProfile,
       binding_prefix + "thumbstick", name_prefix + "thumbstick_axis",
       &(axis_action_map_[OpenXrAxisType::kThumbstick]), bindings));
 
-  RETURN_IF_XR_FAILED(
-      CreateAction(instance, XR_ACTION_TYPE_POSE_INPUT,
-                   kMicrosoftInteractionProfileName, binding_prefix + "grip",
-                   name_prefix + "grip_pose", &grip_pose_action_, bindings));
+  RETURN_IF_XR_FAILED(CreateAction(
+      XR_ACTION_TYPE_POSE_INPUT, kMicrosoftMotionControllerInteractionProfile,
+      binding_prefix + "grip", name_prefix + "grip_pose", &grip_pose_action_,
+      bindings));
 
-  RETURN_IF_XR_FAILED(
-      CreateAction(instance, XR_ACTION_TYPE_POSE_INPUT,
-                   kMicrosoftInteractionProfileName, binding_prefix + "aim",
-                   name_prefix + "aim_pose", &pointer_pose_action_, bindings));
+  RETURN_IF_XR_FAILED(CreateAction(
+      XR_ACTION_TYPE_POSE_INPUT, kMicrosoftMotionControllerInteractionProfile,
+      binding_prefix + "aim", name_prefix + "aim_pose", &pointer_pose_action_,
+      bindings));
 
-  return xr_result;
+  return XR_SUCCESS;
 }
 
 XrResult OpenXrController::InitializeMicrosoftMotionControllerSpaces() {
-  XrResult xr_result;
-
   RETURN_IF_XR_FAILED(CreateActionSpace(grip_pose_action_, &grip_pose_space_));
 
   RETURN_IF_XR_FAILED(
       CreateActionSpace(pointer_pose_action_, &pointer_pose_space_));
 
-  return xr_result;
+  return XR_SUCCESS;
 }
 
 uint32_t OpenXrController::GetId() const {
@@ -196,49 +197,28 @@ device::mojom::XRHandedness OpenXrController::GetHandness() const {
   }
 }
 
-device::mojom::XRInputSourceDescriptionPtr OpenXrController::GetDescription(
+mojom::XRInputSourceDescriptionPtr OpenXrController::GetDescription(
     XrTime predicted_display_time) {
+  // Description only need to be set once unless interaction profiles changes.
   if (!description_) {
+    // UpdateInteractionProfile() can not be called inside Initialize() function
+    // because XrGetCurrentInteractionProfile can't be called before
+    // xrSuggestInteractionProfileBindings getting called.
+    if (XR_FAILED(UpdateInteractionProfile())) {
+      return nullptr;
+    }
     description_ = device::mojom::XRInputSourceDescription::New();
     description_->handedness = GetHandness();
     description_->target_ray_mode = device::mojom::XRTargetRayMode::POINTING;
-    // TODO(crbug.com/1006072):
-    // Query  USB vendor and product ID From OpenXR.
-    description_->profiles.push_back("windows-mixed-reality");
-    // This makes it clear that the controller actually has a squeeze button,
-    // trigger button, a touchpad and a thumbstick. Otherwise, it's ambiguous
-    // whether slots like the touchpad buttons + axes are hooked up vs just
-    // placeholders.
-    description_->profiles.push_back(
-        "generic-trigger-squeeze-touchpad-thumbstick");
+    description_->profiles = GetProfiles();
   }
-  // pointer_offset only need to be set once unless something changed about
-  // controller.
-  if (!description_->pointer_offset) {
-    description_->pointer_offset =
+
+  if (!description_->input_from_pointer) {
+    description_->input_from_pointer =
         GetPointerFromGripTransform(predicted_display_time);
   }
 
   return description_.Clone();
-}
-
-std::vector<mojom::XRGamepadButtonPtr> OpenXrController::GetWebVrButtons()
-    const {
-  std::vector<mojom::XRGamepadButtonPtr> buttons;
-
-  constexpr uint32_t kNumButtons =
-      static_cast<uint32_t>(OpenXrButtonType::kMaxValue) + 1;
-  for (uint32_t i = 0; i < kNumButtons; i++) {
-    base::Optional<GamepadButton> button =
-        GetButton(static_cast<OpenXrButtonType>(i));
-    if (button) {
-      buttons.push_back(GetXRGamepadButtonPtr(button.value()));
-    } else {
-      return {};
-    }
-  }
-
-  return buttons;
 }
 
 base::Optional<GamepadButton> OpenXrController::GetButton(
@@ -278,24 +258,6 @@ base::Optional<GamepadButton> OpenXrController::GetButton(
   return ret;
 }
 
-std::vector<double> OpenXrController::GetWebVrAxes() const {
-  std::vector<double> axes;
-
-  constexpr uint32_t kNumAxes =
-      static_cast<uint32_t>(OpenXrAxisType::kMaxValue) + 1;
-  for (uint32_t i = 0; i < kNumAxes; i++) {
-    std::vector<double> axis = GetAxis(static_cast<OpenXrAxisType>(i));
-    if (axis.empty()) {
-      return {};
-    }
-
-    DCHECK(axis.size() == kAxisDimensions);
-    axes.insert(axes.end(), axis.begin(), axis.end());
-  }
-
-  return axes;
-}
-
 std::vector<double> OpenXrController::GetAxis(OpenXrAxisType type) const {
   XrActionStateVector2f axis_state_v2f = {XR_TYPE_ACTION_STATE_VECTOR2F};
   if (XR_FAILED(QueryState(axis_action_map_.at(type), &axis_state_v2f)) ||
@@ -306,76 +268,61 @@ std::vector<double> OpenXrController::GetAxis(OpenXrAxisType type) const {
   return {axis_state_v2f.currentState.x, axis_state_v2f.currentState.y};
 }
 
-mojom::VRPosePtr OpenXrController::GetPose(XrTime predicted_display_time,
-                                           XrSpace local_space) const {
-  XrActionStatePose grip_state_pose = {XR_TYPE_ACTION_STATE_POSE};
-  if (XR_FAILED(QueryState(grip_pose_action_, &grip_state_pose)) ||
-      !grip_state_pose.isActive) {
-    return nullptr;
-  }
+XrResult OpenXrController::UpdateInteractionProfile() {
+  XrPath top_level_user_path;
+  RETURN_IF_XR_FAILED(xrStringToPath(
+      instance_, top_level_user_path_string_.c_str(), &top_level_user_path));
 
-  XrSpaceVelocity local_from_grip_speed = {XR_TYPE_SPACE_VELOCITY};
-  XrSpaceLocation local_from_grip = {XR_TYPE_SPACE_LOCATION};
-  local_from_grip.next = &local_from_grip_speed;
-  if (XR_FAILED(xrLocateSpace(grip_pose_space_, local_space,
-                              predicted_display_time, &local_from_grip))) {
-    return nullptr;
-  }
+  XrInteractionProfileState interaction_profile_state = {
+      XR_TYPE_INTERACTION_PROFILE_STATE};
+  RETURN_IF_XR_FAILED(xrGetCurrentInteractionProfile(
+      session_, top_level_user_path, &interaction_profile_state));
 
-  mojom::VRPosePtr pose = mojom::VRPose::New();
+  uint32_t output_size;
+  RETURN_IF_XR_FAILED(
+      xrPathToString(instance_, interaction_profile_state.interactionProfile, 0,
+                     &output_size, nullptr));
 
-  if (local_from_grip.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
-    pose->position = gfx::Point3F(local_from_grip.pose.position.x,
-                                  local_from_grip.pose.position.y,
-                                  local_from_grip.pose.position.z);
-  }
+  char out_string[output_size];
+  RETURN_IF_XR_FAILED(
+      xrPathToString(instance_, interaction_profile_state.interactionProfile,
+                     output_size, &output_size, out_string));
 
-  if (local_from_grip.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) {
-    pose->orientation = gfx::Quaternion(
-        local_from_grip.pose.orientation.x, local_from_grip.pose.orientation.y,
-        local_from_grip.pose.orientation.z, local_from_grip.pose.orientation.w);
-  }
-
-  if (local_from_grip_speed.velocityFlags &
-      XR_SPACE_VELOCITY_LINEAR_VALID_BIT) {
-    pose->linear_velocity =
-        gfx::Vector3dF(local_from_grip_speed.linearVelocity.x,
-                       local_from_grip_speed.linearVelocity.y,
-                       local_from_grip_speed.linearVelocity.z);
-  }
-
-  if (local_from_grip_speed.velocityFlags &
-      XR_SPACE_VELOCITY_ANGULAR_VALID_BIT) {
-    pose->angular_velocity =
-        gfx::Vector3dF(local_from_grip_speed.angularVelocity.x,
-                       local_from_grip_speed.angularVelocity.y,
-                       local_from_grip_speed.angularVelocity.z);
-  }
-
-  return pose;
+  interaction_profile_ = out_string;
+  return XR_SUCCESS;
 }
 
 base::Optional<gfx::Transform> OpenXrController::GetMojoFromGripTransform(
     XrTime predicted_display_time,
-    XrSpace local_space) const {
+    XrSpace local_space,
+    bool* emulated_position) const {
   return GetTransformFromSpaces(predicted_display_time, grip_pose_space_,
-                                local_space);
+                                local_space, emulated_position);
 }
 
 base::Optional<gfx::Transform> OpenXrController::GetPointerFromGripTransform(
     XrTime predicted_display_time) const {
+  bool emulated_position;
   return GetTransformFromSpaces(predicted_display_time, pointer_pose_space_,
-                                grip_pose_space_);
+                                grip_pose_space_, &emulated_position);
 }
 
 base::Optional<gfx::Transform> OpenXrController::GetTransformFromSpaces(
     XrTime predicted_display_time,
     XrSpace target,
-    XrSpace origin) const {
+    XrSpace origin,
+    bool* emulated_position) const {
   XrSpaceLocation location = {XR_TYPE_SPACE_LOCATION};
+  // emulated_position indicates when there is a fallback from a fully-tracked
+  // (i.e. 6DOF) type case to some form of orientation-only type tracking
+  // (i.e. 3DOF/IMU type sensors)
+  // Thus we have to make sure orientation is tracked.
+  // Valid Bit only indicates it's either tracked or emulated, we have to check
+  // for XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT to make sure orientation is
+  // tracked.
   if (FAILED(
           xrLocateSpace(target, origin, predicted_display_time, &location)) ||
-      !(location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) ||
+      !(location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT) ||
       !(location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT)) {
     return base::nullopt;
   }
@@ -390,7 +337,19 @@ base::Optional<gfx::Transform> OpenXrController::GetTransformFromSpaces(
   decomp.translate[1] = location.pose.position.y;
   decomp.translate[2] = location.pose.position.z;
 
+  *emulated_position = true;
+  if (location.locationFlags & XR_SPACE_LOCATION_POSITION_TRACKED_BIT) {
+    *emulated_position = false;
+  }
+
   return gfx::ComposeTransform(decomp);
+}
+
+std::vector<std::string> OpenXrController::GetProfiles() const {
+  // TODO(crbug.com/1006072):
+  // Query  USB vendor and product ID From OpenXR.
+  DCHECK(profile_map.count(interaction_profile_) == 1);
+  return profile_map.at(interaction_profile_);
 }
 
 XrActionSet OpenXrController::GetActionSet() const {
@@ -398,33 +357,34 @@ XrActionSet OpenXrController::GetActionSet() const {
 }
 
 XrResult OpenXrController::CreateAction(
-    XrInstance instance,
     XrActionType type,
     const char* interaction_profile_name,
     const std::string& binding_string,
     const std::string& action_name,
     XrAction* action,
     std::map<XrPath, std::vector<XrActionSuggestedBinding>>* bindings) {
-  XrResult xr_result;
-
   XrActionCreateInfo action_create_info = {XR_TYPE_ACTION_CREATE_INFO};
   action_create_info.actionType = type;
 
-  errno_t error = strcpy_s(action_create_info.actionName, action_name.data());
+  errno_t error =
+      strcpy_s(action_create_info.actionName,
+               base::size(action_create_info.actionName), action_name.data());
   DCHECK(error == 0);
-  error = strcpy_s(action_create_info.localizedActionName, action_name.data());
+  error = strcpy_s(action_create_info.localizedActionName,
+                   base::size(action_create_info.localizedActionName),
+                   action_name.data());
   DCHECK(error == 0);
 
   RETURN_IF_XR_FAILED(xrCreateAction(action_set_, &action_create_info, action));
 
   XrPath profile_path, action_path;
   RETURN_IF_XR_FAILED(
-      xrStringToPath(instance, interaction_profile_name, &profile_path));
+      xrStringToPath(instance_, interaction_profile_name, &profile_path));
   RETURN_IF_XR_FAILED(
-      xrStringToPath(instance, binding_string.c_str(), &action_path));
+      xrStringToPath(instance_, binding_string.c_str(), &action_path));
   (*bindings)[profile_path].push_back({*action, action_path});
 
-  return xr_result;
+  return XR_SUCCESS;
 }
 
 XrResult OpenXrController::CreateActionSpace(XrAction action, XrSpace* space) {

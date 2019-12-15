@@ -90,17 +90,15 @@ void PopulateAdvancedCapsLocalization(
 
 // Returns a dictionary representing printer capabilities as CDD.  Returns
 // an empty dictionary if a dictionary could not be generated.
-base::Value GetPrinterCapabilitiesOnBlockingPoolThread(
+base::Value GetPrinterCapabilitiesOnBlockingTaskRunner(
     const std::string& device_name,
     const PrinterSemanticCapsAndDefaults::Papers& additional_papers,
     bool has_secure_protocol,
-    scoped_refptr<PrintBackend> print_backend) {
+    scoped_refptr<PrintBackend> backend) {
+  DCHECK(!device_name.empty());
+
   base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
                                                 base::BlockingType::MAY_BLOCK);
-  DCHECK(!device_name.empty());
-  scoped_refptr<PrintBackend> backend =
-      print_backend ? print_backend
-                    : printing::PrintBackend::CreateInstance(nullptr);
 
   VLOG(1) << "Get printer capabilities start for " << device_name;
   crash_keys::ScopedPrinterInfo crash_key(
@@ -151,7 +149,7 @@ std::string GetUserFriendlyName(const std::string& printer_name) {
 }
 #endif
 
-base::Value GetSettingsOnBlockingPool(
+base::Value GetSettingsOnBlockingTaskRunner(
     const std::string& device_name,
     const PrinterBasicInfo& basic_info,
     const PrinterSemanticCapsAndDefaults::Papers& additional_papers,
@@ -167,16 +165,27 @@ base::Value GetSettingsOnBlockingPool(
                       base::Value(basic_info.display_name));
   printer_info.SetKey(kSettingPrinterDescription,
                       base::Value(basic_info.printer_description));
+
+  base::Value options(base::Value::Type::DICTIONARY);
+
+#if defined(OS_CHROMEOS)
+  auto it = basic_info.options.find(kPrinterEulaURL);
+  options.SetKey(kPrinterEulaURL, it != basic_info.options.end()
+                                      ? base::Value(it->second)
+                                      : base::Value());
   printer_info.SetKey(
       kCUPSEnterprisePrinter,
       base::Value(base::Contains(basic_info.options, kCUPSEnterprisePrinter) &&
                   basic_info.options.at(kCUPSEnterprisePrinter) == kValueTrue));
+#endif  // defined(OS_CHROMEOS)
+
+  printer_info.SetKey(kSettingPrinterOptions, std::move(options));
 
   base::Value printer_info_capabilities(base::Value::Type::DICTIONARY);
   printer_info_capabilities.SetKey(kPrinter, std::move(printer_info));
   printer_info_capabilities.SetKey(
       kSettingCapabilities,
-      GetPrinterCapabilitiesOnBlockingPoolThread(
+      GetPrinterCapabilitiesOnBlockingTaskRunner(
           device_name, additional_papers, has_secure_protocol, print_backend));
   return printer_info_capabilities;
 }

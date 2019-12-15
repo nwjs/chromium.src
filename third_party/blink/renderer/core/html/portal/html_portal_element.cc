@@ -7,6 +7,7 @@
 #include <utility>
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/mojom/referrer.mojom-blink.h"
+#include "third_party/blink/public/mojom/web_feature/web_feature.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_event_listener.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
@@ -38,6 +39,7 @@
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
+#include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/weborigin/referrer.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
@@ -62,6 +64,8 @@ HTMLPortalElement::HTMLPortalElement(
         *this, portal_token, std::move(remote_portal),
         std::move(portal_client_receiver));
   }
+
+  UseCounter::Count(document, WebFeature::kHTMLPortalElement);
 }
 
 HTMLPortalElement::~HTMLPortalElement() {}
@@ -72,8 +76,10 @@ void HTMLPortalElement::Trace(Visitor* visitor) {
 }
 
 void HTMLPortalElement::ConsumePortal() {
-  if (PortalContents* portal = std::exchange(portal_, nullptr))
-    portal->Destroy();
+  if (portal_)
+    portal_->Destroy();
+
+  DCHECK(!portal_);
 }
 
 void HTMLPortalElement::ExpireAdoptionLifetime() {
@@ -84,6 +90,11 @@ void HTMLPortalElement::ExpireAdoptionLifetime() {
   // but wasn't inserted or activated, we destroy it.
   if (!CanHaveGuestContents())
     ConsumePortal();
+}
+
+void HTMLPortalElement::PortalContentsWillBeDestroyed(PortalContents* portal) {
+  DCHECK_EQ(portal_, portal);
+  portal_ = nullptr;
 }
 
 // https://wicg.github.io/portals/#htmlportalelement-may-have-a-guest-browsing-context
@@ -101,6 +112,9 @@ HTMLPortalElement::GetGuestContentsEligibility() const {
   const bool is_top_level = frame && frame->IsMainFrame();
   if (!is_top_level)
     return GuestContentsEligibility::kNotTopLevel;
+
+  if (!GetDocument().Url().ProtocolIsInHTTPFamily())
+    return GuestContentsEligibility::kNotHTTPFamily;
 
   return GuestContentsEligibility::kEligible;
 }
@@ -146,6 +160,8 @@ BlinkTransferableMessage ActivateDataAsMessage(
       execution_context, transferables.message_ports, exception_state);
   if (exception_state.HadException())
     return {};
+
+  msg.sender_origin = execution_context->GetSecurityOrigin()->IsolatedCopy();
 
   // msg.user_activation is left out; we will probably handle user activation
   // explicitly for activate data.
@@ -273,9 +289,23 @@ HTMLPortalElement::InsertionNotificationRequest HTMLPortalElement::InsertedInto(
           "Cannot use <portal> in a nested browsing context."));
       return result;
 
+    case GuestContentsEligibility::kNotHTTPFamily:
+      GetDocument().AddConsoleMessage(ConsoleMessage::Create(
+          mojom::ConsoleMessageSource::kRendering,
+          mojom::ConsoleMessageLevel::kWarning,
+          "<portal> use is restricted to the HTTP family."));
+      return result;
+
     case GuestContentsEligibility::kEligible:
       break;
   };
+
+  // When adopting a predecessor, it is possible to insert a portal that's
+  // eligible to have a guest contents to a node that's not connected. In this
+  // case, do not create the portal frame yet.
+  if (!node.isConnected()) {
+    return result;
+  }
 
   if (portal_) {
     // The interface is already bound if the HTMLPortalElement is adopting the

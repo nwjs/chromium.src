@@ -24,7 +24,8 @@
 #include "content/public/browser/site_instance.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/web_contents_tester.h"
-#include "mojo/public/cpp/bindings/associated_binding.h"
+#include "mojo/public/cpp/bindings/associated_receiver.h"
+#include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
@@ -52,8 +53,8 @@ class FakeChromeRenderFrame
   }
 
   void Bind(mojo::ScopedInterfaceEndpointHandle handle) {
-    binding_.Bind(
-        mojo::AssociatedInterfaceRequest<ChromeRenderFrame>(std::move(handle)));
+    receiver_.Bind(
+        mojo::PendingAssociatedReceiver<ChromeRenderFrame>(std::move(handle)));
   }
 
   // Set |web_app_info| to respond on |GetWebApplicationInfo|.
@@ -68,7 +69,7 @@ class FakeChromeRenderFrame
  private:
   WebApplicationInfo web_app_info_;
 
-  mojo::AssociatedBinding<chrome::mojom::ChromeRenderFrame> binding_{this};
+  mojo::AssociatedReceiver<chrome::mojom::ChromeRenderFrame> receiver_{this};
 };
 
 class WebAppDataRetrieverTest : public ChromeRenderViewHostTestHarness {
@@ -304,10 +305,10 @@ TEST_F(WebAppDataRetrieverTest,
   WebAppDataRetriever retriever;
   retriever.CheckInstallabilityAndRetrieveManifest(
       web_contents(), /*bypass_service_worker_check=*/false,
-      base::BindLambdaForTesting([&](const blink::Manifest& manifet,
+      base::BindLambdaForTesting([&](base::Optional<blink::Manifest> manifest,
                                      bool valid_manifest_for_web_app,
                                      bool is_installable) {
-        EXPECT_TRUE(manifet.IsEmpty());
+        EXPECT_FALSE(manifest);
         EXPECT_FALSE(valid_manifest_for_web_app);
         EXPECT_FALSE(is_installable);
         run_loop.Quit();
@@ -382,21 +383,21 @@ TEST_F(WebAppDataRetrieverTest, CheckInstallabilityAndRetrieveManifest) {
 
   retriever.CheckInstallabilityAndRetrieveManifest(
       web_contents(), /*bypass_service_worker_check=*/false,
-      base::BindLambdaForTesting(
-          [&](const blink::Manifest& result, bool valid_manifest_for_web_app,
-              bool is_installable) {
-            EXPECT_TRUE(is_installable);
+      base::BindLambdaForTesting([&](base::Optional<blink::Manifest> result,
+                                     bool valid_manifest_for_web_app,
+                                     bool is_installable) {
+        EXPECT_TRUE(is_installable);
 
-            EXPECT_EQ(base::UTF8ToUTF16(manifest_short_name),
-                      result.short_name.string());
-            EXPECT_EQ(base::UTF8ToUTF16(manifest_name), result.name.string());
-            EXPECT_EQ(manifest_start_url, result.start_url);
-            EXPECT_EQ(manifest_scope, result.scope);
-            EXPECT_EQ(manifest_theme_color, result.theme_color);
+        EXPECT_EQ(base::UTF8ToUTF16(manifest_short_name),
+                  result->short_name.string());
+        EXPECT_EQ(base::UTF8ToUTF16(manifest_name), result->name.string());
+        EXPECT_EQ(manifest_start_url, result->start_url);
+        EXPECT_EQ(manifest_scope, result->scope);
+        EXPECT_EQ(manifest_theme_color, result->theme_color);
 
-            callback_called = true;
-            run_loop.Quit();
-          }));
+        callback_called = true;
+        run_loop.Quit();
+      }));
   run_loop.Run();
 
   EXPECT_TRUE(callback_called);
@@ -418,10 +419,11 @@ TEST_F(WebAppDataRetrieverTest, CheckInstallabilityFails) {
 
   retriever.CheckInstallabilityAndRetrieveManifest(
       web_contents(), /*bypass_service_worker_check=*/false,
-      base::BindLambdaForTesting([&](const blink::Manifest& result,
+      base::BindLambdaForTesting([&](base::Optional<blink::Manifest> result,
                                      bool valid_manifest_for_web_app,
                                      bool is_installable) {
         EXPECT_FALSE(is_installable);
+        EXPECT_FALSE(valid_manifest_for_web_app);
         callback_called = true;
         run_loop.Quit();
       }));

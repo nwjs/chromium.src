@@ -18,6 +18,7 @@
 #include "base/mac/launch_services_util.h"
 #include "base/mac/mach_logging.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app_shim/app_shim_delegate.h"
@@ -27,7 +28,6 @@
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/mac/app_mode_common.h"
-#include "chrome/common/mac/app_shim.mojom.h"
 #include "chrome/common/process_singleton_lock_posix.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/remote_cocoa/app_shim/application_bridge.h"
@@ -316,8 +316,8 @@ void AppShimController::CreateChannelAndSendLaunchApp(
   app_shim_info->launch_type =
       base::CommandLine::ForCurrentProcess()->HasSwitch(
           app_mode::kLaunchedByChromeProcessId)
-          ? apps::APP_SHIM_LAUNCH_REGISTER_ONLY
-          : apps::APP_SHIM_LAUNCH_NORMAL;
+          ? chrome::mojom::AppShimLaunchType::kRegisterOnly
+          : chrome::mojom::AppShimLaunchType::kNormal;
   [delegate_ getFilesToOpenAtStartup:&app_shim_info->files];
 
   host_bootstrap_->OnShimConnected(
@@ -353,9 +353,31 @@ void AppShimController::ChannelError(uint32_t custom_reason,
 }
 
 void AppShimController::OnShimConnectedResponse(
-    apps::AppShimLaunchResult result,
+    chrome::mojom::AppShimLaunchResult result,
     mojo::PendingReceiver<chrome::mojom::AppShim> app_shim_receiver) {
-  if (result != apps::APP_SHIM_LAUNCH_SUCCESS) {
+  if (result != chrome::mojom::AppShimLaunchResult::kSuccess) {
+    switch (result) {
+      case chrome::mojom::AppShimLaunchResult::kSuccess:
+        break;
+      case chrome::mojom::AppShimLaunchResult::kNoHost:
+        LOG(ERROR) << "No AppShimHost accepted connection.";
+        break;
+      case chrome::mojom::AppShimLaunchResult::kDuplicateHost:
+        LOG(ERROR) << "An AppShimHostBootstrap already exists for this app.";
+        break;
+      case chrome::mojom::AppShimLaunchResult::kProfileNotFound:
+        LOG(ERROR) << "No suitable profile found.";
+        break;
+      case chrome::mojom::AppShimLaunchResult::kAppNotFound:
+        LOG(ERROR) << "App not installed for specified profile.";
+        break;
+      case chrome::mojom::AppShimLaunchResult::kProfileLocked:
+        LOG(ERROR) << "Profile locked.";
+        break;
+      case chrome::mojom::AppShimLaunchResult::kFailedValidation:
+        LOG(ERROR) << "Validation failed.";
+        break;
+    };
     Close();
     return;
   }
@@ -366,15 +388,16 @@ void AppShimController::OnShimConnectedResponse(
 
   std::vector<base::FilePath> files;
   if ([delegate_ getFilesToOpenAtStartup:&files])
-    SendFocusApp(apps::APP_SHIM_FOCUS_OPEN_FILES, files);
+    SendFocusApp(chrome::mojom::AppShimFocusType::kOpenFiles, files);
 
   launch_app_done_ = true;
   host_bootstrap_.reset();
 }
 
 void AppShimController::CreateRemoteCocoaApplication(
-    remote_cocoa::mojom::ApplicationAssociatedRequest request) {
-  remote_cocoa::ApplicationBridge::Get()->BindRequest(std::move(request));
+    mojo::PendingAssociatedReceiver<remote_cocoa::mojom::Application>
+        receiver) {
+  remote_cocoa::ApplicationBridge::Get()->BindReceiver(std::move(receiver));
   remote_cocoa::ApplicationBridge::Get()->SetContentNSViewCreateCallbacks(
       base::BindRepeating(remote_cocoa::CreateRenderWidgetHostNSView),
       base::BindRepeating(remote_cocoa::CreateWebContentsNSView));
@@ -415,7 +438,8 @@ void AppShimController::UpdateProfileMenu(
 
   // Note that this code to create menu items is nearly identical to the code
   // in ProfileMenuController in the browser process.
-  for (const auto& mojo_item : profile_menu_items_) {
+  for (size_t i = 0; i < profile_menu_items_.size(); ++i) {
+    const auto& mojo_item = profile_menu_items_[i];
     NSString* name = base::SysUTF16ToNSString(mojo_item->name);
     NSMenuItem* item =
         [[[NSMenuItem alloc] initWithTitle:name
@@ -426,26 +450,20 @@ void AppShimController::UpdateProfileMenu(
     [item setTarget:profile_menu_target_.get()];
     gfx::Image icon(mojo_item->icon);
     [item setImage:icon.ToNSImage()];
-    [menu insertItem:item atIndex:mojo_item->menu_index];
+    [menu insertItem:item atIndex:i];
   }
 }
 
 void AppShimController::SetUserAttention(
-    apps::AppShimAttentionType attention_type) {
+    chrome::mojom::AppShimAttentionType attention_type) {
   switch (attention_type) {
-    case apps::APP_SHIM_ATTENTION_CANCEL:
+    case chrome::mojom::AppShimAttentionType::kCancel:
       [NSApp cancelUserAttentionRequest:attention_request_id_];
       attention_request_id_ = 0;
       break;
-    case apps::APP_SHIM_ATTENTION_CRITICAL:
+    case chrome::mojom::AppShimAttentionType::kCritical:
       attention_request_id_ = [NSApp requestUserAttention:NSCriticalRequest];
       break;
-    case apps::APP_SHIM_ATTENTION_INFORMATIONAL:
-      attention_request_id_ =
-          [NSApp requestUserAttention:NSInformationalRequest];
-      break;
-    case apps::APP_SHIM_ATTENTION_NUM_TYPES:
-      NOTREACHED();
   }
 }
 
@@ -453,7 +471,7 @@ void AppShimController::Close() {
   [NSApp terminate:nil];
 }
 
-bool AppShimController::SendFocusApp(apps::AppShimFocusType focus_type,
+bool AppShimController::SendFocusApp(chrome::mojom::AppShimFocusType focus_type,
                                      const std::vector<base::FilePath>& files) {
   if (launch_app_done_) {
     host_->FocusApp(focus_type, files);

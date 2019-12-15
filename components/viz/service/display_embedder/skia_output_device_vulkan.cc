@@ -50,17 +50,21 @@ bool SkiaOutputDeviceVulkan::Reshape(const gfx::Size& size,
 
   uint32_t generation = 0;
   if (!vulkan_surface_) {
-    CreateVulkanSurface();
+    if (!CreateVulkanSurface())
+      return false;
   } else {
     generation = vulkan_surface_->swap_chain_generation();
   }
 
   vulkan_surface_->Reshape(size, transform);
 
-  if (vulkan_surface_->swap_chain_generation() != generation) {
+  auto sk_color_space = color_space.ToSkColorSpace();
+  if (vulkan_surface_->swap_chain_generation() != generation ||
+      !SkColorSpace::Equals(sk_color_space.get(), sk_color_space_.get())) {
     // swapchain is changed, we need recreate all cached sk surfaces.
     sk_surfaces_.clear();
     sk_surfaces_.resize(vulkan_surface_->swap_chain()->num_images());
+    sk_color_space_ = std::move(sk_color_space);
   }
   return true;
 }
@@ -111,7 +115,7 @@ SkSurface* SkiaOutputDeviceVulkan::BeginPaint() {
                              : kRGBA_8888_SkColorType;
     sk_surface = SkSurface::MakeFromBackendRenderTarget(
         context_provider_->GetGrContext(), render_target,
-        kTopLeft_GrSurfaceOrigin, sk_color_type, nullptr /* color_space */,
+        kTopLeft_GrSurfaceOrigin, sk_color_type, sk_color_space_,
         &surface_props);
     DCHECK(sk_surface);
   } else {
@@ -144,7 +148,7 @@ void SkiaOutputDeviceVulkan::EndPaint(const GrBackendSemaphore& semaphore) {
   scoped_write_.reset();
 }
 
-void SkiaOutputDeviceVulkan::CreateVulkanSurface() {
+bool SkiaOutputDeviceVulkan::CreateVulkanSurface() {
   gfx::AcceleratedWidget accelerated_widget = gfx::kNullAcceleratedWidget;
 #if defined(OS_ANDROID)
   bool can_be_used_with_surface_control = false;
@@ -157,13 +161,17 @@ void SkiaOutputDeviceVulkan::CreateVulkanSurface() {
   auto vulkan_surface =
       context_provider_->GetVulkanImplementation()->CreateViewSurface(
           accelerated_widget);
-  if (!vulkan_surface)
-    LOG(FATAL) << "Failed to create vulkan surface.";
+  if (!vulkan_surface) {
+    LOG(ERROR) << "Failed to create vulkan surface.";
+    return false;
+  }
   if (!vulkan_surface->Initialize(context_provider_->GetDeviceQueue(),
                                   gpu::VulkanSurface::FORMAT_RGBA_32)) {
-    LOG(FATAL) << "Failed to initialize vulkan surface.";
+    LOG(ERROR) << "Failed to initialize vulkan surface.";
+    return false;
   }
   vulkan_surface_ = std::move(vulkan_surface);
+  return true;
 }
 
 }  // namespace viz

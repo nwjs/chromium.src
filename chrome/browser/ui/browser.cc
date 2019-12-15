@@ -97,6 +97,7 @@
 #include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
+#include "chrome/browser/subresource_filter/chrome_subresource_filter_client.h"
 #include "chrome/browser/tab_contents/tab_util.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/themes/theme_service.h"
@@ -153,6 +154,8 @@
 #include "chrome/browser/ui/tab_dialogs.h"
 #include "chrome/browser/ui/tab_helpers.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog.h"
+#include "chrome/browser/ui/tabs/tab_group.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
@@ -182,6 +185,7 @@
 #include "components/keep_alive_registry/scoped_keep_alive.h"
 #include "components/omnibox/browser/location_bar_model_impl.h"
 #include "components/page_load_metrics/browser/metrics_web_contents_observer.h"
+#include "components/page_load_metrics/common/page_load_metrics.mojom.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/triggers/ad_redirect_trigger.h"
 #include "components/search/search.h"
@@ -190,6 +194,7 @@
 #include "components/sessions/core/session_types.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
+#include "components/subresource_filter/content/browser/content_subresource_filter_throttle_manager.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/user_manager/user_manager.h"
 #include "components/viz/common/surfaces/surface_id.h"
@@ -230,6 +235,7 @@
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "net/base/filename_util.h"
 #include "third_party/blink/public/common/frame/blocked_navigation_types.h"
+#include "third_party/blink/public/mojom/web_feature/web_feature.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/point.h"
@@ -320,8 +326,7 @@ bool IsOnKioskSplashScreen() {
   if (!user_manager::UserManager::IsInitialized())
     return false;
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
-  if (!user_manager->IsLoggedInAsKioskApp() &&
-      !user_manager->IsLoggedInAsArcKioskApp())
+  if (!user_manager->IsLoggedInAsAnyKioskApp())
     return false;
   if (session_manager->session_state() !=
       session_manager::SessionState::LOGIN_PRIMARY)
@@ -723,7 +728,7 @@ FindBarController* Browser::GetFindBarController() {
         find_bar_controller_.get());
     find_bar_controller_->ChangeWebContents(
         tab_strip_model_->GetActiveWebContents());
-    find_bar_controller_->find_bar()->MoveWindowIfNecessary(gfx::Rect());
+    find_bar_controller_->find_bar()->MoveWindowIfNecessary();
   }
   return find_bar_controller_.get();
 }
@@ -905,8 +910,10 @@ void Browser::OnWindowClosing() {
       browser_shutdown::IsTryingToQuit() ||
       KeepAliveRegistry::GetInstance()->IsKeepingAliveOnlyByBrowserOrigin();
 
-  if (should_quit_if_last_browser && ShouldStartShutdown())
-    browser_shutdown::OnShutdownStarting(browser_shutdown::WINDOW_CLOSE);
+  if (should_quit_if_last_browser && ShouldStartShutdown()) {
+    browser_shutdown::OnShutdownStarting(
+        browser_shutdown::ShutdownType::kWindowClose);
+  }
 
   // Don't use GetForProfileIfExisting here, we want to force creation of the
   // session service so that user can restore what was open.
@@ -918,12 +925,12 @@ void Browser::OnWindowClosing() {
   sessions::TabRestoreService* tab_restore_service =
       TabRestoreServiceFactory::GetForProfile(profile());
 
-#if defined(USE_AURA)
-  if (tab_restore_service && is_type_app())
-    tab_restore_service->BrowserClosing(live_tab_context());
+  bool notify_restore_service = is_type_normal() && tab_strip_model_->count();
+#if defined(USE_AURA) || defined(OS_MACOSX)
+  notify_restore_service |= is_type_app();
 #endif
 
-  if (tab_restore_service && is_type_normal() && tab_strip_model_->count())
+  if (tab_restore_service && notify_restore_service)
     tab_restore_service->BrowserClosing(live_tab_context());
 
   BrowserList::NotifyBrowserCloseStarted(this);
@@ -1156,12 +1163,6 @@ void Browser::OnTabStripModelChanged(TabStripModel* tab_strip_model,
                       replace->index);
       break;
     }
-    case TabStripModelChange::kGroupChanged: {
-      auto* group_change = change.GetGroupChange();
-      OnTabGroupChanged(group_change->index, group_change->old_group,
-                        group_change->new_group);
-      break;
-    }
     case TabStripModelChange::kSelectionOnly:
       break;
   }
@@ -1179,16 +1180,18 @@ void Browser::OnTabStripModelChanged(TabStripModel* tab_strip_model,
                      selection.new_model.active(), selection.reason);
 }
 
-void Browser::OnTabGroupVisualDataChanged(
-    TabStripModel* tab_strip_model,
-    TabGroupId group,
-    const TabGroupVisualData* visual_data) {
-  SessionService* const session_service =
-      SessionServiceFactory::GetForProfile(profile_);
-  if (session_service) {
-    session_service->SetTabGroupMetadata(session_id(), group.token(),
-                                         visual_data->title(),
-                                         visual_data->color());
+void Browser::OnTabGroupChanged(const TabGroupChange& change) {
+  if (change.type == TabGroupChange::kVisualsChanged) {
+    SessionService* const session_service =
+        SessionServiceFactory::GetForProfile(profile_);
+    if (session_service) {
+      TabGroupVisualData* visual_data = tab_strip_model_->group_model()
+                                            ->GetTabGroup(change.group)
+                                            ->visual_data();
+      session_service->SetTabGroupMetadata(session_id(), change.group.token(),
+                                           visual_data->title(),
+                                           visual_data->color());
+    }
   }
 }
 
@@ -1203,6 +1206,23 @@ void Browser::TabPinnedStateChanged(TabStripModel* tab_strip_model,
     session_service->SetPinnedState(session_id(),
                                     session_tab_helper->session_id(),
                                     tab_strip_model_->IsTabPinned(index));
+  }
+}
+
+void Browser::TabGroupedStateChanged(base::Optional<TabGroupId> group,
+                                     int index) {
+  SessionService* const session_service =
+      SessionServiceFactory::GetForProfile(profile_);
+  if (session_service) {
+    content::WebContents* const web_contents =
+        tab_strip_model_->GetWebContentsAt(index);
+    SessionTabHelper* const session_tab_helper =
+        SessionTabHelper::FromWebContents(web_contents);
+    const base::Optional<base::Token> raw_id =
+        group.has_value() ? base::make_optional(group.value().token())
+                          : base::nullopt;
+    session_service->SetTabGroup(session_id(), session_tab_helper->session_id(),
+                                 raw_id);
   }
 }
 
@@ -1371,6 +1391,15 @@ Browser::ShowBluetoothScanningPrompt(
   return std::move(bluetooth_scanning_prompt_desktop);
 }
 
+void Browser::CreateSmsPrompt(content::RenderFrameHost*,
+                              const url::Origin&,
+                              const std::string& one_time_code,
+                              base::OnceClosure on_confirm,
+                              base::OnceClosure on_cancel) {
+  // TODO(crbug.com/1015645): implementation left pending deliberately.
+  std::move(on_confirm).Run();
+}
+
 void Browser::PassiveInsecureContentFound(const GURL& resource_url) {
   // Note: this implementation is a mirror of
   // ContentSettingsObserver::passiveInsecureContentFound
@@ -1397,7 +1426,7 @@ bool Browser::ShouldAllowRunningInsecureContent(
         HostContentSettingsMapFactory::GetForProfile(profile);
     return content_settings->GetContentSetting(
                web_contents->GetLastCommittedURL(), GURL(),
-               CONTENT_SETTINGS_TYPE_MIXEDSCRIPT,
+               ContentSettingsType::MIXEDSCRIPT,
                std::string()) == CONTENT_SETTING_ALLOW;
   }
   MixedContentSettingsTabHelper* mixed_content_settings =
@@ -1411,8 +1440,7 @@ bool Browser::ShouldAllowRunningInsecureContent(
     TabSpecificContentSettings* tab_settings =
         TabSpecificContentSettings::FromWebContents(web_contents);
     DCHECK(tab_settings);
-    tab_settings->OnContentBlockedWithDetail(CONTENT_SETTINGS_TYPE_MIXEDSCRIPT,
-                                             base::UTF8ToUTF16(origin.host()));
+    tab_settings->OnContentBlocked(ContentSettingsType::MIXEDSCRIPT);
   }
   return allowed;
 }
@@ -1490,6 +1518,15 @@ bool Browser::ShouldShowStaleContentOnEviction(content::WebContents* source) {
 #endif  // defined(OS_CHROMEOS)
 }
 
+bool Browser::IsFrameLowPriority(
+    const content::WebContents* web_contents,
+    const content::RenderFrameHost* render_frame_host) {
+  const auto* client =
+      ChromeSubresourceFilterClient::FromWebContents(web_contents);
+  return client &&
+         client->GetThrottleManager()->IsFrameTaggedAsAd(render_frame_host);
+}
+
 bool Browser::IsMouseLocked() const {
   return exclusive_access_manager_->mouse_lock_controller()->IsMouseLocked();
 }
@@ -1536,7 +1573,7 @@ WebContents* Browser::OpenURLFromTab(WebContents* source,
     return nullptr;
   }
 
-  ConfigureTabGroupForNavigation(source, &nav_params);
+  chrome::ConfigureTabGroupForNavigation(&nav_params);
 
   Navigate(&nav_params);
 
@@ -1602,6 +1639,7 @@ void Browser::AddNewContents(WebContents* source,
   // the same logic for determining if the popup tracker needs to be attached.
   if (source && ConsiderForPopupBlocking(disposition))
     PopupTracker::CreateForWebContents(new_contents.get(), source);
+
   chrome::AddWebContents(this, source, std::move(new_contents), disposition,
                          initial_rect, tmp_manifest());
 }
@@ -1627,6 +1665,18 @@ void Browser::SetContentsBounds(WebContents* source, const gfx::Rect& bounds) {
   if (is_type_normal())
     return;
 
+  page_load_metrics::mojom::PageLoadFeatures features;
+  features.features.push_back(blink::mojom::WebFeature::kMovedOrResizedPopup);
+  if (creation_timer_.Elapsed() > base::TimeDelta::FromSeconds(2)) {
+    // Additionally measure whether a popup was moved after creation, to
+    // distinguish between popups that reposition themselves after load and
+    // those which move popups continuously.
+    features.features.push_back(
+        blink::mojom::WebFeature::kMovedOrResizedPopup2sAfterCreation);
+  }
+
+  page_load_metrics::MetricsWebContentsObserver::RecordFeatureUsage(
+      source->GetMainFrame(), features);
   window_->SetBounds(bounds);
 }
 
@@ -2016,7 +2066,7 @@ void Browser::RequestPpapiBrokerPermission(
   HostContentSettingsMap* content_settings =
       HostContentSettingsMapFactory::GetForProfile(profile);
   ContentSetting setting = content_settings->GetContentSetting(
-      url, url, CONTENT_SETTINGS_TYPE_PPAPI_BROKER, std::string());
+      url, url, ContentSettingsType::PPAPI_BROKER, std::string());
 
   if (setting == CONTENT_SETTING_ASK) {
     base::RecordAction(base::UserMetricsAction("PPAPI.BrokerInfobarDisplayed"));
@@ -2336,7 +2386,7 @@ void Browser::OnActiveTabChanged(WebContents* old_contents,
 
   if (HasFindBarController()) {
     find_bar_controller_->ChangeWebContents(new_contents);
-    find_bar_controller_->find_bar()->MoveWindowIfNecessary(gfx::Rect());
+    find_bar_controller_->find_bar()->MoveWindowIfNecessary();
   }
 
   // Update sessions (selected tab index and last active time). Don't force
@@ -2386,24 +2436,6 @@ void Browser::OnTabReplacedAt(WebContents* old_contents,
     // the session service to update itself.
     session_service->TabRestored(new_contents,
                                  tab_strip_model_->IsTabPinned(index));
-  }
-}
-
-void Browser::OnTabGroupChanged(int index,
-                                base::Optional<TabGroupId> old_group,
-                                base::Optional<TabGroupId> new_group) {
-  content::WebContents* const web_contents =
-      tab_strip_model_->GetWebContentsAt(index);
-  SessionService* const session_service =
-      SessionServiceFactory::GetForProfile(profile_);
-  if (session_service) {
-    SessionTabHelper* const session_tab_helper =
-        SessionTabHelper::FromWebContents(web_contents);
-    const base::Optional<base::Token> raw_id =
-        new_group.has_value() ? base::make_optional(new_group.value().token())
-                              : base::nullopt;
-    session_service->SetTabGroup(session_id(), session_tab_helper->session_id(),
-                                 raw_id);
   }
 }
 
@@ -2551,31 +2583,6 @@ void Browser::RemoveScheduledUpdatesFor(WebContents* contents) {
   auto i = scheduled_updates_.find(contents);
   if (i != scheduled_updates_.end())
     scheduled_updates_.erase(i);
-}
-
-void Browser::ConfigureTabGroupForNavigation(content::WebContents* source,
-                                             NavigateParams* nav_params) {
-  if (!base::FeatureList::IsEnabled(features::kTabGroups))
-    return;
-
-  if (!source)
-    return;
-
-  if (!SupportsWindowFeature(WindowFeature::FEATURE_TABSTRIP))
-    return;
-
-  const int source_index = tab_strip_model_->GetIndexOfWebContents(source);
-
-  // If the source tab is pinned, don't create a group.
-  if (tab_strip_model_->IsTabPinned(source_index))
-    return;
-
-  if (nav_params->disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB ||
-      nav_params->disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB) {
-    nav_params->group = tab_strip_model_->GetTabGroupForTab(source_index);
-    if (!nav_params->group)
-      nav_params->group = tab_strip_model_->AddToNewGroup({source_index});
-  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2844,7 +2851,7 @@ bool Browser::WebAppBrowserSupportsWindowFeature(WindowFeature feature,
     case FEATURE_LOCATIONBAR:
       return check_can_support || !fullscreen;
     case FEATURE_TABSTRIP:
-      return app_controller_->HasTabStrip();
+      return app_controller_->has_tab_strip();
     case FEATURE_BOOKMARKBAR:
     case FEATURE_NONE:
       return false;

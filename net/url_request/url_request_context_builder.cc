@@ -36,9 +36,9 @@
 #include "net/log/net_log.h"
 #include "net/net_buildflags.h"
 #include "net/nqe/network_quality_estimator.h"
+#include "net/quic/quic_context.h"
 #include "net/quic/quic_stream_factory.h"
 #include "net/ssl/ssl_config_service_defaults.h"
-#include "net/url_request/data_protocol_handler.h"
 #include "net/url_request/static_http_user_agent_settings.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_storage.h"
@@ -89,7 +89,7 @@ class BasicNetworkDelegate : public NetworkDelegateImpl {
       const HttpResponseHeaders* original_response_headers,
       scoped_refptr<HttpResponseHeaders>* override_response_headers,
       const IPEndPoint& endpoint,
-      GURL* allowed_unsafe_redirect_url) override {
+      base::Optional<GURL>* preserve_fragment_on_redirect_url) override {
     return OK;
   }
 
@@ -203,6 +203,7 @@ void URLRequestContextBuilder::SetHttpNetworkSessionComponents(
       request_context->http_auth_handler_factory();
   session_context->http_server_properties =
       request_context->http_server_properties();
+  session_context->quic_context = request_context->quic_context();
   session_context->net_log = request_context->net_log();
   session_context->network_quality_estimator =
       request_context->network_quality_estimator();
@@ -257,6 +258,11 @@ void URLRequestContextBuilder::set_ct_verifier(
 void URLRequestContextBuilder::set_ct_policy_enforcer(
     std::unique_ptr<CTPolicyEnforcer> ct_policy_enforcer) {
   ct_policy_enforcer_ = std::move(ct_policy_enforcer);
+}
+
+void URLRequestContextBuilder::set_quic_context(
+    std::unique_ptr<QuicContext> quic_context) {
+  quic_context_ = std::move(quic_context);
 }
 
 void URLRequestContextBuilder::SetCertVerifier(
@@ -388,7 +394,7 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
     // builder or resulting context.
     context->set_net_log(net_log_);
   } else {
-    storage->set_net_log(std::make_unique<NetLog>());
+    context->set_net_log(NetLog::Get());
   }
 
   if (host_resolver_) {
@@ -472,7 +478,7 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
   } else if (shared_cert_verifier_) {
     context->set_cert_verifier(shared_cert_verifier_);
   } else {
-    // TODO(mattm): Should URLRequestContextBuilder create a CertNetFetcherImpl?
+    // TODO(mattm): Should URLRequestContextBuilder create a CertNetFetcher?
     storage->set_cert_verifier(
         CertVerifier::CreateDefault(/*cert_net_fetcher=*/nullptr));
   }
@@ -488,6 +494,12 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
   } else {
     storage->set_ct_policy_enforcer(
         std::make_unique<DefaultCTPolicyEnforcer>());
+  }
+
+  if (quic_context_) {
+    storage->set_quic_context(std::move(quic_context_));
+  } else {
+    storage->set_quic_context(std::make_unique<QuicContext>());
   }
 
   if (throttling_enabled_) {
@@ -610,16 +622,12 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
 
   URLRequestJobFactoryImpl* job_factory = new URLRequestJobFactoryImpl;
   // Adds caller-provided protocol handlers first so that these handlers are
-  // used over data/file/ftp handlers below.
+  // used over the ftp handler below.
   for (auto& scheme_handler : protocol_handlers_) {
     job_factory->SetProtocolHandler(scheme_handler.first,
                                     std::move(scheme_handler.second));
   }
   protocol_handlers_.clear();
-
-  if (data_enabled_)
-    job_factory->SetProtocolHandler(url::kDataScheme,
-                                    std::make_unique<DataProtocolHandler>());
 
 #if !BUILDFLAG(DISABLE_FTP_SUPPORT)
   if (ftp_enabled_) {

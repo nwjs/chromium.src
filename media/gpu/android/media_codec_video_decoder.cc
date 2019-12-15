@@ -246,6 +246,10 @@ void MediaCodecVideoDecoder::Destroy() {
   TRACE_EVENT0("media", "MediaCodecVideoDecoder::Destroy");
 
   // Cancel pending callbacks.
+  //
+  // WARNING: This will lose the callback we've given to MediaCodecBridge for
+  // asynchronous notifications; so we must not leave this function with any
+  // work necessary from StartTimerOrPumpCodec().
   weak_factory_.InvalidateWeakPtrs();
 
   if (media_crypto_context_) {
@@ -265,6 +269,10 @@ void MediaCodecVideoDecoder::Destroy() {
   codec_allocator_weak_factory_.InvalidateWeakPtrs();
   CancelPendingDecodes(DecodeStatus::ABORTED);
   StartDrainingCodec(DrainType::kForDestroy);
+
+  // Per the WARNING above. Validate that no draining work remains.
+  if (using_async_api_)
+    DCHECK(!drain_type_.has_value());
 }
 
 void MediaCodecVideoDecoder::Initialize(const VideoDecoderConfig& config,
@@ -831,8 +839,7 @@ bool MediaCodecVideoDecoder::QueueInput() {
     return false;
 
   PendingDecode& pending_decode = pending_decodes_.front();
-  auto status = codec_->QueueInputBuffer(*pending_decode.buffer,
-                                         decoder_config_.encryption_scheme());
+  auto status = codec_->QueueInputBuffer(*pending_decode.buffer);
   DVLOG((status == CodecWrapper::QueueStatus::kTryAgainLater ||
                  status == CodecWrapper::QueueStatus::kOk
              ? 3
@@ -1022,7 +1029,7 @@ void MediaCodecVideoDecoder::StartDrainingCodec(DrainType drain_type) {
   // TODO(watk): Strongly consider blacklisting VP8 (or specific MediaCodecs)
   // instead. Draining is responsible for a lot of complexity.
   if (decoder_config_.codec() != kCodecVP8 || !codec_ || codec_->IsFlushed() ||
-      codec_->IsDrained()) {
+      codec_->IsDrained() || using_async_api_) {
     // If the codec isn't already drained or flushed, then we have to remember
     // that we owe it a flush.  We also have to remember not to deliver any
     // output buffers that might still be in progress in the codec.

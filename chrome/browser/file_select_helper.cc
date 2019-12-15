@@ -107,6 +107,9 @@ bool IsDownloadAllowedBySafeBrowsing(
     case Result::ASYNC_SCANNING:
     case Result::BLOCKED_PASSWORD_PROTECTED:
     case Result::BLOCKED_TOO_LARGE:
+    case Result::SENSITIVE_CONTENT_BLOCK:
+    case Result::SENSITIVE_CONTENT_WARNING:
+    case Result::DEEP_SCANNED_SAFE:
       NOTREACHED();
       return true;
   }
@@ -338,7 +341,8 @@ void FileSelectHelper::PerformSafeBrowsingDeepScanIfNeeded(
     safe_browsing::DeepScanningDialogDelegate::ShowForWebContents(
         web_contents_, std::move(data),
         base::BindOnce(&FileSelectHelper::DeepScanCompletionCallback, this,
-                       std::move(list)));
+                       std::move(list)),
+        safe_browsing::DeepScanAccessPoint::UPLOAD);
   } else {
     NotifyListenerAndEnd(std::move(list));
   }

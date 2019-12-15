@@ -193,6 +193,16 @@ class AXFragmentRootMapWin {
     return map_[widget];
   }
 
+  ui::AXFragmentRootWin* GetFragmentRootParentOf(
+      gfx::NativeViewAccessible accessible) const {
+    for (const auto& entry : map_) {
+      AXPlatformNodeDelegate* child = entry.second->GetChildNodeDelegate();
+      if (child && (child->GetNativeViewAccessible() == accessible))
+        return entry.second;
+    }
+    return nullptr;
+  }
+
  private:
   std::unordered_map<gfx::AcceleratedWidget, AXFragmentRootWin*> map_;
 };
@@ -215,6 +225,13 @@ AXFragmentRootWin* AXFragmentRootWin::GetForAcceleratedWidget(
   return AXFragmentRootMapWin::GetInstance().GetFragmentRoot(widget);
 }
 
+// static
+AXFragmentRootWin* AXFragmentRootWin::GetFragmentRootParentOf(
+    gfx::NativeViewAccessible accessible) {
+  return AXFragmentRootMapWin::GetInstance().GetFragmentRootParentOf(
+      accessible);
+}
+
 gfx::NativeViewAccessible AXFragmentRootWin::GetNativeViewAccessible() {
   return platform_node_.Get();
 }
@@ -235,6 +252,25 @@ gfx::NativeViewAccessible AXFragmentRootWin::ChildAtIndex(int index) {
   if (index == 0) {
     return delegate_->GetChildOfAXFragmentRoot();
   }
+
+  return nullptr;
+}
+
+gfx::NativeViewAccessible AXFragmentRootWin::GetNextSibling() {
+  int child_index = GetIndexInParentOfChild();
+  if (child_index >= 0) {
+    AXPlatformNodeDelegate* parent = GetParentNodeDelegate();
+    if (parent && child_index < (parent->GetChildCount() - 1))
+      return GetParentNodeDelegate()->ChildAtIndex(child_index + 1);
+  }
+
+  return nullptr;
+}
+
+gfx::NativeViewAccessible AXFragmentRootWin::GetPreviousSibling() {
+  int child_index = GetIndexInParentOfChild();
+  if (child_index > 0)
+    return GetParentNodeDelegate()->ChildAtIndex(child_index - 1);
 
   return nullptr;
 }
@@ -274,12 +310,39 @@ AXPlatformNode* AXFragmentRootWin::GetFromTreeIDAndNodeID(
   return nullptr;
 }
 
-AXPlatformNodeDelegate* AXFragmentRootWin::GetChildNodeDelegate() {
+AXPlatformNodeDelegate* AXFragmentRootWin::GetParentNodeDelegate() const {
+  gfx::NativeViewAccessible parent = delegate_->GetParentOfAXFragmentRoot();
+  if (parent)
+    return ui::AXPlatformNode::FromNativeViewAccessible(parent)->GetDelegate();
+
+  return nullptr;
+}
+
+AXPlatformNodeDelegate* AXFragmentRootWin::GetChildNodeDelegate() const {
   gfx::NativeViewAccessible child = delegate_->GetChildOfAXFragmentRoot();
   if (child)
     return ui::AXPlatformNode::FromNativeViewAccessible(child)->GetDelegate();
 
   return nullptr;
+}
+
+int AXFragmentRootWin::GetIndexInParentOfChild() const {
+  AXPlatformNodeDelegate* parent = GetParentNodeDelegate();
+
+  if (!parent)
+    return 0;
+
+  AXPlatformNodeDelegate* child = GetChildNodeDelegate();
+  if (child) {
+    int child_count = parent->GetChildCount();
+    for (int child_index = 0; child_index < child_count; child_index++) {
+      if (ui::AXPlatformNode::FromNativeViewAccessible(
+              parent->ChildAtIndex(child_index))
+              ->GetDelegate() == child)
+        return child_index;
+    }
+  }
+  return 0;
 }
 
 }  // namespace ui

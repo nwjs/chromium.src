@@ -78,6 +78,12 @@ class TabStripController {
   // Closes the tab at the specified index in the model.
   virtual void CloseTab(int index, CloseTabSource source) = 0;
 
+  // Ungroups the tabs at the specified index in the model.
+  virtual void UngroupAllTabsInGroup(TabGroupId group) = 0;
+
+  // Adds a new tab to end of the tab group.
+  virtual void AddNewTabInGroup(TabGroupId group) = 0;
+
   // Moves the tab at |start_index| so that it is now at |final_index|, sliding
   // any tabs in between left or right as appropriate.
   virtual void MoveTab(int start_index, int final_index) = 0;
@@ -108,12 +114,12 @@ class TabStripController {
   virtual void StackedLayoutMaybeChanged() = 0;
 
   // Notifies controller that the user started dragging this tabstrip's tabs.
-  virtual void OnStartedDraggingTabs() = 0;
+  virtual void OnStartedDragging() = 0;
 
   // Notifies controller that the user stopped dragging this tabstrip's tabs.
   // This is also called when the tabs that the user is dragging were detached
   // from this tabstrip but the user is still dragging the tabs.
-  virtual void OnStoppedDraggingTabs() = 0;
+  virtual void OnStoppedDragging() = 0;
 
   // Notifies controller that the index of the tab with keyboard focus changed
   // to |index|.
@@ -168,6 +174,8 @@ class TabStripController {
 
   // Returns the profile associated with the Tabstrip.
   virtual Profile* GetProfile() const = 0;
+
+  virtual const Browser* GetBrowser() const = 0;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TABS_TAB_STRIP_CONTROLLER_H_

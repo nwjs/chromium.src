@@ -10,12 +10,13 @@ import org.chromium.base.Log;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.externalauth.ExternalAuthUtils;
 import org.chromium.chrome.browser.externalauth.UserRecoverableErrorHandler;
-import org.chromium.chrome.browser.preferences.sync.AccountManagementFragment;
 import org.chromium.chrome.browser.services.AndroidEduAndChildAccountHelper;
+import org.chromium.chrome.browser.settings.sync.AccountManagementFragment;
 import org.chromium.chrome.browser.signin.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.SigninManager;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.ChildAccountStatus;
+import org.chromium.components.signin.metrics.SigninAccessPoint;
 
 /**
  * A helper to perform all necessary steps for forced sign in.
@@ -77,21 +78,22 @@ public final class ForcedSigninProcessor {
                 Log.d(TAG, "Incorrect number of accounts (%d)", accounts.size());
                 return;
             }
-            signinManager.signIn(accounts.get(0), new SigninManager.SignInCallback() {
-                @Override
-                public void onSignInComplete() {
-                    if (onComplete != null) {
-                        onComplete.run();
-                    }
-                }
+            signinManager.signIn(SigninAccessPoint.FORCED_SIGNIN, accounts.get(0),
+                    new SigninManager.SignInCallback() {
+                        @Override
+                        public void onSignInComplete() {
+                            if (onComplete != null) {
+                                onComplete.run();
+                            }
+                        }
 
-                @Override
-                public void onSignInAborted() {
-                    if (onComplete != null) {
-                        onComplete.run();
-                    }
-                }
-            });
+                        @Override
+                        public void onSignInAborted() {
+                            if (onComplete != null) {
+                                onComplete.run();
+                            }
+                        }
+                    });
         });
     }
 

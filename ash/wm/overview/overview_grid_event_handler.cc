@@ -4,6 +4,8 @@
 
 #include "ash/wm/overview/overview_grid_event_handler.h"
 
+#include "ash/home_screen/home_screen_controller.h"
+#include "ash/public/cpp/ash_features.h"
 #include "ash/root_window_controller.h"
 #include "ash/shell.h"
 #include "ash/wallpaper/wallpaper_view.h"
@@ -11,13 +13,20 @@
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_utils.h"
+#include "ash/wm/splitview/split_view_controller.h"
 #include "ui/compositor/compositor.h"
+#include "ui/display/screen.h"
 #include "ui/events/event.h"
 #include "ui/events/gestures/fling_curve.h"
+#include "ui/views/widget/widget.h"
 
 namespace ash {
 
 namespace {
+
+// Do not bother moving the grid until a series of scrolls has reached this
+// threshold.
+constexpr float kScrollOffsetThresholdDp = 1.f;
 
 WallpaperView* GetWallpaperViewForRoot(const aura::Window* root_window) {
   auto* wallpaper_widget_controller =
@@ -69,6 +78,7 @@ void OverviewGridEventHandler::OnGestureEvent(ui::GestureEvent* event) {
       if (!ShouldUseTabletModeGridLayout())
         return;
 
+      scroll_offset_x_cumulative_ = 0.f;
       EndFling();
       grid_->StartScroll();
       event->SetHandled();
@@ -78,7 +88,13 @@ void OverviewGridEventHandler::OnGestureEvent(ui::GestureEvent* event) {
       if (!ShouldUseTabletModeGridLayout())
         return;
 
-      grid_->UpdateScrollOffset(event->details().scroll_x());
+      // Only forward the scrolls to grid once they have exceeded the threshold.
+      const float scroll_offset_x = event->details().scroll_x();
+      scroll_offset_x_cumulative_ += scroll_offset_x;
+      if (std::abs(scroll_offset_x_cumulative_) > kScrollOffsetThresholdDp) {
+        grid_->UpdateScrollOffset(scroll_offset_x_cumulative_);
+        scroll_offset_x_cumulative_ = 0.f;
+      }
       event->SetHandled();
       break;
     }
@@ -126,10 +142,28 @@ void OverviewGridEventHandler::OnCompositingShuttingDown(
 
 void OverviewGridEventHandler::HandleClickOrTap(ui::Event* event) {
   CHECK_EQ(ui::EP_PRETARGET, event->phase());
+
   // Events that happen while app list is sliding out during overview should
   // be ignored to prevent overview from disappearing out from under the user.
-  if (!IsSlidingOutOverviewFromShelf())
-    Shell::Get()->overview_controller()->EndOverview();
+  if (!IsSlidingOutOverviewFromShelf()) {
+    if (Shell::Get()->tablet_mode_controller()->InTabletMode() &&
+        features::IsDragFromShelfToHomeOrOverviewEnabled()) {
+      aura::Window* window = static_cast<views::View*>(event->target())
+                                 ->GetWidget()
+                                 ->GetNativeWindow();
+
+      // In tablet mode, clicking on tapping on the wallpaper background will
+      // head back to home launcher screen if not in split view (in which case
+      // the event should be ignored).
+      if (!SplitViewController::Get(window)->InSplitViewMode()) {
+        int64_t display_id =
+            display::Screen::GetScreen()->GetDisplayNearestWindow(window).id();
+        Shell::Get()->home_screen_controller()->GoHome(display_id);
+      }
+    } else {
+      Shell::Get()->overview_controller()->EndOverview();
+    }
+  }
   event->StopPropagation();
 }
 

@@ -55,7 +55,7 @@ TEST(SetupUtilTest, GetMaxVersionFromArchiveDirTest) {
       installer::GetMaxVersionFromArchiveDir(test_dir.GetPath()));
   ASSERT_EQ(version->GetString(), "1.0.0.0");
 
-  base::DeleteFile(chrome_dir, true);
+  base::DeleteFileRecursively(chrome_dir);
   ASSERT_FALSE(base::PathExists(chrome_dir)) << chrome_dir.value();
   ASSERT_TRUE(installer::GetMaxVersionFromArchiveDir(test_dir.GetPath()) ==
               NULL);
@@ -263,22 +263,19 @@ TEST(SetupUtilTest, RecordUnPackMetricsTest) {
       std::string(installer::kUnPackNTSTATUSMetricsName) + "_SetupExePatch";
   histogram_tester.ExpectTotalCount(unpack_status_metrics_name, 0);
 
-  RecordUnPackMetrics(UnPackStatus::UNPACK_NO_ERROR, 0, ERROR_SUCCESS,
+  RecordUnPackMetrics(UnPackStatus::UNPACK_NO_ERROR, base::nullopt,
+                      base::nullopt,
                       installer::UnPackConsumer::SETUP_EXE_PATCH);
   histogram_tester.ExpectTotalCount(unpack_status_metrics_name, 1);
   histogram_tester.ExpectBucketCount(unpack_status_metrics_name, 0, 1);
-  histogram_tester.ExpectTotalCount(unpack_result_metrics_name, 1);
-  histogram_tester.ExpectBucketCount(unpack_result_metrics_name, 0, 1);
-  histogram_tester.ExpectTotalCount(ntstatus_metrics_name, 1);
-  histogram_tester.ExpectBucketCount(ntstatus_metrics_name, 0, 1);
 
-  RecordUnPackMetrics(UnPackStatus::UNPACK_CLOSE_FILE_ERROR, 1, 2,
+  RecordUnPackMetrics(UnPackStatus::UNPACK_EXTRACT_ERROR, 1, 2,
                       installer::UnPackConsumer::SETUP_EXE_PATCH);
   histogram_tester.ExpectTotalCount(unpack_status_metrics_name, 2);
-  histogram_tester.ExpectBucketCount(unpack_status_metrics_name, 10, 1);
-  histogram_tester.ExpectTotalCount(unpack_result_metrics_name, 2);
+  histogram_tester.ExpectBucketCount(unpack_status_metrics_name, 4, 1);
+  histogram_tester.ExpectTotalCount(unpack_result_metrics_name, 1);
   histogram_tester.ExpectBucketCount(unpack_result_metrics_name, 2, 1);
-  histogram_tester.ExpectTotalCount(ntstatus_metrics_name, 2);
+  histogram_tester.ExpectTotalCount(ntstatus_metrics_name, 1);
   histogram_tester.ExpectBucketCount(ntstatus_metrics_name, 1, 1);
 }
 
@@ -579,6 +576,25 @@ TEST_F(DeleteRegistryKeyPartialTest, EmptyKey) {
 
 TEST_F(DeleteRegistryKeyPartialTest, NonEmptyKey) {
   CreateSubKeys(false); /* !with_preserves */
+
+  // Put some values into the main key.
+  {
+    RegKey key(root_, path_.c_str(), KEY_SET_VALUE);
+    ASSERT_TRUE(key.Valid());
+    ASSERT_EQ(ERROR_SUCCESS, key.WriteValue(nullptr, 5U));
+    ASSERT_EQ(
+        1u,
+        base::win::RegistryValueIterator(root_, path_.c_str()).ValueCount());
+    ASSERT_EQ(ERROR_SUCCESS, key.WriteValue(L"foo", L"bar"));
+    ASSERT_EQ(
+        2u,
+        base::win::RegistryValueIterator(root_, path_.c_str()).ValueCount());
+    ASSERT_EQ(ERROR_SUCCESS, key.WriteValue(L"baz", L"huh"));
+    ASSERT_EQ(
+        3u,
+        base::win::RegistryValueIterator(root_, path_.c_str()).ValueCount());
+  }
+
   DeleteRegistryKeyPartial(root_, path_.c_str(), std::vector<base::string16>());
   ASSERT_FALSE(RegKey(root_, path_.c_str(), KEY_READ).Valid());
 

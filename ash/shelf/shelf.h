@@ -124,6 +124,10 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
   // Returns the ideal bounds of the shelf assuming it is visible.
   gfx::Rect GetIdealBounds() const;
 
+  // Returns the ideal bounds of the shelf, but in tablet mode always returns
+  // the bounds of the in-app shelf.
+  gfx::Rect GetIdealBoundsForWorkAreaCalculation();
+
   // Returns the screen bounds of the item for the specified window. If there is
   // no item for the specified window an empty rect is returned.
   gfx::Rect GetScreenBoundsOfItemIconForWindow(aura::Window* window);
@@ -196,6 +200,7 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
 
  private:
   class AutoHideEventHandler;
+  class AutoDimEventHandler;
   friend class ShelfLayoutManagerTest;
 
   // Returns work area insets object for the window with this shelf.
@@ -210,7 +215,7 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
   std::unique_ptr<ShelfWidget> shelf_widget_;
 
   // These initial values hide the shelf until user preferences are available.
-  ShelfAlignment alignment_ = SHELF_ALIGNMENT_BOTTOM_LOCKED;
+  ShelfAlignment alignment_ = ShelfAlignment::kBottomLocked;
   ShelfAutoHideBehavior auto_hide_behavior_ = SHELF_AUTO_HIDE_ALWAYS_HIDDEN;
 
   // Sets shelf alignment to bottom during login and screen lock.
@@ -220,6 +225,9 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
 
   // Forwards mouse and gesture events to ShelfLayoutManager for auto-hide.
   std::unique_ptr<AutoHideEventHandler> auto_hide_event_handler_;
+
+  // Forwards mouse and gesture events to ShelfLayoutManager for auto-dim.
+  std::unique_ptr<AutoDimEventHandler> auto_dim_event_handler_;
 
   // Hands focus off to different parts of the shelf.
   std::unique_ptr<ShelfFocusCycler> shelf_focus_cycler_;

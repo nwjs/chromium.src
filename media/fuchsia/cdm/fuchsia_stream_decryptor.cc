@@ -25,30 +25,16 @@ namespace {
 // available, so it doesn't need more than one output buffer.
 const size_t kMinClearStreamOutputFrames = 1;
 
-std::string GetEncryptionMode(EncryptionMode mode) {
+std::string GetEncryptionScheme(EncryptionScheme mode) {
   switch (mode) {
-    case EncryptionMode::kCenc:
-      return fuchsia::media::drm::ENCRYPTION_MODE_CENC;
-    case EncryptionMode::kCbcs:
-      return fuchsia::media::drm::ENCRYPTION_MODE_CBCS;
+    case EncryptionScheme::kCenc:
+      return fuchsia::media::ENCRYPTION_SCHEME_CENC;
+    case EncryptionScheme::kCbcs:
+      return fuchsia::media::ENCRYPTION_SCHEME_CBCS;
     default:
       NOTREACHED() << "unknown encryption mode " << static_cast<int>(mode);
       return "";
   }
-}
-
-fuchsia::media::KeyId GetKeyId(const std::string& key_id) {
-  fuchsia::media::KeyId fuchsia_key_id;
-  // |key_id| may be empty when sending clear frames while we don't have
-  // Key Id yet. Send a zero |key_id| in that case.
-  // TODO(crbug.com/1012525): Remove this case once fxb/38253 is resolved.
-  if (key_id.empty()) {
-    fuchsia_key_id.data = {0};
-  } else {
-    DCHECK_EQ(key_id.size(), fuchsia::media::KEY_ID_SIZE);
-    std::copy(key_id.begin(), key_id.end(), fuchsia_key_id.data.begin());
-  }
-  return fuchsia_key_id;
 }
 
 std::vector<fuchsia::media::SubsampleEntry> GetSubsamples(
@@ -74,15 +60,17 @@ fuchsia::media::EncryptionPattern GetEncryptionPattern(
 
 // We shouldn't need to set Key ID for clear frames, but it's currently
 // required by the CDM API, see fxb/38253 . This function takes
-// |placeholder_key_id| to workaround that issue.
+// |placeholder_key_id| to workaround that issue. The |placeholder_key_id| may
+// be empty in this scenario.
 // TODO(crbug.com/1012525): Remove |placeholder_key_id| once fxb/38253 is
 // resolved.
 fuchsia::media::FormatDetails GetClearFormatDetails(
     size_t packet_size,
     const std::string& placeholder_key_id) {
   fuchsia::media::EncryptedFormat encrypted_format;
-  encrypted_format.set_mode(fuchsia::media::drm::ENCRYPTION_MODE_CENC)
-      .set_key_id(GetKeyId(placeholder_key_id))
+  encrypted_format.set_scheme(fuchsia::media::ENCRYPTION_SCHEME_CENC)
+      .set_key_id(std::vector<uint8_t>(placeholder_key_id.begin(),
+                                       placeholder_key_id.end()))
       .set_init_vector(std::vector<uint8_t>(DecryptConfig::kDecryptionKeySize));
 
   std::vector<fuchsia::media::SubsampleEntry> subsamples(1);
@@ -101,12 +89,13 @@ fuchsia::media::FormatDetails GetEncryptedFormatDetails(
   DCHECK(config);
 
   fuchsia::media::EncryptedFormat encrypted_format;
-  encrypted_format.set_mode(GetEncryptionMode(config->encryption_mode()))
-      .set_key_id(GetKeyId(config->key_id()))
+  encrypted_format.set_scheme(GetEncryptionScheme(config->encryption_scheme()))
+      .set_key_id(std::vector<uint8_t>(config->key_id().begin(),
+                                       config->key_id().end()))
       .set_init_vector(
           std::vector<uint8_t>(config->iv().begin(), config->iv().end()))
       .set_subsamples(GetSubsamples(config->subsamples()));
-  if (config->encryption_mode() == EncryptionMode::kCbcs) {
+  if (config->encryption_scheme() == EncryptionScheme::kCbcs) {
     DCHECK(config->encryption_pattern().has_value());
     encrypted_format.set_pattern(
         GetEncryptionPattern(config->encryption_pattern().value()));

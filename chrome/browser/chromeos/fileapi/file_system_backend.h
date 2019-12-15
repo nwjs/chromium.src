@@ -15,9 +15,9 @@
 #include "base/files/file_path.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
-#include "storage/browser/fileapi/file_system_backend.h"
-#include "storage/browser/fileapi/task_runner_bound_observer_list.h"
-#include "storage/common/fileapi/file_system_types.h"
+#include "storage/browser/file_system/file_system_backend.h"
+#include "storage/browser/file_system/task_runner_bound_observer_list.h"
+#include "storage/common/file_system/file_system_types.h"
 
 namespace storage {
 class CopyOrMoveFileValidatorFactory;
@@ -138,9 +138,8 @@ class FileSystemBackend : public storage::ExternalFileSystemBackend {
   void RevokeAccessForExtension(const std::string& extension_id) override;
   bool GetVirtualPath(const base::FilePath& filesystem_path,
                       base::FilePath* virtual_path) const override;
-  void GetRedirectURLForContents(
-      const storage::FileSystemURL& url,
-      const storage::URLCallback& callback) const override;
+  void GetRedirectURLForContents(const storage::FileSystemURL& url,
+                                 storage::URLCallback callback) const override;
   storage::FileSystemURL CreateInternalURL(
       storage::FileSystemContext* context,
       const base::FilePath& entry_path) const override;

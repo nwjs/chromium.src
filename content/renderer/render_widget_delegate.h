@@ -74,20 +74,13 @@ class CONTENT_EXPORT RenderWidgetDelegate {
   // happens.
   virtual void ResizeWebWidgetForWidget(
       const gfx::Size& size,
-      float top_controls_height,
-      float bottom_controls_height,
-      bool browser_controls_shrink_blink_size) = 0;
+      cc::BrowserControlsParams browser_controls_params) = 0;
 
   // Called when RenderWidget services RenderWidgetScreenMetricsEmulatorDelegate
   // SetScreenMetricsEmulationParameters().
   virtual void SetScreenMetricsEmulationParametersForWidget(
       bool enabled,
       const blink::WebDeviceEmulationParams& params) = 0;
-
-  // Called when the VisualViewport needs to be updated. Expects coordinates
-  // scaled to account for DeviceScaleFactor.
-  virtual void ResizeVisualViewportForWidget(
-      const gfx::Size& scaled_viewport_size) = 0;
 };
 
 }  // namespace content

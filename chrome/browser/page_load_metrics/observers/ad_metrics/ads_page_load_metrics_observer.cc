@@ -32,11 +32,13 @@
 #include "components/ukm/content/source_url_recorder.h"
 #include "content/public/browser/global_request_id.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/reload_type.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "net/base/net_errors.h"
+#include "services/metrics/public/cpp/metrics_utils.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/blink/public/mojom/web_feature/web_feature.mojom.h"
@@ -105,10 +107,16 @@ std::string GetHeavyAdReportMessage(const FrameData& frame_data,
   }
 }
 
-using ResourceMimeType = AdsPageLoadMetricsObserver::ResourceMimeType;
 const char kDisallowedByBlocklistHistogramName[] =
     "PageLoad.Clients.Ads.HeavyAds.DisallowedByBlocklist";
 
+void RecordHeavyAdInterventionDisallowedByBlocklist(bool disallowed) {
+  UMA_HISTOGRAM_BOOLEAN(kDisallowedByBlocklistHistogramName, disallowed);
+}
+
+using ResourceMimeType = AdsPageLoadMetricsObserver::ResourceMimeType;
+const char kIgnoredByReloadHistogramName[] =
+    "PageLoad.Clients.Ads.HeavyAds.IgnoredByReload";
 }  // namespace
 
 // static
@@ -137,9 +145,13 @@ bool AdsPageLoadMetricsObserver::IsSubframeSameOriginToMainFrame(
 AdsPageLoadMetricsObserver::AggregateFrameInfo::AggregateFrameInfo()
     : bytes(0), network_bytes(0), num_frames(0) {}
 
+AdsPageLoadMetricsObserver::HeavyAdThresholdNoiseProvider::
+    HeavyAdThresholdNoiseProvider(bool use_noise)
+    : use_noise_(use_noise) {}
+
 int AdsPageLoadMetricsObserver::HeavyAdThresholdNoiseProvider::
     GetNetworkThresholdNoiseForFrame() const {
-  return base::RandInt(0, kMaxNetworkThresholdNoiseBytes);
+  return use_noise_ ? base::RandInt(0, kMaxNetworkThresholdNoiseBytes) : 0;
 }
 
 AdsPageLoadMetricsObserver::AdsPageLoadMetricsObserver(
@@ -148,10 +160,11 @@ AdsPageLoadMetricsObserver::AdsPageLoadMetricsObserver(
     : subresource_observer_(this),
       clock_(clock ? clock : base::DefaultTickClock::GetInstance()),
       heavy_ad_blocklist_(blocklist),
-      heavy_ad_blocklist_enabled_(
-          base::FeatureList::IsEnabled(features::kHeavyAdBlocklist)),
+      heavy_ad_privacy_mitigations_enabled_(
+          base::FeatureList::IsEnabled(features::kHeavyAdPrivacyMitigations)),
       heavy_ad_threshold_noise_provider_(
-          std::make_unique<HeavyAdThresholdNoiseProvider>()) {}
+          std::make_unique<HeavyAdThresholdNoiseProvider>(
+              heavy_ad_privacy_mitigations_enabled_ /* use_noise */)) {}
 
 AdsPageLoadMetricsObserver::~AdsPageLoadMetricsObserver() = default;
 
@@ -184,11 +197,13 @@ AdsPageLoadMetricsObserver::OnCommit(
   DCHECK(ad_frames_data_.empty());
 
   committed_ = true;
+  page_load_is_reload_ =
+      navigation_handle->GetReloadType() != content::ReloadType::NONE;
+
   aggregate_frame_data_->UpdateForNavigation(
       navigation_handle->GetRenderFrameHost(), true /* frame_navigated */);
   main_frame_data_->UpdateForNavigation(navigation_handle->GetRenderFrameHost(),
                                         true /* frame_navigated */);
-
   // The main frame is never considered an ad.
   ad_frames_data_[navigation_handle->GetFrameTreeNodeId()] =
       ad_frames_data_storage_.end();
@@ -600,7 +615,9 @@ void AdsPageLoadMetricsObserver::RecordPageResourceTotalHistograms(
                             10)
       .SetAdVideoBytes(aggregate_frame_data_->GetAdNetworkBytesForMime(
                            FrameData::ResourceMimeType::kVideo) >>
-                       10);
+                       10)
+      .SetMainframeAdBytes(ukm::GetExponentialBucketMinForBytes(
+          main_frame_data_->ad_network_bytes()));
 
   // Record cpu metrics for the page.
   builder.SetAdCpuTime(
@@ -687,6 +704,10 @@ void AdsPageLoadMetricsObserver::RecordAggregateHistogramsForCpuUsage() {
           FrameData::InteractiveStatus::kPostInteractive);
   base::TimeDelta task_duration_total = task_duration_pre + task_duration_post;
   if (total_duration.InMilliseconds() > 0) {
+    ADS_HISTOGRAM("Cpu.AdFrames.Aggregate.TotalUsage", PAGE_LOAD_HISTOGRAM,
+                  visibility,
+                  aggregate_ad_info_by_visibility_[static_cast<int>(visibility)]
+                      .cpu_time);
     ADS_HISTOGRAM("Cpu.FullPage.TotalUsage", PAGE_LOAD_HISTOGRAM, visibility,
                   task_duration_total);
     ADS_HISTOGRAM("Cpu.FullPage.PeakWindowedPercent", UMA_HISTOGRAM_PERCENTAGE,
@@ -1003,6 +1024,11 @@ void AdsPageLoadMetricsObserver::MaybeTriggerHeavyAdIntervention(
   if (!frame_data->MaybeTriggerHeavyAdIntervention())
     return;
 
+  // Don't trigger the heavy ad intervention on reloads.
+  UMA_HISTOGRAM_BOOLEAN(kIgnoredByReloadHistogramName, page_load_is_reload_);
+  if (page_load_is_reload_)
+    return;
+
   // Check to see if we are allowed to activate on this host.
   if (IsBlocklisted())
     return;
@@ -1086,13 +1112,12 @@ void AdsPageLoadMetricsObserver::MaybeTriggerHeavyAdIntervention(
 }
 
 bool AdsPageLoadMetricsObserver::IsBlocklisted() {
-  if (!heavy_ad_blocklist_enabled_)
+  if (!heavy_ad_privacy_mitigations_enabled_)
     return false;
 
   auto* blocklist = GetHeavyAdBlocklist();
 
-  // Treat instances where the blocklist is unavailable as blocklisted. This
-  // includes incognito profiles, which do not create a blocklist service.
+  // Treat instances where the blocklist is unavailable as blocklisted.
   if (!blocklist) {
     heavy_ads_blocklist_blocklisted_ = true;
     return true;
@@ -1129,9 +1154,4 @@ HeavyAdBlocklist* AdsPageLoadMetricsObserver::GetHeavyAdBlocklist() {
     return nullptr;
 
   return heavy_ad_service->heavy_ad_blocklist();
-}
-
-void AdsPageLoadMetricsObserver::RecordHeavyAdInterventionDisallowedByBlocklist(
-    bool disallowed) {
-  UMA_HISTOGRAM_BOOLEAN(kDisallowedByBlocklistHistogramName, disallowed);
 }

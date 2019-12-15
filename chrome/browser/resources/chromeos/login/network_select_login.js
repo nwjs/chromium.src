@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 /**
- * @fileoverview Polymer element wrapping cr-network-select for login/oobe.
+ * @fileoverview Polymer element wrapping network-select for login/oobe.
  */
 
 {
@@ -84,7 +84,7 @@
 
     /** Refreshes the list of the networks. */
     refresh: function() {
-      /** @type {!CrNetworkSelectElement} */ (this.$.networkSelect)
+      /** @type {!NetworkSelectElement} */ (this.$.networkSelect)
           .refreshNetworks();
       this.networkLastSelectedGuid_ = '';
     },
@@ -102,46 +102,6 @@
     /** Called when dialog is hidden. */
     onBeforeHide: function() {
       this.is_shown_ = false;
-    },
-
-    /**
-     * Call after strings are loaded to set CrOncStrings for cr-network-select.
-     */
-    setCrOncStrings: function() {
-      CrOncStrings = {
-        OncTypeCellular: loadTimeData.getString('OncTypeCellular'),
-        OncTypeEthernet: loadTimeData.getString('OncTypeEthernet'),
-        OncTypeMobile: loadTimeData.getString('OncTypeMobile'),
-        OncTypeTether: loadTimeData.getString('OncTypeTether'),
-        OncTypeVPN: loadTimeData.getString('OncTypeVPN'),
-        OncTypeWiFi: loadTimeData.getString('OncTypeWiFi'),
-        networkListItemConnected:
-            loadTimeData.getString('networkListItemConnected'),
-        networkListItemConnecting:
-            loadTimeData.getString('networkListItemConnecting'),
-        networkListItemConnectingTo:
-            loadTimeData.getString('networkListItemConnectingTo'),
-        networkListItemInitializing:
-            loadTimeData.getString('networkListItemInitializing'),
-        networkListItemNotAvailable:
-            loadTimeData.getString('networkListItemNotAvailable'),
-        networkListItemScanning:
-            loadTimeData.getString('networkListItemScanning'),
-        networkListItemSimCardLocked:
-            loadTimeData.getString('networkListItemSimCardLocked'),
-        networkListItemNotConnected:
-            loadTimeData.getString('networkListItemNotConnected'),
-        networkListItemNoNetwork:
-            loadTimeData.getString('networkListItemNoNetwork'),
-        vpnNameTemplate: loadTimeData.getString('vpnNameTemplate'),
-
-        // Additional strings for custom items.
-        addWiFiListItemName: loadTimeData.getString('addWiFiListItemName'),
-        proxySettingsListItemName:
-            loadTimeData.getString('proxySettingsListItemName'),
-        offlineDemoSetupListItemName:
-            loadTimeData.getString('offlineDemoSetupListItemName'),
-      };
     },
 
     /**
@@ -235,7 +195,7 @@
     },
 
     /**
-     * Event triggered when a cr-network-list-item connection state changes.
+     * Event triggered when a network-list-item connection state changes.
      * @param {!CustomEvent<!OncMojo.NetworkStateProperties>} event
      * @private
      */

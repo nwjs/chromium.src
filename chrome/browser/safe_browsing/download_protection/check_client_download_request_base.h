@@ -54,6 +54,8 @@ class CheckClientDownloadRequestBase {
       base::FilePath full_path,
       TabUrls tab_urls,
       size_t file_size,
+      std::string mime_type,
+      std::string hash,
       content::BrowserContext* browser_context,
       CheckDownloadCallback callback,
       DownloadProtectionService* service,
@@ -129,8 +131,8 @@ class CheckClientDownloadRequestBase {
                                           const std::string& response_body) = 0;
 
   // Called when finishing the request, to determine whether asynchronous
-  // scanning is pending.
-  virtual bool ShouldReturnAsynchronousVerdict(
+  // scanning is pending. Returns whether an asynchronous verdict was provided.
+  virtual bool MaybeReturnAsynchronousVerdict(
       DownloadCheckResultReason reason) = 0;
 
   // Called after receiving, or failing to receive a response from the server.
@@ -140,7 +142,8 @@ class CheckClientDownloadRequestBase {
 
   // If ShouldUploadBinary is true, actually performs the upload to Safe
   // Browsing for deep scanning.
-  virtual void UploadBinary(DownloadCheckResultReason reason) = 0;
+  virtual void UploadBinary(DownloadCheckResult result,
+                            DownloadCheckResultReason reason) = 0;
 
   // Called whenever a request has completed.
   virtual void NotifyRequestFinished(DownloadCheckResult result,
@@ -214,6 +217,12 @@ class CheckClientDownloadRequestBase {
 
   int file_count_;
   int directory_count_;
+
+  // The mime type of the download, if known.
+  std::string mime_type_;
+
+  // The hash of the download, if known.
+  std::string hash_;
 
   DISALLOW_COPY_AND_ASSIGN(CheckClientDownloadRequestBase);
 };  // namespace safe_browsing

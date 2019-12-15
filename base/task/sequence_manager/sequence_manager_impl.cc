@@ -42,6 +42,12 @@ GetTLSSequenceManagerImpl() {
   return lazy_tls_ptr.get();
 }
 
+const scoped_refptr<SequencedTaskRunner>& GetNullTaskRunner() {
+  static const base::NoDestructor<scoped_refptr<SequencedTaskRunner>>
+      null_task_runner;
+  return *null_task_runner;
+}
+
 }  // namespace
 
 // This controls how big the the initial for
@@ -209,6 +215,13 @@ SequenceManagerImpl::~SequenceManagerImpl() {
   TRACE_EVENT_OBJECT_DELETED_WITH_ID(
       TRACE_DISABLED_BY_DEFAULT("sequence_manager"), "SequenceManager", this);
 
+#if defined(OS_IOS)
+  if (settings_.message_loop_type == MessagePumpType::UI &&
+      associated_thread_->IsBound()) {
+    controller_->DetachFromMessagePump();
+  }
+#endif
+
   // Make sure no Task is running as given that RunLoop does not support the
   // Delegate being destroyed from a Task and
   // ThreadControllerWithMessagePumpImpl does not support being destroyed from a
@@ -307,6 +320,13 @@ void SequenceManagerImpl::BindToMessagePump(std::unique_ptr<MessagePump> pump) {
     controller_->AttachToMessagePump();
   }
 #endif
+
+  // On iOS attach to the native loop when there is one.
+#if defined(OS_IOS)
+  if (settings_.message_loop_type == MessagePumpType::UI) {
+    controller_->AttachToMessagePump();
+  }
+#endif
 }
 
 void SequenceManagerImpl::BindToCurrentThread() {
@@ -320,11 +340,11 @@ void SequenceManagerImpl::BindToCurrentThread(
   BindToMessagePump(std::move(pump));
 }
 
-scoped_refptr<SequencedTaskRunner>
+const scoped_refptr<SequencedTaskRunner>&
 SequenceManagerImpl::GetTaskRunnerForCurrentTask() {
   DCHECK_CALLED_ON_VALID_THREAD(associated_thread_->thread_checker);
   if (main_thread_only().task_execution_stack.empty())
-    return nullptr;
+    return GetNullTaskRunner();
   return main_thread_only()
       .task_execution_stack.back()
       .pending_task.task_runner;
@@ -770,18 +790,24 @@ void SequenceManagerImpl::NotifyWillProcessTask(ExecutingTask* executing_task,
   if (!executing_task->task_queue->GetShouldNotifyObservers())
     return;
 
+  const bool was_blocked_or_low_priority =
+      executing_task->task_queue->WasBlockedOrLowPriority(
+          executing_task->pending_task.enqueue_order());
+
   {
     TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("sequence_manager"),
                  "SequenceManager.WillProcessTaskObservers");
-    for (auto& observer : main_thread_only().task_observers)
-      observer.WillProcessTask(executing_task->pending_task);
+    for (auto& observer : main_thread_only().task_observers) {
+      observer.WillProcessTask(executing_task->pending_task,
+                               was_blocked_or_low_priority);
+    }
   }
 
   {
     TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("sequence_manager"),
                  "SequenceManager.QueueNotifyWillProcessTask");
     executing_task->task_queue->NotifyWillProcessTask(
-        executing_task->pending_task);
+        executing_task->pending_task, was_blocked_or_low_priority);
   }
 
   if (recording_policy != TimeRecordingPolicy::DoRecord)

@@ -348,12 +348,16 @@ bool ScriptLoader::PrepareScript(const TextPosition& script_start_position,
   if (!context_document->CanExecuteScripts(kAboutToExecuteScript))
     return false;
 
-  // Set |is_import_map| only if ImportMapsEnabled().
+  // Accept import maps only if ImportMapsEnabled().
   if (is_import_map) {
     Modulator* modulator = Modulator::From(
         ToScriptStateForMainWorld(context_document->GetFrame()));
-    if (!modulator->ImportMapsEnabled())
-      is_import_map = false;
+    if (!modulator->ImportMapsEnabled()) {
+      // Import maps should have been rejected in spec Step 7 above.
+      // TODO(hiroshige): Returning here (i.e. after spec Step 11) is not spec
+      // conformant. Fix this.
+      return false;
+    }
   }
 
   // <spec step="12">If the script element has a nomodule content attribute and
@@ -658,7 +662,8 @@ bool ScriptLoader::PrepareScript(const TextPosition& script_start_position,
         }
 
         prepared_pending_script_ = ClassicPendingScript::CreateInline(
-            element_, position, script_location_type, options);
+            element_, position, base_url, element_->TextFromChildren(),
+            script_location_type, options);
 
         // <spec step="25.2.A.2">Set the script's script to script.</spec>
         //

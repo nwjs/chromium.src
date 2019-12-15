@@ -28,6 +28,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/chrome_notification_types.h"
+#include "chrome/browser/chromeos/app_mode/arc/arc_kiosk_app_manager.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_launch_error.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/arc/policy/arc_policy_util.h"
@@ -179,7 +180,8 @@ void TransferHttpAuthCacheToSystemNetworkContext(
     const base::UnguessableToken& cache_key) {
   network::mojom::NetworkContext* system_network_context =
       g_browser_process->system_network_context_manager()->GetContext();
-  system_network_context->LoadHttpAuthCache(cache_key, completion_callback);
+  system_network_context->LoadHttpAuthCacheProxyEntries(cache_key,
+                                                        completion_callback);
 }
 
 // Copies any authentication details that were entered in the login profile to
@@ -192,16 +194,16 @@ void TransferHttpAuthCaches() {
       base::BarrierClosure(webview_storage_partition ? 2 : 1,
                            base::BindOnce(&OnTranferredHttpAuthCaches));
   if (webview_storage_partition) {
-    webview_storage_partition->GetNetworkContext()->SaveHttpAuthCache(
-        base::BindOnce(&TransferHttpAuthCacheToSystemNetworkContext,
-                       completion_callback));
+    webview_storage_partition->GetNetworkContext()
+        ->SaveHttpAuthCacheProxyEntries(base::BindOnce(
+            &TransferHttpAuthCacheToSystemNetworkContext, completion_callback));
   }
 
   network::mojom::NetworkContext* default_network_context =
       content::BrowserContext::GetDefaultStoragePartition(
           ProfileHelper::GetSigninProfile())
           ->GetNetworkContext();
-  default_network_context->SaveHttpAuthCache(base::BindOnce(
+  default_network_context->SaveHttpAuthCacheProxyEntries(base::BindOnce(
       &TransferHttpAuthCacheToSystemNetworkContext, completion_callback));
 }
 
@@ -436,11 +438,9 @@ void ExistingUserController::UpdateLoginDisplay(
   for (auto* user : users) {
     // Skip kiosk apps for login screen user list. Kiosk apps as pods (aka new
     // kiosk UI) is currently disabled and it gets the apps directly from
-    // KioskAppManager and ArcKioskAppManager.
-    if (user->GetType() == user_manager::USER_TYPE_KIOSK_APP ||
-        user->GetType() == user_manager::USER_TYPE_ARC_KIOSK_APP) {
+    // KioskAppManager, ArcKioskAppManager and WebKioskAppManager.
+    if (user->IsKioskType())
       continue;
-    }
     // TODO(xiyuan): Clean user profile whose email is not in whitelist.
     const bool meets_supervised_requirements =
         user->GetType() != user_manager::USER_TYPE_SUPERVISED ||
@@ -502,11 +502,11 @@ void ExistingUserController::Observe(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// ExistingUserController, ArcKioskAppManager::ArcKioskAppManagerObserver
+// ExistingUserController, KioskAppManagerObserver
 // implementation:
 //
 
-void ExistingUserController::OnArcKioskAppsChanged() {
+void ExistingUserController::OnKioskAppsSettingsChanged() {
   ConfigureAutoLogin();
 }
 
@@ -880,7 +880,8 @@ void ExistingUserController::OnAuthFailure(const AuthFailure& failure) {
     base::PostDelayedTask(
         FROM_HERE, {content::BrowserThread::UI},
         base::BindOnce(&SessionTerminationManager::StopSession,
-                       base::Unretained(SessionTerminationManager::Get())),
+                       base::Unretained(SessionTerminationManager::Get()),
+                       login_manager::SessionStopReason::OWNER_REQUIRED),
         base::TimeDelta::FromMilliseconds(kSafeModeRestartUiDelayMs));
   } else if (failure.reason() == AuthFailure::TPM_ERROR) {
     ShowTPMError();
@@ -1423,6 +1424,10 @@ void ExistingUserController::LoginAsArcKioskApp(const AccountId& account_id) {
   GetLoginDisplayHost()->StartArcKiosk(account_id);
 }
 
+void ExistingUserController::LoginAsWebKioskApp(const AccountId& account_id) {
+  GetLoginDisplayHost()->StartWebKiosk(account_id);
+}
+
 void ExistingUserController::ConfigureAutoLogin() {
   std::string auto_login_account_id;
   cros_settings_->GetString(kAccountsPrefDeviceLocalAccountAutoLoginId,
@@ -1782,6 +1787,11 @@ void ExistingUserController::DoLogin(const UserContext& user_context,
 
   if (user_context.GetUserType() == user_manager::USER_TYPE_ARC_KIOSK_APP) {
     LoginAsArcKioskApp(user_context.GetAccountId());
+    return;
+  }
+
+  if (user_context.GetUserType() == user_manager::USER_TYPE_WEB_KIOSK_APP) {
+    LoginAsWebKioskApp(user_context.GetAccountId());
     return;
   }
 

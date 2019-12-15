@@ -26,6 +26,7 @@
 #include "content/browser/service_worker/embedded_worker_test_helper.h"
 #include "content/browser/service_worker/fake_embedded_worker_instance_client.h"
 #include "content/browser/service_worker/fake_service_worker.h"
+#include "content/browser/service_worker/service_worker_container_host.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_context_core_observer.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
@@ -323,7 +324,8 @@ TEST_F(ServiceWorkerRegistrationTest, FailedRegistrationNoCrash) {
                                   context()->AsWeakPtr(), &remote_endpoint);
   auto registration_object_host =
       std::make_unique<ServiceWorkerRegistrationObjectHost>(
-          context()->AsWeakPtr(), provider_host.get(), registration);
+          context()->AsWeakPtr(), provider_host->container_host(),
+          registration);
   // To enable the caller end point
   // |registration_object_host->remote_registration_| to make calls safely with
   // no need to pass |object_info_->receiver| through a message pipe endpoint.
@@ -428,9 +430,9 @@ class ServiceWorkerActivationTest : public ServiceWorkerRegistrationTest,
         context()->AsWeakPtr(), &remote_endpoint_);
     DCHECK(remote_endpoint_.client_receiver()->is_valid());
     DCHECK(remote_endpoint_.host_remote()->is_bound());
-    host_->UpdateUrls(kUrl, kUrl, url::Origin::Create(kUrl));
-    host_->SetControllerRegistration(registration_,
-                                     false /* notify_controllerchange */);
+    host_->container_host()->UpdateUrls(kUrl, kUrl, url::Origin::Create(kUrl));
+    host_->container_host()->SetControllerRegistration(
+        registration_, false /* notify_controllerchange */);
 
     // Setup the Mojo implementation fakes for the renderer-side service worker.
     // These will be bound once the service worker starts.
@@ -498,12 +500,12 @@ class ServiceWorkerActivationTest : public ServiceWorkerRegistrationTest,
   int inflight_request_id() const { return inflight_request_id_; }
 
   void AddControllee() {
-    controllee()->SetControllerRegistration(
+    controllee()->container_host()->SetControllerRegistration(
         registration(), false /* notify_controllerchange */);
   }
 
   void RemoveControllee() {
-    controllee()->SetControllerRegistration(
+    controllee()->container_host()->SetControllerRegistration(
         nullptr, false /* notify_controllerchange */);
   }
 
@@ -811,15 +813,17 @@ class ServiceWorkerRegistrationObjectHostTest
       std::string* out_error_msg) {
     blink::mojom::ServiceWorkerErrorType out_error =
         blink::mojom::ServiceWorkerErrorType::kUnknown;
-    registration_host->Update(base::BindLambdaForTesting(
-        [&out_error, &out_error_msg](
-            blink::mojom::ServiceWorkerErrorType error,
-            const base::Optional<std::string>& error_msg) {
-          out_error = error;
-          if (out_error_msg) {
-            *out_error_msg = error_msg ? *error_msg : "";
-          }
-        }));
+    registration_host->Update(
+        blink::mojom::FetchClientSettingsObject::New(),
+        base::BindLambdaForTesting(
+            [&out_error, &out_error_msg](
+                blink::mojom::ServiceWorkerErrorType error,
+                const base::Optional<std::string>& error_msg) {
+              out_error = error;
+              if (out_error_msg) {
+                *out_error_msg = error_msg ? *error_msg : "";
+              }
+            }));
     base::RunLoop().RunUntilIdle();
     return out_error;
   }
@@ -934,8 +938,8 @@ class ServiceWorkerRegistrationObjectHostTest
     base::WeakPtr<ServiceWorkerProviderHost> host = CreateProviderHostForWindow(
         helper_->mock_render_process_id(), true /* is_parent_frame_secure */,
         context()->AsWeakPtr(), &remote_endpoint);
-    host->UpdateUrls(document_url, document_url,
-                     url::Origin::Create(document_url));
+    host->container_host()->UpdateUrls(document_url, document_url,
+                                       url::Origin::Create(document_url));
     if (out_host)
       *out_host = host;
     return remote_endpoint;
@@ -1055,7 +1059,8 @@ TEST_P(ServiceWorkerRegistrationObjectHostUpdateTest,
 
   ASSERT_TRUE(bad_messages_.empty());
   GURL url("https://does.not.exist/");
-  provider_host->UpdateUrls(url, url, url::Origin::Create(url));
+  provider_host->container_host()->UpdateUrls(url, url,
+                                              url::Origin::Create(url));
   CallUpdate(registration_host.get(), /*out_error_msg=*/nullptr);
   EXPECT_EQ(1u, bad_messages_.size());
 }
@@ -1163,8 +1168,9 @@ TEST_P(ServiceWorkerRegistrationObjectHostUpdateTest,
   base::WeakPtr<ServiceWorkerProviderHost> host = CreateProviderHostForWindow(
       helper_->mock_render_process_id(), true /* is_parent_frame_secure */,
       context()->AsWeakPtr(), &remote_endpoint);
-  host->UpdateUrls(kScope, kScope, url::Origin::Create(kScope));
-  version->AddControllee(host.get());
+  host->container_host()->UpdateUrls(kScope, kScope,
+                                     url::Origin::Create(kScope));
+  version->AddControllee(host->container_host());
 
   // Initially set |self_update_delay| to zero.
   registration->set_self_update_delay(base::TimeDelta());
@@ -1227,7 +1233,7 @@ TEST_F(ServiceWorkerRegistrationObjectHostTest,
   registration_host.Bind(std::move(info->host_remote));
 
   ASSERT_TRUE(bad_messages_.empty());
-  provider_host->UpdateUrls(
+  provider_host->container_host()->UpdateUrls(
       GURL("https://does.not.exist/"), GURL("https://does.not.exist/"),
       url::Origin::Create(GURL("https://does.not.exist/")));
   CallUnregister(registration_host.get());

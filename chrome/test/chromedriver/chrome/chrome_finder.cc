@@ -19,7 +19,9 @@
 #include "base/stl_util.h"
 #include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
+#include "chrome/common/chrome_constants.h"
 
 #if defined(OS_WIN)
 #include "base/base_paths_win.h"
@@ -60,6 +62,7 @@ void GetApplicationDirs(std::vector<base::FilePath>* locations) {
   locations->push_back(base::FilePath("/bin"));
   // Lastly, try the default installation location.
   locations->push_back(base::FilePath("/opt/google/chrome"));
+  locations->push_back(base::FilePath("/opt/chromium.org/chromium"));
 }
 #elif defined(OS_ANDROID)
 void GetApplicationDirs(std::vector<base::FilePath>* locations) {

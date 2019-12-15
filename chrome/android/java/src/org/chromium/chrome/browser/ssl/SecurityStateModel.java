@@ -25,10 +25,33 @@ public class SecurityStateModel {
         return SecurityStateModelJni.get().getSecurityLevelForWebContents(webContents);
     }
 
+    /**
+     * Returns true for a valid URL with a cryptographic scheme, e.g., HTTPS, WSS.
+     *
+     * @param url The URL to check.
+     * @return Whether the scheme of the URL is cryptographic.
+     */
+    public static boolean isSchemeCryptographic(String url) {
+        return SecurityStateModelJni.get().isSchemeCryptographic(url);
+    }
+
+    /**
+     * Returns whether to use a danger icon instead of an info icon in the URL bar.
+     *
+     * @param securityLevel The ConnectionSecurityLevel of the page.
+     * @param url The URL to check.
+     * @return Whether to downgrade the info icon to a danger triangle.
+     */
+    public static boolean shouldDowngradeNeutralStyling(int securityLevel, String url) {
+        return SecurityStateModelJni.get().shouldDowngradeNeutralStyling(securityLevel, url);
+    }
+
     private SecurityStateModel() {}
 
     @NativeMethods
     interface Natives {
         int getSecurityLevelForWebContents(WebContents webContents);
+        boolean isSchemeCryptographic(String url);
+        boolean shouldDowngradeNeutralStyling(int securityLevel, String url);
     }
 }

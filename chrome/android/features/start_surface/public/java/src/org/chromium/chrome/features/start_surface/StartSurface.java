@@ -4,6 +4,9 @@
 
 package org.chromium.chrome.features.start_surface;
 
+import android.os.SystemClock;
+
+import org.chromium.chrome.browser.compositor.layouts.OverviewModeState;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
 
 /** Interface to communicate with the start surface. */
@@ -15,9 +18,11 @@ public interface StartSurface {
     interface StateObserver {
         /**
          * Called when the internal state is changed.
+         * @param overviewModeState the {@link OverviewModeState}.
          * @param shouldShowTabSwitcherToolbar Whether or not should show the Tab switcher toolbar.
          */
-        void onStateChanged(boolean shouldShowTabSwitcherToolbar);
+        void onStateChanged(
+                @OverviewModeState int overviewModeState, boolean shouldShowTabSwitcherToolbar);
     }
 
     /**
@@ -99,6 +104,12 @@ public interface StartSurface {
          * @return Whether or not the TabSwitcher consumed the event.
          */
         boolean onBackPressed();
+
+        /**
+         * Enable recording the first meaningful paint event of StartSurface.
+         * @param activityCreateTimeMs {@link SystemClock#elapsedRealtime} at activity creation.
+         */
+        void enableRecordingFirstMeaningfulPaint(long activityCreateTimeMs);
     }
 
     /**

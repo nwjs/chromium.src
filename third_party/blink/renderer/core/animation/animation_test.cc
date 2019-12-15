@@ -52,12 +52,22 @@
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
+#include "third_party/blink/renderer/platform/bindings/microtask.h"
+#include "third_party/blink/renderer/platform/bindings/v8_per_isolate_data.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/testing/histogram_tester.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 
 namespace blink {
+
+namespace {
+
+double MillisecondsToSeconds(double milliseconds) {
+  return milliseconds / 1000;
+}
+
+}  // namespace
 
 void ExpectRelativeErrorWithinEpsilon(double expected, double observed) {
   EXPECT_NEAR(1.0, observed / expected, std::numeric_limits<double>::epsilon());
@@ -89,7 +99,7 @@ class AnimationAnimationTestNoCompositing : public RenderingTest {
   KeyframeEffectModelBase* MakeSimpleEffectModel() {
     PropertyHandle PropertyHandleOpacity(GetCSSPropertyOpacity());
     TransitionKeyframe* start_keyframe =
-        TransitionKeyframe::Create(PropertyHandleOpacity);
+        MakeGarbageCollected<TransitionKeyframe>(PropertyHandleOpacity);
     start_keyframe->SetValue(std::make_unique<TypedInterpolationValue>(
         CSSNumberInterpolationType(PropertyHandleOpacity),
         std::make_unique<InterpolableNumber>(1.0)));
@@ -97,15 +107,17 @@ class AnimationAnimationTestNoCompositing : public RenderingTest {
     // Egregious hack: Sideload the compositor value.
     // This is usually set in a part of the rendering process SimulateFrame
     // doesn't call.
-    start_keyframe->SetCompositorValue(CompositorKeyframeDouble::Create(1.0));
+    start_keyframe->SetCompositorValue(
+        MakeGarbageCollected<CompositorKeyframeDouble>(1.0));
     TransitionKeyframe* end_keyframe =
-        TransitionKeyframe::Create(PropertyHandleOpacity);
+        MakeGarbageCollected<TransitionKeyframe>(PropertyHandleOpacity);
     end_keyframe->SetValue(std::make_unique<TypedInterpolationValue>(
         CSSNumberInterpolationType(PropertyHandleOpacity),
         std::make_unique<InterpolableNumber>(0.0)));
     end_keyframe->SetOffset(1.0);
     // Egregious hack: Sideload the compositor value.
-    end_keyframe->SetCompositorValue(CompositorKeyframeDouble::Create(0.0));
+    end_keyframe->SetCompositorValue(
+        MakeGarbageCollected<CompositorKeyframeDouble>(0.0));
 
     TransitionKeyframeVector keyframes;
     keyframes.push_back(start_keyframe);
@@ -167,6 +179,10 @@ class AnimationAnimationTestNoCompositing : public RenderingTest {
   }
 
   bool SimulateFrame(double time_ms) {
+    if (animation->pending())
+      animation->NotifyReady(MillisecondsToSeconds(last_frame_time));
+    SimulateMicrotask();
+
     last_frame_time = time_ms;
     const auto* paint_artifact_compositor =
         GetDocument().GetFrame()->View()->GetPaintArtifactCompositor();
@@ -180,14 +196,12 @@ class AnimationAnimationTestNoCompositing : public RenderingTest {
   }
 
   void SimulateAwaitReady() {
-    animation->CommitAllUpdatesForTesting();
-
-    // TOOD(crbug/958433): This should trigger a call to the microtask for
-    // applying updates.
     SimulateFrame(last_frame_time);
   }
 
-  void SimulateMicrotask() { animation->CommitAllUpdatesForTesting(); }
+  void SimulateMicrotask() {
+    Microtask::PerformCheckpoint(V8PerIsolateData::MainThreadIsolate());
+  }
 
   Persistent<DocumentTimeline> timeline;
   Persistent<Animation> animation;
@@ -355,39 +369,33 @@ TEST_F(AnimationAnimationTestNoCompositing, SetStartTime) {
 }
 
 TEST_F(AnimationAnimationTestNoCompositing, SetStartTimeLimitsAnimation) {
-  // TODO(crbug/958433): Fix to align with spec.
   // Setting the start time is a seek operation, which is not constrained by the
   // normal limits on the animation.
   animation->setStartTime(-50000, false);
   EXPECT_EQ("finished", animation->playState());
   EXPECT_TRUE(animation->Limited());
-  // This value is not to spec. Should be 50s.
-  EXPECT_EQ(30000, animation->currentTime());
+  EXPECT_EQ(50000, animation->currentTime());
   animation->setPlaybackRate(-1);
   EXPECT_EQ("running", animation->playState());
   animation->setStartTime(-100000, false);
   EXPECT_EQ("finished", animation->playState());
-  // This value is not to spec. Should be -100s.
-  EXPECT_EQ(0, animation->currentTime());
+  EXPECT_EQ(-100000, animation->currentTime());
   EXPECT_TRUE(animation->Limited());
 }
 
 TEST_F(AnimationAnimationTestNoCompositing, SetStartTimeOnLimitedAnimation) {
-  // TODO(crbug/958433): Fix to align with spec.
   // The setStartTime method is a seek and thus not constrained by the normal
   // limits on the animation.
   SimulateFrame(30000);
   animation->setStartTime(-10000, false);
   EXPECT_EQ("finished", animation->playState());
-  // This value is not to spec. Should be 40s.
-  EXPECT_EQ(30000, animation->currentTime());
+  EXPECT_EQ(40000, animation->currentTime());
   EXPECT_TRUE(animation->Limited());
 
   animation->setCurrentTime(50000, false);
   EXPECT_EQ(50000, animation->currentTime());
   animation->setStartTime(-40000, false);
-  // This value is not to spec. Should be 70s.
-  EXPECT_EQ(30000, animation->currentTime());
+  EXPECT_EQ(70000, animation->currentTime());
   EXPECT_EQ("finished", animation->playState());
   EXPECT_TRUE(animation->Limited());
 }
@@ -435,10 +443,11 @@ TEST_F(AnimationAnimationTestNoCompositing, StartTimeWithZeroPlaybackRate) {
   animation->setPlaybackRate(0);
   EXPECT_EQ("running", animation->playState());
   SimulateAwaitReady();
-  EXPECT_FALSE(animation->startTime());
+  EXPECT_TRUE(animation->startTime());
 
   SimulateFrame(10000);
   EXPECT_EQ("running", animation->playState());
+  EXPECT_EQ(0, animation->currentTime());
 }
 
 TEST_F(AnimationAnimationTestNoCompositing, PausePlay) {
@@ -571,13 +580,17 @@ TEST_F(AnimationAnimationTestNoCompositing, Reverse) {
 }
 
 TEST_F(AnimationAnimationTestNoCompositing,
-       ReverseDoesNothingWithPlaybackRateZero) {
+       ReverseHoldsCurrentTimeWithPlaybackRateZero) {
   animation->setCurrentTime(10000, false);
   animation->setPlaybackRate(0);
   animation->pause();
   animation->reverse();
-  EXPECT_EQ("paused", animation->playState());
+  SimulateAwaitReady();
+  EXPECT_EQ("running", animation->playState());
   EXPECT_EQ(0, animation->playbackRate());
+  EXPECT_EQ(10000, animation->currentTime());
+
+  SimulateFrame(20000);
   EXPECT_EQ(10000, animation->currentTime());
 }
 
@@ -1229,7 +1242,7 @@ TEST_F(AnimationAnimationTestCompositing, PreCommitRecordsHistograms) {
   // Now make the playback rate 0. This trips both the invalid animation and
   // unsupported timing parameter reasons.
   animation->setPlaybackRate(0);
-  animation->NotifyCompositorStartTime(100);
+  animation->NotifyReady(100);
   {
     HistogramTester histogram;
     ASSERT_TRUE(animation->PreCommit(0, nullptr, true));

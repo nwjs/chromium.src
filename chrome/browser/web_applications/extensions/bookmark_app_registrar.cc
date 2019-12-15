@@ -14,13 +14,16 @@
 #include "chrome/browser/web_applications/components/app_registrar_observer.h"
 #include "chrome/browser/web_applications/extensions/bookmark_app_util.h"
 #include "chrome/common/extensions/api/url_handlers/url_handlers_parser.h"
+#include "chrome/common/extensions/manifest_handlers/app_display_mode_info.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "chrome/common/extensions/manifest_handlers/app_theme_color_info.h"
+#include "chrome/common/extensions/manifest_handlers/linked_app_icons.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension.h"
-#include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 #include "url/gurl.h"
+
+using web_app::DisplayMode;
 
 namespace extensions {
 
@@ -41,28 +44,10 @@ bool BookmarkAppRegistrar::IsLocallyInstalled(
   return extension && BookmarkAppIsLocallyInstalled(profile(), extension);
 }
 
-bool BookmarkAppRegistrar::WasExternalAppUninstalledByUser(
-    const web_app::AppId& app_id) const {
-  return ExtensionPrefs::Get(profile())->IsExternalExtensionUninstalled(app_id);
-}
-
 bool BookmarkAppRegistrar::WasInstalledByUser(
     const web_app::AppId& app_id) const {
   const Extension* extension = GetExtension(app_id);
   return extension && !extension->was_installed_by_default();
-}
-
-base::Optional<web_app::AppId> BookmarkAppRegistrar::FindAppWithUrlInScope(
-    const GURL& url) const {
-  const Extension* extension = util::GetInstalledPwaForUrl(profile(), url);
-
-  if (!extension)
-    extension = GetInstalledShortcutForUrl(profile(), url);
-
-  if (extension)
-    return extension->id();
-
-  return base::nullopt;
 }
 
 int BookmarkAppRegistrar::CountUserInstalledApps() const {
@@ -150,23 +135,48 @@ base::Optional<GURL> BookmarkAppRegistrar::GetAppScope(
   return base::nullopt;
 }
 
-blink::mojom::DisplayMode BookmarkAppRegistrar::GetAppDisplayMode(
+DisplayMode BookmarkAppRegistrar::GetAppDisplayMode(
     const web_app::AppId& app_id) const {
   const Extension* extension = GetExtension(app_id);
   if (!extension)
-    return blink::mojom::DisplayMode::kStandalone;
+    return DisplayMode::kUndefined;
+
+  return AppDisplayModeInfo::GetDisplayMode(extension);
+}
+
+DisplayMode BookmarkAppRegistrar::GetAppUserDisplayMode(
+    const web_app::AppId& app_id) const {
+  const Extension* extension = GetExtension(app_id);
+  if (!extension)
+    return DisplayMode::kStandalone;
 
   switch (extensions::GetLaunchContainer(
       extensions::ExtensionPrefs::Get(profile()), extension)) {
     case LaunchContainer::kLaunchContainerWindow:
     case LaunchContainer::kLaunchContainerPanelDeprecated:
-      return blink::mojom::DisplayMode::kStandalone;
+      return DisplayMode::kStandalone;
     case LaunchContainer::kLaunchContainerTab:
-      return blink::mojom::DisplayMode::kBrowser;
+      return DisplayMode::kBrowser;
     case LaunchContainer::kLaunchContainerNone:
       NOTREACHED();
-      return blink::mojom::DisplayMode::kUndefined;
+      return DisplayMode::kUndefined;
   }
+}
+
+std::vector<WebApplicationIconInfo> BookmarkAppRegistrar::GetAppIconInfos(
+    const web_app::AppId& app_id) const {
+  std::vector<WebApplicationIconInfo> result;
+  const Extension* extension = GetExtension(app_id);
+  if (!extension)
+    return result;
+  for (const LinkedAppIcons::IconInfo& icon_info :
+       LinkedAppIcons::GetLinkedAppIcons(extension).icons) {
+    WebApplicationIconInfo web_app_icon_info;
+    web_app_icon_info.url = icon_info.url;
+    web_app_icon_info.square_size_px = icon_info.size;
+    result.push_back(std::move(web_app_icon_info));
+  }
+  return result;
 }
 
 std::vector<web_app::AppId> BookmarkAppRegistrar::GetAppIds() const {

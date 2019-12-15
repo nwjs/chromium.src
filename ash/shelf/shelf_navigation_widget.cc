@@ -8,6 +8,7 @@
 #include "ash/shelf/back_button.h"
 #include "ash/shelf/home_button.h"
 #include "ash/shelf/shelf.h"
+#include "ash/shelf/shelf_layout_manager.h"
 #include "ash/shelf/shelf_view.h"
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
@@ -23,10 +24,6 @@
 
 namespace ash {
 namespace {
-
-// Duration of the back button's opacity animation.
-constexpr auto kBackButtonOpacityAnimationDuration =
-    base::TimeDelta::FromMilliseconds(200);
 
 bool IsTabletMode() {
   return Shell::Get()->tablet_mode_controller() &&
@@ -48,6 +45,12 @@ gfx::Rect GetSecondButtonBounds() {
       ShelfConfig::Get()->control_size() + ShelfConfig::Get()->button_spacing(),
       0, ShelfConfig::Get()->control_size(),
       ShelfConfig::Get()->control_size());
+}
+
+bool IsBackButtonShown() {
+  return chromeos::switches::ShouldShowShelfHotseat()
+             ? IsTabletMode() && ShelfConfig::Get()->is_in_app()
+             : IsTabletMode();
 }
 
 }  // namespace
@@ -162,6 +165,12 @@ void ShelfNavigationWidget::Delegate::GetAccessibleNodeData(
     ui::AXNodeData* node_data) {
   node_data->role = ax::mojom::Role::kToolbar;
   node_data->SetName(l10n_util::GetStringUTF8(IDS_ASH_SHELF_ACCESSIBLE_NAME));
+
+  ShelfWidget* shelf_widget =
+      Shelf::ForWindow(GetWidget()->GetNativeWindow())->shelf_widget();
+  GetViewAccessibility().OverrideNextFocus(shelf_widget->hotseat_widget());
+  GetViewAccessibility().OverridePreviousFocus(
+      shelf_widget->status_area_widget());
 }
 
 void ShelfNavigationWidget::Delegate::ReorderChildLayers(
@@ -191,7 +200,6 @@ ShelfNavigationWidget::ShelfNavigationWidget(Shelf* shelf,
       delegate_(new ShelfNavigationWidget::Delegate(shelf, shelf_view)),
       bounds_animator_(std::make_unique<views::BoundsAnimator>(delegate_)) {
   DCHECK(shelf_);
-  bounds_animator_->SetAnimationDuration(kBackButtonOpacityAnimationDuration);
   Shell::Get()->tablet_mode_controller()->AddObserver(this);
   Shell::Get()->AddShellObserver(this);
   ShelfConfig::Get()->AddObserver(this);
@@ -211,7 +219,7 @@ void ShelfNavigationWidget::Initialize(aura::Window* container) {
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.name = "ShelfNavigationWidget";
   params.delegate = delegate_;
-  params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
+  params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.parent = container;
   Init(std::move(params));
@@ -228,10 +236,21 @@ gfx::Size ShelfNavigationWidget::GetIdealSize() const {
   const int control_size = ShelfConfig::Get()->control_size();
   if (!shelf_->IsHorizontalAlignment())
     return gfx::Size(control_size, control_size);
-  return gfx::Size(
-      IsTabletMode() ? (2 * control_size + ShelfConfig::Get()->button_spacing())
-                     : control_size,
-      control_size);
+
+  return gfx::Size(IsBackButtonShown() ? (2 * control_size +
+                                          ShelfConfig::Get()->button_spacing())
+                                       : control_size,
+                   control_size);
+}
+
+void ShelfNavigationWidget::OnMouseEvent(ui::MouseEvent* event) {
+  if (event->IsMouseWheelEvent()) {
+    ui::MouseWheelEvent* mouse_wheel_event = event->AsMouseWheelEvent();
+    shelf_->ProcessMouseWheelEvent(mouse_wheel_event);
+    return;
+  }
+
+  views::Widget::OnMouseEvent(event);
 }
 
 bool ShelfNavigationWidget::OnNativeWidgetActivationChanged(bool active) {
@@ -240,6 +259,14 @@ bool ShelfNavigationWidget::OnNativeWidgetActivationChanged(bool active) {
   if (active)
     delegate_->SetPaneFocusAndFocusDefault();
   return true;
+}
+
+void ShelfNavigationWidget::OnGestureEvent(ui::GestureEvent* event) {
+  if (shelf_->ProcessGestureEvent(*event)) {
+    event->StopPropagation();
+    return;
+  }
+  views::Widget::OnGestureEvent(event);
 }
 
 BackButton* ShelfNavigationWidget::GetBackButton() const {
@@ -276,7 +303,7 @@ void ShelfNavigationWidget::OnShelfAlignmentChanged(aura::Window* root_window) {
 
 void ShelfNavigationWidget::OnImplicitAnimationsCompleted() {
   // Hide the back button once it has become fully transparent.
-  if (!IsTabletMode())
+  if (!IsTabletMode() || !IsBackButtonShown())
     GetBackButton()->SetVisible(false);
 }
 
@@ -285,22 +312,36 @@ void ShelfNavigationWidget::OnShelfConfigUpdated() {
 }
 
 void ShelfNavigationWidget::UpdateLayout() {
-  const bool tablet_mode = IsTabletMode();
+  bool is_back_button_shown = IsBackButtonShown();
+  // Use the same duration for all parts of the upcoming animation.
+  const auto animation_duration =
+      ShelfConfig::Get()->shelf_animation_duration();
+  bounds_animator_->SetAnimationDuration(animation_duration);
+
+  ui::ScopedLayerAnimationSettings nav_animation_setter(
+      GetNativeView()->layer()->GetAnimator());
+  nav_animation_setter.SetTransitionDuration(animation_duration);
+  nav_animation_setter.SetTweenType(gfx::Tween::EASE_OUT);
+  nav_animation_setter.SetPreemptionStrategy(
+      ui::LayerAnimator::IMMEDIATELY_ANIMATE_TO_NEW_TARGET);
+
+  SetBounds(shelf_->shelf_layout_manager()->GetNavigationBounds());
+
   // Show the back button right away so that the animation is visible.
-  if (tablet_mode)
+  if (is_back_button_shown)
     GetBackButton()->SetVisible(true);
-  GetBackButton()->SetFocusBehavior(tablet_mode
+  GetBackButton()->SetFocusBehavior(is_back_button_shown
                                         ? views::View::FocusBehavior::ALWAYS
                                         : views::View::FocusBehavior::NEVER);
   ui::ScopedLayerAnimationSettings settings(
       GetBackButton()->layer()->GetAnimator());
-  settings.SetTransitionDuration(kBackButtonOpacityAnimationDuration);
+  settings.SetTransitionDuration(animation_duration);
   settings.AddObserver(this);
-  GetBackButton()->layer()->SetOpacity(tablet_mode ? 1 : 0);
+  GetBackButton()->layer()->SetOpacity(is_back_button_shown ? 1 : 0);
 
   bounds_animator_->AnimateViewTo(
       GetHomeButton(),
-      tablet_mode ? GetSecondButtonBounds() : GetFirstButtonBounds());
+      is_back_button_shown ? GetSecondButtonBounds() : GetFirstButtonBounds());
   GetBackButton()->SetBoundsRect(GetFirstButtonBounds());
 
   delegate_->UpdateOpaqueBackground();

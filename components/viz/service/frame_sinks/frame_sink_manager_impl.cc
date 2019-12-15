@@ -269,7 +269,7 @@ void FrameSinkManagerImpl::UnregisterFrameSinkHierarchy(
 }
 
 void FrameSinkManagerImpl::AddVideoDetectorObserver(
-    mojom::VideoDetectorObserverPtr observer) {
+    mojo::PendingRemote<mojom::VideoDetectorObserver> observer) {
   if (!video_detector_) {
     video_detector_ = std::make_unique<VideoDetector>(
         GetRegisteredFrameSinkIds(), &surface_manager_);
@@ -278,9 +278,9 @@ void FrameSinkManagerImpl::AddVideoDetectorObserver(
 }
 
 void FrameSinkManagerImpl::CreateVideoCapturer(
-    mojom::FrameSinkVideoCapturerRequest request) {
+    mojo::PendingReceiver<mojom::FrameSinkVideoCapturer> receiver) {
   video_capturers_.emplace(std::make_unique<FrameSinkVideoCapturerImpl>(
-      this, std::move(request),
+      this, std::move(receiver),
       std::make_unique<media::VideoCaptureOracle>(
           true /* enable_auto_throttling */)));
 }

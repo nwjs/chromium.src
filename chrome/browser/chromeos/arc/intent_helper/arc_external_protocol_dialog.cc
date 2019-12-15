@@ -15,6 +15,7 @@
 #include "chrome/browser/chromeos/arc/arc_web_contents_data.h"
 #include "chrome/browser/chromeos/arc/intent_helper/arc_intent_picker_app_fetcher.h"
 #include "chrome/browser/chromeos/external_protocol_dialog.h"
+#include "chrome/browser/sharing/click_to_call/click_to_call_metrics.h"
 #include "chrome/browser/sharing/click_to_call/click_to_call_ui_controller.h"
 #include "chrome/browser/sharing/click_to_call/click_to_call_utils.h"
 #include "chrome/browser/tab_contents/tab_util.h"
@@ -117,6 +118,9 @@ bool MaybeAddDevicesAndShowPicker(
   std::vector<std::unique_ptr<syncer::DeviceInfo>> devices;
 
   if (ShouldOfferClickToCallForURL(web_contents->GetBrowserContext(), url)) {
+    LogClickToCallPhoneNumberSize(GetUnescapedURLContent(url),
+                                  SharingClickToCallEntryPoint::kLeftClickLink,
+                                  /*send_to_device=*/false);
     icon_type = PageActionIconType::kClickToCall;
     controller =
         ClickToCallUiController::GetOrCreateFromWebContents(web_contents);
@@ -298,10 +302,7 @@ GetActionResult GetAction(
     GurlAndActivityInfo* out_url_and_activity_name,
     bool* in_out_safe_to_bypass_ui) {
   DCHECK(out_url_and_activity_name);
-  if (!handlers.size()) {
-    *in_out_safe_to_bypass_ui = false;
-    return GetActionResult::SHOW_CHROME_OS_DIALOG;  // no apps found.
-  }
+  DCHECK(!handlers.empty());
 
   if (selected_app_index == handlers.size()) {
     // The user hasn't made the selection yet.
@@ -415,10 +416,6 @@ bool HandleUrl(int render_process_host_id,
     *out_result = result;
 
   switch (result) {
-    case GetActionResult::SHOW_CHROME_OS_DIALOG:
-      ShowFallbackExternalProtocolDialog(render_process_host_id, routing_id,
-                                         url);
-      return true;
     case GetActionResult::OPEN_URL_IN_CHROME:
       OpenUrlInChrome(render_process_host_id, routing_id,
                       url_and_activity_name.first);
@@ -688,7 +685,7 @@ void OnUrlHandlerList(int render_process_host_id,
   // We only reach here if Chrome doesn't think it can handle the URL. If ARC is
   // not running anymore, or Chrome is the only candidate returned, show the
   // usual Chrome OS dialog that says we cannot handle the URL.
-  if (!instance || !intent_helper_bridge ||
+  if (!instance || !intent_helper_bridge || handlers.empty() ||
       IsChromeOnlyAppCandidate(handlers)) {
     ShowExternalProtocolDialogWithoutApps(render_process_host_id, routing_id,
                                           url, initiating_origin);

@@ -10,7 +10,8 @@
 #include <vector>
 
 #include "components/autofill/core/common/password_form.h"
-#include "components/password_manager/core/browser/leaked_credentials_table.h"
+#include "components/password_manager/core/browser/compromised_credentials_table.h"
+#include "components/password_manager/core/browser/field_info_table.h"
 #include "components/password_manager/core/browser/password_store.h"
 #include "components/password_manager/core/browser/statistics_table.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -72,14 +73,20 @@ class MockPasswordStore : public PasswordStore {
                std::vector<InteractionsStats>(const GURL& origin_domain));
   MOCK_METHOD1(AddSiteStatsImpl, void(const InteractionsStats&));
   MOCK_METHOD1(RemoveSiteStatsImpl, void(const GURL&));
-  MOCK_METHOD1(AddLeakedCredentialsImpl, void(const LeakedCredentials&));
-  MOCK_METHOD2(RemoveLeakedCredentialsImpl,
+  MOCK_METHOD1(AddCompromisedCredentialsImpl,
+               void(const CompromisedCredentials&));
+  MOCK_METHOD2(RemoveCompromisedCredentialsImpl,
                void(const GURL&, const base::string16&));
-  MOCK_METHOD0(GetAllLeakedCredentialsImpl, std::vector<LeakedCredentials>());
-  MOCK_METHOD3(RemoveLeakedCredentialsByUrlAndTimeImpl,
+  MOCK_METHOD0(GetAllCompromisedCredentialsImpl,
+               std::vector<CompromisedCredentials>());
+  MOCK_METHOD3(RemoveCompromisedCredentialsByUrlAndTimeImpl,
                void(const base::RepeatingCallback<bool(const GURL&)>&,
                     base::Time,
                     base::Time));
+  MOCK_METHOD1(AddFieldInfoImpl, void(const FieldInfo&));
+  MOCK_METHOD0(GetAllFieldInfoImpl, std::vector<FieldInfo>());
+  MOCK_METHOD2(RemoveFieldInfoByTimeImpl, void(base::Time, base::Time));
+
   MOCK_CONST_METHOD0(IsAbleToSavePasswords, bool());
 
 #if defined(SYNC_PASSWORD_REUSE_DETECTION_ENABLED)

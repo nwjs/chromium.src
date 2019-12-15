@@ -27,10 +27,6 @@
 #include "services/metrics/public/cpp/mojo_ukm_recorder.h"
 #include "third_party/skia/include/core/SkFontLCDConfig.h"
 
-#if defined(USE_OZONE)
-#include "ui/ozone/public/ozone_platform.h"
-#endif
-
 namespace {
 
 std::unique_ptr<base::Thread> CreateAndStartIOThread() {
@@ -109,10 +105,6 @@ VizMainImpl::VizMainImpl(Delegate* delegate,
       base::BindOnce(&VizMainImpl::ExitProcess, base::Unretained(this)));
   if (dependencies_.create_display_compositor)
     gpu_service_->set_oopd_enabled();
-
-#if defined(USE_OZONE)
-  ui::OzonePlatform::GetInstance()->AddInterfaces(&registry_);
-#endif
 }
 
 VizMainImpl::~VizMainImpl() {
@@ -145,17 +137,6 @@ void VizMainImpl::BindAssociated(
     mojo::PendingAssociatedReceiver<mojom::VizMain> pending_receiver) {
   receiver_.Bind(std::move(pending_receiver));
 }
-
-#if defined(USE_OZONE)
-bool VizMainImpl::CanBindInterface(const std::string& interface_name) const {
-  return registry_.CanBindInterface(interface_name);
-}
-
-void VizMainImpl::BindInterface(const std::string& interface_name,
-                                mojo::ScopedMessagePipeHandle interface_pipe) {
-  registry_.BindInterface(interface_name, std::move(interface_pipe));
-}
-#endif
 
 void VizMainImpl::CreateGpuService(
     mojo::PendingReceiver<mojom::GpuService> pending_receiver,
@@ -255,7 +236,7 @@ void VizMainImpl::CreateFrameSinkManagerInternal(
   // the same signature. https://crbug.com/928845
   CHECK(!task_executor_);
   task_executor_ = std::make_unique<gpu::GpuInProcessThreadService>(
-      gpu_thread_task_runner_, gpu_service_->scheduler(),
+      gpu_thread_task_runner_, gpu_service_->GetGpuScheduler(),
       gpu_service_->sync_point_manager(), gpu_service_->mailbox_manager(),
       gpu_service_->share_group(), format, gpu_service_->gpu_feature_info(),
       gpu_service_->gpu_channel_manager()->gpu_preferences(),
@@ -273,11 +254,17 @@ void VizMainImpl::CreateVizDevTools(mojom::VizDevToolsParamsPtr params) {
 #endif
 }
 
-void VizMainImpl::ExitProcess() {
+void VizMainImpl::ExitProcess(bool immediately) {
   DCHECK(gpu_thread_task_runner_->BelongsToCurrentThread());
 
   // Close mojom::VizMain bindings first so the browser can't try to reconnect.
   receiver_.reset();
+
+  if (!gpu_init_->gpu_info().in_process_gpu && immediately) {
+    // Atomically shut down GPU process to make it faster and simpler.
+    base::Process::TerminateCurrentProcessImmediately(/*exit_code=*/0);
+    return;
+  }
 
   if (viz_compositor_thread_runner_) {
     // OOP-D requires destroying RootCompositorFrameSinkImpls on the compositor

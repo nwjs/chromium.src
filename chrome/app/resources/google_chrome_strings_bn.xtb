@@ -3,7 +3,6 @@
 <translationbundle lang="bn">
 <translation id="1001534784610492198">ইনস্টলার আর্কাইভ ক্ষতিগ্রস্ত বা ভুল৷ অনুগ্রহ করে আবার Google Chrome ডাউনলোড করুন৷</translation>
 <translation id="102763973188675173">Google Chrome কে কাস্টমাইজ এবং নিয়ন্ত্রণ করুন৷ আপডেট পাওয়া যাবে৷</translation>
-<translation id="1035334672863811645">Chrome-এ সাইন-ইন করুন</translation>
 <translation id="1051826050538111504">আপনার কম্পিউটারে ক্ষতিকারক সফ্টওয়্যার পাওয়া গেছে। Chrome এটিকে সরিয়ে দিতে পারে, আপনার সেটিংস রিস্টোর করতে পারে এবং বিভিন্ন এক্সটেনশন বন্ধ করে দিতে পারে যাতে আপনার ব্রাউজার আবার স্বাভাবিকভাবে কাজ করে।</translation>
 <translation id="1065672644894730302">আপনার অভিরুচিগুলি পড়া যাবে না৷ কিছু বৈশিষ্ট্য অনুপলব্ধ থাকতে পারে ও অভিরুচিগুলিতে করা পরিবর্তনগুলি সংরক্ষিত হবে না৷</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> পূর্বে Chrome ব্যবহার করছিলেন</translation>
@@ -75,7 +74,6 @@
 <translation id="3065168410429928842">Chrome ট্যাব</translation>
 <translation id="3080151273017101988">Google Chrome বন্ধ হলে পশ্চাদপট অ্যাপ্লিকেশানের চলা অবিরত রাখুন</translation>
 <translation id="3089968997497233615">Google Chrome-এর একটি নতুন, তুলনামূলক নিরাপদ ভার্সন উপলব্ধ৷</translation>
-<translation id="3138848678222082288">Chrome-এর পরবর্তী ভার্সন অটোমেটিক ইনস্টল হবে। ডাউনলোড সম্পূর্ণ হয়ে গেলে Chrome রিস্টার্ট হবে এবং আপনি আবার আগের মতো ব্যবহার করতে পারবেন।</translation>
 <translation id="3149510190863420837">Chrome অ্যাপগুলি</translation>
 <translation id="3282568296779691940">Chrome-এ সাইন-ইন করুন</translation>
 <translation id="3340978935015468852">সেটিংস</translation>
@@ -96,7 +94,6 @@
 <translation id="3718181793972440140">এটি এই ডিভাইস থেকে ১টি আইটেম মুছে দেবে। আপনার ডেটা পরে পুনরুদ্ধার করার জন্য, Chrome-এ <ph name="USER_EMAIL" /> হিসেবে সাইন-ইন করুন।</translation>
 <translation id="3735758079232443276">আপনি Chrome চালু করলে কোন পৃষ্ঠাটি দেখানো হবে তা "<ph name="EXTENSION_NAME" />" এক্সটেনশনটি পরিবর্তন করেছে।</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Chrome থেকে সরান...</translation>
 <translation id="386202838227397562">দয়া করে সকল Google Chrome উইন্ডো বন্ধ করুন ও আবার চেষ্টা করুন৷</translation>
 <translation id="3873044882194371212">Chrome-এ ছদ্মবেশী উইন্ডোতে লিঙ্ক খুলুন</translation>
 <translation id="3889417619312448367">Google Chrome আনইনস্টল করুন</translation>
@@ -179,7 +176,6 @@
 <translation id="677276454032249905">তা স্বত্তেও Chrome বন্ধ করতে চান?</translation>
 <translation id="683440813066116847">mDNS ট্রাফিকের অনুমতি দিতে Google Chrome Canary এর জন্য ইনবাউন্ড নিয়ম।</translation>
 <translation id="6885412569789873916">Chrome বিটা অ্যাপ</translation>
-<translation id="6906909733186691861">Chrome-এর পরবর্তী ভার্সন অটোমেটিক ইনস্টল হবে।</translation>
 <translation id="6943584222992551122">ডিভাইসটি থেকে এই ব্যক্তির ব্রাউজিং ডেটা মুছে ফেলা হবে। ডেটা ফিরিয়ে আনতে Chrome-এ <ph name="USER_EMAIL" /> হিসেবে সাইন-ইন করুন।</translation>
 <translation id="6967962315388095737">mDNS ট্রাফিকের অনুমতি দিতে Google Chrome বিটার জন্য ইনবাউন্ড নিয়ম।</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" />-এ এই ডিভাইসটি ব্যবহার করার আগে আপনাকে নিম্নলিখিত পরিষেবার শর্তাদি পড়তে হবে এবং এটিকে স্বীকার করতে হবে৷ এই শর্তাদি Chrome OS-এর শর্তাদিকে প্রসারণ, সংশোধন বা সীমাবদ্ধ করে না৷</translation>
@@ -230,7 +226,6 @@
 <translation id="8521348052903287641">mDNS ট্রাফিকের অনুমতি দিতে Google Chrome ডেভেলপারের জন্য ইনবাউন্ড নিয়ম।</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Google Chrome-এর একটি নতুন ভার্সন উপলভ্য এবং এটি আগের তুলনায় দ্রুততর৷</translation>
-<translation id="8606668294522778825">Google Chrome আপনার ব্রাউজিংয়ের অভিজ্ঞতাকে উন্নত করতে ওয়েব পরিষেবাগুলি ব্যবহার করতে পারে৷ আপনি আপনার ইচ্ছা অনুযায়ী এই পরিষেবাগুলিকে বন্ধ করতে পারেন৷ <ph name="BEGIN_LINK" />আরও জানুন<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome প্রতিক্রিয়া করছে না৷ এখনই পুনঃলঞ্চ করবেন?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome ১ মিনিটের মধ্যে আবার লঞ্চ হবে}one{Chrome # মিনিটের মধ্যে আবার লঞ্চ হবে}other{Chrome # মিনিটের মধ্যে আবার লঞ্চ হবে}}</translation>
 <translation id="8669527147644353129">Google Chrome সহায়তাকারী</translation>

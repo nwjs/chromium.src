@@ -8,10 +8,6 @@
 #include "extensions/browser/app_window/app_window.h"
 #include "extensions/browser/extension_function.h"
 
-namespace content {
-  class RenderFrameHost;
-}
-
 namespace extensions {
 
 namespace api {
@@ -31,7 +27,6 @@ class AppWindowCreateFunction : public ExtensionFunction {
 
  private:
   void OnAppWindowFinishedFirstNavigationOrClosed(ResponseValue result_arg,
-                                                  content::RenderFrameHost* created_frame,
                                                   bool did_finish);
 
   bool GetBoundsSpec(

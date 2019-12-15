@@ -100,6 +100,11 @@ template("lipo_binary") {
         "$_dsyms_output_dir/Contents/Resources/DWARF/$_output_name",
       ]
       args += [ "-Wcrl,dsym," + rebase_path("$root_out_dir/.", root_build_dir) ]
+      if (!use_xcode_clang) {
+        args += [ "-Wcrl,dsymutilpath," +
+                  rebase_path("//tools/clang/dsymutil/bin/dsymutil",
+                              root_build_dir) ]
+      }
     }
 
     if (enable_stripping) {
@@ -1214,10 +1219,11 @@ template("ios_framework_bundle") {
 
   _default_toolchain_root_out_dir =
       get_label_info("$_target_name($default_toolchain)", "root_out_dir")
-  _default_toolchain_target_gen_dir =
-      get_label_info("$_target_name($default_toolchain)", "target_gen_dir")
 
   if (_has_public_headers) {
+    _default_toolchain_target_gen_dir =
+        get_label_info("$_target_name($default_toolchain)", "target_gen_dir")
+
     _framework_headers_target = _target_name + "_framework_headers"
     _framework_headers_config = _target_name + "_framework_headers_config"
     config(_framework_headers_config) {
@@ -1398,15 +1404,12 @@ template("ios_framework_bundle") {
         # sources, so filter any non-header source files from "sources". It is
         # less error prone that having the developer duplicate the list of all
         # headers in addition to "sources".
-        set_sources_assignment_filter([
-                                        "*.c",
-                                        "*.cc",
-                                        "*.cpp",
-                                        "*.m",
-                                        "*.mm",
-                                      ])
-        sources = invoker.sources
-        set_sources_assignment_filter([])
+        sources = []
+        foreach(_source, invoker.sources) {
+          if (get_path_info(_source, "extension") == "h") {
+            sources += [ _source ]
+          }
+        }
 
         args = [
                  rebase_path(_header_map_filename),

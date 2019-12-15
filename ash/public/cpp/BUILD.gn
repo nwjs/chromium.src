@@ -17,6 +17,8 @@ component("cpp") {
     "accessibility_focus_ring_controller.h",
     "accessibility_focus_ring_info.cc",
     "accessibility_focus_ring_info.h",
+    "ambient/ambient_mode_state.cc",
+    "ambient/ambient_mode_state.h",
     "ambient/photo_controller.cc",
     "ambient/photo_controller.h",
     "android_intent_helper.cc",
@@ -38,14 +40,6 @@ component("cpp") {
     "app_list/app_list_types.cc",
     "app_list/app_list_types.h",
     "app_list/internal_app_id_constants.h",
-    "app_list/term_break_iterator.cc",
-    "app_list/term_break_iterator.h",
-    "app_list/tokenized_string.cc",
-    "app_list/tokenized_string.h",
-    "app_list/tokenized_string_char_iterator.cc",
-    "app_list/tokenized_string_char_iterator.h",
-    "app_list/tokenized_string_match.cc",
-    "app_list/tokenized_string_match.h",
     "app_menu_constants.h",
     "app_types.h",
     "arc_app_id_provider.cc",
@@ -290,23 +284,6 @@ source_set("manifest") {
   ]
 }
 
-source_set("manifest_for_tests") {
-  testonly = true
-
-  sources = [
-    "test_manifest.cc",
-    "test_manifest.h",
-  ]
-
-  deps = [
-    ":manifest",
-    "//ash/public/mojom:test_interfaces",
-    "//base",
-    "//services/service_manager/public/cpp",
-    "//services/service_manager/public/mojom",
-  ]
-}
-
 source_set("unit_tests") {
   testonly = true
   sources = [
@@ -343,6 +320,8 @@ source_set("test_support") {
     "test/test_keyboard_controller_observer.h",
     "test/test_new_window_delegate.cc",
     "test/test_new_window_delegate.h",
+    "test/test_photo_controller.cc",
+    "test/test_photo_controller.h",
     "test/test_system_tray_client.cc",
     "test/test_system_tray_client.h",
   ]
@@ -354,6 +333,7 @@ source_set("test_support") {
     "//ui/aura",
     "//ui/aura:test_support",
     "//ui/gfx",
+    "//ui/gfx:test_support",
     "//ui/views",
   ]
 }

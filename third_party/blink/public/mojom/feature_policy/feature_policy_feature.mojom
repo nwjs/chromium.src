@@ -104,8 +104,8 @@ enum FeaturePolicyFeature {
   // Loading policies.
   kLoadingFrameDefaultEager = 48,
 
-  // Implements sandbox flag: allow-downloads-without-user-activation.
-  kDownloadsWithoutUserActivation = 49,
+  // Implements sandbox flag: allow-downloads.
+  kDownloads = 49,
 
   // Allow execution while not in the viewport.
   kExecutionWhileOutOfViewport = 50,
@@ -129,11 +129,11 @@ enum FeaturePolicyFeature {
   kClientHintViewportWidth = 63,
   kClientHintWidth = 64,
 
-  // Whether all cross document access to this window object is treated as cross origin.
-  kDocumentAccess = 65,
-
   // Controls use of WebXR API.
   kWebXr = 66,
+
+  // Web Authentication (https://w3c.github.io/webauthn/#sctn-iframe-guidance)
+  kPublicKeyCredentials = 67,
 
   // Don't change assigned numbers of any item, and don't reuse removed slots.
   // Add new features at the end of the enum.

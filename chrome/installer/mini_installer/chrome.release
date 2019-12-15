@@ -25,15 +25,12 @@ nw_elf.dll: %(ChromeDir)s\
 nw_watcher.dll: %(ChromeDir)s\
 d3dcompiler_47.dll: %(ChromeDir)s\
 eventlog_provider.dll: %(ChromeDir)s\
-ffmpeg.dll: %(ChromeDir)s\
-icudt.dll: %(ChromeDir)s\
 icudtl.dat: %(ChromeDir)s\
 libEGL.dll: %(ChromeDir)s\
 libGLESv2.dll: %(ChromeDir)s\
 nacl64.exe: %(ChromeDir)s\
 nacl_irt_x86_32.nexe: %(ChromeDir)s\
 nacl_irt_x86_64.nexe: %(ChromeDir)s\
-natives_blob.bin: %(ChromeDir)s\
 resources.pak: %(ChromeDir)s\
 notification_helper.exe: %(ChromeDir)s\
 node.dll: %(ChromeDir)s\
@@ -42,26 +39,18 @@ v8_context_snapshot.bin: %(ChromeDir)s\
 #
 # Sub directories living in the version dir
 #
-default_apps\*.crx: %(ChromeDir)s\default_apps\
-default_apps\external_extensions.json: %(ChromeDir)s\default_apps\
 Extensions\*.*: %(ChromeDir)s\Extensions\
-locales\*.dll: %(ChromeDir)s\Locales
 locales\*.pak: %(ChromeDir)s\Locales
 
 #
 # VisualElements sub-dir.
 #
-# All or none of the following files need to be present as the creation of
+# All or none of the *Logo*.png files need to be present as the creation of
 # VisualElementsManifest.xml is based on the existence of
 # %(VersionDir)\VisualElements.
+
 Logo.png: %(ChromeDir)s\VisualElements\
-LogoBeta.png: %(ChromeDir)s\VisualElements\
-LogoCanary.png: %(ChromeDir)s\VisualElements\
-LogoDev.png: %(ChromeDir)s\VisualElements\
 SmallLogo.png: %(ChromeDir)s\VisualElements\
-SmallLogoBeta.png: %(ChromeDir)s\VisualElements\
-SmallLogoCanary.png: %(ChromeDir)s\VisualElements\
-SmallLogoDev.png: %(ChromeDir)s\VisualElements\
 
 #
 # SwiftShader sub-dir
@@ -83,6 +72,22 @@ nw_200_percent.pak: %(ChromeDir)s\
 [GOOGLE_CHROME]
 # The elevation service is only installed for Google Chrome builds.
 elevation_service.exe: %(VersionDir)s\
+
+#
+# Sub directories living in the version dir
+#
+default_apps\*.crx: %(VersionDir)s\default_apps\
+default_apps\external_extensions.json: %(VersionDir)s\default_apps\
+
+#
+# VisualElements sub-dir.
+#
+LogoBeta.png: %(VersionDir)s\VisualElements\
+LogoCanary.png: %(VersionDir)s\VisualElements\
+LogoDev.png: %(VersionDir)s\VisualElements\
+SmallLogoBeta.png: %(VersionDir)s\VisualElements\
+SmallLogoCanary.png: %(VersionDir)s\VisualElements\
+SmallLogoDev.png: %(VersionDir)s\VisualElements\
 
 #
 # Widevine CDM sub-dir

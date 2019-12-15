@@ -18,7 +18,6 @@
 #include "content/public/browser/system_connector.h"
 #include "content/public/common/content_client.h"
 #include "media/mojo/buildflags.h"
-#include "media/mojo/mojom/cdm_proxy.mojom.h"
 #include "media/mojo/mojom/constants.mojom.h"
 #include "media/mojo/mojom/media_service.mojom.h"
 #include "media/mojo/services/media_interface_provider.h"
@@ -38,12 +37,15 @@
 #include "content/public/common/cdm_info.h"
 #include "media/base/key_system_names.h"
 #include "media/mojo/mojom/cdm_service.mojom.h"
-#include "mojo/public/cpp/bindings/interface_request.h"
-#include "mojo/public/cpp/bindings/strong_binding.h"
+#include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #if defined(OS_MACOSX)
 #include "sandbox/mac/seatbelt_extension.h"
 #endif  // defined(OS_MACOSX)
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
+
+#if BUILDFLAG(ENABLE_CDM_PROXY)
+#include "media/mojo/mojom/cdm_proxy.mojom.h"
+#endif  // BUILDFLAG(ENABLE_CDM_PROXY)
 
 #if defined(OS_ANDROID)
 #include "content/browser/media/android/media_player_renderer.h"
@@ -117,10 +119,10 @@ class SeatbeltExtensionTokenProviderImpl
 
 MediaInterfaceProxy::MediaInterfaceProxy(
     RenderFrameHost* render_frame_host,
-    media::mojom::InterfaceFactoryRequest request,
+    mojo::PendingReceiver<media::mojom::InterfaceFactory> receiver,
     base::OnceClosure error_handler)
     : render_frame_host_(render_frame_host),
-      binding_(this, std::move(request)) {
+      receiver_(this, std::move(receiver)) {
   DVLOG(1) << __func__;
   DCHECK(render_frame_host_);
   DCHECK(!error_handler.is_null());
@@ -138,7 +140,7 @@ MediaInterfaceProxy::MediaInterfaceProxy(
           std::move(create_interface_provider_cb));
 #endif  // BUILDFLAG(ENABLE_CAST_RENDERER)
 
-  binding_.set_connection_error_handler(std::move(error_handler));
+  receiver_.set_disconnect_handler(std::move(error_handler));
 
   // |cdm_factory_map_| will be lazily connected in GetCdmFactory().
 }
@@ -157,41 +159,42 @@ void MediaInterfaceProxy::CreateAudioDecoder(
 }
 
 void MediaInterfaceProxy::CreateVideoDecoder(
-    media::mojom::VideoDecoderRequest request) {
+    mojo::PendingReceiver<media::mojom::VideoDecoder> receiver) {
   DCHECK(thread_checker_.CalledOnValidThread());
   InterfaceFactory* factory = media_interface_factory_ptr_->Get();
   if (factory)
-    factory->CreateVideoDecoder(std::move(request));
+    factory->CreateVideoDecoder(std::move(receiver));
 }
 
 void MediaInterfaceProxy::CreateDefaultRenderer(
     const std::string& audio_device_id,
-    media::mojom::RendererRequest request) {
+    mojo::PendingReceiver<media::mojom::Renderer> receiver) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
   InterfaceFactory* factory = media_interface_factory_ptr_->Get();
   if (factory)
-    factory->CreateDefaultRenderer(audio_device_id, std::move(request));
+    factory->CreateDefaultRenderer(audio_device_id, std::move(receiver));
 }
 
 #if BUILDFLAG(ENABLE_CAST_RENDERER)
 void MediaInterfaceProxy::CreateCastRenderer(
     const base::UnguessableToken& overlay_plane_id,
-    media::mojom::RendererRequest request) {
+    mojo::PendingReceiver<media::mojom::Renderer> receiver) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
   // CastRenderer is always hosted in "media_renderer" service.
   InterfaceFactory* factory = media_renderer_interface_factory_ptr_->Get();
   if (factory)
-    factory->CreateCastRenderer(overlay_plane_id, std::move(request));
+    factory->CreateCastRenderer(overlay_plane_id, std::move(receiver));
 }
 #endif
 
 #if defined(OS_ANDROID)
 void MediaInterfaceProxy::CreateFlingingRenderer(
     const std::string& presentation_id,
-    media::mojom::FlingingRendererClientExtensionPtr client_extension,
-    media::mojom::RendererRequest request) {
+    mojo::PendingRemote<media::mojom::FlingingRendererClientExtension>
+        client_extension,
+    mojo::PendingReceiver<media::mojom::Renderer> receiver) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
   std::unique_ptr<FlingingRenderer> flinging_renderer =
@@ -202,14 +205,15 @@ void MediaInterfaceProxy::CreateFlingingRenderer(
     return;
 
   media::MojoRendererService::Create(nullptr, std::move(flinging_renderer),
-                                     std::move(request));
+                                     std::move(receiver));
 }
 
 void MediaInterfaceProxy::CreateMediaPlayerRenderer(
-    media::mojom::MediaPlayerRendererClientExtensionPtr client_extension_ptr,
-    media::mojom::RendererRequest request,
-    media::mojom::MediaPlayerRendererExtensionRequest
-        renderer_extension_request) {
+    mojo::PendingRemote<media::mojom::MediaPlayerRendererClientExtension>
+        client_extension_remote,
+    mojo::PendingReceiver<media::mojom::Renderer> receiver,
+    mojo::PendingReceiver<media::mojom::MediaPlayerRendererExtension>
+        renderer_extension_receiver) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
   media::MojoRendererService::Create(
@@ -220,15 +224,15 @@ void MediaInterfaceProxy::CreateMediaPlayerRenderer(
           static_cast<RenderFrameHostImpl*>(render_frame_host_)
               ->delegate()
               ->GetAsWebContents(),
-          std::move(renderer_extension_request),
-          std::move(client_extension_ptr)),
-      std::move(request));
+          std::move(renderer_extension_receiver),
+          std::move(client_extension_remote)),
+      std::move(receiver));
 }
 #endif
 
 void MediaInterfaceProxy::CreateCdm(
     const std::string& key_system,
-    media::mojom::ContentDecryptionModuleRequest request) {
+    mojo::PendingReceiver<media::mojom::ContentDecryptionModule> receiver) {
   DCHECK(thread_checker_.CalledOnValidThread());
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
   auto* factory = GetCdmFactory(key_system);
@@ -242,7 +246,7 @@ void MediaInterfaceProxy::CreateCdm(
 #endif
 
   if (factory)
-    factory->CreateCdm(key_system, std::move(request));
+    factory->CreateCdm(key_system, std::move(receiver));
 }
 
 void MediaInterfaceProxy::CreateDecryptor(
@@ -253,22 +257,24 @@ void MediaInterfaceProxy::CreateDecryptor(
     factory->CreateDecryptor(cdm_id, std::move(receiver));
 }
 
+#if BUILDFLAG(ENABLE_CDM_PROXY)
 void MediaInterfaceProxy::CreateCdmProxy(
     const base::Token& cdm_guid,
     mojo::PendingReceiver<media::mojom::CdmProxy> receiver) {
   NOTREACHED() << "The CdmProxy should only be created by a CDM.";
 }
+#endif  // BUILDFLAG(ENABLE_CDM_PROXY)
 
-service_manager::mojom::InterfaceProviderPtr
+mojo::PendingRemote<service_manager::mojom::InterfaceProvider>
 MediaInterfaceProxy::GetFrameServices(const base::Token& cdm_guid,
                                       const std::string& cdm_file_system_id) {
   // Register frame services.
-  service_manager::mojom::InterfaceProviderPtr interfaces;
+  mojo::PendingRemote<service_manager::mojom::InterfaceProvider> interfaces;
 
   // TODO(xhwang): Replace this InterfaceProvider with a dedicated media host
   // interface. See http://crbug.com/660573
   auto provider = std::make_unique<media::MediaInterfaceProvider>(
-      mojo::MakeRequest(&interfaces));
+      interfaces.InitWithNewPipeAndPassReceiver());
 
 #if BUILDFLAG(ENABLE_MOJO_CDM)
   // TODO(slan): Wrap these into a RenderFrame specific ProvisionFetcher impl.
@@ -287,9 +293,11 @@ MediaInterfaceProxy::GetFrameServices(const base::Token& cdm_guid,
         &CdmStorageImpl::Create, render_frame_host_, cdm_file_system_id));
   }
 
+#if BUILDFLAG(ENABLE_CDM_PROXY)
   provider->registry()->AddInterface(
       base::BindRepeating(&MediaInterfaceProxy::CreateCdmProxyInternal,
                           base::Unretained(this), cdm_guid));
+#endif  // BUILDFLAG(ENABLE_CDM_PROXY)
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 #endif  // BUILDFLAG(ENABLE_MOJO_CDM)
 
@@ -345,33 +353,33 @@ media::mojom::CdmFactory* MediaInterfaceProxy::ConnectToCdmService(
   DCHECK(!cdm_factory_map_.count(cdm_guid));
 
   // TODO(slan): Use the BrowserContext Connector instead. See crbug.com/638950.
-  media::mojom::CdmServicePtr cdm_service;
-  GetSystemConnector()->BindInterface(
-      service_manager::ServiceFilter::ByNameWithId(
-          media::mojom::kCdmServiceName, cdm_guid),
-      &cdm_service);
+  mojo::Remote<media::mojom::CdmService> cdm_service;
+  GetSystemConnector()->Connect(service_manager::ServiceFilter::ByNameWithId(
+                                    media::mojom::kCdmServiceName, cdm_guid),
+                                cdm_service.BindNewPipeAndPassReceiver());
 
 #if defined(OS_MACOSX)
   // LoadCdm() should always be called before CreateInterfaceFactory().
-  media::mojom::SeatbeltExtensionTokenProviderPtr token_provider_ptr;
-  mojo::MakeStrongBinding(
+  mojo::PendingRemote<media::mojom::SeatbeltExtensionTokenProvider>
+      token_provider_remote;
+  mojo::MakeSelfOwnedReceiver(
       std::make_unique<SeatbeltExtensionTokenProviderImpl>(cdm_path),
-      mojo::MakeRequest(&token_provider_ptr));
+      token_provider_remote.InitWithNewPipeAndPassReceiver());
 
-  cdm_service->LoadCdm(cdm_path, std::move(token_provider_ptr));
+  cdm_service->LoadCdm(cdm_path, std::move(token_provider_remote));
 #else
   cdm_service->LoadCdm(cdm_path);
 #endif  // defined(OS_MACOSX)
 
-  media::mojom::CdmFactoryPtr cdm_factory_ptr;
-  cdm_service->CreateCdmFactory(MakeRequest(&cdm_factory_ptr),
+  mojo::Remote<media::mojom::CdmFactory> cdm_factory_remote;
+  cdm_service->CreateCdmFactory(cdm_factory_remote.BindNewPipeAndPassReceiver(),
                                 GetFrameServices(cdm_guid, cdm_file_system_id));
-  cdm_factory_ptr.set_connection_error_handler(
+  cdm_factory_remote.set_disconnect_handler(
       base::BindOnce(&MediaInterfaceProxy::OnCdmServiceConnectionError,
                      base::Unretained(this), cdm_guid));
 
-  auto* cdm_factory = cdm_factory_ptr.get();
-  cdm_factory_map_.emplace(cdm_guid, std::move(cdm_factory_ptr));
+  auto* cdm_factory = cdm_factory_remote.get();
+  cdm_factory_map_.emplace(cdm_guid, std::move(cdm_factory_remote));
   return cdm_factory;
 }
 
@@ -384,6 +392,7 @@ void MediaInterfaceProxy::OnCdmServiceConnectionError(
   cdm_factory_map_.erase(cdm_guid);
 }
 
+#if BUILDFLAG(ENABLE_CDM_PROXY)
 void MediaInterfaceProxy::CreateCdmProxyInternal(
     const base::Token& cdm_guid,
     mojo::PendingReceiver<media::mojom::CdmProxy> receiver) {
@@ -394,5 +403,8 @@ void MediaInterfaceProxy::CreateCdmProxyInternal(
   if (factory)
     factory->CreateCdmProxy(cdm_guid, std::move(receiver));
 }
+#endif  // BUILDFLAG(ENABLE_CDM_PROXY)
+
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
+
 }  // namespace content

@@ -14,7 +14,10 @@
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/run_loop.h"
 #include "base/strings/strcat.h"
+#include "base/task/post_task.h"
+#include "base/threading/thread.h"
 #include "components/invalidation/public/invalidation_service.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -27,7 +30,6 @@
 #include "components/sync/base/sync_base_switches.h"
 #include "components/sync/driver/backend_migrator.h"
 #include "components/sync/driver/configure_context.h"
-#include "components/sync/driver/directory_data_type_controller.h"
 #include "components/sync/driver/sync_api_component_factory.h"
 #include "components/sync/driver/sync_auth_manager.h"
 #include "components/sync/driver/sync_driver_switches.h"
@@ -35,11 +37,12 @@
 #include "components/sync/driver/sync_util.h"
 #include "components/sync/engine/cycle/type_debug_info_observer.h"
 #include "components/sync/engine/engine_components_factory_impl.h"
-#include "components/sync/engine/net/http_bridge_network_resources.h"
-#include "components/sync/engine/net/network_resources.h"
+#include "components/sync/engine/net/http_bridge.h"
+#include "components/sync/engine/net/http_post_provider_factory.h"
 #include "components/sync/engine/polling_constants.h"
 #include "components/sync/engine/sync_encryption_handler.h"
 #include "components/sync/model/sync_error.h"
+#include "components/sync/syncable/directory.h"
 #include "components/sync/syncable/user_share.h"
 #include "components/version_info/version_info_values.h"
 #include "crypto/ec_private_key.h"
@@ -122,6 +125,16 @@ DataTypeController::TypeMap BuildDataTypeControllerMap(
   return type_map;
 }
 
+std::unique_ptr<HttpPostProviderFactory> CreateHttpBridgeFactory(
+    const std::string& user_agent,
+    std::unique_ptr<network::PendingSharedURLLoaderFactory>
+        pending_url_loader_factory,
+    const NetworkTimeUpdateCallback& network_time_update_callback) {
+  return std::make_unique<HttpBridgeFactory>(
+      user_agent, std::move(pending_url_loader_factory),
+      network_time_update_callback);
+}
+
 }  // namespace
 
 ProfileSyncService::InitParams::InitParams() = default;
@@ -163,7 +176,8 @@ ProfileSyncService::ProfileSyncService(InitParams init_params)
       expect_sync_configuration_aborted_(false),
       invalidations_identity_providers_(
           init_params.invalidations_identity_providers),
-      network_resources_(std::make_unique<HttpBridgeNetworkResources>()),
+      create_http_post_provider_factory_cb_(
+          base::BindRepeating(&CreateHttpBridgeFactory)),
       start_behavior_(init_params.start_behavior),
       passphrase_prompt_triggered_by_version_(false),
       is_stopping_and_clearing_(false) {
@@ -285,14 +299,6 @@ bool ProfileSyncService::IsDataTypeControllerRunningForTest(
 
 WeakHandle<JsEventHandler> ProfileSyncService::GetJsEventHandler() {
   return MakeWeakHandle(sync_js_controller_.AsWeakPtr());
-}
-
-SyncEngine::HttpPostProviderFactoryGetter
-ProfileSyncService::MakeHttpPostProviderFactoryGetter() {
-  return base::BindOnce(&NetworkResources::GetHttpPostProviderFactory,
-                        base::Unretained(network_resources_.get()),
-                        url_loader_factory_->Clone(),
-                        network_time_update_callback_);
 }
 
 WeakHandle<UnrecoverableErrorHandler>
@@ -424,17 +430,35 @@ void ProfileSyncService::OnDataTypeRequestsSyncStartup(ModelType type) {
   startup_controller_->OnDataTypeRequestsSyncStartup(type);
 }
 
-void ProfileSyncService::StartSyncThreadIfNeeded() {
-  if (sync_thread_) {
+void ProfileSyncService::InitializeBackendTaskRunnerIfNeeded() {
+  if (backend_task_runner_) {
     // Already started.
     return;
   }
 
-  sync_thread_ = std::make_unique<base::Thread>("Chrome_SyncThread");
-  base::Thread::Options options;
-  options.timer_slack = base::TIMER_SLACK_MAXIMUM;
-  bool success = sync_thread_->StartWithOptions(options);
-  DCHECK(success);
+  if (base::FeatureList::IsEnabled(
+          switches::kProfileSyncServiceUsesThreadPool)) {
+    backend_task_runner_ = base::CreateSequencedTaskRunner(
+        {base::ThreadPool(), base::MayBlock(), base::TaskPriority::USER_VISIBLE,
+         base::TaskShutdownBehavior::BLOCK_SHUTDOWN});
+  } else {
+    // The thread where all the sync operations happen. This thread is kept
+    // alive until browser shutdown and reused if sync is turned off and on
+    // again. It is joined during the shutdown process, but there is an abort
+    // mechanism in place to prevent slow HTTP requests from blocking browser
+    // shutdown.
+    auto sync_thread = std::make_unique<base::Thread>("Chrome_SyncThread");
+    base::Thread::Options options;
+    options.timer_slack = base::TIMER_SLACK_MAXIMUM;
+    bool success = sync_thread->StartWithOptions(options);
+    DCHECK(success);
+    backend_task_runner_ = sync_thread->task_runner();
+
+    // Transfer ownership of the thread to the stopper closure that gets
+    // executed at shutdown.
+    sync_thread_stopper_ =
+        base::BindOnce(&base::Thread::Stop, std::move(sync_thread));
+  }
 }
 
 void ProfileSyncService::StartUpSlowEngineComponents() {
@@ -449,10 +473,10 @@ void ProfileSyncService::StartUpSlowEngineComponents() {
     last_actionable_error_ = SyncProtocolError();
   }
 
-  StartSyncThreadIfNeeded();
+  InitializeBackendTaskRunnerIfNeeded();
 
   SyncEngine::InitParams params;
-  params.sync_task_runner = sync_thread_->task_runner();
+  params.sync_task_runner = backend_task_runner_;
   params.host = this;
   params.registrar = std::make_unique<SyncBackendRegistrar>(
       debug_identifier_,
@@ -463,8 +487,9 @@ void ProfileSyncService::StartUpSlowEngineComponents() {
   params.extensions_activity = sync_client_->GetExtensionsActivity();
   params.event_handler = GetJsEventHandler();
   params.service_url = sync_service_url_;
-  params.sync_user_agent = MakeUserAgentForSync(channel_);
-  params.http_factory_getter = MakeHttpPostProviderFactoryGetter();
+  params.http_factory_getter = base::BindOnce(
+      create_http_post_provider_factory_cb_, MakeUserAgentForSync(channel_),
+      url_loader_factory_->Clone(), network_time_update_callback_);
   params.authenticated_account_id = GetAuthenticatedAccountInfo().account_id;
   DCHECK(!params.authenticated_account_id.empty() || IsLocalSyncEnabled());
   if (!base::FeatureList::IsEnabled(switches::kSyncE2ELatencyMeasurement)) {
@@ -475,8 +500,11 @@ void ProfileSyncService::StartUpSlowEngineComponents() {
   }
   params.sync_manager_factory =
       std::make_unique<SyncManagerFactory>(network_connection_tracker_);
-  params.enable_local_sync_backend = sync_prefs_.IsLocalSyncEnabled();
-  params.local_sync_backend_folder = sync_client_->GetLocalSyncBackendFolder();
+  if (sync_prefs_.IsLocalSyncEnabled()) {
+    params.enable_local_sync_backend = true;
+    params.local_sync_backend_folder =
+        sync_client_->GetLocalSyncBackendFolder();
+  }
   params.restored_key_for_bootstrapping =
       sync_prefs_.GetEncryptionBootstrapToken();
   params.restored_keystore_key_for_bootstrapping =
@@ -523,8 +551,9 @@ void ProfileSyncService::Shutdown() {
 
   auth_manager_.reset();
 
-  if (sync_thread_)
-    sync_thread_->Stop();
+  if (sync_thread_stopper_) {
+    std::move(sync_thread_stopper_).Run();
+  }
 }
 
 void ProfileSyncService::ShutdownImpl(ShutdownReason reason) {
@@ -533,16 +562,16 @@ void ProfileSyncService::ShutdownImpl(ShutdownReason reason) {
     // happens, the data directory needs to be cleaned up here.
     if (reason == ShutdownReason::DISABLE_SYNC) {
       // Clearing the Directory via Directory::DeleteDirectoryFiles() requires
-      // the |sync_thread_| initialized. It also means there's IO involved which
-      // may we considerable overhead if triggered consistently upon browser
-      // startup (which is the case for certain codepaths such as the user being
-      // signed out). To avoid that, SyncPrefs is used to determine whether it's
-      // worth.
+      // the |backend_task_runner_| initialized. It also means there's IO
+      // involved which may we considerable overhead if triggered consistently
+      // upon browser startup (which is the case for certain codepaths such as
+      // the user being signed out). To avoid that, SyncPrefs is used to
+      // determine whether it's worth it.
       if (!sync_prefs_.GetCacheGuid().empty()) {
-        StartSyncThreadIfNeeded();
+        InitializeBackendTaskRunnerIfNeeded();
       }
-      if (sync_thread_) {
-        sync_thread_->task_runner()->PostTask(
+      if (backend_task_runner_) {
+        backend_task_runner_->PostTask(
             FROM_HERE,
             base::BindOnce(&syncable::Directory::DeleteDirectoryFiles,
                            sync_client_->GetSyncDataPath()));
@@ -669,8 +698,8 @@ SyncService::TransportState ProfileSyncService::GetTransportState() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (!IsEngineAllowedToStart()) {
-    // We shouldn't have an engine while in a disabled state.
-    DCHECK(!engine_);
+    // We generally shouldn't have an engine while in a disabled state, but it
+    // can happen if this method gets called during ShutdownImpl().
     return TransportState::DISABLED;
   }
 
@@ -864,8 +893,8 @@ void ProfileSyncService::OnEngineInitialized(
 
   data_type_manager_ =
       sync_client_->GetSyncApiComponentFactory()->CreateDataTypeManager(
-          initial_types, debug_info_listener, &data_type_controllers_,
-          user_settings_.get(), engine_.get(), this);
+          initial_types, debug_info_listener, &data_type_controllers_, &crypto_,
+          engine_.get(), this);
 
   crypto_.SetSyncEngine(GetAuthenticatedAccountInfo(), engine_.get());
 
@@ -1794,15 +1823,14 @@ SyncTokenStatus ProfileSyncService::GetSyncTokenStatusForDebugging() const {
   return auth_manager_->GetSyncTokenStatus();
 }
 
-void ProfileSyncService::OverrideNetworkResourcesForTest(
-    std::unique_ptr<NetworkResources> network_resources) {
+void ProfileSyncService::OverrideNetworkForTest(
+    const CreateHttpPostProviderFactory& create_http_post_provider_factory_cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // If the engine has already been created, then it holds a pointer to the
-  // previous |network_resources_| which will become invalid. In that case, shut
-  // down and recreate the engine, so that it gets the correct (overridden)
-  // NetworkResources.
+  // If the engine has already been created, then it has a copy of the previous
+  // HttpPostProviderFactory creation callback. In that case, shut down and
+  // recreate the engine, so that it uses the correct (overridden) callback.
   // This is a horrible hack; the proper fix would be to inject the
-  // NetworkResources in the ctor instead of adding them retroactively.
+  // callback in the ctor instead of adding it retroactively.
   bool restart = false;
   if (engine_) {
     StopImpl(KEEP_DATA);
@@ -1810,11 +1838,17 @@ void ProfileSyncService::OverrideNetworkResourcesForTest(
   }
   DCHECK(!engine_);
 
-  // If a previous request (with the wrong network resources) already failed,
-  // the next one would be backed off, which breaks tests. So reset the backoff.
+  // If a previous request (with the wrong callback) already failed, the next
+  // one would be backed off, which breaks tests. So reset the backoff.
   auth_manager_->ResetRequestAccessTokenBackoffForTest();
 
-  network_resources_ = std::move(network_resources);
+  create_http_post_provider_factory_cb_ = create_http_post_provider_factory_cb;
+
+  // For allowing tests to easily reset to the default (real) callback.
+  if (!create_http_post_provider_factory_cb_) {
+    create_http_post_provider_factory_cb_ =
+        base::BindRepeating(&CreateHttpBridgeFactory);
+  }
 
   if (restart) {
     startup_controller_->TryStart(/*force_immediate=*/true);
@@ -1837,10 +1871,12 @@ void ProfileSyncService::SetPassphrasePrompted(bool prompted) {
   sync_prefs_.SetPassphrasePrompted(prompted);
 }
 
-scoped_refptr<base::SingleThreadTaskRunner>
-ProfileSyncService::GetSyncThreadTaskRunnerForTest() const {
+void ProfileSyncService::FlushBackendTaskRunnerForTest() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return sync_thread_ ? sync_thread_->task_runner() : nullptr;
+  base::RunLoop run_loop;
+
+  backend_task_runner_->PostTask(FROM_HERE, run_loop.QuitClosure());
+  run_loop.Run();
 }
 
 SyncEncryptionHandler::Observer*
@@ -1930,7 +1966,8 @@ std::string ProfileSyncService::GetExperimentalAuthenticationSecret() const {
   // when usually all except keystore keys are guaranteed to be available.
   // Keystore keys are usually available initially too, but in rare cases they
   // should arrive in later sync cycles.
-  if (last_keystore_key_.empty()) {
+  // GAIA ID is not available with local sync enabled.
+  if (last_keystore_key_.empty() || IsLocalSyncEnabled()) {
     return std::string();
   }
 

@@ -44,7 +44,6 @@
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_browser_context.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "testing/gmock_mutant.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/origin.h"
 
@@ -93,9 +92,12 @@ class MockDownloadManagerDelegate : public DownloadManagerDelegate {
                     const DownloadOpenDelayedCallback&));
   MOCK_METHOD3(GetSaveDir,
                void(BrowserContext*, base::FilePath*, base::FilePath*));
-  MOCK_METHOD5(ChooseSavePath, void(
-      WebContents*, const base::FilePath&, const base::FilePath::StringType&,
-      bool, const SavePackagePathPickedCallback&));
+  MOCK_METHOD5(ChooseSavePath,
+               void(WebContents*,
+                    const base::FilePath&,
+                    const base::FilePath::StringType&,
+                    bool,
+                    SavePackagePathPickedCallback));
   MOCK_METHOD0(ApplicationClientIdForFileScanning, std::string());
 };
 
@@ -165,6 +167,7 @@ class MockDownloadItemFactory
       const base::FilePath& path,
       const GURL& url,
       const std::string& mime_type,
+      const net::NetworkIsolationKey& network_isolation_key,
       download::DownloadJob::CancelRequestCallback cancel_request_callback)
       override;
 
@@ -313,6 +316,7 @@ download::DownloadItemImpl* MockDownloadItemFactory::CreateSavePageItem(
     const base::FilePath& path,
     const GURL& url,
     const std::string& mime_type,
+    const net::NetworkIsolationKey& network_isolation_key,
     download::DownloadJob::CancelRequestCallback cancel_request_callback) {
   DCHECK(items_.find(download_id) == items_.end());
 

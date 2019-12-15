@@ -12,17 +12,17 @@ import android.view.View;
 import androidx.annotation.ColorRes;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.omnibox.SearchEngineLogoUtils;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinatorFactory;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.toolbar.ToolbarColors;
 import org.chromium.chrome.browser.toolbar.ToolbarCommonPropertiesModel;
-import org.chromium.chrome.browser.util.ColorUtils;
 import org.chromium.chrome.browser.util.MathUtils;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.content_public.browser.BrowserStartupController;
@@ -382,7 +382,7 @@ class StatusMediator {
         }
 
         @ColorRes
-        int tintColor = ColorUtils.getThemedToolbarIconTintRes(!mDarkTheme);
+        int tintColor = ToolbarColors.getThemedToolbarIconTintRes(!mDarkTheme);
 
         mModel.set(StatusProperties.SEPARATOR_COLOR_RES, separatorColor);
         mNavigationIconTintRes = tintColor;
@@ -518,7 +518,7 @@ class StatusMediator {
         } else if (mIsSearchEngineGoogle) {
             int icon = mDelegate.shouldShowSearchLoupeEverywhere(isIncognito)
                     ? R.drawable.ic_search
-                    : R.drawable.ic_logo_googleg_24dp;
+                    : R.drawable.ic_logo_googleg_20dp;
             mModel.set(StatusProperties.STATUS_ICON_RES, icon);
             callback.onResult(icon);
         } else {
@@ -542,11 +542,11 @@ class StatusMediator {
     @VisibleForTesting
     int getSecurityIconTintForSearchEngineIcon(int icon) {
         int tint;
-        if (icon == 0 || icon == R.drawable.ic_logo_googleg_24dp) {
+        if (icon == 0 || icon == R.drawable.ic_logo_googleg_20dp) {
             tint = 0;
         } else {
             tint = mDarkTheme ? R.color.default_icon_color_secondary_list
-                              : ColorUtils.getThemedToolbarIconTintRes(!mDarkTheme);
+                              : ToolbarColors.getThemedToolbarIconTintRes(!mDarkTheme);
         }
 
         return tint;

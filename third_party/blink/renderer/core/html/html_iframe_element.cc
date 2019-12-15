@@ -45,10 +45,8 @@
 
 namespace blink {
 
-using namespace html_names;
-
 HTMLIFrameElement::HTMLIFrameElement(Document& document)
-    : HTMLFrameElementBase(kIFrameTag, document),
+    : HTMLFrameElementBase(html_names::kIFrameTag, document),
       collapsed_by_client_(false),
       sandbox_(MakeGarbageCollected<HTMLIFrameElementSandbox>(this)),
       referrer_policy_(network::mojom::ReferrerPolicy::kDefault) {}
@@ -65,8 +63,7 @@ HTMLIFrameElement::~HTMLIFrameElement() = default;
 const AttrNameToTrustedType& HTMLIFrameElement::GetCheckedAttributeTypes()
     const {
   DEFINE_STATIC_LOCAL(AttrNameToTrustedType, attribute_map,
-                      ({{"src", SpecificTrustedType::kTrustedURL},
-                        {"srcdoc", SpecificTrustedType::kTrustedHTML}}));
+                      ({{"srcdoc", SpecificTrustedType::kTrustedHTML}}));
   return attribute_map;
 }
 
@@ -100,8 +97,8 @@ DOMFeaturePolicy* HTMLIFrameElement::featurePolicy() {
 
 bool HTMLIFrameElement::IsPresentationAttribute(
     const QualifiedName& name) const {
-  if (name == kWidthAttr || name == kHeightAttr || name == kAlignAttr ||
-      name == kFrameborderAttr)
+  if (name == html_names::kWidthAttr || name == html_names::kHeightAttr ||
+      name == html_names::kAlignAttr || name == html_names::kFrameborderAttr)
     return true;
   return HTMLFrameElementBase::IsPresentationAttribute(name);
 }
@@ -110,13 +107,13 @@ void HTMLIFrameElement::CollectStyleForPresentationAttribute(
     const QualifiedName& name,
     const AtomicString& value,
     MutableCSSPropertyValueSet* style) {
-  if (name == kWidthAttr) {
+  if (name == html_names::kWidthAttr) {
     AddHTMLLengthToStyle(style, CSSPropertyID::kWidth, value);
-  } else if (name == kHeightAttr) {
+  } else if (name == html_names::kHeightAttr) {
     AddHTMLLengthToStyle(style, CSSPropertyID::kHeight, value);
-  } else if (name == kAlignAttr) {
+  } else if (name == html_names::kAlignAttr) {
     ApplyAlignmentAttributeToStyle(value, style);
-  } else if (name == kFrameborderAttr) {
+  } else if (name == html_names::kFrameborderAttr) {
     // LocalFrame border doesn't really match the HTML4 spec definition for
     // iframes. It simply adds a presentational hint that the border should be
     // off if set to zero.
@@ -136,7 +133,7 @@ void HTMLIFrameElement::ParseAttribute(
     const AttributeModificationParams& params) {
   const QualifiedName& name = params.name;
   const AtomicString& value = params.new_value;
-  if (name == kNameAttr) {
+  if (name == html_names::kNameAttr) {
     if (IsInDocumentTree() && GetDocument().IsHTMLDocument()) {
       HTMLDocument& document = ToHTMLDocument(GetDocument());
       document.RemoveNamedItem(name_);
@@ -146,7 +143,7 @@ void HTMLIFrameElement::ParseAttribute(
     name_ = value;
     if (name_ != old_name)
       FrameOwnerPropertiesChanged();
-  } else if (name == kSandboxAttr) {
+  } else if (name == html_names::kSandboxAttr) {
     sandbox_->DidUpdateAttributeValue(params.old_value, value);
     String invalid_tokens;
     bool feature_policy_for_sandbox =
@@ -155,9 +152,8 @@ void HTMLIFrameElement::ParseAttribute(
         value.IsNull()
             ? WebSandboxFlags::kNone
             : ParseSandboxPolicy(sandbox_->TokenSet(), invalid_tokens);
-    SetAllowedToDownloadWithoutUserActivation(
-        (current_flags & WebSandboxFlags::kDownloads) ==
-        WebSandboxFlags::kNone);
+    SetAllowedToDownload((current_flags & WebSandboxFlags::kDownloads) ==
+                         WebSandboxFlags::kNone);
     // With FeaturePolicyForSandbox, sandbox flags are represented as part of
     // the container policies. However, not all sandbox flags are yet converted
     // and for now the residue will stay around in the stored flags.
@@ -191,18 +187,18 @@ void HTMLIFrameElement::ParseAttribute(
       }
     }
     UseCounter::Count(GetDocument(), WebFeature::kSandboxViaIFrame);
-  } else if (name == kNwuseragentAttr) {
+  } else if (name == html_names::kNwuseragentAttr) {
     if (nwuseragent_ != value) {
       nwuseragent_ = value;
       FrameOwnerPropertiesChanged();
     }
-  } else if (name == kNwfaketopAttr) {
+  } else if (name == html_names::kNwfaketopAttr) {
     bool old_faketop = nwfaketop_;
     nwfaketop_ = !value.IsNull();
     if (nwfaketop_ != old_faketop) {
       FrameOwnerPropertiesChanged();
     }
-  } else if (name == kReferrerpolicyAttr) {
+  } else if (name == html_names::kReferrerpolicyAttr) {
     referrer_policy_ = network::mojom::ReferrerPolicy::kDefault;
     if (!value.IsNull()) {
       SecurityPolicy::ReferrerPolicyFromString(
@@ -210,7 +206,7 @@ void HTMLIFrameElement::ParseAttribute(
       UseCounter::Count(GetDocument(),
                         WebFeature::kHTMLIFrameElementReferrerPolicyAttribute);
     }
-  } else if (name == kAllowfullscreenAttr) {
+  } else if (name == html_names::kAllowfullscreenAttr) {
     bool old_allow_fullscreen = allow_fullscreen_;
     allow_fullscreen_ = !value.IsNull();
     if (allow_fullscreen_ != old_allow_fullscreen) {
@@ -225,14 +221,14 @@ void HTMLIFrameElement::ParseAttribute(
       FrameOwnerPropertiesChanged();
       UpdateContainerPolicy();
     }
-  } else if (name == kAllowpaymentrequestAttr) {
+  } else if (name == html_names::kAllowpaymentrequestAttr) {
     bool old_allow_payment_request = allow_payment_request_;
     allow_payment_request_ = !value.IsNull();
     if (allow_payment_request_ != old_allow_payment_request) {
       FrameOwnerPropertiesChanged();
       UpdateContainerPolicy();
     }
-  } else if (name == kCspAttr) {
+  } else if (name == html_names::kCspAttr) {
     if (!ContentSecurityPolicy::IsValidCSPAttr(
             value.GetString(), GetDocument().RequiredCSP().GetString())) {
       required_csp_ = g_null_atom;
@@ -246,7 +242,7 @@ void HTMLIFrameElement::ParseAttribute(
       required_csp_ = value;
       FrameOwnerPropertiesChanged();
     }
-  } else if (name == kAllowAttr) {
+  } else if (name == html_names::kAllowAttr) {
     if (allow_ != value) {
       allow_ = value;
       Vector<String> messages;
@@ -263,6 +259,10 @@ void HTMLIFrameElement::ParseAttribute(
                           WebFeature::kFeaturePolicyAllowAttribute);
       }
     }
+  } else if (name == html_names::kDisallowdocumentaccessAttr) {
+    disallow_document_access_ = !value.IsNull();
+    // We don't need to call tell the client frame properties
+    // changed since this attribute only stays inside the renderer.
   } else {
     // Websites picked up a Chromium article that used this non-specified
     // attribute which ended up changing shape after the specification process.
@@ -283,7 +283,7 @@ void HTMLIFrameElement::ParseAttribute(
                                  "https://goo.gl/ximf56"));
     }
 
-    if (name == kSrcAttr)
+    if (name == html_names::kSrcAttr)
       LogUpdateAttributeIfIsolatedWorldAndInDocument("iframe", params);
     HTMLFrameElementBase::ParseAttribute(params);
   }
@@ -386,7 +386,7 @@ Node::InsertionNotificationRequest HTMLIFrameElement::InsertedInto(
       }
     }
   }
-  LogAddElementIfIsolatedWorldAndInDocument("iframe", kSrcAttr);
+  LogAddElementIfIsolatedWorldAndInDocument("iframe", html_names::kSrcAttr);
   return result;
 }
 

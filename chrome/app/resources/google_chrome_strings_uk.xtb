@@ -3,7 +3,6 @@
 <translationbundle lang="uk">
 <translation id="1001534784610492198">Архів програми встановлення недійсний або пошкоджений. Завантажте Google Chrome знову.</translation>
 <translation id="102763973188675173">Налаштуйте й контролюйте Google Chrome. Доступне оновлення.</translation>
-<translation id="1035334672863811645">увійдіть в обліковий запис Chrome</translation>
 <translation id="1051826050538111504">Виявлено шкідливе програмне забезпечення на вашому комп’ютері. Chrome може видалити його, відновити налаштування та вимкнути розширення, щоб веб-переглядач знову працював належним чином.</translation>
 <translation id="1065672644894730302">Не вдається розпізнати налаштування. Деякі функції можуть бути не доступні, а зміни в налаштуваннях не зберігатимуться.</translation>
 <translation id="1088300314857992706">Раніше ви входили в обліковий запис <ph name="USER_EMAIL_ADDRESS" /> у Chrome</translation>
@@ -73,7 +72,6 @@
 <translation id="3065168410429928842">Chrome</translation>
 <translation id="3080151273017101988">Продовжувати роботу фонових програм, коли Google Chrome закрито</translation>
 <translation id="3089968997497233615">Доступна нова, безпечніша версія Google Chrome.</translation>
-<translation id="3138848678222082288">Наступні версії Chrome встановлюватимуться автоматично. Щойно це завантаження завершиться, Chrome перезапуститься, і ви зможете продовжувати.</translation>
 <translation id="3149510190863420837">Додатки Chrome</translation>
 <translation id="3282568296779691940">Вхід у Chrome</translation>
 <translation id="3340978935015468852">налаштування</translation>
@@ -94,7 +92,6 @@
 <translation id="3718181793972440140">1 елемент буде видалено з цього пристрою. Щоб відновити дані пізніше, увійдіть в обліковий запис Chrome як <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">Розширення "<ph name="EXTENSION_NAME" />" змінило сторінку, яка відкривається під час запуску Chrome.</translation>
 <translation id="3780814664026482060">Chrome – <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Видалити з Chrome…</translation>
 <translation id="386202838227397562">Закрийте всі вікна Google Chrome і повторіть спробу.</translation>
 <translation id="3873044882194371212">Відкрити посилання в аноні&amp;мному вікні Chrome</translation>
 <translation id="3889417619312448367">Видалити Google Chrome</translation>
@@ -175,7 +172,6 @@
 <translation id="677276454032249905">Усе одно вийти з Chrome?</translation>
 <translation id="683440813066116847">Вхідне правило для Google Chrome Canary дозволяє трафік mDNS.</translation>
 <translation id="6885412569789873916">Бета-версія додатків Chrome</translation>
-<translation id="6906909733186691861">Наступні версії Chrome встановлюватимуться автоматично.</translation>
 <translation id="6943584222992551122">Дані веб-перегляду користувача буде видалено з цього пристрою. Щоб відновити їх, увійдіть в обліковий запис Chrome як <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Вхідне правило для бета-версії Google Chrome дозволяє трафік mDNS.</translation>
 <translation id="6982337800632491844">Перш ніж використовувати цей пристрій, потрібно прочитати й прийняти наведені нижче Умови використання сайту <ph name="DOMAIN" />. Ці умови не розширюють, не змінюють і не обмежують Умови використання ОС Google Chrome.</translation>
@@ -226,7 +222,6 @@
 <translation id="8521348052903287641">Вхідне правило для Google Chrome для розробників дозволяє трафік mDNS.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Доступна нова версія Google Chrome – швидша, ніж будь-коли.</translation>
-<translation id="8606668294522778825">Google Chrome може покращувати веб-перегляд за допомогою веб-служб. Ви можете вимкнути ці служби. <ph name="BEGIN_LINK" />Докладніше<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome не відповідає. Перезапустити зараз?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome перезапуститься через 1 хвилину}one{Chrome перезапуститься через # хвилину}few{Chrome перезапуститься через # хвилини}many{Chrome перезапуститься через # хвилин}other{Chrome перезапуститься через # хвилини}}</translation>
 <translation id="8669527147644353129">Помічник Google Chrome</translation>

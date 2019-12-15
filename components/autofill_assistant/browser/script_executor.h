@@ -120,8 +120,9 @@ class ScriptExecutor : public ActionDelegate,
       ClickAction::ClickType click_type,
       base::OnceCallback<void(const ClientStatus&)> callback) override;
   void CollectUserData(
-      std::unique_ptr<CollectUserDataOptions> collect_user_data_options,
-      std::unique_ptr<UserData> user_data) override;
+      CollectUserDataOptions* collect_user_data_options) override;
+  void WriteUserData(
+      base::OnceCallback<void(UserData*, UserData::FieldChange*)>) override;
   void GetFullCard(GetFullCardCallback callback) override;
   void Prompt(std::unique_ptr<std::vector<UserAction>> user_actions) override;
   void CancelPrompt() override;
@@ -193,6 +194,7 @@ class ScriptExecutor : public ActionDelegate,
   WebsiteLoginFetcher* GetWebsiteLoginFetcher() override;
   content::WebContents* GetWebContents() override;
   std::string GetAccountEmailAddress() override;
+  std::string GetLocale() override;
   void SetDetails(std::unique_ptr<Details> details) override;
   void ClearInfoBox() override;
   void SetInfoBox(const InfoBox& info_box) override;
@@ -205,9 +207,10 @@ class ScriptExecutor : public ActionDelegate,
   void WaitForWindowHeightChange(
       base::OnceCallback<void(const ClientStatus&)> callback) override;
   const ClientSettings& GetSettings() override;
-  bool SetForm(std::unique_ptr<FormProto> form,
-               base::RepeatingCallback<void(const FormProto::Result*)> callback)
-      override;
+  bool SetForm(
+      std::unique_ptr<FormProto> form,
+      base::RepeatingCallback<void(const FormProto::Result*)> changed_callback,
+      base::OnceCallback<void(const ClientStatus&)> cancel_callback) override;
   void RequireUI() override;
 
  private:
@@ -337,9 +340,8 @@ class ScriptExecutor : public ActionDelegate,
       base::OnceCallback<void(const ClientStatus&)> callback,
       const ClientStatus& element_status,
       const Result* interrupt_result);
-  void OnGetUserData(
-      base::OnceCallback<void(std::unique_ptr<UserData>)> callback,
-      std::unique_ptr<UserData> result);
+  void OnGetUserData(base::OnceCallback<void(UserData*)> callback,
+                     UserData* user_data);
   void OnAdditionalActionTriggered(base::OnceCallback<void(int)> callback,
                                    int index);
   void OnTermsAndConditionsLinkClicked(base::OnceCallback<void(int)> callback,

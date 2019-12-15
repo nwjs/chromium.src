@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/callback.h"
+#include "base/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
@@ -44,6 +45,7 @@ class GrShaderCache;
 
 namespace viz {
 
+class DawnContextProvider;
 class VulkanContextProvider;
 
 // This class exists to allow SkiaOutputSurfaceImpl to ignore differences
@@ -59,6 +61,7 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceDependency {
   // These are client thread methods. All other methods should be called on
   // the GPU thread only.
   virtual bool IsUsingVulkan() = 0;
+  virtual bool IsUsingDawn() = 0;
   // Returns a new task execution sequence. Sequences should not outlive the
   // task executor.
   virtual std::unique_ptr<gpu::SingleTaskSequence> CreateSequence() = 0;
@@ -71,6 +74,8 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceDependency {
   virtual gpu::raster::GrShaderCache* GetGrShaderCache() = 0;
   // May return null.
   virtual VulkanContextProvider* GetVulkanContextProvider() = 0;
+  // May return null.
+  virtual DawnContextProvider* GetDawnContextProvider() = 0;
   virtual const gpu::GpuPreferences& GetGpuPreferences() = 0;
   virtual const gpu::GpuFeatureInfo& GetGpuFeatureInfo() = 0;
   virtual gpu::MailboxManager* GetMailboxManager() = 0;
@@ -82,6 +87,8 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceDependency {
   virtual gpu::SurfaceHandle GetSurfaceHandle() = 0;
   virtual scoped_refptr<gl::GLSurface> CreateGLSurface(
       base::WeakPtr<gpu::ImageTransportSurfaceDelegate> stub) = 0;
+  // Hold a ref of the given surface until the returned closure is fired.
+  virtual base::ScopedClosureRunner CacheGLSurface(gl::GLSurface* surface) = 0;
   virtual void PostTaskToClientThread(base::OnceClosure closure) = 0;
   virtual void ScheduleGrContextCleanup() = 0;
 
@@ -97,6 +104,8 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceDependency {
   virtual void DidLoseContext(bool offscreen,
                               gpu::error::ContextLostReason reason,
                               const GURL& active_url) = 0;
+
+  virtual base::TimeDelta GetGpuBlockedTimeSinceLastSwap() = 0;
 };
 
 }  // namespace viz

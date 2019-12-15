@@ -28,6 +28,8 @@
 #include "chrome/browser/ui/in_product_help/reopen_tab_in_product_help.h"
 #include "chrome/browser/ui/in_product_help/reopen_tab_in_product_help_factory.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
+#include "chrome/browser/ui/tabs/tab_group.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_network_state.h"
 #include "chrome/browser/ui/tabs/tab_renderer_data.h"
@@ -101,8 +103,7 @@ class BrowserTabStripController::TabContextMenuContents
   TabContextMenuContents(Tab* tab, BrowserTabStripController* controller)
       : tab_(tab), controller_(controller) {
     model_ = std::make_unique<TabMenuModel>(
-        this, controller->model_,
-        controller->tabstrip_->GetModelIndexOfTab(tab));
+        this, controller->model_, controller->tabstrip_->GetModelIndexOf(tab));
     menu_runner_ = std::make_unique<views::MenuRunner>(
         model_.get(),
         views::MenuRunner::HAS_MNEMONICS | views::MenuRunner::CONTEXT_MENU);
@@ -195,7 +196,7 @@ void BrowserTabStripController::InitFromModel(TabStrip* tabstrip) {
 bool BrowserTabStripController::IsCommandEnabledForTab(
     TabStripModel::ContextMenuCommand command_id,
     Tab* tab) const {
-  int model_index = tabstrip_->GetModelIndexOfTab(tab);
+  int model_index = tabstrip_->GetModelIndexOf(tab);
   return model_->ContainsIndex(model_index) ?
       model_->IsContextMenuCommandEnabled(model_index, command_id) : false;
 }
@@ -203,13 +204,13 @@ bool BrowserTabStripController::IsCommandEnabledForTab(
 void BrowserTabStripController::ExecuteCommandForTab(
     TabStripModel::ContextMenuCommand command_id,
     Tab* tab) {
-  int model_index = tabstrip_->GetModelIndexOfTab(tab);
+  int model_index = tabstrip_->GetModelIndexOf(tab);
   if (model_->ContainsIndex(model_index))
     model_->ExecuteContextMenuCommand(model_index, command_id);
 }
 
 bool BrowserTabStripController::IsTabPinned(Tab* tab) const {
-  return IsTabPinned(tabstrip_->GetModelIndexOfTab(tab));
+  return IsTabPinned(tabstrip_->GetModelIndexOf(tab));
 }
 
 const ui::ListSelectionModel&
@@ -315,6 +316,15 @@ void BrowserTabStripController::CloseTab(int model_index,
                              TabStripModel::CLOSE_CREATE_HISTORICAL_TAB);
 }
 
+void BrowserTabStripController::UngroupAllTabsInGroup(TabGroupId group) {
+  model_->RemoveFromGroup(ListTabsInGroup(group));
+}
+
+void BrowserTabStripController::AddNewTabInGroup(TabGroupId group) {
+  const std::vector<int> tabs = ListTabsInGroup(group);
+  model_->delegate()->AddTabAt(GURL(), tabs.back() + 1, true, group);
+}
+
 void BrowserTabStripController::MoveTab(int start_index, int final_index) {
   model_->MoveWebContentsAt(start_index, final_index, false);
 }
@@ -385,7 +395,7 @@ void BrowserTabStripController::StackedLayoutMaybeChanged() {
                                                tabstrip_->stacked_layout());
 }
 
-void BrowserTabStripController::OnStartedDraggingTabs() {
+void BrowserTabStripController::OnStartedDragging() {
   if (!immersive_reveal_lock_.get()) {
     // The top-of-window views should be revealed while the user is dragging
     // tabs in immersive fullscreen. The top-of-window views may not be already
@@ -404,7 +414,7 @@ void BrowserTabStripController::OnStartedDraggingTabs() {
     source_browser_view->TabDraggingStatusChanged(/*is_dragging=*/true);
 }
 
-void BrowserTabStripController::OnStoppedDraggingTabs() {
+void BrowserTabStripController::OnStoppedDragging() {
   immersive_reveal_lock_.reset();
 
   BrowserView* source_browser_view = GetSourceBrowserViewInTabDragging();
@@ -424,18 +434,18 @@ void BrowserTabStripController::OnKeyboardFocusedTabChanged(
 
 const TabGroupVisualData* BrowserTabStripController::GetVisualDataForGroup(
     TabGroupId group) const {
-  return model_->GetVisualDataForGroup(group);
+  return model_->group_model()->GetTabGroup(group)->visual_data();
 }
 
 void BrowserTabStripController::SetVisualDataForGroup(
     TabGroupId group,
     TabGroupVisualData visual_data) {
-  model_->SetVisualDataForGroup(group, visual_data);
+  model_->group_model()->GetTabGroup(group)->SetVisualData(visual_data);
 }
 
 std::vector<int> BrowserTabStripController::ListTabsInGroup(
     TabGroupId group) const {
-  return model_->ListTabsInGroup(group);
+  return model_->group_model()->GetTabGroup(group)->ListTabs();
 }
 
 bool BrowserTabStripController::IsFrameCondensed() const {
@@ -475,14 +485,17 @@ base::Optional<int> BrowserTabStripController::GetCustomBackgroundId(
 
 base::string16 BrowserTabStripController::GetAccessibleTabName(
     const Tab* tab) const {
-  return browser_view_->GetAccessibleTabLabel(
-      false /* include_app_name */, tabstrip_->GetModelIndexOfTab(tab));
+  return browser_view_->GetAccessibleTabLabel(false /* include_app_name */,
+                                              tabstrip_->GetModelIndexOf(tab));
 }
 
 Profile* BrowserTabStripController::GetProfile() const {
   return model_->profile();
 }
 
+const Browser* BrowserTabStripController::GetBrowser() const {
+  return browser();
+}
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserTabStripController, TabStripModelObserver implementation:
 
@@ -524,12 +537,6 @@ void BrowserTabStripController::OnTabStripModelChanged(
       SetTabDataAt(replace->new_contents, replace->index);
       break;
     }
-    case TabStripModelChange::kGroupChanged: {
-      auto* group_change = change.GetGroupChange();
-      tabstrip_->ChangeTabGroup(group_change->index, group_change->old_group,
-                                group_change->new_group);
-      break;
-    }
     case TabStripModelChange::kSelectionOnly:
       break;
   }
@@ -553,11 +560,26 @@ void BrowserTabStripController::OnTabStripModelChanged(
     tabstrip_->SetSelection(selection.new_model);
 }
 
-void BrowserTabStripController::OnTabGroupVisualDataChanged(
-    TabStripModel* tab_strip_model,
-    TabGroupId group,
-    const TabGroupVisualData* visual_data) {
-  tabstrip_->GroupVisualsChanged(group);
+void BrowserTabStripController::OnTabGroupChanged(
+    const TabGroupChange& change) {
+  switch (change.type) {
+    case TabGroupChange::kCreated: {
+      tabstrip_->OnGroupCreated(change.group);
+      break;
+    }
+    case TabGroupChange::kContentsChanged: {
+      tabstrip_->OnGroupContentsChanged(change.group);
+      break;
+    }
+    case TabGroupChange::kVisualsChanged: {
+      tabstrip_->OnGroupVisualsChanged(change.group);
+      break;
+    }
+    case TabGroupChange::kClosed: {
+      tabstrip_->OnGroupClosed(change.group);
+      break;
+    }
+  }
 }
 
 void BrowserTabStripController::TabChangedAt(WebContents* contents,
@@ -576,6 +598,12 @@ void BrowserTabStripController::TabPinnedStateChanged(
 void BrowserTabStripController::TabBlockedStateChanged(WebContents* contents,
                                                        int model_index) {
   SetTabDataAt(contents, model_index);
+}
+
+void BrowserTabStripController::TabGroupedStateChanged(
+    base::Optional<TabGroupId> group,
+    int index) {
+  tabstrip_->AddTabToGroup(group, index);
 }
 
 void BrowserTabStripController::SetTabNeedsAttentionAt(int index,

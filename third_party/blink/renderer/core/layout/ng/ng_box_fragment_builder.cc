@@ -79,15 +79,17 @@ void GatherInlineContainerFragmentsFromLinebox(
 
 }  // namespace
 
-void NGBoxFragmentBuilder::AddBreakBeforeChild(NGLayoutInputNode child,
-                                               NGBreakAppeal appeal,
-                                               bool is_forced_break) {
-  break_appeal_ = appeal;
+void NGBoxFragmentBuilder::AddBreakBeforeChild(
+    NGLayoutInputNode child,
+    base::Optional<NGBreakAppeal> appeal,
+    bool is_forced_break) {
+  if (appeal)
+    break_appeal_ = *appeal;
   if (is_forced_break) {
     SetHasForcedBreak();
     // A forced break is considered to always have perfect appeal; they should
     // never be weighed against other potential breakpoints.
-    DCHECK_EQ(appeal, kBreakAppealPerfect);
+    DCHECK(!appeal || *appeal == kBreakAppealPerfect);
   }
 
   DCHECK(has_block_fragmentation_);
@@ -119,6 +121,8 @@ void NGBoxFragmentBuilder::AddResult(const NGLayoutResult& child_layout_result,
       items_builder_->AddLine(*line, offset);
       // TODO(kojii): We probably don't need to AddChild this line, but there
       // maybe OOF objects. Investigate how to handle them.
+    } else {
+      DCHECK(fragment.IsFloating());
     }
   }
   AddChild(fragment, offset, inline_container);
@@ -227,8 +231,10 @@ scoped_refptr<const NGLayoutResult> NGBoxFragmentBuilder::ToBoxFragment(
     }
   }
 
-  if (!has_floating_descendants_ && items_builder_)
-    has_floating_descendants_ = items_builder_->HasFloatingDescendants();
+  if (!has_floating_descendants_for_paint_ && items_builder_) {
+    has_floating_descendants_for_paint_ =
+        items_builder_->HasFloatingDescendantsForPaint();
+  }
 
   scoped_refptr<const NGPhysicalBoxFragment> fragment =
       NGPhysicalBoxFragment::Create(this, block_or_line_writing_mode);

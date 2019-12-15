@@ -81,6 +81,7 @@ include_rules = [
   "+components/device_event_log",
   "+components/domain_reliability",
   "+components/dom_distiller/content/browser",
+  "+components/dom_distiller/content/common",
   "+components/dom_distiller/core",
   "+components/dom_distiller/webui",
   "+components/download/content/factory",
@@ -131,6 +132,7 @@ include_rules = [
   "+components/location/android",
   "+components/login",
   "+components/media_message_center",
+  "+components/metal_util",
   "+components/metrics",
   "+components/metrics_services_manager",
   "+components/metrics/ui",
@@ -389,12 +391,11 @@ include_rules = [
   "+content/public/network",
 
   # Other libraries.
-  "+libxml",
   "+third_party/google_toolbox_for_mac/src",
   "+third_party/icu/source/common/unicode",
   "+third_party/icu/source/i18n/unicode",
   "+third_party/leveldatabase",
-  "+third_party/libxml",
+  "+third_party/libxml/chromium/xml_writer.h",
   "+third_party/mozilla",     # Mozilla interface headers.
   "+third_party/ocmock/gtest_support.h",
   "+third_party/protobuf/src/google/protobuf",
@@ -417,13 +418,16 @@ include_rules = [
   "+third_party/blink/public/platform/web_mouse_wheel_event.h",
   "+third_party/blink/public/platform/web_touch_event.h",
   "+third_party/blink/public/public_buildflags.h",
-  "+third_party/blink/public/web/web_context_menu_data.h",
-  "+third_party/blink/public/web/web_media_player_action.h",
 ]
 
 specific_include_rules = {
   "ash_service_registry\.cc": [
     "+ash/ash_service.h",
+  ],
+  "platform_util_linux.cc": [
+    # The following is used to call the org.freedesktop.FileManager1
+    # DBus interface to highlight a file within its parent folder
+    "+dbus"
   ],
   "platform_util_mac.mm": [
     # The following is used to forward methods to an NSWindow in another

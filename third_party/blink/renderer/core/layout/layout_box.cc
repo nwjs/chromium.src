@@ -65,6 +65,7 @@
 #include "third_party/blink/renderer/core/layout/ng/custom/layout_worklet.h"
 #include "third_party/blink/renderer/core/layout/ng/custom/layout_worklet_global_scope_proxy.h"
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_box_strut.h"
+#include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_cursor.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_box_fragment_builder.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_constraint_space.h"
@@ -399,16 +400,6 @@ void LayoutBox::StyleDidChange(StyleDifference diff,
 
 void LayoutBox::UpdateBackgroundAttachmentFixedStatusAfterStyleChange() {
   if (!GetFrameView())
-    return;
-
-  // On low-powered/mobile devices, preventing blitting on a scroll can cause
-  // noticeable delays when scrolling a page with a fixed background image. As
-  // an optimization, assuming there are no fixed positoned elements on the
-  // page, we can acclerate scrolling (via blitting) if we ignore the CSS
-  // property "background-attachment: fixed".
-  bool ignore_fixed_background_attachment =
-      RuntimeEnabledFeatures::FastMobileScrollingEnabled();
-  if (ignore_fixed_background_attachment)
     return;
 
   SetIsBackgroundAttachmentFixedObject(
@@ -779,6 +770,66 @@ void LayoutBox::UpdateAfterLayout() {
     cached_layout_result_.reset();
 }
 
+bool LayoutBox::HasOverrideIntrinsicContentWidth() const {
+  const auto& style = StyleRef();
+  const IntrinsicLength& intrinsic_length = style.IntrinsicWidth();
+  if (intrinsic_length.IsLegacy())
+    return false;
+
+  if (intrinsic_length.IsAuto()) {
+    // If we have an overflow that is not 'visible' in this direction, then we
+    // override the intrinsic length to be 0. Otherwise, it's the same as
+    // legacy, meaning we don't override it.
+    // https://drafts.csswg.org/css-sizing-4/#valdef-intrinsic-block-size-auto
+    return style.OverflowX() != EOverflow::kVisible;
+  }
+  return true;
+}
+
+bool LayoutBox::HasOverrideIntrinsicContentHeight() const {
+  const auto& style = StyleRef();
+  const IntrinsicLength& intrinsic_length = style.IntrinsicHeight();
+  if (intrinsic_length.IsLegacy())
+    return false;
+
+  if (intrinsic_length.IsAuto()) {
+    // If we have an overflow that is not 'visible' in this direction, then we
+    // override the intrinsic length to be 0. Otherwise, it's the same as
+    // legacy, meaning we don't override it.
+    // https://drafts.csswg.org/css-sizing-4/#valdef-intrinsic-block-size-auto
+    return style.OverflowY() != EOverflow::kVisible;
+  }
+  return true;
+}
+
+LayoutUnit LayoutBox::OverrideIntrinsicContentWidth() const {
+  DCHECK(HasOverrideIntrinsicContentWidth());
+  const auto& style = StyleRef();
+  const IntrinsicLength& intrinsic_length = style.IntrinsicWidth();
+  DCHECK(!intrinsic_length.IsLegacy());
+  if (intrinsic_length.IsAuto()) {
+    DCHECK(style.OverflowX() != EOverflow::kVisible);
+    return LayoutUnit();
+  }
+  DCHECK(intrinsic_length.GetLength().IsFixed());
+  DCHECK_GE(intrinsic_length.GetLength().Value(), 0.f);
+  return LayoutUnit(intrinsic_length.GetLength().Value());
+}
+
+LayoutUnit LayoutBox::OverrideIntrinsicContentHeight() const {
+  DCHECK(HasOverrideIntrinsicContentHeight());
+  const auto& style = StyleRef();
+  const IntrinsicLength& intrinsic_length = style.IntrinsicHeight();
+  DCHECK(!intrinsic_length.IsLegacy());
+  if (intrinsic_length.IsAuto()) {
+    DCHECK(style.OverflowY() != EOverflow::kVisible);
+    return LayoutUnit();
+  }
+  DCHECK(intrinsic_length.GetLength().IsFixed());
+  DCHECK_GE(intrinsic_length.GetLength().Value(), 0.f);
+  return LayoutUnit(intrinsic_length.GetLength().Value());
+}
+
 LayoutUnit LayoutBox::LogicalHeightWithVisibleOverflow() const {
   if (!LayoutOverflowIsSet() || HasOverflowClip())
     return LogicalHeight();
@@ -1106,11 +1157,7 @@ LayoutBox* LayoutBox::FindAutoscrollable(LayoutObject* layout_object,
 
 void LayoutBox::MayUpdateHoverWhenContentUnderMouseChanged(
     EventHandler& event_handler) {
-  const LayoutBoxModelObject& container = ContainerForPaintInvalidation();
-  PhysicalRect scroller_rect(VisualRectIncludingCompositedScrolling(container));
-  FloatQuad scroller_quad_in_frame =
-      container.LocalRectToAbsoluteQuad(scroller_rect);
-  event_handler.MayUpdateHoverAfterScroll(scroller_quad_in_frame);
+  event_handler.MayUpdateHoverAfterScroll(AbsoluteBoundingBoxFloatRect());
 }
 
 void LayoutBox::ScrollByRecursively(const ScrollOffset& delta) {
@@ -1160,6 +1207,12 @@ LayoutSize LayoutBox::ScrolledContentOffset() const {
   DCHECK(HasOverflowClip());
   DCHECK(GetScrollableArea());
   return LayoutSize(GetScrollableArea()->GetScrollOffset());
+}
+
+LayoutSize LayoutBox::PixelSnappedScrolledContentOffset() const {
+  DCHECK(HasOverflowClip());
+  DCHECK(GetScrollableArea());
+  return LayoutSize(GetScrollableArea()->ScrollOffsetInt());
 }
 
 PhysicalRect LayoutBox::ClippingRect(const PhysicalOffset& location) const {
@@ -2292,7 +2345,23 @@ void LayoutBox::DirtyLineBoxes(bool full_layout) {
 
 void LayoutBox::SetFirstInlineFragment(NGPaintFragment* fragment) {
   CHECK(IsInLayoutNGInlineFormattingContext()) << *this;
+  // TODO(yosin): Once we remove |NGPaintFragment|, we should get rid of
+  // |!fragment|.
+  DCHECK(!fragment || !RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled());
   first_paint_fragment_ = fragment;
+}
+
+void LayoutBox::ClearFirstInlineFragmentItemIndex() {
+  CHECK(IsInLayoutNGInlineFormattingContext()) << *this;
+  DCHECK(RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled());
+  first_fragment_item_index_ = 0u;
+}
+
+void LayoutBox::SetFirstInlineFragmentItemIndex(wtf_size_t index) {
+  CHECK(IsInLayoutNGInlineFormattingContext()) << *this;
+  DCHECK(RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled());
+  DCHECK_NE(index, 0u);
+  first_fragment_item_index_ = index;
 }
 
 void LayoutBox::InLayoutNGInlineFormattingContextWillChange(bool new_value) {
@@ -2313,10 +2382,23 @@ void LayoutBox::SetCachedLayoutResult(const NGLayoutResult& layout_result,
   if (layout_result.PhysicalFragment().BreakToken())
     return;
 
+  ClearCachedLayoutResult();
   cached_layout_result_ = &layout_result;
 }
 
 void LayoutBox::ClearCachedLayoutResult() {
+  if (!cached_layout_result_)
+    return;
+
+  // Invalidate if inline |DisplayItemClient|s will be destroyed.
+  if (const auto* box_fragment = DynamicTo<NGPhysicalBoxFragment>(
+          &cached_layout_result_->PhysicalFragment())) {
+    if (box_fragment->HasItems()) {
+      DCHECK_EQ(this, box_fragment->GetLayoutObject());
+      ObjectPaintInvalidator(*this).SlowSetPaintingLayerNeedsRepaint();
+    }
+  }
+
   cached_layout_result_ = nullptr;
 }
 
@@ -2900,7 +2982,8 @@ static float GetMaxWidthListMarker(const LayoutBox* layout_object) {
   DCHECK(layout_object);
   Node* parent_node = layout_object->GeneratingNode();
   DCHECK(parent_node);
-  DCHECK(IsA<HTMLOListElement>(parent_node) || IsHTMLUListElement(parent_node));
+  DCHECK(IsA<HTMLOListElement>(parent_node) ||
+         IsA<HTMLUListElement>(parent_node));
   DCHECK_NE(layout_object->StyleRef().TextAutosizingMultiplier(), 1);
 #endif
   float max_width = 0;
@@ -2929,13 +3012,6 @@ static float GetMaxWidthListMarker(const LayoutBox* layout_object) {
 DISABLE_CFI_PERF
 void LayoutBox::ComputeLogicalWidth(
     LogicalExtentComputedValues& computed_values) const {
-  if (ShouldApplySizeContainment()) {
-    computed_values.extent_ = ContentLogicalWidthForSizeContainment() +
-                              BorderAndPaddingLogicalWidth() +
-                              ScrollbarLogicalWidth();
-  } else {
-    computed_values.extent_ = LogicalWidth();
-  }
   computed_values.position_ = LogicalLeft();
   computed_values.margins_.start_ = MarginStart();
   computed_values.margins_.end_ = MarginEnd();
@@ -3038,7 +3114,7 @@ void LayoutBox::ComputeLogicalWidth(
       style_to_use.MarginStart().IsFixed()) {
     Node* parent_node = GeneratingNode();
     if (parent_node && (IsA<HTMLOListElement>(*parent_node) ||
-                        IsHTMLUListElement(*parent_node))) {
+                        IsA<HTMLUListElement>(*parent_node))) {
       // Make sure the markers in a list are properly positioned (i.e. not
       // chopped off) when autosized.
       const float adjusted_margin =
@@ -3282,10 +3358,11 @@ bool LayoutBox::SizesLogicalWidthToFitContent(
 }
 
 bool LayoutBox::AutoWidthShouldFitContent() const {
-  return GetNode() && (IsHTMLInputElement(*GetNode()) ||
-                       IsA<HTMLSelectElement>(*GetNode()) ||
-                       IsA<HTMLButtonElement>(*GetNode()) ||
-                       IsHTMLTextAreaElement(*GetNode()) || IsRenderedLegend());
+  return GetNode() &&
+         (IsA<HTMLInputElement>(*GetNode()) ||
+          IsA<HTMLSelectElement>(*GetNode()) ||
+          IsA<HTMLButtonElement>(*GetNode()) ||
+          IsA<HTMLTextAreaElement>(*GetNode()) || IsRenderedLegend());
 }
 
 void LayoutBox::ComputeMarginsForDirection(MarginDirection flow_direction,
@@ -3434,9 +3511,11 @@ void LayoutBox::ComputeLogicalHeight(
   // TODO(962979): Implement grid layout with display locking. We need to figure
   // out what happens here if IsLayoutGrid() is true and size containment is
   // specified while the box is locked.
-  if (ShouldApplySizeContainment() && !IsLayoutGrid()) {
-    height = ContentLogicalHeightForSizeContainment() +
+  if (HasOverrideIntrinsicContentLogicalHeight()) {
+    height = OverrideIntrinsicContentLogicalHeight() +
              BorderAndPaddingLogicalHeight() + ScrollbarLogicalHeight();
+  } else if (ShouldApplySizeContainment() && !IsLayoutGrid()) {
+    height = BorderAndPaddingLogicalHeight() + ScrollbarLogicalHeight();
   } else {
     height = LogicalHeight();
   }
@@ -3574,8 +3653,8 @@ void LayoutBox::ComputeLogicalHeight(
 LayoutUnit LayoutBox::ComputeLogicalHeightWithoutLayout() const {
   LogicalExtentComputedValues computed_values;
 
-  if (!SelfNeedsLayout() && ShouldApplySizeContainment()) {
-    ComputeLogicalHeight(ContentLogicalHeightForSizeContainment() +
+  if (!SelfNeedsLayout() && HasOverrideIntrinsicContentLogicalHeight()) {
+    ComputeLogicalHeight(OverrideIntrinsicContentLogicalHeight() +
                              BorderAndPaddingLogicalHeight(),
                          LayoutUnit(), computed_values);
   } else {
@@ -5395,7 +5474,7 @@ bool LayoutBox::ShouldBeConsideredAsReplaced() const {
     // treated as such.
     return !IsA<HTMLFieldSetElement>(element);
   }
-  return IsHTMLImageElement(element);
+  return IsA<HTMLImageElement>(element);
 }
 
 bool LayoutBox::HasNonCompositedScrollbars() const {
@@ -6235,14 +6314,26 @@ void LayoutBox::ClearSnapAreas() {
   }
 }
 
-void LayoutBox::AddSnapArea(const LayoutBox& snap_area) {
+void LayoutBox::AddSnapArea(LayoutBox& snap_area) {
   EnsureRareData().EnsureSnapAreas().insert(&snap_area);
 }
 
 void LayoutBox::RemoveSnapArea(const LayoutBox& snap_area) {
-  if (rare_data_ && rare_data_->snap_areas_) {
-    rare_data_->snap_areas_->erase(&snap_area);
+  // const_cast is safe here because we only need to modify the type to match
+  // the key type, and not actually mutate the object.
+  if (rare_data_ && rare_data_->snap_areas_)
+    rare_data_->snap_areas_->erase(const_cast<LayoutBox*>(&snap_area));
+}
+
+void LayoutBox::ReassignSnapAreas(LayoutBox& new_container) {
+  SnapAreaSet* areas = SnapAreas();
+  if (!areas)
+    return;
+  for (auto* const snap_area : *areas) {
+    snap_area->rare_data_->snap_container_ = &new_container;
+    new_container.AddSnapArea(*snap_area);
   }
+  areas->clear();
 }
 
 bool LayoutBox::AllowedToPropagateRecursiveScrollToParentFrame(
@@ -6326,14 +6417,14 @@ float LayoutBox::VisualRectOutsetForRasterEffects() const {
 
 TextDirection LayoutBox::ResolvedDirection() const {
   if (IsInline() && IsAtomicInlineLevel()) {
-    const auto fragments = NGPaintFragment::InlineFragmentsFor(this);
-    if (fragments.IsInLayoutNGInlineFormattingContext()) {
-      if (!fragments.IsEmpty()) {
-        return fragments.front().PhysicalFragment().ResolvedDirection();
-      }
-    } else if (InlineBoxWrapper()) {
-      return InlineBoxWrapper()->Direction();
+    if (IsInLayoutNGInlineFormattingContext()) {
+      NGInlineCursor cursor;
+      cursor.MoveTo(*this);
+      if (cursor)
+        return cursor.CurrentResolvedDirection();
     }
+    if (InlineBoxWrapper())
+      return InlineBoxWrapper()->Direction();
   }
   return StyleRef().Direction();
 }

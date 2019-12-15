@@ -27,10 +27,12 @@
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
+#include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/image-encoders/image_encoder_utils.h"
 #include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
+#include "third_party/skia/include/core/SkFilterQuality.h"
 #include "third_party/skia/include/core/SkSurface.h"
 
 namespace blink {
@@ -104,6 +106,9 @@ void OffscreenCanvas::SetPlaceholderCanvasId(DOMNodeId canvas_id) {
     DCHECK(animation_frame_provider);
     if (animation_frame_provider)
       animation_frame_provider->RegisterOffscreenCanvas(this);
+  }
+  if (frame_dispatcher_) {
+    frame_dispatcher_->SetPlaceholderCanvasDispatcher(placeholder_canvas_id_);
   }
 }
 
@@ -192,7 +197,8 @@ scoped_refptr<Image> OffscreenCanvas::GetSourceImageForCanvas(
     *status = kInvalidSourceImageStatus;
     sk_sp<SkSurface> surface =
         SkSurface::MakeRasterN32Premul(size_.Width(), size_.Height());
-    return surface ? StaticBitmapImage::Create(surface->makeImageSnapshot())
+    return surface ? UnacceleratedStaticBitmapImage::Create(
+                         surface->makeImageSnapshot())
                    : nullptr;
   }
   if (!size.Width() || !size.Height()) {
@@ -313,16 +319,11 @@ CanvasResourceDispatcher* OffscreenCanvas::GetOrCreateResourceDispatcher() {
     // throughout the lifetime of this OffscreenCanvas.
     frame_dispatcher_ = std::make_unique<CanvasResourceDispatcher>(
         this, client_id_, sink_id_, placeholder_canvas_id_, size_);
+
+    if (HasPlaceholderCanvas())
+      frame_dispatcher_->SetPlaceholderCanvasDispatcher(placeholder_canvas_id_);
   }
   return frame_dispatcher_.get();
-}
-
-void OffscreenCanvas::DiscardResourceProvider() {
-  CanvasResourceHost::DiscardResourceProvider();
-  // If deferral is enabled the recorder will play back the transform, so
-  // we should not do it here or else it will be applied twice
-  if (!context_->IsDeferralEnabled())
-    needs_matrix_clip_restore_ = true;
 }
 
 CanvasResourceProvider* OffscreenCanvas::GetOrCreateResourceProvider() {
@@ -375,15 +376,6 @@ CanvasResourceProvider* OffscreenCanvas::GetOrCreateResourceProvider() {
         FilterQuality(), context_->ColorParams(), presentation_mode,
         std::move(dispatcher_weakptr), false /* is_origin_top_left */));
 
-    // The fallback chain for k*CompositedResourceUsage should never fall
-    // all the way through to BitmapResourceProvider, except in unit tests.
-    // In non unit-test scenarios, it should always be possible to at least
-    // get a ResourceProviderSharedBitmap as a last resort.
-    // This CHECK verifies that we did indeed get a resource provider that
-    // supports compositing when one is required.
-    CHECK(!ResourceProvider() || !HasPlaceholderCanvas() ||
-          ResourceProvider()->SupportsDirectCompositing());
-
     if (ResourceProvider() && ResourceProvider()->IsValid()) {
       ResourceProvider()->Clear();
       // Always save an initial frame, to support resetting the top level matrix
@@ -418,6 +410,16 @@ bool OffscreenCanvas::BeginFrame() {
   DCHECK(HasPlaceholderCanvas());
   GetOrCreateResourceDispatcher()->SetNeedsBeginFrame(false);
   return PushFrameIfNeeded();
+}
+
+void OffscreenCanvas::SetFilterQualityInResource(
+    SkFilterQuality filter_quality) {
+  if (filter_quality_ == filter_quality)
+    return;
+
+  filter_quality_ = filter_quality;
+  if (ResourceProvider())
+    GetOrCreateResourceProvider()->SetFilterQuality(filter_quality);
 }
 
 bool OffscreenCanvas::PushFrameIfNeeded() {

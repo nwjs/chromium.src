@@ -556,7 +556,7 @@ TEST_F(EventHandlerTest, ShadowChildCanOverrideUserSelectText) {
 
 TEST_F(EventHandlerTest, InputFieldsCanStartSelection) {
   SetHtmlInnerHTML("<input value='blabla'>");
-  auto* const field = ToHTMLInputElement(GetDocument().body()->firstChild());
+  auto* const field = To<HTMLInputElement>(GetDocument().body()->firstChild());
   Element* const text = field->InnerEditorElement();
   HitTestLocation location(
       text->GetLayoutObject()->AbsoluteBoundingBoxRect().Center());
@@ -574,8 +574,8 @@ TEST_F(EventHandlerTest, ReadOnlyInputDoesNotInheritUserSelect) {
       "<div style='user-select: none'>"
       "<input id='sample' readonly value='blabla'>"
       "</div>");
-  HTMLInputElement* const input =
-      ToHTMLInputElement(GetDocument().getElementById("sample"));
+  auto* const input =
+      To<HTMLInputElement>(GetDocument().getElementById("sample"));
   Node* const text = input->InnerEditorElement()->firstChild();
 
   HitTestLocation location(
@@ -650,6 +650,133 @@ TEST_F(EventHandlerTest, EditableAnchorTextCanStartSelection) {
                 .GetCursor()
                 .GetType(),
             ui::CursorType::kIBeam);  // An I-beam signals editability.
+}
+
+TEST_F(EventHandlerTest, CursorForVerticalResizableTextArea) {
+  SetHtmlInnerHTML("<textarea style='resize:vertical'>vertical</textarea>");
+  Node* const element = GetDocument().body()->firstChild();
+  blink::IntPoint point =
+      element->GetLayoutObject()->AbsoluteBoundingBoxRect().MaxXMaxYCorner();
+  point.Move(-5, -5);
+  HitTestLocation location(point);
+  HitTestResult result =
+      GetDocument().GetFrame()->GetEventHandler().HitTestResultAtLocation(
+          location);
+  EXPECT_EQ(GetDocument()
+                .GetFrame()
+                ->GetEventHandler()
+                .SelectCursor(location, result)
+                .GetCursor()
+                .GetType(),
+            // A north-south resize signals vertical resizability.
+            ui::CursorType::kNorthSouthResize);
+}
+
+TEST_F(EventHandlerTest, CursorForHorizontalResizableTextArea) {
+  SetHtmlInnerHTML("<textarea style='resize:horizontal'>horizontal</textarea>");
+  Node* const element = GetDocument().body()->firstChild();
+  blink::IntPoint point =
+      element->GetLayoutObject()->AbsoluteBoundingBoxRect().MaxXMaxYCorner();
+  point.Move(-5, -5);
+  HitTestLocation location(point);
+  HitTestResult result =
+      GetDocument().GetFrame()->GetEventHandler().HitTestResultAtLocation(
+          location);
+  EXPECT_EQ(GetDocument()
+                .GetFrame()
+                ->GetEventHandler()
+                .SelectCursor(location, result)
+                .GetCursor()
+                .GetType(),
+            // An east-west resize signals horizontal resizability.
+            ui::CursorType::kEastWestResize);
+}
+
+TEST_F(EventHandlerTest, CursorForResizableTextArea) {
+  SetHtmlInnerHTML("<textarea style='resize:both'>both</textarea>");
+  Node* const element = GetDocument().body()->firstChild();
+  blink::IntPoint point =
+      element->GetLayoutObject()->AbsoluteBoundingBoxRect().MaxXMaxYCorner();
+  point.Move(-5, -5);
+  HitTestLocation location(point);
+  HitTestResult result =
+      GetDocument().GetFrame()->GetEventHandler().HitTestResultAtLocation(
+          location);
+  EXPECT_EQ(GetDocument()
+                .GetFrame()
+                ->GetEventHandler()
+                .SelectCursor(location, result)
+                .GetCursor()
+                .GetType(),
+            // An south-east resize signals both horizontal and
+            // vertical resizability.
+            ui::CursorType::kSouthEastResize);
+}
+
+TEST_F(EventHandlerTest, CursorForRtlResizableTextArea) {
+  SetHtmlInnerHTML(
+      "<textarea style='resize:both;direction:rtl'>both</textarea>");
+  Node* const element = GetDocument().body()->firstChild();
+  blink::IntPoint point =
+      element->GetLayoutObject()->AbsoluteBoundingBoxRect().MinXMaxYCorner();
+  point.Move(5, -5);
+  HitTestLocation location(point);
+  HitTestResult result =
+      GetDocument().GetFrame()->GetEventHandler().HitTestResultAtLocation(
+          location);
+  EXPECT_EQ(GetDocument()
+                .GetFrame()
+                ->GetEventHandler()
+                .SelectCursor(location, result)
+                .GetCursor()
+                .GetType(),
+            // An south-west resize signals both horizontal and
+            // vertical resizability when direction is RTL.
+            ui::CursorType::kSouthWestResize);
+}
+
+TEST_F(EventHandlerTest, CursorForInlineVerticalWritingMode) {
+  SetHtmlInnerHTML(
+      "Test<p style='resize:both;writing-mode:vertical-lr;"
+      "width:30px;height:30px;overflow:hidden;display:inline'>Test "
+      "Test</p>Test");
+  Node* const element = GetDocument().body()->firstChild()->nextSibling();
+  blink::IntPoint point =
+      element->GetLayoutObject()->AbsoluteBoundingBoxRect().MinXMinYCorner();
+  point.Move(25, 25);
+  HitTestLocation location(point);
+  HitTestResult result =
+      GetDocument().GetFrame()->GetEventHandler().HitTestResultAtLocation(
+          location);
+  EXPECT_EQ(GetDocument()
+                .GetFrame()
+                ->GetEventHandler()
+                .SelectCursor(location, result)
+                .GetCursor()
+                .GetType(),
+            ui::CursorType::kSouthEastResize);
+}
+
+TEST_F(EventHandlerTest, CursorForBlockVerticalWritingMode) {
+  SetHtmlInnerHTML(
+      "Test<p style='resize:both;writing-mode:vertical-lr;"
+      "width:30px;height:30px;overflow:hidden;display:block'>Test "
+      "Test</p>Test");
+  Node* const element = GetDocument().body()->firstChild()->nextSibling();
+  blink::IntPoint point =
+      element->GetLayoutObject()->AbsoluteBoundingBoxRect().MinXMinYCorner();
+  point.Move(25, 25);
+  HitTestLocation location(point);
+  HitTestResult result =
+      GetDocument().GetFrame()->GetEventHandler().HitTestResultAtLocation(
+          location);
+  EXPECT_EQ(GetDocument()
+                .GetFrame()
+                ->GetEventHandler()
+                .SelectCursor(location, result)
+                .GetCursor()
+                .GetType(),
+            ui::CursorType::kSouthEastResize);
 }
 
 TEST_F(EventHandlerTest, implicitSend) {
@@ -1587,7 +1714,7 @@ TEST_F(EventHandlerSimTest, TestUpdateHoverAfterCompositorScrollAtBeginFrame) {
   LocalFrameView* frame_view = GetDocument().View();
   frame_view->LayoutViewport()->DidScroll(FloatPoint(0, 500));
   WebView().MainFrameWidget()->ApplyViewportChanges(
-      {gfx::ScrollOffset(), gfx::Vector2dF(), 1.0f, false, 0,
+      {gfx::ScrollOffset(), gfx::Vector2dF(), 1.0f, false, 0, 0,
        cc::BrowserControlsState::kBoth, true});
   ASSERT_EQ(500, frame_view->LayoutViewport()->GetScrollOffset().Height());
   EXPECT_EQ("currently hovered", element1.InnerHTML().Utf8());
@@ -1655,7 +1782,7 @@ TEST_F(EventHandlerSimTest, TestUpdateHoverAfterMainThreadScrollAtBeginFrame) {
   LocalFrameView* frame_view = GetDocument().View();
   constexpr float delta_y = 500;
   InjectScrollFromGestureEvents(
-      frame_view->LayoutViewport()->GetCompositorElementId().GetStableId(), 0,
+      frame_view->LayoutViewport()->GetScrollElementId().GetStableId(), 0,
       delta_y);
   ASSERT_EQ(500, frame_view->LayoutViewport()->GetScrollOffset().Height());
   EXPECT_EQ("currently hovered", element1.InnerHTML().Utf8());
@@ -1730,8 +1857,7 @@ TEST_F(EventHandlerSimTest,
   // and mark hover state dirty in ScrollManager.
   constexpr float delta_y = 1000;
   InjectScrollFromGestureEvents(
-      iframe_scrollable_area->GetCompositorElementId().GetStableId(), 0,
-      delta_y);
+      iframe_scrollable_area->GetScrollElementId().GetStableId(), 0, delta_y);
   LocalFrameView* frame_view = GetDocument().View();
   ASSERT_EQ(0, frame_view->LayoutViewport()->GetScrollOffset().Height());
   ASSERT_EQ(1000, iframe_scrollable_area->ScrollOffsetInt().Height());
@@ -1862,7 +1988,7 @@ TEST_F(EventHandlerSimTest,
       scroller->GetLayoutBox()->GetScrollableArea();
   constexpr float delta_y = 300;
   InjectScrollFromGestureEvents(
-      scrollable_area->GetCompositorElementId().GetStableId(), 0, delta_y);
+      scrollable_area->GetScrollElementId().GetStableId(), 0, delta_y);
   ASSERT_EQ(300, scrollable_area->GetScrollOffset().Height());
   EXPECT_TRUE(target1->IsHovered());
   EXPECT_FALSE(target2->IsHovered());
@@ -1885,6 +2011,75 @@ TEST_F(EventHandlerSimTest,
   // The hover effect on targets is updated after the next begin frame.
   Compositor().BeginFrame();
   ASSERT_EQ(400, scrollable_area->GetScrollOffset().Height());
+  EXPECT_FALSE(target1->IsHovered());
+  EXPECT_TRUE(target2->IsHovered());
+}
+
+TEST_F(EventHandlerSimTest,
+       TestUpdateHoverAfterMainThreadScrollAtSnapPointAtBeginFrame) {
+  ScopedUpdateHoverAtBeginFrameForTest scoped_feature(true);
+  WebView().MainFrameWidget()->Resize(WebSize(800, 600));
+  SimRequest request("https://example.com/test.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <style>
+      div {
+        position: absolute;
+      }
+      #scroller {
+        width: 500px;
+        height: 500px;
+        overflow: scroll;
+        scroll-snap-type: both mandatory;
+        border: solid black 5px;
+      }
+      .target:hover {
+        background-color: red;
+      }
+
+      .target {
+        width: 200px;
+        height: 500px;
+        scroll-snap-align: start;
+        background-color: blue;
+      }
+    </style>
+    <body>
+      <div id="scroller">
+        <div class="target" id="target1" style="left: 0px; top: 0px;"></div>
+        <div class="target" id="target2" style="left: 0px; top: 500px;"></div>
+      </div>
+    </body>
+  )HTML");
+  Compositor().BeginFrame();
+
+  // Set mouse position and active web view.
+  InitializeMousePositionAndActivateView(150, 150);
+  Compositor().BeginFrame();
+
+  Element* const scroller = GetDocument().getElementById("scroller");
+  Element* target1 = GetDocument().getElementById("target1");
+  Element* target2 = GetDocument().getElementById("target2");
+  EXPECT_TRUE(target1->IsHovered());
+  EXPECT_FALSE(target2->IsHovered());
+
+  // Send scroll gesture events which will cause scroll happen in main thread.
+  // The hover state will be marked dirty when the scroll lands exactly on a
+  // snap point.
+  ScrollableArea* scrollable_area =
+      scroller->GetLayoutBox()->GetScrollableArea();
+  ASSERT_EQ(0, scrollable_area->GetScrollOffset().Height());
+  constexpr float delta_y = 500;
+  InjectScrollFromGestureEvents(
+      scrollable_area->GetScrollElementId().GetStableId(), 0, delta_y);
+  ASSERT_EQ(500, scrollable_area->GetScrollOffset().Height());
+  EXPECT_TRUE(target1->IsHovered());
+  EXPECT_FALSE(target2->IsHovered());
+
+  // The hover effect on targets is updated after the next begin frame.
+  Compositor().BeginFrame();
+  ASSERT_EQ(500, scrollable_area->GetScrollOffset().Height());
   EXPECT_FALSE(target1->IsHovered());
   EXPECT_TRUE(target2->IsHovered());
 }
@@ -2351,7 +2546,7 @@ TEST_F(EventHandlerSimTest, ElementTargetedGestureScroll) {
   ScrollableArea* scrollable_area =
       scroller->GetLayoutBox()->GetScrollableArea();
   gesture_scroll_begin.data.scroll_begin.scrollable_area_element_id =
-      scrollable_area->GetCompositorElementId().GetStableId();
+      scrollable_area->GetScrollElementId().GetStableId();
 
   GetDocument().GetFrame()->GetEventHandler().HandleGestureEvent(
       gesture_scroll_begin);
@@ -2411,7 +2606,7 @@ TEST_F(EventHandlerSimTest, ElementTargetedGestureScrollIFrame) {
   gesture_scroll_begin.data.scroll_begin.delta_x_hint = 0;
   gesture_scroll_begin.data.scroll_begin.delta_y_hint = -delta_y;
   gesture_scroll_begin.data.scroll_begin.scrollable_area_element_id =
-      scrollable_area->GetCompositorElementId().GetStableId();
+      scrollable_area->GetScrollElementId().GetStableId();
   GetDocument().GetFrame()->GetEventHandler().HandleGestureEvent(
       gesture_scroll_begin);
 
@@ -2462,7 +2657,7 @@ TEST_F(EventHandlerSimTest, ElementTargetedGestureScrollViewport) {
   gesture_scroll_begin.data.scroll_begin.delta_x_hint = 0;
   gesture_scroll_begin.data.scroll_begin.delta_y_hint = -delta_y;
   gesture_scroll_begin.data.scroll_begin.scrollable_area_element_id =
-      visual_viewport.GetCompositorElementId().GetStableId();
+      visual_viewport.GetScrollElementId().GetStableId();
 
   GetDocument().GetFrame()->GetEventHandler().HandleGestureEvent(
       gesture_scroll_begin);

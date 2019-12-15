@@ -40,6 +40,7 @@
 #include "ash/shelf/shelf_navigation_widget.h"
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
+#include "ash/system/model/system_tray_model.h"
 #include "ash/system/power/backlights_forced_off_setter.h"
 #include "ash/system/power/power_button_controller.h"
 #include "ash/system/status_area_widget.h"
@@ -470,6 +471,27 @@ TEST_F(LockContentsViewKeyboardUnitTest, AutoLayoutSmallUsersListForKeyboard) {
   EXPECT_EQ(users_list->height(), users_list->contents()->height());
 }
 
+TEST_F(LockContentsViewKeyboardUnitTest, ShowPinPadForPassword) {
+  SetUserCount(1);
+  users()[0].show_pin_pad_for_password = true;
+  ASSERT_NO_FATAL_FAILURE(ShowLoginScreen());
+  LockContentsView* contents = new LockContentsView(
+      mojom::TrayActionState::kNotAvailable, LockScreen::ScreenType::kLock,
+      DataDispatcher(),
+      std::make_unique<FakeLoginDetachableBaseModel>(DataDispatcher()));
+  std::unique_ptr<views::Widget> widget = CreateWidgetWithContent(contents);
+  ASSERT_NE(nullptr, contents);
+  DataDispatcher()->SetUserList(users());
+  LoginAuthUserView* login_auth_user_view =
+      LockContentsView::TestApi(contents).primary_big_view()->auth_user();
+  LoginAuthUserView::TestApi primary_user(login_auth_user_view);
+  LoginPinView* pin_view(primary_user.pin_view());
+  ASSERT_NO_FATAL_FAILURE(ShowKeyboard());
+  EXPECT_FALSE(pin_view->GetVisible());
+  ASSERT_NO_FATAL_FAILURE(HideKeyboard());
+  EXPECT_TRUE(pin_view->GetVisible());
+}
+
 // Ensures that when swapping between two users, only auth method display swaps.
 TEST_F(LockContentsViewUnitTest, SwapAuthUsersInTwoUserLayout) {
   // Build lock screen with two users.
@@ -672,10 +694,11 @@ TEST_F(LockContentsViewUnitTest, SystemInfoViewBounds) {
 
   // Verify that the system info view becomes visible and it doesn't block the
   // note action button.
-  DataDispatcher()->SetSystemInfo(true /*show*/, false /*enforced*/,
-                                  "Best version ever", "Asset ID: 6666",
-                                  "Bluetooth adapter");
+  DataDispatcher()->SetSystemInfo(
+      true /*show*/, false /*enforced*/, "Best version ever", "Asset ID: 6666",
+      "Bluetooth adapter", false /*adb_sideloading_enabled*/);
   EXPECT_TRUE(test_api.system_info()->GetVisible());
+  EXPECT_FALSE(test_api.bottom_status_indicator()->GetVisible());
   EXPECT_TRUE(test_api.note_action()->GetVisible());
   gfx::Size note_action_size = test_api.note_action()->GetPreferredSize();
   EXPECT_GE(widget_bounds.right() -
@@ -690,6 +713,10 @@ TEST_F(LockContentsViewUnitTest, SystemInfoViewBounds) {
   EXPECT_LT(widget_bounds.right() -
                 test_api.system_info()->GetBoundsInScreen().right(),
             note_action_size.width());
+
+  // Verify that bottom status indicator is invisible if neither adb sideloading
+  // is enabled nor the device is enrolled.
+  EXPECT_FALSE(test_api.bottom_status_indicator()->GetVisible());
 }
 
 // Alt-V toggles display of system information.
@@ -707,9 +734,9 @@ TEST_F(LockContentsViewUnitTest, AltVShowsHiddenSystemInfo) {
 
   // Verify that the system info view does not become visible when given data
   // but show is false.
-  DataDispatcher()->SetSystemInfo(false /*show*/, false /*enforced*/,
-                                  "Best version ever", "Asset ID: 6666",
-                                  "Bluetooth adapter");
+  DataDispatcher()->SetSystemInfo(
+      false /*show*/, false /*enforced*/, "Best version ever", "Asset ID: 6666",
+      "Bluetooth adapter", false /*adb_sideloading_enabled*/);
   EXPECT_FALSE(test_api.system_info()->GetVisible());
 
   // Alt-V shows hidden system info.
@@ -737,7 +764,8 @@ TEST_F(LockContentsViewUnitTest, ShowRevealsHiddenSystemInfo) {
 
   auto set_system_info = [&](bool show, bool enforced) {
     DataDispatcher()->SetSystemInfo(show, enforced, "Best version ever",
-                                    "Asset ID: 6666", "Bluetooth adapter");
+                                    "Asset ID: 6666", "Bluetooth adapter",
+                                    false /*adb_sideloading_enabled*/);
   };
 
   // Start with hidden system info.
@@ -761,6 +789,43 @@ TEST_F(LockContentsViewUnitTest, ShowRevealsHiddenSystemInfo) {
   // because the view remembers user wants to show it if possible.
   set_system_info(false, false);
   EXPECT_TRUE(test_api.system_info()->GetVisible());
+}
+
+// Show bottom status indicator if ADB sideloading is enabled.
+TEST_F(LockContentsViewUnitTest, ShowStatusIndicatorIfAdbSideloadingEnabled) {
+  auto* contents = new LockContentsView(
+      mojom::TrayActionState::kAvailable, LockScreen::ScreenType::kLock,
+      DataDispatcher(),
+      std::make_unique<FakeLoginDetachableBaseModel>(DataDispatcher()));
+  SetUserCount(1);
+
+  std::unique_ptr<views::Widget> widget = CreateWidgetWithContent(contents);
+  LockContentsView::TestApi test_api(contents);
+
+  // If the system starts with ADB sideloading enabled, bottom_status_indicator
+  // should be visible.
+  DataDispatcher()->SetSystemInfo(
+      false /*show*/, false /*enforced*/, "Best version ever", "Asset ID: 6666",
+      "Bluetooth adapter", true /*adb_sideloading_enabled*/);
+  EXPECT_TRUE(test_api.bottom_status_indicator()->GetVisible());
+}
+
+// Show bottom status indicator if device is enrolled
+TEST_F(LockContentsViewUnitTest, ShowStatusIndicatorIfEnrolledDevice) {
+  // If the device is enrolled, bottom_status_indicator should be visible.
+  Shell::Get()->system_tray_model()->SetEnterpriseDisplayDomain(
+      "BestCompanyEver", false);
+
+  auto* contents = new LockContentsView(
+      mojom::TrayActionState::kAvailable, LockScreen::ScreenType::kLock,
+      DataDispatcher(),
+      std::make_unique<FakeLoginDetachableBaseModel>(DataDispatcher()));
+  SetUserCount(1);
+
+  std::unique_ptr<views::Widget> widget = CreateWidgetWithContent(contents);
+  LockContentsView::TestApi test_api(contents);
+
+  EXPECT_TRUE(test_api.bottom_status_indicator()->GetVisible());
 }
 
 // Verifies the easy unlock tooltip is automatically displayed when requested.
@@ -1957,7 +2022,9 @@ TEST_F(LockContentsViewUnitTest, DisabledAuthMessageFocusBehavior) {
   EXPECT_TRUE(HasFocusInAnyChildView(status_area));
 }
 
-TEST_F(LockContentsViewUnitTest, DisableAuthAndMediaControls) {
+// Tests that media controls do not show on lock screen when auth is disabled
+// after media session changes to playing.
+TEST_F(LockContentsViewUnitTest, DisableAuthAfterMediaSessionChanged) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(features::kLockScreenMediaControls);
 
@@ -1984,6 +2051,38 @@ TEST_F(LockContentsViewUnitTest, DisableAuthAndMediaControls) {
                        base::Time::Now() + base::TimeDelta::FromHours(8),
                        base::TimeDelta::FromHours(1),
                        true /*disable_lock_screen_media*/));
+  EXPECT_FALSE(lock_contents.media_controls_view()->IsDrawn());
+}
+
+// Tests that media controls do not show on lock screen when auth is disabled
+// before media session changes to playing.
+TEST_F(LockContentsViewUnitTest, DisableAuthBeforeMediaSessionChanged) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kLockScreenMediaControls);
+
+  auto* contents = new LockContentsView(
+      mojom::TrayActionState::kNotAvailable, LockScreen::ScreenType::kLock,
+      DataDispatcher(),
+      std::make_unique<FakeLoginDetachableBaseModel>(DataDispatcher()));
+  SetUserCount(1);
+  std::unique_ptr<views::Widget> widget = CreateWidgetWithContent(contents);
+
+  const AccountId& kFirstUserAccountId = users()[0].basic_user_info.account_id;
+  LockContentsView::TestApi lock_contents(contents);
+
+  // Disable auth and media.
+  DataDispatcher()->DisableAuthForUser(
+      kFirstUserAccountId,
+      AuthDisabledData(ash::AuthDisabledReason::kTimeWindowLimit,
+                       base::Time::Now() + base::TimeDelta::FromHours(8),
+                       base::TimeDelta::FromHours(1),
+                       true /*disable_lock_screen_media*/));
+  EXPECT_FALSE(lock_contents.media_controls_view()->IsDrawn());
+
+  // Simulate playing media session.
+  SimulateMediaSessionChanged(
+      lock_contents.media_controls_view(),
+      media_session::mojom::MediaPlaybackState::kPlaying);
   EXPECT_FALSE(lock_contents.media_controls_view()->IsDrawn());
 }
 

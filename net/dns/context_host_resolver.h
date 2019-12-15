@@ -46,9 +46,11 @@ class NET_EXPORT ContextHostResolver : public HostResolver {
   void OnShutdown() override;
   std::unique_ptr<ResolveHostRequest> CreateRequest(
       const HostPortPair& host,
+      const NetworkIsolationKey& network_isolation_key,
       const NetLogWithSource& net_log,
       const base::Optional<ResolveHostParameters>& optional_parameters)
       override;
+  std::unique_ptr<ProbeRequest> CreateDohProbeRequest() override;
   std::unique_ptr<MdnsListener> CreateMdnsListener(
       const HostPortPair& host,
       DnsQueryType query_type) override;
@@ -73,6 +75,8 @@ class NET_EXPORT ContextHostResolver : public HostResolver {
 
  private:
   class WrappedRequest;
+  class WrappedResolveHostRequest;
+  class WrappedProbeRequest;
 
   HostResolverManager* const manager_;
   std::unique_ptr<HostResolverManager> owned_manager_;

@@ -19,7 +19,7 @@
 namespace blink {
 class WebFormControlElement;
 class WebLocalFrame;
-}
+}  // namespace blink
 
 namespace autofill {
 
@@ -80,13 +80,14 @@ class FormCache {
 
   // Clears all entries from |initial_select_values_| and
   // |initial_checked_state_| whose keys not contained in |ids_to_retain|.
-  void PruneInitialValueCaches(const std::set<uint32_t> ids_to_retain);
+  void PruneInitialValueCaches(const std::set<uint32_t>& ids_to_retain);
 
   // The frame this FormCache is associated with. Weak reference.
   blink::WebLocalFrame* frame_;
 
   // The cached forms. Used to prevent re-extraction of forms.
-  std::set<FormData> parsed_forms_;
+  // TODO(crbug/896689) Move to std::map<unique_rederer_id, FormData>.
+  std::set<FormData, FormData::IdentityComparator> parsed_forms_;
 
   // The synthetic FormData is for all the fieldsets in the document without a
   // form owner.

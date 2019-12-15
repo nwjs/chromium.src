@@ -9,16 +9,17 @@ body {
 
 .time-picker {
   background: #FFFFFF;
+  border: 1px solid transparent;
   display: flex;
   flex-direction: column;
-  height: 273px;
+  height: 298px;
 }
 
 .time-columns {
   display: flex;
   flex-direction: row;
-  height: 82%;
-  margin: 2px;
+  height: 252px;
+  margin: 1px;
 }
 
 .time-column {
@@ -39,6 +40,8 @@ body {
 }
 
 .time-cell {
+  border: 2px solid transparent;
+  border-radius: 2px;
   color: #101010;
   font-size: 14px;
   height: 32px;
@@ -50,17 +53,15 @@ body {
 
 .time-cell:hover {
   background: #E5E5E5;
-  border-radius: 2px;
 }
 
 .time-cell.selected {
   background-color: #CECECE;
-  border-radius: 2px;
   font-weight: bold;
 }
 
 .time-column:focus .time-cell.selected {
-  outline: auto 1px -webkit-focus-ring-color;
+  border-color: highlight;
 }
 
 .submission-controls {
@@ -69,7 +70,7 @@ body {
   bottom: 0px;
   display: flex;
   flex-direction: row;
-  height: 15%;
+  height: 40px;
   position: absolute;
   width: 100%;
 }
@@ -81,7 +82,8 @@ body {
 
 .submission-button {
   background-color: #FFFFFF;
-  border: 0;
+  border: 2px solid transparent;
+  border-radius: 2px;
   height: 32px;
   margin: 4px;
   padding: 8px;
@@ -90,5 +92,49 @@ body {
 
 .submission-button:hover {
   background-color: #E5E5E5;
-  border-radius: 2px;
+}
+
+.submission-button:focus {
+  border-color: highlight;
+  outline: none;
+}
+
+@media (forced-colors: active) {
+  .time-cell {
+    background-color: Window;
+    color: WindowText;
+    forced-color-adjust: none;
+  }
+
+  .time-cell:hover {
+    background-color: Window;
+    border-color: Highlight;
+  }
+
+  .time-cell.selected {
+    background-color: Highlight;
+    color: Window;
+  }
+
+  .time-column:focus .time-cell.selected {
+    border-color: WindowText;
+  }
+
+  .submission-button {
+    background-color: Window;
+    forced-color-adjust: none;
+  }
+
+  .submission-button:hover {
+    background-color: Window;
+    border-color: Highlight;
+  }
+
+  .submission-button:focus {
+    border-color: WindowText;
+  }
+
+  .submission-button path {
+    fill: WindowText;
+  }
 }

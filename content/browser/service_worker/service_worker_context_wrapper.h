@@ -25,6 +25,8 @@
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/service_worker_context.h"
 #include "content/public/browser/service_worker_running_info.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 
 namespace base {
 class FilePath;
@@ -180,15 +182,15 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
   std::vector<ServiceWorkerVersionInfo> GetAllLiveVersionInfo();
 
   // May be called from any thread, and the callback is called on that thread.
-  void HasMainFrameProviderHost(const GURL& origin,
+  void HasMainFrameWindowClient(const GURL& origin,
                                 BoolCallback callback) const;
 
-  // Returns all frame ids for the given |origin|. Must be called on the core
-  // thread.
-  std::unique_ptr<std::vector<GlobalFrameRoutingId>> GetProviderHostIds(
-      const GURL& origin) const;
+  // Returns all frame routing ids for the given |origin|. Must be called on the
+  // core thread.
+  std::unique_ptr<std::vector<GlobalFrameRoutingId>>
+  GetWindowClientFrameRoutingIds(const GURL& origin) const;
 
-  // Returns the registration whose scope longest matches |document_url|. It is
+  // Returns the registration whose scope longest matches |client_url|. It is
   // guaranteed that the returned registration has the activated worker.
   //
   //  - If the registration is not found, returns ERROR_NOT_FOUND.
@@ -199,8 +201,8 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
   //    activated.
   //
   // Can be called on any thread, and the callback is called on that thread.
-  void FindReadyRegistrationForDocument(const GURL& document_url,
-                                        FindRegistrationCallback callback);
+  void FindReadyRegistrationForClientUrl(const GURL& client_url,
+                                         FindRegistrationCallback callback);
 
   // Returns the registration for |scope|. It is guaranteed that the returned
   // registration has the activated worker.
@@ -350,8 +352,8 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
       storage::SpecialStoragePolicy* special_storage_policy,
       ChromeBlobStorageContext* blob_context,
       URLLoaderFactoryGetter* url_loader_factory_getter,
-      std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
-          non_network_loader_factory_bundle_info_for_update_check);
+      std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
+          non_network_pending_loader_factory_bundle_for_update_check);
   void ShutdownOnCoreThread();
 
   // If |include_installing_version| is true, |callback| is called if there is
@@ -425,8 +427,8 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
       blink::ServiceWorkerStatusCode service_worker_status);
 
   // Called when ServiceWorkerImportedScriptUpdateCheck is enabled.
-  std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
-  CreateNonNetworkURLLoaderFactoryBundleInfoForUpdateCheck(
+  std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
+  CreateNonNetworkPendingURLLoaderFactoryBundleForUpdateCheck(
       BrowserContext* browser_context);
 
   void SetUpLoaderFactoryForUpdateCheckOnUI(
@@ -480,12 +482,12 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
       bool include_installing_version,
       FindRegistrationCallback callback,
       scoped_refptr<base::TaskRunner> callback_runner);
-  void HasMainFrameProviderHostOnCoreThread(
+  void HasMainFrameWindowClientOnCoreThread(
       const GURL& origin,
       BoolCallback callback,
       scoped_refptr<base::TaskRunner> callback_runner) const;
-  void FindReadyRegistrationForDocumentOnCoreThread(
-      const GURL& document_url,
+  void FindReadyRegistrationForClientUrlOnCoreThread(
+      const GURL& client_url,
       FindRegistrationCallback callback,
       scoped_refptr<base::TaskRunner> callback_runner);
   void GetAllRegistrationsOnCoreThread(GetRegistrationsInfosCallback callback);

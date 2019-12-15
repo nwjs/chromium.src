@@ -6,10 +6,10 @@
 <translation id="1015730422737071372">Angiv yderligere oplysninger</translation>
 <translation id="1021110881106174305">Accepterede kort</translation>
 <translation id="1032854598605920125">Rotér med uret</translation>
-<translation id="1035334672863811645">log ind på Chrome</translation>
 <translation id="1036348656032585052">Deaktiver</translation>
 <translation id="1038842779957582377">ukendt navn</translation>
 <translation id="1039626062703039346">Chrome kan hjælpe dig med at beskytte din Google-konto og ændre din adgangskode. Dette underretter Google om dette website.</translation>
+<translation id="1044897699341250361">Hvad det betyder</translation>
 <translation id="1050038467049342496">Luk andre apps</translation>
 <translation id="1055184225775184556">&amp;Fortryd tilføjelse</translation>
 <translation id="1056898198331236512">Advarsel</translation>
@@ -30,7 +30,6 @@
 <translation id="1113869188872983271">&amp;Fortryd omarrangering</translation>
 <translation id="1125573121925420732">Advarsler kan almindeligt forekomme, når websites opdaterer deres sikkerhed. Dette forbedres snart.</translation>
 <translation id="1126551341858583091">Størrelsen på den lokale lagerplads er <ph name="CRASH_SIZE" />.</translation>
-<translation id="1127259989763091435">Vil du bekræfte og gemme kort på din Google-konto?</translation>
 <translation id="112840717907525620">Cache for politik er OK</translation>
 <translation id="1131264053432022307">Billede, du har kopieret</translation>
 <translation id="1150979032973867961">Denne server kunne ikke bevise, at den er <ph name="DOMAIN" />, da operativsystemet på din computer ikke har tillid til sikkerhedscertifikatet. Dette kan skyldes en fejlkonfiguration, eller at en hacker har opfanget din forbindelse.</translation>
@@ -112,8 +111,10 @@
 <translation id="1442386063175183758">Portfals i højre side</translation>
 <translation id="1442987760062738829">Hul</translation>
 <translation id="1455413310270022028">Viskelæder</translation>
+<translation id="1462245070427461050">JIS B9</translation>
 <translation id="1463543813647160932">5 x 7</translation>
 <translation id="1472675084647422956">Vis mere</translation>
+<translation id="1473183651233018052">JIS B10</translation>
 <translation id="147358896496811705">2A0</translation>
 <translation id="1476595624592550506">Skift adgangskode</translation>
 <translation id="1484290072879560759">Vælg leveringsadresse</translation>
@@ -156,10 +157,10 @@
 <translation id="1640244768702815859">Prøv at <ph name="BEGIN_LINK" />gå til websitets startside<ph name="END_LINK" />.</translation>
 <translation id="1644574205037202324">Historik</translation>
 <translation id="1645368109819982629">Ikke-understøttet protokol</translation>
+<translation id="1652415888492971589">JIS B8</translation>
 <translation id="1656489000284462475">Afhentning</translation>
 <translation id="1662550410081243962">Gem og udfyld betalingsmetoder</translation>
 <translation id="1663943134801823270">Kort og adresser stammer fra Chrome. Du kan administrere dem i <ph name="BEGIN_LINK" />Indstillinger<ph name="END_LINK" />.</translation>
-<translation id="1669987054044193553">Bekræft og gem</translation>
 <translation id="1671391448414634642">Sider på <ph name="SOURCE_LANGUAGE" /> oversættes fremover til <ph name="TARGET_LANGUAGE" />.</translation>
 <translation id="1676269943528358898"><ph name="SITE" /> bruger normalt kryptering til at beskytte dine oplysninger. Da Google Chrome forsøgte at oprette forbindelse til <ph name="SITE" /> denne gang, returnerede websitet usædvanlige og forkerte legitimationsoplysninger. Dette kan skyldes, at en hacker forsøger at udgive sig for at være <ph name="SITE" />, eller at en Wi-Fi-loginskærm har forstyrret forbindelsen. Dine oplysninger er stadig sikre, idet Google Chrome afbrød forbindelsen, inden der blev udvekslet data.</translation>
 <translation id="168841957122794586">Servercertifikatet indeholder en svag kryptografisk nøgle.</translation>
@@ -175,21 +176,24 @@
 <translation id="173080396488393970">Denne korttype understøttes ikke</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Prøv at kontakte systemadministratoren.</translation>
+<translation id="1736420071277903564">Computer</translation>
 <translation id="1740951997222943430">Angiv en gyldig udløbsmåned</translation>
+<translation id="1741613555002899862">Skal angives og være en gyldig streng, når DnsOverHttpsMode er <ph name="SECURE_DNS_MODE_SECURE" />.</translation>
 <translation id="1743520634839655729">Gem dit kort, dit navn og din faktureringsadresse på din Google-konto og denne enhed for at betale hurtigere næste gang.</translation>
 <translation id="1743570585616704562">Ikke genkendt</translation>
 <translation id="1745880797583122200">Din browser administreres</translation>
 <translation id="17513872634828108">Åbne faner</translation>
 <translation id="1753706481035618306">Sidetal</translation>
+<translation id="175838129965056221">Chrome har registreret, at din forbindelse overvåges</translation>
 <translation id="1763864636252898013">Denne server kunne ikke bevise, at den er <ph name="DOMAIN" />, da operativsystemet på din enhed ikke har tillid til sikkerhedscertifikatet. Dette kan skyldes en fejlkonfiguration, eller at en hacker har opfanget din forbindelse.</translation>
 <translation id="1768211456781949159"><ph name="BEGIN_LINK" />Prøv at køre Windows Netværksdiagnosticering<ph name="END_LINK" />.</translation>
+<translation id="1778646502362731194">JIS B0</translation>
 <translation id="1783075131180517613">Opdater din adgangssætning til synkronisering.</translation>
 <translation id="1787142507584202372">Dine åbne faner vises her</translation>
 <translation id="1791429645902722292">Google Smart Lock</translation>
 <translation id="1800473098294731951">B9</translation>
 <translation id="1803264062614276815">Kortindehaverens navn</translation>
 <translation id="1821930232296380041">Ugyldig anmodning eller anmodningsparametre</translation>
-<translation id="1822370876374026111">Du kan betale hurtigere næste gang ved at føje dit kort og din faktureringsadresse til din Google-konto og denne enhed.</translation>
 <translation id="1822540298136254167">Hvilke websites du besøger, og hvor lang tid du bruger på dem</translation>
 <translation id="1826516787628120939">Kontrollerer</translation>
 <translation id="1834321415901700177">Dette website indeholder skadelige programmer</translation>
@@ -222,11 +226,11 @@
 <translation id="1974883374937189061">Hjælp med at forbedre sikkerheden i Chrome ved at sende <ph name="BEGIN_WHITEPAPER_LINK" />webadresser på nogle af de sider, du besøger, begrænsede systemoplysninger og noget sideindhold<ph name="END_WHITEPAPER_LINK" /> til Google. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="1978555033938440688">Firmwareversion</translation>
 <translation id="1981206234434200693">Ryd data fra Chromes browserhistorik</translation>
+<translation id="1992331125980284532">JIS B3</translation>
 <translation id="2001146170449793414">{COUNT,plural, =1{og 1 mere}one{og # mere}other{og # mere}}</translation>
 <translation id="2003709556000175978">Nulstil din adgangskode nu</translation>
 <translation id="2003775180883135320">Fire huller øverst</translation>
 <translation id="2025186561304664664">Proxyen konfigureres automatisk.</translation>
-<translation id="202813660234680402">Nej, tilføj ikke</translation>
 <translation id="2030481566774242610">Mente du <ph name="LINK" />?</translation>
 <translation id="2032962459168915086"><ph name="BEGIN_LINK" />Kontrollere din proxy og din firewall<ph name="END_LINK" /></translation>
 <translation id="2053111141626950936">Sider på <ph name="LANGUAGE" /> oversættes ikke.</translation>
@@ -248,6 +252,8 @@
 <translation id="2119505898009119320">Udstedt til: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2119867082804433120">Hul nederst til højre</translation>
 <translation id="2129079103035905234">Bevægelsessensorer</translation>
+<translation id="2130448033692577677">De skabeloner, du har angivet, anvendes muligvis ikke, da politikken DnsOverHttpsMode ikke er angivet.</translation>
+<translation id="2131277894177304644">Chromium har registreret, at din forbindelse overvåges</translation>
 <translation id="213826338245044447">Bogmærker på mobil</translation>
 <translation id="214556005048008348">Annuller betaling</translation>
 <translation id="2147827593068025794">Synkronisering i baggrunden</translation>
@@ -269,10 +275,12 @@
 <translation id="2218879909401188352">Hackere, der i øjeblikket er på <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" />, kan installere farlige apps, som kan skade din enhed, føje skjulte gebyrer til din mobilregning eller stjæle dine personlige oplysninger. <ph name="BEGIN_LEARN_MORE_LINK" />Få flere oplysninger<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="2224337661447660594">Der er ingen internetforbindelse</translation>
 <translation id="2230458221926704099">Ret problemerne med din forbindelse ved hjælp af <ph name="BEGIN_LINK" />diagnoseappen<ph name="END_LINK" /></translation>
+<translation id="22320125457191592">Til dig</translation>
 <translation id="2239100178324503013">Send nu</translation>
 <translation id="2248949050832152960">Brug WebAuthn</translation>
 <translation id="2250931979407627383">Kanthæftning i venstre side</translation>
 <translation id="225207911366869382">Denne værdi er forældet for denne politik.</translation>
+<translation id="2258928405015593961">Angiv en fremtidig udløbsdato, og prøv igen</translation>
 <translation id="2262243747453050782">HTTP-fejl</translation>
 <translation id="2263079731045660823">Opdater AutoFyld-oplysninger for betalingskort i indstillingerne for Chrome</translation>
 <translation id="2267047181501709434">Bekræfter din identitet...</translation>
@@ -293,6 +301,7 @@
 <translation id="2354001756790975382">Andre bogmærker</translation>
 <translation id="2354430244986887761">Google Beskyttet browsing har for nylig <ph name="BEGIN_LINK" />fundet skadelige apps<ph name="END_LINK" /> på <ph name="SITE" />.</translation>
 <translation id="2355395290879513365">Hackere kan muligvis se de billeder, du kigger på på dette website, og narre dig ved at ændre dem.</translation>
+<translation id="2355474962185559967">Du har netop angivet din adgangskode på et vildledende website. Chromium anbefaler, at du går til <ph name="WEBSITE_1" /> og ændrer din adgangskode med det samme.</translation>
 <translation id="2356070529366658676">Spørg</translation>
 <translation id="2359629602545592467">Flere</translation>
 <translation id="2359808026110333948">Fortsæt</translation>
@@ -368,6 +377,7 @@
 <translation id="2676271551327853224">Roc-8K</translation>
 <translation id="2677748264148917807">Forlad</translation>
 <translation id="2684561033061424857">11x12</translation>
+<translation id="2691924980723297736">Sikkerhedsadvarsel</translation>
 <translation id="2699302886720511147">Accepterede kort</translation>
 <translation id="2702801445560668637">Læseliste</translation>
 <translation id="2704283930420550640">Værdien stemmer ikke overens med formatet.</translation>
@@ -395,6 +405,7 @@
 <translation id="2799020568854403057">Det website, du er på vej til, indeholder skadelige apps</translation>
 <translation id="2799223571221894425">Genstart</translation>
 <translation id="2803306138276472711">Google Beskyttet browsing <ph name="BEGIN_LINK" />registrerede malware<ph name="END_LINK" /> på <ph name="SITE" />. Websites, der normalt er sikre, bliver undertiden inficeret med malware.</translation>
+<translation id="281585763351939989">Chromium har registreret, at din forbindelse overvåges.</translation>
 <translation id="2824775600643448204">Adresse og søgelinje</translation>
 <translation id="2826760142808435982">Forbindelsen er krypteret og godkendt ved hjælp af <ph name="CIPHER" />, og den anvender <ph name="KX" /> som primær udvekslingsmekanisme.</translation>
 <translation id="2835170189407361413">Ryd formular</translation>
@@ -439,6 +450,7 @@
 <translation id="3024663005179499861">Forkert politiktype</translation>
 <translation id="3037605927509011580">Øv, surt!</translation>
 <translation id="3041612393474885105">Certifikatoplysninger</translation>
+<translation id="304755864151473094">Derfor sker dette</translation>
 <translation id="3057676462092457419">DnsOverHttps-tilstanden <ph name="SECURE_DNS_MODE_SECURE" /> understøttes endnu ikke. Tilstanden er angivet som <ph name="SECURE_DNS_MODE_OFF" />.</translation>
 <translation id="3060227939791841287">C9 (Envelope)</translation>
 <translation id="3061707000357573562">Tjeneste til programrettelse</translation>
@@ -470,6 +482,7 @@
 <translation id="3207960819495026254">Gemt som bogmærke</translation>
 <translation id="3209034400446768650">Siden kan opkræve betaling</translation>
 <translation id="3209080785413271048">Brug Windows Hello til at bekræfte dine gemte betalingsmetoder.</translation>
+<translation id="3212581601480735796">Din aktivitet på <ph name="HOSTNAME" /> overvåges</translation>
 <translation id="3215092763954878852">WebAuthn kunne ikke anvendes</translation>
 <translation id="3225919329040284222">Serveren præsenterede et certifikat, der ikke svarer til de indbyggede forventninger. Disse forventninger medtages for bestemte websites med høj sikkerhed for at beskytte dig.</translation>
 <translation id="3226128629678568754">Tryk på genindlæsningsknappen for at genindsende de data, der er nødvendige for at indlæse siden.</translation>
@@ -477,6 +490,7 @@
 <translation id="3228969707346345236">Oversættelsen mislykkedes, fordi siden allerede er på <ph name="LANGUAGE" />.</translation>
 <translation id="3229041911291329567">Versionsoplysninger om din enhed og browser</translation>
 <translation id="323107829343500871">Angiv kontrolkoden for <ph name="CREDIT_CARD" /></translation>
+<translation id="3234392465377209614">Du har netop angivet din adgangskode på et vildledende website. Chromium anbefaler, at du går til <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" /> og <ph name="WEBSITE_3" /> og ændrer din adgangskode med det samme.</translation>
 <translation id="3234666976984236645">Registrer altid vigtigt indhold på dette website</translation>
 <translation id="3262069459091978471"><ph name="LOOKALIKE_DOMAIN" /> minder om <ph name="SUGGESTED_DOMAIN" />. Svindlere efterligner nogle gange websites ved at bruge webadresser, der minder om andre webadresser.</translation>
 <translation id="3270847123878663523">&amp;Fortryd omarrangering</translation>
@@ -490,12 +504,7 @@
 <translation id="3324983252691184275">Højrød</translation>
 <translation id="3338095232262050444">Sikker</translation>
 <translation id="3355823806454867987">Skift indstillinger for proxy...</translation>
-<translation id="3361596688432910856">Chrome <ph name="BEGIN_EMPHASIS" />gemmer ikke<ph name="END_EMPHASIS" /> følgende oplysninger:
-        <ph name="BEGIN_LIST" />
-          <ph name="LIST_ITEM" />Din browserhistorik
-          <ph name="LIST_ITEM" />Cookies og websitedata
-          <ph name="LIST_ITEM" />Oplysninger, du angiver i formularer
-        <ph name="END_LIST" /></translation>
+<translation id="3360103848165129075">Regneark for betalingshandler</translation>
 <translation id="3362968246557010467">Denne politik blev automatisk kopieret fra den udfasede politik <ph name="OLD_POLICY" />. Du bør bruge denne politik i stedet.</translation>
 <translation id="3366477098757335611">Se kort</translation>
 <translation id="3369192424181595722">Urfejl</translation>
@@ -512,7 +521,9 @@
 <translation id="3427092606871434483">Tillad (standardindstilling)</translation>
 <translation id="3427342743765426898">&amp;Annuller fortryd redigering</translation>
 <translation id="342781501876943858">Chromium anbefaler, at du nulstiller din adgangskode, hvis du har brugt den på andre websites.</translation>
+<translation id="3428151540071562330">En eller flere af serverskabelon-URI'erne for DnsOverHttpsTemplates er ugyldige og anvendes ikke.</translation>
 <translation id="3431636764301398940">Gem dette kort på denne enhed</translation>
+<translation id="3438790640050632698">Du har netop angivet din adgangskode på et vildledende website. Chrome anbefaler, at du går til <ph name="WEBSITE_1" /> og <ph name="WEBSITE_2" /> og ændrer din adgangskode med det samme.</translation>
 <translation id="3443726618221119081">Juuro-Ku-Kai</translation>
 <translation id="3447661539832366887">Ejeren af denne enhed har lukket dinosaurspillet.</translation>
 <translation id="3447884698081792621">Vis certifikat (udstedt af <ph name="ISSUER" />)</translation>
@@ -527,10 +538,12 @@
 <translation id="3495081129428749620">Find på side
     <ph name="PAGE_TITLE" /></translation>
 <translation id="3512163584740124171">Politikken ignoreres, da en anden politik fra samme politikgruppe har højere prioritet.</translation>
+<translation id="3525469219100414032">Du har netop angivet din adgangskode på et vildledende website. Chrome anbefaler, at du går til <ph name="WEBSITE_1" /> og ændrer din adgangskode med det samme.</translation>
 <translation id="3528171143076753409">Serverens certifikat er ikke troværdigt.</translation>
 <translation id="3528485271872257980">Mørkebrun</translation>
 <translation id="3530944546672790857">{COUNT,plural, =0{Mindst 1 element på synkroniserede enheder}=1{1 element (og flere på synkroniserede enheder)}one{# element (og flere på synkroniserede enheder)}other{# elementer (og flere på synkroniserede enheder)}}</translation>
 <translation id="3539171420378717834">Gem en kopi af dette kort på denne enhed</translation>
+<translation id="3553513561058684206">Til dig</translation>
 <translation id="3566021033012934673">Din forbindelse er ikke privat</translation>
 <translation id="3574305903863751447"><ph name="CITY" />, <ph name="STATE" /> <ph name="COUNTRY" /></translation>
 <translation id="3576616784287504635">En integreret side på <ph name="SITE" /> siger</translation>
@@ -604,9 +617,12 @@
 <translation id="3858027520442213535">Opdater dato og tid</translation>
 <translation id="3884278016824448484">Modstridende enheds-id</translation>
 <translation id="3885155851504623709">Amt</translation>
+<translation id="388632593194507180">Der blev registreret overvågning.</translation>
 <translation id="3890664840433101773">Tilføj mail</translation>
+<translation id="3897092660631435901">Menu</translation>
 <translation id="3901925938762663762">Kortet er udløbet</translation>
 <translation id="3906600011954732550">B5-Extra</translation>
+<translation id="3906954721959377182">Tablet</translation>
 <translation id="3909695131102177774"><ph name="LABEL" /> <ph name="ERROR" /></translation>
 <translation id="3939773374150895049">Vil du bruge WebAuthn i stedet for kontrolkoden?</translation>
 <translation id="3946209740501886391">Spørg altid på dette website</translation>
@@ -614,6 +630,7 @@
 <translation id="3949601375789751990">Din browserhistorik vises her</translation>
 <translation id="3949870428812919180">Der er ingen gemte betalingsmetoder</translation>
 <translation id="3950820424414687140">Log ind</translation>
+<translation id="3961148744525529027">Regnearket for betalingshandler er åbnet halvt</translation>
 <translation id="3962859241508114581">Forrige nummer</translation>
 <translation id="3963837677003247395">Vil du fortsætte manuelt?</translation>
 <translation id="3964661563329879394">{COUNT,plural, =0{Ingen}=1{1 website }one{# website }other{# websites }}</translation>
@@ -638,12 +655,12 @@
 <translation id="4082393374666368382">Indstillinger – administration</translation>
 <translation id="4098354747657067197">Vildledende website forude</translation>
 <translation id="4103249731201008433">Enhedens serienummer er ugyldigt</translation>
-<translation id="410351446219883937">Autoplay</translation>
 <translation id="4103763322291513355">Gå til &lt;strong&gt;chrome://policy&lt;/strong&gt; for at se listen over sortlistede webadresser og andre politikker, din systemadministrator har igangsat.</translation>
 <translation id="4108231218301530806">Brug fingeraftryk til at bekræfte dette kort næste gang.</translation>
 <translation id="4110652170750985508">Gennemgå din betaling</translation>
 <translation id="4112140312785995938">Spol tilbage</translation>
 <translation id="4116663294526079822">Tillad altid på dette website</translation>
+<translation id="4116701314593212016">JIS B7</translation>
 <translation id="4117700440116928470">Politikkens omfang understøttes ikke.</translation>
 <translation id="4123572138124678573">Tre huller nederst</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{1 anden/andet}one{# anden/andet}other{# andre}}</translation>
@@ -658,7 +675,6 @@
 <translation id="4173827307318847180">{MORE_ITEMS,plural, =1{<ph name="ITEM_COUNT" /> element mere}one{<ph name="ITEM_COUNT" /> element mere}other{<ph name="ITEM_COUNT" /> elementer mere}}</translation>
 <translation id="4176463684765177261">Deaktiveret</translation>
 <translation id="4179515394835346607"><ph name="ROW_NAME" /> <ph name="ROW_CONTENT" /></translation>
-<translation id="4193750898749511769">Du kan betale hurtigere næste gang ved at føje dit kort og din faktureringsadresse til din Google-konto.</translation>
 <translation id="4194250254487269611">Dit kort kan ikke gemmes lige nu</translation>
 <translation id="4196861286325780578">&amp;Annuller fortryd flytning</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />Kontrollere firewall- og antiviruskonfigurationer<ph name="END_LINK" /></translation>
@@ -685,6 +701,7 @@
 <translation id="4226937834893929579"><ph name="BEGIN_LINK" />Prøv at køre Netværksdiagnosticering<ph name="END_LINK" />.</translation>
 <translation id="4234495348042597185"><ph name="BEGIN_LINK" />Fortsæt til <ph name="SITE" /><ph name="END_LINK" /></translation>
 <translation id="4235360514405112390">Gyldig</translation>
+<translation id="4248776159690739358">Del data om sikkerhedshændelser, som rapporteres af Chrome Enterprise Threat Protection, med din administrator. Dette kan omfatte webadresserne til de sider, du besøger, filnavne eller metadata samt det brugernavn, du brugte til at logge ind med på din enhed og i Chrome.</translation>
 <translation id="4250431568374086873">Din forbindelse til dette website er ikke helt sikker</translation>
 <translation id="4250680216510889253">Nej</translation>
 <translation id="425582637250725228">Ændringer, du har foretaget, gemmes muligvis ikke.</translation>
@@ -702,6 +719,7 @@
 <translation id="4305817255990598646">Skift</translation>
 <translation id="4312613361423056926">B2</translation>
 <translation id="4312866146174492540">Bloker (standardindstilling)</translation>
+<translation id="4318312030194671742">Paint Preview Compositor Service</translation>
 <translation id="4318566738941496689">Din enheds navn og netværksadresse</translation>
 <translation id="4325863107915753736">Artiklen blev ikke fundet.</translation>
 <translation id="4326324639298822553">Kontrollér, om udløbsdatoen er korrekt, og prøv igen.</translation>
@@ -710,6 +728,7 @@
 <translation id="4346197816712207223">Accepterede kreditkort</translation>
 <translation id="4346833872170306413">Roc-16K</translation>
 <translation id="4356973930735388585">Hackere på dette website vil muligvis forsøge at installere skadelige programmer på din computer, som stjæler eller sletter dine oplysninger (f.eks. billeder, adgangskoder, beskeder og kreditkortoplysninger).</translation>
+<translation id="4358059973562876591">De skabeloner, du har angivet, anvendes muligvis ikke på grund af en fejl med politikken DnsOverHttpsMode.</translation>
 <translation id="4358461427845829800">Administrer betalingsmetoder...</translation>
 <translation id="4367563149485757821">Number-12 (Envelope)</translation>
 <translation id="437058704415269440">Kontosaldo</translation>
@@ -717,6 +736,7 @@
 <translation id="4372948949327679948">Forventet <ph name="VALUE_TYPE" />-værdi.</translation>
 <translation id="4377125064752653719">Du har forsøgt at få fat på <ph name="DOMAIN" />, men serverens certifikat er blevet tilbagekaldt af udgiveren. Det betyder, at du bestemt ikke bør have tillid til serverens sikkerhedsoplysninger. Du kommunikerer muligvis med en hacker.</translation>
 <translation id="4378154925671717803">Telefon</translation>
+<translation id="437847259914972036">Din aktivitet på nettet og alle de oplysninger, du angiver, overvåges, og indhold ændres muligvis, uden at du underrettes.</translation>
 <translation id="4398334096870680409">Denne funktion er ikke tilgængelig på din enhed.</translation>
 <translation id="4406896451731180161">søgeresultater</translation>
 <translation id="4408413947728134509">Cookies <ph name="NUM_COOKIES" /></translation>
@@ -756,6 +776,7 @@
 <translation id="4594403342090139922">&amp;Fortryd sletning</translation>
 <translation id="4597348597567598915">Størrelse 8</translation>
 <translation id="4600854749408232102">C6/C5 (Envelope)</translation>
+<translation id="4613966523036881546">Google Chrome har ikke tillid til certifikatet for denne forbindelse, da det er kendt for at blive anvendt til at opfange og overvåge netværk.</translation>
 <translation id="4635654612248442824">Websitet <ph name="ORIGIN" /> har anmodet om, at en politik for oprindelse
     skal gælde for alle dets anmodninger, men denne politik kan ikke anvendes i øjeblikket.</translation>
 <translation id="464342062220857295">Søgefunktioner</translation>
@@ -778,7 +799,6 @@
 <translation id="4738601419177586157"><ph name="TEXT" />-søgeforslag</translation>
 <translation id="4742407542027196863">Administrer adgangskoder…</translation>
 <translation id="4744603770635761495">Eksekverbar sti</translation>
-<translation id="47454865135383664">Skal kortet føjes til din Google-konto?</translation>
 <translation id="4750917950439032686">Dine oplysninger (f.eks. adgangskoder eller kreditkortnumre) er private, når de sendes til dette website.</translation>
 <translation id="4756388243121344051">&amp;Historik</translation>
 <translation id="4758311279753947758">Tilføj kontaktoplysninger</translation>
@@ -909,12 +929,12 @@
 <translation id="5329858041417644019">Din browser administreres ikke</translation>
 <translation id="5332219387342487447">Leveringsmetode</translation>
 <translation id="5334013548165032829">Detaljerede systemlogfiler</translation>
+<translation id="534295439873310000">NFC-enheder</translation>
 <translation id="5344579389779391559">Denne side forsøger muligvis at opkræve penge af dig</translation>
 <translation id="5355557959165512791">Du kan ikke besøge <ph name="SITE" /> lige nu, da dets certifikat er blevet tilbagekaldt. Netværksfejl og angreb er normalt midlertidige, så siden vil sandsynligvis fungere igen senere.</translation>
 <translation id="536296301121032821">Der kunne ikke gemmes indstillinger for politik</translation>
 <translation id="5371425731340848620">Opdater kortet</translation>
 <translation id="5377026284221673050">"Dit ur er bagud" eller "Dit ur er forud" eller "&lt;span class="error-code"&gt;NET::ERR_CERT_DATE_INVALID&lt;/span&gt;"</translation>
-<translation id="5384855140246857529">Log ind, og aktivér synkronisering for at bruge dine kort på alle enheder.</translation>
 <translation id="5386426401304769735">Certifikatkæden for dette website indeholder et certifikat, der er signeret med SHA-1.</translation>
 <translation id="538659543871111977">A4-Tab</translation>
 <translation id="5396631636586785122">Kanthæftning i højre side</translation>
@@ -952,6 +972,7 @@
 <translation id="5565735124758917034">Aktiv</translation>
 <translation id="5570825185877910964">Beskyt konto</translation>
 <translation id="5571083550517324815">Der kan ikke afhentes på denne adresse. Vælg en anden adresse.</translation>
+<translation id="5572009199897554128">Du har netop angivet din adgangskode på et vildledende website. Chromium anbefaler, at du går til <ph name="WEBSITE_1" /> og <ph name="WEBSITE_2" /> og ændrer din adgangskode med det samme.</translation>
 <translation id="5580958916614886209">Kontrollér, om udløbsmåneden er korrekt, og prøv igen.</translation>
 <translation id="5586446728396275693">Der er ikke nogen gemte adresser</translation>
 <translation id="5595485650161345191">Rediger adresse</translation>
@@ -976,6 +997,7 @@
 <translation id="5685654322157854305">Tilføj leveringsadresse</translation>
 <translation id="5689199277474810259">Eksportér i JSON</translation>
 <translation id="5689516760719285838">Placering</translation>
+<translation id="569000877158168851">DnsOverHttpsTemplates-værdien er ikke relevant og anvendes ikke, medmindre politikken DnsOverHttpsMode er angivet som enten <ph name="SECURE_DNS_MODE_AUTOMATIC" /> eller <ph name="SECURE_DNS_MODE_SECURE" />.</translation>
 <translation id="570530837424789914">Administrer...</translation>
 <translation id="57094364128775171">Foreslå stærk adgangskode…</translation>
 <translation id="5710435578057952990">Dette websites identitet er ikke blevet bekræftet.</translation>
@@ -1001,6 +1023,7 @@
 <translation id="5813119285467412249">&amp;Annuller fortryd tilføjelse</translation>
 <translation id="583281660410589416">Ukendt</translation>
 <translation id="5838278095973806738">Du bør ikke indtaste følsomme oplysninger på dette website (f.eks. adgangskoder eller kreditkortoplysninger), da de kan blive stjålet af hackere.</translation>
+<translation id="5851548754964597211">Faneliste</translation>
 <translation id="5855253129151731373">Hostname for dette website minder om <ph name="LOOKALIKE_DOMAIN" />. Svindlere efterligner nogle gange websites ved at lave små ændringer af domænenavnet, som er svære at se.
 
     Hvis du mener, at denne advarsel er en fejl, kan du besøge https://bugs.chromium.org/p/chromium/issues/entry?template=Safety+Tips+Appeals.</translation>
@@ -1024,7 +1047,6 @@
 <translation id="5932224571077948991">Websitet viser påtrængende eller vildledende annoncer</translation>
 <translation id="5939847200023027600">PDF Compositor Service</translation>
 <translation id="5946937721014915347">Åbner <ph name="SITE_NAME" />…</translation>
-<translation id="5947933617628957894">Ja, tilføj</translation>
 <translation id="5951495562196540101">Det er ikke muligt at tilmelde sig med en forbrugerkonto (mulighed for tilknyttet licens ).</translation>
 <translation id="5967592137238574583">Rediger kontaktoplysninger</translation>
 <translation id="5967867314010545767">Fjern fra historik</translation>
@@ -1062,6 +1084,7 @@
 <translation id="6064217302520318294">Skærmlås</translation>
 <translation id="6080696365213338172">Du har opnår adgang til indhold vha. et administratorcertifikat. De data, du angiver til <ph name="DOMAIN" />, kan indhentes af din administrator.</translation>
 <translation id="6094273045989040137">Annoter</translation>
+<translation id="6104072995492677441">JIS B6</translation>
 <translation id="610911394827799129">Din Google-konto kan have andre former for browserhistorik på <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /></translation>
 <translation id="6132597952260690497">Oplysninger om installerede udvidelser og plugins</translation>
 <translation id="6146055958333702838">Kontrollér eventuelle kabler, og genstart alle routere, modemmer eller andre
@@ -1071,7 +1094,6 @@
 <translation id="6151417162996330722">Servercertifikatet har en gyldighedsperiode, der er for lang.</translation>
 <translation id="6157877588268064908">Vælg en adresse for at se forsendelsesmetoder og -krav</translation>
 <translation id="6165508094623778733">Flere oplysninger</translation>
-<translation id="6169916984152623906">Nu kan du gå på nettet privat, og andre brugere på denne enhed kan ikke se din aktivitet. Downloads og bogmærker gemmes dog stadig.</translation>
 <translation id="6177128806592000436">Din forbindelse til dette website er ikke sikker.</translation>
 <translation id="6203231073485539293">Kontrollér din internetforbindelse</translation>
 <translation id="6218753634732582820">Vil du fjerne adressen fra Chromium?</translation>
@@ -1088,9 +1110,16 @@
 <translation id="6266934640124581640">Lys grønblå</translation>
 <translation id="6276112860590028508">Sider fra din læseliste vises her</translation>
 <translation id="627746635834430766">Gem dit kort og din faktureringsadresse på din Google-konto for at betale hurtigere næste gang.</translation>
+<translation id="6279516281132775660">Chrome <ph name="BEGIN_EMPHASIS" />gemmer ikke<ph name="END_EMPHASIS" /> følgende oplysninger:
+        <ph name="BEGIN_LIST" />
+          <ph name="LIST_ITEM" />Din browserhistorik
+          <ph name="LIST_ITEM" />Cookies og websitedata
+          <ph name="LIST_ITEM" />Oplysninger, der er angivet i formularer
+        <ph name="END_LIST" /></translation>
 <translation id="6280223929691119688">Der kan ikke leveres til denne adresse. Vælg en anden adresse.</translation>
 <translation id="6282194474023008486">Postnummer</translation>
 <translation id="6290238015253830360">Forslag til artikler til dig vises her</translation>
+<translation id="6293309776179964942">JIS B5</translation>
 <translation id="6302269476990306341">Google Assistent i Chrome stopper</translation>
 <translation id="6305205051461490394"><ph name="URL" /> kan ikke nås.</translation>
 <translation id="6321917430147971392">Kontrollér dine DNS-indstillinger</translation>
@@ -1119,15 +1148,14 @@
 <translation id="6410264514553301377">Angiv udløbsdatoen og kontrolkoden for <ph name="CREDIT_CARD" /></translation>
 <translation id="6415778972515849510">Chromium kan hjælpe dig med at beskytte din Google-konto og ændre din adgangskode.</translation>
 <translation id="6427730057873428458">Portfals</translation>
-<translation id="6431585503458005759">Gem ikke</translation>
 <translation id="6433490469411711332">Rediger kontaktoplysninger</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> nægtede at oprette forbindelse.</translation>
 <translation id="6434309073475700221">Kasser</translation>
-<translation id="6435221585574090192">Del data om sikkerhedshændelser, som rapporteres af Chrome Enterprise Threat Protection, med din administrator. Disse data kan indeholde webadresser, filnavne og -metadata, brugernavnet for din enhed samt dit Chrome-brugernavn.</translation>
 <translation id="6440503408713884761">Ignoreret</translation>
 <translation id="6446163441502663861">Kahu (Envelope)</translation>
 <translation id="6446608382365791566">Tilføj flere oplysninger</translation>
 <translation id="6447842834002726250">Cookies</translation>
+<translation id="644931407731409778">PDF-dokument, der indeholder {COUNT,plural, =1{1 side}one{# side}other{# sider}}</translation>
 <translation id="6451458296329894277">Bekræft genindsendelse af formular</translation>
 <translation id="6457206614190510200">Samlehæftning</translation>
 <translation id="6465306955648956876">Administrer adgangskoder...</translation>
@@ -1136,7 +1164,6 @@
 <translation id="6489534406876378309">Start upload af nedbrud</translation>
 <translation id="6499038740797743453">Vil du nulstille adgangskoden?</translation>
 <translation id="6507833130742554667">Betalingskort accepteres.</translation>
-<translation id="650855688985305916">Ja, gem</translation>
 <translation id="6508722015517270189">Genstart Chrome</translation>
 <translation id="6517596291481585650">Advarsel! Denne politik blev ikke flettet som angivet i politikken, da den ikke er en liste.</translation>
 <translation id="6518133107902771759">Bekræft</translation>
@@ -1147,6 +1174,7 @@
 <translation id="6547208576736763147">To huller i venstre side</translation>
 <translation id="6554795675067793129">Din konto administreres af <ph name="ENROLLMENT_DOMAIN" />.</translation>
 <translation id="6556866813142980365">Gør det igen</translation>
+<translation id="6559565319173126218">Chrome har ikke tillid til certifikatet for denne forbindelse, da det er kendt for at blive anvendt til at opfange og overvåge netværk.</translation>
 <translation id="6569060085658103619">Du ser en udvidelsesside</translation>
 <translation id="6573200754375280815">To huller i højre side</translation>
 <translation id="6578796323535178455">C2 (Envelope)</translation>
@@ -1157,11 +1185,13 @@
 <translation id="6596325263575161958">Krypteringsmuligheder</translation>
 <translation id="6604181099783169992">Bevægelses- eller lyssensorer</translation>
 <translation id="6609880536175561541">Prc7 (Envelope)</translation>
+<translation id="6612358246767739896">Beskyttet indhold</translation>
 <translation id="6624427990725312378">Kontaktoplysninger</translation>
 <translation id="6626291197371920147">Tilføj gyldigt kortnummer</translation>
 <translation id="6628463337424475685"><ph name="ENGINE" /> -søgning</translation>
 <translation id="6630809736994426279">Brugere med ondsindede hensigter, der i øjeblikket er på <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" />, kan forsøge at installere farlige programmer på din Mac, som stjæler eller sletter dine oplysninger (f.eks. fotos, adgangskoder, beskeder og kreditkort). <ph name="BEGIN_LEARN_MORE_LINK" />Få flere oplysninger<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6631202559048444592">Der er mere end én kilde for politikken, men værdierne er de samme.</translation>
+<translation id="663260587451432563">JIS B4</translation>
 <translation id="6643016212128521049">Ryd</translation>
 <translation id="6644283850729428850">Denne politik er forældet.</translation>
 <translation id="6646269444027925224">{COUNT,plural, =0{Ingen}=1{Fra 1 website (du logges ikke ud af din Google-konto)}one{Fra # website (du logges ikke ud af din Google-konto)}other{Fra # websites (du logges ikke ud af din Google-konto)}}</translation>
@@ -1178,12 +1208,14 @@
 <translation id="6710594484020273272">&lt;Indtast søgeterm&gt;</translation>
 <translation id="671076103358959139">Tilmeldingstoken:</translation>
 <translation id="6711464428925977395">Der er noget galt med proxyserveren, eller adressen er forkert.</translation>
+<translation id="6721811549156553509">Netværksovervågeren kan foregive at være de websites, du besøger, og kan se din aktivitet og de oplysninger, du angiver (f.eks. adgangskoder, meddelelser eller betalingskort). Du skal være forsigtig, når du foretager dig noget på nettet, som involverer følsomme oplysninger, da disse vil være synlige for netværksovervågeren, der også kan ændre indholdet på de sider, du besøger. Dette omfatter aktivitet i andre browsere og programmer, der har adgang til internettet.</translation>
 <translation id="6738516213925468394">Dine data blev krypteret med din <ph name="BEGIN_LINK" />adgangssætning til synkronisering<ph name="END_LINK" /> <ph name="TIME" />. Indtast adgangssætningen for at starte synkroniseringen.</translation>
 <translation id="674375294223700098">Ukendt fejl i servercertifikatet.</translation>
 <translation id="6744009308914054259">Mens du venter på en forbindelse, kan du gå til Downloads for at læse artikler offline.</translation>
 <translation id="6753269504797312559">Politikkens værdi</translation>
 <translation id="6757797048963528358">Din enhed gik i dvale.</translation>
 <translation id="6768213884286397650">Hagaki (Postcard)</translation>
+<translation id="6775759552199460396">JIS B2</translation>
 <translation id="67862343314499040">Violet</translation>
 <translation id="6786747875388722282">Udvidelser</translation>
 <translation id="6790428901817661496">Afspil</translation>
@@ -1261,6 +1293,7 @@
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />Få flere oplysninger<ph name="END_LINK" /> om dette problem.</translation>
 <translation id="7219179957768738017">Forbindelsen bruger <ph name="SSL_VERSION" />.</translation>
 <translation id="7220786058474068424">Behandler</translation>
+<translation id="7239736667463137521">Chrome har registreret, at din forbindelse overvåges.</translation>
 <translation id="7243010569062352439"><ph name="PASSWORDS" />; <ph name="SIGNIN_DATA" /></translation>
 <translation id="724691107663265825">Det site, du er på vej til, indeholder malware</translation>
 <translation id="724975217298816891">Opdater dine kortoplysninger ved at indtaste udløbsdatoen og kontrolkoden for <ph name="CREDIT_CARD" />. Når du bekræfter, deles dine kortoplysninger med dette website.</translation>
@@ -1274,7 +1307,6 @@ Yderligere oplysninger:
 <translation id="7298195798382681320">Anbefalet</translation>
 <translation id="7300012071106347854">Koboltblå</translation>
 <translation id="7302712225291570345">"<ph name="TEXT" />"</translation>
-<translation id="7303701124147721189">Du kan betale hurtigere næste gang ved at gemme dit kort og din faktureringsadresse på din Google-konto og på denne enhed.</translation>
 <translation id="7304030187361489308">Højt</translation>
 <translation id="7309308571273880165">Nedbrudsrapport registreret <ph name="CRASH_TIME" /> (upload, som brugeren anmodede om, er endnu ikke uploadet)</translation>
 <translation id="7313965965371928911">Advarsler fra <ph name="BEGIN_LINK" />Beskyttet browsing<ph name="END_LINK" /></translation>
@@ -1288,6 +1320,7 @@ Yderligere oplysninger:
 <translation id="7346048084945669753">Er tilknyttet:</translation>
 <translation id="7349430561505560861">A4-Extra</translation>
 <translation id="7353601530677266744">Kommandolinje</translation>
+<translation id="7353776484425559055">Chromium har ikke tillid til certifikatet for denne forbindelse, da det er kendt for at blive anvendt til at opfange og overvåge netværk. Du får muligvis vist denne fejl på grund af et certifikat, du har installeret på din enhed. Ved oprettelse af sikre forbindelse stoler Chromium på certifikater, der er blevet installeret lokalt på en brugers computer eller mobilenhed. Dette giver brugerne mulighed for at køre værktøjer til at inspicere og fejlrette deres forbindelser under udviklingen af websites, eller gør det muligt at opfange og overvåge intern trafik i virksomhedsøjemed. Chromium viser en advarsel, når dette udnyttes til at opfange trafik på det offentlige internet.</translation>
 <translation id="7372973238305370288">søgeresultat</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE" /> - <ph name="FULL_DATE" /></translation>
 <translation id="7378594059915113390">Mediestyring</translation>
@@ -1349,6 +1382,7 @@ Yderligere oplysninger:
 <translation id="7592362899630581445">Begrænsningerne for serverens certifikatnavn er overtrådt.</translation>
 <translation id="7598391785903975535">Mindre end <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="759889825892636187"><ph name="HOST_NAME" /> kan i øjeblikket ikke behandle denne anmodning.</translation>
+<translation id="7599841999395223597">Chrome har ikke tillid til certifikatet for denne forbindelse, da det er kendt for at blive anvendt til at opfange og overvåge netværk. Du får muligvis vist denne fejl på grund af et certifikat, du har installeret på din enhed. Ved oprettelse af sikre forbindelser stoler Chrome på certifikater, der er blevet installeret lokalt på en brugers computer eller mobilenhed. Dette giver brugerne mulighed for at køre værktøjer til at inspicere og fejlrette deres forbindelser under udviklingen af websites, eller gør det muligt at opfange og overvåge intern trafik i virksomhedsøjemed. Chrome viser en advarsel, når dette udnyttes til at opfange trafik på det offentlige internet.</translation>
 <translation id="7600965453749440009">Oversæt aldrig <ph name="LANGUAGE" /></translation>
 <translation id="7610193165460212391">Værdien er uden for intervallet <ph name="VALUE" />.</translation>
 <translation id="7613889955535752492">Udløbsdato: <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
@@ -1358,6 +1392,7 @@ Yderligere oplysninger:
 <translation id="7637571805876720304">Vil du fjerne kreditkortet fra Chromium?</translation>
 <translation id="7638605456503525968">Serieporte</translation>
 <translation id="7639968568612851608">Mørkegrå</translation>
+<translation id="7653957176542370971">Regnearket for betalingshandler er lukket</translation>
 <translation id="765676359832457558">Skjul avancerede indstillinger...</translation>
 <translation id="7658239707568436148">Annuller</translation>
 <translation id="7662298039739062396">Indstillingen styres af en udvidelse</translation>
@@ -1457,6 +1492,7 @@ Yderligere oplysninger:
 <translation id="8103161714697287722">Betalingsmetode</translation>
 <translation id="8105368624971345109">Deaktiver</translation>
 <translation id="8118489163946903409">Betalingsmetode</translation>
+<translation id="8124023448510659215">Chromium har ikke tillid til certifikatet for denne forbindelse, da det er kendt for at blive anvendt til at opfange og overvåge netværk.</translation>
 <translation id="8127301229239896662">"<ph name="SOFTWARE_NAME" />" blev ikke korrekt installeret på computeren eller netværket. Bed din IT-administrator om at løse problemet.</translation>
 <translation id="8131740175452115882">Bekræft</translation>
 <translation id="8149426793427495338">Din computer gik i dvale.</translation>
@@ -1487,6 +1523,8 @@ Yderligere oplysninger:
 <translation id="8261506727792406068">Slet</translation>
 <translation id="8262952874573525464">Kanthæftning nederst</translation>
 <translation id="8267698848189296333">Logger ind som <ph name="USERNAME" /></translation>
+<translation id="8269981117540303696">Nu kan du gå på nettet privat, så andre brugere på denne enhed kan ikke se din aktivitet. Downloads og bogmærker gemmes dog stadig.</translation>
+<translation id="8277900682056760511">Regnearket for betalinghandler er åbnet</translation>
 <translation id="8281084378435768645">Large-Photo</translation>
 <translation id="8286036467436129157">Log ind</translation>
 <translation id="8288807391153049143">Vis certifikat</translation>
@@ -1502,7 +1540,6 @@ Yderligere oplysninger:
 <translation id="8340095855084055290"><ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
 <translation id="834457929814110454">Hvis du er indforstået med de forbundne sikkerhedsrisici, kan du <ph name="BEGIN_LINK" />besøge dette website<ph name="END_LINK" />, inden de skadelige programmer fjernes.</translation>
 <translation id="8349305172487531364">Bogmærkelinje</translation>
-<translation id="836241887727198552">Vil du gemme kort på din Google-konto?</translation>
 <translation id="8363502534493474904">Deaktivere flytilstand</translation>
 <translation id="8364627913115013041">Ikke angivet.</translation>
 <translation id="8368476060205742148">Google Play-tjenester</translation>
@@ -1520,7 +1557,6 @@ Yderligere oplysninger:
 <translation id="8428213095426709021">Indstillinger</translation>
 <translation id="8433057134996913067">Dette logger dig ud af de fleste websites.</translation>
 <translation id="8437238597147034694">&amp;Fortryd flytning</translation>
-<translation id="8440508849222143646">Du kan betale hurtigere næste gang ved at gemme dit kort og din faktureringsadresse på din Google-konto.</translation>
 <translation id="8461694314515752532">Kryptér synkroniserede data med din egen adgangssætning til synkronisering</translation>
 <translation id="8466379296835108687">{COUNT,plural, =1{1 kreditkort}one{# kreditkort}other{# kreditkort}}</translation>
 <translation id="8473863474539038330">Adresser m.m.</translation>
@@ -1542,15 +1578,16 @@ Yderligere oplysninger:
 <translation id="858637041960032120">Tilføj tlf.nr.
 </translation>
 <translation id="860043288473659153">Kortholderens navn</translation>
+<translation id="8616822740383114808">Denne indstilling håndhæves af "<ph name="ENFORCING_SETTING" />" på "<ph name="SETTINGS_PAGE" />"</translation>
 <translation id="861775596732816396">Størrelse 4</translation>
 <translation id="8622948367223941507">Legal-Extra</translation>
 <translation id="8625384913736129811">Gem dette kort på denne enhed</translation>
-<translation id="8626112503828625890">Skal faktureringsoplysningerne gemmes på din Google-konto?</translation>
 <translation id="8647750283161643317">Nulstil alle til standard</translation>
 <translation id="8663226718884576429">Ordreoversigt, <ph name="TOTAL_LABEL" />, flere oplysninger</translation>
 <translation id="8680536109547170164"><ph name="QUERY" />, svar, <ph name="ANSWER" /></translation>
 <translation id="8685155993131031756">Prc-16K</translation>
 <translation id="8688672835843460752">Tilgængelig</translation>
+<translation id="869891660844655955">Udløbsdato</translation>
 <translation id="8703575177326907206">Din forbindelse til <ph name="DOMAIN" /> er ikke krypteret.</translation>
 <translation id="8718314106902482036">Betalingen blev ikke fuldført</translation>
 <translation id="8719263113926255150"><ph name="ENTITY" />, <ph name="DESCRIPTION" />, søgeforslag</translation>
@@ -1566,7 +1603,6 @@ Yderligere oplysninger:
 <translation id="8759274551635299824">Kortet er udløbet</translation>
 <translation id="8761567432415473239">Beskyttet browsing i Google har for nylig <ph name="BEGIN_LINK" />fundet skadelige programmer<ph name="END_LINK" /> på <ph name="SITE" />.</translation>
 <translation id="8763927697961133303">USB-enhed</translation>
-<translation id="8768895707659403558"><ph name="SIGN_IN_LINK" /> for at bruge dine kort på alle dine enheder.</translation>
 <translation id="877985182522063539">A4</translation>
 <translation id="8790007591277257123">&amp;Annuller fortryd sletning</translation>
 <translation id="8792621596287649091">Du kan miste adgangen til din <ph name="ORG_NAME" />-konto eller udsættes for identitetstyveri. Chromium anbefaler, at du skifter din adgangskode nu.</translation>
@@ -1587,6 +1623,7 @@ Yderligere oplysninger:
 <translation id="8891727572606052622">Ugyldig proxytilstand.</translation>
 <translation id="8903921497873541725">Zoom ind</translation>
 <translation id="890485472659500557">Engineering-C</translation>
+<translation id="8910670906166981838">Du er i inkognitotilstand</translation>
 <translation id="8912362522468806198">Google-konto</translation>
 <translation id="8918231688545606538">Denne side er mistænkelig</translation>
 <translation id="892588693504540538">Hul øverst til højre</translation>
@@ -1597,8 +1634,9 @@ Yderligere oplysninger:
 <translation id="8943282376843390568">Limegrøn</translation>
 <translation id="8957210676456822347">Godkendelse af captive portal</translation>
 <translation id="8962950042226115166">Mistænkeligt website</translation>
-<translation id="8966619695390250636">Mente du?</translation>
 <translation id="8968766641738584599">Gem kort</translation>
+<translation id="8969267497192857913">Alt det, du skriver, alle de sider, du besøger, og alle dine andre aktiviteter på nettet overvåges, og indholdet på websites kan blive ændret, uden at du underrettes.
+    <ph name="BEGIN_LEARN_MORE_LINK" />Få flere oplysninger<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="8971063699422889582">Serverens certifikat er udløbet.</translation>
 <translation id="8975012916872825179">Omfatter oplysninger såsom telefonnumre, mailadresser og leveringsadresser</translation>
 <translation id="8975263830901772334">Navne på filer, som du udskriver</translation>
@@ -1662,6 +1700,7 @@ Yderligere oplysninger:
 <translation id="936474030629450166">Super-B</translation>
 <translation id="936602727769022409">Du kan miste adgangen til din Google-konto. Chromium anbefaler, at du skifter din adgangskode nu. Du bliver bedt om at logge ind.</translation>
 <translation id="939736085109172342">Ny mappe</translation>
+<translation id="940786960229275114">Du har netop angivet din adgangskode på et vildledende website. Chrome anbefaler, at du går til <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" /> og <ph name="WEBSITE_3" /> og ændrer din adgangskode med det samme.</translation>
 <translation id="945855313015696284">Se oplysningerne nedenfor, og slet eventuelle ugyldige kort</translation>
 <translation id="950736567201356821">Tre huller øverst</translation>
 <translation id="951104842009476243">Accepterede betalingskort og forudbetalte kort</translation>
@@ -1683,6 +1722,7 @@ Yderligere oplysninger:
     &lt;li&gt;Prøv at afinstallere eller deaktivere "<ph name="SOFTWARE_NAME" />"&lt;/li&gt;
     &lt;li&gt;Prøv at oprette forbindelse til et andet netværk&lt;/li&gt;
     &lt;/ul&gt;</translation>
+<translation id="994346157028146140">JIS B1</translation>
 <translation id="997986563973421916">Fra Google Pay</translation>
 <translation id="998893882640184078">Åbn nyt Chrome-inkognitovindue</translation>
 </translationbundle>

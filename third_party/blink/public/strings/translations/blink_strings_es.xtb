@@ -54,7 +54,6 @@
 <translation id="2674318244760992338">pie de página</translation>
 <translation id="2709516037105925701">Autocompletar</translation>
 <translation id="2723001399770238859">audio</translation>
-<translation id="2725963129578236554">comentarios</translation>
 <translation id="2746543609216772311">El valor debe ser igual o posterior a <ph name="MINIMUM_DATE_OR_TIME" />.</translation>
 <translation id="2759744352195237655">botón emergente</translation>
 <translation id="2761667185364618470">Selecciona esta casilla de verificación si quieres continuar</translation>
@@ -106,6 +105,7 @@
 <translation id="4661075872484491155">tree</translation>
 <translation id="4664250907885839816">El texto detrás del signo "<ph name="ATSIGN" />" no debe incluir el símbolo "<ph name="INVALIDCHARACTER" />".</translation>
 <translation id="4668956016107839909">apéndice</translation>
+<translation id="4698212723196775569">código</translation>
 <translation id="4718048029184481307">Reproduciendo en modo imagen en imagen</translation>
 <translation id="4742539557769756338">portada</translation>
 <translation id="4748357248530471599">activar pantalla completa en el recorte de la pantalla</translation>
@@ -114,6 +114,7 @@
 <translation id="479989351350248267">buscar</translation>
 <translation id="4812940957355064477">Debes introducir un número</translation>
 <translation id="4912536737030637138">entrada bibliográfica</translation>
+<translation id="492244087561876220">comentario</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> seleccionados</translation>
 <translation id="4992066212339426712">Activar sonido</translation>
 <translation id="49969490063480558">Introduce texto detrás del signo "<ph name="ATSIGN" />". La dirección "<ph name="INVALIDADDRESS" />" está incompleta.</translation>
@@ -142,7 +143,7 @@
 <translation id="5677946354068040947">más opciones</translation>
 <translation id="576709008726043716">introducción</translation>
 <translation id="57838592816432529">Silenciar</translation>
-<translation id="5860033963881614850">Desactivado</translation>
+<translation id="5860033963881614850">No</translation>
 <translation id="588258955323874662">Pantalla completa</translation>
 <translation id="5888666972993069672">Enviando a <ph name="DEVICE_FRIENDLY_NAME" /> en este momento</translation>
 <translation id="591047860372322273">cuadro de búsqueda</translation>
@@ -163,7 +164,6 @@
 <translation id="6404546809543547843">control deslizante de duración de audio</translation>
 <translation id="6443871981718447451">mostrar menú de subtítulos</translation>
 <translation id="6453774872122745852">agradecimientos</translation>
-<translation id="6475115390776617481">hay otro usuario presente</translation>
 <translation id="648732519525291180">selector de hora</translation>
 <translation id="6550675742724504774">Configuración</translation>
 <translation id="6572309429103589720">La gramática no es válida</translation>
@@ -191,6 +191,7 @@
 <translation id="7118469954320184356">No hay ninguna descripción disponible.</translation>
 <translation id="7139483182332611405">prefacio</translation>
 <translation id="7214187073215825913">información sobre el contenido</translation>
+<translation id="7238347055216017155">énfasis</translation>
 <translation id="7263440858009898357">Selecciona un elemento de la lista</translation>
 <translation id="727747134524199931">encabezado de columna</translation>
 <translation id="7320576522385648310">almacenando en búfer</translation>
@@ -217,6 +218,7 @@
 <translation id="7888071071722539607">Incluye un signo "<ph name="ATSIGN" />" en la dirección de correo electrónico. La dirección "<ph name="INVALIDADDRESS" />" no incluye el signo "<ph name="ATSIGN" />".</translation>
 <translation id="7891486169920085145">divisor</translation>
 <translation id="795667975304826397">Ningún archivo seleccionado</translation>
+<translation id="8034303206267677282">importante</translation>
 <translation id="8053789581856978548">campo para buscar texto</translation>
 <translation id="8057695513531652401">aviso</translation>
 <translation id="8105797009065549151">referencia de nota</translation>
@@ -247,7 +249,6 @@
 <translation id="8711688047404765493">salida</translation>
 <translation id="8750798805984357768">Selecciona una de estas opciones</translation>
 <translation id="8808573423886751634">capítulo</translation>
-<translation id="8822203815165896261">información sobre autoría</translation>
 <translation id="8845239796550121995">Se está enviando contenido a tu TV</translation>
 <translation id="8851136666856101339">principal</translation>
 <translation id="8875657656876809964">No se puede reproducir el vídeo</translation>
@@ -255,6 +256,7 @@
 <translation id="8987927404178983737">Mes</translation>
 <translation id="901493112792887934">tiempo actual en segundos</translation>
 <translation id="901834265349196618">correo electrónico</translation>
+<translation id="9023835124071926463">sección de comentarios</translation>
 <translation id="9048119486235211610">navegación</translation>
 <translation id="9062295712474918030">documento</translation>
 <translation id="9093215626363556771">salir del modo imagen en imagen</translation>

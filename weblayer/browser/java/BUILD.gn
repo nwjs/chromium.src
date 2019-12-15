@@ -11,8 +11,8 @@ android_resources("weblayer_resources") {
   custom_package = "org.chromium.weblayer_private"
 }
 
-generate_locale_config_srcjar("weblayer_locale_config") {
-  java_package = weblayer_locale_config_java_package
+generate_product_config_srcjar("weblayer_product_config") {
+  java_package = weblayer_product_config_java_package
 }
 
 java_cpp_enum("generated_enums") {
@@ -25,8 +25,9 @@ java_cpp_enum("generated_enums") {
 
 android_library("java") {
   java_files = [
-    "org/chromium/weblayer_private/BrowserImpl.java",
+    "org/chromium/weblayer_private/ActionModeCallback.java",
     "org/chromium/weblayer_private/BrowserFragmentImpl.java",
+    "org/chromium/weblayer_private/BrowserImpl.java",
     "org/chromium/weblayer_private/BrowserViewController.java",
     "org/chromium/weblayer_private/ChildProcessServiceImpl.java",
     "org/chromium/weblayer_private/ContentView.java",
@@ -35,15 +36,15 @@ android_library("java") {
     "org/chromium/weblayer_private/DownloadCallbackProxy.java",
     "org/chromium/weblayer_private/ErrorPageCallbackProxy.java",
     "org/chromium/weblayer_private/ExternalNavigationHandler.java",
-    "org/chromium/weblayer_private/ActionModeCallback.java",
+    "org/chromium/weblayer_private/FragmentAndroidPermissionDelegate.java",
+    "org/chromium/weblayer_private/FragmentWindowAndroid.java",
     "org/chromium/weblayer_private/FullscreenCallbackProxy.java",
+    "org/chromium/weblayer_private/LocaleChangedBroadcastReceiver.java",
     "org/chromium/weblayer_private/MinidumpUploader.java",
     "org/chromium/weblayer_private/NavigationControllerImpl.java",
     "org/chromium/weblayer_private/NavigationImpl.java",
     "org/chromium/weblayer_private/NewTabCallbackProxy.java",
     "org/chromium/weblayer_private/ProfileImpl.java",
-    "org/chromium/weblayer_private/FragmentAndroidPermissionDelegate.java",
-    "org/chromium/weblayer_private/FragmentWindowAndroid.java",
     "org/chromium/weblayer_private/ProfileManager.java",
     "org/chromium/weblayer_private/RemoteFragmentImpl.java",
     "org/chromium/weblayer_private/TabCallbackProxy.java",
@@ -52,6 +53,7 @@ android_library("java") {
     "org/chromium/weblayer_private/WebContentsGestureStateTracker.java",
     "org/chromium/weblayer_private/WebLayerFactoryImpl.java",
     "org/chromium/weblayer_private/WebLayerImpl.java",
+    "org/chromium/weblayer_private/metrics/UmaUtils.java",
   ]
 
   deps = [
@@ -65,6 +67,7 @@ android_library("java") {
     "//components/embedder_support/android:application_java",
     "//components/embedder_support/android:web_contents_delegate_java",
     "//components/minidump_uploader:minidump_uploader_java",
+    "//components/spellcheck/browser/android:java",
     "//components/version_info/android:version_constants_java",
     "//content/public/android:content_java",
     "//third_party/android_deps:com_android_support_support_compat_java",
@@ -72,9 +75,9 @@ android_library("java") {
   ]
   srcjar_deps = [
     ":generated_enums",
-    ":weblayer_locale_config",
+    ":weblayer_product_config",
   ]
-  jar_excluded_patterns = [ "*/LocaleConfig.class" ]
+  jar_excluded_patterns = [ "*/ProductConfig.class" ]
   annotation_processor_deps = [ "//base/android/jni_generator:jni_processor" ]
 
   # Needed for android.webkit.WebView(Delegate|Factory)
@@ -89,6 +92,7 @@ generate_jni("jni") {
     "org/chromium/weblayer_private/ErrorPageCallbackProxy.java",
     "org/chromium/weblayer_private/ExternalNavigationHandler.java",
     "org/chromium/weblayer_private/FullscreenCallbackProxy.java",
+    "org/chromium/weblayer_private/LocaleChangedBroadcastReceiver.java",
     "org/chromium/weblayer_private/NavigationControllerImpl.java",
     "org/chromium/weblayer_private/NavigationImpl.java",
     "org/chromium/weblayer_private/NewTabCallbackProxy.java",
@@ -97,6 +101,7 @@ generate_jni("jni") {
     "org/chromium/weblayer_private/TabImpl.java",
     "org/chromium/weblayer_private/TopControlsContainerView.java",
     "org/chromium/weblayer_private/WebLayerImpl.java",
+    "org/chromium/weblayer_private/metrics/UmaUtils.java",
   ]
 }
 
@@ -109,6 +114,7 @@ android_library("interfaces_java") {
     "org/chromium/weblayer_private/interfaces/NavigationState.java",
     "org/chromium/weblayer_private/interfaces/NewTabType.java",
     "org/chromium/weblayer_private/interfaces/ObjectWrapper.java",
+    "org/chromium/weblayer_private/interfaces/StrictModeWorkaround.java",
     "org/chromium/weblayer_private/interfaces/WebLayerVersion.java",
   ]
 

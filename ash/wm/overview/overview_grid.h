@@ -14,6 +14,7 @@
 #include "ash/rotator/screen_rotation_animator_observer.h"
 #include "ash/wm/overview/overview_session.h"
 #include "ash/wm/splitview/split_view_controller.h"
+#include "ash/wm/splitview/split_view_drag_indicators.h"
 #include "ash/wm/splitview/split_view_observer.h"
 #include "ash/wm/window_state.h"
 #include "base/containers/flat_set.h"
@@ -141,11 +142,20 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
 
   // Updates overview bounds and hides the drop target when a preview area is
   // shown.
-  void RearrangeDuringDrag(aura::Window* dragged_window,
-                           IndicatorState indicator_state);
+  void RearrangeDuringDrag(
+      aura::Window* dragged_window,
+      SplitViewDragIndicators::WindowDraggingState window_dragging_state);
+
+  // Sets the dragged window on |split_view_drag_indicators_|.
+  void SetSplitViewDragIndicatorsDraggedWindow(aura::Window* dragged_window);
+
+  // Sets the window dragging state on |split_view_drag_indicators_|.
+  void SetSplitViewDragIndicatorsWindowDraggingState(
+      SplitViewDragIndicators::WindowDraggingState window_dragging_state);
 
   // Updates the desks bar widget bounds if necessary.
-  void MaybeUpdateDesksWidgetBounds();
+  // Returns true if the desks widget's bounds have been updated.
+  bool MaybeUpdateDesksWidgetBounds();
 
   // Updates the appearance of the drop target to visually indicate when the
   // dragged window is being dragged over it. For dragging from the top, pass
@@ -164,16 +174,17 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
   // Called when a window (either it's browser window or an app window)
   // start/continue/end being dragged in tablet mode.
   void OnWindowDragStarted(aura::Window* dragged_window, bool animate);
-  void OnWindowDragContinued(aura::Window* dragged_window,
-                             const gfx::PointF& location_in_screen,
-                             IndicatorState indicator_state);
+  void OnWindowDragContinued(
+      aura::Window* dragged_window,
+      const gfx::PointF& location_in_screen,
+      SplitViewDragIndicators::WindowDraggingState window_dragging_state);
   void OnWindowDragEnded(aura::Window* dragged_window,
                          const gfx::PointF& location_in_screen,
                          bool should_drop_window_into_overview,
                          bool snap);
   // Shows/Hides windows during window dragging. Used when swiping up a window
   // from shelf.
-  void SetVisibleDuringWindowDragging(bool visible);
+  void SetVisibleDuringWindowDragging(bool visible, bool animate);
 
   // Returns true if |window| is the placeholder window from the drop target.
   bool IsDropTargetWindow(aura::Window* window) const;
@@ -297,6 +308,16 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
 
   void EndScroll();
 
+  // Calculate the width of an item based on |height|. The width tries to keep
+  // the same aspect ratio as the original window, but may be modified if the
+  // bounds of the window are considered extreme, or if the window is in
+  // splitview or entering splitview.
+  int CalculateWidthAndMaybeSetUnclippedBounds(OverviewItem* item, int height);
+
+  // Called when a desk is added or removed to update the bounds of the desks
+  // widget as it may need to switch between default and compact layouts.
+  void OnDesksChanged();
+
   // Returns true if the grid has no more windows.
   bool empty() const { return window_list_.empty(); }
 
@@ -310,6 +331,10 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
 
   const std::vector<std::unique_ptr<OverviewItem>>& window_list() const {
     return window_list_;
+  }
+
+  SplitViewDragIndicators* split_view_drag_indicators() {
+    return split_view_drag_indicators_.get();
   }
 
   const DesksBarView* desks_bar_view() const { return desks_bar_view_; }
@@ -396,6 +421,9 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
   // the window's bounds if it has been resized.
   void AddDraggedWindowIntoOverviewOnDragEnd(aura::Window* dragged_window);
 
+  // Returns the the bounds of the desks widget in root window.
+  gfx::Rect GetDesksWidgetBounds() const;
+
   // Root window the grid is in.
   aura::Window* root_window_;
 
@@ -404,6 +432,10 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
 
   // Vector containing all the windows in this grid.
   std::vector<std::unique_ptr<OverviewItem>> window_list_;
+
+  // The owner of the widget that displays split-view-related information. Null
+  // if split view is unsupported (see |ShouldAllowSplitView|).
+  std::unique_ptr<SplitViewDragIndicators> split_view_drag_indicators_;
 
   // Widget that contains the DeskBarView contents when the Virtual Desks
   // feature is enabled.
@@ -464,6 +496,10 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
 
   // Records the presentation time of scrolling the grid in overview mode.
   std::unique_ptr<PresentationTimeRecorder> presentation_time_recorder_;
+
+  // Weak pointer to the window that is being dragged from the top, if there is
+  // one.
+  aura::Window* dragged_window_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(OverviewGrid);
 };

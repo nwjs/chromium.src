@@ -29,11 +29,11 @@
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/layout/layout_provider.h"
 #include "ui/views/widget/widget.h"
-#include "ui/views/window/dialog_client_view.h"
 
 namespace {
 
 bool g_auto_accept_bookmark_app_for_testing = false;
+bool g_auto_check_open_in_window_for_testing = false;
 
 }  // namespace
 
@@ -44,6 +44,9 @@ BookmarkAppConfirmationView::BookmarkAppConfirmationView(
     chrome::AppInstallationAcceptanceCallback callback)
     : web_app_info_(std::move(web_app_info)), callback_(std::move(callback)) {
   DCHECK(web_app_info_);
+  DialogDelegate::set_button_label(
+      ui::DIALOG_BUTTON_OK,
+      l10n_util::GetStringUTF16(IDS_CREATE_SHORTCUTS_BUTTON_LABEL));
   const ChromeLayoutProvider* layout_provider = ChromeLayoutProvider::Get();
   set_margins(layout_provider->GetDialogInsetsForContentType(views::CONTROL,
                                                              views::TEXT));
@@ -68,7 +71,7 @@ BookmarkAppConfirmationView::BookmarkAppConfirmationView(
                        extension_misc::EXTENSION_ICON_SMALL);
   gfx::ImageSkia image(
       std::make_unique<WebAppInfoImageSource>(
-          extension_misc::EXTENSION_ICON_SMALL, web_app_info_->icons),
+          extension_misc::EXTENSION_ICON_SMALL, web_app_info_->icon_bitmaps),
       image_size);
   icon_image_view->SetImageSize(image_size);
   icon_image_view->SetImage(image);
@@ -92,6 +95,10 @@ BookmarkAppConfirmationView::BookmarkAppConfirmationView(
   layout->SkipColumns(1);
   open_as_window_checkbox_ =
       layout->AddView(std::move(open_as_window_checkbox));
+
+  if (g_auto_check_open_in_window_for_testing) {
+    open_as_window_checkbox_->SetChecked(true);
+  }
 
   title_tf_->SelectAll(true);
   chrome::RecordDialogCreation(
@@ -130,13 +137,6 @@ bool BookmarkAppConfirmationView::Accept() {
   return true;
 }
 
-base::string16 BookmarkAppConfirmationView::GetDialogButtonLabel(
-    ui::DialogButton button) const {
-  return l10n_util::GetStringUTF16(button == ui::DIALOG_BUTTON_OK
-                                       ? IDS_CREATE_SHORTCUTS_BUTTON_LABEL
-                                       : IDS_CANCEL);
-}
-
 bool BookmarkAppConfirmationView::IsDialogButtonEnabled(
     ui::DialogButton button) const {
   return button == ui::DIALOG_BUTTON_OK ? !GetTrimmedTitle().empty() : true;
@@ -165,12 +165,14 @@ void ShowBookmarkAppDialog(content::WebContents* web_contents,
   constrained_window::ShowWebModalDialogViews(dialog, web_contents);
 
   if (g_auto_accept_bookmark_app_for_testing) {
-    dialog->GetDialogClientView()->AcceptWindow();
+    dialog->AcceptDialog();
   }
 }
 
-void SetAutoAcceptBookmarkAppDialogForTesting(bool auto_accept) {
+void SetAutoAcceptBookmarkAppDialogForTesting(bool auto_accept,
+                                              bool auto_open_in_window) {
   g_auto_accept_bookmark_app_for_testing = auto_accept;
+  g_auto_check_open_in_window_for_testing = auto_open_in_window;
 }
 
 }  // namespace chrome

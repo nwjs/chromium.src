@@ -51,21 +51,19 @@
 #include "media/media_buildflags.h"
 #include "media/mojo/buildflags.h"
 #include "media/mojo/mojom/constants.mojom.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "mojo/public/cpp/system/invitation.h"
 #include "services/audio/public/mojom/constants.mojom.h"
 #include "services/audio/service.h"
 #include "services/audio/service_factory.h"
-#include "services/data_decoder/public/mojom/constants.mojom.h"
 #include "services/device/device_service.h"
 #include "services/device/public/mojom/constants.mojom.h"
 #include "services/media_session/media_session_service.h"
 #include "services/media_session/public/cpp/features.h"
 #include "services/media_session/public/mojom/constants.mojom.h"
-#include "services/metrics/metrics_mojo_service.h"
-#include "services/metrics/public/mojom/constants.mojom.h"
-#include "services/network/public/cpp/cross_thread_shared_url_loader_factory_info.h"
+#include "services/network/public/cpp/cross_thread_pending_shared_url_loader_factory.h"
 #include "services/network/public/mojom/network_service_test.mojom.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
 #include "services/service_manager/public/cpp/connector.h"
@@ -77,9 +75,6 @@
 #include "services/service_manager/service_manager.h"
 #include "services/service_manager/service_process_host.h"
 #include "services/service_manager/service_process_launcher.h"
-#include "services/tracing/public/cpp/tracing_features.h"
-#include "services/tracing/public/mojom/constants.mojom.h"
-#include "services/tracing/tracing_service.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
 #include "ui/base/buildflags.h"
 #include "ui/base/ui_base_features.h"
@@ -196,18 +191,19 @@ class DeviceServiceURLLoaderFactory : public network::SharedURLLoaderFactory {
   DeviceServiceURLLoaderFactory() = default;
 
   // mojom::URLLoaderFactory implementation:
-  void CreateLoaderAndStart(network::mojom::URLLoaderRequest request,
-                            int32_t routing_id,
-                            int32_t request_id,
-                            uint32_t options,
-                            const network::ResourceRequest& url_request,
-                            network::mojom::URLLoaderClientPtr client,
-                            const net::MutableNetworkTrafficAnnotationTag&
-                                traffic_annotation) override {
+  void CreateLoaderAndStart(
+      mojo::PendingReceiver<network::mojom::URLLoader> receiver,
+      int32_t routing_id,
+      int32_t request_id,
+      uint32_t options,
+      const network::ResourceRequest& url_request,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client,
+      const net::MutableNetworkTrafficAnnotationTag& traffic_annotation)
+      override {
     GetContentClient()
         ->browser()
         ->GetSystemSharedURLLoaderFactory()
-        ->CreateLoaderAndStart(std::move(request), routing_id, request_id,
+        ->CreateLoaderAndStart(std::move(receiver), routing_id, request_id,
                                options, url_request, std::move(client),
                                traffic_annotation);
   }
@@ -219,8 +215,8 @@ class DeviceServiceURLLoaderFactory : public network::SharedURLLoaderFactory {
         std::move(receiver));
   }
 
-  std::unique_ptr<network::SharedURLLoaderFactoryInfo> Clone() override {
-    return std::make_unique<network::CrossThreadSharedURLLoaderFactoryInfo>(
+  std::unique_ptr<network::PendingSharedURLLoaderFactory> Clone() override {
+    return std::make_unique<network::CrossThreadPendingSharedURLLoaderFactory>(
         this);
   }
 
@@ -289,11 +285,6 @@ void CreateInProcessAudioService(
                                                         std::move(request)));
                      },
                      BrowserMainLoop::GetAudioManager(), std::move(request)));
-}
-
-std::unique_ptr<service_manager::Service> CreateTracingService(
-    service_manager::mojom::ServiceRequest request) {
-  return std::make_unique<tracing::TracingService>(std::move(request));
 }
 
 std::unique_ptr<service_manager::Service> CreateMediaSessionService(
@@ -477,8 +468,8 @@ class ServiceManagerContext::InProcessServiceManagerContext
     metadata->SetPID(base::GetCurrentProcId());
 
     service_manager_->SetInstanceQuitCallback(
-        base::Bind(&OnInstanceQuitOnServiceManagerThread,
-                   std::move(ui_thread_task_runner)));
+        base::BindOnce(&OnInstanceQuitOnServiceManagerThread,
+                       std::move(ui_thread_task_runner)));
   }
 
   static void OnInstanceQuitOnServiceManagerThread(
@@ -537,13 +528,6 @@ ServiceManagerContext::ServiceManagerContext(
             manifest.service_name);
     if (overlay)
       manifest.Amend(*overlay);
-    if (!manifest.preloaded_files.empty()) {
-      std::map<std::string, base::FilePath> preloaded_files_map;
-      for (const auto& info : manifest.preloaded_files)
-        preloaded_files_map.emplace(info.key, info.path);
-      ChildProcessLauncher::SetRegisteredFilesForService(
-          manifest.service_name, std::move(preloaded_files_map));
-    }
   }
   for (auto& extra_manifest :
        GetContentClient()->browser()->GetExtraServiceManifests()) {
@@ -559,10 +543,6 @@ ServiceManagerContext::ServiceManagerContext(
   auto* system_connection = ServiceManagerConnection::GetForProcess();
   SetSystemConnector(system_connection->GetConnector()->Clone());
 
-  RegisterInProcessService(metrics::mojom::kMetricsServiceName,
-                           service_manager_thread_task_runner_,
-                           base::BindRepeating(&metrics::CreateMetricsService));
-
   if (base::FeatureList::IsEnabled(
           media_session::features::kMediaSessionService)) {
     RegisterInProcessService(media_session::mojom::kServiceName,
@@ -576,16 +556,6 @@ ServiceManagerContext::ServiceManagerContext(
   g_io_thread_connector.Get() = system_connection->GetConnector()->Clone();
 
   GetContentClient()->browser()->WillStartServiceManager();
-
-  if (base::FeatureList::IsEnabled(features::kTracingServiceInProcess)) {
-    RegisterInProcessService(tracing::mojom::kServiceName,
-                             base::CreateSequencedTaskRunner(
-                                 {base::ThreadPool(), base::MayBlock(),
-                                  base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN,
-                                  base::WithBaseSyncPrimitives(),
-                                  base::TaskPriority::USER_BLOCKING}),
-                             base::BindRepeating(&CreateTracingService));
-  }
 
   in_process_context_->Start(
       manifests, std::move(system_remote),

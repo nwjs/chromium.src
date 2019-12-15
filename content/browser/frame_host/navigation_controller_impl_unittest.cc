@@ -215,6 +215,8 @@ class NavigationControllerTest : public RenderViewHostImplTestHarness,
                                            : contents()->GetMainFrame();
   }
 
+  FrameTreeNode* root_ftn() { return contents()->GetFrameTree()->root(); }
+
  protected:
   GURL navigated_url_;
   size_t navigation_entry_committed_counter_ = 0;
@@ -383,44 +385,6 @@ TEST_F(NavigationControllerTest, GoToOffset) {
   }
 }
 
-// Tests that receiving a DidFailProvisionalLoad from the renderer that is
-// trying to commit an error page won't reset the pending entry of a navigation
-// that just started.
-TEST_F(NavigationControllerTestWithBrowserSideNavigation,
-       DontDiscardWrongPendingEntry) {
-  NavigationControllerImpl& controller = controller_impl();
-  GURL initial_url("http://www.google.com");
-  GURL url_1("http://google.com/foo");
-  GURL url_2("http://foo2.com");
-
-  // Navigate inititally. This is the url that could erroneously be the visible
-  // entry when url_1 fails.
-  NavigateAndCommit(initial_url);
-
-  // Set the pending entry as url_1 and create the NavigationHandle.
-  auto navigation =
-      NavigationSimulator::CreateBrowserInitiated(url_1, contents());
-  navigation->Start();
-  EXPECT_EQ(url_1, controller.GetVisibleEntry()->GetURL());
-
-  // The navigation fails and needs to show an error page. This resets the
-  // pending entry.
-  navigation->Fail(net::ERR_TIMED_OUT);
-  EXPECT_EQ(initial_url, controller.GetVisibleEntry()->GetURL());
-
-  // A navigation to url_2 starts, creating a pending navigation entry.
-  controller.LoadURL(url_2, Referrer(), ui::PAGE_TRANSITION_TYPED,
-                     std::string());
-  EXPECT_EQ(url_2, controller.GetVisibleEntry()->GetURL());
-
-  // The DidFailProvsionalLoad mojo call is received from the current RFH that
-  // is committing an error page. This should not reset the pending entry for
-  // the new ongoing navigation.
-  main_test_rfh()->DidFailProvisionalLoadWithError(url_1, net::ERR_TIMED_OUT,
-                                                   base::string16(), false);
-  EXPECT_EQ(url_2, controller.GetVisibleEntry()->GetURL());
-}
-
 TEST_F(NavigationControllerTest, LoadURL) {
   NavigationControllerImpl& controller = controller_impl();
 
@@ -467,7 +431,9 @@ TEST_F(NavigationControllerTest, LoadURL) {
   ASSERT_TRUE(controller.GetVisibleEntry());
   EXPECT_FALSE(controller.CanGoBack());
   EXPECT_FALSE(controller.CanGoForward());
-  EXPECT_EQ(0, controller.GetLastCommittedEntry()->bindings());
+  EXPECT_EQ(0, controller.GetLastCommittedEntry()
+                   ->GetFrameEntry(root_ftn())
+                   ->bindings());
 
   // The timestamp should have been set.
   EXPECT_FALSE(controller.GetVisibleEntry()->GetTimestamp().is_null());
@@ -939,7 +905,7 @@ TEST_F(NavigationControllerTest, LoadURL_PrivilegedPending) {
   NavigationControllerImpl& controller = controller_impl();
 
   // First make some history, starting with a privileged URL.
-  const GURL kExistingURL1("http://privileged");
+  const GURL kExistingURL1("chrome://privileged");
   auto navigation =
       NavigationSimulator::CreateBrowserInitiated(kExistingURL1, contents());
   navigation->Start();
@@ -947,12 +913,15 @@ TEST_F(NavigationControllerTest, LoadURL_PrivilegedPending) {
   // Pretend it has bindings so we can tell if we incorrectly copy it. This has
   // to be done after ReadyToCommit, otherwise we won't use the current RFH to
   // commit since its bindings don't match the URL.
+  EXPECT_EQ(0, main_test_rfh()->GetEnabledBindings());
   main_test_rfh()->AllowBindings(BINDINGS_POLICY_MOJO_WEB_UI);
+  EXPECT_EQ(BINDINGS_POLICY_MOJO_WEB_UI, main_test_rfh()->GetEnabledBindings());
   navigation->Commit();
   EXPECT_EQ(1U, navigation_entry_committed_counter_);
   navigation_entry_committed_counter_ = 0;
-  EXPECT_EQ(BINDINGS_POLICY_MOJO_WEB_UI,
-            controller.GetLastCommittedEntry()->bindings());
+  EXPECT_EQ(BINDINGS_POLICY_MOJO_WEB_UI, controller.GetLastCommittedEntry()
+                                             ->GetFrameEntry(root_ftn())
+                                             ->bindings());
   // Simulate a user gesture so that the above entry is not marked to be skipped
   // on back.
   main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
@@ -963,7 +932,9 @@ TEST_F(NavigationControllerTest, LoadURL_PrivilegedPending) {
   NavigationSimulator::NavigateAndCommitFromBrowser(contents(), kExistingURL2);
   EXPECT_EQ(1U, navigation_entry_committed_counter_);
   navigation_entry_committed_counter_ = 0;
-  EXPECT_EQ(0, controller.GetLastCommittedEntry()->bindings());
+  EXPECT_EQ(0, controller.GetLastCommittedEntry()
+                   ->GetFrameEntry(root_ftn())
+                   ->bindings());
 
   // Now make a pending back/forward navigation to a privileged entry.
   // The zeroth entry should be pending.
@@ -974,8 +945,9 @@ TEST_F(NavigationControllerTest, LoadURL_PrivilegedPending) {
   EXPECT_EQ(0U, navigation_list_pruned_counter_);
   EXPECT_EQ(0, controller.GetPendingEntryIndex());
   EXPECT_EQ(1, controller.GetLastCommittedEntryIndex());
-  EXPECT_EQ(BINDINGS_POLICY_MOJO_WEB_UI,
-            controller.GetPendingEntry()->bindings());
+  EXPECT_EQ(
+      BINDINGS_POLICY_MOJO_WEB_UI,
+      controller.GetPendingEntry()->GetFrameEntry(root_ftn())->bindings());
 
   // Before that commits, do a new navigation.
   const GURL kNewURL("http://foo/bee");
@@ -988,7 +960,9 @@ TEST_F(NavigationControllerTest, LoadURL_PrivilegedPending) {
   EXPECT_EQ(-1, controller.GetPendingEntryIndex());
   EXPECT_EQ(2, controller.GetLastCommittedEntryIndex());
   EXPECT_EQ(kNewURL, controller.GetVisibleEntry()->GetURL());
-  EXPECT_EQ(0, controller.GetLastCommittedEntry()->bindings());
+  EXPECT_EQ(0, controller.GetLastCommittedEntry()
+                   ->GetFrameEntry(root_ftn())
+                   ->bindings());
 }
 
 // Tests navigating to an existing URL when there is a pending new navigation.
@@ -1091,33 +1065,35 @@ TEST_F(NavigationControllerTest, LoadURL_AbortDoesntCancelPending) {
 
   // Start with a pending new navigation.
   const GURL kNewURL("http://eh");
-  controller.LoadURL(kNewURL, Referrer(), ui::PAGE_TRANSITION_TYPED,
-                     std::string());
-  main_test_rfh()->PrepareForCommit();
+  auto navigation =
+      NavigationSimulator::CreateBrowserInitiated(kNewURL, contents());
+  navigation->Start();
   EXPECT_EQ(0U, navigation_entry_changed_counter_);
   EXPECT_EQ(0U, navigation_list_pruned_counter_);
   EXPECT_EQ(-1, controller.GetPendingEntryIndex());
   EXPECT_TRUE(controller.GetPendingEntry());
+  EXPECT_EQ(kNewURL, controller.GetPendingEntry()->GetURL());
   EXPECT_EQ(-1, controller.GetLastCommittedEntryIndex());
   EXPECT_EQ(1, delegate->navigation_state_change_count());
 
   // It may abort before committing, if it's a download or due to a stop or
   // a new navigation from the user.
-  main_test_rfh()->DidFailProvisionalLoadWithError(kNewURL, net::ERR_ABORTED,
-                                                   base::string16(), false);
+  navigation->AbortCommit();
 
-  // This should not clear the pending entry or notify of a navigation state
-  // change, so that we keep displaying kNewURL (until the user clears it).
+  // This should not clear the pending entry, so that we keep displaying
+  // kNewURL (until the user clears it).
   EXPECT_EQ(-1, controller.GetPendingEntryIndex());
   EXPECT_TRUE(controller.GetPendingEntry());
+  EXPECT_EQ(kNewURL, controller.GetPendingEntry()->GetURL());
   EXPECT_EQ(-1, controller.GetLastCommittedEntryIndex());
-  EXPECT_EQ(1, delegate->navigation_state_change_count());
+  EXPECT_EQ(2, delegate->navigation_state_change_count());
   NavigationEntry* pending_entry = controller.GetPendingEntry();
 
   // Ensure that a reload keeps the same pending entry.
   controller.Reload(ReloadType::NORMAL, true);
   EXPECT_EQ(-1, controller.GetPendingEntryIndex());
   EXPECT_TRUE(controller.GetPendingEntry());
+  EXPECT_EQ(kNewURL, controller.GetPendingEntry()->GetURL());
   EXPECT_EQ(pending_entry, controller.GetPendingEntry());
   EXPECT_EQ(-1, controller.GetLastCommittedEntryIndex());
 
@@ -1200,7 +1176,9 @@ TEST_F(NavigationControllerTest, LoadURL_WithBindings) {
   NavigationSimulator::NavigateAndCommitFromBrowser(contents(), url1);
   EXPECT_EQ(controller.GetEntryCount(), 1);
   EXPECT_EQ(0, controller.GetLastCommittedEntryIndex());
-  EXPECT_EQ(0, controller.GetLastCommittedEntry()->bindings());
+  EXPECT_EQ(0, controller.GetLastCommittedEntry()
+                   ->GetFrameEntry(root_ftn())
+                   ->bindings());
 
   // Manually increase the number of active frames in the SiteInstance
   // that orig_rfh belongs to, to prevent it from being destroyed when
@@ -1222,12 +1200,16 @@ TEST_F(NavigationControllerTest, LoadURL_WithBindings) {
   EXPECT_EQ(controller.GetEntryCount(), 2);
   EXPECT_EQ(1, controller.GetLastCommittedEntryIndex());
   EXPECT_TRUE(controller.CanGoBack());
-  EXPECT_EQ(1, controller.GetLastCommittedEntry()->bindings());
+  EXPECT_EQ(1, controller.GetLastCommittedEntry()
+                   ->GetFrameEntry(root_ftn())
+                   ->bindings());
 
   // Going back, the first entry should still appear unprivileged.
   NavigationSimulator::GoBack(contents());
   EXPECT_EQ(0, controller.GetLastCommittedEntryIndex());
-  EXPECT_EQ(0, controller.GetLastCommittedEntry()->bindings());
+  EXPECT_EQ(0, controller.GetLastCommittedEntry()
+                   ->GetFrameEntry(root_ftn())
+                   ->bindings());
 }
 
 TEST_F(NavigationControllerTest, Reload) {
@@ -2004,9 +1986,7 @@ TEST_F(NavigationControllerTest, AutoSubframe) {
   std::string unique_name0("uniqueName0");
   main_test_rfh()->OnCreateChildFrame(
       process()->GetNextRoutingID(),
-      TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubInterfaceProviderReceiver(),
       TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name0, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
@@ -2044,9 +2024,7 @@ TEST_F(NavigationControllerTest, AutoSubframe) {
   std::string unique_name1("uniqueName1");
   main_test_rfh()->OnCreateChildFrame(
       process()->GetNextRoutingID(),
-      TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubInterfaceProviderReceiver(),
       TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name1, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
@@ -2084,9 +2062,7 @@ TEST_F(NavigationControllerTest, AutoSubframe) {
   std::string unique_name2("uniqueName2");
   subframe->OnCreateChildFrame(
       process()->GetNextRoutingID(),
-      TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubInterfaceProviderReceiver(),
       TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name2, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
@@ -2142,9 +2118,7 @@ TEST_F(NavigationControllerTest, BackSubframe) {
   std::string unique_name("uniqueName0");
   main_test_rfh()->OnCreateChildFrame(
       process()->GetNextRoutingID(),
-      TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubInterfaceProviderReceiver(),
       TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
@@ -3083,7 +3057,7 @@ TEST_F(NavigationControllerTest, ShowBrowserURLAfterFailUntilModified) {
   // Suppose it aborts before committing, if it's a 204 or download or due to a
   // stop or a new navigation from the user.  The URL should remain visible.
   static_cast<NavigatorImpl*>(main_test_rfh()->frame_tree_node()->navigator())
-      ->CancelNavigation(main_test_rfh()->frame_tree_node(), true);
+      ->CancelNavigation(main_test_rfh()->frame_tree_node());
   EXPECT_EQ(url, controller.GetVisibleEntry()->GetURL());
 
   // If something else later modifies the contents of the about:blank page, then
@@ -3107,12 +3081,7 @@ TEST_F(NavigationControllerTest, ShowRendererURLAfterFailUntilModified) {
   // we show the pending entry's URL as long as the about:blank page is not
   // modified.
   auto navigation =
-      NavigationSimulatorImpl::CreateBrowserInitiated(url, contents());
-  NavigationController::LoadURLParams load_url_params(url);
-  load_url_params.initiator_origin = url::Origin();
-  load_url_params.transition_type = ui::PAGE_TRANSITION_LINK;
-  load_url_params.is_renderer_initiated = true;
-  navigation->SetLoadURLParams(&load_url_params);
+      NavigationSimulator::CreateRendererInitiated(url, main_test_rfh());
   navigation->Start();
 
   EXPECT_EQ(url, controller.GetVisibleEntry()->GetURL());
@@ -3126,8 +3095,7 @@ TEST_F(NavigationControllerTest, ShowRendererURLAfterFailUntilModified) {
 
   // Suppose it aborts before committing, if it's a 204 or download or due to a
   // stop or a new navigation from the user.  The URL should remain visible.
-  main_test_rfh()->DidFailProvisionalLoadWithError(url, net::ERR_ABORTED,
-                                                   base::string16(), false);
+  navigation->Fail(net::ERR_FAILED);
   EXPECT_EQ(url, controller.GetVisibleEntry()->GetURL());
 
   // If something else later modifies the contents of the about:blank page, then
@@ -3136,6 +3104,46 @@ TEST_F(NavigationControllerTest, ShowRendererURLAfterFailUntilModified) {
   EXPECT_TRUE(contents()->HasAccessedInitialDocument());
   EXPECT_FALSE(controller.GetVisibleEntry());
   EXPECT_EQ(url, controller.GetPendingEntry()->GetURL());
+}
+
+// Tests that the URLs for renderer-initiated navigations in new tabs are
+// displayed to the user after they got canceled, as long as the initial
+// about:blank page has not been modified. If so, we must revert to showing
+// about:blank. See http://crbug.com/355537.
+TEST_F(NavigationControllerTest, ShowRendererURLAfterCancelUntilModified) {
+  NavigationControllerImpl& controller = controller_impl();
+
+  const GURL url("http://foo");
+
+  // For renderer-initiated navigations in new tabs (with no committed entries),
+  // we show the pending entry's URL as long as the about:blank page is not
+  // modified.
+  auto navigation =
+      NavigationSimulator::CreateRendererInitiated(url, main_test_rfh());
+  navigation->Start();
+
+  EXPECT_EQ(url, controller.GetVisibleEntry()->GetURL());
+  EXPECT_EQ(url, controller.GetPendingEntry()->GetURL());
+  EXPECT_TRUE(controller.GetPendingEntry()->is_renderer_initiated());
+  EXPECT_TRUE(controller.IsInitialNavigation());
+  EXPECT_FALSE(contents()->HasAccessedInitialDocument());
+
+  // There should be no title yet.
+  EXPECT_TRUE(contents()->GetTitle().empty());
+
+  // Suppose it aborts before committing, e.g. due to a new renderer-initiated
+  // navigation. The URL should remain visible.
+  navigation->AbortFromRenderer();
+  EXPECT_EQ(url, controller.GetVisibleEntry()->GetURL());
+
+  // If something else later modifies the contents of the about:blank page, then
+  // we must revert to showing about:blank to avoid a URL spoof.
+  // Pending entry should also be discarded, because renderer doesn't want to
+  // show this page anymore.
+  main_test_rfh()->OnMessageReceived(FrameHostMsg_DidAccessInitialDocument(0));
+  EXPECT_TRUE(contents()->HasAccessedInitialDocument());
+  EXPECT_FALSE(controller.GetVisibleEntry());
+  EXPECT_FALSE(controller.GetPendingEntry());
 }
 
 TEST_F(NavigationControllerTest, DontShowRendererURLInNewTabAfterCommit) {
@@ -3344,9 +3352,7 @@ TEST_F(NavigationControllerTest, SameSubframe) {
   std::string unique_name("uniqueName0");
   main_test_rfh()->OnCreateChildFrame(
       process()->GetNextRoutingID(),
-      TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubInterfaceProviderReceiver(),
       TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
@@ -3513,9 +3519,7 @@ TEST_F(NavigationControllerTest, SubframeWhilePending) {
   std::string unique_name("uniqueName0");
   main_test_rfh()->OnCreateChildFrame(
       process()->GetNextRoutingID(),
-      TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubInterfaceProviderReceiver(),
       TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
@@ -4775,9 +4779,7 @@ TEST_F(NavigationControllerTest, SubFrameNavigationUIData) {
   std::string unique_name("uniqueName0");
   main_test_rfh()->OnCreateChildFrame(
       process()->GetNextRoutingID(),
-      TestRenderFrameHost::CreateStubInterfaceProviderRequest(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
-      TestRenderFrameHost::CreateStubDocumentInterfaceBrokerReceiver(),
+      TestRenderFrameHost::CreateStubInterfaceProviderReceiver(),
       TestRenderFrameHost::CreateStubBrowserInterfaceBrokerReceiver(),
       blink::WebTreeScopeType::kDocument, std::string(), unique_name, false,
       base::UnguessableToken::Create(), blink::FramePolicy(),
@@ -4839,6 +4841,44 @@ TEST_F(NavigationControllerTest, NoURLRewriteForSubframes) {
 
   // Clean up the handler.
   BrowserURLHandlerImpl::GetInstance()->SetFixupHandlerForTesting(nullptr);
+}
+
+// Test that if an empty WebContents is navigated via frame proxy with
+// replacement, the NavigationRequest does not specify replacement, since there
+// is no entry to replace.
+TEST_F(NavigationControllerTest,
+       NavigateFromFrameProxyWithReplacementWithoutEntries) {
+  const GURL main_url("http://foo1");
+  const GURL other_contents_url("http://foo2");
+  NavigationSimulator::NavigateAndCommitFromBrowser(contents(), main_url);
+
+  // Suppose the main WebContents creates another WebContents which it can
+  // navigate via frame proxy.
+  std::unique_ptr<WebContents> other_contents = CreateTestWebContents();
+  TestWebContents* other_contents_impl =
+      static_cast<TestWebContents*>(other_contents.get());
+  NavigationControllerImpl& other_controller =
+      other_contents_impl->GetController();
+  FrameTreeNode* node = other_contents_impl->GetFrameTree()->root();
+  RenderFrameHostImpl* frame = node->current_frame_host();
+
+  // The newly created contents has no entries.
+  EXPECT_EQ(0, other_controller.GetEntryCount());
+
+  // Simulate the main WebContents navigating the new WebContents with
+  // replacement.
+  const bool should_replace_current_entry = true;
+  other_controller.NavigateFromFrameProxy(
+      frame, other_contents_url, url::Origin::Create(main_url),
+      true /* is_renderer_initiated */, main_test_rfh()->GetSiteInstance(),
+      Referrer(), ui::PAGE_TRANSITION_LINK, should_replace_current_entry,
+      NavigationDownloadPolicy(), "GET", nullptr, "", nullptr);
+  NavigationRequest* request = node->navigation_request();
+  ASSERT_TRUE(request);
+
+  // Since the new WebContents had no entries, the request is not done with
+  // replacement.
+  EXPECT_FALSE(request->common_params().should_replace_current_entry);
 }
 
 // Tests that calling RemoveForwareEntries() clears all forward entries

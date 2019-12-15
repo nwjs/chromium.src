@@ -36,7 +36,7 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
 #include "ipc/ipc_message.h"
-#include "mojo/public/cpp/bindings/strong_binding.h"
+#include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/loader/url_loader_factory_bundle.mojom.h"
 #include "third_party/blink/public/mojom/renderer_preference_watcher.mojom.h"
@@ -107,9 +107,11 @@ using SetupProcessCallback = base::OnceCallback<void(
     std::unique_ptr<ServiceWorkerProcessManager::AllocatedProcessInfo>,
     std::unique_ptr<EmbeddedWorkerInstance::DevToolsProxy>,
     std::unique_ptr<
-        blink::URLLoaderFactoryBundleInfo> /* factory_bundle_for_new_scripts */,
+        blink::PendingURLLoaderFactoryBundle> /* factory_bundle_for_new_scripts
+                                               */
+    ,
     std::unique_ptr<
-        blink::URLLoaderFactoryBundleInfo> /* factory_bundle_for_renderer */,
+        blink::PendingURLLoaderFactoryBundle> /* factory_bundle_for_renderer */,
     mojo::PendingRemote<blink::mojom::CacheStorage>,
     const base::Optional<base::TimeDelta>& thread_hop_time,
     const base::Optional<base::Time>& ui_post_time)>;
@@ -141,9 +143,9 @@ void SetupOnUIThread(
   auto process_info =
       std::make_unique<ServiceWorkerProcessManager::AllocatedProcessInfo>();
   std::unique_ptr<EmbeddedWorkerInstance::DevToolsProxy> devtools_proxy;
-  std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+  std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
       factory_bundle_for_new_scripts;
-  std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+  std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
       factory_bundle_for_renderer;
 
   if (!process_manager) {
@@ -199,16 +201,15 @@ void SetupOnUIThread(
   if (base::FeatureList::IsEnabled(
           blink::features::kEagerCacheStorageSetupForServiceWorkers) &&
       !params->pause_after_download) {
-    rph->BindCacheStorage(cache_storage.InitWithNewPipeAndPassReceiver(),
-                          url::Origin::Create(params->script_url));
+    rph->BindCacheStorage(url::Origin::Create(params->script_url),
+                          cache_storage.InitWithNewPipeAndPassReceiver());
   }
 
   // Bind |receiver|, which is attached to |EmbeddedWorkerInstance::client_|, to
   // the process. If the process dies, |client_|'s connection error callback
   // will be called on the core thread.
-  if (receiver.is_valid()) {
-    BindInterface(rph, std::move(receiver));
-  }
+  if (receiver.is_valid())
+    rph->BindReceiver(std::move(receiver));
 
   // Register to DevTools and update params accordingly.
   const int routing_id = rph->GetNextRoutingID();
@@ -257,7 +258,7 @@ void SetupOnUIThread(
 
   // Create a RendererPreferenceWatcher to observe updates in the preferences.
   mojo::PendingRemote<blink::mojom::RendererPreferenceWatcher> watcher_remote;
-  params->preference_watcher_request =
+  params->preference_watcher_receiver =
       watcher_remote.InitWithNewPipeAndPassReceiver();
   GetContentClient()->browser()->RegisterRendererPreferenceWatcher(
       process_manager->browser_context(), std::move(watcher_remote));
@@ -282,8 +283,6 @@ bool HasSentStartWorker(EmbeddedWorkerInstance::StartingPhase phase) {
       return false;
     case EmbeddedWorkerInstance::SENT_START_WORKER:
     case EmbeddedWorkerInstance::SCRIPT_DOWNLOADING:
-    case EmbeddedWorkerInstance::SCRIPT_READ_STARTED:
-    case EmbeddedWorkerInstance::SCRIPT_READ_FINISHED:
     case EmbeddedWorkerInstance::SCRIPT_STREAMING:
     case EmbeddedWorkerInstance::SCRIPT_LOADED:
     case EmbeddedWorkerInstance::SCRIPT_EVALUATION:
@@ -590,9 +589,9 @@ class EmbeddedWorkerInstance::StartTask {
       std::unique_ptr<ServiceWorkerProcessManager::AllocatedProcessInfo>
           process_info,
       std::unique_ptr<EmbeddedWorkerInstance::DevToolsProxy> devtools_proxy,
-      std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+      std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
           factory_bundle_for_new_scripts,
-      std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+      std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
           factory_bundle_for_renderer,
       mojo::PendingRemote<blink::mojom::CacheStorage> cache_storage,
       const base::Optional<base::TimeDelta>& thread_hop_time,
@@ -662,8 +661,8 @@ class EmbeddedWorkerInstance::StartTask {
     // this is a non-installed service worker.
     DCHECK(factory_bundle_for_new_scripts || is_installed_);
     if (factory_bundle_for_new_scripts) {
-      params->provider_info->script_loader_factory_ptr_info =
-          instance_->MakeScriptLoaderFactoryPtrInfo(
+      params->provider_info->script_loader_factory_remote =
+          instance_->MakeScriptLoaderFactoryRemote(
               std::move(factory_bundle_for_new_scripts));
     }
 
@@ -853,25 +852,26 @@ void EmbeddedWorkerInstance::SendStartWorker(
           base::CreateSequencedTaskRunner({BrowserThread::UI}),
           params->script_url,
           scoped_refptr<ServiceWorkerContextWrapper>(context_->wrapper()),
-          mojo::MakeRequest(&params->content_settings_proxy));
+          params->content_settings_proxy.InitWithNewPipeAndPassReceiver());
 
   const bool is_script_streaming = !params->installed_scripts_info.is_null();
   inflight_start_task_->set_start_worker_sent_time(base::TimeTicks::Now());
 
   // The host must be alive as long as |params->provider_info| is alive.
   owner_version_->provider_host()->CompleteStartWorkerPreparation(
-      process_id(), MakeRequest(&params->provider_info->interface_provider),
+      process_id(),
       params->provider_info->browser_interface_broker
           .InitWithNewPipeAndPassReceiver());
 
-  // TODO(bashi): Create correct outside fetch client settings object. We need
-  // to plumb parent's fetch client settings object from renderer.
+  // TODO(bashi): Always pass a valid outside fetch client settings object.
   // See crbug.com/937177.
-  params->outside_fetch_client_settings_object =
-      blink::mojom::FetchClientSettingsObject::New(
-          network::mojom::ReferrerPolicy::kDefault,
-          /*outgoing_referrer=*/params->script_url,
-          blink::mojom::InsecureRequestsPolicy::kDoNotUpgrade);
+  if (!params->outside_fetch_client_settings_object) {
+    params->outside_fetch_client_settings_object =
+        blink::mojom::FetchClientSettingsObject::New(
+            network::mojom::ReferrerPolicy::kDefault,
+            /*outgoing_referrer=*/params->script_url,
+            blink::mojom::InsecureRequestsPolicy::kDoNotUpgrade);
+  }
 
   client_->StartWorker(std::move(params));
 
@@ -905,14 +905,6 @@ void EmbeddedWorkerInstance::OnReadyForInspection(
     return;
   devtools_proxy_->NotifyWorkerReadyForInspection(std::move(agent_remote),
                                                   std::move(host_receiver));
-}
-
-void EmbeddedWorkerInstance::OnScriptReadStarted() {
-  starting_phase_ = SCRIPT_READ_STARTED;
-}
-
-void EmbeddedWorkerInstance::OnScriptReadFinished() {
-  starting_phase_ = SCRIPT_READ_FINISHED;
 }
 
 void EmbeddedWorkerInstance::OnScriptLoaded() {
@@ -1024,8 +1016,8 @@ void EmbeddedWorkerInstance::UpdateForegroundPriority() {
 }
 
 void EmbeddedWorkerInstance::UpdateLoaderFactories(
-    std::unique_ptr<blink::URLLoaderFactoryBundleInfo> script_bundle,
-    std::unique_ptr<blink::URLLoaderFactoryBundleInfo> subresource_bundle) {
+    std::unique_ptr<blink::PendingURLLoaderFactoryBundle> script_bundle,
+    std::unique_ptr<blink::PendingURLLoaderFactoryBundle> subresource_bundle) {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
   DCHECK(subresource_loader_updater_.is_bound());
 
@@ -1049,44 +1041,55 @@ base::WeakPtr<EmbeddedWorkerInstance> EmbeddedWorkerInstance::AsWeakPtr() {
 // it may also include scheme-specific factories that don't go to network.
 //
 // The network factory does not support reconnection to the network service.
-std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
 EmbeddedWorkerInstance::CreateFactoryBundleOnUI(
     RenderProcessHost* rph,
     int routing_id,
     const url::Origin& origin,
     ContentBrowserClient::URLLoaderFactoryType factory_type) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  auto factory_bundle = std::make_unique<blink::URLLoaderFactoryBundleInfo>();
+  auto factory_bundle =
+      std::make_unique<blink::PendingURLLoaderFactoryBundle>();
   mojo::PendingReceiver<network::mojom::URLLoaderFactory>
       default_factory_receiver = factory_bundle->pending_default_factory()
                                      .InitWithNewPipeAndPassReceiver();
   mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>
       default_header_client;
+  network::mojom::URLLoaderFactoryOverridePtr factory_override;
   bool bypass_redirect_checks = false;
+
+  DCHECK(factory_type ==
+             ContentBrowserClient::URLLoaderFactoryType::kServiceWorkerScript ||
+         factory_type == ContentBrowserClient::URLLoaderFactoryType::
+                             kServiceWorkerSubResource);
 
   // See if the default factory needs to be tweaked by the embedder.
   GetContentClient()->browser()->WillCreateURLLoaderFactory(
       rph->GetBrowserContext(), nullptr /* frame_host */, rph->GetID(),
-      factory_type, origin, &default_factory_receiver, &default_header_client,
-      &bypass_redirect_checks);
+      factory_type, origin, base::nullopt /* navigation_id */,
+      &default_factory_receiver, &default_header_client,
+      &bypass_redirect_checks, &factory_override);
   devtools_instrumentation::WillCreateURLLoaderFactoryForServiceWorker(
       rph, routing_id, &default_factory_receiver);
 
   // TODO(yhirano): Support COEP.
   if (GetNetworkFactoryCallbackForTest().is_null()) {
     rph->CreateURLLoaderFactory(
-        origin, network::mojom::CrossOriginEmbedderPolicy::kNone,
+        origin, origin, network::mojom::CrossOriginEmbedderPolicy::kNone,
         nullptr /* preferences */, net::NetworkIsolationKey(origin, origin),
-        std::move(default_header_client), std::move(default_factory_receiver));
+        std::move(default_header_client), base::nullopt /* top_frame_token */,
+        std::move(default_factory_receiver), std::move(factory_override));
   } else {
-    network::mojom::URLLoaderFactoryPtr original_factory;
+    mojo::PendingRemote<network::mojom::URLLoaderFactory> original_factory;
     rph->CreateURLLoaderFactory(
-        origin, network::mojom::CrossOriginEmbedderPolicy::kNone,
+        origin, origin, network::mojom::CrossOriginEmbedderPolicy::kNone,
         nullptr /* preferences */, net::NetworkIsolationKey(origin, origin),
-        std::move(default_header_client), mojo::MakeRequest(&original_factory));
+        std::move(default_header_client), base::nullopt /* top_frame_token */,
+        original_factory.InitWithNewPipeAndPassReceiver(),
+        std::move(factory_override));
     GetNetworkFactoryCallbackForTest().Run(std::move(default_factory_receiver),
                                            rph->GetID(),
-                                           original_factory.PassInterface());
+                                           std::move(original_factory));
   }
 
   factory_bundle->set_bypass_redirect_checks(bypass_redirect_checks);
@@ -1109,11 +1112,11 @@ EmbeddedWorkerInstance::CreateFactoryBundleOnUI(
     // schemes.
     if (!base::Contains(GetServiceWorkerSchemes(), scheme))
       continue;
-    network::mojom::URLLoaderFactoryPtr factory_ptr;
-    mojo::MakeStrongBinding(std::move(factory),
-                            mojo::MakeRequest(&factory_ptr));
+    mojo::PendingRemote<network::mojom::URLLoaderFactory> factory_remote;
+    mojo::MakeSelfOwnedReceiver(
+        std::move(factory), factory_remote.InitWithNewPipeAndPassReceiver());
     factory_bundle->pending_scheme_specific_factories().emplace(
-        scheme, factory_ptr.PassInterface());
+        scheme, std::move(factory_remote));
   }
   return factory_bundle;
 }
@@ -1241,10 +1244,6 @@ std::string EmbeddedWorkerInstance::StartingPhaseToString(StartingPhase phase) {
       return "Script downloading";
     case SCRIPT_LOADED:
       return "Script loaded";
-    case SCRIPT_READ_STARTED:
-      return "Script read started";
-    case SCRIPT_READ_FINISHED:
-      return "Script read finished";
     case SCRIPT_STREAMING:
       return "Script streaming";
     case SCRIPT_EVALUATION:
@@ -1296,21 +1295,22 @@ void EmbeddedWorkerInstance::NotifyForegroundServiceWorkerRemoved() {
   }
 }
 
-network::mojom::URLLoaderFactoryPtrInfo
-EmbeddedWorkerInstance::MakeScriptLoaderFactoryPtrInfo(
-    std::unique_ptr<blink::URLLoaderFactoryBundleInfo> script_bundle) {
-  network::mojom::URLLoaderFactoryPtrInfo script_loader_factory_ptr_info;
+mojo::PendingRemote<network::mojom::URLLoaderFactory>
+EmbeddedWorkerInstance::MakeScriptLoaderFactoryRemote(
+    std::unique_ptr<blink::PendingURLLoaderFactoryBundle> script_bundle) {
+  mojo::PendingRemote<network::mojom::URLLoaderFactory>
+      script_loader_factory_remote;
 
   auto script_bundle_factory =
       base::MakeRefCounted<blink::URLLoaderFactoryBundle>(
           std::move(script_bundle));
-  script_loader_factory_ = mojo::MakeStrongBinding(
+  script_loader_factory_ = mojo::MakeSelfOwnedReceiver(
       std::make_unique<ServiceWorkerScriptLoaderFactory>(
           context_, owner_version_->provider_host()->AsWeakPtr(),
           std::move(script_bundle_factory)),
-      mojo::MakeRequest(&script_loader_factory_ptr_info));
+      script_loader_factory_remote.InitWithNewPipeAndPassReceiver());
 
-  return script_loader_factory_ptr_info;
+  return script_loader_factory_remote;
 }
 
 }  // namespace content

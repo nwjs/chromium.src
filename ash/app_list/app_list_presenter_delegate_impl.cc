@@ -23,6 +23,7 @@
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
 #include "ash/system/status_area_widget.h"
+#include "ash/wm/container_finder.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "base/command_line.h"
 #include "chromeos/constants/chromeos_switches.h"
@@ -32,6 +33,7 @@
 #include "ui/events/keycodes/keyboard_codes_posix.h"
 #include "ui/views/widget/widget.h"
 #include "ui/wm/core/coordinate_conversion.h"
+#include "ui/wm/public/activation_client.h"
 
 namespace ash {
 namespace {
@@ -39,11 +41,11 @@ namespace {
 // Whether the shelf is oriented on the side, not on the bottom.
 bool IsSideShelf(Shelf* shelf) {
   switch (shelf->alignment()) {
-    case SHELF_ALIGNMENT_BOTTOM:
-    case SHELF_ALIGNMENT_BOTTOM_LOCKED:
+    case ShelfAlignment::kBottom:
+    case ShelfAlignment::kBottomLocked:
       return false;
-    case SHELF_ALIGNMENT_LEFT:
-    case SHELF_ALIGNMENT_RIGHT:
+    case ShelfAlignment::kLeft:
+    case ShelfAlignment::kRight:
       return true;
   }
   return false;
@@ -53,15 +55,17 @@ bool IsSideShelf(Shelf* shelf) {
 bool IsShelfBackgroundTypeWithRoundedCorners(
     ShelfBackgroundType background_type) {
   switch (background_type) {
-    case SHELF_BACKGROUND_DEFAULT:
-    case SHELF_BACKGROUND_APP_LIST:
-    case SHELF_BACKGROUND_OVERVIEW:
+    case ShelfBackgroundType::kDefaultBg:
+    case ShelfBackgroundType::kAppList:
+    case ShelfBackgroundType::kOverview:
       return true;
-    case SHELF_BACKGROUND_MAXIMIZED:
-    case SHELF_BACKGROUND_MAXIMIZED_WITH_APP_LIST:
-    case SHELF_BACKGROUND_OOBE:
-    case SHELF_BACKGROUND_LOGIN:
-    case SHELF_BACKGROUND_LOGIN_NONBLURRED_WALLPAPER:
+    case ShelfBackgroundType::kMaximized:
+    case ShelfBackgroundType::kMaximizedWithAppList:
+    case ShelfBackgroundType::kOobe:
+    case ShelfBackgroundType::kHomeLauncher:
+    case ShelfBackgroundType::kLogin:
+    case ShelfBackgroundType::kLoginNonBlurredWallpaper:
+    case ShelfBackgroundType::kInApp:
       return false;
   }
 }
@@ -88,8 +92,11 @@ void AppListPresenterDelegateImpl::SetPresenter(
 
 void AppListPresenterDelegateImpl::Init(AppListView* view, int64_t display_id) {
   view_ = view;
-  view->InitView(IsTabletMode(),
-                 controller_->GetContainerForDisplayId(display_id));
+  view->InitView(
+      IsTabletMode(), controller_->GetContainerForDisplayId(display_id),
+      base::BindRepeating(
+          &AppListPresenterDelegateImpl::OnViewBoundsChangedAnimationEnded,
+          weak_ptr_factory_.GetWeakPtr()));
 
   // By setting us as DnD recipient, the app list knows that we can
   // handle items.
@@ -117,6 +124,7 @@ void AppListPresenterDelegateImpl::ShowForDisplay(int64_t display_id) {
   view_->SetShelfHasRoundedCorners(
       IsShelfBackgroundTypeWithRoundedCorners(shelf->GetBackgroundType()));
   view_->Show(IsSideShelf(shelf), IsTabletMode());
+  view_->GetWidget()->ShowInactive();
 
   SnapAppListBoundsToDisplayEdge();
 
@@ -148,6 +156,11 @@ AppListViewDelegate* AppListPresenterDelegateImpl::GetAppListViewDelegate() {
 
 bool AppListPresenterDelegateImpl::GetOnScreenKeyboardShown() {
   return controller_->onscreen_keyboard_shown();
+}
+
+aura::Window* AppListPresenterDelegateImpl::GetContainerForWindow(
+    aura::Window* window) {
+  return ash::GetContainerForWindow(window);
 }
 
 aura::Window* AppListPresenterDelegateImpl::GetRootWindowForDisplayId(
@@ -249,20 +262,6 @@ void AppListPresenterDelegateImpl::ProcessLocatedEvent(
     if (!hotseat_window || !hotseat_window->Contains(target))
       presenter_->Dismiss(event->time_stamp());
   }
-
-  if (IsTabletMode() && presenter_->IsShowingEmbeddedAssistantUI()) {
-    auto* contents_view =
-        presenter_->GetView()->app_list_main_view()->contents_view();
-    if (contents_view->bounds().Contains(event->location())) {
-      // Keep Assistant open if event happen inside.
-      return;
-    }
-
-    // Touching anywhere else closes Assistant.
-    view_->Back();
-    view_->search_box_view()->ClearSearch();
-    view_->search_box_view()->SetSearchBoxActive(false, ui::ET_UNKNOWN);
-  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -300,6 +299,10 @@ void AppListPresenterDelegateImpl::OnKeyEvent(ui::KeyEvent* event) {
   if (view_->search_box_view()->is_search_box_active())
     return;
 
+  // Don't absorb the first event when showing Assistant.
+  if (view_->IsShowingEmbeddedAssistantUI())
+    return;
+
   // Arrow keys or Tab will engage the traversal mode.
   if ((IsUnhandledArrowKeyEvent(*event) || event->key_code() == ui::VKEY_TAB)) {
     // Handle the first arrow key event to just show the focus rings.
@@ -314,6 +317,25 @@ void AppListPresenterDelegateImpl::SnapAppListBoundsToDisplayEdge() {
   const gfx::Rect bounds =
       controller_->SnapBoundsToDisplayEdge(window->bounds());
   window->SetBounds(bounds);
+}
+
+void AppListPresenterDelegateImpl::OnViewBoundsChangedAnimationEnded() {
+  views::Widget* widget = view_->GetWidget();
+  // If we are currently dragging the applist from the shelf, do not update
+  // window activation to avoid redrawing during dragging which is also a heavy
+  // operation. The activation will be handled when this callback is run again
+  // after the state bounds animation finishes.
+  if (Shelf::ForWindow(widget->GetNativeWindow())
+          ->shelf_layout_manager()
+          ->IsDraggingApplist()) {
+    return;
+  }
+
+  // Deactivation after dragging or animating is not supported.
+  if (!is_visible_)
+    return;
+
+  UpdateActivationForAppListView(view_, IsTabletMode());
 }
 
 }  // namespace ash

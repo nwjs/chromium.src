@@ -58,6 +58,7 @@
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
 #include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/core/scroll/scroll_alignment.h"
+#include "third_party/blink/renderer/core/typed_arrays/array_buffer/array_buffer_contents.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_style.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/hit_region.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/path_2d.h"
@@ -76,7 +77,6 @@
 #include "third_party/blink/renderer/platform/text/bidi_text_run.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
-#include "third_party/blink/renderer/platform/wtf/typed_arrays/array_buffer_contents.h"
 
 namespace blink {
 
@@ -965,7 +965,7 @@ CanvasRenderingContext2D::getContextAttributes() const {
     settings->setColorSpace(ColorSpaceAsString());
     settings->setPixelFormat(PixelFormatAsString());
   }
-  settings->setDesynchronized(canvas()->LowLatencyEnabled());
+  settings->setDesynchronized(Host()->LowLatencyEnabled());
   return settings;
 }
 
@@ -1141,13 +1141,6 @@ bool CanvasRenderingContext2D::IsCanvas2DBufferValid() const {
     return canvas()->GetCanvas2DLayerBridge()->IsValid();
   }
   return false;
-}
-
-bool CanvasRenderingContext2D::IsDeferralEnabled() const {
-  Canvas2DLayerBridge* layer_bridge = canvas()->GetCanvas2DLayerBridge();
-  if (!layer_bridge)
-    return false;
-  return layer_bridge->IsDeferralEnabled();
 }
 
 }  // namespace blink

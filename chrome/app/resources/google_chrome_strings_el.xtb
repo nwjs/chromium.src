@@ -3,7 +3,6 @@
 <translationbundle lang="el">
 <translation id="1001534784610492198">Το αρχείο του προγράμματος εγκατάστασης είναι κατεστραμμένο ή μη έγκυρο. Κατεβάστε το Google Chrome ξανά.</translation>
 <translation id="102763973188675173">Προσαρμόστε και ελέγξτε το Google Chrome. Υπάρχει διαθέσιμη ενημέρωση.</translation>
-<translation id="1035334672863811645">σύνδεση στο Chrome</translation>
 <translation id="1051826050538111504">Υπάρχει επιβλαβές λογισμικό στον υπολογιστή σας. Το Chrome μπορεί να το καταργήσει, να επαναφέρει τις ρυθμίσεις σας και να απενεργοποιήσει τις επεκτάσεις, προκειμένου το πρόγραμμα περιήγησής σας να επιστρέψει σε φυσιολογική λειτουργία.</translation>
 <translation id="1065672644894730302">Δεν είναι δυνατή η ανάγνωση των προτιμήσεών σας. Ορισμένες λειτουργίες ενδέχεται να μην είναι διαθέσιμες και οι αλλαγές στις προτιμήσεις δεν θα αποθηκευτούν.</translation>
 <translation id="1088300314857992706">Η διεύθυνση <ph name="USER_EMAIL_ADDRESS" /> χρησιμοποιούσε το Chrome στο παρελθόν</translation>
@@ -75,7 +74,6 @@
 <translation id="3065168410429928842">Καρτέλα Chrome</translation>
 <translation id="3080151273017101988">Να συνεχίζεται η εκτέλεση εφαρμογών παρασκηνίου όταν το Google Chrome είναι κλειστό</translation>
 <translation id="3089968997497233615">Υπάρχει μια νέα, ασφαλέστερη έκδοση του Google Chrome.</translation>
-<translation id="3138848678222082288">Οι μελλοντικές εκδόσεις του Chrome θα εγκαθίστανται αυτόματα. Όταν ολοκληρωθεί αυτή η λήψη, θα γίνει επανεκκίνηση του Chrome και θα είστε έτοιμοι να το χρησιμοποιήσετε.</translation>
 <translation id="3149510190863420837">Εφαρμογές Chrome</translation>
 <translation id="3282568296779691940">Σύνδεση στο Chrome</translation>
 <translation id="3340978935015468852">ρυθμίσεις</translation>
@@ -96,7 +94,6 @@
 <translation id="3718181793972440140">Με αυτήν την ενέργεια θα διαγραφεί 1 στοιχείο από αυτήν τη συσκευή. Για να ανακτήσετε τα δεδομένα σας αργότερα, συνδεθείτε στο Chrome ως <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">Η επέκταση <ph name="EXTENSION_NAME" /> άλλαξε τη σελίδα που εμφανίζεται κατά την εκκίνηση του Chrome.</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Κατάργηση από το Chrome…</translation>
 <translation id="386202838227397562">Κλείστε όλα τα παράθυρα του Google Chrome και προσπαθήστε ξανά.</translation>
 <translation id="3873044882194371212">Άνοιγμα συνδέσμου σε παράθυρο ανών&amp;υμης περιήγησης Chrome</translation>
 <translation id="3889417619312448367">Απεγκατάσταση Google Chrome</translation>
@@ -179,7 +176,6 @@
 <translation id="677276454032249905">Να γίνει έξοδος από το Chrome ούτως ή άλλως;</translation>
 <translation id="683440813066116847">Εισερχόμενος κανόνας για το Google Chrome Canary για να επιτρέπεται η κυκλοφορία του mDNS.</translation>
 <translation id="6885412569789873916">Εφαρμογές Chrome Beta</translation>
-<translation id="6906909733186691861">Οι μελλοντικές εκδόσεις του Chrome θα εγκαθίστανται αυτόματα.</translation>
 <translation id="6943584222992551122">Τα δεδομένα περιήγησης αυτού του ατόμου θα διαγραφούν από αυτήν τη συσκευή. Για να επαναφέρετε τα δεδομένα, συνδεθείτε στο Chrome ως <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Εισερχόμενος κανόνας για το Google Chrome Beta για να επιτρέπεται η κυκλοφορία του mDNS.</translation>
 <translation id="6982337800632491844">Το <ph name="DOMAIN" /> απαιτεί να διαβάσετε και να αποδεχτείτε τους ακόλουθους Όρους Παροχής Υπηρεσιών πριν από τη χρήση αυτής της συσκευής. Οι συγκεκριμένοι όροι δεν επεκτείνουν, τροποποιούν ή περιορίζουν τους όρους του Google Chrome OS.</translation>
@@ -230,7 +226,6 @@
 <translation id="8521348052903287641">Εισερχόμενος κανόνας για το Google Chrome Dev για να επιτρέπεται η κυκλοφορία του mDNS.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Υπάρχει μια νέα έκδοση του Google Chrome και είναι ταχύτερη από ποτέ.</translation>
-<translation id="8606668294522778825">Το Google Chrome ενδέχεται να χρησιμοποιεί υπηρεσίες ιστού για να βελτιώσει την εμπειρία περιήγησής σας. Μπορείτε, εάν θέλετε, να απενεργοποιήσετε αυτές τις υπηρεσίες. <ph name="BEGIN_LINK" />Μάθετε περισσότερα<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Το Google Chrome δεν αποκρίνεται. Επανεκκίνηση τώρα;</translation>
 <translation id="8625237574518804553">{0,plural, =1{Η επανεκκίνηση του Chrome θα γίνει σε 1 λεπτό}other{Η επανεκκίνηση του Chrome θα γίνει σε # λεπτά}}</translation>
 <translation id="8669527147644353129">Google Chrome Helper</translation>

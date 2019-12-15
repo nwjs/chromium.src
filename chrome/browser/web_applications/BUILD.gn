@@ -63,6 +63,7 @@ source_set("web_applications") {
   if (is_chromeos) {
     deps += [
       "//ash/public/cpp:cpp",
+      "//chromeos/components/help_app_ui",
       "//chromeos/components/media_app_ui",
       "//chromeos/constants",
       "//components/arc:arc_base",
@@ -84,6 +85,8 @@ source_set("web_applications_test_support") {
     "test/service_worker_registration_waiter.h",
     "test/test_app_registrar.cc",
     "test/test_app_registrar.h",
+    "test/test_app_shortcut_manager.cc",
+    "test/test_app_shortcut_manager.h",
     "test/test_data_retriever.cc",
     "test/test_data_retriever.h",
     "test/test_file_handler_manager.cc",
@@ -137,6 +140,8 @@ source_set("web_applications_unit_tests") {
     "web_app_install_manager_unittest.cc",
     "web_app_install_task_unittest.cc",
     "web_app_registrar_unittest.cc",
+    "web_app_sync_bridge_unittest.cc",
+    "web_app_unittest.cc",
   ]
 
   deps = [
@@ -152,6 +157,7 @@ source_set("web_applications_unit_tests") {
     "//content/public/browser",
     "//content/test:test_support",
     "//skia",
+    "//testing/gtest",
   ]
 
   if (is_chromeos) {

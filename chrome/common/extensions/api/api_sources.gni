@@ -109,6 +109,9 @@ if (is_chromeos) {
     "wallpaper.json",
     "wallpaper_private.json",
   ]
+  if (use_cups) {
+    schema_sources_ += [ "printing.idl" ]
+  }
 } else if (is_linux || is_win) {
   schema_sources_ += [ "input_ime.json" ]
 }

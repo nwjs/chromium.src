@@ -34,6 +34,7 @@
 #include "ash/wm/window_util.h"
 #include "ash/wm/wm_event.h"
 #include "base/command_line.h"
+#include "base/numerics/math_constants.h"
 #include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
@@ -59,10 +60,9 @@
 #include "ui/wm/core/window_util.h"
 
 namespace ash {
-
 namespace {
 
-constexpr float kMeanGravity = TabletModeControllerTestApi::kMeanGravity;
+using base::kMeanGravityFloat;
 
 // The strings are "Touchview" as they're already used in metrics.
 constexpr char kTabletModeInitiallyDisabled[] = "Touchview_Initially_Disabled";
@@ -368,14 +368,14 @@ TEST_P(TabletModeControllerTest, TabletModeTransition) {
 // rely on the tablet mode switch.
 TEST_P(TabletModeControllerTest, TabletModeTransitionNoKeyboardAccelerometer) {
   ASSERT_FALSE(IsTabletModeStarted());
-  TriggerLidUpdate(gfx::Vector3dF(0.0f, 0.0f, kMeanGravity));
+  TriggerLidUpdate(gfx::Vector3dF(0.0f, 0.0f, kMeanGravityFloat));
   ASSERT_FALSE(IsTabletModeStarted());
 
   SetTabletMode(true);
   EXPECT_TRUE(IsTabletModeStarted());
 
   // Single sensor reading should not change mode.
-  TriggerLidUpdate(gfx::Vector3dF(0.0f, 0.0f, kMeanGravity));
+  TriggerLidUpdate(gfx::Vector3dF(0.0f, 0.0f, kMeanGravityFloat));
   EXPECT_TRUE(IsTabletModeStarted());
 
   // With a single sensor we should exit immediately on the tablet mode switch
@@ -468,29 +468,29 @@ TEST_P(TabletModeControllerTest, NotExitTabletModeWithUnstableLidAngle) {
 // persists as the computed angle is highly inaccurate in this orientation.
 TEST_P(TabletModeControllerTest, HingeAligned) {
   // Laptop in normal orientation lid open 90 degrees.
-  TriggerBaseAndLidUpdate(gfx::Vector3dF(0.0f, 0.0f, -kMeanGravity),
-                          gfx::Vector3dF(0.0f, -kMeanGravity, 0.0f));
+  TriggerBaseAndLidUpdate(gfx::Vector3dF(0.0f, 0.0f, -kMeanGravityFloat),
+                          gfx::Vector3dF(0.0f, -kMeanGravityFloat, 0.0f));
   EXPECT_FALSE(IsTabletModeStarted());
 
   // Completely vertical.
-  TriggerBaseAndLidUpdate(gfx::Vector3dF(kMeanGravity, 0.0f, 0.0f),
-                          gfx::Vector3dF(kMeanGravity, 0.0f, 0.0f));
+  TriggerBaseAndLidUpdate(gfx::Vector3dF(kMeanGravityFloat, 0.0f, 0.0f),
+                          gfx::Vector3dF(kMeanGravityFloat, 0.0f, 0.0f));
   EXPECT_FALSE(IsTabletModeStarted());
 
   // Close to vertical but with hinge appearing to be open 270 degrees.
-  TriggerBaseAndLidUpdate(gfx::Vector3dF(kMeanGravity, 0.0f, -0.1f),
-                          gfx::Vector3dF(kMeanGravity, 0.1f, 0.0f));
+  TriggerBaseAndLidUpdate(gfx::Vector3dF(kMeanGravityFloat, 0.0f, -0.1f),
+                          gfx::Vector3dF(kMeanGravityFloat, 0.1f, 0.0f));
   EXPECT_FALSE(IsTabletModeStarted());
 
   // Flat and open 270 degrees should start tablet mode.
-  TriggerBaseAndLidUpdate(gfx::Vector3dF(0.0f, 0.0f, -kMeanGravity),
-                          gfx::Vector3dF(0.0f, kMeanGravity, 0.0f));
+  TriggerBaseAndLidUpdate(gfx::Vector3dF(0.0f, 0.0f, -kMeanGravityFloat),
+                          gfx::Vector3dF(0.0f, kMeanGravityFloat, 0.0f));
   EXPECT_TRUE(IsTabletModeStarted());
 
   // Normal 90 degree orientation but near vertical should stay in maximize
   // mode.
-  TriggerBaseAndLidUpdate(gfx::Vector3dF(kMeanGravity, 0.0f, -0.1f),
-                          gfx::Vector3dF(kMeanGravity, -0.1f, 0.0f));
+  TriggerBaseAndLidUpdate(gfx::Vector3dF(kMeanGravityFloat, 0.0f, -0.1f),
+                          gfx::Vector3dF(kMeanGravityFloat, -0.1f, 0.0f));
   EXPECT_TRUE(IsTabletModeStarted());
 }
 
@@ -504,11 +504,11 @@ TEST_P(TabletModeControllerTest, LaptopTest) {
     gfx::Vector3dF base(-kAccelerometerLaptopModeTestData[i * 6 + 1],
                         -kAccelerometerLaptopModeTestData[i * 6],
                         -kAccelerometerLaptopModeTestData[i * 6 + 2]);
-    base.Scale(kMeanGravity);
+    base.Scale(kMeanGravityFloat);
     gfx::Vector3dF lid(-kAccelerometerLaptopModeTestData[i * 6 + 4],
                        kAccelerometerLaptopModeTestData[i * 6 + 3],
                        kAccelerometerLaptopModeTestData[i * 6 + 5]);
-    lid.Scale(kMeanGravity);
+    lid.Scale(kMeanGravityFloat);
     TriggerBaseAndLidUpdate(base, lid);
     // There are a lot of samples, so ASSERT rather than EXPECT to only generate
     // one failure rather than potentially hundreds.
@@ -518,8 +518,8 @@ TEST_P(TabletModeControllerTest, LaptopTest) {
 
 TEST_P(TabletModeControllerTest, TabletModeTest) {
   // Trigger tablet mode by opening to 270 to begin the test in tablet mode.
-  TriggerBaseAndLidUpdate(gfx::Vector3dF(0.0f, 0.0f, kMeanGravity),
-                          gfx::Vector3dF(0.0f, -kMeanGravity, 0.0f));
+  TriggerBaseAndLidUpdate(gfx::Vector3dF(0.0f, 0.0f, kMeanGravityFloat),
+                          gfx::Vector3dF(0.0f, -kMeanGravityFloat, 0.0f));
   ASSERT_TRUE(IsTabletModeStarted());
 
   // Feeds in sample accelerometer data and verifies that there are no
@@ -531,11 +531,11 @@ TEST_P(TabletModeControllerTest, TabletModeTest) {
     gfx::Vector3dF base(-kAccelerometerFullyOpenTestData[i * 6 + 1],
                         -kAccelerometerFullyOpenTestData[i * 6],
                         -kAccelerometerFullyOpenTestData[i * 6 + 2]);
-    base.Scale(kMeanGravity);
+    base.Scale(kMeanGravityFloat);
     gfx::Vector3dF lid(-kAccelerometerFullyOpenTestData[i * 6 + 4],
                        kAccelerometerFullyOpenTestData[i * 6 + 3],
                        kAccelerometerFullyOpenTestData[i * 6 + 5]);
-    lid.Scale(kMeanGravity);
+    lid.Scale(kMeanGravityFloat);
     TriggerBaseAndLidUpdate(base, lid);
     // There are a lot of samples, so ASSERT rather than EXPECT to only generate
     // one failure rather than potentially hundreds.
@@ -660,8 +660,8 @@ TEST_P(TabletModeControllerTest, TabletModeAfterExitingDockedMode) {
 // angles when hinge is nearly vertical
 TEST_P(TabletModeControllerTest, VerticalHingeUnstableAnglesTest) {
   // Trigger tablet mode by opening to 270 to begin the test in tablet mode.
-  TriggerBaseAndLidUpdate(gfx::Vector3dF(0.0f, 0.0f, kMeanGravity),
-                          gfx::Vector3dF(0.0f, -kMeanGravity, 0.0f));
+  TriggerBaseAndLidUpdate(gfx::Vector3dF(0.0f, 0.0f, kMeanGravityFloat),
+                          gfx::Vector3dF(0.0f, -kMeanGravityFloat, 0.0f));
   ASSERT_TRUE(IsTabletModeStarted());
 
   // Feeds in sample accelerometer data and verifies that there are no
@@ -752,7 +752,7 @@ TEST_P(TabletModeControllerTest, RecordLidAngle) {
 
   // The timer should be stopped in response to a lid-only update since we can
   // no longer compute an angle.
-  TriggerLidUpdate(gfx::Vector3dF(0.0f, 0.0f, kMeanGravity));
+  TriggerLidUpdate(gfx::Vector3dF(0.0f, 0.0f, kMeanGravityFloat));
   EXPECT_FALSE(
       tablet_mode_controller()->TriggerRecordLidAngleTimerForTesting());
   histogram_tester.ExpectTotalCount(
@@ -1170,46 +1170,6 @@ TEST_P(TabletModeControllerTest, StartTabletActiveRightSnapPreviousLeftSnap) {
   EXPECT_EQ(right_window.get(), window_util::GetActiveWindow());
 }
 
-// Test that if before tablet mode, the active window is an ARC window snapped
-// on the left and the previous window is snapped on the right, then split view
-// is not activated.
-TEST_P(TabletModeControllerTest,
-       StartTabletActiveArcLeftSnapPreviousRightSnap) {
-  std::unique_ptr<aura::Window> left_window = CreateDesktopWindowSnappedLeft();
-  left_window->SetProperty(aura::client::kAppType,
-                           static_cast<int>(AppType::ARC_APP));
-  std::unique_ptr<aura::Window> right_window =
-      CreateDesktopWindowSnappedRight();
-  wm::ActivateWindow(left_window.get());
-  tablet_mode_controller()->SetEnabledForTest(true);
-  EXPECT_EQ(SplitViewController::State::kNoSnap,
-            split_view_controller()->state());
-  EXPECT_FALSE(Shell::Get()->overview_controller()->InOverviewSession());
-}
-
-// Test that if before tablet mode, the active window is snapped on the left,
-// the previous window is an ARC window snapped on the right, and the third
-// window is snapped on the right (just to test that it is ignored after the ARC
-// window), then split view is activated with the active window on the left.
-TEST_P(TabletModeControllerTest,
-       StartTabletActiveLeftSnapPreviousArcRightSnap) {
-  std::unique_ptr<aura::Window> left_window = CreateDesktopWindowSnappedLeft();
-  std::unique_ptr<aura::Window> right_window =
-      CreateDesktopWindowSnappedRight();
-  right_window->SetProperty(aura::client::kAppType,
-                            static_cast<int>(AppType::ARC_APP));
-  std::unique_ptr<aura::Window> extra_right_window =
-      CreateDesktopWindowSnappedRight();
-  wm::ActivateWindow(right_window.get());
-  wm::ActivateWindow(left_window.get());
-  tablet_mode_controller()->SetEnabledForTest(true);
-  EXPECT_EQ(SplitViewController::State::kLeftSnapped,
-            split_view_controller()->state());
-  EXPECT_EQ(left_window.get(), split_view_controller()->left_window());
-  EXPECT_TRUE(Shell::Get()->overview_controller()->InOverviewSession());
-  EXPECT_EQ(left_window.get(), window_util::GetActiveWindow());
-}
-
 // Test that if before tablet mode, the active window is a transient child of a
 // window snapped on the left, then split view is activated with the parent
 // snapped on the left.
@@ -1319,7 +1279,7 @@ TEST_P(TabletModeControllerTest,
       gfx::Size(display_bounds.width() * 0.67f, display_bounds.height()));
   WindowState* left_window_state = WindowState::Get(left_window.get());
   ASSERT_TRUE(left_window_state->CanSnap());
-  ASSERT_FALSE(CanSnapInSplitview(left_window.get()));
+  ASSERT_FALSE(split_view_controller()->CanSnapWindow(left_window.get()));
   WMEvent snap_to_left(WM_EVENT_CYCLE_SNAP_LEFT);
   left_window_state->OnWMEvent(&snap_to_left);
   std::unique_ptr<aura::Window> right_window =
@@ -1349,7 +1309,7 @@ TEST_P(TabletModeControllerTest,
       gfx::Size(display_bounds.width() * 0.67f, display_bounds.height()));
   WindowState* right_window_state = WindowState::Get(right_window.get());
   ASSERT_TRUE(right_window_state->CanSnap());
-  ASSERT_FALSE(CanSnapInSplitview(right_window.get()));
+  ASSERT_FALSE(split_view_controller()->CanSnapWindow(right_window.get()));
   WMEvent snap_to_right(WM_EVENT_CYCLE_SNAP_RIGHT);
   right_window_state->OnWMEvent(&snap_to_right);
   wm::ActivateWindow(right_window.get());
@@ -1378,7 +1338,7 @@ TEST_P(TabletModeControllerTest,
       gfx::Size(display_bounds.width() * 0.67f, display_bounds.height()));
   WindowState* right_window_state = WindowState::Get(right_window.get());
   ASSERT_TRUE(right_window_state->CanSnap());
-  ASSERT_FALSE(CanSnapInSplitview(right_window.get()));
+  ASSERT_FALSE(split_view_controller()->CanSnapWindow(right_window.get()));
   WMEvent snap_to_right(WM_EVENT_CYCLE_SNAP_RIGHT);
   right_window_state->OnWMEvent(&snap_to_right);
   ASSERT_EQ(left_window.get(), window_util::GetActiveWindow());
@@ -1406,7 +1366,7 @@ TEST_P(TabletModeControllerTest,
       gfx::Size(display_bounds.width() * 0.67f, display_bounds.height()));
   WindowState* left_window_state = WindowState::Get(left_window.get());
   ASSERT_TRUE(left_window_state->CanSnap());
-  ASSERT_FALSE(CanSnapInSplitview(left_window.get()));
+  ASSERT_FALSE(split_view_controller()->CanSnapWindow(left_window.get()));
   WMEvent snap_to_left(WM_EVENT_CYCLE_SNAP_LEFT);
   left_window_state->OnWMEvent(&snap_to_left);
   std::unique_ptr<aura::Window> right_window =
@@ -1744,16 +1704,18 @@ TEST_P(TabletModeControllerScreenshotTest, NoCrashWhenExitingWithoutWaiting) {
   EXPECT_FALSE(IsScreenshotShown());
 }
 
-INSTANTIATE_TEST_SUITE_P(, TabletModeControllerTest, testing::Bool());
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All, TabletModeControllerTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All,
                          TabletModeControllerInitedFromPowerManagerClientTest,
                          testing::Bool());
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          TabletModeControllerForceTabletModeTest,
                          testing::Bool());
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          TabletModeControllerForceClamshellModeTest,
                          testing::Bool());
-INSTANTIATE_TEST_SUITE_P(, TabletModeControllerScreenshotTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All,
+                         TabletModeControllerScreenshotTest,
+                         testing::Bool());
 
 }  // namespace ash

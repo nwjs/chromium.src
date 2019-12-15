@@ -80,6 +80,11 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
   // caller.
   static BrowserAccessibility* Create();
 
+  // Returns |delegate| as a BrowserAccessibility object, if |delegate| is
+  // non-null and an object in the BrowserAccessibility class hierarchy.
+  static BrowserAccessibility* FromAXPlatformNodeDelegate(
+      ui::AXPlatformNodeDelegate* delegate);
+
   ~BrowserAccessibility() override;
 
   // Called only once, immediately after construction. The constructor doesn't
@@ -164,9 +169,8 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
     gfx::NativeViewAccessible GetNativeViewAccessible() const override;
     BrowserAccessibility* get() const;
     int GetIndexInParent() const override;
-
-    BrowserAccessibility& operator*() const;
-    BrowserAccessibility* operator->() const;
+    BrowserAccessibility& operator*() const override;
+    BrowserAccessibility* operator->() const override;
 
    private:
     const BrowserAccessibility* parent_;
@@ -386,9 +390,6 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
   bool HasState(ax::mojom::State state_enum) const;
   bool HasAction(ax::mojom::Action action_enum) const;
 
-  // Returns true if the caret or selection is visible on this object.
-  bool HasVisibleCaretOrSelection() const;
-
   // True if this is a web area, and its grandparent is a presentational iframe.
   bool IsWebAreaForPresentationalIframe() const;
 
@@ -533,6 +534,7 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
   bool IsOffscreen() const override;
   bool IsMinimized() const override;
   bool IsWebContent() const override;
+  bool HasVisibleCaretOrSelection() const override;
   ui::AXPlatformNode* GetTargetNodeForRelation(
       ax::mojom::IntAttribute attr) override;
   std::set<ui::AXPlatformNode*> GetTargetNodesForRelation(
@@ -545,6 +547,12 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
   bool IsOrderedSet() const override;
   base::Optional<int> GetPosInSet() const override;
   base::Optional<int> GetSetSize() const override;
+  bool IsInListMarker() const;
+
+  // Returns true if:
+  // 1. This node is a list, AND
+  // 2. This node has a list ancestor or a list descendant.
+  bool IsHierarchicalList() const;
 
   // Returns a string representation of this object for debugging purposes.
   std::string ToString() const;
@@ -564,16 +572,23 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
   BrowserAccessibility();
 
   // The manager of this tree of accessibility objects.
-  BrowserAccessibilityManager* manager_;
+  BrowserAccessibilityManager* manager_ = nullptr;
 
   // The underlying node.
-  ui::AXNode* node_;
+  ui::AXNode* node_ = nullptr;
 
   // Protected so that it can't be called directly on a BrowserAccessibility
   // where it could be confused with an id that comes from the node data,
   // which is only unique to the Blink process.
   // Does need to be called by subclasses such as BrowserAccessibilityAndroid.
   const ui::AXUniqueId& GetUniqueId() const override;
+
+  // Returns a text attribute map indicating the offsets in the text of a leaf
+  // object, such as a text field or static text, where spelling and grammar
+  // errors are present.
+  ui::TextAttributeMap GetSpellingAndGrammarAttributes() const;
+
+  std::string SubtreeToStringHelper(size_t level) override;
 
  private:
   // Return the bounds after converting from this node's coordinate system
@@ -620,11 +635,6 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
   // If the node has a child tree, get the root node.
   BrowserAccessibility* PlatformGetRootOfChildTree() const;
 
-  // Returns a text attribute map indicating the offsets in the text of a leaf
-  // object, such as a text field or static text, where spelling and grammar
-  // errors are present.
-  ui::TextAttributeMap GetSpellingAndGrammarAttributes() const;
-
   // Given a set of map of spelling text attributes and a start offset, merge
   // them into the given map of existing text attributes. Merges the given
   // spelling attributes, i.e. document marker information, into the given text
@@ -645,9 +655,6 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
 
   DISALLOW_COPY_AND_ASSIGN(BrowserAccessibility);
 };
-
-CONTENT_EXPORT std::ostream& operator<<(std::ostream& stream,
-                                        const BrowserAccessibility& object);
 
 }  // namespace content
 

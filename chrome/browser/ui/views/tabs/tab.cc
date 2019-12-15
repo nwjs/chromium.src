@@ -41,6 +41,7 @@
 #include "chrome/browser/ui/views/tabs/tab_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_hover_card_bubble_view.h"
 #include "chrome/browser/ui/views/tabs/tab_icon.h"
+#include "chrome/browser/ui/views/tabs/tab_slot_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_layout.h"
 #include "chrome/browser/ui/views/tabs/tab_style_views.h"
@@ -420,13 +421,21 @@ const char* Tab::GetClassName() const {
 }
 
 bool Tab::OnKeyPressed(const ui::KeyEvent& event) {
-  if (event.key_code() == ui::VKEY_SPACE && !IsSelected()) {
+  if ((event.key_code() == ui::VKEY_SPACE ||
+       event.key_code() == ui::VKEY_RETURN) &&
+      !IsSelected()) {
     controller_->SelectTab(this, event);
     return true;
   }
 
-  if (event.type() == ui::ET_KEY_PRESSED &&
-      (event.flags() & ui::EF_CONTROL_DOWN)) {
+  constexpr int kModifiedFlag =
+#if defined(OS_MACOSX)
+      ui::EF_COMMAND_DOWN;
+#else
+      ui::EF_CONTROL_DOWN;
+#endif
+
+  if (event.type() == ui::ET_KEY_PRESSED && (event.flags() & kModifiedFlag)) {
     if (event.flags() & ui::EF_SHIFT_DOWN) {
       if (event.key_code() == ui::VKEY_RIGHT) {
         controller()->MoveTabLast(this);
@@ -496,7 +505,9 @@ bool Tab::OnMousePressed(const ui::MouseEvent& event) {
     }
     ui::MouseEvent cloned_event(event_in_parent, parent(),
                                 static_cast<View*>(this));
-    controller_->MaybeStartDrag(this, cloned_event, original_selection);
+
+    if (!closing())
+      controller_->MaybeStartDrag(this, cloned_event, original_selection);
   }
   return true;
 }
@@ -550,9 +561,17 @@ void Tab::OnMouseCaptureLost() {
 void Tab::OnMouseMoved(const ui::MouseEvent& event) {
   tab_style_->SetHoverLocation(event.location());
   controller_->OnMouseEventInTab(this, event);
-#if defined(OS_LINUX)
+
+  // Linux enter/leave events are sometimes flaky, so we don't want to "miss"
+  // an enter event and fail to hover the tab.
+  //
+  // In Windows, we won't miss the enter event but mouse input is disabled after
+  // a touch gesture and we could end up ignoring the enter event. If the user
+  // subsequently moves the mouse, we need to then hover the tab.
+  //
+  // Either way, this is effectively a no-op if the tab is already in a hovered
+  // state.
   MaybeUpdateHoverStatus(event);
-#endif
 }
 
 void Tab::OnMouseEntered(const ui::MouseEvent& event) {
@@ -560,6 +579,9 @@ void Tab::OnMouseEntered(const ui::MouseEvent& event) {
 }
 
 void Tab::MaybeUpdateHoverStatus(const ui::MouseEvent& event) {
+  if (mouse_hovered_ || !GetWidget()->IsMouseEventsEnabled())
+    return;
+
 #if defined(OS_LINUX)
   // Move the hit test area for hovering up so that it is not overlapped by tab
   // hover cards when they are shown.
@@ -578,6 +600,8 @@ void Tab::MaybeUpdateHoverStatus(const ui::MouseEvent& event) {
 }
 
 void Tab::OnMouseExited(const ui::MouseEvent& event) {
+  if (!mouse_hovered_)
+    return;
   mouse_hovered_ = false;
   tab_style_->HideHover(TabStyle::HideHoverStyle::kGradual);
   UpdateForegroundColors();
@@ -603,7 +627,9 @@ void Tab::OnGestureEvent(ui::GestureEvent* event) {
       views::View::ConvertPointToScreen(this, &loc);
       ui::GestureEvent cloned_event(event_in_parent, parent(),
                                     static_cast<View*>(this));
-      controller_->MaybeStartDrag(this, cloned_event, original_selection);
+
+      if (!closing())
+        controller_->MaybeStartDrag(this, cloned_event, original_selection);
       break;
     }
 
@@ -689,6 +715,10 @@ void Tab::OnThemeChanged() {
   UpdateForegroundColors();
 }
 
+TabSlotView::ViewType Tab::GetTabSlotViewType() const {
+  return TabSlotView::ViewType::kTab;
+}
+
 TabSizeInfo Tab::GetTabSizeInfo() const {
   return {TabStyle::GetPinnedWidth(), TabStyleViews::GetMinimumActiveWidth(),
           TabStyleViews::GetMinimumInactiveWidth(),
@@ -708,16 +738,10 @@ void Tab::SetClosing(bool closing) {
   }
 }
 
-void Tab::SetGroup(base::Optional<TabGroupId> group) {
-  if (group_ == group)
-    return;
-  group_ = group;
-}
-
 base::Optional<SkColor> Tab::GetGroupColor() const {
-  return group_.has_value()
+  return group().has_value()
              ? base::make_optional(
-                   controller_->GetVisualDataForGroup(group_.value())->color())
+                   controller_->GetVisualDataForGroup(group().value())->color())
              : base::nullopt;
 }
 
@@ -743,6 +767,7 @@ SkColor Tab::GetAlertIndicatorColor(TabAlertState state) const {
       return theme_provider->GetColor(ThemeProperties::COLOR_TAB_PIP_PLAYING);
     case TabAlertState::BLUETOOTH_CONNECTED:
     case TabAlertState::USB_CONNECTED:
+    case TabAlertState::HID_CONNECTED:
     case TabAlertState::SERIAL_CONNECTED:
     case TabAlertState::VR_PRESENTING_IN_HEADSET:
       return foreground_color_;

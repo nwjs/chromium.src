@@ -3,7 +3,6 @@
 <translationbundle lang="pt-BR">
 <translation id="1001534784610492198">O arquivo do instalador está corrompido ou é inválido. Baixe o Google Chrome novamente.</translation>
 <translation id="102763973188675173">Personalize e controle o Google Chrome. Uma atualização está disponível.</translation>
-<translation id="1035334672863811645">fazer login no Chrome</translation>
 <translation id="1051826050538111504">Há um software nocivo no seu computador. O Chrome pode removê-lo, restaurar as configurações e desativar as extensões para que o navegador volte a funcionar normalmente.</translation>
 <translation id="1065672644894730302">Não foi possível ler suas preferências. Alguns recursos podem não estar disponíveis e as alterações nas preferências não serão salvas.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> estava usando o Chrome anteriormente</translation>
@@ -72,7 +71,6 @@
 <translation id="3065168410429928842">Guia do Chrome</translation>
 <translation id="3080151273017101988">Executar aplicativos em segundo plano quando o Google Chrome estiver fechado</translation>
 <translation id="3089968997497233615">Há uma versão nova e mais segura do Google Chrome disponível.</translation>
-<translation id="3138848678222082288">As versões futuras do Chrome serão instaladas automaticamente. Quando o download terminar, o Chrome será reiniciado e estará tudo pronto para você.</translation>
 <translation id="3149510190863420837">Aplicativos do Google Chrome</translation>
 <translation id="3282568296779691940">Fazer login no Google Chrome</translation>
 <translation id="3340978935015468852">configurações</translation>
@@ -93,7 +91,6 @@
 <translation id="3718181793972440140">Essa ação excluirá 1 item desse dispositivo. Para recuperar seus dados mais tarde, faça login no Chrome como <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">A extensão "<ph name="EXTENSION_NAME" />" alterou a página que é exibida quando você inicia o Chrome.</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Remover do Chrome</translation>
 <translation id="386202838227397562">Feche todas as janelas do Google Chrome e tente novamente.</translation>
 <translation id="3873044882194371212">Abrir link na janela &amp;sem rastros do Chrome</translation>
 <translation id="3889417619312448367">Desinstalar o Google Chrome</translation>
@@ -173,7 +170,6 @@
 <translation id="677276454032249905">Sair do Chrome mesmo assim?</translation>
 <translation id="683440813066116847">Regra interna do Google Chrome Canary para permitir tráfego mDNS.</translation>
 <translation id="6885412569789873916">Apps do Chrome Beta</translation>
-<translation id="6906909733186691861">As versões futuras do Chrome serão instaladas automaticamente.</translation>
 <translation id="6943584222992551122">Os dados de navegação dessa pessoa serão excluídos deste dispositivo. Para recuperar os dados, faça login no Chrome como <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Regra interna do Google Chrome Beta que permite o tráfego mDNS.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> requer que você leia e aceite os Termos de Serviço a seguir antes de utilizar o serviço. Esses termos não ampliam, modificam nem limitam os Termos do Google Chrome OS.</translation>
@@ -224,7 +220,6 @@
 <translation id="8521348052903287641">Regra interna do Google Chrome Dev que permite o tráfego mDNS.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Há uma nova versão ainda mais rápida do Google Chrome disponível.</translation>
-<translation id="8606668294522778825">O Google Chrome pode usar os serviços da Web para melhorar sua experiência de navegação. Se preferir, é possível desativar esses serviços. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">O Google Chrome não responde. Reiniciar agora?</translation>
 <translation id="8625237574518804553">{0,plural, =1{O Chrome será reiniciado em 1 minuto}one{O Chrome será reiniciado em # minuto}other{O Chrome será reiniciado em # minutos}}</translation>
 <translation id="8669527147644353129">Auxiliar do Google Chrome</translation>

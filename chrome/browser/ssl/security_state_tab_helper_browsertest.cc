@@ -25,13 +25,13 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/lookalikes/safety_tips/reputation_web_contents_observer.h"
-#include "chrome/browser/lookalikes/safety_tips/safety_tip_test_utils.h"
 #include "chrome/browser/net/system_network_context_manager.h"
+#include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/profiles/profile_window.h"
+#include "chrome/browser/reputation/reputation_web_contents_observer.h"
+#include "chrome/browser/reputation/safety_tip_test_utils.h"
 #include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
 #include "chrome/browser/ssl/cert_verifier_browser_test.h"
-#include "chrome/browser/ssl/ssl_blocking_page.h"
 #include "chrome/browser/ssl/tls_deprecation_config.h"
 #include "chrome/browser/ssl/tls_deprecation_config.pb.h"
 #include "chrome/browser/ui/browser.h"
@@ -46,14 +46,19 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/policy/core/common/policy_map.h"
+#include "components/policy/core/common/policy_types.h"
+#include "components/policy/policy_constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/features.h"
 #include "components/safe_browsing/password_protection/metrics_util.h"
 #include "components/safe_browsing/proto/csd.pb.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
+#include "components/security_interstitials/content/ssl_blocking_page.h"
 #include "components/security_state/content/ssl_status_input_event_data.h"
 #include "components/security_state/core/features.h"
 #include "components/security_state/core/security_state.h"
+#include "components/security_state/core/security_state_pref_names.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -173,6 +178,29 @@ security_state::InsecureInputEventData GetInputEvents(
   return security_state::InsecureInputEventData();
 }
 
+security_state::SecurityLevel GetLevelForPassiveMixedContent() {
+  return base::FeatureList::IsEnabled(
+             security_state::features::kPassiveMixedContentWarning)
+             ? security_state::WARNING
+             : security_state::NONE;
+}
+
+blink::SecurityStyle GetSecurityStyleForHttp() {
+  bool http_danger_warning_enabled = false;
+  if (base::FeatureList::IsEnabled(
+          security_state::features::kMarkHttpAsFeature)) {
+    std::string parameter = base::GetFieldTrialParamValueByFeature(
+        security_state::features::kMarkHttpAsFeature,
+        security_state::features::kMarkHttpAsFeatureParameterName);
+    if (parameter ==
+        security_state::features::kMarkHttpAsParameterDangerWarning) {
+      http_danger_warning_enabled = true;
+    }
+  }
+  return http_danger_warning_enabled ? blink::SecurityStyle::kInsecure
+                                     : blink::SecurityStyle::kNeutral;
+}
+
 // A delegate class that allows emulating selection of a file for an
 // INPUT TYPE=FILE form field.
 class FileChooserDelegate : public content::WebContentsDelegate {
@@ -255,7 +283,8 @@ void CheckBrokenSecurityStyle(const SecurityStyleTestObserver& observer,
                               int error,
                               Browser* browser,
                               net::X509Certificate* expected_cert) {
-  EXPECT_EQ(blink::SecurityStyle::kInsecure, observer.latest_security_style());
+  EXPECT_EQ(blink::SecurityStyle::kInsecureBroken,
+            observer.latest_security_style());
 
   const content::SecurityStyleExplanations& expired_explanation =
       observer.latest_explanations();
@@ -762,7 +791,7 @@ IN_PROC_BROWSER_TEST_F(SecurityStateTabHelperTestWithAutoupgradesDisabled,
                                https_server_.GetURL(replacement_path));
   CheckSecurityInfoForSecure(
       browser()->tab_strip_model()->GetActiveWebContents(),
-      security_state::NONE, false, true, false,
+      GetLevelForPassiveMixedContent(), false, true, false,
       false /* expect cert status error */);
 
   // Navigate to an HTTPS page that displays mixed content dynamically.
@@ -782,7 +811,7 @@ IN_PROC_BROWSER_TEST_F(SecurityStateTabHelperTestWithAutoupgradesDisabled,
   EXPECT_TRUE(js_result);
   CheckSecurityInfoForSecure(
       browser()->tab_strip_model()->GetActiveWebContents(),
-      security_state::NONE, false, true, false,
+      GetLevelForPassiveMixedContent(), false, true, false,
       false /* expect cert status error */);
 
   // Navigate to an HTTPS page that runs mixed content.
@@ -816,6 +845,66 @@ IN_PROC_BROWSER_TEST_F(SecurityStateTabHelperTestWithAutoupgradesDisabled,
   CheckSecurityInfoForSecure(
       browser()->tab_strip_model()->GetActiveWebContents(),
       security_state::DANGEROUS, false, false, true,
+      false /* expect cert status error */);
+}
+
+class
+    SecurityStateTabHelperTestWithAutoupgradesDisabledAndMixedContentWarningEnabled
+    : public SecurityStateTabHelperTest {
+ public:
+  SecurityStateTabHelperTestWithAutoupgradesDisabledAndMixedContentWarningEnabled() {
+    feature_list.InitWithFeatures(
+        /* enabled_features */
+        {security_state::features::kPassiveMixedContentWarning},
+        /* disabled_features */
+        {blink::features::kMixedContentAutoupgrade});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list;
+};
+
+// Checks that the proper security state is displayed when the passive mixed
+// content warning feature is enabled.
+// TODO(crbug.com/1026464): Once that launch is finished and other tests run
+// with the feature enabled this test and the class will be redundant and can be
+// removed.
+IN_PROC_BROWSER_TEST_F(
+    SecurityStateTabHelperTestWithAutoupgradesDisabledAndMixedContentWarningEnabled,
+    PassiveMixedContentWarning) {
+  SetUpMockCertVerifierForHttpsServer(0, net::OK);
+
+  net::HostPortPair replacement_pair = embedded_test_server()->host_port_pair();
+  replacement_pair.set_host("example.test");
+
+  // Navigate to an HTTPS page that displays mixed content.
+  std::string replacement_path = GetFilePathWithHostAndPortReplacement(
+      "/ssl/page_displays_insecure_content.html", replacement_pair);
+  ui_test_utils::NavigateToURL(browser(),
+                               https_server_.GetURL(replacement_path));
+  CheckSecurityInfoForSecure(
+      browser()->tab_strip_model()->GetActiveWebContents(),
+      GetLevelForPassiveMixedContent(), false, true, false,
+      false /* expect cert status error */);
+
+  // Navigate to an HTTPS page that displays mixed content dynamically.
+  replacement_path = GetFilePathWithHostAndPortReplacement(
+      "/ssl/page_with_dynamic_insecure_content.html", replacement_pair);
+  ui_test_utils::NavigateToURL(browser(),
+                               https_server_.GetURL(replacement_path));
+  CheckSecurityInfoForSecure(
+      browser()->tab_strip_model()->GetActiveWebContents(),
+      security_state::SECURE, false, false, false,
+      false /* expect cert status error */);
+  // Load the insecure image.
+  bool js_result = false;
+  EXPECT_TRUE(content::ExecuteScriptAndExtractBool(
+      browser()->tab_strip_model()->GetActiveWebContents(), "loadBadImage();",
+      &js_result));
+  EXPECT_TRUE(js_result);
+  CheckSecurityInfoForSecure(
+      browser()->tab_strip_model()->GetActiveWebContents(),
+      GetLevelForPassiveMixedContent(), false, true, false,
       false /* expect cert status error */);
 }
 
@@ -1040,7 +1129,9 @@ IN_PROC_BROWSER_TEST_F(SecurityStateTabHelperTest,
   // Ensure that WebContentsObservers don't show an incorrect Form Not Secure
   // explanation. Regression test for https://crbug.com/691412.
   EXPECT_EQ(0u, observer.latest_explanations().neutral_explanations.size());
-  EXPECT_EQ(blink::SecurityStyle::kNeutral, observer.latest_security_style());
+  // The below expectation is based on the feature flag set in the field trial
+  // testing config.
+  EXPECT_EQ(GetSecurityStyleForHttp(), observer.latest_security_style());
 
   content::NavigationEntry* entry = contents->GetController().GetVisibleEntry();
   ASSERT_TRUE(entry);
@@ -1162,7 +1253,9 @@ IN_PROC_BROWSER_TEST_F(SecurityStateTabHelperTest,
   // Ensure that WebContentsObservers don't show an incorrect Form Not Secure
   // explanation. Regression test for https://crbug.com/691412.
   EXPECT_EQ(0u, observer.latest_explanations().neutral_explanations.size());
-  EXPECT_EQ(blink::SecurityStyle::kNeutral, observer.latest_security_style());
+  // The below expectation is based on the feature flag set in the field trial
+  // testing config.
+  EXPECT_EQ(GetSecurityStyleForHttp(), observer.latest_security_style());
 
   content::NavigationEntry* entry = contents->GetController().GetVisibleEntry();
   ASSERT_TRUE(entry);
@@ -1572,7 +1665,9 @@ IN_PROC_BROWSER_TEST_F(
 
   GURL mixed_content_url(https_server_.GetURL(replacement_path));
   ui_test_utils::NavigateToURL(browser(), mixed_content_url);
-  EXPECT_EQ(blink::SecurityStyle::kNeutral, observer.latest_security_style());
+  // The below expectation is based on the feature flag set in the field trial
+  // testing config.
+  EXPECT_EQ(GetSecurityStyleForHttp(), observer.latest_security_style());
 
   const content::SecurityStyleExplanations& mixed_content_explanation =
       observer.latest_explanations();
@@ -1696,7 +1791,8 @@ IN_PROC_BROWSER_TEST_F(SecurityStateTabHelperTestWithHttpDangerous,
   ui_test_utils::NavigateToURL(browser(), http_url);
 
   EXPECT_EQ(security_state::DANGEROUS, helper->GetSecurityLevel());
-  EXPECT_EQ(blink::SecurityStyle::kInsecure, observer.latest_security_style());
+  EXPECT_EQ(blink::SecurityStyle::kInsecureBroken,
+            observer.latest_security_style());
   const content::SecurityStyleExplanations& http_explanation =
       observer.latest_explanations();
   EXPECT_EQ(l10n_util::GetStringUTF8(IDS_HTTP_NONSECURE_SUMMARY),
@@ -2213,7 +2309,8 @@ IN_PROC_BROWSER_TEST_F(SecurityStateTabHelperTestWithAutoupgradesDisabled,
                                        "i.src = 'http://example.test';"
                                        "document.body.appendChild(i);"));
     observer.WaitForDidChangeVisibleSecurityState();
-    histograms.ExpectUniqueSample(kHistogramName, security_state::NONE, 1);
+    histograms.ExpectUniqueSample(kHistogramName,
+                                  GetLevelForPassiveMixedContent(), 1);
   }
 
   // Navigate away and the histogram should be recorded exactly once again, when
@@ -2297,8 +2394,8 @@ IN_PROC_BROWSER_TEST_F(SecurityStateTabHelperTest, SafetyTipFormHistogram) {
         "/ssl/page_with_form_targeting_http_url.html", host_port_pair);
     ui_test_utils::NavigateToURL(browser(), server.GetURL(replacement_path));
 
-    safety_tips::ReputationWebContentsObserver* rep_observer =
-        safety_tips::ReputationWebContentsObserver::FromWebContents(
+    ReputationWebContentsObserver* rep_observer =
+        ReputationWebContentsObserver::FromWebContents(
             browser()->tab_strip_model()->GetActiveWebContents());
     ASSERT_TRUE(rep_observer);
     base::RunLoop run_loop;
@@ -2327,6 +2424,62 @@ IN_PROC_BROWSER_TEST_F(SecurityStateTabHelperTest, SafetyTipFormHistogram) {
                   : security_state::SafetyTipStatus::kNone,
         1);
   }
+}
+
+// Tests for the temporary strict mixed content treatment opt out enterprise
+// policy.
+class MixedContentStrictTreatmentOptOutPolicyTest : public policy::PolicyTest {
+ public:
+  MixedContentStrictTreatmentOptOutPolicyTest() {
+    feature_list_.InitWithFeatures(
+        {security_state::features::kPassiveMixedContentWarning,
+         blink::features::kMixedContentAutoupgrade},
+        {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(MixedContentStrictTreatmentOptOutPolicyTest,
+                       MixedContentStrictTreatmentDisabledSecurityState) {
+  // Check pref is set to true by default.
+  EXPECT_TRUE(browser()->profile()->GetPrefs()->GetBoolean(
+      security_state::prefs::kStricterMixedContentTreatmentEnabled));
+  // Set policy to disable mixed content treatment changes.
+  policy::PolicyMap policies;
+  policies.Set(policy::key::kStricterMixedContentTreatmentEnabled,
+               policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER,
+               policy::POLICY_SOURCE_CLOUD,
+               std::make_unique<base::Value>(false), nullptr);
+  UpdateProviderPolicy(policies);
+  // Pref should now be set to false.
+  EXPECT_FALSE(browser()->profile()->GetPrefs()->GetBoolean(
+      security_state::prefs::kStricterMixedContentTreatmentEnabled));
+  // Start HTTP server.
+  ASSERT_TRUE(embedded_test_server()->Start());
+  // Start HTTPS server.
+  net::EmbeddedTestServer https_server_ok(net::EmbeddedTestServer::TYPE_HTTPS);
+  https_server_ok.SetSSLConfig(net::EmbeddedTestServer::CERT_OK);
+  https_server_ok.ServeFilesFromSourceDirectory("chrome/test/data");
+  ASSERT_TRUE(https_server_ok.Start());
+  // Navigate to an HTTPS page that displays mixed content.
+  net::HostPortPair replacement_pair = https_server_ok.host_port_pair();
+  base::StringPairs replacement_text;
+  replacement_text.push_back(
+      make_pair("REPLACE_WITH_HOST_AND_PORT", replacement_pair.ToString()));
+  std::string replacement_path = net::test_server::GetFilePathWithReplacements(
+      "/ssl/page_displays_insecure_content.html", replacement_text);
+  ui_test_utils::NavigateToURL(browser(),
+                               https_server_ok.GetURL(replacement_path));
+  // Check security state is NONE, if the request was autoupgraded this will
+  // instead be SECURE, and if the warning was shown it will be WARNING.
+  SecurityStateTabHelper* helper = SecurityStateTabHelper::FromWebContents(
+      browser()->tab_strip_model()->GetActiveWebContents());
+  ASSERT_TRUE(helper);
+  std::unique_ptr<security_state::VisibleSecurityState> visible_security_state =
+      helper->GetVisibleSecurityState();
+  EXPECT_EQ(security_state::NONE, helper->GetSecurityLevel());
 }
 
 }  // namespace

@@ -39,7 +39,7 @@ ReportUploader::ReportUploader(policy::CloudPolicyClient* client,
       maximum_number_of_retries_(maximum_number_of_retries) {}
 ReportUploader::~ReportUploader() = default;
 
-void ReportUploader::SetRequestAndUpload(Requests requests,
+void ReportUploader::SetRequestAndUpload(ReportRequests requests,
                                          ReportCallback callback) {
   requests_ = std::move(requests);
   callback_ = std::move(callback);
@@ -47,10 +47,15 @@ void ReportUploader::SetRequestAndUpload(Requests requests,
 }
 
 void ReportUploader::Upload() {
-  client_->UploadChromeDesktopReport(
-      std::make_unique<em::ChromeDesktopReportRequest>(*requests_.front()),
-      base::BindRepeating(&ReportUploader::OnRequestFinished,
-                          weak_ptr_factory_.GetWeakPtr()));
+  auto request = std::make_unique<ReportRequest>(*requests_.front());
+  auto callback = base::BindRepeating(&ReportUploader::OnRequestFinished,
+                                      weak_ptr_factory_.GetWeakPtr());
+
+#if defined(OS_CHROMEOS)
+  client_->UploadChromeOsUserReport(std::move(request), std::move(callback));
+#else
+  client_->UploadChromeDesktopReport(std::move(request), std::move(callback));
+#endif
 }
 
 void ReportUploader::OnRequestFinished(bool status) {

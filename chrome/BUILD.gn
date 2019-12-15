@@ -85,6 +85,27 @@ if (is_win) {
       ":chrome_initial",
     ]
   }
+
+  if (!is_multi_dll_chrome) {
+    # Remove the chrome_child.dll build artifacts from the build directory if
+    # they're not needed to avoid packaging them in the installer.
+    # TODO(sebmarchand): Remove this once the multi DLL build isn't supported.
+    action("remove_chrome_child_artifacts") {
+      script = "//build/rm.py"
+      stamp = "$target_gen_dir/chrome_child_clean_up_stamp"
+      outputs = [
+        stamp,
+      ]
+      args = [
+        "--stamp",
+        rebase_path(stamp, root_build_dir),
+        "-f",
+        "chrome_child.dll",
+        "chrome_child.dll.lib",
+        "chrome_child.dll.pdb",
+      ]
+    }
+  }
 }
 
 # This target exists above chrome and it's main components in the dependency
@@ -379,6 +400,10 @@ if (is_win || (is_linux && !is_component_build)) {
     ]
     if (is_multi_dll_chrome) {
       data_deps += [ ":chrome_child" ]
+    } else if (is_win) {
+      deps = [
+        ":remove_chrome_child_artifacts",
+      ]
     }
   }
 
@@ -521,22 +546,6 @@ if (is_win || (is_linux && !is_component_build)) {
         "//chrome/install_static:secondary_module",
         "//chrome/chrome_elf",
       ]
-
-      if (is_clang && is_official_build) {
-        orderfile = "build/chrome_child.$target_cpu.orderfile"
-        rebased_orderfile = rebase_path(orderfile, root_build_dir)
-        inputs = [
-          orderfile,
-        ]
-        ldflags = [
-          "/order:@$rebased_orderfile",
-
-          # Ignore warnings about missing functions or functions not in their
-          # own section.
-          "/ignore:4037",
-          "/ignore:4065",
-        ]
-      }
 
       if (symbol_level == 2) {
         # Incremental linking doesn't work on this target in debug mode with
@@ -941,7 +950,6 @@ if (is_win || (is_linux && !is_component_build)) {
     }
 
     if (v8_use_external_startup_data) {
-      sources += [ "$root_out_dir/natives_blob.bin" ]
       public_deps += [ "//v8" ]
       if (use_v8_context_snapshot) {
         sources += [ "$root_out_dir/v8_context_snapshot.bin" ]
@@ -1614,19 +1622,18 @@ group("resources") {
 group("extra_resources") {
   # Deps should be same as those in chrome_extra_paks() within chrome_paks.gni.
   public_deps = [
-    "//chrome/browser/resources:invalidations_resources",
-    "//chrome/browser/resources:net_internals_resources",
-    "//chrome/browser/resources:quota_internals_resources",
-    "//chrome/browser/resources:webapks_ui_resources",
     "//components/autofill/core/browser:autofill_address_rewriter_resources",
   ]
 
   if (!is_android) {
     public_deps += [
+      "//chrome/browser/resources:bookmarks_resources",
       "//chrome/browser/resources:component_extension_resources",
       "//chrome/browser/resources:dev_ui_paks",
       "//chrome/browser/resources:downloads_resources",
+      "//chrome/browser/resources:history_resources",
       "//chrome/browser/resources:local_ntp_resources",
+      "//chrome/browser/resources:new_tab_page_resources",
       "//chrome/browser/resources:settings_resources",
     ]
   }
@@ -1636,10 +1643,10 @@ group("extra_resources") {
       "//chrome/browser/resources:os_settings_resources",
       "//chrome/browser/resources/chromeos:cellular_setup_resources",
       "//chrome/browser/resources/chromeos:multidevice_setup_resources",
-      "//chrome/browser/resources/chromeos/autoclick:build",
-      "//chrome/browser/resources/chromeos/chromevox",
-      "//chrome/browser/resources/chromeos/select_to_speak:build",
-      "//chrome/browser/resources/chromeos/switch_access:build",
+      "//chrome/browser/resources/chromeos/accessibility/autoclick:build",
+      "//chrome/browser/resources/chromeos/accessibility/chromevox",
+      "//chrome/browser/resources/chromeos/accessibility/select_to_speak:build",
+      "//chrome/browser/resources/chromeos/accessibility/switch_access:build",
       "//third_party/ink:ink_resources",
     ]
   }
@@ -1791,12 +1798,6 @@ if (is_android) {
     ]
   }
 
-  java_cpp_enum("pref_enum_javagen") {
-    sources = [
-      "browser/android/preferences/prefs.h",
-    ]
-  }
-
   java_cpp_enum("quick_action_category_enum_javagen") {
     sources = [
       "browser/android/contextualsearch/resolved_search_term.h",
@@ -1819,6 +1820,12 @@ if (is_android) {
   java_cpp_enum("instant_apps_reasons_enum_javagen") {
     sources = [
       "browser/android/instantapps/instant_apps_settings.cc",
+    ]
+  }
+
+  java_cpp_enum("supervised_user_url_filter_enum_javagen") {
+    sources = [
+      "browser/supervised_user/supervised_user_url_filter.h",
     ]
   }
 

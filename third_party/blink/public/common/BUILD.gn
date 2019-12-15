@@ -20,6 +20,7 @@ component("common") {
     "//third_party/blink/public/mojom:web_bluetooth_mojo_bindings",
   ]
   deps = [
+    "//cc/ipc",
     "//third_party/blink/common",
   ]
 }
@@ -49,6 +50,9 @@ source_set("headers") {
     "cache_storage/cache_storage_utils.h",
     "client_hints/client_hints.h",
     "common_export.h",
+    "context_menu_data/edit_flags.h",
+    "context_menu_data/input_field_type.h",
+    "context_menu_data/media_type.h",
     "css/forced_colors.h",
     "css/navigation_controls.h",
     "css/preferred_color_scheme.h",
@@ -66,7 +70,6 @@ source_set("headers") {
     "frame/frame_owner_element_type.h",
     "frame/frame_policy.h",
     "frame/from_ad_state.h",
-    "frame/occlusion_state.h",
     "frame/sandbox_flags.h",
     "frame/user_activation_state.h",
     "frame/user_activation_update_source.h",
@@ -89,6 +92,7 @@ source_set("headers") {
     "manifest/manifest.h",
     "manifest/manifest_icon_selector.h",
     "manifest/manifest_util.h",
+    "media/media_player_action.h",
     "media/video_capture.h",
     "mediastream/media_devices.h",
     "mediastream/media_devices_mojom_traits.h",
@@ -115,6 +119,7 @@ source_set("headers") {
     "origin_trials/trial_token.h",
     "origin_trials/trial_token_validator.h",
     "page/launching_process_state.h",
+    "page/page_visibility_state.h",
     "page/page_zoom.h",
     "peerconnection/webrtc_ip_handling_policy.h",
     "plugin/plugin_action.h",
@@ -128,8 +133,8 @@ source_set("headers") {
     "service_worker/service_worker_type_converters.h",
     "service_worker/service_worker_types.h",
     "service_worker/service_worker_utils.h",
+    "sms/sms_receiver_destroyed_reason.h",
     "sms/sms_receiver_outcome.h",
-    "sudden_termination_disabler_type.h",
     "user_agent/user_agent_metadata.h",
     "web_cache/web_cache_resource_type_stats.h",
     "web_package/signed_exchange_consts.h",
@@ -139,6 +144,7 @@ source_set("headers") {
   public_deps = [
     "//services/network/public/cpp:cpp",
     "//skia",
+    "//skia/public/mojom:shared_typemap_traits",
     "//third_party/blink/public/mojom:mojom_modules_headers",
     "//third_party/blink/public/mojom:web_bluetooth_mojo_bindings_headers",
   ]

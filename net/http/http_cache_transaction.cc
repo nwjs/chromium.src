@@ -3041,9 +3041,13 @@ int HttpCache::Transaction::DoSetupEntryForRead() {
   }
 
   if (partial_) {
-    if (truncated_ || is_sparse_ || !invalid_range_) {
+    if (truncated_ || is_sparse_ ||
+        (!invalid_range_ && (response_.headers->response_code() == 200 ||
+                             response_.headers->response_code() == 206))) {
       // We are going to return the saved response headers to the caller, so
-      // we may need to adjust them first.
+      // we may need to adjust them first. In cases we are handling a range
+      // request to a regular entry, we want the response to be a 200 or 206,
+      // since others can't really be turned into a 206.
       TransitionToState(STATE_PARTIAL_HEADERS_RECEIVED);
       return OK;
     } else {

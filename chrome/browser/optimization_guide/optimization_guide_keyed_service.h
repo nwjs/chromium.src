@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/containers/flat_set.h"
 #include "base/macros.h"
 #include "base/time/time.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -77,9 +78,12 @@ class OptimizationGuideKeyedService
           optimization_types,
       const std::vector<optimization_guide::proto::OptimizationTarget>&
           optimization_targets) override;
+  optimization_guide::OptimizationGuideDecision ShouldTargetNavigation(
+      content::NavigationHandle* navigation_handle,
+      optimization_guide::proto::OptimizationTarget optimization_target)
+      override;
   optimization_guide::OptimizationGuideDecision CanApplyOptimization(
       content::NavigationHandle* navigation_handle,
-      optimization_guide::proto::OptimizationTarget optimization_target,
       optimization_guide::proto::OptimizationType optimization_type,
       optimization_guide::OptimizationMetadata* optimization_metadata) override;
 
@@ -91,6 +95,14 @@ class OptimizationGuideKeyedService
 
  private:
   content::BrowserContext* browser_context_;
+
+  // The optimization types registered prior to initialization.
+  std::vector<optimization_guide::proto::OptimizationType>
+      pre_initialized_optimization_types_;
+
+  // The optimization targets registered prior to initialization.
+  std::vector<optimization_guide::proto::OptimizationTarget>
+      pre_initialized_optimization_targets_;
 
   // Manages the storing, loading, and fetching of hints.
   std::unique_ptr<OptimizationGuideHintsManager> hints_manager_;

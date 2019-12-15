@@ -281,7 +281,10 @@ AutocompleteController::AutocompleteController(
   if (provider_types & AutocompleteProvider::TYPE_ON_DEVICE_HEAD) {
     on_device_head_provider_ =
         OnDeviceHeadProvider::Create(provider_client_.get(), this);
-    providers_.push_back(on_device_head_provider_);
+    if (on_device_head_provider_) {
+      providers_.push_back(on_device_head_provider_);
+      on_device_head_provider_->AddModelUpdateCallback();
+    }
   }
   if (provider_types & AutocompleteProvider::TYPE_CLIPBOARD) {
 #if !defined(OS_IOS)
@@ -419,9 +422,8 @@ void AutocompleteController::Start(const AutocompleteInput& input) {
   // dereference.
   if (base::FeatureList::IsEnabled(
           omnibox::kSpeculativeServiceWorkerStartOnQueryInput) &&
-      (input.type() == metrics::OmniboxInputType::QUERY) &&
-      !search_service_worker_signal_sent_ &&
-      (result_.default_match() != result_.end())) {
+      input.type() == metrics::OmniboxInputType::QUERY &&
+      !search_service_worker_signal_sent_ && result_.default_match()) {
     search_service_worker_signal_sent_ = true;
     provider_client_->StartServiceWorker(
         result_.default_match()->destination_url);
@@ -558,7 +560,7 @@ void AutocompleteController::UpdateResult(
 
   base::Optional<AutocompleteMatch> last_default_match;
   base::string16 last_default_associated_keyword;
-  if (result_.default_match() != result_.end()) {
+  if (result_.default_match()) {
     last_default_match = *result_.default_match();
     if (last_default_match->associated_keyword) {
       last_default_associated_keyword =
@@ -566,11 +568,13 @@ void AutocompleteController::UpdateResult(
     }
   }
 
+  const auto last_result_for_logging = result_.GetMatchDedupComparators();
+
   if (regenerate_result)
     result_.Reset();
 
-  AutocompleteResult last_result;
-  last_result.Swap(&result_);
+  AutocompleteResult old_matches_to_reuse;
+  old_matches_to_reuse.Swap(&result_);
 
   for (Providers::const_iterator i(providers_.begin());
        i != providers_.end(); ++i)
@@ -584,7 +588,7 @@ void AutocompleteController::UpdateResult(
 
   // Sort the matches and trim to a small number of "best" matches.
   const AutocompleteMatch* preserve_default_match = nullptr;
-  if (!in_start_ && !regenerate_result && last_default_match &&
+  if (!in_start_ && last_default_match &&
       base::FeatureList::IsEnabled(
           omnibox::kOmniboxPreserveDefaultMatchAgainstAsyncUpdate)) {
     preserve_default_match = &last_default_match.value();
@@ -600,12 +604,15 @@ void AutocompleteController::UpdateResult(
   if (!done_) {
     // This conditional needs to match the conditional in Start that invokes
     // StartExpireTimer.
-    result_.CopyOldMatches(input_, &last_result, template_url_service_);
+    result_.TransferOldMatches(input_, &old_matches_to_reuse,
+                               template_url_service_);
   }
 
   // Log metrics for how many matches are asynchronously changed.
-  if (!in_start_)
-    AutocompleteResult::LogAsynchronousUpdateMetrics(last_result, result_);
+  if (!in_start_) {
+    AutocompleteResult::LogAsynchronousUpdateMetrics(last_result_for_logging,
+                                                     result_);
+  }
 
   UpdateKeywordDescriptions(&result_);
   UpdateAssociatedKeywords(&result_);
@@ -613,7 +620,7 @@ void AutocompleteController::UpdateResult(
   if (search_provider_)
     search_provider_->RegisterDisplayedAnswers(result_);
 
-  const bool default_is_valid = result_.default_match() != result_.end();
+  const bool default_is_valid = result_.default_match();
   base::string16 default_associated_keyword;
   if (default_is_valid &&
       result_.default_match()->associated_keyword) {

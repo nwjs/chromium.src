@@ -195,9 +195,12 @@ const StyledLabel::LayoutSizeInfo& StyledLabel::GetLayoutSizeInfoForWidth(
   return layout_size_info_;
 }
 
-void StyledLabel::SizeToFit(int max_width) {
-  CalculateLayout(max_width == 0 ? std::numeric_limits<int>::max() : max_width);
-  SetSize(layout_size_info_.total_size);
+void StyledLabel::SizeToFit(int fixed_width) {
+  CalculateLayout(fixed_width == 0 ? std::numeric_limits<int>::max()
+                                   : fixed_width);
+  gfx::Size size = layout_size_info_.total_size;
+  size.set_width(std::max(size.width(), fixed_width));
+  SetSize(size);
 }
 
 void StyledLabel::GetAccessibleNodeData(ui::AXNodeData* node_data) {
@@ -210,8 +213,8 @@ void StyledLabel::GetAccessibleNodeData(ui::AXNodeData* node_data) {
 }
 
 gfx::Size StyledLabel::CalculatePreferredSize() const {
-  // TODO(pkasting): This seems suspicious; shouldn't there be a call to
-  // CalculateLayout(std::numeric_limits<int>::max()) here?
+  // Respect any existing size.  If there is none, default to a single line.
+  CalculateLayout((width() == 0) ? std::numeric_limits<int>::max() : width());
   return layout_size_info_.total_size;
 }
 

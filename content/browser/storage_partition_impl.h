@@ -85,8 +85,9 @@ class CONTENT_EXPORT StoragePartitionImpl
   // This method must be called either on the UI thread or before threads start.
   // This callback is run on the UI thread.
   using CreateNetworkFactoryCallback =
-      base::Callback<network::mojom::URLLoaderFactoryPtr(
-          network::mojom::URLLoaderFactoryPtr original_factory)>;
+      base::Callback<mojo::PendingRemote<network::mojom::URLLoaderFactory>(
+          mojo::PendingRemote<network::mojom::URLLoaderFactory>
+              original_factory)>;
   static void SetGetURLLoaderFactoryForBrowserProcessCallbackForTesting(
       const CreateNetworkFactoryCallback& url_loader_factory_callback);
 
@@ -107,7 +108,7 @@ class CONTENT_EXPORT StoragePartitionImpl
   GetURLLoaderFactoryForBrowserProcess() override;
   scoped_refptr<network::SharedURLLoaderFactory>
   GetURLLoaderFactoryForBrowserProcessWithCORBEnabled() override;
-  std::unique_ptr<network::SharedURLLoaderFactoryInfo>
+  std::unique_ptr<network::PendingSharedURLLoaderFactory>
   GetURLLoaderFactoryForBrowserProcessIOThread() override;
   network::mojom::CookieManager* GetCookieManagerForBrowserProcess() override;
   void CreateRestrictedCookieManager(
@@ -158,7 +159,7 @@ class CONTENT_EXPORT StoragePartitionImpl
                  base::OnceClosure callback) override;
   void ClearData(uint32_t remove_mask,
                  uint32_t quota_storage_remove_mask,
-                 const OriginMatcherFunction& origin_matcher,
+                 OriginMatcherFunction origin_matcher,
                  network::mojom::CookieDeletionFilterPtr cookie_deletion_filter,
                  bool perform_storage_cleanup,
                  const base::Time begin,
@@ -270,13 +271,13 @@ class CONTENT_EXPORT StoragePartitionImpl
   BrowserContext* browser_context() const;
 
   // Called by each renderer process for each StoragePartitionService interface
-  // it binds in the renderer process. Returns the id of the created binding.
-  mojo::BindingId Bind(
+  // it binds in the renderer process. Returns the id of the created receiver.
+  mojo::ReceiverId Bind(
       int process_id,
       mojo::PendingReceiver<blink::mojom::StoragePartitionService> receiver);
 
-  // Remove a binding created by a previous Bind() call.
-  void Unbind(mojo::BindingId binding_id);
+  // Remove a receiver created by a previous Bind() call.
+  void Unbind(mojo::ReceiverId receiver_id);
 
   auto& receivers_for_testing() { return receivers_; }
 
@@ -384,7 +385,7 @@ class CONTENT_EXPORT StoragePartitionImpl
       uint32_t remove_mask,
       uint32_t quota_storage_remove_mask,
       const GURL& remove_origin,
-      const OriginMatcherFunction& origin_matcher,
+      OriginMatcherFunction origin_matcher,
       network::mojom::CookieDeletionFilterPtr cookie_deletion_filter,
       bool perform_storage_cleanup,
       const base::Time begin,
@@ -481,9 +482,10 @@ class CONTENT_EXPORT StoragePartitionImpl
   // See the method comment for
   // StoragePartition::GetURLLoaderFactoryForBrowserProcess() for
   // more details
-  network::mojom::URLLoaderFactoryPtr url_loader_factory_for_browser_process_;
+  mojo::Remote<network::mojom::URLLoaderFactory>
+      url_loader_factory_for_browser_process_;
   bool is_test_url_loader_factory_for_browser_process_ = false;
-  network::mojom::URLLoaderFactoryPtr
+  mojo::Remote<network::mojom::URLLoaderFactory>
       url_loader_factory_for_browser_process_with_corb_;
   bool is_test_url_loader_factory_for_browser_process_with_corb_ = false;
   mojo::Remote<network::mojom::CookieManager>

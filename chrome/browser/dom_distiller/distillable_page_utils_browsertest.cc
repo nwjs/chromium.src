@@ -7,7 +7,6 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/message_loop/message_loop.h"
 #include "base/optional.h"
 #include "base/run_loop.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -248,6 +247,16 @@ IN_PROC_BROWSER_TEST_F(DistillablePageUtilsBrowserTestAllArticles,
   EXPECT_THAT(
       GetLatestResult(web_contents_),
       Optional(AllOf(Not(IsDistillable()), IsLast(), Not(IsMobileFriendly()))));
+}
+
+IN_PROC_BROWSER_TEST_F(DistillablePageUtilsBrowserTestAllArticles,
+                       ObserverNotCalledAfterRemoval) {
+  RemoveObserver(web_contents_, &holder_);
+  EXPECT_CALL(holder_, OnResult(_)).Times(0);
+  NavigateAndWait(kSimpleArticlePath, kWaitNoExpectedCall);
+  EXPECT_THAT(
+      GetLatestResult(web_contents_),
+      Optional(AllOf(IsDistillable(), IsLast(), Not(IsMobileFriendly()))));
 }
 
 }  // namespace dom_distiller

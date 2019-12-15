@@ -6,7 +6,10 @@ package org.chromium.chrome.browser.touch_to_fill;
 
 import android.content.Context;
 
-import org.chromium.base.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
+
+import org.chromium.chrome.browser.favicon.LargeIconBridge;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.touch_to_fill.data.Credential;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -27,6 +30,7 @@ public class TouchToFillCoordinator implements TouchToFillComponent {
     public void initialize(Context context, BottomSheetController sheetController,
             TouchToFillComponent.Delegate delegate) {
         mMediator.initialize(delegate, mModel,
+                new LargeIconBridge(Profile.getLastUsedProfile().getOriginalProfile()),
                 context.getResources().getDimensionPixelSize(R.dimen.touch_to_fill_favicon_size));
         setUpModelChangeProcessors(mModel, new TouchToFillView(context, sheetController));
     }

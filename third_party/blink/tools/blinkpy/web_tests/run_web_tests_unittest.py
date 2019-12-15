@@ -538,6 +538,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
             ['--order', 'natural', 'failures/unexpected/reftest-mismatch-with-text-mismatch-with-stderr.html',],
             tests_included=True, host=host))
 
+    @unittest.skip('Need to make subprocesses use mock filesystem')
     def test_crash_log_is_saved_after_delay_using_multiple_jobs(self):
         # TODO(rmhasan): When web_test_runner.run() spawns multiple jobs it uses
         # the non mock file system. We should figure out how to make all subprocesses
@@ -572,6 +573,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
             'failures/unexpected/crash-with-sample-sample.txt',
             'retry_1/failures/unexpected/crash-with-sample-sample.txt'])
 
+    @unittest.skip('Need to make subprocesses use mock filesystem')
     def test_crash_sample_file_is_saved_multiple_jobs(self):
         host = MockHost()
         self.assertTrue(logging_run(
@@ -764,7 +766,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
             results['tests']['failures']['unexpected']['text-image-checksum.html'],
             {
                 'expected': 'PASS',
-                'actual': 'IMAGE+TEXT',
+                'actual': 'FAIL',
                 'is_unexpected': True,
                 'is_regression': True,
                 'text_mismatch': 'general text mismatch',
@@ -774,7 +776,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
             results['tests']['failures']['unexpected']['missing_text.html'],
             {
                 'expected': 'PASS',
-                'actual': 'MISSING',
+                'actual': 'FAIL',
                 'is_unexpected': True,
                 'is_regression': True,
                 'is_missing_text': True,
@@ -791,7 +793,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
         details, _, _ = logging_run(['--num-retries=3', 'failures/unexpected/text_then_crash.html'], tests_included=True)
         self.assertEqual(details.exit_code, 1)
         self.assertEqual(details.summarized_failing_results['tests']['failures']['unexpected']['text_then_crash.html']['actual'],
-                         'TEXT CRASH CRASH CRASH')
+                         'FAIL CRASH CRASH CRASH')
 
         # If we get a test that fails two different ways -- but the second one is expected --
         # we should treat it as a flaky result and report the initial unexpected failure type
@@ -799,7 +801,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
         details, _, _ = logging_run(['--num-retries=3', 'failures/expected/crash_then_text.html'], tests_included=True)
         self.assertEqual(details.exit_code, 0)
         self.assertEqual(details.summarized_failing_results['tests']['failures']['expected']['crash_then_text.html']['actual'],
-                         'CRASH TEXT')
+                         'CRASH FAIL')
 
     def test_watch(self):
         host = MockHost()
@@ -1261,19 +1263,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
     def test_reftest_with_virtual_reference(self):
         _, err, _ = logging_run(['--details', 'virtual/virtual_passes/passes/reftest.html'], tests_included=True)
         self.assertTrue('ref: virtual/virtual_passes/passes/reftest-expected.html' in err.getvalue())
-        self.assertTrue(
-            re.search(r'args: --virtual-arg\s*reference_args: --virtual-arg\s*ref:', err.getvalue()))
-
-    def test_reftest_virtual_references_use_default_args(self):
-        test_name = 'virtual/references_use_default_args/passes/reftest.html'
-        run_details, err, _ = logging_run(['--details', test_name], tests_included=True)
-        self.assertEqual(run_details.exit_code, 0)
-        self.assertEqual(run_details.initial_results.total, 1)
-        test_result = run_details.initial_results.all_results[0]
-        self.assertEqual(test_result.test_name, test_name)
-        self.assertEqual(test_result.references[0], 'passes/reftest-expected.html')
-        # reference_args should be empty since we are using the default flags.
-        self.assertTrue(re.search(r'reference_args:\s*ref:', err.getvalue()))
+        self.assertTrue(re.search(r'args: --virtual-arg\s*ref:', err.getvalue()))
 
     def test_reftest_matching_text_expectation(self):
         test_name = 'passes/reftest-with-text.html'
@@ -1294,7 +1284,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
         test_result = run_details.initial_results.all_results[0]
         self.assertEqual(test_result.test_name, test_name)
         self.assertEqual(len(test_result.failures), 1)
-        self.assertEqual(test_failures.determine_result_type(test_result.failures), test_expectations.TEXT)
+        self.assertEqual(test_result.type, test_expectations.FAIL)
 
     def test_reftest_mismatching_pixel_matching_text(self):
         test_name = 'failures/unexpected/reftest-with-matching-text.html'
@@ -1305,7 +1295,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
         test_result = run_details.initial_results.all_results[0]
         self.assertEqual(test_result.test_name, test_name)
         self.assertEqual(len(test_result.failures), 1)
-        self.assertEqual(test_failures.determine_result_type(test_result.failures), test_expectations.IMAGE)
+        self.assertEqual(test_result.type, test_expectations.FAIL)
 
     def test_reftest_mismatching_both_text_and_pixel(self):
         test_name = 'failures/unexpected/reftest.html'
@@ -1317,7 +1307,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
         test_result = run_details.initial_results.all_results[0]
         self.assertEqual(test_result.test_name, test_name)
         self.assertEqual(len(test_result.failures), 2)
-        self.assertEqual(test_failures.determine_result_type(test_result.failures), test_expectations.IMAGE_PLUS_TEXT)
+        self.assertEqual(test_result.type, test_expectations.FAIL)
 
     def test_extra_baselines(self):
         host = MockHost()

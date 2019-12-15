@@ -20,7 +20,6 @@
 #include "ui/views/controls/styled_label.h"
 #include "ui/views/controls/table/table_view_observer.h"
 #include "ui/views/layout/fill_layout.h"
-#include "ui/views/window/dialog_client_view.h"
 
 using bubble_anchor_util::AnchorConfiguration;
 
@@ -59,7 +58,6 @@ class ChooserBubbleUiViewDelegate : public views::BubbleDialogDelegateView,
   // views::DialogDelegate:
   bool IsDialogButtonEnabled(ui::DialogButton button) const override;
   views::View* GetInitiallyFocusedView() override;
-  std::unique_ptr<views::View> CreateExtraView() override;
   bool Accept() override;
   bool Cancel() override;
   bool Close() override;
@@ -111,6 +109,8 @@ ChooserBubbleUiViewDelegate::ChooserBubbleUiViewDelegate(
       new DeviceChooserContentView(this, std::move(chooser_controller));
   AddChildView(device_chooser_content_view_);
 
+  DialogDelegate::SetExtraView(device_chooser_content_view_->CreateExtraView());
+
   UpdateAnchor(browser);
   chrome::RecordDialogCreation(chrome::DialogIdentifier::CHOOSER_UI);
 }
@@ -127,18 +127,12 @@ base::string16 ChooserBubbleUiViewDelegate::GetWindowTitle() const {
 }
 
 views::View* ChooserBubbleUiViewDelegate::GetInitiallyFocusedView() {
-  const views::DialogClientView* dcv = GetDialogClientView();
-  return dcv ? dcv->cancel_button() : nullptr;
+  return GetCancelButton();
 }
 
 bool ChooserBubbleUiViewDelegate::IsDialogButtonEnabled(
     ui::DialogButton button) const {
   return device_chooser_content_view_->IsDialogButtonEnabled(button);
-}
-
-std::unique_ptr<views::View> ChooserBubbleUiViewDelegate::CreateExtraView() {
-  auto extra_view = device_chooser_content_view_->CreateExtraView();
-  return extra_view;
 }
 
 bool ChooserBubbleUiViewDelegate::Accept() {

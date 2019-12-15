@@ -32,14 +32,12 @@
 #include "third_party/blink/renderer/bindings/core/v8/radio_node_list_or_element.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_event_listener.h"
-#include "third_party/blink/renderer/bindings/core/v8/usv_string_or_trusted_url.h"
 #include "third_party/blink/renderer/core/dom/attribute.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/events/scoped_event_queue.h"
 #include "third_party/blink/renderer/core/dom/node_lists_node_data.h"
-#include "third_party/blink/renderer/core/dom/user_gesture_indicator.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -70,10 +68,8 @@
 
 namespace blink {
 
-using namespace html_names;
-
 HTMLFormElement::HTMLFormElement(Document& document)
-    : HTMLElement(kFormTag, document),
+    : HTMLElement(html_names::kFormTag, document),
       listed_elements_are_dirty_(false),
       image_elements_are_dirty_(false),
       has_elements_associated_by_parser_(false),
@@ -98,12 +94,6 @@ void HTMLFormElement::Trace(Visitor* visitor) {
   HTMLElement::Trace(visitor);
 }
 
-const AttrNameToTrustedType& HTMLFormElement::GetCheckedAttributeTypes() const {
-  DEFINE_STATIC_LOCAL(AttrNameToTrustedType, attribute_map,
-                      ({{"action", SpecificTrustedType::kTrustedURL}}));
-  return attribute_map;
-}
-
 bool HTMLFormElement::MatchesValidityPseudoClasses() const {
   return true;
 }
@@ -119,7 +109,8 @@ bool HTMLFormElement::IsValidElement() {
 Node::InsertionNotificationRequest HTMLFormElement::InsertedInto(
     ContainerNode& insertion_point) {
   HTMLElement::InsertedInto(insertion_point);
-  LogAddElementIfIsolatedWorldAndInDocument("form", kMethodAttr, kActionAttr);
+  LogAddElementIfIsolatedWorldAndInDocument("form", html_names::kMethodAttr,
+                                            html_names::kActionAttr);
   if (insertion_point.isConnected())
     GetDocument().DidAssociateFormControl(this);
   return kInsertionDone;
@@ -422,7 +413,6 @@ void HTMLFormElement::Submit(Event* event,
   }
 
   if (is_constructing_entry_list_) {
-    DCHECK(RuntimeEnabledFeatures::FormDataEventEnabled());
     GetDocument().AddConsoleMessage(
         ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
                                mojom::ConsoleMessageLevel::kWarning,
@@ -458,7 +448,7 @@ void HTMLFormElement::Submit(Event* event,
   FormSubmission* form_submission =
       FormSubmission::Create(this, attributes_, event, submit_button);
   // 'formdata' event handlers might disconnect the form.
-  if (RuntimeEnabledFeatures::FormDataEventEnabled() && !isConnected()) {
+  if (!isConnected()) {
     GetDocument().AddConsoleMessage(ConsoleMessage::Create(
         mojom::ConsoleMessageSource::kJavaScript,
         mojom::ConsoleMessageLevel::kWarning,
@@ -493,14 +483,13 @@ FormData* HTMLFormElement::ConstructEntryList(
     HTMLElement& element = control->ToHTMLElement();
     if (!element.IsDisabledFormControl())
       control->AppendToFormData(form_data);
-    if (auto* input = ToHTMLInputElementOrNull(element)) {
+    if (auto* input = DynamicTo<HTMLInputElement>(element)) {
       if (input->type() == input_type_names::kPassword &&
           !input->value().IsEmpty())
         form_data.SetContainsPasswordData(true);
     }
   }
-  if (RuntimeEnabledFeatures::FormDataEventEnabled())
-    DispatchEvent(*MakeGarbageCollected<FormDataEvent>(form_data));
+  DispatchEvent(*MakeGarbageCollected<FormDataEvent>(form_data));
 
   if (submit_button)
     submit_button->SetActivatedSubmit(false);
@@ -539,7 +528,7 @@ void HTMLFormElement::SubmitForm(FormSubmission* submission) {
                                              submission->Action())) {
     UseCounter::Count(GetDocument(), WebFeature::kMixedContentFormsSubmitted);
   }
-  if (FastHasAttribute(kDisabledAttr)) {
+  if (FastHasAttribute(html_names::kDisabledAttr)) {
     UseCounter::Count(GetDocument(),
                       WebFeature::kFormDisabledAttributePresentAndSubmit);
   }
@@ -577,7 +566,7 @@ void HTMLFormElement::reset() {
 void HTMLFormElement::ParseAttribute(
     const AttributeModificationParams& params) {
   const QualifiedName& name = params.name;
-  if (name == kActionAttr) {
+  if (name == html_names::kActionAttr) {
     attributes_.ParseAction(params.new_value);
     LogUpdateAttributeIfIsolatedWorldAndInDocument("form", params);
 
@@ -593,15 +582,15 @@ void HTMLFormElement::ParseAttribute(
                                                action_url)) {
       UseCounter::Count(GetDocument(), WebFeature::kMixedContentFormPresent);
     }
-  } else if (name == kTargetAttr) {
+  } else if (name == html_names::kTargetAttr) {
     attributes_.SetTarget(params.new_value);
-  } else if (name == kMethodAttr) {
+  } else if (name == html_names::kMethodAttr) {
     attributes_.UpdateMethodType(params.new_value);
-  } else if (name == kEnctypeAttr) {
+  } else if (name == html_names::kEnctypeAttr) {
     attributes_.UpdateEncodingType(params.new_value);
-  } else if (name == kAcceptCharsetAttr) {
+  } else if (name == html_names::kAcceptCharsetAttr) {
     attributes_.SetAcceptCharset(params.new_value);
-  } else if (name == kDisabledAttr) {
+  } else if (name == html_names::kDisabledAttr) {
     UseCounter::Count(GetDocument(), WebFeature::kFormDisabledAttributePresent);
   } else {
     HTMLElement::ParseAttribute(params);
@@ -611,7 +600,7 @@ void HTMLFormElement::ParseAttribute(
 void HTMLFormElement::Associate(ListedElement& e) {
   listed_elements_are_dirty_ = true;
   listed_elements_.clear();
-  if (e.ToHTMLElement().FastHasAttribute(kFormAttr))
+  if (e.ToHTMLElement().FastHasAttribute(html_names::kFormAttr))
     has_elements_associated_by_form_attribute_ = true;
 }
 
@@ -627,12 +616,13 @@ void HTMLFormElement::Disassociate(ListedElement& e) {
 }
 
 bool HTMLFormElement::IsURLAttribute(const Attribute& attribute) const {
-  return attribute.GetName() == kActionAttr ||
+  return attribute.GetName() == html_names::kActionAttr ||
          HTMLElement::IsURLAttribute(attribute);
 }
 
 bool HTMLFormElement::HasLegalLinkAttribute(const QualifiedName& name) const {
-  return name == kActionAttr || HTMLElement::HasLegalLinkAttribute(name);
+  return name == html_names::kActionAttr ||
+         HTMLElement::HasLegalLinkAttribute(name);
 }
 
 void HTMLFormElement::Associate(HTMLImageElement& e) {
@@ -712,7 +702,7 @@ String HTMLFormElement::GetName() const {
 }
 
 bool HTMLFormElement::NoValidate() const {
-  return FastHasAttribute(kNovalidateAttr);
+  return FastHasAttribute(html_names::kNovalidateAttr);
 }
 
 String HTMLFormElement::action() const {
@@ -723,17 +713,12 @@ String HTMLFormElement::action() const {
   return action_url.GetString();
 }
 
-void HTMLFormElement::action(USVStringOrTrustedURL& result) const {
-  result.SetUSVString(action());
-}
-
-void HTMLFormElement::setAction(const USVStringOrTrustedURL& value,
-                                ExceptionState& exception_state) {
-  setAttribute(kActionAttr, value, exception_state);
+void HTMLFormElement::setAction(const AtomicString& value) {
+  setAttribute(html_names::kActionAttr, value);
 }
 
 void HTMLFormElement::setEnctype(const AtomicString& value) {
-  setAttribute(kEnctypeAttr, value);
+  setAttribute(html_names::kEnctypeAttr, value);
 }
 
 String HTMLFormElement::method() const {
@@ -741,7 +726,7 @@ String HTMLFormElement::method() const {
 }
 
 void HTMLFormElement::setMethod(const AtomicString& value) {
-  setAttribute(kMethodAttr, value);
+  setAttribute(html_names::kMethodAttr, value);
 }
 
 HTMLFormControlElement* HTMLFormElement::FindDefaultButton() const {
@@ -801,11 +786,10 @@ Element* HTMLFormElement::ElementFromPastNamesMap(
   if (!element)
     return nullptr;
   SECURITY_DCHECK(To<HTMLElement>(element)->formOwner() == this);
-  if (IsHTMLImageElement(*element)) {
+  if (IsA<HTMLImageElement>(*element)) {
     SECURITY_DCHECK(ImageElements().Find(element) != kNotFound);
-  } else if (IsHTMLObjectElement(*element)) {
-    SECURITY_DCHECK(ListedElements().Find(ToHTMLObjectElement(element)) !=
-                    kNotFound);
+  } else if (auto* html_image_element = DynamicTo<HTMLObjectElement>(element)) {
+    SECURITY_DCHECK(ListedElements().Find(html_image_element) != kNotFound);
   } else {
     SECURITY_DCHECK(ListedElements().Find(
                         To<HTMLFormControlElement>(element)) != kNotFound);
@@ -851,8 +835,8 @@ void HTMLFormElement::GetNamedElements(
 }
 
 bool HTMLFormElement::ShouldAutocomplete() const {
-  return !DeprecatedEqualIgnoringCase(FastGetAttribute(kAutocompleteAttr),
-                                      "off");
+  return !DeprecatedEqualIgnoringCase(
+      FastGetAttribute(html_names::kAutocompleteAttr), "off");
 }
 
 void HTMLFormElement::FinishParsingChildren() {
@@ -881,14 +865,14 @@ void HTMLFormElement::AnonymousNamedGetter(
   DCHECK(!elements.IsEmpty());
 
   bool only_match_img =
-      !elements.IsEmpty() && IsHTMLImageElement(*elements.front());
+      !elements.IsEmpty() && IsA<HTMLImageElement>(*elements.front());
   if (only_match_img) {
     UseCounter::Count(GetDocument(),
                       WebFeature::kFormNameAccessForImageElement);
     // The following code has performance impact, but it should be small
     // because <img> access via <form> name getter is rarely used.
     for (auto& element : elements) {
-      if (IsHTMLImageElement(*element) && !element->IsDescendantOf(this)) {
+      if (IsA<HTMLImageElement>(*element) && !element->IsDescendantOf(this)) {
         UseCounter::Count(
             GetDocument(),
             WebFeature::kFormNameAccessForNonDescendantImageElement);

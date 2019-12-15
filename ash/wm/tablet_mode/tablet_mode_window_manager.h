@@ -49,7 +49,12 @@ class ASH_EXPORT TabletModeWindowManager : public aura::WindowObserver,
   TabletModeWindowManager();
   ~TabletModeWindowManager() override;
 
+  // Returns the top window on MRU window list, or null if the list
+  // is empty.
   static aura::Window* GetTopWindow();
+
+  // Returns whether the top window should be minimized on back action.
+  static bool ShouldMinimizeTopWindowOnBack();
 
   void Init();
 
@@ -171,6 +176,9 @@ class ASH_EXPORT TabletModeWindowManager : public aura::WindowObserver,
   base::flat_set<AccountId> accounts_since_entering_tablet_;
 
   std::unique_ptr<TabletModeEventHandler> event_handler_;
+
+  // True when tablet mode is about to end.
+  bool is_exiting_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(TabletModeWindowManager);
 };

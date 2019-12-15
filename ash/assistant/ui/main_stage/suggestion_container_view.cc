@@ -11,6 +11,7 @@
 #include "ash/assistant/model/assistant_response.h"
 #include "ash/assistant/ui/assistant_ui_constants.h"
 #include "ash/assistant/ui/assistant_view_delegate.h"
+#include "ash/assistant/ui/assistant_view_ids.h"
 #include "ash/assistant/ui/main_stage/animated_container_view.h"
 #include "ash/assistant/ui/main_stage/element_animator.h"
 #include "ash/assistant/util/animation_util.h"
@@ -124,6 +125,7 @@ class SuggestionChipAnimator : public ElementAnimator {
 SuggestionContainerView::SuggestionContainerView(
     AssistantViewDelegate* delegate)
     : AnimatedContainerView(delegate) {
+  SetID(AssistantViewID::kSuggestionContainer);
   InitLayout();
 
   // The AssistantViewDelegate should outlive SuggestionContainerView.
@@ -165,7 +167,7 @@ void SuggestionContainerView::InitLayout() {
           gfx::Insets(0, kPaddingDip), kSpacingDip));
 
   layout_manager_->set_cross_axis_alignment(
-      app_list_features::IsEmbeddedAssistantUIEnabled()
+      app_list_features::IsAssistantLauncherUIEnabled()
           ? views::BoxLayout::CrossAxisAlignment::kCenter
           : views::BoxLayout::CrossAxisAlignment::kEnd);
 

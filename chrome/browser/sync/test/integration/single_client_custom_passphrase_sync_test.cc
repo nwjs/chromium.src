@@ -19,7 +19,9 @@
 namespace {
 
 using bookmarks_helper::AddURL;
+using bookmarks_helper::BookmarksTitleChecker;
 using bookmarks_helper::CreateBookmarkServerEntity;
+using bookmarks_helper::ServerBookmarksEqualityChecker;
 using encryption_helper::CreateCustomPassphraseNigori;
 using encryption_helper::GetEncryptedBookmarkEntitySpecifics;
 using encryption_helper::GetServerNigori;
@@ -191,8 +193,7 @@ class SingleClientCustomPassphraseSyncTestWithUssTests
       // USS Nigori requires USS implementations to be enabled for all
       // datatypes.
       override_features_.InitWithFeatures(
-          /*enabled_features=*/{switches::kSyncUSSBookmarks,
-                                switches::kSyncUSSPasswords,
+          /*enabled_features=*/{switches::kSyncUSSPasswords,
                                 switches::kSyncUSSNigori},
           /*disabled_features=*/{});
     } else {
@@ -209,14 +210,29 @@ class SingleClientCustomPassphraseSyncTestWithUssTests
   DISALLOW_COPY_AND_ASSIGN(SingleClientCustomPassphraseSyncTestWithUssTests);
 };
 
-class SingleClientCustomPassphraseForceDisableScryptSyncTest
+class SingleClientCustomPassphraseForceDisableScryptDirectoryOnlySyncTest
     : public SingleClientCustomPassphraseSyncTest {
  public:
-  SingleClientCustomPassphraseForceDisableScryptSyncTest()
-      : features_(/*force_disabled=*/true, /*use_for_new_passphrases=*/false) {}
+  SingleClientCustomPassphraseForceDisableScryptDirectoryOnlySyncTest()
+      : scrypt_features_(/*force_disabled=*/true,
+                         /*use_for_new_passphrases=*/false) {
+    override_features_.InitAndDisableFeature(switches::kSyncUSSNigori);
+
+    // Creation of NigoriSpecifics with scrypt derivation method requires
+    // |force_disabled| temporary set to false.
+    ScopedScryptFeatureToggler toggler(/*force_disabled=*/false,
+                                       /*use_for_new_passphrases_=*/false);
+    KeyParams key_params = {
+        KeyDerivationParams::CreateForScrypt("someConstantSalt"), "hunter2"};
+    scrypt_nigori_ = CreateCustomPassphraseNigori(key_params);
+  }
+
+  const sync_pb::NigoriSpecifics& scrypt_nigori() { return scrypt_nigori_; }
 
  private:
-  ScopedScryptFeatureToggler features_;
+  ScopedScryptFeatureToggler scrypt_features_;
+  base::test::ScopedFeatureList override_features_;
+  sync_pb::NigoriSpecifics scrypt_nigori_;
 };
 
 class SingleClientCustomPassphraseDoNotUseScryptSyncTest
@@ -288,7 +304,7 @@ IN_PROC_BROWSER_TEST_P(SingleClientCustomPassphraseSyncTestWithUssTests,
   // be stable across different browser versions.
 
   // Default birthday determined by LoopbackServer.
-  const std::string kDefaultBirthday = "0";
+  const std::string kDefaultBirthday = GetFakeServer()->GetStoreBirthday();
   const std::string kSeparator("|");
   std::string base64_encoded_keystore_key;
   base::Base64Encode(keystore_keys.back(), &base64_encoded_keystore_key);
@@ -374,27 +390,10 @@ IN_PROC_BROWSER_TEST_P(SingleClientCustomPassphraseDoNotUseScryptSyncTest,
   EXPECT_TRUE(WaitForClientBookmarkWithTitle("scypt-encrypted bookmark"));
 }
 
-// See crbug.com/915219. This test needs to be rewritten to not rely on
-// FeatureList mutation after browser threads have started.
 IN_PROC_BROWSER_TEST_F(
-    SingleClientCustomPassphraseForceDisableScryptSyncTest,
-    DISABLED_CannotDecryptScryptKeyEncryptedDataWhenScryptDisabled) {
-  sync_pb::NigoriSpecifics nigori;
-  {
-    // Creating a Nigori and injecting an encrypted bookmark both require key
-    // derivation using scrypt, so temporarily enable it. This overrides the
-    // feature toggle in the test fixture, which will be restored after this
-    // block.
-    ScopedScryptFeatureToggler toggler(/*force_disabled=*/false,
-                                       /*use_for_new_passphrases_=*/false);
-    KeyParams key_params = {
-        KeyDerivationParams::CreateForScrypt("someConstantSalt"), "hunter2"};
-    nigori = CreateCustomPassphraseNigori(key_params);
-    InjectEncryptedServerBookmark("scypt-encrypted bookmark",
-                                  GURL("http://example.com/doesnt-matter"),
-                                  key_params);
-  }
-  SetNigoriInFakeServer(GetFakeServer(), nigori);
+    SingleClientCustomPassphraseForceDisableScryptDirectoryOnlySyncTest,
+    CannotDecryptScryptKeyEncryptedDataWhenScryptDisabled) {
+  SetNigoriInFakeServer(GetFakeServer(), scrypt_nigori());
   SetDecryptionPassphraseForClient(/*index=*/0, "hunter2");
 
   SetupSyncNoWaitingForCompletion();
@@ -459,8 +458,7 @@ class SingleClientCustomPassphraseSyncTestInDirectoryMode
       // key derivation method in ShouldLoadUSSCustomPassphraseInDirectoryMode,
       // once USS implementation support it for new passphrases.
       feature_list_.InitWithFeatures(
-          /*enabled_features=*/{switches::kSyncUSSBookmarks,
-                                switches::kSyncUSSPasswords,
+          /*enabled_features=*/{switches::kSyncUSSPasswords,
                                 switches::kSyncUSSNigori},
           /*disabled_features=*/{
               switches::kSyncUseScryptForNewCustomPassphrases});
@@ -510,8 +508,7 @@ class SingleClientCustomPassphraseSyncTestInUSSMode
       // when kSyncUSSNigori was disabled, without providing it again once
       // kSyncUSSNigori is enabled.
       feature_list_.InitWithFeatures(
-          /*enabled_features=*/{switches::kSyncUSSBookmarks,
-                                switches::kSyncUSSPasswords,
+          /*enabled_features=*/{switches::kSyncUSSPasswords,
                                 switches::kSyncUSSNigori},
           /*disabled_features=*/{});
     }

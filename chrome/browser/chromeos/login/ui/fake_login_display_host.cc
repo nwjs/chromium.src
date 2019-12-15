@@ -94,6 +94,8 @@ void FakeLoginDisplayHost::StartDemoAppLaunch() {}
 
 void FakeLoginDisplayHost::StartArcKiosk(const AccountId& account_id) {}
 
+void FakeLoginDisplayHost::StartWebKiosk(const AccountId& account_id) {}
+
 void FakeLoginDisplayHost::CompleteLogin(const UserContext& user_context) {}
 
 void FakeLoginDisplayHost::OnGaiaScreenReady() {}
@@ -136,5 +138,7 @@ void FakeLoginDisplayHost::ShowResetScreen() {}
 void FakeLoginDisplayHost::HandleDisplayCaptivePortal() {}
 
 void FakeLoginDisplayHost::UpdateAddUserButtonStatus() {}
+
+void FakeLoginDisplayHost::RequestSystemInfoUpdate() {}
 
 }  // namespace chromeos

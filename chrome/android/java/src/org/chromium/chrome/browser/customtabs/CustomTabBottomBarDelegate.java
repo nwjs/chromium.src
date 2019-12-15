@@ -24,6 +24,7 @@ import org.chromium.base.Log;
 import org.chromium.base.metrics.CachedMetrics;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelManager.OverlayPanelManagerObserver;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.dependency_injection.ActivityScope;
@@ -52,7 +53,7 @@ public class CustomTabBottomBarDelegate implements FullscreenListener {
 
     private final ChromeActivity mActivity;
     private final ChromeFullscreenManager mFullscreenManager;
-    private final CustomTabIntentDataProvider mDataProvider;
+    private final BrowserServicesIntentDataProvider mDataProvider;
     private final CustomTabNightModeStateController mNightModeStateController;
     private final SystemNightModeMonitor mSystemNightModeMonitor;
 
@@ -80,7 +81,7 @@ public class CustomTabBottomBarDelegate implements FullscreenListener {
 
     @Inject
     public CustomTabBottomBarDelegate(ChromeActivity activity,
-            CustomTabIntentDataProvider dataProvider,
+            BrowserServicesIntentDataProvider dataProvider,
             ChromeFullscreenManager fullscreenManager,
             CustomTabNightModeStateController nightModeStateController,
             SystemNightModeMonitor systemNightModeMonitor,
@@ -112,7 +113,7 @@ public class CustomTabBottomBarDelegate implements FullscreenListener {
                 public void onLayoutChange(View v, int left, int top, int right, int bottom,
                         int oldLeft, int oldTop, int oldRight, int oldBottom) {
                     mBottomBarContentView.removeOnLayoutChangeListener(this);
-                    mFullscreenManager.setBottomControlsHeight(getBottomBarHeight());
+                    mFullscreenManager.setBottomControlsHeight(getBottomBarHeight(), 0);
                 }
             });
             return;
@@ -271,7 +272,7 @@ public class CustomTabBottomBarDelegate implements FullscreenListener {
                         mBottomBarView = null;
                     }
                 }).start();
-        mFullscreenManager.setBottomControlsHeight(0);
+        mFullscreenManager.setBottomControlsHeight(0, 0);
     }
 
     private boolean showRemoteViews(RemoteViews remoteViews) {
@@ -294,7 +295,7 @@ public class CustomTabBottomBarDelegate implements FullscreenListener {
             public void onLayoutChange(View v, int left, int top, int right, int bottom,
                     int oldLeft, int oldTop, int oldRight, int oldBottom) {
                 inflatedView.removeOnLayoutChangeListener(this);
-                mFullscreenManager.setBottomControlsHeight(getBottomBarHeight());
+                mFullscreenManager.setBottomControlsHeight(getBottomBarHeight(), 0);
             }
         });
         return true;
@@ -341,7 +342,8 @@ public class CustomTabBottomBarDelegate implements FullscreenListener {
     }
 
     @Override
-    public void onBottomControlsHeightChanged(int bottomControlsHeight) {
+    public void onBottomControlsHeightChanged(
+            int bottomControlsHeight, int bottomControlsMinHeight) {
         if (!isViewReady()) return;
         // Bottom offset might not have been received by FullscreenManager at this point, so
         // using getBrowserControlHiddenRatio(), http://crbug.com/928903.
@@ -370,10 +372,10 @@ public class CustomTabBottomBarDelegate implements FullscreenListener {
     public void hideBottomBar(boolean hidesBottomBar) {
         if (hidesBottomBar) {
             getBottomBarView().setVisibility(View.GONE);
-            mFullscreenManager.setBottomControlsHeight(0);
+            mFullscreenManager.setBottomControlsHeight(0, 0);
         } else {
             getBottomBarView().setVisibility(View.VISIBLE);
-            mFullscreenManager.setBottomControlsHeight(getBottomBarHeight());
+            mFullscreenManager.setBottomControlsHeight(getBottomBarHeight(), 0);
         }
     }
 

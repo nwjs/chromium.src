@@ -239,7 +239,6 @@ void Label::SetMultiLine(bool multi_line) {
     return;
   multi_line_ = multi_line;
   full_text_->SetMultiline(multi_line);
-  full_text_->SetReplaceNewlineCharsWithSymbols(!multi_line);
   OnPropertyChanged(&multi_line_, kPropertyEffectsLayout);
 }
 
@@ -461,7 +460,8 @@ gfx::Size Label::GetMinimumSize() const {
   if (!GetVisible() && collapse_when_hidden_)
     return gfx::Size();
 
-  gfx::Size size(0, font_list().GetHeight());
+  // Always reserve vertical space for at least one line.
+  gfx::Size size(0, std::max(font_list().GetHeight(), GetLineHeight()));
   if (elide_behavior_ == gfx::ELIDE_HEAD ||
       elide_behavior_ == gfx::ELIDE_MIDDLE ||
       elide_behavior_ == gfx::ELIDE_TAIL ||
@@ -480,6 +480,7 @@ gfx::Size Label::GetMinimumSize() const {
       size.SetToMin(GetTextSize());
     }
   }
+
   size.Enlarge(GetInsets().width(), GetInsets().height());
   return size;
 }
@@ -565,7 +566,8 @@ std::unique_ptr<gfx::RenderText> Label::CreateRenderText() const {
       GetMultiLine() && (elide_behavior_ != gfx::NO_ELIDE) ? gfx::ELIDE_TAIL
                                                            : elide_behavior_;
 
-  auto render_text = gfx::RenderText::CreateHarfBuzzInstance();
+  std::unique_ptr<gfx::RenderText> render_text =
+      gfx::RenderText::CreateRenderText();
   render_text->SetHorizontalAlignment(GetHorizontalAlignment());
   render_text->SetVerticalAlignment(GetVerticalAlignment());
   render_text->SetDirectionalityMode(full_text_->directionality_mode());
@@ -632,8 +634,6 @@ void Label::PaintText(gfx::Canvas* canvas) {
 }
 
 void Label::OnBoundsChanged(const gfx::Rect& previous_bounds) {
-  if (previous_bounds.size() != size())
-    InvalidateLayout();
   ClearDisplayText();
 }
 
@@ -939,8 +939,7 @@ const gfx::RenderText* Label::GetRenderTextForSelectionController() const {
 void Label::Init(const base::string16& text,
                  const gfx::FontList& font_list,
                  gfx::DirectionalityMode directionality_mode) {
-  full_text_ = gfx::RenderText::CreateHarfBuzzInstance();
-  DCHECK(full_text_->MultilineSupported());
+  full_text_ = gfx::RenderText::CreateRenderText();
   full_text_->SetHorizontalAlignment(gfx::ALIGN_CENTER);
   full_text_->SetDirectionalityMode(directionality_mode);
   // NOTE: |full_text_| should not be elided at all. This is used to keep

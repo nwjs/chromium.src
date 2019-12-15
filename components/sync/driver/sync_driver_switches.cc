@@ -53,10 +53,6 @@ const base::Feature kSyncAllowWalletDataInTransportModeWithCustomPassphrase{
 const base::Feature kStopSyncInPausedState{"StopSyncInPausedState",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enable USS implementation of Bookmarks datatype.
-const base::Feature kSyncUSSBookmarks{"SyncUSSBookmarks",
-                                      base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Enable USS implementation of Passwords datatype.
 const base::Feature kSyncUSSPasswords{"SyncUSSPasswords",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
@@ -79,5 +75,9 @@ const base::Feature kMergeBookmarksUsingGUIDs{
 
 const base::Feature kSyncDeviceInfoInTransportMode{
     "SyncDeviceInfoInTransportMode", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables the running of backend ProfileSyncService tasks on the ThreadPool.
+const base::Feature kProfileSyncServiceUsesThreadPool{
+    "ProfileSyncServiceUsesThreadPool", base::FEATURE_DISABLED_BY_DEFAULT};
 
 }  // namespace switches

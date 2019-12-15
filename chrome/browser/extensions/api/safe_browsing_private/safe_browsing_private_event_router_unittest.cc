@@ -3,12 +3,18 @@
 // found in the LICENSE file.
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 
+#include <utility>
+
 #include "base/bind.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/mock_callback.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/values.h"
+#include "build/branding_buildflags.h"
+#include "build/build_config.h"
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/api/safe_browsing_private.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
@@ -34,6 +40,34 @@ ACTION_P(CaptureArg, wrapper) {
 }
 
 }  // namespace
+
+class FakeAuthorizedSafeBrowsingPrivateEventRouter
+    : public SafeBrowsingPrivateEventRouter {
+ public:
+  explicit FakeAuthorizedSafeBrowsingPrivateEventRouter(
+      content::BrowserContext* context)
+      : SafeBrowsingPrivateEventRouter(context) {}
+
+ private:
+  void ReportRealtimeEvent(const std::string& name,
+                           EventBuilder event_builder) override {
+    ReportRealtimeEventCallback(name, std::move(event_builder), true);
+  }
+};
+
+class FakeUnauthorizedSafeBrowsingPrivateEventRouter
+    : public SafeBrowsingPrivateEventRouter {
+ public:
+  explicit FakeUnauthorizedSafeBrowsingPrivateEventRouter(
+      content::BrowserContext* context)
+      : SafeBrowsingPrivateEventRouter(context) {}
+
+ private:
+  void ReportRealtimeEvent(const std::string& name,
+                           EventBuilder event_builder) override {
+    ReportRealtimeEventCallback(name, std::move(event_builder), false);
+  }
+};
 
 class SafeBrowsingEventObserver : public TestEventRouter::EventObserver {
  public:
@@ -64,9 +98,14 @@ class SafeBrowsingEventObserver : public TestEventRouter::EventObserver {
 };
 
 std::unique_ptr<KeyedService> BuildSafeBrowsingPrivateEventRouter(
+    bool authorized,
     content::BrowserContext* context) {
-  return std::unique_ptr<KeyedService>(
-      new SafeBrowsingPrivateEventRouter(context));
+  if (authorized)
+    return std::unique_ptr<KeyedService>(
+        new FakeAuthorizedSafeBrowsingPrivateEventRouter(context));
+  else
+    return std::unique_ptr<KeyedService>(
+        new FakeUnauthorizedSafeBrowsingPrivateEventRouter(context));
 }
 
 class SafeBrowsingPrivateEventRouterTest : public testing::Test {
@@ -133,29 +172,28 @@ class SafeBrowsingPrivateEventRouterTest : public testing::Test {
     if (!enabled || client_)
       return;
 
-    // Set a mock cloud policy client in the router.  The router will own the
-    // client, but a pointer to the client is maintained in the test class to
-    // manage expectations.
-    client_ = new policy::MockCloudPolicyClient();
-    std::unique_ptr<policy::CloudPolicyClient> client(client_);
+    // Set a mock cloud policy client in the router.
+    client_ = std::make_unique<policy::MockCloudPolicyClient>();
     SafeBrowsingPrivateEventRouterFactory::GetForProfile(profile_)
-        ->SetCloudPolicyClientForTesting(std::move(client));
+        ->SetCloudPolicyClientForTesting(client_.get());
   }
 
-  void SetUpRouters(bool realtime_reporting_enable = true) {
+  void SetUpRouters(bool realtime_reporting_enable = true,
+                    bool authorized = true) {
     event_router_ = extensions::CreateAndUseTestEventRouter(profile_);
     SafeBrowsingPrivateEventRouterFactory::GetInstance()->SetTestingFactory(
-        profile_, base::BindRepeating(&BuildSafeBrowsingPrivateEventRouter));
+        profile_,
+        base::BindRepeating(&BuildSafeBrowsingPrivateEventRouter, authorized));
 
     SetReportingPolicy(realtime_reporting_enable);
   }
 
  protected:
   content::BrowserTaskEnvironment task_environment_;
+  std::unique_ptr<policy::MockCloudPolicyClient> client_;
   TestingProfileManager profile_manager_;
   TestingProfile* profile_;
   extensions::TestEventRouter* event_router_ = nullptr;
-  policy::MockCloudPolicyClient* client_ = nullptr;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(SafeBrowsingPrivateEventRouterTest);
@@ -179,7 +217,7 @@ TEST_F(SafeBrowsingPrivateEventRouterTest, TestOnReuseDetected) {
   EXPECT_EQ("https://phishing.com/", captured_args.FindKey("url")->GetString());
   EXPECT_EQ("user_name_1", captured_args.FindKey("userName")->GetString());
 
-  Mock::VerifyAndClearExpectations(client_);
+  Mock::VerifyAndClearExpectations(client_.get());
   EXPECT_EQ(base::Value::Type::DICTIONARY, report.type());
   base::Value* event_list =
       report.FindKey(policy::RealtimeReportingJobConfiguration::kEventListKey);
@@ -214,7 +252,7 @@ TEST_F(SafeBrowsingPrivateEventRouterTest, TestOnPasswordChanged) {
   auto captured_args = event_observer.PassEventArgs().GetList()[0].Clone();
   EXPECT_EQ("user_name_2", captured_args.GetString());
 
-  Mock::VerifyAndClearExpectations(client_);
+  Mock::VerifyAndClearExpectations(client_.get());
   EXPECT_EQ(base::Value::Type::DICTIONARY, report.type());
   base::Value* event_list =
       report.FindKey(policy::RealtimeReportingJobConfiguration::kEventListKey);
@@ -253,7 +291,7 @@ TEST_F(SafeBrowsingPrivateEventRouterTest, TestOnDangerousDownloadOpened) {
   EXPECT_EQ("sha256_of_malware_exe",
             captured_args.FindKey("downloadDigestSha256")->GetString());
 
-  Mock::VerifyAndClearExpectations(client_);
+  Mock::VerifyAndClearExpectations(client_.get());
   EXPECT_EQ(base::Value::Type::DICTIONARY, report.type());
   base::Value* event_list =
       report.FindKey(policy::RealtimeReportingJobConfiguration::kEventListKey);
@@ -297,7 +335,7 @@ TEST_F(SafeBrowsingPrivateEventRouterTest,
   EXPECT_EQ("-201", captured_args.FindKey("netErrorCode")->GetString());
   EXPECT_EQ("", captured_args.FindKey("userName")->GetString());
 
-  Mock::VerifyAndClearExpectations(client_);
+  Mock::VerifyAndClearExpectations(client_.get());
   EXPECT_EQ(base::Value::Type::DICTIONARY, report.type());
   base::Value* event_list =
       report.FindKey(policy::RealtimeReportingJobConfiguration::kEventListKey);
@@ -337,7 +375,7 @@ TEST_F(SafeBrowsingPrivateEventRouterTest, TestOnSecurityInterstitialShown) {
   EXPECT_FALSE(captured_args.FindKey("netErrorCode"));
   EXPECT_EQ("", captured_args.FindKey("userName")->GetString());
 
-  Mock::VerifyAndClearExpectations(client_);
+  Mock::VerifyAndClearExpectations(client_.get());
   EXPECT_EQ(base::Value::Type::DICTIONARY, report.type());
   base::Value* event_list =
       report.FindKey(policy::RealtimeReportingJobConfiguration::kEventListKey);
@@ -371,7 +409,7 @@ TEST_F(SafeBrowsingPrivateEventRouterTest, TestOnDangerousDownloadWarning) {
   TriggerOnDangerousDownloadWarningEvent();
   base::RunLoop().RunUntilIdle();
 
-  Mock::VerifyAndClearExpectations(client_);
+  Mock::VerifyAndClearExpectations(client_.get());
   EXPECT_EQ(base::Value::Type::DICTIONARY, report.type());
   base::Value* event_list =
       report.FindKey(policy::RealtimeReportingJobConfiguration::kEventListKey);
@@ -410,7 +448,7 @@ TEST_F(SafeBrowsingPrivateEventRouterTest,
   TriggerOnDangerousDownloadWarningEventBypass();
   base::RunLoop().RunUntilIdle();
 
-  Mock::VerifyAndClearExpectations(client_);
+  Mock::VerifyAndClearExpectations(client_.get());
   EXPECT_EQ(base::Value::Type::DICTIONARY, report.type());
   base::Value* event_list =
       report.FindKey(policy::RealtimeReportingJobConfiguration::kEventListKey);
@@ -445,7 +483,7 @@ TEST_F(SafeBrowsingPrivateEventRouterTest, PolicyControlOnToOffIsDynamic) {
   TriggerOnSecurityInterstitialShownEvent();
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(1u, event_observer.PassEventArgs().GetList().size());
-  Mock::VerifyAndClearExpectations(client_);
+  Mock::VerifyAndClearExpectations(client_.get());
 
   // Now turn off policy.  This time no report should be generated.
   SetReportingPolicy(false);
@@ -453,7 +491,7 @@ TEST_F(SafeBrowsingPrivateEventRouterTest, PolicyControlOnToOffIsDynamic) {
   TriggerOnSecurityInterstitialShownEvent();
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(1u, event_observer.PassEventArgs().GetList().size());
-  Mock::VerifyAndClearExpectations(client_);
+  Mock::VerifyAndClearExpectations(client_.get());
 }
 
 TEST_F(SafeBrowsingPrivateEventRouterTest, PolicyControlOffToOnIsDynamic) {
@@ -472,7 +510,234 @@ TEST_F(SafeBrowsingPrivateEventRouterTest, PolicyControlOffToOnIsDynamic) {
   TriggerOnSecurityInterstitialShownEvent();
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(1u, event_observer.PassEventArgs().GetList().size());
-  Mock::VerifyAndClearExpectations(client_);
+  Mock::VerifyAndClearExpectations(client_.get());
 }
+
+TEST_F(SafeBrowsingPrivateEventRouterTest, TestUnauthorizedOnReuseDetected) {
+  SetUpRouters(/*realtime_reporting_enable=*/true, /*authorized=*/false);
+  SafeBrowsingEventObserver event_observer(
+      api::safe_browsing_private::OnPolicySpecifiedPasswordReuseDetected::
+          kEventName);
+  event_router_->AddEventObserver(&event_observer);
+
+  base::Value report;
+  EXPECT_CALL(*client_, UploadRealtimeReport(_, _)).Times(0);
+
+  TriggerOnPolicySpecifiedPasswordReuseDetectedEvent();
+  base::RunLoop().RunUntilIdle();
+
+  Mock::VerifyAndClearExpectations(client_.get());
+  EXPECT_EQ(base::Value::Type::NONE, report.type());
+}
+
+TEST_F(SafeBrowsingPrivateEventRouterTest, TestUnauthorizedOnPasswordChanged) {
+  SetUpRouters(/*realtime_reporting_enable=*/true, /*authorized=*/false);
+  SafeBrowsingEventObserver event_observer(
+      api::safe_browsing_private::OnPolicySpecifiedPasswordChanged::kEventName);
+  event_router_->AddEventObserver(&event_observer);
+
+  base::Value report;
+  EXPECT_CALL(*client_, UploadRealtimeReport(_, _)).Times(0);
+
+  TriggerOnPolicySpecifiedPasswordChangedEvent();
+  base::RunLoop().RunUntilIdle();
+
+  Mock::VerifyAndClearExpectations(client_.get());
+  EXPECT_EQ(base::Value::Type::NONE, report.type());
+}
+
+TEST_F(SafeBrowsingPrivateEventRouterTest,
+       TestUnauthorizedOnDangerousDownloadOpened) {
+  SetUpRouters(/*realtime_reporting_enable=*/true, /*authorized=*/false);
+  SafeBrowsingEventObserver event_observer(
+      api::safe_browsing_private::OnDangerousDownloadOpened::kEventName);
+  event_router_->AddEventObserver(&event_observer);
+
+  base::Value report;
+  EXPECT_CALL(*client_, UploadRealtimeReport(_, _)).Times(0);
+
+  TriggerOnDangerousDownloadOpenedEvent();
+  base::RunLoop().RunUntilIdle();
+
+  Mock::VerifyAndClearExpectations(client_.get());
+  EXPECT_EQ(base::Value::Type::NONE, report.type());
+}
+
+TEST_F(SafeBrowsingPrivateEventRouterTest,
+       TestUnauthorizedOnSecurityInterstitialProceeded) {
+  SetUpRouters(/*realtime_reporting_enable=*/true, /*authorized=*/false);
+  SafeBrowsingEventObserver event_observer(
+      api::safe_browsing_private::OnSecurityInterstitialProceeded::kEventName);
+  event_router_->AddEventObserver(&event_observer);
+
+  base::Value report;
+  EXPECT_CALL(*client_, UploadRealtimeReport(_, _)).Times(0);
+
+  TriggerOnSecurityInterstitialProceededEvent();
+  base::RunLoop().RunUntilIdle();
+
+  Mock::VerifyAndClearExpectations(client_.get());
+  EXPECT_EQ(base::Value::Type::NONE, report.type());
+}
+
+TEST_F(SafeBrowsingPrivateEventRouterTest,
+       TestUnauthorizedOnSecurityInterstitialShown) {
+  SetUpRouters(/*realtime_reporting_enable=*/true, /*authorized=*/false);
+  SafeBrowsingEventObserver event_observer(
+      api::safe_browsing_private::OnSecurityInterstitialShown::kEventName);
+  event_router_->AddEventObserver(&event_observer);
+
+  base::Value report;
+  EXPECT_CALL(*client_, UploadRealtimeReport(_, _)).Times(0);
+
+  TriggerOnSecurityInterstitialShownEvent();
+  base::RunLoop().RunUntilIdle();
+
+  Mock::VerifyAndClearExpectations(client_.get());
+  EXPECT_EQ(base::Value::Type::NONE, report.type());
+}
+
+TEST_F(SafeBrowsingPrivateEventRouterTest,
+       TestUnauthorizedOnDangerousDownloadWarning) {
+  SetUpRouters(/*realtime_reporting_enable=*/true, /*authorized=*/false);
+  SafeBrowsingEventObserver event_observer(
+      api::safe_browsing_private::OnDangerousDownloadOpened::kEventName);
+  event_router_->AddEventObserver(&event_observer);
+
+  base::Value report;
+  EXPECT_CALL(*client_, UploadRealtimeReport(_, _)).Times(0);
+
+  TriggerOnDangerousDownloadWarningEvent();
+  base::RunLoop().RunUntilIdle();
+
+  Mock::VerifyAndClearExpectations(client_.get());
+  EXPECT_EQ(base::Value::Type::NONE, report.type());
+}
+
+TEST_F(SafeBrowsingPrivateEventRouterTest,
+       TestUnauthorizedOnDangerousDownloadWarningBypass) {
+  SetUpRouters(/*realtime_reporting_enable=*/true, /*authorized=*/false);
+  SafeBrowsingEventObserver event_observer(
+      api::safe_browsing_private::OnDangerousDownloadOpened::kEventName);
+  event_router_->AddEventObserver(&event_observer);
+
+  base::Value report;
+  EXPECT_CALL(*client_, UploadRealtimeReport(_, _)).Times(0);
+
+  TriggerOnDangerousDownloadWarningEventBypass();
+  base::RunLoop().RunUntilIdle();
+
+  Mock::VerifyAndClearExpectations(client_.get());
+  EXPECT_EQ(base::Value::Type::NONE, report.type());
+}
+
+// Tests to make sure the feature flag and policy control real-time reporting
+// as expected.  The parameter for these tests is a tuple of bools:
+//
+//   bool: whether the feature flag is enabled.
+//   bool: whether the browser is manageable.
+//   bool: whether the policy is enabled.
+//   bool: whether the server has authorized this browser instance.
+class SafeBrowsingIsRealtimeReportingEnabledTest
+    : public SafeBrowsingPrivateEventRouterTest,
+      public testing::WithParamInterface<
+          testing::tuple<bool, bool, bool, bool>> {
+ public:
+  SafeBrowsingIsRealtimeReportingEnabledTest()
+      : is_feature_flag_enabled_(testing::get<0>(GetParam())),
+        is_manageable_(testing::get<1>(GetParam())),
+        is_policy_enabled_(testing::get<2>(GetParam())),
+        is_authorized_(testing::get<3>(GetParam())) {
+    if (is_feature_flag_enabled_) {
+      scoped_feature_list_.InitAndEnableFeature(
+          SafeBrowsingPrivateEventRouter::kRealtimeReportingFeature);
+    } else {
+      scoped_feature_list_.InitAndDisableFeature(
+          SafeBrowsingPrivateEventRouter::kRealtimeReportingFeature);
+    }
+
+    // In chrome branded desktop builds, the browser is always manageable.
+#if !BUILDFLAG(GOOGLE_CHROME_BRANDING) && !defined(OS_CHROMEOS)
+    if (is_manageable_) {
+      base::CommandLine::ForCurrentProcess()->AppendSwitch(
+          switches::kEnableChromeBrowserCloudManagement);
+    }
+#endif
+
+    TestingBrowserProcess::GetGlobal()->local_state()->SetBoolean(
+        prefs::kUnsafeEventsReportingEnabled, is_policy_enabled_);
+  }
+
+  bool should_init() {
+#if defined(OS_CHROMEOS)
+    return false;
+#elif BUILDFLAG(GOOGLE_CHROME_BRANDING)
+    return is_feature_flag_enabled_;
+#else
+    return is_feature_flag_enabled_ && is_manageable_;
+#endif
+  }
+
+ protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
+  const bool is_feature_flag_enabled_;
+  const bool is_manageable_;
+  const bool is_policy_enabled_;
+  const bool is_authorized_;
+};
+
+TEST_P(SafeBrowsingIsRealtimeReportingEnabledTest,
+       ShouldInitRealtimeReportingClient) {
+  EXPECT_EQ(
+      should_init(),
+      SafeBrowsingPrivateEventRouter::ShouldInitRealtimeReportingClient());
+}
+
+TEST_P(SafeBrowsingIsRealtimeReportingEnabledTest, CheckRealtimeReport) {
+  // In production, the router won't actually be authorized unless it was
+  // initialized.  The second argument to SetUpRouters() takes this into
+  // account.
+  SetUpRouters(is_policy_enabled_, should_init() && is_authorized_);
+  SafeBrowsingEventObserver event_observer(
+      api::safe_browsing_private::OnPolicySpecifiedPasswordChanged::kEventName);
+  event_router_->AddEventObserver(&event_observer);
+
+#if defined(OS_CHROMEOS)
+  bool should_report = false;
+#elif BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  bool should_report =
+      is_feature_flag_enabled_ && is_policy_enabled_ && is_authorized_;
+#else
+  bool should_report = is_feature_flag_enabled_ && is_manageable_ &&
+                       is_policy_enabled_ && is_authorized_;
+#endif
+
+  if (should_report) {
+    EXPECT_CALL(*client_, UploadRealtimeReport(_, _)).Times(1);
+  } else if (client_) {
+    // Because the test will crate a |client_| object when the policy is
+    // set, even if the feature flag or other conditions indicate that
+    // reports should not be sent, it is possible that the pointer is not
+    // null. In this case, make sure UploadRealtimeReport() is not called.
+    EXPECT_CALL(*client_, UploadRealtimeReport(_, _)).Times(0);
+  }
+
+  TriggerOnPolicySpecifiedPasswordChangedEvent();
+  base::RunLoop().RunUntilIdle();
+
+  // Asser the triggered actually did fire.
+  EXPECT_EQ(1u, event_observer.PassEventArgs().GetList().size());
+
+  // Make sure UploadRealtimeReport was called the expected number of times.
+  if (client_)
+    Mock::VerifyAndClearExpectations(client_.get());
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         SafeBrowsingIsRealtimeReportingEnabledTest,
+                         testing::Combine(testing::Bool(),
+                                          testing::Bool(),
+                                          testing::Bool(),
+                                          testing::Bool()));
 
 }  // namespace extensions

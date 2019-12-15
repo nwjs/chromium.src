@@ -20,11 +20,11 @@ import android.webkit.WebView;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.ChromeFeatureList;
@@ -33,6 +33,7 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider.LaunchSourceType;
 import org.chromium.chrome.browser.instantapps.InstantAppsHandler;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.chrome.browser.util.UrlConstants;
@@ -1010,18 +1011,18 @@ public class ExternalNavigationHandler {
     private boolean shouldStayInWebApkCCT(
             ExternalNavigationParams params, List<ResolveInfo> handlers) {
         Tab tab = params.getTab();
-        if (tab == null || !tab.isCurrentlyACustomTab() || tab.getActivity() == null) {
+        if (tab == null || !mDelegate.isOnCustomTab() || ((TabImpl) tab).getActivity() == null) {
             return false;
         }
 
-        int launchSource = IntentUtils.safeGetIntExtra(
-                tab.getActivity().getIntent(), EXTRA_BROWSER_LAUNCH_SOURCE, LaunchSourceType.OTHER);
+        int launchSource = IntentUtils.safeGetIntExtra(((TabImpl) tab).getActivity().getIntent(),
+                EXTRA_BROWSER_LAUNCH_SOURCE, LaunchSourceType.OTHER);
         if (launchSource != LaunchSourceType.WEBAPK) {
             return false;
         }
 
         String appId = IntentUtils.safeGetStringExtra(
-                tab.getActivity().getIntent(), Browser.EXTRA_APPLICATION_ID);
+                ((TabImpl) tab).getActivity().getIntent(), Browser.EXTRA_APPLICATION_ID);
         if (appId == null) return false;
 
         boolean webApkHasSpecializedHandler =

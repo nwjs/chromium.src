@@ -41,15 +41,6 @@ const ACMatchClassificationStyle = {
   DIM: 1 << 2,
 };
 
-/** @enum {number} */
-const AutocompleteResultStatus = {
-  SUCCESS: 0,
-  SKIPPED: 1,
-};
-
-/** @type {string} */
-let lastInput;
-
 /** @typedef {{inline: string, text: string}} */
 let RealboxOutput;
 
@@ -146,6 +137,7 @@ const IDS = {
   OGB: 'one-google',
   PROMO: 'promo',
   REALBOX: 'realbox',
+  REALBOX_ICON: 'realbox-icon',
   REALBOX_INPUT_WRAPPER: 'realbox-input-wrapper',
   REALBOX_MATCHES: 'realbox-matches',
   REALBOX_MICROPHONE: 'realbox-microphone',
@@ -245,8 +237,8 @@ const REALBOX_KEYDOWN_HANDLED_KEYS = [
 
 // Local statics.
 
-/** @type {!Array<!AutocompleteMatch>} */
-let autocompleteMatches = [];
+/** @type {?AutocompleteResult} */
+let autocompleteResult = null;
 
 /**
  * The currently visible notification element. Null if no notification is
@@ -263,20 +255,23 @@ let currNotification = null;
 let delayedHideNotification = null;
 
 /**
+ * Whether 'Enter' was pressed but did not navigate to a match due to matches
+ * being stale.
+ * @type {boolean}
+ */
+let enterWasPressed = false;
+
+/**
  * True if dark mode is enabled.
  * @type {boolean}
  */
 let isDarkModeEnabled = false;
 
-/** Used to prevent inline autocompleting recently deleted output. */
-let isDeletingInput = false;
-
 /**
- * The rendered autocomplete match currently being deleted, or null if there
- * isn't one.
- * @type {?Element}
+ * Used to prevent the default match from requiring inline autocompletion when
+ * the user is deleting text in the input.
  */
-let matchElBeingDeleted = null;
+let isDeletingInput = false;
 
 /**
  * The last blacklisted tile rid if any, which by definition should not be
@@ -286,11 +281,27 @@ let matchElBeingDeleted = null;
 let lastBlacklistedTile = null;
 
 /**
+ * The 'Enter' event that was ignored due to matches being stale. Will be used
+ * to navigate to the default match once up-to-date matches arrive.
+ * @type {?Event}
+ */
+let lastEnterEvent = null;
+
+/**
+ * The last queried input.
+ * @type {string|undefined}
+ */
+let lastQueriedInput;
+
+/**
  * Last text/inline autocompletion shown in the realbox (either by user input or
  * outputting autocomplete matches).
  * @type {!RealboxOutput}
  */
 let lastOutput = {text: '', inline: ''};
+
+/** @type {?number} */
+let lastRealboxFocusTime = null;
 
 /**
  * The browser embeddedSearch.newTabPage object.
@@ -298,11 +309,48 @@ let lastOutput = {text: '', inline: ''};
  */
 let ntpApiHandle;
 
+/**
+ * True if user just pasted into the realbox.
+ * @type {boolean}
+ */
+let pastedInRealbox = false;
+
 // Helper methods.
 
 /** @return {boolean} */
 function areRealboxMatchesVisible() {
   return $(IDS.REALBOX_INPUT_WRAPPER).classList.contains(CLASSES.SHOW_MATCHES);
+}
+
+/** @param {!AutocompleteResult} result */
+function autocompleteResultChanged(result) {
+  if (lastQueriedInput === undefined ||
+      result.input !== lastQueriedInput.trimLeft()) {
+    return;  // Stale result; ignore.
+  }
+
+  renderAutocompleteMatches(result.matches);
+  autocompleteResult = result;
+
+  $(IDS.REALBOX).focus();
+
+  updateRealboxOutput({
+    inline: '',
+    text: lastQueriedInput || '',
+  });
+
+  const first = result.matches[0];
+  if (first && first.allowedToBeDefaultMatch) {
+    selectMatchEl(assert($(IDS.REALBOX_MATCHES).firstElementChild));
+    updateRealboxOutput({inline: first.inlineAutocompletion});
+
+    if (enterWasPressed) {
+      assert(lastEnterEvent);
+      navigateToMatch(first, lastEnterEvent);
+    }
+  } else {
+    setRealboxIcon(undefined);
+  }
 }
 
 /**
@@ -321,6 +369,16 @@ function classificationStyleToClasses(style) {
     classes.push('url');
   }
   return classes;
+}
+
+function clearAutocompleteMatches() {
+  autocompleteResult = null;
+  window.chrome.embeddedSearch.searchBox.stopAutocomplete(
+      /*clearResult=*/ true);
+  // Autocomplete sends updates once it is stopped. Invalidate those results
+  // by setting the last queried input to its uninitialized value.
+  lastQueriedInput = undefined;
+  setRealboxIcon(undefined);
 }
 
 /**
@@ -398,7 +456,7 @@ function createIframes() {
   $(IDS.TILES).appendChild(iframe);
 
   iframe.onload = function() {
-    sendThemeInfoToMostVisitedIframe();
+    sendNtpThemeToMostVisitedIframe();
     reloadTiles();
   };
 
@@ -466,6 +524,23 @@ function customLinksEnabled() {
  */
 function disableIframesAndVoiceSearchForTesting() {
   iframesAndVoiceSearchDisabledForTesting = true;
+}
+
+/**
+ * TODO(dbeam): reconcile this with //ui/webui/resources/js/util.js.
+ * @param {?Node} node The node to check.
+ * @param {function(?Node):boolean} predicate The function that tests the
+ *     nodes.
+ * @return {?Node} The found ancestor or null if not found.
+ */
+function findAncestor(node, predicate) {
+  while (node !== null) {
+    if (predicate(node)) {
+      break;
+    }
+    node = node.parentNode;
+  }
+  return node;
 }
 
 /**
@@ -578,13 +653,26 @@ function floatUpNotification(notification, notificationContainer) {
 }
 
 /**
+ * @param {string} url
+ * @return {string} The chrome-search://ntpicon/ corresponding to |url|.
+ */
+function getIconUrl(url) {
+  // TODO(crbug.com/997229): use chrome://favicon/<url> when perms allow.
+  const iconUrl = new URL('chrome-search://ntpicon/');
+  iconUrl.searchParams.set('show_fallback_monogram', 'false');
+  iconUrl.searchParams.set('size', '24@' + window.devicePixelRatio + 'x');
+  iconUrl.searchParams.set('url', url);
+  return iconUrl.toString();
+}
+
+/**
  * Returns theme background info, first checking for history.state.notheme. If
  * the page has notheme set, returns a fallback light-colored theme (or dark-
  * colored theme if dark mode is enabled). This is used when the doodle is
  * displayed after clicking the notifier.
- * @return {?ThemeBackgroundInfo}
+ * @return {?NtpTheme}
  */
-function getThemeBackgroundInfo() {
+function getNtpTheme() {
   if (history.state && history.state.notheme) {
     return {
       alternateLogo: false,
@@ -606,7 +694,7 @@ function getThemeBackgroundInfo() {
     };
   }
 
-  const info = window.chrome.embeddedSearch.newTabPage.themeBackgroundInfo;
+  const info = window.chrome.embeddedSearch.newTabPage.ntpTheme;
   const preview = $(customize.IDS.CUSTOM_BG_PREVIEW);
   if (preview.dataset.hasPreview === 'true') {
     info.isNtpBackgroundDark = preview.dataset.hasImage === 'true';
@@ -763,13 +851,13 @@ function init() {
       realboxEl.addEventListener('copy', onRealboxCutCopy);
       realboxEl.addEventListener('cut', onRealboxCutCopy);
       realboxEl.addEventListener('input', onRealboxInput);
+      realboxEl.addEventListener('paste', onRealboxPaste);
 
       const realboxWrapper = $(IDS.REALBOX_INPUT_WRAPPER);
       realboxWrapper.addEventListener('focusin', onRealboxWrapperFocusIn);
-      realboxWrapper.addEventListener('focusout', onRealboxWrapperFocusOut);
+      setRealboxWrapperListenForFocusOut(true);
 
-      searchboxApiHandle.onqueryautocompletedone = onQueryAutocompleteDone;
-      searchboxApiHandle.ondeleteautocompletematch = onDeleteAutocompleteMatch;
+      searchboxApiHandle.autocompleteresultchanged = autocompleteResultChanged;
 
       if (!iframesAndVoiceSearchDisabledForTesting) {
         speech.init(
@@ -1063,6 +1151,21 @@ function listen() {
 }
 
 /**
+ * @param {!AutocompleteMatch} match
+ * @param {!Event} e
+ */
+function navigateToMatch(match, e) {
+  const line = autocompleteResult.matches.indexOf(match);
+  assert(line >= 0);
+  assert(lastRealboxFocusTime);
+  window.chrome.embeddedSearch.searchBox.openAutocompleteMatch(
+      line, match.destinationUrl, areRealboxMatchesVisible(),
+      Date.now() - lastRealboxFocusTime, e.button || 0, e.altKey, e.ctrlKey,
+      e.metaKey, e.shiftKey);
+  e.preventDefault();
+}
+
+/**
  * Callback for embeddedSearch.newTabPage.onaddcustomlinkdone. Called when the
  * custom link was successfully added. Shows the "Shortcut added" notification.
  * @param {boolean} success True if the link was successfully added.
@@ -1075,47 +1178,6 @@ function onAddCustomLinkDone(success) {
         configData.translatedStrings.linkCantCreate, null, null);
   }
   ntpApiHandle.logEvent(LOG_TYPE.NTP_CUSTOMIZE_SHORTCUT_DONE);
-}
-
-/** @param {!DeleteAutocompleteMatchResult} result */
-function onDeleteAutocompleteMatch(result) {
-  assert(matchElBeingDeleted);
-
-  if (!result.success) {
-    matchElBeingDeleted = null;
-    return;
-  }
-
-  $(IDS.REALBOX).focus();
-
-  populateAutocompleteMatches(result.matches);
-  matchElBeingDeleted = null;
-
-  if (result.matches.length === 0) {
-    updateRealboxOutput({inline: '', text: ''});
-    return;
-  }
-
-  const firstMatch = autocompleteMatches[0];
-  if (firstMatch.allowedToBeDefaultMatch) {
-    const matchEls = Array.from($(IDS.REALBOX_MATCHES).children);
-    selectMatchEl(matchEls[0]);
-
-    const fill = firstMatch.fillIntoEdit;
-    const inline = firstMatch.inlineAutocompletion;
-    const textEnd = fill.length - inline.length;
-    updateRealboxOutput({
-      moveCursorToEnd: true,
-      inline: inline,
-      text: assert(fill.substr(0, textEnd)),
-    });
-  } else {
-    updateRealboxOutput({
-      moveCursorToEnd: true,
-      inline: '',
-      text: lastInput,
-    });
-  }
 }
 
 /**
@@ -1161,39 +1223,12 @@ function onMostVisitedChange() {
   reloadTiles();
 }
 
-/** @param {!AutocompleteResult} result */
-function onQueryAutocompleteDone(result) {
-  if (result.status === AutocompleteResultStatus.SKIPPED ||
-      result.input !== lastOutput.text) {
-    return;  // Stale or skipped result; ignore.
-  }
-
-  populateAutocompleteMatches(result.matches);
-
-  if (result.matches.length === 0) {
-    return;
-  }
-
-  if (result.matches[0].allowedToBeDefaultMatch) {
-    selectMatchEl(assert($(IDS.REALBOX_MATCHES).firstElementChild));
-  }
-
-  // If the user is deleting content, don't quickly re-suggest the same
-  // output.
-  if (!isDeletingInput) {
-    const first = result.matches[0];
-    if (first.allowedToBeDefaultMatch && first.inlineAutocompletion) {
-      updateRealboxOutput({inline: first.inlineAutocompletion});
-    }
-  }
-}
-
 /** @param {!Event} e */
 function onRealboxCutCopy(e) {
   const realboxEl = $(IDS.REALBOX);
   if (!realboxEl.value || realboxEl.selectionStart !== 0 ||
       realboxEl.selectionEnd !== realboxEl.value.length ||
-      autocompleteMatches.length === 0) {
+      !autocompleteResult || autocompleteResult.matches.length === 0) {
     // Only handle cut/copy when realbox has content and it's all selected.
     return;
   }
@@ -1203,7 +1238,7 @@ function onRealboxCutCopy(e) {
     return matchEl.classList.contains(CLASSES.SELECTED);
   });
 
-  const selectedMatch = autocompleteMatches[selected];
+  const selectedMatch = autocompleteResult.matches[selected];
   if (selectedMatch && !selectedMatch.isSearchType) {
     e.clipboardData.setData('text/plain', selectedMatch.destinationUrl);
     e.preventDefault();
@@ -1223,59 +1258,65 @@ function onRealboxInput() {
   } else {
     setRealboxMatchesVisible(false);
     setRealboxWrapperListenForKeydown(false);
-    setAutocompleteMatches([]);
+    clearAutocompleteMatches();
   }
+
+  pastedInRealbox = false;
+}
+
+function onRealboxPaste() {
+  pastedInRealbox = true;
 }
 
 /** @param {Event} e */
 function onRealboxWrapperFocusIn(e) {
-  if (e.target.matches(`#${IDS.REALBOX}`) && !$(IDS.REALBOX).value) {
-    queryAutocomplete('');
-  } else if (e.target.matches(`#${IDS.REALBOX_MATCHES} *`)) {
-    let target = e.target;
-    while (target && target.nodeName !== 'A') {
-      target = target.parentNode;
+  if (e.target.matches(`#${IDS.REALBOX}`)) {
+    if (!$(IDS.REALBOX).value) {
+      queryAutocomplete('');
     }
-    if (!target) {
+    lastRealboxFocusTime = Date.now();
+  } else if (e.target.matches(`#${IDS.REALBOX_MATCHES} *`)) {
+    const target = /** @type {Element} */ (e.target);
+    const link = findAncestor(target, el => el.nodeName === 'A');
+    if (!link) {
       return;
     }
-    const selectedIndex = selectMatchEl(target);
+    const selectedIndex = selectMatchEl(link);
     // It doesn't really make sense to use fillFromMatch() here as the focus
     // change drops the selection (and is probably just noisy to
     // screenreaders).
-    const newFill = autocompleteMatches[selectedIndex].fillIntoEdit;
+    const newFill = autocompleteResult.matches[selectedIndex].fillIntoEdit;
     updateRealboxOutput({moveCursorToEnd: true, inline: '', text: newFill});
   }
 }
 
 /** @param {Event} e */
 function onRealboxWrapperFocusOut(e) {
-  const target = /** @type {Element} */ (e.target);
-  if (matchElBeingDeleted && matchElBeingDeleted.contains(target)) {
-    // When a match is being deleted, the focus gets dropped temporariliy as the
-    // element is deleted from the DOM. Don't stop autocomplete in those cases.
-    return;
-  }
-
+  // Hide the matches and stop autocomplete only when the focus goes outside of
+  // the realbox wrapper.
   const relatedTarget = /** @type {Element} */ (e.relatedTarget);
   const realboxWrapper = $(IDS.REALBOX_INPUT_WRAPPER);
   if (!realboxWrapper.contains(relatedTarget)) {
-    setRealboxMatchesVisible(false);
-    // Note: intentionally leaving keydown listening and match data intact.
-    window.chrome.embeddedSearch.searchBox.stopAutocomplete(
-        /*clearResult=*/ true);
-
     // Clear the input if it was empty when displaying the matches.
-    if (lastInput === '') {
+    if (lastQueriedInput === '') {
       updateRealboxOutput({inline: '', text: ''});
     }
+    setRealboxMatchesVisible(false);
+
+    // Stop autocomplete but leave (potentially stale) results and continue
+    // listening for key presses. These stale results should never be shown, but
+    // correspond to the potentially stale suggestion left in the realbox when
+    // blurred. That stale result may be navigated to by focusing and pressing
+    // Enter, and that match may be privileged, so we need to keep the data
+    // around in order to ascertain this. If matches are reshown, fresh
+    // autocomplete data will be fetched.
+    window.chrome.embeddedSearch.searchBox.stopAutocomplete(
+        /*clearResult=*/ false);
   }
 }
 
 /** @param {Event} e */
 function onRealboxWrapperKeydown(e) {
-  assert(autocompleteMatches.length > 0);
-
   const key = e.key;
 
   const realboxEl = $(IDS.REALBOX);
@@ -1306,15 +1347,46 @@ function onRealboxWrapperKeydown(e) {
 
   const realboxMatchesEl = $(IDS.REALBOX_MATCHES);
   const matchEls = Array.from(realboxMatchesEl.children);
+  assert(matchEls.length > 0);
   const selected = matchEls.findIndex(matchEl => {
     return matchEl.classList.contains(CLASSES.SELECTED);
   });
 
+  assert(autocompleteResult.matches.length === matchEls.length);
+
+  if (key === 'Enter') {
+    if (matchEls.concat(realboxEl).includes(e.target)) {
+      if (lastQueriedInput === autocompleteResult.input) {
+        if (autocompleteResult.matches[selected]) {
+          navigateToMatch(autocompleteResult.matches[selected], e);
+        }
+      } else {
+        // User typed and pressed 'Enter' too quickly. Ignore this for now
+        // because the matches are stale. Navigate to the default match (if one
+        // exists) once the up-to-date results arrive.
+        enterWasPressed = true;
+        lastEnterEvent = e;
+        e.preventDefault();
+      }
+    }
+    return;
+  }
+
+  if (!areRealboxMatchesVisible()) {
+    if (key === 'ArrowUp' || key === 'ArrowDown') {
+      const realboxValue = $(IDS.REALBOX).value;
+      if (realboxValue.trim()) {
+        queryAutocomplete(realboxValue);
+      }
+      e.preventDefault();
+    }
+    return;
+  }
+
   if (key === 'Delete') {
     if (e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
-      const selectedMatch = autocompleteMatches[selected];
+      const selectedMatch = autocompleteResult.matches[selected];
       if (selectedMatch && selectedMatch.supportsDeletion) {
-        matchElBeingDeleted = matchEls[selected];
         window.chrome.embeddedSearch.searchBox.deleteAutocompleteMatch(
             selected);
         e.preventDefault();
@@ -1323,27 +1395,7 @@ function onRealboxWrapperKeydown(e) {
     return;
   }
 
-  const hasMods = e.altKey || e.ctrlKey || e.metaKey || e.shiftKey;
-  if (hasMods && key !== 'Enter') {
-    return;
-  }
-
-  if (key === 'Enter') {
-    if (matchEls[selected] && matchEls.concat(realboxEl).includes(e.target)) {
-      // Note: dispatching a MouseEvent here instead of using e.g. .click() as
-      // this forwards key modifiers. This enables Shift+Enter to open a match
-      // in a new window, for example.
-      matchEls[selected].dispatchEvent(new MouseEvent('click', e));
-      e.preventDefault();
-    }
-    return;
-  }
-
-  if (!areRealboxMatchesVisible()) {
-    if (key === 'ArrowUp' || key === 'ArrowDown') {
-      setRealboxMatchesVisible(true);
-      e.preventDefault();
-    }
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) {
     return;
   }
 
@@ -1351,7 +1403,7 @@ function onRealboxWrapperKeydown(e) {
     updateRealboxOutput({inline: '', text: ''});
     setRealboxMatchesVisible(false);
     setRealboxWrapperListenForKeydown(false);
-    setAutocompleteMatches([]);
+    clearAutocompleteMatches();
     e.preventDefault();
     return;
   }
@@ -1374,7 +1426,7 @@ function onRealboxWrapperKeydown(e) {
     matchEls[newSelected].focus();
   }
 
-  const newMatch = autocompleteMatches[newSelected];
+  const newMatch = autocompleteResult.matches[newSelected];
   const newFill = newMatch.fillIntoEdit;
   let newInline = '';
   if (newMatch.allowedToBeDefaultMatch) {
@@ -1409,7 +1461,7 @@ function onRestoreAll() {
 function onThemeChange() {
   renderTheme();
   renderOneGoogleBarTheme();
-  sendThemeInfoToMostVisitedIframe();
+  sendNtpThemeToMostVisitedIframe();
   if ($(IDS.PROMO)) {
     showPromoIfNotOverlapping();
   }
@@ -1454,100 +1506,14 @@ function overrideExecutableTimeoutForTesting(timeout) {
 }
 
 /**
- * @param {!Array<!AutocompleteMatch>} matches
- */
-function populateAutocompleteMatches(matches) {
-  const realboxMatchesEl = document.createElement('div');
-  realboxMatchesEl.setAttribute('role', 'listbox');
-
-  for (let i = 0; i < matches.length; ++i) {
-    const match = matches[i];
-    const matchEl = document.createElement('a');
-    matchEl.href = match.destinationUrl;
-    matchEl.setAttribute('role', 'option');
-
-    if (match.isSearchType) {
-      const icon = document.createElement('div');
-      const isSearchHistory = SEARCH_HISTORY_MATCH_TYPES.includes(match.type);
-      icon.classList.add(
-          isSearchHistory ? CLASSES.CLOCK_ICON : CLASSES.SEARCH_ICON);
-      matchEl.appendChild(icon);
-    } else {
-      // TODO(crbug.com/997229): use chrome://favicon/<url> when perms allow.
-      const iconUrl = new URL('chrome-search://ntpicon/');
-      iconUrl.searchParams.set('show_fallback_monogram', 'false');
-      iconUrl.searchParams.set('size', '24@' + window.devicePixelRatio + 'x');
-      iconUrl.searchParams.set('url', match.destinationUrl);
-      matchEl.style.backgroundImage = 'url(' + iconUrl.toString() + ')';
-    }
-
-    const contentsEls =
-        renderMatchClassifications(match.contents, match.contentsClass);
-    const descriptionEls = [];
-    const separatorEls = [];
-    let separatorText = '';
-
-    if (match.description) {
-      descriptionEls.push(...renderMatchClassifications(
-          match.description, match.descriptionClass));
-      separatorText = configData.translatedStrings.realboxSeparator;
-      separatorEls.push(document.createTextNode(separatorText));
-    }
-
-    const ariaLabel = match.swapContentsAndDescription ?
-        match.description + separatorText + match.contents :
-        match.contents + separatorText + match.description;
-    matchEl.setAttribute('aria-label', ariaLabel);
-
-    const layout = match.swapContentsAndDescription ?
-        [descriptionEls, separatorEls, contentsEls] :
-        [contentsEls, separatorEls, descriptionEls];
-
-    for (const col of layout) {
-      col.forEach(colEl => matchEl.appendChild(colEl));
-    }
-
-    if (match.supportsDeletion && configData.suggestionTransparencyEnabled) {
-      const icon = document.createElement('button');
-      icon.title = configData.translatedStrings.removeSuggestion;
-      icon.classList.add(CLASSES.REMOVE_ICON);
-      icon.onmousedown = e => {
-        e.preventDefault();  // Stops default browser action (focus)
-      };
-      icon.onclick = e => {
-        matchElBeingDeleted = matchEl;
-        window.chrome.embeddedSearch.searchBox.deleteAutocompleteMatch(i);
-        e.preventDefault();  // Stops default browser action (navigation)
-      };
-
-      const remove = document.createElement('div');
-      remove.classList.add(CLASSES.REMOVE_MATCH);
-
-      remove.appendChild(icon);
-      matchEl.appendChild(remove);
-      realboxMatchesEl.classList.add(CLASSES.REMOVABLE);
-    }
-
-    realboxMatchesEl.append(matchEl);
-  }
-
-  $(IDS.REALBOX_MATCHES).remove();
-  realboxMatchesEl.id = IDS.REALBOX_MATCHES;
-
-  $(IDS.REALBOX_INPUT_WRAPPER).appendChild(realboxMatchesEl);
-
-  const hasMatches = matches.length > 0;
-  setRealboxMatchesVisible(hasMatches);
-  setRealboxWrapperListenForKeydown(hasMatches);
-  setAutocompleteMatches(matches);
-}
-
-/**
  * @param {string} input
  */
 function queryAutocomplete(input) {
-  lastInput = input;
-  window.chrome.embeddedSearch.searchBox.queryAutocomplete(input);
+  lastQueriedInput = input;
+  const preventInlineAutocomplete = isDeletingInput || pastedInRealbox ||
+      $(IDS.REALBOX).selectionStart !== input.length;  // Caret not at the end.
+  window.chrome.embeddedSearch.searchBox.queryAutocomplete(
+      input, preventInlineAutocomplete);
 }
 
 /**
@@ -1596,6 +1562,117 @@ function reloadTiles() {
 }
 
 /**
+ * @param {!Array<!AutocompleteMatch>} matches
+ */
+function renderAutocompleteMatches(matches) {
+  const realboxMatchesEl = document.createElement('div');
+  realboxMatchesEl.setAttribute('role', 'listbox');
+
+  for (let i = 0; i < matches.length; ++i) {
+    const match = matches[i];
+    const matchEl = document.createElement('a');
+    matchEl.href = match.destinationUrl;
+    matchEl.setAttribute('role', 'option');
+
+    matchEl.onclick = matchEl.onauxclick = e => {
+      if (!e.isTrusted || e.defaultPrevented || e.button > 1) {
+        // Don't re-handle events dispatched from navigateToMatch(). Ignore
+        // already handled events (i.e. remove button, defaultPrevented). Ignore
+        // right clicks (but do handle middle click, button == 1).
+        return;
+      }
+      const target = /** @type {Element} */ (e.target);
+      const link = findAncestor(target, el => el.nodeName === 'A');
+      if (link === matchEl) {
+        navigateToMatch(match, e);
+      }
+    };
+
+    if (match.isSearchType) {
+      const icon = document.createElement('div');
+      const isSearchHistory = SEARCH_HISTORY_MATCH_TYPES.includes(match.type);
+      icon.classList.add(
+          isSearchHistory ? CLASSES.CLOCK_ICON : CLASSES.SEARCH_ICON);
+      matchEl.appendChild(icon);
+    } else {
+      const iconUrl = getIconUrl(match.destinationUrl);
+      matchEl.style.backgroundImage = `url(${iconUrl})`;
+    }
+
+    const contentsEls =
+        renderMatchClassifications(match.contents, match.contentsClass);
+    const descriptionEls = [];
+    const separatorEls = [];
+    let separatorText = '';
+
+    if (match.description) {
+      descriptionEls.push(...renderMatchClassifications(
+          match.description, match.descriptionClass));
+      separatorText = configData.translatedStrings.realboxSeparator;
+      separatorEls.push(document.createTextNode(separatorText));
+    }
+
+    const ariaLabel = match.swapContentsAndDescription ?
+        match.description + separatorText + match.contents :
+        match.contents + separatorText + match.description;
+    matchEl.setAttribute('aria-label', ariaLabel);
+
+    const layout = match.swapContentsAndDescription ?
+        [descriptionEls, separatorEls, contentsEls] :
+        [contentsEls, separatorEls, descriptionEls];
+
+    for (const col of layout) {
+      col.forEach(colEl => matchEl.appendChild(colEl));
+    }
+
+    if (match.supportsDeletion && configData.suggestionTransparencyEnabled) {
+      const icon = document.createElement('button');
+      icon.title = configData.translatedStrings.removeSuggestion;
+      icon.classList.add(CLASSES.REMOVE_ICON);
+      icon.onmousedown = e => {
+        e.preventDefault();  // Stops default browser action (focus)
+      };
+      icon.onauxclick = e => {
+        if (e.button == 1) {
+          // Middle click on delete should just noop for now (matches omnibox).
+          e.preventDefault();
+        }
+      };
+      icon.onclick = e => {
+        window.chrome.embeddedSearch.searchBox.deleteAutocompleteMatch(i);
+        e.preventDefault();  // Stops default browser action (navigation)
+      };
+
+      const remove = document.createElement('div');
+      remove.classList.add(CLASSES.REMOVE_MATCH);
+
+      remove.appendChild(icon);
+      matchEl.appendChild(remove);
+      realboxMatchesEl.classList.add(CLASSES.REMOVABLE);
+    }
+
+    realboxMatchesEl.append(matchEl);
+  }
+
+  // When the matches are replaced, the focus gets dropped temporariliy as the
+  // focused element is being deleted from the DOM. Stop listening to 'focusout'
+  // event and retore it immediately after since we don't want to stop
+  // autocomplete in those cases.
+  setRealboxWrapperListenForFocusOut(false);
+
+  $(IDS.REALBOX_MATCHES).remove();
+  realboxMatchesEl.id = IDS.REALBOX_MATCHES;
+
+  $(IDS.REALBOX_INPUT_WRAPPER).appendChild(realboxMatchesEl);
+
+  setRealboxWrapperListenForFocusOut(true);
+
+  const hasMatches = matches.length > 0;
+  setRealboxMatchesVisible(hasMatches);
+  setRealboxWrapperListenForKeydown(hasMatches);
+}
+
+/**
  * @param {string} text
  * @param {!Array<!ACMatchClassification>} classifications
  * @return {!Array<!Element>}
@@ -1623,8 +1700,8 @@ function renderOneGoogleBarTheme() {
     const oneGoogleBarPromise = oneGoogleBarApi.bf();
     oneGoogleBarPromise.then(function(oneGoogleBar) {
       const setForegroundStyle = oneGoogleBar.pc.bind(oneGoogleBar);
-      const themeInfo = getThemeBackgroundInfo();
-      setForegroundStyle(themeInfo && themeInfo.isNtpBackgroundDark ? 1 : 0);
+      const ntpTheme = getNtpTheme();
+      setForegroundStyle(ntpTheme && ntpTheme.isNtpBackgroundDark ? 1 : 0);
     });
   } catch (err) {
     console.log('Failed setting OneGoogleBar theme:\n' + err);
@@ -1633,38 +1710,38 @@ function renderOneGoogleBarTheme() {
 
 /** Updates the NTP based on the current theme. */
 function renderTheme() {
-  const info = getThemeBackgroundInfo();
-  if (!info) {
+  const theme = getNtpTheme();
+  if (!theme) {
     return;
   }
 
   // Update dark mode styling.
   isDarkModeEnabled = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  document.body.classList.toggle('light-chip', !getUseDarkChips(info));
+  document.body.classList.toggle('light-chip', !getUseDarkChips(theme));
 
   // Dark mode uses a white Google logo.
   const useWhiteLogo =
-      info.alternateLogo || (info.usingDefaultTheme && isDarkModeEnabled);
+      theme.alternateLogo || (theme.usingDefaultTheme && isDarkModeEnabled);
   document.body.classList.toggle(CLASSES.ALTERNATE_LOGO, useWhiteLogo);
 
-  if (info.logoColor) {
+  if (theme.logoColor) {
     document.body.style.setProperty(
-        '--logo-color', convertToRGBAColor(info.logoColor));
+        '--logo-color', convertToRGBAColor(theme.logoColor));
   }
 
   // The doodle notifier should be shown for non-default backgrounds. This
   // includes non-white backgrounds, excluding dark mode gray if dark mode is
   // enabled.
-  const isDefaultBackground = info.usingDefaultTheme && !info.imageUrl;
+  const isDefaultBackground = theme.usingDefaultTheme && !theme.imageUrl;
   document.body.classList.toggle(CLASSES.USE_NOTIFIER, !isDefaultBackground);
 
   // If a custom background has been selected the image will be applied to the
   // custom-background element instead of the body.
-  if (!info.customBackgroundConfigured) {
+  if (!theme.customBackgroundConfigured) {
     document.body.style.background = [
-      convertToRGBAColor(info.backgroundColorRgba), info.imageUrl,
-      info.imageTiling, info.imageHorizontalAlignment,
-      info.imageVerticalAlignment
+      convertToRGBAColor(theme.backgroundColorRgba), theme.imageUrl,
+      theme.imageTiling, theme.imageHorizontalAlignment,
+      theme.imageVerticalAlignment
     ].join(' ').trim();
 
     $(IDS.CUSTOM_BG).style.opacity = '0';
@@ -1672,7 +1749,7 @@ function renderTheme() {
     customize.clearAttribution();
   } else {
     // Do anything only if the custom background changed.
-    const imageUrl = assert(info.imageUrl);
+    const imageUrl = assert(theme.imageUrl);
     if (!$(IDS.CUSTOM_BG).style.backgroundImage.includes(imageUrl)) {
       const imageWithOverlay = [
         customize.CUSTOM_BACKGROUND_OVERLAY, 'url(' + imageUrl + ')'
@@ -1697,26 +1774,59 @@ function renderTheme() {
 
       customize.clearAttribution();
       customize.setAttribution(
-          '' + info.attribution1, '' + info.attribution2,
-          '' + info.attributionActionUrl);
+          '' + theme.attribution1, '' + theme.attribution2,
+          '' + theme.attributionActionUrl);
     }
   }
 
-  updateThemeAttribution(info.attributionUrl, info.imageHorizontalAlignment);
-  setCustomThemeStyle(info);
+  updateThemeAttribution(theme.attributionUrl, theme.imageHorizontalAlignment);
+  setCustomThemeStyle(theme);
 
   $(customize.IDS.RESTORE_DEFAULT)
       .classList.toggle(
-          customize.CLASSES.OPTION_DISABLED, !info.customBackgroundConfigured);
+          customize.CLASSES.OPTION_DISABLED, !theme.customBackgroundConfigured);
   $(customize.IDS.RESTORE_DEFAULT).tabIndex =
-      (info.customBackgroundConfigured ? 0 : -1);
+      (theme.customBackgroundConfigured ? 0 : -1);
 
   $(customize.IDS.EDIT_BG)
       .classList.toggle(
-          CLASSES.ENTRY_POINT_ENHANCED, !info.customBackgroundConfigured);
+          CLASSES.ENTRY_POINT_ENHANCED, !theme.customBackgroundConfigured);
 
   if (configData.isGooglePage) {
     customize.onThemeChange();
+  }
+
+  if (configData.realboxMatchOmniboxTheme) {
+    // TODO(dbeam): actually get these from theme service.
+    const removeMatchHovered = assert(theme.searchBox.icon).slice();
+    removeMatchHovered[3] = .08 * 255;
+
+    const removeMatchFocused = theme.searchBox.icon.slice();
+    removeMatchFocused[3] = .16 * 255;
+
+    /**
+     * @param {string} varName
+     * @param {!Array<number>|undefined} colors
+     */
+    const setCssVar = (varName, colors) => {
+      const rgba = convertToRGBAColor(assert(colors));
+      document.body.style.setProperty(`--${varName}`, rgba);
+    };
+
+    setCssVar('search-box-bg', theme.searchBox.bg);
+    setCssVar('search-box-icon', theme.searchBox.icon);
+    setCssVar('search-box-placeholder', theme.searchBox.placeholder);
+    setCssVar('search-box-results-bg', theme.searchBox.resultsBg);
+    setCssVar(
+        'search-box-results-bg-hovered', theme.searchBox.resultsBgHovered);
+    setCssVar(
+        'search-box-results-bg-selected', theme.searchBox.resultsBgSelected);
+    setCssVar('search-box-results-dim', theme.searchBox.resultsDim);
+    setCssVar('search-box-results-text', theme.searchBox.resultsText);
+    setCssVar('search-box-results-url', theme.searchBox.resultsUrl);
+    setCssVar('search-box-text', theme.searchBox.text);
+    setCssVar('remove-match-hovered', removeMatchHovered);
+    setCssVar('remove-match-focused', removeMatchFocused);
   }
 }
 
@@ -1773,12 +1883,16 @@ function selectMatchEl(elToSelect) {
       selectedIndex = i;
     }
   });
+
+  const matches = autocompleteResult ? autocompleteResult.matches : [];
+  setRealboxIcon(matches[selectedIndex]);
+
   return selectedIndex;
 }
 
 /** Sends the current theme info to the most visited iframe. */
-function sendThemeInfoToMostVisitedIframe() {
-  const info = getThemeBackgroundInfo();
+function sendNtpThemeToMostVisitedIframe() {
+  const info = getNtpTheme();
   if (!info) {
     return;
   }
@@ -1812,22 +1926,17 @@ function setAttributionVisibility(show) {
   $(IDS.ATTRIBUTION).style.display = show ? '' : 'none';
 }
 
-/** @param {!Array<!AutocompleteMatch>} matches */
-function setAutocompleteMatches(matches) {
-  autocompleteMatches = matches;
-}
-
 /**
  * Updates the NTP style according to theme.
- * @param {Object} themeInfo The information about the theme.
+ * @param {Object} ntpTheme The information about the theme.
  */
-function setCustomThemeStyle(themeInfo) {
+function setCustomThemeStyle(ntpTheme) {
   let textColor = '';
   let textColorLight = '';
   let mvxFilter = '';
-  if (!themeInfo.usingDefaultTheme) {
-    textColor = convertToRGBAColor(themeInfo.textColorRgba);
-    textColorLight = convertToRGBAColor(themeInfo.textColorLightRgba);
+  if (!ntpTheme.usingDefaultTheme) {
+    textColor = convertToRGBAColor(ntpTheme.textColorRgba);
+    textColorLight = convertToRGBAColor(ntpTheme.textColorLightRgba);
     mvxFilter = 'drop-shadow(0 0 0 ' + textColor + ')';
   }
 
@@ -1856,9 +1965,30 @@ function setFakeboxVisibility(show) {
   document.body.classList.toggle(CLASSES.HIDE_FAKEBOX, !show);
 }
 
+/** @param {!AutocompleteMatch|undefined} match */
+function setRealboxIcon(match) {
+  const showIcon = match && !match.isSearchType;
+
+  const realboxIcon = $(IDS.REALBOX_ICON);
+  realboxIcon.style.webkitMask = showIcon ? 'none' : '';
+  realboxIcon.style.backgroundColor = showIcon ? 'transparent' : '';
+  realboxIcon.style.backgroundImage =
+      showIcon ? `url(${getIconUrl(match.destinationUrl)})` : '';
+}
+
 /** @param {boolean} visible */
 function setRealboxMatchesVisible(visible) {
   $(IDS.REALBOX_INPUT_WRAPPER).classList.toggle(CLASSES.SHOW_MATCHES, visible);
+}
+
+/** @param {boolean} listen */
+function setRealboxWrapperListenForFocusOut(listen) {
+  const realboxWrapper = $(IDS.REALBOX_INPUT_WRAPPER);
+  if (listen) {
+    realboxWrapper.addEventListener('focusout', onRealboxWrapperFocusOut);
+  } else {
+    realboxWrapper.removeEventListener('focusout', onRealboxWrapperFocusOut);
+  }
 }
 
 /** @param {boolean} listen */

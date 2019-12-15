@@ -13,12 +13,13 @@ fidl_library("cast_fidl") {
   sources = [
     "fidl/cast/api_bindings.fidl",
     "fidl/cast/application_config.fidl",
+    "fidl/cast/application_context.fidl",
     "fidl/cast/application_controller.fidl",
     "fidl/cast/url_request_rewriter.fidl",
   ]
 
   public_deps = [
-    "//third_party/fuchsia-sdk/sdk:web",
+    "//third_party/fuchsia-sdk/sdk:fuchsia-web",
   ]
 }
 
@@ -99,6 +100,7 @@ group("gn_all") {
     "base:cr_fuchsia_base_unittests",
     "engine:web_engine",
     "engine:web_engine_browsertests",
+    "engine:web_engine_shell",
     "engine:web_engine_unittests",
     "http:http_service_tests",
     "mojom:fuchsia_mojo_unittests",

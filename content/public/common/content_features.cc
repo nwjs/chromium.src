@@ -31,10 +31,9 @@ const base::Feature kAllowContentInitiatedDataUrlNavigations{
     base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Allows popups during page unloading.
-// TODO(https://crbug.com/1010509): Set to DISABLED_BY_DEFAULT in Chrome 80.
 // TODO(https://crbug.com/937569): Remove this entirely in Chrome 82.
 const base::Feature kAllowPopupsDuringPageUnload{
-    "AllowPopupsDuringPageUnload", base::FEATURE_ENABLED_BY_DEFAULT};
+    "AllowPopupsDuringPageUnload", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Accepts Origin-Signed HTTP Exchanges to be signed with certificates
 // that do not have CanSignHttpExchangesDraft extension.
@@ -43,10 +42,6 @@ const base::Feature kAllowPopupsDuringPageUnload{
 const base::Feature kAllowSignedHTTPExchangeCertsWithoutExtension{
     "AllowSignedHTTPExchangeCertsWithoutExtension",
     base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Creates audio output and input streams using the audio service.
-const base::Feature kAudioServiceAudioStreams{"AudioServiceAudioStreams",
-                                              base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Launches the audio service on the browser startup.
 const base::Feature kAudioServiceLaunchOnStartup{
@@ -70,6 +65,16 @@ const base::Feature kBackgroundFetch{"BackgroundFetch",
 // Enable using the BackForwardCache.
 const base::Feature kBackForwardCache{"BackForwardCache",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
+
+// BackForwardCache is disabled on low memory devices. The threshold is defined
+// via a field trial param: "memory_threshold_for_back_forward_cache_in_mb"
+// It is compared against base::SysInfo::AmountOfPhysicalMemoryMB().
+
+// "BackForwardCacheMemoryControls" is checked before "BackForwardCache". It
+// means the low memory devices will activate neither the control group nor the
+// experimental group of the BackForwardCache field trial.
+const base::Feature kBackForwardCacheMemoryControl{
+    "BackForwardCacheMemoryControls", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Allows swipe left/right from touchpad change browser navigation. Currently
 // only enabled by default on CrOS.
@@ -188,17 +193,16 @@ const base::Feature kForcedColors{"ForcedColors",
 const base::Feature kFractionalScrollOffsets{"FractionalScrollOffsets",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables support for FTP URLs. When disabled FTP URLs will behave the same as
+// any other URL scheme that's unknown to the UA. See https://crbug.com/333943
+const base::Feature kFtpProtocol{"FtpProtocol",
+                                 base::FEATURE_ENABLED_BY_DEFAULT};
+
 // Puts network quality estimate related Web APIs in the holdback mode. When the
 // holdback is enabled the related Web APIs return network quality estimate
 // set by the experiment (regardless of the actual quality).
 const base::Feature kNetworkQualityEstimatorWebHoldback{
     "NetworkQualityEstimatorWebHoldback", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Causes the implementations of guests (inner WebContents) to use
-// out-of-process iframes.
-// TODO(533069): Remove once BrowserPlugin is removed.
-const base::Feature kGuestViewCrossProcessFrames{
-    "GuestViewCrossProcessFrames", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // If a page does a client side redirect or adds to the history without a user
 // gesture, then skip it on back/forward UI.
@@ -291,11 +295,6 @@ const base::Feature kMediaDevicesSystemMonitorCache {
 #endif
 };
 
-// Instead of BrowserPlugin or GuestViews, MimeHandlerView will use a cross
-// process frame to render its handler.
-const base::Feature kMimeHandlerViewInCrossProcessFrame{
-    "MimeHandlerViewInCrossProcessFrame", base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Enables/disables the video capture service.
 const base::Feature kMojoVideoCapture{"MojoVideoCapture",
                                       base::FEATURE_ENABLED_BY_DEFAULT};
@@ -311,11 +310,6 @@ const base::Feature kMojoVideoCaptureSecondary{
 const base::Feature kMouseSubframeNoImplicitCapture{
     "MouseSubframeNoImplicitCapture", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Transmit the response body datapipe to the renderer process in
-// CommitNavigation() so that it can start reading earlier.
-const base::Feature kNavigationImmediateResponseBody{
-    "NavigationImmediateResponseBody", base::FEATURE_ENABLED_BY_DEFAULT};
-
 // If the network service is enabled, runs it in process.
 const base::Feature kNetworkServiceInProcess {
   "NetworkServiceInProcess",
@@ -325,6 +319,9 @@ const base::Feature kNetworkServiceInProcess {
       base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 };
+
+const base::Feature kNeverSlowMode{"NeverSlowMode",
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Kill switch for Web Notification content images.
 const base::Feature kNotificationContentImage{"NotificationContentImage",
@@ -365,10 +362,6 @@ const base::Feature kPassiveEventListenersDueToFling{
 // Whether web apps can run periodic tasks upon network connectivity.
 const base::Feature kPeriodicBackgroundSync{"PeriodicBackgroundSync",
                                             base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Whether we should use the navigation_client mojo interface for navigations.
-const base::Feature kPerNavigationMojoInterface = {
-    "PerNavigationMojoInterface", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // If Pepper 3D Image Chromium is allowed, this feature controls whether it is
 // enabled.
@@ -564,6 +557,13 @@ const base::Feature kTimerThrottlingForHiddenFrames{
 const base::Feature kTouchpadAsyncPinchEvents{"TouchpadAsyncPinchEvents",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Controls whether the RenderProcessHost uses its frames' priorities for
+// determining if it should be backgrounded. When all frames associated with a
+// RenderProcessHost are low priority, that process may be backgrounded even if
+// those frames are visible.
+const base::Feature kUseFramePriorityInRenderProcessHost{
+    "UseFramePriorityInRenderProcessHost", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Allows developers transfer user activation state to any target window in the
 // frame tree.
 const base::Feature kUserActivationPostMessageTransfer{
@@ -575,12 +575,6 @@ const base::Feature kUserActivationPostMessageTransfer{
 // to subframes.
 const base::Feature kUserActivationSameOriginVisibility{
     "UserActivationSameOriginVisibility", base::FEATURE_ENABLED_BY_DEFAULT};
-
-// An experimental simple user-activation model where the user gesture state is
-// tracked through a frame-based state instead of the gesture tokens we use
-// today.
-const base::Feature kUserActivationV2{"UserActivationV2",
-                                      base::FEATURE_ENABLED_BY_DEFAULT};
 
 // An experimental replacement for the `User-Agent` header, defined in
 // https://tools.ietf.org/html/draft-west-ua-client-hints.
@@ -675,8 +669,16 @@ const base::Feature kWebAuthCable {
 
 // Controls whether Web Bundles (Bundled HTTP Exchanges) is enabled.
 // https://wicg.github.io/webpackage/draft-yasskin-wpack-bundled-exchanges.html
+// When this feature is enabled, Chromium can load unsigned Web Bundles local
+// file under file:// URL (and content:// URI on Android).
 const base::Feature kWebBundles{"WebBundles",
                                 base::FEATURE_DISABLED_BY_DEFAULT};
+
+// When this feature is enabled, Chromium will be able to load unsigned Web
+// Bundles file under https: URL and localhost http: URL.
+// TODO(crbug.com/1018640): Implement this feature.
+const base::Feature kWebBundlesFromNetwork{"WebBundlesFromNetwork",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
 // If WebGL Image Chromium is allowed, this feature controls whether it is
 // enabled.
@@ -740,6 +742,10 @@ const base::Feature kScriptStreamingOnPreload{"ScriptStreamingOnPreload",
 const base::Feature kTrustedDOMTypes{"TrustedDOMTypes",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Controls whether Client Hints are guarded by FeaturePolicy.
+const base::Feature kFeaturePolicyForClientHints{
+    "FeaturePolicyForClientHints", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Use ThreadPriority::DISPLAY for browser UI and IO threads.
 #if defined(OS_ANDROID) || defined(OS_CHROMEOS)
 const base::Feature kBrowserUseDisplayThreadPriority{
@@ -783,13 +789,6 @@ const base::Feature kWebNfc{"WebNFC", base::FEATURE_DISABLED_BY_DEFAULT};
 const base::Feature kWebUIPolymer2Exceptions{"WebUIPolymer2Exceptions",
                                              base::FEATURE_ENABLED_BY_DEFAULT};
 #endif  // defined(OS_CHROMEOS)
-
-#if defined(OS_WIN)
-// Enables the use of a touch fling curve that is based on the behavior of
-// native apps on Windows.
-const base::Feature kExperimentalFlingAnimation{
-    "ExperimentalFlingAnimation", base::FEATURE_DISABLED_BY_DEFAULT};
-#endif  // defined(OS_WIN)
 
 #if defined(OS_MACOSX)
 // Enables caching of media devices for the purpose of enumerating them.

@@ -429,9 +429,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   }
   // The content inset of the tab grids must be modified so that the toolbars
   // do not obscure the tabs. This may change depending on orientation.
-  CGFloat bottomInset = self.configuration == TabGridConfigurationBottomToolbar
-                            ? self.bottomToolbar.intrinsicContentSize.height
-                            : 0;
+  CGFloat bottomInset = self.bottomToolbar.intrinsicContentSize.height;
   UIEdgeInsets inset = UIEdgeInsetsMake(
       self.topToolbar.intrinsicContentSize.height, 0, bottomInset, 0);
   // Left and right side could be missing correct safe area
@@ -496,36 +494,49 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   self.currentPageViewController.view.accessibilityElementsHidden = YES;
   _currentPage = currentPage;
   self.currentPageViewController.view.accessibilityElementsHidden = NO;
+  // Force VoiceOver to update its accessibility element tree immediately.
+  UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification,
+                                  nil);
 }
 
 // Sets the value of |currentPage|, adjusting the position of the scroll view
 // to match. If |animated| is YES, the scroll view change may animate; if it is
 // NO, it will never animate.
 - (void)scrollToPage:(TabGridPage)targetPage animated:(BOOL)animated {
-  // This method should never early return if |currentPage| == |_currentPage|;
+  // This method should never early return if |targetPage| == |_currentPage|;
   // the ivar may have been set before the scroll view could be updated. Calling
   // this method should always update the scroll view's offset if possible.
+
+  // When VoiceOver is running, the animation can cause state to get out of
+  // sync. If the user swipes right during the animation, the VoiceOver cursor
+  // goes to the old page, instead of the new page. See crbug.com/978673 for
+  // more details.
+  if (UIAccessibilityIsVoiceOverRunning()) {
+    animated = NO;
+  }
 
   // If the view isn't loaded yet, just do bookkeeping on |currentPage|.
   if (!self.viewLoaded) {
     self.currentPage = targetPage;
     return;
   }
+
   CGFloat pageWidth = self.scrollView.frame.size.width;
   NSUInteger pageIndex = GetPageIndexFromPage(targetPage);
-  CGPoint offset = CGPointMake(pageIndex * pageWidth, 0);
+  CGPoint targetOffset = CGPointMake(pageIndex * pageWidth, 0);
+
   // If the view is visible and |animated| is YES, animate the change.
   // Otherwise don't.
   if (self.view.window == nil || !animated) {
-    [self.scrollView setContentOffset:offset animated:NO];
+    [self.scrollView setContentOffset:targetOffset animated:NO];
     self.currentPage = targetPage;
   } else {
     // Only set |scrollViewAnimatingContentOffset| to YES if there's an actual
     // change in the contentOffset, as |-scrollViewDidEndScrollingAnimation:| is
     // never called if the animation does not occur.
-    if (!CGPointEqualToPoint(self.scrollView.contentOffset, offset)) {
+    if (!CGPointEqualToPoint(self.scrollView.contentOffset, targetOffset)) {
       self.scrollViewAnimatingContentOffset = YES;
-      [self.scrollView setContentOffset:offset animated:YES];
+      [self.scrollView setContentOffset:targetOffset animated:YES];
       // |self.currentPage| is set in scrollViewDidEndScrollingAnimation:
     } else {
       self.currentPage = targetPage;
@@ -1048,12 +1059,12 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 
 // Sets both the current page and page control's selected page to |page|.
 // Animation is used if |animated| is YES.
-- (void)setCurrentPageAndPageControlSelectedPage:(TabGridPage)page
-                                        animated:(BOOL)animated {
+- (void)setCurrentPageAndPageControl:(TabGridPage)page animated:(BOOL)animated {
   if (self.topToolbar.pageControl.selectedPage != page)
     [self.topToolbar.pageControl setSelectedPage:page animated:animated];
-  if (self.currentPage != page)
+  if (self.currentPage != page) {
     [self scrollToPage:page animated:animated];
+  }
 }
 
 #pragma mark - GridViewControllerDelegate
@@ -1118,23 +1129,30 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
     // the incognito tabs.
     if (count == 0 && self.currentPage == TabGridPageIncognitoTabs) {
       // Show the regular tabs to the user if the last incognito tab is closed.
+      self.activePage = TabGridPageRegularTabs;
       if (self.viewLoaded && self.view.window) {
         // Visibly scroll to the regular tabs panel after a slight delay when
         // the user is already in the tab switcher.
+        // Per crbug.com/980844, if the user has VoiceOver enabled, don't delay
+        // and just animate immediately; delaying the scrolling will cause
+        // VoiceOver to focus the text on the Incognito page.
         __weak TabGridViewController* weakSelf = self;
-        base::PostDelayedTask(
-            FROM_HERE, {web::WebThread::UI}, base::BindOnce(^{
-              [weakSelf setCurrentPageAndPageControlSelectedPage:
-                            TabGridPageRegularTabs
-                                                        animated:YES];
-            }),
-            base::TimeDelta::FromMilliseconds(
-                kTabGridScrollAnimationDelayInMilliseconds));
+        auto scrollToRegularTabs = ^{
+          [weakSelf setCurrentPageAndPageControl:TabGridPageRegularTabs
+                                        animated:YES];
+        };
+        if (UIAccessibilityIsVoiceOverRunning()) {
+          scrollToRegularTabs();
+        } else {
+          base::TimeDelta delay = base::TimeDelta::FromMilliseconds(
+              kTabGridScrollAnimationDelayInMilliseconds);
+          base::PostDelayedTask(FROM_HERE, {web::WebThread::UI},
+                                base::BindOnce(scrollToRegularTabs), delay);
+        }
       } else {
-        // Directly show the regular tabs in tab switcher without animation if
+        // Directly show the regular tab page without animation if
         // the user was not already in tab switcher.
-        [self setCurrentPageAndPageControlSelectedPage:TabGridPageRegularTabs
-                                              animated:NO];
+        [self setCurrentPageAndPageControl:TabGridPageRegularTabs animated:NO];
       }
     }
   }

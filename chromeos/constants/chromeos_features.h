@@ -18,6 +18,8 @@ namespace features {
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kAmbientModeFeature;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kArcAdbSideloadingFeature;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kAutoScreenBrightness;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kBluetoothAggressiveAppearanceFilter;
@@ -31,11 +33,19 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kCameraSystemWebApp;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const base::Feature kCrostiniBackup;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kCrostiniUseBusterImage;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kCrostiniGpuSupport;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kCrostiniUsbAllowUnsupported;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kCrostiniWebUIInstaller;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kCryptAuthV1DeviceSyncDeprecate;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kCryptAuthV2DeviceActivityStatus;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kCrostiniWebUIUpgrader;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kCryptAuthV2DeviceSync;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
@@ -49,9 +59,9 @@ extern const base::Feature kDriveFsMirroring;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kEolWarningNotifications;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
-extern const base::Feature kEnableFileManagerFeedbackPanel;
+extern const base::Feature kEduCoexistence;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
-extern const base::Feature kEnableFileManagerPiexWasm;
+extern const base::Feature kEnableFileManagerFeedbackPanel;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kExoPointerLock;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const base::Feature kFilesNG;
@@ -115,20 +125,28 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kUseSearchClickForRightClick;
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const base::Feature kVideoPlayerNativeControls;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kVirtualKeyboardBorderedKey;
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const base::Feature kVirtualKeyboardFloatingResizable;
 
 // Keep alphabetized.
 
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsAmbientModeEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsAssistantEnabled();
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsEduCoexistenceEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsImeDecoderWithSandboxEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 bool IsInstantTetheringBackgroundAdvertisingSupported();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsParentalControlsSettingsEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsSplitSettingsEnabled();
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsSplitSettingsSyncEnabled();
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool ShouldDeprecateV1DeviceSync();
 
 // TODO(michaelpg): Remove after M71 branch to re-enable Play Store by default.
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool ShouldShowPlayStoreInDemoMode();
+
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool ShouldUseV2DeviceSync();
 
 // Keep alphabetized.
 

@@ -19,10 +19,18 @@
 #include "chrome/grit/theme_resources.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/color/color_buildflags.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_rep.h"
+
+#if BUILDFLAG(USE_COLOR_PIPELINE)
+#include "chrome/browser/ui/color/chrome_color_id.h"
+#include "ui/color/color_mixer.h"
+#include "ui/color/color_provider.h"
+#include "ui/color/color_test_ids.h"
+#endif
 
 using extensions::Extension;
 using TP = ThemeProperties;
@@ -97,6 +105,13 @@ class BrowserThemePackTest : public ::testing::Test {
 
   const BrowserThemePack& theme_pack() const { return *theme_pack_; }
 
+  base::FilePath GetTemporaryPakFile(base::FilePath::StringPieceType name) {
+    if (dir_.IsValid() || dir_.CreateUniqueTempDir())
+      return dir_.GetPath().Append(name);
+    ADD_FAILURE() << "Couldn't create temp dir";
+    return base::FilePath();
+  }
+
  private:
   using ScopedSetSupportedScaleFactors =
       std::unique_ptr<ui::test::ScopedSetSupportedScaleFactors>;
@@ -114,6 +129,7 @@ class BrowserThemePackTest : public ::testing::Test {
 
   ScopedSetSupportedScaleFactors scoped_set_supported_scale_factors_;
 
+  base::ScopedTempDir dir_;
   content::BrowserTaskEnvironment task_environment_;
   scoped_refptr<BrowserThemePack> theme_pack_;
 };
@@ -725,13 +741,64 @@ TEST_F(BrowserThemePackTest, TestNonExistantImages) {
   EXPECT_FALSE(LoadRawBitmapsTo(out_file_paths));
 }
 
+#if BUILDFLAG(USE_COLOR_PIPELINE)
+TEST_F(BrowserThemePackTest, TestCreateColorMixersOmniboxNoValues) {
+  // Tests to make sure that existing colors within the color provider are not
+  // overwritten or lost in the absence of any user provided theme values.
+  ui::ColorProvider provider;
+  provider.AddMixer().AddSet({ui::kColorSetTest0,
+                              {{kColorToolbar, SK_ColorRED},
+                               {kColorOmniboxText, SK_ColorGREEN},
+                               {kColorOmniboxBackground, SK_ColorBLUE}}});
+  theme_pack().AddCustomThemeColorMixers(&provider);
+  EXPECT_EQ(SK_ColorRED, provider.GetColor(kColorToolbar));
+  EXPECT_EQ(SK_ColorGREEN, provider.GetColor(kColorOmniboxText));
+  EXPECT_EQ(SK_ColorBLUE, provider.GetColor(kColorOmniboxBackground));
+}
+
+TEST_F(BrowserThemePackTest, TestCreateColorMixersOmniboxPartialValues) {
+  // Tests to make sure that only provided theme values are replicated into the
+  // color provider.
+  ui::ColorProvider provider;
+  provider.AddMixer().AddSet({ui::kColorSetTest0,
+                              {{kColorToolbar, SK_ColorRED},
+                               {kColorOmniboxText, SK_ColorGREEN},
+                               {kColorOmniboxBackground, SK_ColorBLUE}}});
+  std::string color_json = R"({ "toolbar": [0, 20, 40],
+                                "omnibox_text": [60, 80, 100] })";
+  LoadColorJSON(color_json);
+  theme_pack().AddCustomThemeColorMixers(&provider);
+  EXPECT_EQ(SkColorSetRGB(0, 20, 40), provider.GetColor(kColorToolbar));
+  EXPECT_EQ(SkColorSetRGB(60, 80, 100), provider.GetColor(kColorOmniboxText));
+  EXPECT_EQ(SK_ColorBLUE, provider.GetColor(kColorOmniboxBackground));
+}
+
+TEST_F(BrowserThemePackTest, TestCreateColorMixersOmniboxAllValues) {
+  // Tests to make sure that all available colors are properly loaded into the
+  // color provider.
+  ui::ColorProvider provider;
+  provider.AddMixer().AddSet({ui::kColorSetTest0,
+                              {{kColorToolbar, SK_ColorRED},
+                               {kColorOmniboxText, SK_ColorGREEN},
+                               {kColorOmniboxBackground, SK_ColorBLUE}}});
+  std::string color_json = R"({ "toolbar": [0, 20, 40],
+                                "omnibox_text": [60, 80, 100],
+                                "omnibox_background": [120, 140, 160] })";
+  LoadColorJSON(color_json);
+  theme_pack().AddCustomThemeColorMixers(&provider);
+  EXPECT_EQ(SkColorSetRGB(0, 20, 40), provider.GetColor(kColorToolbar));
+  EXPECT_EQ(SkColorSetRGB(60, 80, 100), provider.GetColor(kColorOmniboxText));
+  EXPECT_EQ(SkColorSetRGB(120, 140, 160),
+            provider.GetColor(kColorOmniboxBackground));
+}
+#endif
+
 // TODO(erg): This test should actually test more of the built resources from
 // the extension data, but for now, exists so valgrind can test some of the
 // tricky memory stuff that BrowserThemePack does.
 TEST_F(BrowserThemePackTest, CanBuildAndReadPack) {
-  base::ScopedTempDir dir;
-  ASSERT_TRUE(dir.CreateUniqueTempDir());
-  base::FilePath file = dir.GetPath().AppendASCII("data.pak");
+  base::FilePath file = GetTemporaryPakFile(FILE_PATH_LITERAL("data.pak"));
+  ASSERT_FALSE(file.empty());
 
   // Part 1: Build the pack from an extension.
   {
@@ -754,9 +821,9 @@ TEST_F(BrowserThemePackTest, CanBuildAndReadPack) {
 }
 
 TEST_F(BrowserThemePackTest, HiDpiThemeTest) {
-  base::ScopedTempDir dir;
-  ASSERT_TRUE(dir.CreateUniqueTempDir());
-  base::FilePath file = dir.GetPath().AppendASCII("theme_data.pak");
+  base::FilePath file =
+      GetTemporaryPakFile(FILE_PATH_LITERAL("theme_data.pak"));
+  ASSERT_FALSE(file.empty());
 
   // Part 1: Build the pack from an extension.
   {

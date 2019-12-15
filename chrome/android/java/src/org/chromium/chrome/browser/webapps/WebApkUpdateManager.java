@@ -331,7 +331,7 @@ public class WebApkUpdateManager implements WebApkUpdateDataFetcher.Observer {
             return WebApkUpdateReason.NAME_DIFFERS;
         } else if (oldInfo.backgroundColor() != fetchedInfo.backgroundColor()) {
             return WebApkUpdateReason.BACKGROUND_COLOR_DIFFERS;
-        } else if (oldInfo.themeColor() != fetchedInfo.themeColor()) {
+        } else if (oldInfo.toolbarColor() != fetchedInfo.toolbarColor()) {
             return WebApkUpdateReason.THEME_COLOR_DIFFERS;
         } else if (oldInfo.orientation() != fetchedInfo.orientation()) {
             return WebApkUpdateReason.ORIENTATION_DIFFERS;
@@ -379,10 +379,9 @@ public class WebApkUpdateManager implements WebApkUpdateDataFetcher.Observer {
                 info.manifestStartUrl(), info.scopeUrl(), info.name(), info.shortName(),
                 primaryIconUrl, info.icon().bitmap(), info.isIconAdaptive(), badgeIconUrl,
                 info.badgeIcon().bitmap(), iconUrls, iconHashes, info.displayMode(),
-                info.orientation(), info.themeColor(), info.backgroundColor(),
+                info.orientation(), info.toolbarColor(), info.backgroundColor(),
                 info.shareTarget().getAction(), info.shareTarget().getParamTitle(),
-                info.shareTarget().getParamText(), info.shareTarget().getParamUrl(),
-                info.shareTarget().isShareMethodPost(),
+                info.shareTarget().getParamText(), info.shareTarget().isShareMethodPost(),
                 info.shareTarget().isShareEncTypeMultipart(), info.shareTarget().getFileNames(),
                 info.shareTarget().getFileAccepts(), info.manifestUrl(), info.webApkPackageName(),
                 versionCode, isManifestStale, updateReason, callback);
@@ -396,11 +395,10 @@ public class WebApkUpdateManager implements WebApkUpdateDataFetcher.Observer {
                 Bitmap badgeIcon, String[] iconUrls, String[] iconHashes,
                 @WebDisplayMode int displayMode, int orientation, long themeColor,
                 long backgroundColor, String shareTargetAction, String shareTargetParamTitle,
-                String shareTargetParamText, String shareTargetParamUrl,
-                boolean shareTargetParamIsMethodPost, boolean shareTargetParamIsEncTypeMultipart,
-                String[] shareTargetParamFileNames, Object[] shareTargetParamAccepts,
-                String manifestUrl, String webApkPackage, int webApkVersion,
-                boolean isManifestStale, @WebApkUpdateReason int updateReason,
+                String shareTargetParamText, boolean shareTargetParamIsMethodPost,
+                boolean shareTargetParamIsEncTypeMultipart, String[] shareTargetParamFileNames,
+                Object[] shareTargetParamAccepts, String manifestUrl, String webApkPackage,
+                int webApkVersion, boolean isManifestStale, @WebApkUpdateReason int updateReason,
                 Callback<Boolean> callback);
         public void updateWebApkFromFile(String updateRequestPath, WebApkUpdateCallback callback);
     }

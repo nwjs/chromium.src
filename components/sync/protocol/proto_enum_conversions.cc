@@ -48,12 +48,13 @@ const char* ProtoEnumToString(sync_pb::AppSpecifics::LaunchType launch_type) {
 const char* ProtoEnumToString(
     sync_pb::AutofillWalletSpecifics::WalletInfoType wallet_info_type) {
   ASSERT_ENUM_BOUNDS(sync_pb::AutofillWalletSpecifics, WalletInfoType, UNKNOWN,
-                     CUSTOMER_DATA);
+                     CREDIT_CARD_CLOUD_TOKEN_DATA);
   switch (wallet_info_type) {
     ENUM_CASE(sync_pb::AutofillWalletSpecifics, UNKNOWN);
     ENUM_CASE(sync_pb::AutofillWalletSpecifics, MASKED_CREDIT_CARD);
     ENUM_CASE(sync_pb::AutofillWalletSpecifics, POSTAL_ADDRESS);
     ENUM_CASE(sync_pb::AutofillWalletSpecifics, CUSTOMER_DATA);
+    ENUM_CASE(sync_pb::AutofillWalletSpecifics, CREDIT_CARD_CLOUD_TOKEN_DATA);
   }
   NOTREACHED();
   return "";
@@ -540,13 +541,12 @@ const char* ProtoEnumToString(
 }
 
 const char* ProtoEnumToString(
-    sync_pb::WebAppSpecifics::DisplayMode display_mode) {
-  ASSERT_ENUM_BOUNDS(sync_pb::WebAppSpecifics, DisplayMode, kBrowser,
-                     kStandalone);
-  switch (display_mode) {
-    ENUM_CASE(sync_pb::WebAppSpecifics, kBrowser);
-    ENUM_CASE(sync_pb::WebAppSpecifics, kMinimalUi);
-    ENUM_CASE(sync_pb::WebAppSpecifics, kStandalone);
+    sync_pb::WebAppSpecifics::UserDisplayMode user_display_mode) {
+  ASSERT_ENUM_BOUNDS(sync_pb::WebAppSpecifics, UserDisplayMode, BROWSER,
+                     STANDALONE);
+  switch (user_display_mode) {
+    ENUM_CASE(sync_pb::WebAppSpecifics, BROWSER);
+    ENUM_CASE(sync_pb::WebAppSpecifics, STANDALONE);
   }
   NOTREACHED();
   return "";

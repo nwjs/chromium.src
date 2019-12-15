@@ -20,8 +20,8 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/network/public/cpp/resource_request.h"
-#include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/mojom/network_context.mojom.h"
+#include "services/network/public/mojom/url_response_head.mojom.h"
 #include "services/network/public/mojom/websocket.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -63,8 +63,6 @@ class WebRequestProxyingWebSocket
   void OnConnectionEstablished(
       mojo::PendingRemote<network::mojom::WebSocket> websocket,
       mojo::PendingReceiver<network::mojom::WebSocketClient> client_receiver,
-      const std::string& selected_protocol,
-      const std::string& extensions,
       network::mojom::WebSocketHandshakeResponsePtr response,
       mojo::ScopedDataPipeConsumerHandle readable) override;
 
@@ -128,7 +126,7 @@ class WebRequestProxyingWebSocket
       receiver_as_header_client_{this};
 
   net::HttpRequestHeaders request_headers_;
-  network::ResourceResponseHead response_;
+  network::mojom::URLResponseHeadPtr response_;
   net::AuthCredentials auth_credentials_;
   OnAuthRequiredCallback auth_required_callback_;
   scoped_refptr<net::HttpResponseHeaders> override_headers_;
@@ -142,8 +140,6 @@ class WebRequestProxyingWebSocket
   bool has_extra_headers_;
   mojo::PendingRemote<network::mojom::WebSocket> websocket_;
   mojo::PendingReceiver<network::mojom::WebSocketClient> client_receiver_;
-  std::string selected_protocol_;
-  std::string extensions_;
   network::mojom::WebSocketHandshakeResponsePtr handshake_response_ = nullptr;
   mojo::ScopedDataPipeConsumerHandle readable_;
 

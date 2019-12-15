@@ -58,8 +58,8 @@ void EphemeralTabLayer::SetProperties(
     content::WebContents* web_contents,
     int title_view_resource_id,
     int caption_view_resource_id,
-    int caption_icon_resource_id,
-    jfloat caption_icon_opacity,
+    int security_icon_resource_id,
+    jfloat security_icon_opacity,
     jfloat caption_animation_percentage,
     jfloat text_layer_min_height,
     jfloat title_caption_spacing,
@@ -78,14 +78,13 @@ void EphemeralTabLayer::SetProperties(
     float bar_height,
     bool bar_border_visible,
     float bar_border_height,
-    bool bar_shadow_visible,
     int icon_color,
     int drag_handlebar_color,
     jfloat favicon_opacity,
     bool progress_bar_visible,
     float progress_bar_height,
     float progress_bar_opacity,
-    int progress_bar_completion,
+    float progress_bar_completion,
     int separator_line_color,
     bool is_new_layout) {
   if (web_contents_ != web_contents) {
@@ -110,8 +109,8 @@ void EphemeralTabLayer::SetProperties(
       dp_to_px, content_layer, bar_height, panel_x, panel_y, panel_width,
       panel_height, bar_background_color, bar_margin_side, bar_margin_top,
       bar_height, 0.0f, title_opacity, bar_border_visible, bar_border_height,
-      bar_shadow_visible, icon_color, drag_handlebar_color,
-      1.0f /* icon opacity */, separator_line_color);
+      icon_color, drag_handlebar_color, 1.0f /* icon opacity */,
+      separator_line_color);
 
   // Content setup, to center in space below drag handle (when present).
   int content_top = bar_top;
@@ -121,8 +120,8 @@ void EphemeralTabLayer::SetProperties(
     content_height -= bar_margin_top;
   }
   SetupTextLayer(content_top, content_height, text_layer_min_height,
-                 caption_view_resource_id, caption_icon_resource_id,
-                 caption_icon_opacity, caption_animation_percentage,
+                 caption_view_resource_id, security_icon_resource_id,
+                 security_icon_opacity, caption_animation_percentage,
                  caption_visible, title_view_resource_id,
                  title_caption_spacing);
 
@@ -144,8 +143,8 @@ void EphemeralTabLayer::SetupTextLayer(float content_top,
                                        float content_height,
                                        float text_layer_min_height,
                                        int caption_view_resource_id,
-                                       int caption_icon_resource_id,
-                                       float caption_icon_opacity,
+                                       int security_icon_resource_id,
+                                       float security_icon_opacity,
                                        float animation_percentage,
                                        bool caption_visible,
                                        int title_resource_id,
@@ -189,6 +188,17 @@ void EphemeralTabLayer::SetupTextLayer(float content_top,
       caption_->RemoveFromParent();
     if (security_icon_layer_->parent())
       security_icon_layer_->RemoveFromParent();
+  }
+
+  // Set up security icon layer
+  if (security_icon_resource_id) {
+    ui::Resource* security_icon_resource =
+        resource_manager_->GetStaticResourceWithTint(security_icon_resource_id,
+                                                     0);
+    security_icon_layer_->SetUIResourceId(
+        security_icon_resource->ui_resource()->id());
+    security_icon_layer_->SetBounds(gfx::ScaleToRoundedSize(
+        security_icon_resource->size(), kSecurityIconScale));
   }
 
   // ---------------------------------------------------------------------------
@@ -246,23 +256,32 @@ void EphemeralTabLayer::SetupTextLayer(float content_top,
                       caption_top_end * animation_percentage;
 
   title_->SetPosition(gfx::PointF(0.f, title_top));
-  caption_->SetPosition(gfx::PointF(0.f, caption_top));
+  bool is_rtl = l10n_util::IsLayoutRtl();
+  float caption_left = 0.f;
+  if (is_rtl && security_icon_resource_id) {
+    caption_left = security_icon_layer_->bounds().width();
+  }
+  caption_->SetPosition(gfx::PointF(caption_left, caption_top));
 
   // Security icon
-  if (!caption_icon_resource_id)
+  if (!security_icon_resource_id)
     return;
 
-  float icon_x = bar_margin_side_ +
-                 (kFaviconWidthDp + kSecurityIconMarginStartDp) * dp_to_px_;
-  float icon_y = title_top_end + title_height;
-  ui::Resource* security_icon_resource =
-      resource_manager_->GetStaticResourceWithTint(caption_icon_resource_id, 0);
-  security_icon_layer_->SetUIResourceId(
-      security_icon_resource->ui_resource()->id());
-  security_icon_layer_->SetBounds(gfx::ScaleToRoundedSize(
-      security_icon_resource->size(), kSecurityIconScale));
+  float icon_x;
+  if (is_rtl) {
+    icon_x = bar_margin_side_ * 2 + close_icon_->bounds().width();
+    if (open_tab_icon_resource_id_ != kInvalidResourceID) {
+      icon_x += bar_margin_side_ * 2 + open_tab_icon_->bounds().width();
+    }
+  } else {
+    icon_x = bar_margin_side_ +
+             (kFaviconWidthDp + kSecurityIconMarginStartDp) * dp_to_px_;
+  }
+  float icon_y = caption_top + (caption_->bounds().height() -
+                                security_icon_layer_->bounds().height()) /
+                                   2;
   security_icon_layer_->SetPosition(gfx::PointF(icon_x, icon_y));
-  security_icon_layer_->SetOpacity(caption_icon_opacity);
+  security_icon_layer_->SetOpacity(security_icon_opacity);
 }
 
 void EphemeralTabLayer::OnFaviconUpdated(

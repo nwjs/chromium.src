@@ -23,6 +23,7 @@ class ShellBrowserContext;
 class ShellBrowserMainParts;
 
 std::string GetShellUserAgent();
+std::string GetShellLanguage();
 blink::UserAgentMetadata GetShellUserAgentMetadata();
 
 class ShellContentBrowserClient : public ContentBrowserClient {
@@ -70,8 +71,6 @@ class ShellContentBrowserClient : public ContentBrowserClient {
       std::unique_ptr<ClientCertificateDelegate> delegate) override;
   SpeechRecognitionManagerDelegate* CreateSpeechRecognitionManagerDelegate()
       override;
-  void OverrideWebkitPrefs(RenderViewHost* render_view_host,
-                           WebPreferences* prefs) override;
   base::FilePath GetFontLookupTableCacheDir() override;
   DevToolsManagerDelegate* GetDevToolsManagerDelegate() override;
   void OpenURL(SiteInstance* site_instance,

@@ -19,6 +19,7 @@
 #include "base/time/time.h"
 #include "content/browser/appcache/appcache_database.h"
 #include "content/browser/appcache/appcache_entry.h"
+#include "content/browser/appcache/appcache_group.h"
 #include "content/browser/appcache/appcache_manifest_parser.h"
 #include "content/browser/appcache/appcache_namespace.h"
 #include "content/common/content_export.h"
@@ -28,7 +29,6 @@
 namespace content {
 FORWARD_DECLARE_TEST(AppCacheTest, InitializeWithManifest);
 FORWARD_DECLARE_TEST(AppCacheTest, ToFromDatabaseRecords);
-class AppCacheGroup;
 class AppCacheHost;
 class AppCacheStorage;
 class AppCacheTest;
@@ -46,6 +46,12 @@ class CONTENT_EXPORT AppCache
  public:
   using EntryMap = std::map<GURL, AppCacheEntry>;
   using AppCacheHosts = std::set<AppCacheHost*>;
+
+  static bool CheckValidManifestScope(const GURL& manifest_url,
+                                      const std::string& manifest_scope);
+
+  static std::string GetManifestScope(const GURL& manifest_url,
+                                      std::string optional_scope);
 
   AppCache(AppCacheStorage* storage, int64_t cache_id);
 
@@ -100,16 +106,24 @@ class CONTENT_EXPORT AppCache
   }
 
   base::Time update_time() const { return update_time_; }
-
-  // The sum of all the sizes of the resources in this cache.
-  int64_t cache_size() const { return cache_size_; }
+  void set_update_time(base::Time ticks) { update_time_ = ticks; }
 
   // The sum of all the padding sizes of the resources in this cache.
   //
   // See AppCacheEntry for a description of how padding size works.
   int64_t padding_size() const { return padding_size_; }
 
-  void set_update_time(base::Time ticks) { update_time_ = ticks; }
+  // The sum of all the sizes of the resources in this cache.
+  int64_t cache_size() const { return cache_size_; }
+
+  int64_t manifest_parser_version() const { return manifest_parser_version_; }
+  void set_manifest_parser_version(int64_t manifest_parser_version) {
+    manifest_parser_version_ = manifest_parser_version;
+  }
+  const std::string& manifest_scope() const { return manifest_scope_; }
+  void set_manifest_scope(const std::string& manifest_scope) {
+    manifest_scope_ = manifest_scope;
+  }
 
   // Initializes the cache with information in the manifest.
   // Do not use the manifest after this call.
@@ -197,6 +211,18 @@ class CONTENT_EXPORT AppCache
 
   int64_t cache_size_;
   int64_t padding_size_;
+
+  // The version of the manifest parser used to interpret a given AppCache
+  // manifest.  Since the features supported by the parser will change over
+  // time, we can use the parser version to determine whether we should force a
+  // manifest update.
+  int64_t manifest_parser_version_;
+
+  // The scope of the manifest determined either by default (the path to the
+  // manifest URL without the filename) or given a server override.  The scope
+  // is used to determine whether a given manifest is authorized to override a
+  // given resource URL it specifies.
+  std::string manifest_scope_;
 
   // to notify storage when cache is deleted
   AppCacheStorage* storage_;

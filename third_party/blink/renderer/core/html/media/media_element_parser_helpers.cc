@@ -22,10 +22,11 @@ namespace blink {
 namespace media_element_parser_helpers {
 
 bool IsMediaElement(const Element* element) {
-  if ((IsHTMLImageElement(element) || IsSVGImageElement(element)) &&
+  if ((IsA<HTMLImageElement>(element) || IsA<SVGImageElement>(element)) &&
       !element->GetDocument().IsImageDocument())
     return true;
-  if (IsHTMLVideoElement(element) && !element->GetDocument().IsMediaDocument())
+  if (IsA<HTMLVideoElement>(element) &&
+      !element->GetDocument().IsMediaDocument())
     return true;
   return false;
 }

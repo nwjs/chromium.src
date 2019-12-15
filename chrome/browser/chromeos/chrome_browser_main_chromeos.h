@@ -39,6 +39,7 @@ class CrosvmMetrics;
 namespace chromeos {
 
 class ArcKioskAppManager;
+class BulkPrintersCalculatorFactory;
 class CrosUsbDetector;
 class DemoModeResourcesRemover;
 class DiscoverManager;
@@ -59,6 +60,7 @@ class SessionTerminationManager;
 class ShutdownPolicyForwarder;
 class SystemTokenCertDBInitializer;
 class WakeOnWifiManager;
+class WebKioskAppManager;
 class WilcoDtcSupportdManager;
 
 namespace default_app_order {
@@ -142,6 +144,7 @@ class ChromeBrowserMainPartsChromeos : public ChromeBrowserMainPartsLinux {
 
   std::unique_ptr<LowDiskNotification> low_disk_notification_;
   std::unique_ptr<ArcKioskAppManager> arc_kiosk_app_manager_;
+  std::unique_ptr<WebKioskAppManager> web_kiosk_app_manager_;
 
   std::unique_ptr<memory::MemoryKillsMonitor::Handle> memory_kills_monitor_;
 
@@ -171,7 +174,16 @@ class ChromeBrowserMainPartsChromeos : public ChromeBrowserMainPartsLinux {
   std::unique_ptr<chromeos::system::DarkResumeController>
       dark_resume_controller_;
 
+  std::unique_ptr<chromeos::BulkPrintersCalculatorFactory>
+      bulk_printers_calculator_factory_;
+
   std::unique_ptr<SessionTerminationManager> session_termination_manager_;
+
+  // Set when PreProfileInit() is called. If PreMainMessageLoopRun() exits
+  // early, this will be false during PostMainMessageLoopRun(), etc.
+  // Used to prevent shutting down classes that were not initialized.
+  bool pre_profile_init_called_ = false;
+
   std::unique_ptr<policy::LockToSingleUserManager> lock_to_single_user_manager_;
   std::unique_ptr<WilcoDtcSupportdManager> wilco_dtc_supportd_manager_;
   std::unique_ptr<LoginScreenExtensionsLifetimeManager>

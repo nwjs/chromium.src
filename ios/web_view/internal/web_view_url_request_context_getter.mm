@@ -30,9 +30,9 @@
 #include "net/log/net_log.h"
 #include "net/proxy_resolution/proxy_config_service_ios.h"
 #include "net/proxy_resolution/proxy_resolution_service.h"
+#include "net/quic/quic_context.h"
 #include "net/ssl/ssl_config_service_defaults.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
-#include "net/url_request/data_protocol_handler.h"
 #include "net/url_request/static_http_user_agent_settings.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_storage.h"
@@ -102,6 +102,7 @@ net::URLRequestContext* WebViewURLRequestContextGetter::GetURLRequestContext() {
         base::WrapUnique(new net::MultiLogCTVerifier));
     storage_->set_ct_policy_enforcer(
         base::WrapUnique(new net::DefaultCTPolicyEnforcer));
+    storage_->set_quic_context(std::make_unique<net::QuicContext>());
     transport_security_persister_ =
         std::make_unique<net::TransportSecurityPersister>(
             url_request_context_->transport_security_state(), base_path_,
@@ -139,6 +140,7 @@ net::URLRequestContext* WebViewURLRequestContextGetter::GetURLRequestContext() {
         url_request_context_->host_resolver();
     network_session_context.ct_policy_enforcer =
         url_request_context_->ct_policy_enforcer();
+    network_session_context.quic_context = url_request_context_->quic_context();
 
     base::FilePath cache_path =
         base_path_.Append(FILE_PATH_LITERAL("ChromeWebViewCache"));
@@ -155,9 +157,6 @@ net::URLRequestContext* WebViewURLRequestContextGetter::GetURLRequestContext() {
 
     std::unique_ptr<net::URLRequestJobFactoryImpl> job_factory(
         new net::URLRequestJobFactoryImpl());
-    bool set_protocol = job_factory->SetProtocolHandler(
-        "data", std::make_unique<net::DataProtocolHandler>());
-    DCHECK(set_protocol);
 
     storage_->set_job_factory(std::move(job_factory));
   }

@@ -7,12 +7,11 @@
 #include <utility>
 
 #include "mojo/public/cpp/bindings/remote.h"
-#include "services/service_manager/public/cpp/interface_provider.h"
+#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/native_file_system/native_file_system_manager.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
-#include "third_party/blink/renderer/core/dom/user_gesture_indicator.h"
 #include "third_party/blink/renderer/core/fileapi/file_error.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -77,6 +76,22 @@ ScriptPromise WindowNativeFileSystem::chooseFileSystemEntries(
         MakeGarbageCollected<DOMException>(DOMExceptionCode::kAbortError));
   }
 
+  if (!document->GetSecurityOrigin()->CanAccessNativeFileSystem()) {
+    if (document->IsSandboxed(WebSandboxFlags::kOrigin)) {
+      return ScriptPromise::RejectWithDOMException(
+          script_state,
+          MakeGarbageCollected<DOMException>(
+              DOMExceptionCode::kSecurityError,
+              "Sandboxed documents aren't allowed to show a file picker."));
+    } else {
+      return ScriptPromise::RejectWithDOMException(
+          script_state,
+          MakeGarbageCollected<DOMException>(
+              DOMExceptionCode::kSecurityError,
+              "This document isn't allowed to show a file picker."));
+    }
+  }
+
   LocalFrame* local_frame = window.GetFrame();
   if (!local_frame || local_frame->IsCrossOriginSubframe()) {
     return ScriptPromise::RejectWithDOMException(
@@ -106,14 +121,9 @@ ScriptPromise WindowNativeFileSystem::chooseFileSystemEntries(
   // for each operation, and can avoid code duplication between here and other
   // uses.
   mojo::Remote<mojom::blink::NativeFileSystemManager> manager;
-  auto* provider = document->GetInterfaceProvider();
-  if (!provider) {
-    resolver->Reject(file_error::CreateDOMException(
-        base::File::FILE_ERROR_INVALID_OPERATION));
-    return resolver_result;
-  }
+  document->GetBrowserInterfaceBroker().GetInterface(
+      manager.BindNewPipeAndPassReceiver());
 
-  provider->GetInterface(manager.BindNewPipeAndPassReceiver());
   auto* raw_manager = manager.get();
   raw_manager->ChooseEntries(
       ConvertChooserType(options->type(), options->multiple()),
@@ -142,8 +152,7 @@ ScriptPromise WindowNativeFileSystem::chooseFileSystemEntries(
             // System messages to the browser.
             // TODO(https://crbug.com/1017270): Remove this after spec change,
             // or when activation moves to browser.
-            LocalFrame::NotifyUserActivation(local_frame,
-                                             UserGestureToken::kNewGesture);
+            LocalFrame::NotifyUserActivation(local_frame);
 
             if (options->multiple()) {
               HeapVector<Member<NativeFileSystemHandle>> results;

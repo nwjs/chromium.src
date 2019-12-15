@@ -1205,7 +1205,7 @@ void RasterImplementation::IssueImageDecodeCacheEntryCreation(
 }
 
 GLuint RasterImplementation::CreateAndConsumeForGpuRaster(
-    const GLbyte* mailbox) {
+    const gpu::Mailbox& mailbox) {
   NOTREACHED();
   return 0;
 }
@@ -1218,6 +1218,15 @@ void RasterImplementation::BeginGpuRaster() {
   NOTREACHED();
 }
 void RasterImplementation::EndGpuRaster() {
+  NOTREACHED();
+}
+
+void RasterImplementation::BeginSharedImageAccessDirectCHROMIUM(GLuint texture,
+                                                                GLenum mode) {
+  NOTREACHED();
+}
+
+void RasterImplementation::EndSharedImageAccessDirectCHROMIUM(GLuint texture) {
   NOTREACHED();
 }
 

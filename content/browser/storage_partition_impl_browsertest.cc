@@ -16,7 +16,6 @@
 #include "content/shell/browser/shell.h"
 #include "content/shell/browser/shell_browser_context.h"
 #include "content/test/storage_partition_test_utils.h"
-#include "mojo/public/cpp/bindings/interface_request.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -91,21 +90,21 @@ IN_PROC_BROWSER_TEST_F(StoragePartititionImplBrowsertest, NetworkContext) {
       network::mojom::URLLoaderFactoryParams::New();
   params->process_id = network::mojom::kBrowserProcessId;
   params->is_corb_enabled = false;
-  network::mojom::URLLoaderFactoryPtr loader_factory;
+  mojo::Remote<network::mojom::URLLoaderFactory> loader_factory;
   BrowserContext::GetDefaultStoragePartition(
       shell()->web_contents()->GetBrowserContext())
       ->GetNetworkContext()
-      ->CreateURLLoaderFactory(mojo::MakeRequest(&loader_factory),
+      ->CreateURLLoaderFactory(loader_factory.BindNewPipeAndPassReceiver(),
                                std::move(params));
 
   network::ResourceRequest request;
   network::TestURLLoaderClient client;
   request.url = embedded_test_server()->GetURL("/set-header?foo: bar");
   request.method = "GET";
-  network::mojom::URLLoaderPtr loader;
+  mojo::PendingRemote<network::mojom::URLLoader> loader;
   loader_factory->CreateLoaderAndStart(
-      mojo::MakeRequest(&loader), 2, 1, network::mojom::kURLLoadOptionNone,
-      request, client.CreateInterfacePtr(),
+      loader.InitWithNewPipeAndPassReceiver(), 2, 1,
+      network::mojom::kURLLoadOptionNone, request, client.CreateRemote(),
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS));
 
   // Just wait until headers are received - if the right headers are received,
@@ -127,13 +126,13 @@ IN_PROC_BROWSER_TEST_F(StoragePartititionImplBrowsertest,
   ASSERT_TRUE(embedded_test_server()->Start());
 
   base::ScopedAllowBlockingForTesting allow_blocking;
-  auto shared_url_loader_factory_info =
+  auto pending_shared_url_loader_factory =
       BrowserContext::GetDefaultStoragePartition(
           shell()->web_contents()->GetBrowserContext())
           ->GetURLLoaderFactoryForBrowserProcessIOThread();
 
   auto factory_owner = IOThreadSharedURLLoaderFactoryOwner::Create(
-      std::move(shared_url_loader_factory_info));
+      std::move(pending_shared_url_loader_factory));
 
   EXPECT_EQ(net::OK, factory_owner->LoadBasicRequestOnIOThread(GetTestURL()));
 }
@@ -142,7 +141,7 @@ IN_PROC_BROWSER_TEST_F(StoragePartititionImplBrowsertest,
 // |StoragePartition::GetURLLoaderFactoryForBrowserProcessIOThread()| doesn't
 // crash if it's called after the StoragePartition is deleted.
 IN_PROC_BROWSER_TEST_F(StoragePartititionImplBrowsertest,
-                       BrowserIOFactoryInfoAfterStoragePartitionGone) {
+                       BrowserIOPendingFactoryAfterStoragePartitionGone) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
   base::ScopedAllowBlockingForTesting allow_blocking;
@@ -150,13 +149,13 @@ IN_PROC_BROWSER_TEST_F(StoragePartititionImplBrowsertest,
       std::make_unique<ShellBrowserContext>(true);
   auto* partition =
       BrowserContext::GetDefaultStoragePartition(browser_context.get());
-  auto shared_url_loader_factory_info =
+  auto pending_shared_url_loader_factory =
       partition->GetURLLoaderFactoryForBrowserProcessIOThread();
 
   browser_context.reset();
 
   auto factory_owner = IOThreadSharedURLLoaderFactoryOwner::Create(
-      std::move(shared_url_loader_factory_info));
+      std::move(pending_shared_url_loader_factory));
 
   EXPECT_EQ(net::ERR_FAILED,
             factory_owner->LoadBasicRequestOnIOThread(GetTestURL()));

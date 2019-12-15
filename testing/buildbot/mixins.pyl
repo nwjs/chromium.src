@@ -167,6 +167,13 @@
   'code-coverage': {
     'isolate_coverage_data': True,
   },
+  'docker': {
+    'swarming': {
+      'dimensions': {
+        'inside_docker': '1',
+      },
+    },
+  },
   'flounder': {
     # Nexus 9
     'swarming': {
@@ -206,6 +213,13 @@
       'dimensions': {
         'device_type': 'hammerhead',
         'os': 'Android',
+      },
+    },
+  },
+  'host_mac_10.14': {
+    'swarming': {
+      'dimensions': {
+        'host os': 'Mac-10.14.6',
       },
     },
   },
@@ -365,20 +379,6 @@
     'swarming': {
       'dimensions': {
         'os': 'Mac-10.14.6',
-      },
-      'optional_dimensions': {
-        # Wait 5 minutes for 10.14.4, then 5 for .5, then fall back to 10.14.6
-        # The format for optional dimensions is: expiration: [{key, value}, ..].
-        300: [
-          {
-            'os': 'Mac-10.14.4',
-          },
-        ],
-        600: [
-          {
-            'os': 'Mac-10.14.5',
-          },
-        ],
       },
     },
   },
@@ -601,10 +601,9 @@
     },
   },
   'win10_intel_hd_630_experimental': {
-    # Currently same as stable version.
     'swarming': {
       'dimensions': {
-        'gpu': '8086:5912-26.20.100.6912',
+        'gpu': '8086:5912-26.20.100.7323',
         'os': 'Windows-10',
         'pool': 'Chrome-GPU',
       },
@@ -707,6 +706,20 @@
     'swarming': {
       'dimensions': {
         'cpu': 'x86-64',
+      },
+    },
+  },
+  'xcode_11b53': {
+    'swarming': {
+      'dimensions': {
+        'xcode_build_version': '11b53',
+      },
+    },
+  },
+  'xcode_parallelization': {
+    'swarming': {
+      'dimensions': {
+        'xcode_parallelization': 'true',
       },
     },
   },

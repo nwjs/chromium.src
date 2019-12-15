@@ -23,6 +23,8 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.ServiceTabLauncher;
 import org.chromium.chrome.browser.WarmupManager;
 import org.chromium.chrome.browser.WebContentsFactory;
+import org.chromium.chrome.browser.browserservices.BrowserServicesActivityTabController;
+import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.customtabs.CustomTabDelegateFactory;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
@@ -33,6 +35,7 @@ import org.chromium.chrome.browser.customtabs.CustomTabTabPersistencePolicy;
 import org.chromium.chrome.browser.customtabs.CustomTabsConnection;
 import org.chromium.chrome.browser.customtabs.FirstMeaningfulPaintObserver;
 import org.chromium.chrome.browser.customtabs.PageLoadMetricsObserver;
+import org.chromium.chrome.browser.customtabs.ReparentingTaskProvider;
 import org.chromium.chrome.browser.dependency_injection.ActivityScope;
 import org.chromium.chrome.browser.init.StartupTabPreloader;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
@@ -41,7 +44,7 @@ import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabAssociatedApp;
-import org.chromium.chrome.browser.tab.TabObserverRegistrar;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
 import org.chromium.chrome.browser.tabmodel.AsyncTabParams;
 import org.chromium.chrome.browser.tabmodel.AsyncTabParamsManager;
@@ -68,7 +71,8 @@ import dagger.Lazy;
  * Creates a new Tab or retrieves an existing Tab for the CustomTabActivity, and initializes it.
  */
 @ActivityScope
-public class CustomTabActivityTabController implements InflationObserver, NativeInitObserver {
+public class CustomTabActivityTabController
+        implements InflationObserver, NativeInitObserver, BrowserServicesActivityTabController {
     // For CustomTabs.WebContentsStateOnLaunch, see histograms.xml. Append only.
     @IntDef({WebContentsState.NO_WEBCONTENTS, WebContentsState.PRERENDERED_WEBCONTENTS,
             WebContentsState.SPARE_WEBCONTENTS, WebContentsState.TRANSFERRED_WEBCONTENTS})
@@ -85,7 +89,7 @@ public class CustomTabActivityTabController implements InflationObserver, Native
     private final Lazy<CustomTabDelegateFactory> mCustomTabDelegateFactory;
     private final ChromeActivity mActivity;
     private final CustomTabsConnection mConnection;
-    private final CustomTabIntentDataProvider mIntentDataProvider;
+    private final BrowserServicesIntentDataProvider mIntentDataProvider;
     private final TabObserverRegistrar mTabObserverRegistrar;
     private final Lazy<CompositorViewHolder> mCompositorViewHolder;
     private final WarmupManager mWarmupManager;
@@ -97,6 +101,7 @@ public class CustomTabActivityTabController implements InflationObserver, Native
     private final ActivityTabProvider mActivityTabProvider;
     private final CustomTabActivityTabProvider mTabProvider;
     private final StartupTabPreloader mStartupTabPreloader;
+    private final ReparentingTaskProvider mReparentingTaskProvider;
 
     @Nullable
     private final CustomTabsSessionToken mSession;
@@ -113,14 +118,15 @@ public class CustomTabActivityTabController implements InflationObserver, Native
     @Inject
     public CustomTabActivityTabController(ChromeActivity activity,
             Lazy<CustomTabDelegateFactory> customTabDelegateFactory,
-            CustomTabsConnection connection, CustomTabIntentDataProvider intentDataProvider,
+            CustomTabsConnection connection, BrowserServicesIntentDataProvider intentDataProvider,
             ActivityTabProvider activityTabProvider, TabObserverRegistrar tabObserverRegistrar,
             Lazy<CompositorViewHolder> compositorViewHolder,
             ActivityLifecycleDispatcher lifecycleDispatcher, WarmupManager warmupManager,
             CustomTabTabPersistencePolicy persistencePolicy, CustomTabActivityTabFactory tabFactory,
             Lazy<CustomTabObserver> customTabObserver, WebContentsFactory webContentsFactory,
             CustomTabNavigationEventObserver tabNavigationEventObserver,
-            CustomTabActivityTabProvider tabProvider, StartupTabPreloader startupTabPreloader) {
+            CustomTabActivityTabProvider tabProvider, StartupTabPreloader startupTabPreloader,
+            ReparentingTaskProvider reparentingTaskProvider) {
         mCustomTabDelegateFactory = customTabDelegateFactory;
         mActivity = activity;
         mConnection = connection;
@@ -136,6 +142,7 @@ public class CustomTabActivityTabController implements InflationObserver, Native
         mActivityTabProvider = activityTabProvider;
         mTabProvider = tabProvider;
         mStartupTabPreloader = startupTabPreloader;
+        mReparentingTaskProvider = reparentingTaskProvider;
 
         mSession = mIntentDataProvider.getSession();
         mIntent = mIntentDataProvider.getIntent();
@@ -154,19 +161,17 @@ public class CustomTabActivityTabController implements InflationObserver, Native
                 && !hasSpeculated && !mWarmupManager.hasSpareWebContents();
     }
 
-    /**
-     * Detaches the tab and starts reparenting into the browser using given {@param intent} and
-     * {@param startActivityOptions}.
-     */
-    void detachAndStartReparenting(Intent intent, Bundle startActivityOptions,
-            Runnable finishCallback) {
+    @Override
+    public void detachAndStartReparenting(
+            Intent intent, Bundle startActivityOptions, Runnable finishCallback) {
         Tab tab = mTabProvider.getTab();
         if (tab == null) {
             assert false;
             return;
         }
         mTabProvider.removeTab();
-        tab.detachAndStartReparenting(intent, startActivityOptions, finishCallback);
+        mReparentingTaskProvider.get(tab).begin(
+                mActivity, intent, startActivityOptions, finishCallback);
     }
 
     /**
@@ -174,23 +179,24 @@ public class CustomTabActivityTabController implements InflationObserver, Native
      * case links with target="_blank" were followed. See the comment to
      * {@link CustomTabActivityTabProvider.Observer#onAllTabsClosed}.
      */
+    @Override
     public void closeTab() {
         mTabFactory.getTabModelSelector().getCurrentModel().closeTab(mTabProvider.getTab(),
                 false, false, false);
     }
 
-    /** Closes the tab and deletes related metadata. */
-    void closeAndForgetTab() {
+    @Override
+    public void closeAndForgetTab() {
         mTabFactory.getTabModelSelector().closeAllTabs(true);
         mTabPersistencePolicy.deleteMetadataStateFileAsync();
     }
 
-    /** Save the current state of the tab. */
-    void saveState() {
+    @Override
+    public void saveState() {
         mTabFactory.getTabModelSelector().saveState();
     }
 
-    /** Returns {@link TabModelSelector}. Should be called after postInflationStartup. */
+    @Override
     public TabModelSelector getTabModelSelector() {
         return mTabFactory.getTabModelSelector();
     }
@@ -311,7 +317,7 @@ public class CustomTabActivityTabController implements InflationObserver, Native
         if (mode == TabCreationMode.HIDDEN) {
             TabReparentingParams params =
                     (TabReparentingParams) AsyncTabParamsManager.remove(tab.getId());
-            tab.attachAndFinishReparenting(mActivity, mCustomTabDelegateFactory.get(),
+            mReparentingTaskProvider.get(tab).finish(mActivity, mCustomTabDelegateFactory.get(),
                     (params == null ? null : params.getFinalizeCallback()));
         }
 
@@ -453,7 +459,10 @@ public class CustomTabActivityTabController implements InflationObserver, Native
                 // Blink has rendered the page by this point, but we need to wait for the compositor
                 // frame swap to avoid flash of white content.
                 mCompositorViewHolder.get().getCompositorView().surfaceRedrawNeededAsync(() -> {
-                    if (!tab.isInitialized() || mActivity.isActivityFinishingOrDestroyed()) return;
+                    if (!((TabImpl) tab).isInitialized()
+                            || mActivity.isActivityFinishingOrDestroyed()) {
+                        return;
+                    }
                     tab.getView().setBackgroundResource(0);
                 });
             }

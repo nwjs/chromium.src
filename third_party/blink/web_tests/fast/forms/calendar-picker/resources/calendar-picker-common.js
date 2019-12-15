@@ -63,34 +63,41 @@ function skipAnimation() {
 }
 
 function hoverOverDayCellAt(column, row) {
-    skipAnimation();
-    var offset = cumulativeOffset(popupWindow.global.picker.calendarTableView.element);
-    var x = offset[0];
-    var y = offset[1];
-    if (popupWindow.global.picker.calendarTableView.hasWeekNumberColumn)
-        x += popupWindow.WeekNumberCell.Width;
-    x += (column + 0.5) * popupWindow.DayCell.GetWidth();
-    y += (row + 0.5) * popupWindow.DayCell.GetHeight() + popupWindow.CalendarTableHeaderView.GetHeight();
-    eventSender.mouseMoveTo(x, y);
+  skipAnimation();
+  const calendarTableView = popupWindow.global.picker.datePicker ?
+      popupWindow.global.picker.datePicker.calendarTableView :
+      popupWindow.global.picker.calendarTableView;
+  var offset = cumulativeOffset(calendarTableView.element);
+  var x = offset[0];
+  var y = offset[1];
+  if (calendarTableView.hasWeekNumberColumn)
+    x += popupWindow.WeekNumberCell.Width;
+  x += (column + 0.5) * popupWindow.DayCell.GetWidth();
+  y += (row + 0.5) * popupWindow.DayCell.GetHeight() +
+      popupWindow.CalendarTableHeaderView.GetHeight();
+  eventSender.mouseMoveTo(x, y);
 };
 
 function clickDayCellAt(column, row) {
-    hoverOverDayCellAt(column, row);
-    eventSender.mouseDown();
-    eventSender.mouseUp();
+  hoverOverDayCellAt(column, row);
+  eventSender.mouseDown();
+  eventSender.mouseUp();
 }
 
 function hoverOverTimeCellAt(column, row) {
-    const timeCellWidth = 52;
-    const timeCellHeight = 32;
+  const timeCellWidth = 56;
+  const timeCellHeight = 36;
 
-    skipAnimation();
-    var offset = cumulativeOffset(popupWindow.global.picker.timeColumns);
-    var x = offset[0];
-    var y = offset[1];
-    x += (column + 0.5) * timeCellWidth;
-    y += (row + 0.5) * timeCellHeight;
-    eventSender.mouseMoveTo(x, y);
+  skipAnimation();
+  const timeColumns = popupWindow.global.picker.timePicker ?
+      popupWindow.global.picker.timePicker.timeColumns :
+      popupWindow.global.picker.timeColumns;
+  var offset = cumulativeOffset(timeColumns);
+  var x = offset[0];
+  var y = offset[1];
+  x += (column + 0.5) * timeCellWidth;
+  y += (row + 0.5) * timeCellHeight;
+  eventSender.mouseMoveTo(x, y);
 }
 
 function clickTimeCellAt(column, row) {

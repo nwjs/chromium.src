@@ -117,8 +117,8 @@ class FrameSequenceTrackerTest : public testing::Test {
     base::HistogramTester histogram_tester;
 
     // Test that there is no main thread frames expected.
-    tracker_->impl_throughput_.frames_expected = 100u;
-    tracker_->impl_throughput_.frames_produced = 85u;
+    tracker_->impl_throughput().frames_expected = 100u;
+    tracker_->impl_throughput().frames_produced = 85u;
     tracker_->ReportMetrics();
     histogram_tester.ExpectTotalCount(
         "Graphics.Smoothness.Throughput.CompositorThread.TouchScroll", 1u);
@@ -128,8 +128,8 @@ class FrameSequenceTrackerTest : public testing::Test {
         "Graphics.Smoothness.Throughput.SlowerThread.TouchScroll", 1u);
 
     // Test that both are reported.
-    tracker_->main_throughput_.frames_expected = 50u;
-    tracker_->main_throughput_.frames_produced = 25u;
+    tracker_->main_throughput().frames_expected = 50u;
+    tracker_->main_throughput().frames_produced = 25u;
     tracker_->ReportMetrics();
     histogram_tester.ExpectTotalCount(
         "Graphics.Smoothness.Throughput.CompositorThread.TouchScroll", 2u);
@@ -139,10 +139,10 @@ class FrameSequenceTrackerTest : public testing::Test {
         "Graphics.Smoothness.Throughput.SlowerThread.TouchScroll", 2u);
 
     // Test that none is reported.
-    tracker_->main_throughput_.frames_expected = 2u;
-    tracker_->main_throughput_.frames_produced = 1u;
-    tracker_->impl_throughput_.frames_expected = 2u;
-    tracker_->impl_throughput_.frames_produced = 1u;
+    tracker_->main_throughput().frames_expected = 2u;
+    tracker_->main_throughput().frames_produced = 1u;
+    tracker_->impl_throughput().frames_expected = 2u;
+    tracker_->impl_throughput().frames_produced = 1u;
     tracker_->ReportMetrics();
     histogram_tester.ExpectTotalCount(
         "Graphics.Smoothness.Throughput.CompositorThread.TouchScroll", 2u);
@@ -152,10 +152,10 @@ class FrameSequenceTrackerTest : public testing::Test {
         "Graphics.Smoothness.Throughput.SlowerThread.TouchScroll", 2u);
 
     // Test the case where compositor and main thread have the same throughput.
-    tracker_->impl_throughput_.frames_expected = 20u;
-    tracker_->impl_throughput_.frames_produced = 18u;
-    tracker_->main_throughput_.frames_expected = 20u;
-    tracker_->main_throughput_.frames_produced = 18u;
+    tracker_->impl_throughput().frames_expected = 20u;
+    tracker_->impl_throughput().frames_produced = 18u;
+    tracker_->main_throughput().frames_expected = 20u;
+    tracker_->main_throughput().frames_produced = 18u;
     tracker_->ReportMetrics();
     histogram_tester.ExpectTotalCount(
         "Graphics.Smoothness.Throughput.CompositorThread.TouchScroll", 3u);
@@ -176,9 +176,27 @@ class FrameSequenceTrackerTest : public testing::Test {
     return collection_.removal_trackers_.size();
   }
 
+  uint64_t BeginImplFrameDataPreviousSequence() const {
+    return tracker_->begin_impl_frame_data_.previous_sequence;
+  }
+  uint64_t BeginMainFrameDataPreviousSequence() const {
+    return tracker_->begin_main_frame_data_.previous_sequence;
+  }
+
+  base::flat_set<uint32_t> IgnoredFrameTokens() const {
+    return tracker_->ignored_frame_tokens_;
+  }
+
+  FrameSequenceMetrics::ThroughputData ImplThroughput() const {
+    return tracker_->impl_throughput();
+  }
+  FrameSequenceMetrics::ThroughputData MainThroughput() const {
+    return tracker_->main_throughput();
+  }
+
  protected:
   uint32_t number_of_frames_checkerboarded() const {
-    return tracker_->checkerboarding_.frames_checkerboarded;
+    return tracker_->metrics_.frames_checkerboarded();
   }
 
   std::unique_ptr<CompositorFrameReportingController>
@@ -363,6 +381,30 @@ TEST_F(FrameSequenceTrackerTest, ReportMetricsAtFixedInterval) {
   collection_.NotifyBeginImplFrame(args);
   EXPECT_EQ(NumberOfTrackers(), 1u);
   EXPECT_EQ(NumberOfRemovalTrackers(), 1u);
+}
+
+TEST_F(FrameSequenceTrackerTest, ReportWithoutBeginImplFrame) {
+  const uint64_t source = 1;
+  uint64_t sequence = 0;
+
+  auto args = CreateBeginFrameArgs(source, ++sequence);
+  collection_.NotifyBeginMainFrame(args);
+
+  EXPECT_EQ(BeginImplFrameDataPreviousSequence(), 0u);
+  // Call to ReportBeginMainFrame should early exit.
+  EXPECT_EQ(BeginMainFrameDataPreviousSequence(), 0u);
+
+  uint32_t frame_token = NextFrameToken();
+  collection_.NotifySubmitFrame(frame_token, false,
+                                viz::BeginFrameAck(args, true), args);
+
+  // Call to ReportSubmitFrame should early exit.
+  EXPECT_TRUE(IgnoredFrameTokens().contains(frame_token));
+
+  gfx::PresentationFeedback feedback;
+  collection_.NotifyFramePresented(frame_token, feedback);
+  EXPECT_EQ(ImplThroughput().frames_produced, 0u);
+  EXPECT_EQ(MainThroughput().frames_produced, 0u);
 }
 
 }  // namespace cc

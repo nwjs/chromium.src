@@ -806,8 +806,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     static method createDataPipe
 [Worker]     static method createMessagePipe
 [Worker]     static method createSharedBuffer
-[Worker]     static method getDocumentInterfaceBrokerHandle
-[Worker]     static method replaceDocumentInterfaceBrokerForTesting
 [Worker]     attribute @@toStringTag
 [Worker]     attribute RESULT_ABORTED
 [Worker]     attribute RESULT_ALREADY_EXISTS
@@ -958,6 +956,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method fillText
 [Worker]     method getImageData
 [Worker]     method getLineDash
+[Worker]     method getTransform
 [Worker]     method isPointInPath
 [Worker]     method isPointInStroke
 [Worker]     method lineTo
@@ -1088,6 +1087,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter serverTiming
 [Worker]     getter transferSize
 [Worker]     getter workerStart
+[Worker]     getter workerTiming
 [Worker]     method constructor
 [Worker]     method toJSON
 [Worker] interface PerformanceServerTiming
@@ -1153,6 +1153,10 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     getter applicationServerKey
 [Worker]     getter userVisibleOnly
+[Worker]     method constructor
+[Worker] interface QuicTransport
+[Worker]     attribute @@toStringTag
+[Worker]     method close
 [Worker]     method constructor
 [Worker] interface ReadableStream
 [Worker]     attribute @@toStringTag
@@ -1221,7 +1225,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker] interface ScreenManager
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
-[Worker]     method requestDisplays
+[Worker]     method getScreens
 [Worker] interface SecurityPolicyViolationEvent : Event
 [Worker]     attribute @@toStringTag
 [Worker]     getter blockedURI
@@ -1258,6 +1262,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     getter active
 [Worker]     getter backgroundFetch
+[Worker]     getter cookies
 [Worker]     getter index
 [Worker]     getter installing
 [Worker]     getter navigationPreload
@@ -1518,10 +1523,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
 [Worker]     method request
-[Worker] interface WakeLockEvent : Event
-[Worker]     attribute @@toStringTag
-[Worker]     getter lock
-[Worker]     method constructor
 [Worker] interface WakeLockSentinel : EventTarget
 [Worker]     attribute @@toStringTag
 [Worker]     getter onrelease

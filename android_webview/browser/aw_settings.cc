@@ -15,8 +15,8 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/macros.h"
-#include "base/no_destructor.h"
 #include "base/supports_user_data.h"
+#include "components/viz/common/features.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_view_host.h"
@@ -26,6 +26,7 @@
 #include "content/public/common/web_preferences.h"
 #include "net/http/http_util.h"
 #include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
+#include "ui/native_theme/native_theme.h"
 
 using base::android::ConvertJavaStringToUTF16;
 using base::android::ConvertUTF8ToJavaString;
@@ -42,8 +43,10 @@ void PopulateFixedWebPreferences(WebPreferences* web_prefs) {
   web_prefs->should_clear_document_background = false;
   web_prefs->viewport_meta_enabled = true;
   web_prefs->picture_in_picture_enabled = false;
-  web_prefs->disable_features_depending_on_viz = true;
+  web_prefs->disable_features_depending_on_viz =
+      !::features::IsUsingVizForWebView();
   web_prefs->disable_accelerated_small_canvases = true;
+  web_prefs->reenable_web_components_v0 = true;
 }
 
 const void* const kAwSettingsUserDataKey = &kAwSettingsUserDataKey;
@@ -506,6 +509,9 @@ void AwSettings::PopulateWebPreferencesLocked(JNIEnv* env,
   web_prefs->scroll_top_left_interop_enabled =
       Java_AwSettings_getScrollTopLeftInteropEnabledLocked(env, obj);
 
+  web_prefs->allow_mixed_content_upgrades =
+      Java_AwSettings_getAllowMixedContentAutoupgradesLocked(env, obj);
+
   bool is_dark_mode;
   switch (Java_AwSettings_getForceDarkModeLocked(env, obj)) {
     case ForceDarkMode::FORCE_DARK_OFF:
@@ -520,19 +526,19 @@ void AwSettings::PopulateWebPreferencesLocked(JNIEnv* env,
       break;
     }
   }
-  web_prefs->preferred_color_scheme =
-      is_dark_mode ? blink::PreferredColorScheme::kDark
-                   : blink::PreferredColorScheme::kNoPreference;
+  ui::NativeTheme::PreferredColorScheme preferred_color_scheme =
+      is_dark_mode ? ui::NativeTheme::PreferredColorScheme::kDark
+                   : ui::NativeTheme::PreferredColorScheme::kNoPreference;
   if (is_dark_mode) {
     switch (Java_AwSettings_getForceDarkBehaviorLocked(env, obj)) {
       case ForceDarkBehavior::FORCE_DARK_ONLY: {
-        web_prefs->preferred_color_scheme =
-            blink::PreferredColorScheme::kNoPreference;
+        preferred_color_scheme =
+            ui::NativeTheme::PreferredColorScheme::kNoPreference;
         web_prefs->force_dark_mode_enabled = true;
         break;
       }
       case ForceDarkBehavior::MEDIA_QUERY_ONLY: {
-        web_prefs->preferred_color_scheme = blink::PreferredColorScheme::kDark;
+        preferred_color_scheme = ui::NativeTheme::PreferredColorScheme::kDark;
         web_prefs->force_dark_mode_enabled = false;
         break;
       }
@@ -543,16 +549,19 @@ void AwSettings::PopulateWebPreferencesLocked(JNIEnv* env,
       // dark so that dark themed content will be preferred over force
       // darkening.
       case ForceDarkBehavior::PREFER_MEDIA_QUERY_OVER_FORCE_DARK: {
-        web_prefs->preferred_color_scheme = blink::PreferredColorScheme::kDark;
+        preferred_color_scheme = ui::NativeTheme::PreferredColorScheme::kDark;
         web_prefs->force_dark_mode_enabled = true;
         break;
       }
     }
   } else {
-    web_prefs->preferred_color_scheme =
-        blink::PreferredColorScheme::kNoPreference;
+    preferred_color_scheme =
+        ui::NativeTheme::PreferredColorScheme::kNoPreference;
     web_prefs->force_dark_mode_enabled = false;
   }
+  // Notify NativeTheme of changes to dark mode.
+  ui::NativeTheme::GetInstanceForWeb()->set_preferred_color_scheme(
+      preferred_color_scheme);
 }
 
 bool AwSettings::GetAllowFileAccess() {

@@ -95,11 +95,13 @@ void SoftwareRenderer::FinishDrawingFrame() {
   output_device_->EndPaint();
 }
 
-void SoftwareRenderer::SwapBuffers(std::vector<ui::LatencyInfo> latency_info) {
+void SoftwareRenderer::SwapBuffers(SwapFrameData swap_frame_data) {
   DCHECK(visible_);
   TRACE_EVENT0("viz", "SoftwareRenderer::SwapBuffers");
   OutputSurfaceFrame output_frame;
-  output_frame.latency_info = std::move(latency_info);
+  output_frame.latency_info = std::move(swap_frame_data.latency_info);
+  output_frame.top_controls_visible_height_changed =
+      swap_frame_data.top_controls_visible_height_changed;
   output_surface_->SwapBuffers(std::move(output_frame));
 }
 
@@ -633,9 +635,11 @@ void SoftwareRenderer::CopyDrawnRenderPass(
       result_format, geometry.result_selection, bitmap));
 }
 
+#if defined(OS_WIN)
 void SoftwareRenderer::SetEnableDCLayers(bool enable) {
   NOTIMPLEMENTED();
 }
+#endif
 
 void SoftwareRenderer::DidChangeVisibility() {
   if (visible_)

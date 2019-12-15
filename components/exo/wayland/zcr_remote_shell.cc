@@ -373,14 +373,24 @@ void remote_surface_move(wl_client* client, wl_resource* resource) {
 void remote_surface_set_window_type(wl_client* client,
                                     wl_resource* resource,
                                     uint32_t type) {
-  if (type == ZCR_REMOTE_SURFACE_V1_WINDOW_TYPE_SYSTEM_UI) {
-    auto* widget = GetUserDataAs<ShellSurfaceBase>(resource)->GetWidget();
-    if (widget) {
-      widget->GetNativeWindow()->SetProperty(ash::kHideInOverviewKey, true);
+  auto* widget = GetUserDataAs<ShellSurfaceBase>(resource)->GetWidget();
+  if (!widget)
+    return;
 
+  switch (type) {
+    case ZCR_REMOTE_SURFACE_V1_WINDOW_TYPE_NORMAL:
+      widget->GetNativeWindow()->SetProperty(ash::kHideInOverviewKey, false);
+      break;
+    case ZCR_REMOTE_SURFACE_V1_WINDOW_TYPE_SYSTEM_UI:
+      // TODO(takise): Consider removing this as this window type was added for
+      // the old assistant and is not longer used.
+      widget->GetNativeWindow()->SetProperty(ash::kHideInOverviewKey, true);
       wm::SetWindowVisibilityAnimationType(
           widget->GetNativeWindow(), wm::WINDOW_VISIBILITY_ANIMATION_TYPE_FADE);
-    }
+      break;
+    case ZCR_REMOTE_SURFACE_V1_WINDOW_TYPE_HIDDEN_IN_OVERVIEW:
+      widget->GetNativeWindow()->SetProperty(ash::kHideInOverviewKey, true);
+      break;
   }
 }
 
@@ -1163,9 +1173,10 @@ void remote_shell_get_remote_surface(wl_client* client,
       base::BindRepeating(&HandleRemoteSurfaceDragFinishedCallback,
                           base::Unretained(remote_surface_resource)));
 
-  DCHECK(wl_resource_get_version(remote_surface_resource) >= 23);
-  shell_surface->set_change_zoom_level_callback(
-      shell->CreateChangeZoomLevelCallback(remote_surface_resource));
+  if (wl_resource_get_version(remote_surface_resource) >= 16) {
+    shell_surface->set_change_zoom_level_callback(
+        shell->CreateChangeZoomLevelCallback(remote_surface_resource));
+  }
 
   SetImplementation(remote_surface_resource, &remote_surface_implementation,
                     std::move(shell_surface));

@@ -15,6 +15,7 @@
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/root_window_settings.h"
+#include "ash/scoped_animation_disabler.h"
 #include "ash/screen_util.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
@@ -32,7 +33,6 @@
 #include "ash/wm/overview/rounded_label_widget.h"
 #include "ash/wm/overview/scoped_overview_animation_settings.h"
 #include "ash/wm/splitview/split_view_controller.h"
-#include "ash/wm/splitview/split_view_drag_indicators.h"
 #include "ash/wm/splitview/split_view_utils.h"
 #include "ash/wm/switchable_windows.h"
 #include "ash/wm/window_state.h"
@@ -111,9 +111,6 @@ void OverviewSession::Init(const WindowList& windows,
   if (restore_focus_window_)
     restore_focus_window_->AddObserver(this);
 
-  if (ShouldAllowSplitView())
-    split_view_drag_indicators_ = std::make_unique<SplitViewDragIndicators>();
-
   aura::Window::Windows root_windows = Shell::GetAllRootWindows();
   std::sort(root_windows.begin(), root_windows.end(),
             [](const aura::Window* a, const aura::Window* b) {
@@ -160,10 +157,13 @@ void OverviewSession::Init(const WindowList& windows,
       overview_grid->PositionWindows(/*animate=*/false);
       overview_grid->SlideWindowsIn();
     } else {
-      // EnterExitOverviewType::kSwipeFromShelf is an exit only type, so it
-      // should not appear here.
+      // Exit only types should not appear here:
       DCHECK_NE(enter_exit_overview_type_,
                 EnterExitOverviewType::kSwipeFromShelf);
+      DCHECK_NE(enter_exit_overview_type_,
+                EnterExitOverviewType::kSlideOutExit);
+      DCHECK_NE(enter_exit_overview_type_, EnterExitOverviewType::kFadeOutExit);
+
       overview_grid->PositionWindows(/*animate=*/true, /*ignored_items=*/{},
                                      OverviewTransition::kEnter);
     }
@@ -172,12 +172,12 @@ void OverviewSession::Init(const WindowList& windows,
   UpdateNoWindowsWidget();
 
   // Create the widget that will receive focus while in overview mode for
-  // accessiblity purposes.
+  // accessibility purposes.
   overview_focus_widget_ = std::make_unique<views::Widget>();
   views::Widget::InitParams params;
   params.type = views::Widget::InitParams::TYPE_WINDOW_FRAMELESS;
   params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
-  params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
+  params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   params.accept_events = false;
   params.bounds = gfx::Rect(0, 0, 2, 2);
   params.layer_type = ui::LAYER_NOT_DRAWN;
@@ -266,7 +266,8 @@ void OverviewSession::Shutdown() {
     // Fade out the no windows widget. This animation continues past the
     // lifetime of |this|.
     FadeOutWidgetAndMaybeSlideOnExit(std::move(no_windows_widget_),
-                                     OVERVIEW_ANIMATION_RESTORE_WINDOW);
+                                     OVERVIEW_ANIMATION_RESTORE_WINDOW,
+                                     /*slide=*/false);
   }
 }
 
@@ -315,15 +316,51 @@ void OverviewSession::SelectWindow(OverviewItem* item) {
     }
   }
   item->EnsureVisible();
+
+  // If the selected window is a minimized window, un-minimize it first before
+  // activating it so that the window can use the scale-up animation instead of
+  // un-minimizing animation.
+  if (WindowState::Get(window)->IsMinimized()) {
+    ScopedAnimationDisabler disabler(window);
+    WindowState::Get(window)->Unminimize();
+    item->SetOpacity(1.f);
+  }
   wm::ActivateWindow(window);
 }
 
-void OverviewSession::SetSplitViewDragIndicatorsIndicatorState(
-    IndicatorState indicator_state,
-    const gfx::Point& event_location) {
-  DCHECK(split_view_drag_indicators_);
-  split_view_drag_indicators_->SetIndicatorState(indicator_state,
-                                                 event_location);
+void OverviewSession::SetSplitViewDragIndicatorsDraggedWindow(
+    aura::Window* dragged_window) {
+  for (std::unique_ptr<OverviewGrid>& grid : grid_list_)
+    grid->SetSplitViewDragIndicatorsDraggedWindow(dragged_window);
+}
+
+void OverviewSession::UpdateSplitViewDragIndicatorsWindowDraggingStates(
+    const aura::Window* root_window_being_dragged_in,
+    bool is_dragging,
+    SplitViewDragIndicators::WindowDraggingState non_snap_state,
+    SplitViewController::SnapPosition snap_position) {
+  using State = SplitViewDragIndicators::WindowDraggingState;
+  const State window_dragging_state_on_root_window_being_dragged_in =
+      SplitViewDragIndicators::ComputeWindowDraggingState(
+          is_dragging, non_snap_state, snap_position);
+  const State window_dragging_state_on_root_windows_not_being_dragged_in =
+      SplitViewDragIndicators::ComputeWindowDraggingState(
+          is_dragging, non_snap_state, SplitViewController::NONE);
+  for (std::unique_ptr<OverviewGrid>& grid : grid_list_) {
+    grid->SetSplitViewDragIndicatorsWindowDraggingState(
+        grid->root_window() == root_window_being_dragged_in
+            ? window_dragging_state_on_root_window_being_dragged_in
+            : window_dragging_state_on_root_windows_not_being_dragged_in);
+  }
+}
+
+void OverviewSession::RearrangeDuringDrag(aura::Window* dragged_window) {
+  for (std::unique_ptr<OverviewGrid>& grid : grid_list_) {
+    DCHECK(grid->split_view_drag_indicators());
+    grid->RearrangeDuringDrag(
+        dragged_window,
+        grid->split_view_drag_indicators()->current_window_dragging_state());
+  }
 }
 
 OverviewGrid* OverviewSession::GetGridWithRootWindow(
@@ -472,13 +509,13 @@ void OverviewSession::OnWindowDragStarted(aura::Window* dragged_window,
 void OverviewSession::OnWindowDragContinued(
     aura::Window* dragged_window,
     const gfx::PointF& location_in_screen,
-    IndicatorState indicator_state) {
+    SplitViewDragIndicators::WindowDraggingState window_dragging_state) {
   OverviewGrid* target_grid =
       GetGridWithRootWindow(dragged_window->GetRootWindow());
   if (!target_grid)
     return;
   target_grid->OnWindowDragContinued(dragged_window, location_in_screen,
-                                     indicator_state);
+                                     window_dragging_state);
 }
 
 void OverviewSession::OnWindowDragEnded(aura::Window* dragged_window,
@@ -493,9 +530,10 @@ void OverviewSession::OnWindowDragEnded(aura::Window* dragged_window,
                                  should_drop_window_into_overview, snap);
 }
 
-void OverviewSession::SetVisibleDuringWindowDragging(bool visible) {
+void OverviewSession::SetVisibleDuringWindowDragging(bool visible,
+                                                     bool animate) {
   for (auto& grid : grid_list_)
-    grid->SetVisibleDuringWindowDragging(visible);
+    grid->SetVisibleDuringWindowDragging(visible, animate);
 }
 
 void OverviewSession::PositionWindows(
@@ -770,9 +808,6 @@ void OverviewSession::OnDisplayMetricsChanged(const display::Display& display,
     ResetDraggedWindowGesture();
   GetGridWithRootWindow(Shell::GetRootWindowForDisplayId(display.id()))
       ->OnDisplayMetricsChanged();
-
-  if (split_view_drag_indicators_)
-    split_view_drag_indicators_->OnDisplayBoundsChanged();
 
   // The no windows widget is on the primary root window. If |display|
   // corresponds to another root window, then we are done.

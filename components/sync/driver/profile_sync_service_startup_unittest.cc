@@ -414,7 +414,7 @@ TEST_F(ProfileSyncServiceStartupTest, StartRecoverDatatypePrefs) {
   // Clear the datatype preference fields (simulating bug 154940).
   pref_service()->ClearPref(prefs::kSyncKeepEverythingSynced);
   for (UserSelectableType type : UserSelectableTypeSet::All()) {
-    pref_service()->ClearPref(SyncPrefs::GetPrefNameForTypeForTesting(type));
+    pref_service()->ClearPref(SyncPrefs::GetPrefNameForType(type));
   }
 
   sync_prefs()->SetFirstSetupComplete();
@@ -599,7 +599,8 @@ TEST_F(ProfileSyncServiceStartupTest, FullStartupSequenceFirstTime) {
 
   // Note: Deferred startup is only enabled if SESSIONS is among the preferred
   // data types.
-  CreateSyncService(ProfileSyncService::MANUAL_START, ModelTypeSet(SESSIONS));
+  CreateSyncService(ProfileSyncService::MANUAL_START,
+                    ModelTypeSet(SESSIONS, TYPED_URLS));
   sync_service()->Initialize();
 
   // There is no signed-in user, so also nobody has decided that Sync should be
@@ -695,7 +696,8 @@ TEST_F(ProfileSyncServiceStartupTest, FullStartupSequenceNthTime) {
 
   // Note: Deferred startup is only enabled if SESSIONS is among the preferred
   // data types.
-  CreateSyncService(ProfileSyncService::MANUAL_START, ModelTypeSet(SESSIONS));
+  CreateSyncService(ProfileSyncService::MANUAL_START,
+                    ModelTypeSet(SESSIONS, TYPED_URLS));
   sync_service()->Initialize();
 
   // Nothing is preventing Sync from starting, but it should be deferred so as

@@ -73,6 +73,10 @@ class CC_EXPORT LayerTreeSettings {
   // If set, indicates the largest tile size we will use for GPU Raster. If not
   // set, no limit is enforced.
   gfx::Size max_gpu_raster_tile_size;
+  // Even for really wide viewports, at some point GPU raster should use
+  // less than 4 tiles to fill the viewport. This is set to 256 as a
+  // sane minimum for now, but we might want to tune this for low-end.
+  int min_height_for_gpu_raster_tile = 256;
   gfx::Size minimum_occlusion_tracking_size;
   // 3000 pixels should give sufficient area for prepainting.
   // Note this value is specified with an ideal contents scale in mind. That
@@ -149,10 +153,6 @@ class CC_EXPORT LayerTreeSettings {
   // Whether SetViewportRectAndScale should update the painted scale factor or
   // the device scale factor.
   bool use_painted_device_scale_factor = false;
-
-  // Whether a HitTestRegionList should be built from the active layer tree when
-  // submitting a CompositorFrame.
-  bool build_hit_test_data = false;
 
   // When false, sync tokens are expected to be present, and are verified,
   // before transfering gpu resources to the display compositor.

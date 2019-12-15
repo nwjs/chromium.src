@@ -206,9 +206,10 @@ ControlPart LayoutTheme::AdjustAppearanceWithElementType(
       // even if their default appearances are different from the keywords.
 
     case kButtonPart:
-      if (IsA<HTMLSelectElement>(*element) || IsA<HTMLAnchorElement>(*element))
-        return auto_appearance;
-      return part;
+      return (auto_appearance == kPushButtonPart ||
+              auto_appearance == kSquareButtonPart)
+                 ? part
+                 : auto_appearance;
 
     case kMenulistButtonPart:
       return auto_appearance == kMenulistPart ? part : auto_appearance;
@@ -510,13 +511,13 @@ bool LayoutTheme::IsActive(const Node* node) {
 }
 
 bool LayoutTheme::IsChecked(const Node* node) {
-  if (auto* input = ToHTMLInputElementOrNull(node))
+  if (auto* input = DynamicTo<HTMLInputElement>(node))
     return input->ShouldAppearChecked();
   return false;
 }
 
 bool LayoutTheme::IsIndeterminate(const Node* node) {
-  if (auto* input = ToHTMLInputElementOrNull(node))
+  if (auto* input = DynamicTo<HTMLInputElement>(node))
     return input->ShouldAppearIndeterminate();
   return false;
 }
@@ -656,6 +657,10 @@ void LayoutTheme::PlatformColorsDidChange() {
   Page::PlatformColorsChanged();
 }
 
+void LayoutTheme::ColorSchemeDidChange() {
+  Page::ColorSchemeChanged();
+}
+
 void LayoutTheme::SetCaretBlinkInterval(base::TimeDelta interval) {
   caret_blink_interval_ = interval;
 }
@@ -731,6 +736,8 @@ Color LayoutTheme::SystemColor(CSSValueID css_value_id,
       return 0xFFFFFFFF;
     case CSSValueID::kActivecaption:
       return 0xFFCCCCCC;
+    case CSSValueID::kActivetext:
+      return 0xFFFF0000;
     case CSSValueID::kAppworkspace:
       return color_scheme == WebColorScheme::kDark ? 0xFF000000 : 0xFFFFFFFF;
     case CSSValueID::kBackground:
@@ -744,6 +751,10 @@ Color LayoutTheme::SystemColor(CSSValueID css_value_id,
     case CSSValueID::kButtontext:
       return color_scheme == WebColorScheme::kDark ? 0xFFFFFFFF : 0xFF000000;
     case CSSValueID::kCaptiontext:
+      return color_scheme == WebColorScheme::kDark ? 0xFFFFFFFF : 0xFF000000;
+    case CSSValueID::kField:
+      return color_scheme == WebColorScheme::kDark ? 0xFF000000 : 0xFFFFFFFF;
+    case CSSValueID::kFieldtext:
       return color_scheme == WebColorScheme::kDark ? 0xFFFFFFFF : 0xFF000000;
     case CSSValueID::kGraytext:
       return 0xFF808080;
@@ -784,10 +795,12 @@ Color LayoutTheme::SystemColor(CSSValueID css_value_id,
     case CSSValueID::kVisitedtext:
       return 0xFF551A8B;
     case CSSValueID::kWindow:
+    case CSSValueID::kCanvas:
       return color_scheme == WebColorScheme::kDark ? 0xFF000000 : 0xFFFFFFFF;
     case CSSValueID::kWindowframe:
       return 0xFFCCCCCC;
     case CSSValueID::kWindowtext:
+    case CSSValueID::kCanvastext:
       return color_scheme == WebColorScheme::kDark ? 0xFFFFFFFF : 0xFF000000;
     case CSSValueID::kInternalActiveListBoxSelection:
       return ActiveListBoxSelectionBackgroundColor(color_scheme);

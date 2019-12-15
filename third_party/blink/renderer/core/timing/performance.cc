@@ -35,6 +35,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/time/default_clock.h"
 #include "base/time/default_tick_clock.h"
+#include "third_party/blink/public/mojom/timing/worker_timing_container.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
@@ -70,6 +71,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_load_timing.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_response.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_timing_info.h"
+#include "third_party/blink/renderer/platform/network/http_parsers.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
@@ -352,49 +354,68 @@ void Performance::setResourceTimingBufferSize(unsigned size) {
 
 bool Performance::PassesTimingAllowCheck(
     const ResourceResponse& response,
+    const ResourceResponse& next_response,
     const SecurityOrigin& initiator_security_origin,
     ExecutionContext* context,
-    bool* tainted) {
-  DCHECK(tainted);
+    bool* response_tainting_not_basic,
+    bool* tainted_origin_flag) {
+  DCHECK(response_tainting_not_basic);
+  DCHECK(tainted_origin_flag);
   const KURL& response_url = response.ResponseUrl();
   scoped_refptr<const SecurityOrigin> resource_origin =
       SecurityOrigin::Create(response_url);
-  if (!*tainted &&
-      resource_origin->IsSameSchemeHostPort(&initiator_security_origin))
+  bool is_same_origin =
+      resource_origin->IsSameOriginWith(&initiator_security_origin);
+  if (!*response_tainting_not_basic && is_same_origin)
     return true;
-  *tainted = true;
+  *response_tainting_not_basic = true;
 
   const AtomicString& timing_allow_origin_string =
       response.HttpHeaderField(http_names::kTimingAllowOrigin);
   if (timing_allow_origin_string.IsEmpty())
     return false;
 
-  // The condition below if only needed for use-counting purposes.
-  if (timing_allow_origin_string == "*") {
-    UseCounter::Count(context, WebFeature::kStarInTimingAllowOrigin);
-    return true;
-  }
-
-  // TODO(yoav): Use CommaDelimitedHeaderSet instead of this one-off parsing
-  // algorithm.
   const String& security_origin = initiator_security_origin.ToString();
-  Vector<String> timing_allow_origins;
-  timing_allow_origin_string.GetString().Split(',', timing_allow_origins);
-  if (timing_allow_origins.size() > 1) {
-    UseCounter::Count(context, WebFeature::kMultipleOriginsInTimingAllowOrigin);
-  } else if (timing_allow_origins.size() == 1 &&
-             timing_allow_origin_string != "*") {
-    UseCounter::Count(context, WebFeature::kSingleOriginInTimingAllowOrigin);
-  }
-  for (const String& allow_origin : timing_allow_origins) {
-    const String allow_origin_stripped = allow_origin.StripWhiteSpace();
-    if (allow_origin_stripped == security_origin ||
-        allow_origin_stripped == "*") {
+  CommaDelimitedHeaderSet tao_headers;
+  ParseCommaDelimitedHeader(timing_allow_origin_string, tao_headers);
+  if (tao_headers.size() == 1u) {
+    if (*tao_headers.begin() == "*") {
+      UseCounter::Count(context, WebFeature::kStarInTimingAllowOrigin);
       return true;
+    } else {
+      UseCounter::Count(context, WebFeature::kSingleOriginInTimingAllowOrigin);
     }
+  } else if (tao_headers.size() > 1u) {
+    UseCounter::Count(context, WebFeature::kMultipleOriginsInTimingAllowOrigin);
+  }
+  bool is_next_resource_same_origin = true;
+  // Only do the origin check if |next_response| is not equal to |response|.
+  if (&next_response != &response) {
+    is_next_resource_same_origin =
+        SecurityOrigin::Create(next_response.ResponseUrl())
+            ->IsSameOriginWith(resource_origin.get());
+  }
+  if (!is_same_origin && !is_next_resource_same_origin)
+    *tainted_origin_flag = true;
+  bool contains_security_origin = false;
+  for (const String& header : tao_headers) {
+    if (header == "*")
+      return true;
+
+    if (header == security_origin)
+      contains_security_origin = true;
   }
 
-  return false;
+  // If the tainted origin flag is set and the header contains the origin, this
+  // means that this method currently passes the check but once we implement the
+  // tainted origin flag properly then it will fail the check. Record this in a
+  // UseCounter to track how many webpages contain resources where the new check
+  // would fail.
+  if (*tainted_origin_flag && contains_security_origin) {
+    UseCounter::Count(context,
+                      WebFeature::kResourceTimingTaintedOriginFlagFail);
+  }
+  return contains_security_origin;
 }
 
 bool Performance::AllowsTimingRedirect(
@@ -402,15 +423,21 @@ bool Performance::AllowsTimingRedirect(
     const ResourceResponse& final_response,
     const SecurityOrigin& initiator_security_origin,
     ExecutionContext* context) {
-  bool tainted = false;
+  bool response_tainting_not_basic = false;
+  bool tainted_origin_flag = false;
 
-  for (const ResourceResponse& response : redirect_chain) {
-    if (!PassesTimingAllowCheck(response, initiator_security_origin, context,
-                                &tainted))
+  for (unsigned i = 0; i < redirect_chain.size(); ++i) {
+    const ResourceResponse& response = redirect_chain[i];
+    const ResourceResponse& next_response =
+        i + 1 < redirect_chain.size() ? redirect_chain[i + 1] : final_response;
+    if (!PassesTimingAllowCheck(
+            response, next_response, initiator_security_origin, context,
+            &response_tainting_not_basic, &tainted_origin_flag))
       return false;
   }
-  if (!PassesTimingAllowCheck(final_response, initiator_security_origin,
-                              context, &tainted)) {
+  if (!PassesTimingAllowCheck(
+          final_response, final_response, initiator_security_origin, context,
+          &response_tainting_not_basic, &tainted_origin_flag)) {
     return false;
   }
 
@@ -424,9 +451,13 @@ void Performance::GenerateAndAddResourceTiming(
   const SecurityOrigin* security_origin = GetSecurityOrigin(context);
   if (!security_origin)
     return;
+  // |info| is taken const-ref but this can make destructive changes to
+  // WorkerTimingContainer on |info| when a page is controlled by a service
+  // worker.
   AddResourceTiming(
       GenerateResourceTiming(*security_origin, info, *context),
-      !initiator_type.IsNull() ? initiator_type : info.InitiatorType());
+      !initiator_type.IsNull() ? initiator_type : info.InitiatorType(),
+      info.TakeWorkerTimingReceiver());
 }
 
 WebResourceTimingInfo Performance::GenerateResourceTiming(
@@ -443,10 +474,14 @@ WebResourceTimingInfo Performance::GenerateResourceTiming(
   result.connection_info = final_response.ConnectionInfoString();
   result.timing = final_response.GetResourceLoadTiming();
   result.response_end = info.LoadResponseEnd();
+  result.context_type = info.ContextType();
 
-  bool tainted = false;
+  bool response_tainting_not_basic = false;
+  bool tainted_origin_flag = false;
   result.allow_timing_details = PassesTimingAllowCheck(
-      final_response, destination_origin, &context_for_use_counter, &tainted);
+      final_response, final_response, destination_origin,
+      &context_for_use_counter, &response_tainting_not_basic,
+      &tainted_origin_flag);
 
   const Vector<ResourceResponse>& redirect_chain = info.RedirectChain();
   if (!redirect_chain.IsEmpty()) {
@@ -497,10 +532,13 @@ WebResourceTimingInfo Performance::GenerateResourceTiming(
   return result;
 }
 
-void Performance::AddResourceTiming(const WebResourceTimingInfo& info,
-                                    const AtomicString& initiator_type) {
+void Performance::AddResourceTiming(
+    const WebResourceTimingInfo& info,
+    const AtomicString& initiator_type,
+    mojo::PendingReceiver<mojom::blink::WorkerTimingContainer>
+        worker_timing_receiver) {
   auto* entry = MakeGarbageCollected<PerformanceResourceTiming>(
-      info, time_origin_, initiator_type);
+      info, time_origin_, initiator_type, std::move(worker_timing_receiver));
   NotifyObserversOfEntry(*entry);
   // https://w3c.github.io/resource-timing/#dfn-add-a-performanceresourcetiming-entry
   if (CanAddResourceTimingEntry() &&
@@ -612,27 +650,20 @@ bool Performance::CanAddResourceTimingEntry() {
   return resource_timing_buffer_.size() < resource_timing_buffer_size_limit_;
 }
 
-void Performance::AddLongTaskTiming(
-    base::TimeTicks start_time,
-    base::TimeTicks end_time,
-    const AtomicString& name,
-    const String& frame_src,
-    const String& frame_id,
-    const String& frame_name,
-    const SubTaskAttribution::EntriesVector& sub_task_attributions) {
+void Performance::AddLongTaskTiming(base::TimeTicks start_time,
+                                    base::TimeTicks end_time,
+                                    const AtomicString& name,
+                                    const AtomicString& container_type,
+                                    const String& container_src,
+                                    const String& container_id,
+                                    const String& container_name) {
   if (!HasObserverFor(PerformanceEntry::kLongTask))
     return;
 
-  for (auto&& it : sub_task_attributions) {
-    it->setHighResStartTime(
-        MonotonicTimeToDOMHighResTimeStamp(it->startTime()));
-    it->setHighResDuration(
-        ConvertTimeDeltaToDOMHighResTimeStamp(it->duration()));
-  }
   auto* entry = MakeGarbageCollected<PerformanceLongTaskTiming>(
       MonotonicTimeToDOMHighResTimeStamp(start_time),
-      MonotonicTimeToDOMHighResTimeStamp(end_time), name, frame_src, frame_id,
-      frame_name, sub_task_attributions);
+      MonotonicTimeToDOMHighResTimeStamp(end_time), name, container_type,
+      container_src, container_id, container_name);
   NotifyObserversOfEntry(*entry);
 }
 

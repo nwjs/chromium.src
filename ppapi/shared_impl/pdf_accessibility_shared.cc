@@ -6,6 +6,38 @@
 
 namespace ppapi {
 
+PdfAccessibilityTextStyleInfo::PdfAccessibilityTextStyleInfo() = default;
+
+PdfAccessibilityTextStyleInfo::PdfAccessibilityTextStyleInfo(
+    const PP_PrivateAccessibilityTextStyleInfo& style)
+    : font_name(std::string(style.font_name, style.font_name_length)),
+      font_weight(style.font_weight),
+      render_mode(style.render_mode),
+      font_size(style.font_size),
+      fill_color(style.fill_color),
+      stroke_color(style.stroke_color),
+      is_italic(style.is_italic),
+      is_bold(style.is_bold) {}
+
+PdfAccessibilityTextStyleInfo::PdfAccessibilityTextStyleInfo(
+    PdfAccessibilityTextStyleInfo&& other) = default;
+
+PdfAccessibilityTextStyleInfo::~PdfAccessibilityTextStyleInfo() = default;
+
+PdfAccessibilityTextRunInfo::PdfAccessibilityTextRunInfo() = default;
+
+PdfAccessibilityTextRunInfo::PdfAccessibilityTextRunInfo(
+    const PP_PrivateAccessibilityTextRunInfo& text_run)
+    : len(text_run.len),
+      bounds(text_run.bounds),
+      direction(text_run.direction),
+      style(text_run.style) {}
+
+PdfAccessibilityTextRunInfo::PdfAccessibilityTextRunInfo(
+    PdfAccessibilityTextRunInfo&& other) = default;
+
+PdfAccessibilityTextRunInfo::~PdfAccessibilityTextRunInfo() = default;
+
 PdfAccessibilityLinkInfo::PdfAccessibilityLinkInfo() = default;
 
 PdfAccessibilityLinkInfo::PdfAccessibilityLinkInfo(
@@ -28,6 +60,18 @@ PdfAccessibilityImageInfo::PdfAccessibilityImageInfo(
 
 PdfAccessibilityImageInfo::~PdfAccessibilityImageInfo() = default;
 
+PdfAccessibilityHighlightInfo::PdfAccessibilityHighlightInfo() = default;
+
+PdfAccessibilityHighlightInfo::~PdfAccessibilityHighlightInfo() = default;
+
+PdfAccessibilityHighlightInfo::PdfAccessibilityHighlightInfo(
+    const PP_PrivateAccessibilityHighlightInfo& highlight)
+    : note_text(std::string(highlight.note_text, highlight.note_text_length)),
+      index_in_page(highlight.index_in_page),
+      text_run_index(highlight.text_run_index),
+      text_run_count(highlight.text_run_count),
+      bounds(highlight.bounds) {}
+
 PdfAccessibilityPageObjects::PdfAccessibilityPageObjects() = default;
 
 PdfAccessibilityPageObjects::PdfAccessibilityPageObjects(
@@ -40,6 +84,11 @@ PdfAccessibilityPageObjects::PdfAccessibilityPageObjects(
   images.reserve(page_objects.image_count);
   for (size_t i = 0; i < page_objects.image_count; i++) {
     images.emplace_back(page_objects.images[i]);
+  }
+
+  highlights.reserve(page_objects.highlight_count);
+  for (size_t i = 0; i < page_objects.highlight_count; i++) {
+    highlights.emplace_back(page_objects.highlights[i]);
   }
 }
 

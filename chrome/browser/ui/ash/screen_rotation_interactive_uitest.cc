@@ -100,37 +100,17 @@ class ScreenRotationWaiter : public ash::ScreenRotationAnimatorObserver {
   DISALLOW_COPY_AND_ASSIGN(ScreenRotationWaiter);
 };
 
-class WindowAnimationWaiter : public ui::LayerAnimationObserver {
- public:
-  explicit WindowAnimationWaiter(aura::Window* window)
-      : animator_(window->layer()->GetAnimator()) {
-    animator_->AddObserver(this);
-  }
-  ~WindowAnimationWaiter() override = default;
-
-  // ui::LayerAnimationObserver:
-  void OnLayerAnimationEnded(ui::LayerAnimationSequence* sequence) override {
-    if (!animator_->is_animating()) {
-      animator_->RemoveObserver(this);
-      run_loop_.Quit();
-    }
-  }
-  void OnLayerAnimationAborted(ui::LayerAnimationSequence* sequence) override {}
-  void OnLayerAnimationScheduled(
-      ui::LayerAnimationSequence* sequence) override {}
-
-  void Wait() { run_loop_.Run(); }
-
- private:
-  ui::LayerAnimator* animator_;
-  base::RunLoop run_loop_;
-
-  DISALLOW_COPY_AND_ASSIGN(WindowAnimationWaiter);
-};
-
 }  // namespace
 
-IN_PROC_BROWSER_TEST_P(ScreenRotationTest, RotateInTablet) {
+// Failing flakily on ChromeOS debug, ASAN, and MSAN.
+// https://crbug.com/1017206
+#if defined(OS_CHROMEOS) && (!defined(NDEBUG) || defined(ADDRESS_SANITIZER) || \
+                             defined(MEMORY_SANITIZER))
+#define MAYBE_RotateInTablet DISABLED_RotateInTablet
+#else
+#define MAYBE_RotateInTablet RotateInTablet
+#endif
+IN_PROC_BROWSER_TEST_P(ScreenRotationTest, MAYBE_RotateInTablet) {
   // Browser window is used just to identify display.
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
   gfx::NativeWindow browser_window =
@@ -162,8 +142,7 @@ IN_PROC_BROWSER_TEST_P(ScreenRotationTest, RotateInTabletOverview) {
   {
     auto windows = ash::ShellTestApi().GetItemWindowListInOverviewGrids();
     ASSERT_TRUE(windows.size() > 0);
-    WindowAnimationWaiter waiter(windows[0]);
-    waiter.Wait();
+    ash::ShellTestApi().WaitForWindowFinishAnimating(windows[0]);
   }
 
   ScreenRotationWaiter waiter(browser_window->GetRootWindow());
@@ -179,7 +158,7 @@ IN_PROC_BROWSER_TEST_P(ScreenRotationTest, RotateInTabletOverview) {
 // TODO(oshima): Support split screen in tablet mode.
 // TODO(oshima): Support overview mode.
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          ScreenRotationTest,
                          ::testing::Combine(::testing::Values(2, 8),
                                             /*blank=*/testing::Bool()));

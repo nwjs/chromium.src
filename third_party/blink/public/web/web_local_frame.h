@@ -17,6 +17,7 @@
 #include "third_party/blink/public/mojom/commit_result/commit_result.mojom-shared.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-shared.h"
+#include "third_party/blink/public/mojom/portal/portal.mojom-shared.h"
 #include "third_party/blink/public/mojom/selection_menu/selection_menu_behavior.mojom-shared.h"
 #include "third_party/blink/public/mojom/web_feature/web_feature.mojom-shared.h"
 #include "third_party/blink/public/platform/task_type.h"
@@ -61,7 +62,7 @@ struct WebAssociatedURLLoaderOptions;
 struct WebConsoleMessage;
 struct WebContentSecurityPolicyViolation;
 struct WebIsolatedWorldInfo;
-struct WebMediaPlayerAction;
+struct MediaPlayerAction;
 struct WebPoint;
 struct WebPrintParams;
 struct WebPrintPresetOptions;
@@ -83,7 +84,6 @@ class WebLocalFrame : public WebFrame {
       WebView*,
       WebLocalFrameClient*,
       blink::InterfaceRegistry*,
-      mojo::ScopedMessagePipeHandle,
       WebFrame* opener = nullptr,
       const WebString& name = WebString(),
       WebSandboxFlags = WebSandboxFlags::kNone,
@@ -111,7 +111,6 @@ class WebLocalFrame : public WebFrame {
   BLINK_EXPORT static WebLocalFrame* CreateProvisional(
       WebLocalFrameClient*,
       blink::InterfaceRegistry*,
-      mojo::ScopedMessagePipeHandle,
       WebFrame* previous_web_frame,
       const FramePolicy&);
 
@@ -120,8 +119,7 @@ class WebLocalFrame : public WebFrame {
   // it's no longer needed.
   virtual WebLocalFrame* CreateLocalChild(WebTreeScopeType,
                                           WebLocalFrameClient*,
-                                          blink::InterfaceRegistry*,
-                                          mojo::ScopedMessagePipeHandle) = 0;
+                                          blink::InterfaceRegistry*) = 0;
 
   // Returns the WebFrame associated with the current V8 context. This
   // function can return 0 if the context is associated with a Document that
@@ -167,9 +165,6 @@ class WebLocalFrame : public WebFrame {
 
   // Sets the name of this frame.
   virtual void SetName(const WebString&) = 0;
-
-  // Notifies this frame about a user activation from the browser side.
-  virtual void NotifyUserActivation() = 0;
 
   // Hierarchy ----------------------------------------------------------
 
@@ -548,8 +543,8 @@ class WebLocalFrame : public WebFrame {
   virtual WebSandboxFlags EffectiveSandboxFlagsForTesting() const = 0;
 
   // Returns false if this frame, or any parent frame is sandboxed and does not
-  // have the flag "allow-downloads-without-user-activation" set.
-  virtual bool IsAllowedToDownloadWithoutUserActivation() const = 0;
+  // have the flag "allow-downloads" set.
+  virtual bool IsAllowedToDownload() const = 0;
 
   // Find-in-page -----------------------------------------------------------
 
@@ -608,7 +603,8 @@ class WebLocalFrame : public WebFrame {
   // a mojo interface to communicate back with the caller of the portal's
   // mojo interface. |data| is an optional message sent together with the
   // portal's activation.
-  using OnPortalActivatedCallback = base::OnceCallback<void(bool)>;
+  using OnPortalActivatedCallback =
+      base::OnceCallback<void(mojom::PortalActivateResult)>;
   virtual void OnPortalActivated(
       const base::UnguessableToken& portal_token,
       mojo::ScopedInterfaceEndpointHandle portal_pipe,
@@ -646,9 +642,6 @@ class WebLocalFrame : public WebFrame {
   virtual WebAssociatedURLLoader* CreateAssociatedURLLoader(
       const WebAssociatedURLLoaderOptions&) = 0;
 
-  // Check whether loading has completed based on subframe state, etc.
-  virtual void CheckCompleted() = 0;
-
   // Geometry -----------------------------------------------------------------
 
   // NOTE: These routines do not force page layout so their results may
@@ -664,7 +657,8 @@ class WebLocalFrame : public WebFrame {
   // Returns true if the contents (minus scrollbars) has non-zero area.
   virtual bool HasVisibleContent() const = 0;
 
-  // Returns the visible content rect (minus scrollbars, in absolute coordinate)
+  // Returns the visible content rect (minus scrollbars), relative to the
+  // document.
   virtual WebRect VisibleContentRect() const = 0;
 
   // Printing ------------------------------------------------------------
@@ -707,6 +701,12 @@ class WebLocalFrame : public WebFrame {
   virtual bool GetPrintPresetOptionsForPlugin(const WebNode&,
                                               WebPrintPresetOptions*) = 0;
 
+  // Paint Preview ------------------------------------------------------------
+
+  // Captures a full frame paint preview of the WebFrame including subframes.
+  virtual bool CapturePaintPreview(const WebRect& bounds,
+                                   cc::PaintCanvas* canvas) = 0;
+
   // Focus --------------------------------------------------------------
 
   // Advance the focus of the WebView to next text input element from current
@@ -736,11 +736,6 @@ class WebLocalFrame : public WebFrame {
 
   // Testing ------------------------------------------------------------------
 
-  // Dumps the layer tree, used by the accelerated compositor, in
-  // text form. This is used only by web tests.
-  virtual WebString GetLayerTreeAsTextForTesting(
-      bool show_debug_info = false) const = 0;
-
   // Prints the frame into the canvas, with page boundaries drawn as one pixel
   // wide blue lines. This method exists to support web tests.
   virtual void PrintPagesForTesting(cc::PaintCanvas*, const WebSize&) = 0;
@@ -754,7 +749,7 @@ class WebLocalFrame : public WebFrame {
   // Performs the specified media player action on the media element at the
   // given location.
   virtual void PerformMediaPlayerAction(const WebPoint&,
-                                        const WebMediaPlayerAction&) = 0;
+                                        const MediaPlayerAction&) = 0;
 
   virtual void SetLifecycleState(mojom::FrameLifecycleState state) = 0;
 

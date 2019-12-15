@@ -6,7 +6,6 @@
 
 #include "base/bind.h"
 #include "base/macros.h"
-#include "content/public/common/navigation_policy.h"
 #include "content/renderer/loader/code_cache_loader_impl.h"
 #include "content/renderer/loader/resource_load_stats.h"
 #include "content/renderer/loader/web_url_loader_impl.h"
@@ -97,7 +96,6 @@ NavigationBodyLoader::NavigationBodyLoader(
       endpoints_(std::move(endpoints)),
       task_runner_(std::move(task_runner)),
       resource_load_info_(std::move(resource_load_info)),
-      url_loader_client_binding_(this),
       handle_watcher_(FROM_HERE,
                       mojo::SimpleWatcher::ArmingPolicy::MANUAL,
                       task_runner_) {}
@@ -220,9 +218,9 @@ void NavigationBodyLoader::CodeCacheReceived(
 
 void NavigationBodyLoader::BindURLLoaderAndContinue() {
   url_loader_.Bind(std::move(endpoints_->url_loader), task_runner_);
-  url_loader_client_binding_.Bind(std::move(endpoints_->url_loader_client),
-                                  task_runner_);
-  url_loader_client_binding_.set_connection_error_handler(base::BindOnce(
+  url_loader_client_receiver_.Bind(std::move(endpoints_->url_loader_client),
+                                   task_runner_);
+  url_loader_client_receiver_.set_disconnect_handler(base::BindOnce(
       &NavigationBodyLoader::OnConnectionClosed, base::Unretained(this)));
 }
 
@@ -327,20 +325,19 @@ void NavigationBodyLoader::NotifyCompletionIfAppropriate() {
 
 void NavigationBodyLoader::
     BindURLLoaderAndStartLoadingResponseBodyIfPossible() {
-  // Bind the mojo::URLLoaderClient interface in advance, because when
-  // NavigationImmediateResponse is enabled we will start to read from the data
-  // pipe immediately which may potentially postpone the method calls from the
-  // remote. That causes the flakiness of some layout tests.
+  // Bind the mojo::URLLoaderClient interface in advance, because we will start
+  // to read from the data pipe immediately which may potentially postpone the
+  // method calls from the remote. That causes the flakiness of some layout
+  // tests.
   // TODO(minggang): The binding was executed after OnStartLoadingResponseBody
-  // when NavigationImmediateResponse is enabled, we should try to
-  // put it back if all the webkit_layout_tests can pass in that way.
+  // originally (prior to passing the response body from the browser process
+  // during navigation), we should try to put it back if all the
+  // webkit_layout_tests can pass in that way.
   BindURLLoaderAndContinue();
 
-  if (response_body_.is_valid()) {
-    DCHECK(IsNavigationImmediateResponseBodyEnabled());
-    OnStartLoadingResponseBody(std::move(response_body_));
-    // Don't use |this| here as it might have been destroyed.
-  }
+  DCHECK(response_body_.is_valid());
+  OnStartLoadingResponseBody(std::move(response_body_));
+  // Don't use |this| here as it might have been destroyed.
 }
 
 }  // namespace content

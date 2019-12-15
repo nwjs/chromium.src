@@ -29,18 +29,17 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/api/file_system_provider_capabilities/file_system_provider_capabilities_handler.h"
 #include "chromeos/constants/chromeos_features.h"
-#include "chromeos/dbus/concierge/service.pb.h"
+#include "chromeos/dbus/concierge/concierge_service.pb.h"
 #include "chromeos/dbus/cros_disks_client.h"
 #include "chromeos/disks/disk.h"
 #include "chromeos/disks/mock_disk_mount_manager.h"
 #include "components/drive/drive_pref_names.h"
-#include "components/drive/file_change.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/install_warning.h"
 #include "google_apis/drive/test_util.h"
-#include "storage/browser/fileapi/external_mount_points.h"
+#include "storage/browser/file_system/external_mount_points.h"
 
 using ::testing::_;
 using ::testing::ReturnRef;
@@ -375,20 +374,19 @@ IN_PROC_BROWSER_TEST_F(FileManagerPrivateApiTest, Mount) {
 
   // We will call fileManagerPrivate.unmountVolume once. To test that method, we
   // check that UnmountPath is really called with the same value.
-  EXPECT_CALL(*disk_mount_manager_mock_, UnmountPath(_, _, _))
-      .Times(0);
+  EXPECT_CALL(*disk_mount_manager_mock_, UnmountPath(_, _)).Times(0);
   EXPECT_CALL(
       *disk_mount_manager_mock_,
       UnmountPath(chromeos::CrosDisksClient::GetRemovableDiskMountPoint()
                       .AppendASCII("mount_path1")
                       .AsUTF8Unsafe(),
-                  chromeos::UNMOUNT_OPTIONS_NONE, _))
+                  _))
       .Times(1);
   EXPECT_CALL(*disk_mount_manager_mock_,
               UnmountPath(chromeos::CrosDisksClient::GetArchiveMountPoint()
                               .AppendASCII("archive_mount_path")
                               .AsUTF8Unsafe(),
-                          chromeos::UNMOUNT_OPTIONS_LAZY, _))
+                          _))
       .Times(1);
 
   ASSERT_TRUE(RunComponentExtensionTest("file_browser/mount_test"))

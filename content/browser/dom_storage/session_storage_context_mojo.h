@@ -21,7 +21,7 @@
 #include "base/threading/sequence_bound.h"
 #include "base/trace_event/memory_allocator_dump.h"
 #include "base/trace_event/memory_dump_provider.h"
-#include "components/services/leveldb/leveldb_database_impl.h"
+#include "components/services/storage/dom_storage/async_dom_storage_database.h"
 #include "components/services/storage/dom_storage/dom_storage_database.h"
 #include "content/browser/dom_storage/session_storage_data_map.h"
 #include "content/browser/dom_storage/session_storage_metadata.h"
@@ -137,7 +137,9 @@ class CONTENT_EXPORT SessionStorageContextMojo
 
   void PretendToConnectForTesting();
 
-  leveldb::LevelDBDatabaseImpl* DatabaseForTesting() { return database_.get(); }
+  storage::AsyncDomStorageDatabase* DatabaseForTesting() {
+    return database_.get();
+  }
 
   void FlushAreaForTesting(const std::string& namespace_id,
                            const url::Origin& origin);
@@ -208,42 +210,43 @@ class CONTENT_EXPORT SessionStorageContextMojo
   void InitiateConnection(bool in_memory_only = false);
   void OnDatabaseOpened(leveldb::Status status);
 
-  struct DatabaseMetadataResult {
-    DatabaseMetadataResult();
-    DatabaseMetadataResult(DatabaseMetadataResult&&);
-    DatabaseMetadataResult(const DatabaseMetadataResult&) = delete;
-    ~DatabaseMetadataResult();
-
-    storage::DomStorageDatabase::Value version;
-    leveldb::Status version_status;
-
-    storage::DomStorageDatabase::Value next_map_id;
-    leveldb::Status next_map_id_status;
-
-    std::vector<storage::DomStorageDatabase::KeyValuePair> namespaces;
-    leveldb::Status namespaces_status;
+  struct ValueAndStatus {
+    ValueAndStatus();
+    ValueAndStatus(ValueAndStatus&&);
+    ~ValueAndStatus();
+    leveldb::Status status;
+    storage::DomStorageDatabase::Value value;
   };
-  void OnGotDatabaseMetadata(DatabaseMetadataResult result);
+
+  struct KeyValuePairsAndStatus {
+    KeyValuePairsAndStatus();
+    KeyValuePairsAndStatus(KeyValuePairsAndStatus&&);
+    ~KeyValuePairsAndStatus();
+    leveldb::Status status;
+    std::vector<storage::DomStorageDatabase::KeyValuePair> key_value_pairs;
+  };
+
+  void OnGotDatabaseMetadata(ValueAndStatus version,
+                             KeyValuePairsAndStatus namespaces,
+                             ValueAndStatus next_map_id);
 
   struct MetadataParseResult {
     OpenResult open_result;
     const char* histogram_name;
   };
   MetadataParseResult ParseDatabaseVersion(
-      DatabaseMetadataResult* result,
-      std::vector<leveldb::mojom::BatchedOperationPtr>* migration_operations);
+      ValueAndStatus version,
+      std::vector<storage::AsyncDomStorageDatabase::BatchDatabaseTask>*
+          migration_tasks);
   MetadataParseResult ParseNamespaces(
-      DatabaseMetadataResult* result,
-      std::vector<leveldb::mojom::BatchedOperationPtr> migration_operations);
-  MetadataParseResult ParseNextMapId(DatabaseMetadataResult* result);
+      KeyValuePairsAndStatus namespaces,
+      std::vector<storage::AsyncDomStorageDatabase::BatchDatabaseTask>
+          migration_tasks);
+  MetadataParseResult ParseNextMapId(ValueAndStatus next_map_id);
 
   void OnConnectionFinished();
   void DeleteAndRecreateDatabase(const char* histogram_name);
   void OnDBDestroyed(bool recreate_in_memory, leveldb::Status status);
-
-  void OnGotMetaData(GetStorageUsageCallback callback,
-                     leveldb::Status status,
-                     std::vector<leveldb::mojom::KeyValuePtr> data);
 
   void OnShutdownComplete(leveldb::Status status);
 
@@ -272,7 +275,7 @@ class CONTENT_EXPORT SessionStorageContextMojo
 
   base::trace_event::MemoryAllocatorDumpGuid memory_dump_id_;
 
-  std::unique_ptr<leveldb::LevelDBDatabaseImpl> database_;
+  std::unique_ptr<storage::AsyncDomStorageDatabase> database_;
   bool in_memory_ = false;
   bool tried_to_recreate_during_open_ = false;
 

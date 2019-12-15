@@ -41,8 +41,8 @@ using blink::WebDocument;
 using blink::WebElement;
 using blink::WebFormControlElement;
 using blink::WebFormElement;
-using blink::WebLocalFrame;
 using blink::WebInputElement;
+using blink::WebLocalFrame;
 using blink::WebNode;
 using blink::WebSelectElement;
 using blink::WebString;
@@ -120,9 +120,9 @@ const char* MapTypePredictionToAutocomplete(base::StringPiece type) {
     return kSupportedAutocompleteTypes[14];
   if (type == "ADDRESS_HOME_LINE3")
     return kSupportedAutocompleteTypes[15];
-  if (type == "ADDRESS_HOME_CITY")
-    return kSupportedAutocompleteTypes[16];
   if (type == "ADDRESS_HOME_STATE")
+    return kSupportedAutocompleteTypes[16];
+  if (type == "ADDRESS_HOME_CITY")
     return kSupportedAutocompleteTypes[17];
   if (type == "ADDRESS_HOME_DEPENDENT_LOCALITY")
     return kSupportedAutocompleteTypes[18];
@@ -159,7 +159,7 @@ void LogDeprecationMessages(const WebFormControlElement& element) {
   std::string autocomplete_attribute =
       element.GetAttribute("autocomplete").Utf8();
 
-  static const char* const deprecated[] = { "region", "locality" };
+  static const char* const deprecated[] = {"region", "locality"};
   for (const char* str : deprecated) {
     if (autocomplete_attribute.find(str) == std::string::npos)
       continue;
@@ -558,24 +558,12 @@ bool FormCache::ShouldShowAutocompleteConsoleWarnings(
 }
 
 void FormCache::PruneInitialValueCaches(
-    const std::set<uint32_t> ids_to_retain) {
-  // Prune initial_select_values_.
-  for (auto iter = initial_select_values_.begin();
-       iter != initial_select_values_.end();) {
-    if (!base::Contains(ids_to_retain, iter->first))
-      iter = initial_select_values_.erase(iter);
-    else
-      ++iter;
-  }
-
-  // Prune initial_checked_state_.
-  for (auto iter = initial_checked_state_.begin();
-       iter != initial_checked_state_.end();) {
-    if (!base::Contains(ids_to_retain, iter->first))
-      iter = initial_checked_state_.erase(iter);
-    else
-      ++iter;
-  }
+    const std::set<uint32_t>& ids_to_retain) {
+  auto should_not_retain = [&ids_to_retain](const auto& p) {
+    return !base::Contains(ids_to_retain, p.first);
+  };
+  base::EraseIf(initial_select_values_, should_not_retain);
+  base::EraseIf(initial_checked_state_, should_not_retain);
 }
 
 }  // namespace autofill

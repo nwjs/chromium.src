@@ -64,8 +64,8 @@ TEST_F(StoreKitCoordinatorTest, OpenStoreWithParamsPresentViewController) {
 
   EXPECT_NSEQ(product_params, coordinator_.iTunesProductParameters);
 
-  EXPECT_NSEQ([SKStoreProductViewController class],
-              [base_view_controller_.presentedViewController class]);
+  EXPECT_EQ([SKStoreProductViewController class],
+            [base_view_controller_.presentedViewController class]);
   [coordinator_ stop];
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForActionTimeout, ^bool {
@@ -90,8 +90,8 @@ TEST_F(StoreKitCoordinatorTest, OpenStorePresentViewController) {
 
   EXPECT_NSEQ(product_params, coordinator_.iTunesProductParameters);
 
-  EXPECT_NSEQ([SKStoreProductViewController class],
-              [base_view_controller_.presentedViewController class]);
+  EXPECT_EQ([SKStoreProductViewController class],
+            [base_view_controller_.presentedViewController class]);
 
   [coordinator_ stop];
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
@@ -115,8 +115,8 @@ TEST_F(StoreKitCoordinatorTest, NoOverlappingStoreKitsPresented) {
         return base_view_controller_.presentedViewController;
       }));
 
-  EXPECT_NSEQ([SKStoreProductViewController class],
-              [base_view_controller_.presentedViewController class]);
+  EXPECT_EQ([SKStoreProductViewController class],
+            [base_view_controller_.presentedViewController class]);
 
   UIViewController* presented_controller =
       base_view_controller_.presentedViewController;
@@ -142,8 +142,8 @@ TEST_F(StoreKitCoordinatorTest, NoOverlappingStoreKitsPresented) {
 
   // After reseting the view controller, a new storekit view should be
   // presented.
-  EXPECT_NSEQ([SKStoreProductViewController class],
-              [base_view_controller_.presentedViewController class]);
+  EXPECT_EQ([SKStoreProductViewController class],
+            [base_view_controller_.presentedViewController class]);
   EXPECT_NSNE(presented_controller,
               base_view_controller_.presentedViewController);
 }
@@ -201,8 +201,8 @@ TEST_F(StoreKitCoordinatorTest, MAYBE_NoOverlappingPresentedViewControllers) {
 
   // After reseting the view controller, a new storekit view should be
   // presented.
-  EXPECT_NSEQ([SKStoreProductViewController class],
-              [base_view_controller_.presentedViewController class]);
+  EXPECT_EQ([SKStoreProductViewController class],
+            [base_view_controller_.presentedViewController class]);
 }
 
 // iOS 13 dismisses SKStoreProductViewController when user taps "Done". This

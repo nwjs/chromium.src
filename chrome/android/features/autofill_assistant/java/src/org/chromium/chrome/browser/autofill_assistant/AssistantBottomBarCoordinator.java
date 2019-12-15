@@ -15,9 +15,9 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ObserverList;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.autofill_assistant.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantActionsCarouselCoordinator;
@@ -26,6 +26,7 @@ import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantChip;
 import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantSuggestionsCarouselCoordinator;
 import org.chromium.chrome.browser.autofill_assistant.details.AssistantDetailsCoordinator;
 import org.chromium.chrome.browser.autofill_assistant.form.AssistantFormCoordinator;
+import org.chromium.chrome.browser.autofill_assistant.form.AssistantFormModel;
 import org.chromium.chrome.browser.autofill_assistant.header.AssistantHeaderCoordinator;
 import org.chromium.chrome.browser.autofill_assistant.header.AssistantHeaderModel;
 import org.chromium.chrome.browser.autofill_assistant.infobox.AssistantInfoBoxCoordinator;
@@ -33,7 +34,7 @@ import org.chromium.chrome.browser.autofill_assistant.user_data.AssistantCollect
 import org.chromium.chrome.browser.autofill_assistant.user_data.AssistantCollectUserDataModel;
 import org.chromium.chrome.browser.compositor.CompositorViewResizer;
 import org.chromium.chrome.browser.tab.TabViewAndroidDelegate;
-import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetContent;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
 import org.chromium.chrome.browser.widget.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.content_public.browser.WebContents;
@@ -85,8 +86,7 @@ class AssistantBottomBarCoordinator
         mModel = model;
         mBottomSheetController = controller;
 
-        BottomSheet.BottomSheetContent currentSheetContent =
-                controller.getBottomSheet().getCurrentSheetContent();
+        BottomSheetContent currentSheetContent = controller.getCurrentSheetContent();
         if (currentSheetContent instanceof AssistantBottomSheetContent) {
             mContent = (AssistantBottomSheetContent) currentSheetContent;
         } else {
@@ -106,7 +106,7 @@ class AssistantBottomBarCoordinator
         // TODO(crbug.com/806868): We should only animate our BottomSheetContent instead of the root
         // view. However, it looks like doing that is not well supported by the BottomSheet, so the
         // BottomSheet offset is wrong during the animation.
-        ViewGroup rootView = (ViewGroup) controller.getBottomSheet().getRootView();
+        ViewGroup rootView = (ViewGroup) activity.findViewById(R.id.coordinator);
         setupAnimations(model, rootView);
 
         // Instantiate child components.
@@ -120,8 +120,7 @@ class AssistantBottomBarCoordinator
                 new AssistantSuggestionsCarouselCoordinator(activity, model.getSuggestionsModel());
         mActionsCoordinator =
                 new AssistantActionsCarouselCoordinator(activity, model.getActionsModel());
-        BottomSheet bottomSheet = controller.getBottomSheet();
-        mPeekHeightCoordinator = new AssistantPeekHeightCoordinator(activity, this, bottomSheet,
+        mPeekHeightCoordinator = new AssistantPeekHeightCoordinator(activity, this, controller,
                 mContent.getToolbarView(), mHeaderCoordinator.getView(),
                 mSuggestionsCoordinator.getView(), mActionsCoordinator.getView(),
                 AssistantPeekHeightCoordinator.PeekMode.HANDLE);
@@ -166,20 +165,19 @@ class AssistantBottomBarCoordinator
                 mSuggestionsCoordinator.getView(), model.getSuggestionsModel().getChipsModel());
         hideWhenEmpty(mActionsCoordinator.getView(), model.getActionsModel().getChipsModel());
 
-        // Set the horizontal margins of children. We don't set them on the payment request and the
-        // carousels to allow them to take the full width of the sheet.
+        // Set the horizontal margins of children. We don't set them on the payment request, the
+        // carousels or the form to allow them to take the full width of the sheet.
         setHorizontalMargins(mInfoBoxCoordinator.getView());
         setHorizontalMargins(mDetailsCoordinator.getView());
-        setHorizontalMargins(mFormCoordinator.getView());
 
-        bottomSheet.addObserver(new EmptyBottomSheetObserver() {
+        controller.addObserver(new EmptyBottomSheetObserver() {
             @Override
             public void onSheetStateChanged(int newState) {
                 maybeShowHeaderChip();
             }
 
             @Override
-            public void onSheetContentChanged(@Nullable BottomSheet.BottomSheetContent newContent) {
+            public void onSheetContentChanged(@Nullable BottomSheetContent newContent) {
                 // TODO(crbug.com/806868): Make sure this works and does not interfere with Duet
                 // once we are in ChromeTabbedActivity.
                 updateLayoutViewportHeight();
@@ -201,12 +199,8 @@ class AssistantBottomBarCoordinator
                     hide();
                 }
             } else if (AssistantModel.ALLOW_TALKBACK_ON_WEBSITE == propertyKey) {
-                boolean allow = model.get(AssistantModel.ALLOW_TALKBACK_ON_WEBSITE);
-                if (allow) {
-                    activity.removeViewObscuringAllTabs(bottomSheet);
-                } else {
-                    activity.addViewObscuringAllTabs(bottomSheet);
-                }
+                controller.setIsObscuringAllTabs(
+                        activity, !model.get(AssistantModel.ALLOW_TALKBACK_ON_WEBSITE));
             } else if (AssistantModel.WEB_CONTENTS == propertyKey) {
                 mWebContents = model.get(AssistantModel.WEB_CONTENTS);
             }
@@ -249,9 +243,8 @@ class AssistantBottomBarCoordinator
         });
 
         // Animate when form inputs change.
-        model.getFormModel().getInputsModel().addObserver(new AbstractListObserver<Void>() {
-            @Override
-            public void onDataSetChanged() {
+        model.getFormModel().addObserver((source, propertyKey) -> {
+            if (AssistantFormModel.INPUTS == propertyKey) {
                 animateChildren(rootView);
             }
         });
@@ -262,8 +255,8 @@ class AssistantBottomBarCoordinator
     }
 
     private void maybeShowHeaderChip() {
-        boolean showChip = mBottomSheetController.getBottomSheet().getSheetState()
-                        == BottomSheet.SheetState.PEEK
+        boolean showChip =
+                mBottomSheetController.getSheetState() == BottomSheetController.SheetState.PEEK
                 && mPeekHeightCoordinator.getPeekMode()
                         == AssistantPeekHeightCoordinator.PeekMode.HANDLE_HEADER;
         mModel.getHeaderModel().set(AssistantHeaderModel.CHIP_VISIBLE, showChip);
@@ -378,15 +371,14 @@ class AssistantBottomBarCoordinator
     }
 
     private void updateVisualViewportHeight() {
-        BottomSheet bottomSheet = mBottomSheetController.getBottomSheet();
         if (mViewportMode != AssistantViewportMode.RESIZE_VISUAL_VIEWPORT
-                || bottomSheet.getCurrentSheetContent() != mContent) {
+                || mBottomSheetController.getCurrentSheetContent() != mContent) {
             resetVisualViewportHeight();
             return;
         }
 
-        setVisualViewportResizing((int) Math.floor(
-                bottomSheet.getCurrentOffsetPx() - bottomSheet.getToolbarShadowHeight()));
+        setVisualViewportResizing((int) Math.floor(mBottomSheetController.getCurrentOffset()
+                - mBottomSheetController.getTopShadowHeight()));
     }
 
     private void resetVisualViewportHeight() {
@@ -416,7 +408,7 @@ class AssistantBottomBarCoordinator
     @Override
     public int getHeight() {
         if (mViewportMode == AssistantViewportMode.RESIZE_LAYOUT_VIEWPORT
-                && mBottomSheetController.getBottomSheet().getCurrentSheetContent() == mContent) {
+                && mBottomSheetController.getCurrentSheetContent() == mContent) {
             return mPeekHeightCoordinator.getPeekHeight();
         }
 

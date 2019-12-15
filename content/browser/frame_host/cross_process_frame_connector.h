@@ -114,6 +114,11 @@ class CONTENT_EXPORT CrossProcessFrameConnector
 
   void SetScreenSpaceRect(const gfx::Rect& screen_space_rect) override;
 
+  // Handlers for messages received from the parent frame called
+  // from RenderFrameProxyHost to be sent to |view_|.
+  void OnSetInheritedEffectiveTouchAction(cc::TouchAction);
+  void OnVisibilityChanged(blink::mojom::FrameVisibility visibility);
+
   // Exposed for tests.
   RenderWidgetHostViewBase* GetRootRenderWidgetHostViewForTesting() {
     return GetRootRenderWidgetHostView();
@@ -170,12 +175,9 @@ class CONTENT_EXPORT CrossProcessFrameConnector
   void OnSynchronizeVisualProperties(
       const viz::FrameSinkId& frame_sink_id,
       const FrameVisualProperties& visual_properties);
-  void OnUpdateViewportIntersection(const gfx::Rect& viewport_intersection,
-                                    const gfx::Rect& compositor_visible_rect,
-                                    blink::FrameOcclusionState occlusion_state);
-  void OnVisibilityChanged(blink::mojom::FrameVisibility visibility);
+  void OnUpdateViewportIntersection(
+      const blink::ViewportIntersectionState& viewport_intersection);
   void OnSetIsInert(bool);
-  void OnSetInheritedEffectiveTouchAction(cc::TouchAction);
   void OnUpdateRenderThrottlingStatus(bool is_throttled,
                                       bool subtree_throttled);
 

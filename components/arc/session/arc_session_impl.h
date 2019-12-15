@@ -136,9 +136,6 @@ class ArcSessionImpl
     STOPPED,
   };
 
-  static const char kPackagesCacheModeCopy[];
-  static const char kPackagesCacheModeSkipCopy[];
-
   // Delegate interface to emulate ArcBridgeHost mojo connection establishment.
   class Delegate {
    public:
@@ -193,7 +190,8 @@ class ArcSessionImpl
   void Stop() override;
   bool IsStopRequested() override;
   void OnShutdown() override;
-  void SetUserIdHashForProfile(const std::string& hash) override;
+  void SetUserInfo(const std::string& hash,
+                   const std::string& serial_number) override;
 
   // chromeos::SchedulerConfigurationManagerBase::Observer overrides:
   void OnConfigurationSet(bool success, size_t num_cores_disabled) override;
@@ -222,7 +220,7 @@ class ArcSessionImpl
   void OnMojoConnected(std::unique_ptr<mojom::ArcBridgeHost> arc_bridge_host);
 
   // Request to stop ARC instance via DBus.
-  void StopArcInstance();
+  void StopArcInstance(bool on_shutdown);
 
   // ArcClientAdapter::Observer:
   void ArcInstanceStopped() override;

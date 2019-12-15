@@ -1431,10 +1431,14 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return nil;
   if ([self internalRole] == ax::mojom::Role::kColumn) {
     DCHECK(owner_->node());
-    return @(*owner_->node()->GetTableColColIndex());
+    base::Optional<int> col_index = *owner_->node()->GetTableColColIndex();
+    if (col_index)
+      return @(*col_index);
   } else if ([self internalRole] == ax::mojom::Role::kRow) {
     DCHECK(owner_->node());
-    return @(*owner_->node()->GetTableRowRowIndex());
+    base::Optional<int> row_index = owner_->node()->GetTableRowRowIndex();
+    if (row_index)
+      return @(*row_index);
   }
 
   return nil;
@@ -1916,21 +1920,6 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   }
 
   switch ([self internalRole]) {
-    case ax::mojom::Role::kAnnotationAttribution:
-      return base::SysUTF16ToNSString(content_client->GetLocalizedString(
-          IDS_AX_ROLE_ANNOTATION_ATTRIBUTION));
-    case ax::mojom::Role::kAnnotationCommentary:
-      return base::SysUTF16ToNSString(content_client->GetLocalizedString(
-          IDS_AX_ROLE_ANNOTATION_COMMENTARY));
-    case ax::mojom::Role::kAnnotationPresence:
-      return base::SysUTF16ToNSString(
-          content_client->GetLocalizedString(IDS_AX_ROLE_ANNOTATION_PRESENCE));
-    case ax::mojom::Role::kAnnotationRevision:
-      return base::SysUTF16ToNSString(
-          content_client->GetLocalizedString(IDS_AX_ROLE_ANNOTATION_REVISION));
-    case ax::mojom::Role::kAnnotationSuggestion:
-      return base::SysUTF16ToNSString(content_client->GetLocalizedString(
-          IDS_AX_ROLE_ANNOTATION_SUGGESTION));
     case ax::mojom::Role::kArticle:
       return base::SysUTF16ToNSString(
           content_client->GetLocalizedString(IDS_AX_ROLE_ARTICLE));
@@ -1940,6 +1929,12 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     case ax::mojom::Role::kCheckBox:
       return base::SysUTF16ToNSString(
           content_client->GetLocalizedString(IDS_AX_ROLE_CHECK_BOX));
+    case ax::mojom::Role::kComment:
+      return base::SysUTF16ToNSString(
+          content_client->GetLocalizedString(IDS_AX_ROLE_COMMENT));
+    case ax::mojom::Role::kCommentSection:
+      return base::SysUTF16ToNSString(
+          content_client->GetLocalizedString(IDS_AX_ROLE_COMMENT_SECTION));
     case ax::mojom::Role::kComplementary:
       return base::SysUTF16ToNSString(
           content_client->GetLocalizedString(IDS_AX_ROLE_COMPLEMENTARY));
@@ -1985,6 +1980,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     case ax::mojom::Role::kRegion:
       return base::SysUTF16ToNSString(
           content_client->GetLocalizedString(IDS_AX_ROLE_REGION));
+    case ax::mojom::Role::kRevision:
+      return base::SysUTF16ToNSString(
+          content_client->GetLocalizedString(IDS_AX_ROLE_REVISION));
     case ax::mojom::Role::kSection:
       // A <section> element uses the 'region' ARIA role mapping.
       return base::SysUTF16ToNSString(
@@ -1999,6 +1997,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     case ax::mojom::Role::kSearchBox:
       return base::SysUTF16ToNSString(
           content_client->GetLocalizedString(IDS_AX_ROLE_SEARCH_BOX));
+    case ax::mojom::Role::kSuggestion:
+      return base::SysUTF16ToNSString(
+          content_client->GetLocalizedString(IDS_AX_ROLE_SUGGESTION));
     case ax::mojom::Role::kSwitch:
       return base::SysUTF16ToNSString(
           content_client->GetLocalizedString(IDS_AX_ROLE_SWITCH));
@@ -2104,30 +2105,28 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   NSMutableArray* ret = [[[NSMutableArray alloc] init] autorelease];
   BrowserAccessibilityManager* manager = owner_->manager();
   BrowserAccessibility* focusedChild = manager->GetFocus();
-  if (focusedChild && !focusedChild->IsDescendantOf(owner_))
+  if (focusedChild == owner_)
+    focusedChild = manager->GetActiveDescendant(focusedChild);
+
+  if (focusedChild &&
+      (focusedChild == owner_ || !focusedChild->IsDescendantOf(owner_)))
     focusedChild = nullptr;
 
   // If it's not multiselectable, try to skip iterating over the
   // children.
   if (!GetState(owner_, ax::mojom::State::kMultiselectable)) {
     // First try the focused child.
-    if (focusedChild && focusedChild != owner_) {
+    if (focusedChild) {
       [ret addObject:ToBrowserAccessibilityCocoa(focusedChild)];
       return ret;
     }
-
-    // Next try the active descendant.
-    int activeDescendantId;
-    if (owner_->GetIntAttribute(ax::mojom::IntAttribute::kActivedescendantId,
-                                &activeDescendantId)) {
-      BrowserAccessibility* activeDescendant =
-          manager->GetFromID(activeDescendantId);
-      if (activeDescendant) {
-        [ret addObject:ToBrowserAccessibilityCocoa(activeDescendant)];
-        return ret;
-      }
-    }
   }
+
+  // Put the focused one first, if it's focused, as this helps VO draw the
+  // focus box around the active item.
+  if (focusedChild &&
+      focusedChild->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected))
+    [ret addObject:ToBrowserAccessibilityCocoa(focusedChild)];
 
   // If it's multiselectable or if the previous attempts failed,
   // return any children with the "selected" state, which may
@@ -2135,13 +2134,12 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   for (auto it = owner_->PlatformChildrenBegin();
        it != owner_->PlatformChildrenEnd(); ++it) {
     BrowserAccessibility* child = it.get();
-    if (child->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected))
-      [ret addObject:ToBrowserAccessibilityCocoa(child)];
-  }
-
-  // And if nothing's selected but one has focus, use the focused one.
-  if ([ret count] == 0 && focusedChild && focusedChild != owner_) {
-    [ret addObject:ToBrowserAccessibilityCocoa(focusedChild)];
+    if (child->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected)) {
+      if (child == focusedChild)
+        continue;  // Already added as first item.
+      else
+        [ret addObject:ToBrowserAccessibilityCocoa(child)];
+    }
   }
 
   return ret;
@@ -2382,7 +2380,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
         break;
     }
     return [NSNumber numberWithInt:value];
-  } else if (IsRangeValueSupported(owner_->GetData())) {
+  } else if (owner_->GetData().IsRangeValueSupported()) {
     float floatValue;
     if (owner_->GetFloatAttribute(ax::mojom::FloatAttribute::kValueForRange,
                                   &floatValue)) {
@@ -3287,7 +3285,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     ]];
   } else if ([role isEqualToString:NSAccessibilityTabGroupRole]) {
     [ret addObject:NSAccessibilityTabsAttribute];
-  } else if (IsRangeValueSupported(owner_->GetData())) {
+  } else if (owner_->GetData().IsRangeValueSupported()) {
     [ret addObjectsFromArray:@[
       NSAccessibilityMaxValueAttribute, NSAccessibilityMinValueAttribute,
       NSAccessibilityValueDescriptionAttribute
@@ -3300,20 +3298,18 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
       NSAccessibilityDisclosedRowsAttribute
     ]];
   } else if ([role isEqualToString:NSAccessibilityRowRole]) {
-    if (owner_->PlatformGetParent()) {
-      base::string16 parentRole;
-      owner_->PlatformGetParent()->GetHtmlAttribute("role", &parentRole);
-      const base::string16 treegridRole(base::ASCIIToUTF16("treegrid"));
-      if (parentRole == treegridRole) {
-        [ret addObjectsFromArray:@[
-          NSAccessibilityDisclosingAttribute,
-          NSAccessibilityDisclosedByRowAttribute,
-          NSAccessibilityDisclosureLevelAttribute,
-          NSAccessibilityDisclosedRowsAttribute
-        ]];
-      } else {
-        [ret addObjectsFromArray:@[ NSAccessibilityIndexAttribute ]];
-      }
+    BrowserAccessibility* container = owner_->PlatformGetParent();
+    if (container && container->GetRole() == ax::mojom::Role::kRowGroup)
+      container = container->PlatformGetParent();
+    if (container && container->GetRole() == ax::mojom::Role::kTreeGrid) {
+      [ret addObjectsFromArray:@[
+        NSAccessibilityDisclosingAttribute,
+        NSAccessibilityDisclosedByRowAttribute,
+        NSAccessibilityDisclosureLevelAttribute,
+        NSAccessibilityDisclosedRowsAttribute
+      ]];
+    } else {
+      [ret addObjectsFromArray:@[ NSAccessibilityIndexAttribute ]];
     }
   } else if ([role isEqualToString:NSAccessibilityListRole]) {
     [ret addObjectsFromArray:@[

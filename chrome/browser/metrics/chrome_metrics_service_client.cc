@@ -105,8 +105,9 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 #if defined(OS_ANDROID)
-#include "chrome/browser/metrics/android_metrics_provider.h"
+#include "chrome/browser/metrics/chrome_android_metrics_provider.h"
 #include "chrome/browser/metrics/page_load_metrics_provider.h"
+#include "components/metrics/android_metrics_provider.h"
 #else
 #include "chrome/browser/metrics/browser_activity_watcher.h"
 #endif
@@ -681,7 +682,9 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
 
 #if defined(OS_ANDROID)
   metrics_service_->RegisterMetricsProvider(
-      std::make_unique<AndroidMetricsProvider>());
+      std::make_unique<metrics::AndroidMetricsProvider>());
+  metrics_service_->RegisterMetricsProvider(
+      std::make_unique<ChromeAndroidMetricsProvider>());
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<PageLoadMetricsProvider>());
 #endif  // defined(OS_ANDROID)
@@ -974,7 +977,7 @@ bool ChromeMetricsServiceClient::RegisterForProfileEvents(Profile* profile) {
   if (!sync) {
     return false;
   }
-  ObserveServiceForSyncDisables(sync, profile->GetPrefs());
+  StartObserving(sync, profile->GetPrefs());
   return true;
 }
 
@@ -1022,13 +1025,16 @@ void ChromeMetricsServiceClient::OnHistoryDeleted() {
     ukm_service_->Purge();
 }
 
-void ChromeMetricsServiceClient::OnSyncPrefsChanged(bool must_purge) {
+void ChromeMetricsServiceClient::OnUkmAllowedStateChanged(bool must_purge) {
   if (!ukm_service_)
     return;
   if (must_purge) {
     ukm_service_->Purge();
-    ukm_service_->ResetClientState(ukm::ResetReason::kOnSyncPrefsChanged);
+    ukm_service_->ResetClientState(ukm::ResetReason::kOnUkmAllowedStateChanged);
+  } else if (!IsUkmAllowedWithExtensionsForAllProfiles()) {
+    ukm_service_->PurgeExtensions();
   }
+
   // Signal service manager to enable/disable UKM based on new state.
   UpdateRunningServices();
 }
@@ -1087,12 +1093,12 @@ void ChromeMetricsServiceClient::SetIsProcessRunningForTesting(
   g_is_process_running = func;
 }
 
-bool ChromeMetricsServiceClient::SyncStateAllowsUkm() {
-  return SyncDisableObserver::SyncStateAllowsUkm();
+bool ChromeMetricsServiceClient::IsUkmAllowedForAllProfiles() {
+  return UkmConsentStateObserver::IsUkmAllowedForAllProfiles();
 }
 
-bool ChromeMetricsServiceClient::SyncStateAllowsExtensionUkm() {
-  return SyncDisableObserver::SyncStateAllowsExtensionUkm();
+bool ChromeMetricsServiceClient::IsUkmAllowedWithExtensionsForAllProfiles() {
+  return UkmConsentStateObserver::IsUkmAllowedWithExtensionsForAllProfiles();
 }
 
 bool g_notification_listeners_failed = false;

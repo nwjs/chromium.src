@@ -6,13 +6,10 @@
 #define CHROME_BROWSER_SHARING_SHARING_METRICS_H_
 
 #include "base/time/time.h"
-#include "chrome/browser/sharing/proto/sharing_message.pb.h"
+#include "chrome/browser/sharing/shared_clipboard/remote_copy_handle_message_result.h"
 #include "chrome/browser/sharing/sharing_constants.h"
 #include "chrome/browser/sharing/sharing_send_message_result.h"
-
-namespace content {
-class WebContents;
-}  // namespace content
+#include "components/sync/protocol/sharing_message.pb.h"
 
 enum class SharingDeviceRegistrationResult;
 
@@ -44,32 +41,6 @@ enum class SharingDialogType {
 // defined in histograms.xml.
 const char kSharingUiContextMenu[] = "ContextMenu";
 const char kSharingUiDialog[] = "Dialog";
-// Entry point of a Click to Call journey.
-// These values are logged to UKM. Entries should not be renumbered and numeric
-// values should never be reused. Please keep in sync with
-// "SharingClickToCallEntryPoint" in src/tools/metrics/histograms/enums.xml.
-enum class SharingClickToCallEntryPoint {
-  kLeftClickLink = 0,
-  kRightClickLink = 1,
-  kRightClickSelection = 2,
-  kMaxValue = kRightClickSelection,
-};
-
-// Selection at the end of a Click to Call journey.
-// These values are logged to UKM. Entries should not be renumbered and numeric
-// values should never be reused. Please keep in sync with
-// "SharingClickToCallSelection" in src/tools/metrics/histograms/enums.xml.
-enum class SharingClickToCallSelection {
-  kNone = 0,
-  kDevice = 1,
-  kApp = 2,
-  kMaxValue = kApp,
-};
-
-// These histogram suffixes must match the ones in SharingClickToCallUi defined
-// in histograms.xml.
-const char kSharingClickToCallUiContextMenu[] = "ContextMenu";
-const char kSharingClickToCallUiDialog[] = "Dialog";
 
 chrome_browser_sharing::MessageType SharingPayloadCaseToMessageType(
     chrome_browser_sharing::SharingMessage::PayloadCase payload_case);
@@ -137,30 +108,44 @@ void LogSharingMessageAckTime(chrome_browser_sharing::MessageType message_type,
 // Logs to UMA the |type| of dialog shown for sharing feature.
 void LogSharingDialogShown(SharingFeatureName feature, SharingDialogType type);
 
-// Logs the dialog type when a user clicks on the help text in the Click to Call
-// dialog.
-void LogClickToCallHelpTextClicked(SharingDialogType type);
-
 // Logs to UMA result of sending a SharingMessage. This should not be called for
 // sending ack messages.
 void LogSendSharingMessageResult(
     chrome_browser_sharing::MessageType message_type,
+    SharingDevicePlatform receiver_device_platform,
     SharingSendMessageResult result);
 
 // Logs to UMA result of sendin an ack of a SharingMessage.
 void LogSendSharingAckMessageResult(
     chrome_browser_sharing::MessageType message_type,
+    SharingDevicePlatform ack_receiver_device_type,
     SharingSendMessageResult result);
 
-// Records a Click to Call selection to UKM. This is logged after a completed
-// action like selecting an app or a device to send the phone number to.
-void LogClickToCallUKM(content::WebContents* web_contents,
-                       SharingClickToCallEntryPoint entry_point,
-                       bool has_devices,
-                       bool has_apps,
-                       SharingClickToCallSelection selection);
+// Logs to UMA the size of the selected text for Shared Clipboard.
+void LogSharedClipboardSelectedTextSize(size_t text_size);
 
-// Records the size of the selected text in Shared Clipboard.
-void LogSharedClipboardSelectedTextSize(int text_size);
+// Logs to UMA the result of handling a Remote Copy message.
+void LogRemoteCopyHandleMessageResult(RemoteCopyHandleMessageResult result);
+
+// Logs to UMA the size of the received text for Remote Copy.
+void LogRemoteCopyReceivedTextSize(size_t size);
+
+// Logs to UMA the size of the received image (before decoding) for Remote Copy.
+void LogRemoteCopyReceivedImageSizeBeforeDecode(size_t size);
+
+// Logs to UMA the size of the received image (after decoding) for Remote Copy.
+void LogRemoteCopyReceivedImageSizeAfterDecode(size_t size);
+
+// Logs to UMA the status code of an image load request for Remote Copy.
+void LogRemoteCopyLoadImageStatusCode(int code);
+
+// Logs to UMA the time to load an image for Remote Copy.
+void LogRemoteCopyLoadImageTime(base::TimeDelta time);
+
+// Logs to UMA the time to decode an image for Remote Copy.
+void LogRemoteCopyDecodeImageTime(base::TimeDelta time);
+
+// Logs to UMA the time to resize an image for Remote Copy.
+void LogRemoteCopyResizeImageTime(base::TimeDelta time);
 
 #endif  // CHROME_BROWSER_SHARING_SHARING_METRICS_H_

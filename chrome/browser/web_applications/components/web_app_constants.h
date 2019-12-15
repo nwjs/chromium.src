@@ -5,6 +5,8 @@
 #ifndef CHROME_BROWSER_WEB_APPLICATIONS_COMPONENTS_WEB_APP_CONSTANTS_H_
 #define CHROME_BROWSER_WEB_APPLICATIONS_COMPONENTS_WEB_APP_CONSTANTS_H_
 
+#include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
+
 namespace web_app {
 
 // Install sources are listed in the order of priority (from top to bottom).
@@ -24,7 +26,7 @@ enum Type {
   // set.
   kSync,
   kDefault,
-  kMaxValue
+  kMaxValue = kDefault
 };
 }  // namespace Source
 
@@ -42,7 +44,6 @@ enum class InstallResultCode {
   kSuccessNewInstall = 0,
   kSuccessAlreadyInstalled = 1,
   // Failure category:
-  kFailedUnknownReason = 2,
   // An inter-process request to blink renderer failed.
   kGetWebApplicationInfoFailed = 3,
   // A user previously uninstalled the app, user doesn't want to see it again.
@@ -65,9 +66,26 @@ enum class InstallResultCode {
   kWebAppDisabled = 12,
   // The network request for the install URL was redirected.
   kInstallURLRedirected = 13,
-  // The network request for the install URL failed or timed out.
+  // The network request for the install URL failed.
   kInstallURLLoadFailed = 14,
-  kMaxValue = kInstallURLLoadFailed
+  // The requested app_id check failed: actual resulting app_id doesn't match.
+  kExpectedAppIdCheckFailed = 15,
+  // The network request for the install URL timed out.
+  kInstallURLLoadTimeOut = 16,
+  // Placeholder uninstall fails (in PendingAppManager).
+  kFailedPlaceholderUninstall = 17,
+  // Web App is not considered installable, i.e. missing manifest fields, no
+  // service worker, etc.
+  kNotInstallable = 18,
+  // Bookmark App extension install or update fails.
+  kBookmarkExtensionInstallError = 19,
+  // Apk Web App install fails.
+  kApkWebAppInstallFailed = 20,
+  // App managers are shutting down. For example, when user logs out immediately
+  // after login.
+  kFailedShuttingDown = 21,
+
+  kMaxValue = kFailedShuttingDown
 };
 
 // Checks if InstallResultCode is not a failure.
@@ -132,6 +150,15 @@ enum class ExternalInstallSource {
   // ExternallyInstalledWebAppPrefs to track navigation url to app_id entries.
   kArc = 4,
 };
+
+using DisplayMode = blink::mojom::DisplayMode;
+
+// When user_display_mode indicates a user preference for opening in
+// a browser tab, we open in a browser tab. Otherwise, we open in a standalone
+// window (for app_display_mode 'standalone' or 'fullscreen'), or a minimal-ui
+// window (for app_display_mode 'browser' or 'minimal-ui').
+DisplayMode ResolveEffectiveDisplayMode(DisplayMode app_display_mode,
+                                        DisplayMode user_display_mode);
 
 }  // namespace web_app
 

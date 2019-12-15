@@ -18,7 +18,7 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/web_package/signed_exchange_envelope.h"
 #include "content/common/navigation_params.mojom.h"
-#include "content/public/browser/file_select_listener.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_request_headers.h"
@@ -98,15 +98,16 @@ void OnResetNavigationRequest(NavigationRequest* navigation_request) {
   }
 }
 
-void OnNavigationResponseReceived(const NavigationRequest& nav_request,
-                                  const network::ResourceResponse& response) {
+void OnNavigationResponseReceived(
+    const NavigationRequest& nav_request,
+    const network::mojom::URLResponseHead& response) {
   FrameTreeNode* ftn = nav_request.frame_tree_node();
   std::string id = nav_request.devtools_navigation_token().ToString();
   std::string frame_id = ftn->devtools_frame_token().ToString();
   GURL url = nav_request.common_params().url;
   DispatchToAgents(ftn, &protocol::NetworkHandler::ResponseReceived, id, id,
-                   url, protocol::Network::ResourceTypeEnum::Document,
-                   response.head, frame_id);
+                   url, protocol::Network::ResourceTypeEnum::Document, response,
+                   frame_id);
 }
 
 void OnNavigationRequestFailed(
@@ -135,7 +136,7 @@ void OnSignedExchangeReceived(
     FrameTreeNode* frame_tree_node,
     base::Optional<const base::UnguessableToken> devtools_navigation_token,
     const GURL& outer_request_url,
-    const network::ResourceResponseHead& outer_response,
+    const network::mojom::URLResponseHead& outer_response,
     const base::Optional<SignedExchangeEnvelope>& envelope,
     const scoped_refptr<net::X509Certificate>& certificate,
     const base::Optional<net::SSLInfo>& ssl_info,
@@ -181,7 +182,7 @@ void OnSignedExchangeCertificateResponseReceived(
     const base::UnguessableToken& request_id,
     const base::UnguessableToken& loader_id,
     const GURL& url,
-    const network::ResourceResponseHead& head) {
+    const network::mojom::URLResponseHead& head) {
   DispatchToAgents(frame_tree_node, &protocol::NetworkHandler::ResponseReceived,
                    request_id.ToString(), loader_id.ToString(), url,
                    protocol::Network::ResourceTypeEnum::Other, head,
@@ -329,22 +330,6 @@ bool WillCreateURLLoaderFactory(
   return had_interceptors;
 }
 
-bool InterceptFileChooser(
-    RenderFrameHostImpl* rfh,
-    std::unique_ptr<content::FileSelectListener>* listener,
-    const blink::mojom::FileChooserParams& params) {
-  DevToolsAgentHostImpl* agent_host = RenderFrameDevToolsAgentHost::GetFor(rfh);
-  if (!agent_host)
-    return false;
-  std::vector<protocol::PageHandler*> page_handlers =
-      protocol::PageHandler::ForAgentHost(agent_host);
-  for (auto* handler : page_handlers) {
-    if (handler->InterceptFileChooser(rfh, listener, params))
-      return true;
-  }
-  return false;
-}
-
 bool WillCreateURLLoaderFactoryForServiceWorker(
     RenderProcessHost* rph,
     int routing_id,
@@ -380,15 +365,14 @@ bool WillCreateURLLoaderFactory(
     bool is_navigation,
     bool is_download,
     std::unique_ptr<network::mojom::URLLoaderFactory>* factory) {
-  // TODO(crbug.com/955171): Replace this with PendingRemote.
-  network::mojom::URLLoaderFactoryPtrInfo proxied_factory;
+  mojo::PendingRemote<network::mojom::URLLoaderFactory> proxied_factory;
   mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver =
-      mojo::MakeRequest(&proxied_factory);
+      proxied_factory.InitWithNewPipeAndPassReceiver();
   if (!WillCreateURLLoaderFactory(rfh, is_navigation, is_download, &receiver))
     return false;
   mojo::MakeSelfOwnedReceiver(std::move(*factory), std::move(receiver));
   *factory = std::make_unique<DevToolsURLLoaderFactoryAdapter>(
-      mojo::MakeProxy(std::move(proxied_factory)));
+      std::move(proxied_factory));
   return true;
 }
 

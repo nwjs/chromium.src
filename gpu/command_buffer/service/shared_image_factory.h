@@ -121,6 +121,7 @@ class GPU_GLES2_EXPORT SharedImageFactory {
   std::unique_ptr<MemoryTypeTracker> memory_tracker_;
   const bool using_vulkan_;
   const bool using_metal_;
+  const bool using_dawn_;
 
   // The set of SharedImages which have been created (and are being kept alive)
   // by this factory.
@@ -167,7 +168,7 @@ class GPU_GLES2_EXPORT SharedImageRepresentationFactory {
       scoped_refptr<SharedContextState> context_State);
   std::unique_ptr<SharedImageRepresentationDawn> ProduceDawn(
       const Mailbox& mailbox,
-      DawnDevice device);
+      WGPUDevice device);
   std::unique_ptr<SharedImageRepresentationOverlay> ProduceOverlay(
       const Mailbox& mailbox);
 

@@ -10,6 +10,7 @@
 #include "base/strings/string16.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/ax_node_position.h"
@@ -966,46 +967,52 @@ TEST_F(AXRangeTest, GetTextAddingNewlineBetweenParagraphs) {
 
   auto TestGetTextForRange = [](TestPositionInstance range_start,
                                 TestPositionInstance range_end,
-                                const base::string16& expected_text) {
+                                const base::string16& expected_text,
+                                const size_t expected_appended_newlines_count) {
     TestPositionRange forward_test_range(range_start->Clone(),
                                          range_end->Clone());
     TestPositionRange backward_test_range(std::move(range_end),
                                           std::move(range_start));
+    size_t appended_newlines_count = 0;
     EXPECT_EQ(expected_text, forward_test_range.GetText(
-                                 AXTextConcatenationBehavior::kAsInnerText));
+                                 AXTextConcatenationBehavior::kAsInnerText, -1,
+                                 false, &appended_newlines_count));
+    EXPECT_EQ(expected_appended_newlines_count, appended_newlines_count);
     EXPECT_EQ(expected_text, backward_test_range.GetText(
-                                 AXTextConcatenationBehavior::kAsInnerText));
+                                 AXTextConcatenationBehavior::kAsInnerText, -1,
+                                 false, &appended_newlines_count));
+    EXPECT_EQ(expected_appended_newlines_count, appended_newlines_count);
   };
 
   base::string16 button_start_to_line1_end =
       BUTTON.substr().append(NEWLINE).append(LINE_1);
   TestGetTextForRange(button_start->Clone(), line1_end->Clone(),
-                      button_start_to_line1_end);
+                      button_start_to_line1_end, 1);
   base::string16 button_start_to_line1_start = BUTTON.substr().append(NEWLINE);
   TestGetTextForRange(button_start->Clone(), line1_start->Clone(),
-                      button_start_to_line1_start);
+                      button_start_to_line1_start, 1);
   base::string16 button_end_to_line1_end = NEWLINE.substr().append(LINE_1);
   TestGetTextForRange(button_end->Clone(), line1_end->Clone(),
-                      button_end_to_line1_end);
+                      button_end_to_line1_end, 1);
   base::string16 button_end_to_line1_start = NEWLINE;
   TestGetTextForRange(button_end->Clone(), line1_start->Clone(),
-                      button_end_to_line1_start);
+                      button_end_to_line1_start, 1);
 
   base::string16 line2_start_to_after_line_end =
       LINE_2.substr().append(NEWLINE).append(AFTER_LINE);
   TestGetTextForRange(line2_start->Clone(), after_line_end->Clone(),
-                      line2_start_to_after_line_end);
+                      line2_start_to_after_line_end, 0);
   base::string16 line2_start_to_after_line_start =
       LINE_2.substr().append(NEWLINE);
   TestGetTextForRange(line2_start->Clone(), after_line_start->Clone(),
-                      line2_start_to_after_line_start);
+                      line2_start_to_after_line_start, 0);
   base::string16 line2_end_to_after_line_end =
       NEWLINE.substr().append(AFTER_LINE);
   TestGetTextForRange(line2_end->Clone(), after_line_end->Clone(),
-                      line2_end_to_after_line_end);
+                      line2_end_to_after_line_end, 0);
   base::string16 line2_end_to_after_line_start = NEWLINE;
   TestGetTextForRange(line2_end->Clone(), after_line_start->Clone(),
-                      line2_end_to_after_line_start);
+                      line2_end_to_after_line_start, 0);
 
   base::string16 all_text =
       BUTTON.substr().append(NEWLINE).append(TEXT_FIELD).append(AFTER_LINE);
@@ -1015,7 +1022,7 @@ TEST_F(AXRangeTest, GetTextAddingNewlineBetweenParagraphs) {
   TestPositionInstance end = AXNodePosition::CreateTextPosition(
       tree_->data().tree_id, root_.id, ALL_TEXT.length() /* text_offset */,
       ax::mojom::TextAffinity::kDownstream);
-  TestGetTextForRange(std::move(start), std::move(end), all_text);
+  TestGetTextForRange(std::move(start), std::move(end), all_text, 1);
 }
 
 TEST_F(AXRangeTest, GetTextWithMaxCount) {
@@ -1037,6 +1044,145 @@ TEST_F(AXRangeTest, GetTextWithMaxCount) {
   // Test passing -1 for max_count.
   EXPECT_EQ(LINE_1.substr().append(NEWLINE).append(LINE_2),
             test_range.GetText(AXTextConcatenationBehavior::kAsInnerText, -1));
+}
+
+TEST_F(AXRangeTest, GetTextWithList) {
+  const base::string16 kListMarker1 = base::ASCIIToUTF16("1. ");
+  const base::string16 kListItemContent = base::ASCIIToUTF16("List item 1");
+  const base::string16 kListMarker2 = base::ASCIIToUTF16("2. ");
+  const base::string16 kAfterList = base::ASCIIToUTF16("After list");
+  const base::string16 kAllText = kListMarker1.substr()
+                                      .append(kListItemContent)
+                                      .append(NEWLINE)
+                                      .append(kListMarker2)
+                                      .append(NEWLINE)
+                                      .append(kAfterList);
+  // This test expects:
+  // "1. List item 1
+  //  2.
+  //  After list"
+  // for the following AXTree:
+  // ++1 kRootWebArea
+  // ++++2 kList
+  // ++++++3 kListItem
+  // ++++++++4 kListMarker
+  // ++++++++++5 kStaticText
+  // ++++++++++++6 kInlineTextBox "1. "
+  // ++++++++7 kStaticText
+  // ++++++++++8 kInlineTextBox "List item 1"
+  // ++++++9 kListItem
+  // ++++++++10 kListMarker
+  // +++++++++++11 kStaticText
+  // ++++++++++++++12 kInlineTextBox "2. "
+  // ++++13 kStaticText
+  // +++++++14 kInlineTextBox "After list"
+  AXNodeData root;
+  AXNodeData list;
+  AXNodeData list_item1;
+  AXNodeData list_item2;
+  AXNodeData list_marker1;
+  AXNodeData list_marker2;
+  AXNodeData inline_box1;
+  AXNodeData inline_box2;
+  AXNodeData inline_box3;
+  AXNodeData inline_box4;
+  AXNodeData static_text1;
+  AXNodeData static_text2;
+  AXNodeData static_text3;
+  AXNodeData static_text4;
+
+  root.id = 1;
+  list.id = 2;
+  list_item1.id = 3;
+  list_marker1.id = 4;
+  static_text1.id = 5;
+  inline_box1.id = 6;
+  static_text2.id = 7;
+  inline_box2.id = 8;
+  list_item2.id = 9;
+  list_marker2.id = 10;
+  static_text3.id = 11;
+  inline_box3.id = 12;
+  static_text4.id = 13;
+  inline_box4.id = 14;
+
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {list.id, static_text4.id};
+
+  list.role = ax::mojom::Role::kList;
+  list.child_ids = {list_item1.id, list_item2.id};
+
+  list_item1.role = ax::mojom::Role::kListItem;
+  list_item1.child_ids = {list_marker1.id, static_text2.id};
+  list_item1.AddBoolAttribute(ax::mojom::BoolAttribute::kIsLineBreakingObject,
+                              true);
+
+  list_marker1.role = ax::mojom::Role::kListMarker;
+  list_marker1.child_ids = {static_text1.id};
+
+  static_text1.role = ax::mojom::Role::kStaticText;
+  static_text1.SetName(kListMarker1);
+  static_text1.child_ids = {inline_box1.id};
+
+  inline_box1.role = ax::mojom::Role::kInlineTextBox;
+  inline_box1.SetName(kListMarker1);
+
+  static_text2.role = ax::mojom::Role::kStaticText;
+  static_text2.SetName(kListItemContent);
+  static_text2.child_ids = {inline_box2.id};
+
+  inline_box2.role = ax::mojom::Role::kInlineTextBox;
+  inline_box2.SetName(kListItemContent);
+
+  list_item2.role = ax::mojom::Role::kListItem;
+  list_item2.child_ids = {list_marker2.id};
+  list_item2.AddBoolAttribute(ax::mojom::BoolAttribute::kIsLineBreakingObject,
+                              true);
+
+  list_marker2.role = ax::mojom::Role::kListMarker;
+  list_marker2.child_ids = {static_text3.id};
+
+  static_text3.role = ax::mojom::Role::kStaticText;
+  static_text3.SetName(kListMarker2);
+  static_text3.child_ids = {inline_box3.id};
+
+  inline_box3.role = ax::mojom::Role::kInlineTextBox;
+  inline_box3.SetName(kListMarker2);
+
+  static_text4.role = ax::mojom::Role::kStaticText;
+  static_text4.SetName(kAfterList);
+  static_text4.child_ids = {inline_box4.id};
+
+  inline_box4.role = ax::mojom::Role::kInlineTextBox;
+  inline_box4.SetName(kAfterList);
+
+  AXTreeUpdate initial_state;
+  initial_state.root_id = root.id;
+  initial_state.nodes = {root,         list,         list_item1,   list_marker1,
+                         static_text1, inline_box1,  static_text2, inline_box2,
+                         list_item2,   list_marker2, static_text3, inline_box3,
+                         static_text4, inline_box4};
+  initial_state.has_tree_data = true;
+  initial_state.tree_data.tree_id = AXTreeID::CreateNewAXTreeID();
+  initial_state.tree_data.title = "Dialog title";
+
+  std::unique_ptr<AXTree> new_tree = std::make_unique<AXTree>(initial_state);
+  AXNodePosition::SetTree(new_tree.get());
+
+  TestPositionInstance start = AXNodePosition::CreateTextPosition(
+      new_tree->data().tree_id, inline_box1.id, 0 /* text_offset */,
+      ax::mojom::TextAffinity::kDownstream);
+  ASSERT_TRUE(start->IsTextPosition());
+  TestPositionInstance end = AXNodePosition::CreateTextPosition(
+      new_tree->data().tree_id, inline_box4.id, 10 /* text_offset */,
+      ax::mojom::TextAffinity::kDownstream);
+  ASSERT_TRUE(end->IsTextPosition());
+  TestPositionRange forward_range(start->Clone(), end->Clone());
+  EXPECT_EQ(kAllText,
+            forward_range.GetText(AXTextConcatenationBehavior::kAsInnerText));
+  TestPositionRange backward_range(std::move(end), std::move(start));
+  EXPECT_EQ(kAllText,
+            backward_range.GetText(AXTextConcatenationBehavior::kAsInnerText));
 }
 
 TEST_F(AXRangeTest, GetScreenRects) {

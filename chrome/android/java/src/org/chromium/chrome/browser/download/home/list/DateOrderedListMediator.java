@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.download.home.list;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.os.Handler;
 import android.support.v4.util.Pair;
 
@@ -14,6 +15,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.CollectionUtil;
 import org.chromium.chrome.browser.GlobalDiscardableReferencePool;
 import org.chromium.chrome.browser.download.home.DownloadManagerUiConfig;
+import org.chromium.chrome.browser.download.home.FaviconProvider;
 import org.chromium.chrome.browser.download.home.JustNowProvider;
 import org.chromium.chrome.browser.download.home.OfflineItemSource;
 import org.chromium.chrome.browser.download.home.filter.DeleteUndoOfflineItemFilter;
@@ -29,6 +31,16 @@ import org.chromium.chrome.browser.download.home.glue.OfflineContentProviderGlue
 import org.chromium.chrome.browser.download.home.glue.ThumbnailRequestGlue;
 import org.chromium.chrome.browser.download.home.list.DateOrderedListCoordinator.DateOrderedListObserver;
 import org.chromium.chrome.browser.download.home.list.DateOrderedListCoordinator.DeleteController;
+import org.chromium.chrome.browser.download.home.list.mutator.CardPaginator;
+import org.chromium.chrome.browser.download.home.list.mutator.DateLabelAdder;
+import org.chromium.chrome.browser.download.home.list.mutator.DateOrderedListMutator;
+import org.chromium.chrome.browser.download.home.list.mutator.DateOrderedListMutator.LabelAdder;
+import org.chromium.chrome.browser.download.home.list.mutator.DateOrderedListMutator.Sorter;
+import org.chromium.chrome.browser.download.home.list.mutator.DateSorter;
+import org.chromium.chrome.browser.download.home.list.mutator.DateSorterForCards;
+import org.chromium.chrome.browser.download.home.list.mutator.GroupCardLabelAdder;
+import org.chromium.chrome.browser.download.home.list.mutator.ListItemPropertySetter;
+import org.chromium.chrome.browser.download.home.list.mutator.Paginator;
 import org.chromium.chrome.browser.download.home.metrics.OfflineItemStartupLogger;
 import org.chromium.chrome.browser.download.home.metrics.UmaUtils;
 import org.chromium.chrome.browser.download.home.metrics.UmaUtils.ViewAction;
@@ -45,6 +57,7 @@ import org.chromium.components.offline_items_collection.VisualsCallback;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -90,6 +103,7 @@ class DateOrderedListMediator {
     private final Handler mHandler = new Handler();
 
     private final OfflineContentProviderGlue mProvider;
+    private final FaviconProvider mFaviconProvider;
     private final ShareController mShareController;
     private final ListItemModel mModel;
     private final DeleteController mDeleteController;
@@ -107,6 +121,15 @@ class DateOrderedListMediator {
     private final DeleteUndoOfflineItemFilter mDeleteUndoFilter;
     private final TypeOfflineItemFilter mTypeFilter;
     private final SearchOfflineItemFilter mSearchFilter;
+
+    private final Paginator mPaginator;
+    private final CardPaginator mCardPaginator;
+
+    private final Sorter mDefaultDateSorter;
+    private final LabelAdder mDefaultDateLabelAdder;
+
+    private final Sorter mPrefetchSorter;
+    private final LabelAdder mPrefetchLabelAdder;
 
     /**
      * A selection observer that correctly updates the selection state for each item in the list.
@@ -139,6 +162,7 @@ class DateOrderedListMediator {
      * Creates an instance of a DateOrderedListMediator that will push {@code provider} into
      * {@code model}.
      * @param provider                The {@link OfflineContentProvider} to visually represent.
+     * @param faviconProvider         The {@link FaviconProvider} to handle favicon requests.
      * @param deleteController        A class to manage whether or not items can be deleted.
      * @param shareController         A class responsible for sharing downloaded item {@link
      *                                Intent}s.
@@ -147,10 +171,11 @@ class DateOrderedListMediator {
      * @param dateOrderedListObserver An observer of the list and recycler view.
      * @param model                   The {@link ListItemModel} to push {@code provider} into.
      */
-    public DateOrderedListMediator(OfflineContentProvider provider, ShareController shareController,
-            DeleteController deleteController, RenameController renameController,
-            SelectionDelegate<ListItem> selectionDelegate, DownloadManagerUiConfig config,
-            DateOrderedListObserver dateOrderedListObserver, ListItemModel model) {
+    public DateOrderedListMediator(OfflineContentProvider provider, FaviconProvider faviconProvider,
+            ShareController shareController, DeleteController deleteController,
+            RenameController renameController, SelectionDelegate<ListItem> selectionDelegate,
+            DownloadManagerUiConfig config, DateOrderedListObserver dateOrderedListObserver,
+            ListItemModel model) {
         // Build a chain from the data source to the model.  The chain will look like:
         // [OfflineContentProvider] ->
         //     [OfflineItemSource] ->
@@ -161,8 +186,11 @@ class DateOrderedListMediator {
         //                         [TypeOfflineItemFilter] ->
         //                             [DateOrderedListMutator] ->
         //                                 [ListItemModel]
+        // TODO(shaktisahu): Look into replacing mutator chain by
+        // sorter -> label adder -> property setter -> paginator -> model
 
         mProvider = new OfflineContentProviderGlue(provider, config);
+        mFaviconProvider = faviconProvider;
         mShareController = shareController;
         mModel = model;
         mDeleteController = deleteController;
@@ -176,8 +204,18 @@ class DateOrderedListMediator {
         mDeleteUndoFilter = new DeleteUndoOfflineItemFilter(mInvalidStateFilter);
         mSearchFilter = new SearchOfflineItemFilter(mDeleteUndoFilter);
         mTypeFilter = new TypeOfflineItemFilter(mSearchFilter);
-        mListMutator = new DateOrderedListMutator(
-                mTypeFilter, mModel, config, new JustNowProvider(config));
+
+        JustNowProvider justNowProvider = new JustNowProvider(config);
+        mPaginator = new Paginator();
+        mCardPaginator = new CardPaginator();
+        mDefaultDateSorter = new DateSorter(justNowProvider);
+        mDefaultDateLabelAdder = new DateLabelAdder(config, justNowProvider);
+        mPrefetchSorter = new DateSorterForCards();
+        mPrefetchLabelAdder = new GroupCardLabelAdder(mCardPaginator);
+
+        mListMutator =
+                new DateOrderedListMutator(mTypeFilter, mModel, justNowProvider, mDefaultDateSorter,
+                        mDefaultDateLabelAdder, new ListItemPropertySetter(mUiConfig), mPaginator);
 
         new OfflineItemStartupLogger(config, mInvalidStateFilter);
 
@@ -196,9 +234,14 @@ class DateOrderedListMediator {
         mModel.getProperties().set(ListProperties.CALLBACK_SHARE, this ::onShareItem);
         mModel.getProperties().set(ListProperties.CALLBACK_REMOVE, this ::onDeleteItem);
         mModel.getProperties().set(ListProperties.PROVIDER_VISUALS, this ::getVisuals);
+        mModel.getProperties().set(ListProperties.PROVIDER_FAVICON, this::getFavicon);
         mModel.getProperties().set(ListProperties.CALLBACK_SELECTION, this ::onSelection);
         mModel.getProperties().set(ListProperties.CALLBACK_RENAME,
                 mUiConfig.isRenameEnabled ? this::onRenameItem : null);
+        mModel.getProperties().set(
+                ListProperties.CALLBACK_PAGINATION_CLICK, mListMutator::loadMorePages);
+        mModel.getProperties().set(
+                ListProperties.CALLBACK_GROUP_PAGINATION_CLICK, this::loadMoreItemsOnCard);
     }
 
     /** Tears down this mediator. */
@@ -213,7 +256,17 @@ class DateOrderedListMediator {
      * @see TypeOfflineItemFilter#onFilterSelected(int)
      */
     public void onFilterTypeSelected(@FilterType int filter) {
-        mListMutator.onFilterTypeSelected(filter);
+        mPaginator.reset();
+        mCardPaginator.reset();
+
+        Sorter sorter = mDefaultDateSorter;
+        LabelAdder labelAdder = mDefaultDateLabelAdder;
+        if (filter == FilterType.PREFETCHED) {
+            sorter = mPrefetchSorter;
+            labelAdder = mPrefetchLabelAdder;
+        }
+
+        mListMutator.setMutators(sorter, labelAdder);
         try (AnimationDisableClosable closeable = new AnimationDisableClosable()) {
             mTypeFilter.onFilterSelected(filter);
         }
@@ -274,6 +327,11 @@ class DateOrderedListMediator {
      */
     public OfflineItemFilterSource getEmptySource() {
         return mTypeFilter;
+    }
+
+    private void loadMoreItemsOnCard(android.util.Pair<Date, String> dateAndDomain) {
+        mCardPaginator.loadMore(dateAndDomain);
+        mListMutator.reload();
     }
 
     private void onSelection(@Nullable ListItem item) {
@@ -374,6 +432,11 @@ class DateOrderedListMediator {
                 iconHeightPx, mUiConfig.maxThumbnailScaleFactor, callback);
         mThumbnailProvider.getThumbnail(request);
         return () -> mThumbnailProvider.cancelRetrieval(request);
+    }
+
+    private void getFavicon(String url, int faviconSizePx, Callback<Bitmap> callback) {
+        // TODO(shaktisahu): Add support for getting this from offline item as well.
+        mFaviconProvider.getFavicon(url, faviconSizePx, bitmap -> callback.onResult(bitmap));
     }
 
     /** Helper class to disable animations for certain list changes. */

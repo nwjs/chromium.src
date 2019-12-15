@@ -15,14 +15,13 @@
 #include "base/strings/string16.h"
 #include "pdf/page_orientation.h"
 #include "pdf/pdf_engine.h"
+#include "ppapi/cpp/private/pdf.h"
 #include "ppapi/cpp/rect.h"
 #include "third_party/pdfium/public/cpp/fpdf_scopers.h"
 #include "third_party/pdfium/public/fpdf_doc.h"
 #include "third_party/pdfium/public/fpdf_formfill.h"
 #include "third_party/pdfium/public/fpdf_text.h"
 #include "ui/gfx/geometry/point_f.h"
-
-struct PP_PrivateAccessibilityTextRunInfo;
 
 namespace chrome_pdf {
 
@@ -47,28 +46,20 @@ class PDFiumPage {
   FPDF_TEXTPAGE GetTextPage();
 
   // See definition of PDFEngine::GetTextRunInfo().
-  base::Optional<PP_PrivateAccessibilityTextRunInfo> GetTextRunInfo(
+  base::Optional<pp::PDF::PrivateAccessibilityTextRunInfo> GetTextRunInfo(
       int start_char_index);
   // Get a unicode character from the page.
   uint32_t GetCharUnicode(int char_index);
   // Get the bounds of a character in page pixels.
   pp::FloatRect GetCharBounds(int char_index);
-  // Gets the number of links in the page.
-  uint32_t GetLinkCount();
-  // Given a link index, gets the url, underlying text range and bounding
-  // box. Returns false if the link index is invalid.
-  bool GetLinkInfo(uint32_t link_index,
-                   std::string* out_url,
-                   int* out_start_char_index,
-                   int* out_char_count,
-                   pp::FloatRect* out_bounds);
-  // Gets the number of images in the page.
-  uint32_t GetImageCount();
-  // Given an image index, gets the alt text and bounding box. Returns false if
-  // the image index is invalid.
-  bool GetImageInfo(uint32_t image_index,
-                    std::string* out_alt_text,
-                    pp::FloatRect* out_bounds);
+  // For all the links on the page, get their urls, underlying text ranges and
+  // bounding boxes.
+  std::vector<PDFEngine::AccessibilityLinkInfo> GetLinkInfo();
+  // For all the images on the page, get their alt texts and bounding boxes.
+  std::vector<PDFEngine::AccessibilityImageInfo> GetImageInfo();
+  // For all the highlights on the page, get their underlying text ranges and
+  // bounding boxes.
+  std::vector<PDFEngine::AccessibilityHighlightInfo> GetHighlightInfo();
 
   enum Area {
     NONSELECTABLE_AREA,
@@ -174,6 +165,7 @@ class PDFiumPage {
   FRIEND_TEST_ALL_PREFIXES(PDFiumPageLinkTest, TestAnnotLinkGeneration);
   FRIEND_TEST_ALL_PREFIXES(PDFiumPageImageTest, TestImageAltText);
   FRIEND_TEST_ALL_PREFIXES(PDFiumPageLinkTest, TestLinkGeneration);
+  FRIEND_TEST_ALL_PREFIXES(PDFiumPageHighlightTest, TestPopulateHighlights);
 
   // Returns a link index if the given character index is over a link, or -1
   // otherwise.
@@ -186,6 +178,8 @@ class PDFiumPage {
   void PopulateAnnotationLinks();
   // Calculate the locations of images on the page.
   void CalculateImages();
+  // Populate highlights on the page.
+  void PopulateHighlights();
   // Returns link type and fills target associated with a link. Returns
   // NONSELECTABLE_AREA if link detection failed.
   Area GetLinkTarget(FPDF_LINK link, LinkTarget* target);
@@ -198,6 +192,15 @@ class PDFiumPage {
   // Calculates the set of character indices on which text runs need to be
   // broken for page objects such as links and images.
   void CalculatePageObjectTextRunBreaks();
+  // Set text run style information based on a character of the text run.
+  void CalculateTextRunStyleInfo(
+      int char_index,
+      pp::PDF::PrivateAccessibilityTextStyleInfo* style_info);
+  // Returns a boolean indicating if the character at index |char_index| has the
+  // same text style as the text run.
+  bool AreTextStyleEqual(
+      int char_index,
+      const pp::PDF::PrivateAccessibilityTextStyleInfo& style);
 
   // Key    :  Marked content id for the image element as specified in the
   //           struct tree.
@@ -251,6 +254,19 @@ class PDFiumPage {
     std::string alt_text;
   };
 
+  // Represents a highlight within the page.
+  struct Highlight {
+    Highlight();
+    Highlight(const Highlight& other);
+    ~Highlight();
+
+    // Start index of underlying text range. -1 indicates invalid value.
+    int32_t start_char_index = -1;
+    // Number of characters encompassed by this highlight.
+    int32_t char_count = 0;
+    pp::Rect bounding_rect;
+  };
+
   PDFiumEngine* engine_;
   ScopedFPDFPage page_;
   ScopedFPDFTextPage text_page_;
@@ -261,6 +277,8 @@ class PDFiumPage {
   std::vector<Link> links_;
   bool calculated_images_ = false;
   std::vector<Image> images_;
+  bool calculated_highlights_ = false;
+  std::vector<Highlight> highlights_;
   bool calculated_page_object_text_run_breaks_ = false;
   // The set of character indices on which text runs need to be broken for page
   // objects.

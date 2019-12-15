@@ -31,13 +31,16 @@ extern const base::Feature kOmniboxUseDefaultSearchEngineFavicon;
 // Feature flag for the language settings page.
 extern const base::Feature kLanguageSettings;
 
-// Feature flag for the optional article thumbnail.
-extern const base::Feature kOptionalArticleThumbnail;
-
 // Feature flag for embedders to block restore urls.
 extern const base::Feature kEmbedderBlockRestoreUrl;
 
 // Feature flag disabling animation on low battery.
 extern const base::Feature kDisableAnimationOnLowBattery;
+
+// Feature flag to use the unstacked tabstrip when voiceover is enabled.
+extern const base::Feature kVoiceOverUnstackedTabstrip;
+
+// Feature flag to always force an unstacked tabstrip.
+extern const base::Feature kForceUnstackedTabstrip;
 
 #endif  // IOS_CHROME_BROWSER_UI_UI_FEATURE_FLAGS_H_

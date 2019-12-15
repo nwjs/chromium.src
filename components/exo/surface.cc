@@ -530,6 +530,13 @@ void Surface::SetParent(Surface* parent, const gfx::Point& position) {
     delegate_->OnSetParent(parent, position);
 }
 
+void Surface::RequestActivation() {
+  TRACE_EVENT0("exo", "Surface::RequestActivation");
+
+  if (delegate_)
+    delegate_->OnActivationRequested();
+}
+
 void Surface::SetClientSurfaceId(int32_t client_surface_id) {
   if (client_surface_id)
     window_->SetProperty(kClientSurfaceIdKey, client_surface_id);
@@ -559,7 +566,9 @@ bool Surface::HasPendingAcquireFence() const {
 }
 
 void Surface::Commit() {
-  TRACE_EVENT0("exo", "Surface::Commit");
+  TRACE_EVENT1("exo", "Surface::Commit", "buffer_id",
+               pending_buffer_.buffer() ? pending_buffer_.buffer()->gfx_buffer()
+                                        : nullptr);
 
   for (auto& observer : observers_)
     observer.OnCommit(this);
@@ -1027,21 +1036,27 @@ void Surface::AppendContentsToFrame(const gfx::Point& origin,
     // If this surface is being replaced by a SurfaceId emit a SurfaceDrawQuad.
     if (get_current_surface_id_) {
       auto current_surface_id = get_current_surface_id_.Run();
+      // If the surface ID is valid update it, otherwise keep showing the old
+      // one for now.
       if (current_surface_id.is_valid()) {
-        if (!first_embedded_surface_id_.is_valid())
+        latest_embedded_surface_id_ = current_surface_id;
+        if (!current_surface_id.HasSameEmbedTokenAs(
+                first_embedded_surface_id_)) {
           first_embedded_surface_id_ = current_surface_id;
+        }
+      }
+      if (latest_embedded_surface_id_.is_valid()) {
         viz::SurfaceDrawQuad* surface_quad =
             render_pass->CreateAndAppendDrawQuad<viz::SurfaceDrawQuad>();
-        surface_quad->SetNew(
-            quad_state, quad_rect, quad_rect,
-            viz::SurfaceRange(first_embedded_surface_id_, current_surface_id),
-            background_color,
-            /*stretch_content_to_fill_bounds=*/true,
-            /*ignores_input_event=*/false);
-      } else {
-        // If there is no valid surface, reset the start of the range.
-        first_embedded_surface_id_ = viz::SurfaceId();
+        surface_quad->SetNew(quad_state, quad_rect, quad_rect,
+                             viz::SurfaceRange(first_embedded_surface_id_,
+                                               latest_embedded_surface_id_),
+                             background_color,
+                             /*stretch_content_to_fill_bounds=*/true);
       }
+      // A resource was still produced for this so we still need to release it
+      // later.
+      frame->resource_list.push_back(current_resource_);
     } else if (state_.alpha) {
       // Texture quad is only needed if buffer is not fully transparent.
       viz::TextureDrawQuad* texture_quad =

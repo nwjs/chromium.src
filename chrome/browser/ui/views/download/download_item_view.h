@@ -19,6 +19,7 @@
 #include <memory>
 #include <string>
 
+#include "base/callback_forward.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_util.h"
@@ -54,6 +55,7 @@ namespace views {
 class ImageButton;
 class Label;
 class MdTextButton;
+class StyledLabel;
 }
 
 // Represents a single download item on the download shelf. Encompasses an icon,
@@ -77,7 +79,7 @@ class DownloadItemView : public views::InkDropHostView,
   // Returns the base color for text on this download item, based on |theme|.
   static SkColor GetTextColorForThemeProvider(const ui::ThemeProvider* theme);
 
-  void OnExtractIconComplete(gfx::Image icon);
+  void OnExtractIconComplete(IconLoader::IconSize icon_size, gfx::Image icon);
 
   // Returns the DownloadUIModel object belonging to this item.
   DownloadUIModel* model() { return model_.get(); }
@@ -115,6 +117,9 @@ class DownloadItemView : public views::InkDropHostView,
 
   // views::AnimationDelegateViews implementation.
   void AnimationProgressed(const gfx::Animation* animation) override;
+
+  // Adds styling to the filename in |label|, if present.
+  void StyleFilenameInLabel(views::StyledLabel* label);
 
  protected:
   // views::View:
@@ -156,12 +161,6 @@ class DownloadItemView : public views::InkDropHostView,
 
   // The space on the right side of the dangerous download label.
   static constexpr int kLabelPadding = 8;
-
-  // Height/width of the warning icon, also in dp.
-  static constexpr int kWarningIconSize = 24;
-
-  // Height/width of the erro icon, also in dp.
-  static constexpr int kErrorIconSize = 27;
 
   void OpenDownload();
 
@@ -254,7 +253,11 @@ class DownloadItemView : public views::InkDropHostView,
   // line (if short), or broken across two lines.  In the latter case,
   // linebreaks near the middle of the string and sets the label's text
   // accordingly.  Returns the preferred size for the label.
-  static gfx::Size AdjustTextAndGetSize(views::Label* label);
+  template <typename T>
+  static gfx::Size AdjustTextAndGetSize(
+      T* label,
+      base::RepeatingCallback<void(T*, const base::string16&)>
+          update_text_and_style);
 
   // Reenables the item after it has been disabled when a user clicked it to
   // open the downloaded file.
@@ -305,14 +308,17 @@ class DownloadItemView : public views::InkDropHostView,
   // Opens a file while async scanning is still pending.
   void OpenDownloadDuringAsyncScanning();
 
+  // Returns the height/width of the warning icon, in dp.
+  static int GetWarningIconSize();
+
+  // Returns the height/width of the error icon, in dp.
+  static int GetErrorIconSize();
+
   // The download shelf that owns us.
   DownloadShelfView* shelf_;
 
   // The focus ring for this Button.
   std::unique_ptr<views::FocusRing> focus_ring_;
-
-  // Elements of our particular download
-  base::string16 status_text_;
 
   // The font list used to print the file name and warning text.
   gfx::FontList font_list_;
@@ -380,7 +386,7 @@ class DownloadItemView : public views::InkDropHostView,
   views::ImageButton* dropdown_button_ = nullptr;
 
   // Dangerous mode label.
-  views::Label* dangerous_download_label_;
+  views::StyledLabel* dangerous_download_label_;
 
   // Whether the dangerous mode label has been sized yet.
   bool dangerous_download_label_sized_;
@@ -414,7 +420,7 @@ class DownloadItemView : public views::InkDropHostView,
   base::FilePath last_download_item_path_;
 
   // Deep scanning mode label.
-  views::Label* deep_scanning_label_ = nullptr;
+  views::StyledLabel* deep_scanning_label_ = nullptr;
 
   // Deep scanning open now button.
   views::MdTextButton* open_now_button_ = nullptr;
@@ -425,6 +431,9 @@ class DownloadItemView : public views::InkDropHostView,
 
   // Deep scanning modal dialog confirming choice to "open now".
   TabModalConfirmDialog* open_now_modal_dialog_;
+
+  // Icon for the download.
+  gfx::ImageSkia icon_;
 
   // Method factory used to delay reenabling of the item when opening the
   // downloaded file.

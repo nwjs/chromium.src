@@ -61,8 +61,6 @@ class WebContentsDelegateAndroid : public content::WebContentsDelegate {
   void ActivateContents(content::WebContents* contents) override;
   void LoadingStateChanged(content::WebContents* source,
                            bool to_different_document) override;
-  void LoadProgressChanged(content::WebContents* source,
-                           double load_progress) override;
   void RendererUnresponsive(
       content::WebContents* source,
       content::RenderWidgetHost* render_widget_host,
@@ -109,7 +107,10 @@ class WebContentsDelegateAndroid : public content::WebContentsDelegate {
                             const GURL& initiator_url,
                             blink::NavigationBlockedReason reason) override;
   int GetTopControlsHeight() override;
+  int GetTopControlsMinHeight() override;
   int GetBottomControlsHeight() override;
+  int GetBottomControlsMinHeight() override;
+  bool ShouldAnimateBrowserControlsHeightChanges() override;
   bool DoBrowserControlsShrinkRendererSize(
       const content::WebContents* contents) override;
 

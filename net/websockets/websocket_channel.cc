@@ -265,10 +265,12 @@ void WebSocketChannel::SendAddChannelRequest(
     const std::vector<std::string>& requested_subprotocols,
     const url::Origin& origin,
     const GURL& site_for_cookies,
+    const net::NetworkIsolationKey& network_isolation_key,
     const HttpRequestHeaders& additional_headers) {
   SendAddChannelRequestWithSuppliedCallback(
       socket_url, requested_subprotocols, origin, site_for_cookies,
-      additional_headers, base::Bind(&WebSocketStream::CreateAndConnectStream));
+      network_isolation_key, additional_headers,
+      base::Bind(&WebSocketStream::CreateAndConnectStream));
 }
 
 void WebSocketChannel::SetState(State new_state) {
@@ -407,11 +409,12 @@ void WebSocketChannel::SendAddChannelRequestForTesting(
     const std::vector<std::string>& requested_subprotocols,
     const url::Origin& origin,
     const GURL& site_for_cookies,
+    const net::NetworkIsolationKey& network_isolation_key,
     const HttpRequestHeaders& additional_headers,
     const WebSocketStreamRequestCreationCallback& callback) {
-  SendAddChannelRequestWithSuppliedCallback(socket_url, requested_subprotocols,
-                                            origin, site_for_cookies,
-                                            additional_headers, callback);
+  SendAddChannelRequestWithSuppliedCallback(
+      socket_url, requested_subprotocols, origin, site_for_cookies,
+      network_isolation_key, additional_headers, callback);
 }
 
 void WebSocketChannel::SetClosingHandshakeTimeoutForTesting(
@@ -429,6 +432,7 @@ void WebSocketChannel::SendAddChannelRequestWithSuppliedCallback(
     const std::vector<std::string>& requested_subprotocols,
     const url::Origin& origin,
     const GURL& site_for_cookies,
+    const net::NetworkIsolationKey& network_isolation_key,
     const HttpRequestHeaders& additional_headers,
     const WebSocketStreamRequestCreationCallback& callback) {
   DCHECK_EQ(FRESHLY_CONSTRUCTED, state_);
@@ -441,10 +445,10 @@ void WebSocketChannel::SendAddChannelRequestWithSuppliedCallback(
   }
   socket_url_ = socket_url;
   auto connect_delegate = std::make_unique<ConnectDelegate>(this);
-  stream_request_ =
-      callback.Run(socket_url_, requested_subprotocols, origin,
-                   site_for_cookies, additional_headers, url_request_context_,
-                   NetLogWithSource(), std::move(connect_delegate));
+  stream_request_ = callback.Run(
+      socket_url_, requested_subprotocols, origin, site_for_cookies,
+      network_isolation_key, additional_headers, url_request_context_,
+      NetLogWithSource(), std::move(connect_delegate));
   SetState(CONNECTING);
 }
 
@@ -461,18 +465,16 @@ void WebSocketChannel::OnConnectSuccess(
 
   SetState(CONNECTED);
 
-  event_interface_->OnAddChannelResponse(stream_->GetSubProtocol(),
-                                         stream_->GetExtensions());
+  // |stream_request_| is not used once the connection has succeeded.
+  stream_request_.reset();
 
   // TODO(ricea): Get flow control information from the WebSocketStream once we
   // have a multiplexing WebSocketStream.
   current_send_quota_ = send_quota_high_water_mark_;
-  event_interface_->OnSendFlowControlQuotaAdded(send_quota_high_water_mark_);
-
-  // |stream_request_| is not used once the connection has succeeded.
-  stream_request_.reset();
-
-  // |this| may have been deleted.
+  event_interface_->OnAddChannelResponse(stream_->GetSubProtocol(),
+                                         stream_->GetExtensions(),
+                                         send_quota_high_water_mark_);
+  // |this| may have been deleted after OnAddChannelResponse.
 }
 
 void WebSocketChannel::OnConnectFailure(const std::string& message) {

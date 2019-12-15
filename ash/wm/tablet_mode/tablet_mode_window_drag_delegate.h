@@ -18,7 +18,6 @@
 
 namespace ash {
 
-enum class IndicatorState;
 class SplitViewDragIndicators;
 class PresentationTimeRecorder;
 
@@ -71,9 +70,6 @@ class TabletModeWindowDragDelegate {
 
   // Return the location of |event| in screen coordinates.
   gfx::Point GetEventLocationInScreen(const ui::GestureEvent* event) const;
-
-  // Returns the IndicatorState according to |location_in_screen|.
-  IndicatorState GetIndicatorState(const gfx::Point& location_in_screen) const;
 
   aura::Window* dragged_window() { return dragged_window_; }
 
@@ -132,7 +128,7 @@ class TabletModeWindowDragDelegate {
   aura::Window* dragged_window_ = nullptr;  // not owned.
 
   // The backdrop should be disabled during dragging and resumed after dragging.
-  BackdropWindowMode original_backdrop_mode_ = BackdropWindowMode::kAuto;
+  BackdropWindowMode original_backdrop_mode_ = BackdropWindowMode::kAutoOpaque;
 
   // The dragged window should have the active window shadow elevation during
   // dragging.

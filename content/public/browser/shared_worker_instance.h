@@ -10,24 +10,26 @@
 #include "base/files/file_path.h"
 
 #include "content/common/content_export.h"
+#include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "services/network/public/mojom/ip_address_space.mojom.h"
-#include "third_party/blink/public/mojom/csp/content_security_policy.mojom.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_creation_context_type.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
 namespace content {
 
-// SharedWorkerInstance is a value-type class that is the browser-side
-// representation of one instance of a shared worker.
+// SharedWorkerInstance is the browser-side representation of one instance of a
+// shared worker.
 class CONTENT_EXPORT SharedWorkerInstance {
  public:
-  SharedWorkerInstance(bool is_node_js, const base::FilePath& root_path,
+  SharedWorkerInstance(
+      int64_t id,
+      bool is_node_js, const base::FilePath& root_path,
       const GURL& url,
       const std::string& name,
       const url::Origin& constructor_origin,
       const std::string& content_security_policy,
-      blink::mojom::ContentSecurityPolicyType content_security_policy_type,
+      network::mojom::ContentSecurityPolicyType content_security_policy_type,
       network::mojom::IPAddressSpace creation_address_space,
       blink::mojom::SharedWorkerCreationContextType creation_context_type);
   SharedWorkerInstance(const SharedWorkerInstance& other);
@@ -43,18 +45,18 @@ class CONTENT_EXPORT SharedWorkerInstance {
   bool Matches(const GURL& url,
                const std::string& name,
                const url::Origin& constructor_origin) const;
-  bool Matches(const SharedWorkerInstance& other) const;
 
   // Accessors.
   bool nodejs() const { return is_node_js_; }
   const base::FilePath& root_path() const { return root_path_; }
   const GURL& url() const { return url_; }
-  const std::string name() const { return name_; }
+  const std::string& name() const { return name_; }
   const url::Origin& constructor_origin() const { return constructor_origin_; }
-  const std::string content_security_policy() const {
+  const std::string& content_security_policy() const {
     return content_security_policy_;
   }
-  blink::mojom::ContentSecurityPolicyType content_security_policy_type() const {
+  network::mojom::ContentSecurityPolicyType content_security_policy_type()
+      const {
     return content_security_policy_type_;
   }
   network::mojom::IPAddressSpace creation_address_space() const {
@@ -65,8 +67,20 @@ class CONTENT_EXPORT SharedWorkerInstance {
   }
 
  private:
+  // Compares SharedWorkerInstances using the |id_|.
+  CONTENT_EXPORT friend bool operator<(const SharedWorkerInstance& lhs,
+                                       const SharedWorkerInstance& rhs);
+
+  // An internal ID that is unique within a storage partition. It is needed to
+  // differentiate 2 SharedWorkerInstance that have the same url, name and
+  // constructor origin but actually represent different workers. This is
+  // possible with a file: |url| or |constructor_origin| since they are treated
+  // as opaque in this class.
+  int64_t id_;
+
   bool is_node_js_;
   base::FilePath root_path_;
+
   GURL url_;
   std::string name_;
 
@@ -76,13 +90,10 @@ class CONTENT_EXPORT SharedWorkerInstance {
   url::Origin constructor_origin_;
 
   std::string content_security_policy_;
-  blink::mojom::ContentSecurityPolicyType content_security_policy_type_;
+  network::mojom::ContentSecurityPolicyType content_security_policy_type_;
   network::mojom::IPAddressSpace creation_address_space_;
   blink::mojom::SharedWorkerCreationContextType creation_context_type_;
 };
-
-CONTENT_EXPORT bool operator<(const SharedWorkerInstance& lhs,
-                              const SharedWorkerInstance& rhs);
 
 }  // namespace content
 

@@ -97,12 +97,9 @@ class IsHistoryURLSyncedChecker : public SingleClientStatusChangeChecker {
         fake_server_(fake_server) {}
 
   // StatusChangeChecker implementation.
-  bool IsExitConditionSatisfied() override {
+  bool IsExitConditionSatisfied(std::ostream* os) override {
+    *os << "Waiting for URLs to be commited to the server";
     return fake_server_->GetCommittedHistoryURLs().count(url_) != 0;
-  }
-
-  std::string GetDebugMessage() const override {
-    return "Waiting for URLs to be commited to the server";
   }
 
  private:
@@ -122,7 +119,8 @@ class IsIconURLSyncedChecker : public SingleClientStatusChangeChecker {
         fake_server_(fake_server) {}
 
   // StatusChangeChecker implementation.
-  bool IsExitConditionSatisfied() override {
+  bool IsExitConditionSatisfied(std::ostream* os) override {
+    *os << "Waiting for URLs to be commited to the server";
     std::vector<sync_pb::SyncEntity> sessions =
         fake_server_->GetSyncEntitiesByModelType(syncer::SESSIONS);
     for (const auto& entity : sessions) {
@@ -141,10 +139,6 @@ class IsIconURLSyncedChecker : public SingleClientStatusChangeChecker {
       }
     }
     return false;
-  }
-
-  std::string GetDebugMessage() const override {
-    return "Waiting for URLs to be commited to the server";
   }
 
  private:
@@ -192,7 +186,7 @@ class SingleClientSessionsSyncTest : public SyncTest {
   // Simulates receiving list of accounts in the cookie jar from ListAccounts
   // endpoint. Adds |account_ids| into signed in accounts, notifies
   // ProfileSyncService and waits for change to propagate to sync engine.
-  void UpdateCookieJarAccountsAndWait(std::vector<std::string> account_ids,
+  void UpdateCookieJarAccountsAndWait(std::vector<CoreAccountId> account_ids,
                                       bool expected_cookie_jar_mismatch) {
     std::vector<gaia::ListedAccount> accounts;
     for (const auto& account_id : account_ids) {

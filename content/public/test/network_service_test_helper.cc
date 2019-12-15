@@ -14,6 +14,7 @@
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/message_loop/message_loop_current.h"
+#include "base/metrics/field_trial.h"
 #include "base/process/process.h"
 #include "build/build_config.h"
 #include "content/public/common/content_features.h"
@@ -230,6 +231,10 @@ class NetworkServiceTestHelper::NetworkServiceTestImpl
     std::move(callback).Run();
   }
 
+  void ActivateFieldTrial(const std::string& field_trial_name) override {
+    base::FieldTrialList::FindFullName(field_trial_name);
+  }
+
   void BindReceiver(
       mojo::PendingReceiver<network::mojom::NetworkServiceTest> receiver) {
     receivers_.Add(this, std::move(receiver));
@@ -272,9 +277,9 @@ NetworkServiceTestHelper::~NetworkServiceTestHelper() = default;
 
 void NetworkServiceTestHelper::RegisterNetworkBinders(
     service_manager::BinderRegistry* registry) {
-  registry->AddInterface(
-      base::Bind(&NetworkServiceTestHelper::BindNetworkServiceTestReceiver,
-                 base::Unretained(this)));
+  registry->AddInterface(base::BindRepeating(
+      &NetworkServiceTestHelper::BindNetworkServiceTestReceiver,
+      base::Unretained(this)));
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   service_manager::SandboxType sandbox_type =

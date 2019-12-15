@@ -89,6 +89,9 @@ COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 int GetProactiveSuggestionsMaxWidth();
 
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
+int GetProactiveSuggestionsRichEntryPointCornerRadius();
+
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 std::string GetProactiveSuggestionsServerExperimentIds();
 
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
@@ -107,14 +110,18 @@ COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsFeedbackUiEnabled();
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 bool IsInAssistantNotificationsEnabled();
 
-COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsKeyRemappingEnabled();
-
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 bool IsMediaSessionIntegrationEnabled();
 
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsPowerManagerEnabled();
 
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsProactiveSuggestionsEnabled();
+
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
+bool IsProactiveSuggestionsShowOnScrollEnabled();
+
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
+bool IsProactiveSuggestionsShowRichEntryPointEnabled();
 
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
 bool IsProactiveSuggestionsSuppressDuplicatesEnabled();
@@ -127,8 +134,10 @@ COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsStereoAudioInputEnabled();
 
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsWarmerWelcomeEnabled();
 
+COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC) bool IsVoiceMatchDisabled();
+
 COMPONENT_EXPORT(ASSISTANT_SERVICE_PUBLIC)
-bool IsVoiceMatchDisabled();
+bool IsAssistantWebContainerEnabled();
 
 }  // namespace features
 }  // namespace assistant

@@ -122,7 +122,7 @@ ACTION(QuitUIMessageLoop) {
 
 class MockClientSideDetectionService : public ClientSideDetectionService {
  public:
-  MockClientSideDetectionService() : ClientSideDetectionService(NULL) {}
+  MockClientSideDetectionService() : ClientSideDetectionService(nullptr) {}
   ~MockClientSideDetectionService() override {}
 
   MOCK_METHOD3(SendClientReportPhishingRequest,
@@ -305,10 +305,9 @@ class ClientSideDetectionHostTestBase : public ChromeRenderViewHostTestHarness {
   void TearDown() override {
     // Delete the host object on the UI thread and release the
     // SafeBrowsingService.
-    BrowserThread::DeleteSoon(BrowserThread::UI, FROM_HERE,
-                              csd_host_.release());
-    database_manager_ = NULL;
-    ui_manager_ = NULL;
+    base::DeleteSoon(FROM_HERE, {BrowserThread::UI}, csd_host_.release());
+    database_manager_.reset();
+    ui_manager_.reset();
     base::RunLoop().RunUntilIdle();
 
     ChromeRenderViewHostTestHarness::TearDown();

@@ -146,8 +146,12 @@ public class TabBuilder {
             if (mFromFrozenState) assert mLaunchType == TabLaunchType.FROM_RESTORE;
         }
 
-        Tab tab = new Tab(mId, mParent, mIncognito, mLaunchType);
+        TabImpl tab = new TabImpl(mId, mParent, mIncognito, mLaunchType);
         tab.updateWindowAndroid(mWindow);
+
+        if (mParent != null && mDelegateFactory == null) {
+            mDelegateFactory = ((TabImpl) mParent).getDelegateFactory();
+        }
 
         // Initializes Tab. Its user data objects are also initialized through the event
         // |onInitialized| of TabObserver they register.

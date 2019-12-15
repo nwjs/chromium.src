@@ -15,11 +15,12 @@
 #include "third_party/skia/include/core/SkRefCnt.h"
 #include "third_party/skia/include/core/SkSerialProcs.h"
 #include "third_party/skia/include/core/SkTypeface.h"
+#include "ui/gfx/geometry/rect.h"
 
 namespace paint_preview {
 
 // Maps a content ID to a frame ID (Process ID || Routing ID).
-using PictureSerializationContext = base::flat_map<uint32_t, int64_t>;
+using PictureSerializationContext = base::flat_map<uint32_t, uint64_t>;
 
 // Maps a typeface ID to a glyph usage tracker.
 using TypefaceUsageMap = base::flat_map<SkFontID, std::unique_ptr<GlyphUsage>>;
@@ -33,8 +34,8 @@ struct TypefaceSerializationContext {
   base::flat_set<SkFontID> finished;  // Should be empty on first use.
 };
 
-// Maps a content ID to a SkPicture.
-using DeserializationContext = base::flat_map<uint32_t, sk_sp<SkPicture>>;
+// Maps a content ID to a clip rect.
+using DeserializationContext = base::flat_map<uint32_t, gfx::Rect>;
 
 // Creates a no-op SkPicture.
 sk_sp<SkPicture> MakeEmptyPicture();

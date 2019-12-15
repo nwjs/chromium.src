@@ -16,13 +16,13 @@
 #include "chrome/browser/safe_browsing/certificate_reporting_service_factory.h"
 #include "chrome/browser/safe_browsing/certificate_reporting_service_test_utils.h"
 #include "chrome/browser/safe_browsing/test_safe_browsing_service.h"
-#include "chrome/browser/ssl/cert_logger.pb.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/safe_browsing/common/safe_browsing_prefs.h"
+#include "components/security_interstitials/content/cert_logger.pb.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/test/browser_task_environment.h"
@@ -128,19 +128,20 @@ class TrialComparisonCertVerifierControllerTest : public testing::Test {
     reporting_service_test_helper()->SetFailureMode(
         certificate_reporting_test_utils::REPORTS_SUCCESSFUL);
 
-    // Creating the profile before the SafeBrowsingService ensures the
-    // ServiceManagerConnection is initialized.
     profile_manager_ = std::make_unique<TestingProfileManager>(
         TestingBrowserProcess::GetGlobal());
     ASSERT_TRUE(profile_manager_->SetUp());
     ASSERT_TRUE(g_browser_process->profile_manager());
-    profile_ = profile_manager_->CreateTestingProfile("profile1");
 
     sb_service_ =
         base::MakeRefCounted<safe_browsing::TestSafeBrowsingService>();
     TestingBrowserProcess::GetGlobal()->SetSafeBrowsingService(
         sb_service_.get());
     g_browser_process->safe_browsing_service()->Initialize();
+
+    // SafeBrowsingService expects to be initialized before any profiles are
+    // created.
+    profile_ = profile_manager_->CreateTestingProfile("profile1");
 
     // Initialize CertificateReportingService for |profile_|.
     ASSERT_TRUE(reporting_service());

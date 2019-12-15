@@ -69,10 +69,6 @@ class APP_LIST_EXPORT AppListPresenterImpl
   // folder was closed.
   bool HandleCloseOpenFolder();
 
-  // If app list has an open search box, close it. Returns whether an open
-  // search box was closed.
-  bool HandleCloseOpenSearchBox();
-
   // Show the app list if it is visible, hide it if it is hidden. If
   // |event_time_stamp| is not 0, it means |ToggleAppList()| was triggered by
   // one of the AppListShowSources: kSearchKey or kShelfButton.
@@ -105,9 +101,27 @@ class APP_LIST_EXPORT AppListPresenterImpl
   // Updates the y position and opacity of the full screen app list. The changes
   // are slightly different than UpdateYPositionAndOpacity. If |callback| is non
   // null the this will animate using the animation settings in |callback|.
+  // |transition| - The tablet mode animation type. Used to report animation
+  // metrics if the home launcher change is animated. Should be set only if
+  // |callback| is non-null. If not set, the animation smoothness metrics will
+  // not be reported.
   void UpdateYPositionAndOpacityForHomeLauncher(
       int y_position_in_screen,
       float opacity,
+      base::Optional<TabletModeAnimationTransition> transition,
+      UpdateHomeLauncherAnimationSettingsCallback callback);
+
+  // Scales the home launcher view maintaining the view center point, and
+  // updates its opacity. If |callback| is non-null, the update should be
+  // animated, and the |callback| should be called with the animation settings.
+  // |transition| - The tablet mode animation type. Used to report animation
+  // metrics if the home launcher change is animated. Should be set only if
+  // |callback| is non-null. If not set, the animation smoothness metrics will
+  // not be reported.
+  void UpdateScaleAndOpacityForHomeLauncher(
+      float scale,
+      float opacity,
+      base::Optional<TabletModeAnimationTransition> transition,
       UpdateHomeLauncherAnimationSettingsCallback callback);
 
   // Shows or hides the Assistant page.
@@ -150,7 +164,7 @@ class APP_LIST_EXPORT AppListPresenterImpl
   void OnWidgetVisibilityChanged(views::Widget* widget, bool visible) override;
 
   // PaginationModelObserver overrides:
-  void TotalPagesChanged() override;
+  void TotalPagesChanged(int previous_page_count, int new_page_count) override;
   void SelectedPageChanged(int old_selected, int new_selected) override;
 
   // Registers a callback that is run when the next frame successfully makes it

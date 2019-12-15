@@ -91,6 +91,8 @@ class CONTENT_EXPORT AuthenticatorCommon {
 
   void Cleanup();
 
+  void DisableUI();
+
   base::flat_set<device::FidoTransportProtocol> enabled_transports_for_testing()
       const {
     return transports_;
@@ -136,6 +138,7 @@ class CONTENT_EXPORT AuthenticatorCommon {
       const std::string& type,
       const std::string& origin,
       base::span<const uint8_t> challenge,
+      bool is_cross_origin,
       bool use_legacy_u2f_type_key = false);
 
   // Callback to handle the async response from a U2fDevice.
@@ -204,6 +207,7 @@ class CONTENT_EXPORT AuthenticatorCommon {
   // empty_allow_list_ is true iff a GetAssertion is currently pending and the
   // request did not list any credential IDs in the allow list.
   bool empty_allow_list_ = false;
+  bool disable_ui_ = false;
   url::Origin caller_origin_;
   std::string relying_party_id_;
   std::unique_ptr<base::OneShotTimer> timer_;

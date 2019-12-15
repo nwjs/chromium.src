@@ -26,7 +26,9 @@
 #include "net/cert/ct_policy_enforcer.h"
 #include "net/cert/do_nothing_ct_verifier.h"
 #include "net/cert/mock_cert_verifier.h"
+#include "net/dns/host_resolver_source.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/dns/public/dns_query_type.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_response_info.h"
 #include "net/http/http_server_properties.h"
@@ -36,6 +38,7 @@
 #include "net/quic/address_utils.h"
 #include "net/quic/crypto/proof_verifier_chromium.h"
 #include "net/quic/mock_crypto_client_stream_factory.h"
+#include "net/quic/mock_quic_context.h"
 #include "net/quic/mock_quic_data.h"
 #include "net/quic/properties_based_quic_server_info.h"
 #include "net/quic/quic_chromium_alarm_factory.h"
@@ -124,11 +127,8 @@ std::vector<TestParams> GetTestParams() {
   quic::ParsedQuicVersionVector all_supported_versions =
       quic::AllSupportedVersions();
   for (const auto& version : all_supported_versions) {
-    // TODO(rch): crbug.com/978745 - Make this work with TLS
-    if (version.handshake_protocol != quic::PROTOCOL_TLS1_3) {
       params.push_back(TestParams{version, false});
       params.push_back(TestParams{version, true});
-    }
   }
   return params;
 }
@@ -166,15 +166,12 @@ std::vector<PoolingTestParams> GetPoolingTestParams() {
   quic::ParsedQuicVersionVector all_supported_versions =
       quic::AllSupportedVersions();
   for (const quic::ParsedQuicVersion version : all_supported_versions) {
-    // TODO(rch): crbug.com/978745 - Make this work with TLS
-    if (version.handshake_protocol != quic::PROTOCOL_TLS1_3) {
-      params.push_back(PoolingTestParams{version, SAME_AS_FIRST, false});
-      params.push_back(PoolingTestParams{version, SAME_AS_FIRST, true});
-      params.push_back(PoolingTestParams{version, SAME_AS_SECOND, false});
-      params.push_back(PoolingTestParams{version, SAME_AS_SECOND, true});
-      params.push_back(PoolingTestParams{version, DIFFERENT, false});
-      params.push_back(PoolingTestParams{version, DIFFERENT, true});
-    }
+    params.push_back(PoolingTestParams{version, SAME_AS_FIRST, false});
+    params.push_back(PoolingTestParams{version, SAME_AS_FIRST, true});
+    params.push_back(PoolingTestParams{version, SAME_AS_SECOND, false});
+    params.push_back(PoolingTestParams{version, SAME_AS_SECOND, true});
+    params.push_back(PoolingTestParams{version, DIFFERENT, false});
+    params.push_back(PoolingTestParams{version, DIFFERENT, true});
   }
   return params;
 }
@@ -219,23 +216,22 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
       : host_resolver_(new MockHostResolver),
         ssl_config_service_(new SSLConfigServiceDefaults),
         socket_factory_(new MockClientSocketFactory),
-        random_generator_(0),
-        runner_(new TestTaskRunner(&clock_)),
+        runner_(new TestTaskRunner(context_.mock_clock())),
         version_(version),
-        client_maker_(
-            version_,
-            quic::QuicUtils::CreateRandomConnectionId(&random_generator_),
-            &clock_,
-            kDefaultServerHostName,
-            quic::Perspective::IS_CLIENT,
-            client_headers_include_h2_stream_dependency),
-        server_maker_(
-            version_,
-            quic::QuicUtils::CreateRandomConnectionId(&random_generator_),
-            &clock_,
-            kDefaultServerHostName,
-            quic::Perspective::IS_SERVER,
-            false),
+        client_maker_(version_,
+                      quic::QuicUtils::CreateRandomConnectionId(
+                          context_.random_generator()),
+                      context_.clock(),
+                      kDefaultServerHostName,
+                      quic::Perspective::IS_CLIENT,
+                      client_headers_include_h2_stream_dependency),
+        server_maker_(version_,
+                      quic::QuicUtils::CreateRandomConnectionId(
+                          context_.random_generator()),
+                      context_.clock(),
+                      kDefaultServerHostName,
+                      quic::Perspective::IS_SERVER,
+                      false),
         http_server_properties_(std::make_unique<HttpServerProperties>()),
         cert_verifier_(std::make_unique<MockCertVerifier>()),
         cert_transparency_verifier_(std::make_unique<DoNothingCTVerifier>()),
@@ -250,10 +246,11 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
         failed_on_default_network_callback_(base::BindRepeating(
             &QuicStreamFactoryTestBase::OnFailedOnDefaultNetwork,
             base::Unretained(this))),
-        failed_on_default_network_(false) {
-    test_params_.quic_params.headers_include_h2_stream_dependency =
+        failed_on_default_network_(false),
+        quic_params_(context_.params()) {
+    quic_params_->headers_include_h2_stream_dependency =
         client_headers_include_h2_stream_dependency;
-    clock_.AdvanceTime(quic::QuicTime::Delta::FromSeconds(1));
+    context_.AdvanceTime(quic::QuicTime::Delta::FromSeconds(1));
   }
 
   void Initialize() {
@@ -264,8 +261,7 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
         cert_verifier_.get(), &ct_policy_enforcer_, &transport_security_state_,
         cert_transparency_verifier_.get(),
         /*SocketPerformanceWatcherFactory*/ nullptr,
-        &crypto_client_stream_factory_, &random_generator_, &clock_,
-        test_params_.quic_params);
+        &crypto_client_stream_factory_, &context_);
   }
 
   void InitializeConnectionMigrationV2Test(
@@ -276,9 +272,9 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
         scoped_mock_network_change_notifier_->mock_network_change_notifier();
     mock_ncn->ForceNetworkHandlesSupported();
     mock_ncn->SetConnectedNetworksList(connected_networks);
-    test_params_.quic_params.migrate_sessions_on_network_change_v2 = true;
-    test_params_.quic_params.migrate_sessions_early_v2 = true;
-    test_params_.quic_params.allow_port_migration = false;
+    quic_params_->migrate_sessions_on_network_change_v2 = true;
+    quic_params_->migrate_sessions_early_v2 = true;
+    quic_params_->allow_port_migration = false;
     socket_factory_.reset(new TestMigrationSocketFactory);
     Initialize();
   }
@@ -481,7 +477,7 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
   // Helper method for server migration tests.
   void VerifyServerMigration(const quic::QuicConfig& config,
                              IPEndPoint expected_address) {
-    test_params_.quic_params.allow_server_migration = true;
+    quic_params_->allow_server_migration = true;
     Initialize();
 
     ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -583,9 +579,8 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
                                            PRIVACY_MODE_DISABLED);
     }
 
-    test_params_.quic_params.max_server_configs_stored_in_properties = 1;
-    test_params_.quic_params.idle_connection_timeout =
-        base::TimeDelta::FromSeconds(500);
+    quic_params_->max_server_configs_stored_in_properties = 1;
+    quic_params_->idle_connection_timeout = base::TimeDelta::FromSeconds(500);
     Initialize();
     factory_->set_is_quic_known_to_work_on_current_network(true);
     ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -816,9 +811,9 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
     if (version_.transport_version != quic::QUIC_VERSION_99) {
       return "";
     }
-    quic::HttpEncoder encoder;
     std::unique_ptr<char[]> buffer;
-    auto header_length = encoder.SerializeDataFrameHeader(body_len, &buffer);
+    auto header_length =
+        quic::HttpEncoder::SerializeDataFrameHeader(body_len, &buffer);
     return std::string(buffer.get(), header_length);
   }
 
@@ -882,8 +877,7 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
   std::unique_ptr<SSLConfigService> ssl_config_service_;
   std::unique_ptr<MockClientSocketFactory> socket_factory_;
   MockCryptoClientStreamFactory crypto_client_stream_factory_;
-  quic::test::MockRandom random_generator_;
-  quic::MockClock clock_;
+  MockQuicContext context_;
   scoped_refptr<TestTaskRunner> runner_;
   const quic::ParsedQuicVersion version_;
   QuicTestPacketMaker client_maker_;
@@ -909,8 +903,7 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
   bool failed_on_default_network_;
   NetErrorDetails net_error_details_;
 
-  // Variables to configure QuicStreamFactory.
-  HttpNetworkSession::Params test_params_;
+  QuicParams* quic_params_;
 };
 
 class QuicStreamFactoryTest : public QuicStreamFactoryTestBase,
@@ -984,6 +977,11 @@ TEST_P(QuicStreamFactoryTest, Create) {
 }
 
 TEST_P(QuicStreamFactoryTest, CreateZeroRtt) {
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
   Initialize();
   factory_->set_is_quic_known_to_work_on_current_network(true);
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -1074,6 +1072,11 @@ TEST_P(QuicStreamFactoryTest, FactoryDestroyedWhenJobPending) {
 }
 
 TEST_P(QuicStreamFactoryTest, RequireConfirmation) {
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
   crypto_client_stream_factory_.set_handshake_mode(
       MockCryptoClientStream::ZERO_RTT);
   host_resolver_->set_synchronous_mode(true);
@@ -1116,6 +1119,11 @@ TEST_P(QuicStreamFactoryTest, RequireConfirmation) {
 }
 
 TEST_P(QuicStreamFactoryTest, DontRequireConfirmationFromSameIP) {
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
   crypto_client_stream_factory_.set_handshake_mode(
       MockCryptoClientStream::ZERO_RTT);
   host_resolver_->set_synchronous_mode(true);
@@ -1164,7 +1172,7 @@ TEST_P(QuicStreamFactoryTest, CachedInitialRtt) {
   stats.srtt = base::TimeDelta::FromMilliseconds(10);
   http_server_properties_->SetServerNetworkStats(url::SchemeHostPort(url_),
                                                  NetworkIsolationKey(), stats);
-  test_params_.quic_params.estimate_initial_rtt = true;
+  quic_params_->estimate_initial_rtt = true;
 
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -1220,7 +1228,7 @@ TEST_P(QuicStreamFactoryTest, CachedInitialRttWithNetworkIsolationKey) {
   stats.srtt = base::TimeDelta::FromMilliseconds(10);
   http_server_properties_->SetServerNetworkStats(url::SchemeHostPort(url_),
                                                  kNetworkIsolationKey1, stats);
-  test_params_.quic_params.estimate_initial_rtt = true;
+  quic_params_->estimate_initial_rtt = true;
   Initialize();
 
   for (const auto& network_isolation_key :
@@ -1231,9 +1239,10 @@ TEST_P(QuicStreamFactoryTest, CachedInitialRttWithNetworkIsolationKey) {
     crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
 
     QuicTestPacketMaker packet_maker(
-        version_, quic::QuicUtils::CreateRandomConnectionId(&random_generator_),
-        &clock_, kDefaultServerHostName, quic::Perspective::IS_CLIENT,
-        test_params_.quic_params.headers_include_h2_stream_dependency);
+        version_,
+        quic::QuicUtils::CreateRandomConnectionId(context_.random_generator()),
+        context_.clock(), kDefaultServerHostName, quic::Perspective::IS_CLIENT,
+        quic_params_->headers_include_h2_stream_dependency);
 
     MockQuicData socket_data(version_);
     socket_data.AddRead(SYNCHRONOUS, ERR_IO_PENDING);
@@ -1274,7 +1283,7 @@ TEST_P(QuicStreamFactoryTest, 2gInitialRtt) {
   ScopedMockNetworkChangeNotifier notifier;
   notifier.mock_network_change_notifier()->SetConnectionType(
       NetworkChangeNotifier::CONNECTION_2G);
-  test_params_.quic_params.estimate_initial_rtt = true;
+  quic_params_->estimate_initial_rtt = true;
 
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -1309,7 +1318,7 @@ TEST_P(QuicStreamFactoryTest, 3gInitialRtt) {
   ScopedMockNetworkChangeNotifier notifier;
   notifier.mock_network_change_notifier()->SetConnectionType(
       NetworkChangeNotifier::CONNECTION_3G);
-  test_params_.quic_params.estimate_initial_rtt = true;
+  quic_params_->estimate_initial_rtt = true;
 
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -1452,9 +1461,10 @@ TEST_P(QuicStreamFactoryTest, ServerNetworkStatsWithNetworkIsolationKey) {
     crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
 
     QuicTestPacketMaker packet_maker(
-        version_, quic::QuicUtils::CreateRandomConnectionId(&random_generator_),
-        &clock_, kDefaultServerHostName, quic::Perspective::IS_CLIENT,
-        test_params_.quic_params.headers_include_h2_stream_dependency);
+        version_,
+        quic::QuicUtils::CreateRandomConnectionId(context_.random_generator()),
+        context_.clock(), kDefaultServerHostName, quic::Perspective::IS_CLIENT,
+        quic_params_->headers_include_h2_stream_dependency);
 
     MockQuicData socket_data(version_);
     socket_data.AddRead(SYNCHRONOUS, ERR_IO_PENDING);
@@ -2327,7 +2337,7 @@ TEST_P(QuicStreamFactoryTest, WriteErrorInCryptoConnectWithSyncHostResolution) {
 }
 
 TEST_P(QuicStreamFactoryTest, CloseSessionsOnIPAddressChanged) {
-  test_params_.quic_params.close_sessions_on_ip_change = true;
+  quic_params_->close_sessions_on_ip_change = true;
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
   crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
@@ -2420,7 +2430,7 @@ TEST_P(QuicStreamFactoryTest, CloseSessionsOnIPAddressChanged) {
 // as going away on IP address change instead of being closed. New requests will
 // go to a new connection.
 TEST_P(QuicStreamFactoryTest, GoAwaySessionsOnIPAddressChanged) {
-  test_params_.quic_params.goaway_sessions_on_ip_change = true;
+  quic_params_->goaway_sessions_on_ip_change = true;
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
   crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
@@ -3053,7 +3063,7 @@ TEST_P(QuicStreamFactoryTest,
 
 void QuicStreamFactoryTestBase::TestOnNetworkMadeDefaultNonMigratableStream(
     bool migrate_idle_sessions) {
-  test_params_.quic_params.migrate_idle_sessions = migrate_idle_sessions;
+  quic_params_->migrate_idle_sessions = migrate_idle_sessions;
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -3067,14 +3077,28 @@ void QuicStreamFactoryTestBase::TestOnNetworkMadeDefaultNonMigratableStream(
                          ConstructInitialSettingsPacket(packet_num++));
   }
   if (!migrate_idle_sessions) {
-    socket_data.AddWrite(
-        SYNCHRONOUS, client_maker_.MakeRstAckAndConnectionClosePacket(
-                         packet_num + 1, false,
-                         GetNthClientInitiatedBidirectionalStreamId(0),
-                         quic::QUIC_STREAM_CANCELLED,
-                         quic::QuicTime::Delta::FromMilliseconds(0), 1, 1, 1,
-                         quic::QUIC_CONNECTION_MIGRATION_NO_MIGRATABLE_STREAMS,
-                         "net error"));
+    if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3) {
+      // TLS1.3 supports multiple packet number space, so a proactive ack is no
+      // longer sent.
+      socket_data.AddWrite(
+          SYNCHRONOUS,
+          client_maker_.MakeRstAndConnectionClosePacket(
+              packet_num + 1, false,
+              GetNthClientInitiatedBidirectionalStreamId(0),
+              quic::QUIC_STREAM_CANCELLED,
+              quic::QUIC_CONNECTION_MIGRATION_NO_MIGRATABLE_STREAMS,
+              "net error"));
+    } else {
+      socket_data.AddWrite(
+          SYNCHRONOUS,
+          client_maker_.MakeRstAckAndConnectionClosePacket(
+              packet_num + 1, false,
+              GetNthClientInitiatedBidirectionalStreamId(0),
+              quic::QUIC_STREAM_CANCELLED,
+              quic::QuicTime::Delta::FromMilliseconds(0), 1, 1, 1,
+              quic::QUIC_CONNECTION_MIGRATION_NO_MIGRATABLE_STREAMS,
+              "net error"));
+    }
   }
 
   socket_data.AddSocketDataToFactory(socket_factory_.get());
@@ -3230,7 +3254,7 @@ TEST_P(QuicStreamFactoryTest,
 
 void QuicStreamFactoryTestBase::TestOnNetworkDisconnectedNonMigratableStream(
     bool migrate_idle_sessions) {
-  test_params_.quic_params.migrate_idle_sessions = migrate_idle_sessions;
+  quic_params_->migrate_idle_sessions = migrate_idle_sessions;
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -3399,7 +3423,7 @@ TEST_P(QuicStreamFactoryTest,
 
 void QuicStreamFactoryTestBase::TestOnNetworkMadeDefaultNoOpenStreams(
     bool migrate_idle_sessions) {
-  test_params_.quic_params.migrate_idle_sessions = migrate_idle_sessions;
+  quic_params_->migrate_idle_sessions = migrate_idle_sessions;
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -3486,7 +3510,7 @@ TEST_P(QuicStreamFactoryTest,
 
 void QuicStreamFactoryTestBase::TestOnNetworkDisconnectedNoOpenStreams(
     bool migrate_idle_sessions) {
-  test_params_.quic_params.migrate_idle_sessions = migrate_idle_sessions;
+  quic_params_->migrate_idle_sessions = migrate_idle_sessions;
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -4163,7 +4187,7 @@ void QuicStreamFactoryTestBase::TestMigrationOnPathDegrading(
 // Verifies that port migration can be attempted and succeed when path degrading
 // is detected, even if NetworkHandle is not supported.
 TEST_P(QuicStreamFactoryTest, MigratePortOnPathDegrading_WithoutNetworkHandle) {
-  test_params_.quic_params.allow_port_migration = true;
+  quic_params_->allow_port_migration = true;
   socket_factory_.reset(new TestMigrationSocketFactory);
   Initialize();
 
@@ -4179,7 +4203,7 @@ TEST_P(QuicStreamFactoryTest, MigratePortOnPathDegrading_WithNetworkHandle) {
       scoped_mock_network_change_notifier_->mock_network_change_notifier();
   mock_ncn->ForceNetworkHandlesSupported();
   mock_ncn->SetConnectedNetworksList({kDefaultNetworkForTests});
-  test_params_.quic_params.allow_port_migration = true;
+  quic_params_->allow_port_migration = true;
   socket_factory_.reset(new TestMigrationSocketFactory);
   Initialize();
 
@@ -4201,8 +4225,8 @@ TEST_P(QuicStreamFactoryTest, MigratePortOnPathDegrading_WithMigration) {
   mock_ncn->ForceNetworkHandlesSupported();
   mock_ncn->SetConnectedNetworksList({kDefaultNetworkForTests});
   // Enable migration on network change.
-  test_params_.quic_params.migrate_sessions_on_network_change_v2 = true;
-  test_params_.quic_params.allow_port_migration = true;
+  quic_params_->migrate_sessions_on_network_change_v2 = true;
+  quic_params_->allow_port_migration = true;
   socket_factory_.reset(new TestMigrationSocketFactory);
   Initialize();
 
@@ -4350,10 +4374,181 @@ void QuicStreamFactoryTestBase::TestSimplePortMigrationOnPathDegrading() {
   EXPECT_TRUE(quic_data2.AllWriteDataConsumed());
 }
 
+// Regression test for https://crbug.com/1014092.
+TEST_P(QuicStreamFactoryTest, MultiplePortMigrationsExceedsMaxLimit) {
+  quic_params_->allow_port_migration = true;
+  socket_factory_.reset(new TestMigrationSocketFactory);
+  Initialize();
+
+  ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
+  crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
+  crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
+
+  // Using a testing task runner so that we can control time.
+  auto task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>();
+  QuicStreamFactoryPeer::SetTaskRunner(factory_.get(), task_runner.get());
+
+  int packet_number = 1;
+  MockQuicData quic_data1(version_);
+  quic_data1.AddRead(SYNCHRONOUS, ERR_IO_PENDING);  // Hanging Read.
+  if (VersionUsesHttp3(version_.transport_version)) {
+    quic_data1.AddWrite(SYNCHRONOUS,
+                        ConstructInitialSettingsPacket(packet_number++));
+  }
+  quic_data1.AddWrite(
+      SYNCHRONOUS,
+      ConstructGetRequestPacket(packet_number++,
+                                GetNthClientInitiatedBidirectionalStreamId(0),
+                                true, true));
+  quic_data1.AddSocketDataToFactory(socket_factory_.get());
+
+  // Create request and QuicHttpStream.
+  QuicStreamRequest request(factory_.get());
+  EXPECT_EQ(
+      ERR_IO_PENDING,
+      request.Request(
+          host_port_pair_, version_, privacy_mode_, DEFAULT_PRIORITY,
+          SocketTag(), NetworkIsolationKey(), false /* disable_secure_dns */,
+          /*cert_verify_flags=*/0, url_, net_log_, &net_error_details_,
+          failed_on_default_network_callback_, callback_.callback()));
+  EXPECT_THAT(callback_.WaitForResult(), IsOk());
+  std::unique_ptr<HttpStream> stream = CreateStream(&request);
+  EXPECT_TRUE(stream.get());
+
+  // Cause QUIC stream to be created.
+  HttpRequestInfo request_info;
+  request_info.method = "GET";
+  request_info.url = url_;
+  request_info.traffic_annotation =
+      MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+  EXPECT_EQ(OK, stream->InitializeStream(&request_info, true, DEFAULT_PRIORITY,
+                                         net_log_, CompletionOnceCallback()));
+
+  // Ensure that session is alive and active.
+  QuicChromiumClientSession* session = GetActiveSession(host_port_pair_);
+  EXPECT_TRUE(QuicStreamFactoryPeer::IsLiveSession(factory_.get(), session));
+  EXPECT_TRUE(HasActiveSession(host_port_pair_));
+
+  // Send GET request on stream.
+  HttpResponseInfo response;
+  HttpRequestHeaders request_headers;
+  EXPECT_EQ(OK, stream->SendRequest(request_headers, &response,
+                                    callback_.callback()));
+
+  int server_packet_num = 1;
+  base::TimeDelta next_task_delay;
+  // Perform 4 round of successful migration, and the 5th round will
+  // cancel after successful probing due to hitting the limit.
+  for (int i = 0; i <= 4; i++) {
+    // Set up a different socket data provider that is used for
+    // probing and migration.
+    MockQuicData quic_data2(version_);
+    // Connectivity probe to be sent on the new path.
+    quic_data2.AddWrite(SYNCHRONOUS,
+                        client_maker_.MakeConnectivityProbingPacket(
+                            packet_number, packet_number == 2));
+    packet_number++;
+    quic_data2.AddRead(ASYNC, ERR_IO_PENDING);  // Pause
+    // Connectivity probe to receive from the server.
+    quic_data2.AddRead(ASYNC, server_maker_.MakeConnectivityProbingPacket(
+                                  server_packet_num++, false));
+    // Ping packet to send after migration is completed.
+    if (i == 0) {
+      // First ack and PING are bundled, and version flag is set.
+      quic_data2.AddWrite(SYNCHRONOUS, client_maker_.MakeAckAndPingPacket(
+                                           packet_number++, false, 1, 1, 1));
+    } else if (i != 4) {
+      // ACK and PING post migration after successful probing.
+      quic_data2.AddWrite(
+          SYNCHRONOUS, client_maker_.MakeAckPacket(packet_number++, 1 + 2 * i,
+                                                   1 + 2 * i, 1, true));
+      quic_data2.AddWrite(SYNCHRONOUS,
+                          client_maker_.MakePingPacket(packet_number++, false));
+    }
+    if (i == 4) {
+      // Add one more synchronous read on the last probing reader. The
+      // reader should be deleted on the read before this one.
+      // The test will verify this read is not consumed.
+      quic_data2.AddRead(SYNCHRONOUS,
+                         server_maker_.MakeConnectivityProbingPacket(
+                             server_packet_num++, false));
+    } else {
+      quic_data2.AddRead(ASYNC, server_maker_.MakeConnectivityProbingPacket(
+                                    server_packet_num++, false));
+    }
+    if (i == 3) {
+      // On the last allowed port migration, read one more packet so
+      // that ACK is sent. The next round of migration (which hists the limit)
+      // will not send any proactive ACK when reading the successful probing
+      // response.
+      quic_data2.AddRead(ASYNC, server_maker_.MakeConnectivityProbingPacket(
+                                    server_packet_num++, false));
+      quic_data2.AddWrite(SYNCHRONOUS, client_maker_.MakeAckPacket(
+                                           packet_number++, 9, 9, 1, true));
+    }
+    quic_data2.AddRead(SYNCHRONOUS, ERR_IO_PENDING);  // EOF.
+    quic_data2.AddSocketDataToFactory(socket_factory_.get());
+
+    // Cause the connection to report path degrading to the session.
+    // Session will start to probe a different port.
+    session->connection()->OnPathDegradingTimeout();
+
+    // Next connectivity probe is scheduled to be sent in 2 *
+    // kDefaultRTTMilliSecs.
+    EXPECT_EQ(1u, task_runner->GetPendingTaskCount());
+    next_task_delay = task_runner->NextPendingTaskDelay();
+    EXPECT_EQ(base::TimeDelta::FromMilliseconds(2 * kDefaultRTTMilliSecs),
+              next_task_delay);
+
+    // The connection should still be alive, and not marked as going away.
+    EXPECT_TRUE(QuicStreamFactoryPeer::IsLiveSession(factory_.get(), session));
+    EXPECT_TRUE(HasActiveSession(host_port_pair_));
+    EXPECT_EQ(1u, session->GetNumActiveStreams());
+
+    // Resume quic data and a connectivity probe response will be read on the
+    // new socket.
+    quic_data2.Resume();
+    base::RunLoop().RunUntilIdle();
+
+    EXPECT_TRUE(QuicStreamFactoryPeer::IsLiveSession(factory_.get(), session));
+    EXPECT_TRUE(HasActiveSession(host_port_pair_));
+    EXPECT_EQ(1u, session->GetNumActiveStreams());
+
+    if (i < 4) {
+      // There should be pending tasks, the nearest one will complete
+      // migration to the new port.
+      EXPECT_EQ(2u, task_runner->GetPendingTaskCount());
+      next_task_delay = task_runner->NextPendingTaskDelay();
+      EXPECT_EQ(base::TimeDelta(), next_task_delay);
+    } else {
+      // Last attempt to migrate will abort due to hitting the limit of max
+      // number of allowed migrations.
+      EXPECT_EQ(1u, task_runner->GetPendingTaskCount());
+      next_task_delay = task_runner->NextPendingTaskDelay();
+      EXPECT_NE(base::TimeDelta(), next_task_delay);
+    }
+    task_runner->FastForwardBy(next_task_delay);
+    EXPECT_TRUE(quic_data2.AllWriteDataConsumed());
+    // The last round of migration will abort upon reading the probing response.
+    // Future reads in the same socket is ignored.
+    EXPECT_EQ(i != 4, quic_data2.AllReadDataConsumed());
+  }
+
+  EXPECT_EQ(0u, task_runner->GetPendingTaskCount());
+
+  // Verify that the session is still alive.
+  EXPECT_TRUE(QuicStreamFactoryPeer::IsLiveSession(factory_.get(), session));
+  EXPECT_TRUE(HasActiveSession(host_port_pair_));
+
+  stream.reset();
+  EXPECT_TRUE(quic_data1.AllReadDataConsumed());
+  EXPECT_TRUE(quic_data1.AllWriteDataConsumed());
+}
+
 // This test verifies that the session marks itself GOAWAY on path degrading
 // and it does not receive any new request
 TEST_P(QuicStreamFactoryTest, GoawayOnPathDegrading) {
-  test_params_.quic_params.go_away_on_path_degrading = true;
+  quic_params_->go_away_on_path_degrading = true;
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
   crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
@@ -5154,7 +5349,7 @@ TEST_P(QuicStreamFactoryTest,
 
 void QuicStreamFactoryTestBase::TestMigrateSessionEarlyNonMigratableStream(
     bool migrate_idle_sessions) {
-  test_params_.quic_params.migrate_idle_sessions = migrate_idle_sessions;
+  quic_params_->migrate_idle_sessions = migrate_idle_sessions;
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -5168,14 +5363,28 @@ void QuicStreamFactoryTestBase::TestMigrateSessionEarlyNonMigratableStream(
                          ConstructInitialSettingsPacket(packet_num++));
   }
   if (!migrate_idle_sessions) {
-    socket_data.AddWrite(
-        SYNCHRONOUS, client_maker_.MakeRstAckAndConnectionClosePacket(
-                         packet_num + 1, false,
-                         GetNthClientInitiatedBidirectionalStreamId(0),
-                         quic::QUIC_STREAM_CANCELLED,
-                         quic::QuicTime::Delta::FromMilliseconds(0), 1, 1, 1,
-                         quic::QUIC_CONNECTION_MIGRATION_NO_MIGRATABLE_STREAMS,
-                         "net error"));
+    if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3) {
+      // TLS1.3 supports multiple packet number. So a proactive ack is no longer
+      // sent.
+      socket_data.AddWrite(
+          SYNCHRONOUS,
+          client_maker_.MakeRstAndConnectionClosePacket(
+              packet_num + 1, false,
+              GetNthClientInitiatedBidirectionalStreamId(0),
+              quic::QUIC_STREAM_CANCELLED,
+              quic::QUIC_CONNECTION_MIGRATION_NO_MIGRATABLE_STREAMS,
+              "net error"));
+    } else {
+      socket_data.AddWrite(
+          SYNCHRONOUS,
+          client_maker_.MakeRstAckAndConnectionClosePacket(
+              packet_num + 1, false,
+              GetNthClientInitiatedBidirectionalStreamId(0),
+              quic::QUIC_STREAM_CANCELLED,
+              quic::QuicTime::Delta::FromMilliseconds(0), 1, 1, 1,
+              quic::QUIC_CONNECTION_MIGRATION_NO_MIGRATABLE_STREAMS,
+              "net error"));
+    }
   }
   socket_data.AddSocketDataToFactory(socket_factory_.get());
 
@@ -5786,7 +5995,7 @@ void QuicStreamFactoryTestBase::
         quic::QuicErrorCode quic_error) {
   DCHECK(quic_error == quic::QUIC_NETWORK_IDLE_TIMEOUT ||
          quic_error == quic::QUIC_HANDSHAKE_TIMEOUT);
-  test_params_.quic_params.retry_on_alternate_network_before_handshake = true;
+  quic_params_->retry_on_alternate_network_before_handshake = true;
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
 
@@ -5942,7 +6151,7 @@ void QuicStreamFactoryTestBase::
 // is triggered before handshake is confirmed and connection migration is turned
 // on.
 TEST_P(QuicStreamFactoryTest, MigrationOnWriteErrorBeforeHandshakeConfirmed) {
-  DCHECK(!test_params_.quic_params.retry_on_alternate_network_before_handshake);
+  DCHECK(!quic_params_->retry_on_alternate_network_before_handshake);
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
 
@@ -6016,7 +6225,7 @@ TEST_P(QuicStreamFactoryTest, MigrationOnWriteErrorBeforeHandshakeConfirmed) {
 // on, a new connection will be retried on the alternate network.
 TEST_P(QuicStreamFactoryTest,
        RetryConnectionOnWriteErrorBeforeHandshakeConfirmed) {
-  test_params_.quic_params.retry_on_alternate_network_before_handshake = true;
+  quic_params_->retry_on_alternate_network_before_handshake = true;
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
 
@@ -6758,7 +6967,7 @@ void QuicStreamFactoryTestBase::TestMigrationOnWriteErrorNonMigratableStream(
   DVLOG(1) << "Write error mode: "
            << ((write_error_mode == SYNCHRONOUS) ? "SYNCHRONOUS" : "ASYNC");
   DVLOG(1) << "Migrate idle sessions: " << migrate_idle_sessions;
-  test_params_.quic_params.migrate_idle_sessions = migrate_idle_sessions;
+  quic_params_->migrate_idle_sessions = migrate_idle_sessions;
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -7922,8 +8131,8 @@ TEST_P(QuicStreamFactoryTest, DefaultRetransmittableOnWireTimeoutForMigration) {
   auto task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>();
   QuicStreamFactoryPeer::SetTaskRunner(factory_.get(), task_runner.get());
   QuicStreamFactoryPeer::SetAlarmFactory(
-      factory_.get(),
-      std::make_unique<QuicChromiumAlarmFactory>(task_runner.get(), &clock_));
+      factory_.get(), std::make_unique<QuicChromiumAlarmFactory>(
+                          task_runner.get(), context_.clock()));
 
   MockQuicData socket_data(version_);
   int packet_num = 1;
@@ -8030,14 +8239,14 @@ TEST_P(QuicStreamFactoryTest, DefaultRetransmittableOnWireTimeoutForMigration) {
   base::TimeDelta delay = task_runner->NextPendingTaskDelay();
   EXPECT_GT(kDefaultRetransmittableOnWireTimeout, delay);
   // Fire the ack alarm, since ack has been sent, no ack will be sent.
-  clock_.AdvanceTime(
+  context_.AdvanceTime(
       quic::QuicTime::Delta::FromMilliseconds(delay.InMilliseconds()));
   task_runner->FastForwardBy(task_runner->NextPendingTaskDelay());
 
   // Fire the ping alarm with retransmittable-on-wire timeout, send PING.
   delay = kDefaultRetransmittableOnWireTimeout - delay;
   EXPECT_EQ(delay, task_runner->NextPendingTaskDelay());
-  clock_.AdvanceTime(
+  context_.AdvanceTime(
       quic::QuicTime::Delta::FromMilliseconds(delay.InMilliseconds()));
   task_runner->FastForwardBy(task_runner->NextPendingTaskDelay());
 
@@ -8068,8 +8277,7 @@ TEST_P(QuicStreamFactoryTest, DefaultRetransmittableOnWireTimeoutForMigration) {
 TEST_P(QuicStreamFactoryTest, CustomRetransmittableOnWireTimeoutForMigration) {
   constexpr base::TimeDelta custom_timeout_value =
       base::TimeDelta::FromMilliseconds(200);
-  test_params_.quic_params.retransmittable_on_wire_timeout =
-      custom_timeout_value;
+  quic_params_->retransmittable_on_wire_timeout = custom_timeout_value;
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -8080,8 +8288,8 @@ TEST_P(QuicStreamFactoryTest, CustomRetransmittableOnWireTimeoutForMigration) {
   auto task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>();
   QuicStreamFactoryPeer::SetTaskRunner(factory_.get(), task_runner.get());
   QuicStreamFactoryPeer::SetAlarmFactory(
-      factory_.get(),
-      std::make_unique<QuicChromiumAlarmFactory>(task_runner.get(), &clock_));
+      factory_.get(), std::make_unique<QuicChromiumAlarmFactory>(
+                          task_runner.get(), context_.clock()));
 
   MockQuicData socket_data(version_);
   int packet_num = 1;
@@ -8187,14 +8395,14 @@ TEST_P(QuicStreamFactoryTest, CustomRetransmittableOnWireTimeoutForMigration) {
   base::TimeDelta delay = task_runner->NextPendingTaskDelay();
   EXPECT_GT(custom_timeout_value, delay);
   // Fire the ack alarm, since ack has been sent, no ack will be sent.
-  clock_.AdvanceTime(
+  context_.AdvanceTime(
       quic::QuicTime::Delta::FromMilliseconds(delay.InMilliseconds()));
   task_runner->FastForwardBy(task_runner->NextPendingTaskDelay());
 
   // Fire the ping alarm with retransmittable-on-wire timeout, send PING.
   delay = custom_timeout_value - delay;
   EXPECT_EQ(delay, task_runner->NextPendingTaskDelay());
-  clock_.AdvanceTime(
+  context_.AdvanceTime(
       quic::QuicTime::Delta::FromMilliseconds(delay.InMilliseconds()));
   task_runner->FastForwardBy(task_runner->NextPendingTaskDelay());
 
@@ -8225,8 +8433,7 @@ TEST_P(QuicStreamFactoryTest, CustomRetransmittableOnWireTimeoutForMigration) {
 TEST_P(QuicStreamFactoryTest, CustomRetransmittableOnWireTimeout) {
   constexpr base::TimeDelta custom_timeout_value =
       base::TimeDelta::FromMilliseconds(200);
-  test_params_.quic_params.retransmittable_on_wire_timeout =
-      custom_timeout_value;
+  quic_params_->retransmittable_on_wire_timeout = custom_timeout_value;
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
   crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
@@ -8236,8 +8443,8 @@ TEST_P(QuicStreamFactoryTest, CustomRetransmittableOnWireTimeout) {
   auto task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>();
   QuicStreamFactoryPeer::SetTaskRunner(factory_.get(), task_runner.get());
   QuicStreamFactoryPeer::SetAlarmFactory(
-      factory_.get(),
-      std::make_unique<QuicChromiumAlarmFactory>(task_runner.get(), &clock_));
+      factory_.get(), std::make_unique<QuicChromiumAlarmFactory>(
+                          task_runner.get(), context_.clock()));
 
   MockQuicData socket_data1(version_);
   int packet_num = 1;
@@ -8327,14 +8534,14 @@ TEST_P(QuicStreamFactoryTest, CustomRetransmittableOnWireTimeout) {
   base::TimeDelta delay = task_runner->NextPendingTaskDelay();
   EXPECT_GT(custom_timeout_value, delay);
   // Fire the ack alarm, since ack has been sent, no ack will be sent.
-  clock_.AdvanceTime(
+  context_.AdvanceTime(
       quic::QuicTime::Delta::FromMilliseconds(delay.InMilliseconds()));
   task_runner->FastForwardBy(task_runner->NextPendingTaskDelay());
 
   // Fire the ping alarm with retransmittable-on-wire timeout, send PING.
   delay = custom_timeout_value - delay;
   EXPECT_EQ(delay, task_runner->NextPendingTaskDelay());
-  clock_.AdvanceTime(
+  context_.AdvanceTime(
       quic::QuicTime::Delta::FromMilliseconds(delay.InMilliseconds()));
   task_runner->FastForwardBy(task_runner->NextPendingTaskDelay());
 
@@ -8367,7 +8574,7 @@ TEST_P(QuicStreamFactoryTest, NoRetransmittableOnWireTimeout) {
   stats.srtt = base::TimeDelta::FromMilliseconds(200);
   http_server_properties_->SetServerNetworkStats(url::SchemeHostPort(url_),
                                                  NetworkIsolationKey(), stats);
-  test_params_.quic_params.estimate_initial_rtt = true;
+  quic_params_->estimate_initial_rtt = true;
 
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -8378,8 +8585,8 @@ TEST_P(QuicStreamFactoryTest, NoRetransmittableOnWireTimeout) {
   auto task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>();
   QuicStreamFactoryPeer::SetTaskRunner(factory_.get(), task_runner.get());
   QuicStreamFactoryPeer::SetAlarmFactory(
-      factory_.get(),
-      std::make_unique<QuicChromiumAlarmFactory>(task_runner.get(), &clock_));
+      factory_.get(), std::make_unique<QuicChromiumAlarmFactory>(
+                          task_runner.get(), context_.clock()));
 
   MockQuicData socket_data1(version_);
   int packet_num = 1;
@@ -8465,7 +8672,7 @@ TEST_P(QuicStreamFactoryTest, NoRetransmittableOnWireTimeout) {
   base::TimeDelta delay = task_runner->NextPendingTaskDelay();
   EXPECT_GT(kDefaultRetransmittableOnWireTimeout, delay);
   // Fire the ack alarm, since ack has been sent, no ack will be sent.
-  clock_.AdvanceTime(
+  context_.AdvanceTime(
       quic::QuicTime::Delta::FromMilliseconds(delay.InMilliseconds()));
   task_runner->FastForwardBy(task_runner->NextPendingTaskDelay());
 
@@ -8473,7 +8680,7 @@ TEST_P(QuicStreamFactoryTest, NoRetransmittableOnWireTimeout) {
   base::TimeDelta wrong_delay = kDefaultRetransmittableOnWireTimeout - delay;
   delay = task_runner->NextPendingTaskDelay();
   EXPECT_NE(wrong_delay, delay);
-  clock_.AdvanceTime(
+  context_.AdvanceTime(
       quic::QuicTime::Delta::FromMilliseconds(delay.InMilliseconds()));
   task_runner->FastForwardBy(task_runner->NextPendingTaskDelay());
 
@@ -8500,9 +8707,8 @@ TEST_P(QuicStreamFactoryTest,
        CustomeRetransmittableOnWireTimeoutWithMigrationOnNetworkChangeOnly) {
   constexpr base::TimeDelta custom_timeout_value =
       base::TimeDelta::FromMilliseconds(200);
-  test_params_.quic_params.retransmittable_on_wire_timeout =
-      custom_timeout_value;
-  test_params_.quic_params.migrate_sessions_on_network_change_v2 = true;
+  quic_params_->retransmittable_on_wire_timeout = custom_timeout_value;
+  quic_params_->migrate_sessions_on_network_change_v2 = true;
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
   crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
@@ -8512,8 +8718,8 @@ TEST_P(QuicStreamFactoryTest,
   auto task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>();
   QuicStreamFactoryPeer::SetTaskRunner(factory_.get(), task_runner.get());
   QuicStreamFactoryPeer::SetAlarmFactory(
-      factory_.get(),
-      std::make_unique<QuicChromiumAlarmFactory>(task_runner.get(), &clock_));
+      factory_.get(), std::make_unique<QuicChromiumAlarmFactory>(
+                          task_runner.get(), context_.clock()));
 
   MockQuicData socket_data1(version_);
   int packet_num = 1;
@@ -8603,14 +8809,14 @@ TEST_P(QuicStreamFactoryTest,
   base::TimeDelta delay = task_runner->NextPendingTaskDelay();
   EXPECT_GT(custom_timeout_value, delay);
   // Fire the ack alarm, since ack has been sent, no ack will be sent.
-  clock_.AdvanceTime(
+  context_.AdvanceTime(
       quic::QuicTime::Delta::FromMilliseconds(delay.InMilliseconds()));
   task_runner->FastForwardBy(task_runner->NextPendingTaskDelay());
 
   // Fire the ping alarm with retransmittable-on-wire timeout, send PING.
   delay = custom_timeout_value - delay;
   EXPECT_EQ(delay, task_runner->NextPendingTaskDelay());
-  clock_.AdvanceTime(
+  context_.AdvanceTime(
       quic::QuicTime::Delta::FromMilliseconds(delay.InMilliseconds()));
   task_runner->FastForwardBy(task_runner->NextPendingTaskDelay());
 
@@ -8644,8 +8850,8 @@ TEST_P(QuicStreamFactoryTest,
   stats.srtt = base::TimeDelta::FromMilliseconds(200);
   http_server_properties_->SetServerNetworkStats(url::SchemeHostPort(url_),
                                                  NetworkIsolationKey(), stats);
-  test_params_.quic_params.estimate_initial_rtt = true;
-  test_params_.quic_params.migrate_sessions_on_network_change_v2 = true;
+  quic_params_->estimate_initial_rtt = true;
+  quic_params_->migrate_sessions_on_network_change_v2 = true;
   Initialize();
 
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -8656,8 +8862,8 @@ TEST_P(QuicStreamFactoryTest,
   auto task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>();
   QuicStreamFactoryPeer::SetTaskRunner(factory_.get(), task_runner.get());
   QuicStreamFactoryPeer::SetAlarmFactory(
-      factory_.get(),
-      std::make_unique<QuicChromiumAlarmFactory>(task_runner.get(), &clock_));
+      factory_.get(), std::make_unique<QuicChromiumAlarmFactory>(
+                          task_runner.get(), context_.clock()));
 
   MockQuicData socket_data1(version_);
   int packet_num = 1;
@@ -8743,7 +8949,7 @@ TEST_P(QuicStreamFactoryTest,
   base::TimeDelta delay = task_runner->NextPendingTaskDelay();
   EXPECT_GT(kDefaultRetransmittableOnWireTimeout, delay);
   // Fire the ack alarm, since ack has been sent, no ack will be sent.
-  clock_.AdvanceTime(
+  context_.AdvanceTime(
       quic::QuicTime::Delta::FromMilliseconds(delay.InMilliseconds()));
   task_runner->FastForwardBy(task_runner->NextPendingTaskDelay());
 
@@ -8751,7 +8957,7 @@ TEST_P(QuicStreamFactoryTest,
   base::TimeDelta wrong_delay = kDefaultRetransmittableOnWireTimeout - delay;
   delay = task_runner->NextPendingTaskDelay();
   EXPECT_NE(wrong_delay, delay);
-  clock_.AdvanceTime(
+  context_.AdvanceTime(
       quic::QuicTime::Delta::FromMilliseconds(delay.InMilliseconds()));
   task_runner->FastForwardBy(task_runner->NextPendingTaskDelay());
 
@@ -9074,7 +9280,7 @@ void QuicStreamFactoryTestBase::
 // default network or the idle migration period threshold is exceeded.
 // The default threshold is 30s.
 TEST_P(QuicStreamFactoryTest, DefaultIdleMigrationPeriod) {
-  test_params_.quic_params.migrate_idle_sessions = true;
+  quic_params_->migrate_idle_sessions = true;
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -9201,8 +9407,8 @@ TEST_P(QuicStreamFactoryTest, DefaultIdleMigrationPeriod) {
 
 TEST_P(QuicStreamFactoryTest, CustomIdleMigrationPeriod) {
   // The customized threshold is 15s.
-  test_params_.quic_params.migrate_idle_sessions = true;
-  test_params_.quic_params.idle_session_migration_period =
+  quic_params_->migrate_idle_sessions = true;
+  quic_params_->idle_session_migration_period =
       base::TimeDelta::FromSeconds(15);
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
@@ -9324,7 +9530,7 @@ TEST_P(QuicStreamFactoryTest, CustomIdleMigrationPeriod) {
 }
 
 TEST_P(QuicStreamFactoryTest, ServerMigration) {
-  test_params_.quic_params.allow_server_migration = true;
+  quic_params_->allow_server_migration = true;
   Initialize();
 
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -9468,7 +9674,7 @@ TEST_P(QuicStreamFactoryTest, ServerMigrationIPv6ToIPv4) {
 }
 
 TEST_P(QuicStreamFactoryTest, ServerMigrationIPv4ToIPv6Fails) {
-  test_params_.quic_params.allow_server_migration = true;
+  quic_params_->allow_server_migration = true;
   Initialize();
 
   // Add a resolver rule to make initial connection to an IPv4 address.
@@ -9697,6 +9903,11 @@ TEST_P(QuicStreamFactoryTest, CryptoConfigWhenProofIsInvalid) {
 }
 
 TEST_P(QuicStreamFactoryTest, EnableNotLoadFromDiskCache) {
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
   Initialize();
   factory_->set_is_quic_known_to_work_on_current_network(true);
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -9737,8 +9948,7 @@ TEST_P(QuicStreamFactoryTest, EnableNotLoadFromDiskCache) {
 }
 
 TEST_P(QuicStreamFactoryTest, ReducePingTimeoutOnConnectionTimeOutOpenStreams) {
-  test_params_.quic_params.reduced_ping_timeout =
-      base::TimeDelta::FromSeconds(10);
+  quic_params_->reduced_ping_timeout = base::TimeDelta::FromSeconds(10);
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
   crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
@@ -9843,10 +10053,20 @@ TEST_P(QuicStreamFactoryTest, ReducePingTimeoutOnConnectionTimeOutOpenStreams) {
 
 // Verifies that the QUIC stream factory is initialized correctly.
 TEST_P(QuicStreamFactoryTest, MaybeInitialize) {
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
   VerifyInitialization(false /* vary_network_isolation_key */);
 }
 
 TEST_P(QuicStreamFactoryTest, MaybeInitializeWithNetworkIsolationKey) {
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
       // enabled_features
@@ -10074,6 +10294,11 @@ TEST_P(QuicStreamFactoryTest, CryptoConfigCacheMRUWithNetworkIsolationKey) {
 // around, so evictions happen immediately.
 TEST_P(QuicStreamFactoryTest,
        CryptoConfigCacheMRUWithRealRequestsAndWithNetworkIsolationKey) {
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
   const int kNumSessionsToMake = kMaxRecentCryptoConfigs + 5;
 
   base::test::ScopedFeatureList feature_list;
@@ -10099,9 +10324,8 @@ TEST_P(QuicStreamFactoryTest,
   const quic::QuicServerId kQuicServerId(
       kDefaultServerHostName, kDefaultServerPort, PRIVACY_MODE_DISABLED);
 
-  test_params_.quic_params.max_server_configs_stored_in_properties = 1;
-  test_params_.quic_params.idle_connection_timeout =
-      base::TimeDelta::FromSeconds(500);
+  quic_params_->max_server_configs_stored_in_properties = 1;
+  quic_params_->idle_connection_timeout = base::TimeDelta::FromSeconds(500);
   Initialize();
   factory_->set_is_quic_known_to_work_on_current_network(true);
   crypto_client_stream_factory_.set_handshake_mode(
@@ -10288,6 +10512,11 @@ TEST_P(QuicStreamFactoryTest, StartCertVerifyJob) {
 }
 
 TEST_P(QuicStreamFactoryTest, YieldAfterPackets) {
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
   Initialize();
   factory_->set_is_quic_known_to_work_on_current_network(true);
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -10340,6 +10569,11 @@ TEST_P(QuicStreamFactoryTest, YieldAfterPackets) {
 }
 
 TEST_P(QuicStreamFactoryTest, YieldAfterDuration) {
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
   Initialize();
   factory_->set_is_quic_known_to_work_on_current_network(true);
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -11052,19 +11286,18 @@ TEST_P(QuicStreamFactoryTest, ClearCachedStatesInCryptoConfig) {
 // Passes connection options and client connection options to QuicStreamFactory,
 // then checks that its internal quic::QuicConfig is correct.
 TEST_P(QuicStreamFactoryTest, ConfigConnectionOptions) {
-  test_params_.quic_params.connection_options.push_back(quic::kTIME);
-  test_params_.quic_params.connection_options.push_back(quic::kTBBR);
-  test_params_.quic_params.connection_options.push_back(quic::kREJ);
+  quic_params_->connection_options.push_back(quic::kTIME);
+  quic_params_->connection_options.push_back(quic::kTBBR);
+  quic_params_->connection_options.push_back(quic::kREJ);
 
-  test_params_.quic_params.client_connection_options.push_back(quic::kTBBR);
-  test_params_.quic_params.client_connection_options.push_back(quic::k1RTT);
+  quic_params_->client_connection_options.push_back(quic::kTBBR);
+  quic_params_->client_connection_options.push_back(quic::k1RTT);
 
   Initialize();
 
   const quic::QuicConfig* config =
       QuicStreamFactoryPeer::GetConfig(factory_.get());
-  EXPECT_EQ(test_params_.quic_params.connection_options,
-            config->SendConnectionOptions());
+  EXPECT_EQ(quic_params_->connection_options, config->SendConnectionOptions());
   EXPECT_TRUE(config->HasClientRequestedIndependentOption(
       quic::kTBBR, quic::Perspective::IS_CLIENT));
   EXPECT_TRUE(config->HasClientRequestedIndependentOption(
@@ -11142,9 +11375,20 @@ TEST_P(QuicStreamFactoryTest, HostResolverRequestReprioritizedOnSetPriority) {
   EXPECT_EQ(DEFAULT_PRIORITY, host_resolver_->request_priority(2));
 }
 
-// Verifies that the host resolver uses the disable secure DNS setting passed to
-// QuicStreamRequest::Request().
-TEST_P(QuicStreamFactoryTest, HostResolverUsesDisableSecureDns) {
+// Verifies that the host resolver uses the disable secure DNS setting and
+// NetworkIsolationKey passed to QuicStreamRequest::Request().
+TEST_P(QuicStreamFactoryTest, HostResolverUsesParams) {
+  const url::Origin kOrigin1 = url::Origin::Create(GURL("https://foo.test/"));
+  const url::Origin kOrigin2 = url::Origin::Create(GURL("https://bar.test/"));
+  const NetworkIsolationKey kNetworkIsolationKey(kOrigin1, kOrigin1);
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      // enabled_features
+      {features::kPartitionConnectionsByNetworkIsolationKey,
+       features::kSplitHostCacheByNetworkIsolationKey},
+      // disabled_features
+      {});
+
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
   crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
@@ -11160,7 +11404,7 @@ TEST_P(QuicStreamFactoryTest, HostResolverUsesDisableSecureDns) {
       ERR_IO_PENDING,
       request.Request(
           host_port_pair_, version_, privacy_mode_, DEFAULT_PRIORITY,
-          SocketTag(), NetworkIsolationKey(), true /* disable_secure_dns */,
+          SocketTag(), kNetworkIsolationKey, true /* disable_secure_dns */,
           /*cert_verify_flags=*/0, url_, net_log_, &net_error_details_,
           failed_on_default_network_callback_, callback_.callback()));
 
@@ -11168,8 +11412,12 @@ TEST_P(QuicStreamFactoryTest, HostResolverUsesDisableSecureDns) {
   std::unique_ptr<HttpStream> stream = CreateStream(&request);
   EXPECT_TRUE(stream.get());
 
+  ASSERT_TRUE(host_resolver_->last_secure_dns_mode_override().has_value());
   EXPECT_EQ(net::DnsConfig::SecureDnsMode::OFF,
             host_resolver_->last_secure_dns_mode_override().value());
+  ASSERT_TRUE(host_resolver_->last_request_network_isolation_key().has_value());
+  EXPECT_EQ(kNetworkIsolationKey,
+            host_resolver_->last_request_network_isolation_key().value());
 
   EXPECT_TRUE(socket_data.AllReadDataConsumed());
   EXPECT_TRUE(socket_data.AllWriteDataConsumed());
@@ -11179,9 +11427,9 @@ TEST_P(QuicStreamFactoryTest, HostResolverUsesDisableSecureDns) {
 // |quic_max_idle_time_before_crypto_handshake| to QuicStreamFactory,
 // checks that its internal quic::QuicConfig is correct.
 TEST_P(QuicStreamFactoryTest, ConfigMaxTimeBeforeCryptoHandshake) {
-  test_params_.quic_params.max_time_before_crypto_handshake =
+  quic_params_->max_time_before_crypto_handshake =
       base::TimeDelta::FromSeconds(11);
-  test_params_.quic_params.max_idle_time_before_crypto_handshake =
+  quic_params_->max_idle_time_before_crypto_handshake =
       base::TimeDelta::FromSeconds(13);
   Initialize();
 
@@ -11443,7 +11691,7 @@ TEST_P(QuicStreamFactoryTest, ResultAfterHostResolutionCallbackFailAsync) {
 // the final connection is established through the resolved DNS. No racing
 // connection.
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceAndHostResolutionSync) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -11455,7 +11703,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceAndHostResolutionSync) {
                                             kNonCachedIPAddress, "");
 
   // Set up a different address in stale resolver cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -11540,7 +11789,7 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceAndHostResolutionAsync) {
 // With dns race experiment on, DNS resolve returns async, stale dns used,
 // connects synchrounously, and then the resolved DNS matches.
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceHostResolveAsyncStaleMatch) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -11552,7 +11801,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceHostResolveAsyncStaleMatch) {
                                             kCachedIPAddress.ToString(), "");
 
   // Set up the same address in the stale resolver cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -11600,7 +11850,12 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceHostResolveAsyncStaleMatch) {
 // async, and then the result matches.
 TEST_P(QuicStreamFactoryTest,
        ResultAfterDNSRaceHostResolveAsyncConnectAsyncStaleMatch) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -11615,7 +11870,8 @@ TEST_P(QuicStreamFactoryTest,
                                             kCachedIPAddress.ToString(), "");
 
   // Set up the same address in the stale resolver cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -11670,7 +11926,12 @@ TEST_P(QuicStreamFactoryTest,
 // return, then connection finishes and matches with the result.
 TEST_P(QuicStreamFactoryTest,
        ResultAfterDNSRaceHostResolveAsyncStaleMatchConnectAsync) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -11685,7 +11946,8 @@ TEST_P(QuicStreamFactoryTest,
                                             kCachedIPAddress.ToString(), "");
 
   // Set up the same address in the stale resolver cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -11736,7 +11998,7 @@ TEST_P(QuicStreamFactoryTest,
 // sync, but dns no match
 TEST_P(QuicStreamFactoryTest,
        ResultAfterDNSRaceHostResolveAsyncStaleSyncNoMatch) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -11748,7 +12010,8 @@ TEST_P(QuicStreamFactoryTest,
                                             kNonCachedIPAddress, "");
 
   // Set up a different address in the stale resolver cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -11813,7 +12076,12 @@ TEST_P(QuicStreamFactoryTest,
 // With dns race experiment on, dns resolve async, stale used and connects
 // async, finishes before dns, but no match
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleAsyncResolveAsyncNoMatch) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -11828,7 +12096,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleAsyncResolveAsyncNoMatch) {
                                             kNonCachedIPAddress, "");
 
   // Set up a different address in the stale resolvercache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -11897,7 +12166,12 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleAsyncResolveAsyncNoMatch) {
 // With dns race experiment on, dns resolve async, stale used and connects
 // async, dns finishes first, but no match
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceResolveAsyncStaleAsyncNoMatch) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -11912,7 +12186,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceResolveAsyncStaleAsyncNoMatch) {
                                             kNonCachedIPAddress, "");
 
   // Set up a different address in the stale resolver cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -11972,7 +12247,7 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceResolveAsyncStaleAsyncNoMatch) {
 // With dns race experiment on, dns resolve returns error sync, same behavior
 // as experiment is not on
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceHostResolveError) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -11998,7 +12273,7 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceHostResolveError) {
 // With dns race experiment on, no cache available, dns resolve returns error
 // async
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceHostResolveAsyncError) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -12028,7 +12303,7 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceHostResolveAsyncError) {
 // With dns race experiment on, dns resolve async, staled used and connects
 // sync, dns returns error and no connection is established.
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleSyncHostResolveError) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -12039,7 +12314,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleSyncHostResolveError) {
   host_resolver_->rules()->AddSimulatedFailure(host_port_pair_.host());
 
   // Set up an address in the stale cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -12088,7 +12364,7 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleSyncHostResolveError) {
 // return error, then dns matches.
 // This serves as a regression test for crbug.com/956374.
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleErrorDNSMatches) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -12100,7 +12376,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleErrorDNSMatches) {
                                             kCachedIPAddress.ToString(), "");
 
   // Set up the same address in the stale resolver cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -12138,7 +12415,7 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleErrorDNSMatches) {
 // With dns race experiment on, dns resolve async, stale used and connection
 // returns error, dns no match, new connection is established
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleErrorDNSNoMatch) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -12150,7 +12427,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleErrorDNSNoMatch) {
                                             kNonCachedIPAddress, "");
 
   // Set up a different address in stale resolver cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -12203,7 +12481,7 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleErrorDNSNoMatch) {
 // With dns race experiment on, dns resolve async, stale used and connection
 // returns error, dns no match, new connection error
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleErrorDNSNoMatchError) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -12215,7 +12493,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleErrorDNSNoMatchError) {
                                             kNonCachedIPAddress, "");
 
   // Set up a different address in the stale cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -12257,7 +12536,12 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceStaleErrorDNSNoMatchError) {
 // With dns race experiment on, dns resolve async and stale connect async, dns
 // resolve returns error and then preconnect finishes
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceResolveAsyncErrorStaleAsync) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -12271,7 +12555,8 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceResolveAsyncErrorStaleAsync) {
       MockCryptoClientStream::ZERO_RTT);
 
   // Set up an address in stale resolver cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -12317,7 +12602,12 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceResolveAsyncErrorStaleAsync) {
 // resolve returns error and then preconnect fails.
 TEST_P(QuicStreamFactoryTest,
        ResultAfterDNSRaceResolveAsyncErrorStaleAsyncError) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -12331,7 +12621,8 @@ TEST_P(QuicStreamFactoryTest,
   host_resolver_->rules()->AddSimulatedFailure(host_port_pair_.host());
 
   // Set up an address in stale resolver cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -12376,7 +12667,7 @@ TEST_P(QuicStreamFactoryTest,
 // With dns race experiment on, test that host resolution callback behaves
 // normal as experiment is not on
 TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceHostResolveAsync) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   Initialize();
   ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
@@ -12422,7 +12713,12 @@ TEST_P(QuicStreamFactoryTest, ResultAfterDNSRaceHostResolveAsync) {
 // With stale dns and migration before handshake experiment on, migration failed
 // after handshake confirmed, and then fresh resolve returns.
 TEST_P(QuicStreamFactoryTest, StaleNetworkFailedAfterHandshake) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
 
   InitializeConnectionMigrationV2Test(
@@ -12436,7 +12732,8 @@ TEST_P(QuicStreamFactoryTest, StaleNetworkFailedAfterHandshake) {
                                             kNonCachedIPAddress, "");
 
   // Set up the same address in the stale resolver cache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -12496,7 +12793,12 @@ TEST_P(QuicStreamFactoryTest, StaleNetworkFailedAfterHandshake) {
 // With stale dns experiment on,  the stale session is killed while waiting for
 // handshake
 TEST_P(QuicStreamFactoryTest, StaleNetworkFailedBeforeHandshake) {
-  test_params_.quic_params.race_stale_dns_on_connection = true;
+  if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3 &&
+      version_.transport_version == quic::QUIC_VERSION_99) {
+    // 0-rtt is not supported in IETF QUIC yet.
+    return;
+  }
+  quic_params_->race_stale_dns_on_connection = true;
   host_resolver_ = std::make_unique<MockCachingHostResolver>();
   InitializeConnectionMigrationV2Test(
       {kDefaultNetworkForTests, kNewNetworkForTests});
@@ -12512,7 +12814,8 @@ TEST_P(QuicStreamFactoryTest, StaleNetworkFailedBeforeHandshake) {
                                             kNonCachedIPAddress, "");
 
   // Set up a different address in the stale resolvercache.
-  HostCache::Key key(host_port_pair_.host(), ADDRESS_FAMILY_UNSPECIFIED, 0);
+  HostCache::Key key(host_port_pair_.host(), DnsQueryType::UNSPECIFIED, 0,
+                     HostResolverSource::ANY, NetworkIsolationKey());
   HostCache::Entry entry(OK,
                          AddressList::CreateFromIPAddress(kCachedIPAddress, 0),
                          HostCache::Entry::SOURCE_DNS);
@@ -12573,9 +12876,13 @@ TEST_P(QuicStreamFactoryTest, StaleNetworkFailedBeforeHandshake) {
 }
 
 TEST_P(QuicStreamFactoryTest, ConfigInitialRttForHandshake) {
+  if (version_.SupportsAntiAmplificationLimit()) {
+    // IETF QUIC uses a different handshake timeout management system.
+    return;
+  }
   constexpr base::TimeDelta kInitialRtt =
       base::TimeDelta::FromMilliseconds(400);
-  test_params_.quic_params.initial_rtt_for_handshake = kInitialRtt;
+  quic_params_->initial_rtt_for_handshake = kInitialRtt;
   crypto_client_stream_factory_.set_handshake_mode(
       MockCryptoClientStream::COLD_START_WITH_CHLO_SENT);
   Initialize();
@@ -12588,8 +12895,8 @@ TEST_P(QuicStreamFactoryTest, ConfigInitialRttForHandshake) {
 
   QuicStreamFactoryPeer::SetTaskRunner(factory_.get(), task_runner.get());
   QuicStreamFactoryPeer::SetAlarmFactory(
-      factory_.get(),
-      std::make_unique<QuicChromiumAlarmFactory>(task_runner.get(), &clock_));
+      factory_.get(), std::make_unique<QuicChromiumAlarmFactory>(
+                          task_runner.get(), context_.clock()));
 
   MockQuicData socket_data(version_);
   socket_data.AddRead(SYNCHRONOUS, ERR_IO_PENDING);
@@ -12625,7 +12932,7 @@ TEST_P(QuicStreamFactoryTest, ConfigInitialRttForHandshake) {
 
   // The alarm factory dependes on |clock_|, so clock is advanced to trigger
   // retransmission alarm.
-  clock_.AdvanceTime(quic::QuicTime::Delta::FromMilliseconds(
+  context_.AdvanceTime(quic::QuicTime::Delta::FromMilliseconds(
       handshake_timeout.InMilliseconds()));
   task_runner->FastForwardBy(handshake_timeout);
 

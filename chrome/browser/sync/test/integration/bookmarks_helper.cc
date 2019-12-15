@@ -46,17 +46,57 @@
 #include "components/history/core/browser/history_types.h"
 #include "components/sync/driver/profile_sync_service.h"
 #include "components/sync/test/fake_server/entity_builder_factory.h"
-#include "components/sync_bookmarks/bookmark_change_processor.h"
 #include "content/public/test/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/models/tree_node_iterator.h"
+#include "ui/gfx/favicon_size.h"
 #include "ui/gfx/image/image_skia.h"
+
+namespace bookmarks_helper {
+
+namespace {
 
 using bookmarks::BookmarkModel;
 using bookmarks::BookmarkNode;
 
-namespace {
+void ApplyBookmarkFavicon(
+    const BookmarkNode* bookmark_node,
+    favicon::FaviconService* favicon_service,
+    const GURL& icon_url,
+    const scoped_refptr<base::RefCountedMemory>& bitmap_data) {
+  // Some tests use no services.
+  if (favicon_service == nullptr)
+    return;
+
+  favicon_service->AddPageNoVisitForBookmark(bookmark_node->url(),
+                                             bookmark_node->GetTitle());
+
+  GURL icon_url_to_use = icon_url;
+
+  if (icon_url.is_empty()) {
+    if (bitmap_data->size() == 0) {
+      // Empty icon URL and no bitmap data means no icon mapping.
+      favicon_service->DeleteFaviconMappings({bookmark_node->url()},
+                                             favicon_base::IconType::kFavicon);
+      return;
+    } else {
+      // Ancient clients (prior to M25) may not be syncing the favicon URL. If
+      // the icon URL is not synced, use the page URL as a fake icon URL as it
+      // is guaranteed to be unique.
+      icon_url_to_use = bookmark_node->url();
+    }
+  }
+
+  // The client may have cached the favicon at 2x. Use MergeFavicon() as not to
+  // overwrite the cached 2x favicon bitmap. Sync favicons are always
+  // gfx::kFaviconSize in width and height. Store the favicon into history
+  // as such.
+  gfx::Size pixel_size(gfx::kFaviconSize, gfx::kFaviconSize);
+  favicon_service->MergeFavicon(bookmark_node->url(), icon_url_to_use,
+                                favicon_base::IconType::kFavicon, bitmap_data,
+                                pixel_size);
+}
 
 // History task which signals an event.
 class SignalEventTask : public history::HistoryDBTask {
@@ -238,24 +278,23 @@ void SetFaviconImpl(Profile* profile,
                     const BookmarkNode* node,
                     const GURL& icon_url,
                     const gfx::Image& image,
-                    bookmarks_helper::FaviconSource favicon_source) {
+                    FaviconSource favicon_source) {
   BookmarkModel* model = BookmarkModelFactory::GetForBrowserContext(profile);
 
   FaviconChangeObserver observer(model, node);
   favicon::FaviconService* favicon_service =
       FaviconServiceFactory::GetForProfile(profile,
                                            ServiceAccessType::EXPLICIT_ACCESS);
-  if (favicon_source == bookmarks_helper::FROM_UI) {
+  if (favicon_source == FROM_UI) {
     favicon_service->SetFavicons({node->url()}, icon_url,
                                  favicon_base::IconType::kFavicon, image);
-    } else {
-      sync_bookmarks::BookmarkChangeProcessor::ApplyBookmarkFavicon(
-          node, favicon_service, icon_url, image.As1xPNGBytes());
-    }
+  } else {
+    ApplyBookmarkFavicon(node, favicon_service, icon_url, image.As1xPNGBytes());
+  }
 
-    // Wait for the favicon for |node| to be invalidated.
-    observer.WaitForSetFavicon();
-    model->GetFavicon(node);
+  // Wait for the favicon for |node| to be invalidated.
+  observer.WaitForSetFavicon();
+  model->GetFavicon(node);
 }
 
 // Expires the favicon for |profile| and |node|. |profile| may be
@@ -281,7 +320,7 @@ void OnGotFaviconData(
 // |test()->verifier()|.
 void DeleteFaviconMappingsImpl(Profile* profile,
                                const BookmarkNode* node,
-                               bookmarks_helper::FaviconSource favicon_source) {
+                               FaviconSource favicon_source) {
   BookmarkModel* model = BookmarkModelFactory::GetForBrowserContext(profile);
 
   FaviconChangeObserver observer(model, node);
@@ -289,11 +328,11 @@ void DeleteFaviconMappingsImpl(Profile* profile,
       FaviconServiceFactory::GetForProfile(profile,
                                            ServiceAccessType::EXPLICIT_ACCESS);
 
-  if (favicon_source == bookmarks_helper::FROM_UI) {
+  if (favicon_source == FROM_UI) {
     favicon_service->DeleteFaviconMappings({node->url()},
                                            favicon_base::IconType::kFavicon);
   } else {
-    sync_bookmarks::BookmarkChangeProcessor::ApplyBookmarkFavicon(
+    ApplyBookmarkFavicon(
         node, favicon_service, /*icon_url=*/GURL(),
         scoped_refptr<base::RefCountedString>(new base::RefCountedString()));
   }
@@ -444,7 +483,7 @@ void FindNodeInVerifier(BookmarkModel* foreign_model,
   }
 
   // Swing over to the other tree.
-  walker = bookmarks_helper::GetVerifierBookmarkModel()->root_node();
+  walker = GetVerifierBookmarkModel()->root_node();
 
   // Climb down.
   while (!path.empty()) {
@@ -459,9 +498,6 @@ void FindNodeInVerifier(BookmarkModel* foreign_model,
 }
 
 }  // namespace
-
-
-namespace bookmarks_helper {
 
 BookmarkModel* GetBookmarkModel(int index) {
   return BookmarkModelFactory::GetForBrowserContext(
@@ -981,30 +1017,22 @@ std::unique_ptr<syncer::LoopbackServerEntity> CreateBookmarkServerEntity(
   return bookmark_builder.BuildBookmark(url);
 }
 
-}  // namespace bookmarks_helper
-
 BookmarksMatchChecker::BookmarksMatchChecker()
     : MultiClientStatusChangeChecker(
           sync_datatype_helper::test()->GetSyncServices()) {}
 
-bool BookmarksMatchChecker::IsExitConditionSatisfied() {
-  return bookmarks_helper::AllModelsMatch();
-}
-
-std::string BookmarksMatchChecker::GetDebugMessage() const {
-  return "Waiting for matching models";
+bool BookmarksMatchChecker::IsExitConditionSatisfied(std::ostream* os) {
+  *os << "Waiting for matching models";
+  return AllModelsMatch();
 }
 
 BookmarksMatchVerifierChecker::BookmarksMatchVerifierChecker()
     : MultiClientStatusChangeChecker(
           sync_datatype_helper::test()->GetSyncServices()) {}
 
-bool BookmarksMatchVerifierChecker::IsExitConditionSatisfied() {
-  return bookmarks_helper::AllModelsMatchVerifier();
-}
-
-std::string BookmarksMatchVerifierChecker::GetDebugMessage() const {
-  return "Waiting for model to match verifier";
+bool BookmarksMatchVerifierChecker::IsExitConditionSatisfied(std::ostream* os) {
+  *os << "Waiting for model to match verifier";
+  return AllModelsMatchVerifier();
 }
 
 BookmarksTitleChecker::BookmarksTitleChecker(int profile_index,
@@ -1018,14 +1046,10 @@ BookmarksTitleChecker::BookmarksTitleChecker(int profile_index,
   DCHECK_GE(expected_count, 0) << "expected_count must be non-negative.";
 }
 
-bool BookmarksTitleChecker::IsExitConditionSatisfied() {
-  int actual_count = bookmarks_helper::CountBookmarksWithTitlesMatching(
-      profile_index_, title_);
+bool BookmarksTitleChecker::IsExitConditionSatisfied(std::ostream* os) {
+  *os << "Waiting for bookmark count to match";
+  int actual_count = CountBookmarksWithTitlesMatching(profile_index_, title_);
   return expected_count_ == actual_count;
-}
-
-std::string BookmarksTitleChecker::GetDebugMessage() const {
-  return "Waiting for bookmark count to match";
 }
 
 ServerBookmarksEqualityChecker::ServerBookmarksEqualityChecker(
@@ -1038,7 +1062,10 @@ ServerBookmarksEqualityChecker::ServerBookmarksEqualityChecker(
       cryptographer_(cryptographer),
       expected_bookmarks_(expected_bookmarks) {}
 
-bool ServerBookmarksEqualityChecker::IsExitConditionSatisfied() {
+bool ServerBookmarksEqualityChecker::IsExitConditionSatisfied(
+    std::ostream* os) {
+  *os << "Waiting for server-side bookmarks to match expected.";
+
   std::vector<sync_pb::SyncEntity> entities =
       fake_server_->GetSyncEntitiesByModelType(syncer::BOOKMARKS);
   if (expected_bookmarks_.size() != entities.size()) {
@@ -1086,10 +1113,6 @@ bool ServerBookmarksEqualityChecker::IsExitConditionSatisfied() {
   return true;
 }
 
-std::string ServerBookmarksEqualityChecker::GetDebugMessage() const {
-  return "Waiting for server-side bookmarks to match expected.";
-}
-
 ServerBookmarksEqualityChecker::~ServerBookmarksEqualityChecker() {}
 
 namespace {
@@ -1097,8 +1120,7 @@ namespace {
 bool BookmarkCountsByUrlMatch(int profile,
                               const GURL& url,
                               int expected_count) {
-  int actual_count =
-      bookmarks_helper::CountBookmarksWithUrlsMatching(profile, url);
+  int actual_count = CountBookmarksWithUrlsMatching(profile, url);
   if (expected_count != actual_count) {
     DVLOG(1) << base::StringPrintf("Expected %d URL(s), but there were %d.",
                                    expected_count, actual_count);
@@ -1120,7 +1142,7 @@ BookmarksUrlChecker::BookmarksUrlChecker(int profile,
 
 BookmarksGUIDChecker::BookmarksGUIDChecker(int profile, const std::string& guid)
     : AwaitMatchStatusChangeChecker(
-          base::BindRepeating(bookmarks_helper::ContainsBookmarkNodeWithGUID,
-                              profile,
-                              guid),
+          base::BindRepeating(ContainsBookmarkNodeWithGUID, profile, guid),
           "Bookmark GUID exists.") {}
+
+}  // namespace bookmarks_helper

@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/testing/fake_local_frame_host.h"
 
+#include "skia/public/mojom/skcolor.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom-blink.h"
 
 namespace blink {
@@ -21,6 +22,46 @@ void FakeLocalFrameHost::EnterFullscreen(
 void FakeLocalFrameHost::ExitFullscreen() {}
 
 void FakeLocalFrameHost::FullscreenStateChanged(bool is_fullscreen) {}
+
+void FakeLocalFrameHost::RegisterProtocolHandler(const WTF::String& scheme,
+                                                 const ::blink::KURL& url,
+                                                 const ::WTF::String& title,
+                                                 bool user_gesture) {}
+
+void FakeLocalFrameHost::UnregisterProtocolHandler(const WTF::String& scheme,
+                                                   const ::blink::KURL& url,
+                                                   bool user_gesture) {}
+
+void FakeLocalFrameHost::DidDisplayInsecureContent() {}
+
+void FakeLocalFrameHost::DidContainInsecureFormAction() {}
+
+void FakeLocalFrameHost::SetNeedsOcclusionTracking(bool needs_tracking) {}
+
+void FakeLocalFrameHost::LifecycleStateChanged(
+    mojom::blink::FrameLifecycleState state) {}
+
+void FakeLocalFrameHost::EvictFromBackForwardCache() {}
+
+void FakeLocalFrameHost::VisibilityChanged(
+    mojom::blink::FrameVisibility visibility) {}
+
+void FakeLocalFrameHost::DidChangeThemeColor(
+    const base::Optional<::SkColor>& theme_color) {}
+
+void FakeLocalFrameHost::DidFocusFrame() {}
+
+void FakeLocalFrameHost::EnforceInsecureRequestPolicy(uint8_t policy_bitmap) {}
+
+void FakeLocalFrameHost::EnforceInsecureNavigationsSet(
+    const WTF::Vector<uint32_t>& set) {}
+
+void FakeLocalFrameHost::DidChangeActiveSchedulerTrackedFeatures(
+    uint64_t features_mask) {}
+
+void FakeLocalFrameHost::SuddenTerminationDisablerChanged(
+    bool present,
+    blink::mojom::SuddenTerminationDisablerType disabler_type) {}
 
 void FakeLocalFrameHost::BindFrameHostReceiver(
     mojo::ScopedInterfaceEndpointHandle handle) {

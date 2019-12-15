@@ -410,6 +410,8 @@ jumbo_static_library("extensions") {
     "api/webrtc_desktop_capture_private/webrtc_desktop_capture_private_api.h",
     "api/webrtc_logging_private/webrtc_logging_private_api.cc",
     "api/webrtc_logging_private/webrtc_logging_private_api.h",
+    "api/webstore_private/extension_install_status.cc",
+    "api/webstore_private/extension_install_status.h",
     "api/webstore_private/webstore_private_api.cc",
     "api/webstore_private/webstore_private_api.h",
     "app_data_migrator.cc",
@@ -515,6 +517,8 @@ jumbo_static_library("extensions") {
     "extension_assets_manager_chromeos.h",
     "extension_browser_window_helper.cc",
     "extension_browser_window_helper.h",
+    "extension_checkup.cc",
+    "extension_checkup.h",
     "extension_commands_global_registry.cc",
     "extension_commands_global_registry.h",
     "extension_context_menu_model.cc",
@@ -523,7 +527,6 @@ jumbo_static_library("extensions") {
     "extension_disabled_ui.h",
     "extension_error_controller.cc",
     "extension_error_controller.h",
-    "extension_error_ui.cc",
     "extension_error_ui.h",
     "extension_error_ui_default.cc",
     "extension_error_ui_default.h",
@@ -770,6 +773,7 @@ jumbo_static_library("extensions") {
   ]
   deps = [
     "//apps",
+    "//base/util/values:values_util",
     "//build:branding_buildflags",
     "//chrome:extra_resources",
     "//chrome:resources",
@@ -952,6 +956,8 @@ jumbo_static_library("extensions") {
       "api/settings_private/chromeos_resolve_time_zone_by_geolocation_on_off.h",
       "api/settings_private/generated_time_zone_pref_base.cc",
       "api/settings_private/generated_time_zone_pref_base.h",
+      "api/terminal/crostini_startup_status.cc",
+      "api/terminal/crostini_startup_status.h",
       "api/terminal/terminal_extension_helper.cc",
       "api/terminal/terminal_extension_helper.h",
       "api/terminal/terminal_private_api.cc",
@@ -975,6 +981,7 @@ jumbo_static_library("extensions") {
       "//ash",
       "//ash/keyboard/ui:resources_grit_grit",
       "//ash/public/cpp",
+      "//chrome/browser/chromeos/crostini:crostini_installer_types_mojom",
       "//chrome/browser/resources/chromeos/camera:chrome_camera_app",
       "//chromeos",
       "//chromeos/attestation",
@@ -1021,6 +1028,8 @@ jumbo_static_library("extensions") {
     sources += [
       "api/enterprise_reporting_private/chrome_desktop_report_request_helper.cc",
       "api/enterprise_reporting_private/chrome_desktop_report_request_helper.h",
+      "api/enterprise_reporting_private/device_info_fetcher.cc",
+      "api/enterprise_reporting_private/device_info_fetcher.h",
       "api/enterprise_reporting_private/enterprise_reporting_private_api.cc",
       "api/enterprise_reporting_private/enterprise_reporting_private_api.h",
       "api/enterprise_reporting_private/prefs.cc",
@@ -1039,6 +1048,7 @@ jumbo_static_library("extensions") {
       "default_apps.cc",
       "default_apps.h",
     ]
+    deps += [ "//components/keep_alive_registry" ]
     if (is_posix) {
       sources += [ "api/messaging/native_process_launcher_posix.cc" ]
     }

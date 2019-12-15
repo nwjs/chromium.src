@@ -24,6 +24,7 @@ import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelper;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.TabHidingType;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabWebContentsObserver;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
@@ -35,6 +36,7 @@ import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.browser.TabTitleObserver;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.content_public.browser.RenderWidgetHostView;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.browser.test.util.TestTouchUtils;
@@ -52,14 +54,14 @@ import java.util.concurrent.TimeoutException;
  * A utility class that contains methods generic to all Tabs tests.
  */
 public class ChromeTabUtils {
-    private static final String TAG = "cr_ChromeTabUtils";
-    public static final int TITLE_UPDATE_TIMEOUT_MS = 3000;
+    private static final String TAG = "ChromeTabUtils";
+    public static final int TITLE_UPDATE_TIMEOUT_SECONDS = 3;
 
     /**
      * The required page load percentage for the page to be considered ready assuming the
      * TextureView is also ready.
      */
-    private static final int CONSIDERED_READY_LOAD_PERCENTAGE = 100;
+    private static final float CONSIDERED_READY_LOAD_PERCENTAGE = 1;
 
     /**
      * An observer that waits for a Tab to load a page.
@@ -212,7 +214,8 @@ public class ChromeTabUtils {
                         "Page did not load.  Tab information at time of failure -- "
                                 + "expected url: '%s', actual URL: '%s', load progress: %d, is "
                                 + "loading: %b, web contents init: %b, web contents loading: %b",
-                        url, tab.getUrl(), tab.getProgress(), tab.isLoading(), webContents != null,
+                        url, tab.getUrl(), Math.round(100 * tab.getProgress()), tab.isLoading(),
+                        webContents != null,
                         webContents == null ? false : webContents.isLoadingToDifferentDocument()));
             }
         }
@@ -303,7 +306,7 @@ public class ChromeTabUtils {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             // If a tab is hidden, don't wait for interactivity. See note in
             // TabPageInteractableObserver.
-            if (tab.isUserInteractable() || tab.isHidden()) {
+            if (tab.isUserInteractable() || ((TabImpl) tab).isHidden()) {
                 interactableCallback.notifyCalled();
                 return;
             }
@@ -731,7 +734,7 @@ public class ChromeTabUtils {
     public static void waitForTitle(Tab tab, String newTitle) {
         TabTitleObserver titleObserver = new TabTitleObserver(tab, newTitle);
         try {
-            titleObserver.waitForTitleUpdate(TITLE_UPDATE_TIMEOUT_MS);
+            titleObserver.waitForTitleUpdate(TITLE_UPDATE_TIMEOUT_SECONDS);
         } catch (TimeoutException e) {
             Assert.fail(String.format(Locale.ENGLISH,
                     "Tab title didn't update to %s in time.", newTitle));
@@ -742,6 +745,18 @@ public class ChromeTabUtils {
      * @return Whether or not the loading and rendering of the page is done.
      */
     public static boolean isLoadingAndRenderingDone(Tab tab) {
-        return tab.isReady() && tab.getProgress() >= CONSIDERED_READY_LOAD_PERCENTAGE;
+        return isRendererReady(tab) && tab.getProgress() >= CONSIDERED_READY_LOAD_PERCENTAGE;
+    }
+
+    /**
+     * @return Whether or not the tab has something valid to render.
+     */
+    public static boolean isRendererReady(Tab tab) {
+        if (tab.getNativePage() != null) return true;
+        WebContents webContents = tab.getWebContents();
+        if (webContents == null) return false;
+
+        RenderWidgetHostView rwhv = webContents.getRenderWidgetHostView();
+        return rwhv != null && rwhv.isReady();
     }
 }

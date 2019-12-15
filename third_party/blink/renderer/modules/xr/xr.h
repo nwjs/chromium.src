@@ -87,13 +87,21 @@ class XR final : public EventTargetWithInlineData,
   void AddEnvironmentProviderErrorHandler(
       EnvironmentProviderErrorCallback callback);
 
-  void ExitPresent();
+  void ExitPresent(base::OnceClosure on_exited);
 
   void SetFramesThrottled(const XRSession* session, bool throttled);
 
   base::TimeTicks NavigationStart() const { return navigation_start_; }
 
+  bool IsContextDestroyed() const { return is_context_destroyed_; }
+
  private:
+  enum SensorRequirement {
+    kNone,
+    kOptional,
+    kRequired,
+  };
+
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
   enum class SessionRequestStatus : int {
@@ -126,7 +134,12 @@ class XR final : public EventTargetWithInlineData,
     virtual ~PendingRequestSessionQuery() = default;
 
     // Resolves underlying promise with passed in XR session.
-    void Resolve(XRSession* session);
+    // If metrics are to be recorded for this session, an
+    // |XRSessionMetricsRecorded| may be passed in as well.
+    void Resolve(
+        XRSession* session,
+        mojo::PendingRemote<device::mojom::blink::XRSessionMetricsRecorder>
+            metrics_recorder = mojo::NullRemote());
 
     // Rejects underlying promise with a DOMException.
     // Do not call this with |DOMExceptionCode::kSecurityError|, use
@@ -155,18 +168,31 @@ class XR final : public EventTargetWithInlineData,
     bool InvalidRequiredFeatures() const;
     bool InvalidOptionalFeatures() const;
 
+    SensorRequirement GetSensorRequirement() const {
+      return sensor_requirement_;
+    }
+
     // Returns underlying resolver's script state.
     ScriptState* GetScriptState() const;
 
     virtual void Trace(blink::Visitor*);
 
    private:
-    void ReportRequestSessionResult(SessionRequestStatus status);
+    void ParseSensorRequirement();
+    device::mojom::XRSessionFeatureRequestStatus GetFeatureRequestStatus(
+        device::mojom::XRSessionFeature feature,
+        const XRSession* session) const;
+    void ReportRequestSessionResult(
+        SessionRequestStatus status,
+        XRSession* session = nullptr,
+        mojo::PendingRemote<device::mojom::blink::XRSessionMetricsRecorder>
+            metrics_recorder = mojo::NullRemote());
 
     Member<ScriptPromiseResolver> resolver_;
     const XRSession::SessionMode mode_;
     RequestedXRSessionFeatureSet required_features_;
     RequestedXRSessionFeatureSet optional_features_;
+    SensorRequirement sensor_requirement_ = SensorRequirement::kNone;
 
     const int64_t ukm_source_id_;
 
@@ -273,11 +299,13 @@ class XR final : public EventTargetWithInlineData,
       XRSessionFeatureSet enabled_features,
       bool sensorless_session = false);
 
-  bool CanCreateSensorlessInlineSession(
-      const PendingRequestSessionQuery* query) const;
   XRSession* CreateSensorlessInlineSession();
 
-  void Dispose();
+  enum class DisposeType {
+    kContextDestroyed = 0,
+    kDisconnected = 1,
+  };
+  void Dispose(DisposeType);
 
   void OnEnvironmentProviderDisconnect();
 
@@ -312,6 +340,8 @@ class XR final : public EventTargetWithInlineData,
 
   // In DOM overlay mode, save and restore the FrameView background color.
   Color original_base_background_color_;
+
+  bool is_context_destroyed_ = false;
 };
 
 }  // namespace blink

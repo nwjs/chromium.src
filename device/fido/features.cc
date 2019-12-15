@@ -17,12 +17,12 @@ const base::Feature kWebAuthUseNativeWinApi{"WebAuthenticationUseNativeWinApi",
 #endif  // defined(OS_WIN)
 
 extern const base::Feature kWebAuthBiometricEnrollment{
-    "WebAuthenticationBiometricEnrollment", base::FEATURE_DISABLED_BY_DEFAULT};
-
-extern const base::Feature kWebAuthCredentialManagement{
-    "WebAuthenticationCredentialManagement", base::FEATURE_ENABLED_BY_DEFAULT};
+    "WebAuthenticationBiometricEnrollment", base::FEATURE_ENABLED_BY_DEFAULT};
 
 extern const base::Feature kWebAuthPhoneSupport{
     "WebAuthenticationPhoneSupport", base::FEATURE_DISABLED_BY_DEFAULT};
+
+extern const base::Feature kWebAuthFeaturePolicy{
+    "WebAuthenticationFeaturePolicy", base::FEATURE_DISABLED_BY_DEFAULT};
 
 }  // namespace device

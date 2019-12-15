@@ -41,7 +41,6 @@ class HistoryDeleteDirectiveSpecifics;
 class LinkedAppIconInfo;
 class ManagedUserSettingSpecifics;
 class ManagedUserWhitelistSpecifics;
-class MountainShareSpecifics;
 class NavigationRedirect;
 class NigoriSpecifics;
 class OsPreferenceSpecifics;
@@ -70,6 +69,7 @@ class TypedUrlSpecifics;
 class UrlDirective;
 class UserConsentSpecifics;
 class UserEventSpecifics;
+class WalletCreditCardCloudTokenData;
 class WalletMaskedCreditCard;
 class WalletMetadataSpecifics;
 class WalletPostalAddress;
@@ -169,9 +169,6 @@ std::unique_ptr<base::DictionaryValue> ManagedUserWhitelistSpecificsToValue(
     const sync_pb::ManagedUserWhitelistSpecifics&
         managed_user_whitelist_specifics);
 
-std::unique_ptr<base::DictionaryValue> MountainShareSpecificsToValue(
-    const sync_pb::MountainShareSpecifics& mountain_share_specifics);
-
 std::unique_ptr<base::DictionaryValue> NavigationRedirectToValue(
     const sync_pb::NavigationRedirect& navigation_redirect);
 
@@ -252,6 +249,9 @@ std::unique_ptr<base::DictionaryValue> UserConsentSpecificsToValue(
 
 std::unique_ptr<base::DictionaryValue> UserEventSpecificsToValue(
     const sync_pb::UserEventSpecifics& user_event_specifics);
+
+std::unique_ptr<base::DictionaryValue> WalletCreditCardCloudTokenDataToValue(
+    const sync_pb::WalletCreditCardCloudTokenData& cloud_token_data);
 
 std::unique_ptr<base::DictionaryValue> WalletMaskedCreditCardToValue(
     const sync_pb::WalletMaskedCreditCard& wallet_masked_card);

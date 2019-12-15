@@ -19,7 +19,7 @@
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
-#include "chrome/browser/chromeos/crostini/crostini_util.h"
+#include "chrome/browser/chromeos/crostini/crostini_features.h"
 #include "chrome/browser/chromeos/file_manager/app_id.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -28,14 +28,10 @@
 #include "chrome/browser/ui/app_list/app_service/app_service_app_model_builder.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_item.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs.h"
-#include "chrome/browser/ui/app_list/arc/arc_app_model_builder.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ui/app_list/chrome_app_list_item.h"
 #include "chrome/browser/ui/app_list/chrome_app_list_model_updater.h"
-#include "chrome/browser/ui/app_list/crostini/crostini_app_model_builder.h"
 #include "chrome/browser/ui/app_list/extension_app_item.h"
-#include "chrome/browser/ui/app_list/extension_app_model_builder.h"
-#include "chrome/browser/ui/app_list/internal_app/internal_app_model_builder.h"
 #include "chrome/browser/ui/app_list/page_break_app_item.h"
 #include "chrome/browser/ui/app_list/page_break_constants.h"
 #include "chrome/common/chrome_features.h"
@@ -92,12 +88,9 @@ syncer::SyncData GetSyncDataFromSyncItem(
 
 bool AppIsDefault(Profile* profile, const std::string& id) {
   // Querying the extension system is legacy logic from the time that we only
-  // had extension apps. The App Service is the canonical source of truth, when
-  // it is enabled, but we are not there yet (crbug.com/826982).
+  // had extension apps.
   if (extensions::ExtensionPrefs::Get(profile)->WasInstalledByDefault(id))
     return true;
-  if (!base::FeatureList::IsEnabled(features::kAppServiceAsh))
-    return false;
 
   bool result = false;
   apps::AppServiceProxyFactory::GetForProfile(profile)
@@ -109,12 +102,6 @@ bool AppIsDefault(Profile* profile, const std::string& id) {
 }
 
 void SetAppIsDefaultForTest(Profile* profile, const std::string& id) {
-  if (!base::FeatureList::IsEnabled(features::kAppServiceAsh)) {
-    extensions::ExtensionPrefs::Get(profile)->UpdateExtensionPref(
-        id, "was_installed_by_default", std::make_unique<base::Value>(true));
-    return;
-  }
-
   apps::mojom::AppPtr delta = apps::mojom::App::New();
   delta->app_type = apps::mojom::AppType::kExtension;
   delta->app_id = id;
@@ -318,23 +305,7 @@ AppListSyncableService::AppListSyncableService(Profile* profile)
       extension_system_(extensions::ExtensionSystem::Get(profile)),
       extension_registry_(extensions::ExtensionRegistry::Get(profile)),
       initial_sync_data_processed_(false),
-      first_app_list_sync_(true),
-      is_app_service_enabled_(
-          base::FeatureList::IsEnabled(features::kAppServiceAsh)) {
-  // This log message helps us gather better manual bug reports, as we
-  // gradually roll out enabling the AppList + AppService integration across
-  // Chrome OS' various release channels.
-  //
-  // Asking users to inspect chrome://flags/#app-service-ash isn't enough, as
-  // that UI can display just "Default" without detailing whether the default
-  // is to enable or disable. Instead, we can ask them to inspect
-  // file:///var/log/chrome/chrome for this log message.
-  //
-  // TODO(crbug.com/826982): remove this log message once the roll out is
-  // complete, hopefully by mid-2019.
-  VLOG(1) << "AppList + AppService integration: "
-          << (is_app_service_enabled_ ? "enabled" : "disabled");
-
+      first_app_list_sync_(true) {
   if (g_model_updater_factory_callback_for_test_)
     model_updater_ = g_model_updater_factory_callback_for_test_->Run();
   else
@@ -411,9 +382,7 @@ void AppListSyncableService::InitFromLocalStorage() {
 }
 
 bool AppListSyncableService::IsInitialized() const {
-  if (is_app_service_enabled_)
-    return app_service_apps_builder_.get();
-  return ext_apps_builder_.get();
+  return app_service_apps_builder_.get();
 }
 
 bool AppListSyncableService::IsSyncing() const {
@@ -427,34 +396,13 @@ void AppListSyncableService::BuildModel() {
   AppListClientImpl* client = AppListClientImpl::GetInstance();
   AppListControllerDelegate* controller = client;
 
-  if (is_app_service_enabled_) {
-    app_service_apps_builder_ =
-        std::make_unique<AppServiceAppModelBuilder>(controller);
-  } else {
-    ext_apps_builder_ = std::make_unique<ExtensionAppModelBuilder>(controller);
-    if (arc::IsArcAllowedForProfile(profile_))
-      arc_apps_builder_ = std::make_unique<ArcAppModelBuilder>(controller);
-    if (crostini::IsCrostiniUIAllowedForProfile(profile_)) {
-      crostini_apps_builder_ =
-          std::make_unique<CrostiniAppModelBuilder>(controller);
-    }
-    internal_apps_builder_ =
-        std::make_unique<InternalAppModelBuilder>(controller);
-  }
+  app_service_apps_builder_ =
+      std::make_unique<AppServiceAppModelBuilder>(controller);
 
   DCHECK(profile_);
   SyncStarted();
 
-  if (is_app_service_enabled_) {
-    app_service_apps_builder_->Initialize(this, profile_, model_updater_.get());
-  } else {
-    ext_apps_builder_->Initialize(this, profile_, model_updater_.get());
-    if (arc_apps_builder_.get())
-      arc_apps_builder_->Initialize(this, profile_, model_updater_.get());
-    if (crostini_apps_builder_.get())
-      crostini_apps_builder_->Initialize(this, profile_, model_updater_.get());
-    internal_apps_builder_->Initialize(this, profile_, model_updater_.get());
-  }
+  app_service_apps_builder_->Initialize(this, profile_, model_updater_.get());
 
   HandleUpdateFinished();
 
@@ -980,6 +928,11 @@ syncer::SyncMergeResult AppListSyncableService::MergeDataAndStartSyncing(
 
   HandleUpdateFinished();
 
+  // Check if already signaled since unit tests make multiple calls.
+  if (!on_initialized_.is_signaled()) {
+    on_initialized_.Signal();
+  }
+
   return result;
 }
 
@@ -1037,14 +990,7 @@ syncer::SyncError AppListSyncableService::ProcessSyncChanges(
 }
 
 void AppListSyncableService::Shutdown() {
-  if (is_app_service_enabled_) {
-    app_service_apps_builder_.reset();
-    return;
-  }
-  internal_apps_builder_.reset();
-  crostini_apps_builder_.reset();
-  arc_apps_builder_.reset();
-  ext_apps_builder_.reset();
+  app_service_apps_builder_.reset();
 }
 
 // AppListSyncableService private

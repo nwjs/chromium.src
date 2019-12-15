@@ -6,6 +6,7 @@
 
 #include "base/numerics/ranges.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_controller.h"
 #include "chrome/browser/ui/views/extensions/browser_action_drag_data.h"
@@ -131,6 +132,17 @@ void ExtensionsToolbarContainer::PopOutAction(
   ReorderViews();
   static_cast<views::AnimatingLayoutManager*>(GetLayoutManager())
       ->RunOrQueueAction(closure);
+}
+
+bool ExtensionsToolbarContainer::ShowToolbarActionPopup(
+    const std::string& action_id,
+    bool grant_active_tab) {
+  // Don't override another popup, and only show in the active window.
+  if (popped_out_action_ || !browser_->window()->IsActive())
+    return false;
+
+  ToolbarActionViewController* action = GetActionForId(action_id);
+  return action && action->ExecuteAction(grant_active_tab);
 }
 
 void ExtensionsToolbarContainer::ShowToolbarActionBubble(
@@ -289,14 +301,12 @@ void ExtensionsToolbarContainer::WriteDragDataForView(
 
   size_t index = it - model_->pinned_action_ids().cbegin();
 
-  ToolbarActionViewController* view_controller =
-      (GetViewForId(*it))->view_controller();
-  data->provider().SetDragImage(
-      view_controller->GetIcon(GetCurrentWebContents(), GetToolbarActionSize())
-          .AsImageSkia(),
-      press_pt.OffsetFromOrigin());
+  ToolbarActionView* extension_view = GetViewForId(*it);
+  data->provider().SetDragImage(GetExtensionIcon(extension_view),
+                                press_pt.OffsetFromOrigin());
   // Fill in the remaining info.
-  BrowserActionDragData drag_data(view_controller->GetId(), index);
+  BrowserActionDragData drag_data(extension_view->view_controller()->GetId(),
+                                  index);
   drag_data.Write(browser_->profile(), data);
 }
 
@@ -352,6 +362,7 @@ int ExtensionsToolbarContainer::OnDragUpdated(
 
   if (!drop_info_.get() || drop_info_->index != before_icon) {
     drop_info_ = std::make_unique<DropInfo>(data.id(), before_icon);
+    SetExtensionIconVisibility(drop_info_->action_id, false);
     ReorderViews();
   }
 
@@ -359,8 +370,14 @@ int ExtensionsToolbarContainer::OnDragUpdated(
 }
 
 void ExtensionsToolbarContainer::OnDragExited() {
+  const ToolbarActionsModel::ActionId dragged_extension_id =
+      drop_info_->action_id;
   drop_info_.reset();
   ReorderViews();
+  static_cast<views::AnimatingLayoutManager*>(GetLayoutManager())
+      ->RunOrQueueAction(base::BindOnce(
+          &ExtensionsToolbarContainer::SetExtensionIconVisibility,
+          weak_ptr_factory_.GetWeakPtr(), dragged_extension_id, true));
 }
 
 int ExtensionsToolbarContainer::OnPerformDrop(
@@ -406,6 +423,27 @@ size_t ExtensionsToolbarContainer::WidthToIconCount(int x_offset) {
                    (GetToolbarActionSize().width() + element_padding),
                0);
   return std::min(unclamped_count, actions_.size());
+}
+
+gfx::ImageSkia ExtensionsToolbarContainer::GetExtensionIcon(
+    ToolbarActionView* extension_view) {
+  return extension_view->view_controller()
+      ->GetIcon(GetCurrentWebContents(), GetToolbarActionSize())
+      .AsImageSkia();
+}
+
+void ExtensionsToolbarContainer::SetExtensionIconVisibility(
+    ToolbarActionsModel::ActionId id,
+    bool visible) {
+  auto it = std::find_if(model_->pinned_action_ids().cbegin(),
+                         model_->pinned_action_ids().cend(),
+                         [this, id](const std::string& action_id) {
+                           return GetViewForId(action_id) == GetViewForId(id);
+                         });
+  ToolbarActionView* extension_view = GetViewForId(*it);
+  extension_view->SetImage(
+      views::Button::STATE_NORMAL,
+      visible ? GetExtensionIcon(extension_view) : gfx::ImageSkia());
 }
 
 void ExtensionsToolbarContainer::ShowActiveBubble(

@@ -42,14 +42,18 @@ enum class SystemAppType {
   CAMERA,
   TERMINAL,
   MEDIA,
+  HELP,
 };
 
 // The configuration options for a System App.
 struct SystemAppInfo {
-  SystemAppInfo();
-  explicit SystemAppInfo(const GURL& install_url);
+  SystemAppInfo(const std::string& name_for_logging, const GURL& install_url);
   SystemAppInfo(const SystemAppInfo& other);
   ~SystemAppInfo();
+
+  // A developer-friendly name for reporting metrics. Should follow UMA naming
+  // conventions.
+  std::string name_for_logging;
 
   // The URL that the System App will be installed from.
   GURL install_url;
@@ -62,6 +66,9 @@ struct SystemAppInfo {
   // TODO(https://github.com/w3c/manifest/issues/436): Replace with PWA manifest
   // properties for window size.
   gfx::Size minimum_window_size;
+
+  // If set, we allow only a single window for this app.
+  bool single_window = true;
 };
 
 // Installs, uninstalls, and updates System Web Apps.
@@ -77,6 +84,8 @@ class SystemWebAppManager {
 
   static constexpr char kInstallResultHistogramName[] =
       "Webapp.InstallResult.System";
+  static constexpr char kInstallDurationHistogramName[] =
+      "Webapp.InstallDuration.System";
 
   // Returns whether the given app type is enabled.
   static bool IsAppEnabled(SystemAppType type);
@@ -114,6 +123,9 @@ class SystemWebAppManager {
   // Returns whether |app_id| points to an installed System App.
   bool IsSystemWebApp(const AppId& app_id) const;
 
+  // Returns whether the given System App |type| should use a single window.
+  bool IsSingleWindow(SystemAppType type) const;
+
   // Returns the minimum window size for |app_id| or an empty size if the app
   // doesn't specify a minimum.
   gfx::Size GetMinimumWindowSize(const AppId& app_id) const;
@@ -127,15 +139,27 @@ class SystemWebAppManager {
 
   void SetUpdatePolicyForTesting(UpdatePolicy policy);
 
+  void Shutdown();
+
  protected:
   virtual const base::Version& CurrentVersion() const;
+  virtual const std::string& CurrentLocale() const;
 
  private:
-  void OnAppsSynchronized(std::map<GURL, InstallResultCode> install_results,
+  void OnAppsSynchronized(const base::TimeTicks& install_start_time,
+                          std::map<GURL, InstallResultCode> install_results,
                           std::map<GURL, bool> uninstall_results);
   bool NeedsUpdate() const;
 
+  void RecordSystemWebAppInstallMetrics(
+      const std::map<GURL, InstallResultCode>& install_results,
+      const base::TimeDelta& install_duration) const;
+
   std::unique_ptr<base::OneShotEvent> on_apps_synchronized_;
+
+  bool shutting_down_ = false;
+
+  std::string install_result_per_profile_histogram_name_;
 
   UpdatePolicy update_policy_;
 

@@ -70,6 +70,17 @@ scoped_refptr<VideoFrame> CloneVideoFrame(
     VideoFrame::StorageType dst_storage_type = VideoFrame::STORAGE_OWNED_MEMORY,
     base::Optional<gfx::BufferUsage> dst_buffer_usage = base::nullopt);
 
+// Create GpuMemoryBuffer-based VideoFrame from |frame|. The created VideoFrame
+// doesn't depend on |frame|'s lifetime.
+// |frame| should be a DMABUF-backed VideoFrame. |buffer_usage| is a
+// GpuMemoryBuffer's buffer usage. |frame| must be created following the
+// |buffer_usage|.
+// This function works on ChromeOS only.
+scoped_refptr<VideoFrame> CreateGpuMemoryBufferVideoFrame(
+    gpu::GpuMemoryBufferFactory* gpu_memory_buffer_factory,
+    const VideoFrame* const frame,
+    gfx::BufferUsage buffer_usage);
+
 // Get VideoFrame that contains Load()ed data. The returned VideoFrame doesn't
 // own the data and thus must not be changed.
 scoped_refptr<const VideoFrame> CreateVideoFrameFromImage(const Image& image);
@@ -80,6 +91,13 @@ scoped_refptr<const VideoFrame> CreateVideoFrameFromImage(const Image& image);
 base::Optional<VideoFrameLayout> CreateVideoFrameLayout(
     VideoPixelFormat pixel_format,
     const gfx::Size& size);
+
+// Compare each byte of two VideoFrames, |frame1| and |frame2|, allowing the
+// error up to |tolerance|. Return number of bytes a difference of which is more
+// than |tolerance|.
+size_t CompareFramesWithErrorDiff(const VideoFrame& frame1,
+                                  const VideoFrame& frame2,
+                                  uint8_t tolerance);
 
 }  // namespace test
 }  // namespace media

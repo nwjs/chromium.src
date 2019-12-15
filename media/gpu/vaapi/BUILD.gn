@@ -5,10 +5,12 @@
 import("//build/config/features.gni")
 import("//build/config/ui.gni")
 import("//media/gpu/args.gni")
+import("//testing/test.gni")
 import("//tools/generate_stubs/rules.gni")
 import("//ui/gl/features.gni")
 import("//ui/ozone/ozone.gni")
 
+assert(is_linux)
 assert(use_vaapi)
 
 generate_stubs("libva_stubs") {
@@ -88,11 +90,9 @@ source_set("vaapi") {
     "//gpu/config",
     "//gpu/ipc/common",
     "//gpu/ipc/service",
-    "//media",
     "//media/gpu:common",
-    "//media/gpu:image_processor_common",
     "//media/gpu:video_frame_mapper_common",
-    "//media/gpu/chromeos:fourcc",
+    "//media/gpu/chromeos:common",
     "//media/gpu/linux:common",
     "//media/parsers",
     "//mojo/public/cpp/bindings",
@@ -102,6 +102,7 @@ source_set("vaapi") {
   ]
 
   public_deps = [
+    "//media",
     "//skia",
   ]
 
@@ -158,7 +159,6 @@ source_set("vaapi_test_utils") {
   deps = [
     ":vaapi",
     "//base",
-    "//media",
     "//testing/gtest",
     "//third_party/libyuv:libyuv",
   ]
@@ -180,13 +180,27 @@ source_set("unit_test") {
     "//base/test:test_support",
     "//gpu:test_support",
     "//gpu/ipc/service",
-    "//media",
     "//media/gpu:common",
     "//mojo/core/embedder",
     "//testing/gmock",
     "//testing/gtest",
     "//ui/gfx:test_support",
     "//ui/gfx/geometry",
+  ]
+}
+
+source_set("vaapi_image_decoder_test_common") {
+  testonly = true
+  sources = [
+    "vaapi_image_decoder_test_common.cc",
+    "vaapi_image_decoder_test_common.h",
+  ]
+  deps = [
+    ":vaapi",
+    ":vaapi_test_utils",
+    "//base",
+    "//media:test_support",
+    "//testing/gtest",
   ]
 }
 
@@ -197,10 +211,10 @@ source_set("jpeg_decoder_unit_test") {
   ]
   deps = [
     ":vaapi",
+    ":vaapi_image_decoder_test_common",
     ":vaapi_test_utils",
-    ":vaapi_utils_unittest",
     "//base",
-    "//media:test_support",
+    "//media/gpu/test:local_gpu_memory_buffer_manager",
     "//media/parsers",
     "//testing/gtest",
     "//third_party/libyuv:libyuv",
@@ -208,9 +222,6 @@ source_set("jpeg_decoder_unit_test") {
     "//ui/gfx/codec",
     "//ui/gfx/geometry",
   ]
-  if (is_chromeos) {
-    deps += [ "//media/capture:chromeos_test_utils" ]
-  }
 }
 
 source_set("webp_decoder_unit_test") {
@@ -220,18 +231,16 @@ source_set("webp_decoder_unit_test") {
   ]
   deps = [
     ":vaapi",
+    ":vaapi_image_decoder_test_common",
     ":vaapi_test_utils",
     "//base",
-    "//media:test_support",
+    "//media/gpu/test:local_gpu_memory_buffer_manager",
     "//media/parsers",
     "//testing/gtest",
     "//third_party/libwebp",
     "//ui/gfx:memory_buffer",
     "//ui/gfx/geometry",
   ]
-  if (is_chromeos) {
-    deps += [ "//media/capture:chromeos_test_utils" ]
-  }
 }
 
 source_set("vaapi_utils_unittest") {
@@ -245,8 +254,20 @@ source_set("vaapi_utils_unittest") {
     "//base/test:test_support",
     "//testing/gtest",
     "//ui/gfx/geometry",
+  ]
+}
 
-    # Indirect dependency from vaapi_wrapper.h.
-    "//skia",
+test("vaapi_unittest") {
+  sources = [
+    "vaapi_unittest.cc",
+  ]
+  deps = [
+    ":jpeg_decoder_unit_test",
+    ":vaapi",
+    ":vaapi_utils_unittest",
+    ":webp_decoder_unit_test",
+    "//base",
+    "//media/gpu/test:helpers",
+    "//testing/gtest",
   ]
 }

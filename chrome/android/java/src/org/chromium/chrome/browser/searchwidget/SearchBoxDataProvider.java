@@ -14,8 +14,9 @@ import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
-import org.chromium.chrome.browser.util.ColorUtils;
+import org.chromium.chrome.browser.ui.styles.ChromeColors;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 
 class SearchBoxDataProvider implements ToolbarDataProvider {
@@ -26,7 +27,7 @@ class SearchBoxDataProvider implements ToolbarDataProvider {
      * @param resources The {@link Resources} for accessing colors.
      */
     SearchBoxDataProvider(Resources resources) {
-        mPrimaryColor = ColorUtils.getPrimaryBackgroundColor(resources, isIncognito());
+        mPrimaryColor = ChromeColors.getPrimaryBackgroundColor(resources, isIncognito());
     }
 
     /**
@@ -62,7 +63,7 @@ class SearchBoxDataProvider implements ToolbarDataProvider {
     @Override
     public Profile getProfile() {
         if (mTab == null) return null;
-        return mTab.getProfile();
+        return ((TabImpl) mTab).getProfile();
     }
 
     @Override

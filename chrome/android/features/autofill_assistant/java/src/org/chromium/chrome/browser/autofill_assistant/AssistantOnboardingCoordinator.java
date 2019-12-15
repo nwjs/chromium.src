@@ -13,9 +13,9 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.autofill_assistant.R;
 import org.chromium.chrome.browser.autofill_assistant.metrics.DropOutReason;
 import org.chromium.chrome.browser.autofill_assistant.metrics.OnBoarding;
@@ -24,6 +24,7 @@ import org.chromium.chrome.browser.autofill_assistant.overlay.AssistantOverlayMo
 import org.chromium.chrome.browser.autofill_assistant.overlay.AssistantOverlayState;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
 import org.chromium.ui.text.NoUnderlineClickableSpan;
 import org.chromium.ui.text.SpanApplier;
@@ -77,7 +78,8 @@ class AssistantOnboardingCoordinator {
         if (mTab != null) {
             // If there's a tab, cover it with an overlay.
             AssistantOverlayModel overlayModel = new AssistantOverlayModel();
-            mOverlayCoordinator = new AssistantOverlayCoordinator(mTab.getActivity(), overlayModel);
+            mOverlayCoordinator =
+                    new AssistantOverlayCoordinator(((TabImpl) mTab).getActivity(), overlayModel);
             overlayModel.set(AssistantOverlayModel.STATE, AssistantOverlayState.FULL);
         }
         mContent = new AssistantBottomSheetContent(mContext);

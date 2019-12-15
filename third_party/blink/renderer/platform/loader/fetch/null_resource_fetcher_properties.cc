@@ -26,12 +26,15 @@ NullResourceFetcherProperties::NullResourceFetcherProperties()
               AllowedByNosniff::MimeTypeCheck::kStrict,
               network::mojom::IPAddressSpace::kPublic,
               kLeaveInsecureRequestsAlone,
-              FetchClientSettingsObject::InsecureNavigationsSet(),
-              false /* mixed_autoupgrade_opt_out */)) {}
+              FetchClientSettingsObject::InsecureNavigationsSet())) {}
 
 void NullResourceFetcherProperties::Trace(Visitor* visitor) {
   visitor->Trace(fetch_client_settings_object_);
   ResourceFetcherProperties::Trace(visitor);
+}
+
+const KURL& NullResourceFetcherProperties::WebBundlePhysicalUrl() const {
+  return NullURL();
 }
 
 }  // namespace blink

@@ -17,6 +17,12 @@ struct App {
   Readiness readiness;
   string? name;
   string? short_name;
+
+  // The publisher-specific ID for this app, e.g. for Android apps, this field
+  // contains the Android package name. May be empty if AppId() should be
+  // considered as the canonical publisher ID.
+  string? publisher_id;
+
   string? description;
   string? version;
   array<string> additional_search_terms;
@@ -46,6 +52,11 @@ struct App {
   OptionalBool show_in_search;
   OptionalBool show_in_management;
 
+  // Paused apps cannot be launched, and any running apps that become paused
+  // will be stopped. This is independent of whether or not the app is ready to
+  // be launched (defined by the Readiness field).
+  OptionalBool paused;
+
   // This vector stores all the intent filters defined in this app. Each
   // intent filter defines a matching criteria for whether an intent can
   // be handled by this app. One app can have multiple intent filters.
@@ -72,9 +83,10 @@ enum AppType {
   kUnknown = 0,
   kArc,        // Android app.
   kBuiltIn,    // Built-in app.
-  kCrostini,   // Linux app.
+  kCrostini,   // Linux (via Crostini) app.
   kExtension,  // Extension-backed app.
   kWeb,        // Web app.
+  kMacNative,  // Native Mac app.
 };
 
 // Whether an app is ready to launch, i.e. installed.

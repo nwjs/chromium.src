@@ -54,6 +54,7 @@
 #include "media/base/media_switches.h"
 #include "media/base/video_codecs.h"
 #include "media/media_buildflags.h"
+#include "mojo/public/cpp/bindings/binder_map.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "net/http/http_util.h"
 #include "pdf/buildflags.h"
@@ -460,16 +461,14 @@ std::unique_ptr<content::CdmInfo> CreateCdmInfoForChromeOS(
   capability.video_codecs.push_back(media::VideoCodec::kCodecVP8);
   capability.video_codecs.push_back(media::VideoCodec::kCodecVP9);
   capability.video_codecs.push_back(media::VideoCodec::kCodecAV1);
-  // TODO(crbug.com/899403): Update this and tests after Widevine CDM supports
-  // VP9 profile 2.
-  capability.supports_vp9_profile2 = false;
+  capability.supports_vp9_profile2 = true;
 #if BUILDFLAG(USE_PROPRIETARY_CODECS)
   capability.video_codecs.push_back(media::VideoCodec::kCodecH264);
 #endif  // BUILDFLAG(USE_PROPRIETARY_CODECS)
 
   // Both encryption schemes are supported on ChromeOS.
-  capability.encryption_schemes.insert(media::EncryptionMode::kCenc);
-  capability.encryption_schemes.insert(media::EncryptionMode::kCbcs);
+  capability.encryption_schemes.insert(media::EncryptionScheme::kCenc);
+  capability.encryption_schemes.insert(media::EncryptionScheme::kCbcs);
 
   // Both temporary and persistent sessions are supported on ChromeOS.
   capability.session_types.insert(media::CdmSessionType::kTemporary);
@@ -719,7 +718,7 @@ void ChromeContentClient::AddContentDecryptionModules(
 
       // Supported codecs are hard-coded in ExternalClearKeyProperties.
       content::CdmCapability capability(
-          {}, {media::EncryptionMode::kCenc, media::EncryptionMode::kCbcs},
+          {}, {media::EncryptionScheme::kCenc, media::EncryptionScheme::kCbcs},
           {media::CdmSessionType::kTemporary,
            media::CdmSessionType::kPersistentLicense,
            media::CdmSessionType::kPersistentUsageRecord},
@@ -902,13 +901,16 @@ media::MediaDrmBridgeClient* ChromeContentClient::GetMediaDrmBridgeClient() {
 }
 #endif  // OS_ANDROID
 
-void ChromeContentClient::BindChildProcessInterface(
-    const std::string& interface_name,
-    mojo::ScopedMessagePipeHandle* receiving_handle) {
-  static base::NoDestructor<heap_profiling::ProfilingClient> profiling_client;
-  if (interface_name == heap_profiling::ProfilingClient::Name_) {
-    profiling_client->BindToInterface(
-        mojo::PendingReceiver<heap_profiling::mojom::ProfilingClient>(
-            std::move(*receiving_handle)));
-  }
+void ChromeContentClient::ExposeInterfacesToBrowser(
+    scoped_refptr<base::SequencedTaskRunner> io_task_runner,
+    mojo::BinderMap* binders) {
+  binders->Add(
+      base::BindRepeating(
+          [](mojo::PendingReceiver<heap_profiling::mojom::ProfilingClient>
+                 receiver) {
+            static base::NoDestructor<heap_profiling::ProfilingClient>
+                profiling_client;
+            profiling_client->BindToInterface(std::move(receiver));
+          }),
+      io_task_runner);
 }

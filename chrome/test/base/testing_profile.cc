@@ -368,7 +368,7 @@ void TestingProfile::CreateTempProfileDir() {
 
     base::FilePath fallback_dir(
         system_tmp_dir.AppendASCII("TestingProfilePath"));
-    base::DeleteFile(fallback_dir, true);
+    base::DeleteFileRecursively(fallback_dir);
     base::CreateDirectory(fallback_dir);
     if (!temp_dir_.Set(fallback_dir)) {
       // That shouldn't happen, but if it does, try to recover.
@@ -545,6 +545,9 @@ void TestingProfile::FinishInit() {
     // must be initialized when the testing profile finishes its initialization.
     signin_util::EnsureUserSignoutAllowedIsInitializedForProfile(this);
   }
+
+  if (original_profile_)
+    original_profile_->NotifyOffTheRecordProfileCreated(this);
 }
 
 TestingProfile::~TestingProfile() {
@@ -651,6 +654,23 @@ void TestingProfile::CreateBookmarkModel(bool delete_file) {
 void TestingProfile::CreateWebDataService() {
   WebDataServiceFactory::GetInstance()->SetTestingFactory(
       this, base::BindRepeating(&BuildWebDataService));
+}
+
+void TestingProfile::BlockUntilHistoryBackendDestroyed() {
+  // Only get the history service if it actually exists since the caller of the
+  // test should explicitly call CreateHistoryService to build it.
+  history::HistoryService* history_service =
+      HistoryServiceFactory::GetForProfileWithoutCreating(this);
+
+  // Nothing to destroy
+  if (!history_service) {
+    return;
+  }
+
+  base::RunLoop run_loop;
+  history_service->SetOnBackendDestroyTask(run_loop.QuitClosure());
+  HistoryServiceFactory::ShutdownForProfile(this);
+  run_loop.Run();
 }
 
 void TestingProfile::BlockUntilHistoryIndexIsRefreshed() {
@@ -855,7 +875,7 @@ void TestingProfile::CreateIncognitoPrefService() {
   // Simplified version of ProfileImpl::GetOffTheRecordPrefs(). Note this
   // leaves testing_prefs_ unset.
   prefs_ = CreateIncognitoPrefServiceSyncable(original_profile_->prefs_.get(),
-                                              nullptr, nullptr);
+                                              nullptr);
   user_prefs::UserPrefs::Set(this, prefs_.get());
 }
 
@@ -1099,7 +1119,7 @@ TestingProfile::CreateNetworkContext(
     const base::FilePath& relative_partition_path) {
   if (network_context_) {
     mojo::Remote<network::mojom::NetworkContext> network_context_remote;
-    network_context_bindings_.AddBinding(
+    network_context_receivers_.Add(
         network_context_.get(),
         network_context_remote.BindNewPipeAndPassReceiver());
     return network_context_remote;

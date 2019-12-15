@@ -42,6 +42,7 @@ class SendTabToSelfBubbleView;
 
 // An implementation of BrowserWindow used for testing. TestBrowserWindow only
 // contains a valid LocationBar, all other getters return NULL.
+// However, some of them can be preset to a specific value.
 // See BrowserWithTestWindowTest for an example of using this class.
 class TestBrowserWindow : public BrowserWindow {
  public:
@@ -109,7 +110,7 @@ class TestBrowserWindow : public BrowserWindow {
   bool IsFullscreen() const override;
   bool IsFullscreenBubbleVisible() const override;
   LocationBar* GetLocationBar() const override;
-  bool UpdatePageActionIcon(PageActionIconType type) override;
+  void UpdatePageActionIcon(PageActionIconType type) override {}
   autofill::AutofillBubbleHandler* GetAutofillBubbleHandler() override;
   void ExecutePageActionIconForTesting(PageActionIconType type) override {}
   void SetFocusToLocationBar(bool is_user_initiated) override {}
@@ -204,6 +205,8 @@ class TestBrowserWindow : public BrowserWindow {
 
   void ShowInProductHelpPromo(InProductHelpFeature iph_feature) override {}
 
+  void SetNativeWindow(gfx::NativeWindow window);
+
  protected:
   void DestroyBrowser() override {}
 
@@ -236,6 +239,7 @@ class TestBrowserWindow : public BrowserWindow {
   autofill::TestAutofillBubbleHandler autofill_bubble_handler_;
   TestDownloadShelf download_shelf_;
   TestLocationBar location_bar_;
+  gfx::NativeWindow native_window_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(TestBrowserWindow);
 };

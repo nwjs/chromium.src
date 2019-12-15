@@ -17,6 +17,7 @@
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/format_macros.h"
 #include "base/location.h"
@@ -52,6 +53,7 @@
 #include "chrome/browser/chromeos/login/users/supervised_user_manager_impl.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chrome/browser/chromeos/policy/device_network_configuration_updater.h"
+#include "chrome/browser/chromeos/policy/external_data_handlers/crostini_ansible_playbook_external_data_handler.h"
 #include "chrome/browser/chromeos/policy/external_data_handlers/native_printers_external_data_handler.h"
 #include "chrome/browser/chromeos/policy/external_data_handlers/print_servers_external_data_handler.h"
 #include "chrome/browser/chromeos/policy/external_data_handlers/user_avatar_image_external_data_handler.h"
@@ -129,8 +131,6 @@ const char kDeviceLocalAccountPendingDataRemoval[] =
 // data.
 const char kDeviceLocalAccountsWithSavedData[] = "PublicAccounts";
 
-constexpr char kGoogleDotCom[] = "@google.com";
-
 constexpr char kBluetoothLoggingUpstartJob[] = "bluetoothlog";
 
 // If the service doesn't exist or the policy is not set, enable managed
@@ -197,13 +197,11 @@ policy::MinimumVersionPolicyHandler* GetMinimumVersionPolicyHandler() {
       ->GetMinimumVersionPolicyHandler();
 }
 
-// Starts bluetooth logging service for accounts ending with |kGoogleDotCom|
-// and certain devices.
+// Starts bluetooth logging service for internal accounts and certain devices.
 void MaybeStartBluetoothLogging(const AccountId& account_id) {
-  if (!base::EndsWith(account_id.GetUserEmail(), kGoogleDotCom,
-                      base::CompareCase::INSENSITIVE_ASCII)) {
+  if (!gaia::IsGoogleInternalAccountEmail(account_id.GetUserEmail()))
     return;
-  }
+
   chromeos::UpstartClient::Get()->StartJob(kBluetoothLoggingUpstartJob, {},
                                            EmptyVoidDBusMethodCallback());
 }
@@ -217,14 +215,14 @@ bool IsManagedSessionEnabled(policy::DeviceLocalAccountPolicyBroker* broker) {
   return entry->value && entry->value->GetBool();
 }
 
-const base::Value::ListStorage* GetListPolicyValue(
+base::span<const base::Value> GetListPolicyValue(
     const policy::PolicyMap& policy_map,
     const char* policy_key) {
   const policy::PolicyMap::Entry* entry = policy_map.Get(policy_key);
   if (!entry || !entry->value || !entry->value->is_list())
-    return nullptr;
+    return {};
 
-  return &entry->value->GetList();
+  return entry->value->GetList();
 }
 
 bool AreRiskyPoliciesUsed(policy::DeviceLocalAccountPolicyBroker* broker) {
@@ -260,16 +258,16 @@ bool AreRiskyExtensionsForceInstalled(
     policy::DeviceLocalAccountPolicyBroker* broker) {
   const policy::PolicyMap& policy_map = broker->core()->store()->policy_map();
 
-  const base::Value::ListStorage* forcelist =
+  auto forcelist =
       GetListPolicyValue(policy_map, policy::key::kExtensionInstallForcelist);
 
   // Extension is risky if it's present in force-installed extensions and is not
   // whitelisted for public sessions.
 
-  if (!forcelist || forcelist->empty())
+  if (forcelist.empty())
     return false;
 
-  for (const base::Value& extension : *forcelist) {
+  for (const base::Value& extension : forcelist) {
     if (!extension.is_string())
       continue;
 
@@ -413,17 +411,20 @@ ChromeUserManagerImpl::ChromeUserManagerImpl()
     GetMinimumVersionPolicyHandler()->AddObserver(this);
   }
 
-  cloud_external_data_policy_handlers_.emplace_back(
+  cloud_external_data_policy_handlers_.push_back(
       std::make_unique<policy::UserAvatarImageExternalDataHandler>(
           cros_settings_, device_local_account_policy_service));
-  cloud_external_data_policy_handlers_.emplace_back(
+  cloud_external_data_policy_handlers_.push_back(
       std::make_unique<policy::WallpaperImageExternalDataHandler>(
           cros_settings_, device_local_account_policy_service));
-  cloud_external_data_policy_handlers_.emplace_back(
+  cloud_external_data_policy_handlers_.push_back(
       std::make_unique<policy::NativePrintersExternalDataHandler>(
           cros_settings_, device_local_account_policy_service));
-  cloud_external_data_policy_handlers_.emplace_back(
+  cloud_external_data_policy_handlers_.push_back(
       std::make_unique<policy::PrintServersExternalDataHandler>(
+          cros_settings_, device_local_account_policy_service));
+  cloud_external_data_policy_handlers_.push_back(
+      std::make_unique<policy::CrostiniAnsiblePlaybookExternalDataHandler>(
           cros_settings_, device_local_account_policy_service));
 
   // Record the stored session length for enrolled device.
@@ -637,8 +638,7 @@ void ChromeUserManagerImpl::Observe(
     const content::NotificationDetails& details) {
   DCHECK_EQ(type, chrome::NOTIFICATION_LOGIN_USER_PROFILE_PREPARED);
   Profile* profile = content::Details<Profile>(details).ptr();
-  if (IsUserLoggedIn() && !IsLoggedInAsGuest() && !IsLoggedInAsKioskApp() &&
-      !IsLoggedInAsArcKioskApp()) {
+  if (IsUserLoggedIn() && !IsLoggedInAsGuest() && !IsLoggedInAsAnyKioskApp()) {
     if (!profile->IsOffTheRecord()) {
       if (AuthSyncObserver::ShouldObserve(profile)) {
         AuthSyncObserver* sync_observer =
@@ -1020,6 +1020,26 @@ void ChromeUserManagerImpl::ArcKioskAppLoggedIn(user_manager::User* user) {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   command_line->AppendSwitch(::switches::kForceAndroidAppMode);
   command_line->AppendSwitch(::switches::kSilentLaunch);
+
+  // Disable window animation since kiosk app runs in a single full screen
+  // window and window animation causes start-up janks.
+  command_line->AppendSwitch(wm::switches::kWindowAnimationsDisabled);
+}
+
+void ChromeUserManagerImpl::WebKioskAppLoggedIn(user_manager::User* user) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  active_user_ = user;
+  active_user_->SetStubImage(
+      std::make_unique<user_manager::UserImage>(
+          *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+              IDR_LOGIN_DEFAULT_USER)),
+      user_manager::User::USER_IMAGE_INVALID, false);
+
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  command_line->AppendSwitch(::switches::kForceWebAppMode);
+  command_line->AppendSwitch(
+      ::switches::kSilentLaunch);  // To open no extra windows.
 
   // Disable window animation since kiosk app runs in a single full screen
   // window and window animation causes start-up janks.
@@ -1548,6 +1568,9 @@ ChromeUserManagerImpl::CreateUserFromDeviceLocalAccount(
       break;
     case policy::DeviceLocalAccount::TYPE_ARC_KIOSK_APP:
       user.reset(user_manager::User::CreateArcKioskAppUser(account_id));
+      break;
+    case policy::DeviceLocalAccount::TYPE_WEB_KIOSK_APP:
+      user.reset(user_manager::User::CreateWebKioskAppUser(account_id));
       break;
     default:
       NOTREACHED();

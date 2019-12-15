@@ -51,7 +51,7 @@ class CONTENT_EXPORT SSLManager {
       const base::WeakPtr<SSLErrorHandler::Delegate>& delegate,
       bool is_main_frame_request,
       const GURL& url,
-      const base::Callback<WebContents*(void)>& web_contents_getter,
+      WebContents* web_contents,
       int net_error,
       const net::SSLInfo& ssl_info,
       bool fatal);
@@ -77,7 +77,8 @@ class CONTENT_EXPORT SSLManager {
   NavigationControllerImpl* controller() { return controller_; }
 
   void DidCommitProvisionalLoad(const LoadCommittedDetails& details);
-  void DidStartResourceResponse(const GURL& url, bool has_certificate_errors);
+  void DidStartResourceResponse(const url::Origin& origin_of_final_response_url,
+                                bool has_certificate_errors);
 
   // The following methods are called when a page includes insecure
   // content. These methods update the SSLStatus on the NavigationEntry

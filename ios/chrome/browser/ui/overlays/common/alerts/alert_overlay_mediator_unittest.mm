@@ -4,8 +4,8 @@
 
 #import "ios/chrome/browser/ui/overlays/common/alerts/alert_overlay_mediator.h"
 
-#import "ios/chrome/browser/ui/alert_view_controller/alert_action.h"
-#import "ios/chrome/browser/ui/alert_view_controller/test/fake_alert_consumer.h"
+#import "ios/chrome/browser/ui/alert_view/alert_action.h"
+#import "ios/chrome/browser/ui/alert_view/test/fake_alert_consumer.h"
 #import "ios/chrome/browser/ui/elements/text_field_configuration.h"
 #import "ios/chrome/browser/ui/overlays/common/alerts/alert_overlay_mediator+subclassing.h"
 #import "ios/chrome/browser/ui/overlays/common/alerts/test/alert_overlay_mediator_test.h"
@@ -24,6 +24,7 @@
 @property(nonatomic, readwrite)
     NSArray<TextFieldConfiguration*>* alertTextFieldConfigurations;
 @property(nonatomic, readwrite) NSArray<AlertAction*>* alertActions;
+@property(nonatomic, readwrite) NSString* alertAccessibilityIdentifier;
 @end
 
 @implementation FakeAlertOverlayMediator
@@ -44,6 +45,7 @@ TEST_F(AlertOverlayMediatorTest, SetUpConsumer) {
       @[ [AlertAction actionWithTitle:@"Title"
                                 style:UIAlertActionStyleDefault
                               handler:nil] ];
+  mediator.alertAccessibilityIdentifier = @"identifier";
 
   SetMediator(mediator);
   EXPECT_NSEQ(mediator.alertTitle, consumer().title);
@@ -51,4 +53,6 @@ TEST_F(AlertOverlayMediatorTest, SetUpConsumer) {
   EXPECT_NSEQ(mediator.alertTextFieldConfigurations,
               consumer().textFieldConfigurations);
   EXPECT_NSEQ(mediator.alertActions, consumer().actions);
+  EXPECT_NSEQ(mediator.alertAccessibilityIdentifier,
+              consumer().alertAccessibilityIdentifier);
 }

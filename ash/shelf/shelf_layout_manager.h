@@ -8,12 +8,14 @@
 #include <memory>
 
 #include "ash/ash_export.h"
+#include "ash/home_screen/drag_window_from_shelf_controller.h"
 #include "ash/public/cpp/app_list/app_list_controller_observer.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/public/cpp/wallpaper_controller.h"
 #include "ash/public/cpp/wallpaper_controller_observer.h"
 #include "ash/session/session_observer.h"
 #include "ash/shelf/shelf.h"
+#include "ash/shelf/shelf_widget.h"
 #include "ash/shell_observer.h"
 #include "ash/system/locale/locale_update_controller_impl.h"
 #include "ash/wm/desks/desks_controller.h"
@@ -41,12 +43,15 @@ class EventHandler;
 class ImplicitAnimationObserver;
 class LocatedEvent;
 class MouseEvent;
+class MouseWheelEvent;
 }  // namespace ui
 
 namespace ash {
 
 enum class AnimationChangeType;
+class DragWindowFromShelfController;
 class PanelLayoutManagerTest;
+class PresentationTimeRecorder;
 class Shelf;
 class ShelfLayoutManagerObserver;
 class ShelfLayoutManagerTestBase;
@@ -72,17 +77,17 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
                                       public LocaleChangeObserver,
                                       public DesksController::Observer {
  public:
-  // Suspend shelf visibility update within its scope. Note that relevant
+  // Suspend work area updates within its scope. Note that relevant
   // ShelfLayoutManager must outlive this class.
-  class ScopedSuspendVisibilityUpdate {
+  class ScopedSuspendWorkAreaUpdate {
    public:
     // |manager| is the ShelfLayoutManager whose visibility update is suspended.
-    explicit ScopedSuspendVisibilityUpdate(ShelfLayoutManager* manager);
-    ~ScopedSuspendVisibilityUpdate();
+    explicit ScopedSuspendWorkAreaUpdate(ShelfLayoutManager* manager);
+    ~ScopedSuspendWorkAreaUpdate();
 
    private:
     ShelfLayoutManager* const manager_;
-    DISALLOW_COPY_AND_ASSIGN(ScopedSuspendVisibilityUpdate);
+    DISALLOW_COPY_AND_ASSIGN(ScopedSuspendWorkAreaUpdate);
   };
 
   ShelfLayoutManager(ShelfWidget* shelf_widget, Shelf* shelf);
@@ -99,6 +104,10 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
 
   // Returns the ideal bounds of the shelf assuming it is visible.
   gfx::Rect GetIdealBounds() const;
+
+  // Returns the ideal bounds of the shelf, but always returns in-app shelf
+  // bounds in tablet mode.
+  gfx::Rect GetIdealBoundsForWorkAreaCalculation() const;
 
   // Stops any animations, sets the bounds of the shelf and status widgets, and
   // changes the work area
@@ -123,6 +132,9 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
   void ProcessGestureEventOfInAppHotseat(ui::GestureEvent* event,
                                          aura::Window* target);
 
+  // Updates the auto-dim state.
+  void SetDimmed(bool dimmed);
+
   void AddObserver(ShelfLayoutManagerObserver* observer);
   void RemoveObserver(ShelfLayoutManagerObserver* observer);
 
@@ -136,6 +148,9 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
 
   // Handles events from ShelfWidget.
   void ProcessGestureEventFromShelfWidget(ui::GestureEvent* event_in_screen);
+
+  // Handles mouse wheel events from the shelf.
+  void ProcessMouseWheelEventFromShelf(ui::MouseWheelEvent* event);
 
   // Returns how the shelf background should be painted.
   ShelfBackgroundType GetShelfBackgroundType() const;
@@ -154,10 +169,9 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
   // Cancel the drag if the shelf is in drag progress.
   void CancelDragOnShelfIfInProgress();
 
-  // Suspends/resumes visibility update. Use ScopedSuspendVisibilityUpdate when
-  // possible to ensure there are balanced calls.
-  void SuspendVisibilityUpdate();
-  void ResumeVisiblityUpdate();
+  // Suspends shelf visibility updates, to be used during shutdown. Since there
+  // is no balanced "resume" public API, the suspension will be indefinite.
+  void SuspendVisibilityUpdateForShutdown();
 
   // Called when ShelfItems are interacted with in the shelf.
   void OnShelfItemSelected(ShelfAction action);
@@ -177,6 +191,7 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
                                SplitViewController::State state) override;
 
   // OverviewObserver:
+  void OnOverviewModeWillStart() override;
   void OnOverviewModeStarting() override;
   void OnOverviewModeStartingAnimationComplete(bool canceled) override;
   void OnOverviewModeEnding(OverviewSession* overview_session) override;
@@ -226,21 +241,37 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
     is_auto_hide_state_locked_ = lock_auto_hide_state;
   }
 
+  // Calculates the hotseat y position for |hotseat_target_state| in shelf
+  // coordinates.
+  int CalculateHotseatYInShelf(HotseatState hotseat_target_state) const;
+
+  gfx::Rect GetNavigationBounds() const;
+
   bool updating_bounds() const { return updating_bounds_; }
   ShelfAutoHideState auto_hide_state() const { return state_.auto_hide_state; }
-  HotseatState hotseat_state() const { return state_.hotseat_state; }
+  HotseatState hotseat_state() const {
+    return shelf_widget_->hotseat_widget()->state();
+  }
+
+  DragWindowFromShelfController* window_drag_controller_for_testing() {
+    return window_drag_controller_.get();
+  }
+
+  bool IsDraggingApplist() const {
+    return drag_status_ == kDragAppListInProgress;
+  }
 
   // TODO(harrym|oshima): These templates will be moved to a new Shelf class.
   // A helper function for choosing values specific to a shelf alignment.
   template <typename T>
   T SelectValueForShelfAlignment(T bottom, T left, T right) const {
     switch (shelf_->alignment()) {
-      case SHELF_ALIGNMENT_BOTTOM:
-      case SHELF_ALIGNMENT_BOTTOM_LOCKED:
+      case ShelfAlignment::kBottom:
+      case ShelfAlignment::kBottomLocked:
         return bottom;
-      case SHELF_ALIGNMENT_LEFT:
+      case ShelfAlignment::kLeft:
         return left;
-      case SHELF_ALIGNMENT_RIGHT:
+      case ShelfAlignment::kRight:
         return right;
     }
     NOTREACHED();
@@ -256,7 +287,9 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
   class UpdateShelfObserver;
   friend class PanelLayoutManagerTest;
   friend class ShelfLayoutManagerTestBase;
+  friend class ShelfLayoutManagerWindowDraggingTest;
   friend class NotificationTrayTest;
+  friend class Shelf;
 
   struct TargetBounds {
     TargetBounds();
@@ -350,6 +383,10 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
     session_manager::SessionState session_state;
   };
 
+  // Suspends/resumes work area updates.
+  void SuspendWorkAreaUpdate();
+  void ResumeWorkAreaUpdate();
+
   // Sets the visibility of the shelf to |state|.
   void SetState(ShelfVisibilityState visibility_state);
 
@@ -368,8 +405,7 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
   // Updates the bounds and opacity of the shelf and status widgets.
   // If |observer| is specified, it will be called back when the animations, if
   // any, are complete.
-  void UpdateBoundsAndOpacity(const TargetBounds& target_bounds,
-                              bool animate,
+  void UpdateBoundsAndOpacity(bool animate,
                               ui::ImplicitAnimationObserver* observer);
 
   // Returns true if a maximized or fullscreen window is being dragged from the
@@ -381,17 +417,18 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
   void StopAnimating();
 
   // Calculates shelf target bounds assuming visibility of
-  // |state.visibilty_state|.
+  // |state.visibilty_state| and |hotseat_target_state|.
   void CalculateTargetBounds(const State& state,
-                             TargetBounds* target_bounds) const;
+                             HotseatState hotseat_target_state);
 
-  // Calculate the target bounds using |state_|, and updates the
-  // |user_work_area_bounds_|.
-  void CalculateTargetBoundsAndUpdateWorkArea(TargetBounds* target_bounds);
+  // Calculates the target bounds using |state_|, |hotseat_target_state|, and
+  // updates the |user_work_area_bounds_|.
+  void CalculateTargetBoundsAndUpdateWorkArea(
+      HotseatState hotseat_target_state);
 
   // Updates the target bounds if a gesture-drag is in progress. This is only
   // used by |CalculateTargetBounds()|.
-  void UpdateTargetBoundsForGesture(TargetBounds* target_bounds) const;
+  void UpdateTargetBoundsForGesture(HotseatState target_hotseat_state);
 
   // Updates the auto hide state immediately.
   void UpdateAutoHideStateNow();
@@ -466,6 +503,7 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
   void CompleteDrag(const ui::LocatedEvent& event_in_screen);
   void CompleteAppListDrag(const ui::LocatedEvent& event_in_screen);
   void CancelDrag();
+  void CompleteDragWithChangedVisibility();
 
   float GetAppListBackgroundOpacityOnShelfOpacity();
 
@@ -487,6 +525,22 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
   void SendA11yAlertForFullscreenWorkspaceState(
       WorkspaceWindowState current_workspace_window_state);
 
+  // Maybe start/update/end the window drag when swiping up from the shelf.
+  bool MaybeStartDragWindowFromShelf(const ui::LocatedEvent& event_in_screen,
+                                     base::Optional<float> scroll_y);
+  void MaybeUpdateWindowDrag(const ui::LocatedEvent& event_in_screen,
+                             float scroll_x,
+                             float scroll_y);
+  base::Optional<DragWindowFromShelfController::ShelfWindowDragResult>
+  MaybeEndWindowDrag(const ui::LocatedEvent& event_in_screen);
+  // If overview session is active, goes to home screen if the gesture should
+  // initiate transition to home. It handles the gesture only if the
+  // |window_drag_controller_| is not handling a window drag (for example, in
+  // split view mode).
+  bool MaybeEndDragFromOverviewToHome(const ui::LocatedEvent& event_in_screen);
+  void MaybeCancelWindowDrag();
+  bool IsWindowDragInProgress() const;
+
   // True when inside UpdateBoundsAndOpacity() method. Used to prevent calling
   // UpdateBoundsAndOpacity() again from SetChildBounds().
   bool updating_bounds_ = false;
@@ -502,9 +556,13 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
   ShelfWidget* shelf_widget_;
   Shelf* shelf_;
 
-  // Count of pending visibility update suspensions. Skip updating shelf
+  // Count of pending visibility update suspensions. Skip updating the shelf
   // visibility state if it is greater than 0.
   int suspend_visibility_update_ = 0;
+
+  // Count of pending work area update suspensions. Skip updating the work
+  // area if it is greater than 0.
+  int suspend_work_area_update_ = 0;
 
   base::OneShotTimer auto_hide_timer_;
 
@@ -531,6 +589,7 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
     kDragCancelInProgress,
     kDragCompleteInProgress,
     kDragAppListInProgress,
+    kDragHomeToOverviewInProgress,
   };
 
   DragStatus drag_status_ = kDragNone;
@@ -541,6 +600,10 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
   // Whether the EXTENDED hotseat should be hidden. Set when HotseatEventHandler
   // detects that the background has been interacted with.
   bool should_hide_hotseat_ = false;
+
+  // Whether the overview mode is about to start. This becomes false again
+  // once the overview mode has actually started.
+  bool overview_mode_will_start_ = false;
 
   // Tracks the amount of the drag. The value is only valid when
   // |drag_status_| is set to kDragInProgress.
@@ -579,13 +642,13 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
 
   // The current shelf background. Should not be assigned to directly, use
   // MaybeUpdateShelfBackground() instead.
-  ShelfBackgroundType shelf_background_type_ = SHELF_BACKGROUND_DEFAULT;
+  ShelfBackgroundType shelf_background_type_ = ShelfBackgroundType::kDefaultBg;
 
   // Shelf will become transparent if launcher is opened. Stores the shelf
   // background type before open the launcher when start to drag the launcher
   // from shelf.
   ShelfBackgroundType shelf_background_type_before_drag_ =
-      SHELF_BACKGROUND_DEFAULT;
+      ShelfBackgroundType::kDefaultBg;
 
   ScopedSessionObserver scoped_session_observer_{this};
   ScopedObserver<WallpaperController, WallpaperControllerObserver>
@@ -594,16 +657,40 @@ class ASH_EXPORT ShelfLayoutManager : public AppListControllerObserver,
   // Location of the most recent mouse drag event in screen coordinate.
   gfx::Point last_mouse_drag_position_;
 
+  // Location of the beginning of a drag in screen coordinates.
+  gfx::Point drag_start_point_in_screen_;
+
+  // The current set of target bounds for shelf-related widgets.
+  TargetBounds target_bounds_;
+
   // When it is true, |CalculateAutoHideState| returns the current auto hide
   // state.
   bool is_auto_hide_state_locked_ = false;
 
-  // An optional ScopedSuspendVisibilityUpdate that gets created when suspend
+  // An optional ScopedSuspendWorkAreaUpdate that gets created when suspend
   // visibility update is requested for overview and resets when overview no
   // longer needs it. It is used because OnOverviewModeStarting() and
   // OnOverviewModeStartingAnimationComplete() calls are not balanced.
-  base::Optional<ScopedSuspendVisibilityUpdate>
-      overview_suspend_visibility_update_;
+  base::Optional<ScopedSuspendWorkAreaUpdate>
+      overview_suspend_work_area_update_;
+
+  // The window drag controller that will be used when a window can be dragged
+  // up from shelf to homescreen, overview or splitview.
+  std::unique_ptr<DragWindowFromShelfController> window_drag_controller_;
+
+  // Whether upward fling from shelf should be handled as potential gesture from
+  // overview to home. This is set when the swipe would otherwise be handled by
+  // |window_drag_controller_|, but the swipe cannot be associated with a window
+  // to drag (for example, because the swipe started in split view mode on a
+  // side which is showing overview). Note that the gesture will be handled only
+  // if the overview session is active.
+  bool allow_fling_from_overview_to_home_ = false;
+
+  // Tracks whether the shelf is currently dimmed for inactivity.
+  bool dimmed_for_inactivity_ = false;
+
+  // Records the presentation time for hotseat dragging.
+  std::unique_ptr<PresentationTimeRecorder> hotseat_presentation_time_recorder_;
 
   DISALLOW_COPY_AND_ASSIGN(ShelfLayoutManager);
 };

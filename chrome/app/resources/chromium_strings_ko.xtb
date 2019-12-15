@@ -33,7 +33,6 @@
 <translation id="2560420686485554789">파일을 다운로드하려면 Chromium에 저장소 액세스 권한이 있어야 합니다</translation>
 <translation id="2572494885440352020">Chromium 도우미</translation>
 <translation id="2587578672395088481">업데이트를 적용하려면 Chromium OS를 다시 시작해야 합니다.</translation>
-<translation id="2647554856022461007">Chromium에서 사용자에게 더 나은 인터넷 사용 환경을 제공하기 위해 웹 서비스를 사용할 수 있습니다. 원하는 경우 서비스를 사용 중지하실 수 있습니다. <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="2648074677641340862">설치 중 운영체제 오류가 발생했습니다. Chromium을 다시 다운로드하세요.</translation>
 <translation id="2711502716910134313">Chromium 탭</translation>
 <translation id="2718390899429598676">보안 강화를 위해 Chromium에서 사용자 데이터를 암호화합니다.</translation>
@@ -61,7 +60,6 @@
 <translation id="3340978935015468852">설정</translation>
 <translation id="3474745554856756813">항목 <ph name="ITEMS_COUNT" />개가 기기에서 삭제됩니다. 나중에 데이터를 가져오려면 Chromium에 <ph name="USER_EMAIL" />(으)로 로그인하세요.</translation>
 <translation id="3509308970982693815">Chromium 창을 모두 닫고 다시 시도해 보세요.</translation>
-<translation id="352783484088404971">Chromium에서 제거...</translation>
 <translation id="3575459661164320785">컴퓨터에 유해한 소프트웨어가 있습니다. Chromium에서 유해한 소프트웨어를 삭제하고, 설정을 복원하고, 확장 프로그램을 사용 중지하여 브라우저가 다시 정상적으로 작동하도록 할 수 있습니다.</translation>
 <translation id="358997566136285270">Chromium 로고</translation>
 <translation id="3639635944603682591">선택한 사용자의 인터넷 사용 기록이 이 기기에서 삭제됩니다. 데이터를 복구하려면 <ph name="USER_EMAIL" />(으)로 Chromium에 로그인하세요.</translation>
@@ -86,7 +84,6 @@
 <translation id="4567424176335768812"><ph name="USER_EMAIL_ADDRESS" />(으)로 로그인되어 있습니다. 이제 로그인한 모든 기기에서 북마크, 방문 기록 및 기타 설정에 액세스할 수 있습니다.</translation>
 <translation id="459535195905078186">Chromium 앱</translation>
 <translation id="4621240073146040695">업데이트가 거의 완료되었습니다. 업데이트를 완료하려면 Chromium을 다시 시작하세요.</translation>
-<translation id="4661006601577405669">Chromium 향후 버전이 자동으로 설치됩니다.</translation>
 <translation id="4677944499843243528">다른 컴퓨터(<ph name="HOST_NAME" />)의 다른 Chromium 프로세스(<ph name="PROCESS_ID" />)에서 프로필을 사용 중인 것 같습니다. 프로필이 손상되지 않도록 Chromium에서 잠금 설정했습니다. 다른 프로세스에서 프로필을 사용 중이지 않은 것이 확실한 경우 프로필을 잠금 해제하고 Chromium을 다시 시작하세요.</translation>
 <translation id="469338717132742108">Chromium OS 도움말 보기</translation>
 <translation id="4708774505295300557">다른 사용자가 이전에 이 컴퓨터에서 <ph name="ACCOUNT_EMAIL_LAST" />(으)로 Chromium에 로그인했습니다. 새로운 Chromium 사용자를 만들어 정보를 별도로 관리하세요.</translation>
@@ -112,7 +109,6 @@
 <translation id="5631814766731275228">Chromium 이름 및 사진</translation>
 <translation id="5634636535844844681">Chromium은 Windows 7 이상 버전에서 사용할 수 있습니다.</translation>
 <translation id="5653831366781983928">지금 Chromium을 다시 시작하세요</translation>
-<translation id="5680901439334282664">Chromium에 로그인</translation>
 <translation id="5698481217667032250">이 언어로 Chromium 표시</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5862307444128926510">Chromium에 오신 것을 환영합니다.</translation>
@@ -175,7 +171,6 @@ Chromium에서 설정을 복구할 수 없습니다.</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - 개발자용 Chromium</translation>
 <translation id="7451052299415159299">이 사이트에서 카메라에 액세스하려면 Chromium에 권한이 필요합니다</translation>
 <translation id="7483335560992089831">이미 실행 중인 Chromium과 동일한 버전을 설치할 수 없습니다. Chromium을 종료한 뒤 다시 시도하세요.</translation>
-<translation id="751093125041325477">Chromium 향후 버전이 자동으로 설치됩니다. 이 다운로드가 완료되면 Chromium이 다시 시작되며 계속 작업할 수 있습니다.</translation>
 <translation id="753534427205733210">{0,plural, =1{1분 후 Chromium이 다시 시작됩니다}other{#분 후 Chromium이 다시 시작됩니다}}</translation>
 <translation id="7549178288319965365">Chromium OS 정보</translation>
 <translation id="7561906087460245826">Chromium(<ph name="URL" />)에서도 데이터 삭제</translation>

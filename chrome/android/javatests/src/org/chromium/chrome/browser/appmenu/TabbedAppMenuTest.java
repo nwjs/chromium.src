@@ -31,6 +31,8 @@ import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
+import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
+import org.chromium.chrome.browser.ui.appmenu.AppMenuTestSupport;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
@@ -43,7 +45,7 @@ import org.chromium.ui.test.util.UiRestriction;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Tests AppMenu popup
+ * Tests tabbed mode app menu popup.
  */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @RetryOnFailure
@@ -176,29 +178,6 @@ public class TabbedAppMenuTest {
         moveToBoundary(true, false);
         Assert.assertEquals(0, getCurrentFocusedRow());
         hitEnterAndAssertAppMenuDismissed();
-    }
-
-    /**
-     * Test that changing orientation hides the menu.
-     */
-    /*
-    @SmallTest
-    @Feature({"Browser", "Main"})
-    */
-    @Test
-    @DisabledTest(message = "crbug.com/458193")
-    public void testChangingOrientationHidesMenu() {
-        mActivityTestRule.getActivity().setRequestedOrientation(
-                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        showAppMenuAndAssertMenuShown();
-        mActivityTestRule.getActivity().setRequestedOrientation(
-                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-        CriteriaHelper.pollInstrumentationThread(new Criteria("AppMenu did not dismiss") {
-            @Override
-            public boolean isSatisfied() {
-                return !mAppMenuHandler.isAppMenuShowing();
-            }
-        });
     }
 
     @Test

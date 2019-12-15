@@ -10,6 +10,7 @@ import static org.chromium.base.ApplicationState.HAS_STOPPED_ACTIVITIES;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.LargeTest;
 import android.support.test.filters.SmallTest;
@@ -19,6 +20,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ApiCompatibilityUtils;
@@ -26,6 +28,7 @@ import org.chromium.base.ApplicationStatus;
 import org.chromium.base.CommandLine;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeFeatureList;
@@ -37,7 +40,8 @@ import org.chromium.chrome.browser.externalnav.ExternalNavigationHandler.Overrid
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.tab.InterceptNavigationDelegateImpl;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.util.ColorUtils;
+import org.chromium.chrome.browser.test.MockCertVerifierRuleAndroid;
+import org.chromium.chrome.browser.ui.styles.ChromeColors;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.ChromeTabUtils;
@@ -56,25 +60,38 @@ import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.common.ContentSwitches;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.base.PageTransition;
+import org.chromium.ui.test.util.UiRestriction;
 
 /**
  * Tests web navigations originating from a WebappActivity.
  */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
-        ContentSwitches.HOST_RESOLVER_RULES + "=MAP * 127.0.0.1"})
+@CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 public class WebappNavigationTest {
     private static final String YOUTUBE_URL = "https://www.youtube.com/watch?v=EYmjoW4vIX8";
 
-    @Rule
     public final WebappActivityTestRule mActivityTestRule = new WebappActivityTestRule();
 
-    @Rule
     public final NativeLibraryTestRule mNativeLibraryTestRule = new NativeLibraryTestRule();
+
+    public MockCertVerifierRuleAndroid mCertVerifierRule =
+            new MockCertVerifierRuleAndroid(mNativeLibraryTestRule, 0 /* net::OK */);
+
+    @Rule
+    public RuleChain mRuleChain = RuleChain.emptyRuleChain()
+                                          .around(mActivityTestRule)
+                                          .around(mNativeLibraryTestRule)
+                                          .around(mCertVerifierRule);
 
     @Before
     public void setUp() {
         mNativeLibraryTestRule.loadNativeLibraryNoBrowserProcess();
+
+        mActivityTestRule.getEmbeddedTestServerRule().setServerUsesHttps(true);
+        Uri mapToUri =
+                Uri.parse(mActivityTestRule.getEmbeddedTestServerRule().getServer().getURL("/"));
+        CommandLine.getInstance().appendSwitchWithValue(
+                ContentSwitches.HOST_RESOLVER_RULES, "MAP * " + mapToUri.getAuthority());
     }
 
     /**
@@ -86,6 +103,7 @@ public class WebappNavigationTest {
     @Test
     @SmallTest
     @Feature({"Webapps"})
+    @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
     @RetryOnFailure
     public void testRegularLinkOffOriginNoWebappThemeColor() throws Exception {
         WebappActivity activity = runWebappActivityAndWaitForIdle(mActivityTestRule.createIntent());
@@ -108,6 +126,7 @@ public class WebappNavigationTest {
     @Test
     @SmallTest
     @Feature({"Webapps"})
+    @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
     @RetryOnFailure
     public void testRegularLinkOffOriginThemeColor() throws Exception {
         WebappActivity activity =
@@ -130,6 +149,7 @@ public class WebappNavigationTest {
     @Test
     @SmallTest
     @Feature({"Webapps"})
+    @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
     public void testRegularLinkOffOriginTwa() throws Exception {
         Intent launchIntent = mActivityTestRule.createIntent().putExtra(
                 ShortcutHelper.EXTRA_THEME_COLOR, (long) Color.CYAN);
@@ -157,6 +177,7 @@ public class WebappNavigationTest {
     @Test
     @SmallTest
     @Feature({"Webapps"})
+    @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
     @RetryOnFailure
     public void testFormSubmitOffOrigin() throws Exception {
         Intent launchIntent = mActivityTestRule.createIntent().putExtra(
@@ -242,6 +263,7 @@ public class WebappNavigationTest {
     @Test
     @SmallTest
     @Feature({"Webapps"})
+    @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
     @RetryOnFailure
     public void testInScopeNavigationStaysInWebapp() throws Exception {
         WebappActivity activity = runWebappActivityAndWaitForIdle(mActivityTestRule.createIntent());
@@ -367,7 +389,7 @@ public class WebappNavigationTest {
     }
 
     @Test
-    @SmallTest
+    @LargeTest
     @Feature({"Webapps"})
     @RetryOnFailure
     public void testCloseButtonReturnsToMostRecentInScopeUrl() throws Exception {
@@ -379,10 +401,12 @@ public class WebappNavigationTest {
         mActivityTestRule.loadUrlInTab(otherInScopeUrl, PageTransition.LINK, tab);
         Assert.assertEquals(otherInScopeUrl, tab.getUrl());
 
-        mActivityTestRule.loadUrlInTab(offOriginUrl(), PageTransition.LINK, tab);
+        mActivityTestRule.loadUrlInTab(
+                offOriginUrl(), PageTransition.LINK, tab, 10 /* secondsToWait */);
         String mozillaUrl = mActivityTestRule.getTestServer().getURLWithHostName(
                 "mozilla.org", "/defaultresponse");
-        mActivityTestRule.loadUrlInTab(mozillaUrl, PageTransition.LINK, tab);
+        mActivityTestRule.loadUrlInTab(
+                mozillaUrl, PageTransition.LINK, tab, 10 /* secondsToWait */);
 
         // Toolbar with the close button should be visible.
         WebappActivityTestRule.assertToolbarShowState(activity, true);
@@ -451,7 +475,7 @@ public class WebappNavigationTest {
     }
 
     private long getDefaultPrimaryColor() {
-        return ColorUtils.getDefaultThemeColor(
+        return ChromeColors.getDefaultThemeColor(
                 mActivityTestRule.getActivity().getResources(), false);
     }
 

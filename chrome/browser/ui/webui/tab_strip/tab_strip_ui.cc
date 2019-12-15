@@ -11,8 +11,14 @@
 
 #include "base/base64.h"
 #include "base/bind.h"
+#include "base/feature_list.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/strings/string_piece.h"
+#include "base/strings/string_util.h"
+#include "base/time/time.h"
 #include "base/values.h"
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/profiles/profile.h"
@@ -20,28 +26,41 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_network_state.h"
 #include "chrome/browser/ui/tabs/tab_renderer_data.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
+#include "chrome/browser/ui/tabs/tab_utils.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
+#include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_layout.h"
+#include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_metrics.h"
 #include "chrome/browser/ui/webui/theme_handler.h"
+#include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/grit/tab_strip_resources.h"
 #include "chrome/grit/tab_strip_resources_map.h"
 #include "components/favicon_base/favicon_url_parser.h"
+#include "components/strings/grit/components_strings.h"
 #include "content/public/browser/favicon_status.h"
+#include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "content/public/browser/web_ui_message_handler.h"
+#include "content/public/common/url_constants.h"
 #include "third_party/skia/include/core/SkImageEncoder.h"
 #include "third_party/skia/include/core/SkStream.h"
+#include "ui/base/accelerators/accelerator.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/theme_provider.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/geometry/point_conversions.h"
+#include "ui/resources/grit/webui_resources.h"
 
 namespace {
 
@@ -87,25 +106,117 @@ std::string EncodePNGAndMakeDataURI(gfx::ImageSkia image, float scale_factor) {
       base::as_bytes(base::make_span(stream.GetBuffer())), "png");
 }
 
-class WebUITabContextMenu : public ui::SimpleMenuModel::Delegate,
-                            public TabMenuModel {
+class WebUIBackgroundMenuModel : public ui::SimpleMenuModel {
  public:
-  WebUITabContextMenu(TabStripModel* tab_strip_model, int tab_index)
-      : TabMenuModel(this, tab_strip_model, tab_index),
-        tab_strip_model_(tab_strip_model),
+  explicit WebUIBackgroundMenuModel(ui::SimpleMenuModel::Delegate* delegate)
+      : ui::SimpleMenuModel(delegate) {
+    AddItemWithStringId(IDC_NEW_TAB, IDS_NEW_TAB);
+    AddItemWithStringId(IDC_RESTORE_TAB, IDS_RESTORE_TAB);
+    AddItemWithStringId(IDC_BOOKMARK_ALL_TABS, IDS_BOOKMARK_ALL_TABS);
+  }
+};
+
+class WebUIBackgroundContextMenu : public ui::SimpleMenuModel::Delegate,
+                                   public WebUIBackgroundMenuModel {
+ public:
+  WebUIBackgroundContextMenu(
+      Browser* browser,
+      const ui::AcceleratorProvider* accelerator_provider)
+      : WebUIBackgroundMenuModel(this),
+        browser_(browser),
+        accelerator_provider_(accelerator_provider) {}
+  ~WebUIBackgroundContextMenu() override = default;
+
+  void ExecuteCommand(int command_id, int event_flags) override {
+    chrome::ExecuteCommand(browser_, command_id);
+  }
+
+  bool GetAcceleratorForCommandId(int command_id,
+                                  ui::Accelerator* accelerator) const override {
+    return accelerator_provider_->GetAcceleratorForCommandId(command_id,
+                                                             accelerator);
+  }
+
+ private:
+  Browser* const browser_;
+  const ui::AcceleratorProvider* const accelerator_provider_;
+};
+
+class WebUITabMenuModel : public ui::SimpleMenuModel {
+ public:
+  WebUITabMenuModel(ui::SimpleMenuModel::Delegate* delegate,
+                    TabStripModel* tab_strip_model,
+                    int tab_index)
+      : ui::SimpleMenuModel(delegate) {
+    AddItemWithStringId(IDC_NEW_TAB, IDS_NEW_TAB);
+    AddSeparator(ui::NORMAL_SEPARATOR);
+    AddItemWithStringId(TabStripModel::CommandReload, IDS_TAB_CXMENU_RELOAD);
+    AddItemWithStringId(TabStripModel::CommandDuplicate,
+                        IDS_TAB_CXMENU_DUPLICATE);
+    const int pin_str = tab_strip_model->WillContextMenuPin(tab_index)
+                            ? IDS_TAB_CXMENU_PIN_TAB
+                            : IDS_TAB_CXMENU_UNPIN_TAB;
+    AddItemWithStringId(TabStripModel::CommandTogglePinned, pin_str);
+    const int mute_str = chrome::IsSiteMuted(*tab_strip_model, tab_index)
+                             ? IDS_TAB_CXMENU_SOUND_UNMUTE_SITE
+                             : IDS_TAB_CXMENU_SOUND_MUTE_SITE;
+    AddItem(TabStripModel::CommandToggleSiteMuted,
+            l10n_util::GetPluralStringFUTF16(mute_str, 1));
+    AddSeparator(ui::NORMAL_SEPARATOR);
+    AddItemWithStringId(TabStripModel::CommandCloseTab,
+                        IDS_TAB_CXMENU_CLOSETAB);
+    AddItemWithStringId(TabStripModel::CommandCloseTabsToRight,
+                        IDS_TAB_CXMENU_CLOSETABSTORIGHT);
+  }
+};
+
+class WebUITabContextMenu : public ui::SimpleMenuModel::Delegate,
+                            public WebUITabMenuModel {
+ public:
+  WebUITabContextMenu(Browser* browser,
+                      const ui::AcceleratorProvider* accelerator_provider,
+                      int tab_index)
+      : WebUITabMenuModel(this, browser->tab_strip_model(), tab_index),
+        browser_(browser),
+        accelerator_provider_(accelerator_provider),
         tab_index_(tab_index) {}
   ~WebUITabContextMenu() override = default;
 
   void ExecuteCommand(int command_id, int event_flags) override {
-    DCHECK_LT(tab_index_, tab_strip_model_->count());
-    tab_strip_model_->ExecuteContextMenuCommand(
+    DCHECK_LT(tab_index_, browser_->tab_strip_model()->count());
+    if (command_id == IDC_NEW_TAB) {
+      chrome::NewTab(browser_);
+      return;
+    }
+    browser_->tab_strip_model()->ExecuteContextMenuCommand(
         tab_index_, static_cast<TabStripModel::ContextMenuCommand>(command_id));
   }
 
+  bool GetAcceleratorForCommandId(int command_id,
+                                  ui::Accelerator* accelerator) const override {
+    int real_command = -1;
+    if (command_id == IDC_NEW_TAB) {
+      real_command = IDC_NEW_TAB;
+    } else {
+      TabStripModel::ContextMenuCommandToBrowserCommand(command_id,
+                                                        &real_command);
+    }
+
+    if (real_command != -1) {
+      return accelerator_provider_->GetAcceleratorForCommandId(real_command,
+                                                               accelerator);
+    } else {
+      return false;
+    }
+  }
+
  private:
-  TabStripModel* const tab_strip_model_;
+  Browser* const browser_;
+  const ui::AcceleratorProvider* const accelerator_provider_;
   const int tab_index_;
 };
+
+}  // namespace
 
 class TabStripUIHandler : public content::WebUIMessageHandler,
                           public TabStripModelObserver {
@@ -119,6 +230,18 @@ class TabStripUIHandler : public content::WebUIMessageHandler,
 
   void OnJavascriptAllowed() override {
     browser_->tab_strip_model()->AddObserver(this);
+  }
+
+  void NotifyLayoutChanged() {
+    if (!IsJavascriptAllowed())
+      return;
+    FireWebUIListener("layout-changed", embedder_->GetLayout().AsDictionary());
+  }
+
+  void NotifyReceivedKeyboardFocus() {
+    if (!IsJavascriptAllowed())
+      return;
+    FireWebUIListener("received-keyboard-focus");
   }
 
   // TabStripModelObserver:
@@ -153,11 +276,17 @@ class TabStripUIHandler : public content::WebUIMessageHandler,
             base::Value(move->to_index));
         break;
       }
-
-      case TabStripModelChange::kReplaced:
-      case TabStripModelChange::kGroupChanged:
+      case TabStripModelChange::kReplaced: {
+        auto* replace = change.GetReplace();
+        FireWebUIListener("tab-replaced",
+                          base::Value(extensions::ExtensionTabUtil::GetTabId(
+                              replace->old_contents)),
+                          base::Value(extensions::ExtensionTabUtil::GetTabId(
+                              replace->new_contents)));
+        break;
+      }
       case TabStripModelChange::kSelectionOnly:
-        // Not yet implemented.
+        // Multi-selection is not supported for touch.
         break;
     }
 
@@ -199,17 +328,34 @@ class TabStripUIHandler : public content::WebUIMessageHandler,
         "getThemeColors", base::Bind(&TabStripUIHandler::HandleGetThemeColors,
                                      base::Unretained(this)));
     web_ui()->RegisterMessageCallback(
-        "addTrackedTab",
-        base::Bind(&TabStripUIHandler::AddTrackedTab, base::Unretained(this)));
-    web_ui()->RegisterMessageCallback(
-        "removeTrackedTab", base::Bind(&TabStripUIHandler::RemoveTrackedTab,
-                                       base::Unretained(this)));
+        "setThumbnailTracked",
+        base::Bind(&TabStripUIHandler::HandleSetThumbnailTracked,
+                   base::Unretained(this)));
     web_ui()->RegisterMessageCallback(
         "closeContainer", base::Bind(&TabStripUIHandler::HandleCloseContainer,
                                      base::Unretained(this)));
     web_ui()->RegisterMessageCallback(
+        "showBackgroundContextMenu",
+        base::Bind(&TabStripUIHandler::HandleShowBackgroundContextMenu,
+                   base::Unretained(this)));
+    web_ui()->RegisterMessageCallback(
         "showTabContextMenu",
         base::Bind(&TabStripUIHandler::HandleShowTabContextMenu,
+                   base::Unretained(this)));
+    web_ui()->RegisterMessageCallback(
+        "getLayout", base::Bind(&TabStripUIHandler::HandleGetLayout,
+                                base::Unretained(this)));
+    web_ui()->RegisterMessageCallback(
+        "reportTabActivationDuration",
+        base::Bind(&TabStripUIHandler::HandleReportTabActivationDuration,
+                   base::Unretained(this)));
+    web_ui()->RegisterMessageCallback(
+        "reportTabDataReceivedDuration",
+        base::Bind(&TabStripUIHandler::HandleReportTabDataReceivedDuration,
+                   base::Unretained(this)));
+    web_ui()->RegisterMessageCallback(
+        "reportTabCreationDuration",
+        base::Bind(&TabStripUIHandler::HandleReportTabCreationDuration,
                    base::Unretained(this)));
   }
 
@@ -246,6 +392,13 @@ class TabStripUIHandler : public content::WebUIMessageHandler,
     tab_data.SetBoolean("blocked", tab_renderer_data.blocked);
     tab_data.SetBoolean("crashed", tab_renderer_data.IsCrashed());
     // TODO(johntlee): Add the rest of TabRendererData
+
+    auto alert_states = std::make_unique<base::ListValue>();
+    for (const auto alert_state :
+         chrome::GetTabAlertStatesForContents(contents)) {
+      alert_states->Append(static_cast<int>(alert_state));
+    }
+    tab_data.SetList("alertStates", std::move(alert_states));
 
     return tab_data;
   }
@@ -305,13 +458,36 @@ class TabStripUIHandler : public content::WebUIMessageHandler,
                      color_utils::SkColorToRgbaString(
                          ui::NativeTheme::GetInstanceForWeb()->GetSystemColor(
                              ui::NativeTheme::kColorId_ProminentButtonColor)));
+    colors.SetString("--tabstrip-focus-outline-color",
+                     color_utils::SkColorToRgbaString(
+                         ui::NativeTheme::GetInstanceForWeb()->GetSystemColor(
+                             ui::NativeTheme::kColorId_FocusedBorderColor)));
 
     ResolveJavascriptCallback(callback_id, colors);
   }
 
   void HandleCloseContainer(const base::ListValue* args) {
+    // We only autoclose for tab selection.
+    RecordTabStripUICloseHistogram(TabStripUICloseAction::kTabSelected);
     DCHECK(embedder_);
     embedder_->CloseContainer();
+  }
+
+  void HandleShowBackgroundContextMenu(const base::ListValue* args) {
+    gfx::PointF point;
+    {
+      double x = 0;
+      args->GetDouble(0, &x);
+      double y = 0;
+      args->GetDouble(1, &y);
+      point = gfx::PointF(x, y);
+    }
+
+    DCHECK(embedder_);
+    embedder_->ShowContextMenuAtPoint(
+        gfx::ToRoundedPoint(point),
+        std::make_unique<WebUIBackgroundContextMenu>(
+            browser_, embedder_->GetAcceleratorProvider()));
   }
 
   void HandleShowTabContextMenu(const base::ListValue* args) {
@@ -327,26 +503,37 @@ class TabStripUIHandler : public content::WebUIMessageHandler,
       point = gfx::PointF(x, y);
     }
 
-    TabStripModel* tab_strip_model = nullptr;
+    Browser* browser = nullptr;
     int tab_index = -1;
     const bool got_tab = extensions::ExtensionTabUtil::GetTabById(
-        tab_id, browser_->profile(), true /* include_incognito */, nullptr,
-        &tab_strip_model, nullptr, &tab_index);
+        tab_id, browser_->profile(), true /* include_incognito */, &browser,
+        nullptr, nullptr, &tab_index);
     DCHECK(got_tab);
-    DCHECK_EQ(tab_strip_model, browser_->tab_strip_model());
+    DCHECK_EQ(browser, browser_);
 
     DCHECK(embedder_);
     embedder_->ShowContextMenuAtPoint(
         gfx::ToRoundedPoint(point),
-        std::make_unique<WebUITabContextMenu>(tab_strip_model, tab_index));
+        std::make_unique<WebUITabContextMenu>(
+            browser, embedder_->GetAcceleratorProvider(), tab_index));
   }
 
-  void AddTrackedTab(const base::ListValue* args) {
+  void HandleGetLayout(const base::ListValue* args) {
+    AllowJavascript();
+    const base::Value& callback_id = args->GetList()[0];
+
+    base::Value layout = embedder_->GetLayout().AsDictionary();
+    ResolveJavascriptCallback(callback_id, layout);
+  }
+
+  void HandleSetThumbnailTracked(const base::ListValue* args) {
     AllowJavascript();
 
     int tab_id = 0;
     if (!args->GetInteger(0, &tab_id))
       return;
+
+    const bool thumbnail_tracked = args->GetList()[1].GetBool();
 
     content::WebContents* tab = nullptr;
     if (!extensions::ExtensionTabUtil::GetTabById(tab_id, browser_->profile(),
@@ -355,16 +542,36 @@ class TabStripUIHandler : public content::WebUIMessageHandler,
       DVLOG(1) << "Invalid tab ID";
       return;
     }
-    thumbnail_tracker_.WatchTab(tab);
+
+    if (thumbnail_tracked)
+      thumbnail_tracker_.AddTab(tab);
+    else
+      thumbnail_tracker_.RemoveTab(tab);
   }
 
-  void RemoveTrackedTab(const base::ListValue* args) {
-    AllowJavascript();
+  void HandleReportTabActivationDuration(const base::ListValue* args) {
+    int duration_ms = 0;
+    args->GetInteger(0, &duration_ms);
+    UMA_HISTOGRAM_TIMES("WebUITabStrip.TabActivation",
+                        base::TimeDelta::FromMilliseconds(duration_ms));
+  }
 
-    int tab_id = 0;
-    if (!args->GetInteger(0, &tab_id))
-      return;
-    // TODO(crbug.com/991393): un-watch tabs when we are done.
+  void HandleReportTabDataReceivedDuration(const base::ListValue* args) {
+    int tab_count = 0;
+    args->GetInteger(0, &tab_count);
+    int duration_ms = 0;
+    args->GetInteger(1, &duration_ms);
+    ReportTabDurationHistogram("TabDataReceived", tab_count,
+                               base::TimeDelta::FromMilliseconds(duration_ms));
+  }
+
+  void HandleReportTabCreationDuration(const base::ListValue* args) {
+    int tab_count = 0;
+    args->GetInteger(0, &tab_count);
+    int duration_ms = 0;
+    args->GetInteger(1, &duration_ms);
+    ReportTabDurationHistogram("TabCreation", tab_count,
+                               base::TimeDelta::FromMilliseconds(duration_ms));
   }
 
   // Callback passed to |thumbnail_tracker_|. Called when a tab's thumbnail
@@ -380,6 +587,29 @@ class TabStripUIHandler : public content::WebUIMessageHandler,
                       base::Value(data_uri));
   }
 
+  // Reports a histogram using the format
+  // WebUITabStrip.|histogram_fragment|.[tab count bucket].
+  void ReportTabDurationHistogram(const char* histogram_fragment,
+                                  int tab_count,
+                                  base::TimeDelta duration) {
+    if (tab_count <= 0)
+      return;
+
+    // It isn't possible to report both a number of tabs and duration datapoint
+    // together in a histogram or to correlate two histograms together. As a
+    // result the histogram is manually bucketed.
+    const char* tab_count_bucket = "01_05";
+    if (6 <= tab_count && tab_count <= 20) {
+      tab_count_bucket = "06_20";
+    } else if (20 < tab_count) {
+      tab_count_bucket = "21_";
+    }
+
+    std::string histogram_name = base::JoinString(
+        {"WebUITabStrip", histogram_fragment, tab_count_bucket}, ".");
+    base::UmaHistogramTimes(histogram_name, duration);
+  }
+
   Browser* const browser_;
   TabStripUI::Embedder* const embedder_;
 
@@ -388,13 +618,18 @@ class TabStripUIHandler : public content::WebUIMessageHandler,
   DISALLOW_COPY_AND_ASSIGN(TabStripUIHandler);
 };
 
-}  // namespace
-
 TabStripUI::TabStripUI(content::WebUI* web_ui)
     : content::WebUIController(web_ui) {
+  content::HostZoomMap::Get(web_ui->GetWebContents()->GetSiteInstance())
+      ->SetZoomLevelForHostAndScheme(content::kChromeUIScheme,
+                                     chrome::kChromeUITabStripHost, 0);
+
   Profile* profile = Profile::FromWebUI(web_ui);
   content::WebUIDataSource* html_source =
       content::WebUIDataSource::Create(chrome::kChromeUITabStripHost);
+
+  html_source->OverrideContentSecurityPolicyScriptSrc(
+      "script-src chrome://resources chrome://test 'self';");
 
   std::string generated_path =
       "@out_folder@/gen/chrome/browser/resources/tab_strip/";
@@ -406,6 +641,8 @@ TabStripUI::TabStripUI(content::WebUI* web_ui)
     }
     html_source->AddResourcePath(path, kTabStripResources[i].value);
   }
+  html_source->AddResourcePath("test_loader.js", IDR_WEBUI_JS_TEST_LOADER);
+  html_source->AddResourcePath("test_loader.html", IDR_WEBUI_HTML_TEST_LOADER);
 
   html_source->SetDefaultResource(IDR_TAB_STRIP_HTML);
 
@@ -416,6 +653,31 @@ TabStripUI::TabStripUI(content::WebUI* web_ui)
   html_source->AddString("frameColor",
                          color_utils::SkColorToRgbaString(
                              tp.GetColor(ThemeProperties::COLOR_FRAME)));
+
+  html_source->AddBoolean(
+      "showDemoOptions",
+      base::FeatureList::IsEnabled(features::kWebUITabStripDemoOptions));
+
+  static constexpr webui::LocalizedString kStrings[] = {
+      {"tabListTitle", IDS_ACCNAME_TAB_LIST},
+      {"closeTab", IDS_ACCNAME_CLOSE},
+      {"defaultTabTitle", IDS_DEFAULT_TAB_TITLE},
+      {"loadingTab", IDS_TAB_LOADING_TITLE},
+      {"tabCrashed", IDS_TAB_AX_LABEL_CRASHED_FORMAT},
+      {"tabNetworkError", IDS_TAB_AX_LABEL_NETWORK_ERROR_FORMAT},
+      {"audioPlaying", IDS_TAB_AX_LABEL_AUDIO_PLAYING_FORMAT},
+      {"usbConnected", IDS_TAB_AX_LABEL_USB_CONNECTED_FORMAT},
+      {"bluetoothConnected", IDS_TAB_AX_LABEL_BLUETOOTH_CONNECTED_FORMAT},
+      {"serialConnected", IDS_TAB_AX_LABEL_SERIAL_CONNECTED_FORMAT},
+      {"mediaRecording", IDS_TAB_AX_LABEL_MEDIA_RECORDING_FORMAT},
+      {"audioMuting", IDS_TAB_AX_LABEL_AUDIO_MUTING_FORMAT},
+      {"tabCapturing", IDS_TAB_AX_LABEL_DESKTOP_CAPTURING_FORMAT},
+      {"pipPlaying", IDS_TAB_AX_LABEL_PIP_PLAYING_FORMAT},
+      {"desktopCapturing", IDS_TAB_AX_LABEL_DESKTOP_CAPTURING_FORMAT},
+      {"vrPresenting", IDS_TAB_AX_LABEL_VR_PRESENTING},
+  };
+  AddLocalizedStringsBulk(html_source, kStrings);
+  html_source->UseStringsJs();
 
   content::WebUIDataSource::Add(profile, html_source);
 
@@ -431,6 +693,15 @@ TabStripUI::~TabStripUI() {}
 void TabStripUI::Initialize(Browser* browser, Embedder* embedder) {
   content::WebUI* const web_ui = TabStripUI::web_ui();
   DCHECK_EQ(Profile::FromWebUI(web_ui), browser->profile());
-  web_ui->AddMessageHandler(
-      std::make_unique<TabStripUIHandler>(browser, embedder));
+  auto handler = std::make_unique<TabStripUIHandler>(browser, embedder);
+  handler_ = handler.get();
+  web_ui->AddMessageHandler(std::move(handler));
+}
+
+void TabStripUI::LayoutChanged() {
+  handler_->NotifyLayoutChanged();
+}
+
+void TabStripUI::ReceivedKeyboardFocus() {
+  handler_->NotifyReceivedKeyboardFocus();
 }

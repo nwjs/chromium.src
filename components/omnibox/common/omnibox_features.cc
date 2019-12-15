@@ -59,13 +59,7 @@ const base::Feature kSimplifyHttpsIndicator{"SimplifyHttpsIndicator",
 // by major type. i.e. search types are first, followed by all others,
 // except for the default match which is unchanged in position.
 const base::Feature kOmniboxGroupSuggestionsBySearchVsUrl{
-  "OmniboxGroupSuggestionsBySearchVsUrl",
-#if defined(OS_IOS)
-      base::FEATURE_DISABLED_BY_DEFAULT
-#else
-      base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-};
+    "OmniboxGroupSuggestionsBySearchVsUrl", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Feature used to enable local entity suggestions. Similar to rich entities but
 // but location specific. E.g., typing 'starbucks near' could display the local
@@ -78,8 +72,14 @@ const base::Feature kOmniboxLocalEntitySuggestions{
 // there are no more non-URL matches available.) If enabled, there is a
 // companion parameter - OmniboxMaxURLMatches - which specifies the maximum
 // desired number of URL-type matches.
-const base::Feature kOmniboxMaxURLMatches{"OmniboxMaxURLMatches",
-                                          base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kOmniboxMaxURLMatches {
+  "OmniboxMaxURLMatches",
+#if defined(OS_IOS) || defined(OS_ANDROID)
+      base::FEATURE_DISABLED_BY_DEFAULT
+#else
+      base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+};
 
 // Feature used to enable entity suggestion images and enhanced presentation
 // showing more context and descriptive text about the entity.
@@ -121,12 +121,6 @@ const base::Feature kOmniboxTabSwitchSuggestions{
 const base::Feature kOmniboxTabSwitchSuggestionsDedicatedRow{
     "OmniboxTabSwitchSuggestionsDedicatedRow",
     base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Feature used to reverse the sense of the tab switch button. Selecting the
-// suggestion will switch to the tab, while the button will navigate
-// locally.
-const base::Feature kOmniboxReverseTabSwitchLogic{
-    "OmniboxReverseTabSwitchLogic", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Feature used to enable various experiments on keyword mode, UI and
 // suggestions.
@@ -257,15 +251,22 @@ const base::Feature kOmniboxDisableInstantExtendedLimit{
 const base::Feature kOmniboxSearchEngineLogo{"OmniboxSearchEngineLogo",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Feature used to allow users to remove suggestions from clipboard.
+const base::Feature kOmniboxRemoveSuggestionsFromClipboard{
+    "OmniboxRemoveSuggestionsFromClipboard", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Feature to provide non personalized head search suggestion from a compact
+// on device model.
+const base::Feature kOnDeviceHeadProvider{"OmniboxOnDeviceHeadProvider",
+                                          base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Feature to debounce drive requests from the document provider.
+const base::Feature kDebounceDocumentProvider{
+    "OmniboxDebounceDocumentProvider", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Exempts the default match from demotion-by-type.
-const base::Feature kOmniboxPreserveDefaultMatchScore {
-  "OmniboxPreserveDefaultMatchScore",
-#if defined(OS_IOS)
-      base::FEATURE_DISABLED_BY_DEFAULT
-#else
-      base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-};
+const base::Feature kOmniboxPreserveDefaultMatchScore{
+    "OmniboxPreserveDefaultMatchScore", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Preserves the default match against change when providers return results
 // asynchronously. This prevents the default match from changing after the user
@@ -275,9 +276,11 @@ const base::Feature kOmniboxPreserveDefaultMatchAgainstAsyncUpdate{
     "OmniboxPreserveDefaultMatchAgainstAsyncUpdate",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Feature used to allow users to remove suggestions from clipboard.
-const base::Feature kOmniboxRemoveSuggestionsFromClipboard{
-    "OmniboxRemoveSuggestionsFromClipboard", base::FEATURE_DISABLED_BY_DEFAULT};
+// Demotes the relevance scores when comparing suggestions based on the
+// suggestion's |AutocompleteMatchType| and the user's |PageClassification|.
+// This feature's main job is to contain the DemoteByType parameter.
+const base::Feature kOmniboxDemoteByType{"OmniboxDemoteByType",
+                                         base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Feature to configure on-focus suggestions provided by ZeroSuggestProvider.
 // This feature's main job is to contain some field trial parameters such as:
@@ -300,14 +303,21 @@ const base::Feature kZeroSuggestionsOnNTPRealbox{
 const base::Feature kZeroSuggestionsOnSERP{"OmniboxZeroSuggestionsOnSERP",
                                            base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Feature to provide non personalized head search suggestion from a compact
-// on device model.
-const base::Feature kOnDeviceHeadProvider{"OmniboxOnDeviceHeadProvider",
-                                          base::FEATURE_DISABLED_BY_DEFAULT};
+// If enabled, changes the way Google-provided search suggestions are scored by
+// the backend. Note that this Feature is only used for triggering a server-
+// side experiment config that will send experiment IDs to the backend. It is
+// not referred to in any of the Chromium code.
+const base::Feature kOmniboxExperimentalSuggestScoring{
+    "OmniboxExperimentalSuggestScoring", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // If enabled, shows a confirm dialog before removing search suggestions from
 // the omnibox. See ConfirmNtpSuggestionRemovals for the NTP equivalent.
 const base::Feature kConfirmOmniboxSuggestionRemovals{
     "ConfirmOmniboxSuggestionRemovals", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Feature that enables not counting submatches towards the maximum
+// suggestion limit.
+const base::Feature kOmniboxLooseMaxLimitOnDedicatedRows{
+    "OmniboxLooseMaxLimitOnDedicatedRows", base::FEATURE_DISABLED_BY_DEFAULT};
 
 }  // namespace omnibox

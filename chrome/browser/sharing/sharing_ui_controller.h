@@ -14,7 +14,6 @@
 #include "base/optional.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/sharing/proto/sharing_message.pb.h"
 #include "chrome/browser/sharing/sharing_app.h"
 #include "chrome/browser/sharing/sharing_constants.h"
 #include "chrome/browser/sharing/sharing_dialog_data.h"
@@ -22,6 +21,7 @@
 #include "chrome/browser/sharing/sharing_service.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "components/sync/protocol/device_info_specifics.pb.h"
+#include "components/sync/protocol/sharing_message.pb.h"
 #include "components/sync_device_info/device_info.h"
 #include "ui/views/controls/styled_label.h"
 #include "ui/views/controls/styled_label_listener.h"
@@ -121,7 +121,10 @@ class SharingUiController {
 
   // Called after a message got sent to a device. Shows a new error dialog if
   // |success| is false and updates the omnibox icon.
-  void OnMessageSentToDevice(int dialog_id, SharingSendMessageResult result);
+  void OnMessageSentToDevice(
+      int dialog_id,
+      SharingSendMessageResult result,
+      std::unique_ptr<chrome_browser_sharing::ResponseMessage> response);
 
   void OnAppsReceived(int dialog_id,
                       const base::Optional<url::Origin>& initiating_origin,

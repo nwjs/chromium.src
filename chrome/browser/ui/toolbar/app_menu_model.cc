@@ -24,6 +24,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/media/router/media_router_feature.h"
+#include "chrome/browser/media/router/media_router_metrics.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -157,13 +158,12 @@ void ZoomMenuModel::Build() {
 
 ////////////////////////////////////////////////////////////////////////////////
 // HelpMenuModel
-
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+// Only used in branded builds.
 
 const base::Feature kIncludeBetaForumMenuItem{
     "IncludeBetaForumMenuItem", base::FEATURE_DISABLED_BY_DEFAULT};
 
-class AppMenuModel::HelpMenuModel : public ui::SimpleMenuModel {
+class HelpMenuModel : public ui::SimpleMenuModel {
  public:
   HelpMenuModel(ui::SimpleMenuModel::Delegate* delegate, Browser* browser)
       : SimpleMenuModel(delegate) {
@@ -199,8 +199,6 @@ class AppMenuModel::HelpMenuModel : public ui::SimpleMenuModel {
 
   DISALLOW_COPY_AND_ASSIGN(HelpMenuModel);
 };
-
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 ////////////////////////////////////////////////////////////////////////////////
 // ToolsMenuModel
@@ -446,6 +444,10 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
       if (!uma_action_recorded_)
         UMA_HISTOGRAM_MEDIUM_TIMES("WrenchMenu.TimeToAction.Cast", delta);
       LogMenuAction(MENU_ACTION_CAST);
+      // TODO(takumif): Look into moving this metrics logging to a single
+      // location, like MediaRouterDialogController::ShowMediaRouterDialog().
+      media_router::MediaRouterMetrics::RecordMediaRouterDialogOrigin(
+          media_router::MediaRouterDialogOpenOrigin::APP_MENU);
       break;
 
     // Edit menu.
@@ -754,10 +756,10 @@ void AppMenuModel::Build() {
   AddSeparator(ui::NORMAL_SEPARATOR);
 
   if (!browser_->profile()->IsOffTheRecord()) {
-    recent_tabs_sub_menu_model_ =
-        std::make_unique<RecentTabsSubMenuModel>(provider_, browser_);
+    sub_menus_.push_back(
+        std::make_unique<RecentTabsSubMenuModel>(provider_, browser_));
     AddSubMenuWithStringId(IDC_RECENT_TABS_MENU, IDS_HISTORY_MENU,
-                           recent_tabs_sub_menu_model_.get());
+                           sub_menus_.back().get());
   }
   AddItemWithStringId(IDC_SHOW_DOWNLOADS, IDS_SHOW_DOWNLOADS);
   if (!browser_->profile()->IsGuestSession()) {
@@ -804,9 +806,9 @@ void AppMenuModel::Build() {
   }
 #endif
 
-  tools_menu_model_ = std::make_unique<ToolsMenuModel>(this, browser_);
+  sub_menus_.push_back(std::make_unique<ToolsMenuModel>(this, browser_));
   AddSubMenuWithStringId(IDC_MORE_TOOLS_MENU, IDS_MORE_TOOLS_MENU,
-                         tools_menu_model_.get());
+                         sub_menus_.back().get());
   AddSeparator(ui::LOWER_SEPARATOR);
   CreateCutCopyPasteMenu();
   AddSeparator(ui::UPPER_SEPARATOR);
@@ -816,8 +818,8 @@ void AppMenuModel::Build() {
 // 'About' item has been moved to this submenu, it's reinstated here for
 // Chromium builds.
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  help_menu_model_ = std::make_unique<HelpMenuModel>(this, browser_);
-  AddSubMenuWithStringId(IDC_HELP_MENU, IDS_HELP_MENU, help_menu_model_.get());
+  sub_menus_.push_back(std::make_unique<HelpMenuModel>(this, browser_));
+  AddSubMenuWithStringId(IDC_HELP_MENU, IDS_HELP_MENU, sub_menus_.back().get());
 #else
 #if defined(OS_CHROMEOS)
   if (base::FeatureList::IsEnabled(chromeos::features::kSplitSettings))

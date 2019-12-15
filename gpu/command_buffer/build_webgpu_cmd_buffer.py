@@ -20,6 +20,7 @@ _NAMED_TYPE_INFO = {
   'PowerPreference': {
     'type': 'PowerPreference',
     'valid': [
+      'PowerPreference::kDefault',
       'PowerPreference::kHighPerformance',
       'PowerPreference::kLowPower',
     ],
@@ -62,7 +63,21 @@ _FUNCTION_INFO = {
   },
   'RequestAdapter': {
     'impl_func': False,
-    'cmd_args': 'uint32_t power_preference'
+    'internal': True,
+    'cmd_args': 'uint32_t request_adapter_serial, uint32_t power_preference'
+  },
+  'RequestDevice': {
+    'impl_func': False,
+    'internal': True,
+    'data_transfer_methods': ['shm'],
+    'cmd_args': 'uint32_t adapter_service_id, '
+                'uint32_t request_device_properties_shm_id, '
+                'uint32_t request_device_properties_shm_offset, '
+                'uint32_t request_device_properties_size',
+    'size_args': {
+      'request_device_properties':
+        'request_device_properties_size * sizeof(char)',
+    },
   },
 }
 

@@ -14,19 +14,15 @@
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
 #include "base/time/time.h"
-#include "chrome/browser/sharing/proto/sharing_message.pb.h"
 #include "chrome/browser/sharing/sharing_send_message_result.h"
 #include "components/gcm_driver/web_push_common.h"
+#include "components/sync/protocol/sharing_message.pb.h"
 #include "components/sync_device_info/device_info.h"
 
 namespace gcm {
 class GCMDriver;
 enum class SendWebPushMessageResult;
 }  // namespace gcm
-
-namespace syncer {
-class DeviceInfo;
-}  // namespace syncer
 
 class SharingSyncPreference;
 class VapidKeyManager;
@@ -47,13 +43,10 @@ class SharingFCMSender {
   // Sends a |message| to device identified by |target|, which expires
   // after |time_to_live| seconds. |callback| will be invoked with message_id if
   // asynchronous operation succeeded, or base::nullopt if operation failed.
-  // |sender_device_info| must be provided except for sending ack messages.
-  virtual void SendMessageToDevice(
-      syncer::DeviceInfo::SharingInfo target,
-      base::TimeDelta time_to_live,
-      SharingMessage message,
-      std::unique_ptr<syncer::DeviceInfo> sender_device_info,
-      SendMessageCallback callback);
+  virtual void SendMessageToDevice(syncer::DeviceInfo::SharingTargetInfo target,
+                                   base::TimeDelta time_to_live,
+                                   SharingMessage message,
+                                   SendMessageCallback callback);
 
  private:
   void OnMessageSent(SendMessageCallback callback,

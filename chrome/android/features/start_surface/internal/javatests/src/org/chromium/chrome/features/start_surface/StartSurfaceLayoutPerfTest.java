@@ -35,9 +35,10 @@ import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.compositor.animation.CompositorAnimator;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabFeatureUtilities;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
-import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
@@ -62,7 +63,8 @@ import java.util.List;
         "enable-features=" + ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID + "<Study,"
                 + ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study",
         "force-fieldtrials=Study/Group"})
-@Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
+@Restriction(
+        {UiRestriction.RESTRICTION_TYPE_PHONE, Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE})
 public class StartSurfaceLayoutPerfTest {
     private static final String TAG = "SSLayoutPerfTest";
     private static final String BASE_PARAMS = "force-fieldtrial-params="
@@ -95,7 +97,7 @@ public class StartSurfaceLayoutPerfTest {
         assertTrue(layout instanceof StartSurfaceLayout);
         mStartSurfaceLayout = (StartSurfaceLayout) layout;
         mUrl = mTestServer.getURL("/chrome/test/data/android/navigate/simple.html");
-        mRepeat = 3;
+        mRepeat = 1;
         mWaitingTime = 0;
         mTabNumCap = 3;
 
@@ -105,7 +107,7 @@ public class StartSurfaceLayoutPerfTest {
             mWaitingTime = 1000;
             mTabNumCap = 0;
         }
-        assertTrue(FeatureUtilities.isTabToGtsAnimationEnabled());
+        assertTrue(TabFeatureUtilities.isTabToGtsAnimationEnabled());
 
         CriteriaHelper.pollUiThread(Criteria.equals(true,
                 mActivityTestRule.getActivity()

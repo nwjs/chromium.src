@@ -39,12 +39,21 @@ const Label = {
 
 /**
  * @param {string} dateTimeString
+ * @param {string} mode - used to differentiate between date and time for datetime-local
  * @return {?Day|Week|Month|Time}
  */
-function parseDateTimeString(dateTimeString) {
-  var time = Time.parse(dateTimeString);
+function parseDateTimeString(dateTimeString, mode) {
+  const time = Time.parse(dateTimeString);
   if (time)
     return time;
+  const dateTime = DateTime.parse(dateTimeString);
+  if (dateTime) {
+    if (mode == 'date') {
+      return dateTime.date;
+    } else if (mode == 'time') {
+      return dateTime.time;
+    }
+  }
   return parseDateString(dateTimeString);
 }
 
@@ -161,6 +170,44 @@ Time.MINUTE_VALUES = 60;
 Time.SECOND_VALUES = 60;
 Time.MILLISECOND_VALUES = 10;
 
+class DateTime {
+  constructor(date, time) {
+    this.date_ = date;
+    this.time_ = time;
+  };
+
+  static parse = (str) => {
+    const match = DateTime.ISOStringRegExp.exec(str);
+    if (!match)
+      return null;
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1;
+    const day = parseInt(match[3], 10);
+    const date = new Day(year, month, day);
+
+    const hour = parseInt(match[4], 10);
+    const minute = parseInt(match[5], 10);
+    let second = 0;
+    if (match[6])
+      second = parseInt(match[6], 10);
+    let millisecond = 0;
+    if (match[7])
+      millisecond = parseInt(match[7], 10);
+    const time = new Time(hour, minute, second, millisecond);
+
+    return new DateTime(date, time);
+  };
+
+  get date() {
+    return this.date_;
+  }
+
+  get time() {
+    return this.time_;
+  }
+}
+DateTime.ISOStringRegExp = /^(\d+)-(\d+)-(\d+)T(\d+):(\d+):?(\d*).?(\d*)/;
+
 /**
  * TimePicker: Custom element providing a time picker implementation.
  *             TimePicker contains 2 parts:
@@ -175,16 +222,21 @@ class TimePicker extends HTMLElement {
     this.initializeFromConfig_(config);
 
     this.timeColumns_ = new TimeColumns(this);
-    this.submissionControls_ = new SubmissionControls(
-        this.onSubmitButtonClick_, this.onCancelButtonClick_);
-    this.append(this.timeColumns_, this.submissionControls_);
+    this.append(this.timeColumns_);
+
+    if (config.mode == 'time') {
+      // TimePicker doesn't handle the submission when used for non-time types.
+      this.submissionControls_ = new SubmissionControls(
+          this.onSubmitButtonClick_, this.onCancelButtonClick_);
+      this.append(this.submissionControls_);
+      this.addEventListener('keydown', this.onKeyDown_);
+    }
 
     window.addEventListener('resize', this.onWindowResize_, {once: true});
-    this.addEventListener('keydown', this.onKeyDown_);
   };
 
   initializeFromConfig_ = (config) => {
-    const initialSelection = parseDateTimeString(config.currentValue);
+    const initialSelection = parseDateTimeString(config.currentValue, 'time');
     this.selectedTime_ =
         initialSelection ? initialSelection : Time.currentTime();
     this.hasSecond_ = config.hasSecond;
@@ -193,8 +245,7 @@ class TimePicker extends HTMLElement {
   };
 
   onSubmitButtonClick_ = () => {
-    const selectedValue = this.timeColumns_.selectedValue().toString(
-        this.hasSecond, this.hasMillisecond);
+    const selectedValue = this.selectedValue;
     window.setTimeout(function() {
       window.pagePopupController.setValueAndClosePopup(0, selectedValue);
     }, 100);
@@ -205,6 +256,8 @@ class TimePicker extends HTMLElement {
   };
 
   onWindowResize_ = (event) => {
+    // Scroll columns to the second half to allow scrolling up.
+    this.timeColumns_.scrollColumnsToMiddle();
     this.timeColumns_.firstChild.focus();
   };
 
@@ -218,6 +271,11 @@ class TimePicker extends HTMLElement {
         break;
     }
   };
+
+  get selectedValue() {
+    return this.timeColumns_.selectedValue().toString(
+        this.hasSecond, this.hasMillisecond);
+  }
 
   get selectedTime() {
     return this.selectedTime_;
@@ -252,8 +310,9 @@ class TimePicker extends HTMLElement {
   }
 }
 TimePicker.ClassName = 'time-picker';
-TimePicker.Height = 273;
-TimePicker.ColumnWidth = 54;
+TimePicker.Height = 300;
+TimePicker.ColumnWidth = 56;
+TimePicker.BorderWidth = 1;
 window.customElements.define('time-picker', TimePicker);
 
 /**
@@ -266,7 +325,7 @@ class TimeColumns extends HTMLElement {
 
     this.className = TimeColumns.ClassName;
     this.hourColumn_ = new TimeColumn(TimeColumnType.HOUR, timePicker);
-    this.width_ = 0;
+    this.width_ = TimePicker.BorderWidth * 2 + TimeColumns.Margin * 2;
     this.minuteColumn_ = new TimeColumn(TimeColumnType.MINUTE, timePicker);
     if (timePicker.hasAMPM) {
       this.ampmColumn_ = new TimeColumn(TimeColumnType.AMPM, timePicker);
@@ -319,8 +378,21 @@ class TimeColumns extends HTMLElement {
     }
     return new Time(hour, minute, second, millisecond);
   };
+
+  scrollColumnsToMiddle = () => {
+    this.hourColumn_.scrollTop = this.hourColumn_.scrollHeight / 2;
+    this.minuteColumn_.scrollTop = this.minuteColumn_.scrollHeight / 2;
+    if (this.secondColumn_) {
+      this.secondColumn_.scrollTop = this.secondColumn_.scrollHeight / 2;
+    }
+    if (this.millisecondColumn_) {
+      this.millisecondColumn_.scrollTop =
+          this.millisecondColumn_.scrollHeight / 2;
+    }
+  }
 }
 TimeColumns.ClassName = 'time-columns';
+TimeColumns.Margin = 1;
 window.customElements.define('time-columns', TimeColumns);
 
 /**
@@ -359,7 +431,7 @@ class TimeColumn extends HTMLUListElement {
       duplicateCells.push(duplicatedTimeCell);
       currentTime.next(this.columnType_);
     }
-    this.selectedTimeCell = cells[0];
+    this.selectedTimeCell = duplicateCells[0];
     this.middleTimeCell_ = duplicateCells[0];
     this.append(...cells, ...duplicateCells);
   };

@@ -132,6 +132,11 @@ void ContentAutofillDriver::PropagateAutofillPredictions(
                                                             forms);
 }
 
+void ContentAutofillDriver::HandleParsedForms(
+    const std::vector<FormStructure*>& forms) {
+  // No op.
+}
+
 void ContentAutofillDriver::SendAutofillTypePredictionsToRenderer(
     const std::vector<FormStructure*>& forms) {
   if (!RendererIsAvailable())
@@ -200,6 +205,10 @@ gfx::RectF ContentAutofillDriver::TransformBoundingBoxToViewportCoordinates(
       view->TransformPointToRootCoordSpaceF(orig_point);
   return gfx::RectF(transformed_point.x(), transformed_point.y(),
                     bounding_box.width(), bounding_box.height());
+}
+
+net::NetworkIsolationKey ContentAutofillDriver::NetworkIsolationKey() {
+  return render_frame_host_->GetNetworkIsolationKey();
 }
 
 void ContentAutofillDriver::FormsSeen(const std::vector<FormData>& forms,

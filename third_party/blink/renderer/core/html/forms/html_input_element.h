@@ -46,6 +46,7 @@ class InputTypeView;
 class KURL;
 class ListAttributeTargetObserver;
 class RadioButtonGroupScope;
+class ScriptValue;
 struct DateTimeChooserParameters;
 
 class CORE_EXPORT HTMLInputElement
@@ -58,9 +59,6 @@ class CORE_EXPORT HTMLInputElement
   HTMLInputElement(Document&, const CreateElementFlags);
   ~HTMLInputElement() override;
   void Trace(Visitor*) override;
-
-  // Returns attributes that should be checked against Trusted Types
-  const AttrNameToTrustedType& GetCheckedAttributeTypes() const override;
 
   bool HasPendingActivity() const final;
 
@@ -161,8 +159,10 @@ class CORE_EXPORT HTMLInputElement
 
   void SetEditingValue(const String&);
 
-  double valueAsDate(bool& is_null) const;
-  void setValueAsDate(double, bool is_null, ExceptionState&);
+  ScriptValue valueAsDate(ScriptState* script_state) const;
+  void setValueAsDate(ScriptState* script_state,
+                      const ScriptValue& value,
+                      ExceptionState& exception_state);
 
   double valueAsNumber() const;
   void setValueAsNumber(

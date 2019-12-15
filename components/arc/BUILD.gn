@@ -32,6 +32,7 @@ static_library("arc") {
     "intent_helper/arc_intent_helper_bridge.cc",
     "intent_helper/arc_intent_helper_bridge.h",
     "intent_helper/arc_intent_helper_observer.h",
+    "intent_helper/control_camera_app_delegate.h",
     "intent_helper/factory_reset_delegate.h",
     "intent_helper/font_size_util.cc",
     "intent_helper/font_size_util.h",
@@ -132,7 +133,7 @@ static_library("arc") {
     "//ui/display/manager",
     "//ui/events",
     "//ui/events:dom_keycode_converter",
-    "//ui/events/ozone:events_ozone_evdev",
+    "//ui/events/ozone",
     "//ui/wm/public",
     "//url:url",
   ]
@@ -213,8 +214,16 @@ static_library("arc_base") {
     "session/arc_session_impl.h",
     "session/arc_session_runner.cc",
     "session/arc_session_runner.h",
+    "session/arc_start_params.cc",
+    "session/arc_start_params.h",
+    "session/arc_upgrade_params.cc",
+    "session/arc_upgrade_params.h",
     "session/arc_vm_client_adapter.cc",
     "session/arc_vm_client_adapter.h",
+    "session/arc_vm_client_adapter_util.cc",
+    "session/arc_vm_client_adapter_util.h",
+    "session/file_system_status.cc",
+    "session/file_system_status.h",
   ]
 
   deps = [
@@ -358,10 +367,13 @@ source_set("unit_tests") {
     "net/always_on_vpn_manager_unittest.cc",
     "net/arc_net_host_impl_unittest.cc",
     "power/arc_power_bridge_unittest.cc",
+    "property/arc_property_bridge_unittest.cc",
     "session/arc_data_remover_unittest.cc",
     "session/arc_session_impl_unittest.cc",
     "session/arc_session_runner_unittest.cc",
     "session/arc_vm_client_adapter_unittest.cc",
+    "session/arc_vm_client_adapter_util_unittest.cc",
+    "session/file_system_status_unittest.cc",
     "timer/arc_timer_bridge_unittest.cc",
     "wake_lock/arc_wake_lock_bridge_unittest.cc",
   ]

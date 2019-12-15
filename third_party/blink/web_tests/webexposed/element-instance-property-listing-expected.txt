@@ -30,7 +30,6 @@ namespace http://www.w3.org/1999/xhtml
     property animate
     property append
     property appendChild
-    property ariaActiveDescendant
     property ariaActiveDescendantElement
     property ariaAtomic
     property ariaAutoComplete
@@ -39,24 +38,18 @@ namespace http://www.w3.org/1999/xhtml
     property ariaColCount
     property ariaColIndex
     property ariaColSpan
-    property ariaControls
     property ariaControlsElements
     property ariaCurrent
-    property ariaDescribedBy
     property ariaDescribedByElements
-    property ariaDetails
     property ariaDetailsElement
     property ariaDisabled
-    property ariaErrorMessage
     property ariaErrorMessageElement
     property ariaExpanded
-    property ariaFlowTo
     property ariaFlowToElements
     property ariaHasPopup
     property ariaHidden
     property ariaKeyShortcuts
     property ariaLabel
-    property ariaLabelledBy
     property ariaLabelledByElements
     property ariaLevel
     property ariaLive
@@ -64,7 +57,6 @@ namespace http://www.w3.org/1999/xhtml
     property ariaMultiLine
     property ariaMultiSelectable
     property ariaOrientation
-    property ariaOwns
     property ariaOwnsElements
     property ariaPlaceholder
     property ariaPosInSet
@@ -180,7 +172,6 @@ namespace http://www.w3.org/1999/xhtml
     property onanimationiteration
     property onanimationstart
     property onauxclick
-    property onbeforeactivate
     property onbeforecopy
     property onbeforecut
     property onbeforepaste
@@ -246,6 +237,7 @@ namespace http://www.w3.org/1999/xhtml
     property onpointerup
     property onprogress
     property onratechange
+    property onrendersubtreeactivation
     property onreset
     property onresize
     property onscroll
@@ -295,6 +287,7 @@ namespace http://www.w3.org/1999/xhtml
     property replaceWith
     property requestFullscreen
     property requestPointerLock
+    property resetSubtreeRendered
     property role
     property scroll
     property scrollBy
@@ -406,6 +399,7 @@ html element audio
     property duration
     property ended
     property error
+    property latencyHint
     property load
     property loop
     property mediaKeys
@@ -650,6 +644,7 @@ html element iframe
     property contentDocument
     property contentWindow
     property csp
+    property disallowDocumentAccess
     property featurePolicy
     property frameBorder
     property getSVGDocument
@@ -1144,6 +1139,7 @@ html element video
     property autoplay
     property buffered
     property canPlayType
+    property cancelAnimationFrame
     property captureStream
     property controls
     property controlsList
@@ -1159,6 +1155,7 @@ html element video
     property error
     property getVideoPlaybackQuality
     property height
+    property latencyHint
     property load
     property loop
     property mediaKeys
@@ -1178,6 +1175,7 @@ html element video
     property preload
     property readyState
     property remote
+    property requestAnimationFrame
     property requestPictureInPicture
     property seekable
     property seeking
@@ -1232,7 +1230,6 @@ namespace http://www.w3.org/2000/svg
     property animate
     property append
     property appendChild
-    property ariaActiveDescendant
     property ariaActiveDescendantElement
     property ariaAtomic
     property ariaAutoComplete
@@ -1241,24 +1238,18 @@ namespace http://www.w3.org/2000/svg
     property ariaColCount
     property ariaColIndex
     property ariaColSpan
-    property ariaControls
     property ariaControlsElements
     property ariaCurrent
-    property ariaDescribedBy
     property ariaDescribedByElements
-    property ariaDetails
     property ariaDetailsElement
     property ariaDisabled
-    property ariaErrorMessage
     property ariaErrorMessageElement
     property ariaExpanded
-    property ariaFlowTo
     property ariaFlowToElements
     property ariaHasPopup
     property ariaHidden
     property ariaKeyShortcuts
     property ariaLabel
-    property ariaLabelledBy
     property ariaLabelledByElements
     property ariaLevel
     property ariaLive
@@ -1266,7 +1257,6 @@ namespace http://www.w3.org/2000/svg
     property ariaMultiLine
     property ariaMultiSelectable
     property ariaOrientation
-    property ariaOwns
     property ariaOwnsElements
     property ariaPlaceholder
     property ariaPosInSet
@@ -1364,7 +1354,6 @@ namespace http://www.w3.org/2000/svg
     property onanimationiteration
     property onanimationstart
     property onauxclick
-    property onbeforeactivate
     property onbeforecopy
     property onbeforecut
     property onbeforepaste
@@ -1430,6 +1419,7 @@ namespace http://www.w3.org/2000/svg
     property onpointerup
     property onprogress
     property onratechange
+    property onrendersubtreeactivation
     property onreset
     property onresize
     property onscroll
@@ -1479,6 +1469,7 @@ namespace http://www.w3.org/2000/svg
     property replaceWith
     property requestFullscreen
     property requestPointerLock
+    property resetSubtreeRendered
     property role
     property scroll
     property scrollBy

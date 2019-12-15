@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "base/macros.h"
-#include "base/memory/protected_memory.h"
 #include "base/optional.h"
 #include "base/strings/utf_offset_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -139,8 +138,23 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
 
 #if defined(ATK_CHECK_VERSION) && ATK_CHECK_VERSION(2, 30, 0)
   void ScrollToPoint(AtkCoordType atk_coord_type, int x, int y);
+  void ScrollNodeRectIntoView(gfx::Rect rect, AtkScrollType atk_scroll_type);
   void ScrollNodeIntoView(AtkScrollType atk_scroll_type);
 #endif  // defined(ATK_CHECK_VERSION) && ATK_CHECK_VERSION(2, 30, 0)
+
+#if defined(ATK_CHECK_VERSION) && ATK_CHECK_VERSION(2, 32, 0)
+  base::Optional<gfx::Rect> GetUnclippedHypertextRangeBoundsRect(
+      int start_offset,
+      int end_offset);
+  bool ScrollSubstringIntoView(AtkScrollType atk_scroll_type,
+                               int start_offset,
+                               int end_offset);
+  bool ScrollSubstringToPoint(int start_offset,
+                              int end_offset,
+                              AtkCoordType atk_coord_type,
+                              int x,
+                              int y);
+#endif  // defined(ATK_CHECK_VERSION) && ATK_CHECK_VERSION(2, 32, 0)
 
   // Misc helpers
   void GetFloatAttributeInGValue(ax::mojom::FloatAttribute attr, GValue* value);
@@ -167,9 +181,12 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
   void OnSubtreeWillBeDeleted();
   void OnParentChanged();
   void OnWindowVisibilityChanged();
+  void OnScrolledToAnchor();
 
+  void ResendFocusSignalsForCurrentlyFocusedNode();
   bool SupportsSelectionWithAtkSelection();
   bool SelectionAndFocusAreTheSame();
+  void SetActiveViewsDialog();
 
   // AXPlatformNode overrides.
   // This has a side effect of creating the AtkObject if one does not already
@@ -181,6 +198,8 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
   void Init(AXPlatformNodeDelegate* delegate) override;
   int GetIndexInParent() override;
   base::string16 GetHypertext() const override;
+
+  bool IsNameExposed();
 
   void UpdateHypertext();
   const AXHypertext& GetAXHypertext();
@@ -222,6 +241,8 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
   // If there is a find in page result for the toplevel document of this node,
   // return it, otherwise return base::nullopt;
   base::Optional<FindInPageResultInfo> GetSelectionOffsetsFromFindInPage();
+
+  std::pair<int, int> GetSelectionOffsetsForAtk();
 
   // Get the embedded object ("hyperlink") indices for this object in the
   // parent. If this object doesn't have a parent or isn't embedded, return
@@ -332,6 +353,9 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
 
   // The AtkStateType for a checkable node can vary depending on the role.
   AtkStateType GetAtkStateTypeForCheckableNode();
+
+  gfx::Point ConvertPointToScreenCoordinates(const gfx::Point& point,
+                                             AtkCoordType atk_coord_type);
 
   // Keep information of latest AtkInterfaces mask to refresh atk object
   // interfaces accordingly if needed.

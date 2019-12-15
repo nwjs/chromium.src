@@ -239,11 +239,10 @@ void IOSChromeMetricsServiceClient::Initialize() {
 
   if (IsMetricsReportingForceEnabled() ||
       base::FeatureList::IsEnabled(ukm::kUkmFeature)) {
-    // We only need to restrict to whitelisted Entries if metrics reporting
-    // is not forced.
-    bool restrict_to_whitelist_entries = !IsMetricsReportingForceEnabled();
+    // Only restrict to allow-listed entries if metrics reporting is not forced.
+    bool restrict_to_allowed_entries = !IsMetricsReportingForceEnabled();
     ukm_service_ = std::make_unique<ukm::UkmService>(
-        local_state, this, restrict_to_whitelist_entries,
+        local_state, this, restrict_to_allowed_entries,
         std::make_unique<metrics::DemographicMetricsProvider>(
             std::make_unique<metrics::ChromeBrowserStateClient>(),
             metrics::MetricsLogUploader::MetricServiceType::UKM));
@@ -355,7 +354,7 @@ bool IOSChromeMetricsServiceClient::RegisterForBrowserStateEvents(
   syncer::SyncService* sync =
       ProfileSyncServiceFactory::GetInstance()->GetForBrowserState(
           browser_state);
-  ObserveServiceForSyncDisables(sync, browser_state->GetPrefs());
+  StartObserving(sync, browser_state->GetPrefs());
   return (history_service != nullptr && sync != nullptr);
 }
 
@@ -395,12 +394,12 @@ void IOSChromeMetricsServiceClient::OnHistoryDeleted() {
     ukm_service_->Purge();
 }
 
-void IOSChromeMetricsServiceClient::OnSyncPrefsChanged(bool must_purge) {
+void IOSChromeMetricsServiceClient::OnUkmAllowedStateChanged(bool must_purge) {
   if (!ukm_service_)
     return;
   if (must_purge) {
     ukm_service_->Purge();
-    ukm_service_->ResetClientState(ukm::ResetReason::kOnSyncPrefsChanged);
+    ukm_service_->ResetClientState(ukm::ResetReason::kOnUkmAllowedStateChanged);
   }
   // Signal service manager to enable/disable UKM based on new state.
   UpdateRunningServices();
@@ -416,8 +415,8 @@ void IOSChromeMetricsServiceClient::OnIncognitoWebStateRemoved() {
   UpdateRunningServices();
 }
 
-bool IOSChromeMetricsServiceClient::SyncStateAllowsUkm() {
-  return SyncDisableObserver::SyncStateAllowsUkm();
+bool IOSChromeMetricsServiceClient::IsUkmAllowedForAllProfiles() {
+  return UkmConsentStateObserver::IsUkmAllowedForAllProfiles();
 }
 
 bool IOSChromeMetricsServiceClient::

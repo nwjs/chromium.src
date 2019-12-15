@@ -117,12 +117,12 @@ class IconLabelBubbleView : public views::InkDropObserver,
   // Returns true when the separator should be visible.
   virtual bool ShouldShowSeparator() const;
 
-  // Returns a multiplier used to calculate the actual width of the view based
-  // on its desired width.  This ranges from 0 for a zero-width view to 1 for a
-  // full-width view and can be used to animate the width of the view.
-  virtual double WidthMultiplier() const;
+  // Gets the current width based on |slide_animation_| and given bounds.
+  // Virtual for testing.
+  virtual int GetWidthBetween(int min, int max) const;
 
   // Returns true when animation is in progress and is shrinking.
+  // Virtual for testing.
   virtual bool IsShrinking() const;
 
   // Returns true if a bubble was shown.
@@ -188,6 +188,9 @@ class IconLabelBubbleView : public views::InkDropObserver,
   // currently paused.
   bool is_animation_paused() const { return is_animation_paused_; }
 
+  // Slide animation for label.
+  gfx::SlideAnimation slide_animation_{this};
+
  private:
   class HighlightPathGenerator;
 
@@ -239,9 +242,6 @@ class IconLabelBubbleView : public views::InkDropObserver,
   // prevent the bubble from reshowing. This flag is necessary because the
   // bubble gets dismissed before the button handles the mouse release event.
   bool suppress_button_release_ = false;
-
-  // Slide animation for label.
-  gfx::SlideAnimation slide_animation_{this};
 
   // Parameters for the slide animation.
   bool is_animation_paused_ = false;

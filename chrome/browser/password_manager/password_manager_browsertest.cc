@@ -395,7 +395,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, LoginFailed) {
   EXPECT_FALSE(prompt_observer->IsSavePromptShownAutomatically());
 }
 
-IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, Redirects) {
+// Disabled due to flakiness: https://crbug.com/1030579.
+IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, DISABLED_Redirects) {
   NavigateToFile("/password/password_form.html");
 
   // Fill a form and submit through a <input type="submit"> button. The form
@@ -1500,9 +1501,11 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 
 // Tests whether a attempted submission of a malicious credentials gets blocked.
 // This simulates a case which is described in http://crbug.com/571580.
+//
+// Disabled due to flakiness: https://crbug.com/1030579.
 IN_PROC_BROWSER_TEST_F(
     PasswordManagerBrowserTest,
-    NoPromptForSeperateLoginFormWhenSwitchingFromHttpsToHttp) {
+    DISABLED_NoPromptForSeperateLoginFormWhenSwitchingFromHttpsToHttp) {
   std::string path = "/password/password_form.html";
   GURL https_url(https_test_server().GetURL(path));
   ASSERT_TRUE(https_url.SchemeIs(url::kHttpsScheme));
@@ -2202,16 +2205,10 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   ASSERT_TRUE(content::ExecuteScriptWithoutUserGestureAndExtractString(
       RenderFrameHost(), "sendMessage('get_password');", &password_field));
 
-  // Verify username and password have only been autofilled if FOAS on HTTP is
-  // not active.
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::kFillOnAccountSelectHttp)) {
-    EXPECT_TRUE(username_field.empty());
-    EXPECT_TRUE(password_field.empty());
-  } else {
-    EXPECT_EQ("temp", username_field);
-    EXPECT_EQ("pa55w0rd", password_field);
-  }
+  // Verify username and password have not been autofilled due to an insecure
+  // origin.
+  EXPECT_TRUE(username_field.empty());
+  EXPECT_TRUE(password_field.empty());
 }
 
 // Check that a username and password are not filled in forms in iframes
@@ -2296,8 +2293,10 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 
 // Check that a password form in an iframe of same origin will not be
 // filled in until user interact with the iframe.
+//
+// Disabled due to flakiness: https://crbug.com/1030579.
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
-                       SameOriginIframeAutoFillTest) {
+                       DISABLED_SameOriginIframeAutoFillTest) {
   // Visit the sign-up form to store a password for autofill later
   NavigateToFile("/password/password_form_in_same_origin_iframe.html");
   NavigationObserver observer(WebContents());
@@ -3316,8 +3315,15 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, ReattachWebContents) {
                                   TabStripModel::ADD_ACTIVE);
 }
 
+// Flaky on Linux and Windows.  http://crbug.com/1022531
+#if defined(OS_LINUX) || defined(OS_WIN)
+#define MAYBE_FillWhenFormWithHiddenUsername \
+  DISABLED_FillWhenFormWithHiddenUsername
+#else
+#define MAYBE_FillWhenFormWithHiddenUsername FillWhenFormWithHiddenUsername
+#endif
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
-                       FillWhenFormWithHiddenUsername) {
+                       MAYBE_FillWhenFormWithHiddenUsername) {
   // At first let us save a credential to the password store.
   scoped_refptr<password_manager::TestPasswordStore> password_store =
       static_cast<password_manager::TestPasswordStore*>(
@@ -3703,8 +3709,10 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 // TODO(crbug.com/862930) If the inconsistency is fixed, please ensure that the
 // code for removing duplicates in password_manager_util.cc is updated and does
 // not remove blacklisted credentials which are no longer duplicates.
+//
+// Disabled due to flakiness: https://crbug.com/1030579.
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
-                       HTMLLoginAfterHTTPAuthIsBlacklisted) {
+                       DISABLED_HTMLLoginAfterHTTPAuthIsBlacklisted) {
   for (bool is_realm_empty : {false, true}) {
     scoped_refptr<password_manager::TestPasswordStore> password_store =
         static_cast<password_manager::TestPasswordStore*>(
@@ -3786,6 +3794,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   // Check that the password for origin A was not updated automatically and the
   // update bubble is shown instead.
   WaitForPasswordStore();  // Let the navigation take its effect on storing.
+  ASSERT_THAT(password_store->stored_passwords(),
+              ElementsAre(testing::Key(url_A.GetOrigin())));
   CheckThatCredentialsStored("user", "oldpassword");
   std::unique_ptr<BubbleObserver> prompt_observer(
       new BubbleObserver(WebContents()));
@@ -3797,10 +3807,9 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   prompt_observer->AcceptUpdatePrompt(stored_form);
 
   WaitForPasswordStore();
-  // There are two credentials saved with the new password.
+  // The stored credential has been updated with the new password.
   const auto& passwords_map = password_store->stored_passwords();
-  ASSERT_THAT(passwords_map, ElementsAre(testing::Key(url_A.GetOrigin()),
-                                         testing::Key(url_B.GetOrigin())));
+  ASSERT_THAT(passwords_map, ElementsAre(testing::Key(url_A.GetOrigin())));
   for (const auto& credentials : passwords_map) {
     ASSERT_THAT(credentials.second, testing::SizeIs(1));
     EXPECT_EQ(base::ASCIIToUTF16("user"), credentials.second[0].username_value);
@@ -3882,14 +3891,19 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   autofill::AutofillPopupController* controller =
       autofill_client->popup_controller_for_testing().get();
   ASSERT_TRUE(controller);
-  // Two credentials and "Manage passwords" should be displyed.
+  // Two credentials and "Manage passwords" should be displayed.
   EXPECT_EQ(3, controller->GetLineCount());
+
+  // Trigger user gesture so that autofill happens.
+  ASSERT_TRUE(content::ExecuteScript(
+      WebContents(), "document.getElementById('username_field').click();"));
+  WaitForElementValue("username_field", "admin");
 
   // Delete one credential. It should not be in the dropdown.
   password_store->RemoveLogin(admin_form);
   WaitForPasswordStore();
 
-  // Wait wor the refetch to finish.
+  // Wait for the refetch to finish.
   EXPECT_FALSE(autofill_client->popup_controller_for_testing());
   WaitForPasswordStore();
   // Reshow the dropdown.
@@ -3901,17 +3915,22 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   EXPECT_EQ(base::ASCIIToUTF16("user"), controller->GetElidedValueAt(0));
   EXPECT_NE(base::ASCIIToUTF16("admin"), controller->GetElidedValueAt(1));
 
+  // The username_field should get re-filled with "user" instead of "admin".
+  WaitForElementValue("username_field", "user");
+
   // Delete all the credentials.
   password_store->RemoveLogin(user_form);
   WaitForPasswordStore();
 
-  // Wait wor the refetch to finish.
+  // Wait for the refetch to finish.
   EXPECT_FALSE(autofill_client->popup_controller_for_testing());
   WaitForPasswordStore();
   // Reshow the dropdown won't work because there is nothing to suggest.
   driver->ShowPasswordSuggestions(base::i18n::LEFT_TO_RIGHT, base::string16(),
                                   0, gfx::RectF());
   EXPECT_FALSE(autofill_client->popup_controller_for_testing());
+
+  WaitForElementValue("username_field", "");
 }
 
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, FormDynamicallyChanged) {

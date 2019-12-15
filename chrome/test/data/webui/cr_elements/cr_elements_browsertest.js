@@ -27,16 +27,6 @@ CrElementsBrowserTest.prototype = {
   get browsePreload() {
     throw 'this is abstract and should be overriden by subclasses';
   },
-
-  /** @override */
-  runAccessibilityChecks: true,
-
-  /** @override */
-  setUp: function() {
-    PolymerTest.prototype.setUp.call(this);
-    // We aren't loading the main document.
-    this.accessibilityAuditConfig.ignoreSelectors('humanLangMissing', 'html');
-  },
 };
 
 /**
@@ -412,6 +402,28 @@ TEST_F('CrElementsSliderTest', 'All', function() {
  * @constructor
  * @extends {CrElementsBrowserTest}
  */
+function CrElementsSplitterTest() {}
+
+CrElementsSplitterTest.prototype = {
+  __proto__: CrElementsBrowserTest.prototype,
+
+  /** @override */
+  browsePreload: 'chrome://resources/cr_elements/cr_splitter/cr_splitter.html',
+
+  /** @override */
+  extraLibraries: CrElementsBrowserTest.prototype.extraLibraries.concat([
+    'cr_splitter_test.js',
+  ]),
+};
+
+TEST_F('CrElementsSplitterTest', 'All', function() {
+  mocha.run();
+});
+
+/**
+ * @constructor
+ * @extends {CrElementsBrowserTest}
+ */
 function CrElementsToastTest() {}
 
 CrElementsToastTest.prototype = {
@@ -678,7 +690,7 @@ CrElementsLottieTest.prototype = {
   ]),
 };
 
-TEST_F('CrElementsLottieTest', 'All', function() {
+TEST_F('CrElementsLottieTest', 'DISABLED_All', function() {
   mocha.run();
 });
 GEN('#endif');

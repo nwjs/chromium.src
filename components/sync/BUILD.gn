@@ -71,11 +71,8 @@ jumbo_static_library("rest_of_sync") {
     "engine/model_type_processor_proxy.h",
     "engine/net/http_bridge.cc",
     "engine/net/http_bridge.h",
-    "engine/net/http_bridge_network_resources.cc",
-    "engine/net/http_bridge_network_resources.h",
     "engine/net/http_post_provider_factory.h",
     "engine/net/http_post_provider_interface.h",
-    "engine/net/network_resources.h",
     "engine/non_blocking_sync_common.cc",
     "engine/non_blocking_sync_common.h",
     "engine/passive_model_worker.cc",
@@ -91,7 +88,6 @@ jumbo_static_library("rest_of_sync") {
     "engine/sync_backend_registrar.h",
     "engine/sync_credentials.cc",
     "engine/sync_credentials.h",
-    "engine/sync_encryption_handler.cc",
     "engine/sync_encryption_handler.h",
     "engine/sync_engine.cc",
     "engine/sync_engine.h",
@@ -343,8 +339,6 @@ jumbo_static_library("rest_of_sync") {
     "syncable/change_record.h",
     "syncable/change_reorder_buffer.cc",
     "syncable/change_reorder_buffer.h",
-    "syncable/delete_journal.cc",
-    "syncable/delete_journal.h",
     "syncable/dir_open_result.h",
     "syncable/directory.cc",
     "syncable/directory.h",
@@ -391,8 +385,6 @@ jumbo_static_library("rest_of_sync") {
     "syncable/syncable_base_write_transaction.h",
     "syncable/syncable_changes_version.h",
     "syncable/syncable_columns.h",
-    "syncable/syncable_delete_journal.cc",
-    "syncable/syncable_delete_journal.h",
     "syncable/syncable_enum_conversions.cc",
     "syncable/syncable_enum_conversions.h",
     "syncable/syncable_id.cc",
@@ -434,6 +426,7 @@ jumbo_static_library("rest_of_sync") {
     "//base:i18n",
     "//build:branding_buildflags",
     "//components/keyed_service/core",
+    "//components/variations/net",
     "//services/network/public/cpp",
     "//sql",
     "//third_party/cacheinvalidation",
@@ -568,7 +561,6 @@ source_set("unit_tests") {
     "base/bind_to_task_runner_unittest.cc",
     "base/cancelation_signal_unittest.cc",
     "base/client_tag_hash_unittest.cc",
-    "base/data_type_histogram_unittest.cc",
     "base/enum_set_unittest.cc",
     "base/immutable_unittest.cc",
     "base/model_type_unittest.cc",
@@ -584,7 +576,7 @@ source_set("unit_tests") {
     "driver/async_directory_type_controller_unittest.cc",
     "driver/backend_migrator_unittest.cc",
     "driver/data_type_manager_impl_unittest.cc",
-    "driver/frontend_data_type_controller_unittest.cc",
+    "driver/file_based_trusted_vault_client_unittest.cc",
     "driver/generic_change_processor_unittest.cc",
     "driver/glue/sync_engine_impl_unittest.cc",
     "driver/model_association_manager_unittest.cc",
@@ -651,6 +643,7 @@ source_set("unit_tests") {
     "model_impl/processor_entity_unittest.cc",
     "model_impl/syncable_service_based_bridge_unittest.cc",
     "nigori/cryptographer_impl_unittest.cc",
+    "nigori/keystore_keys_cryptographer_unittest.cc",
     "nigori/nigori_key_bag_unittest.cc",
     "nigori/nigori_model_type_processor_unittest.cc",
     "nigori/nigori_state_unittest.cc",
@@ -668,7 +661,6 @@ source_set("unit_tests") {
     "syncable/nigori_util_unittest.cc",
     "syncable/parent_child_index_unittest.cc",
     "syncable/proto_value_ptr_unittest.cc",
-    "syncable/syncable_delete_journal_unittest.cc",
     "syncable/syncable_enum_conversions_unittest.cc",
     "syncable/syncable_id_unittest.cc",
     "syncable/syncable_unittest.cc",
@@ -688,6 +680,7 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//components/invalidation/impl",
+    "//components/os_crypt",
     "//components/os_crypt:test_support",
     "//components/prefs:test_support",
     "//components/signin/public/base:test_support",
@@ -727,6 +720,10 @@ source_set("unit_tests") {
       "//components/policy:generated",
       "//components/policy/core/browser",
     ]
+  }
+
+  if (is_chromeos) {
+    deps += [ "//chromeos/constants" ]
   }
 }
 

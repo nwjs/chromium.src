@@ -37,7 +37,7 @@ const base::Feature kApkWebAppInstalls{"ApkWebAppInstalls",
 // Enable the new multi-profile-aware app shim mode.
 // TODO(https://crbug.com/982024): Delete this flag when feature is complete.
 const base::Feature kAppShimMultiProfile{"AppShimMultiProfile",
-                                         base::FEATURE_DISABLED_BY_DEFAULT};
+                                         base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Can be used to disable RemoteCocoa (hosting NSWindows for apps in the app
 // process). For debugging purposes only.
@@ -63,8 +63,8 @@ const base::Feature kAppNotificationStatusMessaging{
 
 #if !defined(OS_ANDROID)
 // App Service related flags. See chrome/services/app_service/README.md.
-const base::Feature kAppServiceAsh{"AppServiceAsh",
-                                   base::FEATURE_ENABLED_BY_DEFAULT};
+const base::Feature kAppServiceInstanceRegistry{
+    "AppServiceInstanceRegistry", base::FEATURE_DISABLED_BY_DEFAULT};
 const base::Feature kAppServiceIntentHandling{
     "AppServiceIntentHandling", base::FEATURE_DISABLED_BY_DEFAULT};
 const base::Feature kAppServiceShelf{"AppServiceShelf",
@@ -80,11 +80,6 @@ const base::Feature kAsyncDns {
       base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 };
-
-#if defined(OS_ANDROID)
-const base::Feature kAutoFetchOnNetErrorPage{"AutoFetchOnNetErrorPage",
-                                             base::FEATURE_DISABLED_BY_DEFAULT};
-#endif  // defined(OS_ANDROID)
 
 #if defined(OS_WIN) || defined(OS_LINUX)
 // Enables the Restart background mode optimization. When all Chrome UI is
@@ -102,7 +97,7 @@ const base::Feature kBlockPromptsIfDismissedOften{
 // Enables or disables whether permission prompts are automatically blocked
 // after the user has ignored them too many times.
 const base::Feature kBlockPromptsIfIgnoredOften{
-    "BlockPromptsIfIgnoredOften", base::FEATURE_DISABLED_BY_DEFAULT};
+    "BlockPromptsIfIgnoredOften", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Once the user declines a notification permission prompt in a WebContents,
 // automatically dismiss subsequent prompts in the same WebContents, from any
@@ -223,15 +218,9 @@ const base::Feature kCupsPrintersUiOverhaul{"CupsPrintersUiOverhaul",
 // Enable support for "Plugin VMs" on Chrome OS.
 const base::Feature kPluginVm{"PluginVm", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Allow a Wilco DTC (diagnostics and telemetry controller) on Chrome OS.
-// More info about the project may be found here:
-// https://docs.google.com/document/d/18Ijj8YlC8Q3EWRzLspIi2dGxg4vIBVe5sJgMPt9SWYo
-const base::Feature kWilcoDtc{"WilcoDtc", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Enable uploading of a zip archive of system logs instead of individual files.
-const base::Feature kUploadZippedSystemLogs{"UploadZippedSystemLogs",
-                                            base::FEATURE_DISABLED_BY_DEFAULT};
-#endif
+// Enable adding a print server on Chrome OS.
+const base::Feature kPrintServerUi{"PrintServerUi",
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable chrome://terminal.  Terminal System App will only run on
 // OS_CHROMEOS, but this flag must be defined for all platforms since
@@ -239,9 +228,33 @@ const base::Feature kUploadZippedSystemLogs{"UploadZippedSystemLogs",
 const base::Feature kTerminalSystemApp{"TerminalSystemApp",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enable splits in the Terminal System App.
+const base::Feature kTerminalSystemAppSplits{"TerminalSystemAppSplits",
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enable uploading of a zip archive of system logs instead of individual files.
+const base::Feature kUploadZippedSystemLogs{"UploadZippedSystemLogs",
+                                            base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Allow a Wilco DTC (diagnostics and telemetry controller) on Chrome OS.
+// More info about the project may be found here:
+// https://docs.google.com/document/d/18Ijj8YlC8Q3EWRzLspIi2dGxg4vIBVe5sJgMPt9SWYo
+const base::Feature kWilcoDtc{"WilcoDtc", base::FEATURE_DISABLED_BY_DEFAULT};
+#endif
+
 // Enable using tab sharing infobars for desktop capture.
 const base::Feature kDesktopCaptureTabSharingInfobar{
     "DesktopCaptureTabSharingInfobar", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enables or disables new Desktop PWA support for minimal-ui display mode.
+const base::Feature kDesktopMinimalUI {
+  "DesktopMinimalUI",
+#if defined(OS_MACOSX)
+      base::FEATURE_DISABLED_BY_DEFAULT
+#else
+      base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+};
 
 // Enables or disables new Desktop PWAs implementation that does not use
 // extensions.
@@ -282,10 +295,6 @@ const base::Feature kDesktopPWAsUnifiedLaunch{
 // kDesktopPWAsWithoutExtensions to be enabled.
 const base::Feature kDesktopPWAsUSS{"DesktopPWAsUSS",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Enables or disables the ability to install PWAs from the omnibox.
-const base::Feature kDesktopPWAsOmniboxInstall{
-    "DesktopPWAsOmniboxInstall", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Disables downloads of unsafe file types over HTTP.
 const base::Feature kDisallowUnsafeHttpDownloads{
@@ -336,18 +345,16 @@ const base::Feature kEnableAmbientAuthenticationInGuestSession{
     "EnableAmbientAuthenticationInGuestSession",
     base::FEATURE_ENABLED_BY_DEFAULT};
 
-#if !BUILDFLAG(DISABLE_FTP_SUPPORT)
-// Enables support for FTP URLs. When disabled ftp:// URLs will behave the same
-// as any other URL scheme that's unknown to the browser.
-// TODO(https://crbug.com/333943): FTP support is being phased out.
-const base::Feature kEnableFtp{"EnableFtpSupport",
-                               base::FEATURE_ENABLED_BY_DEFAULT};
-#endif
-
 #if !defined(OS_ANDROID)
 // Upload enterprise cloud reporting without the extension.
 const base::Feature kEnterpriseReportingInBrowser{
     "EnterpriseReportingInBrowser", base::FEATURE_DISABLED_BY_DEFAULT};
+#endif
+
+#if defined(OS_CHROMEOS)
+// Upload enterprise cloud reporting from Chrome OS.
+const base::Feature kEnterpriseReportingInChromeOS{
+    "EnterpriseReportingInChromeOS", base::FEATURE_DISABLED_BY_DEFAULT};
 #endif
 
 #if defined(OS_CHROMEOS)
@@ -574,8 +581,14 @@ const base::Feature kUseNewAcceptLanguageHeader{
 const base::Feature kParentAccessCode{"ParentAccessCode",
                                       base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Enables usage of Parent Access Code to authorize change of time actions on
+// child user device. Requires |kParentAccessCode| to be enabled.
 const base::Feature kParentAccessCodeForTimeChange{
     "ParentAccessCodeForTimeChange", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enables enforcement of per-app time limits for child user.
+const base::Feature kPerAppTimeLimits{"PerAppTimeLimits",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
 #endif
 
 // Delegate permissions to cross-origin iframes when the feature has been
@@ -611,11 +624,6 @@ const base::Feature kFlashDeprecationWarning{"FlashDeprecationWarning",
 // https://crbug.com/829414.
 const base::Feature kCloudPrinterHandler{"CloudPrinterHandler",
                                          base::FEATURE_DISABLED_BY_DEFAULT};
-
-// If enabled, the Print Preview UI will use a different layout. See
-// https://crbug.com/945619
-const base::Feature kNewPrintPreviewLayout{"NewPrintPreviewLayout",
-                                           base::FEATURE_ENABLED_BY_DEFAULT};
 #endif
 
 // Enables or disables push subscriptions keeping Chrome running in the
@@ -694,21 +702,14 @@ const char kSitePerProcessOnlyForHighMemoryClientsParamName[] =
 const base::Feature kStreamlinedUsbPrinterSetup{
     "StreamlinedUsbPrinterSetup", base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Enables or disables the ability to add a Samba Share to the Files app
-const base::Feature kNativeSmb{"NativeSmb", base::FEATURE_ENABLED_BY_DEFAULT};
+// Enables or disables using smbfs for accessing SMB file shares.
+const base::Feature kSmbFs{"SmbFs", base::FEATURE_DISABLED_BY_DEFAULT};
 #endif  // defined(OS_CHROMEOS)
 
 // Enables or disables the ability to use the sound content setting to mute a
 // website.
 const base::Feature kSoundContentSetting{"SoundContentSetting",
                                          base::FEATURE_ENABLED_BY_DEFAULT};
-
-// Enables filtering URLs by suffix to include subresources that look
-// like image resources for compression. For example,
-// http://chromium.org/image.jpg would be included.
-const base::Feature kSubresourceRedirectIncludedMediaSuffixes{
-    "SubresourceRedirectIncludedMediaSuffixes",
-    base::FEATURE_ENABLED_BY_DEFAULT};
 
 #if !defined(OS_ANDROID)
 // Enables or disables the Javascript API to propagate sync encryption keys.
@@ -741,13 +742,14 @@ const char kTreatUnsafeDownloadsAsActiveParamName[] = "ExtensionList";
 const base::Feature kHeavyAdIntervention{"HeavyAdIntervention",
                                          base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enables or disables the blocklist for the heavy ad intervention. This
-// throttles the amount of interventions that can occur on a given host in a
-// time period. This is separate from the intervention feature so it does not
-// interfere with field trial activation, as this blocklist is created for every
-// user.
-const base::Feature kHeavyAdBlocklist{"HeavyAdBlocklist",
-                                      base::FEATURE_ENABLED_BY_DEFAULT};
+// Enables or disables the privacy mitigations for the heavy ad intervention.
+// This throttles the amount of interventions that can occur on a given host in
+// a time period. It also adds noise to the thresholds used. This is separate
+// from the intervention feature so it does not interfere with field trial
+// activation, as this blocklist is created for every user, and noise is decided
+// prior to seeing a heavy ad.
+const base::Feature kHeavyAdPrivacyMitigations{
+    "HeavyAdPrivacyMitigations", base::FEATURE_ENABLED_BY_DEFAULT};
 
 #if defined(OS_ANDROID)
 const base::Feature kUseDisplayWideColorGamut{"UseDisplayWideColorGamut",
@@ -857,10 +859,6 @@ const base::Feature kWebRtcRemoteEventLog{"WebRtcRemoteEventLog",
 // Compress remote-bound WebRTC event logs (if used; see kWebRtcRemoteEventLog).
 const base::Feature kWebRtcRemoteEventLogGzipped{
     "WebRtcRemoteEventLogGzipped", base::FEATURE_ENABLED_BY_DEFAULT};
-
-// Enable WebUI accessibility enhancements for review and testing.
-const base::Feature kWebUIA11yEnhancements{"WebUIA11yEnhancements",
-                                           base::FEATURE_DISABLED_BY_DEFAULT};
 #endif
 
 // Whether to enable "dark mode" enhancements in Mac Mojave or Windows 10 for
@@ -890,5 +888,12 @@ const base::Feature kWriteBasicSystemProfileToPersistentHistogramsFile{
 const base::Feature kAccessibilityInternalsPageImprovements{
     "AccessibilityInternalsPageImprovements",
     base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables setting time limit for Chrome and PWA's on child user device.
+// Requires |kPerAppTimeLimits| to be enabled.
+#if defined(OS_CHROMEOS)
+const base::Feature kWebTimeLimits{"WebTimeLimits",
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
+#endif  // defined(OS_CHROMEOS)
 
 }  // namespace features

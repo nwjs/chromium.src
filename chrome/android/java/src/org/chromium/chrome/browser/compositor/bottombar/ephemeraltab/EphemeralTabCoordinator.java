@@ -25,14 +25,16 @@ import org.chromium.chrome.browser.ssl.SecurityStateModel;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.ui.widget.RoundedIconGenerator;
-import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetContent;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController.SheetState;
 import org.chromium.chrome.browser.widget.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContentsObserver;
+import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.PageTransition;
 
 /**
@@ -63,10 +65,16 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
         mActivity = activity;
         mBottomSheetController = bottomSheetController;
         mFaviconLoader = new FaviconLoader(mActivity);
-        mBottomSheetController.getBottomSheet().addObserver(new EmptyBottomSheetObserver() {
+        mBottomSheetController.addObserver(new EmptyBottomSheetObserver() {
+            @Override
+            public void onSheetContentChanged(BottomSheetContent newContent) {
+                if (newContent != mSheetContent) destroyContent();
+            }
+
             @Override
             public void onSheetStateChanged(int newState) {
-                if (newState == BottomSheet.SheetState.HIDDEN) destroyContent();
+                if (mSheetContent == null) return;
+                mSheetContent.showOpenInNewTabButton(newState == SheetState.FULL);
             }
         });
     }
@@ -133,10 +141,16 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
     }
 
     private void onToolbarClick() {
-        if (mBottomSheetController.getBottomSheet().getSheetState()
-                == BottomSheet.SheetState.PEEK) {
+        int state = mBottomSheetController.getSheetState();
+        if (state == SheetState.PEEK) {
             mBottomSheetController.expandSheet();
+        } else if (state == SheetState.FULL) {
+            mBottomSheetController.collapseSheet(true);
         }
+    }
+
+    private void onCloseButtonClick() {
+        mBottomSheetController.hideContent(mSheetContent, /* animate= */ true);
     }
 
     private boolean canPromoteToNewTab() {
@@ -149,8 +163,8 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
     }
 
     private EphemeralTabSheetContent createSheetContent() {
-        mSheetContent = new EphemeralTabSheetContent(
-                mActivity, () -> openInNewTab(), () -> onToolbarClick(), getMaxSheetHeight());
+        mSheetContent = new EphemeralTabSheetContent(mActivity, this::openInNewTab,
+                this::onToolbarClick, this::onCloseButtonClick, getMaxSheetHeight());
 
         mActivity.getWindow().getDecorView().addOnLayoutChangeListener(this);
         return mSheetContent;
@@ -167,7 +181,7 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
     private int getMaxSheetHeight() {
         Tab tab = mActivity.getActivityTabProvider().get();
         if (tab == null) return 0;
-        return (int) (tab.getHeight() * 0.9f);
+        return (int) (tab.getView().getHeight() * 0.9f);
     }
 
     private WebContentsObserver createWebContentsObserver() {
@@ -193,7 +207,7 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
             case ConnectionSecurityLevel.WARNING:
                 return R.drawable.omnibox_info;
             case ConnectionSecurityLevel.DANGEROUS:
-                return R.drawable.omnibox_https_invalid;
+                return R.drawable.omnibox_not_secure_warning;
             case ConnectionSecurityLevel.SECURE_WITH_POLICY_INSTALLED_CERT:
             case ConnectionSecurityLevel.SECURE:
             case ConnectionSecurityLevel.EV_SECURE:
@@ -259,7 +273,7 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
         }
 
         @Override
-        public void onProgressBarUpdated(int progress) {
+        public void onProgressBarUpdated(float progress) {
             if (mSheetContent == null) return;
             mSheetContent.setProgress(progress);
         }
@@ -282,7 +296,6 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
     private static class FaviconLoader {
         private final Context mContext;
         private final FaviconHelper mFaviconHelper;
-        private final FaviconHelper.DefaultFaviconHelper mDefaultFaviconHelper;
         private final RoundedIconGenerator mIconGenerator;
         private final int mFaviconSize;
 
@@ -290,7 +303,6 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
         public FaviconLoader(Context context) {
             mContext = context;
             mFaviconHelper = new FaviconHelper();
-            mDefaultFaviconHelper = new FaviconHelper.DefaultFaviconHelper();
             mIconGenerator = FaviconUtils.createCircularIconGenerator(mContext.getResources());
             mFaviconSize =
                     mContext.getResources().getDimensionPixelSize(R.dimen.preview_tab_favicon_size);
@@ -309,8 +321,8 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
                     drawable = FaviconUtils.createRoundedBitmapDrawable(
                             mContext.getResources(), bitmap);
                 } else {
-                    drawable = mDefaultFaviconHelper.getDefaultFaviconDrawable(
-                            mContext.getResources(), iconUrl, true);
+                    drawable = UiUtils.getTintedDrawable(
+                            mContext, R.drawable.ic_globe_24dp, R.color.standard_mode_tint);
                 }
 
                 callback.onResult(drawable);

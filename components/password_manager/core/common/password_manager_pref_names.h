@@ -13,10 +13,6 @@ namespace prefs {
 // Alphabetical list of preference names specific to the PasswordManager
 // component.
 
-// Boolean indicating whether blacklisted credentials in the password store
-// have already been normalized.
-extern const char kBlacklistedCredentialsNormalized[];
-
 // Boolean controlling whether the password manager allows automatic signing in
 // through Credential Manager API.
 extern const char kCredentialsEnableAutosignin[];
@@ -66,6 +62,14 @@ extern const char kNumberSignInPasswordPromoShown[];
 // True if the counters for the sign in promo were reset for M79.
 // Safe to remove for M82.
 extern const char kSignInPasswordPromoRevive[];
+
+// Dictionary of accounts that have opted in to use the Google account storage
+// for passwords (map from hash of Gaia ID to bool).
+extern const char kAccountStorageOptedInAccounts[];
+
+// Boolean that is true when the default password store is the Google account
+// store, and false when the profile store is the default store.
+extern const char kIsAccountStoreDefault[];
 
 // String that represents the sync password hash.
 extern const char kSyncPasswordHash[];

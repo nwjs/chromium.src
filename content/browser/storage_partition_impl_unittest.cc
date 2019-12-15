@@ -16,12 +16,13 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_task_runner_handle.h"
-#include "components/services/leveldb/public/cpp/util.h"
+#include "components/services/storage/dom_storage/async_dom_storage_database.h"
 #include "components/services/storage/dom_storage/dom_storage_database.h"
+#include "components/services/storage/dom_storage/local_storage_database.pb.h"
+#include "components/services/storage/public/cpp/constants.h"
 #include "content/browser/code_cache/generated_code_cache.h"
 #include "content/browser/code_cache/generated_code_cache_context.h"
 #include "content/browser/dom_storage/local_storage_context_mojo.h"
-#include "content/browser/dom_storage/local_storage_database.pb.h"
 #include "content/browser/gpu/shader_cache_factory.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -45,14 +46,15 @@
 #include "storage/browser/test/mock_special_storage_policy.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/leveldatabase/env_chromium.h"
 
 #if BUILDFLAG(ENABLE_PLUGINS)
 #include "ppapi/shared_impl/ppapi_constants.h"  // nogncheck
-#include "storage/browser/fileapi/async_file_util.h"
-#include "storage/browser/fileapi/file_system_context.h"
-#include "storage/browser/fileapi/file_system_operation_context.h"
-#include "storage/browser/fileapi/isolated_context.h"
-#include "storage/common/fileapi/file_system_util.h"
+#include "storage/browser/file_system/async_file_util.h"
+#include "storage/browser/file_system/file_system_context.h"
+#include "storage/browser/file_system/file_system_operation_context.h"
+#include "storage/browser/file_system/isolated_context.h"
+#include "storage/common/file_system/file_system_util.h"
 #endif  // BUILDFLAG(ENABLE_PLUGINS)
 
 using net::CanonicalCookie;
@@ -145,7 +147,7 @@ class RemoveCookieTester {
   bool ContainsCookie() {
     get_cookie_success_ = false;
     storage_partition_->GetCookieManagerForBrowserProcess()->GetCookieList(
-        kOrigin1.GetURL(), net::CookieOptions(),
+        kOrigin1.GetURL(), net::CookieOptions::MakeAllInclusive(),
         base::BindOnce(&RemoveCookieTester::GetCookieListCallback,
                        base::Unretained(this)));
     await_completion_.BlockUntilNotified();
@@ -158,7 +160,7 @@ class RemoveCookieTester {
         kOrigin1.GetURL(), "A=1", base::Time::Now(),
         base::nullopt /* server_time */, &status));
     storage_partition_->GetCookieManagerForBrowserProcess()->SetCanonicalCookie(
-        *cc, kOrigin1.scheme(), net::CookieOptions(),
+        *cc, kOrigin1.scheme(), net::CookieOptions::MakeAllInclusive(),
         base::BindOnce(&RemoveCookieTester::SetCookieCallback,
                        base::Unretained(this)));
     await_completion_.BlockUntilNotified();
@@ -193,12 +195,11 @@ class RemoveCookieTester {
 class RemoveLocalStorageTester {
  public:
   RemoveLocalStorageTester(content::BrowserTaskEnvironment* task_environment,
-                           TestBrowserContext* profile)
-      : task_environment_(task_environment), dom_storage_context_(nullptr) {
-    dom_storage_context_ =
-        content::BrowserContext::GetDefaultStoragePartition(profile)
-            ->GetDOMStorageContext();
-  }
+                           TestBrowserContext* browser_context)
+      : task_environment_(task_environment),
+        storage_partition_(
+            BrowserContext::GetDefaultStoragePartition(browser_context)),
+        dom_storage_context_(storage_partition_->GetDOMStorageContext()) {}
 
   ~RemoveLocalStorageTester() {
     // Tests which bring up a real Local Storage context need to shut it down
@@ -221,19 +222,39 @@ class RemoveLocalStorageTester {
   }
 
   void AddDOMStorageTestData() {
-    // Note: This test depends on details of how the dom_storage library
-    // stores data in the database.
+    // NOTE: Tests which call this method depend on implementation details of
+    // how exactly the Local Storage subsystem stores persistent data.
 
-    static_cast<DOMStorageContextWrapper*>(dom_storage_context_)
-        ->SetLocalStorageDatabaseOpenCallbackForTesting(
-            base::BindLambdaForTesting([&](LocalStorageContextMojo* context) {
-              context->GetDatabaseForTesting().PostTaskWithThisObject(
-                  FROM_HERE, base::BindOnce(&PopulateDatabase));
-            }));
+    base::RunLoop open_loop;
+    leveldb_env::Options options;
+    options.create_if_missing = true;
+    auto database = storage::AsyncDomStorageDatabase::OpenDirectory(
+        std::move(options),
+        storage_partition_->GetPath().Append(storage::kLocalStoragePath),
+        storage::kLocalStorageLeveldbName, base::nullopt,
+        base::ThreadTaskRunnerHandle::Get(),
+        base::BindLambdaForTesting([&](leveldb::Status status) {
+          ASSERT_TRUE(status.ok());
+          open_loop.Quit();
+        }));
+    open_loop.Run();
+
+    base::RunLoop populate_loop;
+    database->database().PostTaskWithThisObject(
+        FROM_HERE,
+        base::BindLambdaForTesting([&](const storage::DomStorageDatabase& db) {
+          PopulateDatabase(db);
+          populate_loop.Quit();
+        }));
+    populate_loop.Run();
+
+    // Ensure that this database is fully closed before returning.
+    database.reset();
+    task_environment_->RunUntilIdle();
   }
 
   static void PopulateDatabase(const storage::DomStorageDatabase& db) {
-    LocalStorageOriginMetaData data;
+    storage::LocalStorageOriginMetaData data;
     std::map<std::vector<uint8_t>, std::vector<uint8_t>> entries;
 
     base::Time now = base::Time::Now();
@@ -241,7 +262,7 @@ class RemoveLocalStorageTester {
     data.set_size_bytes(16);
     ASSERT_TRUE(
         db.Put(CreateMetaDataKey(kOrigin1),
-               leveldb::StdStringToUint8Vector(data.SerializeAsString()))
+               base::as_bytes(base::make_span(data.SerializeAsString())))
             .ok());
     ASSERT_TRUE(db.Put(CreateDataKey(kOrigin1), {}).ok());
 
@@ -249,7 +270,7 @@ class RemoveLocalStorageTester {
     data.set_last_modified(one_day_ago.ToInternalValue());
     ASSERT_TRUE(
         db.Put(CreateMetaDataKey(kOrigin2),
-               leveldb::StdStringToUint8Vector(data.SerializeAsString()))
+               base::as_bytes(base::make_span((data.SerializeAsString()))))
             .ok());
     ASSERT_TRUE(db.Put(CreateDataKey(kOrigin2), {}).ok());
 
@@ -257,15 +278,16 @@ class RemoveLocalStorageTester {
     data.set_last_modified(sixty_days_ago.ToInternalValue());
     ASSERT_TRUE(
         db.Put(CreateMetaDataKey(kOrigin3),
-               leveldb::StdStringToUint8Vector(data.SerializeAsString()))
+               base::as_bytes(base::make_span(data.SerializeAsString())))
             .ok());
     ASSERT_TRUE(db.Put(CreateDataKey(kOrigin3), {}).ok());
   }
 
  private:
   static std::vector<uint8_t> CreateDataKey(const url::Origin& origin) {
-    auto serialized_origin =
-        leveldb::StdStringToUint8Vector(origin.Serialize());
+    auto origin_str = origin.Serialize();
+    std::vector<uint8_t> serialized_origin(origin_str.begin(),
+                                           origin_str.end());
     std::vector<uint8_t> key = {'_'};
     key.insert(key.end(), serialized_origin.begin(), serialized_origin.end());
     key.push_back(0);
@@ -275,8 +297,9 @@ class RemoveLocalStorageTester {
 
   static std::vector<uint8_t> CreateMetaDataKey(const url::Origin& origin) {
     const uint8_t kMetaPrefix[] = {'M', 'E', 'T', 'A', ':'};
-    auto serialized_origin =
-        leveldb::StdStringToUint8Vector(origin.Serialize());
+    auto origin_str = origin.Serialize();
+    std::vector<uint8_t> serialized_origin(origin_str.begin(),
+                                           origin_str.end());
     std::vector<uint8_t> key;
     key.reserve(base::size(kMetaPrefix) + serialized_origin.size());
     key.insert(key.end(), kMetaPrefix, kMetaPrefix + base::size(kMetaPrefix));
@@ -297,8 +320,9 @@ class RemoveLocalStorageTester {
   }
 
   // We don't own these pointers.
-  content::BrowserTaskEnvironment* const task_environment_;
-  content::DOMStorageContext* dom_storage_context_;
+  BrowserTaskEnvironment* const task_environment_;
+  StoragePartition* const storage_partition_;
+  DOMStorageContext* dom_storage_context_;
 
   std::vector<content::StorageUsageInfo> infos_;
 
@@ -597,12 +621,12 @@ void ClearQuotaData(content::StoragePartition* partition,
 
 void ClearQuotaDataWithOriginMatcher(
     content::StoragePartition* partition,
-    const StoragePartition::OriginMatcherFunction& origin_matcher,
+    StoragePartition::OriginMatcherFunction origin_matcher,
     const base::Time delete_begin,
     base::RunLoop* loop_to_quit) {
   partition->ClearData(kAllQuotaRemoveMask,
                        StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL,
-                       origin_matcher, nullptr, false, delete_begin,
+                       std::move(origin_matcher), nullptr, false, delete_begin,
                        base::Time::Max(), loop_to_quit->QuitClosure());
 }
 
@@ -654,12 +678,12 @@ void ClearStuff(uint32_t remove_mask,
                 content::StoragePartition* partition,
                 const base::Time delete_begin,
                 const base::Time delete_end,
-                const StoragePartition::OriginMatcherFunction& origin_matcher,
+                StoragePartition::OriginMatcherFunction origin_matcher,
                 base::RunLoop* run_loop) {
   partition->ClearData(remove_mask,
                        StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL,
-                       origin_matcher, nullptr, false, delete_begin, delete_end,
-                       run_loop->QuitClosure());
+                       std::move(origin_matcher), nullptr, false, delete_begin,
+                       delete_end, run_loop->QuitClosure());
 }
 
 void ClearData(content::StoragePartition* partition, base::RunLoop* run_loop) {

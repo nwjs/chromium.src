@@ -396,9 +396,13 @@ void ArcImeService::SetCompositionText(
   ime_bridge_->SendSetCompositionText(composition);
 }
 
-void ArcImeService::ConfirmCompositionText() {
-  InvalidateSurroundingTextAndSelectionRange();
+void ArcImeService::ConfirmCompositionText(bool keep_selection) {
+  if (!keep_selection) {
+    InvalidateSurroundingTextAndSelectionRange();
+  }
   has_composition_text_ = false;
+  // Note: SendConfirmCompositonText() will commit the text and
+  // keep the selection unchanged
   ime_bridge_->SendConfirmCompositionText();
 }
 
@@ -550,7 +554,9 @@ bool ArcImeService::GetCompositionTextRange(gfx::Range* range) const {
 }
 
 bool ArcImeService::SetEditableSelectionRange(const gfx::Range& range) {
-  return false;
+  selection_range_ = range;
+  ime_bridge_->SendSelectionRange(selection_range_);
+  return true;
 }
 
 bool ArcImeService::DeleteRange(const gfx::Range& range) {

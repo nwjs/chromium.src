@@ -29,6 +29,8 @@
 
 #include "third_party/blink/renderer/core/css/style_engine.h"
 
+#include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/public/platform/web_theme_engine.h"
 #include "third_party/blink/renderer/core/css/css_default_style_sheets.h"
 #include "third_party/blink/renderer/core/css/css_font_family_value.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
@@ -52,6 +54,7 @@
 #include "third_party/blink/renderer/core/css/style_environment_variables.h"
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
+#include "third_party/blink/renderer/core/dom/document_lifecycle.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
@@ -101,8 +104,11 @@ StyleEngine::StyleEngine(Document& document)
     viewport_resolver_ = MakeGarbageCollected<ViewportStyleResolver>(document);
   if (IsMaster())
     global_rule_set_ = MakeGarbageCollected<CSSGlobalRuleSet>();
-  if (auto* settings = GetDocument().GetSettings())
-    preferred_color_scheme_ = settings->GetPreferredColorScheme();
+  if (Platform::Current() && Platform::Current()->ThemeEngine()) {
+    preferred_color_scheme_ =
+        Platform::Current()->ThemeEngine()->PreferredColorScheme();
+    forced_colors_ = Platform::Current()->ThemeEngine()->GetForcedColors();
+  }
 }
 
 StyleEngine::~StyleEngine() = default;
@@ -441,9 +447,7 @@ void StyleEngine::MediaQueryAffectingValueChanged() {
 void StyleEngine::UpdateActiveStyleSheetsInImport(
     StyleEngine& master_engine,
     DocumentStyleSheetCollector& parent_collector) {
-  if (!RuntimeEnabledFeatures::HTMLImportsStyleApplicationEnabled())
-    return;
-
+  DCHECK(RuntimeEnabledFeatures::HTMLImportsEnabled(&GetDocument()));
   DCHECK(!IsMaster());
   HeapVector<Member<StyleSheet>> sheets_for_list;
   ImportedDocumentStyleSheetCollector subcollector(parent_collector,
@@ -1794,6 +1798,15 @@ void StyleEngine::RecalcStyle() {
   PropagateWritingModeAndDirectionToHTMLRoot();
 }
 
+void StyleEngine::ClearEnsuredDescendantStyles(Element& element) {
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInStyleRecalc);
+  SelectorFilterRootScope filter_scope(&element);
+  element.ClearNeedsStyleRecalc();
+  element.RecalcDescendantStyles(StyleRecalcChange::kClearEnsured);
+  element.ClearChildNeedsStyleRecalc();
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kStyleClean);
+}
+
 void StyleEngine::RebuildLayoutTree() {
   DCHECK(GetDocument().documentElement());
   DCHECK(!InRebuildLayoutTree());
@@ -1928,11 +1941,16 @@ bool StyleEngine::SupportsDarkColorScheme() {
 
 void StyleEngine::UpdateColorScheme() {
   auto* settings = GetDocument().GetSettings();
-  if (!settings)
+  auto* web_theme_engine =
+      Platform::Current() ? Platform::Current()->ThemeEngine() : nullptr;
+  if (!settings || !web_theme_engine)
     return;
 
+  ForcedColors old_forced_colors = forced_colors_;
+  forced_colors_ = web_theme_engine->GetForcedColors();
+
   PreferredColorScheme old_preferred_color_scheme = preferred_color_scheme_;
-  preferred_color_scheme_ = settings->GetPreferredColorScheme();
+  preferred_color_scheme_ = web_theme_engine->PreferredColorScheme();
   if (const auto* overrides =
           GetDocument().GetPage()->GetMediaFeatureOverrides()) {
     MediaQueryExpValue value = overrides->GetOverride("prefers-color-scheme");
@@ -1948,7 +1966,8 @@ void StyleEngine::UpdateColorScheme() {
     preferred_color_scheme_ = PreferredColorScheme::kNoPreference;
   }
 
-  if (preferred_color_scheme_ != old_preferred_color_scheme)
+  if (forced_colors_ != old_forced_colors ||
+      preferred_color_scheme_ != old_preferred_color_scheme)
     PlatformColorsChanged();
   UpdateColorSchemeBackground();
 }
@@ -1974,7 +1993,7 @@ void StyleEngine::UpdateColorSchemeBackground() {
   bool use_dark_background = false;
 
   if (preferred_color_scheme_ == PreferredColorScheme::kDark &&
-      !GetDocument().InForcedColorsMode()) {
+      forced_colors_ != ForcedColors::kActive) {
     const ComputedStyle* style = nullptr;
     if (auto* root_element = GetDocument().documentElement())
       style = root_element->GetComputedStyle();

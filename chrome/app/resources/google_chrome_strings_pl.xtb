@@ -3,7 +3,6 @@
 <translationbundle lang="pl">
 <translation id="1001534784610492198">Archiwum instalatora jest uszkodzone lub nieprawidłowe. Pobierz Google Chrome ponownie.</translation>
 <translation id="102763973188675173">Dostosowywanie i kontrolowanie Google Chrome. Dostępna jest aktualizacja.</translation>
-<translation id="1035334672863811645">zaloguj się w Chrome</translation>
 <translation id="1051826050538111504">Masz na komputerze szkodliwe oprogramowanie. Chrome może je usunąć, przywrócić Twoje ustawienia i wyłączyć rozszerzenia, by przeglądarka znów działała normalnie.</translation>
 <translation id="1065672644894730302">Nie można odczytać ustawień. Niektóre funkcje mogą być niedostępne, a zmiany w ustawieniach nie zostaną zapisane.</translation>
 <translation id="1088300314857992706">Użytkownik <ph name="USER_EMAIL_ADDRESS" /> wcześniej używał Chrome</translation>
@@ -72,7 +71,6 @@
 <translation id="3065168410429928842">Karta Chrome</translation>
 <translation id="3080151273017101988">Kontynuuj działanie aplikacji w tle po zamknięciu przeglądarki Google Chrome</translation>
 <translation id="3089968997497233615">Dostępna jest nowa, bezpieczniejsza wersja przeglądarki Google Chrome.</translation>
-<translation id="3138848678222082288">Przyszłe wersje Chrome będą instalowane automatycznie. Po zakończeniu pobierania Chrome uruchomi się ponownie i będzie można znów korzystać z urządzenia.</translation>
 <translation id="3149510190863420837">Aplikacje Chrome</translation>
 <translation id="3282568296779691940">Zaloguj się w Chrome</translation>
 <translation id="3340978935015468852">ustawienia</translation>
@@ -93,7 +91,6 @@
 <translation id="3718181793972440140">Spowoduje to usunięcie 1 elementu z tego urządzenia. Aby później odzyskać dane, zaloguj się w Chrome jako <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">Rozszerzenie „<ph name="EXTENSION_NAME" />” ustawiło inną stronę wyświetlaną po uruchomieniu Chrome.</translation>
 <translation id="3780814664026482060">Chrome – <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Usuń z Chrome...</translation>
 <translation id="386202838227397562">Zamknij wszystkie okna przeglądarki Google Chrome i spróbuj ponownie.</translation>
 <translation id="3873044882194371212">Otwórz link w oknie inco&amp;gnito Chrome</translation>
 <translation id="3889417619312448367">Odinstaluj Google Chrome</translation>
@@ -173,7 +170,6 @@
 <translation id="677276454032249905">Zamknąć Chrome mimo to?</translation>
 <translation id="683440813066116847">Reguła dla ruchu przychodzącego w Google Chrome Canary zezwalająca na ruch mDNS.</translation>
 <translation id="6885412569789873916">Aplikacje do Chrome Beta</translation>
-<translation id="6906909733186691861">Przyszłe wersje Chrome będą instalowane automatycznie.</translation>
 <translation id="6943584222992551122">Dane przeglądania tej osoby zostaną usunięte z tego urządzenia. Aby je odzyskać, zaloguj się w Chrome jako <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Reguła dla ruchu przychodzącego w Google Chrome Beta zezwalająca na ruch mDNS.</translation>
 <translation id="6982337800632491844">Domena <ph name="DOMAIN" /> wymaga, by przed korzystaniem z tego urządzenia przeczytać i zaakceptować Warunki korzystania z usługi. Nie rozszerzają, nie zmieniają ani nie ograniczają one Warunków korzystania z systemu operacyjnego Chrome.</translation>
@@ -224,7 +220,6 @@
 <translation id="8521348052903287641">Reguła dla ruchu przychodzącego w wersji deweloperskiej Google Chrome zezwalająca na ruch mDNS.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Dostępna jest nowa, szybsza niż kiedykolwiek wersja przeglądarki Google Chrome.</translation>
-<translation id="8606668294522778825">Aby poprawić wygodę przeglądania, Google Chrome może korzystać z usług internetowych. Możesz je opcjonalnie wyłączyć. <ph name="BEGIN_LINK" />Dowiedz się więcej<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Przeglądarka Google Chrome nie odpowiada. Uruchomić ją teraz ponownie?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome uruchomi się ponownie za minutę}few{Chrome uruchomi się ponownie za # minuty}many{Chrome uruchomi się ponownie za # minut}other{Chrome uruchomi się ponownie za # minuty}}</translation>
 <translation id="8669527147644353129">Pomoc Google Chrome</translation>

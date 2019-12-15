@@ -8,10 +8,11 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.SystemClock;
 
-import org.chromium.base.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.chrome.browser.IntentHandler;
+import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.metrics.WebApkSplashscreenMetrics;
 import org.chromium.chrome.browser.metrics.WebApkUma;
 import org.chromium.chrome.browser.util.IntentUtils;
@@ -29,7 +30,7 @@ public class WebApkActivity extends WebappActivity {
     /** The start time that the activity becomes focused in milliseconds since boot. */
     private long mStartTime;
 
-    private static final String TAG = "cr_WebApkActivity";
+    private static final String TAG = "WebApkActivity";
 
     @VisibleForTesting
     public static final String STARTUP_UMA_HISTOGRAM_SUFFIX = ".WebApk";
@@ -156,24 +157,6 @@ public class WebApkActivity extends WebappActivity {
     }
 
     @Override
-    protected boolean handleBackPressed() {
-        if (super.handleBackPressed()) return true;
-
-        if (getWebApkInfo().isSplashProvidedByWebApk() && isSplashShowing()) {
-            // When the WebAPK provides the splash screen, the splash screen activity is stacked
-            // underneath the WebAPK. The splash screen finishes itself in
-            // {@link Activity#onResume()}. When finishing the WebApkActivity, there is sometimes a
-            // frame of the splash screen drawn prior to the splash screen activity finishing
-            // itself. There are no glitches when the activity stack is finished via
-            // {@link ActivityManager.AppTask#finishAndRemoveTask()}.
-            WebApkServiceClient.getInstance().finishAndRemoveTaskSdk23(this);
-            return true;
-        }
-
-        return false;
-    }
-
-    @Override
     protected boolean loadUrlIfPostShareTarget(WebappInfo webappInfo) {
         WebApkInfo webApkInfo = (WebApkInfo) webappInfo;
         WebApkInfo.ShareData shareData = webApkInfo.shareData();
@@ -196,11 +179,33 @@ public class WebApkActivity extends WebappActivity {
             // If there is a saved instance state, then the intent (and its stored timestamp) might
             // be stale (Android replays intents if there is a recents entry for the activity).
             if (getSavedInstanceState() == null) {
-                long shellLaunchTimestampMs =
-                        IntentHandler.getWebApkShellLaunchTimestampFromIntent(getIntent());
+                Intent intent = getIntent();
                 // Splash observers are removed once the splash screen is hidden.
-                addSplashscreenObserver(new WebApkSplashscreenMetrics(shellLaunchTimestampMs));
+                addSplashscreenObserver(new WebApkSplashscreenMetrics(
+                        WebappIntentUtils.getWebApkShellLaunchTime(intent),
+                        WebappIntentUtils.getNewStyleWebApkSplashShownTime(intent)));
             }
         }
+    }
+
+    @Override
+    protected void handleFinishAndClose() {
+        if (getWebApkInfo().isSplashProvidedByWebApk() && isSplashShowing()) {
+            // When the WebAPK provides the splash screen, the splash screen activity is stacked
+            // underneath the WebAPK. The splash screen finishes itself in
+            // {@link Activity#onResume()}. When finishing the WebApkActivity, there is sometimes a
+            // frame of the splash screen drawn prior to the splash screen activity finishing
+            // itself. There are no glitches when the activity stack is finished via
+            // {@link ActivityManager.AppTask#finishAndRemoveTask()}.
+            WebApkServiceClient.getInstance().finishAndRemoveTaskSdk23(this);
+            return;
+        }
+        finish();
+    }
+
+    @Override
+    @ActivityType
+    public int getActivityType() {
+        return ActivityType.WEB_APK;
     }
 }

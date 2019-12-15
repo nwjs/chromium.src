@@ -26,6 +26,11 @@ class OptimizationGuideNavigationData {
 
   OptimizationGuideNavigationData(const OptimizationGuideNavigationData& other);
 
+  // Returns the OptimizationGuideNavigationData for |navigation_handle|. Will
+  // return nullptr if one cannot be created for it for any reason.
+  static OptimizationGuideNavigationData* GetFromNavigationHandle(
+      content::NavigationHandle* navigation_handle);
+
   // Records metrics based on data currently held in |this|. |has_committed|
   // indicates whether commit-time metrics should be recorded.
   void RecordMetrics(bool has_committed) const;
@@ -60,6 +65,23 @@ class OptimizationGuideNavigationData {
   void SetDecisionForOptimizationTarget(
       optimization_guide::proto::OptimizationTarget optimization_target,
       optimization_guide::OptimizationTargetDecision decision);
+
+  // Returns the version of the model evaluated for |optimization_target|.
+  base::Optional<int64_t> GetModelVersionForOptimizationTarget(
+      optimization_guide::proto::OptimizationTarget optimization_target) const;
+  // Sets the |model_version| for |optimization_target|.
+  void SetModelVersionForOptimizationTarget(
+      optimization_guide::proto::OptimizationTarget optimization_target,
+      int64_t model_version);
+
+  // Returns the prediction score of the model evaluated for
+  // |optimization_target|.
+  base::Optional<double> GetModelPredictionScoreForOptimizationTarget(
+      optimization_guide::proto::OptimizationTarget optimization_target) const;
+  // Sets the |model_prediction_score| for |optimization_target|.
+  void SetModelPredictionScoreForOptimizationTarget(
+      optimization_guide::proto::OptimizationTarget optimization_target,
+      double model_prediction_score);
 
   // Whether the hint cache had a hint for the navigation before commit.
   base::Optional<bool> has_hint_before_commit() const {
@@ -97,9 +119,30 @@ class OptimizationGuideNavigationData {
         was_host_covered_by_fetch_at_navigation_start;
   }
 
+  // Whether the host was covered by a hints fetch at commit.
+  base::Optional<bool> was_host_covered_by_fetch_at_commit() const {
+    return was_host_covered_by_fetch_at_commit_;
+  }
+  void set_was_host_covered_by_fetch_at_commit(
+      bool was_host_covered_by_fetch_at_commit) {
+    was_host_covered_by_fetch_at_commit_ = was_host_covered_by_fetch_at_commit;
+  }
+
+  // Whether a hint was attempted to be fetched from the remote Optimization
+  // Guide Service at some point during the navigation.
+  base::Optional<bool> was_hint_for_host_attempted_to_be_fetched() const {
+    return was_hint_for_host_attempted_to_be_fetched_;
+  }
+  void set_was_hint_for_host_attempted_to_be_fetched(
+      bool was_hint_for_host_attempted_to_be_fetched) {
+    was_hint_for_host_attempted_to_be_fetched_ =
+        was_hint_for_host_attempted_to_be_fetched;
+  }
+
  private:
-  // Records hint cache histograms based on data currently held in |this|.
-  void RecordHintCacheMatch(bool has_committed) const;
+  // Records the hint cache and fetch coverage based on data currently held in
+  // |this|.
+  void RecordHintCoverage(bool has_committed) const;
 
   // Records histograms for the decisions made for each optimization target and
   // type that was queried for the navigation based on data currently held in
@@ -109,6 +152,14 @@ class OptimizationGuideNavigationData {
   // Records the OptimizationGuide UKM event based on data currently held in
   // |this|.
   void RecordOptimizationGuideUKM() const;
+
+  // Returns whether the host was covered by a hint or a fetch based on data
+  // currently held in |this| at navigation start.
+  bool WasHostCoveredByHintOrFetchAtNavigationStart() const;
+
+  // Returns whether the host was covered by a hint or a fetch based on data
+  // currently held in |this| at commit.
+  bool WasHostCoveredByHintOrFetchAtCommit() const;
 
   // The navigation ID of the navigation handle that this data is associated
   // with.
@@ -127,6 +178,17 @@ class OptimizationGuideNavigationData {
                  optimization_guide::OptimizationTargetDecision>
       optimization_target_decisions_;
 
+  // The version of the painful page load model that was evaluated for the
+  // page load.
+  base::flat_map<optimization_guide::proto::OptimizationTarget, int64_t>
+      optimization_target_model_versions_;
+
+  // The score output after evaluating the painful page load model. If
+  // populated, this is 100x the fractional value output by the model
+  // evaluation.
+  base::flat_map<optimization_guide::proto::OptimizationTarget, double>
+      optimization_target_model_prediction_scores_;
+
   // Whether the hint cache had a hint for the navigation before commit.
   base::Optional<bool> has_hint_before_commit_;
 
@@ -140,6 +202,13 @@ class OptimizationGuideNavigationData {
   // Whether the host was covered by a hints fetch at the start of
   // navigation.
   base::Optional<bool> was_host_covered_by_fetch_at_navigation_start_;
+
+  // Whether the host was covered by a hints fetch at commit.
+  base::Optional<bool> was_host_covered_by_fetch_at_commit_;
+
+  // Whether a hint for the host was attempted to be fetched at some point
+  // during the navigation.
+  base::Optional<bool> was_hint_for_host_attempted_to_be_fetched_;
 
   DISALLOW_ASSIGN(OptimizationGuideNavigationData);
 };

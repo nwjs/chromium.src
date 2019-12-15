@@ -51,9 +51,7 @@ ScenicWindow::ScenicWindow(ScenicWindowManager* window_manager,
   // Add input shape.
   node_.AddChild(input_node_);
 
-  // Add rendering subtree. Hit testing is disabled to prevent GPU process from
-  // receiving input.
-  render_node_.SetHitTestBehavior(fuchsia::ui::gfx::HitTestBehavior::kSuppress);
+  // Add rendering subtree.
   node_.AddChild(render_node_);
 
   delegate_->OnAcceleratedWidgetAvailable(window_id_);
@@ -63,16 +61,27 @@ ScenicWindow::~ScenicWindow() {
   manager_->RemoveWindow(window_id_, this);
 }
 
-void ScenicWindow::AttachSurface(
-    fuchsia::ui::gfx::ExportToken surface_export_token) {
-  scenic::EntityNode export_node(&scenic_session_);
+void ScenicWindow::AttachSurfaceView(
+    fuchsia::ui::views::ViewHolderToken token) {
+  surface_view_holder_ = std::make_unique<scenic::ViewHolder>(
+      &scenic_session_, std::move(token), "chromium window surface");
+
+  // Configure the ViewHolder not to be focusable, or hit-testable, to ensure
+  // that it cannot receive input.
+  fuchsia::ui::gfx::ViewProperties view_properties;
+  view_properties.bounding_box = {{-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}};
+  view_properties.focus_change = false;
+  surface_view_holder_->SetViewProperties(std::move(view_properties));
+  surface_view_holder_->SetHitTestBehavior(
+      fuchsia::ui::gfx::HitTestBehavior::kSuppress);
 
   render_node_.DetachChildren();
-  render_node_.AddChild(export_node);
+  render_node_.AddChild(*surface_view_holder_);
 
-  export_node.Export(std::move(surface_export_token.value));
-  scenic_session_.Present(
-      /*presentation_time=*/0, [](fuchsia::images::PresentationInfo info) {});
+  scenic_session_.Present2(
+      /*requested_presentation_time=*/0,
+      /*requested_prediction_span=*/0,
+      [](fuchsia::scenic::scheduling::FuturePresentationTimes info) {});
 }
 
 gfx::Rect ScenicWindow::GetBounds() {
@@ -91,10 +100,12 @@ void ScenicWindow::SetTitle(const base::string16& title) {
 void ScenicWindow::Show(bool inactive) {
   view_.AddChild(node_);
 
-  // Call Present() to ensure that the scenic session commands are processed,
+  // Call Present2() to ensure that the scenic session commands are processed,
   // which is necessary to receive metrics event from Scenic.
-  scenic_session_.Present(
-      /*presentation_time=*/0, [](fuchsia::images::PresentationInfo info) {});
+  scenic_session_.Present2(
+      /*requested_presentation_time=*/0,
+      /*requested_prediction_span=*/0,
+      [](fuchsia::scenic::scheduling::FuturePresentationTimes info) {});
 }
 
 void ScenicWindow::Hide() {
@@ -217,8 +228,10 @@ void ScenicWindow::UpdateSize() {
 
   // This is necessary when using vulkan because ImagePipes are presented
   // separately and we need to make sure our sizes change is committed.
-  scenic_session_.Present(
-      /*presentation_time=*/0, [](fuchsia::images::PresentationInfo info) {});
+  scenic_session_.Present2(
+      /*requested_presentation_time=*/0,
+      /*requested_prediction_span=*/0,
+      [](fuchsia::scenic::scheduling::FuturePresentationTimes info) {});
 
   delegate_->OnBoundsChanged(size_rect);
 }

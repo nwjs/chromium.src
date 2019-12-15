@@ -4,11 +4,12 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.areAnimatorsEnabled;
+
 import android.content.res.ColorStateList;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
 import android.os.SystemClock;
-import android.provider.Settings;
 import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.SmallTest;
 import android.support.v4.content.ContextCompat;
@@ -28,8 +29,7 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.chromium.base.ContextUtils;
-import org.chromium.chrome.browser.util.ColorUtils;
+import org.chromium.chrome.browser.toolbar.ToolbarColors;
 import org.chromium.chrome.browser.widget.ScrimView;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -164,7 +164,7 @@ public class TabGridPanelViewBinderTest extends DummyUiActivityTestCase {
     @SmallTest
     @UiThreadTest
     public void testSetTint() {
-        ColorStateList tint = ColorUtils.getThemedToolbarIconTint(getActivity(), true);
+        ColorStateList tint = ToolbarColors.getThemedToolbarIconTint(getActivity(), true);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Assert.assertNotEquals(tint, mLeftButton.getImageTintList());
             Assert.assertNotEquals(tint, mRightButton.getImageTintList());
@@ -477,15 +477,5 @@ public class TabGridPanelViewBinderTest extends DummyUiActivityTestCase {
         mMCP.destroy();
         mTabGridDialogParent.destroy();
         super.tearDownTest();
-    }
-
-    private static boolean areAnimatorsEnabled() {
-        // We default to assuming that animations are enabled in case ANIMATOR_DURATION_SCALE is not
-        // defined.
-        final float defaultScale = 1f;
-        float durationScale =
-                Settings.Global.getFloat(ContextUtils.getApplicationContext().getContentResolver(),
-                        Settings.Global.ANIMATOR_DURATION_SCALE, defaultScale);
-        return !(durationScale == 0.0);
     }
 }

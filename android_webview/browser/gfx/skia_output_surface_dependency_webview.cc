@@ -37,6 +37,10 @@ bool SkiaOutputSurfaceDependencyWebView::IsUsingVulkan() {
   return shared_context_state_ && shared_context_state_->GrContextIsVulkan();
 }
 
+bool SkiaOutputSurfaceDependencyWebView::IsUsingDawn() {
+  return false;
+}
+
 gpu::SharedImageManager*
 SkiaOutputSurfaceDependencyWebView::GetSharedImageManager() {
   return gpu_service_->shared_image_manager();
@@ -65,6 +69,11 @@ SkiaOutputSurfaceDependencyWebView::GetGrShaderCache() {
 viz::VulkanContextProvider*
 SkiaOutputSurfaceDependencyWebView::GetVulkanContextProvider() {
   return shared_context_state_->vk_context_provider();
+}
+
+viz::DawnContextProvider*
+SkiaOutputSurfaceDependencyWebView::GetDawnContextProvider() {
+  return nullptr;
 }
 
 const gpu::GpuPreferences&
@@ -108,6 +117,12 @@ SkiaOutputSurfaceDependencyWebView::CreateGLSurface(
   return gl_surface_;
 }
 
+base::ScopedClosureRunner SkiaOutputSurfaceDependencyWebView::CacheGLSurface(
+    gl::GLSurface* surface) {
+  NOTREACHED();
+  return base::ScopedClosureRunner();
+}
+
 void SkiaOutputSurfaceDependencyWebView::RegisterDisplayContext(
     gpu::DisplayContext* display_context) {
   // No GpuChannelManagerDelegate here, so leave it no-op for now.
@@ -123,6 +138,13 @@ void SkiaOutputSurfaceDependencyWebView::DidLoseContext(
     gpu::error::ContextLostReason reason,
     const GURL& active_url) {
   // No GpuChannelManagerDelegate here, so leave it no-op for now.
+  LOG(ERROR) << "SkiaRenderer detected lost context.";
+}
+
+base::TimeDelta
+SkiaOutputSurfaceDependencyWebView::GetGpuBlockedTimeSinceLastSwap() {
+  // WebView doesn't track how long GPU thread was blocked
+  return base::TimeDelta();
 }
 
 }  // namespace android_webview

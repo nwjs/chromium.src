@@ -4,7 +4,7 @@
 
 #include "extensions/browser/api/app_window/app_window_api.h"
 
-#include "content/browser/frame_host/render_frame_host_impl.h"
+#include "ui/display/display_export.h"
 
 #include <memory>
 #include <utility>
@@ -237,11 +237,11 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
           // completion.
           if (existing_window->DidFinishFirstNavigation()) 
             return RespondNow(OneArgument(std::move(result)));
-
+          
           existing_window->AddOnDidFinishFirstNavigationCallback(
             base::BindOnce(&AppWindowCreateFunction::
                            OnAppWindowFinishedFirstNavigationOrClosed,
-                           this, OneArgument(std::move(result)), base::Unretained(existing_frame)));
+                           this, OneArgument(std::move(result))));
           return RespondLater();
         }
       }
@@ -503,18 +503,15 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
   // AddOnDidFinishFirstNavigationCallback() will respond asynchrously.
   app_window->AddOnDidFinishFirstNavigationCallback(base::BindOnce(
       &AppWindowCreateFunction::OnAppWindowFinishedFirstNavigationOrClosed,
-      this, std::move(result_arg), base::Unretained(created_frame)));
-  static_cast<content::RenderFrameHostImpl*>(created_frame)->in_window_creation_ = true;
+      this, std::move(result_arg)));
   return RespondLater();
 }
 
 void AppWindowCreateFunction::OnAppWindowFinishedFirstNavigationOrClosed(
     ResponseValue result_arg,
-    content::RenderFrameHost* created_frame,
     bool did_finish) {
   DCHECK(!did_respond());
 
-  static_cast<content::RenderFrameHostImpl*>(created_frame)->in_window_creation_ = true;
   if (!did_finish) {
     Respond(Error(app_window_constants::kPrematureWindowClose));
     return;

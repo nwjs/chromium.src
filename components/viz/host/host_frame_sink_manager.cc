@@ -277,21 +277,21 @@ base::Optional<FrameSinkId> HostFrameSinkManager::FindRootFrameSinkId(
 }
 
 void HostFrameSinkManager::AddVideoDetectorObserver(
-    mojom::VideoDetectorObserverPtr observer) {
+    mojo::PendingRemote<mojom::VideoDetectorObserver> observer) {
   frame_sink_manager_->AddVideoDetectorObserver(std::move(observer));
 }
 
 void HostFrameSinkManager::CreateVideoCapturer(
-    mojom::FrameSinkVideoCapturerRequest request) {
-  frame_sink_manager_->CreateVideoCapturer(std::move(request));
+    mojo::PendingReceiver<mojom::FrameSinkVideoCapturer> receiver) {
+  frame_sink_manager_->CreateVideoCapturer(std::move(receiver));
 }
 
 std::unique_ptr<ClientFrameSinkVideoCapturer>
 HostFrameSinkManager::CreateVideoCapturer() {
   return std::make_unique<ClientFrameSinkVideoCapturer>(base::BindRepeating(
       [](base::WeakPtr<HostFrameSinkManager> self,
-         mojom::FrameSinkVideoCapturerRequest request) {
-        self->CreateVideoCapturer(std::move(request));
+         mojo::PendingReceiver<mojom::FrameSinkVideoCapturer> receiver) {
+        self->CreateVideoCapturer(std::move(receiver));
       },
       weak_ptr_factory_.GetWeakPtr()));
 }

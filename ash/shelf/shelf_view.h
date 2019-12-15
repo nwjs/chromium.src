@@ -118,7 +118,8 @@ class ASH_EXPORT ShelfView : public views::AccessiblePaneView,
  public:
   ShelfView(ShelfModel* model,
             Shelf* shelf,
-            ApplicationDragAndDropHost* drag_and_drop_host);
+            ApplicationDragAndDropHost* drag_and_drop_host,
+            ShelfButtonDelegate* delegate);
   ~ShelfView() override;
 
   Shelf* shelf() const { return shelf_; }
@@ -290,6 +291,10 @@ class ASH_EXPORT ShelfView : public views::AccessiblePaneView,
 
   // Returns the ShelfAppButton associated with |id|.
   ShelfAppButton* GetShelfAppButton(const ShelfID& id);
+
+  // Updates |first_visible_index_| and |last_visible_index_| when the
+  // scrollable shelf is enabled. Returns whether those two indices are changed.
+  bool UpdateVisibleIndices();
 
   // Return the view model for test purposes.
   const views::ViewModel* view_model_for_test() const {
@@ -485,6 +490,7 @@ class ASH_EXPORT ShelfView : public views::AccessiblePaneView,
 
   void AnnounceShelfAlignment();
   void AnnounceShelfAutohideBehavior();
+  void AnnouncePinUnpinEvent(const ShelfItem& item, bool pinned);
 
   // Overridden from ui::EventHandler:
   void OnGestureEvent(ui::GestureEvent* event) override;
@@ -560,10 +566,6 @@ class ASH_EXPORT ShelfView : public views::AccessiblePaneView,
 
   // Different from GetTitleForView, |view| here must be a child view.
   base::string16 GetTitleForChildView(const views::View* view) const;
-
-  // Update |first_visible_index_| and |last_visible_index_| when the scrollable
-  // shelf is enabled.
-  void UpdateVisibleIndice();
 
   // The model; owned by Launcher.
   ShelfModel* model_;
@@ -727,6 +729,10 @@ class ASH_EXPORT ShelfView : public views::AccessiblePaneView,
   // When the scrollable shelf is enabled, |drag_and_drop_host_| should be
   // ScrollableShelfView.
   ApplicationDragAndDropHost* drag_and_drop_host_ = nullptr;
+
+  // When the scrollable shelf is enabled, |shelf_button_delegate_| should
+  // be ScrollableShelfView.
+  ShelfButtonDelegate* shelf_button_delegate_ = nullptr;
 
   base::WeakPtrFactory<ShelfView> weak_factory_{this};
 

@@ -120,6 +120,7 @@
 
 #if BUILDFLAG(ENABLE_PRINTING)
 #include "chrome/browser/printing/print_view_manager_common.h"
+#include "mojo/public/cpp/bindings/associated_remote.h"
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
 #include "chrome/browser/printing/print_preview_dialog_controller.h"
 #endif  // BUILDFLAG(ENABLE_PRINT_PREVIEW)
@@ -242,11 +243,15 @@ WebContents* GetTabAndRevertIfNecessaryHelper(Browser* browser,
       WebContents* raw_new_tab = new_tab.get();
       if (disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB)
         new_tab->WasHidden();
+      const int index =
+          browser->tab_strip_model()->GetIndexOfWebContents(current_tab);
+      const auto group = browser->tab_strip_model()->GetTabGroupForTab(index);
       browser->tab_strip_model()->AddWebContents(
           std::move(new_tab), -1, ui::PAGE_TRANSITION_LINK,
           (disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB)
               ? TabStripModel::ADD_ACTIVE
-              : TabStripModel::ADD_NONE);
+              : TabStripModel::ADD_NONE,
+          group);
       return raw_new_tab;
     }
     case WindowOpenDisposition::NEW_WINDOW: {
@@ -727,6 +732,18 @@ bool CanDuplicateKeyboardFocusedTab(const Browser* browser) {
   return CanDuplicateTabAt(browser, *GetKeyboardFocusedTabIndex(browser));
 }
 
+bool CanCloseTabsToRight(const Browser* browser) {
+  return browser->tab_strip_model()->IsContextMenuCommandEnabled(
+      browser->tab_strip_model()->active_index(),
+      TabStripModel::CommandCloseTabsToRight);
+}
+
+bool CanCloseOtherTabs(const Browser* browser) {
+  return browser->tab_strip_model()->IsContextMenuCommandEnabled(
+      browser->tab_strip_model()->active_index(),
+      TabStripModel::CommandCloseOtherTabs);
+}
+
 WebContents* DuplicateTabAt(Browser* browser, int index) {
   WebContents* contents = browser->tab_strip_model()->GetWebContentsAt(index);
   CHECK(contents);
@@ -835,6 +852,18 @@ void ConvertPopupToTabbedBrowser(Browser* browser) {
   Browser* b = new Browser(Browser::CreateParams(browser->profile(), true));
   b->tab_strip_model()->AppendWebContents(std::move(contents), true);
   b->window()->Show();
+}
+
+void CloseTabsToRight(Browser* browser) {
+  browser->tab_strip_model()->ExecuteContextMenuCommand(
+      browser->tab_strip_model()->active_index(),
+      TabStripModel::CommandCloseTabsToRight);
+}
+
+void CloseOtherTabs(Browser* browser) {
+  browser->tab_strip_model()->ExecuteContextMenuCommand(
+      browser->tab_strip_model()->active_index(),
+      TabStripModel::CommandCloseOtherTabs);
 }
 
 void Exit() {
@@ -1040,7 +1069,7 @@ void Print(Browser* browser) {
 #if BUILDFLAG(ENABLE_PRINTING)
   auto* web_contents = browser->tab_strip_model()->GetActiveWebContents();
   printing::StartPrint(
-      web_contents, nullptr /* print_renderer */,
+      web_contents, mojo::NullAssociatedRemote() /* print_renderer */,
       browser->profile()->GetPrefs()->GetBoolean(prefs::kPrintPreviewDisabled),
       false /* has_selection? */);
 #endif

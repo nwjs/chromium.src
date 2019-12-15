@@ -54,7 +54,7 @@ class ASH_EXPORT AccessibilityControllerImpl : public AccessibilityController,
   ~AccessibilityControllerImpl() override;
 
   // See Shell::RegisterProfilePrefs().
-  static void RegisterProfilePrefs(PrefRegistrySimple* registry, bool for_test);
+  static void RegisterProfilePrefs(PrefRegistrySimple* registry);
 
   void Shutdown();
 
@@ -250,6 +250,7 @@ class ASH_EXPORT AccessibilityControllerImpl : public AccessibilityController,
       const std::string& path) override;
   void SetSwitchAccessIgnoreVirtualKeyEventForTesting(
       bool should_ignore) override;
+  void DisablePolicyRecommendationRestorerForTesting() override;
 
   // SessionObserver:
   void OnSigninScreenPrefServiceInitialized(PrefService* prefs) override;
@@ -286,6 +287,9 @@ class ASH_EXPORT AccessibilityControllerImpl : public AccessibilityController,
   void UpdateStickyKeysFromPref();
   void UpdateSwitchAccessFromPref();
   void UpdateSwitchAccessKeyCodesFromPref(SwitchAccessCommand command);
+  void UpdateSwitchAccessAutoScanEnabledFromPref();
+  void UpdateSwitchAccessAutoScanSpeedFromPref();
+  void UpdateSwitchAccessAutoScanKeyboardSpeedFromPref();
   void UpdateVirtualKeyboardFromPref();
   void UpdateAccessibilityHighlightingFromPrefs();
 

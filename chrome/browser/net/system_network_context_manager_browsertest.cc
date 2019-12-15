@@ -69,7 +69,11 @@ void RunStubResolverConfigTests(bool async_dns_feature_enabled) {
   GetStubResolverConfig(&insecure_stub_resolver_enabled, &secure_dns_mode,
                         &dns_over_https_servers);
   EXPECT_EQ(async_dns_feature_enabled, insecure_stub_resolver_enabled);
-  EXPECT_EQ(net::DnsConfig::SecureDnsMode::OFF, secure_dns_mode);
+  if (base::FeatureList::IsEnabled(features::kDnsOverHttps)) {
+    EXPECT_EQ(net::DnsConfig::SecureDnsMode::AUTOMATIC, secure_dns_mode);
+  } else {
+    EXPECT_EQ(net::DnsConfig::SecureDnsMode::OFF, secure_dns_mode);
+  }
   EXPECT_FALSE(dns_over_https_servers.has_value());
 
   std::string good_post_template = "https://foo.test/";
@@ -297,7 +301,7 @@ IN_PROC_BROWSER_TEST_P(SystemNetworkContextManagerStubResolverBrowsertest,
   RunStubResolverConfigTests(GetParam());
 }
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          SystemNetworkContextManagerStubResolverBrowsertest,
                          ::testing::Bool());
 
@@ -327,7 +331,7 @@ IN_PROC_BROWSER_TEST_P(SystemNetworkContextManagerReferrersFeatureBrowsertest,
   EXPECT_NE(local_state->GetBoolean(prefs::kEnableReferrers), GetParam());
 }
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          SystemNetworkContextManagerReferrersFeatureBrowsertest,
                          ::testing::Bool());
 
@@ -369,7 +373,7 @@ IN_PROC_BROWSER_TEST_P(SystemNetworkContextManagerFreezeQUICUaBrowsertest,
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          SystemNetworkContextManagerFreezeQUICUaBrowsertest,
                          ::testing::Bool());
 
@@ -392,7 +396,7 @@ IN_PROC_BROWSER_TEST_P(SystemNetworkContextManagerWPADQuickCheckBrowsertest,
   EXPECT_EQ(GetParam(), network_context_params->pac_quick_check_enabled);
 }
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          SystemNetworkContextManagerWPADQuickCheckBrowsertest,
                          ::testing::Bool());
 
@@ -444,7 +448,7 @@ IN_PROC_BROWSER_TEST_P(
 #endif
 
 INSTANTIATE_TEST_SUITE_P(
-    ,
+    All,
     SystemNetworkContextManagerCertificateTransparencyBrowsertest,
     ::testing::Values(base::nullopt, true, false));
 
@@ -493,7 +497,7 @@ IN_PROC_BROWSER_TEST_P(
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    ,
+    All,
     SystemNetworkContextServiceCertVerifierBuiltinFeaturePolicyTest,
     ::testing::Bool());
 #endif  // BUILDFLAG(BUILTIN_CERT_VERIFIER_FEATURE_SUPPORTED)

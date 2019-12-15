@@ -22,7 +22,6 @@
 #include "components/sync/protocol/favicon_tracking_specifics.pb.h"
 #include "components/sync/protocol/history_delete_directive_specifics.pb.h"
 #include "components/sync/protocol/model_type_state.pb.h"
-#include "components/sync/protocol/mountain_share_specifics.pb.h"
 #include "components/sync/protocol/nigori_local_data.pb.h"
 #include "components/sync/protocol/nigori_specifics.pb.h"
 #include "components/sync/protocol/os_preference_specifics.pb.h"
@@ -174,6 +173,7 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillWalletSpecifics& proto) {
   VISIT(masked_card);
   VISIT(address);
   VISIT(customer_data);
+  VISIT(cloud_token_data);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::BookmarkSpecifics& proto) {
@@ -331,10 +331,13 @@ VISIT_PROTO_FIELDS(const sync_pb::FeatureSpecificFields& proto) {
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SharingSpecificFields& proto) {
-  VISIT(fcm_token);
-  VISIT_BYTES(p256dh);
-  VISIT_BYTES(auth_secret);
+  VISIT(vapid_fcm_token);
+  VISIT_BYTES(vapid_p256dh);
+  VISIT_BYTES(vapid_auth_secret);
   VISIT_REP(enabled_features);
+  VISIT(sender_id_fcm_token);
+  VISIT_BYTES(sender_id_p256dh);
+  VISIT_BYTES(sender_id_auth_secret);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::DictionarySpecifics& proto) {
@@ -366,7 +369,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EntityMetadata& proto) {
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
-  static_assert(41 == ModelType::NUM_ENTRIES,
+  static_assert(40 == ModelType::NUM_ENTRIES,
                 "When adding a new protocol type, you will likely need to add "
                 "it here as well.");
   VISIT(encrypted);
@@ -388,7 +391,6 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(history_delete_directive);
   VISIT(managed_user_setting);
   VISIT(managed_user_whitelist);
-  VISIT(mountain_share);
   VISIT(nigori);
   VISIT(os_preference);
   VISIT(os_priority_preference);
@@ -436,7 +438,6 @@ VISIT_PROTO_FIELDS(const sync_pb::ExtensionSpecifics& proto) {
   VISIT(incognito_enabled);
   VISIT(name);
   VISIT(remote_install);
-  VISIT(installed_by_custodian);
   VISIT(all_urls_enabled);
   VISIT(disable_reasons);
 }
@@ -569,15 +570,6 @@ VISIT_PROTO_FIELDS(const sync_pb::ModelTypeState& proto) {
   VISIT(type_context);
   VISIT(encryption_key_name);
   VISIT(initial_sync_done);
-}
-
-VISIT_PROTO_FIELDS(const sync_pb::MountainShareSpecifics& proto) {
-  VISIT(id);
-  VISIT(url);
-  VISIT_BYTES(favicon);
-  VISIT(title);
-  VISIT(creation_time_ms);
-  VISIT(icon_url);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::NavigationRedirect& proto) {
@@ -1090,6 +1082,15 @@ VISIT_PROTO_FIELDS(const sync_pb::PaymentsCustomerData& proto) {
   VISIT(id);
 }
 
+VISIT_PROTO_FIELDS(const sync_pb::WalletCreditCardCloudTokenData& proto) {
+  VISIT(masked_card_id);
+  VISIT(suffix);
+  VISIT(exp_month);
+  VISIT(exp_year);
+  VISIT(art_fife_url);
+  VISIT(instrument_token);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::WalletSyncFlags& proto) {
   VISIT(enabled);
 }
@@ -1097,7 +1098,7 @@ VISIT_PROTO_FIELDS(const sync_pb::WalletSyncFlags& proto) {
 VISIT_PROTO_FIELDS(const sync_pb::WebAppSpecifics& proto) {
   VISIT(launch_url);
   VISIT(name);
-  VISIT_ENUM(display_mode);
+  VISIT_ENUM(user_display_mode);
   VISIT(theme_color);
 }
 

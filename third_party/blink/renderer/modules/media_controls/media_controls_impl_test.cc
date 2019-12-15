@@ -176,8 +176,7 @@ class MediaControlsImplTest : public PageTestBase,
                          MakeGarbageCollected<StubLocalFrameClientForImpl>());
 
     GetDocument().write("<video controls>");
-    HTMLVideoElement& video =
-        ToHTMLVideoElement(*GetDocument().QuerySelector("video"));
+    auto& video = To<HTMLVideoElement>(*GetDocument().QuerySelector("video"));
     media_controls_ = static_cast<MediaControlsImpl*>(video.GetMediaControls());
 
     // Scripts are disabled by default which forces controls to be on.
@@ -1118,8 +1117,8 @@ TEST_F(MediaControlsImplTest,
   page_holder->GetDocument().write("<video controls>");
   page_holder->GetDocument().Parser()->Finish();
 
-  HTMLVideoElement& video =
-      ToHTMLVideoElement(*page_holder->GetDocument().QuerySelector("video"));
+  auto& video =
+      To<HTMLVideoElement>(*page_holder->GetDocument().QuerySelector("video"));
   WeakPersistent<HTMLMediaElement> weak_persistent_video = &video;
   video.remove();
 
@@ -1352,10 +1351,10 @@ TEST_F(MediaControlsImplTest, ControlsShouldUseSafeAreaInsets) {
 TEST_F(MediaControlsImplTest, MediaControlsDisabledWithNoSource) {
   EXPECT_EQ(MediaControls().State(), MediaControlsImpl::kNoSource);
 
-  EXPECT_TRUE(PlayButtonElement()->hasAttribute(html_names::kDisabledAttr));
+  EXPECT_TRUE(PlayButtonElement()->FastHasAttribute(html_names::kDisabledAttr));
   EXPECT_TRUE(
-      OverflowMenuButtonElement()->hasAttribute(html_names::kDisabledAttr));
-  EXPECT_TRUE(TimelineElement()->hasAttribute(html_names::kDisabledAttr));
+      OverflowMenuButtonElement()->FastHasAttribute(html_names::kDisabledAttr));
+  EXPECT_TRUE(TimelineElement()->FastHasAttribute(html_names::kDisabledAttr));
 
   MediaControls().MediaElement().setAttribute(html_names::kPreloadAttr, "none");
   MediaControls().MediaElement().SetSrc("https://example.com/foo.mp4");
@@ -1364,20 +1363,22 @@ TEST_F(MediaControlsImplTest, MediaControlsDisabledWithNoSource) {
 
   EXPECT_EQ(MediaControls().State(), MediaControlsImpl::kNotLoaded);
 
-  EXPECT_FALSE(PlayButtonElement()->hasAttribute(html_names::kDisabledAttr));
   EXPECT_FALSE(
-      OverflowMenuButtonElement()->hasAttribute(html_names::kDisabledAttr));
-  EXPECT_TRUE(TimelineElement()->hasAttribute(html_names::kDisabledAttr));
+      PlayButtonElement()->FastHasAttribute(html_names::kDisabledAttr));
+  EXPECT_FALSE(
+      OverflowMenuButtonElement()->FastHasAttribute(html_names::kDisabledAttr));
+  EXPECT_TRUE(TimelineElement()->FastHasAttribute(html_names::kDisabledAttr));
 
   MediaControls().MediaElement().removeAttribute(html_names::kPreloadAttr);
   SimulateLoadedMetadata();
 
   EXPECT_EQ(MediaControls().State(), MediaControlsImpl::kLoadingMetadataPaused);
 
-  EXPECT_FALSE(PlayButtonElement()->hasAttribute(html_names::kDisabledAttr));
   EXPECT_FALSE(
-      OverflowMenuButtonElement()->hasAttribute(html_names::kDisabledAttr));
-  EXPECT_FALSE(TimelineElement()->hasAttribute(html_names::kDisabledAttr));
+      PlayButtonElement()->FastHasAttribute(html_names::kDisabledAttr));
+  EXPECT_FALSE(
+      OverflowMenuButtonElement()->FastHasAttribute(html_names::kDisabledAttr));
+  EXPECT_FALSE(TimelineElement()->FastHasAttribute(html_names::kDisabledAttr));
 }
 
 TEST_F(MediaControlsImplTest, DoubleTouchChangesTime) {

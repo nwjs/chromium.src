@@ -17,8 +17,9 @@ import android.widget.FrameLayout;
 import android.widget.FrameLayout.LayoutParams;
 import android.widget.TextView;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.UserData;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.help.HelpAndFeedback;
@@ -37,7 +38,7 @@ import org.chromium.ui.widget.ChromeBulletSpan;
 public class SadTab extends EmptyTabObserver implements UserData {
     private static final Class<SadTab> USER_DATA_KEY = SadTab.class;
 
-    private final Tab mTab;
+    private final TabImpl mTab;
 
     private View mView;
 
@@ -60,14 +61,14 @@ public class SadTab extends EmptyTabObserver implements UserData {
     }
 
     public static boolean isShowing(Tab tab) {
-        if (tab == null || !tab.isInitialized()) return false;
+        if (tab == null || !((TabImpl) tab).isInitialized()) return false;
         SadTab sadTab = get(tab);
         return sadTab != null ? sadTab.isShowing() : false;
     }
 
     @VisibleForTesting
     public SadTab(Tab tab) {
-        mTab = tab;
+        mTab = (TabImpl) tab;
         mTab.addObserver(this);
     }
 

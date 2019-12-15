@@ -69,6 +69,17 @@
       Als dit beleid is ingesteld, kan de gebruiker het niet wijzigen of overschrijven.</translation>
 <translation id="1062011392452772310">Externe bevestiging van apparaat inschakelen</translation>
 <translation id="1062407476771304334">Vervangen</translation>
+<translation id="1078643757670228170">Dit beleid is beëindigd en wordt verwijderd in <ph name="PRODUCT_OS_NAME" /> versie 82. Gebruik in plaats daarvan <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />.
+
+          Specificeert de tijdsduur zonder gebruikersinvoer, waarna het scherm wordt uitgeschakeld als er op netstroom wordt gewerkt.
+
+          Als dit beleid is ingesteld op een waarde groter dan nul, wordt hiermee de tijd aangegeven dat de gebruiker inactief moet zijn voordat het scherm door <ph name="PRODUCT_OS_NAME" /> wordt uitgeschakeld.
+
+          Als dit beleid is ingesteld op nul, wordt het scherm niet door <ph name="PRODUCT_OS_NAME" /> uitgeschakeld wanneer de gebruiker inactief is.
+
+          Als dit beleid niet is ingesteld, wordt er een standaard tijdsduur gebruikt.
+
+          De beleidswaarde moet worden gespecificeerd in milliseconden. De opgegeven waarden moeten kleiner dan of gelijk zijn aan de inactieve vertraging.</translation>
 <translation id="1079801999187584280">Het gebruik van de hulpprogramma's voor ontwikkelaars niet toestaan</translation>
 <translation id="1087437665304381368">Met dit beleid wordt alleen de ontwikkelaarsmodus van <ph name="PRODUCT_OS_NAME" /> bepaald. Als je de toegang tot de ontwikkelaarsopties van Android wilt blokkeren, moet je het beleid <ph name="DEVELOPER_TOOLS_DISABLED_POLICY_NAME" /> instellen.</translation>
 <translation id="1087707496788636333">De Chrome Enterprise-beleidslijst wordt verplaatst. Update je bladwijzers naar <ph name="POLICY_DOCUMENTATION_URL" />.</translation>
@@ -146,25 +157,13 @@
       Bepaalt de periode waarna de schermbeveiliging wordt weergegeven in het inlogvenster voor apparaten in de winkelmodus.
 
       De beleidswaarde moet worden opgegeven in milliseconden.</translation>
-<translation id="1141767714195601945">Dit beleid bepaalt opdrachtregelparameters voor Chrome vanuit Internet Explorer.
-
-      Als de oude add-in 'Ondersteuning voor oudere browsers' voor Internet Explorer niet is geïnstalleerd, heeft dit beleid geen effect.
-
-      Als dit beleid niet is ingesteld, geeft Internet Explorer de URL alleen door aan Chrome als opdrachtregelparameter.
-
-      Als dit beleid is ingesteld op een lijst met tekenreeksen, worden de tekenreeksen samengevoegd met spaties en doorgegeven aan Chrome als opdrachtregelparameter.
-
-      Als een element ${url} bevat, wordt dit vervangen door de URL van de pagina die moet worden geopend.
-
-      Als geen enkel element ${url} bevat, wordt de URL toegevoegd aan het einde van de opdrachtregel.
-
-      Omgevingsvariabelen worden uitgevouwen. In Windows wordt %ABC% vervangen door de waarde van de omgevingsvariabele ABC.</translation>
 <translation id="1151353063931113432">Afbeeldingen toestaan op deze sites</translation>
 <translation id="1152117524387175066">De status van de schakelaar voor de ontwikkelaarsmodus van het apparaat bij opstarten melden.
 
       Als het beleid is ingesteld op 'false', wordt de status van de schakelaar voor de ontwikkelaarsmodus niet gemeld.</translation>
 <translation id="1160479894929412407">QUIC-protocol toestaan</translation>
 <translation id="1160939557934457296">Doorgaan vanaf de waarschuwingspagina van Safe Browsing uitschakelen</translation>
+<translation id="1163080558183062209">Printertypen op de weigeringslijst uitschakelen</translation>
 <translation id="117059611145966538">Externe afdrukservers</translation>
 <translation id="1189817621108632689">Hiermee kun je een lijst met URL's opgeven voor sites die afbeeldingen mogen weergeven.
 
@@ -238,6 +237,13 @@
       Dit beleid is van invloed op alle typen audio-uitvoer en niet alleen op de ingebouwde luidsprekers. Dit beleid is ook van invloed op toegankelijkheidsfuncties voor audio. Schakel dit beleid niet in als de gebruiker een schermlezer nodig heeft.
 
       Als deze instelling is ingesteld op 'true' of niet is geconfigureerd, kunnen gebruikers alle ondersteunde audio-uitvoer op hun apparaat gebruiken.</translation>
+<translation id="1358050607773151553">Dit beleid is beëindigd en wordt verwijderd in <ph name="PRODUCT_OS_NAME" /> versie 82. Gebruik in plaats daarvan <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />.
+
+          Als dit beleid is ingesteld, specificeert het de actie die worden ondernomen door <ph name="PRODUCT_OS_NAME" /> wanneer de gebruiker inactief is gedurende de tijdsduur die is opgegeven door de inactieve vertraging. Dit kan afzonderlijk worden geconfigureerd.
+
+          Als dit beleid niet is ingesteld, wordt de standaardactie uitgevoerd. De standaardactie is opschorten.
+
+          Als de actie opschorten is, kan <ph name="PRODUCT_OS_NAME" /> afzonderlijk worden geconfigureerd om het scherm al dan niet te vergrendelen voordat de opschorting wordt geactiveerd.</translation>
 <translation id="1359553908012294236">Als dit beleid is ingesteld op 'True' of niet is geconfigureerd, schakelt <ph name="PRODUCT_NAME" /> gast-logins in. Gast-logins zijn profielen van <ph name="PRODUCT_NAME" /> waarbij alle vensters in de incognitomodus worden geopend.
 
       Als dit beleid is ingesteld op 'False', staat <ph name="PRODUCT_NAME" /> niet toe dat er gastprofielen worden gestart.</translation>
@@ -247,6 +253,11 @@
       Als het beleid is uitgeschakeld, heeft de Google Assistent geen toegang tot de schermcontext.
       Als het beleid niet is ingesteld, kunnen gebruikers zelf bepalen of ze de Google Assistent wel of geen toegang tot de schermcontext willen verlenen</translation>
 <translation id="1376119291123231789">Geavanceerde batterijoplaadmodus inschakelen</translation>
+<translation id="1377134027840513298">Dit beleid is beëindigd en wordt verwijderd in <ph name="PRODUCT_OS_NAME" /> versie 82. Gebruik in plaats daarvan <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />.
+
+          Dit beleid levert een reservewaarde voor de specifiekere beleidsregels <ph name="IDLE_ACTION_AC_POLICY_NAME" /> en <ph name="IDLE_ACTION_BATTERY_POLICY_NAME" />. Als dit beleid is ingesteld, wordt de bijbehorende waarde gebruikt als het respectieve specifiekere beleid niet is ingesteld.
+
+          Als dit beleid niet is ingesteld, heeft dit geen invloed op het gedrag van de specifiekere beleidsregels.</translation>
 <translation id="1383493480903114193">Met dit beleid wordt afgedwongen dat netwerkcode wordt uitgevoerd in het browserproces.
 
       Dit beleid is standaard uitgeschakeld. Indien ingeschakeld, worden gebruikers blootgesteld aan beveiligingsproblemen wanneer het netwerkproces in een sandbox wordt uitgevoerd.
@@ -309,17 +320,6 @@
       Als deze instelling uitgeschakeld of niet ingesteld is, leidt de wachtwoordbeveiligingsservice gebruikers naar https://myaccount.google.com om hun wachtwoord te wijzigen.
       Dit beleid is alleen beschikbaar op Windows-instanties die gekoppeld zijn aan een <ph name="MS_AD_NAME" />-domein of op instanties van Windows 10 Pro of Enterprise die ingeschreven zijn voor apparaatbeheer.</translation>
 <translation id="1456822151187621582">Windows (<ph name="PRODUCT_OS_NAME" />-clients):</translation>
-<translation id="1458547592473993238">Dit beleid is beëindigd. Gebruik het beleid <ph name="DEFAULT_PLUGINS_SETTING_POLICY_NAME" /> om de beschikbaarheid van de Flash-plug-in te beheren en het beleid <ph name="ALWAYS_OPEN_PDF_EXTERNALLY_POLICY_NAME" /> om aan te geven of de geïntegreerde pdf-viewer moet worden gebruikt om pdf-bestanden te openen.
-
-      Specificeert een lijst met plug-ins die zijn uitgeschakeld in <ph name="PRODUCT_NAME" /> en voorkomt dat gebruikers deze instelling kunnen wijzigen.
-
-      De jokertekens '*' en '?' kunnen worden gebruikt om overeenkomsten te zoeken in reeksen met willekeurige tekens. '*' komt overeen met een willekeurig aantal tekens, terwijl met '?' een optioneel enkel teken wordt gespecificeerd dat overeenkomt met nul tekens of één teken. Het escape-teken is '\'. Als je dus naar overeenkomsten zoekt met de feitelijke tekens '*', '?' of '\', kun je er een '\' voor zetten.
-
-      Als je deze instelling inschakelt, wordt de gespecificeerde lijst met plug-ins nooit gebruikt in <ph name="PRODUCT_NAME" />. De plug-ins zijn gemarkeerd als 'uitgeschakeld' in 'about:plugins' en gebruikers kunnen deze niet inschakelen.
-
-      Dit beleid kan worden overschreven door EnabledPlugins en DisabledPluginsExceptions.
-
-      Als dit beleid niet is ingesteld, kan de gebruiker elke op het systeem geïnstalleerde plug-in gebruiken, behalve hardgecodeerde ongeschikte, verouderde of gevaarlijke plug-ins.</translation>
 <translation id="1464848559468748897">Bepaal het gebruikersgedrag tijdens een sessie met meerdere profielen op <ph name="PRODUCT_OS_NAME" />-apparaten.
 
       Als dit beleid is ingesteld op 'MultiProfileUserBehaviorUnrestricted', kan de gebruiker de primaire of secundaire gebruiker in een sessie met meerdere profielen zijn.
@@ -373,6 +373,7 @@
 <translation id="1553684822621013552">Als dit beleid is ingesteld op 'True', wordt ARC ingeschakeld voor de gebruiker (onderhevig aan extra controles van de beleidsinstellingen; ARC is nog steeds niet beschikbaar als de kortstondige modus of toegang tot meerdere accounts is ingeschakeld in de huidige gebruikerssessie).
 
      Als deze instelling is uitgeschakeld of niet is geconfigureerd, kunnen zakelijke gebruikers ARC niet gebruiken.</translation>
+<translation id="1553956579506604198">Blokkeert de installatie van externe extensies</translation>
 <translation id="1559980755219453326">Met dit beleid wordt bepaald of informatie over extensies en plug-ins wordt gerapporteerd.
 
       Als dit beleid niet is ingesteld of is ingesteld op True, worden er gegevens verzameld over de extensies en plug-ins.
@@ -386,11 +387,6 @@
           Als dit beleid is uitgeschakeld of niet is ingesteld, worden de instellingen voor Kerberos-accounts uitgeschakeld. Er kunnen geen Kerberos-accounts worden toegevoegd en Kerberos-verificatie kan niet worden gebruikt. Alle bestaande Kerberos-accounts worden verwijderd en alle opgeslagen wachtwoorden worden verwijderd.</translation>
 <translation id="1561424797596341174">Beleid overschrijft Debug-builds van de host voor externe toegang</translation>
 <translation id="1561967320164410511">U2F plus extensies voor individuele bevestiging</translation>
-<translation id="1566329065312331399">
-      Wanneer dit beleid wordt ingesteld op False, kan het apparaat Powerwash niet activeren.
-      Wanneer het beleid wordt ingesteld op True, kan het apparaat Powerwash activeren.
-      Als het beleid niet wordt ingesteld, is de standaardwaarde False, wat betekent dat het apparaat Powerwash niet kan gebruiken.
-      </translation>
 <translation id="1574554504290354326">Deze instelling is beëindigd. Gebruik in plaats daarvan SafeBrowsingExtendedReportingEnabled. Het inschakelen of uitschakelen van SafeBrowsingExtendedReportingEnabled staat gelijk aan het instellen van SafeBrowsingExtendedReportingOptInAllowed op 'False'.
 
       Als dit beleid wordt ingesteld op 'False'
@@ -484,12 +480,6 @@
       Het beleid moet op een URL worden ingesteld vanaf waar de Servicevoorwaarden door <ph name="PRODUCT_OS_NAME" /> kunnen worden gedownload. De Servicevoorwaarden moeten platte tekst zijn die als tekst met MIME-type/plat wordt weergegeven. Er is geen opmaak toegestaan.</translation>
 <translation id="1750315445671978749">Alle downloads blokkeren</translation>
 <translation id="1767673020408652620">App-aanbevelingen inschakelen voor de nulstatus van het zoekvak</translation>
-<translation id="17719159826324007">
-      Wanneer dit beleid is ingesteld op ArcSession, wordt het apparaat gedwongen opnieuw opgestart na het uitloggen van een gebruiker als Android is gestart.
-      Wanneer dit beleid is ingesteld op Altijd, wordt het apparaat elke keer na het uitloggen van een gebruiker gedwongen opnieuw opgestart.
-      Als dit beleid niet wordt ingesteld, heeft het geen effect en wordt opnieuw opstarten na het uitloggen van een gebruiker niet afgedwongen. Hetzelfde is van toepassing als het beleid is ingesteld op Nooit.
-      Dit beleid is alleen van invloed op niet-gelieerde gebruikers.
-      </translation>
 <translation id="1781356041596378058">Met dit beleid wordt ook de toegang tot de ontwikkelaarsopties van Android beheerd. Als je dit beleid instelt op 'True', hebben gebruikers geen toegang tot ontwikkelaarsopties. Als je dit beleid instelt op 'False' of niet instelt, hebben gebruikers toegang tot ontwikkelaarsopties door zeven keer op het buildnummer te tikken in de app Instellingen van Android.</translation>
 <translation id="1793346220873697538">Afdrukken met pincode standaard uitschakelen</translation>
 <translation id="1797233582739332495">Toon de gebruiker een terugkerende prompt om aan te geven dat opnieuw opstarten vereist is</translation>
@@ -509,6 +499,15 @@
       Als dit beleid is ingesteld op een geldige URL, downloadt<ph name="PRODUCT_NAME" /> de lijst met sites van die URL en worden de regels toegepast alsof ze zijn geconfigureerd met het <ph name="SITELIST_POLICY_NAME" />-beleid.
 
       Ga naar https://docs.microsoft.com/internet-explorer/ie11-deploy-guide/what-is-enterprise-mode voor meer informatie over het <ph name="IEEM_SITELIST_POLICY" />-beleid van Internet Explorer</translation>
+<translation id="1839278886947586809">
+      Dit beleid is verwijderd in M80 omdat WebDriver nu werkt met alle bestaande beleidsregels, en het dus niet langer nodig is.
+
+      Met dit beleid kunnen gebruikers van de WebDriver-functie beleidsregels overschrijven die problemen met de werking kunnen veroorzaken.
+
+      Dit beleid schakelt momenteel de beleidsregels SitePerProcess en IsolateOrigins uit.
+
+      Als het beleid is ingeschakeld, kan WebDriver niet-geschikte beleidsregels overschrijven.
+      Als het beleid is uitgeschakeld of niet is geconfigureerd, mag WebDriver niet-geschikte beleidsregels niet overschrijven.</translation>
 <translation id="1843117931376765605">Vernieuwingsfrequentie voor gebruikersbeleid</translation>
 <translation id="1844620919405873871">Hiermee configureer je het beleid ten aanzien van snel ontgrendelen.</translation>
 <translation id="1845405905602899692">Kiosk-instellingen</translation>
@@ -519,6 +518,15 @@
 
           Dit beleid wordt alleen gerespecteerd als het beleid 'DefaultSearchProviderEnabled' is ingeschakeld.</translation>
 <translation id="1852294065645015766">Automatisch afspelen van media toestaan</translation>
+<translation id="1853782273088286010">Hiermee wordt beheerd of de ingebouwde DNS-client wordt gebruikt in <ph name="PRODUCT_NAME" />.
+
+      Dit is niet van invloed op welke DNS-servers worden gebruikt, maar alleen op de softwarestack die wordt gebruikt om met de servers te communiceren. Als het besturingssysteem bijvoorbeeld is geconfigureerd om een zakelijke DNS-server te gebruiken, wordt dezelfde server gebruikt door de ingebouwde DNS-client. Het is mogelijk dat de ingebouwde DNS-client servers op andere manieren aanspreekt via modernere DNS-protocollen, zoals DNS-over-TLS.
+
+      Als dit beleid is ingesteld op True, wordt de ingebouwde DNS-client gebruikt (indien beschikbaar).
+
+      Als dit beleid is ingesteld op False, wordt de ingebouwde DNS-client nooit gebruikt.
+
+      Als dit beleid niet wordt ingesteld, wordt de ingebouwde DNS-client standaard ingeschakeld op Mac OS, Android (als Privé-DNS en VPN niet zijn ingeschakeld) en Chrome OS en kunnen de gebruikers bepalen of de ingebouwde DNS-client wordt gebruikt door chrome://flags te bewerken of door een opdrachtregelmarkering op te geven.</translation>
 <translation id="1857152770025485173">Dit beleid voorkomt dat de gebruiker webpagina's van de zwarte lijst met URL's laadt. De zwarte lijst biedt een lijst met URL-patronen waarin wordt aangegeven welke URL's op de zwarte lijst komen te staan.
 
       Een URL-patroon moet worden ingedeeld volgens https://www.chromium.org/administrators/url-blacklist-filter-format.
@@ -571,6 +579,18 @@
       Als deze instelling ingeschakeld is, legt de wachtwoordbeveiligingsservice de vingerafdruk van het wachtwoord vast op deze URL's om hergebruik van het wachtwoord te kunnen detecteren.
       Als deze instelling uitgeschakeld of niet ingesteld is, legt de wachtwoordbeveiligingsservice de vingerafdruk van het wachtwoord alleen vast op https://accounts.google.com.
       Dit beleid is alleen beschikbaar op Windows-instanties die gekoppeld zijn aan een <ph name="MS_AD_NAME" />-domein of op instanties van Windows 10 Pro of Enterprise die ingeschreven zijn voor apparaatbeheer.</translation>
+<translation id="1910704279188129272">Hiermee kun je per app gebruiksbeperkingen instellen.
+        Gebruiksbeperkingen kunnen worden toegepast op de apps die voor de betreffende gebruiker in <ph name="PRODUCT_OS_NAME" /> zijn geïnstalleerd.
+        Beperkingen moeten worden doorgegeven in de lijst |app_limits|. Er is slechts één item per app toegestaan. Apps die niet op de lijst voorkomen, hebben geen beperkingen.
+        Het is niet mogelijk om apps te blokkeren die essentieel zijn voor het besturingssysteem. De beperkingen voor dergelijke apps worden genegeerd.
+        Een app wordt uniek geïdentificeerd door |app_id|. Omdat verschillende typen apps verschillende ID-indelingen kunnen gebruiken, moet |app_type| worden opgegeven naast |app_id|.
+        Tijdslimieten per app ondersteunen momenteel alleen |ARC|-apps. De Android-pakketnaam wordt gebruikt als |app_id|.
+        In de toekomst wordt ondersteuning voor andere typen apps toegevoegd. Voorlopig kunnen deze wel worden opgegeven in het beleid, maar zijn de beperkingen niet van kracht.
+        Er zijn twee typen beschikbare beperkingen: |BLOCK| en |TIME_LIMIT|.
+        |BLOCK| zorgt dat een app niet beschikbaar is voor de gebruiker. Als |daily_limit_mins| wordt opgegeven met |BLOCK|, wordt de beperking |daily_limit_mins| genegeerd.
+        |TIME_LIMITS| past een dagelijkse gebruikslimiet toe en zorgt dat de app niet beschikbaar is nadat de tijdslimiet voor de betreffende dag is bereikt. De gebruikslimiet wordt opgegeven in |daily_limit_mins|. De gebruikslimiet wordt dagelijks gereset op de UTC-tijd die wordt doorgegeven in |reset_at|.
+        Dit beleid wordt alleen gebruikt voor minderjarige gebruikers.
+        Dit beleid vormt een aanvulling op 'UsageTimeLimit'. Beperkingen die zijn opgegeven in 'UsageTimeLimit' (zoals schermtijd en bedtijd), worden afgedwongen, ongeacht 'PerAppTimeLimits'.</translation>
 <translation id="1914840757300882918">Als dit beleid is ingesteld, gebruikt de host een clientcertificaat met het CN van de opgegeven verstrekker voor verificatie voor RemoteAccessHostTokenValidationUrl. Stel dit in op '*' om een willekeurig beschikbaar clientcertificaat te gebruiken.
 
           Deze functie is momenteel uitgeschakeld aan de serverzijde.</translation>
@@ -608,6 +628,17 @@
       Als deze instelling is uitgeschakeld, worden er nooit adresgegevens voorgesteld of ingevuld door 'Automatisch aanvullen'. Er worden ook geen aanvullende adresgegevens opgeslagen die de gebruiker mogelijk verzendt terwijl deze browset op internet.
 
       Als deze instelling is ingeschakeld of er geen waarde is ingesteld, kan de gebruiker 'Automatisch aanvullen' voor adressen beheren in de UI.</translation>
+<translation id="1959613237819575097">Dit beleid is beëindigd en wordt verwijderd in <ph name="PRODUCT_OS_NAME" /> versie 82. Gebruik in plaats daarvan <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />.
+
+          Specificeert de tijdsduur zonder gebruikersinvoer, waarna het scherm wordt uitgeschakeld als er op de batterij wordt gewerkt.
+
+          Als dit beleid is ingesteld op een waarde groter dan nul, wordt hiermee de tijd aangegeven dat de gebruiker inactief moet zijn voordat het scherm door <ph name="PRODUCT_OS_NAME" /> wordt uitgeschakeld.
+
+          Als dit beleid is ingesteld op nul, wordt het scherm niet door <ph name="PRODUCT_OS_NAME" /> uitgeschakeld wanneer de gebruiker inactief is.
+
+          Als dit beleid niet is ingesteld, wordt er een standaard tijdsduur gebruikt.
+
+          De beleidswaarde moet worden gespecificeerd in milliseconden. De opgegeven waarden moeten kleiner dan of gelijk zijn aan de inactieve vertraging.</translation>
 <translation id="1962273523772270623">Verzameling van WebRTC-gebeurtenislogboeken van Google-services toestaan</translation>
 <translation id="1964634611280150550">Incognitomodus uitgeschakeld</translation>
 <translation id="1964802606569741174">Dit beleid is niet van invloed op de YouTube-app voor Android. Als de veiligheidsmodus voor YouTube moet worden afgedwongen, moet je installatie van de YouTube-app voor Android niet toestaan.</translation>
@@ -656,6 +687,7 @@
           Als dit beleid niet is ingesteld, worden alle vier de schema's gebruikt.</translation>
 <translation id="2067011586099792101">Toegang blokkeren naar sites die zich niet in inhoudspakketten bevinden</translation>
 <translation id="2073552873076775140">Inloggen bij <ph name="PRODUCT_NAME" /> toestaan</translation>
+<translation id="2075732129949889165">Crostini Ansible-playbook</translation>
 <translation id="2077129598763517140">Hardwareversnelling gebruiken indien beschikbaar</translation>
 <translation id="2077273864382355561">Vertraging van scherm uitschakelen wanneer op de batterij wordt gewerkt</translation>
 <translation id="2082205219176343977">Configureer de minimaal toegestane Chrome-versie voor het apparaat.</translation>
@@ -666,6 +698,14 @@
 <translation id="2107601598727098402">
         Dit beleid is beëindigd in M72. Gebruik in plaats daarvan CloudManagementEnrollmentToken.
         </translation>
+<translation id="2108169571875569435">Met dit beleid wordt bepaald welke opdracht wordt gebruikt om URL's te openen in een alternatieve browser.
+
+      Als dit beleid niet is ingesteld, wordt een platformspecifieke standaard gebruikt: Internet Explorer voor Windows of Safari voor Mac OS X. Op Linux kan geen alternatieve browser worden gestart als dit niet is ingesteld.
+
+      Als dit beleid is ingesteld op een van de browsers <ph name="INTERNET_EXPLORER_VALUE_PLACEHOLDER" />, <ph name="FIREFOX_VALUE_PLACEHOLDER" />, <ph name="SAFARI_VALUE_PLACEHOLDER" /> of
+      <ph name="OPERA_VALUE_PLACEHOLDER" />, wordt die browser gestart als deze is geïnstalleerd. <ph name="INTERNET_EXPLORER_VALUE_PLACEHOLDER" /> is alleen beschikbaar in Windows en <ph name="SAFARI_VALUE_PLACEHOLDER" /> is alleen beschikbaar in Windows en Mac OS X.
+
+      Als dit beleid is ingesteld op een bestandspad, wordt dat bestand gebruikt als uitvoerbaar bestand.</translation>
 <translation id="2111016292707172233">Hiermee wordt de beschikbaarheid van 'Tikken om te zoeken' ingeschakeld in de contentweergave van <ph name="PRODUCT_NAME" />.
 
       Als je deze instelling inschakelt, is 'Tikken om te zoeken' beschikbaar voor de gebruiker en kan de gebruiker de functie in- of uitschakelen.
@@ -765,6 +805,9 @@
       Als dit beleid is uitgeschakeld, krijgt de gebruiker nooit een prompt en is het vastleggen van video alleen beschikbaar voor URL's die in VideoCaptureAllowedUrls zijn geconfigureerd.
 
       Dit beleid is van toepassing op alle typen video-invoer en niet alleen op de ingebouwde camera.</translation>
+<translation id="2197625019569762163">Als je het beleid instelt op True, wordt het numerieke toetsenbord standaard weergegeven om het wachtwoord op te geven op het inlogscherm. Gebruikers kunnen overschakelen naar het normale toetsenbord.
+
+      Als je het beleid instelt, kunnen gebruikers het niet wijzigen. Als het beleid niet is ingesteld of is ingesteld op False, heeft het geen effect.</translation>
 <translation id="2201555246697292490">Witte lijst voor systeemeigen berichten configureren</translation>
 <translation id="220280840901385239">Gebruikers toestaan uitzonderingen toe te voegen om blokkeerbare gecombineerde content toe te staan</translation>
 <translation id="2204753382813641270">Automatisch verbergen van archief beheren</translation>
@@ -819,12 +862,23 @@
 <translation id="2303795211377219696">Automatisch aanvullen inschakelen voor creditcards</translation>
 <translation id="2309390639296060546">Standaardinstelling voor geolocatie</translation>
 <translation id="2327252517317514801">Domeinen definiëren voor toegang tot G Suite</translation>
-<translation id="2328573323851533589">Dit beleid kan worden gebruikt om controle op gegevenslekken gedwongen in of uit te schakelen in <ph name="PRODUCT_NAME" />.
+<translation id="2331354174913096226">De URI-template van de gewenste DNS-over-HTTPS-resolver. Als je meerdere DNS-over-HTTPS-resolvers wilt opgeven, scheid je de overeenkomstige URI-templates met een spatie.
 
-          Ook als dit beleid is ingesteld op True, wordt het gedrag niet geactiveerd als Safe Browsing is uitgeschakeld (op basis van beleid of door de gebruiker). Gebruik het beleid <ph name="SAFE_BROWSING_ENABLED_POLICY_NAME" /> om Safe Browsing gedwongen in te schakelen.
+      Als de DnsOverHttpsMode is ingesteld op <ph name="SECURE_DNS_MODE_SECURE" />, moet dit beleid worden ingesteld en mag het niet leeg blijven.
 
-          Als dit beleid is in- of uitgeschakeld, kunnen gebruikers het niet wijzigen of overschrijven in <ph name="PRODUCT_NAME" />. Als dit beleid niet is ingesteld, is controle op gegevenslekken toegestaan (maar kan door de gebruiker worden uitgeschakeld).</translation>
+      Als de DnsOverHttpsMode is ingesteld op <ph name="SECURE_DNS_MODE_AUTOMATIC" /> en dit beleid is ingesteld, worden de opgegeven URI-templates gebruikt. Als dit beleid niet is ingesteld, worden hardgecodeerde toewijzingen gebruikt om te proberen de huidige DNS-resolver van de gebruiker te upgraden naar een DoH-resolver van dezelfde provider.
+
+      Als de URI-template een variabele <ph name="HTTP_VARIABLE_DNS" /> bevat, wordt voor verzoeken aan de resolver <ph name="HTTP_METHOD_GET" /> gebruikt; anders wordt voor verzoeken <ph name="HTTP_METHOD_POST" /> gebruikt.
+
+      Onjuist opgemaakte templates worden genegeerd.</translation>
 <translation id="2345547870894930157">DNS-over-HTTPS zonder onveilige fallback inschakelen</translation>
+<translation id="2347264058558503729">Hiermee wordt ingeschakeld dat <ph name="PRODUCT_NAME" /> documenten naar <ph name="CLOUD_PRINT_NAME" /> kan sturen om ze af te drukken.  OPMERKING: Dit is alleen van invloed op support voor <ph name="CLOUD_PRINT_NAME" /> in <ph name="PRODUCT_NAME" />.  Dit voorkomt niet dat gebruikers afdruktaken op websites indienen.
+
+      Als deze instelling is ingeschakeld of niet is geconfigureerd, kunnen gebruikers afdrukken naar <ph name="CLOUD_PRINT_NAME" /> vanuit het afdrukdialoogvenster van <ph name="PRODUCT_NAME" />.
+
+      Als deze instelling is uitgeschakeld, kunnen gebruikers niet afdrukken naar <ph name="CLOUD_PRINT_NAME" /> vanuit het afdrukdialoogvenster van <ph name="PRODUCT_NAME" />.
+
+      Je kunt ervoor zorgen dat <ph name="CLOUD_PRINT_NAME" />-bestemmingen vindbaar blijven door dit beleid in te stellen op True en 'cloud' niet op te nemen in het beleid 'PrinterTypeDenyList'.</translation>
 <translation id="237494535617297575">Hiermee kun je een lijst met URL-patronen opgeven van sites waarop meldingen mogen worden weergegeven.
 
           Als dit beleid niet wordt ingesteld, wordt de algemene standaardwaarde gebruikt voor alle sites op basis van het beleid 'DefaultNotificationsSetting' (als dit is ingesteld) of anders op basis van de configuratie van de gebruiker.</translation>
@@ -862,6 +916,19 @@
       Als je deze instelling niet instelt, kan de gebruiker bepalen of de functie wordt gebruikt.
 
       Deze instelling is verwijderd uit <ph name="PRODUCT_NAME" /> 29 en hogere versies.</translation>
+<translation id="2430828513262055658">Dit beleid is beëindigd en wordt verwijderd in <ph name="PRODUCT_OS_NAME" /> versie 82. Gebruik in plaats daarvan <ph name="SCREEN_LOCK_DELAYS_POLICY_NAME" />.
+
+          Specificeert de tijdsduur zonder gebruikersinvoer, waarna het scherm wordt vergrendeld als er op netstroom wordt gewerkt.
+
+          Als dit beleid is ingesteld op een waarde groter dan nul, wordt hiermee de tijd aangegeven dat de gebruiker inactief moet zijn voordat het scherm door <ph name="PRODUCT_OS_NAME" /> wordt vergrendeld.
+
+          Als dit beleid is ingesteld op nul, wordt het scherm niet door <ph name="PRODUCT_OS_NAME" /> vergrendeld wanneer de gebruiker inactief is.
+
+          Als dit beleid niet is ingesteld, wordt er een standaard tijdsduur gebruikt.
+
+          De aanbevolen manier om het scherm te vergrendelen bij inactiviteit is door schermvergrendeling bij opschorting in te schakelen en <ph name="PRODUCT_OS_NAME" /> te laten opschorten na een inactieve vertraging. Dit beleid moet uitsluitend worden gebruikt als het scherm aanzienlijk sneller moet worden vergrendeld dan de opschortingstijd of wanneer opschorting bij inactiviteit helemaal niet gewenst is.
+
+          De beleidswaarde moet worden gespecificeerd in milliseconden. De opgegeven waarden moeten kleiner zijn dan de inactieve vertraging.</translation>
 <translation id="2433412232489478893">Dit beleid bepaalt of de functie Network File Shares voor <ph name="PRODUCT_NAME" /> is toegestaan voor een gebruiker.
 
       Wanneer dit beleid niet is geconfigureerd of is ingesteld op 'True', kunnen gebruikers Network File Shares gebruiken.
@@ -891,11 +958,6 @@
 
       Als dit beleid is ingesteld als 'false', kan het automatisch inloggen zonder uitstel (indien geconfigureerd) niet worden overgeslagen.</translation>
 <translation id="2454228136871844693">Optimaliseren voor stabiliteit.</translation>
-<translation id="2458754120470702975">Hiermee kun je instellen of gebruikers uitzonderingen kunnen toevoegen om gecombineerde content toe te staan voor specifieke sites.
-
-          Dit beleid kan worden overschreven voor specifieke URL-patronen met het beleid 'InsecureContentAllowedForUrls' en 'InsecureContentBlockedForUrls'.
-
-          Als dit beleid niet is ingesteld, kunnen gebruikers uitzonderingen toevoegen om blokkeerbare gecombineerde content toe te staan.</translation>
 <translation id="2463034609187171371">DHE-coderingssuites inschakelen in TLS</translation>
 <translation id="2463365186486772703">Landinstelling voor applicatie</translation>
 <translation id="2463832514638083341">Met dit beleid wordt bepaald hoelang (in dagen) de metadata van afdruktaken worden opgeslagen op het apparaat.
@@ -927,6 +989,7 @@
           Als dit beleid is ingeschakeld of niet is ingesteld, worden waarschuwingen uitgeschakeld wanneer bepaalde opdrachtregelmarkeringen worden gebruikt om Chrome te starten.
 
           In Windows is dit beleid alleen beschikbaar op instanties die zijn gekoppeld aan een <ph name="MS_AD_NAME" />-domein of op Windows 10 Pro- of Enterprise-instanties die zijn ingeschreven voor apparaatbeheer.</translation>
+<translation id="247658312644322296">De bestemming 'Opslaan als pdf'</translation>
 <translation id="2480971699591919564">De functie 'Klik om te bellen' inschakelen, waarmee gebruikers telefoonnummers van Chrome-desktops naar een Android-apparaat kunnen sturen als de gebruiker is ingelogd. Bekijk het volgende Helpcentrum-artikel voor meer informatie: https://support.google.com/chrome/answer/9430554?hl=nl.
 
       Als dit beleid is ingeschakeld, wordt de mogelijkheid om telefoonnummers naar Android-apparaten te sturen ingeschakeld voor de Chrome-gebruiker.
@@ -951,13 +1014,23 @@
       Een URL-patroon wordt ingedeeld overeenkomstig https://www.chromium.org/administrators/url-blacklist-filter-format. Aangezien de certificaten geldig zijn voor een bepaalde hostnaam (los van het schema, de poort of het pad), wordt alleen rekening gehouden met het hostnaamgedeelte van de URL. Hosts met jokertekens worden niet ondersteund.
 
       Als dit beleid niet is ingesteld, worden alle certificaten die bekend moeten worden gemaakt via Certificaattransparantie, niet vertrouwd als ze niet bekend zijn gemaakt overeenkomstig het beleid voor Certificaattransparantie.</translation>
-<translation id="2486911595447603756">Hiermee wordt de modus voor DNS-over-HTTPS bepaald.</translation>
 <translation id="2488010520405124654">Prompt voor netwerkconfiguratie inschakelen als je offline bent.
 
       Als dit beleid niet is ingesteld of is ingesteld op 'True' en een lokaal account op het apparaat is geconfigureerd om automatisch en zonder vertraging in te loggen en het apparaat geen toegang heeft tot internet, geeft <ph name="PRODUCT_OS_NAME" /> een prompt weer voor netwerkconfiguratie.
 
       Als dit beleid op 'False' is ingesteld, verschijnt een foutmelding in plaats van de prompt voor de netwerkconfiguratie.</translation>
 <translation id="2498238926436517902">Archief altijd automatisch verbergen</translation>
+<translation id="2505805702054675476">Dit beleid bepaalt opdrachtregelparameters die moeten worden gestart in de alternatieve browser.
+
+      Als dit beleid niet wordt ingesteld, wordt alleen de URL doorgegeven als opdrachtregelparameter.
+
+      Als dit beleid is ingesteld op een lijst met tekenreeksen, wordt elke tekenreeks doorgegeven aan de alternatieve browser als afzonderlijke opdrachtregelparameter. In Windows worden de parameters samengevoegd met spaties. In Mac OS X en Linux mag een parameter spaties bevatten en wordt dan nog steeds verwerkt als één parameter.
+
+      Als een element <ph name="URL_PLACEHOLDER" /> bevat, wordt dit vervangen door de URL van de pagina die moet worden geopend.
+
+      Als geen enkel element <ph name="URL_PLACEHOLDER" /> bevat, wordt de URL toegevoegd aan het einde van de opdrachtregel.
+
+      Omgevingsvariabelen worden uitgevouwen. In Windows wordt <ph name="ENV_VARIABLE_WIN_EXAMPLE" /> vervangen door de waarde van de omgevingsvariabele <ph name="ENV_VARIABLE_VALUE" />. In Mac OS X en Linux wordt <ph name="ENV_VARIABLE_UNIX_EXAMPLE" /> vervangen door de waarde van de omgevingsvariabele <ph name="ENV_VARIABLE" />.</translation>
 <translation id="250670737672448119">De toegankelijkheidsfunctie voor markering van het caret-teken inschakelen.
 
           Met deze functie wordt het gebied rondom het caret-teken gemarkeerd tijdens het bewerken.
@@ -982,6 +1055,11 @@
 <translation id="2517466659416174529">Toestaan dat tabbladen op de achtergrond worden vastgezet</translation>
 <translation id="2518231489509538392">Het afspelen van audio toestaan</translation>
 <translation id="2521581787935130926">De snelkoppeling voor apps weergeven op de bladwijzerbalk</translation>
+<translation id="2526082146909867346">Hiermee kun je een lijst met URL-patronen opgeven waarvoor <ph name="PRODUCT_NAME" /> automatisch een clientcertificaat moet selecteren als de site vraagt om een certificaat.
+
+          De waarde moet een matrix van json-woordenboeken met tekenreeksen zijn. Elk woordenboek moet de indeling <ph name="AUTO_SELECT_CERTIFICATE_FOR_URLS_EXAMPLE" /> hebben, waarbij <ph name="URL_PATTERN_PLACEHOLDER" /> een patroon voor het instellen van content is. <ph name="FILTER_PLACEHOLDER" /> beperkt de clientcertificaten die de browser automatisch kan selecteren. Onafhankelijk van het filter worden alleen certificaten geselecteerd die overeenkomen met het certificaatverzoek van de server. Als <ph name="FILTER_PLACEHOLDER" /> bijvoorbeeld de indeling <ph name="AUTO_SELECT_CERTIFICATE_FOR_URLS_FILTER_EXAMPLE" /> heeft, worden daarnaast alleen clientcertificaten geselecteerd die zijn uitgegeven door een certificaat met de CommonName <ph name="ISSUER_CN_PLACEHOLDER" />. Als <ph name="FILTER_PLACEHOLDER" /> een <ph name="ISSUER_STRING_VALUE" /> en een gedeelte <ph name="SUBJECT_STRING_VALUE" /> bevat, moet een clientcertificaat aan beide voorwaarden voldoen om te worden geselecteerd. Als <ph name="FILTER_PLACEHOLDER" /> een organisatie ('O') specificeert, moet een certificaat ten minste één organisatie bevatten die overeenkomt met de gespecificeerde waarde die moet worden geselecteerd. Als <ph name="FILTER_PLACEHOLDER" /> een organisatie-eenheid ('OU') specificeert, moet een certificaat ten minste één organisatie-eenheid bevatten die overeenkomt met de gespecificeerde waarde die moet worden geselecteerd. Als <ph name="FILTER_PLACEHOLDER" /> het lege woordenboek <ph name="EMPTY_DICTIONARY" /> is, wordt de selectie van clientcertificaten niet verder beperkt.
+
+          Als dit beleid niet wordt ingesteld, wordt voor geen enkele site automatische selectie uitgevoerd.</translation>
 <translation id="2529659024053332711">Hiermee kun je het gedrag bij opstarten opgeven.
 
           Als je 'De pagina 'Nieuw tabblad' openen' kiest, wordt altijd de pagina 'Nieuw tabblad' geopend wanneer je <ph name="PRODUCT_NAME" /> start.
@@ -1284,20 +1362,6 @@
 <translation id="2959898425599642200">Regels voor proxyomzeiling</translation>
 <translation id="2960128438010718932">De gefaseerde planning voor het toepassen van nieuwe updates</translation>
 <translation id="2960691910306063964">Verificatie zonder pincode in- of uitschakelen voor hosts voor externe toegang</translation>
-<translation id="2976002782221275500">Hiermee wordt de tijdsduur zonder input van gebruikers gespecificeerd waarna het scherm wordt gedimd wanneer er op de batterij wordt gewerkt.
-
-          Als dit beleid is ingesteld op een grotere waarde dan nul, specificeert het de tijd die de gebruiker inactief moet blijven voordat het scherm wordt gedimd door <ph name="PRODUCT_OS_NAME" />.
-
-          Als dit beleid is ingesteld op nul, wordt het scherm niet gedimd door <ph name="PRODUCT_OS_NAME" /> wanneer de gebruiker inactief wordt.
-
-          Als dit beleid niet is ingesteld, wordt een standaardtijdsduur gebruikt.
-
-          De beleidswaarde moet worden opgegeven in milliseconden. Waarden moeten lager zijn dan of gelijk zijn aan de vertraging van scherm uitschakelen (indien ingesteld) en de inactieve vertraging.</translation>
-<translation id="2977997796833930843">Houd er rekening mee dat dit beleid verouderd is en in de toekomst wordt verwijderd.
-
-          Dit beleid levert een reservewaarde voor de specifiekere beleidsregels <ph name="IDLE_ACTION_AC_POLICY_NAME" /> en <ph name="IDLE_ACTION_BATTERY_POLICY_NAME" />. Als dit beleid is ingesteld, wordt de bijbehorende waarde gebruikt als het respectieve specifiekere beleid niet is ingesteld.
-
-          Als dit beleid niet is ingesteld, heeft dit geen invloed op het gedrag van de specifiekere beleidsregels.</translation>
 <translation id="2987155890997901449">ARC inschakelen</translation>
 <translation id="2987227569419001736">Gebruik van de Web Bluetooth API beheren</translation>
 <translation id="3011301228198307065">Hiermee stel je de standaard-URL voor de homepage in <ph name="PRODUCT_NAME" /> in en voorkom je dat gebruikers deze kunnen wijzigen.
@@ -1314,6 +1378,7 @@
 
           Dit beleid is alleen beschikbaar op Windows-instanties die gekoppeld zijn aan een <ph name="MS_AD_NAME" />-domein of op instanties van Windows 10 Pro of Enterprise die ingeschreven zijn voor apparaatbeheer.</translation>
 <translation id="3016255526521614822">Notitie-apps die zijn toegestaan op het <ph name="PRODUCT_OS_NAME" />-vergrendelingsscherm toevoegen aan de witte lijst</translation>
+<translation id="3020064401262077616">Hiermee bepaal je de beleidsregels voor ouderlijk toezicht, die alleen op kinderaccounts worden toegepast.</translation>
 <translation id="3021562480854470924">Aantal mijlpalen dat rollback kan terugzetten</translation>
 <translation id="3023572080620427845">URL van een XML-bestand dat URL's bevat voor laden in een alternatieve browser.</translation>
 <translation id="3026740867910702435">De toegankelijkheidsfunctie 'Grote muisaanwijzer' op het inlogscherm inschakelen.
@@ -1340,32 +1405,19 @@
 <translation id="3038323923255997294">Doorgaan met uitvoeren van achtergrondapps als <ph name="PRODUCT_NAME" /> is gesloten</translation>
 <translation id="3046192273793919231">Netwerkpakketten verzenden naar de beheerserver om de online status bij te houden</translation>
 <translation id="3047732214002457234">Bepalen hoe Chrome Cleanup gegevens doorgeeft aan Google</translation>
-<translation id="304775240152542058">Met dit beleid worden opdrachtregelparameters bepaald om de alternatieve browser te starten.
-
-      Wanneer dit beleid niet is ingesteld, wordt alleen de URL doorgegeven als een opdrachtregelparameter.
-
-      Wanneer dit beleid is ingesteld op een lijst met tekenreeksen, wordt elke tekenreeks doorgegeven aan de alternatieve browser als een afzonderlijke opdrachtregelparameter. In Windows worden de parameters samengevoegd met spaties. In Mac OS X en Linux kan een parameter spaties bevatten en nog altijd worden behandeld als een enkele parameter.
-
-      Als een element ${url} bevat, wordt dit vervangen door de URL van de pagina die wordt geopend.
-
-       Als een element ${url} niet bevat, wordt de URL toegevoegd aan het einde van de opdrachtregel.
-
-      De omgevingsvariabelen worden uitgebreid. Op Windows wordt %ABC% vervangen door de waarde van de ABC-omgevingsvariabele. Op Mac OS X en Linux wordt ${ABC} vervangen door de waarde van de ABC-omgevingsvariabele.</translation>
 <translation id="3048744057455266684">Als dit beleid is ingesteld en een zoek-URL die is voorgesteld vanuit de omnibox, deze parameter in de zoekreeks of in de fragment-ID bevat, geeft de suggestie de zoektermen en zoekprovider weer en niet de onbewerkte zoek-URL.
 
           Dit beleid is optioneel. Als het niet wordt ingesteld, wordt er geen vervanging van zoektermen uitgevoerd.
 
           Dit beleid wordt alleen gerespecteerd als het beleid 'DefaultSearchProviderEnabled' is ingeschakeld.</translation>
+<translation id="3049248142961638857">Hiermee bepaal je de hostnaam van het apparaat die wordt gebruikt in DHCP-verzoeken.
+
+      Als dit beleid is ingesteld op een niet-lege tekenreeks, wordt deze tekenreeks tijdens het DHCP-verzoek gebruikt als hostnaam van het apparaat.
+
+      De tekenreeks kan de variabelen <ph name="ASSET_ID_PLACEHOLDER" />, <ph name="SERIAL_NUM_PLACEHOLDER" />, <ph name="MAC_ADDR_PLACEHOLDER" />, <ph name="MACHINE_NAME_PLACEHOLDER" /> en <ph name="LOCATION_PLACEHOLDER" /> bevatten, die worden vervangen door waarden op het apparaat voordat deze hostnaam wordt gebruikt. Deze vervanging moet een geldige hostnaam opleveren (volgens RFC 1035, artikel 3.1).
+
+      Als dit beleid niet is ingesteld of als de vervanging geen geldige hostnaam oplevert, wordt er geen hostnaam ingesteld in het DHCP-verzoek. </translation>
 <translation id="3053265701996417839">Microsoft Windows 7</translation>
-<translation id="306887062252197004">Met dit beleid kunnen gebruikers van de WebDriver-functie beleidsregels
-      negeren die problemen met de werking kunnen veroorzaken.
-
-      Dit beleid schakelt momenteel de beleidsregels SitePerProcess en IsolateOrigins uit.
-
-      Als het beleid is ingeschakeld, kan WebDriver niet-compatibele
-      beleidsregels negeren.
-      Als het beleid is uitgeschakeld of niet is geconfigureerd, mag WebDriver
-      niet-compatibele beleidsregels niet negeren.</translation>
 <translation id="3069958900488014740">Hiermee kan WPAD-optimalisatie (Web Proxy Auto-Discovery) worden uitgeschakeld in <ph name="PRODUCT_NAME" />.
 
       Als dit beleid is ingesteld op 'false', wordt WPAD-optimalisatie uitgeschakeld, waardoor <ph name="PRODUCT_NAME" /> langer moet wachten op DNS-gebaseerde WPAD-servers. Als het beleid niet is ingesteld of is ingeschakeld, is WPAD-optimalisatie ingeschakeld.
@@ -1431,6 +1483,7 @@
 
           Als deze instelling niet wordt ingesteld, staat <ph name="PRODUCT_NAME" /> het gebruik toe van hosts voor native berichten op gebruikersniveau.</translation>
 <translation id="3177802893484440532">Online OCSP/CRL-controles voor lokale vertrouwensinstanties vereisen</translation>
+<translation id="3184161739683646075">Hiermee wordt de modus voor DNS-over-HTTPS bepaald</translation>
 <translation id="3185009703220253572">sinds versie <ph name="SINCE_VERSION" /></translation>
 <translation id="3187220842205194486">Android-apps hebben geen toegang tot zakelijke sleutels. Dit beleid is niet van invloed op deze apps.</translation>
 <translation id="3205825995289802549">Het eerste browservenster maximaliseren bij eerste uitvoering</translation>
@@ -1445,15 +1498,13 @@
 <translation id="3236046242843493070">URL-patronen om de installatie van extensies, apps en gebruikersscripts toe te staan vanaf</translation>
 <translation id="3240609035816615922">Toegangsbeleid voor printerconfiguratie.</translation>
 <translation id="3240655340884151271">MAC-adres van ingebouwde NIC van dock</translation>
-<translation id="3243309373265599239">Hiermee wordt de tijdsduur zonder input van gebruikers gespecificeerd waarna het scherm wordt gedimd wanneer er op netstroom wordt gewerkt.
+<translation id="3242756958360374888">Bevat een lijst met patronen die worden gebruikt om de zichtbaarheid van accounts in <ph name="PRODUCT_NAME" /> te beheren.
 
-           Als dit beleid is ingesteld op een grotere waarde dan nul, specificeert het de tijd die de gebruiker inactief moet blijven voordat het scherm wordt gedimd door <ph name="PRODUCT_OS_NAME" />.
+      Elk Google-account op het apparaat wordt vergeleken met patronen die in dit beleid zijn opgeslagen om de accountzichtbaarheid in <ph name="PRODUCT_NAME" /> te bepalen. Het account is zichtbaar als de bijbehorende naam overeenkomt met een patroon in de lijst. Anders wordt het account verborgen.
 
-          Als dit beleid is ingesteld op nul, wordt het scherm niet gedimd door <ph name="PRODUCT_OS_NAME" /> wanneer de gebruiker inactief wordt.
+      Gebruik het jokerteken '*' voor overeenkomsten met nul of meer willekeurige tekens. Het escape-teken is '\'. Als je dus naar overeenkomsten zoekt met de feitelijke tekens '*', '?' of '\', kun je er een '\' voor zetten.
 
-          Als dit beleid niet is ingesteld, wordt een standaardtijdsduur gebruikt.
-
-          De beleidswaarde moet worden opgegeven in milliseconden. Waarden moeten lager zijn dan of gelijk zijn aan de vertraging van scherm uitschakelen (indien ingesteld) en de inactieve vertraging.</translation>
+      Als dit beleid niet is ingesteld, zijn alle Google-accounts op het apparaat zichtbaar in <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3251500716404598358">Configureer de beleidsregels om te schakelen tussen browsers.
 
       Geconfigureerde websites worden automatisch geopend in een andere browser dan <ph name="PRODUCT_NAME" />.</translation>
@@ -1488,12 +1539,6 @@
           Als dit beleid niet wordt ingesteld, wordt de algemene standaardwaarde gebruikt voor alle sites op basis van het beleid DefaultCookiesSetting (als dit is ingesteld) of anders op basis van de configuratie van de gebruiker.
 
           Zie ook de beleidsregels CookiesBlockedForUrls en CookiesSessionOnlyForUrls. Houd er rekening mee dat er geen conflicterende URL-patronen tussen deze drie beleidsregels mogen bestaan, omdat er niet wordt aangegeven welk beleid voorrang krijgt.</translation>
-<translation id="3367344043837603960">Met dit beleid wordt het sandboxproces voor audio beheerd.
-      Als dit beleid is ingeschakeld, wordt het audioproces uitgevoerd in een sandbox.
-      Als dit beleid is uitgeschakeld, wordt het audioproces niet uitgevoerd in een sandbox en wordt de WebRTC-audioverwerkingsmodule uitgevoerd in het proces van het weergaveprogramma.
-      Hierdoor staan gebruikers bloot aan beveiligingsrisico's doordat de audiostapel niet in een sandbox wordt uitgevoerd.
-      Als dit beleid niet wordt ingesteld, wordt de standaardconfiguratie voor de audiosandbox gebruikt, die kan verschillen per platform.
-      Dit beleid is bedoeld om bedrijven de flexibiliteit te bieden om de audiosandbox uit te schakelen als ze instellingen voor beveiligingssoftware gebruiken die de sandbox kunnen verstoren.</translation>
 <translation id="3373364525435227558">Hiermee worden een of meer aanbevolen landinstellingen ingesteld voor een beheerde sessie, zodat gebruikers gemakkelijk een van deze landinstellingen kunnen kiezen.
 
       De gebruiker kan een landinstelling en toetsenbordindeling kiezen voordat de beheerde sessie wordt gestart. Alle landinstellingen die worden ondersteund door <ph name="PRODUCT_OS_NAME" /> worden standaard op alfabetische volgorde weergegeven. Je kunt dit beleid gebruiken om een set aanbevolen landinstellingen naar bovenaan de lijst te verplaatsen.
@@ -1510,6 +1555,19 @@
 
       Dit beleid kan alleen worden ingesteld als aanbevolen. Je kunt dit beleid gebruiken om een aantal aanbevolen landinstellingen naar boven te verplaatsen, maar gebruikers kunnen altijd de gewenste landinstelling die wordt ondersteund door <ph name="PRODUCT_OS_NAME" /> kiezen voor hun sessie.
       </translation>
+<translation id="3378482432905539452">Dit beleid is beëindigd. Gebruik het beleid <ph name="DEFAULT_PLUGINS_SETTING_POLICY_NAME" /> om de beschikbaarheid van de Flash-plug-in te beheren en het beleid <ph name="ALWAYS_OPEN_PDF_EXTERNALLY_POLICY_NAME" /> om aan te geven of de geïntegreerde pdf-viewer moet worden gebruikt om pdf-bestanden te openen.
+
+      Specificeert een lijst met plug-ins die de gebruiker kan in- of uitschakelen in <ph name="PRODUCT_NAME" />.
+
+      De jokertekens '*' en '?' kunnen worden gebruikt om overeenkomsten te zoeken in reeksen met willekeurige tekens. '*' komt overeen met een willekeurig aantal tekens, terwijl met '?' een optioneel enkel teken wordt gespecificeerd dat overeenkomt met nul tekens of één teken. Het escape-teken is '\'. Als je dus naar overeenkomsten zoekt met de feitelijke tekens '*', '?' of '\', kun je er een '\' voor zetten.
+
+      Als je deze instelling inschakelt, kan de gespecificeerde lijst met plug-ins in <ph name="PRODUCT_NAME" /> worden gebruikt. Gebruikers kunnen plug-ins in- of uitschakelen in 'about:plugins', zelfs als de plug-in ook overeenkomt met een patroon in DisabledPlugins. Gebruikers kunnen ook plug-ins in- en uitschakelen die niet overeenkomen met een patroon in DisabledPlugins, DisabledPluginsExceptions of EnabledPlugins.
+
+      Dit beleid is bedoeld om een streng beleid voor een blacklist met plug-ins mogelijk te maken, waarbij de lijst 'DisabledPlugins' items met jokertekens bevat. Bijvoorbeeld, 'schakel alle plug-ins met '*' uit' of 'schakel alle Java-plug-ins met '*Java*' uit', terwijl de beheerder een bepaalde versie wil inschakelen, zoals 'IcedTea Java 2.3'. Deze specifieke versies kunnen worden aangeduid in dit beleid.
+
+      Zowel de naam van de plug-in als de groepsnaam van de plug-in moeten worden uitgesloten. Elke groep plug-ins wordt in een afzonderlijk gedeelte in 'about:plugins' weergegeven. Elk gedeelte kan een of meer plug-ins bevatten. De plug-in 'Shockwave Flash' hoort bijvoorbeeld bij de groep 'Adobe Flash Player' en beide namen moeten een overeenkomst hebben in de lijst met uitzonderingen als die plug-in moet worden uitgesloten van de blacklist.
+
+      Als dit beleid niet is ingesteld, wordt elke plug-in uitgeschakeld die overeenkomt met de patronen in 'DisabledPlugins', en kan de gebruiker deze niet inschakelen.</translation>
 <translation id="3381968327636295719"> gebruiken</translation>
 <translation id="3388153794103186066">Hiermee kun je een lijst met URL's instellen die aangeven welke sites automatisch toegang krijgen tot een USB-apparaat met de opgegeven leverancier- en product-ID. Het beleid is alleen geldig als elk item in de lijst zowel apparaten als URL's bevat. Elk item in apparaten kan een veld voor leverancier-ID en een veld voor product-ID bevatten. Een ID die is weggelaten, wordt als wildcard behandeld, met één uitzondering: er mag geen product-ID worden opgegeven zonder dat er ook een leverancier-ID is opgegeven. Anders is het beleid niet geldig. Ongeldige beleidswaarden worden genegeerd.
 
@@ -1614,7 +1672,9 @@
 <translation id="3524204464536655762">Niet toestaan dat sites via de WebUSB API toegang tot USB-apparaten vragen</translation>
 <translation id="3526752951628474302">Alleen monochroom afdrukken</translation>
 <translation id="3528000905991875314">Alternatieve foutpagina's inschakelen</translation>
+<translation id="3531084733660068324">Instellingen voor ouderlijk toezicht</translation>
 <translation id="3534882636155369445">Grote bestanden niet blokkeren</translation>
+<translation id="3540935459049973317">Tijdslimieten per app</translation>
 <translation id="3545457887306538845">Hiermee stel je in welke Developer Tools kunnen worden gebruikt.
 
       Als dit beleid is ingesteld op DeveloperToolsDisallowedForForceInstalledExtensions (waarde 0, de standaardinstelling), zijn de Developer Tools en de JavaScript-console wel algemeen toegankelijk, maar niet in de context van extensies die zijn geïnstalleerd op basis van het bedrijfsbeleid.
@@ -1653,6 +1713,19 @@
           Als dit beleid niet wordt ingesteld, is de functie 'Selecteer om uitgesproken te worden' in eerste instantie uitgeschakeld. De gebruiker kan de functie echter op elk gewenst moment inschakelen.</translation>
 <translation id="3591527072193107424">Schakel de functie 'Ondersteuning voor oudere browsers' in.</translation>
 <translation id="3591584750136265240">Het verificatiegedrag voor inloggen configureren</translation>
+<translation id="3602332793276340697">Dit beleid is beëindigd en wordt verwijderd in <ph name="PRODUCT_OS_NAME" /> versie 82. Gebruik in plaats daarvan <ph name="SCREEN_LOCK_DELAYS_POLICY_NAME" />.
+
+          Specificeert de tijdsduur zonder gebruikersinvoer, waarna het scherm wordt vergrendeld als er op de batterij wordt gewerkt.
+
+          Als dit beleid is ingesteld op een waarde groter dan nul, wordt hiermee de tijd aangegeven dat de gebruiker inactief moet zijn voordat het scherm door <ph name="PRODUCT_OS_NAME" /> wordt vergrendeld.
+
+          Als dit beleid is ingesteld op nul, wordt het scherm niet door <ph name="PRODUCT_OS_NAME" /> vergrendeld wanneer de gebruiker inactief is.
+
+          Als dit beleid niet is ingesteld, wordt er een standaard tijdsduur gebruikt.
+
+          De aanbevolen manier om het scherm te vergrendelen bij inactiviteit is door schermvergrendeling bij opschorting in te schakelen en <ph name="PRODUCT_OS_NAME" /> te laten opschorten na een inactieve vertraging. Dit beleid moet uitsluitend worden gebruikt als het scherm aanzienlijk sneller moet worden vergrendeld dan de opschortingstijd of wanneer opschorting bij inactiviteit helemaal niet gewenst is.
+
+          De beleidswaarde moet worden gespecificeerd in milliseconden. De opgegeven waarden moeten kleiner zijn dan de inactieve vertraging.</translation>
 <translation id="3624515566460517364">Uploads en downloads controleren op schendingen van de beveiligingsregels voor gevoelige gegevens</translation>
 <translation id="3627678165642179114">Webservice voor spellingcontrole in- of uitschakelen</translation>
 <translation id="3628480121685794414">Enkelzijdig afdrukken inschakelen</translation>
@@ -1895,6 +1968,7 @@
       Als het beleid is ingesteld op True, worden de statistieken gerapporteerd.</translation>
 <translation id="3965339130942650562">Time-out tot de inactieve gebruiker is uitgelogd</translation>
 <translation id="3973371701361892765">Archief nooit automatisch verbergen</translation>
+<translation id="3979738908158213640">URL's die toegang krijgen om apparaatattesten uit te voeren tijdens SAML-verificatie</translation>
 <translation id="3984028218719007910">Bepaalt of <ph name="PRODUCT_OS_NAME" /> na het afmelden lokale accountgegevens bewaart. Als dit is ingesteld op 'true', bewaart <ph name="PRODUCT_OS_NAME" /> geen bestaande accounts en worden alle gegevens over de gebruikerssessie na het afmelden gewist. Als dit beleid is ingesteld op 'false' of niet is geconfigureerd, bewaart het apparaat mogelijk (gecodeerde) lokale gebruikersgegevens.</translation>
 <translation id="398475542699441679">Met dit beleid wordt bepaald of 'Ondersteuning voor oudere browsers' wordt ingeschakeld.
 
@@ -1968,13 +2042,6 @@
           Als er geen instelling voor dit beleid wordt opgegeven, wordt AllowCookies gebruikt en kan de gebruiker dit wijzigen.</translation>
 <translation id="410068710490553233">Inloggen op aanvullende Google-accounts toestaan</translation>
 <translation id="4103289232974211388">Omleiden naar SAML IdP na bevestiging van de gebruiker</translation>
-<translation id="410478022164847452">Hiermee wordt de tijdsduur zonder input van gebruikers gespecificeerd waarna de vertragingsactie wordt ondernomen wanneer op netstroom wordt gewerkt.
-
-          Als dit beleid is ingesteld, specificeert het de tijd die de gebruiker inactief moet blijven voordat de vertragingsactie wordt ondernomen door <ph name="PRODUCT_OS_NAME" />. De vertragingsactie kan afzonderlijk worden geconfigureerd.
-
-          Als dit beleid niet is ingesteld, wordt een standaardtijdsduur gebruikt.
-
-          De beleidswaarde moet in milliseconden worden opgegeven.</translation>
 <translation id="4105884561459127998">Hiermee configureer je de verificatietypen voor SAML-logins.
 
       Wanneer dit beleid is ingesteld op Standaard (waarde 0), wordt het gedrag van SAML-logins bepaald door de browser, afhankelijk van andere factoren. In het meest basale scenario worden de gebruikersverificatie en de beveiliging van gebruikersgegevens in de cache gebaseerd op wachtwoorden die handmatig door gebruikers worden ingevoerd.
@@ -2159,15 +2226,6 @@
 <translation id="4322842393287974810">Toestaan dat de kiosk-app die automatisch zonder vertraging is gestart, de <ph name="PRODUCT_OS_NAME" />-versie beheert</translation>
 <translation id="4325690621216251241">Een afmeldknop toevoegen aan de systeembalk</translation>
 <translation id="4332177773549877617">Gebeurtenissen registreren voor installatie van Android-apps</translation>
-<translation id="4335292026668105285">Specificeert de tijdsduur zonder gebruikersinvoer, waarna een waarschuwingsdialoogvenster wordt weergegeven wanneer op netstroom wordt gewerkt.
-
-          Wanneer dit beleid is ingesteld, specificeert het de tijdsduur dat de gebruiker inactief moet zijn voordat <ph name="PRODUCT_OS_NAME" /> een waarschuwingsdialoogvenster aan de gebruiker laat zien om aan te geven dat de actie voor inactiviteit bijna wordt uitgevoerd.
-
-          Wanneer dit beleid niet is ingesteld, wordt er geen waarschuwingsdialoogvenster weergegeven.
-
-          De beleidswaarde moet worden gespecificeerd in milliseconden. De opgegeven waarden moeten kleiner dan of gelijk aan de inactieve vertraging zijn.
-
-          Het waarschuwingsbericht wordt alleen weergegeven als de inactieve actie 'uitloggen' of 'afsluiten' is.</translation>
 <translation id="4346674324214534449">Hiermee kun je instellen of advertenties moeten worden voorkomen op sites met opdringerige advertenties.
 
       Als dit beleid is ingesteld op 2, worden advertenties geblokkeerd op sites met opdringerige advertenties.
@@ -2177,27 +2235,11 @@
 <translation id="4347908978527632940">Als beleid 'True' is en de gebruiker een gebruiker met beperkte rechten is, kunnen andere Android-apps de internetbeperkingen van de gebruiker opvragen via de contentprovider.
 
           Als het beleid 'False' of niet ingesteld is, retourneert de contentprovider geen informatie.</translation>
-<translation id="435461861920493948">Bevat een lijst van patronen die worden gebruikt om de zichtbaarheid van accounts in <ph name="PRODUCT_NAME" /> te beheren.
-
-      Elk Google-account op het apparaat wordt vergeleken met in dit beleid opgeslagen patronen om de zichtbaarheid van het account in <ph name="PRODUCT_NAME" /> vast te stellen. Het account is zichtbaar als de naam overeenkomt met een patroon in de lijst. Als dit niet het geval is, wordt het account verborgen.
-
-      Gebruik het jokerteken '*' om overeenkomsten met nul of meer willekeurige tekens te zoeken. Het escapeteken is '\'. Als je dus overeenkomsten met de tekens '*' of '\' wilt zoeken, zet je hier een '\' voor.
-
-      Als dit beleid niet is ingesteld, zijn alle Google-accounts op het apparaat zichtbaar in <ph name="PRODUCT_NAME" />.</translation>
 <translation id="4360826270668210664">Als dit beleid is ingesteld, moet de host voor externe toegang clients verifiëren om een verificatietoken van deze URL te verkrijgen en zo verbinding te kunnen maken. Moet samen met RemoteAccessHostTokenValidationUrl worden gebruikt.
 
           Deze functie is momenteel uitgeschakeld aan de serverzijde.</translation>
 <translation id="4363057787588706121">Toestaan dat lijstbeleid van verschillende bronnen kan worden samengevoegd</translation>
 <translation id="4363101430102811068">Gegevenslekdetectie voor ingevoerde gegevens inschakelen</translation>
-<translation id="4363136876356691536">Als dit beleid is ingesteld op True, worden toegankelijkheidsopties altijd weergegeven in het systeemvakmenu.
-
-          Als dit beleid is ingesteld op False, worden toegankelijkheidsopties nooit weergegeven in het systeemvakmenu.
-
-          Als je dit beleid instelt, kunnen gebruikers dit niet wijzigen of negeren.
-
-          Als dit beleid niet is ingesteld, worden toegankelijkheidsopties niet weergegeven in het systeemvakmenu, maar kan de gebruiker er via de pagina Instellingen voor zorgen dat de toegankelijkheidsopties worden weergegeven.
-
-          Als de toegankelijkheidsfuncties zijn ingeschakeld (via een andere manier, zoals een toetsencombinatie), worden de toegankelijkheidsopties altijd weergegeven in het systeemvakmenu.</translation>
 <translation id="436581050240847513">Apparaatnetwerkinterface rapporteren</translation>
 <translation id="4372704773119750918">Zakelijke gebruikers niet toestaan deel uit te maken van multiprofielen (primair of secundair)</translation>
 <translation id="4377599627073874279">Alle sites toestaan afbeeldingen weer te geven</translation>
@@ -2237,6 +2279,15 @@
 <translation id="445270821089253489">Beheert welke gebruikers- en apparaatgegevens worden gerapporteerd.</translation>
 <translation id="4453913621209182880">Alleen afdrukken met achtergrondbeelden toestaan</translation>
 <translation id="4454820008017317557">Het werkbalkpictogram van <ph name="PRODUCT_NAME" /> weergeven</translation>
+<translation id="4458977366860064210">Gebruik de verouderde <ph name="CORS" />-implementatie in plaats van de nieuwe <ph name="CORS" />.
+
+      Als deze instelling is ingesteld op True, wordt de verouderde implementatie gebruikt die zou moeten werken met eerdere versies.
+
+      Als deze instelling is ingesteld op False of niet is ingesteld, wordt de nieuwe implementatie gebruikt die mogelijk ondernemingsspecifieke compatibiliteitsproblemen kan veroorzaken.
+
+      Dit beleid wordt na een aantal mijlpalen verwijderd.
+
+      Ga naar <ph name="CORS_HELP_URL" /> voor meer informatie over <ph name="CORS" />.</translation>
 <translation id="4467952432486360968">Indirecte cookies blokkeren</translation>
 <translation id="4474167089968829729">Opslaan van wachtwoorden in Wachtwoordmanager inschakelen</translation>
 <translation id="4476769083125004742">Als dit beleid wordt ingesteld op <ph name="BLOCK_GEOLOCATION_SETTING" />, hebben de Android-apps geen toegang tot locatiegegevens. Als je een andere waarde voor dit beleid instelt of het beleid niet instelt, wordt de gebruiker om toestemming gevraagd wanneer een Android-app toegang tot locatiegegevens probeert te krijgen.</translation>
@@ -2282,6 +2333,17 @@
 <translation id="4534500438517478692">Naam Android-beperking:</translation>
 <translation id="4541530620466526913">Lokale accounts op apparaat</translation>
 <translation id="4543502256674577024">Update-instellingen voor apparaat</translation>
+<translation id="4548555985107150628">Dit beleid is beëindigd. Gebruik het beleid <ph name="DEFAULT_PLUGINS_SETTING_POLICY_NAME" /> om de beschikbaarheid van de Flash-plug-in te beheren en het beleid <ph name="ALWAYS_OPEN_PDF_EXTERNALLY_POLICY_NAME" /> om aan te geven of de geïntegreerde pdf-viewer moet worden gebruikt om pdf-bestanden te openen.
+
+      Specificeert een lijst met plug-ins die zijn ingeschakeld in <ph name="PRODUCT_NAME" /> en voorkomt dat gebruikers deze instelling kunnen wijzigen.
+
+      De jokertekens '*' en '?' kunnen worden gebruikt om overeenkomsten te zoeken in reeksen met willekeurige tekens. '*' komt overeen met een willekeurig aantal tekens, terwijl met '?' een optioneel enkel teken wordt gespecificeerd dat overeenkomt met nul tekens of één teken. Het escape-teken is '\'. Als je dus naar overeenkomsten zoekt met de feitelijke tekens '*', '?' of '\', kun je er een '\' voor zetten.
+
+      De gespecificeerde lijst met plug-ins wordt altijd gebruikt in <ph name="PRODUCT_NAME" /> als deze plug-ins zijn geïnstalleerd. De plug-ins zijn gemarkeerd als 'ingeschakeld' in 'about:plugins' en gebruikers kunnen ze niet uitschakelen.
+
+      Dit beleid heeft voorrang op zowel DisabledPlugins als DisabledPluginsExceptions.
+
+      Als dit beleid niet wordt ingesteld, kan de gebruiker alle op het systeem geïnstalleerde plug-ins uitschakelen.</translation>
 <translation id="4554651132977135445">Loopback-verwerkingsmodus voor gebruikersbeleid</translation>
 <translation id="4554841826517980623">Dit beleid bepaalt of de functie 'Network File Shares' voor <ph name="PRODUCT_NAME" /> het <ph name="NETBIOS_PROTOCOL" />-protocol moet gebruiken om shares te detecteren in het netwerk.
       Als dit beleid is ingesteld op 'True', wordt voor de detectie van shares in het netwerk gebruikgemaakt van het <ph name="NETBIOS_PROTOCOL" />-protocol.
@@ -2295,6 +2357,13 @@
 
           Als deze instelling is uitgeschakeld of niet ingesteld, kan de host voor externe toegang aan elke lokale gebruiker worden gekoppeld.</translation>
 <translation id="4591366717022345234">Gebruikers Quick Fix Build bieden</translation>
+<translation id="4592246263545654202">Specificeert of de gebruiker pagina's mag openen in de incognitomodus in <ph name="PRODUCT_NAME" />.
+
+      Als dit beleid is ingeschakeld of niet is ingesteld, kunnen pagina's worden geopend in de incognitomodus.
+
+      Als dit beleid is uitgeschakeld, kunnen pagina's niet worden geopend in de incognitomodus.
+
+      Als dit beleid wordt afgedwongen, kunnen pagina's UITSLUITEND worden geopend in de incognitomodus. De optie 'Afgedwongen' werkt niet voor Android in Chrome.</translation>
 <translation id="4600786265870346112">Grote muisaanwijzer inschakelen</translation>
 <translation id="4604931264910482931">Zwarte lijst voor systeemeigen berichten configureren</translation>
 <translation id="4617338332148204752">De metatagcontrole in <ph name="PRODUCT_FRAME_NAME" /> overslaan</translation>
@@ -2314,7 +2383,19 @@
       Er worden installatieverzoeken voor extensies gemaakt als gebruikers proberen een extensie te installeren die niet op de witte lijst van <ph name="EXTENSION_INSTALL_WHITELIST" /> of <ph name="EXTENSION_SETTINGS" /> staat.
 
       Dit beleid is alleen effectief als de machine is ingeschreven bij <ph name="CLOUD_MANAGEMENT_ENROLLMENT_TOKEN" /> en <ph name="CLOUD_REPORTING_ENABLED" /> is ingeschakeld.</translation>
+<translation id="4638162097046412832">De printertypen die op de weigeringslijst zijn geplaatst, kunnen niet worden gevonden en hun mogelijkheden kunnen niet worden opgehaald.
+
+      Als je alle printertypen op de weigeringslijst plaatst, schakel je in feite de afdrukfunctie uit. Er zijn dan geen bestemmingen beschikbaar waar een document naartoe kan worden gestuurd om af te drukken.
+
+      Als je 'cloud' opneemt op de weigeringslijst, heeft dit hetzelfde effect als het beleid 'CloudPrintSubmitEnabled' instellen op False. Je kunt ervoor zorgen dat <ph name="CLOUD_PRINT_NAME" />-bestemmingen vindbaar blijven door het beleid 'CloudPrintSubmitEnabled' in te stellen op True en 'cloud' niet op te nemen op de weigeringslijst.
+
+      Als het beleid niet is ingesteld of is ingesteld op een lege lijst, kunnen alle printertypen worden gevonden.
+
+      Extensieprinters staan ook bekend als afdrukproviderbestemmingen en omvatten elke bestemming die bij een <ph name="PRODUCT_NAME" />-extensie hoort.
+
+      Lokale printers staan ook bekend als systeemeigen afdrukbestemmingen en omvatten bestemmingen die beschikbaar zijn voor de lokale computer en gedeelde netwerkprinters.</translation>
 <translation id="4639407427807680016">Namen van de hosts voor systeemeigen berichten die moeten worden vrijgesteld van de zwarte lijst</translation>
+<translation id="4649395978608361979">Lokale printerbestemmingen</translation>
 <translation id="4650759511838826572">URL-protocolschema's uitschakelen</translation>
 <translation id="465099050592230505">URL van zakelijke webwinkel (verouderd)</translation>
 <translation id="4661889655253181651">Met instellingen voor content kun je opgeven hoe content van een bepaald type (zoals cookies, afbeeldingen of JavaScript) wordt verwerkt.</translation>
@@ -2341,6 +2422,7 @@
       Als je dit beleid inschakelt, kunnen sites tegelijkertijd navigeren en nieuwe vensters/tabbladen openen.
       Als dit beleid is uitgeschakeld of niet is ingesteld, kunnen sites niet tegelijkertijd navigeren en nieuwe vensters/tabbladen openen.</translation>
 <translation id="4680961954980851756">Automatisch aanvullen inschakelen</translation>
+<translation id="4693779768620889402">Op extensies gebaseerde bestemmingen</translation>
 <translation id="4703402283970867140">Slim dimmodel inschakelen, zodat het langer duurt tot het scherm wordt gedimd</translation>
 <translation id="4722122254122249791">Site-isolatie inschakelen voor gespecificeerde herkomsten</translation>
 <translation id="4722399051042571387">Als dit is ingesteld op 'false', kunnen gebruikers geen pincodes instellen die als zwak worden beschouwd en gemakkelijk kunnen worden geraden.
@@ -2542,6 +2624,15 @@
 <translation id="5102203758995933166">Hiermee kan de netwerkconfiguratie per gebruiker worden toegepast op een <ph name="PRODUCT_OS_NAME" />-apparaat. De netwerkconfiguratie is een json-tekenreeks zoals gedefinieerd in de Open Network Configuration-indeling.</translation>
 <translation id="5105313908130842249">Vertraging van schermvergrendeling wanneer op de batterij wordt gewerkt</translation>
 <translation id="5108031557082757679">Zakelijke apparaatprinters uitgeschakeld</translation>
+<translation id="5112121363469561920">Het standaardtype vergrootglas instellen dat op het inlogscherm is ingeschakeld.
+
+          Als dit beleid is ingesteld, bepaalt dit het type vergrootglas dat is ingeschakeld als het inlogscherm wordt weergegeven. Als het beleid is ingesteld op 'None', wordt het vergrootglas uitgeschakeld.
+
+          Als je dit beleid instelt, kunnen gebruikers dit tijdelijk overschrijven door het vergrootglas zelf in of uit te schakelen. De keuze van de gebruiker is echter niet permanent en de standaardinstelling wordt hersteld als het inlogscherm opnieuw wordt weergegeven, of als de gebruiker gedurende een minuut niet actief is op het inlogscherm.
+
+          Als je dit beleid niet instelt, is het vergrootglas uitgeschakeld als het inlogscherm voor de eerste keer wordt weergegeven. Gebruikers kunnen het vergrootglas op elk moment in- of uitschakelen en de status op het inlogscherm is van toepassing op alle gebruikers.
+
+          Opmerking: <ph name="DEVICE_LOGIN_SCREEN_SCREEN_MAGNIFIER_TYPE_POLICY_NAME" /> overschrijft dit beleid als het is opgegeven.</translation>
 <translation id="5124368997194894978">Opstarten bij netstroom (wisselstroom) inschakelen</translation>
 <translation id="5131211790949066746">Hiermee worden de lijstbeleidsregels <ph name="EXTENSION_INSTALL_BLACKLIST_POLICY_NAME" />, <ph name="EXTENSION_INSTALL_WHITELIST_POLICY_NAME" /> en <ph name="EXTENSION_INSTALL_FORCELIST_POLICY_NAME" /> voor installatie van extensies samengevoegd.
 
@@ -2550,9 +2641,6 @@
       Als je deze instelling uitschakelt of niet instelt, worden alleen lijstitems uit de bron met de hoogste prioriteit meegenomen. Alle andere bronnen worden wel als conflicten weergegeven, maar worden genegeerd.</translation>
 <translation id="5141670636904227950">Het standaardtype van vergrootglas instellen dat op het inlogscherm is ingeschakeld</translation>
 <translation id="5142301680741828703">De volgende URL-patronen altijd verwerken in <ph name="PRODUCT_FRAME_NAME" /></translation>
-<translation id="5146261336206349846">Als dit beleid is ingeschakeld, worden alle URL's in realtime gecontroleerd met Safe Browsing.
-
-      Als dit beleid is uitgeschakeld of niet is ingesteld, worden de Safe Browsing-controles van de consument toegepast.</translation>
 <translation id="5148753489738115745">Hiermee kun je extra parameters opgeven die worden gebruikt wanneer <ph name="PRODUCT_FRAME_NAME" /> <ph name="PRODUCT_NAME" /> start.
 
           Als dit beleid niet is ingesteld, wordt de standaardopdrachtregel gebruikt.</translation>
@@ -2642,17 +2730,6 @@
 <translation id="5236882091572996759">Als dit beleid is ingesteld op 'true' of niet is ingesteld, wordt de gebruiker niet beschouwd als inactief terwijl de audio wordt afgespeeld. Hierdoor wordt voorkomen dat de inactieve time-out wordt bereikt en dat de inactieve actie wordt ondernomen. Dimmen van het scherm, scherm uitschakelen en schermvergrendeling worden echter uitgevoerd na de geconfigureerde time-outs, ongeacht de audioactiviteit.
 
           Als dit beleid is ingesteld op 'false', voorkomt audioactiviteit niet dat de gebruiker als inactief wordt beschouwd.</translation>
-<translation id="5246700266104954355">Dit beleid is beëindigd. Gebruik het beleid <ph name="DEFAULT_PLUGINS_SETTING_POLICY_NAME" /> om de beschikbaarheid van de Flash-plug-in te beheren en het beleid <ph name="ALWAYS_OPEN_PDF_EXTERNALLY_POLICY_NAME" /> om aan te geven of de geïntegreerde pdf-viewer moet worden gebruikt om pdf-bestanden te openen.
-
-      Specificeert een lijst met plug-ins die zijn ingeschakeld in <ph name="PRODUCT_NAME" /> en voorkomt dat gebruikers deze instelling kunnen wijzigen.
-
-      De jokertekens '*' en '?' kunnen worden gebruikt om overeenkomsten te zoeken in reeksen met willekeurige tekens. '*' komt overeen met een willekeurig aantal tekens, terwijl met '?' een optioneel enkel teken wordt gespecificeerd dat overeenkomt met nul tekens of één teken. Het escape-teken is '\'. Als je dus naar overeenkomsten zoekt met de feitelijke tekens '*', '?' of '\', kun je er een '\' voor zetten.
-
-      De gespecificeerde lijst met plug-ins wordt altijd gebruikt in <ph name="PRODUCT_NAME" /> als deze plug-ins zijn geïnstalleerd. De plug-ins zijn gemarkeerd als 'ingeschakeld' in 'about:plugins' en gebruikers kunnen ze niet uitschakelen.
-
-      Dit beleid heeft voorrang op zowel DisabledPlugins als DisabledPluginsExceptions.
-
-      Als dit beleid niet wordt ingesteld, kan de gebruiker alle op het systeem geïnstalleerde plug-ins uitschakelen.</translation>
 <translation id="5247006254130721952">Gevaarlijke downloads blokkeren</translation>
 <translation id="5248863213023520115">Hiermee worden versleutelingstypen ingesteld die zijn toegestaan wanneer Kerberos-tickets van een <ph name="MS_AD_NAME" />-server worden aangevraagd.
 
@@ -2665,6 +2742,17 @@
       Bekijk voor meer informatie het volgende artikel: https://wiki.samba.org/index.php/Samba_4.6_Features_added/changed#Kerberos_client_encryption_types.</translation>
 <translation id="5249453807420671499">Gebruikers kunnen Kerberos-accounts toevoegen</translation>
 <translation id="5255162913209987122">Kan worden aanbevolen</translation>
+<translation id="5261766238868915624">Dit beleid is beëindigd en wordt verwijderd in <ph name="PRODUCT_OS_NAME" /> versie 82. Gebruik in plaats daarvan <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />.
+
+          Specificeert de tijdsduur zonder gebruikersinvoer, waarna het scherm wordt gedimd als op de batterij wordt gewerkt.
+
+          Als dit beleid is ingesteld op een waarde groter dan nul, wordt hiermee de tijd aangegeven dat de gebruiker inactief moet zijn voordat het scherm door <ph name="PRODUCT_OS_NAME" /> wordt gedimd.
+
+          Als dit beleid is ingesteld op nul, wordt het scherm niet door <ph name="PRODUCT_OS_NAME" /> gedimd wanneer de gebruiker inactief is.
+
+          Als dit beleid niet is ingesteld, wordt er een standaard tijdsduur gebruikt.
+
+          De beleidswaarde moet worden gespecificeerd in milliseconden. De opgegeven waarden moeten kleiner dan of gelijk zijn aan de vertraging van de uitschakeling van het scherm (indien ingesteld) en van de inactieve vertraging.</translation>
 <translation id="527237119693897329">Hiermee kun je opgeven welke hosts voor systeemeigen berichten niet moeten worden geladen.
 
           Een waarde van * voor de zwarte lijst betekent dat alle hosts voor systeemeigen berichten op de zwarte lijst staan, tenzij ze expliciet op de witte lijst worden vermeld.
@@ -2713,11 +2801,6 @@
 <translation id="5362531528507578966">Hiermee wordt de standaardmodus voor afdrukken met achtergrondbeelden overschreven.</translation>
 <translation id="5365476955714838841">Opdrachtregelparameters voor de alternatieve browser.</translation>
 <translation id="5365946944967967336">Knop 'Homepage' in de werkbalk weergeven</translation>
-<translation id="5366745336748853475">Hiermee kun je een lijst met URL-patronen opgeven die sites specificeren waarvoor automatisch een clientcertificaat moet worden geselecteerd op het inlogscherm in het frame waarin de SAML-procedure wordt gehost als de site vraagt om een certificaat. Een voorbeeld van het gebruik is een certificaat voor het hele apparaat configureren om te presenteren aan de SAML IdP.
-
-      De waarde moet een array van JSON-woordenboeken met tekenreeksen zijn. Elk woordenboek moet de indeling { "pattern": "$URL_PATTERN", "filter" : $FILTER } hebben, waarbij $URL_PATTERN een patroon voor het instellen van content is. $FILTER beperkt de clientcertificaten die de browser automatisch kan selecteren. Onafhankelijk van het filter worden alleen certificaten geselecteerd die overeenkomen met het certificaatverzoek van de server. Als $FILTER de indeling { "ISSUER": { "CN": "$ISSUER_CN" } } heeft, worden daarnaast alleen clientcertificaten geselecteerd die zijn uitgegeven door een certificaat met de CommonName $ISSUER_CN. Als $FILTER het lege woordenboek {} is, wordt de selectie van clientcertificaten niet verder beperkt.
-
-      Als dit beleid niet wordt ingesteld, wordt voor geen enkele site automatische selectie uitgevoerd.</translation>
 <translation id="5366977351895725771">Als dit is ingesteld op 'False' wordt het maken van gebruikers met beperkte rechten uitgeschakeld voor deze gebruiker. Bestaande gebruikers met beperkte rechten blijven beschikbaar.
 
           Als dit is ingesteld op 'True' of niet is geconfigureerd, kunnen gebruikers met beperkte rechten worden gemaakt en beheerd door deze gebruiker.</translation>
@@ -2829,11 +2912,6 @@
 
       Als dit beleid niet wordt ingesteld, worden indirecte cookies ingeschakeld maar kan dit door de gebruiker worden gewijzigd.</translation>
 <translation id="5442026853063570579">Met dit beleid wordt ook de toegang tot de ontwikkelaarsopties van Android beheerd. Als je dit beleid instelt op 'DeveloperToolsDisallowed' (waarde 2), hebben gebruikers geen toegang tot ontwikkelaarsopties. Als je dit beleid instelt op een andere waarde of niet instelt, hebben gebruikers toegang tot ontwikkelaarsopties door zeven keer op het buildnummer te tikken in de app Instellingen van Android.</translation>
-<translation id="544342220587994947">Hiermee kun je een lijst met URL-patronen opgeven waarvoor <ph name="PRODUCT_NAME" /> automatisch een clientcertificaat moet selecteren als de site vraagt om een certificaat.
-
-          De waarde moet een array van JSON-woordenboeken met tekenreeksen zijn. Elk woordenboek moet de indeling { "pattern": "$URL_PATTERN", "filter" : $FILTER } hebben, waarbij $URL_PATTERN een patroon voor het instellen van content is. $FILTER beperkt de clientcertificaten die de browser automatisch kan selecteren. Onafhankelijk van het filter worden alleen certificaten geselecteerd die overeenkomen met het certificaatverzoek van de server. Als $FILTER bijvoorbeeld de indeling { "ISSUER": { "CN": "$ISSUER_CN" } } heeft, worden daarnaast alleen clientcertificaten geselecteerd die zijn uitgegeven door een certificaat met de CommonName $ISSUER_CN. Als $FILTER een "ISSUER" en een "SUBJECT" bevat, moet een clientcertificaat aan beide voorwaarden voldoen om te worden geselecteerd. Als $FILTER een organisatie specificeert ("O"), moet een certificaat ten minste één organisatie bevatten die overeenkomt met de gespecificeerde waarde die moet worden geselecteerd. Als $FILTER een organisatie-eenheid specificeert ("OU"), moet een certificaat ten minste één organisatie-eenheid bevatten die overeenkomt met de gespecificeerde waarde die moet worden geselecteerd. Als $FILTER het lege woordenboek {} is, wordt de selectie van clientcertificaten niet verder beperkt.
-
-          Als dit beleid niet wordt ingesteld, wordt voor geen enkele site automatische selectie uitgevoerd.</translation>
 <translation id="5447306928176905178">Het rapporteren van geheugengegevens (JS-heapgrootte) aan de pagina inschakelen (verouderd)</translation>
 <translation id="5457065417344056871">De gastmodus inschakelen in browser</translation>
 <translation id="5457924070961220141">Hiermee kun je de standaard HTML-renderer configureren wanneer <ph name="PRODUCT_FRAME_NAME" /> is geïnstalleerd.
@@ -2856,19 +2934,6 @@
 <translation id="5475361623548884387">Afdrukken inschakelen</translation>
 <translation id="547601067149622666">Geen advertenties toestaan op sites met opdringerige advertenties</translation>
 <translation id="5483065054530244863">Door lokale vertrouwensinstanties verstrekte, met SHA-1 ondertekende certificaten toestaan</translation>
-<translation id="5483777239978559943">Dit beleid is beëindigd. Gebruik het beleid <ph name="DEFAULT_PLUGINS_SETTING_POLICY_NAME" /> om de beschikbaarheid van de Flash-plug-in te beheren en het beleid <ph name="ALWAYS_OPEN_PDF_EXTERNALLY_POLICY_NAME" /> om aan te geven of de geïntegreerde pdf-viewer moet worden gebruikt om pdf-bestanden te openen.
-
-      Specificeert een lijst met plug-ins die de gebruiker kan in- of uitschakelen in <ph name="PRODUCT_NAME" />.
-
-      De jokertekens '*' en '?' kunnen worden gebruikt om overeenkomsten te zoeken in reeksen met willekeurige tekens. '*' komt overeen met een willekeurig aantal tekens, terwijl met '?' een optioneel enkel teken wordt gespecificeerd dat overeenkomt met nul tekens of één teken. Het escape-teken is '\'. Als je dus naar overeenkomsten zoekt met de feitelijke tekens '*', '?' of '\', kun je er een '\' voor zetten.
-
-      Als je deze instelling inschakelt, kan de gespecificeerde lijst met plug-ins in <ph name="PRODUCT_NAME" /> worden gebruikt. Gebruikers kunnen plug-ins in- of uitschakelen in 'about:plugins', zelfs als de plug-in ook overeenkomt met een patroon in DisabledPlugins. Gebruikers kunnen ook plug-ins in- en uitschakelen die niet overeenkomen met een patroon in DisabledPlugins, DisabledPluginsExceptions of EnabledPlugins.
-
-      Dit beleid is bedoeld om een streng beleid voor een blacklist met plug-ins mogelijk te maken, waarbij de lijst 'DisabledPlugins' items met jokertekens bevat. Bijvoorbeeld 'schakel alle plug-ins met '*' uit' of 'schakel alle Java-plug-ins met '*Java*' uit', terwijl de beheerder een bepaalde versie wil inschakelen, zoals 'IcedTea Java 2.3'. Deze specifieke versies kunnen worden gespecificeerd in dit beleid.
-
-      Zowel de naam van de plug-in als de groepsnaam van de plug-in moeten worden uitgesloten. Elke groep plug-ins wordt in een afzonderlijk gedeelte in 'about:plugins' weergegeven. Elk gedeelte kan een of meer plug-ins bevatten. De plug-in 'Shockwave Flash' hoort bijvoorbeeld bij de groep 'Adobe Flash Player' en beide namen moeten een overeenkomst hebben in de lijst met uitzonderingen als die plug-in moet worden uitgesloten van de blacklist.
-
-      Als dit beleid niet is ingesteld, wordt elke plug-in uitgeschakeld die overeenkomt met de patronen in 'DisabledPlugins', en kan de gebruiker deze niet inschakelen.</translation>
 <translation id="5498045818698736356">Specificeert een lijst met web-apps die op de achtergrond worden geïnstalleerd zonder interactie van de gebruiker en die niet kunnen worden verwijderd of uitgeschakeld door de gebruiker.
 
       Elk lijstitem van het beleid is een object met een verplicht element: 'url' en twee optionele elementen: 'default_launch_container' en 'create_desktop_shortcut'. 'url' moet de URL van de te installeren web-app zijn en 'launch_container' moet 'window' of 'tab' zijn om aan te duiden hoe de web-app na de installatie wordt geopend. 'create_desktop_shortcut' moet zijn ingesteld op True als er een snelkoppeling moet worden gemaakt op Linux en Windows. Als 'default_launch_container' wordt weggelaten, wordt de app standaard geopend in een tabblad. Gebruikers kunnen wijzigen in welke container de app wordt geopend, ongeacht de waarde van 'default_launch_container'. Als 'create_desktop_shortcuts' wordt weggelaten, worden er geen snelkoppelingen gemaakt. Bekijk het beleid <ph name="PINNED_LAUNCHER_APPS_POLICY_NAME" /> voor het vastzetten van apps op de Chrome OS-plank.</translation>
@@ -2909,6 +2974,9 @@
 
       Als dit niet is gespecificeerd, wordt de URL voor de seed voor varianten niet aangepast.</translation>
 <translation id="5561811616825571914">Clientcertificaten automatisch selecteren voor deze sites op het inlogscherm</translation>
+<translation id="5564865786900450806">Hiermee wordt de waarschuwing genegeerd die wordt weergegeven als <ph name="PRODUCT_NAME" /> wordt uitgevoerd op een computer die of besturingssysteem dat niet meer wordt ondersteund.
+
+      Als dit beleid is ingesteld op False of niet is ingesteld, worden de waarschuwingen weergegeven op dergelijke niet-ondersteunde computers of besturingssystemen.</translation>
 <translation id="5565178130821694365">Het wachtwoord moet elke twee dagen (48 uur) worden opgegeven</translation>
 <translation id="5566210228171064229">Afdrukken zowel met als zonder pincode toestaan</translation>
 <translation id="556865034069957245">Dit beleid beheert de beschikbaarheid van de modus voor volledig scherm waarin alle gebruikersinterface voor <ph name="PRODUCT_NAME" /> is verborgen en alleen webcontent zichtbaar is.
@@ -2983,11 +3051,6 @@
       OPMERKING: Dit beleid is alleen van toepassing op Chrome op Android-apparaten met meer dan 1 GB RAM. Als je het beleid op andere platforms wilt toepassen, gebruik je IsolateOrigins.
       </translation>
 <translation id="5599461642204007579">Beheerinstellingen voor <ph name="MS_AD_NAME" /></translation>
-<translation id="5610104657949692379">Als dit beleid is ingesteld, specificeert het de actie die worden ondernomen door <ph name="PRODUCT_OS_NAME" /> wanneer de gebruiker inactief is gedurende de tijdsduur die is opgegeven door de inactieve vertraging. Deze kan afzonderlijk worden geconfigureerd.
-
-          Als dit beleid niet is ingesteld, wordt de standaardactie uitgevoerd. De standaardactie is opschorten.
-
-          Als de actie opschorten is, kan <ph name="PRODUCT_OS_NAME" /> afzonderlijk worden geconfigureerd om het scherm al dan niet te vergrendelen voordat de opschorting wordt geactiveerd.</translation>
 <translation id="5618398258385745432">De bijbehorende instelling werd gebruikt voordat hernieuwde verificatie voor de weergave van wachtwoorden is geïntroduceerd. Sindsdien hebben de instelling en dit beleid geen invloed gehad op het gedrag van Chrome. Het huidige gedrag van Chrome is nu hetzelfde alsof het beleid was ingesteld om de weergave van wachtwoorden als leesbare tekst op de pagina met instellingen voor Wachtwoordmanager uit te schakelen. Dat betekent dat de pagina met instellingen alleen een tijdelijke aanduiding bevat. Chrome laat het wachtwoord alleen zien als de gebruiker op Weergeven klikt (en zo nodig de hernieuwde verificatie uitvoert). De oorspronkelijke beschrijving van het beleid volgt hieronder.
 
           Hiermee wordt bepaald of de gebruiker wachtwoorden als leesbare tekst mag bekijken in Wachtwoordmanager.
@@ -3012,6 +3075,7 @@
 <translation id="5645779841392247734">Cookies toestaan op deze sites</translation>
 <translation id="5656177735561364047">De functie voor gedeeld klembord inschakelen</translation>
 <translation id="5666457529647159548">Gebruikers toestaan geïnstalleerde clientcertificaten te beheren.</translation>
+<translation id="5676740747107495269">Toegankelijkheidsopties weergeven in het systeemvakmenu op het inlogscherm</translation>
 <translation id="5689430183304951538">Standaard paginagrootte voor afdrukken</translation>
 <translation id="5693469654327063861">Gegevensmigratie toestaan</translation>
 <translation id="5694594914843889579">Wanneer de instelling is ingesteld op 'True', is externe opslag niet beschikbaar in de bestandsbrowser.
@@ -3062,6 +3126,13 @@
           Als dit beleid niet is ingesteld, wordt de standaardactie uitgevoerd. De standaardactie is opschorten.
 
           Als de actie opschorten is, kan <ph name="PRODUCT_OS_NAME" /> afzonderlijk worden geconfigureerd om het scherm al dan niet te vergrendelen voordat de opschorting wordt geactiveerd.</translation>
+<translation id="5755002458331714762"> De Web Components v0 API's (Shadow DOM v0, Custom Elements v0 en HTML Imports) zijn beëindigd in 2018 en zijn vanaf M80 standaard uitgeschakeld. Met dit beleid kunnen deze functies selectief opnieuw worden ingeschakeld tot M84.
+
+      Als dit beleid is ingesteld op True, worden de functies van Web Components v0 ingeschakeld voor alle sites.
+
+      Als dit beleid is ingesteld op False of niet is ingesteld, worden de functies van Web Components v0 standaard uitgeschakeld, vanaf M80.
+
+      Dit beleid wordt na Chrome 84 verwijderd.</translation>
 <translation id="5765780083710877561">Beschrijving:</translation>
 <translation id="5770738360657678870">Ontwikkelaarskanaal (mogelijk instabiel)</translation>
 <translation id="5774856474228476867">Zoek-URL voor standaardzoekprovider</translation>
@@ -3071,13 +3142,6 @@
 
 
           Als er geen instelling is opgegeven, gebruikt <ph name="PRODUCT_NAME" /> een standaard bibliotheeknaam.</translation>
-<translation id="5781806558783210276">Hiermee wordt de tijdsduur zonder input van gebruikers gespecificeerd waarna de inactieve actie wordt ondernomen wanneer op de batterij wordt gewerkt.
-
-          Als dit beleid is ingesteld, specificeert het de tijd die de gebruiker inactief moet blijven voordat de inactieve actie wordt ondernomen door <ph name="PRODUCT_OS_NAME" />, die afzonderlijk kan worden geconfigureerd.
-
-          Als dit beleid niet is ingesteld, wordt een standaardtijdsduur gebruikt.
-
-          De beleidswaarde moet worden opgegeven in milliseconden.</translation>
 <translation id="5783009211970309878">Kop- en voetteksten afdrukken</translation>
 <translation id="5806128552675651249">Alleen afdrukken zonder achtergrondbeelden toestaan</translation>
 <translation id="5809210507920527553">Beheert instellingen voor de Linux-container (Crostini).</translation>
@@ -3091,13 +3155,6 @@
       Ga naar https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables voor een lijst met variabelen die kunnen worden gebruikt.
 
       Als deze instelling niet wordt ingesteld, wordt de standaarddirectory voor het profiel gebruikt.</translation>
-<translation id="5826047473100157858">Geeft aan of de gebruiker pagina's in de incognitomodus mag openen in <ph name="PRODUCT_NAME" />.
-
-      Als 'Ingeschakeld' is geselecteerd, mogen pagina's worden geopend in de incognitomodus.
-
-      Als 'Uitgeschakeld' is geselecteerd, mogen pagina's niet worden geopend in de incognitomodus.
-
-      Als 'Afgedwongen' is geselecteerd, mogen pagina's ALLEEN worden geopend in de incognitomodus.</translation>
 <translation id="582857022372205358">Dubbelzijdig afdrukken over korte zijde inschakelen</translation>
 <translation id="583091600226586337">
       Als het beleid is ingeschakeld, wordt de gebruiker vóór het downloaden gevraagd waar elk bestand moet worden opgeslagen.
@@ -3109,6 +3166,19 @@
 
       URL's (zoals https://example.com/some/path) komen alleen overeen als U2F appID's. Domeinen (zoals example.com) komen alleen overeen als webauthn RP ID's. Dus om zowel de U2F- als webauthn-API voor een bepaalde site te omvatten, moeten zowel de appID-URL als het appID-domein worden vermeld.</translation>
 <translation id="5836064773277134605">Het UDP-poortbereik beperken dat voor de host voor externe toegang wordt gebruikt</translation>
+<translation id="5855010364142818361">Dit beleid bepaalt opdrachtregelparameters voor Chrome vanuit Internet Explorer.
+
+      Als de oude add-in 'Ondersteuning voor oudere browsers' voor Internet Explorer niet is geïnstalleerd, heeft dit beleid geen effect.
+
+      Als dit beleid niet is ingesteld, geeft Internet Explorer de URL alleen door aan Chrome als opdrachtregelparameter.
+
+      Als dit beleid is ingesteld op een lijst met tekenreeksen, worden de tekenreeksen samengevoegd met spaties en doorgegeven aan Chrome als opdrachtregelparameter.
+
+      Als een element <ph name="URL_PLACEHOLDER" /> bevat, wordt dit vervangen door de URL van de pagina die moet worden geopend.
+
+      Als geen enkel element <ph name="URL_PLACEHOLDER" /> bevat, wordt de URL toegevoegd aan het einde van de opdrachtregel.
+
+      Omgevingsvariabelen worden uitgevouwen. In Windows wordt <ph name="ENV_VARIABLE_WIN_EXAMPLE" /> vervangen door de waarde van de omgevingsvariabele ABC.</translation>
 <translation id="5861856285460256766">Configuratie van toegangscode voor ouders</translation>
 <translation id="5868414965372171132">Netwerkconfiguratie op gebruikersniveau</translation>
 <translation id="5879014913445067283">Bepaalt de detectiemethode van 'Network File Shares' via <ph name="NETBIOS_NAME" /></translation>
@@ -3159,9 +3229,6 @@
 <translation id="5961137303188584693">MAC-adres van ingebouwde NIC van apparaat</translation>
 <translation id="5966615072639944554">Extensies die toestemming hebben de API voor externe bevestiging te gebruiken</translation>
 <translation id="5983708779415553259">Standaardgedrag voor sites die zich niet in een inhoudspakket bevinden</translation>
-<translation id="5997107377032983906">Hiermee kun je een lijst met URL-patronen instellen waarmee sites worden gespecificeerd waarop blokkeerbare (actieve) gecombineerde content (zoals HTTP-content op een HTTPS-site) mag worden weergegeven.
-
-          Als dit beleid niet is ingesteld, wordt blokkeerbare gecombineerde content geblokkeerd, maar kunnen gebruikers wel uitzonderingen instellen om dergelijke content toe te staan voor specifieke sites.</translation>
 <translation id="5997543603646547632">Klok met 24-uursnotatie standaard gebruiken</translation>
 <translation id="5997846976342452720">Aangeven of de plug-inzoeker moet worden uitgeschakeld (beëindigd)</translation>
 <translation id="5998198091336830580">Dit beleid maakt deel uit van de volgende atomische groep (alleen beleidsregels van de bron met de hoogste prioriteit in de groep worden toegepast):</translation>
@@ -3269,15 +3336,6 @@
 
           Ga voor gedetailleerdere voorbeelden naar:
           <ph name="PROXY_HELP_URL" />.</translation>
-<translation id="6172059022423179562">De verouderde <ph name="CORS" />-implementatie gebruiken in plaats van de nieuwe <ph name="CORS" />.
-
-      Als deze instelling is ingesteld op 'True', wordt de verouderde implementatie gebruikt die zou moeten werken met eerdere versies.
-
-      Als deze instelling is ingesteld op 'False' of niet is ingesteld, wordt de nieuwe implementatie gebruikt, die mogelijk ondernemingsspecifieke compatibiliteitsproblemen kan veroorzaken.
-
-      Dit beleid wordt na een aantal mijlpalen verwijderd.
-
-      Ga voor meer informatie over <ph name="CORS" /> naar: <ph name="CORS_HELP_URL" />.</translation>
 <translation id="6178075938488052838">Met dit beleid wordt bepaald wie een <ph name="PRODUCT_OS_NAME" />-sessie mag starten. Hiermee wordt niet voorkomen dat gebruikers binnen Android inloggen op extra Google-accounts. Als je dit wilt voorkomen, kun je het Android-specifieke beleid <ph name="ACCOUNT_TYPES_WITH_MANAGEMENT_DISABLED_CLOUDDPC_POLICY_NAME" /> configureren als onderdeel van <ph name="ARC_POLICY_POLICY_NAME" />.</translation>
 <translation id="6181608880636987460">Hiermee kun je een lijst met URL-patronen opgeven voor sites die de <ph name="FLASH_PLUGIN_NAME" />-plug-in niet mogen uitvoeren.
 
@@ -3310,6 +3368,12 @@
 <translation id="6224304369267200483">URL's/domeinen hebben rechtstreekse bevestiging van de beveiligingssleutel toegestaan</translation>
 <translation id="6233173491898450179">Downloaddirectory instellen</translation>
 <translation id="6244210204546589761">URL's die worden geopend bij starten</translation>
+<translation id="6247316685259031374">Met dit beleid wordt het sandboxproces voor audio beheerd.
+      Als dit beleid is ingeschakeld, wordt het audioproces uitgevoerd in een sandbox.
+      Als dit beleid is uitgeschakeld, wordt het audioproces niet uitgevoerd in een sandbox en wordt de WebRTC-audioverwerkingsmodule uitgevoerd in het proces van het weergaveprogramma.
+      Hierdoor staan gebruikers bloot aan beveiligingsrisico's doordat het subsysteem voor audio niet in een sandbox wordt uitgevoerd.
+      Als dit beleid niet wordt ingesteld, wordt de standaardconfiguratie voor de audiosandbox gebruikt, die per platform kan verschillen.
+      Dit beleid is bedoeld om bedrijven de flexibiliteit te bieden om de audiosandbox uit te schakelen als ze instellingen voor beveiligingssoftware gebruiken die de sandbox kunnen verstoren.</translation>
 <translation id="6255387031094435995">Maakt het mogelijk de geselecteerde beleidsregels samen te voegen als ze afkomstig zijn uit verschillende bronnen en hetzelfde bereik en niveau hebben.
 
         Als een beleid in de lijst staat, worden de waarden samengevoegd in een nieuwe beleidslijst als er een conflict tussen twee bronnen is, omdat ze hetzelfde bereik en niveau hebben.
@@ -3326,6 +3390,17 @@
 <translation id="6281043242780654992">Configureert beleid voor systeemeigen berichten. Hosts voor systeemeigen berichten op de zwarte lijst worden niet toegestaan, tenzij ze op de witte lijst worden gezet.</translation>
 <translation id="6282799760374509080">Het opnemen van audio toestaan of weigeren</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
+<translation id="6293957650182823856">Dit beleid is beëindigd en wordt verwijderd in <ph name="PRODUCT_OS_NAME" /> versie 82. Gebruik in plaats daarvan <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />.
+
+          Specificeert de tijdsduur zonder gebruikersinvoer, waarna een waarschuwingsdialoogvenster wordt weergegeven als er op netstroom wordt gewerkt.
+
+          Als dit beleid is ingesteld, specificeert het de tijdsduur dat de gebruiker inactief moet zijn voordat <ph name="PRODUCT_OS_NAME" /> een waarschuwingsdialoogvenster laat zien om aan te geven dat de actie voor inactiviteit bijna wordt uitgevoerd.
+
+          Als dit beleid niet is ingesteld, wordt er geen waarschuwingsdialoogvenster weergegeven.
+
+          De beleidswaarde moet worden gespecificeerd in milliseconden. De opgegeven waarden moeten kleiner dan of gelijk zijn aan de inactieve vertraging.
+
+          Het waarschuwingsbericht wordt alleen weergegeven als de inactieve actie 'uitloggen' of 'afsluiten' is.</translation>
 <translation id="6310223829319187614">Automatisch aanvullen van domeinnaam bij inloggen van gebruiker inschakelen</translation>
 <translation id="6315673513957120120">Chrome toont een waarschuwingspagina wanneer gebruikers naar sites met SSL-fouten navigeren. Gebruikers kunnen standaard, of wanneer dit beleid is ingesteld op 'true', door deze waarschuwingspagina's klikken.
       Als dit beleid wordt ingesteld op 'false', kunnen gebruikers niet door waarschuwingspagina's klikken.</translation>
@@ -3416,17 +3491,15 @@ Als dit beleid niet wordt ingesteld, kan de gebruiker ervoor kiezen de pagina 'N
 
       Als deze instelling is uitgeschakeld of niet is ingesteld, kan Flash-content van andere bronnen of minder belangrijke content worden geblokkeerd.</translation>
 <translation id="6532769014584932288">Wake locks toestaan</translation>
-<translation id="653608967792832033">Hiermee wordt de tijdsduur zonder input van gebruikers gespecificeerd waarna het scherm wordt vergrendeld wanneer op de batterij wordt gewerkt.
+<translation id="653645667373317432">Met dit beleid wordt bepaald welke opdracht wordt gebruikt om URL's te openen in <ph name="PRODUCT_NAME" /> bij overschakeling vanuit Internet Explorer.
 
-          Als dit beleid is ingesteld op een grotere waarde dan nul, specificeert het de tijd die de gebruiker inactief moet blijven voordat het scherm wordt vergrendeld door <ph name="PRODUCT_OS_NAME" />.
+      Als de oude add-in 'Ondersteuning voor oudere browsers' voor Internet Explorer niet is geïnstalleerd, heeft dit beleid geen effect.
 
-          Als dit beleid is ingesteld op nul, wordt het scherm niet vergrendeld door <ph name="PRODUCT_OS_NAME" /> wanneer de gebruiker inactief wordt.
+      Als dit beleid niet is ingesteld, detecteert Internet Explorer automatisch het eigen uitvoerbare pad van <ph name="PRODUCT_NAME" /> als <ph name="PRODUCT_NAME" /> wordt gestart via Internet Explorer.
 
-          Als dit beleid niet is ingesteld, wordt een standaardtijdsduur gebruikt.
+      Als dit beleid is ingesteld, wordt het gebruikt om <ph name="PRODUCT_NAME" /> te starten als <ph name="PRODUCT_NAME" /> wordt gestart via Internet Explorer.
 
-          De aanbevolen manier om het scherm bij inactiviteit te vergrendelen is door schermvergrendeling bij onderbreking in te schakelen en <ph name="PRODUCT_OS_NAME" /> te onderbreken na de inactieve vertraging. Dit beleid mag alleen worden gebruikt wanneer schermvergrendeling veel eerder voorkomt dan onderbreking of wanneer onderbreking bij inactiviteit helemaal niet gewenst is.
-
-          De beleidswaarde moet worden opgegeven in milliseconden. Waarden moeten lager zijn dan de inactieve vertraging.</translation>
+      Dit beleid kan worden ingesteld op een pad naar een uitvoerbaar bestand of op <ph name="PRODUCT_NAME_PLACEHOLDER" /> om de installatielocatie van Chrome automatisch te detecteren.</translation>
 <translation id="6536600139108165863">Automatisch opnieuw opstarten wanneer apparaat wordt afgesloten</translation>
 <translation id="6539246272469751178">Dit beleid is niet van invloed op Android-apps. Android-apps gebruiken altijd de standaardmap voor downloads en hebben geen toegang tot bestanden die door <ph name="PRODUCT_OS_NAME" /> zijn gedownload naar een niet-standaard downloadmap.</translation>
 <translation id="654303922206238013">Migratiestrategie voor eCryptfs</translation>
@@ -3437,6 +3510,17 @@ Als dit beleid niet wordt ingesteld, kan de gebruiker ervoor kiezen de pagina 'N
 <translation id="6559057113164934677">Niet toestaan dat sites toegang krijgen tot de camera en microfoon</translation>
 <translation id="6561396069801924653">Toegankelijkheidsopties weergeven in het systeemvakmenu</translation>
 <translation id="6563458316362153786">802.11r Fast Transition inschakelen</translation>
+<translation id="6568977718979857253">Dit beleid is beëindigd. Gebruik het beleid <ph name="DEFAULT_PLUGINS_SETTING_POLICY_NAME" /> om de beschikbaarheid van de Flash-plug-in te beheren en het beleid <ph name="ALWAYS_OPEN_PDF_EXTERNALLY_POLICY_NAME" /> om aan te geven of de geïntegreerde pdf-viewer moet worden gebruikt om pdf-bestanden te openen.
+
+      Specificeert een lijst met plug-ins die zijn uitgeschakeld in <ph name="PRODUCT_NAME" /> en voorkomt dat gebruikers deze instelling kunnen wijzigen.
+
+      De jokertekens '*' en '?' kunnen worden gebruikt om overeenkomsten te zoeken in reeksen met willekeurige tekens. '*' komt overeen met een willekeurig aantal tekens, terwijl met '?' een optioneel enkel teken wordt gespecificeerd dat overeenkomt met nul tekens of één teken. Het escape-teken is '\'. Als je dus naar overeenkomsten zoekt met de feitelijke tekens '*', '?' of '\', kun je er een '\' voor zetten.
+
+      Als je deze instelling inschakelt, wordt de gespecificeerde lijst met plug-ins nooit gebruikt in <ph name="PRODUCT_NAME" />. De plug-ins zijn gemarkeerd als 'uitgeschakeld' in 'about:plugins' en gebruikers kunnen deze niet inschakelen.
+
+      Dit beleid kan worden overschreven door EnabledPlugins en DisabledPluginsExceptions.
+
+      Als dit beleid niet is ingesteld, kan de gebruiker elke op het systeem geïnstalleerde plug-in gebruiken, behalve hardgecodeerde ongeschikte, verouderde of gevaarlijke plug-ins.</translation>
 <translation id="6573305661369899995">Een externe bron voor URL-beperkingen instellen</translation>
 <translation id="6583851521569686409">Hiermee wordt een lijst met printers geconfigureerd.
 
@@ -3518,22 +3602,18 @@ Als dit beleid niet wordt ingesteld, kan de gebruiker ervoor kiezen de pagina 'N
       Deze instelling beheert de presentatie van de welkomstpagina's waar gebruikers kunnen inloggen bij <ph name="PRODUCT_NAME" />, de browser kunnen instellen als hun standaardbrowser of anderszins informatie krijgen over productfuncties.</translation>
 <translation id="6766216162565713893">Toestaan dat sites de gebruiker vragen om toegang te verlenen tot een Bluetooth-apparaat in de buurt</translation>
 <translation id="6770454900105963262">Informatie over actieve kiosk-sessies melden</translation>
+<translation id="6780908086869332493">Hiermee kun je een lijst met URL-patronen opgeven om sites te specificeren. Hiervoor wordt automatisch een clientcertificaat geselecteerd op het inlogscherm in het frame waarin het SAML-proces wordt gehost als de site vraagt om een certificaat. Een voorbeeldgebruik is een certificaat voor het hele apparaat configureren dat wordt gepresenteerd aan de SAML IdP.
+
+      De waarde moet een matrix van json-woordenboeken met tekenreeksen zijn. Elk woordenboek moet de indeling <ph name="DEVICE_LOGIN_SCREEN_AUTO_SELECT_CERTIFICATE_FOR_URLS_EXAMPLE" /> hebben, waarbij <ph name="URL_PATTERN_PLACEHOLDER" /> een patroon voor het instellen van content is. <ph name="FILTER_PLACEHOLDER" /> beperkt de clientcertificaten die de browser automatisch kan selecteren. Onafhankelijk van het filter worden alleen certificaten geselecteerd die overeenkomen met het certificaatverzoek van de server. Als <ph name="FILTER_PLACEHOLDER" /> de indeling <ph name="JSON_DICTIONARY_EXAMPLE" /> heeft, worden daarnaast alleen clientcertificaten geselecteerd die zijn uitgegeven door een certificaat met de CommonName <ph name="ISSUER_CN_PLACEHOLDER" />. Als <ph name="FILTER_PLACEHOLDER" /> het lege woordenboek {} is, wordt de selectie van clientcertificaten niet verder beperkt.
+
+      Als dit beleid niet wordt ingesteld, wordt voor geen enkele site automatische selectie uitgevoerd.</translation>
 <translation id="6786747875388722282">Extensies</translation>
 <translation id="6786967369487349613">De map voor roaming-profielen instellen</translation>
 <translation id="6795485990775913659">Alleen afdrukken toestaan zonder pincode</translation>
-<translation id="6800064234889290465">Hiermee kun je een lijst met URL-patronen instellen waarmee sites worden gespecificeerd waarop blokkeerbare (actieve) gecombineerde content (zoals HTTP-content op een HTTPS-site) niet mag worden weergegeven.
-
-          Als dit beleid niet is ingesteld, wordt blokkeerbare gecombineerde content geblokkeerd, maar kunnen gebruikers wel uitzonderingen instellen om dergelijke content toe te staan voor specifieke sites.</translation>
 <translation id="6810445994095397827">JavaScript blokkeren op deze sites</translation>
 <translation id="6813263547126514821">Energiebeheer en uitschakelen</translation>
 <translation id="681446116407619279">Ondersteunde authenticatieschema's</translation>
-<translation id="6816212867679667972">Hiermee bepaal je de hostnaam van het apparaat die wordt gebruikt in DHCP-verzoeken.
-
-      Als dit beleid is ingesteld op een niet-lege tekenreeks, wordt deze tekenreeks tijdens het DHCP-verzoek gebruikt als hostnaam van het apparaat.
-
-      De tekenreeks kan de variabelen ${ASSET_ID}, ${SERIAL_NUM}, ${MAC_ADDR}, ${MACHINE_NAME} bevatten, die worden vervangen door waarden op het apparaat voordat deze als hostnaam wordt gebruikt. Deze vervanging moet een geldige hostnaam opleveren (conform RFC 1035, sectie 3.1).
-
-      Als dit beleid niet is ingesteld of als de vervanging geen geldige hostnaam oplevert, wordt er geen hostnaam ingesteld in het DHCP-verzoek. </translation>
+<translation id="6821268164692776674">De bestemmingen <ph name="CLOUD_PRINT_NAME" /> en 'Opslaan in Google Drive'</translation>
 <translation id="6833988859168635883">Startpagina, homepage en pagina 'Nieuw tabblad'</translation>
 <translation id="6835883744948188639">Toon de gebruiker een terugkerende prompt om aan te geven dat opnieuw opstarten wordt aanbevolen</translation>
 <translation id="683688607121170501">Deze instelling biedt gebruikers de mogelijkheid om in het contentgedeelte van hun browservenster tussen Google-accounts te schakelen nadat ze zijn ingelogd bij hun <ph name="PRODUCT_OS_NAME" />-apparaat.
@@ -3545,16 +3625,10 @@ Als dit beleid niet wordt ingesteld, kan de gebruiker ervoor kiezen de pagina 'N
       Als je niet wilt dat er in de incognitomodus kan worden ingelogd op een ander account, kun je deze modus eventueel blokkeren met het beleid IncognitoModeAvailability.
 
       Gebruikers met een niet-bevoegde status kunnen toegang krijgen tot Google-services door cookies te blokkeren.</translation>
-<translation id="6837480141980366278">Hiermee wordt bepaald of de ingebouwde DNS-client wordt gebruikt in <ph name="PRODUCT_NAME" />.
-
-      Als dit beleid is ingesteld op true, wordt de ingebouwde DNS-client gebruikt (indien beschikbaar).
-
-      Als dit beleid is ingesteld op false, wordt de ingebouwde DNS-client nooit gebruikt.
-
-      Als dit beleid niet wordt ingesteld, wordt de ingebouwde DNS-client standaard ingeschakeld op Mac OS, Android (wanneer Privé-DNS en VPN niet zijn ingeschakeld) en Chrome OS en kunnen de gebruikers bepalen of de ingebouwde DNS-client wordt gebruikt door chrome://flags te bewerken of een opdrachtregelmarkering op te geven.</translation>
 <translation id="6843296367238757293">Dit beleid is beëindigd. Het gebruik ervan wordt afgeraden. Ga naar https://support.google.com/chrome/a/answer/7643500 voor meer informatie</translation>
 <translation id="684856667300805181">Dit beleid is in <ph name="PRODUCT_NAME" /> 68 verwijderd en vervangen door <ph name="ARC_GLS_POLICY_NAME" />.</translation>
 <translation id="6851199885688265233">De toegankelijkheidsfunctie voor cursormarkering inschakelen</translation>
+<translation id="6851315055469993882">HTTP auth-cache met wereldwijd bereik inschakelen</translation>
 <translation id="6856743875250214792">Dit beleid is beëindigd en uit M66 verwijderd, omdat het alleen werd gebruikt voor interne testen en een beveiligingsrisico vormt.
 
       Hiermee worden de markeringen gespecificeerd die bij het starten moeten worden toegepast op <ph name="PRODUCT_NAME" />. De opgegeven markeringen worden alleen toegepast op het inlogscherm. Markeringen die worden ingesteld via dit beleid, worden niet doorgevoerd in gebruikerssessies.</translation>
@@ -3680,11 +3754,6 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Als het beleid niet wordt ingesteld, wordt de plank standaard onderaan het scherm geplaatst en kan de gebruiker de positie van de plank zelf wijzigen.</translation>
 <translation id="7040229947030068419">Voorbeeldwaarde:</translation>
 <translation id="7044883996351280650">De Android-service 'Back-up maken en terugzetten' beheren</translation>
-<translation id="7049373494483449255">Hiermee kan <ph name="PRODUCT_NAME" /> documenten verzenden naar <ph name="CLOUD_PRINT_NAME" /> voor afdrukken. OPMERKING: dit is alleen van invloed op ondersteuning voor <ph name="CLOUD_PRINT_NAME" /> in <ph name="PRODUCT_NAME" />. Hiermee wordt niet voorkomen dat gebruikers afdruktaken verzenden via websites.
-
-      Als deze instelling is ingeschakeld of niet is geconfigureerd, kunnen gebruikers afdrukken naar <ph name="CLOUD_PRINT_NAME" /> via het dialoogvenster voor afdrukken van <ph name="PRODUCT_NAME" />.
-
-      Als deze instelling is uitgeschakeld, kunnen gebruikers niet afdrukken naar <ph name="CLOUD_PRINT_NAME" /> via het dialoogvenster voor afdrukken van <ph name="PRODUCT_NAME" /></translation>
 <translation id="7053678646221257043">Indien ingeschakeld, wordt met dit beleid afgedwongen dat bladwijzers worden geïmporteerd uit de huidige standaardbrowser. Als het beleid is ingeschakeld, is dit ook van invloed op het dialoogvenster voor importeren.
 
       Als het beleid is uitgeschakeld, worden er geen bladwijzers geïmporteerd.
@@ -3744,6 +3813,15 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Als dit beleid niet is geconfigureerd, kunnen alle gebruikers inloggen. Als je nieuwe gebruikers wilt maken, moet het beleid <ph name="DEVICE_ALLOW_NEW_USERS_POLICY_NAME" /> correct zijn ingesteld.</translation>
 <translation id="7126716959063786004">Het beëindigen van processen in Taakbeheer inschakelen</translation>
 <translation id="7127892035367404455">Doelversie herstellen</translation>
+<translation id="712963038874313213">Hiermee wordt een Ansible-playbook geboden dat moet worden uitgevoerd in de standaard Crostini-container.
+
+      Dit beleid staat het bieden van een Ansible-playbook toe die mag worden toegepast op de standaard Crostini-container, als deze beschikbaar is op het opgegeven apparaat en is toegestaan door het beleid.
+
+      Het bestand mag niet groter zijn dan 1 MB (1.000.000 bytes) en moet zijn gecodeerd in YAML. De cryptografische hash wordt gebruikt om de integriteit van de download te verifiëren.
+
+      De configuratie wordt gedownload en opgeslagen in het cachegeheugen. Deze wordt opnieuw gedownload als de URL of de hash wordt gewijzigd.
+
+      Als je het beleid instelt, kunnen gebruikers het niet wijzigen. Als het beleid niet is ingesteld, kunnen gebruikers de standaard Crostini-container blijven gebruiken met de actieve configuratie als Crostini wordt toegestaan door het beleid.</translation>
 <translation id="713121532817834879">Dit beleid is een URL die met dezelfde indeling naar een XML-bestand verwijst als het beleid <ph name="IEEM_SITELIST_POLICY" /> van Internet Explorer. Hiermee worden regels vanuit een XML-bestand geladen, zonder dat deze regels worden gedeeld met Internet Explorer.
 
       De regels in dit XML-bestand zijn op dezelfde manier van toepassing als <ph name="GREYLIST_POLICY_NAME" />. Dit betekent dat deze regels voorkomen dat <ph name="PRODUCT_NAME" /> de alternatieve browser opent en ook voorkomen dat de alternatieve browser <ph name="PRODUCT_NAME" /> opent.
@@ -3791,16 +3869,6 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Als voor <ph name="ANDROID_VERSION" /> en hoger DNS-over-TLS actief is, verzendt <ph name="PRODUCT_NAME" /> geen onveilige DNS-verzoeken.
 
       Als dit beleid niet is ingesteld, kan de browser DNS-over-HTTPS-verzoeken verzenden naar een resolver die is gekoppeld aan de geconfigureerde systeemresolver van de gebruiker.</translation>
-<translation id="7158064522994309072">Met dit beleid wordt bepaald welke opdracht wordt gebruikt om URL's te openen in een alternatieve browser.
-
-      Wanneer dit beleid niet is ingesteld, wordt een platformspecifieke standaard gebruikt: Internet Explorer voor Windows of Safari voor Mac OS X. Op Linux mislukt het starten van een alternatieve browser wanneer dit niet is ingesteld.
-
-      Wanneer dit beleid is ingesteld op een van de browsers, ${ie}, ${firefox}, ${safari} of
-      ${opera}, wordt deze browser gestart wanneer deze is geïnstalleerd. ${ie} is alleen
-      beschikbaar in Windows en ${safari} is alleen beschikbaar in  Windows en Mac
-      OS X.
-
-      Wanneer dit beleid is ingesteld op een bestandspad, wordt dat bestand gebruikt als een uitvoerbaar bestand.</translation>
 <translation id="7167436895080860385">Gebruikers toestaan wachtwoorden weer te geven in Wachtwoordmanager (beëindigd)</translation>
 <translation id="7173856672248996428">Kort geldig profiel</translation>
 <translation id="717630378807352957">Alle printers in het configuratiebestand toestaan.</translation>
@@ -3863,13 +3931,6 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Alle drie beleidsregels (VirtualMachinesAllowed, CrostiniAllowed en DeviceUnaffiliatedCrostiniAllowed) moeten voor Crostini zijn ingesteld op 'True' om Crostini te kunnen uitvoeren.
       Wanneer dit beleid wordt gewijzigd in 'False', is het beleid van toepassing op nieuwe Crostini-containers die worden gestart. Containers die al worden uitgevoerd, worden niet uitgeschakeld.</translation>
 <translation id="7234280155140786597">Namen van de verboden hosts voor systeemeigen berichten (of * voor alle)</translation>
-<translation id="7236775576470542603">Het standaardtype van vergrootglas instellen dat op het inlogscherm is ingeschakeld.
-
-          Als dit beleid is ingesteld, bepaalt het het type vergrootglas dat is ingeschakeld wanneer het inlogscherm wordt weergegeven. Als je het beleid op 'Geen' instelt, wordt het vergrootglas uitgeschakeld.
-
-          Als je dit beleid instelt, kunnen gebruikers dit tijdelijk negeren door het vergrootglas in of uit te schakelen. De keuze van de gebruiker is echter niet permanent en de standaardinstelling wordt hersteld wanneer het inlogscherm opnieuw wordt weergegeven of de gebruiker gedurende een minuut niet actief is op het inlogscherm.
-
-          Als je dit beleid niet instelt, is het vergrootglas uitgeschakeld wanneer het inlogscherm voor de eerste keer wordt weergegeven. Gebruikers kunnen het vergrootglas op elk moment in- of uitschakelen en de status op het inlogscherm is van toepassing op alle gebruikers.</translation>
 <translation id="7249828445670652637">CA-certificaten van <ph name="PRODUCT_OS_NAME" /> voor ARC-apps inschakelen</translation>
 <translation id="7251652588006515288">Dit beleid bepaalt of gebruikers clientcertificaten kunnen importeren en verwijderen via Certificaatbeheer.
 
@@ -3927,15 +3988,6 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Dit beleid is alleen van toepassing wanneer de <ph name="CHROME_REPORTING_EXTENSION_NAME" /> is ingeschakeld en de machine is ingeschreven met <ph name="MACHINE_LEVEL_USER_CLOUD_POLICY_ENROLLMENT_TOKEN_POLICY_NAME" />.</translation>
 <translation id="7323896582714668701">Extra opdrachtregelparameters voor <ph name="PRODUCT_NAME" /></translation>
 <translation id="7326394567531622570">Vergelijkbaar met Wipe (waarde 2), maar probeert inlogtokens te behouden, zodat de gebruiker niet opnieuw hoeft in te loggen.</translation>
-<translation id="7329842439428490522">Hiermee wordt de tijdsduur zonder input van gebruikers gespecificeerd waarna het scherm wordt uitgeschakeld als er op de batterij wordt gewerkt.
-
-          Als dit beleid is ingesteld op een grotere waarde dan nul, specificeert het de tijd die de gebruiker inactief moet blijven voordat het scherm wordt uitgeschakeld door <ph name="PRODUCT_OS_NAME" />.
-
-          Als dit beleid is ingesteld op nul, wordt het scherm niet uitgeschakeld door <ph name="PRODUCT_OS_NAME" /> wanneer de gebruiker inactief wordt.
-
-          Als dit beleid niet is ingesteld, wordt een standaardtijdsduur gebruikt.
-
-          De beleidswaarde moet worden opgegeven in milliseconden. Waarden moeten lager zijn dan of gelijk zijn aan de inactieve vertraging.</translation>
 <translation id="7329968046053403405">Hiermee wordt het accounttype gespecificeerd van de accounts die worden geleverd door de verificatie-app voor Android die <ph name="HTTP_NEGOTIATE" />-verificatie ondersteunt (zoals Kerberos-verificatie). Deze informatie is beschikbaar via de leverancier van de verificatie-app. Ga voor meer informatie naar https://goo.gl/hajyfN.
 
           Als er geen instelling is opgegeven, wordt <ph name="HTTP_NEGOTIATE" />-verificatie uitgeschakeld voor Android.</translation>
@@ -3976,6 +4028,7 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Als dit beleid is ingesteld op 'Uploads en downloads uitstellen', werkt <ph name="PRODUCT_NAME" /> in overeenstemming met de regels die worden beschreven onder 'Downloads uitstellen' en 'Uploads uitstellen'.
       </translation>
 <translation id="7372831798009983116">De toegankelijkheidsfunctie voor automatisch klikken inschakelen</translation>
+<translation id="7373200034079131670">Opnieuw opstarten bij uitloggen gebruiker als Android of een VM is gestart.</translation>
 <translation id="737655323154569539">Hiermee beperk je de grootte van de afdrukpagina. Als er geen beleid is ingesteld of de instelling leeg is, gelden er geen beperkingen.</translation>
 <translation id="7382191643394429934">Afdrukken zowel met als zonder achtergrondbeelden toestaan</translation>
 <translation id="7389872682701720082">Als je deze instelling inschakelt, worden plug-ins altijd uitgevoerd als ze niet verouderd zijn.
@@ -3991,16 +4044,12 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 <translation id="7434202861148928348">De vereiste domeinnamen configureren voor clients voor externe toegang</translation>
 <translation id="7443616896860707393">Prompts voor algemene HTTP-authenticatie met verschillende herkomst</translation>
 <translation id="7448430478749155471">De toegankelijkheidsfunctie 'Selecteer om uitgesproken te worden' op het inlogscherm inschakelen</translation>
-<translation id="7454519673779830548">Voegt vooraf ingevulde Kerberos-accounts toe. Als de Kerberos-gegevens overeenkomen met de inloggegevens, kan een account worden geconfigureerd om de inloggegevens opnieuw te gebruiken door '${{LOGIN_EMAIL}}' en '${{PASSWORD}}' te specificeren voor respectievelijk het hoofdaccount en wachtwoord, zodat het Kerberos-ticket automatisch kan worden opgehaald, tenzij verificatie in twee stappen is geconfigureerd. Gebruikers kunnen accounts die zijn toegevoegd via dit beleid niet aanpassen.
-
-          Als dit beleid is ingeschakeld, wordt de lijst met accounts die is gespecificeerd door het beleid, toegevoegd aan de instellingen voor Kerberos-accounts.
-
-          Als dit beleid is uitgeschakeld of niet is ingesteld, worden er geen accounts toegevoegd aan de instellingen voor Kerberos-accounts en worden alle accounts verwijderd die eerder zijn toegevoegd via dit beleid. Gebruikers kunnen nog altijd handmatig accounts toevoegen als het beleid 'Gebruikers kunnen Kerberos-accounts toevoegen' is ingeschakeld.</translation>
 <translation id="7458437477941640506">Herstel de doelversie niet als de OS-versie nieuwer is dan de doelversie. Updates zijn ook uitgeschakeld.</translation>
 <translation id="7464991223784276288">Cookies van overeenkomende URL's beperken tot de huidige sessie</translation>
 <translation id="7469554574977894907">Zoeksuggesties inschakelen</translation>
 <translation id="747275827471712187">Het verouderde gedrag van <ph name="ATTRIBUTE_SAMESITE_NAME" /> voor cookies op deze sites terugzetten</translation>
 <translation id="7477231245051133709">De toegankelijkheidsfunctie voor monogeluid inschakelen</translation>
+<translation id="7477239290070847560">Op zeroconf gebaseerde (mDNS + DNS-SD) protocolbestemmingen</translation>
 <translation id="7485481791539008776">Regels voor selectie van standaardprinter</translation>
 <translation id="7485730741952775732">Als dit beleid is ingesteld, gebruikt de host voor externe toegang deze URL om verificatietokens van clients voor externe toegang te valideren om zo connecties te accepteren. Moet samen met RemoteAccessHostTokenUrl worden gebruikt.
 
@@ -4069,6 +4118,14 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
           Voor cookies op domeinen die niet overeenkomen met de hier genoemde patronen, of voor alle cookies als dit beleid niet is ingesteld, wordt de algemene standaardinstelling gebruikt op basis van het <ph name="LEGACY_SAMESITE_COOKIE_BEHAVIOR_ENABLED_POLICY_NAME" />-beleid (als dit is ingesteld), of anders op basis van de configuratie van de gebruiker.
 
           Houd er rekening mee dat de patronen die je hier opgeeft, worden behandeld als domeinen (en niet als URL's). Geef daarom geen schema of poort op.</translation>
+<translation id="7590188804371204512">Beheert de installatie van externe extensies.
+
+      Als je deze instelling inschakelt, wordt de installatie van externe extensies geblokkeerd.
+
+      Als je deze instelling uitschakelt of niet instelt, kunnen externe extensies worden geïnstalleerd.
+
+      Externe extensies en de installatie daarvan worden beschreven op https://developer.chrome.com/apps/external_extensions.
+      </translation>
 <translation id="7593523670408385997">Configureert de cachegrootte die <ph name="PRODUCT_NAME" /> gebruikt voor het opslaan van gecachte bestanden op de schijf.
 
       Als je dit beleid instelt, gebruikt <ph name="PRODUCT_NAME" /> de opgegeven cachegrootte, ongeacht of de gebruiker de markering --disk-cache-size heeft opgegeven. De waarde die in dit beleid wordt opgegeven, is geen vaste waarde maar een suggestie voor het cachesysteem. Een waarde die lager is dan een paar megabytes, is te klein en wordt afgerond naar een redelijk minimum.
@@ -4132,6 +4189,13 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
           Zie ook de beleidsregels CookiesAllowedForUrls en CookiesBlockedForUrls. Houd er rekening mee dat er geen conflicterende URL-patronen tussen deze drie beleidsregels mogen bestaan, omdat er niet wordt aangegeven welk beleid voorrang krijgt.
 
           Als het beleid RestoreOnStartup zo is ingesteld dat URL's van eerdere sessies worden hersteld, geldt dit beleid niet en worden cookies voor deze sites permanent opgeslagen.</translation>
+<translation id="7677220829878081413">
+      Als dit beleid is ingesteld op ArcSession, wordt het apparaat gedwongen opnieuw opgestart na het uitloggen van een gebruiker als Android is gestart.
+      Als dit beleid is ingesteld op ArcSessionOrVMStart, wordt het apparaat gedwongen opnieuw opgestart na het uitloggen van een gebruiker als Android of een VM is gestart.
+      Als dit beleid is ingesteld op Altijd, wordt het apparaat elke keer na het uitloggen van een gebruiker gedwongen opnieuw opgestart.
+      Als dit beleid niet wordt ingesteld, heeft het geen effect en wordt opnieuw opstarten na het uitloggen van een gebruiker niet afgedwongen. Hetzelfde is van toepassing als het beleid is ingesteld op Nooit.
+      Dit beleid is alleen van invloed op niet-gelieerde gebruikers.
+      </translation>
 <translation id="7683777542468165012">Beleid dynamisch vernieuwen</translation>
 <translation id="7687943045976362719">Als dit beleid is ingesteld, worden de opgegeven contenttypen verwerkt door <ph name="PRODUCT_FRAME_NAME" />.
 
@@ -4170,15 +4234,6 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 <translation id="7761446981238915769">De lijst met geïnstalleerde apps op het inlogscherm configureren</translation>
 <translation id="7763614521440615342">Contentsuggesties weergeven op de nieuwe tabbladpagina</translation>
 <translation id="7765879851993224640">Toestaan dat Smart Lock Signin wordt gebruikt</translation>
-<translation id="7772346342637974431">Specificeert de tijdsduur zonder gebruikersinvoer, waarna een waarschuwingsdialoogvenster wordt weergegeven wanneer op de batterij wordt gewerkt.
-
-          Wanneer dit beleid is ingesteld, specificeert het de tijdsduur dat de gebruiker inactief moet zijn voordat <ph name="PRODUCT_OS_NAME" /> een waarschuwingsdialoogvenster aan de gebruiker laat zien om aan te geven dat de actie voor inactiviteit bijna wordt uitgevoerd.
-
-          Wanneer dit beleid niet is ingesteld, wordt er geen waarschuwingsdialoogvenster weergegeven.
-
-          De beleidswaarde moet worden gespecificeerd in milliseconden. De opgegeven waarden moeten kleiner dan of gelijk aan de inactieve vertraging zijn.
-
-          Het waarschuwingsbericht wordt alleen weergegeven als de inactieve actie 'uitloggen' of 'afsluiten' is.</translation>
 <translation id="7774768074957326919">Proxyinstellingen van het systeem gebruiken</translation>
 <translation id="7777535871204167559">Externe opslagapparaten behandelen als alleen-lezen</translation>
 <translation id="7788511847830146438">Per profiel</translation>
@@ -4226,6 +4281,9 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Als je deze instelling uitschakelt, worden verouderde plug-ins niet gebruikt en wordt gebruikers niet gevraagd of ze deze willen uitvoeren.
 
       Als deze instelling niet is ingesteld, wordt gebruikers gevraagd of ze verouderde plug-ins willen uitvoeren.</translation>
+<translation id="7862137072381331997">Als dit beleid is ingeschakeld, worden alle URL's in realtime gecontroleerd met Safe Browsing.
+
+      Als dit beleid is uitgeschakeld of niet is ingesteld, worden de Safe Browsing-controles van de consument toegepast. Safe Browsing-controles van de consument kunnen nog steeds realtime lookups bevatten, afhankelijk van de voorkeur 'Zoekopdrachten en browsefunctionaliteit verbeteren'. Ga naar het beleid <ph name="URL_KEYED_ANONYMIZED_DATA_COLLECTION_ENABLED_POLICY" /> als je realtime lookups gedwongen wilt uitschakelen.</translation>
 <translation id="7863947545897944083">De toegankelijkheidsfunctie voor hoog contrast op het inlogscherm inschakelen.
 
           Als dit beleid is ingesteld op True, is hoog contrast altijd ingeschakeld op het inlogscherm.
@@ -4250,6 +4308,7 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 
           Als dit beleid is uitgeschakeld, mogen gebruikers geen Kerberos-accounts toevoegen. De accounts kunnen alleen worden toegevoegd via het beleid 'Kerberos-accounts configureren'. Dit is een effectieve manier om accounts te vergrendelen.</translation>
 <translation id="7895553628261067384">Externe toegang</translation>
+<translation id="7902040092815978832">Numeriek toetsenbord weergeven voor wachtwoord</translation>
 <translation id="7902255855035461275">Patronen in deze lijst worden vergeleken met de beveiligingsoorsprong van de aanvragende URL. Als een overeenkomst wordt gevonden, wordt toegang tot apparaten voor het vastleggen van video zonder prompt toegestaan.
 
       OPMERKING: Tot versie 45 werd dit beleid alleen ondersteund in de kioskmodus.</translation>
@@ -4324,6 +4383,11 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Deze bladwijzers worden in een map geplaatst die niet kan worden aangepast door de gebruiker. De gebruiker kan er wel voor kiezen de map te verbergen op de bladwijzerbalk. De mapnaam is standaard 'Beheerde bladwijzers'. De naam kan worden aangepast door een woordenboek met de sleutel '<ph name="TOPLEVEL_NAME" />' en de gewenste mapnaam als waarde toe te voegen aan de lijst met bladwijzers.
 
       Beheerde bladwijzers worden niet gesynchroniseerd met het gebruikersaccount en kunnen niet worden aangepast via extensies.</translation>
+<translation id="8077245272412229388">Hiermee worden vooraf ingevulde Kerberos-accounts toegevoegd. Als de Kerberos-gegevens overeenkomen met de inloggegevens, kan een account worden geconfigureerd om de inloggegevens opnieuw te gebruiken door '<ph name="LOGIN_EMAIL_PLACEHOLDER" />' en '<ph name="PASSWORD_PLACEHOLDER" />' te specificeren voor respectievelijk het hoofdaccount en wachtwoord. Hierdoor kan het Kerberos-ticket automatisch kan worden opgehaald, tenzij verificatie in twee stappen is geconfigureerd. Gebruikers kunnen accounts die zijn toegevoegd via dit beleid niet aanpassen.
+
+          Als dit beleid is ingeschakeld, wordt de lijst met accounts die is gespecificeerd door het beleid, toegevoegd aan de instellingen voor Kerberos-accounts.
+
+          Als dit beleid is uitgeschakeld of niet is ingesteld, worden er geen accounts toegevoegd aan de instellingen voor Kerberos-accounts en worden alle accounts verwijderd die eerder zijn toegevoegd via dit beleid. Gebruikers kunnen nog altijd handmatig accounts toevoegen als het beleid 'Gebruikers kunnen Kerberos-accounts toevoegen' is ingeschakeld.</translation>
 <translation id="8078366200175825572">Hiermee kun je een lijst met URL-patronen opgeven van sites waarop geen cookies mogen worden ingesteld.
 
           Als dit beleid niet wordt ingesteld, wordt de algemene standaardwaarde gebruikt voor alle sites, op basis van het beleid DefaultPluginsSetting (als dit is ingesteld) of anders op basis van de configuratie van de gebruiker.
@@ -4349,15 +4413,6 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 <translation id="8114382167597081590">'Beperkte modus' niet afdwingen op YouTube</translation>
 <translation id="8118665053362250806">Grootte voor mediaschijfcache instellen</translation>
 <translation id="8124468781472887384">Toegangsbeleid voor configuratie van apparaatprinters.</translation>
-<translation id="8135937294926049787">Hiermee wordt de tijdsduur zonder input van gebruikers gespecificeerd waarna het scherm wordt uitgeschakeld als er op netstroom wordt gewerkt.
-
-          Als dit beleid is ingesteld op een grotere waarde dan nul, specificeert het de tijd die de gebruiker inactief moet blijven voordat het scherm wordt uitgeschakeld door <ph name="PRODUCT_OS_NAME" />.
-
-          Als dit beleid is ingesteld op nul, wordt het scherm niet uitgeschakeld door <ph name="PRODUCT_OS_NAME" /> wanneer de gebruiker inactief wordt.
-
-          Als dit beleid niet is ingesteld, wordt een standaardtijdsduur gebruikt.
-
-          De beleidswaarde moet worden opgegeven in milliseconden. Waarden moet lager zijn dan of gelijk zijn aan de inactieve vertraging.</translation>
 <translation id="8138009212169037227">Met dit beleid wordt bepaald of beleidsgegevens en het tijdstip van de beleidsfetch worden gerapporteerd.
 
       Als dit beleid niet is ingesteld of op 'True' is ingesteld, worden beleidsgegevens en het tijdstip van de beleidsfetch verzameld.
@@ -4370,7 +4425,6 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 <translation id="8141795997560411818">Met dit beleid wordt niet voorkomen dat gebruiker de Google Drive-app voor Android gebruikt. Als je de toegang tot Google Drive wilt blokkeren, moet je ook de installatie van de Google Drive-app voor Android blokkeren.</translation>
 <translation id="8142894094385450823">Instellen van de aanbevolen landinstellingen voor een beheerde sessie</translation>
 <translation id="8146727383888924340">Gebruikers toestaan aanbiedingen in te wisselen via registratie van Chrome OS</translation>
-<translation id="8148785525797916822">Hiermee wordt de waarschuwing genegeerd die wordt weergegeven wanneer <ph name="PRODUCT_NAME" /> wordt uitgevoerd op een computer die of besturingssysteem dat niet meer wordt ondersteund.</translation>
 <translation id="8148901634826284024">De toegankelijkheidsfunctie Modus voor hoog contrast inschakelen.
 
           Als dit beleid op 'True' is ingesteld, is de modus voor hoog contrast altijd ingeschakeld.
@@ -4650,6 +4704,17 @@ Als dit beleid niet is ingesteld, worden er geen beperkingen toegepast en kan de
       Door dit beleid wordt de kop X-GoogApps-Allowed-Domains toegevoegd aan alle HTTP- en HTTPS-verzoeken voor alle google.com-domeinen, zoals beschreven in https://support.google.com/a/answer/1668854.
 
       Gebruikers kunnen deze instelling niet wijzigen of overschrijven.</translation>
+<translation id="8618139576368821933">Dit beleid is beëindigd en wordt verwijderd in <ph name="PRODUCT_OS_NAME" /> versie 82. Gebruik in plaats daarvan <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />.
+
+          Specificeert de tijdsduur zonder gebruikersinvoer, waarna het scherm wordt gedimd als er op netstroom wordt gewerkt.
+
+          Als dit beleid is ingesteld op een waarde groter dan nul, wordt hiermee de tijd aangegeven dat de gebruiker inactief moet zijn voordat het scherm door <ph name="PRODUCT_OS_NAME" /> wordt gedimd.
+
+          Als dit beleid is ingesteld op nul, wordt het scherm niet door <ph name="PRODUCT_OS_NAME" /> gedimd wanneer de gebruiker inactief is.
+
+          Als dit beleid niet is ingesteld, wordt er een standaard tijdsduur gebruikt.
+
+          De beleidswaarde moet worden gespecificeerd in milliseconden. De opgegeven waarden moeten kleiner dan of gelijk zijn aan de vertraging van de uitschakeling van het scherm (indien ingesteld) en van de inactieve vertraging.</translation>
 <translation id="8625234016727663537">Hiermee kun je een lijst met URL's instellen die aangeven welke sites automatisch toegang krijgen tot een USB-apparaat met de opgegeven leverancier- en product-ID's op het inlogscherm. Het beleid is alleen geldig als elk item in de lijst zowel apparaten als URL's bevat. Elk item in apparaten kan een veld voor leverancier-ID en een veld voor product-ID bevatten. Een ID die is weggelaten, wordt als jokerteken behandeld, met één uitzondering: er mag geen product-ID worden opgegeven zonder dat er ook een leverancier-ID is opgegeven. Anders is het beleid niet geldig. Ongeldige beleidswaarden worden genegeerd.
 
         Het USB-rechtenmodel gebruikt de URL van de site die de aanvraag indient ('aanvragende URL') en de URL van de framesite op hoofdniveau ('insluitings-URL') om de aanvragende URL toegang te geven tot het USB-apparaat. Als de aanvragende site in een iframe wordt geladen, is het mogelijk dat de aanvragende URL en de insluitings-URL niet hetzelfde zijn. Daarom kan het veld voor URL's maximaal twee, door een komma gescheiden URL-tekenreeksen bevatten om respectievelijk de aanvragende URL en insluitings-URL op te geven. Als er slechts één URL wordt opgegeven, wordt toegang tot de bijbehorende USB-apparaten gegeven als de URL van de aanvragende site overeenkomt met deze URL, ongeacht de insluitingsstatus. De URL's in het veld voor URL's moeten geldig zijn. Als dit niet het geval is, wordt het beleid genegeerd.
@@ -4672,6 +4737,7 @@ Als dit beleid niet is ingesteld, worden er geen beperkingen toegepast en kan de
 <translation id="8672321184841719703">Doelversie voor automatische updates</translation>
 <translation id="867410340948518937">U2F (Universal Second Factor)</translation>
 <translation id="8685024486845674965">Waarschuwing voor wachtwoordbeveiliging wordt geactiveerd bij hergebruik van een wachtwoord</translation>
+<translation id="8687958770985542440">Web Components v0 API opnieuw inschakelen tot M84.</translation>
 <translation id="8693243869659262736">Ingebouwde DNS-client gebruiken</translation>
 <translation id="8698286761337647563">Hoeveel dagen van tevoren SAML-gebruikers bericht ontvangen dat hun wachtwoord bijna verloopt</translation>
 <translation id="8703488928438047864">Boardstatus rapporteren</translation>
@@ -4702,6 +4768,17 @@ Als dit beleid niet is ingesteld, worden er geen beperkingen toegepast en kan de
       Als deze instelling is ingeschakeld of niet is ingesteld, kunnen de browsergeschiedenis en downloadgeschiedenis worden verwijderd.
 
       Als deze instelling is uitgeschakeld, kunnen de browsergeschiedenis en downloadgeschiedenis niet worden verwijderd.</translation>
+<translation id="8752541111574086388">Dit beleid is beëindigd en wordt verwijderd in <ph name="PRODUCT_OS_NAME" /> versie 82. Gebruik in plaats daarvan <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />.
+
+          Specificeert de tijdsduur zonder gebruikersinvoer, waarna een waarschuwingsdialoogvenster wordt weergegeven als er op de batterij wordt gewerkt.
+
+          Als dit beleid is ingesteld, specificeert het de tijdsduur dat de gebruiker inactief moet zijn voordat <ph name="PRODUCT_OS_NAME" /> een waarschuwingsdialoogvenster laat zien om aan te geven dat de actie voor inactiviteit bijna wordt uitgevoerd.
+
+          Als dit beleid niet is ingesteld, wordt er geen waarschuwingsdialoogvenster weergegeven.
+
+          De beleidswaarde moet worden gespecificeerd in milliseconden. De opgegeven waarden moeten kleiner dan of gelijk zijn aan de inactieve vertraging.
+
+          Het waarschuwingsbericht wordt alleen weergegeven als de inactieve actie 'uitloggen' of 'afsluiten' is.</translation>
 <translation id="8757552286070680084">Wilco DTC-configuratie</translation>
 <translation id="8758831693895931466">Verplichte inschrijving voor cloudbeheer inschakelen</translation>
 <translation id="8759829385824155666">Toegestane Kerberos-versleutelingstypen</translation>
@@ -4787,20 +4864,27 @@ Als dit beleid niet is ingesteld, worden er geen beperkingen toegepast en kan de
 <translation id="8908294717014659003">Hiermee kun je instellen of websites toegang mogen krijgen tot media-opnameapparaten. Toegang tot media-opnameapparaten kan standaard worden toegestaan of de gebruiker kan elke keer om toestemming worden gevraagd wanneer een website toegang wil hebben tot media-opnameapparaten.
 
           Als dit beleid niet is ingesteld, wordt 'PromptOnAccess' gebruikt en kan de gebruiker dit wijzigen.</translation>
-<translation id="8909280293285028130">Hiermee wordt de tijdsduur zonder input van gebruikers gespecificeerd waarna het scherm wordt vergrendeld als er op netstroom wordt gewerkt.
-
-          Als dit beleid is ingesteld op een grotere waarde dan nul, specificeert het de tijd die de gebruiker inactief moet blijven voordat het scherm wordt vergrendeld door <ph name="PRODUCT_OS_NAME" />.
-
-          Als dit beleid is ingesteld op nul, wordt het scherm niet vergrendeld door <ph name="PRODUCT_OS_NAME" /> wanneer de gebruiker inactief wordt.
-
-          Als dit beleid niet is ingesteld, wordt een standaardtijdsduur gebruikt.
-
-          De aanbevolen manier om het scherm bij inactiviteit te vergrendelen is door schermvergrendeling bij onderbreking in te schakelen en <ph name="PRODUCT_OS_NAME" /> te onderbreken na de inactieve vertraging. Dit beleid mag alleen worden gebruikt wanneer schermvergrendeling veel eerder voorkomt dan onderbreking of wanneer onderbreking bij inactiviteit helemaal niet gewenst is.
-
-          De beleidswaarde moet worden opgegeven in milliseconden. Waarden moeten lager zijn dan de inactieve vertraging.</translation>
 <translation id="8911348623012274122">Geheugenlimiet instellen voor Chrome-instanties</translation>
 <translation id="891435090623616439">gecodeerd als een JSON-tekenreeks. Ga voor meer informatie naar <ph name="COMPLEX_POLICIES_URL" /></translation>
 <translation id="8917070657147922192">Gebruikers toestaan geïnstalleerde CA-certificaten te beheren.</translation>
+<translation id="8926275581598789324">Dit beleid is beëindigd en wordt verwijderd in <ph name="PRODUCT_OS_NAME" /> versie 82. Gebruik in plaats daarvan <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />.
+
+          Specificeert de tijdsduur zonder gebruikersinvoer, waarna de actie voor inactiviteit wordt uitgevoerd als op de batterij wordt gewerkt.
+
+          Als dit beleid is ingesteld, specificeert het de tijdsduur dat de gebruiker inactief moet zijn voordat <ph name="PRODUCT_OS_NAME" /> de actie voor inactiviteit uitvoert. Dit kan afzonderlijk worden geconfigureerd.
+
+          Als dit beleid niet is ingesteld, wordt er een standaard tijdsduur gebruikt.
+
+          De beleidswaarde moet worden gespecificeerd in milliseconden.</translation>
+<translation id="8929997566627164343">Dit beleid is beëindigd en wordt verwijderd in <ph name="PRODUCT_OS_NAME" /> versie 82. Gebruik in plaats daarvan <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />.
+
+          Specificeert de tijdsduur zonder gebruikersinvoer, waarna de actie voor inactiviteit wordt uitgevoerd als er op netstroom wordt gewerkt.
+
+          Als dit beleid is ingesteld, specificeert het de tijdsduur dat de gebruiker inactief moet zijn voordat <ph name="PRODUCT_OS_NAME" /> de actie voor inactiviteit uitvoert. Dit kan afzonderlijk worden geconfigureerd.
+
+          Als dit beleid niet is ingesteld, wordt er een standaard tijdsduur gebruikt.
+
+          De beleidswaarde moet worden gespecificeerd in milliseconden.</translation>
 <translation id="8934944553121392674">Hiermee wordt beheerd welke printers uit <ph name="DEVICE_PRINTERS_POLICY" /> beschikbaar zijn voor gebruikers.
 
       Hiermee wordt aangegeven welk toegangsbeleid wordt gebruikt voor bulksgewijze printerconfiguratie. Als <ph name="PRINTERS_ALLOW_ALL" /> is geselecteerd, worden alle printers weergegeven. Als <ph name="PRINTERS_BLACKLIST" /> is geselecteerd, wordt <ph name="DEVICE_PRINTERS_BLACKLIST" /> gebruikt om de toegang tot de opgegeven printers te beperken. Als <ph name="PRINTERS_WHITELIST" /> is geselecteerd, geeft <ph name="DEVICE_PRINTERS_WHITELIST" /> alleen die printers aan die kunnen worden geselecteerd.
@@ -5011,15 +5095,6 @@ Als dit beleid niet is ingesteld, worden er geen beperkingen toegepast en kan de
 <translation id="9217154963008402249">Frequentie van netwerkpakketten voor bijhouden</translation>
 <translation id="922540222991413931">Installatiebronnen voor het configureren van extensies, apps en gebruikersscripts</translation>
 <translation id="924557436754151212">Opgeslagen wachtwoorden importeren uit standaardbrowser bij eerste uitvoering</translation>
-<translation id="926146562923985266">Met dit beleid wordt bepaald welke opdracht wordt gebruik om URL's te openen in <ph name="PRODUCT_NAME" /> bij overschakeling vanaf Internet Explorer.
-
-      Als de add-in 'Ondersteuning voor oudere browsers' voor Internet Explorer niet is geïnstalleerd, heeft dit beleid geen effect.
-
-      Als dit beleid niet is ingesteld, detecteert Internet Explorer automatisch het eigen uitvoerbare pad van <ph name="PRODUCT_NAME" /> wanneer <ph name="PRODUCT_NAME" /> wordt gestart via Internet Explorer.
-
-      Als dit beleid is ingesteld, wordt het gebruikt om <ph name="PRODUCT_NAME" /> te starten wanneer <ph name="PRODUCT_NAME" /> wordt gestart via Internet Explorer.
-
-      Dit beleid kan worden ingesteld op een pad naar een uitvoerbaar bestand of op ${chrome} om de installatielocatie van Chrome automatisch te detecteren.</translation>
 <translation id="930930237275114205">Directory met gebruikersgegevens voor <ph name="PRODUCT_FRAME_NAME" /> instellen</translation>
 <translation id="943865157632139008">Hiermee kun je het standaard html-weergaveprogramma configureren wanneer <ph name="PRODUCT_FRAME_NAME" /> is geïnstalleerd.
       De standaardinstelling is om de hostbrowser de weergave te laten regelen, maar je kunt dit aanpassen en <ph name="PRODUCT_FRAME_NAME" /> html-pagina's standaard laten weergeven.</translation>
@@ -5028,7 +5103,17 @@ Als dit beleid niet is ingesteld, worden er geen beperkingen toegepast en kan de
 <translation id="966854160628341653">Bepaalt of <ph name="PRODUCT_OS_NAME" /> het maken van nieuwe gebruikersaccounts toestaat. Als dit beleid is ingesteld op 'false', kunnen gebruikers die nog geen account hebben inloggen.
 
       Als dit beleid is ingesteld op 'true' of niet is geconfigureerd, kunnen er nieuwe gebruikersaccounts worden gemaakt, mits <ph name="DEVICE_USER_WHITELIST_POLICY_NAME" /> de gebruiker toestaat in te loggen.</translation>
+<translation id="974349541138387272">URI-template van gewenste DNS-over-HTTPS-resolver opgeven</translation>
 <translation id="981346395360763138">Locatieservices van Google uitgeschakeld</translation>
 <translation id="982497069985795632">Spellingcontrole inschakelen</translation>
 <translation id="991560005425213776">Gebruikersnaam en bestandsnaam naar systeemeigen printers verzenden</translation>
+<translation id="99232017131102456">Met dit beleid configureer je één globale cache per profiel met HTTP-serververificatiegegevens.
+
+      Als dit beleid niet is ingesteld of is uitgeschakeld, gebruikt de browser het standaardgedrag van verificatie voor meerdere sites (cross-site auth), die HTTP-serververificatiegegevens vanaf versie 80 per hoofddomeinsite in kaart brengt. Dit betekent dat als twee sites bronnen van hetzelfde verificatiedomein gebruiken, de verificatiegegevens onafhankelijk van elkaar moeten worden doorgegeven binnen de context van beide sites. Proxy-gegevens in het cachegeheugen worden hergebruikt op de andere sites.
+
+      Als dit beleid is ingeschakeld, worden HTTP-verificatiegegevens die binnen de context van één site worden opgegeven, automatisch gebruikt binnen de context van een andere site.
+
+      Als dit beleid wordt ingeschakeld, blijven sites blootstaan aan bepaalde typen cross-site aanvallen en kunnen gebruikers ook zonder gebruik van cookies van site naar site worden gevolgd door het toevoegen van items aan de HTTP-verificatiecache via gegevens die zijn ingesloten in URL's.
+
+      Dit beleid is bedoeld om bedrijven die afhankelijk zijn van het oude gedrag in de gelegenheid te stellen hun inlogprocedures te updaten. Het beleid wordt in de toekomst verwijderd.</translation>
 </translationbundle>

@@ -34,25 +34,25 @@ CookieSettings::CookieSettings(
   pref_change_registrar_.Init(prefs);
   pref_change_registrar_.Add(
       prefs::kBlockThirdPartyCookies,
-      base::Bind(&CookieSettings::OnCookiePreferencesChanged,
-                 base::Unretained(this)));
+      base::BindRepeating(&CookieSettings::OnCookiePreferencesChanged,
+                          base::Unretained(this)));
   pref_change_registrar_.Add(
       prefs::kCookieControlsMode,
-      base::Bind(&CookieSettings::OnCookiePreferencesChanged,
-                 base::Unretained(this)));
+      base::BindRepeating(&CookieSettings::OnCookiePreferencesChanged,
+                          base::Unretained(this)));
   OnCookiePreferencesChanged();
 }
 
 ContentSetting CookieSettings::GetDefaultCookieSetting(
     std::string* provider_id) const {
   return host_content_settings_map_->GetDefaultContentSetting(
-      CONTENT_SETTINGS_TYPE_COOKIES, provider_id);
+      ContentSettingsType::COOKIES, provider_id);
 }
 
 void CookieSettings::GetCookieSettings(
     ContentSettingsForOneType* settings) const {
   host_content_settings_map_->GetSettingsForOneType(
-      CONTENT_SETTINGS_TYPE_COOKIES, std::string(), settings);
+      ContentSettingsType::COOKIES, std::string(), settings);
 }
 
 void CookieSettings::RegisterProfilePrefs(
@@ -71,20 +71,20 @@ void CookieSettings::RegisterProfilePrefs(
 void CookieSettings::SetDefaultCookieSetting(ContentSetting setting) {
   DCHECK(IsValidSetting(setting));
   host_content_settings_map_->SetDefaultContentSetting(
-      CONTENT_SETTINGS_TYPE_COOKIES, setting);
+      ContentSettingsType::COOKIES, setting);
 }
 
 void CookieSettings::SetCookieSetting(const GURL& primary_url,
                                       ContentSetting setting) {
   DCHECK(IsValidSetting(setting));
   host_content_settings_map_->SetContentSettingDefaultScope(
-      primary_url, GURL(), CONTENT_SETTINGS_TYPE_COOKIES, std::string(),
+      primary_url, GURL(), ContentSettingsType::COOKIES, std::string(),
       setting);
 }
 
 void CookieSettings::ResetCookieSetting(const GURL& primary_url) {
   host_content_settings_map_->SetNarrowestContentSetting(
-      primary_url, GURL(), CONTENT_SETTINGS_TYPE_COOKIES,
+      primary_url, GURL(), ContentSettingsType::COOKIES,
       CONTENT_SETTING_DEFAULT);
 }
 
@@ -100,16 +100,14 @@ void CookieSettings::SetThirdPartyCookieSetting(const GURL& first_party_url,
   host_content_settings_map_->SetContentSettingCustomScope(
       ContentSettingsPattern::Wildcard(),
       ContentSettingsPattern::FromURLNoWildcard(first_party_url),
-      ContentSettingsType::CONTENT_SETTINGS_TYPE_COOKIES, std::string(),
-      setting);
+      ContentSettingsType::COOKIES, std::string(), setting);
 }
 
 void CookieSettings::ResetThirdPartyCookieSetting(const GURL& first_party_url) {
   host_content_settings_map_->SetContentSettingCustomScope(
       ContentSettingsPattern::Wildcard(),
       ContentSettingsPattern::FromURLNoWildcard(first_party_url),
-      ContentSettingsType::CONTENT_SETTINGS_TYPE_COOKIES, std::string(),
-      CONTENT_SETTING_DEFAULT);
+      ContentSettingsType::COOKIES, std::string(), CONTENT_SETTING_DEFAULT);
 }
 
 bool CookieSettings::IsStorageDurable(const GURL& origin) const {
@@ -117,7 +115,7 @@ bool CookieSettings::IsStorageDurable(const GURL& origin) const {
   // https://crbug.com/539538
   ContentSetting setting = host_content_settings_map_->GetContentSetting(
       origin /*primary*/, origin /*secondary*/,
-      CONTENT_SETTINGS_TYPE_DURABLE_STORAGE,
+      ContentSettingsType::DURABLE_STORAGE,
       std::string() /*resource_identifier*/);
   return setting == CONTENT_SETTING_ALLOW;
 }
@@ -133,13 +131,38 @@ void CookieSettings::GetSettingForLegacyCookieAccess(
       cookie_domain, false /* secure scheme */);
 
   *setting = host_content_settings_map_->GetContentSetting(
-      cookie_domain_url, GURL(), CONTENT_SETTINGS_TYPE_LEGACY_COOKIE_ACCESS,
+      cookie_domain_url, GURL(), ContentSettingsType::LEGACY_COOKIE_ACCESS,
       std::string() /* resource_identifier */);
+}
+
+bool CookieSettings::ShouldIgnoreSameSiteRestrictions(
+    const GURL& url,
+    const GURL& site_for_cookies) const {
+  return site_for_cookies.SchemeIs(kChromeUIScheme) &&
+         url.SchemeIsCryptographic();
 }
 
 void CookieSettings::ShutdownOnUIThread() {
   DCHECK(thread_checker_.CalledOnValidThread());
   pref_change_registrar_.RemoveAll();
+}
+
+bool CookieSettings::ShouldAlwaysAllowCookies(
+    const GURL& url,
+    const GURL& first_party_url) const {
+  if (first_party_url.SchemeIs(kChromeUIScheme) &&
+      url.SchemeIsCryptographic()) {
+    return true;
+  }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  if (url.SchemeIs(extension_scheme_) &&
+      first_party_url.SchemeIs(extension_scheme_)) {
+    return true;
+  }
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
+  return false;
 }
 
 void CookieSettings::GetCookieSettingInternal(
@@ -149,26 +172,17 @@ void CookieSettings::GetCookieSettingInternal(
     content_settings::SettingSource* source,
     ContentSetting* cookie_setting) const {
   DCHECK(cookie_setting);
-  // Auto-allow in extensions or for WebUI embedded in a secure origin.
-  if (first_party_url.SchemeIs(kChromeUIScheme) &&
-      url.SchemeIsCryptographic()) {
+  // Auto-allow in extensions or for WebUI embedding a secure origin.
+  if (ShouldAlwaysAllowCookies(url, first_party_url)) {
     *cookie_setting = CONTENT_SETTING_ALLOW;
     return;
   }
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  if (url.SchemeIs(extension_scheme_) &&
-      first_party_url.SchemeIs(extension_scheme_)) {
-    *cookie_setting = CONTENT_SETTING_ALLOW;
-    return;
-  }
-#endif
 
   // First get any host-specific settings.
   SettingInfo info;
   std::unique_ptr<base::Value> value =
       host_content_settings_map_->GetWebsiteSetting(
-          url, first_party_url, CONTENT_SETTINGS_TYPE_COOKIES, std::string(),
+          url, first_party_url, ContentSettingsType::COOKIES, std::string(),
           &info);
   if (source)
     *source = info.source;

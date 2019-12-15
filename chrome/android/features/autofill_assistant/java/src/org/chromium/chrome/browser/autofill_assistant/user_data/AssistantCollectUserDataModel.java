@@ -5,10 +5,12 @@
 package org.chromium.chrome.browser.autofill_assistant.user_data;
 
 import android.support.annotation.Nullable;
+import android.view.View;
 
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
+import org.chromium.chrome.browser.autofill_assistant.AssistantInfoPopup;
 import org.chromium.chrome.browser.autofill_assistant.user_data.additional_sections.AssistantAdditionalSectionFactory;
 import org.chromium.chrome.browser.autofill_assistant.user_data.additional_sections.AssistantStaticTextSection;
 import org.chromium.chrome.browser.autofill_assistant.user_data.additional_sections.AssistantTextInputSection;
@@ -18,13 +20,11 @@ import org.chromium.chrome.browser.payments.AutofillAddress;
 import org.chromium.chrome.browser.payments.AutofillContact;
 import org.chromium.chrome.browser.payments.AutofillPaymentInstrument;
 import org.chromium.content_public.browser.WebContents;
-import org.chromium.payments.mojom.PaymentMethodData;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 /**
  * State for the header of the Autofill Assistant.
@@ -33,6 +33,31 @@ import java.util.Map;
 public class AssistantCollectUserDataModel extends PropertyModel {
     // TODO(crbug.com/806868): add |setAvailableProfiles| and |setAvailablePaymentMethods| from
     // native. Implement |setShippingAddress|, |setContactDetails| and |setPaymentMethod|.
+
+    /**
+     * This class holds a the credit card and billing address information required to create an
+     * AutofillPaymentInstrument
+     */
+    public static class PaymentTuple {
+        private final PersonalDataManager.CreditCard mCreditCard;
+        @Nullable
+        private final PersonalDataManager.AutofillProfile mBillingAddress;
+
+        public PaymentTuple(PersonalDataManager.CreditCard creditCard,
+                @Nullable PersonalDataManager.AutofillProfile billingAddress) {
+            mCreditCard = creditCard;
+            mBillingAddress = billingAddress;
+        }
+
+        public PersonalDataManager.CreditCard getCreditCard() {
+            return mCreditCard;
+        }
+
+        @Nullable
+        public PersonalDataManager.AutofillProfile getBillingAddress() {
+            return mBillingAddress;
+        }
+    }
 
     public static final WritableObjectPropertyKey<AssistantCollectUserDataDelegate> DELEGATE =
             new WritableObjectPropertyKey<>();
@@ -87,15 +112,11 @@ public class AssistantCollectUserDataModel extends PropertyModel {
     public static final WritableObjectPropertyKey<List<PersonalDataManager.AutofillProfile>>
             AVAILABLE_PROFILES = new WritableObjectPropertyKey<>();
 
-    public static final WritableObjectPropertyKey<List<AutofillPaymentInstrument>>
+    public static final WritableObjectPropertyKey<List<AssistantCollectUserDataModel.PaymentTuple>>
             AVAILABLE_AUTOFILL_PAYMENT_METHODS = new WritableObjectPropertyKey<>();
 
     public static final WritableObjectPropertyKey<List<String>> SUPPORTED_BASIC_CARD_NETWORKS =
             new WritableObjectPropertyKey<>();
-
-    /** The available payment methods, e.g., |BASIC_CARD_METHOD_NAME|. */
-    public static final WritableObjectPropertyKey<Map<String, PaymentMethodData>>
-            SUPPORTED_PAYMENT_METHODS = new WritableObjectPropertyKey<>();
 
     /** The available login choices. */
     public static final WritableObjectPropertyKey<List<AssistantLoginChoice>> AVAILABLE_LOGINS =
@@ -138,17 +159,20 @@ public class AssistantCollectUserDataModel extends PropertyModel {
     public static final WritableObjectPropertyKey<String> THIRDPARTY_PRIVACY_NOTICE_TEXT =
             new WritableObjectPropertyKey<>();
 
+    public static final WritableObjectPropertyKey<View> GENERIC_USER_INTERFACE =
+            new WritableObjectPropertyKey<>();
+
     public AssistantCollectUserDataModel() {
         super(DELEGATE, WEB_CONTENTS, VISIBLE, SHIPPING_ADDRESS, PAYMENT_METHOD, CONTACT_DETAILS,
                 LOGIN_SECTION_TITLE, SELECTED_LOGIN, TERMS_STATUS, DEFAULT_EMAIL, REQUEST_NAME,
                 REQUEST_EMAIL, REQUEST_PHONE, REQUEST_SHIPPING_ADDRESS, REQUEST_PAYMENT,
                 ACCEPT_TERMS_AND_CONDITIONS_TEXT, SHOW_TERMS_AS_CHECKBOX, REQUEST_LOGIN_CHOICE,
                 AVAILABLE_PROFILES, AVAILABLE_AUTOFILL_PAYMENT_METHODS,
-                SUPPORTED_BASIC_CARD_NETWORKS, SUPPORTED_PAYMENT_METHODS, AVAILABLE_LOGINS,
-                EXPANDED_SECTION, REQUIRE_BILLING_POSTAL_CODE, BILLING_POSTAL_CODE_MISSING_TEXT,
-                REQUEST_DATE_RANGE, DATE_RANGE_START, DATE_RANGE_START_LABEL, DATE_RANGE_END,
-                DATE_RANGE_END_LABEL, PREPENDED_SECTIONS, APPENDED_SECTIONS,
-                TERMS_REQUIRE_REVIEW_TEXT, THIRDPARTY_PRIVACY_NOTICE_TEXT);
+                SUPPORTED_BASIC_CARD_NETWORKS, AVAILABLE_LOGINS, EXPANDED_SECTION,
+                REQUIRE_BILLING_POSTAL_CODE, BILLING_POSTAL_CODE_MISSING_TEXT, REQUEST_DATE_RANGE,
+                DATE_RANGE_START, DATE_RANGE_START_LABEL, DATE_RANGE_END, DATE_RANGE_END_LABEL,
+                PREPENDED_SECTIONS, APPENDED_SECTIONS, TERMS_REQUIRE_REVIEW_TEXT,
+                THIRDPARTY_PRIVACY_NOTICE_TEXT, GENERIC_USER_INTERFACE);
 
         /**
          * Set initial state for basic type properties (others are implicitly null).
@@ -248,12 +272,6 @@ public class AssistantCollectUserDataModel extends PropertyModel {
     @CalledByNative
     private void setDelegate(AssistantCollectUserDataDelegate delegate) {
         set(DELEGATE, delegate);
-    }
-
-    /** Creates a simple info popup with a title and some text. */
-    @CalledByNative
-    private static AssistantInfoPopup createInfoPopup(String title, String text) {
-        return new AssistantInfoPopup(title, text);
     }
 
     /** Creates an empty list of login options. */
@@ -370,5 +388,46 @@ public class AssistantCollectUserDataModel extends PropertyModel {
     @CalledByNative
     private void setDefaultEmail(String email) {
         set(DEFAULT_EMAIL, email);
+    }
+
+    @CalledByNative
+    private static List<PersonalDataManager.AutofillProfile> createAutofillProfileList() {
+        return new ArrayList<>();
+    }
+
+    @CalledByNative
+    private static void addAutofillProfile(List<PersonalDataManager.AutofillProfile> profiles,
+            PersonalDataManager.AutofillProfile profile) {
+        profiles.add(profile);
+    }
+
+    @CalledByNative
+    private void setAutofillProfiles(List<PersonalDataManager.AutofillProfile> profiles) {
+        set(AVAILABLE_PROFILES, profiles);
+    }
+
+    @CalledByNative
+    private static List<AssistantCollectUserDataModel.PaymentTuple>
+    createAutofillPaymentMethodList() {
+        return new ArrayList<>();
+    }
+
+    @CalledByNative
+    private static void addAutofillPaymentMethod(
+            List<AssistantCollectUserDataModel.PaymentTuple> paymentTuples,
+            PersonalDataManager.CreditCard card,
+            @Nullable PersonalDataManager.AutofillProfile billingAddress) {
+        paymentTuples.add(new PaymentTuple(card, billingAddress));
+    }
+
+    @CalledByNative
+    private void setAutofillPaymentMethods(
+            List<AssistantCollectUserDataModel.PaymentTuple> paymentTuples) {
+        set(AVAILABLE_AUTOFILL_PAYMENT_METHODS, paymentTuples);
+    }
+
+    @CalledByNative
+    private void setGenericUserInterface(@Nullable View userInterface) {
+        set(GENERIC_USER_INTERFACE, userInterface);
     }
 }

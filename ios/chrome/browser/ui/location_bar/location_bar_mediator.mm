@@ -7,6 +7,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "components/omnibox/browser/location_bar_model.h"
+#include "components/security_state/ios/security_state_utils.h"
 #include "ios/chrome/browser/chrome_url_constants.h"
 #import "ios/chrome/browser/overlays/public/overlay_presenter.h"
 #import "ios/chrome/browser/overlays/public/overlay_presenter_observer_bridge.h"
@@ -15,7 +16,6 @@
 #import "ios/chrome/browser/overlays/public/web_content_area/http_auth_overlay.h"
 #import "ios/chrome/browser/search_engines/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/search_engines/search_engines_util.h"
-#include "ios/chrome/browser/ssl/ios_security_state_tab_helper.h"
 #import "ios/chrome/browser/ui/location_bar/location_bar_consumer.h"
 #import "ios/chrome/browser/ui/ntp/ntp_util.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_util.h"
@@ -24,6 +24,7 @@
 #import "ios/chrome/browser/web_state_list/web_state_list_observer_bridge.h"
 #import "ios/chrome/grit/ios_strings.h"
 #include "ios/chrome/grit/ios_theme_resources.h"
+#import "ios/web/common/origin_util.h"
 #include "ios/web/public/navigation/navigation_item.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #include "ios/web/public/security/ssl_status.h"
@@ -320,8 +321,15 @@
     return [self imageForOfflinePage];
   }
 
-  return GetLocationBarSecurityIconForSecurityState(
-      self.locationBarModel->GetSecurityLevel());
+  security_state::SecurityLevel securityLevel =
+      self.locationBarModel->GetSecurityLevel();
+
+  bool shouldDowngrade = security_state::ShouldDowngradeNeutralStyling(
+      securityLevel, self.locationBarModel->GetURL(),
+      base::BindRepeating(&web::IsOriginSecure));
+
+  return GetLocationBarSecurityIconForSecurityState(securityLevel,
+                                                    shouldDowngrade);
 }
 
 // Returns a location icon for offline pages.

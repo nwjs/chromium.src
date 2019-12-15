@@ -71,7 +71,6 @@
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_error_job.h"
-#include "net/url_request/url_request_http_job_histogram.h"
 #include "net/url_request/url_request_job_factory.h"
 #include "net/url_request/url_request_redirect_job.h"
 #include "net/url_request/url_request_throttler_manager.h"
@@ -152,88 +151,6 @@ void RecordCTHistograms(const net::SSLInfo& ssl_info) {
         ssl_info.ct_policy_compliance,
         net::ct::CTPolicyCompliance::CT_POLICY_COUNT);
   }
-}
-
-net::CookieNetworkSecurity HistogramEntryForCookie(
-    const net::CanonicalCookie& cookie,
-    const net::URLRequest& request,
-    const net::HttpRequestInfo& request_info) {
-  if (!request_info.url.SchemeIsCryptographic()) {
-    return net::CookieNetworkSecurity::k1pNonsecureConnection;
-  }
-
-  if (cookie.IsSecure()) {
-    return net::CookieNetworkSecurity::k1pSecureAttribute;
-  }
-
-  net::TransportSecurityState* transport_security_state =
-      request.context()->transport_security_state();
-  net::TransportSecurityState::STSState sts_state;
-  const std::string cookie_domain =
-      cookie.IsHostCookie() ? request.url().host() : cookie.Domain().substr(1);
-  const bool hsts =
-      transport_security_state->GetSTSState(cookie_domain, &sts_state) &&
-      sts_state.ShouldUpgradeToSSL();
-  if (!hsts) {
-    return net::CookieNetworkSecurity::k1pSecureConnection;
-  }
-
-  if (cookie.IsHostCookie()) {
-    if (cookie.IsPersistent() && sts_state.expiry >= cookie.ExpiryDate()) {
-      return net::CookieNetworkSecurity::k1pHSTSHostCookie;
-    } else {
-      // Session cookies are assumed to live forever.
-      return net::CookieNetworkSecurity::k1pExpiringHSTSHostCookie;
-    }
-  }
-
-  // Domain cookies require HSTS to include subdomains to prevent spoofing.
-  if (sts_state.include_subdomains) {
-    if (cookie.IsPersistent() && sts_state.expiry >= cookie.ExpiryDate()) {
-      return net::CookieNetworkSecurity::k1pHSTSSubdomainsIncluded;
-    } else {
-      // Session cookies are assumed to live forever.
-      return net::CookieNetworkSecurity::k1pExpiringHSTSSubdomainsIncluded;
-    }
-  }
-
-  return net::CookieNetworkSecurity::k1pHSTSSpoofable;
-}
-
-void LogCookieUMA(const net::CookieList& cookie_list,
-                  const net::URLRequest& request,
-                  const net::HttpRequestInfo& request_info) {
-  const bool secure_request = request_info.url.SchemeIsCryptographic();
-  const bool same_site = net::registry_controlled_domains::SameDomainOrHost(
-      request.url(), request.site_for_cookies(),
-      net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
-
-  const base::Time now = base::Time::Now();
-  base::Time oldest = base::Time::Max();
-  for (const auto& cookie : cookie_list) {
-    const std::string histogram_name =
-        std::string("Cookie.AllAgesFor") +
-        (secure_request ? "Secure" : "NonSecure") +
-        (same_site ? "SameSite" : "CrossSite") + "Request";
-    const int age_in_days = (now - cookie.CreationDate()).InDays();
-    base::UmaHistogramCounts1000(histogram_name, age_in_days);
-    oldest = std::min(cookie.CreationDate(), oldest);
-
-    net::CookieNetworkSecurity entry =
-        HistogramEntryForCookie(cookie, request, request_info);
-    if (!same_site) {
-      entry =
-          static_cast<net::CookieNetworkSecurity>(static_cast<int>(entry) | 1);
-    }
-    UMA_HISTOGRAM_ENUMERATION("Cookie.NetworkSecurity", entry,
-                              net::CookieNetworkSecurity::kCount);
-  }
-
-  const std::string histogram_name =
-      std::string("Cookie.AgeFor") + (secure_request ? "Secure" : "NonSecure") +
-      (same_site ? "SameSite" : "CrossSite") + "Request";
-  const int age_in_days = (now - oldest).InDays();
-  base::UmaHistogramCounts1000(histogram_name, age_in_days);
 }
 
 }  // namespace
@@ -358,10 +275,10 @@ void URLRequestHttpJob::Start() {
   // instance WebCore::FrameLoader::HideReferrer.
   if (referrer.is_valid()) {
     std::string referer_value = referrer.spec();
-    UMA_HISTOGRAM_COUNTS_10000("Referrer.HeaderLength", referer_value.length());
-    if (base::FeatureList::IsEnabled(features::kCapRefererHeaderLength) &&
-        base::saturated_cast<int>(referer_value.length()) >
-            features::kMaxRefererHeaderLength.Get()) {
+    // We limit the `referer` header to 4k: see step 6 of
+    // https://w3c.github.io/webappsec-referrer-policy/#determine-requests-referrer
+    // and https://github.com/whatwg/fetch/issues/903.
+    if (referer_value.length() > 4096) {
       // Strip the referrer down to its origin, but ensure that it's serialized
       // as a URL (e.g. retaining a trailing `/` character).
       referer_value = url::Origin::Create(referrer).GetURL().spec();
@@ -629,10 +546,17 @@ void URLRequestHttpJob::AddCookieHeaderAndStart() {
     CookieOptions options;
     options.set_return_excluded_cookies();
     options.set_include_httponly();
+    bool attach_same_site_cookies = request_->attach_same_site_cookies();
+    if (cookie_store->cookie_access_delegate() &&
+        cookie_store->cookie_access_delegate()
+            ->ShouldIgnoreSameSiteRestrictions(request_->url(),
+                                               request_->site_for_cookies())) {
+      attach_same_site_cookies = true;
+    }
     options.set_same_site_cookie_context(
         net::cookie_util::ComputeSameSiteContextForRequest(
             request_->method(), request_->url(), request_->site_for_cookies(),
-            request_->initiator(), request_->attach_same_site_cookies()));
+            request_->initiator(), attach_same_site_cookies));
     cookie_store->GetCookieListWithOptionsAsync(
         request_->url(), options,
         base::BindOnce(&URLRequestHttpJob::SetCookieHeaderAndStart,
@@ -657,8 +581,6 @@ void URLRequestHttpJob::SetCookieHeaderAndStart(
 
   bool can_get_cookies = CanGetCookies(cookie_list);
   if (!cookies_with_status_list.empty() && can_get_cookies) {
-    LogCookieUMA(cookie_list, *request_, request_info_);
-
     std::string cookie_line =
         CanonicalCookie::BuildCookieLine(cookies_with_status_list);
     UMA_HISTOGRAM_COUNTS_10000("Cookie.HeaderLength", cookie_line.length());
@@ -725,8 +647,9 @@ void URLRequestHttpJob::SaveCookiesAndNotifyHeadersComplete(int result) {
     return;
   }
 
-  if ((request_info_.load_flags & LOAD_DO_NOT_SAVE_COOKIES) ||
-      !request_->context()->cookie_store()) {
+  CookieStore* cookie_store = request_->context()->cookie_store();
+
+  if ((request_info_.load_flags & LOAD_DO_NOT_SAVE_COOKIES) || !cookie_store) {
     NotifyHeadersComplete();
     return;
   }
@@ -738,10 +661,16 @@ void URLRequestHttpJob::SaveCookiesAndNotifyHeadersComplete(int result) {
 
   CookieOptions options;
   options.set_include_httponly();
+  bool attach_same_site_cookies = request_->attach_same_site_cookies();
+  if (cookie_store->cookie_access_delegate() &&
+      cookie_store->cookie_access_delegate()->ShouldIgnoreSameSiteRestrictions(
+          request_->url(), request_->site_for_cookies())) {
+    attach_same_site_cookies = true;
+  }
   options.set_same_site_cookie_context(
       net::cookie_util::ComputeSameSiteContextForResponse(
           request_->url(), request_->site_for_cookies(), request_->initiator(),
-          request_->attach_same_site_cookies()));
+          attach_same_site_cookies));
 
   options.set_return_excluded_cookies();
 
@@ -909,7 +838,7 @@ void URLRequestHttpJob::OnStartCompleted(int result) {
       // |URLRequestHttpJob::OnHeadersReceivedCallback()| or
       // |NetworkDelegate::URLRequestDestroyed()| has been called.
       OnCallToDelegate(NetLogEventType::NETWORK_DELEGATE_HEADERS_RECEIVED);
-      allowed_unsafe_redirect_url_ = GURL();
+      preserve_fragment_on_redirect_url_ = base::nullopt;
       IPEndPoint endpoint;
       if (transaction_)
         transaction_->GetRemoteEndpoint(&endpoint);
@@ -922,7 +851,7 @@ void URLRequestHttpJob::OnStartCompleted(int result) {
           base::BindOnce(&URLRequestHttpJob::OnHeadersReceivedCallback,
                          weak_factory_.GetWeakPtr()),
           headers.get(), &override_response_headers_, endpoint,
-          &allowed_unsafe_redirect_url_);
+          &preserve_fragment_on_redirect_url_);
       if (error != OK) {
         if (error == ERR_IO_PENDING) {
           awaiting_callback_ = true;
@@ -943,7 +872,8 @@ void URLRequestHttpJob::OnStartCompleted(int result) {
     TransportSecurityState* state = context->transport_security_state();
     NotifySSLCertificateError(
         result, transaction_->GetResponseInfo()->ssl_info,
-        state->ShouldSSLErrorsBeFatal(request_info_.url.host()));
+        state->ShouldSSLErrorsBeFatal(request_info_.url.host()) &&
+            result != ERR_CERT_KNOWN_INTERCEPTION_BLOCKED);
   } else if (result == ERR_SSL_CLIENT_AUTH_CERT_NEEDED) {
     NotifyCertificateRequested(
         transaction_->GetResponseInfo()->cert_request_info.get());
@@ -1157,12 +1087,9 @@ std::unique_ptr<SourceStream> URLRequestHttpJob::SetUpSourceStream() {
 
 bool URLRequestHttpJob::CopyFragmentOnRedirect(const GURL& location) const {
   // Allow modification of reference fragments by default, unless
-  // |allowed_unsafe_redirect_url_| is set and equal to the redirect URL.
-  // When this is the case, we assume that the network delegate has set the
-  // desired redirect URL (with or without fragment), so it must not be changed
-  // any more.
-  return !allowed_unsafe_redirect_url_.is_valid() ||
-       allowed_unsafe_redirect_url_ != location;
+  // |preserve_fragment_on_redirect_url_| is set and equal to the redirect URL.
+  return !preserve_fragment_on_redirect_url_.has_value() ||
+         preserve_fragment_on_redirect_url_ != location;
 }
 
 bool URLRequestHttpJob::IsSafeRedirect(const GURL& location) {
@@ -1170,11 +1097,6 @@ bool URLRequestHttpJob::IsSafeRedirect(const GURL& location) {
   // TODO(pauljensen): Remove once crbug.com/146591 is fixed.
   if (location.is_valid() &&
       (location.scheme() == "http" || location.scheme() == "https")) {
-    return true;
-  }
-  // Delegates may mark a URL as safe for redirection.
-  if (allowed_unsafe_redirect_url_.is_valid() &&
-      allowed_unsafe_redirect_url_ == location) {
     return true;
   }
   // Query URLRequestJobFactory as to whether |location| would be safe to

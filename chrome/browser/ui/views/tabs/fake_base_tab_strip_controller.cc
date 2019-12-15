@@ -64,13 +64,28 @@ void FakeBaseTabStripController::RemoveTab(int index) {
 void FakeBaseTabStripController::MoveTabIntoGroup(
     int index,
     base::Optional<TabGroupId> new_group) {
+  bool group_exists = base::Contains(tab_groups_, new_group);
   base::Optional<TabGroupId> old_group;
   if (index >= int{tab_groups_.size()})
     tab_groups_.resize(index + 1);
   else
     old_group = tab_groups_[index];
+
   tab_groups_[index] = new_group;
-  tab_strip_->ChangeTabGroup(index, old_group, new_group);
+
+  if (old_group.has_value()) {
+    tab_strip_->AddTabToGroup(base::nullopt, index);
+    if (!base::Contains(tab_groups_, old_group))
+      tab_strip_->OnGroupClosed(old_group.value());
+    else
+      tab_strip_->OnGroupContentsChanged(old_group.value());
+  }
+  if (new_group.has_value()) {
+    if (!group_exists)
+      tab_strip_->OnGroupCreated(new_group.value());
+    tab_strip_->AddTabToGroup(new_group.value(), index);
+    tab_strip_->OnGroupContentsChanged(new_group.value());
+  }
 }
 
 const TabGroupVisualData* FakeBaseTabStripController::GetVisualDataForGroup(
@@ -83,6 +98,10 @@ void FakeBaseTabStripController::SetVisualDataForGroup(
     TabGroupVisualData visual_data) {
   fake_group_data_ = visual_data;
 }
+
+void FakeBaseTabStripController::UngroupAllTabsInGroup(TabGroupId group) {}
+
+void FakeBaseTabStripController::AddNewTabInGroup(TabGroupId group) {}
 
 std::vector<int> FakeBaseTabStripController::ListTabsInGroup(
     TabGroupId group) const {
@@ -175,9 +194,9 @@ void FakeBaseTabStripController::CreateNewTabWithLocation(
 void FakeBaseTabStripController::StackedLayoutMaybeChanged() {
 }
 
-void FakeBaseTabStripController::OnStartedDraggingTabs() {}
+void FakeBaseTabStripController::OnStartedDragging() {}
 
-void FakeBaseTabStripController::OnStoppedDraggingTabs() {}
+void FakeBaseTabStripController::OnStoppedDragging() {}
 
 void FakeBaseTabStripController::OnKeyboardFocusedTabChanged(
     base::Optional<int> index) {}
@@ -222,6 +241,10 @@ base::string16 FakeBaseTabStripController::GetAccessibleTabName(
 }
 
 Profile* FakeBaseTabStripController::GetProfile() const {
+  return nullptr;
+}
+
+const Browser* FakeBaseTabStripController::GetBrowser() const {
   return nullptr;
 }
 

@@ -391,6 +391,17 @@ struct StructTraits<gpu::mojom::GpuInfoDataView, gpu::GPUInfo> {
   static bool oop_rasterization_supported(const gpu::GPUInfo& input) {
     return input.oop_rasterization_supported;
   }
+
+  static bool subpixel_font_rendering(const gpu::GPUInfo& input) {
+    return input.subpixel_font_rendering;
+  }
+
+#if BUILDFLAG(ENABLE_VULKAN)
+  static const base::Optional<gpu::VulkanInfo> vulkan_info(
+      const gpu::GPUInfo& input) {
+    return input.vulkan_info;
+  }
+#endif
 };
 
 }  // namespace mojo

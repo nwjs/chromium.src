@@ -21,21 +21,15 @@
 #import "ui/gfx/mac/coordinate_conversion.h"
 #include "ui/strings/grit/ui_strings.h"
 
-@interface AXPlatformNodeCocoa (Private)
-// Helper function for string attributes that don't require extra processing.
-- (NSString*)getStringAttribute:(ax::mojom::StringAttribute)attribute;
-// Returns AXValue, or nil if AXValue isn't an NSString.
-- (NSString*)getAXValueAsString;
-// Returns the text that should be announced for an event with type |eventType|,
-// or nil if it shouldn't be announced.
-- (NSString*)announcementTextForEvent:(ax::mojom::Event)eventType;
-@end
-
 namespace {
+
+// Same length as web content/WebKit.
+static int kLiveRegionDebounceMillis = 20;
 
 using RoleMap = std::map<ax::mojom::Role, NSString*>;
 using EventMap = std::map<ax::mojom::Event, NSString*>;
 using ActionList = std::vector<std::pair<ax::mojom::Action, NSString*>>;
+using AnnouncementSpec = std::pair<base::scoped_nsobject<NSString>, bool>;
 
 RoleMap BuildRoleMap() {
   const RoleMap::value_type roles[] = {
@@ -43,11 +37,6 @@ RoleMap BuildRoleMap() {
       {ax::mojom::Role::kAlert, NSAccessibilityGroupRole},
       {ax::mojom::Role::kAlertDialog, NSAccessibilityGroupRole},
       {ax::mojom::Role::kAnchor, NSAccessibilityGroupRole},
-      {ax::mojom::Role::kAnnotationAttribution, NSAccessibilityGroupRole},
-      {ax::mojom::Role::kAnnotationCommentary, NSAccessibilityGroupRole},
-      {ax::mojom::Role::kAnnotationPresence, NSAccessibilityGroupRole},
-      {ax::mojom::Role::kAnnotationRevision, NSAccessibilityGroupRole},
-      {ax::mojom::Role::kAnnotationSuggestion, NSAccessibilityGroupRole},
       {ax::mojom::Role::kApplication, NSAccessibilityGroupRole},
       {ax::mojom::Role::kArticle, NSAccessibilityGroupRole},
       {ax::mojom::Role::kAudio, NSAccessibilityGroupRole},
@@ -58,11 +47,14 @@ RoleMap BuildRoleMap() {
       {ax::mojom::Role::kCaption, NSAccessibilityGroupRole},
       {ax::mojom::Role::kCell, @"AXCell"},
       {ax::mojom::Role::kCheckBox, NSAccessibilityCheckBoxRole},
+      {ax::mojom::Role::kCode, NSAccessibilityGroupRole},
       {ax::mojom::Role::kColorWell, NSAccessibilityColorWellRole},
       {ax::mojom::Role::kColumn, NSAccessibilityColumnRole},
       {ax::mojom::Role::kColumnHeader, @"AXCell"},
       {ax::mojom::Role::kComboBoxGrouping, NSAccessibilityGroupRole},
       {ax::mojom::Role::kComboBoxMenuButton, NSAccessibilityButtonRole},
+      {ax::mojom::Role::kComment, NSAccessibilityGroupRole},
+      {ax::mojom::Role::kCommentSection, NSAccessibilityGroupRole},
       {ax::mojom::Role::kComplementary, NSAccessibilityGroupRole},
       {ax::mojom::Role::kContentDeletion, NSAccessibilityGroupRole},
       {ax::mojom::Role::kContentInsertion, NSAccessibilityGroupRole},
@@ -122,6 +114,7 @@ RoleMap BuildRoleMap() {
       {ax::mojom::Role::kDocToc, NSAccessibilityGroupRole},
       {ax::mojom::Role::kDocument, NSAccessibilityGroupRole},
       {ax::mojom::Role::kEmbeddedObject, NSAccessibilityGroupRole},
+      {ax::mojom::Role::kEmphasis, NSAccessibilityGroupRole},
       {ax::mojom::Role::kFigcaption, NSAccessibilityGroupRole},
       {ax::mojom::Role::kFigure, NSAccessibilityGroupRole},
       {ax::mojom::Role::kFooter, NSAccessibilityGroupRole},
@@ -183,8 +176,10 @@ RoleMap BuildRoleMap() {
       {ax::mojom::Role::kRadioButton, NSAccessibilityRadioButtonRole},
       {ax::mojom::Role::kRadioGroup, NSAccessibilityRadioGroupRole},
       {ax::mojom::Role::kRegion, NSAccessibilityGroupRole},
+      {ax::mojom::Role::kRevision, NSAccessibilityGroupRole},
       {ax::mojom::Role::kRootWebArea, @"AXWebArea"},
       {ax::mojom::Role::kRow, NSAccessibilityRowRole},
+      {ax::mojom::Role::kRowGroup, NSAccessibilityGroupRole},
       {ax::mojom::Role::kRowHeader, @"AXCell"},
       // TODO(accessibility) What should kRuby be? It's not listed? Any others
       // missing? Maybe use switch statement so that compiler doesn't allow us
@@ -200,8 +195,10 @@ RoleMap BuildRoleMap() {
       {ax::mojom::Role::kSplitter, NSAccessibilitySplitterRole},
       {ax::mojom::Role::kStaticText, NSAccessibilityStaticTextRole},
       {ax::mojom::Role::kStatus, NSAccessibilityGroupRole},
+      {ax::mojom::Role::kSuggestion, NSAccessibilityGroupRole},
       {ax::mojom::Role::kSvgRoot, NSAccessibilityGroupRole},
       {ax::mojom::Role::kSwitch, NSAccessibilityCheckBoxRole},
+      {ax::mojom::Role::kStrong, NSAccessibilityGroupRole},
       {ax::mojom::Role::kTab, NSAccessibilityRadioButtonRole},
       {ax::mojom::Role::kTable, NSAccessibilityTableRole},
       {ax::mojom::Role::kTableHeaderContainer, NSAccessibilityGroupRole},
@@ -238,6 +235,7 @@ RoleMap BuildSubroleMap() {
       {ax::mojom::Role::kApplication, @"AXLandmarkApplication"},
       {ax::mojom::Role::kArticle, @"AXDocumentArticle"},
       {ax::mojom::Role::kBanner, @"AXLandmarkBanner"},
+      {ax::mojom::Role::kCode, @"AXCodeStyleGroup"},
       {ax::mojom::Role::kComplementary, @"AXLandmarkComplementary"},
       {ax::mojom::Role::kContentDeletion, @"AXDeleteStyleGroup"},
       {ax::mojom::Role::kContentInsertion, @"AXInsertStyleGroup"},
@@ -247,6 +245,7 @@ RoleMap BuildSubroleMap() {
       {ax::mojom::Role::kDescriptionListTerm, @"AXTerm"},
       {ax::mojom::Role::kDialog, @"AXApplicationDialog"},
       {ax::mojom::Role::kDocument, @"AXDocument"},
+      {ax::mojom::Role::kEmphasis, @"AXEmphasisStyleGroup"},
       {ax::mojom::Role::kFooter, @"AXLandmarkContentInfo"},
       {ax::mojom::Role::kForm, @"AXLandmarkForm"},
       {ax::mojom::Role::kGraphicsDocument, @"AXDocument"},
@@ -262,9 +261,11 @@ RoleMap BuildSubroleMap() {
       {ax::mojom::Role::kSearchBox, @"AXSearchField"},
       {ax::mojom::Role::kSection, @"AXLandmarkRegion"},
       {ax::mojom::Role::kStatus, @"AXApplicationStatus"},
+      {ax::mojom::Role::kStrong, @"AXStrongStyleGroup"},
       {ax::mojom::Role::kSwitch, @"AXSwitch"},
       {ax::mojom::Role::kTabPanel, @"AXTabPanel"},
       {ax::mojom::Role::kTerm, @"AXTerm"},
+      {ax::mojom::Role::kTime, @"AXTimeGroup"},
       {ax::mojom::Role::kTimer, @"AXApplicationTimer"},
       {ax::mojom::Role::kToggleButton, @"AXToggleButton"},
       {ax::mojom::Role::kTooltip, @"AXUserInterfaceTooltip"},
@@ -310,10 +311,12 @@ const ActionList& GetActionList() {
   return *action_map;
 }
 
-void PostAnnouncementNotification(NSString* announcement) {
+void PostAnnouncementNotification(NSString* announcement, bool is_polite) {
+  NSAccessibilityPriorityLevel priority =
+      is_polite ? NSAccessibilityPriorityMedium : NSAccessibilityPriorityHigh;
   NSDictionary* notification_info = @{
     NSAccessibilityAnnouncementKey : announcement,
-    NSAccessibilityPriorityKey : @(NSAccessibilityPriorityHigh)
+    NSAccessibilityPriorityKey : @(priority)
   };
   NSAccessibilityPostNotificationWithUserInfo(
       [NSApp mainWindow], NSAccessibilityAnnouncementRequestedNotification,
@@ -329,7 +332,7 @@ void NotifyMacEvent(AXPlatformNodeCocoa* target, ax::mojom::Event event_type) {
 
 // Returns true if |action| should be added implicitly for |data|.
 bool HasImplicitAction(const ui::AXNodeData& data, ax::mojom::Action action) {
-  return action == ax::mojom::Action::kDoDefault && ui::IsClickable(data);
+  return action == ax::mojom::Action::kDoDefault && data.IsClickable();
 }
 
 // For roles that show a menu for the default action, ensure "show menu" also
@@ -343,8 +346,27 @@ bool AlsoUseShowMenuActionForDefaultAction(const ui::AXNodeData& data) {
 
 }  // namespace
 
+@interface AXPlatformNodeCocoa (Private)
+// Helper function for string attributes that don't require extra processing.
+- (NSString*)getStringAttribute:(ax::mojom::StringAttribute)attribute;
+// Returns AXValue, or nil if AXValue isn't an NSString.
+- (NSString*)getAXValueAsString;
+// Returns the data necessary to queue an NSAccessibility announcement if
+// |eventType| should be announced, or nullptr otherwise.
+- (std::unique_ptr<AnnouncementSpec>)announcementForEvent:
+    (ax::mojom::Event)eventType;
+// Ask the system to announce |announcementText|. This is debounced to happen
+// at most every |kLiveRegionDebounceMillis| per node, with only the most
+// recent announcement text read, to account for situations with multiple
+// notifications happening one after another (for example, results for
+// find-in-page updating rapidly as they come in from subframes).
+- (void)scheduleLiveRegionAnnouncement:
+    (std::unique_ptr<AnnouncementSpec>)polite;
+@end
+
 @implementation AXPlatformNodeCocoa {
   ui::AXPlatformNodeBase* node_;  // Weak. Retains us.
+  std::unique_ptr<AnnouncementSpec> pendingAnnouncement_;
 }
 
 @synthesize node = node_;
@@ -401,25 +423,49 @@ bool AlsoUseShowMenuActionForDefaultAction(const ui::AXNodeData& data) {
   return [value isKindOfClass:[NSString class]] ? value : nil;
 }
 
-- (NSString*)announcementTextForEvent:(ax::mojom::Event)eventType {
-  if (eventType == ax::mojom::Event::kAlert &&
-      node_->GetData().role == ax::mojom::Role::kAlert) {
-    // If there's no explicitly set accessible name, fall back to
-    // the inner text.
-    NSString* name =
-        [self getStringAttribute:ax::mojom::StringAttribute::kName];
-    return [name length] > 0 ? name
-                             : base::SysUTF16ToNSString(node_->GetInnerText());
-  } else if (eventType == ax::mojom::Event::kLiveRegionChanged &&
-             node_->GetData().HasStringAttribute(
-                 ax::mojom::StringAttribute::kContainerLiveStatus)) {
-    // Live regions announce their inner text.
-    return base::SysUTF16ToNSString(node_->GetInnerText());
-  }
-  // Only alerts and live regions have something to announce.
-  return nil;
+- (std::unique_ptr<AnnouncementSpec>)announcementForEvent:
+    (ax::mojom::Event)eventType {
+  // Only alerts and live region changes should be announced.
+  DCHECK(eventType == ax::mojom::Event::kAlert ||
+         eventType == ax::mojom::Event::kLiveRegionChanged);
+  std::string liveStatus =
+      node_->GetStringAttribute(ax::mojom::StringAttribute::kLiveStatus);
+  // If live status is explicitly set to off, don't announce.
+  if (liveStatus == "off")
+    return nullptr;
+
+  NSString* name = [self getStringAttribute:ax::mojom::StringAttribute::kName];
+  NSString* announcementText =
+      [name length] > 0 ? name
+                        : base::SysUTF16ToNSString(node_->GetInnerText());
+  if ([announcementText length] == 0)
+    return nullptr;
+
+  return std::make_unique<AnnouncementSpec>(
+      base::scoped_nsobject<NSString>([announcementText retain]),
+      liveStatus != "assertive");
 }
 
+- (void)scheduleLiveRegionAnnouncement:
+    (std::unique_ptr<AnnouncementSpec>)announcement {
+  if (pendingAnnouncement_) {
+    // An announcement is already in flight, so just reset the contents. This is
+    // threadsafe because the dispatch is on the main queue.
+    pendingAnnouncement_ = std::move(announcement);
+    return;
+  }
+
+  pendingAnnouncement_ = std::move(announcement);
+  dispatch_after(kLiveRegionDebounceMillis * NSEC_PER_MSEC,
+                 dispatch_get_main_queue(), ^{
+                   if (!pendingAnnouncement_) {
+                     return;
+                   }
+                   PostAnnouncementNotification(pendingAnnouncement_->first,
+                                                pendingAnnouncement_->second);
+                   pendingAnnouncement_.reset();
+                 });
+}
 // NSAccessibility informal protocol implementation.
 
 - (BOOL)accessibilityIsIgnored {
@@ -1156,10 +1202,14 @@ gfx::NativeViewAccessible AXPlatformNodeMac::GetNativeViewAccessible() {
 void AXPlatformNodeMac::NotifyAccessibilityEvent(ax::mojom::Event event_type) {
   GetNativeViewAccessible();
   // Handle special cases.
-  NSString* announcement_text =
-      [native_node_ announcementTextForEvent:event_type];
-  if (announcement_text) {
-    PostAnnouncementNotification(announcement_text);
+
+  // Alerts and live regions go through the announcement API instead of the
+  // regular NSAccessibility notification system.
+  if (event_type == ax::mojom::Event::kAlert ||
+      event_type == ax::mojom::Event::kLiveRegionChanged) {
+    if (auto announcement = [native_node_ announcementForEvent:event_type]) {
+      [native_node_ scheduleLiveRegionAnnouncement:std::move(announcement)];
+    }
     return;
   }
   if (event_type == ax::mojom::Event::kSelection) {
@@ -1186,7 +1236,7 @@ void AXPlatformNodeMac::NotifyAccessibilityEvent(ax::mojom::Event event_type) {
 }
 
 void AXPlatformNodeMac::AnnounceText(const base::string16& text) {
-  PostAnnouncementNotification(base::SysUTF16ToNSString(text));
+  PostAnnouncementNotification(base::SysUTF16ToNSString(text), false);
 }
 
 int AXPlatformNodeMac::GetIndexInParent() {

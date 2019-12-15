@@ -15,7 +15,7 @@
 #include "storage/browser/blob/blob_data_builder.h"
 #include "storage/browser/blob/blob_impl.h"
 #include "storage/browser/blob/blob_storage_context.h"
-#include "storage/browser/fileapi/file_system_operation_runner.h"
+#include "storage/browser/file_system/file_system_operation_runner.h"
 #include "third_party/blink/public/mojom/blob/blob.mojom.h"
 #include "third_party/blink/public/mojom/blob/serialized_blob.mojom.h"
 #include "third_party/blink/public/mojom/native_file_system/native_file_system_error.mojom.h"
@@ -61,7 +61,7 @@ void NativeFileSystemFileHandleImpl::AsBlob(AsBlobCallback callback) {
   if (GetReadPermissionStatus() != PermissionStatus::GRANTED) {
     std::move(callback).Run(native_file_system_error::FromStatus(
                                 NativeFileSystemStatus::kPermissionDenied),
-                            nullptr);
+                            base::File::Info(), nullptr);
     return;
   }
 
@@ -144,7 +144,7 @@ void NativeFileSystemFileHandleImpl::DidGetMetaDataForBlob(
 
   if (result != base::File::FILE_OK) {
     std::move(callback).Run(native_file_system_error::FromFileError(result),
-                            nullptr);
+                            base::File::Info(), nullptr);
     return;
   }
 
@@ -169,7 +169,7 @@ void NativeFileSystemFileHandleImpl::DidGetMetaDataForBlob(
       blob_remote.InitWithNewPipeAndPassReceiver();
 
   std::move(callback).Run(
-      native_file_system_error::Ok(),
+      native_file_system_error::Ok(), info,
       blink::mojom::SerializedBlob::New(uuid, content_type, info.size,
                                         std::move(blob_remote)));
 

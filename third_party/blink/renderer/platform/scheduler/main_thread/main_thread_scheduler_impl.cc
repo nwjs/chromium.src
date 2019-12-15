@@ -97,7 +97,7 @@ const char* BackgroundStateToString(bool is_backgrounded) {
   if (is_backgrounded) {
     return "renderer_backgrounded";
   } else {
-    return "renderer_visible";
+    return "renderer_foregrounded";
   }
 }
 
@@ -371,12 +371,12 @@ MainThreadSchedulerImpl::MainThreadOnly::MainThreadOnly(
                             &main_thread_scheduler_impl->tracing_controller_,
                             RAILModeToString),
       renderer_hidden(false,
-                      "Scheduler.Hidden",
+                      "RendererVisibility",
                       main_thread_scheduler_impl,
                       &main_thread_scheduler_impl->tracing_controller_,
                       HiddenStateToString),
       renderer_backgrounded(kLaunchingProcessIsBackgrounded,
-                            "RendererVisibility",
+                            "RendererPriority",
                             main_thread_scheduler_impl,
                             &main_thread_scheduler_impl->tracing_controller_,
                             BackgroundStateToString),
@@ -761,7 +761,7 @@ scoped_refptr<MainThreadTaskQueue> MainThreadSchedulerImpl::NewTaskQueue(
   // they're not supposed to.
   if (main_thread_only().virtual_time_stopped &&
       main_thread_only().use_virtual_time &&
-      task_queue->ShouldUseVirtualTime()) {
+      !task_queue->CanRunWhenVirtualTimePaused()) {
     task_queue->InsertFence(TaskQueue::InsertFencePosition::kNow);
   }
 
@@ -792,7 +792,7 @@ scoped_refptr<MainThreadTaskQueue> MainThreadSchedulerImpl::NewTimerTaskQueue(
                           .SetCanBeDeferred(true)
                           .SetCanBeThrottled(true)
                           .SetFrameScheduler(frame_scheduler)
-                          .SetCanRunWhenVirtualTimePaused(true));
+                          .SetCanRunWhenVirtualTimePaused(false));
 }
 
 std::unique_ptr<WebRenderWidgetSchedulingState>
@@ -844,6 +844,7 @@ void MainThreadSchedulerImpl::WillBeginFrame(const viz::BeginFrameArgs& args) {
     any_thread().begin_main_frame_on_critical_path = args.on_critical_path;
   }
   main_thread_only().compositing_experiment.OnWillBeginMainFrame();
+  main_thread_only().compositor_priority_experiments.OnWillBeginMainFrame();
 }
 
 void MainThreadSchedulerImpl::DidCommitFrameToCompositor() {
@@ -1833,7 +1834,7 @@ void MainThreadSchedulerImpl::SetVirtualTimeStopped(bool virtual_time_stopped) {
 
 void MainThreadSchedulerImpl::VirtualTimePaused() {
   for (const auto& pair : task_runners_) {
-    if (!pair.first->ShouldUseVirtualTime())
+    if (pair.first->CanRunWhenVirtualTimePaused())
       continue;
     DCHECK(!task_queue_throttler_->IsThrottled(pair.first.get()));
     pair.first->InsertFence(TaskQueue::InsertFencePosition::kNow);
@@ -1842,7 +1843,7 @@ void MainThreadSchedulerImpl::VirtualTimePaused() {
 
 void MainThreadSchedulerImpl::VirtualTimeResumed() {
   for (const auto& pair : task_runners_) {
-    if (!pair.first->ShouldUseVirtualTime())
+    if (pair.first->CanRunWhenVirtualTimePaused())
       continue;
     DCHECK(!task_queue_throttler_->IsThrottled(pair.first.get()));
     DCHECK(pair.first->HasActiveFence());
@@ -2286,14 +2287,6 @@ void MainThreadSchedulerImpl::SetRendererProcessType(
   main_thread_only().process_type = type;
 }
 
-WebScopedVirtualTimePauser
-MainThreadSchedulerImpl::CreateWebScopedVirtualTimePauser(
-    const char* name,
-    WebScopedVirtualTimePauser::VirtualTaskDuration duration) {
-  return WebScopedVirtualTimePauser(this, duration,
-                                    WebString(WTF::String(name)));
-}
-
 PendingUserInputInfo MainThreadSchedulerImpl::GetPendingUserInputInfo() const {
   base::AutoLock lock(any_thread_lock_);
   return any_thread().pending_input_monitor.Info();
@@ -2416,7 +2409,7 @@ void MainThreadSchedulerImpl::OnTaskReady(
     const void* frame_scheduler,
     const base::sequence_manager::Task& task,
     base::sequence_manager::LazyNow* lazy_now) {
-  frame_interference_recorder_.OnTaskReady(frame_scheduler,
+  agent_interference_recorder_.OnTaskReady(frame_scheduler,
                                            task.enqueue_order(), lazy_now);
 }
 
@@ -2426,7 +2419,7 @@ void MainThreadSchedulerImpl::OnTaskStarted(
     const TaskQueue::TaskTiming& task_timing) {
   main_thread_only().running_queues.push(queue);
   queueing_time_estimator_.OnExecutionStarted(task_timing.start_time());
-  frame_interference_recorder_.OnTaskStarted(queue, task.enqueue_order(),
+  agent_interference_recorder_.OnTaskStarted(queue, task.enqueue_order(),
                                              task_timing.start_time());
   if (main_thread_only().nested_runloop)
     return;
@@ -2462,7 +2455,7 @@ void MainThreadSchedulerImpl::OnTaskCompleted(
     queue->GetFrameScheduler()->AddTaskTime(task_timing->wall_duration());
   main_thread_only().running_queues.pop();
   queueing_time_estimator_.OnExecutionStopped(task_timing->end_time());
-  frame_interference_recorder_.OnTaskCompleted(queue.get(),
+  agent_interference_recorder_.OnTaskCompleted(queue.get(),
                                                task_timing->end_time());
   if (main_thread_only().nested_runloop)
     return;
@@ -2613,7 +2606,7 @@ void MainThreadSchedulerImpl::OnBeginNestedRunLoop() {
   // When a nested loop is entered, simulate completing the current task. It
   // will be resumed when the run loop is exited.
   queueing_time_estimator_.OnExecutionStopped(now);
-  frame_interference_recorder_.OnTaskCompleted(
+  agent_interference_recorder_.OnTaskCompleted(
       main_thread_only().running_queues.top().get(), now);
   main_thread_only().nested_runloop = true;
   ApplyVirtualTimePolicy();
@@ -2629,7 +2622,7 @@ void MainThreadSchedulerImpl::OnExitNestedRunLoop() {
   queueing_time_estimator_.OnExecutionStarted(now);
   // When a nested loop is exited, resume the task that was running when the
   // nested loop was entered.
-  frame_interference_recorder_.OnTaskStarted(
+  agent_interference_recorder_.OnTaskStarted(
       main_thread_only().running_queues.top().get(),
       base::sequence_manager::EnqueueOrder::none(), now);
   main_thread_only().nested_runloop = false;
@@ -2836,7 +2829,7 @@ void MainThreadSchedulerImpl::ExecuteAfterCurrentTask(
 
 void MainThreadSchedulerImpl::OnFrameSchedulerDestroyed(
     FrameSchedulerImpl* frame_scheduler) {
-  frame_interference_recorder_.OnFrameSchedulerDestroyed(frame_scheduler);
+  agent_interference_recorder_.OnFrameSchedulerDestroyed(frame_scheduler);
 }
 
 void MainThreadSchedulerImpl::DispatchOnTaskCompletionCallbacks() {

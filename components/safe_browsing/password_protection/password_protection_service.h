@@ -201,6 +201,13 @@ class PasswordProtectionService : public history::HistoryServiceObserver {
       const GURL& url,
       RequestOutcome* reason) const = 0;
 
+  // Persist the phished saved password credential in the "compromised
+  // credentials" table. Calls the password store to add a row for each domain
+  // where the phished saved password is used on.
+  virtual void PersistPhishedSavedPasswordCredential(
+      const std::string& username,
+      const std::vector<std::string>& matching_domains) = 0;
+
   // Converts from password::metrics_util::PasswordType to
   // LoginReputationClientRequest::PasswordReuseEvent::ReusedPasswordType.
   static ReusedPasswordType GetPasswordProtectionReusedPasswordType(
@@ -245,6 +252,16 @@ class PasswordProtectionService : public history::HistoryServiceObserver {
 #if defined(UNIT_TEST)
   void set_username_for_last_shown_warning(const std::string& username) {
     username_for_last_shown_warning_ = username;
+  }
+#endif
+
+  const std::vector<std::string>& saved_passwords_matching_domains() const {
+    return saved_passwords_matching_domains_;
+  }
+#if defined(UNIT_TEST)
+  void set_saved_passwords_matching_domains(
+      const std::vector<std::string>& matching_domains) {
+    saved_passwords_matching_domains_ = matching_domains;
   }
 #endif
 
@@ -374,6 +391,10 @@ class PasswordProtectionService : public history::HistoryServiceObserver {
   virtual LoginReputationClientRequest::PasswordReuseEvent::SyncAccountType
   GetSyncAccountType() const = 0;
 
+  const std::list<std::string>& common_spoofed_domains() const {
+    return common_spoofed_domains_;
+  }
+
  private:
   friend class PasswordProtectionServiceTest;
   friend class TestPasswordProtectionService;
@@ -432,6 +453,8 @@ class PasswordProtectionService : public history::HistoryServiceObserver {
   ReusedPasswordAccountType
       reused_password_account_type_for_last_shown_warning_;
 
+  std::vector<std::string> saved_passwords_matching_domains_;
+
   scoped_refptr<SafeBrowsingDatabaseManager> database_manager_;
 
   // The context we use to issue network requests. This request_context_getter
@@ -445,6 +468,10 @@ class PasswordProtectionService : public history::HistoryServiceObserver {
 
   // Set of PasswordProtectionRequests that are triggering modal warnings.
   std::set<scoped_refptr<PasswordProtectionRequest>> warning_requests_;
+
+  // List of most commonly spoofed domains to default to on the password warning
+  // dialog.
+  std::list<std::string> common_spoofed_domains_;
 
   ScopedObserver<history::HistoryService, history::HistoryServiceObserver>
       history_service_observer_{this};

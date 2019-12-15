@@ -14,9 +14,10 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.ObserverList;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelContentViewDelegate;
@@ -35,11 +36,11 @@ import org.chromium.chrome.browser.compositor.scene_layer.ToolbarSceneLayer;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManagementDelegate;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.native_page.NativePageFactory;
-import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.TabHidingType;
-import org.chromium.chrome.browser.tab.TabBrowserControlsState;
+import org.chromium.chrome.browser.tab.TabBrowserControlsConstraintsHelper;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabThemeColorHelper;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
@@ -52,7 +53,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
-import org.chromium.chrome.browser.util.ColorUtils;
+import org.chromium.chrome.browser.toolbar.ToolbarColors;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.SPenSupport;
@@ -513,7 +514,8 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
     @Override
     public void releaseOverlayPanelContent() {
         if (getTabModelSelector() == null) return;
-        TabBrowserControlsState.updateEnabledState(getTabModelSelector().getCurrentTab());
+        TabBrowserControlsConstraintsHelper.updateEnabledState(
+                getTabModelSelector().getCurrentTab());
     }
 
     /**
@@ -648,18 +650,13 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
         int themeColor = TabThemeColorHelper.getColor(tab);
 
         boolean canUseLiveTexture = tab.getWebContents() != null && !SadTab.isShowing(tab)
-                && !isNativePage && !tab.isHidden();
+                && !isNativePage && !((TabImpl) tab).isHidden();
 
-        boolean isNtp = tab.getNativePage() instanceof NewTabPage;
-        boolean isLocationBarShownInNtp =
-                isNtp && ((NewTabPage) tab.getNativePage()).isLocationBarShownInNTP();
-
-        boolean needsUpdate = layoutTab.initFromHost(TabThemeColorHelper.getBackgroundColor(tab),
-                shouldStall(tab), canUseLiveTexture, ColorUtils.getToolbarSceneLayerBackground(tab),
-                ColorUtils.getTextBoxColorForToolbarBackground(mContext.getResources(),
-                        isLocationBarShownInNtp, themeColor, tab.isIncognito()),
-                ColorUtils.getTextBoxAlphaForToolbarBackground(tab));
-        if (needsUpdate) requestUpdate();
+        layoutTab.initFromHost(TabThemeColorHelper.getBackgroundColor(tab), shouldStall(tab),
+                canUseLiveTexture, ToolbarColors.getToolbarSceneLayerBackground(tab),
+                ToolbarColors.getTextBoxColorForToolbarBackground(
+                        mContext.getResources(), tab, themeColor),
+                ToolbarColors.getTextBoxAlphaForToolbarBackground(tab));
 
         mHost.requestRender();
     }
@@ -866,10 +863,19 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
     }
 
     /**
-     * @return The {@link EdgeSwipeHandler} responsible for processing swipe events for the toolbar.
-     *         By default this returns null.
+     * @return The {@link EdgeSwipeHandler} responsible for processing swipe events for the normal
+     *         toolbar. By default this returns null.
      */
     public EdgeSwipeHandler getToolbarSwipeHandler() {
+        return null;
+    }
+
+    /**
+     * Creates a {@link EdgeSwipeHandler} instance.
+     * @param supportSwipeDown Whether or not to the handler should support swipe down gesture.
+     * @return The {@link EdgeSwipeHandler} cerated.
+     */
+    public EdgeSwipeHandler createToolbarSwipeHandler(boolean supportSwipeDown) {
         return null;
     }
 

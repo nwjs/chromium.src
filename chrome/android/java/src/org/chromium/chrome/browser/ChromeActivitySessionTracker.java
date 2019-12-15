@@ -11,6 +11,7 @@ import android.provider.Settings;
 import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApplicationState;
 import org.chromium.base.ApplicationStatus;
@@ -19,21 +20,23 @@ import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.LocaleUtils;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.accessibility.FontSizePrefs;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataType;
 import org.chromium.chrome.browser.browsing_data.TimePeriod;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.metrics.UmaUtils;
 import org.chromium.chrome.browser.metrics.VariationsSession;
 import org.chromium.chrome.browser.notifications.NotificationPlatformBridge;
+import org.chromium.chrome.browser.notifications.chime.ChimeSession;
 import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomizations;
+import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
-import org.chromium.chrome.browser.preferences.privacy.BrowsingDataBridge;
 import org.chromium.chrome.browser.profiles.ProfileManagerUtils;
+import org.chromium.chrome.browser.settings.privacy.BrowsingDataBridge;
 import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.browser.translate.TranslateBridge;
 import org.chromium.ui.base.ResourceBundle;
 
 import java.util.Locale;
@@ -138,6 +141,7 @@ public class ChromeActivitySessionTracker {
         updateAcceptLanguages();
         mVariationsSession.start();
         mPowerBroadcastReceiver.onForegroundSessionStart();
+        ChimeSession.start();
 
         // Track the ratio of Chrome startups that are caused by notification clicks.
         // TODO(johnme): Add other reasons (and switch to recordEnumeratedHistogram).
@@ -220,7 +224,7 @@ public class ChromeActivitySessionTracker {
             SharedPreferences.Editor editor = prefs.edit();
             editor.putString(PREF_LOCALE, newLocale);
             editor.apply();
-            PrefServiceBridge.getInstance().resetAcceptLanguages(newLocale);
+            TranslateBridge.resetAcceptLanguages(newLocale);
             // We consider writing the initial value to prefs as _not_ changing the locale.
             return previousLocale != null;
         }
@@ -236,9 +240,13 @@ public class ChromeActivitySessionTracker {
                 Settings.System.getInt(ContextUtils.getApplicationContext().getContentResolver(),
                         Settings.System.TEXT_SHOW_PASSWORD, 1)
                 == 1;
-        if (PrefServiceBridge.getInstance().getPasswordEchoEnabled() == systemEnabled) return;
+        if (PrefServiceBridge.getInstance().getBoolean(Pref.WEBKIT_PASSWORD_ECHO_ENABLED)
+                == systemEnabled) {
+            return;
+        }
 
-        PrefServiceBridge.getInstance().setPasswordEchoEnabled(systemEnabled);
+        PrefServiceBridge.getInstance().setBoolean(
+                Pref.WEBKIT_PASSWORD_ECHO_ENABLED, systemEnabled);
     }
 
     /**

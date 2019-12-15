@@ -18,7 +18,7 @@ import androidx.annotation.Nullable;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.browser.coordinator.CoordinatorLayoutForPointer;
-import org.chromium.chrome.browser.util.ColorUtils;
+import org.chromium.chrome.browser.ui.styles.ChromeColors;
 import org.chromium.chrome.tab_ui.R;
 
 // The view of the tasks surface.
@@ -59,15 +59,12 @@ class TasksView extends CoordinatorLayoutForPointer {
     }
 
     /**
-     * Sets whether the tasks view should behave in Carousel mode.
-     * @param isTabCarousel whether the tab switcher is in .CAROUSEL mode
+     * Set the visibility of the tab carousel.
+     * @param isVisible Whether it's visible.
      */
-    void setIsTabCarousel(boolean isTabCarousel) {
-        if (isTabCarousel) {
-            // TODO(crbug.com/982018): Change view according to incognito and dark mode.
-            findViewById(R.id.tab_switcher_title).setVisibility(View.VISIBLE);
-            mCarouselTabSwitcherContainer.setVisibility(View.VISIBLE);
-        }
+    void setTabCarouselVisibility(boolean isVisible) {
+        mCarouselTabSwitcherContainer.setVisibility(isVisible ? View.VISIBLE : View.GONE);
+        findViewById(R.id.tab_switcher_title).setVisibility(isVisible ? View.VISIBLE : View.GONE);
     }
 
     /**
@@ -130,7 +127,7 @@ class TasksView extends CoordinatorLayoutForPointer {
      */
     void setIncognitoMode(boolean isIncognito) {
         Resources resources = mContext.getResources();
-        int backgroundColor = ColorUtils.getPrimaryBackgroundColor(resources, isIncognito);
+        int backgroundColor = ChromeColors.getPrimaryBackgroundColor(resources, isIncognito);
         setBackgroundColor(backgroundColor);
         mHeaderView.setBackgroundColor(backgroundColor);
         mSearchBox.setBackgroundResource(

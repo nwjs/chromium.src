@@ -78,6 +78,9 @@ FrameTree::NodeIterator::NodeIterator(FrameTreeNode* starting_node,
       root_of_subtree_to_skip_(root_of_subtree_to_skip) {}
 
 FrameTree::NodeIterator FrameTree::NodeRange::begin() {
+  // We shouldn't be attempting a frame tree traversal while the tree is
+  // being constructed.
+  DCHECK(root_->current_frame_host());
   return NodeIterator(root_, root_of_subtree_to_skip_);
 }
 
@@ -174,11 +177,8 @@ FrameTreeNode* FrameTree::AddFrame(
     FrameTreeNode* parent,
     int process_id,
     int new_routing_id,
-    service_manager::mojom::InterfaceProviderRequest interface_provider_request,
-    mojo::PendingReceiver<blink::mojom::DocumentInterfaceBroker>
-        document_interface_broker_content_receiver,
-    mojo::PendingReceiver<blink::mojom::DocumentInterfaceBroker>
-        document_interface_broker_blink_receiver,
+    mojo::PendingReceiver<service_manager::mojom::InterfaceProvider>
+        interface_provider_receiver,
     mojo::PendingReceiver<blink::mojom::BrowserInterfaceBroker>
         browser_interface_broker_receiver,
     blink::WebTreeScopeType scope,
@@ -219,15 +219,9 @@ FrameTreeNode* FrameTree::AddFrame(
   FrameTreeNode* added_node = parent->current_frame_host()->AddChild(
       std::move(new_node), process_id, new_routing_id);
 
-  DCHECK(interface_provider_request.is_pending());
-  added_node->current_frame_host()->BindInterfaceProviderRequest(
-      std::move(interface_provider_request));
-
-  DCHECK(document_interface_broker_content_receiver.is_valid());
-  DCHECK(document_interface_broker_blink_receiver.is_valid());
-  added_node->current_frame_host()->BindDocumentInterfaceBrokerReceiver(
-      std::move(document_interface_broker_content_receiver),
-      std::move(document_interface_broker_blink_receiver));
+  DCHECK(interface_provider_receiver.is_valid());
+  added_node->current_frame_host()->BindInterfaceProviderReceiver(
+      std::move(interface_provider_receiver));
 
   DCHECK(browser_interface_broker_receiver.is_valid());
   added_node->current_frame_host()->BindBrowserInterfaceBrokerReceiver(
@@ -279,6 +273,17 @@ void FrameTree::CreateProxiesForSiteInstance(FrameTreeNode* source,
     }
   }
 
+  // Check whether we're in an inner delegate and |site_instance| corresponds
+  // to the outer delegate.  Subframe proxies aren't needed if this is the
+  // case.
+  bool is_site_instance_for_outer_delegate = false;
+  RenderFrameProxyHost* outer_delegate_proxy =
+      root()->render_manager()->GetProxyToOuterDelegate();
+  if (outer_delegate_proxy) {
+    is_site_instance_for_outer_delegate =
+        (site_instance == outer_delegate_proxy->GetSiteInstance());
+  }
+
   // Proxies are created in the FrameTree in response to a node navigating to a
   // new SiteInstance. Since |source|'s navigation will replace the currently
   // loaded document, the entire subtree under |source| will be removed, and
@@ -306,6 +311,14 @@ void FrameTree::CreateProxiesForSiteInstance(FrameTreeNode* source,
         // race described above not possible.
         continue;
       }
+
+      // Do not create proxies for subframes in the outer delegate's
+      // SiteInstance, since there is no need to expose these subframes to the
+      // outer delegate.  See also comments in CreateProxiesForChildFrame() and
+      // https://crbug.com/1013553.
+      if (!node->IsMainFrame() && is_site_instance_for_outer_delegate)
+        continue;
+
       node->render_manager()->CreateRenderFrameProxy(site_instance);
     }
   }
@@ -362,8 +375,8 @@ void FrameTree::SetFocusedFrame(FrameTreeNode* node, SiteInstance* source) {
 }
 
 void FrameTree::SetFrameRemoveListener(
-    const base::Callback<void(RenderFrameHost*)>& on_frame_removed) {
-  on_frame_removed_ = on_frame_removed;
+    base::RepeatingCallback<void(RenderFrameHost*)> on_frame_removed) {
+  on_frame_removed_ = std::move(on_frame_removed);
 }
 
 scoped_refptr<RenderViewHostImpl> FrameTree::CreateRenderViewHost(

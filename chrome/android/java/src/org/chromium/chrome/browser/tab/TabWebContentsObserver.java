@@ -7,13 +7,14 @@ package org.chromium.chrome.browser.tab;
 import android.view.View;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationState;
 import org.chromium.base.ApplicationStatus;
+import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList.RewindableIterator;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.SwipeRefreshHandler;
@@ -67,7 +68,7 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
         int NUM_ENTRIES = 6;
     }
 
-    private final Tab mTab;
+    private final TabImpl mTab;
     private WebContentsObserver mObserver;
 
     public static void from(Tab tab) {
@@ -84,7 +85,7 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
 
     private TabWebContentsObserver(Tab tab) {
         super(tab);
-        mTab = tab;
+        mTab = (TabImpl) tab;
     }
 
     @Override
@@ -100,6 +101,7 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
 
     @VisibleForTesting
     public void simulateRendererKilledForTesting(boolean wasOomProtected) {
+        android.util.Log.i("crdebug", "observer: " + mObserver);
         if (mObserver != null) mObserver.renderProcessGone(wasOomProtected);
     }
 
@@ -152,6 +154,11 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
             int activityState = ApplicationStatus.getStateForActivity(
                     mTab.getWindowAndroid().getActivity().get());
             int rendererCrashStatus = TAB_RENDERER_CRASH_STATUS_MAX;
+            android.util.Log.i("crdebug",
+                    "tab-hidden: " + mTab.isHidden() + " as: " + activityState + " cond: "
+                            + (mTab.isHidden() || activityState == ActivityState.PAUSED
+                                    || activityState == ActivityState.STOPPED
+                                    || activityState == ActivityState.DESTROYED));
             if (mTab.isHidden() || activityState == ActivityState.PAUSED
                     || activityState == ActivityState.STOPPED
                     || activityState == ActivityState.DESTROYED) {
@@ -181,8 +188,8 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
             }
             if (isMainFrame) mTab.didFinishPageLoad(validatedUrl);
             PolicyAuditor auditor = AppHooks.get().getPolicyAuditor();
-            auditor.notifyAuditEvent(
-                    mTab.getApplicationContext(), AuditEvent.OPEN_URL_SUCCESS, validatedUrl, "");
+            auditor.notifyAuditEvent(ContextUtils.getApplicationContext(),
+                    AuditEvent.OPEN_URL_SUCCESS, validatedUrl, "");
         }
 
         @Override
@@ -204,11 +211,11 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
             assert description != null;
 
             PolicyAuditor auditor = AppHooks.get().getPolicyAuditor();
-            auditor.notifyAuditEvent(mTab.getApplicationContext(), AuditEvent.OPEN_URL_FAILURE,
-                    failingUrl, description);
+            auditor.notifyAuditEvent(ContextUtils.getApplicationContext(),
+                    AuditEvent.OPEN_URL_FAILURE, failingUrl, description);
             if (errorCode == BLOCKED_BY_ADMINISTRATOR) {
-                auditor.notifyAuditEvent(
-                        mTab.getApplicationContext(), AuditEvent.OPEN_URL_BLOCKED, failingUrl, "");
+                auditor.notifyAuditEvent(ContextUtils.getApplicationContext(),
+                        AuditEvent.OPEN_URL_BLOCKED, failingUrl, "");
             }
         }
 
@@ -273,6 +280,12 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
         }
 
         @Override
+        public void loadProgressChanged(float progress) {
+            if (!mTab.isLoading()) return;
+            mTab.notifyLoadProgress(progress);
+        }
+
+        @Override
         public void didFirstVisuallyNonEmptyPaint() {
             RewindableIterator<TabObserver> observers = mTab.getTabObservers();
             while (observers.hasNext()) {
@@ -297,11 +310,11 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
                 observers.next().onDidAttachInterstitialPage(mTab);
             }
             mTab.notifyLoadProgress(mTab.getProgress());
-            TabBrowserControlsState.updateEnabledState(mTab);
+            TabBrowserControlsConstraintsHelper.updateEnabledState(mTab);
             PolicyAuditor auditor = AppHooks.get().getPolicyAuditor();
             auditor.notifyCertificateFailure(
                     PolicyAuditorJni.get().getCertificateFailure(mTab.getWebContents()),
-                    mTab.getApplicationContext());
+                    ContextUtils.getApplicationContext());
         }
 
         @Override
@@ -313,7 +326,7 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
                 observers.next().onDidDetachInterstitialPage(mTab);
             }
             mTab.notifyLoadProgress(mTab.getProgress());
-            TabBrowserControlsState.updateEnabledState(mTab);
+            TabBrowserControlsConstraintsHelper.updateEnabledState(mTab);
             if (!mTab.maybeShowNativePage(mTab.getUrl(), false)) {
                 mTab.showRenderedPage();
             }
@@ -337,7 +350,7 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
         @Override
         public void destroy() {
             MediaCaptureNotificationService.updateMediaNotificationForTab(
-                    mTab.getApplicationContext(), mTab.getId(), null, mTab.getUrl());
+                    ContextUtils.getApplicationContext(), mTab.getId(), null, mTab.getUrl());
             super.destroy();
         }
     }

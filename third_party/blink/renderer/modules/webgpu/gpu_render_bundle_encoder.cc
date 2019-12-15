@@ -22,16 +22,16 @@ GPURenderBundleEncoder* GPURenderBundleEncoder::Create(
   uint32_t color_formats_count =
       static_cast<uint32_t>(webgpu_desc->colorFormats().size());
 
-  std::unique_ptr<DawnTextureFormat[]> color_formats =
-      AsDawnEnum<DawnTextureFormat>(webgpu_desc->colorFormats());
+  std::unique_ptr<WGPUTextureFormat[]> color_formats =
+      AsDawnEnum<WGPUTextureFormat>(webgpu_desc->colorFormats());
 
-  DawnTextureFormat depth_stencil_format = DAWN_TEXTURE_FORMAT_UNDEFINED;
+  WGPUTextureFormat depth_stencil_format = WGPUTextureFormat_Undefined;
   if (webgpu_desc->hasDepthStencilFormat()) {
     depth_stencil_format =
-        AsDawnEnum<DawnTextureFormat>(webgpu_desc->depthStencilFormat());
+        AsDawnEnum<WGPUTextureFormat>(webgpu_desc->depthStencilFormat());
   }
 
-  DawnRenderBundleEncoderDescriptor dawn_desc = {};
+  WGPURenderBundleEncoderDescriptor dawn_desc = {};
   dawn_desc.nextInChain = nullptr;
   dawn_desc.colorFormatsCount = color_formats_count;
   dawn_desc.colorFormats = color_formats.get();
@@ -48,8 +48,8 @@ GPURenderBundleEncoder* GPURenderBundleEncoder::Create(
 
 GPURenderBundleEncoder::GPURenderBundleEncoder(
     GPUDevice* device,
-    DawnRenderBundleEncoder render_bundle_encoder)
-    : DawnObject<DawnRenderBundleEncoder>(device, render_bundle_encoder) {}
+    WGPURenderBundleEncoder render_bundle_encoder)
+    : DawnObject<WGPURenderBundleEncoder>(device, render_bundle_encoder) {}
 
 GPURenderBundleEncoder::~GPURenderBundleEncoder() {
   if (IsDawnControlClientDestroyed()) {
@@ -61,10 +61,31 @@ GPURenderBundleEncoder::~GPURenderBundleEncoder() {
 void GPURenderBundleEncoder::setBindGroup(
     uint32_t index,
     GPUBindGroup* bindGroup,
-    const Vector<uint64_t>& dynamicOffsets) {
+    const Vector<uint32_t>& dynamicOffsets) {
   GetProcs().renderBundleEncoderSetBindGroup(
       GetHandle(), index, bindGroup->GetHandle(), dynamicOffsets.size(),
       dynamicOffsets.data());
+}
+
+void GPURenderBundleEncoder::setBindGroup(
+    uint32_t index,
+    GPUBindGroup* bind_group,
+    const FlexibleUint32ArrayView& dynamic_offsets_data,
+    uint64_t dynamic_offsets_data_start,
+    uint32_t dynamic_offsets_data_length,
+    ExceptionState& exception_state) {
+  if (!ValidateSetBindGroupDynamicOffsets(
+          dynamic_offsets_data, dynamic_offsets_data_start,
+          dynamic_offsets_data_length, exception_state)) {
+    return;
+  }
+
+  const uint32_t* data =
+      dynamic_offsets_data.DataMaybeOnStack() + dynamic_offsets_data_start;
+
+  GetProcs().renderBundleEncoderSetBindGroup(GetHandle(), index,
+                                             bind_group->GetHandle(),
+                                             dynamic_offsets_data_length, data);
 }
 
 void GPURenderBundleEncoder::pushDebugGroup(String groupLabel) {
@@ -130,13 +151,13 @@ void GPURenderBundleEncoder::drawIndexedIndirect(GPUBuffer* indirectBuffer,
 
 GPURenderBundle* GPURenderBundleEncoder::finish(
     const GPURenderBundleDescriptor* webgpu_desc) {
-  DawnRenderBundleDescriptor dawn_desc = {};
+  WGPURenderBundleDescriptor dawn_desc = {};
   dawn_desc.nextInChain = nullptr;
   if (webgpu_desc->hasLabel()) {
     dawn_desc.label = webgpu_desc->label().Utf8().data();
   }
 
-  DawnRenderBundle render_bundle =
+  WGPURenderBundle render_bundle =
       GetProcs().renderBundleEncoderFinish(GetHandle(), &dawn_desc);
   return GPURenderBundle::Create(device_, render_bundle);
 }

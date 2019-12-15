@@ -74,8 +74,9 @@ fuchsia::sysmem::AllocatorSyncPtr ConnectSysmemAllocator() {
 
 }  // namespace
 
-ScenicSurfaceFactory::ScenicSurfaceFactory(mojom::ScenicGpuHost* gpu_host)
-    : gpu_host_(gpu_host),
+ScenicSurfaceFactory::ScenicSurfaceFactory(
+    mojo::PendingRemote<mojom::ScenicGpuHost> gpu_host)
+    : gpu_host_(std::move(gpu_host)),
       egl_implementation_(std::make_unique<GLOzoneEGLScenic>()),
       sysmem_buffer_manager_(ConnectSysmemAllocator()),
       weak_ptr_factory_(this) {
@@ -116,7 +117,7 @@ ScenicSurfaceFactory::CreatePlatformWindowSurface(
   main_thread_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&ScenicSurfaceFactory::AttachSurfaceToWindow,
                                 weak_ptr_factory_.GetWeakPtr(), window,
-                                surface->CreateExportToken()));
+                                surface->CreateView()));
   return surface;
 }
 
@@ -232,10 +233,10 @@ void ScenicSurfaceFactory::CreateScenicSessionOnMainThread(
 
 void ScenicSurfaceFactory::AttachSurfaceToWindow(
     gfx::AcceleratedWidget window,
-    mojo::ScopedHandle surface_export_token_mojo) {
+    mojo::ScopedHandle surface_view_holder_token_mojo) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   gpu_host_->AttachSurfaceToWindow(window,
-                                   std::move(surface_export_token_mojo));
+                                   std::move(surface_view_holder_token_mojo));
 }
 
 }  // namespace ui

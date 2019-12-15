@@ -5,6 +5,7 @@
 #include "fuchsia/runners/cast/cast_runner.h"
 
 #include <fuchsia/sys/cpp/fidl.h>
+#include <fuchsia/web/cpp/fidl.h>
 #include <memory>
 #include <string>
 #include <utility>
@@ -18,13 +19,10 @@ namespace {
 
 bool AreCastComponentParamsValid(
     const CastComponent::CastComponentParams& params) {
-  if (params.app_config.IsEmpty())
-    return false;
-  if (!params.api_bindings_client->HasBindings())
-    return false;
-  if (!params.rewrite_rules.has_value())
-    return false;
-  return true;
+  return !params.app_config.IsEmpty() &&
+         params.api_bindings_client->HasBindings() &&
+         params.rewrite_rules.has_value() &&
+         params.media_session_id.has_value();
 }
 
 // Creates a CreateContextParams object which can be used as a basis
@@ -32,9 +30,13 @@ bool AreCastComponentParamsValid(
 fuchsia::web::CreateContextParams BuildCreateContextParamsForIsolatedRunners(
     const fuchsia::web::CreateContextParams& create_context_params) {
   fuchsia::web::CreateContextParams output;
-  if (create_context_params.has_features()) {
-    output.set_features(create_context_params.features());
-  }
+
+  // Isolated contexts receive only a limited set of features.
+  output.set_features(
+      fuchsia::web::ContextFeatureFlags::AUDIO |
+      fuchsia::web::ContextFeatureFlags::VULKAN |
+      fuchsia::web::ContextFeatureFlags::HARDWARE_VIDEO_DECODER);
+
   if (create_context_params.has_user_agent_product()) {
     output.set_user_agent_product(create_context_params.user_agent_product());
   }
@@ -88,26 +90,16 @@ void CastRunner::StartComponent(
     return;
   }
 
-  // The application configuration asynchronously via the per-component
-  // ApplicationConfigManager, the pointer to that service must be kept live
-  // until the request completes, or CastRunner is deleted.
+  // The application configuration is obtained asynchronously via the
+  // per-component ApplicationConfigManager. The pointer to that service must be
+  // kept live until the request completes or CastRunner is deleted.
   auto pending_component =
       std::make_unique<CastComponent::CastComponentParams>();
   pending_component->startup_context =
       std::make_unique<base::fuchsia::StartupContext>(std::move(startup_info));
   pending_component->agent_manager = std::make_unique<cr_fuchsia::AgentManager>(
-      pending_component->startup_context->incoming_services());
+      pending_component->startup_context->component_context()->svc().get());
   pending_component->controller_request = std::move(controller_request);
-
-  // Request the configuration for the specified application.
-  pending_component->agent_manager->ConnectToAgentService(
-      kAgentComponentUrl, pending_component->app_config_manager.NewRequest());
-  pending_component->app_config_manager.set_error_handler(
-      [this, pending_component = pending_component.get()](zx_status_t status) {
-        ZX_LOG(ERROR, status) << "ApplicationConfigManager disconnected.";
-        GetConfigCallback(pending_component,
-                          chromium::cast::ApplicationConfig());
-      });
 
   // Get binding details from the Agent.
   fidl::InterfaceHandle<chromium::cast::ApiBindings> api_bindings_client;
@@ -116,6 +108,8 @@ void CastRunner::StartComponent(
   pending_component->api_bindings_client = std::make_unique<ApiBindingsClient>(
       std::move(api_bindings_client),
       base::BindOnce(&CastRunner::MaybeStartComponent, base::Unretained(this),
+                     base::Unretained(pending_component.get())),
+      base::BindOnce(&CastRunner::CancelComponentLaunch, base::Unretained(this),
                      base::Unretained(pending_component.get())));
 
   // Get UrlRequestRewriteRulesProvider from the Agent.
@@ -127,10 +121,7 @@ void CastRunner::StartComponent(
   pending_component->rewrite_rules_provider.set_error_handler(
       [this, pending_component = pending_component.get()](zx_status_t status) {
         ZX_LOG(ERROR, status) << "UrlRequestRewriteRulesProvider disconnected.";
-
-        // The rules provider disconnected, cancel the component launch.
-        size_t count = pending_components_.erase(pending_component);
-        DCHECK_EQ(count, 1u);
+        CancelComponentLaunch(pending_component);
       });
   pending_component->rewrite_rules_provider->GetUrlRequestRewriteRules(
       [this, pending_component = pending_component.get()](
@@ -141,11 +132,37 @@ void CastRunner::StartComponent(
         MaybeStartComponent(pending_component);
       });
 
+  // Request the configuration for the specified application.
+  pending_component->agent_manager->ConnectToAgentService(
+      kAgentComponentUrl, pending_component->app_config_manager.NewRequest());
+  pending_component->app_config_manager.set_error_handler(
+      [this, pending_component = pending_component.get()](zx_status_t status) {
+        ZX_LOG(ERROR, status) << "ApplicationConfigManager disconnected.";
+        CancelComponentLaunch(pending_component);
+      });
   const std::string cast_app_id(cast_url.GetContent());
   pending_component->app_config_manager->GetConfig(
       cast_app_id, [this, pending_component = pending_component.get()](
                        chromium::cast::ApplicationConfig app_config) {
         GetConfigCallback(pending_component, std::move(app_config));
+      });
+
+  pending_component->application_context =
+      pending_component->agent_manager
+          ->ConnectToAgentService<chromium::cast::ApplicationContext>(
+              CastRunner::kAgentComponentUrl);
+  pending_component->application_context.set_error_handler(
+      [this, pending_component = pending_component.get()](zx_status_t status) {
+        ZX_LOG(ERROR, status) << "ApplicationContext disconnected.";
+        if (!pending_component->media_session_id) {
+          pending_component->media_session_id = 0;
+          MaybeStartComponent(pending_component);
+        }
+      });
+  pending_component->application_context->GetMediaSessionId(
+      [this, pending_component = pending_component.get()](uint64_t session_id) {
+        pending_component->media_session_id = session_id;
+        MaybeStartComponent(pending_component);
       });
 
   pending_components_.emplace(std::move(pending_component));
@@ -170,10 +187,15 @@ void CastRunner::GetConfigCallback(
   auto it = pending_components_.find(pending_component);
   DCHECK(it != pending_components_.end());
 
-  // If no configuration was returned then ignore the request.
+  if (app_config.IsEmpty()) {
+    pending_components_.erase(it);
+    DLOG(WARNING) << "No application config was found.";
+    return;
+  }
+
   if (!app_config.has_web_url()) {
     pending_components_.erase(it);
-    DLOG(WARNING) << "No ApplicationConfig was found.";
+    DLOG(WARNING) << "Only web-based applications are supported.";
     return;
   }
 
@@ -200,6 +222,12 @@ void CastRunner::MaybeStartComponent(
   component_owner->CreateAndRegisterCastComponent(
       std::move(*pending_component_params));
   pending_components_.erase(pending_component_params);
+}
+
+void CastRunner::CancelComponentLaunch(
+    CastComponent::CastComponentParams* params) {
+  size_t count = pending_components_.erase(params);
+  DCHECK_EQ(count, 1u);
 }
 
 void CastRunner::CreateAndRegisterCastComponent(

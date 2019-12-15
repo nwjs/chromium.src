@@ -253,6 +253,10 @@ void LoginDisplayHostMojo::OnStartArcKiosk() {
   ShowFullScreen();
 }
 
+void LoginDisplayHostMojo::OnStartWebKiosk() {
+  ShowFullScreen();
+}
+
 void LoginDisplayHostMojo::OnBrowserCreated() {
   NOTIMPLEMENTED();
 }
@@ -311,6 +315,10 @@ void LoginDisplayHostMojo::UpdateAddUserButtonStatus() {
   DCHECK(GetOobeUI());
   ash::LoginScreen::Get()->EnableAddUserButton(
       !GetOobeUI()->signin_screen_handler()->AllWhitelistedUsersPresent());
+}
+
+void LoginDisplayHostMojo::RequestSystemInfoUpdate() {
+  system_info_updater_->StartRequest();
 }
 
 void LoginDisplayHostMojo::OnCancelPasswordChangedFlow() {

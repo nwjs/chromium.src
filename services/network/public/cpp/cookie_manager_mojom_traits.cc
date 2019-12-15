@@ -52,8 +52,6 @@ EnumTraits<network::mojom::CookieSameSite, net::CookieSameSite>::ToMojom(
       return network::mojom::CookieSameSite::LAX_MODE;
     case net::CookieSameSite::STRICT_MODE:
       return network::mojom::CookieSameSite::STRICT_MODE;
-    case net::CookieSameSite::EXTENDED_MODE:
-      return network::mojom::CookieSameSite::EXTENDED_MODE;
     default:
       break;
   }
@@ -77,11 +75,40 @@ bool EnumTraits<network::mojom::CookieSameSite, net::CookieSameSite>::FromMojom(
     case network::mojom::CookieSameSite::STRICT_MODE:
       *output = net::CookieSameSite::STRICT_MODE;
       return true;
-    case network::mojom::CookieSameSite::EXTENDED_MODE:
-      *output = net::CookieSameSite::EXTENDED_MODE;
-      return true;
     default:
       break;
+  }
+  return false;
+}
+
+network::mojom::CookieSourceScheme
+EnumTraits<network::mojom::CookieSourceScheme,
+           net::CookieSourceScheme>::ToMojom(net::CookieSourceScheme input) {
+  switch (input) {
+    case net::CookieSourceScheme::kUnset:
+      return network::mojom::CookieSourceScheme::kUnset;
+    case net::CookieSourceScheme::kNonSecure:
+      return network::mojom::CookieSourceScheme::kNonSecure;
+    case net::CookieSourceScheme::kSecure:
+      return network::mojom::CookieSourceScheme::kSecure;
+  }
+  NOTREACHED();
+  return static_cast<network::mojom::CookieSourceScheme>(input);
+}
+
+bool EnumTraits<network::mojom::CookieSourceScheme, net::CookieSourceScheme>::
+    FromMojom(network::mojom::CookieSourceScheme input,
+              net::CookieSourceScheme* output) {
+  switch (input) {
+    case network::mojom::CookieSourceScheme::kUnset:
+      *output = net::CookieSourceScheme::kUnset;
+      return true;
+    case network::mojom::CookieSourceScheme::kNonSecure:
+      *output = net::CookieSourceScheme::kNonSecure;
+      return true;
+    case network::mojom::CookieSourceScheme::kSecure:
+      *output = net::CookieSourceScheme::kSecure;
+      return true;
   }
   return false;
 }
@@ -395,9 +422,14 @@ bool StructTraits<
   if (!cookie.ReadPriority(&priority))
     return false;
 
+  net::CookieSourceScheme source_scheme;
+  if (!cookie.ReadSourceScheme(&source_scheme))
+    return false;
+
   *out = net::CanonicalCookie(name, value, domain, path, creation_time,
                               expiry_time, last_access_time, cookie.secure(),
-                              cookie.httponly(), site_restrictions, priority);
+                              cookie.httponly(), site_restrictions, priority,
+                              source_scheme);
   return out->IsCanonical();
 }
 

@@ -26,7 +26,6 @@
 #include "cc/input/input_handler.h"
 #include "cc/layers/layer.h"
 #include "cc/metrics/begin_main_frame_metrics.h"
-#include "cc/trees/latency_info_swap_promise.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/layer_tree_settings.h"
 #include "components/viz/common/features.h"
@@ -155,7 +154,6 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
 
   settings.initial_debug_state.SetRecordRenderingStats(
       command_line->HasSwitch(cc::switches::kEnableGpuBenchmarking));
-  settings.build_hit_test_data = features::IsVizHitTestingSurfaceLayerEnabled();
 
   settings.use_zero_copy = IsUIZeroCopyEnabled();
 
@@ -365,12 +363,6 @@ void Compositor::ReenableSwap() {
   context_factory_private_->ResizeDisplay(this, size_);
 }
 
-void Compositor::SetLatencyInfo(const ui::LatencyInfo& latency_info) {
-  std::unique_ptr<cc::SwapPromise> swap_promise(
-      new cc::LatencyInfoSwapPromise(latency_info));
-  host_->QueueSwapPromise(std::move(swap_promise));
-}
-
 void Compositor::SetScaleAndSize(
     float scale,
     const gfx::Size& size_in_pixel,
@@ -430,6 +422,15 @@ void Compositor::SetDisplayColorSpace(const gfx::ColorSpace& color_space,
   }
 
   output_color_space_ = output_color_space;
+  // TODO(crbug.com/1012846): Remove this flag and provision when HDR is fully
+  // supported on ChromeOS.
+#if defined(OS_CHROMEOS)
+  if (output_color_space_.IsHDR() &&
+      !base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableUseHDRTransferFunction)) {
+    output_color_space_ = gfx::ColorSpace::CreateSRGB();
+  }
+#endif
   sdr_white_level_ = sdr_white_level;
   host_->SetRasterColorSpace(output_color_space_.GetRasterColorSpace());
   // Always force the ui::Compositor to re-draw all layers, because damage
@@ -445,6 +446,10 @@ void Compositor::SetDisplayColorSpace(const gfx::ColorSpace& color_space,
     context_factory_private_->SetDisplayColorSpace(this, output_color_space_,
                                                    sdr_white_level_);
   }
+}
+
+void Compositor::SetDisplayTransformHint(gfx::OverlayTransform hint) {
+  host_->set_display_transform_hint(hint);
 }
 
 void Compositor::SetBackgroundColor(SkColor color) {
@@ -514,7 +519,7 @@ void Compositor::SetDisplayVSyncParameters(base::TimeTicks timebase,
 }
 
 void Compositor::AddVSyncParameterObserver(
-    viz::mojom::VSyncParameterObserverPtr observer) {
+    mojo::PendingRemote<viz::mojom::VSyncParameterObserver> observer) {
   if (context_factory_private_) {
     context_factory_private_->AddVSyncParameterObserver(this,
                                                         std::move(observer));

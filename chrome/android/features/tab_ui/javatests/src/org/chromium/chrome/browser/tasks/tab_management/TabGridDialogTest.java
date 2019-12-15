@@ -9,6 +9,7 @@ import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
 import static android.support.test.espresso.matcher.RootMatchers.withDecorView;
+import static android.support.test.espresso.matcher.ViewMatchers.isCompletelyDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withParent;
@@ -19,24 +20,28 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.CardCountAssertion;
-import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.clickFirstTabFromTabSwitcher;
+import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.clickFirstCardFromTabSwitcher;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.createOverviewHideWatcher;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.createTabGroup;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.createTabs;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.enterTabSwitcher;
+import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.verifyTabStripFaviconCount;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.verifyTabSwitcherCardCount;
 
 import android.graphics.Rect;
 import android.support.test.espresso.Espresso;
 import android.support.test.espresso.NoMatchingRootException;
+import android.support.test.espresso.UiController;
+import android.support.test.espresso.ViewAction;
 import android.support.test.espresso.contrib.RecyclerViewActions;
 import android.support.test.filters.MediumTest;
 import android.support.v7.widget.RecyclerView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.TextView;
 
+import org.hamcrest.Matcher;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -50,10 +55,11 @@ import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
-import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.ChildrenCountAssertion;
 import org.chromium.chrome.features.start_surface.StartSurfaceLayout;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -119,7 +125,7 @@ public class TabGridDialogTest {
 
         // Enter first tab page.
         assertTrue(cta.getLayoutManager().overviewVisible());
-        clickFirstTabFromTabSwitcher(cta);
+        clickFirstCardFromTabSwitcher(cta);
         clickFirstTabFromDialog(cta);
         // Open dialog from tab strip and verify dialog is showing correct content.
         openDialogFromStripAndVerify(cta, 2);
@@ -213,9 +219,75 @@ public class TabGridDialogTest {
             assertTrue(expectedWidth == result.width());
         }));
 
-        TabUiTestHelper.clickFirstTabFromTabSwitcher(cta);
+        TabUiTestHelper.clickFirstCardFromTabSwitcher(cta);
         CriteriaHelper.pollUiThread(() -> mHasReceivedSourceRect);
         CriteriaHelper.pollInstrumentationThread(() -> isDialogShowing(cta));
+    }
+
+    @Test
+    @MediumTest
+    public void testUndoClosureInDialog_GTS() throws InterruptedException {
+        final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        createTabs(cta, false, 2);
+        enterTabSwitcher(cta);
+        verifyTabSwitcherCardCount(cta, 2);
+
+        // Create a tab group.
+        mergeAllTabsToAGroup(cta);
+        verifyTabSwitcherCardCount(cta, 1);
+
+        // Open dialog and verify dialog is showing correct content.
+        openDialogFromTabSwitcherAndVerify(cta, 2);
+
+        // Click close button to close the first tab in group.
+        closeFirstTabInDialog(cta);
+        verifyShowingDialog(cta, 1);
+
+        // Exit dialog, wait for the undo bar showing and undo the closure.
+        TabUiTestHelper.clickScrimToExitDialog(cta);
+        CriteriaHelper.pollInstrumentationThread(() -> !isDialogShowing(cta));
+        CriteriaHelper.pollInstrumentationThread(this::verifyUndoBarShowingAndClickUndo);
+
+        // Verify the undo has happened.
+        onView(withId(R.id.tab_title)).check((v, noMatchException) -> {
+            TextView textView = (TextView) v;
+            assertEquals("2 tabs", textView.getText().toString());
+        });
+        openDialogFromTabSwitcherAndVerify(cta, 2);
+    }
+
+    @Test
+    @MediumTest
+    public void testUndoClosureInDialog_TabStrip() throws InterruptedException {
+        final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        createTabs(cta, false, 2);
+        enterTabSwitcher(cta);
+        verifyTabSwitcherCardCount(cta, 2);
+
+        // Create a tab group.
+        mergeAllTabsToAGroup(cta);
+        verifyTabSwitcherCardCount(cta, 1);
+
+        // Enter first tab page.
+        assertTrue(cta.getLayoutManager().overviewVisible());
+        clickFirstCardFromTabSwitcher(cta);
+        clickFirstTabFromDialog(cta);
+
+        // Open dialog from tab strip and verify dialog is showing correct content.
+        openDialogFromStripAndVerify(cta, 2);
+
+        // Click close button to close the first tab in group.
+        closeFirstTabInDialog(cta);
+        verifyShowingDialog(cta, 1);
+
+        // Exit dialog, wait for the undo bar showing and undo the closure.
+        TabUiTestHelper.clickScrimToExitDialog(cta);
+        CriteriaHelper.pollInstrumentationThread(() -> !isDialogShowing(cta));
+        CriteriaHelper.pollInstrumentationThread(this::verifyUndoBarShowingAndClickUndo);
+
+        // Verify the undo has happened.
+        verifyTabStripFaviconCount(cta, 2);
+        openDialogFromStripAndVerify(cta, 2);
     }
 
     private void mergeAllTabsToAGroup(ChromeTabbedActivity cta) {
@@ -234,7 +306,7 @@ public class TabGridDialogTest {
     }
 
     private void openDialogFromTabSwitcherAndVerify(ChromeTabbedActivity cta, int tabCount) {
-        clickFirstTabFromTabSwitcher(cta);
+        clickFirstCardFromTabSwitcher(cta);
         CriteriaHelper.pollInstrumentationThread(() -> isDialogShowing(cta));
         verifyShowingDialog(cta, tabCount);
     }
@@ -248,7 +320,7 @@ public class TabGridDialogTest {
     private void verifyShowingDialog(ChromeTabbedActivity cta, int tabCount) {
         onView(withId(R.id.tab_list_view))
                 .inRoot(withDecorView(not(cta.getWindow().getDecorView())))
-                .check(CardCountAssertion.havingTabCount(tabCount));
+                .check(ChildrenCountAssertion.havingTabCount(tabCount));
 
         onView(allOf(withParent(withId(R.id.main_content)), withId(R.id.title)))
                 .inRoot(withDecorView(not(cta.getWindow().getDecorView())))
@@ -311,5 +383,43 @@ public class TabGridDialogTest {
                     // Verify if we can grab focus on the editText or not.
                     assertEquals(isEnabled, v.isFocused());
                 });
+    }
+
+    private void closeFirstTabInDialog(ChromeTabbedActivity cta) {
+        onView(withId(R.id.tab_list_view))
+                .inRoot(withDecorView(not(cta.getWindow().getDecorView())))
+                .perform(new ViewAction() {
+                    @Override
+                    public Matcher<View> getConstraints() {
+                        return isDisplayed();
+                    }
+
+                    @Override
+                    public String getDescription() {
+                        return "close first tab";
+                    }
+
+                    @Override
+                    public void perform(UiController uiController, View view) {
+                        RecyclerView recyclerView = (RecyclerView) view;
+                        RecyclerView.ViewHolder viewHolder =
+                                recyclerView.findViewHolderForAdapterPosition(0);
+                        assert viewHolder != null;
+                        viewHolder.itemView.findViewById(R.id.action_button).performClick();
+                    }
+                });
+    }
+
+    private boolean verifyUndoBarShowingAndClickUndo() {
+        boolean isShowing = true;
+        try {
+            onView(withId(R.id.snackbar_button)).check(matches(isCompletelyDisplayed()));
+            onView(withId(R.id.snackbar_button)).perform(click());
+        } catch (NoMatchingRootException | AssertionError e) {
+            isShowing = false;
+        } catch (Exception e) {
+            assert false : "error when verifying undo snack bar.";
+        }
+        return isShowing;
     }
 }

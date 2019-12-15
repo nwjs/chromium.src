@@ -25,10 +25,9 @@ namespace content {
 
 DedicatedWorkerHostFactoryClient::DedicatedWorkerHostFactoryClient(
     blink::WebDedicatedWorker* worker,
-    service_manager::InterfaceProvider* interface_provider)
+    const blink::BrowserInterfaceBrokerProxy& interface_broker)
     : worker_(worker) {
-  DCHECK(interface_provider);
-  interface_provider->GetInterface(factory_.BindNewPipeAndPassReceiver());
+  interface_broker.GetInterface(factory_.BindNewPipeAndPassReceiver());
 }
 
 DedicatedWorkerHostFactoryClient::~DedicatedWorkerHostFactoryClient() = default;
@@ -36,15 +35,12 @@ DedicatedWorkerHostFactoryClient::~DedicatedWorkerHostFactoryClient() = default;
 void DedicatedWorkerHostFactoryClient::CreateWorkerHostDeprecated(
     const blink::WebSecurityOrigin& script_origin) {
   DCHECK(!base::FeatureList::IsEnabled(blink::features::kPlzDedicatedWorker));
-  service_manager::mojom::InterfaceProviderPtr interface_provider_ptr;
   mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
       browser_interface_broker;
   factory_->CreateWorkerHost(
-      script_origin, mojo::MakeRequest(&interface_provider_ptr),
-      browser_interface_broker.InitWithNewPipeAndPassReceiver(),
+      script_origin, browser_interface_broker.InitWithNewPipeAndPassReceiver(),
       remote_host_.BindNewPipeAndPassReceiver());
-  OnWorkerHostCreated(std::move(interface_provider_ptr),
-                      std::move(browser_interface_broker));
+  OnWorkerHostCreated(std::move(browser_interface_broker));
 }
 
 void DedicatedWorkerHostFactoryClient::CreateWorkerHost(
@@ -116,32 +112,30 @@ DedicatedWorkerHostFactoryClient::CreateWorkerFetchContext(
 }
 
 void DedicatedWorkerHostFactoryClient::OnWorkerHostCreated(
-    service_manager::mojom::InterfaceProviderPtr interface_provider,
     mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
         browser_interface_broker) {
-  worker_->OnWorkerHostCreated(interface_provider.PassInterface().PassHandle(),
-                               browser_interface_broker.PassPipe());
+  worker_->OnWorkerHostCreated(browser_interface_broker.PassPipe());
 }
 
 void DedicatedWorkerHostFactoryClient::OnScriptLoadStarted(
     blink::mojom::ServiceWorkerProviderInfoForClientPtr
         service_worker_provider_info,
     blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
-    std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
-        subresource_loader_factory_bundle_info,
+    std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
+        pending_subresource_loader_factory_bundle,
     mojo::PendingReceiver<blink::mojom::SubresourceLoaderUpdater>
         subresource_loader_updater,
     blink::mojom::ControllerServiceWorkerInfoPtr controller_info) {
   DCHECK(base::FeatureList::IsEnabled(blink::features::kPlzDedicatedWorker));
   DCHECK(main_script_load_params);
-  DCHECK(subresource_loader_factory_bundle_info);
+  DCHECK(pending_subresource_loader_factory_bundle);
 
   // Initialize the loader factory bundle passed by the browser process.
   DCHECK(!subresource_loader_factory_bundle_);
   subresource_loader_factory_bundle_ =
       base::MakeRefCounted<ChildURLLoaderFactoryBundle>(
-          std::make_unique<ChildURLLoaderFactoryBundleInfo>(
-              std::move(subresource_loader_factory_bundle_info)));
+          std::make_unique<ChildPendingURLLoaderFactoryBundle>(
+              std::move(pending_subresource_loader_factory_bundle)));
 
   DCHECK(!pending_subresource_loader_updater_);
   pending_subresource_loader_updater_ = std::move(subresource_loader_updater);

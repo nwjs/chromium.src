@@ -16,6 +16,7 @@ namespace base {
 namespace test {
 
 using TestCallback = base::RepeatingCallback<void(const bool& src, bool* dst)>;
+using TestOnceCallback = base::OnceCallback<void(const bool& src, bool* dst)>;
 
 void SetBool(const bool& src, bool* dst) {
   *dst = src;
@@ -33,12 +34,35 @@ TEST(GmockCallbackSupportTest, IsNotNullCallback) {
   check.Call(base::BindRepeating(&SetBool));
 }
 
-TEST(GmockCallbackSupportTest, RunClosure) {
+TEST(GmockCallbackSupportTest, IsNullOnceCallback) {
+  MockFunction<void(TestOnceCallback)> mock;
+  EXPECT_CALL(mock, Call(IsNullCallback()));
+  mock.Call(TestOnceCallback());
+}
+
+TEST(GmockCallbackSupportTest, IsNotNullOnceCallback) {
+  MockFunction<void(TestOnceCallback)> mock;
+  EXPECT_CALL(mock, Call(IsNotNullCallback()));
+  mock.Call(base::BindOnce(&SetBool));
+}
+
+TEST(GmockCallbackSupportTest, RunClosure0) {
   MockFunction<void(const base::RepeatingClosure&)> check;
   bool dst = false;
   EXPECT_CALL(check, Call(IsNotNullCallback())).WillOnce(RunClosure<0>());
   check.Call(base::BindRepeating(&SetBool, true, &dst));
   EXPECT_TRUE(dst);
+}
+
+TEST(GmockCallbackSupportTest, RunClosureByRefNotReset) {
+  // Check that RepeatingClosure isn't reset by RunClosure<N>().
+  MockFunction<void(base::RepeatingClosure&)> check;
+  bool dst = false;
+  EXPECT_CALL(check, Call(IsNotNullCallback())).WillOnce(RunClosure<0>());
+  auto closure = base::BindRepeating(&SetBool, true, &dst);
+  check.Call(closure);
+  EXPECT_TRUE(dst);
+  EXPECT_FALSE(closure.is_null());
 }
 
 TEST(GmockCallbackSupportTest, RunCallback0) {
@@ -78,6 +102,25 @@ TEST(GmockCallbackSupportTest, RunCallbackPassByValue) {
       .WillOnce(RunCallback<0>(src, &dst));
   src = false;
   check.Call(base::BindRepeating(&SetBool));
+  EXPECT_TRUE(dst);
+}
+
+TEST(GmockCallbackSupportTest, RunOnceClosure0) {
+  MockFunction<void(base::OnceClosure)> check;
+  bool dst = false;
+  EXPECT_CALL(check, Call(IsNotNullCallback())).WillOnce(RunOnceClosure<0>());
+  check.Call(base::BindOnce(&SetBool, true, &dst));
+  EXPECT_TRUE(dst);
+}
+
+TEST(GmockCallbackSupportTest, RunOnceCallback0) {
+  MockFunction<void(TestOnceCallback)> check;
+  bool dst = false;
+  bool src = true;
+  EXPECT_CALL(check, Call(IsNotNullCallback()))
+      .WillOnce(RunOnceCallback<0>(src, &dst));
+  src = false;
+  check.Call(base::BindOnce(&SetBool));
   EXPECT_TRUE(dst);
 }
 

@@ -295,8 +295,7 @@ class IdentityManager : public KeyedService,
       const CoreAccountId& account_id,
       UbertokenFetcher::CompletionCallback callback,
       gaia::GaiaSource source,
-      scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-      bool bound_to_channel_id = true);
+      scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
 
   // Provides the information of all accounts that are present in the Gaia
   // cookie in the cookie jar, ordered by their order in the cookie.
@@ -432,13 +431,6 @@ class IdentityManager : public KeyedService,
   base::android::ScopedJavaLocalRef<jobject>
   LegacyGetAccountTrackerServiceJavaObject();
 
-  // Returns a pointer to the OAuth2TokenService Java instance associated
-  // with this object.
-  // TODO(https://crbug.com/934688): Eliminate this method once
-  // OAuth2TokenService.java has no more client usage.
-  base::android::ScopedJavaLocalRef<jobject>
-  LegacyGetOAuth2TokenServiceJavaObject();
-
   // Get the reference on the java IdentityManager.
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject();
 
@@ -454,10 +446,19 @@ class IdentityManager : public KeyedService,
   // Overloads for calls from java:
   bool HasPrimaryAccount(JNIEnv* env) const;
 
+  base::android::ScopedJavaLocalRef<jobject> GetPrimaryAccountInfo(
+      JNIEnv* env) const;
+
+  base::android::ScopedJavaLocalRef<jobject> GetPrimaryAccountId(
+      JNIEnv* env) const;
+
   base::android::ScopedJavaLocalRef<jobject>
   FindExtendedAccountInfoForAccountWithRefreshTokenByEmailAddress(
       JNIEnv* env,
       const base::android::JavaParamRef<jstring>& j_email) const;
+
+  base::android::ScopedJavaLocalRef<jobjectArray> GetAccountsWithRefreshTokens(
+      JNIEnv* env) const;
 #endif
 
  private:
@@ -493,6 +494,9 @@ class IdentityManager : public KeyedService,
                                            const CoreAccountId& account_id);
   friend void UpdateAccountInfoForAccount(IdentityManager* identity_manager,
                                           AccountInfo account_info);
+  friend void SimulateAccountImageFetch(IdentityManager* identity_manager,
+                                        const CoreAccountId& account_id,
+                                        const gfx::Image& image);
   friend void SetFreshnessOfAccountsInGaiaCookie(
       IdentityManager* identity_manager,
       bool accounts_are_fresh);

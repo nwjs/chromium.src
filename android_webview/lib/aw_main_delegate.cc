@@ -29,7 +29,6 @@
 #include "base/cpu.h"
 #include "base/i18n/icu_util.h"
 #include "base/i18n/rtl.h"
-#include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/posix/global_descriptors.h"
 #include "base/strings/string_number_conversions.h"
@@ -71,9 +70,9 @@
 
 namespace android_webview {
 
-AwMainDelegate::AwMainDelegate() {}
+AwMainDelegate::AwMainDelegate() = default;
 
-AwMainDelegate::~AwMainDelegate() {}
+AwMainDelegate::~AwMainDelegate() = default;
 
 bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
   content::SetContentClient(&content_client_);
@@ -141,9 +140,6 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
     ui::GestureConfiguration::GetInstance()
         ->set_fling_touchscreen_tap_suppression_enabled(false);
 
-    base::android::RegisterApkAssetWithFileDescriptorStore(
-        content::kV8NativesDataDescriptor,
-        gin::V8Initializer::GetNativesFilePath());
 #if defined(USE_V8_CONTEXT_SNAPSHOT)
     gin::V8Initializer::V8SnapshotFileType file_type =
         gin::V8Initializer::V8SnapshotFileType::kWithAdditionalContext;
@@ -184,15 +180,25 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
     // WebView does not and should not support WebAuthN.
     features.DisableIfNotSet(::features::kWebAuth);
 
-    // WebView isn't compatible with OOP-D.
-    features.DisableIfNotSet(::features::kVizDisplayCompositor);
+    // Checking for command line here as FeatureList isn't initialized here yet,
+    // so we can't use FeatureList::IsEnabled. This is necessary if someone
+    // enabled feature through command line. Finch experiments will need to set
+    // all flags in trial config.
+    if (features.IsEnabled(::features::kVizForWebView)) {
+      cl->AppendSwitch(switches::kWebViewEnableSharedImage);
+      features.EnableIfNotSet(::features::kUseSkiaRenderer);
+    } else {
+      // Disable OOP-D if viz for WebView not enabled.
+      features.DisableIfNotSet(::features::kVizDisplayCompositor);
 
-    // WebView does not support AndroidOverlay yet for video overlays.
-    features.DisableIfNotSet(media::kUseAndroidOverlay);
+      // Viz for WebView is required to support embedding CompositorFrameSinks
+      // which is needed for UseSurfaceLayerForVideo feature.
+      // https://crbug.com/853832
+      features.EnableIfNotSet(media::kDisableSurfaceLayerForVideo);
+    }
 
-    // WebView doesn't support embedding CompositorFrameSinks which is needed
-    // for UseSurfaceLayerForVideo feature. https://crbug.com/853832
-    features.EnableIfNotSet(media::kDisableSurfaceLayerForVideo);
+    // WebView does not support overlay fullscreen yet for video overlays.
+    features.DisableIfNotSet(media::kOverlayFullscreenVideo);
 
     // WebView does not support EME persistent license yet, because it's not
     // clear on how user can remove persistent media licenses from UI.
@@ -368,7 +374,7 @@ gpu::SharedImageManager* GetSharedImageManager() {
 }
 
 viz::VizCompositorThreadRunner* GetVizCompositorThreadRunner() {
-  return base::FeatureList::IsEnabled(features::kVizForWebView)
+  return ::features::IsUsingVizForWebView()
              ? VizCompositorThreadRunnerWebView::GetInstance()
              : nullptr;
 }

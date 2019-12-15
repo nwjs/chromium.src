@@ -13,18 +13,19 @@ import android.os.Handler;
 import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.SysUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.document.ChromeIntentUtil;
 import org.chromium.chrome.browser.favicon.LargeIconBridge;
 import org.chromium.chrome.browser.metrics.MediaNotificationUma;
 import org.chromium.chrome.browser.metrics.MediaSessionUMA;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
-import org.chromium.chrome.browser.util.ChromeIntentUtil;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.MediaSession;
 import org.chromium.content_public.browser.MediaSessionObserver;
@@ -560,7 +561,7 @@ public class MediaSessionTabHelper implements MediaImageCallback {
         String pageUrl = webContents.getLastCommittedUrl();
         int size = MediaNotificationManager.MINIMAL_MEDIA_IMAGE_SIZE_PX;
         if (mLargeIconBridge == null) {
-            mLargeIconBridge = new LargeIconBridge(mTab.getProfile());
+            mLargeIconBridge = new LargeIconBridge(((TabImpl) mTab).getProfile());
         }
         LargeIconBridge.LargeIconCallback callback = new LargeIconBridge.LargeIconCallback() {
             @Override

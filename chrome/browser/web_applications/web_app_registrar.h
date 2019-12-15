@@ -13,6 +13,7 @@
 #include "base/macros.h"
 #include "base/optional.h"
 #include "chrome/browser/web_applications/components/app_registrar.h"
+#include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 
 namespace web_app {
@@ -34,17 +35,17 @@ class WebAppRegistrar : public AppRegistrar {
   // AppRegistrar:
   bool IsInstalled(const AppId& app_id) const override;
   bool IsLocallyInstalled(const AppId& app_id) const override;
-  bool WasExternalAppUninstalledByUser(const AppId& app_id) const override;
   bool WasInstalledByUser(const AppId& app_id) const override;
-  base::Optional<AppId> FindAppWithUrlInScope(const GURL& url) const override;
   int CountUserInstalledApps() const override;
   std::string GetAppShortName(const AppId& app_id) const override;
   std::string GetAppDescription(const AppId& app_id) const override;
   base::Optional<SkColor> GetAppThemeColor(const AppId& app_id) const override;
   const GURL& GetAppLaunchURL(const AppId& app_id) const override;
   base::Optional<GURL> GetAppScope(const AppId& app_id) const override;
-  blink::mojom::DisplayMode GetAppDisplayMode(
-      const web_app::AppId& app_id) const override;
+  DisplayMode GetAppDisplayMode(const AppId& app_id) const override;
+  DisplayMode GetAppUserDisplayMode(const AppId& app_id) const override;
+  std::vector<WebApplicationIconInfo> GetAppIconInfos(
+      const AppId& app_id) const override;
   std::vector<AppId> GetAppIds() const override;
 
   // Only range-based |for| loop supported. Don't use AppSet directly.

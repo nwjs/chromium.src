@@ -10,28 +10,32 @@
 #include <string>
 #include <vector>
 
-#include "base/files/file_path.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observer.h"
 #include "chrome/browser/chromeos/printing/cups_printers_manager.h"
 #include "chrome/browser/chromeos/printing/printer_configurer.h"
 #include "chrome/browser/chromeos/printing/printer_event_tracker.h"
-#include "chrome/browser/local_discovery/endpoint_resolver.h"
 #include "chrome/browser/ui/webui/settings/settings_page_ui_handler.h"
-#include "chromeos/printing/ppd_provider.h"
 #include "chromeos/printing/printer_configuration.h"
 #include "printing/printer_query_result_chromeos.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
 
 namespace base {
+class FilePath;
 class ListValue;
 }  // namespace base
 
+namespace local_discovery {
+class EndpointResolver;
+}  // namespace local_discovery
+
+class GURL;
 class Profile;
 
 namespace chromeos {
 
 class PpdProvider;
+class ServerPrintersFetcher;
 
 namespace settings {
 
@@ -204,6 +208,13 @@ class CupsPrintersHandler : public ::settings::SettingsPageUIHandler,
                     const Printer& printer,
                     const net::IPEndPoint& endpoint);
 
+  void HandleQueryPrintServer(const base::ListValue* args);
+  void OnQueryPrintServerCompleted(
+      const std::string& callback_id,
+      const ServerPrintersFetcher* sender,
+      const GURL& server_url,
+      std::vector<PrinterDetector::DetectedPrinter>&& returned_printers);
+
   Profile* profile_;
 
   // Discovery support.  discovery_active_ tracks whether or not the UI
@@ -228,6 +239,8 @@ class CupsPrintersHandler : public ::settings::SettingsPageUIHandler,
   std::string webui_callback_id_;
   CupsPrintersManager* printers_manager_;
   std::unique_ptr<local_discovery::EndpointResolver> endpoint_resolver_;
+
+  std::unique_ptr<ServerPrintersFetcher> server_printers_fetcher_;
 
   ScopedObserver<CupsPrintersManager, CupsPrintersManager::Observer>
       printers_manager_observer_;

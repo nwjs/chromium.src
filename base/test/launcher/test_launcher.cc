@@ -64,6 +64,7 @@
 #endif
 
 #if defined(OS_WIN)
+#include "base/strings/string_util_win.h"
 #include "base/win/windows_version.h"
 #endif
 
@@ -238,8 +239,6 @@ CommandLine PrepareCommandLineForGTest(const CommandLine& command_line,
   // Handled by the launcher process.
   switches.erase(kGTestRepeatFlag);
   switches.erase(kIsolatedScriptTestRepeatFlag);
-  switches.erase(kGTestShuffleFlag);
-  switches.erase(kGTestRandomSeedFlag);
 
   // Don't try to write the final XML report in child processes.
   switches.erase(kGTestOutputFlag);
@@ -254,7 +253,7 @@ CommandLine PrepareCommandLineForGTest(const CommandLine& command_line,
   // on a CommandLine with a wrapper is known to break.
   // TODO(phajdan.jr): Give it a try to support CommandLine removing switches.
 #if defined(OS_WIN)
-  new_command_line.PrependWrapper(ASCIIToUTF16(wrapper));
+  new_command_line.PrependWrapper(UTF8ToWide(wrapper));
 #else
   new_command_line.PrependWrapper(wrapper);
 #endif
@@ -769,6 +768,10 @@ std::string TestLauncher::TestInfo::GetPrefixStrippedName() const {
 
 TestLauncherDelegate::~TestLauncherDelegate() = default;
 
+bool TestLauncherDelegate::ShouldRunTest(const TestIdentifier& test) {
+  return true;
+}
+
 TestLauncher::LaunchOptions::LaunchOptions() = default;
 TestLauncher::LaunchOptions::LaunchOptions(const LaunchOptions& other) =
     default;
@@ -1265,8 +1268,8 @@ bool TestLauncher::Init(CommandLine* command_line) {
     auto filter =
         command_line->GetSwitchValueNative(switches::kTestLauncherFilterFile);
     for (auto filter_file :
-         SplitString(filter, FILE_PATH_LITERAL(";"), base::TRIM_WHITESPACE,
-                     base::SPLIT_WANT_ALL)) {
+         SplitStringPiece(filter, FILE_PATH_LITERAL(";"), base::TRIM_WHITESPACE,
+                          base::SPLIT_WANT_ALL)) {
       base::FilePath filter_file_path =
           base::MakeAbsoluteFilePath(FilePath(filter_file));
       if (!LoadFilterFile(filter_file_path, &positive_file_filter,
@@ -1428,7 +1431,10 @@ bool TestLauncher::InitTests() {
   }
   for (const TestIdentifier& test_id : tests) {
     TestInfo test_info(test_id);
-    tests_.push_back(test_info);
+    // TODO(isamsonov): crbug.com/1004417 remove when windows builders
+    // stop flaking on MANAUAL_ tests.
+    if (launcher_delegate_->ShouldRunTest(test_id))
+      tests_.push_back(test_info);
   }
   return true;
 }

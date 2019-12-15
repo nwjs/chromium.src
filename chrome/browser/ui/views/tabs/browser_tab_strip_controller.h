@@ -61,6 +61,8 @@ class BrowserTabStripController : public TabStripController,
   void AddSelectionFromAnchorTo(int model_index) override;
   bool BeforeCloseTab(int model_index, CloseTabSource source) override;
   void CloseTab(int model_index, CloseTabSource source) override;
+  void UngroupAllTabsInGroup(TabGroupId group) override;
+  void AddNewTabInGroup(TabGroupId group) override;
   void MoveTab(int start_index, int final_index) override;
   void ShowContextMenuForTab(Tab* tab,
                              const gfx::Point& p,
@@ -70,8 +72,8 @@ class BrowserTabStripController : public TabStripController,
   void CreateNewTab() override;
   void CreateNewTabWithLocation(const base::string16& loc) override;
   void StackedLayoutMaybeChanged() override;
-  void OnStartedDraggingTabs() override;
-  void OnStoppedDraggingTabs() override;
+  void OnStartedDragging() override;
+  void OnStoppedDragging() override;
   void OnKeyboardFocusedTabChanged(base::Optional<int> index) override;
   const TabGroupVisualData* GetVisualDataForGroup(
       TabGroupId group_id) const override;
@@ -89,16 +91,14 @@ class BrowserTabStripController : public TabStripController,
       BrowserFrameActiveState active_state) const override;
   base::string16 GetAccessibleTabName(const Tab* tab) const override;
   Profile* GetProfile() const override;
+  const Browser* GetBrowser() const override;
 
   // TabStripModelObserver implementation:
   void OnTabStripModelChanged(
       TabStripModel* tab_strip_model,
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override;
-  void OnTabGroupVisualDataChanged(
-      TabStripModel* tab_strip_model,
-      TabGroupId group,
-      const TabGroupVisualData* visual_data) override;
+  void OnTabGroupChanged(const TabGroupChange& change) override;
   void TabChangedAt(content::WebContents* contents,
                     int model_index,
                     TabChangeType change_type) override;
@@ -107,6 +107,8 @@ class BrowserTabStripController : public TabStripController,
                              int model_index) override;
   void TabBlockedStateChanged(content::WebContents* contents,
                               int model_index) override;
+  void TabGroupedStateChanged(base::Optional<TabGroupId> group,
+                              int index) override;
   void SetTabNeedsAttentionAt(int index, bool attention) override;
 
   const Browser* browser() const { return browser_view_->browser(); }

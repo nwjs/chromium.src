@@ -441,7 +441,7 @@ TEST_F(CreditCardSaveManagerTest, InvalidCreditCardNumberIsNotSaved) {
 }
 
 TEST_F(CreditCardSaveManagerTest, CreditCardDisabledDoesNotSave) {
-  autofill_manager_->SetCreditCardEnabled(false);
+  autofill_manager_->SetAutofillCreditCardEnabled(false);
 
   // Create, fill and submit an address form in order to establish a recent
   // profile which can be selected for the upload request.
@@ -4981,9 +4981,6 @@ TEST_F(CreditCardSaveManagerTest, OnUserDidAcceptUpload_NotifiesPDM) {
 // locally.
 TEST_F(CreditCardSaveManagerTest,
        LocalCreditCard_LocalCardMigrationStrikesRemovedOnLocalSave) {
-  scoped_feature_list_.InitAndEnableFeature(
-      features::kAutofillLocalCardMigrationUsesStrikeSystemV2);
-
   LocalCardMigrationStrikeDatabase local_card_migration_strike_database =
       LocalCardMigrationStrikeDatabase(strike_database_);
 
@@ -5032,9 +5029,6 @@ TEST_F(CreditCardSaveManagerTest,
 // uploaded.
 TEST_F(CreditCardSaveManagerTest,
        UploadCreditCard_NoLocalSaveMigrationStrikesRemovedOnUpload) {
-  scoped_feature_list_.InitAndEnableFeature(
-      features::kAutofillLocalCardMigrationUsesStrikeSystemV2);
-
   LocalCardMigrationStrikeDatabase local_card_migration_strike_database =
       LocalCardMigrationStrikeDatabase(strike_database_);
 

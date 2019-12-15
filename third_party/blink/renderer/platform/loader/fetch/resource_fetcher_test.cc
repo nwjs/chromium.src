@@ -104,8 +104,7 @@ const FetchClientSettingsObjectSnapshot& CreateFetchClientSettingsObject(
       network::mojom::ReferrerPolicy::kDefault, "https://example.com/foo.html",
       HttpsState::kModern, AllowedByNosniff::MimeTypeCheck::kStrict,
       address_space, kLeaveInsecureRequestsAlone,
-      FetchClientSettingsObject::InsecureNavigationsSet(),
-      false /* mixed_autoupgrade_opt_out */);
+      FetchClientSettingsObject::InsecureNavigationsSet());
 }
 
 }  // namespace
@@ -295,8 +294,9 @@ TEST_F(ResourceFetcherTest, Vary) {
 }
 
 TEST_F(ResourceFetcherTest, ResourceTimingInfo) {
-  auto info = ResourceTimingInfo::Create(fetch_initiator_type_names::kDocument,
-                                         base::TimeTicks::Now());
+  auto info = ResourceTimingInfo::Create(
+      fetch_initiator_type_names::kDocument, base::TimeTicks::Now(),
+      mojom::RequestContextType::UNSPECIFIED);
   info->AddFinalTransferSize(5);
   EXPECT_EQ(info->TransferSize(), static_cast<uint64_t>(5));
   ResourceResponse redirect_response(KURL("https://example.com/original"));
@@ -476,9 +476,6 @@ class ServeRequestsOnCompleteClient final
     return true;
   }
   void DataDownloaded(Resource*, uint64_t) override { ASSERT_TRUE(false); }
-  void DidReceiveResourceTiming(Resource*, const ResourceTimingInfo&) override {
-    ASSERT_TRUE(false);
-  }
 
   void Trace(blink::Visitor* visitor) override {
     RawResourceClient::Trace(visitor);
@@ -959,8 +956,8 @@ TEST_F(ResourceFetcherTest, StaleWhileRevalidate) {
 
   ResourceRequest resource_request(url);
   resource_request.SetRequestContext(mojom::RequestContextType::INTERNAL);
-  fetch_params = FetchParameters(resource_request);
-  Resource* new_resource = MockResource::Fetch(fetch_params, fetcher, nullptr);
+  FetchParameters fetch_params2 = FetchParameters(resource_request);
+  Resource* new_resource = MockResource::Fetch(fetch_params2, fetcher, nullptr);
   EXPECT_EQ(resource, new_resource);
   platform_->GetURLLoaderMockFactory()->ServeAsynchronousRequests();
   EXPECT_TRUE(resource->IsLoaded());
@@ -974,7 +971,7 @@ TEST_F(ResourceFetcherTest, StaleWhileRevalidate) {
   RegisterMockedURLLoadWithCustomResponse(
       url, test::PlatformTestDataPath(kTestResourceFilename),
       WrappedResourceResponse(revalidate_response));
-  new_resource = MockResource::Fetch(fetch_params, fetcher, nullptr);
+  new_resource = MockResource::Fetch(fetch_params2, fetcher, nullptr);
   EXPECT_EQ(resource, new_resource);
   EXPECT_TRUE(GetMemoryCache()->Contains(resource));
   static_cast<scheduler::FakeTaskRunner*>(fetcher->GetTaskRunner().get())

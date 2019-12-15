@@ -14,8 +14,9 @@ import android.util.Pair;
 import android.util.TypedValue;
 import android.view.View;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.ApiCompatibilityUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeFeatureList;
@@ -225,21 +226,21 @@ public class BasicSuggestionProcessor implements SuggestionProcessor {
             mLargeIconBridge.getLargeIconForUrl(suggestion.getUrl(), mDesiredFaviconWidthPx,
                     (Bitmap icon, int fallbackColor, boolean isFallbackColorDefault,
                             int iconType) -> {
-                        if (!mSuggestionHost.isActiveModel(model)) return;
                         if (icon != null) {
                             model.set(SuggestionViewProperties.SUGGESTION_ICON_BITMAP, icon);
                             model.set(SuggestionViewProperties.SUGGESTION_ICON_TYPE,
                                     SuggestionIcon.FAVICON);
-                            mSuggestionHost.notifyPropertyModelsChanged();
                         }
                     });
         }
 
-        boolean sameAsTyped =
-                mUrlBarEditingTextProvider.getTextWithoutAutocomplete().trim().equalsIgnoreCase(
-                        suggestion.getDisplayText());
-        model.set(SuggestionViewProperties.REFINABLE, !sameAsTyped);
-
+        boolean isRefinable =
+                !(mUrlBarEditingTextProvider.getTextWithoutAutocomplete().trim().equalsIgnoreCase(
+                          suggestion.getDisplayText())
+                        || suggestionType == OmniboxSuggestionType.CLIPBOARD_TEXT
+                        || suggestionType == OmniboxSuggestionType.CLIPBOARD_URL
+                        || suggestionType == OmniboxSuggestionType.CLIPBOARD_IMAGE);
+        model.set(SuggestionViewProperties.REFINABLE, isRefinable);
     }
 
     /**

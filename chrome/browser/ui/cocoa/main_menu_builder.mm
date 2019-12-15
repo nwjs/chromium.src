@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/cocoa/history_menu_bridge.h"
 #include "chrome/grit/chromium_strings.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/accelerators/platform_accelerator_cocoa.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -259,6 +260,9 @@ base::scoped_nsobject<NSMenuItem> BuildViewMenu(
                 Item().is_separator(),
                 Item(IDS_MEDIA_ROUTER_MENU_ITEM_TITLE)
                     .command_id(IDC_ROUTE_MEDIA),
+                Item(IDS_DISTILL_PAGE)
+                    .command_id(IDC_DISTILL_PAGE)
+                    .remove_if(!dom_distiller::IsDomDistillerEnabled()),
                 Item().is_separator(),
                 Item(IDS_DEVELOPER_MENU_MAC)
                     .tag(IDC_DEVELOPER_MENU)
@@ -418,6 +422,10 @@ base::scoped_nsobject<NSMenuItem> BuildTabMenu(
                   .command_id(IDC_PIN_TARGET_TAB)
                   .is_alternate()
                   .key_equivalent(@"", NSAlternateKeyMask),
+              Item(IDS_TAB_CXMENU_CLOSEOTHERTABS)
+                  .command_id(IDC_WINDOW_CLOSE_OTHER_TABS),
+              Item(IDS_TAB_CXMENU_CLOSETABSTORIGHT)
+                  .command_id(IDC_WINDOW_CLOSE_TABS_TO_RIGHT),
               Item().is_separator(),
           })
           .Build();

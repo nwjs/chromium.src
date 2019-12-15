@@ -27,7 +27,7 @@ void IdGeneratorCustomBindings::GetNextId(
   static int32_t next_id = 0;
   // nwjs: conflict with SetElementInstanceID in BrowserPlugin and GuestViewContainer.prototype.attachWindow
   // cound be a bug in upstream
-  if (next_id == 0 && base::FeatureList::IsEnabled(::features::kGuestViewCrossProcessFrames))
+  if (next_id == 0)
     next_id = 1000;
 
   ++next_id;

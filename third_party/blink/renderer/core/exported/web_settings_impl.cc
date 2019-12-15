@@ -461,10 +461,6 @@ void WebSettingsImpl::SetEditingBehavior(EditingBehavior behavior) {
   settings_->SetEditingBehaviorType(static_cast<EditingBehaviorType>(behavior));
 }
 
-void WebSettingsImpl::SetMockScrollbarsEnabled(bool enabled) {
-  settings_->SetMockScrollbarsEnabled(enabled);
-}
-
 void WebSettingsImpl::SetHideScrollbars(bool enabled) {
   dev_tools_emulator_->SetHideScrollbars(enabled);
 }
@@ -660,10 +656,6 @@ void WebSettingsImpl::SetSmartInsertDeleteEnabled(bool enabled) {
   settings_->SetSmartInsertDeleteEnabled(enabled);
 }
 
-void WebSettingsImpl::SetUseSolidColorScrollbars(bool enabled) {
-  settings_->SetUseSolidColorScrollbars(enabled);
-}
-
 void WebSettingsImpl::SetMainFrameResizesAreOrientationChanges(bool enabled) {
   dev_tools_emulator_->SetMainFrameResizesAreOrientationChanges(enabled);
 }
@@ -776,11 +768,6 @@ void WebSettingsImpl::SetLazyImageFirstKFullyLoad4G(int num_images) {
 
 void WebSettingsImpl::SetForceDarkModeEnabled(bool enabled) {
   settings_->SetForceDarkModeEnabled(enabled);
-}
-
-void WebSettingsImpl::SetPreferredColorScheme(
-    PreferredColorScheme color_scheme) {
-  settings_->SetPreferredColorScheme(color_scheme);
 }
 
 void WebSettingsImpl::SetNavigationControls(

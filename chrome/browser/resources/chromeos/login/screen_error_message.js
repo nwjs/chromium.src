@@ -242,8 +242,6 @@ login.createScreen('ErrorMessageScreen', 'error-message', function() {
       $('connecting-indicator').innerHTML =
           loadTimeData.getStringF('connectingIndicatorText', ellipsis);
 
-      $('offline-network-control').setCrOncStrings();
-
       this.onContentChange_();
     },
 

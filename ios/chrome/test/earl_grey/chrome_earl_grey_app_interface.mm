@@ -7,18 +7,22 @@
 
 #include "base/strings/sys_string_conversions.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #import "components/payments/core/features.h"
 #import "components/ukm/ios/features.h"
+#import "ios/chrome/app/main_controller.h"
 #include "ios/chrome/browser/autofill/personal_data_manager_factory.h"
 #include "ios/chrome/browser/content_settings/host_content_settings_map_factory.h"
 #import "ios/chrome/browser/ntp/features.h"
 #import "ios/chrome/browser/ui/settings/autofill/features.h"
+#import "ios/chrome/browser/ui/table_view/feature_flags.h"
 #import "ios/chrome/browser/ui/ui_feature_flags.h"
+#import "ios/chrome/browser/ui/util/named_guide.h"
 #import "ios/chrome/browser/web/tab_id_tab_helper.h"
 #import "ios/chrome/test/app/bookmarks_test_util.h"
+#import "ios/chrome/test/app/browsing_data_test_util.h"
 #import "ios/chrome/test/app/chrome_test_util.h"
-#import "ios/chrome/test/app/history_test_util.h"
 #include "ios/chrome/test/app/navigation_test_util.h"
 #include "ios/chrome/test/app/settings_test_util.h"
 #import "ios/chrome/test/app/signin_test_util.h"
@@ -35,6 +39,7 @@
 #include "ios/web/public/test/url_test_util.h"
 #import "ios/web/public/test/web_view_content_test_util.h"
 #import "ios/web/public/test/web_view_interaction_test_util.h"
+#import "ios/web/public/ui/crw_web_view_proxy.h"
 #import "ios/web/public/web_client.h"
 #import "ios/web/public/web_state.h"
 #import "services/metrics/public/cpp/ukm_recorder.h"
@@ -60,6 +65,15 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
       @"Clearing browser history timed out");
 }
 
++ (NSError*)removeBrowsingCache {
+  if (chrome_test_util::RemoveBrowsingCache()) {
+    return nil;
+  }
+
+  return testing::NSErrorWithLocalizedDescription(
+      @"Clearing browser cache for main tabs timed out");
+}
+
 + (void)startLoadingURL:(NSString*)spec {
   chrome_test_util::LoadUrl(GURL(base::SysNSStringToUTF8(spec)));
 }
@@ -80,6 +94,10 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
 
 + (void)startReloading {
   [BrowserCommandDispatcherForMainBVC() reload];
+}
+
++ (NamedGuide*)guideWithName:(GuideName*)name view:(UIView*)view {
+  return [NamedGuide guideWithName:name view:view];
 }
 
 #pragma mark - Tab Utilities (EG2)
@@ -120,6 +138,10 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
   return nil;
 }
 
++ (void)saveSessionImmediately {
+  chrome_test_util::SaveSessionImmediately();
+}
+
 + (NSError*)setCurrentTabsToBeColdStartTabs {
   if (!chrome_test_util::SetCurrentTabsToBeColdStartTabs()) {
     return testing::NSErrorWithLocalizedDescription(
@@ -158,6 +180,15 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
 
 + (void)closeAllTabsInCurrentMode {
   chrome_test_util::CloseAllTabsInCurrentMode();
+}
+
++ (NSError*)closeAllNormalTabs {
+  bool success = chrome_test_util::CloseAllNormalTabs();
+  if (!success) {
+    return testing::NSErrorWithLocalizedDescription(
+        @"Could not close all normal tabs");
+  }
+  return nil;
 }
 
 + (NSError*)closeAllIncognitoTabs {
@@ -205,10 +236,19 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
   return nil;
 }
 
-+ (BOOL)tapWebStateElementWithID:(NSString*)elementID error:(NSError*)error {
-  return web::test::TapWebViewElementWithId(
++ (NSError*)tapWebStateElementWithID:(NSString*)elementID {
+  NSError* error = nil;
+  bool success = web::test::TapWebViewElementWithId(
       chrome_test_util::GetCurrentWebState(),
       base::SysNSStringToUTF8(elementID), &error);
+  if (!success || error) {
+    NSString* errorDescription =
+        [NSString stringWithFormat:
+                      @"Failed to tap web state element with ID=%@! Error: %@",
+                      elementID, error];
+    return testing::NSErrorWithLocalizedDescription(errorDescription);
+  }
+  return nil;
 }
 
 + (NSError*)waitForWebStateContainingElement:(ElementSelector*)selector {
@@ -291,6 +331,11 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
       chrome_test_util::GetCurrentWebState()->GetVisibleURL().spec());
 }
 
++ (NSString*)webStateLastCommittedURL {
+  return base::SysUTF8ToNSString(
+      chrome_test_util::GetCurrentWebState()->GetLastCommittedURL().spec());
+}
+
 + (void)purgeCachedWebViewPages {
   web::WebState* web_state = chrome_test_util::GetCurrentWebState();
   web_state->SetWebUsageEnabled(false);
@@ -301,6 +346,16 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
 + (BOOL)isRestoreSessionInProgress {
   web::WebState* web_state = chrome_test_util::GetCurrentWebState();
   return web_state->GetNavigationManager()->IsRestoreSessionInProgress();
+}
+
++ (BOOL)webStateWebViewUsesContentInset {
+  web::WebState* web_state = chrome_test_util::GetCurrentWebState();
+  return web_state->GetWebViewProxy().shouldUseViewContentInset;
+}
+
++ (CGSize)webStateWebViewSize {
+  web::WebState* web_state = chrome_test_util::GetCurrentWebState();
+  return [web_state->GetWebViewProxy() bounds].size;
 }
 
 #pragma mark - Sync Utilities (EG2)
@@ -351,17 +406,6 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
 + (NSString*)displayTitleForURL:(NSString*)URL {
   return base::SysUTF16ToNSString(
       web::GetDisplayTitleForUrl(GURL(base::SysNSStringToUTF8(URL))));
-}
-
-#pragma mark - Autofill Utilities (EG2)
-
-+ (void)clearCreditCards {
-  autofill::PersonalDataManager* personalDataManager =
-      autofill::PersonalDataManagerFactory::GetForBrowserState(
-          chrome_test_util::GetOriginalBrowserState());
-  for (const auto* creditCard : personalDataManager->GetCreditCards()) {
-    personalDataManager->RemoveByGUID(creditCard->guid());
-  }
 }
 
 #pragma mark - Sync Utilities (EG2)
@@ -544,6 +588,7 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
 + (BOOL)isUKMEnabled {
   return base::FeatureList::IsEnabled(ukm::kUkmFeature);
 }
+
 + (BOOL)isWebPaymentsModifiersEnabled {
   return base::FeatureList::IsEnabled(
       payments::features::kWebPaymentsModifiers);
@@ -557,8 +602,17 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
   return base::FeatureList::IsEnabled(kCreditCardScanner);
 }
 
++ (BOOL)isAutofillCompanyNameEnabled {
+  return base::FeatureList::IsEnabled(
+      autofill::features::kAutofillEnableCompanyName);
+}
+
 + (BOOL)isCustomWebKitLoadedIfRequested {
   return IsCustomWebKitLoadedIfRequested();
+}
+
++ (BOOL)isCollectionsCardPresentationStyleEnabled {
+  return IsCollectionsCardPresentationStyleEnabled();
 }
 
 #pragma mark - ScopedBlockPopupsPref
@@ -566,14 +620,23 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
 + (ContentSetting)popupPrefValue {
   return ios::HostContentSettingsMapFactory::GetForBrowserState(
              chrome_test_util::GetOriginalBrowserState())
-      ->GetDefaultContentSetting(CONTENT_SETTINGS_TYPE_POPUPS, NULL);
+      ->GetDefaultContentSetting(ContentSettingsType::POPUPS, NULL);
 }
 
 + (void)setPopupPrefValue:(ContentSetting)value {
   DCHECK(value == CONTENT_SETTING_BLOCK || value == CONTENT_SETTING_ALLOW);
   ios::HostContentSettingsMapFactory::GetForBrowserState(
       chrome_test_util::GetOriginalBrowserState())
-      ->SetDefaultContentSetting(CONTENT_SETTINGS_TYPE_POPUPS, value);
+      ->SetDefaultContentSetting(ContentSettingsType::POPUPS, value);
+}
+
+#pragma mark - Keyboard Command Utilities
+
++ (NSInteger)registeredKeyCommandCount {
+  UIViewController* mainViewController =
+      chrome_test_util::GetMainController()
+          .interfaceProvider.mainInterface.viewController;
+  return mainViewController.keyCommands.count;
 }
 
 @end

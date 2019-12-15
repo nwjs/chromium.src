@@ -19,7 +19,6 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/no_destructor.h"
 #include "base/numerics/ranges.h"
 #include "base/task/post_task.h"
 #include "base/timer/timer.h"
@@ -50,11 +49,11 @@
 #include "services/network/cross_origin_read_blocking.h"
 #include "services/network/dns_config_change_manager.h"
 #include "services/network/http_auth_cache_copier.h"
-#include "services/network/initiator_lock_compatibility.h"
 #include "services/network/net_log_exporter.h"
 #include "services/network/network_context.h"
 #include "services/network/network_usage_accumulator.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/cpp/initiator_lock_compatibility.h"
 #include "services/network/public/cpp/load_info_util.h"
 #include "services/network/public/cpp/network_switches.h"
 #include "services/network/url_loader.h"
@@ -82,11 +81,6 @@ namespace network {
 namespace {
 
 NetworkService* g_network_service = nullptr;
-
-net::NetLog* GetNetLog() {
-  static base::NoDestructor<net::NetLog> instance;
-  return instance.get();
-}
 
 // The interval for calls to NetworkService::UpdateLoadStates
 constexpr auto kUpdateLoadStatesInterval =
@@ -117,14 +111,14 @@ void OnGetNetworkList(std::unique_ptr<net::NetworkInterfaceList> networks,
 #if defined(OS_ANDROID) && BUILDFLAG(USE_KERBEROS)
 // Used for Negotiate authentication on Android, which needs to generate tokens
 // in the browser process.
-class NetworkServiceAuthNegotiateAndroid : public net::HttpNegotiateAuthSystem {
+class NetworkServiceAuthNegotiateAndroid : public net::HttpAuthMechanism {
  public:
   NetworkServiceAuthNegotiateAndroid(NetworkContext* network_context,
                                      const net::HttpAuthPreferences* prefs)
       : network_context_(network_context), auth_negotiate_(prefs) {}
   ~NetworkServiceAuthNegotiateAndroid() override = default;
 
-  // HttpNegotiateAuthSystem implementation:
+  // HttpAuthMechanism implementation:
   bool Init(const net::NetLogWithSource& net_log) override {
     return auth_negotiate_.Init(net_log);
   }
@@ -175,7 +169,7 @@ class NetworkServiceAuthNegotiateAndroid : public net::HttpNegotiateAuthSystem {
   base::WeakPtrFactory<NetworkServiceAuthNegotiateAndroid> weak_factory_{this};
 };
 
-std::unique_ptr<net::HttpNegotiateAuthSystem> CreateAuthSystem(
+std::unique_ptr<net::HttpAuthMechanism> CreateAuthSystem(
     NetworkContext* network_context,
     const net::HttpAuthPreferences* prefs) {
   return std::make_unique<NetworkServiceAuthNegotiateAndroid>(network_context,
@@ -196,11 +190,62 @@ void HandleBadMessage(const std::string& error) {
 
 }  // namespace
 
+// static
+const base::TimeDelta NetworkService::kInitialDohProbeTimeout =
+    base::TimeDelta::FromSeconds(5);
+
+// Handler of delaying calls to NetworkContext::ActivateDohProbes() until after
+// an initial service startup delay.
+class NetworkService::DelayedDohProbeActivator {
+ public:
+  explicit DelayedDohProbeActivator(NetworkService* network_service)
+      : network_service_(network_service) {
+    DCHECK(network_service_);
+
+    // Delay initial DoH probes to prevent interference with startup tasks.
+    doh_probes_timer_.Start(
+        FROM_HERE, NetworkService::kInitialDohProbeTimeout,
+        base::BindOnce(&DelayedDohProbeActivator::ActivateAllDohProbes,
+                       base::Unretained(this)));
+  }
+
+  DelayedDohProbeActivator(const DelayedDohProbeActivator&) = delete;
+  DelayedDohProbeActivator& operator=(const DelayedDohProbeActivator&) = delete;
+
+  // Activates DoH probes for |network_context| iff the initial startup delay
+  // has expired. Intended to be called on registration of contexts to activate
+  // probes for contexts created and registered after the initial delay has
+  // expired.
+  void MaybeActivateDohProbes(NetworkContext* network_context) {
+    // If timer is still running, probes will be started on completion.
+    if (doh_probes_timer_.IsRunning())
+      return;
+
+    network_context->ActivateDohProbes();
+  }
+
+  // Attempts to activate DoH probes for all contexts registered with the
+  // service. Intended to be called on expiration of |doh_probes_timer_| to
+  // activate probes for contexts registered during the initial delay.
+  void ActivateAllDohProbes() {
+    for (auto* network_context : network_service_->network_contexts_) {
+      MaybeActivateDohProbes(network_context);
+    }
+  }
+
+ private:
+  NetworkService* const network_service_;
+
+  // If running, DoH probes will be started on completion. If not running, DoH
+  // probes may be started at any time.
+  base::OneShotTimer doh_probes_timer_;
+};
+
 NetworkService::NetworkService(
     std::unique_ptr<service_manager::BinderRegistry> registry,
     mojo::PendingReceiver<mojom::NetworkService> receiver,
     bool delay_initialization_until_set_client)
-    : net_log_(GetNetLog()), registry_(std::move(registry)) {
+    : net_log_(net::NetLog::Get()), registry_(std::move(registry)) {
   DCHECK(!g_network_service);
   g_network_service = this;
 
@@ -286,10 +331,15 @@ void NetworkService::Initialize(mojom::NetworkServiceParamsPtr params,
   http_auth_cache_copier_ = std::make_unique<HttpAuthCacheCopier>();
 
   crl_set_distributor_ = std::make_unique<CRLSetDistributor>();
+
+  doh_probe_activator_ = std::make_unique<DelayedDohProbeActivator>(this);
 }
 
 NetworkService::~NetworkService() {
   DCHECK_EQ(this, g_network_service);
+
+  doh_probe_activator_.reset();
+
   g_network_service = nullptr;
   // Destroy owned network contexts.
   DestroyNetworkContexts();
@@ -341,6 +391,18 @@ void NetworkService::RegisterNetworkContext(NetworkContext* network_context) {
   network_contexts_.insert(network_context);
   if (quic_disabled_)
     network_context->DisableQuic();
+
+  // The params may already be present, so we propagate it
+  // to this new network_context. When params gets changed
+  // via ConfigureHttpAuthPrefs method, we propagate the change
+  // to all NetworkContexts in |network_contexts_|
+  if (http_auth_dynamic_network_service_params_) {
+    network_context->OnHttpAuthDynamicParamsChanged(
+        http_auth_dynamic_network_service_params_.get());
+  }
+
+  if (doh_probe_activator_)
+    doh_probe_activator_->MaybeActivateDohProbes(network_context);
 }
 
 void NetworkService::DeregisterNetworkContext(NetworkContext* network_context) {
@@ -431,14 +493,6 @@ void NetworkService::ConfigureStubHostResolver(
   host_resolver_manager_->SetInsecureDnsClientEnabled(
       insecure_dns_client_enabled);
 
-  for (auto* network_context : network_contexts_) {
-    if (!network_context->IsPrimaryNetworkContext())
-      continue;
-
-    host_resolver_manager_->SetRequestContextForProbes(
-        network_context->url_request_context());
-  }
-
   // Configure DNS over HTTPS.
   net::DnsConfigOverrides overrides;
   if (dns_over_https_servers && !dns_over_https_servers.value().empty()) {
@@ -467,37 +521,24 @@ void NetworkService::DisableQuic() {
 
 void NetworkService::SetUpHttpAuth(
     mojom::HttpAuthStaticParamsPtr http_auth_static_params) {
-  DCHECK(!http_auth_static_params_);
-  http_auth_static_params_ = std::move(http_auth_static_params);
+  DCHECK(!http_auth_static_network_service_params_);
+  DCHECK(network_contexts_.empty());
+  http_auth_static_network_service_params_ = std::move(http_auth_static_params);
 }
 
 void NetworkService::ConfigureHttpAuthPrefs(
     mojom::HttpAuthDynamicParamsPtr http_auth_dynamic_params) {
-  http_auth_preferences_.SetServerAllowlist(
-      http_auth_dynamic_params->server_allowlist);
-  http_auth_preferences_.SetDelegateAllowlist(
-      http_auth_dynamic_params->delegate_allowlist);
-  http_auth_preferences_.set_delegate_by_kdc_policy(
-      http_auth_dynamic_params->delegate_by_kdc_policy);
-  http_auth_preferences_.set_negotiate_disable_cname_lookup(
-      http_auth_dynamic_params->negotiate_disable_cname_lookup);
-  http_auth_preferences_.set_negotiate_enable_port(
-      http_auth_dynamic_params->enable_negotiate_port);
+  // We need to store it as a member variable because the method
+  // NetworkService::RegisterNetworkContext(NetworkContext *network_context)
+  // uses it to populate the HttpAuthPreferences of the incoming network_context
+  // with the latest dynamic params of the NetworkService.
+  http_auth_dynamic_network_service_params_ =
+      std::move(http_auth_dynamic_params);
 
-#if defined(OS_POSIX) || defined(OS_FUCHSIA)
-  http_auth_preferences_.set_ntlm_v2_enabled(
-      http_auth_dynamic_params->ntlm_v2_enabled);
-#endif
-
-#if defined(OS_ANDROID)
-  http_auth_preferences_.set_auth_android_negotiate_account_type(
-      http_auth_dynamic_params->android_negotiate_account_type);
-#endif
-
-#if defined(OS_CHROMEOS)
-  http_auth_preferences_.set_allow_gssapi_library_load(
-      http_auth_dynamic_params->allow_gssapi_library_load);
-#endif
+  for (NetworkContext* network_context : network_contexts_) {
+    network_context->OnHttpAuthDynamicParamsChanged(
+        http_auth_dynamic_network_service_params_.get());
+  }
 }
 
 void NetworkService::SetRawHeadersAccess(
@@ -600,11 +641,11 @@ void NetworkService::SetCryptConfig(mojom::CryptConfigPtr crypt_config) {
 }
 #endif
 
-#if defined(OS_MACOSX) && !defined(OS_IOS)
+#if defined(OS_WIN) || (defined(OS_MACOSX) && !defined(OS_IOS))
 void NetworkService::SetEncryptionKey(const std::string& encryption_key) {
   OSCrypt::SetRawEncryptionKey(encryption_key);
 }
-#endif  // OS_MACOSX
+#endif
 
 void NetworkService::AddCorbExceptionForPlugin(uint32_t process_id) {
   DCHECK_NE(mojom::kBrowserProcessId, process_id);
@@ -668,21 +709,22 @@ void NetworkService::BindTestInterface(
 
 std::unique_ptr<net::HttpAuthHandlerFactory>
 NetworkService::CreateHttpAuthHandlerFactory(NetworkContext* network_context) {
-  if (!http_auth_static_params_) {
+  if (!http_auth_static_network_service_params_) {
     return net::HttpAuthHandlerFactory::CreateDefault(
-        &http_auth_preferences_
+        network_context->GetHttpAuthPreferences()
 #if defined(OS_ANDROID) && BUILDFLAG(USE_KERBEROS)
-        ,
+            ,
         base::BindRepeating(&CreateAuthSystem, network_context)
 #endif
     );
   }
 
   return net::HttpAuthHandlerRegistryFactory::Create(
-      &http_auth_preferences_, http_auth_static_params_->supported_schemes
+      network_context->GetHttpAuthPreferences(),
+      http_auth_static_network_service_params_->supported_schemes
 #if BUILDFLAG(USE_EXTERNAL_GSSAPI)
       ,
-      http_auth_static_params_->gssapi_library_name
+      http_auth_static_network_service_params_->gssapi_library_name
 #endif
 #if defined(OS_ANDROID) && BUILDFLAG(USE_KERBEROS)
       ,

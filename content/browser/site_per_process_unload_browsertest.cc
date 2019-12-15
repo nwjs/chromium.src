@@ -22,6 +22,7 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/network_session_configurator/common/network_switches.h"
 #include "content/browser/frame_host/cross_process_frame_connector.h"
 #include "content/browser/frame_host/frame_tree.h"
 #include "content/browser/frame_host/navigation_controller_impl.h"
@@ -723,6 +724,9 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest, PartialUnloadHandler) {
 //          [6]            [14] |
 IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest,
                        PendingDeletionCheckCompletedOnSubtree) {
+  web_contents()->GetController().GetBackForwardCache().DisableForTesting(
+      content::BackForwardCache::TEST_USES_UNLOAD_EVENT);
+
   GURL url_1(embedded_test_server()->GetURL(
       "a.com",
       "/cross_site_iframe_factory.html?a(a,a,a(a),a(a),a(a),a(a,a),a(a,a))"));
@@ -1177,9 +1181,11 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest, FocusedFrameUnload) {
   B2->GetProcess()->AddFilter(filter.get());
   B2->SetSubframeUnloadTimeoutForTesting(base::TimeDelta::FromSeconds(30));
 
-  EXPECT_FALSE(B2->GetSuddenTerminationDisablerState(blink::kUnloadHandler));
+  EXPECT_FALSE(B2->GetSuddenTerminationDisablerState(
+      blink::mojom::SuddenTerminationDisablerType::kUnloadHandler));
   EXPECT_TRUE(ExecJs(B2, "window.onunload = ()=>{};"));
-  EXPECT_TRUE(B2->GetSuddenTerminationDisablerState(blink::kUnloadHandler));
+  EXPECT_TRUE(B2->GetSuddenTerminationDisablerState(
+      blink::mojom::SuddenTerminationDisablerType::kUnloadHandler));
 
   EXPECT_TRUE(B2->is_active());
   EXPECT_TRUE(ExecJs(A1, "document.querySelector('iframe').remove()"));
@@ -1292,6 +1298,32 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest,
   delete_B1.WaitUntilDeleted();
 }
 
+// Some tests need an https server because third-party cookies are used, and
+// SameSite=None cookies must be Secure. This is a separate fixture due to
+// kIgnoreCertificateErrors flag.
+class SitePerProcessSSLBrowserTest : public SitePerProcessBrowserTest {
+ protected:
+  SitePerProcessSSLBrowserTest()
+      : https_server_(net::EmbeddedTestServer::TYPE_HTTPS) {}
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    SitePerProcessBrowserTest::SetUpCommandLine(command_line);
+    // This is necessary to use https with arbitrary hostnames.
+    command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
+  }
+
+  void SetUpOnMainThread() override {
+    https_server()->AddDefaultHandlers(GetTestDataFilePath());
+    ASSERT_TRUE(https_server()->Start());
+    SitePerProcessBrowserTest::SetUpOnMainThread();
+  }
+
+  net::EmbeddedTestServer* https_server() { return &https_server_; }
+
+ private:
+  net::EmbeddedTestServer https_server_;
+};
+
 // Unload handlers should be able to do things that might require for instance
 // the RenderFrameHostImpl to stay alive.
 // - use console.log (handled via RFHI::DidAddMessageToConsole).
@@ -1308,10 +1340,11 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest,
 //
 // This test is similar to UnloadHandlersArePowerfulGrandChild, but with a
 // different frame hierarchy.
-IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest, UnloadHandlersArePowerful) {
+IN_PROC_BROWSER_TEST_F(SitePerProcessSSLBrowserTest,
+                       UnloadHandlersArePowerful) {
   // Navigate to a page hosting a cross-origin frame.
-  GURL url = embedded_test_server()->GetURL(
-      "a.com", "/cross_site_iframe_factory.html?a(b)");
+  GURL url =
+      https_server()->GetURL("a.com", "/cross_site_iframe_factory.html?a(b)");
   EXPECT_TRUE(NavigateToURL(shell(), url));
 
   RenderFrameHostImpl* A1 = web_contents()->GetMainFrame();
@@ -1340,7 +1373,8 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest, UnloadHandlersArePowerful) {
 
       // As a sanity check, test that RFHI-independent things also work fine.
       localStorage.localstorage_test_key = 'localstorage_test_value';
-      document.cookie = 'cookie_test_key=' + 'cookie_test_value';
+      document.cookie = 'cookie_test_key=' +
+                        'cookie_test_value; SameSite=none; Secure';
     });
   )"));
 
@@ -1352,7 +1386,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest, UnloadHandlersArePowerful) {
     RenderFrameDeletedObserver B2_deleted(B2);
 
     // Navigate
-    GURL away_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
+    GURL away_url(https_server()->GetURL("a.com", "/title1.html"));
     ASSERT_TRUE(ExecJs(A1, JsReplace("location = $1", away_url)));
 
     // Observers must be reached.
@@ -1397,11 +1431,11 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest, UnloadHandlersArePowerful) {
 //
 // This test is similar to UnloadHandlersArePowerful, but with a different frame
 // hierarchy.
-IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest,
+IN_PROC_BROWSER_TEST_F(SitePerProcessSSLBrowserTest,
                        UnloadHandlersArePowerfulGrandChild) {
   // Navigate to a page hosting a cross-origin frame.
-  GURL url = embedded_test_server()->GetURL(
-      "a.com", "/cross_site_iframe_factory.html?a(b(c))");
+  GURL url = https_server()->GetURL("a.com",
+                                    "/cross_site_iframe_factory.html?a(b(c))");
   EXPECT_TRUE(NavigateToURL(shell(), url));
 
   RenderFrameHostImpl* A1 = web_contents()->GetMainFrame();
@@ -1432,7 +1466,8 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest,
 
       // As a sanity check, test that RFHI-independent things also work fine.
       localStorage.localstorage_test_key = 'localstorage_test_value';
-      document.cookie = 'cookie_test_key=' + 'cookie_test_value';
+      document.cookie = 'cookie_test_key=' +
+                        'cookie_test_value; SameSite=none; Secure';
     });
   )"));
 
@@ -1445,7 +1480,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest,
     RenderFrameDeletedObserver C3_deleted(C3);
 
     // Navigate
-    GURL away_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
+    GURL away_url(https_server()->GetURL("a.com", "/title1.html"));
     ASSERT_TRUE(ExecJs(A1, JsReplace("location = $1", away_url)));
 
     // Observers must be reached.

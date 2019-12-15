@@ -7,10 +7,8 @@
 #include <memory>
 #include "base/optional.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
-#include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_media_session_action_handler.h"
 #include "third_party/blink/renderer/core/dom/document.h"
-#include "third_party/blink/renderer/core/dom/user_gesture_indicator.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
@@ -322,12 +320,8 @@ mojom::blink::MediaSessionService* MediaSession::GetService() {
       GetExecutionContext()->GetTaskRunner(TaskType::kMiscPlatformAPI);
   frame->GetBrowserInterfaceBroker().GetInterface(
       service_.BindNewPipeAndPassReceiver());
-  if (service_.get()) {
-    // Record the eTLD+1 of the frame using the API.
-    Platform::Current()->RecordRapporURL("Media.Session.APIUsage.Origin",
-                                         document->Url());
+  if (service_.get())
     service_->SetClient(client_receiver_.BindNewPipeAndPassRemote(task_runner));
-  }
 
   return service_.get();
 }
@@ -336,9 +330,7 @@ void MediaSession::DidReceiveAction(
     media_session::mojom::blink::MediaSessionAction action,
     mojom::blink::MediaSessionActionDetailsPtr details) {
   Document* document = To<Document>(GetExecutionContext());
-  std::unique_ptr<UserGestureIndicator> gesture_indicator =
-      LocalFrame::NotifyUserActivation(document ? document->GetFrame()
-                                                : nullptr);
+  LocalFrame::NotifyUserActivation(document ? document->GetFrame() : nullptr);
 
   auto& name = MojomActionToActionName(action);
 

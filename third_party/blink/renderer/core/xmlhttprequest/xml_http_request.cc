@@ -28,6 +28,8 @@
 
 #include "base/auto_reset.h"
 #include "base/feature_list.h"
+#include "base/metrics/histogram_macros.h"
+#include "base/time/time.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink.h"
@@ -348,7 +350,8 @@ void XMLHttpRequest::InitResponseDocument() {
   DocumentInit init = DocumentInit::Create()
                           .WithContextDocument(GetDocument()->ContextDocument())
                           .WithOwnerDocument(GetDocument()->ContextDocument())
-                          .WithURL(response_.ResponseUrl());
+                          .WithURL(response_.ResponseUrl())
+                          .WithContentSecurityPolicyFromContextDoc();
   if (is_html)
     response_document_ = MakeGarbageCollected<HTMLDocument>(init);
   else
@@ -410,8 +413,8 @@ Blob* XMLHttpRequest::ResponseBlob() {
       binary_response_builder_ = nullptr;
       ReportMemoryUsageToV8();
     }
-    response_blob_ =
-        Blob::Create(BlobDataHandle::Create(std::move(blob_data), size));
+    response_blob_ = MakeGarbageCollected<Blob>(
+        BlobDataHandle::Create(std::move(blob_data), size));
   }
 
   return response_blob_;
@@ -429,7 +432,7 @@ DOMArrayBuffer* XMLHttpRequest::ResponseArrayBuffer() {
           binary_response_builder_->size(), 1);
       if (buffer) {
         bool result = binary_response_builder_->GetBytes(
-            buffer->Data(), static_cast<size_t>(buffer->ByteLength()));
+            buffer->Data(), buffer->ByteLengthAsSizeT());
         DCHECK(result);
         response_array_buffer_ = buffer;
       }
@@ -925,14 +928,15 @@ void XMLHttpRequest::send(DOMArrayBuffer* body,
                           ExceptionState& exception_state) {
   NETWORK_DVLOG(1) << this << " send() ArrayBuffer " << body;
 
-  SendBytesData(body->Data(), body->ByteLength(), exception_state);
+  SendBytesData(body->Data(), body->ByteLengthAsSizeT(), exception_state);
 }
 
 void XMLHttpRequest::send(DOMArrayBufferView* body,
                           ExceptionState& exception_state) {
   NETWORK_DVLOG(1) << this << " send() ArrayBufferView " << body;
 
-  SendBytesData(body->BaseAddress(), body->byteLength(), exception_state);
+  SendBytesData(body->BaseAddress(), body->byteLengthAsSizeT(),
+                exception_state);
 }
 
 void XMLHttpRequest::SendBytesData(const void* data,
@@ -1176,10 +1180,21 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
   loader_ = MakeGarbageCollected<ThreadableLoader>(execution_context, this,
                                                    resource_loader_options);
   loader_->SetTimeout(timeout_);
+  base::TimeTicks start_time = base::TimeTicks::Now();
   loader_->Start(request);
 
-  if (!async_)
+  if (!async_) {
+    base::TimeDelta blocking_time = base::TimeTicks::Now() - start_time;
+    if (execution_context.IsDocument()) {
+      UMA_HISTOGRAM_MEDIUM_TIMES("XHR.Sync.BlockingTime.MainThread",
+                                 blocking_time);
+    } else {
+      UMA_HISTOGRAM_MEDIUM_TIMES("XHR.Sync.BlockingTime.WorkerThread",
+                                 blocking_time);
+    }
+
     ThrowForLoadFailureIfNeeded(exception_state, String());
+  }
 }
 
 void XMLHttpRequest::abort() {
@@ -1984,10 +1999,10 @@ void XMLHttpRequest::DidDownloadToBlob(scoped_refptr<BlobDataHandle> blob) {
       auto blob_data = std::make_unique<BlobData>();
       blob_data->SetContentType(mime_type);
       blob_data->AppendBlob(std::move(blob), 0, blob_size);
-      response_blob_ =
-          Blob::Create(BlobDataHandle::Create(std::move(blob_data), blob_size));
+      response_blob_ = MakeGarbageCollected<Blob>(
+          BlobDataHandle::Create(std::move(blob_data), blob_size));
     } else {
-      response_blob_ = Blob::Create(std::move(blob));
+      response_blob_ = MakeGarbageCollected<Blob>(std::move(blob));
     }
   }
 }

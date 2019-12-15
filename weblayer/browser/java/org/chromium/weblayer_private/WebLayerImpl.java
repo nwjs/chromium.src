@@ -4,7 +4,9 @@
 
 package org.chromium.weblayer_private;
 
+import android.annotation.TargetApi;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.res.AssetManager;
 import android.net.Uri;
@@ -20,6 +22,7 @@ import org.chromium.base.BuildInfo;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContentUriUtils;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.Log;
 import org.chromium.base.PathUtils;
 import org.chromium.base.StrictModeContext;
 import org.chromium.base.annotations.JNINamespace;
@@ -38,6 +41,8 @@ import org.chromium.weblayer_private.interfaces.IProfile;
 import org.chromium.weblayer_private.interfaces.IRemoteFragmentClient;
 import org.chromium.weblayer_private.interfaces.IWebLayer;
 import org.chromium.weblayer_private.interfaces.ObjectWrapper;
+import org.chromium.weblayer_private.interfaces.StrictModeWorkaround;
+import org.chromium.weblayer_private.metrics.UmaUtils;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
@@ -90,8 +95,8 @@ public final class WebLayerImpl extends IWebLayer.Stub {
     }
 
     @Override
-    public void loadAsync(
-            IObjectWrapper appContextWrapper, IObjectWrapper loadedCallbackWrapper) {
+    public void loadAsync(IObjectWrapper appContextWrapper, IObjectWrapper loadedCallbackWrapper) {
+        StrictModeWorkaround.apply();
         init(appContextWrapper);
 
         final ValueCallback<Boolean> loadedCallback = (ValueCallback<Boolean>) ObjectWrapper.unwrap(
@@ -115,6 +120,7 @@ public final class WebLayerImpl extends IWebLayer.Stub {
 
     @Override
     public void loadSync(IObjectWrapper appContextWrapper) {
+        StrictModeWorkaround.apply();
         init(appContextWrapper);
 
         BrowserStartupController.get(LibraryProcessType.PROCESS_WEBLAYER)
@@ -129,6 +135,8 @@ public final class WebLayerImpl extends IWebLayer.Stub {
         }
         mInited = true;
 
+        UmaUtils.recordMainEntryPointTime();
+
         Context appContext = minimalInitForContext(appContextWrapper);
         PackageInfo packageInfo = WebViewFactory.getLoadedPackageInfo();
 
@@ -136,13 +144,14 @@ public final class WebLayerImpl extends IWebLayer.Stub {
         // Contexts, ideally we would find a better way to do this.
         addWebViewAssetPath(appContext, packageInfo);
 
+        applySplitApkWorkaround(packageInfo.applicationInfo, appContext.getResources().getAssets());
         BuildInfo.setBrowserPackageInfo(packageInfo);
         int resourcesPackageId = getPackageId(appContext, packageInfo.packageName);
         // TODO: The call to onResourcesLoaded() can be slow, we may need to parallelize this with
         // other expensive startup tasks.
         R.onResourcesLoaded(resourcesPackageId);
 
-        ResourceBundle.setAvailablePakLocales(new String[] {}, LocaleConfig.UNCOMPRESSED_LOCALES);
+        ResourceBundle.setAvailablePakLocales(new String[] {}, ProductConfig.UNCOMPRESSED_LOCALES);
 
         ChildProcessCreationParams.set(appContext.getPackageName(), false /* isExternalService */,
                 LibraryProcessType.PROCESS_WEBLAYER_CHILD, true /* bindToCaller */,
@@ -172,6 +181,7 @@ public final class WebLayerImpl extends IWebLayer.Stub {
     @Override
     public IBrowserFragment createBrowserFragmentImpl(
             IRemoteFragmentClient fragmentClient, IObjectWrapper fragmentArgs) {
+        StrictModeWorkaround.apply();
         Bundle unwrappedArgs = ObjectWrapper.unwrap(fragmentArgs, Bundle.class);
         BrowserFragmentImpl fragment =
                 new BrowserFragmentImpl(mProfileManager, fragmentClient, unwrappedArgs);
@@ -180,6 +190,7 @@ public final class WebLayerImpl extends IWebLayer.Stub {
 
     @Override
     public IProfile getProfile(String profileName) {
+        StrictModeWorkaround.apply();
         return mProfileManager.getProfile(profileName);
     }
 
@@ -245,6 +256,33 @@ public final class WebLayerImpl extends IWebLayer.Stub {
             }
         } catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /** Adds assets from split APKs on Android versions where this is broken. */
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    private static void applySplitApkWorkaround(
+            ApplicationInfo applicationInfo, AssetManager assetManager) {
+        // Q already handles this correctly.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            return;
+        }
+
+        if (applicationInfo.splitSourceDirs != null) {
+            try {
+                Method addAssetPath;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    addAssetPath = AssetManager.class.getMethod(
+                            "addAssetPathAsSharedLibrary", String.class);
+                } else {
+                    addAssetPath = AssetManager.class.getMethod("addAssetPath", String.class);
+                }
+                for (String path : applicationInfo.splitSourceDirs) {
+                    addAssetPath.invoke(assetManager, path);
+                }
+            } catch (ReflectiveOperationException e) {
+                Log.e(TAG, "Unable to load assets from split APK.", e);
+            }
         }
     }
 

@@ -35,7 +35,6 @@
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
-#include "third_party/blink/renderer/core/dom/user_gesture_indicator.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
@@ -52,6 +51,7 @@
 #include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
+#include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_range.h"
@@ -90,11 +90,6 @@ struct RoleEntry {
 const RoleEntry kRoles[] = {
     {"alert", ax::mojom::Role::kAlert},
     {"alertdialog", ax::mojom::Role::kAlertDialog},
-    {"annotation-attribution", ax::mojom::Role::kAnnotationAttribution},
-    {"annotation-commentary", ax::mojom::Role::kAnnotationCommentary},
-    {"annotation-presence", ax::mojom::Role::kAnnotationPresence},
-    {"annotation-revision", ax::mojom::Role::kAnnotationRevision},
-    {"annotation-suggestion", ax::mojom::Role::kAnnotationSuggestion},
     {"application", ax::mojom::Role::kApplication},
     {"article", ax::mojom::Role::kArticle},
     {"banner", ax::mojom::Role::kBanner},
@@ -102,9 +97,12 @@ const RoleEntry kRoles[] = {
     {"button", ax::mojom::Role::kButton},
     {"caption", ax::mojom::Role::kCaption},
     {"cell", ax::mojom::Role::kCell},
+    {"code", ax::mojom::Role::kCode},
     {"checkbox", ax::mojom::Role::kCheckBox},
     {"columnheader", ax::mojom::Role::kColumnHeader},
     {"combobox", ax::mojom::Role::kComboBoxGrouping},
+    {"comment", ax::mojom::Role::kComment},
+    {"commentsection", ax::mojom::Role::kCommentSection},
     {"complementary", ax::mojom::Role::kComplementary},
     {"contentinfo", ax::mojom::Role::kContentInfo},
     {"definition", ax::mojom::Role::kDefinition},
@@ -156,9 +154,11 @@ const RoleEntry kRoles[] = {
     // End DPub roles.
     // -------------------------------------------------
     {"document", ax::mojom::Role::kDocument},
+    {"emphasis", ax::mojom::Role::kEmphasis},
     {"feed", ax::mojom::Role::kFeed},
     {"figure", ax::mojom::Role::kFigure},
     {"form", ax::mojom::Role::kForm},
+    {"generic", ax::mojom::Role::kGenericContainer},
     // -------------------------------------------------
     // ARIA Graphics module roles:
     // https://rawgit.com/w3c/graphics-aam/master/
@@ -186,6 +186,7 @@ const RoleEntry kRoles[] = {
     {"menuitem", ax::mojom::Role::kMenuItem},
     {"menuitemcheckbox", ax::mojom::Role::kMenuItemCheckBox},
     {"menuitemradio", ax::mojom::Role::kMenuItemRadio},
+    {"mark", ax::mojom::Role::kMark},
     {"meter", ax::mojom::Role::kMeter},
     {"navigation", ax::mojom::Role::kNavigation},
     {"none", ax::mojom::Role::kNone},
@@ -199,7 +200,9 @@ const RoleEntry kRoles[] = {
     // TODO(accessibility) region should only be mapped
     // if name present. See http://crbug.com/840819.
     {"region", ax::mojom::Role::kRegion},
+    {"revision", ax::mojom::Role::kRevision},
     {"row", ax::mojom::Role::kRow},
+    {"rowgroup", ax::mojom::Role::kRowGroup},
     {"rowheader", ax::mojom::Role::kRowHeader},
     {"scrollbar", ax::mojom::Role::kScrollBar},
     {"search", ax::mojom::Role::kSearch},
@@ -208,6 +211,8 @@ const RoleEntry kRoles[] = {
     {"slider", ax::mojom::Role::kSlider},
     {"spinbutton", ax::mojom::Role::kSpinButton},
     {"status", ax::mojom::Role::kStatus},
+    {"strong", ax::mojom::Role::kStrong},
+    {"suggestion", ax::mojom::Role::kSuggestion},
     {"switch", ax::mojom::Role::kSwitch},
     {"tab", ax::mojom::Role::kTab},
     {"table", ax::mojom::Role::kTable},
@@ -216,6 +221,7 @@ const RoleEntry kRoles[] = {
     {"term", ax::mojom::Role::kTerm},
     {"text", ax::mojom::Role::kStaticText},
     {"textbox", ax::mojom::Role::kTextField},
+    {"time", ax::mojom::Role::kTime},
     {"timer", ax::mojom::Role::kTimer},
     {"toolbar", ax::mojom::Role::kToolbar},
     {"tooltip", ax::mojom::Role::kTooltip},
@@ -234,11 +240,8 @@ const InternalRoleEntry kInternalRoles[] = {
     {ax::mojom::Role::kAlertDialog, "AlertDialog"},
     {ax::mojom::Role::kAlert, "Alert"},
     {ax::mojom::Role::kAnchor, "Anchor"},
-    {ax::mojom::Role::kAnnotationAttribution, "kAnnotationAttribution"},
-    {ax::mojom::Role::kAnnotationCommentary, "AnnotationCommentary"},
-    {ax::mojom::Role::kAnnotationPresence, "AnnotationPresence"},
-    {ax::mojom::Role::kAnnotationRevision, "AnnotationRevision"},
-    {ax::mojom::Role::kAnnotationSuggestion, "AnnotationSuggestion"},
+    {ax::mojom::Role::kComment, "Comment"},
+    {ax::mojom::Role::kComment, "CommentSection"},
     {ax::mojom::Role::kApplication, "Application"},
     {ax::mojom::Role::kArticle, "Article"},
     {ax::mojom::Role::kAudio, "Audio"},
@@ -251,6 +254,7 @@ const InternalRoleEntry kInternalRoles[] = {
     {ax::mojom::Role::kCell, "Cell"},
     {ax::mojom::Role::kCheckBox, "CheckBox"},
     {ax::mojom::Role::kClient, "Client"},
+    {ax::mojom::Role::kCode, "Code"},
     {ax::mojom::Role::kColorWell, "ColorWell"},
     {ax::mojom::Role::kColumnHeader, "ColumnHeader"},
     {ax::mojom::Role::kColumn, "Column"},
@@ -317,6 +321,7 @@ const InternalRoleEntry kInternalRoles[] = {
     // --------------------------------------------------------------
     {ax::mojom::Role::kDocument, "Document"},
     {ax::mojom::Role::kEmbeddedObject, "EmbeddedObject"},
+    {ax::mojom::Role::kEmphasis, "Emphasis"},
     {ax::mojom::Role::kFeed, "feed"},
     {ax::mojom::Role::kFigcaption, "Figcaption"},
     {ax::mojom::Role::kFigure, "Figure"},
@@ -384,9 +389,11 @@ const InternalRoleEntry kInternalRoles[] = {
     {ax::mojom::Role::kRadioButton, "RadioButton"},
     {ax::mojom::Role::kRadioGroup, "RadioGroup"},
     {ax::mojom::Role::kRegion, "Region"},
+    {ax::mojom::Role::kRevision, "Revision"},
     {ax::mojom::Role::kRootWebArea, "WebArea"},
-    {ax::mojom::Role::kRowHeader, "RowHeader"},
     {ax::mojom::Role::kRow, "Row"},
+    {ax::mojom::Role::kRowGroup, "RowGroup"},
+    {ax::mojom::Role::kRowHeader, "RowHeader"},
     {ax::mojom::Role::kRuby, "Ruby"},
     {ax::mojom::Role::kRubyAnnotation, "RubyAnnotation"},
     {ax::mojom::Role::kSection, "Section"},
@@ -401,6 +408,8 @@ const InternalRoleEntry kInternalRoles[] = {
     {ax::mojom::Role::kSplitter, "Splitter"},
     {ax::mojom::Role::kStaticText, "StaticText"},
     {ax::mojom::Role::kStatus, "Status"},
+    {ax::mojom::Role::kStrong, "Strong"},
+    {ax::mojom::Role::kSuggestion, "Suggestion"},
     {ax::mojom::Role::kSwitch, "Switch"},
     {ax::mojom::Role::kTab, "Tab"},
     {ax::mojom::Role::kTabList, "TabList"},
@@ -448,9 +457,6 @@ static ARIARoleMap* CreateARIARoleMap() {
 
   for (size_t i = 0; i < base::size(kRoles); ++i)
     role_map->Set(String(kRoles[i].aria_role), kRoles[i].webcore_role);
-
-  // Grids "ignore" their non-row children during computation of children.
-  role_map->Set(String("rowgroup"), ax::mojom::Role::kIgnored);
 
   return role_map;
 }
@@ -777,8 +783,8 @@ ax::mojom::CheckedState AXObject::CheckedState() const {
     if (IsNativeCheckboxInMixedState(node))
       return ax::mojom::CheckedState::kMixed;
 
-    if (IsHTMLInputElement(*node) &&
-        ToHTMLInputElement(*node).ShouldAppearChecked()) {
+    auto* html_input_element = DynamicTo<HTMLInputElement>(node);
+    if (html_input_element && html_input_element->ShouldAppearChecked()) {
       return ax::mojom::CheckedState::kTrue;
     }
   }
@@ -787,10 +793,10 @@ ax::mojom::CheckedState AXObject::CheckedState() const {
 }
 
 bool AXObject::IsNativeCheckboxInMixedState(const Node* node) {
-  if (!IsHTMLInputElement(node))
+  const auto* input = DynamicTo<HTMLInputElement>(node);
+  if (!input)
     return false;
 
-  const HTMLInputElement* input = ToHTMLInputElement(node);
   const auto inputType = input->type();
   if (inputType != input_type_names::kCheckbox)
     return false;
@@ -1098,7 +1104,7 @@ const AXObject* AXObject::InertRoot() const {
     element = FlatTreeTraversal::ParentElement(*node);
 
   while (element) {
-    if (element->hasAttribute(html_names::kInertAttr))
+    if (element->FastHasAttribute(html_names::kInertAttr))
       return AXObjectCache().GetOrCreate(element);
     element = FlatTreeTraversal::ParentElement(*element);
   }
@@ -2072,14 +2078,14 @@ ax::mojom::Role AXObject::DetermineAriaRoleAttribute() const {
   ax::mojom::Role role = AriaRoleToWebCoreRole(aria_role);
 
   switch (role) {
-    case ax::mojom::Role::kAnnotationAttribution:
-    case ax::mojom::Role::kAnnotationCommentary:
-    case ax::mojom::Role::kAnnotationPresence:
-    case ax::mojom::Role::kAnnotationRevision:
-    case ax::mojom::Role::kAnnotationSuggestion:
-      UseCounter::Count(GetDocument(), WebFeature::kARIAAnnotationRoles);
-      if (!RuntimeEnabledFeatures::
-              AccessibilityExposeARIAAnnotationsEnabled()) {
+    case ax::mojom::Role::kComment:
+    case ax::mojom::Role::kCommentSection:
+    case ax::mojom::Role::kMark:
+    case ax::mojom::Role::kRevision:
+    case ax::mojom::Role::kSuggestion:
+      UseCounter::Count(GetDocument(), WebFeature::kARIAAnnotations);
+      if (!RuntimeEnabledFeatures::AccessibilityExposeARIAAnnotationsEnabled(
+              GetDocument())) {
         role = ax::mojom::Role::kGenericContainer;
       }
       break;
@@ -2127,6 +2133,27 @@ ax::mojom::Role AXObject::RemapAriaRoleDueToParent(ax::mojom::Role role) const {
   // which can trigger a loop.  While inside the call stack of creating an
   // element, we need to avoid accessibilityIsIgnored().
   // https://bugs.webkit.org/show_bug.cgi?id=65174
+
+  // Don't return table roles unless inside a table-like container.
+  switch (role) {
+    case ax::mojom::Role::kRow:
+    case ax::mojom::Role::kRowGroup:
+    case ax::mojom::Role::kCell:
+    case ax::mojom::Role::kRowHeader:
+    case ax::mojom::Role::kColumnHeader:
+      for (AXObject* ancestor = ParentObjectUnignored(); ancestor;
+           ancestor = ancestor->ParentObjectUnignored()) {
+        ax::mojom::Role ancestor_aria_role = ancestor->AriaRoleAttribute();
+        if (ancestor_aria_role == ax::mojom::Role::kCell)
+          return ax::mojom::Role::kGenericContainer;  // In another cell,
+                                                      // illegal.
+        if (ancestor->IsTableLikeRole())
+          return role;  // Inside a table: ARIA role is legal.
+      }
+      return ax::mojom::Role::kGenericContainer;  // Not in a table.
+    default:
+      break;
+  }
 
   if (role != ax::mojom::Role::kListBoxOption &&
       role != ax::mojom::Role::kMenuItem)
@@ -2918,7 +2945,7 @@ AXObject::AXObjectVector AXObject::TableRowChildren() const {
   for (const auto& child : Children()) {
     if (child->IsTableRowLikeRole())
       result.push_back(child);
-    else if (child->RoleValue() == ax::mojom::Role::kGenericContainer)
+    else if (child->RoleValue() == ax::mojom::Role::kRowGroup)
       result.AppendVector(child->TableRowChildren());
   }
   return result;
@@ -3113,9 +3140,7 @@ bool AXObject::OnNativeClickAction() {
   if (!document)
     return false;
 
-  std::unique_ptr<UserGestureIndicator> gesture_indicator =
-      LocalFrame::NotifyUserActivation(document->GetFrame(),
-                                       UserGestureToken::kNewGesture);
+  LocalFrame::NotifyUserActivation(document->GetFrame());
 
   Element* element = GetElement();
   if (!element && GetNode())
@@ -3125,6 +3150,26 @@ bool AXObject::OnNativeClickAction() {
     return OnNativeFocusAction();
 
   if (element) {
+    // Always set the sequential focus navigation starting point.
+    // Even if this element isn't focusable, if you press "Tab" it will
+    // start the search from this element.
+    GetDocument()->SetSequentialFocusNavigationStartingPoint(element);
+
+    // Explicitly focus the element if it's focusable but not currently
+    // the focused element, to be consistent with
+    // EventHandler::HandleMousePressEvent.
+    if (element->IsMouseFocusable() && !element->IsFocusedElementInDocument()) {
+      Page* const page = GetDocument()->GetPage();
+      if (page) {
+        page->GetFocusController().SetFocusedElement(
+            element, GetDocument()->GetFrame(),
+            FocusParams(SelectionBehaviorOnFocus::kNone, kWebFocusTypeMouse,
+                        nullptr));
+      }
+    }
+
+    // For most elements, AccessKeyAction triggers sending a simulated
+    // click, including simulating the mousedown, mouseup, and click events.
     element->AccessKeyAction(true);
     return true;
   }
@@ -3209,7 +3254,7 @@ bool AXObject::OnNativeScrollToMakeVisibleAction() const {
   if (Element* locked_ancestor =
           DisplayLockUtilities::NearestLockedInclusiveAncestor(*node)) {
     locked_ancestor->ActivateDisplayLockIfNeeded(
-        DisplayLockActivationReason::kUser);
+        DisplayLockActivationReason::kAccessibility);
   }
   LayoutObject* layout_object = node->GetLayoutObject();
   if (!layout_object || !node->isConnected())
@@ -3413,21 +3458,19 @@ bool AXObject::NameFromContents(bool recursive) const {
     // containers for many subobjects. Superset of nameFrom:author ARIA roles.
     case ax::mojom::Role::kAlert:
     case ax::mojom::Role::kAlertDialog:
-    case ax::mojom::Role::kAnnotationAttribution:
-    case ax::mojom::Role::kAnnotationCommentary:
-    case ax::mojom::Role::kAnnotationPresence:
-    case ax::mojom::Role::kAnnotationRevision:
-    case ax::mojom::Role::kAnnotationSuggestion:
     case ax::mojom::Role::kApplication:
     case ax::mojom::Role::kAudio:
     case ax::mojom::Role::kArticle:
     case ax::mojom::Role::kBanner:
     case ax::mojom::Role::kBlockquote:
     case ax::mojom::Role::kCaret:
+    case ax::mojom::Role::kCode:
     case ax::mojom::Role::kClient:
     case ax::mojom::Role::kColorWell:
     case ax::mojom::Role::kColumn:
     case ax::mojom::Role::kComboBoxGrouping:
+    case ax::mojom::Role::kComment:
+    case ax::mojom::Role::kCommentSection:
     case ax::mojom::Role::kComplementary:
     case ax::mojom::Role::kContentInfo:
     case ax::mojom::Role::kDate:
@@ -3473,6 +3516,7 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kDocToc:
     case ax::mojom::Role::kDocument:
     case ax::mojom::Role::kEmbeddedObject:
+    case ax::mojom::Role::kEmphasis:
     case ax::mojom::Role::kFeed:
     case ax::mojom::Role::kFigure:
     case ax::mojom::Role::kForm:
@@ -3502,7 +3546,9 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kPane:
     case ax::mojom::Role::kProgressIndicator:
     case ax::mojom::Role::kRadioGroup:
+    case ax::mojom::Role::kRevision:
     case ax::mojom::Role::kRootWebArea:
+    case ax::mojom::Role::kRowGroup:
     case ax::mojom::Role::kScrollBar:
     case ax::mojom::Role::kScrollView:
     case ax::mojom::Role::kSearch:
@@ -3512,6 +3558,8 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kSpinButton:
     case ax::mojom::Role::kStatus:
     case ax::mojom::Role::kSliderThumb:
+    case ax::mojom::Role::kStrong:
+    case ax::mojom::Role::kSuggestion:
     case ax::mojom::Role::kSvgRoot:
     case ax::mojom::Role::kTable:
     case ax::mojom::Role::kTableHeaderContainer:

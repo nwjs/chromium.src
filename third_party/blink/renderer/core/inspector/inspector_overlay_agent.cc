@@ -229,7 +229,9 @@ class InspectorOverlayAgent::InspectorPageOverlayDelegate final
 
     if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
       layer_->SetBounds(gfx::Size(frame_overlay.Size()));
-      RecordForeignLayer(graphics_context,
+      DEFINE_STATIC_LOCAL(LiteralDebugNameClient, debug_name_client,
+                          ("InspectorOverlay"));
+      RecordForeignLayer(graphics_context, debug_name_client,
                          DisplayItem::kForeignLayerDevToolsOverlay, layer_,
                          FloatPoint(), PropertyTreeState::Root());
       return;
@@ -1086,8 +1088,7 @@ Response InspectorOverlayAgent::setInspectMode(
 
   std::vector<uint8_t> serialized_config;
   if (highlight_inspector_object.isJust()) {
-    serialized_config =
-        highlight_inspector_object.fromJust()->serializeToBinary();
+    highlight_inspector_object.fromJust()->AppendSerialized(&serialized_config);
   }
   std::unique_ptr<InspectorHighlightConfig> config;
   Response response = HighlightConfigFromInspectorObject(

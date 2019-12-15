@@ -5,8 +5,6 @@
 package org.chromium.chrome.browser.touch_to_fill;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -31,7 +29,8 @@ import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.base.test.util.ScalableTimeout;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.touch_to_fill.data.Credential;
-import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet.SheetState;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController.SheetState;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
@@ -51,8 +50,9 @@ public class TouchToFillIntegrationTest {
     private static final String EXAMPLE_URL = "https://www.example.xyz";
     private static final String MOBILE_URL = "https://m.example.xyz";
     private static final Credential ANA =
-            new Credential("Ana", "S3cr3t", "Ana", EXAMPLE_URL, false);
-    private static final Credential BOB = new Credential("Bob", "*****", "Bob", MOBILE_URL, true);
+            new Credential("Ana", "S3cr3t", "Ana", EXAMPLE_URL, false, false);
+    private static final Credential BOB =
+            new Credential("Bob", "*****", "Bob", MOBILE_URL, true, false);
 
     private final TouchToFillComponent mTouchToFill = new TouchToFillCoordinator();
 
@@ -82,13 +82,12 @@ public class TouchToFillIntegrationTest {
         runOnUiThreadBlocking(() -> {
             mTouchToFill.showCredentials(EXAMPLE_URL, true, Collections.singletonList(ANA));
         });
-        pollUiThread(() -> getBottomSheetState() == SheetState.HALF);
+        pollUiThread(() -> getBottomSheetState() == BottomSheetController.SheetState.HALF);
 
-        pollUiThread(() -> getCredentials().getChildAt(0) != null);
-        TouchCommon.singleClickView(getCredentials().getChildAt(0));
+        pollUiThread(() -> getCredentials().getChildAt(1) != null);
+        TouchCommon.singleClickView(getCredentials().getChildAt(1));
 
         waitForEvent(mMockBridge).onCredentialSelected(ANA);
-        verify(mMockBridge).fetchFavicon(eq(ANA.getOriginUrl()), EXAMPLE_URL, anyInt(), any());
         verify(mMockBridge, never()).onDismissed();
     }
 
@@ -98,7 +97,7 @@ public class TouchToFillIntegrationTest {
         runOnUiThreadBlocking(() -> {
             mTouchToFill.showCredentials(EXAMPLE_URL, true, Arrays.asList(ANA, BOB));
         });
-        pollUiThread(() -> getBottomSheetState() == SheetState.HALF);
+        pollUiThread(() -> getBottomSheetState() == BottomSheetController.SheetState.HALF);
 
         Espresso.pressBack();
 
@@ -116,7 +115,6 @@ public class TouchToFillIntegrationTest {
     }
 
     private @SheetState int getBottomSheetState() {
-        pollUiThread(() -> mActivityTestRule.getActivity().getBottomSheet() != null);
-        return mActivityTestRule.getActivity().getBottomSheet().getSheetState();
+        return mActivityTestRule.getActivity().getBottomSheetController().getSheetState();
     }
 }

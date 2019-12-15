@@ -130,12 +130,12 @@ bool AppBannerManagerDesktop::IsWebAppConsideredInstalled() {
 bool AppBannerManagerDesktop::ShouldAllowWebAppReplacementInstall() {
   web_app::AppId app_id = web_app::GenerateAppIdFromURL(manifest_.start_url);
   DCHECK(registrar().IsLocallyInstalled(app_id));
-  auto display_mode = registrar().GetAppDisplayMode(app_id);
+  auto display_mode = registrar().GetAppUserDisplayMode(app_id);
   return display_mode == blink::mojom::DisplayMode::kBrowser;
 }
 
 void AppBannerManagerDesktop::ShowBannerUi(WebappInstallSource install_source) {
-  RecordDidShowBanner("AppBanner.WebApp.Shown");
+  RecordDidShowBanner();
   TrackDisplayEvent(DISPLAY_EVENT_WEB_APP_BANNER_CREATED);
   ReportStatus(SHOWING_APP_INSTALLATION_DIALOG);
   CreateWebApp(install_source);
@@ -166,9 +166,9 @@ void AppBannerManagerDesktop::OnWebAppInstalled(
   base::Optional<web_app::AppId> app_id =
       registrar().FindAppWithUrlInScope(validated_url_);
   if (app_id.has_value() && *app_id == installed_app_id &&
-      registrar().GetAppDisplayMode(*app_id) ==
+      registrar().GetAppUserDisplayMode(*app_id) ==
           blink::mojom::DisplayMode::kStandalone) {
-    OnInstall(blink::mojom::DisplayMode::kStandalone);
+    OnInstall(registrar().GetAppDisplayMode(*app_id));
   }
 }
 
@@ -199,13 +199,13 @@ void AppBannerManagerDesktop::DidFinishCreatingWebApp(
   if (code == web_app::InstallResultCode::kSuccessNewInstall) {
     SendBannerAccepted();
     TrackUserResponse(USER_RESPONSE_WEB_APP_ACCEPTED);
-    AppBannerSettingsHelper::RecordBannerInstallEvent(
-        contents, GetAppIdentifier(), AppBannerSettingsHelper::WEB);
+    AppBannerSettingsHelper::RecordBannerInstallEvent(contents,
+                                                      GetAppIdentifier());
   } else if (code == web_app::InstallResultCode::kUserInstallDeclined) {
     SendBannerDismissed();
     TrackUserResponse(USER_RESPONSE_WEB_APP_DISMISSED);
-    AppBannerSettingsHelper::RecordBannerDismissEvent(
-        contents, GetAppIdentifier(), AppBannerSettingsHelper::WEB);
+    AppBannerSettingsHelper::RecordBannerDismissEvent(contents,
+                                                      GetAppIdentifier());
   }
 }
 

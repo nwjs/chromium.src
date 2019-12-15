@@ -48,8 +48,6 @@
 #include "components/sync/driver/sync_driver_switches.h"
 #include "components/translate/core/browser/translate_prefs.h"
 #include "components/ukm/ios/features.h"
-#include "components/unified_consent/feature.h"
-#include "ios/chrome/browser/app_launcher/app_launcher_flags.h"
 #include "ios/chrome/browser/browsing_data/browsing_data_features.h"
 #include "ios/chrome/browser/chrome_switches.h"
 #include "ios/chrome/browser/crash_report/breadcrumbs/features.h"
@@ -94,13 +92,18 @@ const FeatureEntry::FeatureParam kMarkHttpAsWarningAndDangerousOnFormEdits[] = {
     {security_state::features::kMarkHttpAsFeatureParameterName,
      security_state::features::
          kMarkHttpAsParameterWarningAndDangerousOnFormEdits}};
+const FeatureEntry::FeatureParam kMarkHttpAsDangerWarning[] = {
+    {security_state::features::kMarkHttpAsFeatureParameterName,
+     security_state::features::kMarkHttpAsParameterDangerWarning}};
 
 const FeatureEntry::FeatureVariation kMarkHttpAsFeatureVariations[] = {
     {"(mark as actively dangerous)", kMarkHttpAsDangerous,
      base::size(kMarkHttpAsDangerous), nullptr},
     {"(mark with a Not Secure warning and dangerous on form edits)",
      kMarkHttpAsWarningAndDangerousOnFormEdits,
-     base::size(kMarkHttpAsWarningAndDangerousOnFormEdits), nullptr}};
+     base::size(kMarkHttpAsWarningAndDangerousOnFormEdits), nullptr},
+    {"(mark with a grey triangle icon)", kMarkHttpAsDangerWarning,
+     base::size(kMarkHttpAsDangerWarning), nullptr}};
 
 const FeatureEntry::Choice kUseDdljsonApiChoices[] = {
     {flags_ui::kGenericExperimentChoiceDefault, "", ""},
@@ -359,9 +362,6 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kWebPageTextAccessibilityName,
      flag_descriptions::kWebPageTextAccessibilityDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(web::kWebPageTextAccessibility)},
-    {"app-launcher-refresh", flag_descriptions::kAppLauncherRefreshName,
-     flag_descriptions::kAppLauncherRefreshDescription, flags_ui::kOsIos,
-     FEATURE_VALUE_TYPE(kAppLauncherRefresh)},
     {"toolbar-container", flag_descriptions::kToolbarContainerName,
      flag_descriptions::kToolbarContainerDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(toolbar_container::kToolbarContainerEnabled)},
@@ -370,9 +370,6 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kOmniboxPopupShortcutIconsInZeroStateDescription,
      flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(omnibox::kOmniboxPopupShortcutIconsInZeroState)},
-    {"use-multilogin-endpoint", flag_descriptions::kUseMultiloginEndpointName,
-     flag_descriptions::kUseMultiloginEndpointDescription, flags_ui::kOsIos,
-     FEATURE_VALUE_TYPE(kUseMultiloginEndpoint)},
     {"omnibox-on-device-head-suggestions",
      flag_descriptions::kOmniboxOnDeviceHeadSuggestionsName,
      flag_descriptions::kOmniboxOnDeviceHeadSuggestionsDescription,
@@ -404,10 +401,6 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      FEATURE_WITH_PARAMS_VALUE_TYPE(crash_report::kDetectMainThreadFreeze,
                                     kDetectMainThreadFreezeVariations,
                                     "DetectMainThreadFreeze")},
-    {"enable-sync-uss-bookmarks",
-     flag_descriptions::kEnableSyncUSSBookmarksName,
-     flag_descriptions::kEnableSyncUSSBookmarksDescription, flags_ui::kOsIos,
-     FEATURE_VALUE_TYPE(switches::kSyncUSSBookmarks)},
     {"infobar-ui-reboot", flag_descriptions::kInfobarUIRebootName,
      flag_descriptions::kInfobarUIRebootDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kInfobarUIReboot)},
@@ -469,15 +462,18 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
     {"new-omnibox-popup-layout", flag_descriptions::kNewOmniboxPopupLayoutName,
      flag_descriptions::kNewOmniboxPopupLayoutDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kNewOmniboxPopupLayout)},
-    {"fill-on-account-select-http",
-     flag_descriptions::kFillOnAccountSelectHttpName,
-     flag_descriptions::kFillOnAccountSelectHttpDescription, flags_ui::kOsIos,
-     FEATURE_VALUE_TYPE(password_manager::features::kFillOnAccountSelectHttp)},
     {"omnibox-use-default-search-engine-favicon",
      flag_descriptions::kOmniboxUseDefaultSearchEngineFaviconName,
      flag_descriptions::kOmniboxUseDefaultSearchEngineFaviconDescription,
      flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kOmniboxUseDefaultSearchEngineFavicon)},
+    {"omnibox-preserve-default-match-against-async-update",
+     flag_descriptions::kOmniboxPreserveDefaultMatchAgainstAsyncUpdateName,
+     flag_descriptions::
+         kOmniboxPreserveDefaultMatchAgainstAsyncUpdateDescription,
+     flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(
+         omnibox::kOmniboxPreserveDefaultMatchAgainstAsyncUpdate)},
     {"enable-send-tab-to-self-broadcast",
      flag_descriptions::kSendTabToSelfBroadcastName,
      flag_descriptions::kSendTabToSelfBroadcastDescription, flags_ui::kOsIos,
@@ -500,18 +496,9 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
     {"toolbar-new-tab-button", flag_descriptions::kToolbarNewTabButtonName,
      flag_descriptions::kToolbarNewTabButtonDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kToolbarNewTabButton)},
-    {"optional-article-thumbnail",
-     flag_descriptions::kOptionalArticleThumbnailName,
-     flag_descriptions::kOptionalArticleThumbnailDescription, flags_ui::kOsIos,
-     FEATURE_VALUE_TYPE(kOptionalArticleThumbnail)},
     {"enable-sync-uss-nigori", flag_descriptions::kEnableSyncUSSNigoriName,
      flag_descriptions::kEnableSyncUSSNigoriDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(switches::kSyncUSSNigori)},
-    {"enable-autofill-save-card-show-no-thanks",
-     flag_descriptions::kEnableAutofillSaveCardShowNoThanksName,
-     flag_descriptions::kEnableAutofillSaveCardShowNoThanksDescription,
-     flags_ui::kOsIos,
-     FEATURE_VALUE_TYPE(autofill::features::kAutofillSaveCardShowNoThanks)},
     {"settings-add-payment-method",
      flag_descriptions::kSettingsAddPaymentMethodName,
      flag_descriptions::kSettingsAddPaymentMethodDescription, flags_ui::kOsIos,
@@ -561,16 +548,56 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kDisableAnimationOnLowBatteryName,
      flag_descriptions::kDisableAnimationOnLowBatteryDescription,
      flags_ui::kOsIos, FEATURE_VALUE_TYPE(kDisableAnimationOnLowBattery)},
+    {"messages-save-card-infobar",
+     flag_descriptions::kSaveCardInfobarMessagesUIName,
+     flag_descriptions::kSaveCardInfobarMessagesUIDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kSaveCardInfobarMessagesUI)},
+    {"messages-translate-infobar",
+     flag_descriptions::kTranslateInfobarMessagesUIName,
+     flag_descriptions::kTranslateInfobarMessagesUIDescription,
+     flags_ui::kOsIos, FEATURE_VALUE_TYPE(kTranslateInfobarMessagesUI)},
+    {"use-WKWebView-loading", flag_descriptions::kUseWKWebViewLoadingName,
+     flag_descriptions::kUseWKWebViewLoadingDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(web::features::kUseWKWebViewLoading)},
     {"autofill-save-card-dismiss-on-navigation",
      flag_descriptions::kAutofillSaveCardDismissOnNavigationName,
      flag_descriptions::kAutofillSaveCardDismissOnNavigationDescription,
      flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(
          autofill::features::kAutofillSaveCardDismissOnNavigation)},
+    {"enable-persistent-downloads",
+     flag_descriptions::kEnablePersistentDownloadsName,
+     flag_descriptions::kEnablePersistentDownloadsDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(web::features::kEnablePersistentDownloads)},
+    {"force-unstacked-tabstrip", flag_descriptions::kForceUnstackedTabstripName,
+     flag_descriptions::kForceUnstackedTabstripDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kForceUnstackedTabstrip)},
+    {"use-js-error-page", flag_descriptions::kUseJSForErrorPageName,
+     flag_descriptions::kUseJSForErrorPageDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(web::features::kUseJSForErrorPage)},
+    {"messages-download-infobar",
+     flag_descriptions::kDownloadInfobarMessagesUIName,
+     flag_descriptions::kDownloadInfobarMessagesUIDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kDownloadInfobarMessagesUI)},
+    {"desktop-version-default", flag_descriptions::kDefaultToDesktopOnIPadName,
+     flag_descriptions::kDefaultToDesktopOnIPadDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(web::features::kDefaultToDesktopOnIPad)},
+    {"mobile-google-srp", flag_descriptions::kMobileGoogleSRPName,
+     flag_descriptions::kMobileGoogleSRPDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(web::kMobileGoogleSRP)},
     {"messages-crash-restore-infobars",
      flag_descriptions::kCrashRestoreInfobarMessagesUIName,
      flag_descriptions::kCrashRestoreInfobarMessagesUIDescription,
      flags_ui::kOsIos, FEATURE_VALUE_TYPE(kCrashRestoreInfobarMessagesUI)},
+    {"infobar-overlay-ui", flag_descriptions::kInfobarOverlayUIName,
+     flag_descriptions::kInfobarOverlayUIDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kInfobarOverlayUI)},
+    {"autofill-save-card-infobar-edit-support",
+     flag_descriptions::kAutofillSaveCardInfobarEditSupportName,
+     flag_descriptions::kAutofillSaveCardInfobarEditSupportDescription,
+     flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(
+         autofill::features::kAutofillSaveCardInfobarEditSupport)},
 };
 
 // Add all switches from experimental flags to |command_line|.
@@ -587,8 +614,9 @@ void AppendSwitchesFromExperimentalSettings(base::CommandLine* command_line) {
     base::SysInfo::OperatingSystemVersionNumbers(&major, &minor, &bugfix);
     std::string product = base::StringPrintf("Version/%d.%d", major, minor);
 
-    command_line->AppendSwitchASCII(switches::kUserAgent,
-                                    web::BuildUserAgentFromProduct(product));
+    command_line->AppendSwitchASCII(
+        switches::kUserAgent,
+        web::BuildUserAgentFromProduct(web::UserAgentType::MOBILE, product));
   }
 
   // Freeform commandline flags.  These are added last, so that any flags added
@@ -643,8 +671,8 @@ bool SkipConditionalFeatureEntry(const flags_ui::FeatureEntry& entry) {
 }
 
 flags_ui::FlagsState& GetGlobalFlagsState() {
-  static base::NoDestructor<flags_ui::FlagsState> flags_state(
-      kFeatureEntries, base::size(kFeatureEntries), base::NullCallback());
+  static base::NoDestructor<flags_ui::FlagsState> flags_state(kFeatureEntries,
+                                                              nullptr);
   return *flags_state;
 }
 }  // namespace
@@ -660,6 +688,19 @@ void ConvertFlagsToSwitches(flags_ui::FlagsStorage* flags_storage,
 std::vector<std::string> RegisterAllFeatureVariationParameters(
     flags_ui::FlagsStorage* flags_storage,
     base::FeatureList* feature_list) {
+  // Occasionally DCHECK crashes on canary can be very distuptive.  An
+  // experimental flag was added to aid in temporarily disabling this for
+  // canary testers.
+#if defined(DCHECK_IS_CONFIGURABLE)
+  if (experimental_flags::AreDCHECKCrashesDisabled()) {
+    std::vector<base::FeatureList::FeatureOverrideInfo> overrides;
+    overrides.push_back(
+        {std::cref(base::kDCheckIsFatalFeature),
+         base::FeatureList::OverrideState::OVERRIDE_DISABLE_FEATURE});
+    feature_list->RegisterExtraFeatureOverrides(std::move(overrides));
+  }
+#endif  // defined(DCHECK_IS_CONFIGURABLE)
+
   return GetGlobalFlagsState().RegisterAllFeatureVariationParameters(
       flags_storage, feature_list);
 }

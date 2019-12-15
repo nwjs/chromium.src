@@ -205,7 +205,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/u2f:unit_tests",
     "//ios/chrome/browser/ui/activity_services:unit_tests",
     "//ios/chrome/browser/ui/alert_coordinator:unit_tests",
-    "//ios/chrome/browser/ui/alert_view_controller:unit_tests",
+    "//ios/chrome/browser/ui/alert_view:unit_tests",
     "//ios/chrome/browser/ui/app_launcher:unit_tests",
     "//ios/chrome/browser/ui/authentication:unit_tests",
     "//ios/chrome/browser/ui/authentication/cells:unit_tests",
@@ -295,7 +295,6 @@ test("ios_chrome_unittests") {
     "//ios/chrome/common:unit_tests",
     "//ios/chrome/content_widget_extension:unit_tests",
     "//ios/chrome/search_widget_extension:unit_tests",
-    "//ios/chrome/test/base:unit_tests",
     "//ios/testing:http_server_bundle_data",
   ]
   if (ios_enable_firebase_sdk) {

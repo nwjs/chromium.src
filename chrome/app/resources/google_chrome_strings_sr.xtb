@@ -3,7 +3,6 @@
 <translationbundle lang="sr">
 <translation id="1001534784610492198">Архива програма за инсталацију је оштећена или неважећа. Преузмите Google Chrome поново.</translation>
 <translation id="102763973188675173">Прилагодите и контролишите Google Chrome. Доступно је ажурирање.</translation>
-<translation id="1035334672863811645">пријавите се у Chrome</translation>
 <translation id="1051826050538111504">На рачунару постоји штетан софтвер. Chrome може да га уклони, врати подешавања и онемогући додатке да би прегледач могао поново да ради уобичајено.</translation>
 <translation id="1065672644894730302">Подешавања не могу да се прочитају.
 
@@ -77,7 +76,6 @@
 <translation id="3065168410429928842">Картица Chrome</translation>
 <translation id="3080151273017101988">Настави са покретањем апликација у позадини када се Google Chrome затвори</translation>
 <translation id="3089968997497233615">Доступна је нова, безбеднија верзија Google Chrome прегледача.</translation>
-<translation id="3138848678222082288">Будуће верзије Chrome-а ће се инсталирати аутоматски. Када се ово преузимање доврши, Chrome ће се рестартовати и бићете спремни.</translation>
 <translation id="3149510190863420837">Chrome апликације</translation>
 <translation id="3282568296779691940">Пријављивање у Chrome</translation>
 <translation id="3340978935015468852">подешавања</translation>
@@ -98,7 +96,6 @@
 <translation id="3718181793972440140">Овим ћете избрисати 1 ставку са овог уређаја. Да бисте касније вратили податке, пријавите се у Chrome као <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">Додатак „<ph name="EXTENSION_NAME" />“ је променио страницу која се приказује када покренете Chrome.</translation>
 <translation id="3780814664026482060">Chrome – <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Уклони из Chrome-а...</translation>
 <translation id="386202838227397562">Затворите све прозоре Google Chrome прегледача и покушајте поново.</translation>
 <translation id="3873044882194371212">Отвори линк у Chrome прозору без архи&amp;вирања</translation>
 <translation id="3889417619312448367">Деинсталирај Google Chrome</translation>
@@ -183,7 +180,6 @@ Google Chrome не може да врати подешавања.</translation>
 <translation id="677276454032249905">Желите ли ипак да затворите Chrome?</translation>
 <translation id="683440813066116847">Правило за долазни саобраћај за Google Chrome Canary да бисте омогућили mDNS саобраћај.</translation>
 <translation id="6885412569789873916">Chrome апликације за бета канал</translation>
-<translation id="6906909733186691861">Будуће верзије Chrome-а ће се инсталирати аутоматски.</translation>
 <translation id="6943584222992551122">Подаци прегледања ове особе ће бити избрисани са овог уређаја. Да бисте вратили податке, пријавите се у Chrome као <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Правило за долазни саобраћај за Google Chrome бета да бисте омогућили mDNS саобраћај.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> захтева да прочитате и прихватите следеће Услове коришћења услуге пре него што почнете да користите овај уређај. Ови услови не представљају проширење, измену или ограничење Услова за Google Chrome ОС.</translation>
@@ -234,7 +230,6 @@ Google Chrome не може да врати подешавања.</translation>
 <translation id="8521348052903287641">Правило за долазни саобраћај за програмерску верзију Google Chrome-а да бисте омогућили mDNS саобраћај.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Доступна је нова верзија Google Chrome прегледача, бржа него икад пре.</translation>
-<translation id="8606668294522778825">Google Chrome може да користи веб-услуге да би побољшао доживљај прегледања. Можете опционално да онемогућите те услуге. <ph name="BEGIN_LINK" />Сазнајте више<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome не реагује. Желите ли да га одмах поново покренете?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Поново ћемо покренути Chrome за 1 минут}one{Поново ћемо покренути Chrome за # минут}few{Поново ћемо покренути Chrome за # минута}other{Поново ћемо покренути Chrome за # минута}}</translation>
 <translation id="8669527147644353129">Google Chrome помоћник</translation>

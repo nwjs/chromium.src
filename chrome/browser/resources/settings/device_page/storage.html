@@ -11,6 +11,7 @@
 <link rel="import" href="storage_external.html">
 <link rel="import" href="../prefs/prefs.html">
 <link rel="import" href="../route.html">
+<link rel="import" href="../route_origin_behavior.html">
 <link rel="import" href="../settings_shared_css.html">
 
 <dom-module id="settings-storage">
@@ -178,8 +179,11 @@
     <div class="settings-box first">
       <div id="barArea">
         <progress id="bar" class$="[[getBarClass_(sizeStat_.spaceState)]]"
-            value="[[sizeStat_.usedRatio]]"></progress>
-        <div id="barLabels">
+            value="[[sizeStat_.usedRatio]]"
+            aria-label="$i18n{storageOverviewAriaLabel}"
+            aria-describedby="barLabels">
+        </progress>
+        <div id="barLabels" aria-hidden="true">
           <div id="inUseLabelArea" class="bar-label">
             <div class="vertical-line"></div>
             <div class="wrapper"><span>$i18n{storageItemInUse}</span></div>
@@ -211,17 +215,20 @@
     <template is="dom-if" if="[[showCrostiniStorage_]]">
       <cr-link-row id="crostiniSize" class="hr" on-click="onCrostiniTap_"
           label="$i18n{storageItemCrostini}"
-          sub-label="$i18n{storageSizeComputing}"></cr-link-row>
+          sub-label="$i18n{storageSizeComputing}"
+          role-description="$i18n{subpageArrowRoleDescription}"></cr-link-row>
     </template>
     <template is="dom-if" if="[[!isGuest_]]">
       <cr-link-row id="otherUsersSize" class="hr" on-click="onOtherUsersTap_"
           label="$i18n{storageItemOtherUsers}"
-          sub-label="$i18n{storageSizeComputing}"></cr-link-row>
+          sub-label="$i18n{storageSizeComputing}"
+          role-description="$i18n{subpageArrowRoleDescription}"></cr-link-row>
     </template>
     <template is="dom-if" if="[[androidEnabled]]">
       <cr-link-row id="externalStoragePreferences" class="hr"
           on-click="onExternalStoragePreferencesTap_"
-          label="$i18n{storageExternal}"></cr-link-row>
+          label="$i18n{storageExternal}"
+          role-description="$i18n{subpageArrowRoleDescription}"></cr-link-row>
     </template>
   </template>
   <script src="storage.js"></script>

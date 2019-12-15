@@ -43,8 +43,6 @@ XrResult OpenXRInputHelper::CreateOpenXRInputHelper(
     XrSession session,
     XrSpace local_space,
     std::unique_ptr<OpenXRInputHelper>* helper) {
-  XrResult xr_result;
-
   std::unique_ptr<OpenXRInputHelper> new_helper =
       std::make_unique<OpenXRInputHelper>(session, local_space);
 
@@ -83,51 +81,13 @@ XrResult OpenXRInputHelper::CreateOpenXRInputHelper(
   RETURN_IF_XR_FAILED(xrAttachSessionActionSets(session, &attach_info));
 
   *helper = std::move(new_helper);
-  return xr_result;
+  return XR_SUCCESS;
 }
 
 OpenXRInputHelper::OpenXRInputHelper(XrSession session, XrSpace local_space)
     : session_(session), local_space_(local_space) {}
 
 OpenXRInputHelper::~OpenXRInputHelper() = default;
-
-mojom::XRGamepadDataPtr OpenXRInputHelper::GetGamepadData(
-    XrTime predicted_display_time) {
-  if (XR_FAILED(SyncActions(predicted_display_time)))
-    return nullptr;
-
-  mojom::XRGamepadDataPtr gamepad_data_ptr = mojom::XRGamepadData::New();
-  for (const OpenXrControllerState& controller_state : controller_states_) {
-    const OpenXrController& controller = controller_state.controller;
-    mojom::XRGamepadPtr gamepad_ptr = mojom::XRGamepad::New();
-    gamepad_ptr->controller_id = controller.GetId();
-    gamepad_ptr->timestamp = base::TimeTicks::Now();
-    gamepad_ptr->hand = controller.GetHandness();
-
-    std::vector<mojom::XRGamepadButtonPtr> buttons =
-        controller.GetWebVrButtons();
-    if (buttons.empty())
-      continue;
-    gamepad_ptr->buttons = std::move(buttons);
-
-    std::vector<double> axes = controller.GetWebVrAxes();
-    if (axes.empty())
-      continue;
-    gamepad_ptr->axes = std::move(axes);
-
-    gamepad_ptr->pose =
-        controller.GetPose(predicted_display_time, local_space_);
-    if (!gamepad_ptr->pose)
-      continue;
-    gamepad_ptr->can_provide_position = gamepad_ptr->pose->position.has_value();
-    gamepad_ptr->can_provide_orientation =
-        gamepad_ptr->pose->orientation.has_value();
-
-    gamepad_data_ptr->gamepads.push_back(std::move(gamepad_ptr));
-  }
-
-  return gamepad_data_ptr;
-}
 
 std::vector<mojom::XRInputSourceStatePtr> OpenXRInputHelper::GetInputState(
     XrTime predicted_display_time) {
@@ -158,12 +118,13 @@ std::vector<mojom::XRInputSourceStatePtr> OpenXRInputHelper::GetInputState(
     // To ensure that we don't have any collisions with other ids, increment
     // all of the ids by one.
     state->source_id = i + 1;
-
     state->description = controller->GetDescription(predicted_display_time);
+    if (!state->description) {
+      continue;
+    }
 
-    state->grip = controller->GetMojoFromGripTransform(predicted_display_time,
-                                                       local_space_);
-    state->emulated_position = false;
+    state->mojo_from_input = controller->GetMojoFromGripTransform(
+        predicted_display_time, local_space_, &state->emulated_position);
     state->primary_input_pressed = trigger_button.value().pressed;
     state->primary_input_clicked =
         controller_states_[i].primary_button_pressed &&
@@ -174,6 +135,19 @@ std::vector<mojom::XRInputSourceStatePtr> OpenXRInputHelper::GetInputState(
   }
 
   return input_states;
+}
+
+void OpenXRInputHelper::OnInteractionProfileChanged(XrResult* xr_result) {
+  for (OpenXrControllerState& controller_state : controller_states_) {
+    *xr_result = controller_state.controller.UpdateInteractionProfile();
+    if (XR_FAILED(*xr_result)) {
+      return;
+    }
+  }
+}
+
+base::WeakPtr<OpenXRInputHelper> OpenXRInputHelper::GetWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
 }
 
 base::Optional<Gamepad> OpenXRInputHelper::GetWebXRGamepad(

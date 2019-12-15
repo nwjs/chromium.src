@@ -63,6 +63,8 @@ class TestSuspendableThreadDelegate : public SuspendableThreadDelegate {
     return true;
   }
 
+  PlatformThreadId GetThreadId() const override { return PlatformThreadId(); }
+
   uintptr_t GetStackBaseAddress() const override {
     return reinterpret_cast<uintptr_t>(&fake_stack_[0] + fake_stack_.size());
   }
@@ -92,7 +94,7 @@ class TestProfileBuilder : public ProfileBuilder {
   ModuleCache* GetModuleCache() override { return nullptr; }
 
   void RecordMetadata(
-      base::ProfileBuilder::MetadataProvider* metadata_provider) override {
+      ProfileBuilder::MetadataProvider* metadata_provider) override {
     recorded_metadata_ = true;
   }
 
@@ -115,7 +117,7 @@ TEST(StackCopierSuspendTest, CopyStack) {
       std::make_unique<StackBuffer>(stack.size() * sizeof(uintptr_t));
   uintptr_t stack_top = 0;
   TestProfileBuilder profile_builder;
-  RegisterContext register_context = {0};
+  RegisterContext register_context{};
   stack_copier_suspend.CopyStack(stack_buffer.get(), &stack_top,
                                  &profile_builder, &register_context);
 
@@ -137,7 +139,7 @@ TEST(StackCopierSuspendTest, CopyStackBufferTooSmall) {
   stack_buffer->buffer()[0] = 100;
   uintptr_t stack_top = 0;
   TestProfileBuilder profile_builder;
-  RegisterContext register_context = {0};
+  RegisterContext register_context{};
   stack_copier_suspend.CopyStack(stack_buffer.get(), &stack_top,
                                  &profile_builder, &register_context);
 
@@ -162,7 +164,7 @@ TEST(StackCopierSuspendTest, CopyStackAndRewritePointers) {
       std::make_unique<StackBuffer>(stack.size() * sizeof(uintptr_t));
   uintptr_t stack_top = 0;
   TestProfileBuilder profile_builder;
-  RegisterContext register_context = {0};
+  RegisterContext register_context{};
   stack_copier_suspend.CopyStack(stack_buffer.get(), &stack_top,
                                  &profile_builder, &register_context);
 
@@ -178,7 +180,7 @@ TEST(StackCopierSuspendTest, CopyStackAndRewritePointers) {
 
 TEST(StackCopierSuspendTest, RewriteRegisters) {
   std::vector<uintptr_t> stack = {0, 1, 2};
-  RegisterContext register_context = {0};
+  RegisterContext register_context{};
   RegisterContextFramePointer(&register_context) =
       reinterpret_cast<uintptr_t>(&stack[1]);
   StackCopierSuspend stack_copier_suspend(

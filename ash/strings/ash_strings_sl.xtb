@@ -32,6 +32,7 @@
 <translation id="1294929383540927798">Spreminjanje nastavitve obvestil na zaklenjenem zaslonu</translation>
 <translation id="1301069673413256657">GSM</translation>
 <translation id="1302880136325416935">Prikaz nastavitev Bluetootha. <ph name="STATE_TEXT" /></translation>
+<translation id="1312604459020188865">Moč signala je <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="1316069254387866896">Vedno pokaži polico</translation>
 <translation id="1341651618736211726">Presežek</translation>
 <translation id="1346748346194534595">V desno</translation>
@@ -47,7 +48,6 @@
 <translation id="1516740043221086139">Način »ne moti« je vklopljen.</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{Prikaz nastavitev obvestil. Obvestila so izklopljena za eno aplikacijo.}one{Prikaz nastavitev obvestil. Obvestila so izklopljena za # aplikacijo.}two{Prikaz nastavitev obvestil. Obvestila so izklopljena za # aplikaciji.}few{Prikaz nastavitev obvestil. Obvestila so izklopljena za # aplikacije.}other{Prikaz nastavitev obvestil. Obvestila so izklopljena za # aplikacij.}}</translation>
 <translation id="1525508553941733066">OPUSTI</translation>
-<translation id="1537254971476575106">Celozaslonska lupa</translation>
 <translation id="15373452373711364">Velik miškin kazalec</translation>
 <translation id="1546492247443594934">Namizje 2</translation>
 <translation id="1550523713251050646">Kliknite za več možnosti</translation>
@@ -63,6 +63,7 @@
 <translation id="1747827819627189109">Zaslonska tipkovnica omogočena</translation>
 <translation id="1761222317188459878">Preklop omrežne povezave. <ph name="STATE_TEXT" /></translation>
 <translation id="1771761307086386028">Pomik desno</translation>
+<translation id="181103072419391116">Moč signala je <ph name="SIGNAL_STRENGTH" />, upravlja ga vaš skrbnik</translation>
 <translation id="1812997170047690955">Kaj je na zaslonu?</translation>
 <translation id="1823873187264960516">Ethernet: <ph name="ADDRESS" /></translation>
 <translation id="1836215606488044471">Pomočnik (nalaganje ...)</translation>
@@ -79,6 +80,7 @@
 <translation id="1957958912175573503">Nastavitev jezika</translation>
 <translation id="1962969542251276847">Zakleni zaslon</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="1972950159383891558">Pozdravljeni, <ph name="USERNAME" /></translation>
 <translation id="1978498689038657292">Vnos besedila</translation>
 <translation id="1993072747612765854">Več informacij o najnovejši posodobitvi za <ph name="SYSTEM_APP_NAME" /></translation>
 <translation id="1995660704900986789">Izklop</translation>
@@ -94,11 +96,13 @@
 <translation id="2148902151539191989">NAZAJ</translation>
 <translation id="2208323208084708176">Način enotnega namizja</translation>
 <translation id="2220572644011485463">Koda PIN ali geslo</translation>
+<translation id="2222338659135520253">Zahtevana je prijava</translation>
 <translation id="225680501294068881">Iskanje naprav ...</translation>
 <translation id="2268130516524549846">Bluetooth onemogočen</translation>
 <translation id="2268813581635650749">Odjava vseh</translation>
 <translation id="2277103315734023688">Išči naprej</translation>
 <translation id="2292698582925480719">Zaslonsko razmerje</translation>
+<translation id="2298170939937364391">Celozaslonska lupa je omogočena. Če jo želite izklopiti, znova pritisnite Ctrl + tipko za iskanje + M.</translation>
 <translation id="2302092602801625023">Ta račun upravlja Family Link</translation>
 <translation id="2303600792989757991">Preklop pregleda okna</translation>
 <translation id="2339073806695260576">Dotaknite se gumba pisala na polici, če želite ustvariti zapisek, posneti posnetek zaslona ali uporabiti laserski kazalnik oziroma povečevalno steklo.</translation>
@@ -116,13 +120,14 @@
 <translation id="2484513351006226581">Pritisnite <ph name="KEYBOARD_SHORTCUT" />, če želite preklopiti postavitev tipkovnice</translation>
 <translation id="2501920221385095727">Zaklepanje tipk</translation>
 <translation id="2509468283778169019">Tipka CAPS LOCK je vklopljena</translation>
-<translation id="2532589005999780174">Visokokontrastni način</translation>
+<translation id="2517825809102302935">Izklopi za nocoj</translation>
 <translation id="2542089167727451762">Dotaknite se slike profila</translation>
 <translation id="255671100581129685">Pomočnik Google ni na voljo v javni seji.</translation>
 <translation id="256712445991462162">zasidrana lupa</translation>
 <translation id="2575685495496069081">Prijava z več računi je onemogočena</translation>
 <translation id="2582112259361606227">Znova zaženite za posodobitev</translation>
 <translation id="2617342710774726426">Kartica SIM je zaklenjena</translation>
+<translation id="2621713457727696555">Varno</translation>
 <translation id="2653659639078652383">Pošlji</translation>
 <translation id="2658778018866295321">Klikanje in vlečenje</translation>
 <translation id="2700493154570097719">Nastavitev tipkovnice</translation>
@@ -159,15 +164,15 @@
 <translation id="3139942575505304791">Namizje 1</translation>
 <translation id="315116470104423982">Prenos podatkov v mobilnih omrežjih</translation>
 <translation id="3151786313568798007">Usmerjenost</translation>
-<translation id="3152934361839663679">Vaša naprava je priključena na največje število monitorjev, zato je bila povezava z enim od zaslonov prekinjena.</translation>
 <translation id="3153444934357957346">S prijavo z več računi lahko uporabljate največ toliko računov: <ph name="MULTI_PROFILE_USER_LIMIT" />.</translation>
 <translation id="3154351730702813399">Skrbnik naprave morda nadzira vašo dejavnost brskanja.</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Vzpostavljena je povezava z eno napravo}one{Vzpostavljena je povezava z # napravo}two{Vzpostavljena je povezava z # napravama}few{Vzpostavljena je povezava s # napravami}other{Vzpostavljena je povezava s # napravami}}</translation>
+<translation id="3217205077783620295">Glasnost je vklopljena, če to preklopite, bo zvok izklopljen.</translation>
 <translation id="3226991577105957773">in še <ph name="COUNT" /></translation>
 <translation id="3236488194889173876">Mobilno omrežje ni na voljo</translation>
 <translation id="3249513730522716925">Okno <ph name="WINDOW_TITLE" /> je bilo premaknjeno iz namizja <ph name="ACTIVE_DESK" /> v namizje <ph name="TARGET_DESK" /></translation>
 <translation id="3255483164551725916">Kakšne možnosti so na voljo?</translation>
-<translation id="3277674767125718685">Glasnost je vklopljena.</translation>
+<translation id="3290356915286466215">Ni varno</translation>
 <translation id="3294437725009624529">Gost</translation>
 <translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> se še vedno lahko prijavi pozneje.</translation>
 <translation id="3321628682574733415">Nepravilna koda starša</translation>
@@ -183,7 +188,9 @@
 <translation id="3445925074670675829">Naprava USB-C</translation>
 <translation id="3454224730401036106">Vaša povezava je preklopila na varnejše omrežje</translation>
 <translation id="3465223694362104965">Odkar ste se nazadnje prijavili, se je s to napravo povezala druga tipkovnica. Pred uporabo te tipkovnice se prepričajte, da ji zaupate.</translation>
+<translation id="3465356146291925647">Upravlja ga vaš skrbnik</translation>
 <translation id="3477079411857374384">Control + Shift + preslednica</translation>
+<translation id="3485319357743610354"><ph name="SECURITY_STATUS" />, <ph name="CONNECTION_STATUS" />, moč signala je <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="3510164367642747937">Označitev miškinega kazalca</translation>
 <translation id="3513798432020909783">Račun upravlja <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3573179567135747900">Spremeni nazaj v jezik »<ph name="FROM_LOCALE" />« (potreben vnovični zagon)</translation>
@@ -250,6 +257,7 @@
 <translation id="4430019312045809116">Glasnost</translation>
 <translation id="4450893287417543264">Tega ne prikaži več</translation>
 <translation id="4477350412780666475">Naslednja skladba</translation>
+<translation id="4477892968187500306">Ta naprava morda vsebuje aplikacije, ki jih ni preveril Google.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4481530544597605423">Naprave, za katere je bila preklicana seznanitev</translation>
 <translation id="4505050298327493054">Aktivno namizje.</translation>
@@ -287,6 +295,7 @@
 <translation id="4924411785043111640">Znova zaženi in ponastavi</translation>
 <translation id="495046168593986294">Pomik navzgor</translation>
 <translation id="4961318399572185831">Predvajanje zaslona</translation>
+<translation id="5018302031617932556">Nočna svetloba olajša gledanje na zaslon ali branje pri šibki svetlobi. Dotaknite se, če želite to spremeniti.</translation>
 <translation id="5030687792513154421">Dovoljeni čas je potekel</translation>
 <translation id="5035236842988137213">Naprava <ph name="DEVICE_NAME" /> je povezana z novim telefonom</translation>
 <translation id="5083553833479578423">Odklenite več funkcij Pomočnika.</translation>
@@ -297,6 +306,7 @@
 <translation id="523505283826916779">Nastavitve funkcij za ljudi s posebnimi potrebami</translation>
 <translation id="5260676007519551770">Namizje 4</translation>
 <translation id="5283198616748585639">Dodaj 1 min</translation>
+<translation id="5286194356314741248">Pregledovanje</translation>
 <translation id="5302048478445481009">Jezik</translation>
 <translation id="5313326810920013265">Nastavitve za Bluetooth</translation>
 <translation id="5331975486040154427">Naprava USB-C (vrata levo zadaj)</translation>
@@ -322,8 +332,10 @@
 <translation id="5682642926269496722">Pomočnik Google ni na voljo za trenutni uporabniški račun.</translation>
 <translation id="5691772641933328258">Prstni odtis ni prepoznan</translation>
 <translation id="5710450975648804523">Način »ne moti« je vklopljen</translation>
+<translation id="573413375004481890">Ta naprava ne podpira vseh zaslonov, zato je bila z enim prekinjena povezava</translation>
 <translation id="574392208103952083">Srednja</translation>
 <translation id="5744083938413354016">Vlečenje z dotikom</translation>
+<translation id="5745612484876805746">Nočna svetloba se samodejno vklopi ob sončnem zahodu</translation>
 <translation id="5750765938512549687">Bluetooth je izklopljen</translation>
 <translation id="576453121877257266">Nočna svetloba je vklopljena.</translation>
 <translation id="5777841717266010279">Želite ustaviti skupno rabo zaslona?</translation>
@@ -345,6 +357,7 @@
 <translation id="5992218262414051481">Visokokontrastni način je omogočen. Če ga želite izklopiti, znova pritisnite Ctrl + tipko za iskanje + H.</translation>
 <translation id="6018164090099858612">Izhod iz zrcalnega načina</translation>
 <translation id="602001110135236999">Pomik levo</translation>
+<translation id="6025324406281560198"><ph name="SECURITY_STATUS" />, <ph name="CONNECTION_STATUS" />, moč signala je <ph name="SIGNAL_STRENGTH" />, upravlja ga vaš skrbnik</translation>
 <translation id="6040143037577758943">Zapri</translation>
 <translation id="6043212731627905357">Ta monitor se ne ujema z napravo <ph name="DEVICE_TYPE" /> (monitor ni podprt).</translation>
 <translation id="6043994281159824495">Odjava</translation>
@@ -368,6 +381,7 @@
 <translation id="6376931439017688372">Bluetooth je vklopljen</translation>
 <translation id="639644700271529076">Tipka CAPS LOCK je izklopljena</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="6424520630891723617"><ph name="SECURITY_STATUS" />, moč signala je <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="642644398083277086">Izbris vseh obvestil</translation>
 <translation id="643147933154517414">Končano</translation>
 <translation id="6445835306623867477"><ph name="ROUTE_TITLE" /> na <ph name="RECEIVER_NAME" /></translation>
@@ -381,9 +395,11 @@
 <translation id="6521655319214113338">Vnos z rokopisom</translation>
 <translation id="6528179044667508675">Ne moti</translation>
 <translation id="6537270692134705506">Zajem zaslona</translation>
+<translation id="6537924328260219877">Moč signala je <ph name="SIGNAL_STRENGTH" />, stanje baterije telefona je <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771">Predvajanje v napravi <ph name="RECEIVER_NAME" /></translation>
 <translation id="6559976592393364813">Vprašajte skrbnika</translation>
 <translation id="6585808820553845416">Seja se konča čez <ph name="SESSION_TIME_REMAINING" />.</translation>
+<translation id="661203523074512333"><ph name="SECURITY_STATUS" />, moč signala je <ph name="SIGNAL_STRENGTH" />, upravlja ga vaš skrbnik</translation>
 <translation id="6627638273713273709">Tipka za iskanje + Shift + K</translation>
 <translation id="6637729079642709226">Spreminjanje časa</translation>
 <translation id="6650933572246256093">Naprava Bluetooth »<ph name="DEVICE_NAME" />« želi vaše dovoljenje za seznanjanje. V napravi vnesite to geslo: <ph name="PASSKEY" /></translation>
@@ -415,6 +431,7 @@
 <translation id="7015766095477679451">Vrnite se ob <ph name="COME_BACK_TIME" />.</translation>
 <translation id="7025533177575372252">Povežite napravo <ph name="DEVICE_NAME" /> s telefonom</translation>
 <translation id="7029814467594812963">Zapusti sejo</translation>
+<translation id="703425375924687388"><ph name="QUERY_NAME" />, Pomočnik Google</translation>
 <translation id="7042322267639375032">Strnitev območja stanja</translation>
 <translation id="7066646422045619941">To omrežje je onemogočil skrbnik.</translation>
 <translation id="7067196344162293536">Samodejno sukanje</translation>
@@ -476,12 +493,12 @@
 <translation id="7904094684485781019">Skrbnik tega računa je onemogočil prijavo z več računi.</translation>
 <translation id="7933084174919150729">Pomočnik Google je na voljo samo za primarni profil.</translation>
 <translation id="79341161159229895">Račun upravljata <ph name="FIRST_PARENT_EMAIL" /> in <ph name="SECOND_PARENT_EMAIL" /></translation>
+<translation id="7955885781510802139">Visokokontrastni način</translation>
 <translation id="7977927628060636163">Iskanje mobilnih omrežij ...</translation>
 <translation id="7982789257301363584">Omrežje</translation>
 <translation id="7984197416080286869">Preveč poskusov odklepanja s prstnim odtisom</translation>
 <translation id="7994370417837006925">Prijava z več računi</translation>
 <translation id="8000066093800657092">Ni omrežja</translation>
-<translation id="8029241286966751120">Celozaslonska lupa je omogočena. Če jo želite izklopiti, znova pritisnite Ctrl + tipko za iskanje + M.</translation>
 <translation id="8030169304546394654">Ni povezave</translation>
 <translation id="8054466585765276473">Izračunavanje časa trajanja akumulatorja.</translation>
 <translation id="8061464966246066292">Visok kontrast</translation>
@@ -497,6 +514,8 @@
 <translation id="8192202700944119416">Obvestila so skrita.</translation>
 <translation id="8203795194971602413">Desni klik</translation>
 <translation id="8236042855478648955">Čas je za premor</translation>
+<translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, moč signala je <ph name="SIGNAL_STRENGTH" />, stanje baterije telefona je <ph name="BATTERY_STATUS" /></translation>
+<translation id="826107067893790409">Pritisnite Enter, če želite odkleniti za uporabnika <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8261506727792406068">Izbriši</translation>
 <translation id="8297006494302853456">Šibek</translation>
 <translation id="8308637677604853869">Prejšnji meni</translation>
@@ -506,7 +525,6 @@
 <translation id="8388750414311082622">Zadnjega namizja ni mogoče odstraniti.</translation>
 <translation id="8392451568018454956">Meni z možnostmi za <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8394567579869570560">Tvoj starš je zaklenil to napravo</translation>
-<translation id="8406981827175133772">Celozaslonska lupa</translation>
 <translation id="8425213833346101688">Spremeni</translation>
 <translation id="8427213022735114808">Narekovanje pošlje vaš glas v Google zaradi omogočanja glasovnega tipkanja v poljubnem besedilnem polju.</translation>
 <translation id="8428213095426709021">Nastavitve</translation>
@@ -521,10 +539,12 @@
 <translation id="8513108775083588393">Samodejni zasuk</translation>
 <translation id="8517041960877371778">Akumulator naprave <ph name="DEVICE_TYPE" /> se morda ne bo polnil, medtem ko je naprava vklopljena.</translation>
 <translation id="8627191004499078455">Vzpostavljena povezava z napravo <ph name="DEVICE_NAME" /></translation>
+<translation id="8637598503828012618"><ph name="CONNECTION_STATUS" />, moč signala je <ph name="SIGNAL_STRENGTH" />, upravlja ga vaš skrbnik</translation>
 <translation id="8639760480004882931">Še <ph name="PERCENTAGE" /> %</translation>
 <translation id="8649101189709089199">Izberite in poslušajte</translation>
 <translation id="8652175077544655965">Zapiranje nastavitev</translation>
 <translation id="8653151467777939995">Prikaz nastavitev obvestil. Obvestila so vklopljena.</translation>
+<translation id="8663756353922886599"><ph name="CONNECTION_STATUS" />, moč signala je <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="8664753092453405566">Prikaz seznama omrežij. <ph name="STATE_TEXT" /></translation>
 <translation id="8673028979667498656">270°</translation>
 <translation id="8676770494376880701">Priključen je nizkoenergijski polnilnik</translation>
@@ -533,6 +553,7 @@
 <translation id="8734991477317290293">Morda poskuša beležiti vse, kar natipkate</translation>
 <translation id="8735953464173050365">Prikaz nastavitev tipkovnice. Izbrana je tipkovnica <ph name="KEYBOARD_NAME" />.</translation>
 <translation id="875593634123171288">Prikaz nastavitev omrežja VPN</translation>
+<translation id="8785070478575117577">Vzpostavitev povezave z omrežjem <ph name="NETWORK_NAME" /></translation>
 <translation id="8814190375133053267">Wi-Fi</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8843682306134542540">Preklop zaklepanja zasuka. <ph name="STATE_TEXT" /></translation>
@@ -551,9 +572,9 @@
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Uporaba tega: <ph name="IME_NAME" /></translation>
 <translation id="899350903320462459">Odklenite napravo kot <ph name="LOGIN_ID" />, da izvedete dejanje v obvestilu</translation>
-<translation id="8995603266996330174">Upravljavec: <ph name="DOMAIN" /></translation>
 <translation id="9017320285115481645">Vnesite kodo za dostop starša za Family Link.</translation>
 <translation id="9029474291399787231">Na voljo je posodobitev za Adobe Flash Player</translation>
+<translation id="9047624247355796468">Odpri nastavitve za <ph name="NETWORK_NAME" /></translation>
 <translation id="9056839673611986238">Naprava bo povrnjena na prejšnjo različico</translation>
 <translation id="9070640332319875144">Nastavitve Pomočnika</translation>
 <translation id="9072519059834302790"><ph name="TIME_LEFT" /> do izpraznjenosti akumulatorja.</translation>
@@ -565,8 +586,11 @@
 <translation id="9091626656156419976">Odstranjen zaslon <ph name="DISPLAY_NAME" /></translation>
 <translation id="9151726767154816831">Če želite posodobiti, znova zaženite in uporabite funkcijo Powerwash</translation>
 <translation id="9179259655489829027">S to funkcijo lahko hitro dostopate do poljubnega prijavljenega uporabnika, ne da bi vam bilo treba vnesti geslo. Uporabljajte to funkcijo samo z računi, ki jim zaupate.</translation>
+<translation id="9183456764293710005">Celozaslonska lupa</translation>
 <translation id="9193626018745640770">Predvajanje v neznanem sprejemniku</translation>
 <translation id="9194617393863864469">Prijava drugega uporabnika ...</translation>
+<translation id="9201374708878217446"><ph name="CONNECTION_STATUS" />, upravlja ga vaš skrbnik</translation>
+<translation id="9205817095063786319">Napravo upravlja <ph name="DOMAIN" /></translation>
 <translation id="9210037371811586452">Izhod iz načina enotnega namizja</translation>
 <translation id="9211681782751733685">Še <ph name="TIME_REMAINING" />, da bo akumulator povsem napolnjen.</translation>
 <translation id="9215934040295798075">Nastavi sliko za ozadje</translation>

@@ -3,7 +3,6 @@
 <translationbundle lang="sv">
 <translation id="1001534784610492198">Arkivet för installationsfilen är skadat eller ogiltigt. Ladda ned Google Chrome igen.</translation>
 <translation id="102763973188675173">Anpassa och styr Google Chrome. En uppdatering är tillgänglig.</translation>
-<translation id="1035334672863811645">Logga in i Chrome</translation>
 <translation id="1051826050538111504">Det finns skadlig programvara på datorn. Den skadliga programvaran kan tas bort, inställningarna återställas och tillägg inaktiveras så att webbläsaren fungerar som den ska igen.</translation>
 <translation id="1065672644894730302">Det går inte att läsa inställningarna.
 
@@ -77,7 +76,6 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="3065168410429928842">Chrome-flik</translation>
 <translation id="3080151273017101988">Fortsätt köra bakgrundsappar när Google Chrome avslutas</translation>
 <translation id="3089968997497233615">Det finns en ny, ännu säkrare version av Google Chrome.</translation>
-<translation id="3138848678222082288">Framtida versioner av Chrome installeras automatiskt. Chrome startas om när nedladdningen är klar och sedan är du igång.</translation>
 <translation id="3149510190863420837">Chrome-appar</translation>
 <translation id="3282568296779691940">Logga in i Chrome</translation>
 <translation id="3340978935015468852">inställningar</translation>
@@ -98,7 +96,6 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="3718181793972440140">Ett objekt tas bort från enheten. Logga in i Chrome som <ph name="USER_EMAIL" /> om du vill kunna återställa datan senare.</translation>
 <translation id="3735758079232443276">Tillägget <ph name="EXTENSION_NAME" /> har ändrat vilken sida som visas när du startar Chrome.</translation>
 <translation id="3780814664026482060">Chrome – <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Ta bort från Chrome …</translation>
 <translation id="386202838227397562">Stäng alla Google Chrome-fönster och försök igen.</translation>
 <translation id="3873044882194371212">Öppna länken i ett inko&amp;gnitofönster i Chrome</translation>
 <translation id="3889417619312448367">Avinstallera Google Chrome</translation>
@@ -183,7 +180,6 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="677276454032249905">Vill du avsluta Chrome ändå?</translation>
 <translation id="683440813066116847">Regel som tillåter inkommande mDNS-trafik för Google Chrome Canary.</translation>
 <translation id="6885412569789873916">Appar i Chrome Beta</translation>
-<translation id="6906909733186691861">Framtida versioner av Chrome installeras automatiskt.</translation>
 <translation id="6943584222992551122">Den här personens webbinformation raderas från enheten. Logga in i Chrome som <ph name="USER_EMAIL" /> om du vill återställa data.</translation>
 <translation id="6967962315388095737">Regel som tillåter inkommande mDNS-trafik för Google Chrome Beta.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> kräver att du läser och godkänner följande användarvillkor innan du använder enheten. Villkoren varken utökar, ändrar eller begränsar villkoren för Google Chrome OS.</translation>
@@ -234,7 +230,6 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="8521348052903287641">Regel som tillåter inkommande mDNS-trafik för Google Chrome Dev.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Det finns en ny version av Google Chrome och den är snabbare än någonsin.</translation>
-<translation id="8606668294522778825">Google Chrome kan använda webbtjänster för att förbättra din upplevelse på webben. Du kan inaktivera dessa tjänster om du vill. <ph name="BEGIN_LINK" />Läs mer<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome svarar inte. Vill du starta om nu?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Om en minut startas Chrome om}other{Om # minuter startas Chrome om}}</translation>
 <translation id="8669527147644353129">Google Chrome Helper</translation>

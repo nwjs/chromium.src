@@ -19,7 +19,6 @@
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
-#include "chrome/browser/chromeos/profiles/profile_util.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
@@ -326,6 +325,8 @@ const char* GetReportingTypeValue(ReportingType reportingType) {
 // TODO(raleksandov) Move to util class or smth similar.
 // static
 std::string ManagementUIHandler::GetAccountDomain(Profile* profile) {
+  if (!IsProfileManaged(profile))
+    return std::string();
   auto username = profile->GetProfileUserName();
   size_t email_separator_pos = username.find('@');
   bool is_email = email_separator_pos != std::string::npos &&
@@ -673,9 +674,8 @@ void ManagementUIHandler::AsyncUpdateLogo() {
   if (!url.empty() && GURL(url) != logo_url_) {
     icon_fetcher_ = std::make_unique<BitmapFetcher>(
         GURL(url), this, GetManagementUICustomerLogoAnnotation());
-    icon_fetcher_->Init(
-        std::string(), net::URLRequest::NEVER_CLEAR_REFERRER,
-        net::LOAD_DO_NOT_SAVE_COOKIES | net::LOAD_DO_NOT_SEND_COOKIES);
+    icon_fetcher_->Init(std::string(), net::URLRequest::NEVER_CLEAR_REFERRER,
+                        network::mojom::CredentialsMode::kOmit);
     auto* profile = Profile::FromWebUI(web_ui());
     icon_fetcher_->Start(
         content::BrowserContext::GetDefaultStoragePartition(profile)

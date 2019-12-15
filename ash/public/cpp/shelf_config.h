@@ -60,6 +60,9 @@ class ASH_EXPORT ShelfConfig : public TabletModeObserver,
   // Size of the shelf when an app is visible in tablet mode.
   int in_app_shelf_size() const;
 
+  // Size of the shelf when not in tablet mode, or when no apps are visible.
+  int system_shelf_size() const;
+
   // Size of the hotseat, which contains the scrollable shelf in tablet mode.
   int hotseat_size() const;
 
@@ -87,6 +90,12 @@ class ASH_EXPORT ShelfConfig : public TabletModeObserver,
 
   // The distance between the edge of the shelf and the home and back button.
   int home_button_edge_spacing() const;
+
+  // The duration of the hotseat background animations in ms.
+  base::TimeDelta hotseat_background_animation_duration() const;
+
+  // The duration of the shelf show/hide animation in ms.
+  base::TimeDelta shelf_animation_duration() const;
 
   // The extra padding added to status area tray buttons on the shelf.
   int status_area_hit_region_padding() const;
@@ -134,6 +143,11 @@ class ASH_EXPORT ShelfConfig : public TabletModeObserver,
     return shelf_tooltip_preview_min_ratio_;
   }
   int shelf_blur_radius() const { return shelf_blur_radius_; }
+  int mousewheel_scroll_offset_threshold() const {
+    return mousewheel_scroll_offset_threshold_;
+  }
+
+  bool is_dense() const { return is_dense_; }
 
   // Gets the current color for the shelf control buttons.
   SkColor GetShelfControlButtonColor() const;
@@ -160,6 +174,11 @@ class ASH_EXPORT ShelfConfig : public TabletModeObserver,
 
   // Updates |is_dense_| and notifies all observers of the update.
   void UpdateIsDense();
+
+  // Gets the current shelf size.
+  // |ignore_in_app_state| - Whether the returned shelf size should be
+  //                         calculated as if is_in_app() returns false.
+  int GetShelfSize(bool ignore_in_app_state) const;
 
   // Whether shelf is currently standard or dense.
   bool is_dense_;
@@ -226,6 +245,10 @@ class ASH_EXPORT ShelfConfig : public TabletModeObserver,
 
   // The blur radius used for the shelf.
   const int shelf_blur_radius_;
+
+  // The threshold at which mousewheel and touchpad scrolls are either ignored
+  // or acted upon.
+  const int mousewheel_scroll_offset_threshold_;
 
   base::ObserverList<Observer> observers_;
 

@@ -21,7 +21,7 @@
 #include "base/optional.h"
 #include "base/threading/thread.h"
 #include "base/time/time.h"
-#include "media/gpu/image_processor.h"
+#include "media/gpu/chromeos/image_processor.h"
 #include "media/gpu/media_gpu_export.h"
 #include "media/gpu/v4l2/v4l2_device.h"
 #include "media/video/video_encode_accelerator.h"
@@ -260,6 +260,10 @@ class MEDIA_GPU_EXPORT V4L2VideoEncodeAccelerator
   gfx::Size visible_size_;
   // Layout of device accepted input VideoFrame.
   base::Optional<VideoFrameLayout> device_input_layout_;
+
+  // Stands for whether an input buffer is native graphic buffer.
+  bool native_input_mode_;
+
   // Input allocated size calculated by
   // V4L2Device::AllocatedSizeFromV4L2Format().
   // TODO(crbug.com/914700): Remove this once Client::RequireBitstreamBuffers
@@ -347,10 +351,9 @@ class MEDIA_GPU_EXPORT V4L2VideoEncodeAccelerator
   base::WeakPtr<Client> client_;
   std::unique_ptr<base::WeakPtrFactory<Client>> client_ptr_factory_;
 
-  // WeakPtr<> pointing to |this| for use in posting tasks from the
-  // image_processor_ back to the child thread.
-  // Tasks posted onto encoder and poll threads can use base::Unretained(this),
-  // as both threads will not outlive this object.
+  // WeakPtr<> pointing to |this| for use in posting tasks to
+  // |encoder_thread_.task_runner()|. It guarantees no task will be executed
+  // after DestroyTask().
   base::WeakPtr<V4L2VideoEncodeAccelerator> weak_this_;
   base::WeakPtrFactory<V4L2VideoEncodeAccelerator> weak_this_ptr_factory_;
 

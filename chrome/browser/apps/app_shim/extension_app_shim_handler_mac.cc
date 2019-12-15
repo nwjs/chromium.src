@@ -6,6 +6,8 @@
 
 #include <Security/Security.h>
 
+#include <algorithm>
+#include <set>
 #include <utility>
 
 #include "apps/app_lifetime_monitor_factory.h"
@@ -19,11 +21,13 @@
 #include "base/mac/foundation_util.h"
 #include "base/mac/scoped_cftyperef.h"
 #include "base/macros.h"
+#include "base/stl_util.h"
 #include "chrome/browser/apps/app_shim/app_shim_host_bootstrap_mac.h"
 #include "chrome/browser/apps/app_shim/app_shim_host_mac.h"
 #include "chrome/browser/apps/app_shim/app_shim_listener.h"
 #include "chrome/browser/apps/app_shim/app_shim_termination_manager.h"
 #include "chrome/browser/apps/launch_service/launch_service.h"
+#include "chrome/browser/apps/platform_apps/app_shim_registry_mac.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/chrome_notification_types.h"
@@ -45,11 +49,11 @@
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/components/web_app_shortcut_mac.h"
 #include "chrome/browser/web_applications/extensions/web_app_extension_shortcut.h"
+#include "chrome/browser/web_applications/extensions/web_app_extension_shortcut_mac.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_metrics.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
-#include "chrome/common/mac/app_shim_param_traits.h"
 #include "components/crx_file/id_util.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/notification_details.h"
@@ -197,6 +201,11 @@ bool UsesRemoteViews(const extensions::Extension* extension) {
   return extension->is_hosted_app() && extension->from_bookmark();
 }
 
+bool ProfileMenuItemComparator(const chrome::mojom::ProfileMenuItemPtr& a,
+                               const chrome::mojom::ProfileMenuItemPtr& b) {
+  return a->menu_index < b->menu_index;
+}
+
 }  // namespace
 
 namespace apps {
@@ -226,15 +235,23 @@ struct ExtensionAppShimHandler::ProfileState {
 // The state for an individual app. This includes the state for all
 // profiles that are using the app.
 struct ExtensionAppShimHandler::AppState {
-  AppState(std::unique_ptr<AppShimHost> in_multi_profile_host)
-      : multi_profile_host(std::move(in_multi_profile_host)) {}
+  AppState(const std::string& app_id,
+           std::unique_ptr<AppShimHost> multi_profile_host)
+      : app_id(app_id), multi_profile_host(std::move(multi_profile_host)) {}
   ~AppState() = default;
 
   bool IsMultiProfile() const;
 
+  // Mark the last-active profiles in AppShimRegistry, so that they will re-open
+  // when the app is started next.
+  void SaveLastActiveProfiles() const;
+
+  const std::string app_id;
+
   // Multi-profile apps share the same shim process across multiple profiles.
   const std::unique_ptr<AppShimHost> multi_profile_host;
 
+  // The profile state for the profiles currently running this app.
   std::map<Profile*, std::unique_ptr<ProfileState>> profiles;
 
  private:
@@ -261,11 +278,15 @@ bool ExtensionAppShimHandler::AppState::IsMultiProfile() const {
   return multi_profile_host.get();
 }
 
-std::unique_ptr<AvatarMenu> ExtensionAppShimHandler::Delegate::CreateAvatarMenu(
-    AvatarMenuObserver* observer) {
-  ProfileManager* profile_manager = g_browser_process->profile_manager();
-  return std::make_unique<AvatarMenu>(
-      &profile_manager->GetProfileAttributesStorage(), observer, nullptr);
+void ExtensionAppShimHandler::AppState::SaveLastActiveProfiles() const {
+  if (!IsMultiProfile())
+    return;
+  std::set<base::FilePath> last_active_profile_paths;
+  for (auto iter_profile = profiles.begin(); iter_profile != profiles.end();
+       ++iter_profile) {
+    last_active_profile_paths.insert(iter_profile->first->GetPath());
+  }
+  AppShimRegistry::Get()->OnAppQuit(app_id, last_active_profile_paths);
 }
 
 Profile* ExtensionAppShimHandler::Delegate::ProfileForPath(
@@ -354,6 +375,24 @@ void ExtensionAppShimHandler::Delegate::LaunchApp(
       apps::LaunchPlatformAppWithPath(profile, extension, *it);
     }
   }
+}
+
+void ExtensionAppShimHandler::Delegate::OpenAppURLInBrowserWindow(
+    const base::FilePath& profile_path,
+    const GURL& url) {
+  Profile* profile =
+      profile_path.empty() ? nullptr : ProfileForPath(profile_path);
+  if (!profile)
+    profile = g_browser_process->profile_manager()->GetLastUsedProfile();
+  if (!profile)
+    return;
+  Browser* browser =
+      new Browser(Browser::CreateParams(Browser::TYPE_NORMAL, profile, true));
+  browser->window()->Show();
+  NavigateParams params(browser, url, ui::PAGE_TRANSITION_AUTO_BOOKMARK);
+  params.tabstrip_add_types = TabStripModel::ADD_ACTIVE;
+  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  Navigate(&params);
 }
 
 void ExtensionAppShimHandler::Delegate::LaunchShim(
@@ -463,7 +502,7 @@ const Extension* ExtensionAppShimHandler::MaybeGetAppForBrowser(
 
 void ExtensionAppShimHandler::RequestUserAttentionForWindow(
     AppWindow* app_window,
-    AppShimAttentionType attention_type) {
+    chrome::mojom::AppShimAttentionType attention_type) {
   Profile* profile = Profile::FromBrowserContext(app_window->browser_context());
   AppShimHost* host = FindHost(profile, app_window->extension_id());
   if (host && !host->UsesRemoteViews())
@@ -506,25 +545,247 @@ void ExtensionAppShimHandler::OnShimLaunchRequested(
 
 void ExtensionAppShimHandler::OnShimProcessConnected(
     std::unique_ptr<AppShimHostBootstrap> bootstrap) {
+  DCHECK(crx_file::id_util::IdIsValid(bootstrap->GetAppId()));
+  switch (bootstrap->GetLaunchType()) {
+    case chrome::mojom::AppShimLaunchType::kNormal:
+      OnShimProcessConnectedForLaunch(std::move(bootstrap));
+      break;
+    case chrome::mojom::AppShimLaunchType::kRegisterOnly:
+      OnShimProcessConnectedForRegisterOnly(std::move(bootstrap));
+      break;
+  }
+}
+
+void ExtensionAppShimHandler::OnShimProcessConnectedForRegisterOnly(
+    std::unique_ptr<AppShimHostBootstrap> bootstrap) {
   const std::string& app_id = bootstrap->GetAppId();
-  DCHECK(crx_file::id_util::IdIsValid(app_id));
+  DCHECK_EQ(bootstrap->GetLaunchType(),
+            chrome::mojom::AppShimLaunchType::kRegisterOnly);
 
-  // TODO(https://crbug.com/982024): If no profile path is specified by the
-  // bootstrap, then load an appropriate profile.
-  base::FilePath profile_path = bootstrap->GetProfilePath();
+  // Create a ProfileState the specified profile (if there is one). We should
+  // not do this (if there exists no ProfileState, then the shim should just
+  // exit), but many tests assume this behavior, and need to be updated.
+  Profile* profile = delegate_->ProfileForPath(bootstrap->GetProfilePath());
+  const Extension* extension = delegate_->MaybeGetAppExtension(profile, app_id);
+  if (profile && extension && delegate_->AllowShimToConnect(profile, extension))
+    GetOrCreateProfileState(profile, extension);
 
-  if (delegate_->IsProfileLockedForPath(profile_path)) {
-    LOG(WARNING) << "Requested profile is locked.  Showing User Manager.";
-    bootstrap->OnFailedToConnectToHost(APP_SHIM_LAUNCH_PROFILE_LOCKED);
+  // Because this was a register-only launch, it must have been launched by
+  // Chrome, and so there should probably still exist the ProfileState through
+  // which the launch was originally done.
+  ProfileState* profile_state = nullptr;
+  auto found_app = apps_.find(app_id);
+  if (found_app != apps_.end()) {
+    AppState* app_state = found_app->second.get();
+    if (app_state->IsMultiProfile()) {
+      DCHECK(!app_state->profiles.empty());
+      profile_state = app_state->profiles.begin()->second.get();
+    } else {
+      auto found_profile = app_state->profiles.find(profile);
+      if (found_profile != app_state->profiles.end()) {
+        profile_state = found_profile->second.get();
+      }
+    }
+  }
+
+  OnShimProcessConnectedAndAllLaunchesDone(
+      profile_state,
+      profile_state ? chrome::mojom::AppShimLaunchResult::kSuccess
+                    : chrome::mojom::AppShimLaunchResult::kNoHost,
+      std::move(bootstrap));
+}
+
+void ExtensionAppShimHandler::OnShimProcessConnectedForLaunch(
+    std::unique_ptr<AppShimHostBootstrap> bootstrap) {
+  const std::string& app_id = bootstrap->GetAppId();
+  DCHECK_EQ(bootstrap->GetLaunchType(),
+            chrome::mojom::AppShimLaunchType::kNormal);
+
+  // Retrieve the list of last-active profiles. If there are no last-active
+  // profiles (which is rare -- e.g, when the last-active profiles were
+  // removed), then use all profiles for which the app is installed.
+  std::set<base::FilePath> last_active_profile_paths =
+      AppShimRegistry::Get()->GetLastActiveProfilesForApp(app_id);
+  if (last_active_profile_paths.empty()) {
+    last_active_profile_paths =
+        AppShimRegistry::Get()->GetInstalledProfilesForApp(app_id);
+  }
+
+  // Construct |profile_paths_to_launch| to be the list of all profiles to
+  // attempt to launch, starting with the profile specified in |bootstrap|,
+  // at the front of the list.
+  std::vector<base::FilePath> profile_paths_to_launch = {
+      bootstrap->GetProfilePath()};
+  for (const auto& profile_path : last_active_profile_paths)
+    profile_paths_to_launch.push_back(profile_path);
+
+  // Attempt load all of the profiles in |profile_paths_to_launch|, and once
+  // they're loaded (or have failed to load), call
+  // OnShimProcessConnectedAndProfilesToLaunchLoaded.
+  base::OnceClosure callback = base::BindOnce(
+      &ExtensionAppShimHandler::OnShimProcessConnectedAndProfilesToLaunchLoaded,
+      weak_factory_.GetWeakPtr(), std::move(bootstrap),
+      profile_paths_to_launch);
+  {
+    // This will update |callback| to be a chain of callbacks that load the
+    // profiles in |profile_paths_to_load|, one by one, using
+    // LoadProfileAndApp, and then finally call the initial |callback|. This
+    // may end up being async (if some profiles aren't loaded), or may be
+    // synchronous (if all profiles happen to already be loaded).
+    for (const auto& profile_path : profile_paths_to_launch) {
+      if (profile_path.empty())
+        continue;
+      LoadProfileAppCallback callback_wrapped = base::BindOnce(
+          [](base::OnceClosure callback_to_wrap, Profile*,
+             const extensions::Extension*) {
+            std::move(callback_to_wrap).Run();
+          },
+          std::move(callback));
+      callback = base::BindOnce(&ExtensionAppShimHandler::LoadProfileAndApp,
+                                weak_factory_.GetWeakPtr(), profile_path,
+                                app_id, std::move(callback_wrapped));
+    }
+  }
+  std::move(callback).Run();
+}
+
+void ExtensionAppShimHandler::OnShimProcessConnectedAndProfilesToLaunchLoaded(
+    std::unique_ptr<AppShimHostBootstrap> bootstrap,
+    const std::vector<base::FilePath>& profile_paths_to_launch) {
+  // The the profile specified in |bootstrap| (even if it's empty) should be the
+  // first profile listed in |profile_paths_to_launch|.
+  DCHECK_EQ(profile_paths_to_launch[0], bootstrap->GetProfilePath());
+
+  const auto& app_id = bootstrap->GetAppId();
+  auto launch_files = bootstrap->GetLaunchFiles();
+
+  // Launch all of the profiles in |profile_paths_to_launch|. Record the most
+  // profile successfully launched in |launched_profile_state|, and the most
+  // recent reason for a failure (if any) in |launch_result|.
+  ProfileState* launched_profile_state = nullptr;
+  auto launch_result = chrome::mojom::AppShimLaunchResult::kProfileNotFound;
+  for (size_t iter = 0; iter < profile_paths_to_launch.size(); ++iter) {
+    const base::FilePath& profile_path = profile_paths_to_launch[iter];
+    if (profile_path.empty())
+      continue;
+    if (delegate_->IsProfileLockedForPath(profile_path)) {
+      launch_result = chrome::mojom::AppShimLaunchResult::kProfileLocked;
+      continue;
+    }
+    Profile* profile = delegate_->ProfileForPath(profile_path);
+    if (!profile) {
+      launch_result = chrome::mojom::AppShimLaunchResult::kProfileNotFound;
+      continue;
+    }
+    const Extension* extension =
+        delegate_->MaybeGetAppExtension(profile, app_id);
+    if (!extension) {
+      launch_result = chrome::mojom::AppShimLaunchResult::kAppNotFound;
+      continue;
+    }
+
+    // Create a ProfileState for this app, if appropriate (e.g, not for
+    // open-in-a-tab bookmark apps).
+    ProfileState* profile_state = nullptr;
+    if (delegate_->AllowShimToConnect(profile, extension))
+      profile_state = GetOrCreateProfileState(profile, extension);
+
+    // If there exist any open window for this profile, then bring them to the
+    // front.
+    bool had_open_windows = false;
+    if (profile_state && !profile_state->browsers.empty()) {
+      for (auto* browser : profile_state->browsers) {
+        if (auto* window = browser->window()) {
+          window->Show();
+          had_open_windows = true;
+        }
+      }
+    }
+
+    // Launch the app (open a window for it) if there were no open windows for
+    // it already, or if we were asked to open files.
+    if (!had_open_windows || !launch_files.empty()) {
+      delegate_->LaunchApp(profile, extension, launch_files);
+      launch_files.clear();
+    }
+
+    // If we successfully created a profile state, save it for |bootstrap| to
+    // connect to once all launches are done.
+    if (profile_state)
+      launched_profile_state = profile_state;
+    else
+      launch_result = chrome::mojom::AppShimLaunchResult::kNoHost;
+
+    // If this was the first profile in |profile_paths_to_launch|, then this
+    // was the profile specified in the bootstrap, so stop here.
+    if (iter == 0)
+      break;
+  }
+
+  if (launched_profile_state) {
+    // If we launched any profile, report success.
+    launch_result = chrome::mojom::AppShimLaunchResult::kSuccess;
+  } else {
+    // Otherwise, if the app specified a URL, open that URL in a new window.
+    const GURL& url = bootstrap->GetAppURL();
+    if (url.is_valid())
+      delegate_->OpenAppURLInBrowserWindow(bootstrap->GetProfilePath(), url);
+  }
+
+  OnShimProcessConnectedAndAllLaunchesDone(launched_profile_state,
+                                           launch_result, std::move(bootstrap));
+}
+
+void ExtensionAppShimHandler::OnShimProcessConnectedAndAllLaunchesDone(
+    ProfileState* profile_state,
+    chrome::mojom::AppShimLaunchResult result,
+    std::unique_ptr<AppShimHostBootstrap> bootstrap) {
+  // If we failed because the profile was locked, launch the profile manager.
+  if (result == chrome::mojom::AppShimLaunchResult::kProfileLocked)
     delegate_->LaunchUserManager();
+
+  // If we failed to find a AppShimHost (in a ProfileState) for |bootstrap|
+  // to attempt to connect to, then quit the shim. This may not represent an
+  // actual failure (e.g, for open-in-a-tab bookmarks).
+  if (result != chrome::mojom::AppShimLaunchResult::kSuccess) {
+    DCHECK(!profile_state);
+    bootstrap->OnFailedToConnectToHost(result);
+    return;
+  }
+  DCHECK(profile_state);
+  AppShimHost* host = profile_state->GetHost();
+  DCHECK(host);
+
+  // If we already have a host attached (e.g, due to multiple launches racing),
+  // close down the app shim that didn't win the race.
+  if (host->HasBootstrapConnected()) {
+    // If another app shim process has already connected to this (profile,
+    // app_id) pair, then focus the windows for the existing process. Note
+    // that this only does anything for non-RemoveCocoa apps.
+    OnShimFocus(
+        profile_state->GetHost(),
+        bootstrap->GetLaunchType() == chrome::mojom::AppShimLaunchType::kNormal
+            ? chrome::mojom::AppShimFocusType::kReopen
+            : chrome::mojom::AppShimFocusType::kNormal,
+        bootstrap->GetLaunchFiles());
+
+    bootstrap->OnFailedToConnectToHost(
+        chrome::mojom::AppShimLaunchResult::kDuplicateHost);
     return;
   }
 
-  LoadProfileAndApp(
-      profile_path, app_id,
-      base::BindOnce(
-          &ExtensionAppShimHandler::OnShimProcessConnectedAndAppLoaded,
-          weak_factory_.GetWeakPtr(), std::move(bootstrap)));
+  // If the connecting shim process doesn't have an acceptable code
+  // signature, reject the connection and re-launch the shim. The internal
+  // re-launch will likely fail, whereupon the shim will be recreated.
+  if (!IsAcceptablyCodeSigned(bootstrap->GetAppShimPid())) {
+    LOG(ERROR) << "The attaching app shim's code signature is invalid.";
+    bootstrap->OnFailedToConnectToHost(
+        chrome::mojom::AppShimLaunchResult::kFailedValidation);
+    host->LaunchShim();
+    return;
+  }
+
+  host->OnBootstrapConnected(std::move(bootstrap));
 }
 
 // static
@@ -555,9 +816,15 @@ void ExtensionAppShimHandler::CloseShimForApp(Profile* profile,
   if (found_app == apps_.end())
     return;
   AppState* app_state = found_app->second.get();
-  app_state->profiles.erase(profile);
-  if (app_state->profiles.empty())
+  auto found_profile = app_state->profiles.find(profile);
+  if (found_profile == app_state->profiles.end())
+    return;
+  if (app_state->profiles.size() == 1) {
+    app_state->SaveLastActiveProfiles();
     apps_.erase(found_app);
+  } else {
+    app_state->profiles.erase(found_profile);
+  }
 }
 
 void ExtensionAppShimHandler::LoadProfileAndApp(
@@ -617,65 +884,6 @@ void ExtensionAppShimHandler::OnAppEnabled(const base::FilePath& profile_path,
   std::move(callback).Run(profile, extension);
 }
 
-void ExtensionAppShimHandler::OnShimProcessConnectedAndAppLoaded(
-    std::unique_ptr<AppShimHostBootstrap> bootstrap,
-    Profile* profile,
-    const extensions::Extension* extension) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  // Early-out if the profile or extension failed to load.
-  if (!profile) {
-    bootstrap->OnFailedToConnectToHost(APP_SHIM_LAUNCH_PROFILE_NOT_FOUND);
-    return;
-  }
-  if (!extension) {
-    bootstrap->OnFailedToConnectToHost(APP_SHIM_LAUNCH_APP_NOT_FOUND);
-    return;
-  }
-  AppShimLaunchType launch_type = bootstrap->GetLaunchType();
-  std::vector<base::FilePath> files = bootstrap->GetLaunchFiles();
-
-  ProfileState* profile_state =
-      delegate_->AllowShimToConnect(profile, extension)
-          ? GetOrCreateProfileState(profile, extension)
-          : nullptr;
-  if (profile_state) {
-    DCHECK_EQ(profile_state->app_state->IsMultiProfile(),
-              bootstrap->IsMultiProfile());
-    AppShimHost* host = profile_state->GetHost();
-    if (host->HasBootstrapConnected()) {
-      // If another app shim process has already connected to this (profile,
-      // app_id) pair, then focus the windows for the existing process, and
-      // close the new process.
-      OnShimFocus(host,
-                  launch_type == APP_SHIM_LAUNCH_NORMAL ? APP_SHIM_FOCUS_REOPEN
-                                                        : APP_SHIM_FOCUS_NORMAL,
-                  files);
-      bootstrap->OnFailedToConnectToHost(APP_SHIM_LAUNCH_DUPLICATE_HOST);
-      return;
-    }
-    if (IsAcceptablyCodeSigned(bootstrap->GetAppShimPid())) {
-      host->OnBootstrapConnected(std::move(bootstrap));
-    } else {
-      // If the connecting shim process doesn't have an acceptable code
-      // signature, reject the connection and re-launch the shim. The internal
-      // re-launch will likely fail, whereupon the shim will be recreated.
-      LOG(ERROR) << "The attaching app shim's code signature is invalid.";
-      bootstrap->OnFailedToConnectToHost(APP_SHIM_LAUNCH_FAILED_VALIDATION);
-      host->LaunchShim();
-    }
-  } else {
-    // If it's an app that has a shim to launch it but shouldn't use a host
-    // (e.g, a hosted app that opens in a tab), terminate the shim, but still
-    // launch the app (that is, open the relevant browser tabs).
-    bootstrap->OnFailedToConnectToHost(APP_SHIM_LAUNCH_DUPLICATE_HOST);
-  }
-
-  // If this is not a register-only launch, then launch the app (that is, open
-  // a browser window for it).
-  if (launch_type == APP_SHIM_LAUNCH_NORMAL)
-    delegate_->LaunchApp(profile, extension, files);
-}
-
 bool ExtensionAppShimHandler::IsAcceptablyCodeSigned(pid_t pid) const {
   return IsAcceptablyCodeSignedInternal(pid);
 }
@@ -691,12 +899,11 @@ void ExtensionAppShimHandler::OnShimProcessDisconnected(AppShimHost* host) {
   // For multi-profile apps, just delete the AppState, which will take down
   // |host| and all profiles' state.
   if (app_state->IsMultiProfile()) {
+    app_state->SaveLastActiveProfiles();
     DCHECK_EQ(host, app_state->multi_profile_host.get());
     apps_.erase(found_app);
     return;
   }
-
-  Profile* profile = delegate_->ProfileForPath(host->GetProfilePath());
 
   // For non-RemoteCocoa apps, close all of the windows only if the the shim
   // process has successfully connected (if it never connected, then let the
@@ -705,6 +912,7 @@ void ExtensionAppShimHandler::OnShimProcessDisconnected(AppShimHost* host) {
       !host->UsesRemoteViews() && host->HasBootstrapConnected();
 
   // Erase the ProfileState, which will delete |host|.
+  Profile* profile = delegate_->ProfileForPath(host->GetProfilePath());
   auto found_profile = app_state->profiles.find(profile);
   DCHECK(found_profile != app_state->profiles.end());
   ProfileState* profile_state = found_profile->second.get();
@@ -728,7 +936,7 @@ void ExtensionAppShimHandler::OnShimProcessDisconnected(AppShimHost* host) {
 
 void ExtensionAppShimHandler::OnShimFocus(
     AppShimHost* host,
-    AppShimFocusType focus_type,
+    chrome::mojom::AppShimFocusType focus_type,
     const std::vector<base::FilePath>& files) {
   // This path is only for legacy apps (which are perforce single-profile).
   if (host->UsesRemoteViews())
@@ -748,8 +956,9 @@ void ExtensionAppShimHandler::OnShimFocus(
       (*it)->GetBaseWindow()->Show();
   }
 
-  if (focus_type == APP_SHIM_FOCUS_NORMAL ||
-      (focus_type == APP_SHIM_FOCUS_REOPEN && !windows.empty())) {
+  if (focus_type == chrome::mojom::AppShimFocusType::kNormal ||
+      (focus_type == chrome::mojom::AppShimFocusType::kReopen &&
+       !windows.empty())) {
     return;
   }
   delegate_->LaunchApp(profile, extension, files);
@@ -884,60 +1093,71 @@ void ExtensionAppShimHandler::OnBrowserRemoved(Browser* browser) {
 }
 
 void ExtensionAppShimHandler::OnBrowserSetLastActive(Browser* browser) {
-  // Defer creation of the avatar menu until the active browser window changes,
-  // to allow tests to override |delegate_|.
+  // Rebuild the profile menu items (to ensure that the checkmark in the menu
+  // is next to the new-active item).
+  if (avatar_menu_)
+    avatar_menu_->ActiveBrowserChanged(browser);
+  UpdateAllProfileMenus();
+}
+
+void ExtensionAppShimHandler::UpdateAllProfileMenus() {
+  RebuildProfileMenuItemsFromAvatarMenu();
+  for (auto& iter_app : apps_) {
+    AppState* app_state = iter_app.second.get();
+    if (app_state->IsMultiProfile())
+      UpdateAppProfileMenu(app_state);
+  }
+}
+
+void ExtensionAppShimHandler::RebuildProfileMenuItemsFromAvatarMenu() {
   if (!avatar_menu_) {
-    avatar_menu_ = delegate_->CreateAvatarMenu(this);
-    return;
+    ProfileManager* profile_manager = g_browser_process->profile_manager();
+    avatar_menu_ = std::make_unique<AvatarMenu>(
+        &profile_manager->GetProfileAttributesStorage(), this, nullptr);
   }
-  if (!avatar_menu_)
-    return;
-  avatar_menu_->ActiveBrowserChanged(browser);
   avatar_menu_->RebuildMenu();
-  for (auto& iter_app : apps_) {
-    AppState* app_state = iter_app.second.get();
-    if (app_state->IsMultiProfile())
-      UpdateHostProfileMenu(app_state->multi_profile_host.get());
-  }
-}
-
-void ExtensionAppShimHandler::OnAvatarMenuChanged(AvatarMenu* menu) {
-  if (!avatar_menu_)
-    return;
-  for (auto& iter_app : apps_) {
-    AppState* app_state = iter_app.second.get();
-    if (app_state->IsMultiProfile())
-      UpdateHostProfileMenu(app_state->multi_profile_host.get());
-  }
-}
-
-void ExtensionAppShimHandler::UpdateHostProfileMenu(AppShimHost* host) {
-  std::vector<chrome::mojom::ProfileMenuItemPtr> mojo_items;
+  profile_menu_items_.clear();
   for (size_t i = 0; i < avatar_menu_->GetNumberOfItems(); ++i) {
-    // TODO(https://crbug.com/982024): Skip profiles for which this extension
-    // is not installed.
     auto mojo_item = chrome::mojom::ProfileMenuItem::New();
     const AvatarMenu::Item& item = avatar_menu_->GetItemAt(i);
     mojo_item->name = item.name;
     mojo_item->menu_index = item.menu_index;
     mojo_item->active = item.active;
     mojo_item->profile_path = item.profile_path;
-    {
-      // Scale the icon as needed (see ProfileMenuController).
-      gfx::Image itemIcon;
-      AvatarMenu::GetImageForMenuButton(item.profile_path, &itemIcon);
-      static constexpr int kMenuAvatarIconSize = 38;
-      if (itemIcon.Width() > kMenuAvatarIconSize ||
-          itemIcon.Height() > kMenuAvatarIconSize) {
-        itemIcon = profiles::GetSizedAvatarIcon(itemIcon, /*is_rectangle=*/true,
-                                                kMenuAvatarIconSize,
-                                                kMenuAvatarIconSize);
-      }
-      mojo_item->icon = *itemIcon.ToImageSkia();
-    }
-    mojo_items.push_back(std::move(mojo_item));
+    mojo_item->icon =
+        profiles::GetAvatarIconForNSMenu(item.profile_path).ToImageSkia()[0];
+    profile_menu_items_.push_back(std::move(mojo_item));
   }
-  host->GetAppShim()->UpdateProfileMenu(std::move(mojo_items));
+}
+
+void ExtensionAppShimHandler::OnAvatarMenuChanged(AvatarMenu* menu) {
+  // Rebuild the profile menu to reflect changes (e.g, added or removed
+  // profiles).
+  DCHECK_EQ(avatar_menu_.get(), menu);
+  UpdateAllProfileMenus();
+}
+
+void ExtensionAppShimHandler::UpdateAppProfileMenu(AppState* app_state) {
+  DCHECK(app_state->IsMultiProfile());
+  // Include in |items| the profiles from |profile_menu_items_| for which this
+  // app is installed, sorted by |menu_index|.
+  std::vector<chrome::mojom::ProfileMenuItemPtr> items;
+  auto installed_profiles =
+      AppShimRegistry::Get()->GetInstalledProfilesForApp(app_state->app_id);
+  for (const auto& item : profile_menu_items_) {
+    if (installed_profiles.count(item->profile_path))
+      items.push_back(item->Clone());
+  }
+  std::sort(items.begin(), items.end(), ProfileMenuItemComparator);
+
+  // Do not show a profile menu unless it has at least 2 entries (that is, the
+  // app is available for at least 2 profiles).
+  if (items.size() < 2)
+    items.clear();
+
+  // Send the profile menu to the app shim process.
+  app_state->multi_profile_host->GetAppShim()->UpdateProfileMenu(
+      std::move(items));
 }
 
 ExtensionAppShimHandler::ProfileState*
@@ -963,11 +1183,15 @@ ExtensionAppShimHandler::GetOrCreateProfileState(
           delegate_->CreateHost(this, profile_path, app_id, use_remote_cocoa);
     }
     auto new_app_state =
-        std::make_unique<AppState>(std::move(multi_profile_host));
+        std::make_unique<AppState>(app_id, std::move(multi_profile_host));
     found_app =
         apps_.insert(std::make_pair(app_id, std::move(new_app_state))).first;
   }
   AppState* app_state = found_app->second.get();
+
+  // Initialize the profile menu.
+  if (is_multi_profile)
+    UpdateAppProfileMenu(app_state);
 
   auto found_profile = app_state->profiles.find(profile);
   if (found_profile == app_state->profiles.end()) {

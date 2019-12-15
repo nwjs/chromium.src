@@ -27,6 +27,7 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "cc/base/switches.h"
+#include "chromecast/base/bind_to_task_runner.h"
 #include "chromecast/base/cast_constants.h"
 #include "chromecast/base/cast_paths.h"
 #include "chromecast/base/chromecast_switches.h"
@@ -102,6 +103,7 @@
 #include "chromecast/browser/cast_display_configurator.h"
 #include "chromecast/graphics/cast_screen.h"
 #include "chromecast/graphics/cast_window_manager_aura.h"
+#include "chromecast/media/service/cast_renderer.h"  // nogncheck
 #include "components/viz/service/display/overlay_strategy_underlay_cast.h"  // nogncheck
 #include "ui/display/screen.h"
 #include "ui/views/views_delegate.h"  // nogncheck
@@ -258,6 +260,24 @@ class CastViewsDelegate : public views::ViewsDelegate {
 
 #endif  // defined(USE_AURA)
 
+#if defined(OS_LINUX)
+
+base::FilePath GetApplicationFontsDir() {
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
+  std::string fontconfig_sysroot;
+  if (env->GetVar("FONTCONFIG_SYSROOT", &fontconfig_sysroot)) {
+    // Running with hermetic fontconfig; using the full path will not work.
+    // Assume the root is base::DIR_MODULE as set by base::SetUpFontconfig().
+    return base::FilePath("/fonts");
+  } else {
+    base::FilePath dir_module;
+    base::PathService::Get(base::DIR_MODULE, &dir_module);
+    return dir_module.Append("fonts");
+  }
+}
+
+#endif  // defined(OS_LINUX)
+
 }  // namespace
 
 namespace chromecast {
@@ -391,7 +411,8 @@ CastBrowserMainParts::media_pipeline_backend_manager() {
   if (!media_pipeline_backend_manager_) {
     media_pipeline_backend_manager_ =
         std::make_unique<media::MediaPipelineBackendManager>(
-            cast_content_browser_client_->GetMediaTaskRunner());
+            cast_content_browser_client_->GetMediaTaskRunner(),
+            cast_content_browser_client_->media_resource_tracker());
   }
   return media_pipeline_backend_manager_.get();
 }
@@ -437,17 +458,7 @@ void CastBrowserMainParts::ToolkitInitialized() {
 #endif  // defined(USE_AURA)
 
 #if defined(OS_LINUX)
-  base::FilePath dir_module;
-  base::PathService::Get(base::DIR_MODULE, &dir_module);
-  base::FilePath dir_font = dir_module.Append("fonts");
-
-  // Setting rescan interval to 0 will disable re-scan. More details in
-  // b/141204302#comment41.
-  // TODO(crbug/1015146): move re-scan disable logic to GetGlobalFontConfig().
-  if (!FcConfigSetRescanInterval(gfx::GetGlobalFontConfig(), 0)) {
-    LOG(WARNING) << "Cannot disable fontconfig rescan.";
-  }
-
+  base::FilePath dir_font = GetApplicationFontsDir();
   const FcChar8 *dir_font_char8 = reinterpret_cast<const FcChar8*>(dir_font.value().data());
   if (!FcConfigAppFontAddDir(gfx::GetGlobalFontConfig(), dir_font_char8)) {
     LOG(ERROR) << "Cannot load fonts from " << dir_font_char8;
@@ -467,12 +478,12 @@ int CastBrowserMainParts::PreCreateThreads() {
           ->TakePrefService());
 
 #if defined(USE_AURA)
-  cast_browser_process_->SetCastScreen(std::make_unique<CastScreen>());
+  cast_screen_ = std::make_unique<CastScreen>();
+  cast_browser_process_->SetCastScreen(cast_screen_.get());
   DCHECK(!display::Screen::GetScreen());
-  display::Screen::SetScreenInstance(cast_browser_process_->cast_screen());
+  display::Screen::SetScreenInstance(cast_screen_.get());
   cast_browser_process_->SetDisplayConfigurator(
-      std::make_unique<CastDisplayConfigurator>(
-          cast_browser_process_->cast_screen()));
+      std::make_unique<CastDisplayConfigurator>(cast_screen_.get()));
 #endif  // defined(USE_AURA)
 
   content::ChildProcessSecurityPolicy::GetInstance()->RegisterWebSafeScheme(
@@ -542,9 +553,14 @@ void CastBrowserMainParts::PreMainMessageLoopRun() {
   video_plane_controller_.reset(new media::VideoPlaneController(
       Size(display_size.width(), display_size.height()),
       cast_content_browser_client_->GetMediaTaskRunner()));
+  // TODO(crbug.com/925450): Once compositor migrates to GPU process, We
+  // don't need to set the callback in viz::OverlayStrategyUnderlayCast.
   viz::OverlayStrategyUnderlayCast::SetOverlayCompositedCallback(
       base::BindRepeating(&media::VideoPlaneController::SetGeometry,
                           base::Unretained(video_plane_controller_.get())));
+  media::CastRenderer::SetOverlayCompositedCallback(BindToCurrentThread(
+      base::BindRepeating(&media::VideoPlaneController::SetGeometry,
+                          base::Unretained(video_plane_controller_.get()))));
 #endif
 
 #if defined(USE_AURA)
@@ -631,7 +647,7 @@ void CastBrowserMainParts::PreMainMessageLoopRun() {
   cast_browser_process_->cast_service()->Start();
 
   if (parameters_.ui_task) {
-    parameters_.ui_task->Run();
+    std::move(*parameters_.ui_task).Run();
     delete parameters_.ui_task;
     run_message_loop_ = false;
   }
@@ -708,11 +724,15 @@ void CastBrowserMainParts::PostMainMessageLoopRun() {
   // Android does not use native main MessageLoop.
   NOTREACHED();
 #else
-  window_manager_.reset();
-
   cast_browser_process_->cast_service()->Finalize();
   cast_browser_process_->cast_browser_metrics()->Finalize();
   cast_browser_process_.reset();
+
+  window_manager_.reset();
+#if defined(USE_AURA)
+  display::Screen::SetScreenInstance(nullptr);
+  cast_screen_.reset();
+#endif
 
 #if !defined(OS_FUCHSIA)
   DeregisterKillOnAlarm();

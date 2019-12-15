@@ -457,10 +457,10 @@ void SpatialNavigationController::MoveInterestTo(Node* next_node) {
     element = interest_element_;
   }
 
-  DispatchMouseMoveAt(element);
-
-  if (!element)
+  if (!element) {
+    DispatchMouseMoveAt(nullptr);
     return;
+  }
 
   // Before focusing the new element, check if we're leaving an iframe (= moving
   // focus out of an iframe). In this case, we want the exited [nested] iframes
@@ -470,6 +470,7 @@ void SpatialNavigationController::MoveInterestTo(Node* next_node) {
 
   element->focus(FocusParams(SelectionBehaviorOnFocus::kReset,
                              kWebFocusTypeSpatialNavigation, nullptr));
+  DispatchMouseMoveAt(element);
 }
 
 void SpatialNavigationController::DispatchMouseMoveAt(Element* element) {
@@ -630,9 +631,9 @@ bool SpatialNavigationController::UpdateIsFormFocused(Element* element) {
 
 bool SpatialNavigationController::UpdateHasDefaultVideoControls(
     Element* element) {
-  bool has_default_video_controls =
-      IsFocused(element) && IsHTMLVideoElement(element) &&
-      ToHTMLVideoElement(element)->ShouldShowControls();
+  auto* video_element = DynamicTo<HTMLVideoElement>(element);
+  bool has_default_video_controls = IsFocused(element) && video_element &&
+                                    video_element->ShouldShowControls();
   if (has_default_video_controls ==
       spatial_navigation_state_->has_default_video_controls) {
     return false;

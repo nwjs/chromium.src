@@ -24,13 +24,21 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "base/trace_event/trace_event.h"
+#include "build/build_config.h"
 #include "components/crash/core/common/crash_key.h"
 
 namespace discardable_memory {
 namespace {
 
 // Default allocation size.
+#if defined(OS_WIN) && defined(ARCH_CPU_32_BITS)
+// On Windows 32 bit, use a smaller chunk, as address space fragmentation may
+// make a 4MiB allocation impossible to fulfill in the browser process.
+// See crbug.com/983348 for details.
+const size_t kAllocationSize = 1 * 1024 * 1024;
+#else
 const size_t kAllocationSize = 4 * 1024 * 1024;
+#endif
 
 // Global atomic to generate unique discardable shared memory IDs.
 base::AtomicSequenceNumber g_next_discardable_shared_memory_id;
@@ -67,6 +75,11 @@ class DiscardableMemoryImpl : public base::DiscardableMemory {
   void* data() const override {
     DCHECK(is_locked_);
     return reinterpret_cast<void*>(span_->start() * base::GetPageSize());
+  }
+
+  void DiscardForTesting() override {
+    DCHECK(!is_locked_);
+    span_->shared_memory()->Purge(base::Time::Now());
   }
 
   base::trace_event::MemoryAllocatorDump* CreateMemoryAllocatorDump(
@@ -264,13 +277,9 @@ bool ClientDiscardableSharedMemoryManager::OnMemoryDump(
   return heap_->OnMemoryDump(pmd);
 }
 
-ClientDiscardableSharedMemoryManager::Statistics
-ClientDiscardableSharedMemoryManager::GetStatistics() const {
+size_t ClientDiscardableSharedMemoryManager::GetBytesAllocated() const {
   base::AutoLock lock(lock_);
-  Statistics stats;
-  stats.total_size = heap_->GetSize();
-  stats.freelist_size = heap_->GetSizeOfFreeLists();
-  return stats;
+  return heap_->GetSize() - heap_->GetSizeOfFreeLists();
 }
 
 void ClientDiscardableSharedMemoryManager::ReleaseFreeMemory() {
@@ -369,6 +378,16 @@ ClientDiscardableSharedMemoryManager::AllocateLockedDiscardableSharedMemory(
                      std::move(event_signal_runner)));
   // Waiting until IPC has finished on the IO thread.
   event.Wait();
+
+  // This is likely address space exhaustion in the the browser process. We
+  // don't want to crash the browser process for that, which is why the check is
+  // here, and not there.
+  //
+  // TODO(crbug.com/983348): If this crashing a lot, fall back to a regular
+  // allocation in the renderer process.
+  if (!region.IsValid())
+    base::TerminateBecauseOutOfMemory(size);
+
   auto memory =
       std::make_unique<base::DiscardableSharedMemory>(std::move(region));
   if (!memory->Map(size))

@@ -22,6 +22,8 @@
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
 #include "chrome/browser/chromeos/crostini/crostini_pref_names.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/app_list/app_list_syncable_service.h"
+#include "chrome/browser/ui/app_list/app_list_syncable_service_factory.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/dbus/vm_applications/apps.pb.h"
 #include "components/crx_file/id_util.h"
@@ -203,7 +205,7 @@ FindAppIdResult FindAppId(const base::DictionaryValue* prefs,
                           bool ignore_space = false) {
   result->clear();
   for (const auto& item : prefs->DictItems()) {
-    if (item.first == kCrostiniTerminalId)
+    if (item.first == GetTerminalId())
       continue;
 
     if (require_startup_notify &&
@@ -296,7 +298,7 @@ bool InstallIconFromFileThread(const base::FilePath& icon_path,
 void DeleteIconFolderFromFileThread(const base::FilePath& path) {
   DCHECK(path.DirName().BaseName().MaybeAsASCII() == kCrostiniIconFolder &&
          (!base::PathExists(path) || base::DirectoryExists(path)));
-  const bool deleted = base::DeleteFile(path, true);
+  const bool deleted = base::DeleteFileRecursively(path);
   DCHECK(deleted);
 }
 
@@ -489,6 +491,7 @@ CrostiniRegistryService::CrostiniRegistryService(Profile* profile)
       base_icon_path_(profile->GetPath().AppendASCII(kCrostiniIconFolder)),
       clock_(base::DefaultClock::GetInstance()) {
   RecordStartupMetrics();
+  MigrateTerminal();
 }
 
 CrostiniRegistryService::~CrostiniRegistryService() = default;
@@ -588,7 +591,7 @@ bool CrostiniRegistryService::IsCrostiniShelfAppId(
                        base::CompareCase::SENSITIVE)) {
     return true;
   }
-  if (shelf_app_id == kCrostiniTerminalId)
+  if (shelf_app_id == GetTerminalId())
     return true;
   // TODO(timloh): We need to handle desktop files that have been removed.
   // For example, running windows with a no-longer-valid app id will try to
@@ -603,11 +606,15 @@ CrostiniRegistryService::GetRegisteredApps() const {
       prefs_->GetDictionary(prefs::kCrostiniRegistry);
   std::map<std::string, CrostiniRegistryService::Registration> result;
   for (const auto& item : apps->DictItems()) {
-    result.emplace(item.first, Registration(&item.second,
-                                            item.first == kCrostiniTerminalId));
+    result.emplace(item.first,
+                   Registration(&item.second, /*is_terminal_app=*/item.first ==
+                                                  GetTerminalId()));
   }
-  if (!apps->FindKey(kCrostiniTerminalId)) {
-    result.emplace(kCrostiniTerminalId, Registration(nullptr, true));
+  // TODO(crbug.com/1028898): Register Terminal as a System App rather than a
+  // crostini app.
+  if (!apps->FindKey(GetTerminalId())) {
+    result.emplace(GetTerminalId(),
+                   Registration(nullptr, /*is_terminal_app=*/true));
   }
   return result;
 }
@@ -619,7 +626,7 @@ CrostiniRegistryService::GetRegistration(const std::string& app_id) const {
   const base::Value* pref_registration =
       apps->FindKeyOfType(app_id, base::Value::Type::DICTIONARY);
 
-  if (app_id == kCrostiniTerminalId)
+  if (app_id == GetTerminalId())
     return base::make_optional<Registration>(pref_registration, true);
 
   if (!pref_registration)
@@ -637,7 +644,7 @@ void CrostiniRegistryService::RecordStartupMetrics() {
   size_t num_apps = 0;
 
   for (const auto& item : apps->DictItems()) {
-    if (item.first == kCrostiniTerminalId)
+    if (item.first == GetTerminalId())
       continue;
 
     const base::Value* no_display =
@@ -714,7 +721,7 @@ void CrostiniRegistryService::ClearApplicationList(
     base::DictionaryValue* apps = update.Get();
 
     for (const auto& item : apps->DictItems()) {
-      if (item.first == kCrostiniTerminalId)
+      if (item.first == GetTerminalId())
         continue;
       if (item.second.FindKey(kAppVmNameKey)->GetString() == vm_name &&
           (container_name.empty() ||
@@ -807,7 +814,7 @@ void CrostiniRegistryService::UpdateApplicationList(
     }
 
     for (const auto& item : apps->DictItems()) {
-      if (item.first == kCrostiniTerminalId)
+      if (item.first == GetTerminalId())
         continue;
       if (item.second.FindKey(kAppVmNameKey)->GetString() ==
               app_list.vm_name() &&
@@ -870,7 +877,7 @@ void CrostiniRegistryService::AppLaunched(const std::string& app_id) {
 
   base::Value* app = apps->FindKey(app_id);
   if (!app) {
-    DCHECK_EQ(app_id, kCrostiniTerminalId);
+    DCHECK_EQ(app_id, GetTerminalId());
     base::Value pref(base::Value::Type::DICTIONARY);
     SetCurrentTime(&pref, kAppLastLaunchTimeKey);
     apps->SetKey(app_id, std::move(pref));
@@ -889,7 +896,7 @@ void CrostiniRegistryService::SetCurrentTime(base::Value* dictionary,
 
 void CrostiniRegistryService::SetAppScaled(const std::string& app_id,
                                            bool scaled) {
-  DCHECK_NE(app_id, kCrostiniTerminalId);
+  DCHECK_NE(app_id, GetTerminalId());
 
   DictionaryPrefUpdate update(prefs_, prefs::kCrostiniRegistry);
   base::DictionaryValue* apps = update.Get();
@@ -977,6 +984,32 @@ void CrostiniRegistryService::OnIconInstalled(const std::string& app_id,
 
   for (Observer& obs : observers_)
     obs.OnAppIconUpdated(app_id, scale_factor);
+}
+
+void CrostiniRegistryService::MigrateTerminal() const {
+  // Remove the old terminal from the registry.
+  DictionaryPrefUpdate update(profile_->GetPrefs(), prefs::kCrostiniRegistry);
+  base::DictionaryValue* apps = update.Get();
+  apps->RemoveKey(GetDeletedTerminalId());
+
+  // Transfer item attributes from old terminal to new, and delete old terminal
+  // once AppListSyncableService is initialized.
+  auto* app_list_syncable_service =
+      app_list::AppListSyncableServiceFactory::GetForProfile(profile_);
+  if (!app_list_syncable_service) {
+    return;
+  }
+  app_list_syncable_service->on_initialized().Post(
+      FROM_HERE,
+      base::BindOnce(
+          [](app_list::AppListSyncableService* service) {
+            if (service->GetSyncItem(crostini::GetDeletedTerminalId())) {
+              service->TransferItemAttributes(crostini::GetDeletedTerminalId(),
+                                              crostini::GetTerminalId());
+              service->RemoveItem(crostini::GetDeletedTerminalId());
+            }
+          },
+          base::Unretained(app_list_syncable_service)));
 }
 
 }  // namespace crostini

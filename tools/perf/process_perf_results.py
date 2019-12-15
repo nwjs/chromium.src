@@ -56,7 +56,6 @@ DATA_FORMAT_UNKNOWN = 'unknown'
 # are okay with potentially encountering issues.
 GTEST_CONVERSION_WHITELIST = [
   'angle_perftests',
-  'browser_tests',
   'cc_perftests',
   'components_perftests',
   'gpu_perftests',
@@ -65,6 +64,7 @@ GTEST_CONVERSION_WHITELIST = [
   'media_perftests',
   'net_perftests',
   'passthrough_command_buffer_perftests',
+  'performance_browser_tests',
   'services_perftests',
   'tracing_perftests',
   'validating_command_buffer_perftests',

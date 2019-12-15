@@ -11,6 +11,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
 #include "cc/base/switches.h"
+#include "components/startup_metric_utils/browser/startup_metric_utils.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -29,6 +30,7 @@
 #include "components/crash/content/browser/child_process_crash_observer_android.h"
 #include "net/android/network_change_notifier_factory_android.h"
 #include "net/base/network_change_notifier.h"
+#include "weblayer/browser/android/metrics/uma_utils.h"
 #endif
 
 #if defined(USE_X11)
@@ -78,6 +80,10 @@ void BrowserMainPartsImpl::PreMainMessageLoopStart() {
 #if defined(USE_AURA) && defined(USE_X11)
   ui::TouchFactory::SetTouchDeviceListFromCommandLine();
 #endif
+
+#if defined(OS_ANDROID)
+  startup_metric_utils::RecordMainEntryPointTime(GetMainEntryPointTimeTicks());
+#endif
 }
 
 int BrowserMainPartsImpl::PreEarlyInitialization() {
@@ -102,10 +108,16 @@ void BrowserMainPartsImpl::PreMainMessageLoopRun() {
       WebUIControllerFactory::GetInstance());
 
   if (main_function_params_.ui_task) {
-    main_function_params_.ui_task->Run();
+    std::move(*main_function_params_.ui_task).Run();
     delete main_function_params_.ui_task;
     run_message_loop_ = false;
   }
+
+#if defined(OS_ANDROID)
+  // Record collected startup metrics.
+  startup_metric_utils::RecordBrowserMainMessageLoopStart(
+      base::TimeTicks::Now(), /* is_first_run */ false);
+#endif
 }
 
 bool BrowserMainPartsImpl::MainMessageLoopRun(int* result_code) {

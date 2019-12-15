@@ -13,11 +13,12 @@ import android.net.Uri;
 import android.provider.Browser;
 import android.text.TextUtils;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.BuildInfo;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
@@ -30,6 +31,7 @@ import org.chromium.chrome.browser.snackbar.Snackbar;
 import org.chromium.chrome.browser.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.snackbar.SnackbarManager.SnackbarController;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.ui.widget.TintedDrawable;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.chrome.browser.util.UrlConstants;
@@ -70,8 +72,8 @@ public class BookmarkUtils {
             return bookmarkId;
         }
 
-        BookmarkId bookmarkId =
-                addBookmarkInternal(activity, bookmarkModel, tab.getTitle(), tab.getOriginalUrl());
+        BookmarkId bookmarkId = addBookmarkInternal(
+                activity, bookmarkModel, tab.getTitle(), ((TabImpl) tab).getOriginalUrl());
 
         Snackbar snackbar = null;
         if (bookmarkId == null) {
@@ -113,18 +115,6 @@ public class BookmarkUtils {
 
         bookmarkModel.destroy();
         return bookmarkId;
-    }
-
-    /**
-     * Adds a bookmark with the given title and url to the last used parent folder. Provides
-     * no visual feedback that a bookmark has been added.
-     *
-     * @param title The title of the bookmark.
-     * @param url The URL of the new bookmark.
-     */
-    public static BookmarkId addBookmarkSilently(
-            Context context, BookmarkModel bookmarkModel, String title, String url) {
-        return addBookmarkInternal(context, bookmarkModel, title, url);
     }
 
     /**
@@ -276,16 +266,16 @@ public class BookmarkUtils {
         RecordHistogram.recordEnumeratedHistogram(
                 "Bookmarks.OpenBookmarkType", bookmarkId.getType(), BookmarkType.LAST + 1);
 
-        if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(activity)) {
-            // For tablets, the bookmark manager is open in a tab in the ChromeActivity. Use
-            // the ComponentName of the ChromeActivity passed into this method.
-            openUrl(activity, url, activity.getComponentName());
-        } else {
+        if (activity instanceof BookmarkActivity) {
             // For phones, the bookmark manager is a separate activity. When the activity is
             // launched, an intent extra is set specifying the parent component.
             ComponentName parentComponent = IntentUtils.safeGetParcelableExtra(
-                    activity.getIntent(), IntentHandler.EXTRA_PARENT_COMPONENT);
+                activity.getIntent(), IntentHandler.EXTRA_PARENT_COMPONENT);
             openUrl(activity, url, parentComponent);
+        } else {
+            // For tablets, the bookmark manager is open in a tab in the ChromeActivity. Use
+            // the ComponentName of the ChromeActivity passed into this method.
+            openUrl(activity, url, activity.getComponentName());
         }
 
         return true;

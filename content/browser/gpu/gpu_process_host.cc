@@ -37,31 +37,24 @@
 #include "components/viz/common/switches.h"
 #include "content/browser/browser_child_process_host_impl.h"
 #include "content/browser/compositor/image_transport_factory.h"
-#include "content/browser/field_trial_recorder.h"
 #include "content/browser/gpu/compositor_util.h"
 #include "content/browser/gpu/gpu_data_manager_impl.h"
 #include "content/browser/gpu/gpu_main_thread_factory.h"
 #include "content/browser/gpu/gpu_memory_buffer_manager_singleton.h"
 #include "content/browser/gpu/shader_cache_factory.h"
-#include "content/browser/service_manager/service_manager_context.h"
 #include "content/common/child_process.mojom.h"
 #include "content/common/child_process_host_impl.h"
-#include "content/common/field_trial_recorder.mojom.h"
 #include "content/common/in_process_child_thread_params.h"
-#include "content/common/service_manager/child_connection.h"
 #include "content/common/view_messages.h"
 #include "content/public/browser/browser_main_runner.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/gpu_utils.h"
-#include "content/public/common/bind_interface_helpers.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/result_codes.h"
 #include "content/public/common/sandboxed_process_launcher_delegate.h"
-#include "content/public/common/service_manager_connection.h"
-#include "content/public/common/service_names.mojom.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/config/gpu_driver_bug_list.h"
 #include "gpu/config/gpu_driver_bug_workaround_type.h"
@@ -75,9 +68,6 @@
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/generic_pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "services/service_manager/public/cpp/binder_registry.h"
-#include "services/service_manager/public/cpp/connector.h"
-#include "services/service_manager/public/cpp/interface_provider.h"
 #include "services/service_manager/sandbox/sandbox_type.h"
 #include "services/service_manager/sandbox/switches.h"
 #include "ui/base/ui_base_features.h"
@@ -87,11 +77,6 @@
 #include "ui/gfx/switches.h"
 #include "ui/gl/gl_switches.h"
 #include "ui/latency/latency_info.h"
-
-#if defined(OS_ANDROID)
-#include "content/public/browser/android/java_interfaces.h"
-#include "media/mojo/mojom/android_overlay.mojom.h"
-#endif
 
 #if defined(OS_WIN)
 #include "sandbox/win/src/sandbox_policy.h"
@@ -257,6 +242,7 @@ static const char* const kSwitchNames[] = {
 #endif
 #if defined(USE_X11)
     switches::kX11Display,
+    switches::kNoXshm,
 #endif
     switches::kGpuBlacklistTestGroup,
     switches::kGpuDriverBugListTestGroup,
@@ -435,14 +421,6 @@ class GpuSandboxedProcessLauncherDelegate
 #endif  // OS_WIN
 };
 
-#if defined(OS_ANDROID)
-void BindAndroidOverlayProvider(
-    mojo::PendingReceiver<media::mojom::AndroidOverlayProvider> receiver) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  content::GetGlobalJavaInterfaces()->GetInterface(std::move(receiver));
-}
-#endif  // defined(OS_ANDROID)
-
 #if defined(OS_WIN)
 void RecordAppContainerStatus(int error_code, bool crashed_before) {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
@@ -584,32 +562,8 @@ void GpuProcessHost::BindInterface(
             std::move(interface_pipe)));
     return;
   }
-  process_->child_connection()->BindInterface(interface_name,
-                                              std::move(interface_pipe));
-}
-
-void GpuProcessHost::BindHostReceiver(
-    mojo::GenericPendingReceiver generic_receiver) {
-  if (auto field_trial_receiver =
-          generic_receiver.As<mojom::FieldTrialRecorder>()) {
-    mojo::PendingReceiver<mojom::FieldTrialRecorder> receiver(
-        std::move(field_trial_receiver));
-    base::PostTask(
-        FROM_HERE, {BrowserThread::UI},
-        base::BindOnce(&FieldTrialRecorder::Create, std::move(receiver)));
-    return;
-  }
-
-#if defined(OS_ANDROID)
-  if (auto r = generic_receiver.As<media::mojom::AndroidOverlayProvider>()) {
-    base::PostTask(FROM_HERE, {BrowserThread::UI},
-                   base::BindOnce(&BindAndroidOverlayProvider, std::move(r)));
-    return;
-  }
-#endif
-
-  GetContentClient()->browser()->BindGpuHostReceiver(
-      std::move(generic_receiver));
+  process_->child_process()->BindReceiver(
+      mojo::GenericPendingReceiver(interface_name, std::move(interface_pipe)));
 }
 
 void GpuProcessHost::RunService(
@@ -692,8 +646,8 @@ GpuProcessHost::GpuProcessHost(int host_id, GpuProcessKind kind)
 
   g_gpu_process_hosts[kind] = this;
 
-  process_.reset(new BrowserChildProcessHostImpl(PROCESS_TYPE_GPU, this,
-                                                 mojom::kGpuServiceName));
+  process_.reset(new BrowserChildProcessHostImpl(
+      PROCESS_TYPE_GPU, this, ChildProcessHost::IpcMode::kNormal));
 }
 
 GpuProcessHost::~GpuProcessHost() {
@@ -834,10 +788,8 @@ bool GpuProcessHost::Init() {
     GpuDataManagerImpl::GetInstance()->UpdateGpuPreferences(
         &gpu_preferences, GPU_PROCESS_KIND_SANDBOXED);
     in_process_gpu_thread_.reset(GetGpuMainThreadFactory()(
-        InProcessChildThreadParams(
-            base::ThreadTaskRunnerHandle::Get(),
-            process_->GetInProcessMojoInvitation(),
-            process_->child_connection()->service_token()),
+        InProcessChildThreadParams(base::ThreadTaskRunnerHandle::Get(),
+                                   process_->GetInProcessMojoInvitation()),
         gpu_preferences));
     base::Thread::Options options;
 #if defined(OS_WIN) || defined(OS_MACOSX)
@@ -1167,8 +1119,8 @@ bool GpuProcessHost::LaunchGpuProcess() {
   // AppendExtraCommandLineSwitches will be called again in process_->Launch(),
   // Call LaunchWithoutExtraCommandLineSwitches() so the command line switches
   // will not be appended twice.
-  process_->LaunchWithoutExtraCommandLineSwitches(std::move(delegate),
-                                                  std::move(cmd_line), true);
+  process_->LaunchWithoutExtraCommandLineSwitches(
+      std::move(delegate), std::move(cmd_line), /*files_to_preload=*/{}, true);
   process_launched_ = true;
 
   if (kind_ == GPU_PROCESS_KIND_SANDBOXED) {

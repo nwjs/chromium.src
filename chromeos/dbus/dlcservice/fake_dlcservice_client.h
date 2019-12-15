@@ -25,10 +25,12 @@ class COMPONENT_EXPORT(DLCSERVICE_CLIENT) FakeDlcserviceClient
 
   // DlcserviceClient:
   void Install(const dlcservice::DlcModuleList& dlc_module_list,
-               InstallCallback callback) override;
+               InstallCallback callback,
+               ProgressCallback progress_callback) override;
   void Uninstall(const std::string& dlc_id,
                  UninstallCallback callback) override;
   void GetInstalled(GetInstalledCallback callback) override;
+  void OnInstallStatusForTest(dbus::Signal* signal) override;
 };
 
 }  // namespace chromeos

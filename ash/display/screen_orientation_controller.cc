@@ -38,6 +38,12 @@ const float kDisplayRotationStickyAngleDegrees = 60.0f;
 // to gravity, with the current value requiring at least a 25 degree rise.
 const float kMinimumAccelerationScreenRotation = 4.2f;
 
+// Return true if auto-rotation is allowed which happens when the device is in a
+// physical tablet state.
+bool IsAutoRotationAllowed() {
+  return Shell::Get()->tablet_mode_controller()->is_in_tablet_physical_state();
+}
+
 OrientationLockType GetDisplayNaturalOrientation() {
   if (!display::Display::HasInternalDisplay())
     return OrientationLockType::kLandscape;
@@ -271,15 +277,12 @@ void ScreenOrientationController::UnlockOrientationForWindow(
 
 void ScreenOrientationController::UnlockAll() {
   SetRotationLockedInternal(false);
+  // TODO(oshima): Remove if when current_rotation_ is removed.
   if (user_rotation_ != current_rotation_) {
     SetDisplayRotation(user_rotation_,
                        display::Display::RotationSource::ACCELEROMETER,
                        DisplayConfigurationController::ANIMATION_SYNC);
   }
-}
-
-bool ScreenOrientationController::ScreenOrientationProviderSupported() const {
-  return Shell::Get()->tablet_mode_controller()->InTabletMode();
 }
 
 bool ScreenOrientationController::IsUserLockedOrientationPortrait() {
@@ -291,6 +294,12 @@ bool ScreenOrientationController::IsUserLockedOrientationPortrait() {
     default:
       return false;
   }
+}
+
+OrientationLockType
+ScreenOrientationController::GetCurrentAppRequestedOrientationLock() const {
+  return current_app_requested_orientation_lock_.value_or(
+      OrientationLockType::kAny);
 }
 
 void ScreenOrientationController::ToggleUserRotationLock() {
@@ -348,6 +357,9 @@ void ScreenOrientationController::OnWindowVisibilityChanged(
 
 void ScreenOrientationController::OnAccelerometerUpdated(
     scoped_refptr<const AccelerometerUpdate> update) {
+  if (!IsAutoRotationAllowed())
+    return;
+
   if (rotation_locked_ && !CanRotateInLockedState())
     return;
   if (!update->has(ACCELEROMETER_SOURCE_SCREEN))
@@ -374,47 +386,68 @@ void ScreenOrientationController::OnDisplayConfigurationChanged() {
 }
 
 void ScreenOrientationController::OnTabletModeStarted() {
-  Shell* shell = Shell::Get();
-  // Do not exit early, as the internal display can be determined after Maximize
-  // Mode has started. (chrome-os-partner:38796)
-  // Always start observing.
-  if (display::Display::HasInternalDisplay()) {
-    current_rotation_ = user_rotation_ =
-        shell->display_configuration_controller()->GetTargetRotation(
-            display::Display::InternalDisplayId());
-  }
-  if (!rotation_locked_)
-    LoadDisplayRotationProperties();
-  AccelerometerReader::GetInstance()->AddObserver(this);
-  shell->window_tree_host_manager()->AddObserver(this);
+  // Observe window activation only while in UI tablet mode, since this the only
+  // mode in which we apply apps' requested orientation locks.
   Shell::Get()->activation_client()->AddObserver(this);
 
   if (!display::Display::HasInternalDisplay())
     return;
   ApplyLockForActiveWindow();
-  for (auto& observer : observers_)
-    observer.OnUserRotationLockChanged();
 }
 
-void ScreenOrientationController::OnTabletModeEnding() {
-  AccelerometerReader::GetInstance()->RemoveObserver(this);
-  Shell::Get()->window_tree_host_manager()->RemoveObserver(this);
+void ScreenOrientationController::OnTabletModeEnded() {
   Shell::Get()->activation_client()->RemoveObserver(this);
   if (!display::Display::HasInternalDisplay())
     return;
 
-  // TODO(oshima): Remove if when current_rotation_ is removed.
-  if (current_rotation_ != user_rotation_) {
-    SetDisplayRotation(user_rotation_,
-                       display::Display::RotationSource::ACCELEROMETER,
-                       DisplayConfigurationController::ANIMATION_SYNC);
+  if (!IsAutoRotationAllowed()) {
+    // Rotation locks should have been cleared already in
+    // `OnTabletPhysicalStateChanged()`.
+    DCHECK(!rotation_locked());
+    DCHECK_EQ(rotation_locked_orientation_, OrientationLockType::kAny);
+    return;
   }
-  for (auto& observer : observers_)
-    observer.OnUserRotationLockChanged();
+
+  // Auto-rotation is still allowed (since device is still in a physical tablet
+  // state). We no-longer apply app's requested orientation locks, so we'll
+  // call `ApplyLockForActiveWindow()` to apply the `user_locked_orientation_`
+  // if any.
+  ApplyLockForActiveWindow();
 }
 
-void ScreenOrientationController::OnTabletModeEnded() {
-  UnlockAll();
+void ScreenOrientationController::OnTabletPhysicalStateChanged() {
+  auto* shell = Shell::Get();
+
+  if (IsAutoRotationAllowed()) {
+    AccelerometerReader::GetInstance()->AddObserver(this);
+    shell->window_tree_host_manager()->AddObserver(this);
+
+    // Do not exit early, as the internal display can be determined after
+    // Maximize Mode has started. (chrome-os-partner:38796) Always start
+    // observing.
+    if (display::Display::HasInternalDisplay()) {
+      current_rotation_ = user_rotation_ =
+          shell->display_configuration_controller()->GetTargetRotation(
+              display::Display::InternalDisplayId());
+    }
+    if (!rotation_locked_)
+      LoadDisplayRotationProperties();
+
+    if (!display::Display::HasInternalDisplay())
+      return;
+    ApplyLockForActiveWindow();
+  } else {
+    AccelerometerReader::GetInstance()->RemoveObserver(this);
+    shell->window_tree_host_manager()->RemoveObserver(this);
+
+    if (!display::Display::HasInternalDisplay())
+      return;
+
+    UnlockAll();
+  }
+
+  for (auto& observer : observers_)
+    observer.OnUserRotationLockChanged();
 }
 
 void ScreenOrientationController::OnSplitViewStateChanged(
@@ -596,10 +629,35 @@ void ScreenOrientationController::LoadDisplayRotationProperties() {
 }
 
 void ScreenOrientationController::ApplyLockForActiveWindow() {
-  if (!ScreenOrientationProviderSupported())
+  current_app_requested_orientation_lock_ = base::nullopt;
+  if (!display::Display::HasInternalDisplay())
     return;
 
-  if (SplitViewController::Get(Shell::GetPrimaryRootWindow())
+  aura::Window* const internal_display_root =
+      Shell::GetRootWindowForDisplayId(display::Display::InternalDisplayId());
+  if (!internal_display_root) {
+    // We might have an internal display, but no root window for it, such as in
+    // the case of Unified Display. Also, some tests may not set an internal
+    // display.
+    // Since rotation lock is applied only on internal displays (see
+    // ScreenOrientationController::SetDisplayRotation()), there's no need to
+    // continue.
+    return;
+  }
+
+  bool in_tablet_mode = Shell::Get()->tablet_mode_controller()->InTabletMode();
+  if (!in_tablet_mode) {
+    if (IsAutoRotationAllowed()) {
+      // We ignore windows and app requested orientation locks while the UI is
+      // in clamshell mode when the device is physically in a tablet state.
+      // Instead we apply the orientation lock requested by the user.
+      LockRotationToOrientation(user_locked_orientation_);
+    }
+
+    return;
+  }
+
+  if (SplitViewController::Get(internal_display_root)
           ->InTabletSplitViewMode()) {
     // While split view is enabled, ignore rotation lock set by windows.
     LockRotationToOrientation(user_locked_orientation_);
@@ -607,9 +665,17 @@ void ScreenOrientationController::ApplyLockForActiveWindow() {
   }
 
   MruWindowTracker::WindowList mru_windows(
-      Shell::Get()->mru_window_tracker()->BuildMruWindowList(kActiveDesk));
+      Shell::Get()->mru_window_tracker()->BuildWindowListIgnoreModal(
+          kActiveDesk));
 
   for (auto* window : mru_windows) {
+    if (window->GetRootWindow() != internal_display_root) {
+      // TODO(afakhry): Window may move to an external display (e.g. via
+      // shortcut) and remain active. In this case, we need to undo any
+      // orientation lock it applied on the internal display.
+      continue;
+    }
+
     if (!window->TargetVisibility())
       continue;
 
@@ -642,6 +708,8 @@ bool ScreenOrientationController::ApplyLockForWindowIfPossible(
           lock_info.orientation_lock = orientation_lock;
         }
       }
+      current_app_requested_orientation_lock_ =
+          base::make_optional<OrientationLockType>(lock_info.orientation_lock);
       return true;
     }
   }

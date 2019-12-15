@@ -14,7 +14,6 @@
 #include "base/command_line.h"
 #include "base/debug/leak_annotations.h"
 #include "base/json/json_reader.h"
-#include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/post_task.h"
@@ -27,6 +26,7 @@
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/trace_log.h"
 #include "components/tracing/common/tracing_switches.h"
+#include "services/tracing/public/cpp/perfetto/macros.h"
 #include "services/tracing/public/cpp/perfetto/producer_client.h"
 #include "services/tracing/public/mojom/perfetto_service.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -36,6 +36,7 @@
 #include "third_party/perfetto/include/perfetto/protozero/scattered_stream_writer.h"
 #include "third_party/perfetto/protos/perfetto/trace/trace_packet.pb.h"
 #include "third_party/perfetto/protos/perfetto/trace/trace_packet.pbzero.h"
+#include "third_party/perfetto/protos/perfetto/trace/track_event/log_message.pbzero.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/process_descriptor.pb.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/thread_descriptor.pb.h"
 
@@ -314,8 +315,7 @@ class TraceEventDataSourceTest : public testing::Test {
                         uint64_t id = 0,
                         int64_t absolute_timestamp = 0,
                         int32_t tid_override = 0,
-                        int32_t pid_override = 0,
-                        int64_t duration = 0) {
+                        int32_t pid_override = 0) {
     EXPECT_TRUE(packet->has_track_event());
 
     if (absolute_timestamp > 0) {
@@ -336,14 +336,47 @@ class TraceEventDataSourceTest : public testing::Test {
       last_thread_time_ += packet->track_event().thread_time_delta_us();
     }
 
-    EXPECT_EQ(packet->track_event().category_iids_size(), 1);
-    EXPECT_EQ(packet->track_event().category_iids(0), category_iid);
-    EXPECT_TRUE(packet->track_event().has_legacy_event());
+    if (category_iid > 0) {
+      ASSERT_EQ(packet->track_event().category_iids_size(), 1);
+      EXPECT_EQ(packet->track_event().category_iids(0), category_iid);
+    } else {
+      EXPECT_EQ(packet->track_event().category_iids_size(), 0);
+    }
 
+    if (name_iid > 0) {
+      EXPECT_EQ(packet->track_event().name_iid(), name_iid);
+    }
+
+    TrackEvent::Type track_event_type;
+    switch (phase) {
+      case TRACE_EVENT_PHASE_BEGIN:
+        track_event_type = TrackEvent::TYPE_SLICE_BEGIN;
+        break;
+      case TRACE_EVENT_PHASE_END:
+        track_event_type = TrackEvent::TYPE_SLICE_END;
+        break;
+      default:
+        track_event_type = TrackEvent::TYPE_UNSPECIFIED;
+        break;
+    }
+
+    if (track_event_type != TrackEvent::TYPE_UNSPECIFIED) {
+      EXPECT_EQ(packet->track_event().type(), track_event_type);
+    }
+
+    // We don't emit the legacy event if we don't need it.
+    if (track_event_type != TrackEvent::TYPE_UNSPECIFIED && !flags &&
+        !tid_override && !pid_override) {
+      EXPECT_FALSE(packet->track_event().has_legacy_event());
+      return;
+    }
+
+    EXPECT_TRUE(packet->track_event().has_legacy_event());
     const auto& legacy_event = packet->track_event().legacy_event();
-    EXPECT_EQ(legacy_event.name_iid(), name_iid);
-    EXPECT_EQ(legacy_event.phase(), phase);
-    EXPECT_EQ(legacy_event.duration_us(), duration);
+
+    if (track_event_type == TrackEvent::TYPE_UNSPECIFIED) {
+      EXPECT_EQ(legacy_event.phase(), phase);
+    }
 
     if (phase == TRACE_EVENT_PHASE_INSTANT) {
       switch (flags & TRACE_EVENT_FLAG_SCOPE_MASK) {
@@ -931,44 +964,56 @@ TEST_F(TraceEventDataSourceTest, UpdateDurationOfCompleteEvent) {
   trace_event_internal::TraceID trace_event_trace_id =
       trace_event_internal::kNoId;
 
+  // COMPLETE events are split into a BEGIN/END event pair. Adding the event
+  // writes the BEGIN event immediately.
   auto handle = trace_event_internal::AddTraceEventWithThreadIdAndTimestamp(
       TRACE_EVENT_PHASE_COMPLETE, category_group_enabled, kEventName,
       trace_event_trace_id.scope(), trace_event_trace_id.raw_id(),
-      1 /* thread_id */,
+      /*thread_id=*/1,
       base::TimeTicks() + base::TimeDelta::FromMicroseconds(10),
       trace_event_trace_id.id_flags() | TRACE_EVENT_FLAG_EXPLICIT_TIMESTAMP,
       trace_event_internal::kNoId);
 
-  base::trace_event::TraceLog::GetInstance()->UpdateTraceEventDurationExplicit(
-      category_group_enabled, kEventName, handle,
-      base::TimeTicks() + base::TimeDelta::FromMicroseconds(30),
-      base::ThreadTicks() + base::TimeDelta::FromMicroseconds(50),
-      base::trace_event::ThreadInstructionCount());
-
-  // The call to UpdateTraceEventDurationExplicit should have successfully
-  // updated the duration of the event which was added in the
-  // AddTraceEventWithThreadIdAndTimestamp call.
   EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 2u);
-  auto* e_packet = producer_client()->GetFinalizedPacket(1);
+  auto* b_packet = producer_client()->GetFinalizedPacket(1);
   ExpectTraceEvent(
-      e_packet, /*category_iid=*/1u, /*name_iid=*/1u,
-      TRACE_EVENT_PHASE_COMPLETE,
+      b_packet, /*category_iid=*/1u, /*name_iid=*/1u, TRACE_EVENT_PHASE_BEGIN,
       TRACE_EVENT_FLAG_EXPLICIT_TIMESTAMP | TRACE_EVENT_FLAG_HAS_ID, /*id=*/0u,
-      /*absolute_timestamp=*/10, /*tid_override=*/1, /*pid_override=*/0,
-      /*duration=*/20);
+      /*absolute_timestamp=*/10, /*tid_override=*/1, /*pid_override=*/0);
 
-  // Updating the duration of an invalid event should cause no further events to
-  // be emitted.
-  handle.event_index = 0;
-
+  // Updating the duration of the event as it goes out of scope results in the
+  // corresponding END event being written. These END events don't contain any
+  // event names or categories in the proto format.
   base::trace_event::TraceLog::GetInstance()->UpdateTraceEventDurationExplicit(
-      category_group_enabled, kEventName, handle,
+      category_group_enabled, kEventName, handle, /*thread_id=*/1,
+      /*explicit_timestamps=*/true,
       base::TimeTicks() + base::TimeDelta::FromMicroseconds(30),
       base::ThreadTicks() + base::TimeDelta::FromMicroseconds(50),
       base::trace_event::ThreadInstructionCount());
 
-  // No further packets should have been emitted.
-  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 2u);
+  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 3u);
+  auto* e_packet = producer_client()->GetFinalizedPacket(2);
+  ExpectTraceEvent(
+      e_packet, /*category_iid=*/0u, /*name_iid=*/0u, TRACE_EVENT_PHASE_END,
+      TRACE_EVENT_FLAG_EXPLICIT_TIMESTAMP, /*id=*/0u,
+      /*absolute_timestamp=*/30, /*tid_override=*/1, /*pid_override=*/0);
+
+  // Updating the duration of an event that wasn't added before tracing begun
+  // will only emit an END event, again without category or name.
+  handle.event_index = 0;
+  base::trace_event::TraceLog::GetInstance()->UpdateTraceEventDurationExplicit(
+      category_group_enabled, "other_event_name", handle, /*thread_id=*/1,
+      /*explicit_timestamps=*/true,
+      base::TimeTicks() + base::TimeDelta::FromMicroseconds(40),
+      base::ThreadTicks() + base::TimeDelta::FromMicroseconds(60),
+      base::trace_event::ThreadInstructionCount());
+
+  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 4u);
+  auto* e2_packet = producer_client()->GetFinalizedPacket(3);
+  ExpectTraceEvent(
+      e2_packet, /*category_iid=*/0u, /*name_iid=*/0u, TRACE_EVENT_PHASE_END,
+      TRACE_EVENT_FLAG_EXPLICIT_TIMESTAMP, /*id=*/0u,
+      /*absolute_timestamp=*/40, /*tid_override=*/1, /*pid_override=*/0);
 }
 
 // TODO(eseckler): Add a test with multiple events + same strings (cat, name,
@@ -1304,6 +1349,235 @@ TEST_F(TraceEventDataSourceTest, StartupTracingTimeout) {
       wait_for_stop.QuitClosure()));
 
   wait_for_stop.Run();
+}
+
+TEST_F(TraceEventDataSourceTest, TypedArgumentsTracingOff) {
+  TRACE_EVENT_BEGIN("log", "LogMessage", [](perfetto::EventContext ctx) {
+    ADD_FAILURE() << "lambda was called when tracing was off";
+  });
+
+  TRACE_EVENT_END("log", [](perfetto::EventContext ctx) {
+    ADD_FAILURE() << "lambda was called when tracing was off";
+  });
+}
+
+TEST_F(TraceEventDataSourceTest, TypedArgumentsTracingOnBegin) {
+  CreateTraceEventDataSource();
+
+  bool begin_called = false;
+
+  TRACE_EVENT_BEGIN("browser", "bar", [&](perfetto::EventContext ctx) {
+    begin_called = true;
+    ctx.event()->set_log_message()->set_body_iid(42);
+  });
+
+  EXPECT_TRUE(begin_called);
+
+  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 2u);
+
+  auto* td_packet = producer_client()->GetFinalizedPacket();
+  ExpectThreadDescriptor(td_packet);
+
+  auto* e_packet = producer_client()->GetFinalizedPacket(1);
+  ExpectTraceEvent(e_packet, /*category_iid=*/1u, /*name_iid=*/1u,
+                   TRACE_EVENT_PHASE_BEGIN);
+
+  ExpectEventCategories(e_packet, {{1u, "browser"}});
+  ExpectEventNames(e_packet, {{1u, "bar"}});
+  ASSERT_TRUE(e_packet->track_event().has_log_message());
+  EXPECT_EQ(e_packet->track_event().log_message().body_iid(), 42u);
+}
+
+TEST_F(TraceEventDataSourceTest, TypedArgumentsTracingOnEnd) {
+  CreateTraceEventDataSource();
+
+  bool end_called = false;
+
+  TRACE_EVENT_END("browser", [&](perfetto::EventContext ctx) {
+    end_called = true;
+    ctx.event()->set_log_message()->set_body_iid(42);
+  });
+
+  EXPECT_TRUE(end_called);
+
+  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 2u);
+
+  auto* td_packet = producer_client()->GetFinalizedPacket();
+  ExpectThreadDescriptor(td_packet);
+
+  auto* e_packet = producer_client()->GetFinalizedPacket(1);
+  ExpectTraceEvent(e_packet, /*category_iid=*/0u, /*name_iid=*/0u,
+                   TRACE_EVENT_PHASE_END);
+
+  ASSERT_TRUE(e_packet->track_event().has_log_message());
+  EXPECT_EQ(e_packet->track_event().log_message().body_iid(), 42u);
+}
+
+TEST_F(TraceEventDataSourceTest, TypedArgumentsTracingOnBeginAndEnd) {
+  CreateTraceEventDataSource();
+
+  TRACE_EVENT_BEGIN("browser", "bar", [&](perfetto::EventContext ctx) {
+    ctx.event()->set_log_message()->set_body_iid(42);
+  });
+  TRACE_EVENT_END("browser", [&](perfetto::EventContext ctx) {
+    ctx.event()->set_log_message()->set_body_iid(84);
+  });
+
+  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 3u);
+
+  auto* td_packet = producer_client()->GetFinalizedPacket();
+  ExpectThreadDescriptor(td_packet);
+
+  auto* e_packet = producer_client()->GetFinalizedPacket(1);
+  ExpectTraceEvent(e_packet, /*category_iid=*/1u, /*name_iid=*/1u,
+                   TRACE_EVENT_PHASE_BEGIN);
+
+  ExpectEventCategories(e_packet, {{1u, "browser"}});
+  ExpectEventNames(e_packet, {{1u, "bar"}});
+  ASSERT_TRUE(e_packet->track_event().has_log_message());
+  EXPECT_EQ(e_packet->track_event().log_message().body_iid(), 42u);
+
+  e_packet = producer_client()->GetFinalizedPacket(2);
+  ExpectTraceEvent(e_packet, /*category_iid=*/0u, /*name_iid=*/0u,
+                   TRACE_EVENT_PHASE_END);
+
+  ASSERT_TRUE(e_packet->track_event().has_log_message());
+  EXPECT_EQ(e_packet->track_event().log_message().body_iid(), 84u);
+}
+
+TEST_F(TraceEventDataSourceTest, TypedArgumentsTracingOnInstant) {
+  CreateTraceEventDataSource();
+
+  TRACE_EVENT_INSTANT("browser", "bar", [&](perfetto::EventContext ctx) {
+    ctx.event()->set_log_message()->set_body_iid(42);
+  });
+
+  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 2u);
+
+  auto* td_packet = producer_client()->GetFinalizedPacket();
+  ExpectThreadDescriptor(td_packet);
+
+  auto* e_packet = producer_client()->GetFinalizedPacket(1);
+  ExpectTraceEvent(e_packet, /*category_iid=*/1u, /*name_iid=*/1u,
+                   TRACE_EVENT_PHASE_INSTANT, TRACE_EVENT_SCOPE_THREAD);
+
+  ExpectEventCategories(e_packet, {{1u, "browser"}});
+  ExpectEventNames(e_packet, {{1u, "bar"}});
+  ASSERT_TRUE(e_packet->track_event().has_log_message());
+  EXPECT_EQ(e_packet->track_event().log_message().body_iid(), 42u);
+}
+
+TEST_F(TraceEventDataSourceTest, TypedArgumentsTracingOnScoped) {
+  CreateTraceEventDataSource();
+
+  // Use a if statement with no brackets to ensure that the Scoped TRACE_EVENT
+  // macro properly emits the end event when leaving the single expression
+  // associated with the if(true) statement.
+  if (true)
+    TRACE_EVENT("browser", "bar", [&](perfetto::EventContext ctx) {
+      ctx.event()->set_log_message()->set_body_iid(42);
+    });
+
+  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 3u);
+
+  auto* td_packet = producer_client()->GetFinalizedPacket();
+  ExpectThreadDescriptor(td_packet);
+
+  auto* e_packet = producer_client()->GetFinalizedPacket(1);
+  ExpectTraceEvent(e_packet, /*category_iid=*/1u, /*name_iid=*/1u,
+                   TRACE_EVENT_PHASE_BEGIN);
+
+  ExpectEventCategories(e_packet, {{1u, "browser"}});
+  ExpectEventNames(e_packet, {{1u, "bar"}});
+  ASSERT_TRUE(e_packet->track_event().has_log_message());
+  EXPECT_EQ(e_packet->track_event().log_message().body_iid(), 42u);
+
+  e_packet = producer_client()->GetFinalizedPacket(2);
+  ExpectTraceEvent(e_packet, /*category_iid=*/0u, /*name_iid=*/0u,
+                   TRACE_EVENT_PHASE_END);
+
+  EXPECT_FALSE(e_packet->track_event().has_log_message());
+}
+
+TEST_F(TraceEventDataSourceTest, TypedArgumentsTracingOnScopedCapture) {
+  CreateTraceEventDataSource();
+
+  bool called = false;
+  {
+    TRACE_EVENT("browser", "bar", [&](perfetto::EventContext ctx) {
+      called = true;
+      ctx.event()->set_log_message()->set_body_iid(42);
+    });
+  }
+
+  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 3u);
+
+  auto* td_packet = producer_client()->GetFinalizedPacket();
+  ExpectThreadDescriptor(td_packet);
+
+  auto* e_packet = producer_client()->GetFinalizedPacket(1);
+  ExpectTraceEvent(e_packet, /*category_iid=*/1u, /*name_iid=*/1u,
+                   TRACE_EVENT_PHASE_BEGIN);
+
+  ExpectEventCategories(e_packet, {{1u, "browser"}});
+  ExpectEventNames(e_packet, {{1u, "bar"}});
+  ASSERT_TRUE(e_packet->track_event().has_log_message());
+  EXPECT_EQ(e_packet->track_event().log_message().body_iid(), 42u);
+
+  e_packet = producer_client()->GetFinalizedPacket(2);
+  ExpectTraceEvent(e_packet, /*category_iid=*/0u, /*name_iid=*/0u,
+                   TRACE_EVENT_PHASE_END);
+
+  EXPECT_FALSE(e_packet->track_event().has_log_message());
+  EXPECT_TRUE(called);
+}
+
+TEST_F(TraceEventDataSourceTest, TypedArgumentsTracingOnScopedMultipleEvents) {
+  CreateTraceEventDataSource();
+
+  {
+    TRACE_EVENT("browser", "bar", [&](perfetto::EventContext ctx) {
+      ctx.event()->set_log_message()->set_body_iid(42);
+    });
+    TRACE_EVENT("browser", "bar", [&](perfetto::EventContext ctx) {
+      ctx.event()->set_log_message()->set_body_iid(43);
+    });
+  }
+
+  EXPECT_EQ(producer_client()->GetFinalizedPacketCount(), 5u);
+
+  auto* td_packet = producer_client()->GetFinalizedPacket();
+  ExpectThreadDescriptor(td_packet);
+
+  // The first TRACE_EVENT begin.
+  auto* e_packet = producer_client()->GetFinalizedPacket(1);
+  ExpectTraceEvent(e_packet, /*category_iid=*/1u, /*name_iid=*/1u,
+                   TRACE_EVENT_PHASE_BEGIN);
+
+  ExpectEventCategories(e_packet, {{1u, "browser"}});
+  ExpectEventNames(e_packet, {{1u, "bar"}});
+  ASSERT_TRUE(e_packet->track_event().has_log_message());
+  EXPECT_EQ(e_packet->track_event().log_message().body_iid(), 42u);
+
+  // The second TRACE_EVENT begin.
+  e_packet = producer_client()->GetFinalizedPacket(2);
+  ExpectTraceEvent(e_packet, /*category_iid=*/1u, /*name_iid=*/1u,
+                   TRACE_EVENT_PHASE_BEGIN);
+  ASSERT_TRUE(e_packet->track_event().has_log_message());
+  EXPECT_EQ(e_packet->track_event().log_message().body_iid(), 43u);
+
+  // The second TRACE_EVENT end.
+  e_packet = producer_client()->GetFinalizedPacket(3);
+  ExpectTraceEvent(e_packet, /*category_iid=*/0u, /*name_iid=*/0u,
+                   TRACE_EVENT_PHASE_END);
+
+  EXPECT_FALSE(e_packet->track_event().has_log_message());
+
+  // The first TRACE_EVENT end.
+  e_packet = producer_client()->GetFinalizedPacket(4);
+  ExpectTraceEvent(e_packet, /*category_iid=*/0u, /*name_iid=*/0u,
+                   TRACE_EVENT_PHASE_END);
+  EXPECT_FALSE(e_packet->track_event().has_log_message());
 }
 
 // TODO(eseckler): Add startup tracing unittests.

@@ -25,6 +25,7 @@
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_field_data.h"
+#include "components/password_manager/core/browser/field_info_manager.h"
 #include "components/password_manager/core/browser/form_fetcher_impl.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_check.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_check_factory.h"
@@ -60,6 +61,7 @@ using autofill::FormFieldData;
 using autofill::FormStructure;
 using autofill::PasswordForm;
 using autofill::PasswordFormFillData;
+using autofill::ServerFieldType;
 using autofill::mojom::PasswordFormFieldPredictionType;
 using base::ASCIIToUTF16;
 using base::Feature;
@@ -161,6 +163,7 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
   MOCK_METHOD0(GetMetricsRecorder, PasswordManagerMetricsRecorder*());
   MOCK_CONST_METHOD0(IsNewTabPage, bool());
   MOCK_CONST_METHOD0(GetPasswordSyncState, SyncState());
+  MOCK_CONST_METHOD0(GetFieldInfoManager, FieldInfoManager*());
 
   // Workaround for std::unique_ptr<> lacking a copy constructor.
   bool PromptUserToSaveOrUpdatePassword(
@@ -286,6 +289,12 @@ void SetUniqueIdIfNeeded(FormData* form) {
     f.unique_id = f.id_attribute;
 #endif
 }
+
+class MockFieldInfoManager : public FieldInfoManager {
+ public:
+  MOCK_METHOD3(AddFieldType, void(uint64_t, uint32_t, ServerFieldType));
+  MOCK_CONST_METHOD2(GetFieldType, ServerFieldType(uint64_t, uint32_t));
+};
 
 }  // namespace
 
@@ -2946,8 +2955,8 @@ TEST_F(PasswordManagerTest, ReportMissingFormManager) {
       {
           .description =
               "A form is submitted and a PasswordFormManager not present.",
-          .parsed_forms = {},
           .save_signal = MissingFormManagerTestCase::Signal::Automatic,
+          .parsed_forms = {},
           // .parsed_forms is empty, so the processed form below was not
           // observed and has no form manager associated.
           .processed_forms = {form},
@@ -2958,8 +2967,8 @@ TEST_F(PasswordManagerTest, ReportMissingFormManager) {
       {
           .description = "Manual saving is requested and a "
                          "PasswordFormManager is created.",
-          .parsed_forms = {},
           .save_signal = MissingFormManagerTestCase::Signal::Manual,
+          .parsed_forms = {},
           // .parsed_forms is empty, so the processed form below was not
           // observed and has no form manager associated.
           .processed_forms = {form},
@@ -2968,8 +2977,8 @@ TEST_F(PasswordManagerTest, ReportMissingFormManager) {
       },
       {
           .description = "Manual saving is successfully requested.",
-          .parsed_forms = {form},
           .save_signal = MissingFormManagerTestCase::Signal::Manual,
+          .parsed_forms = {form},
           .processed_forms = {form},
           .expected_metric_value = MetricValue(
               PasswordManagerMetricsRecorder::FormManagerAvailable::kSuccess),
@@ -2977,16 +2986,16 @@ TEST_F(PasswordManagerTest, ReportMissingFormManager) {
       {
           .description =
               "A form is submitted and a PasswordFormManager present.",
-          .parsed_forms = {form},
           .save_signal = MissingFormManagerTestCase::Signal::Automatic,
+          .parsed_forms = {form},
           .processed_forms = {form},
           .expected_metric_value = MetricValue(
               PasswordManagerMetricsRecorder::FormManagerAvailable::kSuccess),
       },
       {
           .description = "First failure, then success.",
-          .parsed_forms = {form},
           .save_signal = MissingFormManagerTestCase::Signal::Automatic,
+          .parsed_forms = {form},
           // Processing |other_form| first signals a failure value in the
           // metric, but processing |form| after that should overwrite that with
           // kSuccess.
@@ -2996,16 +3005,16 @@ TEST_F(PasswordManagerTest, ReportMissingFormManager) {
       },
       {
           .description = "No forms, no report.",
-          .parsed_forms = {},
           .save_signal = MissingFormManagerTestCase::Signal::None,
+          .parsed_forms = {},
           .processed_forms = {},
           .expected_metric_value = base::nullopt,
       },
       {
           .description = "Not enabled, no report.",
           .saving = MissingFormManagerTestCase::Saving::Disabled,
-          .parsed_forms = {form},
           .save_signal = MissingFormManagerTestCase::Signal::Automatic,
+          .parsed_forms = {form},
           .processed_forms = {form},
           .expected_metric_value = base::nullopt,
       },
@@ -3193,6 +3202,9 @@ TEST_F(PasswordManagerTest, StartLeakDetection) {
 
 // Check that a non-password form with SINGLE_USERNAME prediction is filled.
 TEST_F(PasswordManagerTest, FillSingleUsername) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      password_manager::features::kUsernameFirstFlowFilling);
   PasswordFormManager::set_wait_for_server_predictions_for_filling(true);
   EXPECT_CALL(client_, IsSavingAndFillingEnabled(_))
       .WillRepeatedly(Return(true));
@@ -3279,7 +3291,7 @@ TEST_F(PasswordManagerTest,
 // Checks that username is saved on username first flow.
 TEST_F(PasswordManagerTest, UsernameFirstFlow) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kUsernameFirstFlow);
+  feature_list.InitAndEnableFeature(features::kUsernameFirstFlowSaving);
   EXPECT_CALL(*store_, GetLogins(_, _))
       .WillRepeatedly(WithArg<1>(InvokeEmptyConsumerWithForms()));
 
@@ -3306,7 +3318,7 @@ TEST_F(PasswordManagerTest, UsernameFirstFlow) {
   EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr(_))
       .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
 
-  // Simlates successful submission.
+  // Simulates successful submission.
   manager()->OnPasswordFormsRendered(&driver_, {} /* observed */, true);
 
   // Simulate saving the form, as if the info bar was accepted.
@@ -3319,25 +3331,38 @@ TEST_F(PasswordManagerTest, UsernameFirstFlow) {
   EXPECT_EQ(password, saved_form.password_value);
 }
 
-TEST_F(PasswordManagerTest, ShowManualFallbackParsedFormIsUsed) {
-  EXPECT_CALL(client_, IsSavingAndFillingEnabled(_))
-      .WillRepeatedly(Return(true));
+//  Checks that username is saved on username first flow.
+TEST_F(PasswordManagerTest, UsernameFirstFlowFillingLocalPredictions) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /* enabled */ {features::kUsernameFirstFlowFilling,
+                     features::kUsernameFirstFlowSaving},
+      /* disabled */ {});
   EXPECT_CALL(*store_, GetLogins(_, _))
-      .WillRepeatedly(WithArg<1>(InvokeEmptyConsumerWithForms()));
+      .WillRepeatedly(WithArg<1>(InvokeConsumer(MakeSavedForm())));
 
-  // Create a PasswordForm, with only form_data set.
-  PasswordForm form;
-  form.form_data = MakeSimpleForm().form_data;
+  manager()->OnPasswordFormsParsed(&driver_, {} /* observed */);
 
-  manager()->OnPasswordFormsParsed(&driver_, {form} /*observed*/);
+  EXPECT_CALL(client_, IsSavingAndFillingEnabled).WillRepeatedly(Return(true));
 
-  // Check that the parsed form from |form.form_data| rather than |form| is used
-  // for checking whether the form should be saved.
-  EXPECT_CALL(*client_.filter(),
-              ShouldSave(HasUsernameValue(ASCIIToUTF16("googleuser"))))
-      .WillOnce(Return(true));
+  constexpr uint32_t kFieldRendererId = 1;
 
-  manager()->ShowManualFallbackForSaving(&driver_, form);
+  FormData non_password_form;
+  FormFieldData field;
+  field.form_control_type = "text";
+  field.unique_renderer_id = kFieldRendererId;
+  non_password_form.fields.push_back(field);
+
+  FormStructure form_structure(non_password_form);
+
+  MockFieldInfoManager mock_field_manager;
+  ON_CALL(client_, GetFieldInfoManager())
+      .WillByDefault(Return(&mock_field_manager));
+  EXPECT_CALL(mock_field_manager, GetFieldType(_, _))
+      .WillOnce(Return(autofill::SINGLE_USERNAME));
+
+  EXPECT_CALL(driver_, FillPasswordForm(_));
+  manager()->ProcessAutofillPredictions(&driver_, {&form_structure});
 }
 
 TEST_F(PasswordManagerTest, FormSubmittedOnMainFrame) {
@@ -3411,6 +3436,27 @@ TEST_F(PasswordManagerTest, FormSubmittedOnIFrameMainFrameLoaded) {
   EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr(_));
   manager()->OnPasswordFormsRendered(&driver_, {} /* observed */,
                                      true /* did stop loading */);
+}
+
+TEST_F(PasswordManagerTest, ShowManualFallbackParsedFormIsUsed) {
+  EXPECT_CALL(client_, IsSavingAndFillingEnabled(_))
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(*store_, GetLogins(_, _))
+      .WillRepeatedly(WithArg<1>(InvokeEmptyConsumerWithForms()));
+
+  // Create a PasswordForm, with only form_data set.
+  PasswordForm form;
+  form.form_data = MakeSimpleForm().form_data;
+
+  manager()->OnPasswordFormsParsed(&driver_, {form} /*observed*/);
+
+  // Check that the parsed form from |form.form_data| rather than |form| is used
+  // for checking whether the form should be saved.
+  EXPECT_CALL(*client_.filter(),
+              ShouldSave(HasUsernameValue(ASCIIToUTF16("googleuser"))))
+      .WillOnce(Return(true));
+
+  manager()->ShowManualFallbackForSaving(&driver_, form);
 }
 
 }  // namespace password_manager

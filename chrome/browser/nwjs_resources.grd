@@ -14,6 +14,7 @@
         <structure name="IDR_APP_LIST_START_PAGE_JS" file="resources\empty.js" flattenhtml="true" type="chrome_html" />
       </if>
       <if expr="not is_android">
+        <structure name="IDR_SIGNIN_SHARED_CSS_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_shared_css.js" use_base_dir="false" preprocess="true" type="chrome_html" />
         <structure name="IDR_SIGNIN_SHARED_OLD_CSS_HTML" file="resources\signin\signin_shared_old_css.html" preprocess="true" allowexternalscript="true" type="chrome_html" />
         <structure name="IDR_DOWNLOADS_CSS" file="resources\empty.css" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_DOWNLOADS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="chrome_html" />
@@ -56,9 +57,8 @@
     </structures>
     <includes>
         <include name="IDR_DISCARDS_GRAPH_TAB_HTML" file="${root_gen_dir}\chrome\browser\resources\discards\graph_tab.html" compress="gzip" use_base_dir="false" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_DISCARDS_GRAPH_TAB_JS" file="resources\discards\graph_tab.js" compress="gzip" type="BINDATA" />
+        <include name="IDR_DISCARDS_GRAPH_TAB_JS" file="${root_gen_dir}\chrome\browser\resources\discards\graph_tab.js" compress="gzip" use_base_dir="false" type="BINDATA" />
       <if expr="is_win or is_macosx or is_linux">
-        <include name="IDR_DISCARDS_MOJO_API_HTML" file="resources\discards\mojo_api.html" compress="gzip" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_DISCARDS_DATABASE_TAB_HTML" file="resources\discards\database_tab.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_DISCARDS_DATABASE_TAB_JS" file="resources\discards\database_tab.js" type="BINDATA" />
         <include name="IDR_DISCARDS_DISCARDS_MAIN_HTML" file="resources\discards\discards_main.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
@@ -70,7 +70,6 @@
         <include name="IDR_DISCARDS_LIFECYCLE_UNIT_STATE_MOJO_JS" file="${root_gen_dir}\chrome\browser\resource_coordinator\lifecycle_unit_state.mojom.js" use_base_dir="false" type="BINDATA" />
         <include name="IDR_DISCARDS_MOJO_JS" file="${root_gen_dir}\chrome\browser\ui\webui\discards\discards.mojom.js" use_base_dir="false" type="BINDATA" />
         <include name="IDR_DISCARDS_MOJO_PUBLIC_BASE_PROCESS_ID_MOJOM_JS" file="${root_gen_dir}\mojo\public\mojom\base\process_id.mojom.js" use_base_dir="false" type="BINDATA" />
-        <include name="IDR_DISCARDS_SORTED_TABLE_BEHAVIOR_HTML" file="resources\discards\sorted_table_behavior.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_DISCARDS_SORTED_TABLE_BEHAVIOR_JS" file="resources\discards\sorted_table_behavior.js" type="BINDATA" />
         <include name="IDR_DISCARDS_WEBUI_GRAPH_DUMP_MOJO_JS" file="${root_gen_dir}\services\resource_coordinator\public\mojom\webui_graph_dump.mojom.js" use_base_dir="false" type="BINDATA" />
       </if>
@@ -388,7 +387,7 @@
       </if>
       <include name="IDR_URL_MOJO_JS" file="resources\empty.js" type="BINDATA" compress="gzip" />
       <include name="IDR_SIGNIN_EMAIL_CONFIRMATION_HTML" file="resources\signin\signin_email_confirmation\signin_email_confirmation.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-      <include name="IDR_SIGNIN_EMAIL_CONFIRMATION_JS" file="resources\signin\signin_email_confirmation\signin_email_confirmation.js" type="BINDATA" />
+        <include name="IDR_SIGNIN_EMAIL_CONFIRMATION_APP_JS" file="${root_gen_dir}\chrome\browser\resources\signin\signin_email_confirmation\signin_email_confirmation_app.js" use_base_dir="false" preprocess="true" type="BINDATA" />
       <include name="IDR_SIGNIN_ERROR_HTML" file="resources\signin\signin_error\signin_error.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_SIGNIN_ERROR_JS" file="resources\signin\signin_error\signin_error.js" type="BINDATA" />
       <include name="IDR_UBER_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />

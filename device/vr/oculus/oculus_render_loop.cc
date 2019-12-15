@@ -62,22 +62,11 @@ mojom::XRFrameDataPtr OculusRenderLoop::GetNextFrameData() {
   sensor_time_ = ovr_GetTimeInSeconds();
   frame_data->time_delta = base::TimeDelta::FromSecondsD(predicted_time);
 
-  mojom::VRPosePtr pose =
-      mojo::ConvertTo<mojom::VRPosePtr>(state.HeadPose.ThePose);
+  frame_data->pose = mojo::ConvertTo<mojom::VRPosePtr>(state.HeadPose.ThePose);
   last_render_pose_ = state.HeadPose.ThePose;
 
-  DCHECK(pose);
-  pose->input_state = GetInputState(state);
-  frame_data->pose = std::move(pose);
+  frame_data->input_state = GetInputState(state);
   return frame_data;
-}
-
-mojom::XRGamepadDataPtr OculusRenderLoop::GetNextGamepadData() {
-  if (!session_) {
-    return nullptr;
-  }
-
-  return OculusGamepadHelper::GetGamepadData(session_);
 }
 
 bool OculusRenderLoop::StartRuntime() {
@@ -101,7 +90,7 @@ bool OculusRenderLoop::StartRuntime() {
       || !texture_helper_.SetAdapterLUID(*reinterpret_cast<LUID*>(&luid_)) ||
       !texture_helper_.EnsureInitialized()
 #endif
-          ) {
+  ) {
     StopRuntime();
     return false;
   }
@@ -252,8 +241,7 @@ void OculusRenderLoop::DestroyOvrSwapChain() {
   }
 }
 
-void OculusRenderLoop::OnLayerBoundsChanged() {
-}
+void OculusRenderLoop::OnLayerBoundsChanged() {}
 
 std::vector<mojom::XRInputSourceStatePtr> OculusRenderLoop::GetInputState(
     const ovrTrackingState& tracking_state) {
@@ -352,15 +340,15 @@ device::mojom::XRInputSourceStatePtr OculusRenderLoop::GetTouchData(
 
   // The grip pose will be rotated and translated back a bit from the pointer
   // pose, which is what the Oculus API returns.
-  state->grip = PoseToTransform(pose.ThePose);
-  state->grip->RotateAboutXAxis(kGripRotationXDelta);
-  state->grip->Translate3d(0, 0, kGripOffsetZMeters);
+  state->mojo_from_input = PoseToTransform(pose.ThePose);
+  state->mojo_from_input->RotateAboutXAxis(kGripRotationXDelta);
+  state->mojo_from_input->Translate3d(0, 0, kGripOffsetZMeters);
 
   // Need to apply the inverse transform from above to put the pointer back in
   // the right orientation relative to the grip.
-  desc->pointer_offset = gfx::Transform();
-  desc->pointer_offset->Translate3d(0, 0, -kGripOffsetZMeters);
-  desc->pointer_offset->RotateAboutXAxis(-kGripRotationXDelta);
+  desc->input_from_pointer = gfx::Transform();
+  desc->input_from_pointer->Translate3d(0, 0, -kGripOffsetZMeters);
+  desc->input_from_pointer->RotateAboutXAxis(-kGripRotationXDelta);
 
   // This function is only called when we're working with an Oculus touch.
   desc->profiles.push_back("oculus-touch");

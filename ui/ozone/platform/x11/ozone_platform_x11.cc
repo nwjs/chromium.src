@@ -12,8 +12,11 @@
 #include "ui/base/x/x11_util.h"
 #include "ui/display/fake/fake_display_delegate.h"
 #include "ui/events/devices/x11/touch_factory_x11.h"
+#include "ui/events/ozone/layout/keyboard_layout_engine_manager.h"
+#include "ui/events/ozone/layout/stub/stub_keyboard_layout_engine.h"
 #include "ui/events/platform/x11/x11_event_source_default.h"
-#include "ui/gfx/x/x11.h"
+#include "ui/gfx/x/x11_connection.h"
+#include "ui/gfx/x/x11_types.h"
 #include "ui/ozone/common/stub_overlay_manager.h"
 #include "ui/ozone/platform/x11/x11_clipboard_ozone.h"
 #include "ui/ozone/platform/x11/x11_cursor_factory_ozone.h"
@@ -24,7 +27,7 @@
 #include "ui/ozone/public/input_controller.h"
 #include "ui/ozone/public/ozone_platform.h"
 #include "ui/ozone/public/system_input_injector.h"
-#include "ui/platform_window/platform_window_base.h"
+#include "ui/platform_window/platform_window.h"
 #include "ui/platform_window/platform_window_init_properties.h"
 
 #if defined(OS_CHROMEOS)
@@ -79,7 +82,7 @@ class OzonePlatformX11 : public OzonePlatform {
     return gpu_platform_support_host_.get();
   }
 
-  std::unique_ptr<PlatformWindowBase> CreatePlatformWindow(
+  std::unique_ptr<PlatformWindow> CreatePlatformWindow(
       PlatformWindowDelegate* delegate,
       PlatformWindowInitProperties properties) override {
     std::unique_ptr<X11WindowOzone> window =
@@ -126,6 +129,11 @@ class OzonePlatformX11 : public OzonePlatform {
     cursor_factory_ozone_ = std::make_unique<X11CursorFactoryOzone>();
     gpu_platform_support_host_.reset(CreateStubGpuPlatformSupportHost());
 
+    // TODO(spang): Support XKB.
+    keyboard_layout_engine_ = std::make_unique<StubKeyboardLayoutEngine>();
+    KeyboardLayoutEngineManager::SetKeyboardLayoutEngine(
+        keyboard_layout_engine_.get());
+
     TouchFactory::SetTouchDeviceListFromCommandLine();
   }
 
@@ -148,7 +156,8 @@ class OzonePlatformX11 : public OzonePlatform {
 
     // Always initialize in multi-thread mode, since this is used only during
     // development.
-    XInitThreads();
+    // TODO(crbug.com/1024477): Initialize Xlib threads only when required
+    gfx::InitializeThreadedX11();
 
     // If XOpenDisplay() failed there is nothing we can do. Crash here instead
     // of crashing later. If you are crashing here, make sure there is an X
@@ -172,6 +181,7 @@ class OzonePlatformX11 : public OzonePlatform {
   bool common_initialized_ = false;
 
   // Objects in the UI process.
+  std::unique_ptr<KeyboardLayoutEngine> keyboard_layout_engine_;
   std::unique_ptr<OverlayManagerOzone> overlay_manager_;
   std::unique_ptr<InputController> input_controller_;
   std::unique_ptr<X11ClipboardOzone> clipboard_;

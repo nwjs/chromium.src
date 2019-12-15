@@ -187,7 +187,7 @@ TEST_F(PrintBackendCupsIppUtilTest, A4PaperSupported) {
 
   PrinterSemanticCapsAndDefaults::Paper paper = caps.papers[0];
   // media display name localization is handled more fully in
-  // GetPrinterCapabilitiesOnBlockingPoolThread().
+  // GetPrinterCapabilitiesOnBlockingTaskRunner().
   EXPECT_EQ("iso a4", paper.display_name);
   EXPECT_EQ("iso_a4_210x297mm", paper.vendor_id);
   EXPECT_EQ(210000, paper.size_um.width());
@@ -200,15 +200,15 @@ TEST_F(PrintBackendCupsIppUtilTest, LegalPaperDefault) {
   PrinterSemanticCapsAndDefaults caps;
   CapsAndDefaultsFromPrinter(*printer_, &caps);
   // media display name localization is handled more fully in
-  // GetPrinterCapabilitiesOnBlockingPoolThread().
+  // GetPrinterCapabilitiesOnBlockingTaskRunner().
   EXPECT_EQ("na legal", caps.default_paper.display_name);
   EXPECT_EQ("na_legal_8.5x14in", caps.default_paper.vendor_id);
   EXPECT_EQ(215900, caps.default_paper.size_um.width());
   EXPECT_EQ(355600, caps.default_paper.size_um.height());
 }
 
-// Tests that CapsAndDefaultsFromPrinter does not propagate papers with
-// badly formatted vendor IDs - such papers will not transform into
+// Tests that CapsAndDefaultsFromPrinter() does not propagate papers
+// with badly formatted vendor IDs - such papers will not transform into
 // meaningful ParsedPaper instances and are sometimes inimical to
 // ARC++.
 TEST_F(PrintBackendCupsIppUtilTest, OmitPapersWithoutVendorIds) {
@@ -234,6 +234,44 @@ TEST_F(PrintBackendCupsIppUtilTest, OmitPapersWithoutVendorIds) {
                          "jis b5"),
           testing::Field(&PrinterSemanticCapsAndDefaults::Paper::display_name,
                          "iso b5")));
+}
+
+// Tests that CapsAndDefaultsFromPrinter() does not propagate the
+// special IPP values that CUPS happens to expose to the Chromium print
+// backend.
+TEST_F(PrintBackendCupsIppUtilTest, OmitPapersWithSpecialVendorIds) {
+  // Maintainer's note: there's no reason why a printer would deliver
+  // two discrete sizes for custom_min* and custom_max*; in practice,
+  // we always see the fully qualified custom_m(in|ax)_<DIMENSIONS>
+  // delivered to the Chromium print backend.
+  printer_->SetSupportedOptions(
+      "media",
+      MakeStringCollection(
+          ipp_, {"na_number-11_4.5x10.375in", "custom_max", "custom_min_0x0in",
+                 "na_govt-letter_8x10in", "custom_min",
+                 "custom_max_1000x1000in", "iso_b0_1000x1414mm"}));
+
+  PrinterSemanticCapsAndDefaults caps;
+  CapsAndDefaultsFromPrinter(*printer_, &caps);
+
+  // The printer reports that it supports seven media sizes, four of
+  // which are not meant for users' eyes (``custom_min*'' and
+  // ``custom_max*''). The preceding call to
+  // CapsAndDefaultsFromPrinter() will have dropped these sizes,
+  // refusing to propagate them out of the backend.
+  ASSERT_EQ(3U, caps.papers.size());
+
+  // While not directly pertinent to this test, we expect a certain
+  // format for the other supported papers.
+  EXPECT_THAT(
+      caps.papers,
+      testing::UnorderedElementsAre(
+          testing::Field(&PrinterSemanticCapsAndDefaults::Paper::display_name,
+                         "na number-11"),
+          testing::Field(&PrinterSemanticCapsAndDefaults::Paper::display_name,
+                         "na govt-letter"),
+          testing::Field(&PrinterSemanticCapsAndDefaults::Paper::display_name,
+                         "iso b0")));
 }
 
 TEST_F(PrintBackendCupsIppUtilTest, PinSupported) {

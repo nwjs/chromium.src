@@ -41,7 +41,6 @@
 #include "skia/ext/image_operations.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
-#include "third_party/blink/public/platform/web_image.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/web_console_message.h"
 #include "third_party/blink/public/web/web_document.h"
@@ -304,9 +303,10 @@ void ChromeRenderFrameObserver::GetWebApplicationInfo(
   // any icon with a data URL to have originated from a favicon.  We don't want
   // to decode arbitrary data URLs in the browser process.  See
   // http://b/issue?id=1162972
-  for (auto it = web_app_info.icons.begin(); it != web_app_info.icons.end();) {
+  for (auto it = web_app_info.icon_infos.begin();
+       it != web_app_info.icon_infos.end();) {
     if (it->url.SchemeIs(url::kDataScheme))
-      it = web_app_info.icons.erase(it);
+      it = web_app_info.icon_infos.erase(it);
     else
       ++it;
   }

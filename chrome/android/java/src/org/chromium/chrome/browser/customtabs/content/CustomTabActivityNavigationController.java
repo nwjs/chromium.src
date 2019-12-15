@@ -25,8 +25,9 @@ import org.chromium.base.task.PostTask;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.IntentHandler;
+import org.chromium.chrome.browser.browserservices.BrowserServicesActivityTabController;
+import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.customtabs.CloseButtonNavigator;
-import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
 import org.chromium.chrome.browser.customtabs.CustomTabObserver;
 import org.chromium.chrome.browser.customtabs.CustomTabsConnection;
 import org.chromium.chrome.browser.dependency_injection.ActivityScope;
@@ -76,20 +77,23 @@ public class CustomTabActivityNavigationController implements StartStopWithNativ
         boolean handleBackPressed(Runnable defaultBackHandler);
     }
 
+    /** Interface encapsulating the process of handling the custom tab closing. */
     public interface FinishHandler {
         void onFinish(@FinishReason int reason);
     }
 
-    private final CustomTabActivityTabController mTabController;
+    private final BrowserServicesActivityTabController mTabController;
     private final CustomTabActivityTabProvider mTabProvider;
-    private final CustomTabIntentDataProvider mIntentDataProvider;
+    private final BrowserServicesIntentDataProvider mIntentDataProvider;
     private final CustomTabsConnection mConnection;
     private final Lazy<CustomTabObserver> mCustomTabObserver;
     private final CloseButtonNavigator mCloseButtonNavigator;
-    private final Lazy<ToolbarManager> mToolbarManager;
     private final ChromeBrowserInitializer mChromeBrowserInitializer;
     private final Activity mActivity;
     private final Lazy<ChromeFullscreenManager> mFullscreenManager;
+
+    @Nullable
+    private ToolbarManager mToolbarManager;
 
     @Nullable
     private BackHandler mBackHandler;
@@ -112,13 +116,12 @@ public class CustomTabActivityNavigationController implements StartStopWithNativ
 
     @Inject
     public CustomTabActivityNavigationController(
-            CustomTabActivityTabController tabController,
+            BrowserServicesActivityTabController tabController,
             CustomTabActivityTabProvider tabProvider,
-            CustomTabIntentDataProvider intentDataProvider,
+            BrowserServicesIntentDataProvider intentDataProvider,
             CustomTabsConnection connection,
             Lazy<CustomTabObserver> customTabObserver,
             CloseButtonNavigator closeButtonNavigator,
-            Lazy<ToolbarManager> toolbarManager,
             ChromeBrowserInitializer chromeBrowserInitializer,
             ChromeActivity activity,
             ActivityLifecycleDispatcher lifecycleDispatcher,
@@ -129,13 +132,22 @@ public class CustomTabActivityNavigationController implements StartStopWithNativ
         mConnection = connection;
         mCustomTabObserver = customTabObserver;
         mCloseButtonNavigator = closeButtonNavigator;
-        mToolbarManager = toolbarManager;
         mChromeBrowserInitializer = chromeBrowserInitializer;
         mActivity = activity;
         mFullscreenManager = fullscreenManager;
 
         lifecycleDispatcher.register(this);
         mTabProvider.addObserver(mTabObserver);
+    }
+
+    /**
+     * Notifies the navigation controller that the ToolbarManager has been created and is ready for
+     * use. ToolbarManager isn't passed directly to the constructor because it's not guaranteed to
+     * be initialized yet.
+     */
+    public void onToolbarInitialized(ToolbarManager manager) {
+        assert manager != null : "Toolbar manager not initialized";
+        mToolbarManager = manager;
     }
 
     /**
@@ -151,6 +163,8 @@ public class CustomTabActivityNavigationController implements StartStopWithNativ
      * (see {@link CustomTabObserver}).
      */
     public void navigate(final LoadUrlParams params, long timeStamp) {
+        assert mIntentDataProvider.getWebappExtras() == null;
+
         Tab tab = mTabProvider.getTab();
         if (tab == null) {
             assert false;
@@ -206,7 +220,7 @@ public class CustomTabActivityNavigationController implements StartStopWithNativ
     }
 
     private void executeDefaultBackHandling() {
-        if (mToolbarManager.get().back() != null) return;
+        if (mToolbarManager != null && mToolbarManager.back() != null) return;
 
         // mTabController.closeTab may result in either closing the only tab (through the back
         // button or the close button), or swapping to the previous tab. In the first case we need
@@ -232,6 +246,8 @@ public class CustomTabActivityNavigationController implements StartStopWithNativ
      * @return Whether or not the tab was sent over successfully.
      */
     public boolean openCurrentUrlInBrowser(boolean forceReparenting) {
+        assert mIntentDataProvider.getWebappExtras() == null;
+
         Tab tab = mTabProvider.getTab();
         if (tab == null) return false;
 

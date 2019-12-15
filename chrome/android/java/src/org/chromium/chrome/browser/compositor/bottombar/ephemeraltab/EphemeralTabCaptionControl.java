@@ -7,7 +7,7 @@ package org.chromium.chrome.browser.compositor.bottombar.ephemeraltab;
 import android.content.Context;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
+import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.TextView;
 
 import androidx.annotation.DrawableRes;
@@ -24,6 +24,9 @@ import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
  * as a dynamic resource.
  */
 public class EphemeralTabCaptionControl extends OverlayPanelTextViewInflater {
+    /** Space for security icon. Caption is pushed to right by this amount if the icon is shown. */
+    private final int mIconMargin;
+
     /** The caption View. */
     private TextView mCaption;
 
@@ -59,6 +62,8 @@ public class EphemeralTabCaptionControl extends OverlayPanelTextViewInflater {
                 (OverlayPanel.isNewLayout() ? R.dimen.overlay_panel_end_buttons_width
                                             : R.dimen.overlay_panel_padded_button_width));
         mUrl = panel::getUrl;
+        mIconMargin = context.getResources().getDimensionPixelSize(
+                R.dimen.preview_tab_security_icon_size);
     }
 
     /**
@@ -91,8 +96,6 @@ public class EphemeralTabCaptionControl extends OverlayPanelTextViewInflater {
     /** Sets the security icon. */
     public void setSecurityIcon(@DrawableRes int resId) {
         mIconId = resId;
-        ImageView securityIcon = (ImageView) getView().findViewById(R.id.security_icon);
-        securityIcon.setImageResource(resId);
     }
 
     /** @return Security icon resource ID */
@@ -145,6 +148,7 @@ public class EphemeralTabCaptionControl extends OverlayPanelTextViewInflater {
      * @param text String to use for caption.
      */
     public void setCaptionText(String text) {
+        if (mCaption == null) return;
         mCaption.setText(text);
         invalidate();
     }
@@ -165,7 +169,7 @@ public class EphemeralTabCaptionControl extends OverlayPanelTextViewInflater {
         View view = getView();
         mCaption = (TextView) view.findViewById(R.id.ephemeral_tab_caption);
         if (OverlayPanel.isNewLayout()) {
-            view.findViewById(R.id.security_icon).setVisibility(View.VISIBLE);
+            ((MarginLayoutParams) mCaption.getLayoutParams()).leftMargin = mIconMargin;
         }
     }
 }

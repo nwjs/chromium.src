@@ -18,6 +18,29 @@ template <> const char* interface_name<PPB_PDF>() {
   return PPB_PDF_INTERFACE;
 }
 
+void ConvertPrivateAccessibilityTextStyleInfo(
+    const PDF::PrivateAccessibilityTextStyleInfo& text_style,
+    PP_PrivateAccessibilityTextStyleInfo* info) {
+  info->font_name = text_style.font_name.c_str();
+  info->font_name_length = text_style.font_name.size();
+  info->font_weight = text_style.font_weight;
+  info->render_mode = text_style.render_mode;
+  info->font_size = text_style.font_size;
+  info->fill_color = text_style.fill_color;
+  info->stroke_color = text_style.stroke_color;
+  info->is_italic = text_style.is_italic;
+  info->is_bold = text_style.is_bold;
+}
+
+void ConvertPrivateAccessibilityTextRunInfo(
+    const PDF::PrivateAccessibilityTextRunInfo& text_run,
+    PP_PrivateAccessibilityTextRunInfo* info) {
+  info->len = text_run.len;
+  info->bounds = text_run.bounds;
+  info->direction = text_run.direction;
+  ConvertPrivateAccessibilityTextStyleInfo(text_run.style, &info->style);
+}
+
 void ConvertPrivateAccessibilityLinkInfo(
     const PDF::PrivateAccessibilityLinkInfo& link,
     PP_PrivateAccessibilityLinkInfo* info) {
@@ -36,6 +59,17 @@ void ConvertPrivateAccessibilityImageInfo(
   info->alt_text_length = image.alt_text.size();
   info->text_run_index = image.text_run_index;
   info->bounds = image.bounds;
+}
+
+void ConvertPrivateAccessibilityHighlightInfo(
+    const PDF::PrivateAccessibilityHighlightInfo& highlight,
+    PP_PrivateAccessibilityHighlightInfo* info) {
+  info->note_text = highlight.note_text.c_str();
+  info->note_text_length = highlight.note_text.size();
+  info->index_in_page = highlight.index_in_page;
+  info->text_run_index = highlight.text_run_index;
+  info->text_run_count = highlight.text_run_count;
+  info->bounds = highlight.bounds;
 }
 
 }  // namespace
@@ -184,19 +218,14 @@ void PDF::SetLinkUnderCursor(const InstanceHandle& instance, const char* url) {
 
 // static
 void PDF::GetV8ExternalSnapshotData(const InstanceHandle& instance,
-                                    const char** natives_data_out,
-                                    int* natives_size_out,
                                     const char** snapshot_data_out,
                                     int* snapshot_size_out) {
   if (has_interface<PPB_PDF>()) {
-    get_interface<PPB_PDF>()->GetV8ExternalSnapshotData(instance.pp_instance(),
-        natives_data_out, natives_size_out, snapshot_data_out,
-        snapshot_size_out);
+    get_interface<PPB_PDF>()->GetV8ExternalSnapshotData(
+        instance.pp_instance(), snapshot_data_out, snapshot_size_out);
     return;
   }
-  *natives_data_out = NULL;
   *snapshot_data_out = NULL;
-  *natives_size_out = 0;
   *snapshot_size_out = 0;
 }
 
@@ -224,10 +253,15 @@ void PDF::SetAccessibilityDocInfo(
 void PDF::SetAccessibilityPageInfo(
     const InstanceHandle& instance,
     const PP_PrivateAccessibilityPageInfo* page_info,
-    const std::vector<PP_PrivateAccessibilityTextRunInfo>& text_runs,
+    const std::vector<PrivateAccessibilityTextRunInfo>& text_runs,
     const std::vector<PP_PrivateAccessibilityCharInfo>& chars,
     const PrivateAccessibilityPageObjects& page_objects) {
   if (has_interface<PPB_PDF>()) {
+    std::vector<PP_PrivateAccessibilityTextRunInfo> text_run_info(
+        text_runs.size());
+    for (size_t i = 0; i < text_runs.size(); ++i)
+      ConvertPrivateAccessibilityTextRunInfo(text_runs[i], &text_run_info[i]);
+
     const std::vector<PrivateAccessibilityLinkInfo>& links = page_objects.links;
     std::vector<PP_PrivateAccessibilityLinkInfo> link_info(links.size());
     for (size_t i = 0; i < links.size(); ++i)
@@ -239,14 +273,25 @@ void PDF::SetAccessibilityPageInfo(
     for (size_t i = 0; i < images.size(); ++i)
       ConvertPrivateAccessibilityImageInfo(images[i], &image_info[i]);
 
+    const std::vector<PrivateAccessibilityHighlightInfo>& highlights =
+        page_objects.highlights;
+    std::vector<PP_PrivateAccessibilityHighlightInfo> highlight_info(
+        highlights.size());
+    for (size_t i = 0; i < highlights.size(); ++i) {
+      ConvertPrivateAccessibilityHighlightInfo(highlights[i],
+                                               &highlight_info[i]);
+    }
+
     PP_PrivateAccessibilityPageObjects pp_page_objects;
     pp_page_objects.links = link_info.data();
     pp_page_objects.link_count = link_info.size();
     pp_page_objects.images = image_info.data();
     pp_page_objects.image_count = image_info.size();
+    pp_page_objects.highlights = highlight_info.data();
+    pp_page_objects.highlight_count = highlight_info.size();
 
     get_interface<PPB_PDF>()->SetAccessibilityPageInfo(
-        instance.pp_instance(), page_info, text_runs.data(), chars.data(),
+        instance.pp_instance(), page_info, text_run_info.data(), chars.data(),
         &pp_page_objects);
   }
 }

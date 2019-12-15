@@ -39,7 +39,7 @@
 #include "ipc/message_filter.h"
 #include "net/base/load_flags.h"
 #include "services/network/public/mojom/network_service.mojom.h"
-#include "storage/common/fileapi/file_system_types.h"
+#include "storage/common/file_system/file_system_types.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/frame/user_activation_update_type.h"
 #include "third_party/blink/public/platform/web_input_event.h"
@@ -70,6 +70,10 @@ class EmbeddedTestServer;
 using test_server::EmbeddedTestServer;
 }
 
+namespace ui {
+class AXPlatformNodeDelegate;
+}
+
 #if defined(OS_WIN)
 namespace Microsoft {
 namespace WRL {
@@ -90,7 +94,6 @@ typedef int PROPERTYID;
 
 namespace content {
 
-class BrowserAccessibility;
 class BrowserContext;
 struct FrameVisualProperties;
 class FrameTreeNode;
@@ -324,15 +327,6 @@ void SimulateKeyPressWithoutChar(WebContents* web_contents,
 
 // Reset touch action for the embedder of a BrowserPluginGuest.
 void ResetTouchAction(RenderWidgetHost* host);
-
-// In some cases when an event is send to guest view, it gets resent to the
-// embedder.
-void ResendGestureScrollUpdateToEmbedder(WebContents* guest_web_contents,
-                                         const blink::WebInputEvent& event);
-
-// When a guest view is pre-processing a mouse/touch event, send a synthetic
-// tap gesture to its RenderWidgetHostView.
-void MaybeSendSyntheticTapGesture(WebContents* guest_web_contents);
 
 // Spins a run loop until effects of previously forwarded input are fully
 // realized.
@@ -808,7 +802,7 @@ EvalJsResult EvalJsWithManualReply(const ToRenderFrameHost& execution_target,
 // frame matches.
 RenderFrameHost* FrameMatchingPredicate(
     WebContents* web_contents,
-    const base::Callback<bool(RenderFrameHost*)>& predicate);
+    base::RepeatingCallback<bool(RenderFrameHost*)> predicate);
 
 // Predicates for use with FrameMatchingPredicate.
 bool FrameMatchesName(const std::string& name, RenderFrameHost* frame);
@@ -826,18 +820,28 @@ RenderFrameHost* ChildFrameAt(RenderFrameHost* frame, size_t index);
 bool ExecuteWebUIResourceTest(WebContents* web_contents,
                               const std::vector<int>& js_resource_ids);
 
-// Returns the serialized cookie string for the given url.
-std::string GetCookies(BrowserContext* browser_context, const GURL& url);
+// Returns the serialized cookie string for the given url. Uses a strictly
+// same-site SameSiteCookieContext by default, which gets cookies regardless of
+// their SameSite attribute.
+std::string GetCookies(
+    BrowserContext* browser_context,
+    const GURL& url,
+    net::CookieOptions::SameSiteCookieContext context =
+        net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
 
 // Returns the canonical cookies for the given url.
 std::vector<net::CanonicalCookie> GetCanonicalCookies(
     BrowserContext* browser_context,
     const GURL& url);
 
-// Sets a cookie for the given url. Returns true on success.
+// Sets a cookie for the given url. Uses a strictly same-site
+// SameSiteCookieContext by default, which gets cookies regardless of their
+// SameSite attribute. Returns true on success.
 bool SetCookie(BrowserContext* browser_context,
                const GURL& url,
-               const std::string& value);
+               const std::string& value,
+               net::CookieOptions::SameSiteCookieContext context =
+                   net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
 
 // Fetch the histograms data from other processes. This should be called after
 // the test code has been executed but before performing assertions.
@@ -904,7 +908,7 @@ void WaitForAccessibilityTreeToContainNodeWithName(WebContents* web_contents,
 ui::AXTreeUpdate GetAccessibilityTreeSnapshot(WebContents* web_contents);
 
 // Returns the root accessibility node for the given WebContents.
-BrowserAccessibility* GetRootAccessibilityNode(WebContents* web_contents);
+ui::AXPlatformNodeDelegate* GetRootAccessibilityNode(WebContents* web_contents);
 
 // Finds an accessibility node matching the given criteria.
 struct FindAccessibilityNodeCriteria {
@@ -913,18 +917,18 @@ struct FindAccessibilityNodeCriteria {
   base::Optional<ax::mojom::Role> role;
   base::Optional<std::string> name;
 };
-BrowserAccessibility* FindAccessibilityNode(
+ui::AXPlatformNodeDelegate* FindAccessibilityNode(
     WebContents* web_contents,
     const FindAccessibilityNodeCriteria& criteria);
-BrowserAccessibility* FindAccessibilityNodeInSubtree(
-    BrowserAccessibility* node,
+ui::AXPlatformNodeDelegate* FindAccessibilityNodeInSubtree(
+    ui::AXPlatformNodeDelegate* node,
     const FindAccessibilityNodeCriteria& criteria);
 
 #if defined(OS_WIN)
 // Retrieve the specified interface from an accessibility node.
 template <typename T>
 Microsoft::WRL::ComPtr<T> QueryInterfaceFromNode(
-    BrowserAccessibility* browser_accessibility);
+    ui::AXPlatformNodeDelegate* node);
 
 // Call GetPropertyValue with the given UIA property id with variant type
 // VT_ARRAY | VT_UNKNOWN  on the target browser accessibility node to retrieve
@@ -932,7 +936,7 @@ Microsoft::WRL::ComPtr<T> QueryInterfaceFromNode(
 // automation elements with the expected names.
 void UiaGetPropertyValueVtArrayVtUnknownValidate(
     PROPERTYID property_id,
-    BrowserAccessibility* target_browser_accessibility,
+    ui::AXPlatformNodeDelegate* target_node,
     const std::vector<std::string>& expected_names);
 #endif
 
@@ -976,6 +980,9 @@ std::vector<RenderWidgetHostView*> GetInputEventRouterRenderWidgetHostViews(
 
 // Returns the focused RenderWidgetHost.
 RenderWidgetHost* GetFocusedRenderWidgetHost(WebContents* web_contents);
+
+// Returns whether or not the RenderWidgetHost thinks it is focused.
+bool IsRenderWidgetHostFocused(const RenderWidgetHost*);
 
 // Returns the focused WebContents.
 WebContents* GetFocusedWebContents(WebContents* web_contents);
@@ -1147,7 +1154,7 @@ class WebContentsAddedObserver {
   void WebContentsCreated(WebContents* web_contents);
 
   // Callback to WebContentCreated(). Cached so that we can unregister it.
-  base::Callback<void(WebContents*)> web_contents_created_callback_;
+  base::RepeatingCallback<void(WebContents*)> web_contents_created_callback_;
 
   WebContents* web_contents_;
   std::unique_ptr<RenderViewCreatedObserver> child_observer_;
@@ -1592,22 +1599,12 @@ class PwnMessageHelper {
 };
 
 #if defined(USE_AURA)
-// Mock of an OverscrollController so we can inspect the scroll events that it
-// receives. Note that this is only a partial mock as the methods of a real
-// OverscrollController are being invoked.
-// TODO(mcnee): Tests needing this are BrowserPlugin specific. Remove after
-// removing BrowserPlugin (crbug.com/533069).
-class MockOverscrollController {
- public:
-  // Creates a mock and installs it on the given RenderWidgetHostViewAura.
-  // The returned mock is owned by the RWHVA.
-  static MockOverscrollController* Create(RenderWidgetHostView* rwhv);
 
-  virtual ~MockOverscrollController() {}
+// Tests that a |render_widget_host_view| stores a stale content when its frame
+// gets evicted. |render_widget_host_view| has to be a RenderWidgetHostViewAura.
+void VerifyStaleContentOnFrameEviction(
+    RenderWidgetHostView* render_widget_host_view);
 
-  // Waits until the mock receives a consumed GestureScrollUpdate.
-  virtual void WaitForConsumedScroll() = 0;
-};
 #endif  // defined(USE_AURA)
 
 // This class filters for FrameHostMsg_ContextMenu messages coming in
@@ -1671,16 +1668,13 @@ bool HasValidProcessForProcessGroup(const std::string& process_group_name);
 
 // Performs a simple auto-resize flow and ensures that the embedder gets a
 // single response messages back from the guest, with the expected values.
-bool TestChildOrGuestAutoresize(bool is_guest,
-                                RenderProcessHost* embedder_rph,
-                                RenderWidgetHost* guest_rwh);
+bool TestGuestAutoresize(RenderProcessHost* embedder_rph,
+                         RenderWidgetHost* guest_rwh);
 
-// Class to sniff incoming IPCs for either
-// FrameHostMsg_SynchronizeVisualProperties or
-// BrowserPluginHostMsg_SynchronizeVisualProperties messages. This allows the
-// message to continue to the target child so that processing can be verified by
-// tests.
-// It also monitors for GesturePinchBegin/End events.
+// Class to sniff incoming IPCs for FrameHostMsg_SynchronizeVisualProperties
+// messages. This allows the message to continue to the target child so that
+// processing can be verified by tests. It also monitors for
+// GesturePinchBegin/End events.
 class SynchronizeVisualPropertiesMessageFilter
     : public content::BrowserMessageFilter {
  public:
@@ -1711,9 +1705,6 @@ class SynchronizeVisualPropertiesMessageFilter
   void OnSynchronizeFrameHostVisualProperties(
       const viz::FrameSinkId& frame_sink_id,
       const FrameVisualProperties& visual_properties);
-  void OnSynchronizeBrowserPluginVisualProperties(
-      int browser_plugin_guest_instance_id,
-      FrameVisualProperties visual_properties);
   void OnSynchronizeVisualProperties(
       const viz::FrameSinkId& frame_sink_id,
       const FrameVisualProperties& visual_properties);
@@ -1724,7 +1715,6 @@ class SynchronizeVisualPropertiesMessageFilter
 
   bool OnMessageReceived(const IPC::Message& message) override;
 
-  static const uint32_t kMessageClassesToFilter[2];
   viz::FrameSinkId frame_sink_id_;
   base::RunLoop frame_sink_id_run_loop_;
 

@@ -7,6 +7,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
+#include "chrome/browser/optimization_guide/optimization_guide_top_host_provider.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/optimization_guide/hints_fetcher.h"
 #include "components/optimization_guide/hints_processing_util.h"
@@ -18,22 +19,24 @@
 
 namespace {
 
+bool WasHostCoveredByFetch(content::NavigationHandle* navigation_handle) {
+  return optimization_guide::HintsFetcher::WasHostCoveredByFetch(
+      Profile::FromBrowserContext(
+          navigation_handle->GetWebContents()->GetBrowserContext())
+          ->GetPrefs(),
+      navigation_handle->GetURL().host());
+}
+
 // Records if the host for the current navigation was successfully
 // covered by a HintsFetch. HintsFetching must be enabled and only HTTPS
 // navigations are logged. Returns whether navigation was covered by fetch.
 bool RecordHintsFetcherCoverage(content::NavigationHandle* navigation_handle) {
   if (!navigation_handle->GetURL().SchemeIs(url::kHttpsScheme))
     return false;
-  if (!optimization_guide::features::IsHintsFetchingEnabled())
+  if (!optimization_guide::features::IsRemoteFetchingEnabled())
     return false;
 
-  bool was_host_covered_by_fetch =
-      optimization_guide::HintsFetcher::WasHostCoveredByFetch(
-          Profile::FromBrowserContext(
-              navigation_handle->GetWebContents()->GetBrowserContext())
-              ->GetPrefs(),
-          navigation_handle->GetURL().GetOrigin().host());
-
+  bool was_host_covered_by_fetch = WasHostCoveredByFetch(navigation_handle);
   UMA_HISTOGRAM_BOOLEAN(
       "OptimizationGuide.HintsFetcher.NavigationHostCoveredByFetch",
       was_host_covered_by_fetch);
@@ -82,8 +85,9 @@ void OptimizationGuideWebContentsObserver::DidStartNavigation(
   if (!navigation_handle->IsInMainFrame())
     return;
 
-  // Record the HintsFetcher coverage for the navigation, regardless if the
-  // keyed service is active or not.
+  OptimizationGuideTopHostProvider::MaybeUpdateTopHostBlacklist(
+      navigation_handle);
+
   bool was_host_covered_by_fetch =
       RecordHintsFetcherCoverage(navigation_handle);
 
@@ -120,6 +124,7 @@ void OptimizationGuideWebContentsObserver::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
+
   // Delete Optimization Guide information later, so that other
   // DidFinishNavigation methods can reliably use
   // GetOptimizationGuideNavigationData regardless of order of
@@ -134,6 +139,14 @@ void OptimizationGuideWebContentsObserver::DidFinishNavigation(
                      weak_factory_.GetWeakPtr(),
                      navigation_handle->GetNavigationId(),
                      navigation_handle->HasCommitted()));
+
+  if (!optimization_guide_keyed_service_)
+    return;
+
+  OptimizationGuideNavigationData* nav_data =
+      GetOrCreateOptimizationGuideNavigationData(navigation_handle);
+  nav_data->set_was_host_covered_by_fetch_at_commit(
+      WasHostCoveredByFetch(navigation_handle));
 }
 
 void OptimizationGuideWebContentsObserver::

@@ -13,7 +13,6 @@
 #include "base/base64url.h"
 #include "base/bind.h"
 #include "base/containers/circular_deque.h"
-#include "base/message_loop/message_loop.h"
 #include "base/optional.h"
 #include "base/rand_util.h"
 #include "base/run_loop.h"
@@ -40,6 +39,7 @@
 #include "net/log/net_log.h"
 #include "net/log/net_log_capture_mode.h"
 #include "net/log/net_log_with_source.h"
+#include "net/log/test_net_log.h"
 #include "net/proxy_resolution/proxy_config_service_fixed.h"
 #include "net/socket/socket_test_util.h"
 #include "net/test/gtest_util.h"
@@ -389,7 +389,7 @@ class TransactionHelper {
   TestURLRequestContext request_context_;
   std::unique_ptr<base::RunLoop> transaction_complete_run_loop_;
   bool completed_;
-  NetLog net_log_;
+  TestNetLog net_log_;
 };
 
 // Callback that allows a test to modify HttpResponseinfo
@@ -770,6 +770,7 @@ class DnsTransactionTestBase : public testing::Test {
     EXPECT_TRUE(server_found);
 
     EXPECT_EQ(PRIVACY_MODE_ENABLED, request->privacy_mode());
+    EXPECT_TRUE(request->disable_secure_dns());
 
     std::string accept;
     EXPECT_TRUE(request->extra_request_headers().GetHeader("Accept", &accept));
@@ -1461,6 +1462,27 @@ TEST_F(DnsTransactionTest, HttpsPostLookupAsync) {
                       DnsQuery::PaddingStrategy::BLOCK_LENGTH_128);
   TransactionHelper helper0(kT0HostName, kT0Qtype, true /* secure */,
                             kT0RecordCount);
+  EXPECT_TRUE(helper0.RunUntilDone(transaction_factory_.get()));
+}
+
+URLRequestJob* DohJobMakerCallbackFailLookup(URLRequest* request,
+                                             NetworkDelegate* network_delegate,
+                                             SocketDataProvider* data) {
+  URLRequestMockDohJob::MatchQueryData(request, data);
+  return new URLRequestFailedJob(request, network_delegate,
+                                 URLRequestFailedJob::START,
+                                 ERR_NAME_NOT_RESOLVED);
+}
+
+TEST_F(DnsTransactionTest, HttpsPostLookupFailDohServerLookup) {
+  ConfigureDohServers(true /* use_post */);
+  AddQueryAndResponse(0, kT0HostName, kT0Qtype, kT0ResponseDatagram,
+                      base::size(kT0ResponseDatagram), SYNCHRONOUS,
+                      Transport::HTTPS, nullptr /* opt_rdata */,
+                      DnsQuery::PaddingStrategy::BLOCK_LENGTH_128);
+  TransactionHelper helper0(kT0HostName, kT0Qtype, true /* secure */,
+                            ERR_DNS_SECURE_RESOLVER_HOSTNAME_RESOLUTION_FAILED);
+  SetDohJobMakerCallback(base::BindRepeating(DohJobMakerCallbackFailLookup));
   EXPECT_TRUE(helper0.RunUntilDone(transaction_factory_.get()));
 }
 

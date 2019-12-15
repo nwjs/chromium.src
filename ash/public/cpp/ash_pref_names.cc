@@ -80,7 +80,7 @@ const char kAccessibilityFocusHighlightEnabled[] =
 // A boolean pref which determines whether select-to-speak is enabled.
 const char kAccessibilitySelectToSpeakEnabled[] =
     "settings.a11y.select_to_speak";
-// A boolean pref which determines whether switch access is enabled.
+// A boolean pref which determines whether Switch Access is enabled.
 const char kAccessibilitySwitchAccessEnabled[] =
     "settings.a11y.switch_access.enabled";
 // A pref that stores the key code for the "select" action.
@@ -102,7 +102,7 @@ const char kAccessibilitySwitchAccessPreviousKeyCodes[] =
 const char kAccessibilitySwitchAccessPreviousSetting[] =
     "settings.a11y.switch_access.previous.setting";
 // A boolean pref which determines whether auto-scanning is enabled within
-// switch access.
+// Switch Access.
 const char kAccessibilitySwitchAccessAutoScanEnabled[] =
     "settings.a11y.switch_access.auto_scan.enabled";
 // An integer pref which determines time delay in ms before automatically
@@ -197,6 +197,9 @@ const char kMessageCenterLockScreenModeShow[] = "show";
 const char kMessageCenterLockScreenModeHide[] = "hide";
 const char kMessageCenterLockScreenModeHideSensitive[] = "hideSensitive";
 
+// A boolean pref storing the enabled status of the ambient color feature.
+const char kAmbientColorEnabled[] = "ash.ambient_color.enabled";
+
 // A boolean pref storing the enabled status of the NightLight feature.
 const char kNightLightEnabled[] = "ash.night_light.enabled";
 
@@ -228,6 +231,11 @@ const char kNightLightCustomEndTime[] = "ash.night_light.custom_end_time";
 // geoposition to calculate the sunset / sunrise times.
 const char kNightLightCachedLatitude[] = "ash.night_light.cached_latitude";
 const char kNightLightCachedLongitude[] = "ash.night_light.cached_longitude";
+
+// A boolean pref storing whether the AutoNightLight notification has ever been
+// dismissed by the user, which we use to stop showing it again.
+const char kAutoNightLightNotificationDismissed[] =
+    "ash.auto_night_light.notification_dismissed";
 
 // Whether the Chrome OS lock screen is allowed.
 const char kAllowScreenLock[] = "allow_screen_lock";

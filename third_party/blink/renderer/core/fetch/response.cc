@@ -483,8 +483,9 @@ bool Response::HasPendingActivity() const {
   return Body::HasPendingActivity();
 }
 
-mojom::blink::FetchAPIResponsePtr Response::PopulateFetchAPIResponse() {
-  return response_->PopulateFetchAPIResponse();
+mojom::blink::FetchAPIResponsePtr Response::PopulateFetchAPIResponse(
+    const KURL& request_url) {
+  return response_->PopulateFetchAPIResponse(request_url);
 }
 
 Response::Response(ExecutionContext* context)
@@ -532,6 +533,10 @@ String Response::InternalMIMEType() const {
 
 const Vector<KURL>& Response::InternalURLList() const {
   return response_->InternalURLList();
+}
+
+FetchHeaderList* Response::InternalHeaderList() const {
+  return response_->InternalHeaderList();
 }
 
 void Response::Trace(blink::Visitor* visitor) {

@@ -6,7 +6,6 @@
 
 #include "base/no_destructor.h"
 #include "content/public/common/service_names.mojom.h"
-#include "services/content/public/cpp/manifest.h"
 #include "services/service_manager/public/cpp/manifest_builder.h"
 
 namespace content {
@@ -67,6 +66,7 @@ const service_manager::Manifest& GetContentBrowserManifest() {
                   "blink.mojom.MediaStreamTrackMetricsHost",
                   "blink.mojom.MimeRegistry",
                   "blink.mojom.OneShotBackgroundSyncService",
+                  "blink.mojom.PeerConnectionTrackerHost",
                   "blink.mojom.PeriodicBackgroundSyncService",
                   "blink.mojom.PluginRegistry",
                   "blink.mojom.PushMessaging",
@@ -77,7 +77,6 @@ const service_manager::Manifest& GetContentBrowserManifest() {
                   "content.mojom.ClipboardHost",
                   "content.mojom.FieldTrialRecorder",
                   "content.mojom.FrameSinkProvider",
-                  "content.mojom.PeerConnectionTrackerHost",
                   "content.mojom.RendererHost",
                   "content.mojom.ReportingServiceProxy",
                   "content.mojom.WorkerURLLoaderFactoryProvider",
@@ -106,7 +105,7 @@ const service_manager::Manifest& GetContentBrowserManifest() {
                   "discardable_memory.mojom.DiscardableSharedMemoryManager",
                   "media.mojom.AndroidOverlayProvider",
               })
-          .RequireCapability("data_decoder", "bundled_exchanges_parser_factory")
+          .RequireCapability("data_decoder", "web_bundle_parser_factory")
           .RequireCapability("data_decoder", "image_decoder")
           .RequireCapability("data_decoder", "json_parser")
           .RequireCapability("data_decoder", "xml_parser")
@@ -121,7 +120,6 @@ const service_manager::Manifest& GetContentBrowserManifest() {
           .RequireCapability("file", "file:leveldb")
           .RequireCapability("network", "network_service")
           .RequireCapability("network", "test")
-          .RequireCapability(mojom::kRendererServiceName, "browser")
           .RequireCapability("media", "media:media")
           .RequireCapability("media_renderer", "media:media")
           .RequireCapability("*", "app")
@@ -165,69 +163,14 @@ const service_manager::Manifest& GetContentBrowserManifest() {
           .RequireCapability("resource_coordinator", "app")
           .RequireCapability("resource_coordinator", "heap_profiler_helper")
           .ExposeInterfaceFilterCapability_Deprecated(
-              "navigation:shared_worker", "renderer",
-              std::set<const char*>{
-                  "blink.mojom.CacheStorage",
-                  "blink.mojom.NativeFileSystemManager",
-                  "blink.mojom.NotificationService",
-                  "blink.mojom.QuotaDispatcherHost",
-                  "blink.mojom.WebSocketConnector"})
-          .ExposeInterfaceFilterCapability_Deprecated(
-              "navigation:dedicated_worker", "renderer",
-              std::set<const char*>{
-                  "blink.mojom.CacheStorage",
-                  "blink.mojom.DedicatedWorkerHostFactory",
-                  "blink.mojom.NativeFileSystemManager",
-                  "blink.mojom.NotificationService",
-                  "blink.mojom.QuotaDispatcherHost",
-                  "blink.mojom.WebSocketConnector"})
-          .ExposeInterfaceFilterCapability_Deprecated(
-              "navigation:service_worker", "renderer",
-              std::set<const char*>{
-                  "blink.mojom.CacheStorage",
-                  "blink.mojom.NativeFileSystemManager",
-                  "blink.mojom.NotificationService",
-                  "blink.mojom.QuotaDispatcherHost",
-                  "network.mojom.RestrictedCookieManager",
-                  "blink.mojom.WebSocketConnector"})
-          .ExposeInterfaceFilterCapability_Deprecated(
               "navigation:frame", "renderer",
               std::set<const char*>{
                   "autofill.mojom.AutofillDriver",
                   "autofill.mojom.PasswordManagerDriver",
-                  "blink.mojom.CacheStorage",
-                  "blink.mojom.ColorChooserFactory",
-                  "blink.mojom.DateTimeChooser",
                   "blink.mojom.DisplayCutoutHost",
-                  "blink.mojom.DedicatedWorkerHostFactory",
-                  "blink.mojom.GeolocationService",
-                  "blink.mojom.NativeFileSystemManager",
-                  "blink.mojom.NotificationService",
                   "blink.mojom.Portal",
-                  "blink.mojom.PrefetchURLLoaderService",
-                  "blink.mojom.QuotaDispatcherHost",
-                  "blink.mojom.SharedWorkerConnector",
-                  "blink.mojom.TextSuggestionHost",
-                  "blink.mojom.UnhandledTapNotifier",
-                  "content.mojom.BrowserTarget",
-                  "content.mojom.InputInjector",
-                  "content.mojom.RendererAudioInputStreamFactory",
-                  "content.mojom.RendererAudioOutputStreamFactory",
-                  "device.mojom.Geolocation",
                   "discardable_memory.mojom.DiscardableSharedMemoryManager",
-                  "media.mojom.FuchsiaCdmProvider",
-                  "media.mojom.InterfaceFactory",
-                  "media.mojom.MediaMetricsProvider",
-                  "media.mojom.RemoterFactory",
-                  "media.mojom.Renderer",
-                  "mojom.ProcessInternalsHandler",
-                  "network.mojom.RestrictedCookieManager",
-                  "blink.mojom.WebSocketConnector",
-                  "performance_manager.mojom.DocumentCoordinationUnit",
                   "viz.mojom.Gpu"})
-          .RequireInterfaceFilterCapability_Deprecated(
-              mojom::kRendererServiceName, "navigation:frame", "browser")
-          .PackageService(content::GetManifest())
           .Build()};
   return *manifest;
   // clang-format on

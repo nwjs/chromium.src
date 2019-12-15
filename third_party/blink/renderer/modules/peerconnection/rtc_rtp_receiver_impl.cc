@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "third_party/blink/public/web/modules/peerconnection/rtc_rtp_receiver_impl.h"
+#include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_receiver_impl.h"
 
 #include "base/bind.h"
 #include "base/logging.h"
-#include "third_party/blink/public/platform/modules/peerconnection/webrtc_util.h"
-#include "third_party/blink/public/platform/web_rtc_rtp_source.h"
 #include "third_party/blink/public/platform/web_rtc_stats.h"
+#include "third_party/blink/renderer/platform/peerconnection/rtc_rtp_sender_platform.h"
+#include "third_party/blink/renderer/platform/peerconnection/rtc_rtp_source.h"
+#include "third_party/blink/renderer/platform/peerconnection/webrtc_util.h"
 #include "third_party/blink/renderer/platform/wtf/thread_safe_ref_counted.h"
 #include "third_party/webrtc/api/scoped_refptr.h"
 
@@ -158,14 +159,14 @@ class RTCRtpReceiverImpl::RTCRtpReceiverInternal
     state_ = std::move(state);
   }
 
-  blink::WebVector<std::unique_ptr<blink::WebRTCRtpSource>> GetSources() {
+  blink::WebVector<std::unique_ptr<RTCRtpSource>> GetSources() {
     // The webrtc_recever_ is a proxy, so this is a blocking call to the webrtc
     // signalling thread.
     auto webrtc_sources = webrtc_receiver_->GetSources();
-    blink::WebVector<std::unique_ptr<blink::WebRTCRtpSource>> sources(
+    blink::WebVector<std::unique_ptr<RTCRtpSource>> sources(
         webrtc_sources.size());
     for (size_t i = 0; i < webrtc_sources.size(); ++i) {
-      sources[i] = blink::CreateRTCRtpSource(webrtc_sources[i]);
+      sources[i] = std::make_unique<RTCRtpSource>(webrtc_sources[i]);
     }
     return sources;
   }
@@ -264,7 +265,7 @@ void RTCRtpReceiverImpl::set_state(RtpReceiverState state) {
   internal_->set_state(std::move(state));
 }
 
-std::unique_ptr<blink::WebRTCRtpReceiver> RTCRtpReceiverImpl::ShallowCopy()
+std::unique_ptr<RTCRtpReceiverPlatform> RTCRtpReceiverImpl::ShallowCopy()
     const {
   return std::make_unique<RTCRtpReceiverImpl>(*this);
 }
@@ -295,7 +296,7 @@ blink::WebVector<blink::WebString> RTCRtpReceiverImpl::StreamIds() const {
   return web_stream_ids;
 }
 
-blink::WebVector<std::unique_ptr<blink::WebRTCRtpSource>>
+blink::WebVector<std::unique_ptr<RTCRtpSource>>
 RTCRtpReceiverImpl::GetSources() {
   return internal_->GetSources();
 }
@@ -317,16 +318,16 @@ void RTCRtpReceiverImpl::SetJitterBufferMinimumDelay(
 }
 
 RTCRtpReceiverOnlyTransceiver::RTCRtpReceiverOnlyTransceiver(
-    std::unique_ptr<blink::WebRTCRtpReceiver> receiver)
+    std::unique_ptr<RTCRtpReceiverPlatform> receiver)
     : receiver_(std::move(receiver)) {
   DCHECK(receiver_);
 }
 
 RTCRtpReceiverOnlyTransceiver::~RTCRtpReceiverOnlyTransceiver() {}
 
-blink::WebRTCRtpTransceiverImplementationType
+RTCRtpTransceiverPlatformImplementationType
 RTCRtpReceiverOnlyTransceiver::ImplementationType() const {
-  return blink::WebRTCRtpTransceiverImplementationType::kPlanBReceiverOnly;
+  return RTCRtpTransceiverPlatformImplementationType::kPlanBReceiverOnly;
 }
 
 uintptr_t RTCRtpReceiverOnlyTransceiver::Id() const {
@@ -339,13 +340,13 @@ blink::WebString RTCRtpReceiverOnlyTransceiver::Mid() const {
   return blink::WebString();
 }
 
-std::unique_ptr<blink::WebRTCRtpSender> RTCRtpReceiverOnlyTransceiver::Sender()
-    const {
+std::unique_ptr<blink::RTCRtpSenderPlatform>
+RTCRtpReceiverOnlyTransceiver::Sender() const {
   NOTIMPLEMENTED();
   return nullptr;
 }
 
-std::unique_ptr<blink::WebRTCRtpReceiver>
+std::unique_ptr<RTCRtpReceiverPlatform>
 RTCRtpReceiverOnlyTransceiver::Receiver() const {
   return receiver_->ShallowCopy();
 }

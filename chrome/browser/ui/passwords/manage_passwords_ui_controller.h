@@ -30,8 +30,9 @@ class WebContents;
 namespace password_manager {
 enum class CredentialType;
 struct InteractionsStats;
+class PasswordFeatureManager;
 class PasswordFormManagerForUI;
-}
+}  // namespace password_manager
 
 class AccountChooserPrompt;
 struct AccountInfo;
@@ -110,6 +111,8 @@ class ManagePasswordsUIController
   const GURL& GetOrigin() const override;
   password_manager::PasswordFormMetricsRecorder*
   GetPasswordFormMetricsRecorder() override;
+  password_manager::PasswordFeatureManager* GetPasswordFeatureManager()
+      override;
   password_manager::ui::State GetState() const override;
   const autofill::PasswordForm& GetPendingPassword() const override;
   password_manager::metrics_util::CredentialSourceType GetCredentialSource()
@@ -148,13 +151,7 @@ class ManagePasswordsUIController
 #endif  // defined(UNIT_TEST)
 
  protected:
-  explicit ManagePasswordsUIController(
-      content::WebContents* web_contents);
-
-  // The pieces of saving and blacklisting passwords that interact with
-  // FormManager, split off into internal functions for testing/mocking.
-  virtual void SavePasswordInternal();
-  virtual void NeverSavePasswordInternal();
+  explicit ManagePasswordsUIController(content::WebContents* web_contents);
 
   // Hides the bubble if opened. Mocked in the tests.
   virtual void HidePasswordBubble();

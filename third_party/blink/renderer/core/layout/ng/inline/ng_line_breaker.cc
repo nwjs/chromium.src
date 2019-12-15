@@ -455,9 +455,7 @@ void NGLineBreaker::BreakLine(
       continue;
     }
     if (item.Type() == NGInlineItem::kOutOfFlowPositioned) {
-      NGInlineItemResult* item_result = AddItem(item, line_info);
-      ComputeCanBreakAfter(item_result, auto_wrap_, break_iterator_);
-      MoveToNextOf(item);
+      HandleOutOfFlowPositioned(item, line_info);
     } else if (item.Length()) {
       NOTREACHED();
       // For other items with text (e.g., bidi controls), use their text to
@@ -1455,15 +1453,18 @@ void NGLineBreaker::HandleFloat(const NGInlineItem& item,
 
   // TODO(ikilpatrick): Add support for float break tokens inside an inline
   // layout context.
-  NGUnpositionedFloat unpositioned_float(
-      NGBlockNode(ToLayoutBox(item.GetLayoutObject())),
-      /* break_token */ nullptr);
-
-  LayoutUnit inline_margin_size =
-      ComputeMarginBoxInlineSizeForUnpositionedFloat(
-          constraint_space_, node_.Style(), &unpositioned_float);
 
   LayoutUnit bfc_block_offset = line_opportunity_.bfc_block_offset;
+  NGUnpositionedFloat unpositioned_float(
+      NGBlockNode(ToLayoutBox(item.GetLayoutObject())),
+      /* break_token */ nullptr, constraint_space_.AvailableSize(),
+      constraint_space_.PercentageResolutionSize(),
+      constraint_space_.ReplacedPercentageResolutionSize(),
+      {constraint_space_.BfcOffset().line_offset, bfc_block_offset},
+      constraint_space_, node_.Style());
+
+  LayoutUnit inline_margin_size =
+      ComputeMarginBoxInlineSizeForUnpositionedFloat(&unpositioned_float);
 
   LayoutUnit used_size = position_ + inline_margin_size +
                          ComputeFloatAncestorInlineEndSize(
@@ -1496,14 +1497,8 @@ void NGLineBreaker::HandleFloat(const NGInlineItem& item,
   if (HasUnpositionedFloats(line_info->Results()) || float_after_line) {
     item_result->has_unpositioned_floats = true;
   } else {
-    NGPositionedFloat positioned_float = PositionFloat(
-        constraint_space_.AvailableSize(),
-        constraint_space_.PercentageResolutionSize(),
-        constraint_space_.ReplacedPercentageResolutionSize(),
-        {constraint_space_.BfcOffset().line_offset, bfc_block_offset},
-        &unpositioned_float, constraint_space_, node_.Style(),
-        exclusion_space_);
-
+    NGPositionedFloat positioned_float =
+        PositionFloat(&unpositioned_float, exclusion_space_);
     item_result->positioned_float = positioned_float;
 
     NGLayoutOpportunity opportunity = exclusion_space_->FindLayoutOpportunity(
@@ -1518,6 +1513,21 @@ void NGLineBreaker::HandleFloat(const NGInlineItem& item,
 
     DCHECK_GE(AvailableWidth(), LayoutUnit());
   }
+}
+
+void NGLineBreaker::HandleOutOfFlowPositioned(const NGInlineItem& item,
+                                              NGLineInfo* line_info) {
+  DCHECK_EQ(item.Type(), NGInlineItem::kOutOfFlowPositioned);
+  NGInlineItemResult* item_result = AddItem(item, line_info);
+
+  // Break opportunity after OOF is not well-defined nor interoperable. Using
+  // |kObjectReplacementCharacter|, except when this is a leading OOF, seems to
+  // produce reasonable and interoperable results in common cases.
+  DCHECK(!item_result->can_break_after);
+  if (item_result->should_create_line_box)
+    ComputeCanBreakAfter(item_result, auto_wrap_, break_iterator_);
+
+  MoveToNextOf(item);
 }
 
 bool NGLineBreaker::ComputeOpenTagResult(
@@ -1634,24 +1644,6 @@ void NGLineBreaker::HandleCloseTag(const NGInlineItem& item,
   ComputeCanBreakAfter(item_result, auto_wrap_, break_iterator_);
 }
 
-// Returns whether this item contains only spaces that can hang.
-bool NGLineBreaker::ShouldHangTraillingSpaces(const NGInlineItem& item) {
-  if (!item.Length())
-    return false;
-
-  const ComputedStyle& style = *item.Style();
-  if (!style.AutoWrap() || (!style.CollapseWhiteSpace() &&
-                            style.WhiteSpace() == EWhiteSpace::kBreakSpaces))
-    return false;
-
-  const String& text = Text();
-  for (unsigned i = item.StartOffset(); i < item.EndOffset(); ++i) {
-    if (!IsBreakableSpace(text[i]))
-      return false;
-  }
-  return true;
-}
-
 // Handles when the last item overflows.
 // At this point, item_results does not fit into the current line, and there
 // are no break opportunities in item_results.back().
@@ -1699,7 +1691,11 @@ void NGLineBreaker::HandleOverflow(NGLineInfo* line_info) {
     if (item.Type() == NGInlineItem::kText) {
       DCHECK(item_result->shape_result ||
              (item_result->break_anywhere_if_overflow &&
-              !override_break_anywhere_));
+              !override_break_anywhere_) ||
+             // |HandleTextForFastMinContent| can produce an item without
+             // |ShapeResult|. In this case, it is not breakable.
+             (mode_ == NGLineBreakerMode::kMinContent &&
+              !item_result->may_break_inside));
       // If space is available, and if this text is breakable, part of the text
       // may fit. Try to break this item.
       if (width_to_rewind < 0 && item_result->may_break_inside) {
@@ -2044,10 +2040,12 @@ void NGLineBreaker::SetCurrentStyle(const ComputedStyle& style) {
         line_break_type = LineBreakType::kKeepAll;
         break;
     }
+    EOverflowWrap overflow_wrap = style.OverflowWrap();
     break_anywhere_if_overflow_ =
         word_break == EWordBreak::kBreakWord ||
+        overflow_wrap == EOverflowWrap::kAnywhere ||
         // `overflow-/word-wrap: break-word` affects layout but not min-content.
-        (style.OverflowWrap() == EOverflowWrap::kBreakWord &&
+        (overflow_wrap == EOverflowWrap::kBreakWord &&
          mode_ == NGLineBreakerMode::kContent);
     if (UNLIKELY((override_break_anywhere_ && break_anywhere_if_overflow_) ||
                  style.GetLineBreak() == LineBreak::kAnywhere)) {

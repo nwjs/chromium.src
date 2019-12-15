@@ -4,7 +4,9 @@
 
 #include "ash/wm/toplevel_window_event_handler.h"
 
+#include "ash/app_list/app_list_controller_impl.h"
 #include "ash/home_screen/home_screen_controller.h"
+#include "ash/public/cpp/app_list/app_list_types.h"
 #include "ash/public/cpp/app_types.h"
 #include "ash/public/cpp/ash_features.h"
 #include "ash/session/session_controller_impl.h"
@@ -13,6 +15,7 @@
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/resize_shadow_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
+#include "ash/wm/tablet_mode/tablet_mode_window_manager.h"
 #include "ash/wm/window_resizer.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_state_observer.h"
@@ -41,10 +44,6 @@ namespace {
 // How many pixels are reserved for gesture events to start dragging the app
 // window from the top of the screen in tablet mode.
 constexpr int kDragStartTopEdgeInset = 8;
-
-// How many dips are reserved for gesture events to start swiping to previous
-// page from the left edge of the screen in tablet mode.
-constexpr int kStartGoingBackLeftEdgeInset = 16;
 
 // Returns whether |window| can be moved via a two finger drag given
 // the hittest results of the two fingers.
@@ -119,17 +118,13 @@ bool CanStartGoingBack() {
     return false;
   }
 
-  // Do not enable back gesture while overview mode is active but splitview is
-  // not active.
-  if (shell->overview_controller()->InOverviewSession() &&
-      !SplitViewController::Get(Shell::GetPrimaryRootWindow())
-           ->InSplitViewMode()) {
+  // Do not enable back gesture if home screen is visible but not in
+  // |kFullscreenSearch| state.
+  if (shell->home_screen_controller()->IsHomeScreenVisible() &&
+      shell->app_list_controller()->GetAppListViewState() !=
+          AppListViewState::kFullscreenSearch) {
     return false;
   }
-
-  // Do not enable back gesture if home screen is visible.
-  if (shell->home_screen_controller()->IsHomeScreenVisible())
-    return false;
 
   return true;
 }
@@ -148,7 +143,8 @@ bool StartedAwayFromLeftArea(ui::GestureEvent* event) {
           .work_area();
 
   gfx::Rect hit_bounds_in_screen(work_area_bounds);
-  hit_bounds_in_screen.set_width(kStartGoingBackLeftEdgeInset);
+  hit_bounds_in_screen.set_width(
+      ToplevelWindowEventHandler::kStartGoingBackLeftEdgeInset);
   return hit_bounds_in_screen.Contains(location_in_screen);
 }
 
@@ -261,6 +257,12 @@ ToplevelWindowEventHandler::~ToplevelWindowEventHandler() {
 void ToplevelWindowEventHandler::OnDisplayMetricsChanged(
     const display::Display& display,
     uint32_t metrics) {
+  // Cancel the left edge swipe back during screen rotation.
+  if (metrics & DISPLAY_METRIC_ROTATION) {
+    back_gesture_affordance_.reset();
+    going_back_started_ = false;
+  }
+
   if (!window_resizer_ || !(metrics & DISPLAY_METRIC_ROTATION))
     return;
 
@@ -508,6 +510,30 @@ void ToplevelWindowEventHandler::OnGestureEvent(ui::GestureEvent* event) {
     default:
       return;
   }
+}
+
+void ToplevelWindowEventHandler::OnTouchEvent(ui::TouchEvent* event) {
+  if (first_touch_id_ == ui::kPointerIdUnknown)
+    first_touch_id_ = event->pointer_details().id;
+
+  if (event->pointer_details().id != first_touch_id_)
+    return;
+
+  if (event->type() == ui::ET_TOUCH_RELEASED)
+    first_touch_id_ = ui::kPointerIdUnknown;
+
+  if (event->type() == ui::ET_TOUCH_PRESSED) {
+    x_drag_amount_ = y_drag_amount_ = 0;
+    during_reverse_dragging_ = false;
+  } else {
+    const gfx::Point current_location = event->location();
+    x_drag_amount_ += (current_location.x() - last_touch_point_.x());
+    y_drag_amount_ += (current_location.y() - last_touch_point_.y());
+    during_reverse_dragging_ =
+        current_location.x() < last_touch_point_.x() ? true : false;
+  }
+
+  last_touch_point_ = event->location();
 }
 
 bool ToplevelWindowEventHandler::AttemptToStartDrag(
@@ -861,12 +887,12 @@ void ToplevelWindowEventHandler::UpdateGestureTarget(
 
 bool ToplevelWindowEventHandler::HandleGoingBackFromLeftEdge(
     ui::GestureEvent* event) {
+  aura::Window* target = static_cast<aura::Window*>(event->target());
   if (!CanStartGoingBack())
     return false;
 
   gfx::Point screen_location = event->location();
-  ::wm::ConvertPointToScreen(static_cast<aura::Window*>(event->target()),
-                             &screen_location);
+  ::wm::ConvertPointToScreen(target, &screen_location);
   switch (event->type()) {
     case ui::ET_GESTURE_SCROLL_BEGIN: {
       going_back_started_ = StartedAwayFromLeftArea(event);
@@ -880,27 +906,31 @@ bool ToplevelWindowEventHandler::HandleGoingBackFromLeftEdge(
       if (!going_back_started_)
         break;
       DCHECK(back_gesture_affordance_);
-      back_gesture_affordance_->SetDragProgress(screen_location.x());
+      back_gesture_affordance_->Update(x_drag_amount_, y_drag_amount_,
+                                       during_reverse_dragging_);
       return true;
     case ui::ET_GESTURE_SCROLL_END:
     case ui::ET_SCROLL_FLING_START: {
       if (!going_back_started_)
         break;
       DCHECK(back_gesture_affordance_);
-      if ((event->type() == ui::ET_GESTURE_SCROLL_END &&
-           screen_location.x() >= kSwipingDistanceForGoingBack) ||
+      if (back_gesture_affordance_->IsActivated() ||
           (event->type() == ui::ET_SCROLL_FLING_START &&
            event->details().velocity_x() >= kFlingVelocityForGoingBack)) {
-        aura::Window* root_window =
-            window_util::GetRootWindowAt(screen_location);
-        ui::KeyEvent press_key_event(ui::ET_KEY_PRESSED, ui::VKEY_BROWSER_BACK,
-                                     ui::EF_NONE);
-        ignore_result(
-            root_window->GetHost()->SendEventToSink(&press_key_event));
-        ui::KeyEvent release_key_event(ui::ET_KEY_RELEASED,
+        if (TabletModeWindowManager::ShouldMinimizeTopWindowOnBack()) {
+          WindowState::Get(TabletModeWindowManager::GetTopWindow())->Minimize();
+        } else {
+          aura::Window* root_window =
+              window_util::GetRootWindowAt(screen_location);
+          ui::KeyEvent press_key_event(ui::ET_KEY_PRESSED,
                                        ui::VKEY_BROWSER_BACK, ui::EF_NONE);
-        ignore_result(
-            root_window->GetHost()->SendEventToSink(&release_key_event));
+          ignore_result(
+              root_window->GetHost()->SendEventToSink(&press_key_event));
+          ui::KeyEvent release_key_event(ui::ET_KEY_RELEASED,
+                                         ui::VKEY_BROWSER_BACK, ui::EF_NONE);
+          ignore_result(
+              root_window->GetHost()->SendEventToSink(&release_key_event));
+        }
         back_gesture_affordance_->Complete();
       } else {
         back_gesture_affordance_->Abort();

@@ -58,34 +58,28 @@ namespace attestation {
 
 namespace {
 
-// Certificate errors as reported to the calling extension.
-const int kDBusError = 1;
-const int kUserRejected = 2;
-const int kGetCertificateFailed = 3;
-const int kResetRequired = 4;
-const int kPrepareKeyAttestationUnsupported = 5;
-
 const char kUserEmail[] = "test@google.com";
 const char kChallenge[] = "challenge";
 const char kResponse[] = "response";
 const char kKeyNameForSpkac[] = "attest-ent-machine-123456";
 
-void RegisterKeyCallbackTrue(
-    chromeos::attestation::AttestationKeyType key_type,
-    const cryptohome::Identification& user_id,
-    const std::string& key_name,
-    const cryptohome::AsyncMethodCaller::Callback& callback) {
+void RegisterKeyCallbackTrue(chromeos::attestation::AttestationKeyType key_type,
+                             const cryptohome::Identification& user_id,
+                             const std::string& key_name,
+                             cryptohome::AsyncMethodCaller::Callback callback) {
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::BindOnce(callback, true, cryptohome::MOUNT_ERROR_NONE));
+      FROM_HERE,
+      base::BindOnce(std::move(callback), true, cryptohome::MOUNT_ERROR_NONE));
 }
 
 void RegisterKeyCallbackFalse(
     chromeos::attestation::AttestationKeyType key_type,
     const cryptohome::Identification& user_id,
     const std::string& key_name,
-    const cryptohome::AsyncMethodCaller::Callback& callback) {
+    cryptohome::AsyncMethodCaller::Callback callback) {
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::BindOnce(callback, false, cryptohome::MOUNT_ERROR_NONE));
+      FROM_HERE,
+      base::BindOnce(std::move(callback), false, cryptohome::MOUNT_ERROR_NONE));
 }
 
 void SignChallengeCallbackTrue(
@@ -97,9 +91,9 @@ void SignChallengeCallbackTrue(
     chromeos::attestation::AttestationChallengeOptions options,
     const std::string& challenge,
     const std::string& key_name_for_spkac,
-    const cryptohome::AsyncMethodCaller::DataCallback& callback) {
+    cryptohome::AsyncMethodCaller::DataCallback callback) {
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::BindOnce(callback, true, "response"));
+      FROM_HERE, base::BindOnce(std::move(callback), true, "response"));
 }
 
 void SignChallengeCallbackFalse(
@@ -111,9 +105,9 @@ void SignChallengeCallbackFalse(
     chromeos::attestation::AttestationChallengeOptions options,
     const std::string& challenge,
     const std::string& key_name_for_spkac,
-    const cryptohome::AsyncMethodCaller::DataCallback& callback) {
+    cryptohome::AsyncMethodCaller::DataCallback callback) {
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::BindOnce(callback, false, ""));
+      FROM_HERE, base::BindOnce(std::move(callback), false, ""));
 }
 
 void GetCertificateCallbackTrue(
@@ -230,12 +224,6 @@ class TpmChallengeKeyTestBase : public BrowserWithTestWindowTest {
     signin::MakePrimaryAccountAvailable(identity_manager, kUserEmail);
   }
 
-  // Returns an error string for the given code.
-  static std::string GetCertificateError(int error_code) {
-    return base::StringPrintf(TpmChallengeKeyImpl::kGetCertificateFailedError,
-                              error_code);
-  }
-
   void RunFunc(const std::string& challenge,
                bool register_key,
                const std::string& key_name_for_spkac,
@@ -248,9 +236,9 @@ class TpmChallengeKeyTestBase : public BrowserWithTestWindowTest {
     };
 
     base::RunLoop loop;
-    challenge_key_impl_->Run(key_type_, GetProfile(),
-                             base::Bind(callback, loop.QuitClosure(), res),
-                             challenge, register_key, key_name_for_spkac);
+    challenge_key_impl_->BuildResponse(
+        key_type_, GetProfile(), base::Bind(callback, loop.QuitClosure(), res),
+        challenge, register_key, key_name_for_spkac);
     loop.Run();
   }
 
@@ -280,9 +268,10 @@ TEST_F(TpmChallengeMachineKeyTest, NonEnterpriseDevice) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(TpmChallengeKeyImpl::kNonEnterpriseDeviceError, res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kNonEnterpriseDeviceErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeMachineKeyTest, DevicePolicyDisabled) {
@@ -292,9 +281,10 @@ TEST_F(TpmChallengeMachineKeyTest, DevicePolicyDisabled) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(TpmChallengeKeyImpl::kDevicePolicyDisabledError, res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kDevicePolicyDisabledErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeMachineKeyTest, DoesKeyExistDbusFailed) {
@@ -303,9 +293,9 @@ TEST_F(TpmChallengeMachineKeyTest, DoesKeyExistDbusFailed) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(GetCertificateError(kDBusError), res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kDbusErrorMsg, res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeMachineKeyTest, GetCertificateFailed) {
@@ -315,9 +305,10 @@ TEST_F(TpmChallengeMachineKeyTest, GetCertificateFailed) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(GetCertificateError(kGetCertificateFailed), res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kGetCertificateFailedErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeMachineKeyTest, SignChallengeFailed) {
@@ -327,9 +318,10 @@ TEST_F(TpmChallengeMachineKeyTest, SignChallengeFailed) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(TpmChallengeKeyImpl::kSignChallengeFailedError, res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kSignChallengeFailedErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeMachineKeyTest, KeyExists) {
@@ -341,9 +333,8 @@ TEST_F(TpmChallengeMachineKeyTest, KeyExists) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_TRUE(res.is_success);
+  EXPECT_TRUE(res.IsSuccess());
   EXPECT_EQ(kResponse, res.data);
-  EXPECT_EQ("", res.error_message);
 }
 
 TEST_F(TpmChallengeMachineKeyTest, AttestationNotPrepared) {
@@ -352,9 +343,10 @@ TEST_F(TpmChallengeMachineKeyTest, AttestationNotPrepared) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(GetCertificateError(kResetRequired), res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kResetRequiredErrorMsg,
+            res.GetErrorMessage());
 }
 
 // Test that we get proper error message in case we don't have TPM.
@@ -365,10 +357,10 @@ TEST_F(TpmChallengeMachineKeyTest, AttestationUnsupported) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(GetCertificateError(kPrepareKeyAttestationUnsupported),
-            res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kAttestationUnsupportedErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeMachineKeyTest, AttestationPreparedDbusFailed) {
@@ -377,9 +369,9 @@ TEST_F(TpmChallengeMachineKeyTest, AttestationPreparedDbusFailed) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(GetCertificateError(kDBusError), res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kDbusErrorMsg, res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeMachineKeyTest, KeyRegistrationFailed) {
@@ -389,10 +381,10 @@ TEST_F(TpmChallengeMachineKeyTest, KeyRegistrationFailed) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, kKeyNameForSpkac, &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(TpmChallengeKeyImpl::kKeyRegistrationFailedError,
-            res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kKeyRegistrationFailedErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeMachineKeyTest, KeyNotRegisteredSuccess) {
@@ -401,9 +393,8 @@ TEST_F(TpmChallengeMachineKeyTest, KeyNotRegisteredSuccess) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_TRUE(res.is_success);
+  EXPECT_TRUE(res.IsSuccess());
   EXPECT_EQ(kResponse, res.data);
-  EXPECT_EQ("", res.error_message);
 }
 
 TEST_F(TpmChallengeMachineKeyTest, KeyRegisteredSuccess) {
@@ -430,9 +421,8 @@ TEST_F(TpmChallengeMachineKeyTest, KeyRegisteredSuccess) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, kKeyNameForSpkac, &res);
 
-  EXPECT_TRUE(res.is_success);
+  EXPECT_TRUE(res.IsSuccess());
   EXPECT_EQ(kResponse, res.data);
-  EXPECT_EQ("", res.error_message);
 }
 
 // Tests the API with all profiles types as determined by the test parameter.
@@ -462,9 +452,8 @@ TEST_P(TpmChallengeMachineKeyAllProfilesTest, Success) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_TRUE(res.is_success);
+  EXPECT_TRUE(res.IsSuccess());
   EXPECT_EQ(kResponse, res.data);
-  EXPECT_EQ("", res.error_message);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -497,9 +486,10 @@ TEST_F(TpmChallengeUserKeyTest, UserPolicyDisabled) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(TpmChallengeKeyImpl::kUserPolicyDisabledError, res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kUserPolicyDisabledErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeUserKeyTest, DevicePolicyDisabled) {
@@ -509,9 +499,10 @@ TEST_F(TpmChallengeUserKeyTest, DevicePolicyDisabled) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(TpmChallengeKeyImpl::kDevicePolicyDisabledError, res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kDevicePolicyDisabledErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeUserKeyTest, DoesKeyExistDbusFailed) {
@@ -520,9 +511,9 @@ TEST_F(TpmChallengeUserKeyTest, DoesKeyExistDbusFailed) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(GetCertificateError(kDBusError), res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kDbusErrorMsg, res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeUserKeyTest, GetCertificateFailedWithUnspecifiedFailure) {
@@ -532,9 +523,10 @@ TEST_F(TpmChallengeUserKeyTest, GetCertificateFailedWithUnspecifiedFailure) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(GetCertificateError(kGetCertificateFailed), res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kGetCertificateFailedErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeUserKeyTest, GetCertificateFailedWithBadRequestFailure) {
@@ -544,9 +536,10 @@ TEST_F(TpmChallengeUserKeyTest, GetCertificateFailedWithBadRequestFailure) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(GetCertificateError(kGetCertificateFailed), res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kGetCertificateFailedErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeUserKeyTest, SignChallengeFailed) {
@@ -556,9 +549,10 @@ TEST_F(TpmChallengeUserKeyTest, SignChallengeFailed) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(TpmChallengeKeyImpl::kSignChallengeFailedError, res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kSignChallengeFailedErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeUserKeyTest, KeyRegistrationFailed) {
@@ -568,10 +562,10 @@ TEST_F(TpmChallengeUserKeyTest, KeyRegistrationFailed) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(TpmChallengeKeyImpl::kKeyRegistrationFailedError,
-            res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kKeyRegistrationFailedErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeUserKeyTest, KeyExists) {
@@ -585,9 +579,8 @@ TEST_F(TpmChallengeUserKeyTest, KeyExists) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_TRUE(res.is_success);
+  EXPECT_TRUE(res.IsSuccess());
   EXPECT_EQ(kResponse, res.data);
-  EXPECT_EQ("", res.error_message);
 }
 
 TEST_F(TpmChallengeUserKeyTest, KeyNotRegisteredSuccess) {
@@ -596,9 +589,8 @@ TEST_F(TpmChallengeUserKeyTest, KeyNotRegisteredSuccess) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_TRUE(res.is_success);
+  EXPECT_TRUE(res.IsSuccess());
   EXPECT_EQ(kResponse, res.data);
-  EXPECT_EQ("", res.error_message);
 }
 
 TEST_F(TpmChallengeUserKeyTest, PersonalDevice) {
@@ -608,9 +600,10 @@ TEST_F(TpmChallengeUserKeyTest, PersonalDevice) {
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
   // Currently personal devices are not supported.
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(GetCertificateError(kUserRejected), res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kUserRejectedErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeUserKeyTest, Success) {
@@ -639,9 +632,8 @@ TEST_F(TpmChallengeUserKeyTest, Success) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_TRUE(res.is_success);
+  EXPECT_TRUE(res.IsSuccess());
   EXPECT_EQ(kResponse, res.data);
-  EXPECT_EQ("", res.error_message);
 }
 
 TEST_F(TpmChallengeUserKeyTest, AttestationNotPrepared) {
@@ -650,9 +642,10 @@ TEST_F(TpmChallengeUserKeyTest, AttestationNotPrepared) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(GetCertificateError(kResetRequired), res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kResetRequiredErrorMsg,
+            res.GetErrorMessage());
 }
 
 TEST_F(TpmChallengeUserKeyTest, AttestationPreparedDbusFailed) {
@@ -661,9 +654,9 @@ TEST_F(TpmChallengeUserKeyTest, AttestationPreparedDbusFailed) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(GetCertificateError(kDBusError), res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kDbusErrorMsg, res.GetErrorMessage());
 }
 
 class TpmChallengeUserKeySigninProfileTest : public TpmChallengeUserKeyTest {
@@ -679,9 +672,10 @@ TEST_F(TpmChallengeUserKeySigninProfileTest, UserKeyNotAvailable) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(TpmChallengeKeyImpl::kUserKeyNotAvailable, res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kUserKeyNotAvailableErrorMsg,
+            res.GetErrorMessage());
 }
 
 class TpmChallengeMachineKeyUnmanagedUserTest
@@ -708,9 +702,10 @@ TEST_F(TpmChallengeMachineKeyUnmanagedUserTest, UserNotManaged) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/false, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(TpmChallengeKeyImpl::kUserNotManaged, res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kUserNotManagedErrorMsg,
+            res.GetErrorMessage());
 }
 
 class TpmChallengeUserKeyUnmanagedUserTest : public TpmChallengeUserKeyTest {
@@ -736,9 +731,10 @@ TEST_F(TpmChallengeUserKeyUnmanagedUserTest, UserNotManaged) {
   TpmChallengeKeyResult res;
   RunFunc(kChallenge, /*register_key=*/true, "", &res);
 
-  EXPECT_FALSE(res.is_success);
+  EXPECT_FALSE(res.IsSuccess());
   EXPECT_EQ("", res.data);
-  EXPECT_EQ(TpmChallengeKeyImpl::kUserNotManaged, res.error_message);
+  EXPECT_EQ(TpmChallengeKeyResult::kUserNotManagedErrorMsg,
+            res.GetErrorMessage());
 }
 
 }  // namespace

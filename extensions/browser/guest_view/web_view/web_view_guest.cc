@@ -220,6 +220,15 @@ static base::LazyInstance<WebViewKeyToIDMap>::DestructorAtExit
 
 }  // namespace
 
+WebViewGuest::NewWindowInfo::NewWindowInfo(const GURL& url,
+                                           const std::string& name)
+    : name(name), url(url) {}
+
+WebViewGuest::NewWindowInfo::NewWindowInfo(const WebViewGuest::NewWindowInfo&) =
+    default;
+
+WebViewGuest::NewWindowInfo::~NewWindowInfo() = default;
+
 // static
 void WebViewGuest::CleanUp(content::BrowserContext* browser_context,
                            int embedder_process_id,
@@ -632,14 +641,6 @@ bool WebViewGuest::PreHandleGestureEvent(WebContents* source,
   return !allow_scaling_ && GuestViewBase::PreHandleGestureEvent(source, event);
 }
 
-void WebViewGuest::LoadProgressChanged(WebContents* source, double progress) {
-  auto args = std::make_unique<base::DictionaryValue>();
-  args->SetString(guest_view::kUrl, web_contents()->GetURL().spec());
-  args->SetDouble(webview::kProgress, progress);
-  DispatchEventToView(std::make_unique<GuestViewEvent>(
-      webview::kEventLoadProgress, std::move(args)));
-}
-
 void WebViewGuest::LoadAbort(bool is_top_level,
                              const GURL& url,
                              int error_code) {
@@ -913,6 +914,14 @@ void WebViewGuest::DidFinishNavigation(
   find_helper_.CancelAllFindSessions();
 }
 
+void WebViewGuest::LoadProgressChanged(double progress) {
+  auto args = std::make_unique<base::DictionaryValue>();
+  args->SetString(guest_view::kUrl, web_contents()->GetURL().spec());
+  args->SetDouble(webview::kProgress, progress);
+  DispatchEventToView(std::make_unique<GuestViewEvent>(
+      webview::kEventLoadProgress, std::move(args)));
+}
+
 void WebViewGuest::DocumentOnLoadCompletedInMainFrame() {
   auto args = std::make_unique<base::DictionaryValue>();
   DispatchEventToView(std::make_unique<GuestViewEvent>(
@@ -1058,11 +1067,9 @@ void WebViewGuest::CanDownload(const GURL& url,
 void WebViewGuest::RequestPointerLockPermission(
     bool user_gesture,
     bool last_unlocked_by_target,
-    const base::Callback<void(bool)>& callback) {
+    base::OnceCallback<void(bool)> callback) {
   web_view_permission_helper_->RequestPointerLockPermission(
-      user_gesture,
-      last_unlocked_by_target,
-      callback);
+      user_gesture, last_unlocked_by_target, std::move(callback));
 }
 
 void WebViewGuest::SignalWhenReady(base::OnceClosure callback) {

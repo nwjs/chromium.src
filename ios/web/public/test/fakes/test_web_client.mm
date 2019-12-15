@@ -104,10 +104,12 @@ void TestWebClient::PrepareErrorPage(
     NSError* error,
     bool is_post,
     bool is_off_the_record,
+    const base::Optional<net::SSLInfo>& info,
+    int64_t navigation_id,
     base::OnceCallback<void(NSString*)> callback) {
   std::move(callback).Run(base::SysUTF8ToNSString(testing::GetErrorText(
       web_state, url, base::SysNSStringToUTF8(error.domain), error.code,
-      is_post, is_off_the_record)));
+      is_post, is_off_the_record, info.has_value())));
 }
 
 UIView* TestWebClient::GetWindowedContainer() {

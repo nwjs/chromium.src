@@ -19,7 +19,8 @@ import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskRunner;
 import org.chromium.base.task.TaskTraits;
-import org.chromium.chrome.browser.safe_browsing.FileTypePolicies;
+import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.safe_browsing.SafeBrowsingBridge;
 import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.chrome.browser.share.ShareParams;
 import org.chromium.content_public.browser.WebContents;
@@ -42,7 +43,7 @@ import java.util.Set;
  * third_party/blink/public/mojom/webshare/webshare.mojom.
  */
 public class ShareServiceImpl implements ShareService {
-    private final Activity mActivity;
+    private final WindowAndroid mWindow;
 
     private static final String TAG = "share";
 
@@ -142,7 +143,7 @@ public class ShareServiceImpl implements ShareService {
             PostTask.createSequencedTaskRunner(TaskTraits.USER_BLOCKING);
 
     public ShareServiceImpl(@Nullable WebContents webContents) {
-        mActivity = activityFromWebContents(webContents);
+        mWindow = webContents.getTopLevelNativeWindow();
     }
 
     @Override
@@ -157,7 +158,7 @@ public class ShareServiceImpl implements ShareService {
         RecordHistogram.recordEnumeratedHistogram("WebShare.ApiCount", WEBSHARE_METHOD_SHARE,
                 WEBSHARE_METHOD_COUNT);
 
-        if (mActivity == null) {
+        if (mWindow.getActivity().get() == null) {
             RecordHistogram.recordEnumeratedHistogram("WebShare.ShareOutcome",
                     WEBSHARE_OUTCOME_UNKNOWN_FAILURE, WEBSHARE_OUTCOME_COUNT);
             callback.call(ShareError.INTERNAL_ERROR);
@@ -180,12 +181,13 @@ public class ShareServiceImpl implements ShareService {
             }
         };
 
-        final ShareParams.Builder paramsBuilder = new ShareParams.Builder(mActivity, title, url.url)
+        final ShareParams.Builder paramsBuilder = new ShareParams.Builder(mWindow, title, url.url)
                                                           .setText(text)
                                                           .setCallback(innerCallback);
 
         if (files == null || files.length == 0) {
-            ShareHelper.share(paramsBuilder.build());
+            ChromeActivity activity = (ChromeActivity) mWindow.getActivity().get();
+            activity.getShareDelegate().share(paramsBuilder.build());
             return;
         }
 
@@ -196,7 +198,7 @@ public class ShareServiceImpl implements ShareService {
 
         for (SharedFile file : files) {
             RecordHistogram.recordSparseHistogram(
-                    "WebShare.Unverified", FileTypePolicies.umaValueForFile(file.name));
+                    "WebShare.Unverified", SafeBrowsingBridge.umaValueForFile(file.name));
         }
 
         for (SharedFile file : files) {

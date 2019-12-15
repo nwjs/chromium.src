@@ -30,6 +30,11 @@
 PageActionIconContainerView::Params::Params() = default;
 PageActionIconContainerView::Params::~Params() = default;
 
+// static
+const char
+    PageActionIconContainerView::kPageActionIconContainerViewClassName[] =
+        "PageActionIconContainerView";
+
 PageActionIconContainerView::PageActionIconContainerView(const Params& params)
     : zoom_observer_(this) {
   DCHECK(params.page_action_icon_delegate);
@@ -251,12 +256,12 @@ void PageActionIconContainerView::ZoomChangedForActiveTab(
     zoom_icon_->ZoomChangedForActiveTab(can_show_bubble);
 }
 
-void PageActionIconContainerView::ChildPreferredSizeChanged(
-    views::View* child) {
-  PreferredSizeChanged();
+const char* PageActionIconContainerView::GetClassName() const {
+  return kPageActionIconContainerViewClassName;
 }
 
-void PageActionIconContainerView::ChildVisibilityChanged(views::View* child) {
+void PageActionIconContainerView::ChildPreferredSizeChanged(
+    views::View* child) {
   PreferredSizeChanged();
 }
 

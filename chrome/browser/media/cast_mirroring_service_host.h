@@ -25,8 +25,8 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "ui/gfx/geometry/size.h"
 
-// TODO(https://crbug.com/879012): Remove the build flag. OffscreenTab should
-// not only be defined when extension is enabled.
+// TODO(crbug.com/879012): Remove the build flag. OffscreenTab should not only
+// be defined when extension is enabled.
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/media/offscreen_tab.h"
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
@@ -34,6 +34,7 @@
 namespace content {
 class AudioLoopbackStreamCreator;
 class BrowserContext;
+struct DesktopMediaID;
 class WebContents;
 }  // namespace content
 
@@ -56,9 +57,15 @@ class CastMirroringServiceHost final : public mojom::MirroringServiceHost,
       content::WebContents* target_contents,
       mojo::PendingReceiver<mojom::MirroringServiceHost> receiver);
 
+  // TODO(crbug.com/809249): Remove when the extension-based implementation of
+  // the Cast MRP is removed.
   static void GetForDesktop(
       content::WebContents* initiator_contents,
       const std::string& desktop_stream_id,
+      mojo::PendingReceiver<mojom::MirroringServiceHost> receiver);
+
+  static void GetForDesktop(
+      const content::DesktopMediaID& media_id,
       mojo::PendingReceiver<mojom::MirroringServiceHost> receiver);
 
   static void GetForOffscreenTab(

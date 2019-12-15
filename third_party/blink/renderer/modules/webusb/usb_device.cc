@@ -40,6 +40,7 @@ namespace blink {
 
 namespace {
 
+const char kBufferTooBig[] = "The data buffer exceeded its maximum size.";
 const char kDetachedBuffer[] = "The data buffer has been detached.";
 const char kDeviceStateChangeInProgress[] =
     "An operation that changes the device state is in progress.";
@@ -50,6 +51,15 @@ const char kInterfaceNotFound[] =
 const char kInterfaceStateChangeInProgress[] =
     "An operation that changes interface state is in progress.";
 const char kOpenRequired[] = "The device must be opened first.";
+const char kExtensionProtocol[] = "chrome-extension";
+const char kImprivataLoginScreenProdExtensionId[] =
+    "lpimkpkllnkdlcigdbgmabfplniahkgm";
+const char kImprivataLoginScreenDevExtensionId[] =
+    "cdgickkdpbekbnalbmpgochbninibkko";
+const char kImprivataInSessionProdExtensionId[] =
+    "cokoeepjbmmnhgdhlkpahohdaiedfjgn";
+const char kImprivataInSessionDevExtensionId[] =
+    "omificdfgpipkkpdhbjmefgfgbppehke";
 
 DOMException* ConvertFatalTransferStatus(const UsbTransferStatus& status) {
   switch (status) {
@@ -99,15 +109,21 @@ bool ConvertBufferSource(const ArrayBufferOrArrayBufferView& buffer_source,
                          ScriptPromiseResolver* resolver) {
   DCHECK(!buffer_source.IsNull());
   if (buffer_source.IsArrayBuffer()) {
-    ArrayBuffer* array_buffer = buffer_source.GetAsArrayBuffer()->Buffer();
+    DOMArrayBuffer* array_buffer = buffer_source.GetAsArrayBuffer();
     if (array_buffer->IsDetached()) {
       resolver->Reject(MakeGarbageCollected<DOMException>(
           DOMExceptionCode::kInvalidStateError, kDetachedBuffer));
       return false;
     }
+    if (array_buffer->ByteLengthAsSizeT() >
+        std::numeric_limits<wtf_size_t>::max()) {
+      resolver->Reject(MakeGarbageCollected<DOMException>(
+          DOMExceptionCode::kDataError, kBufferTooBig));
+      return false;
+    }
 
     vector->Append(static_cast<uint8_t*>(array_buffer->Data()),
-                   array_buffer->ByteLength());
+                   static_cast<wtf_size_t>(array_buffer->ByteLengthAsSizeT()));
   } else {
     ArrayBufferView* view = buffer_source.GetAsArrayBufferView().View()->View();
     if (!view->Buffer() || view->Buffer()->IsDetached()) {
@@ -115,9 +131,14 @@ bool ConvertBufferSource(const ArrayBufferOrArrayBufferView& buffer_source,
           DOMExceptionCode::kInvalidStateError, kDetachedBuffer));
       return false;
     }
+    if (view->ByteLengthAsSizeT() > std::numeric_limits<wtf_size_t>::max()) {
+      resolver->Reject(MakeGarbageCollected<DOMException>(
+          DOMExceptionCode::kDataError, kBufferTooBig));
+      return false;
+    }
 
     vector->Append(static_cast<uint8_t*>(view->BaseAddress()),
-                   view->ByteLength());
+                   static_cast<wtf_size_t>(view->ByteLengthAsSizeT()));
   }
   return true;
 }
@@ -583,7 +604,7 @@ bool USBDevice::IsProtectedInterfaceClass(wtf_size_t interface_index) const {
   DCHECK_NE(interface_index, kNotFound);
 
   // USB Class Codes are defined by the USB-IF:
-  // http://www.usb.org/developers/defined_class
+  // https://www.usb.org/defined-class-codes
   const uint8_t kProtectedClasses[] = {
       0x01,  // Audio
       0x03,  // HID
@@ -604,11 +625,28 @@ bool USBDevice::IsProtectedInterfaceClass(wtf_size_t interface_index) const {
     if (std::binary_search(std::begin(kProtectedClasses),
                            std::end(kProtectedClasses),
                            alternate->class_code)) {
-      return true;
+      return !IsClassWhitelistedForExtension(alternate->class_code);
     }
   }
 
   return false;
+}
+
+bool USBDevice::IsClassWhitelistedForExtension(uint8_t class_code) const {
+  const KURL& url = GetExecutionContext()->Url();
+  if (url.Protocol() != kExtensionProtocol)
+    return false;
+
+  const String host = url.Host();
+  switch (class_code) {
+    case 0x03:  // HID
+      return host == kImprivataLoginScreenProdExtensionId ||
+             host == kImprivataLoginScreenDevExtensionId ||
+             host == kImprivataInSessionProdExtensionId ||
+             host == kImprivataInSessionDevExtensionId;
+    default:
+      return false;
+  }
 }
 
 bool USBDevice::EnsureNoDeviceChangeInProgress(

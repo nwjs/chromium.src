@@ -13,7 +13,7 @@ import org.chromium.ui.base.ViewAndroidDelegate;
  * Implementation of the abstract class {@link ViewAndroidDelegate} for Chrome.
  */
 public class TabViewAndroidDelegate extends ViewAndroidDelegate {
-    private final Tab mTab;
+    private final TabImpl mTab;
 
     /**
      * The inset for the bottom of the Visual Viewport in pixels, or 0 for no insetting.
@@ -23,7 +23,7 @@ public class TabViewAndroidDelegate extends ViewAndroidDelegate {
 
     TabViewAndroidDelegate(Tab tab, ViewGroup containerView) {
         super(containerView);
-        mTab = tab;
+        mTab = (TabImpl) tab;
     }
 
     @Override
@@ -33,12 +33,12 @@ public class TabViewAndroidDelegate extends ViewAndroidDelegate {
 
     @Override
     public void onTopControlsChanged(int topControlsOffsetY, int contentOffsetY) {
-        TabBrowserControlsState.get(mTab).setTopOffset(topControlsOffsetY, contentOffsetY);
+        TabBrowserControlsOffsetHelper.get(mTab).setTopOffset(topControlsOffsetY, contentOffsetY);
     }
 
     @Override
     public void onBottomControlsChanged(int bottomControlsOffsetY, int bottomContentOffsetY) {
-        TabBrowserControlsState.get(mTab).setBottomOffset(bottomControlsOffsetY);
+        TabBrowserControlsOffsetHelper.get(mTab).setBottomOffset(bottomControlsOffsetY);
     }
 
     /**

@@ -48,7 +48,7 @@ class UkmDebugDataExtractor;
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused. This maps to the enum UkmResetReason.
 enum class ResetReason {
-  kOnSyncPrefsChanged = 0,
+  kOnUkmAllowedStateChanged = 0,
   kUpdatePermissions = 1,
   kMaxValue = kUpdatePermissions,
 };
@@ -88,6 +88,9 @@ class UkmService : public UkmRecorderImpl {
   // Deletes any unsent local data.
   void Purge();
 
+  // Deletes any unsent local data related to Chrome extensions.
+  void PurgeExtensions();
+
   // Resets the client prefs (client_id/session_id). |reason| should be passed
   // to provide the reason of the reset - this is only used for UMA logging.
   void ResetClientState(ResetReason reason);
@@ -121,6 +124,8 @@ class UkmService : public UkmRecorderImpl {
                            TestRegisterUKMProvidersWhenForceMetricsReporting);
   FRIEND_TEST_ALL_PREFIXES(::IOSChromeMetricsServiceClientTest,
                            TestRegisterUKMProvidersWhenUKMFeatureEnabled);
+  FRIEND_TEST_ALL_PREFIXES(UkmServiceTest,
+                           PurgeExtensionDataFromUnsentLogStore);
 
   // Starts metrics client initialization.
   void StartInitTask();

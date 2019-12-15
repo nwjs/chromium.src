@@ -44,13 +44,32 @@ enum ThemeBackgroundImageTiling {
   THEME_BKGRND_IMAGE_LAST = THEME_BKGRND_IMAGE_REPEAT,
 };
 
-// Theme background settings for the NTP.
-struct ThemeBackgroundInfo {
-  ThemeBackgroundInfo();
-  ThemeBackgroundInfo(const ThemeBackgroundInfo& other);
-  ~ThemeBackgroundInfo();
+struct SearchBoxTheme {
+  SearchBoxTheme();
+  SearchBoxTheme(const SearchBoxTheme& other);
+  ~SearchBoxTheme();
 
-  bool operator==(const ThemeBackgroundInfo& rhs) const;
+  bool operator==(const SearchBoxTheme& rhs) const;
+
+  SkColor bg = gfx::kPlaceholderColor;
+  SkColor icon = gfx::kPlaceholderColor;
+  SkColor placeholder = gfx::kPlaceholderColor;
+  SkColor results_bg = gfx::kPlaceholderColor;
+  SkColor results_bg_hovered = gfx::kPlaceholderColor;
+  SkColor results_bg_selected = gfx::kPlaceholderColor;
+  SkColor results_dim = gfx::kPlaceholderColor;
+  SkColor results_text = gfx::kPlaceholderColor;
+  SkColor results_url = gfx::kPlaceholderColor;
+  SkColor text = gfx::kPlaceholderColor;
+};
+
+// Theme settings for the NTP.
+struct NtpTheme {
+  NtpTheme();
+  NtpTheme(const NtpTheme& other);
+  ~NtpTheme();
+
+  bool operator==(const NtpTheme& rhs) const;
 
   // True if the default theme is selected.
   bool using_default_theme = true;
@@ -133,6 +152,8 @@ struct ThemeBackgroundInfo {
 
   // Color for NTP shortcut backgrounds.
   SkColor shortcut_color = gfx::kPlaceholderColor;
+
+  SearchBoxTheme search_box;
 };
 
 struct InstantMostVisitedItem {

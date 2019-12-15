@@ -44,7 +44,8 @@ NGPhysicalContainerFragment::NGPhysicalContainerFragment(
               : new Vector<NGPhysicalOutOfFlowPositionedNode>()),
       buffer_(buffer),
       num_children_(builder->children_.size()) {
-  has_floating_descendants_ = builder->has_floating_descendants_;
+  has_floating_descendants_for_paint_ =
+      builder->has_floating_descendants_for_paint_;
   has_adjoining_object_descendants_ =
       builder->has_adjoining_object_descendants_;
   has_orthogonal_flow_roots_ = builder->has_orthogonal_flow_roots_;
@@ -125,11 +126,11 @@ void NGPhysicalContainerFragment::AddOutlineRectsForDescendant(
           DynamicTo<NGPhysicalBoxFragment>(descendant.get())) {
     const LayoutObject* descendant_layout_object =
         descendant_box->GetLayoutObject();
-    DCHECK(descendant_layout_object);
 
     // TODO(layoutng): Explain this check. I assume we need it because layers
     // may have transforms and so we have to go through LocalToAncestorRects?
     if (descendant_box->HasLayer()) {
+      DCHECK(descendant_layout_object);
       Vector<PhysicalRect> layer_outline_rects;
       descendant_box->AddSelfOutlineRects(PhysicalOffset(), outline_type,
                                           &layer_outline_rects);
@@ -143,12 +144,13 @@ void NGPhysicalContainerFragment::AddOutlineRectsForDescendant(
       return;
     }
 
-    if (descendant_layout_object->IsBox()) {
+    if (!descendant_box->IsInlineBox()) {
       descendant_box->AddSelfOutlineRects(
           additional_offset + descendant.Offset(), outline_type, outline_rects);
       return;
     }
 
+    DCHECK(descendant_layout_object);
     DCHECK(descendant_layout_object->IsLayoutInline());
     const LayoutInline* descendant_layout_inline =
         ToLayoutInline(descendant_layout_object);

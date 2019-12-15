@@ -23,9 +23,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.TraceEvent;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
@@ -380,7 +380,7 @@ public class NewTabPageLayout extends LinearLayout implements TileGroup.Observer
      *
      * @return the transition percentage
      */
-    private float getToolbarTransitionPercentage() {
+    float getToolbarTransitionPercentage() {
         // During startup the view may not be fully initialized.
         if (!mScrollDelegate.isScrollViewInitialized()) return 0f;
 

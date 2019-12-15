@@ -6,6 +6,7 @@
 #define ASH_APP_LIST_VIEWS_APP_LIST_VIEW_H_
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "ash/app_list/app_list_export.h"
@@ -55,13 +56,9 @@ FORWARD_DECLARE_TEST(AppListControllerImplTest,
 FORWARD_DECLARE_TEST(AppListControllerImplMetricsTest,
                      PresentationTimeRecordedForDragInTabletMode);
 
-namespace {
-
 // The fraction of app list height that the app list must be released at in
 // order to transition to the next state.
 constexpr int kAppListThresholdDenominator = 3;
-
-}  // namespace
 
 // AppListView is the top-level view and controller of app list UI. It creates
 // and hosts a AppsGridView and passes AppListModel to it for display.
@@ -140,7 +137,9 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView,
   static float GetTransitionProgressForState(ash::AppListViewState state);
 
   // Initializes the view, only done once per session.
-  void InitView(bool is_tablet_mode, gfx::NativeView parent);
+  void InitView(bool is_tablet_mode,
+                gfx::NativeView parent,
+                base::RepeatingClosure on_bounds_animation_ended_callback);
 
   // Initializes the contents of the view.
   void InitContents(bool is_tablet_mode);
@@ -323,6 +322,11 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView,
   // Moves the AppListView off screen and calls a layout if needed.
   void OnBoundsAnimationCompleted();
 
+  // Returns the expected tile bounds in screen coordinates the provided app
+  // grid item ID , if the item is in the first apps grid page. Otherwise, it
+  // returns 1x1 rectangle in the apps grid center.
+  gfx::Rect GetItemScreenBoundsInFirstGridPage(const std::string& id) const;
+
   gfx::NativeView parent_window() const { return parent_window_; }
 
   ash::AppListViewState app_list_state() const { return app_list_state_; }
@@ -359,6 +363,9 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView,
   const AppListConfig& GetAppListConfig() const;
 
   SkColor GetAppListBackgroundShieldColorForTest();
+
+  // Returns true if the Embedded Assistant UI is currently being shown.
+  bool IsShowingEmbeddedAssistantUI() const;
 
  private:
   FRIEND_TEST_ALL_PREFIXES(ash::AppListControllerImplTest,
@@ -539,9 +546,6 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView,
   // An observer to notify AppListView of bounds animation completion.
   std::unique_ptr<BoundsAnimationObserver> bounds_animation_observer_;
 
-  // For UMA and testing. If non-null, triggered when the app list is painted.
-  base::Closure next_paint_callback_;
-
   // Metric reporter for state change animations.
   const std::unique_ptr<StateAnimationMetricsReporter>
       state_animation_metrics_reporter_;
@@ -565,6 +569,9 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView,
   // If set, the app list config that should be used within the app list view
   // instead of the default instance.
   std::unique_ptr<AppListConfig> app_list_config_;
+
+  // Callback which is run when the bounds animation of the widget is ended.
+  base::RepeatingClosure on_bounds_animation_ended_callback_;
 
   base::WeakPtrFactory<AppListView> weak_ptr_factory_{this};
 

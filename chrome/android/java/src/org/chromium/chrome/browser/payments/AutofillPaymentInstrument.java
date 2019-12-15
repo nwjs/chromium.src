@@ -26,6 +26,8 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.payments.mojom.PaymentDetailsModifier;
 import org.chromium.payments.mojom.PaymentItem;
 import org.chromium.payments.mojom.PaymentMethodData;
+import org.chromium.payments.mojom.PaymentOptions;
+import org.chromium.payments.mojom.PaymentShippingOption;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -159,8 +161,12 @@ public class AutofillPaymentInstrument extends PaymentInstrument
     public boolean canMakePayment() {
         return PaymentsExperimentalFeatures.isEnabled(
                        ChromeFeatureList.STRICT_HAS_ENROLLED_AUTOFILL_INSTRUMENT)
-                ? getMissingFields() == CompletionStatus.COMPLETE && mHaveRequestedAutofillData
+                ? strictCanMakePayment()
                 : mHasValidNumberAndName;
+    }
+
+    public boolean strictCanMakePayment() {
+        return getMissingFields() == CompletionStatus.COMPLETE && mHaveRequestedAutofillData;
     }
 
     @Override
@@ -173,8 +179,8 @@ public class AutofillPaymentInstrument extends PaymentInstrument
             String unusedOrigin, String unusedIFrameOrigin, byte[][] unusedCertificateChain,
             Map<String, PaymentMethodData> unusedMethodDataMap, PaymentItem unusedTotal,
             List<PaymentItem> unusedDisplayItems,
-            Map<String, PaymentDetailsModifier> unusedModifiers,
-            InstrumentDetailsCallback callback) {
+            Map<String, PaymentDetailsModifier> unusedModifiers, PaymentOptions paymentOptions,
+            List<PaymentShippingOption> shippingOptions, InstrumentDetailsCallback callback) {
         // The billing address should never be null for a credit card at this point.
         assert mBillingAddress != null;
         assert AutofillAddress.checkAddressCompletionStatus(
@@ -285,7 +291,7 @@ public class AutofillPaymentInstrument extends PaymentInstrument
             mSecurityCode = "";
         }
 
-        mCallback.onInstrumentDetailsReady(mMethodName, stringWriter.toString());
+        mCallback.onInstrumentDetailsReady(mMethodName, stringWriter.toString(), new PayerData());
         mCallback = null;
     }
 

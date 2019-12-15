@@ -14,7 +14,6 @@
 #include "ash/public/cpp/shelf_item.h"
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/public/cpp/shelf_prefs.h"
-#include "ash/public/cpp/tablet_mode.h"
 #include "ash/public/cpp/window_animation_types.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
@@ -44,6 +43,7 @@
 #include "chrome/browser/ui/apps/app_info_dialog.h"
 #include "chrome/browser/ui/ash/chrome_launcher_prefs.h"
 #include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
+#include "chrome/browser/ui/ash/launcher/app_service_app_window_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/app_shortcut_launcher_item_controller.h"
 #include "chrome/browser/ui/ash/launcher/app_window_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/app_window_launcher_item_controller.h"
@@ -257,6 +257,27 @@ ChromeLauncherController::ChromeLauncherController(Profile* profile,
         new ChromeLauncherControllerUserSwitchObserver(this));
   }
 
+  if (base::FeatureList::IsEnabled(features::kAppServiceInstanceRegistry)) {
+    if (SessionControllerClientImpl::IsMultiProfileAvailable()) {
+      // If running in separated destkop mode, we create the multi profile
+      // version of status monitor.
+      browser_status_monitor_ =
+          std::make_unique<MultiProfileBrowserStatusMonitor>(this);
+      browser_status_monitor_->Initialize();
+    } else {
+      // Create our v1/v2 application / browser monitors which will inform the
+      // launcher of status changes.
+      browser_status_monitor_ = std::make_unique<BrowserStatusMonitor>(this);
+      browser_status_monitor_->Initialize();
+    }
+    std::unique_ptr<AppServiceAppWindowLauncherController>
+        app_service_controller =
+            std::make_unique<AppServiceAppWindowLauncherController>(this);
+    app_service_app_window_controller_ = app_service_controller.get();
+    app_window_controllers_.emplace_back(std::move(app_service_controller));
+    return;
+  }
+
   std::unique_ptr<AppWindowLauncherController> extension_app_window_controller;
   // Create our v1/v2 application / browser monitors which will inform the
   // launcher of status changes.
@@ -283,7 +304,7 @@ ChromeLauncherController::ChromeLauncherController(Profile* profile,
   arc_app_window_controller_ = arc_app_window_controller.get();
   app_window_controllers_.push_back(std::move(arc_app_window_controller));
 
-  if (crostini::IsCrostiniUIAllowedForProfile(profile)) {
+  if (crostini::CrostiniFeatures::Get()->IsUIAllowed(profile)) {
     std::unique_ptr<CrostiniAppWindowShelfController> crostini_controller =
         std::make_unique<CrostiniAppWindowShelfController>(this);
     crostini_app_window_shelf_controller_ = crostini_controller.get();
@@ -539,16 +560,29 @@ void ChromeLauncherController::UpdateV1AppState(const std::string& app_id) {
   }
 }
 
-ash::ShelfID ChromeLauncherController::GetShelfIDForWebContents(
+std::string ChromeLauncherController::GetAppIDForWebContents(
     content::WebContents* contents) {
   std::string app_id = launcher_controller_helper_->GetAppID(contents);
-  if (app_id.empty() && crostini::CrostiniFeatures::Get()->IsEnabled(profile()))
-    app_id = GetCrostiniAppIdFromContents(contents);
-  if (app_id.empty() && ContentCanBeHandledByGmailApp(contents))
-    app_id = kGmailAppId;
+  if (!app_id.empty())
+    return app_id;
 
+  if (crostini::CrostiniFeatures::Get()->IsEnabled(profile()))
+    app_id = GetCrostiniAppIdFromContents(contents);
+
+  if (!app_id.empty())
+    return app_id;
+
+  if (ContentCanBeHandledByGmailApp(contents))
+    return kGmailAppId;
+
+  return kChromeAppId;
+}
+
+ash::ShelfID ChromeLauncherController::GetShelfIDForAppId(
+    const std::string& app_id) {
   // If there is no dedicated app item, use the browser shortcut item.
-  const ash::ShelfItem* item = GetItem(ash::ShelfID(app_id));
+  const ash::ShelfItem* item =
+      !app_id.empty() ? GetItem(ash::ShelfID(app_id)) : nullptr;
   return item ? item->id : ash::ShelfID(kChromeAppId);
 }
 
@@ -587,12 +621,6 @@ ash::ShelfAction ChromeLauncherController::ActivateWindowOrMinimizeIfActive(
       !(app_list_client && app_list_client->app_list_target_visibility())) {
     window->Minimize();
     return ash::SHELF_ACTION_WINDOW_MINIMIZED;
-  }
-
-  if (ash::TabletMode::Get() && ash::TabletMode::Get()->InTabletMode()) {
-    // Run slide down animation to show the window.
-    wm::SetWindowVisibilityAnimationType(
-        native_window, ash::WINDOW_VISIBILITY_ANIMATION_TYPE_SLIDE_DOWN);
   }
 
   window->Show();
@@ -862,11 +890,11 @@ void ChromeLauncherController::DoShowAppInfoFlow(
     if (extension->is_hosted_app() && extension->from_bookmark()) {
       base::UmaHistogramEnumeration(
           kAppManagementEntryPointsHistogramName,
-          AppManagementEntryPoint::kLauncherContextMenuAppInfoWebApp);
+          AppManagementEntryPoint::kShelfContextMenuAppInfoWebApp);
     } else {
       base::UmaHistogramEnumeration(
           kAppManagementEntryPointsHistogramName,
-          AppManagementEntryPoint::kLauncherContextMenuAppInfoChromeApp);
+          AppManagementEntryPoint::kShelfContextMenuAppInfoChromeApp);
     }
     return;
   }
@@ -1278,7 +1306,7 @@ void ChromeLauncherController::AttachProfile(Profile* profile_to_attach) {
             profile_, extension_misc::EXTENSION_ICON_MEDIUM, this);
     app_icon_loaders_.push_back(std::move(internal_app_icon_loader));
 
-    if (crostini::IsCrostiniUIAllowedForProfile(profile_)) {
+    if (crostini::CrostiniFeatures::Get()->IsUIAllowed(profile_)) {
       std::unique_ptr<AppIconLoader> crostini_app_icon_loader =
           std::make_unique<CrostiniAppIconLoader>(
               profile_, extension_misc::EXTENSION_ICON_MEDIUM, this);
@@ -1314,7 +1342,7 @@ void ChromeLauncherController::AttachProfile(Profile* profile_to_attach) {
       app_updaters_.push_back(std::move(arc_app_updater));
     }
 
-    if (crostini::IsCrostiniUIAllowedForProfile(profile())) {
+    if (crostini::CrostiniFeatures::Get()->IsUIAllowed(profile())) {
       std::unique_ptr<LauncherAppUpdater> crostini_app_updater(
           new LauncherCrostiniAppUpdater(this, profile()));
       app_updaters_.push_back(std::move(crostini_app_updater));

@@ -15,6 +15,10 @@ namespace gl {
 class GLSurface;
 }  // namespace gl
 
+namespace gpu {
+class MemoryTracker;
+}  // namespace gpu
+
 namespace viz {
 
 class SkiaOutputSurfaceDependency;
@@ -25,13 +29,20 @@ class VIZ_SERVICE_EXPORT SkiaOutputDeviceBufferQueue final
   SkiaOutputDeviceBufferQueue(
       scoped_refptr<gl::GLSurface> gl_surface,
       SkiaOutputSurfaceDependency* deps,
-      const DidSwapBufferCompleteCallback& did_swap_buffer_complete_callback);
+      const DidSwapBufferCompleteCallback& did_swap_buffer_complete_callback,
+      gpu::MemoryTracker* memory_tracker);
   SkiaOutputDeviceBufferQueue(
       scoped_refptr<gl::GLSurface> gl_surface,
       SkiaOutputSurfaceDependency* deps,
       const DidSwapBufferCompleteCallback& did_swap_buffer_complete_callback,
+      gpu::MemoryTracker* memory_tracker,
       uint32_t shared_image_usage);
   ~SkiaOutputDeviceBufferQueue() override;
+
+  static std::unique_ptr<SkiaOutputDeviceBufferQueue> Create(
+      SkiaOutputSurfaceDependency* deps,
+      const DidSwapBufferCompleteCallback& did_swap_buffer_complete_callback,
+      gpu::MemoryTracker* memory_tracker);
 
   void SwapBuffers(BufferPresentedCallback feedback,
                    std::vector<ui::LatencyInfo> latency_info) override;
@@ -50,10 +61,14 @@ class VIZ_SERVICE_EXPORT SkiaOutputDeviceBufferQueue final
   gl::GLImage* GetOverlayImage() override;
   // Creates and submits gpu fence
   std::unique_ptr<gfx::GpuFence> SubmitOverlayGpuFence() override;
+  void ScheduleOverlays(SkiaOutputSurface::OverlayList overlays) override;
+
+  gl::GLSurface* gl_surface() { return gl_surface_.get(); }
 
  private:
   friend class SkiaOutputDeviceBufferQueueTest;
   class Image;
+  class OverlayData;
 
   Image* GetCurrentImage();
   std::unique_ptr<Image> GetNextImage();
@@ -63,8 +78,9 @@ class VIZ_SERVICE_EXPORT SkiaOutputDeviceBufferQueue final
   // operation
   void DoFinishSwapBuffers(const gfx::Size& size,
                            std::vector<ui::LatencyInfo> latency_info,
+                           std::vector<OverlayData> overlays,
                            gfx::SwapResult result,
-                           std::unique_ptr<gfx::GpuFence>);
+                           std::unique_ptr<gfx::GpuFence> gpu_fence);
 
   SkiaOutputSurfaceDependency* const dependency_;
   scoped_refptr<gl::GLSurface> gl_surface_;
@@ -84,6 +100,10 @@ class VIZ_SERVICE_EXPORT SkiaOutputDeviceBufferQueue final
   // Entries of this deque may be nullptr, if they represent frames that have
   // been destroyed.
   base::circular_deque<std::unique_ptr<Image>> in_flight_images_;
+  // Scheduled overlays for the next SwapBuffers call.
+  std::vector<OverlayData> pending_overlays_;
+  // Committed overlays for the last SwapBuffers call.
+  std::vector<OverlayData> committed_overlays_;
 
   // Shared Image factories
   gpu::SharedImageFactory shared_image_factory_;

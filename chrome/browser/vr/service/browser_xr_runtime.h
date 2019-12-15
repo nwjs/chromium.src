@@ -10,6 +10,7 @@
 
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
+#include "chrome/browser/vr/service/vr_service_impl.h"
 #include "content/public/browser/render_frame_host.h"
 #include "device/vr/public/mojom/isolated_xr_service.mojom.h"
 #include "device/vr/public/mojom/vr_service.mojom.h"
@@ -23,8 +24,6 @@ class WebContents;
 }
 
 namespace vr {
-
-class VRServiceImpl;
 
 // This interface is implemented by classes that wish to observer the state of
 // the XR service for a particular runtime.  In particular, observers may
@@ -58,7 +57,7 @@ class BrowserXRRuntime : public device::mojom::XRRuntimeEventListener {
       device::mojom::VRDisplayInfoPtr info);
   ~BrowserXRRuntime() override;
 
-  void ExitVrFromPresentingService();
+  void ExitActiveImmersiveSession();
   bool SupportsFeature(device::mojom::XRSessionFeature feature) const;
   bool SupportsAllFeatures(
       const std::vector<device::mojom::XRSessionFeature>& features) const;
@@ -71,20 +70,19 @@ class BrowserXRRuntime : public device::mojom::XRRuntimeEventListener {
   // Methods called by VRServiceImpl to interact with the runtime's device.
   void OnServiceAdded(VRServiceImpl* service);
   void OnServiceRemoved(VRServiceImpl* service);
-  void ExitPresent(VRServiceImpl* service);
+  void ExitPresent(VRServiceImpl* service,
+                   VRServiceImpl::ExitPresentCallback on_exited);
   void SetFramesThrottled(const VRServiceImpl* service, bool throttled);
   void RequestSession(VRServiceImpl* service,
                       const device::mojom::XRRuntimeSessionOptionsPtr& options,
                       RequestSessionCallback callback);
-  VRServiceImpl* GetPresentingVRService() { return presenting_service_; }
-  void UpdateListeningForActivate(VRServiceImpl* service);
+  VRServiceImpl* GetServiceWithActiveImmersiveSession() {
+    return presenting_service_;
+  }
 
   device::mojom::VRDisplayInfoPtr GetVRDisplayInfo() {
     return display_info_.Clone();
   }
-  void InitializeAndGetDisplayInfo(
-      content::RenderFrameHost* render_frame_host,
-      device::mojom::VRService::GetImmersiveVRDisplayInfoCallback callback);
 
   // Methods called to support metrics/overlays on Windows.
   void AddObserver(BrowserXRRuntimeObserver* observer) {
@@ -101,14 +99,10 @@ class BrowserXRRuntime : public device::mojom::XRRuntimeEventListener {
   void OnDisplayInfoChanged(
       device::mojom::VRDisplayInfoPtr vr_device_info) override;
   void OnExitPresent() override;
-  void OnDeviceActivated(device::mojom::VRDisplayEventReason reason,
-                         base::OnceCallback<void(bool)> on_handled) override;
-  void OnDeviceIdle(device::mojom::VRDisplayEventReason reason) override;
   void OnVisibilityStateChanged(
       device::mojom::XRVisibilityState visibility_state) override;
 
-  void StopImmersiveSession();
-  void OnListeningForActivate(bool is_listening);
+  void StopImmersiveSession(VRServiceImpl::ExitPresentCallback on_exited);
   void OnRequestSessionResult(
       base::WeakPtr<VRServiceImpl> service,
       device::mojom::XRRuntimeSessionOptionsPtr options,
@@ -117,7 +111,6 @@ class BrowserXRRuntime : public device::mojom::XRRuntimeEventListener {
       mojo::PendingRemote<device::mojom::XRSessionController>
           immersive_session_controller);
   void OnImmersiveSessionError();
-  void OnInitialized();
 
   device::mojom::XRDeviceId id_;
   mojo::Remote<device::mojom::XRRuntime> runtime_;
@@ -127,13 +120,10 @@ class BrowserXRRuntime : public device::mojom::XRRuntimeEventListener {
   std::set<VRServiceImpl*> services_;
   device::mojom::VRDisplayInfoPtr display_info_;
 
-  VRServiceImpl* listening_for_activation_service_ = nullptr;
   VRServiceImpl* presenting_service_ = nullptr;
 
   mojo::AssociatedReceiver<device::mojom::XRRuntimeEventListener> receiver_{
       this};
-  std::vector<device::mojom::VRService::GetImmersiveVRDisplayInfoCallback>
-      pending_initialization_callbacks_;
 
   base::ObserverList<BrowserXRRuntimeObserver> observers_;
 

@@ -3,7 +3,6 @@
 <translationbundle lang="lt">
 <translation id="1001534784610492198">Diegimo programos archyvas sugadintas arba negalioja. Atsisiųskite „Google Chrome“ dar kartą.</translation>
 <translation id="102763973188675173">Tinkinkite ir valdykite „Google Chrome“. Pasiekiamas naujinys.</translation>
-<translation id="1035334672863811645">prisijunkite prie „Chrome“</translation>
 <translation id="1051826050538111504">Kompiuteryje yra kenkėjiškos programinės įrangos. „Chrome“ gali ją pašalinti, atkurti nustatymus ir išjungti plėtinius, kad naršyklė vėl veiktų įprastai.</translation>
 <translation id="1065672644894730302">Jūsų nuostatų negalima nuskaityti.
 
@@ -77,7 +76,6 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="3065168410429928842">„Chrome“ skirtukas</translation>
 <translation id="3080151273017101988">Uždarius „Google Chrome“ toliau leisti fono programas</translation>
 <translation id="3089968997497233615">Galima nauja, saugesnė „Google Chrome“ versija.</translation>
-<translation id="3138848678222082288">Būsimos „Chrome“ versijos bus įdiegtos automatiškai. Baigus atsisiųsti, „Chrome“ bus paleista iš naujo ir galėsite pradėti ja naudotis.</translation>
 <translation id="3149510190863420837">„Chrome“ programos</translation>
 <translation id="3282568296779691940">Prisijungti prie „Chrome“</translation>
 <translation id="3340978935015468852">nustatymų</translation>
@@ -98,7 +96,6 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="3718181793972440140">Atlikus šį veiksmą iš šio įrenginio bus ištrintas 1 elementas. Jei vėliau norėsite atgauti duomenis, prisijunkite prie „Chrome“ kaip <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">Plėtinys „<ph name="EXTENSION_NAME" />“ pakeitė, kuris puslapis rodomas paleidus „Chrome“.</translation>
 <translation id="3780814664026482060">„Chrome“ – „<ph name="PAGE_TITLE" />“</translation>
-<translation id="3784527566857328444">Pašalinti iš „Chrome“...</translation>
 <translation id="386202838227397562">Uždarykite visus „Google Chrome“ langus ir bandykite dar kartą.</translation>
 <translation id="3873044882194371212">Atidaryti nuorodą „Chrome“ inko&amp;gnito lange</translation>
 <translation id="3889417619312448367">Išdiegti „Google Chrome“</translation>
@@ -183,7 +180,6 @@ Kai kurios funkcijos gali būti nepasiekiamos. Nurodykite kitą profilio katalog
 <translation id="677276454032249905">Vis tiek išeiti iš „Chrome“?</translation>
 <translation id="683440813066116847">„Canary“ versijos „Google Chrome“ skirta taisyklė, pagal kurią leidžiamas gaunamas mDNS srautas.</translation>
 <translation id="6885412569789873916">„Chrome“ beta versijos programos</translation>
-<translation id="6906909733186691861">Būsimos „Chrome“ versijos bus įdiegtos automatiškai.</translation>
 <translation id="6943584222992551122">Šio asmens naršymo duomenys bus ištrinti iš šio įrenginio. Jei norite atkurti duomenis, prisijunkite prie „Chrome“ kaip <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Beta versijos „Google Chrome“ skirta taisyklė, pagal kurią leidžiamas gaunamas mDNS srautas.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> reikia, kad prieš naudodami šį įrenginį perskaitytumėte toliau pateiktas paslaugų teikimo sąlygas. Šios sąlygos neišplečia, nepakeičia ir neapriboja „Google Chrome“ OS sąlygų.</translation>
@@ -234,7 +230,6 @@ Kai kurios funkcijos gali būti nepasiekiamos. Nurodykite kitą profilio katalog
 <translation id="8521348052903287641">„Dev“ versijos „Google Chrome“ skirta taisyklė, pagal kurią leidžiamas gaunamas mDNS srautas.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Galima nauja „Google Chrome“ versija, kuri greitesnė nei bet kada.</translation>
-<translation id="8606668294522778825">„Google Chrome“ gali naudoti žiniatinklio paslaugas naršymo patirčiai pagerinti. Galite pasirinktinai išjungti šias paslaugas. <ph name="BEGIN_LINK" />Sužinokite daugiau<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">„Google Chrome“ neatsako. Paleisti iš naujo dabar?</translation>
 <translation id="8625237574518804553">{0,plural, =1{„Chrome“ bus paleista iš naujo po 1 minutės}one{„Chrome“ bus paleista iš naujo po # minutės}few{„Chrome“ bus paleista iš naujo po # minučių}many{„Chrome“ bus paleista iš naujo po # minutės}other{„Chrome“ bus paleista iš naujo po # minučių}}</translation>
 <translation id="8669527147644353129">„Google Chrome“ pagalbos priemonė</translation>

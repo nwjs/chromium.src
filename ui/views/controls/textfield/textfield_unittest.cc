@@ -222,7 +222,7 @@ void MockInputMethod::OnWillChangeFocusedClient(
     ui::TextInputClient* focused) {
   ui::TextInputClient* client = GetTextInputClient();
   if (client && client->HasCompositionText())
-    client->ConfirmCompositionText();
+    client->ConfirmCompositionText(/* keep_selection */ false);
   ClearComposition();
 }
 
@@ -411,8 +411,7 @@ class TextfieldTest : public ViewsTestBase, public TextfieldController {
   void SetUp() override {
     // OS clipboard is a global resource, which causes flakiness when unit tests
     // run in parallel. So, use a per-instance test clipboard.
-    ui::Clipboard::SetClipboardForCurrentThread(
-        std::make_unique<ui::TestClipboard>());
+    ui::TestClipboard::CreateForCurrentThread();
     ViewsTestBase::SetUp();
   }
 
@@ -1765,7 +1764,7 @@ TEST_F(TextfieldTest, DragAndDrop_AcceptDrop) {
   bad_data.SetFileContents(base::FilePath(L"x"), "x");
   bad_data.SetHtml(base::string16(ASCIIToUTF16("x")), GURL("x.org"));
   ui::OSExchangeData::DownloadFileInfo download(base::FilePath(), nullptr);
-  bad_data.SetDownloadFileInfo(download);
+  bad_data.SetDownloadFileInfo(&download);
   EXPECT_FALSE(textfield_->CanDrop(bad_data));
 }
 #endif

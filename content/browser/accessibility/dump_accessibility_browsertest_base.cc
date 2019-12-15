@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/command_line.h"
+#include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_split.h"
@@ -133,12 +134,9 @@ DumpAccessibilityTestBase::DumpUnfilteredAccessibilityTreeAsString() {
       PropertyFilter(base::ASCIIToUTF16("*"), PropertyFilter::ALLOW));
   formatter->SetPropertyFilters(property_filters);
   formatter->set_show_ids(true);
-  WebContentsImpl* web_contents =
-      static_cast<WebContentsImpl*>(shell()->web_contents());
   base::string16 ax_tree_dump;
-  formatter->FormatAccessibilityTree(
-      web_contents->GetRootBrowserAccessibilityManager()->GetRoot(),
-      &ax_tree_dump);
+  formatter->FormatAccessibilityTreeForTesting(
+      GetRootAccessibilityNode(shell()->web_contents()), &ax_tree_dump);
   return ax_tree_dump;
 }
 
@@ -309,8 +307,19 @@ void DumpAccessibilityTestBase::RunTestForPlatform(
     AccessibilityNotificationWaiter waiter(shell()->web_contents(),
                                            ui::kAXModeComplete,
                                            ax::mojom::Event::kClicked);
+    BrowserAccessibility* action_element;
 
-    BrowserAccessibility* action_element = FindNode(str);
+    size_t parent_node_delimiter_index = str.find(",");
+    if (parent_node_delimiter_index != std::string::npos) {
+      auto node_name = str.substr(0, parent_node_delimiter_index);
+      auto parent_node_name = str.substr(parent_node_delimiter_index + 1);
+
+      BrowserAccessibility* parent_node = FindNode(parent_node_name);
+      DCHECK(parent_node) << "Parent node name provided but not found";
+      action_element = FindNode(node_name, parent_node);
+    } else {
+      action_element = FindNode(str);
+    }
 
     ui::AXActionData action_data;
     action_data.action = ax::mojom::Action::kDoDefault;
@@ -430,10 +439,14 @@ void DumpAccessibilityTestBase::RunTestForPlatform(
 }
 
 BrowserAccessibility* DumpAccessibilityTestBase::FindNode(
-    const std::string& name) {
-  BrowserAccessibility* root = GetManager()->GetRoot();
-  CHECK(root);
-  return FindNodeInSubtree(*root, name);
+    const std::string& name,
+    BrowserAccessibility* search_root) {
+  if (!search_root)
+    search_root = GetManager()->GetRoot();
+
+  CHECK(search_root);
+  BrowserAccessibility* node = FindNodeInSubtree(*search_root, name);
+  return node;
 }
 
 BrowserAccessibilityManager* DumpAccessibilityTestBase::GetManager() {
@@ -445,9 +458,8 @@ BrowserAccessibilityManager* DumpAccessibilityTestBase::GetManager() {
 BrowserAccessibility* DumpAccessibilityTestBase::FindNodeInSubtree(
     BrowserAccessibility& node,
     const std::string& name) {
-  if (node.GetStringAttribute(ax::mojom::StringAttribute::kName) == name) {
+  if (node.GetStringAttribute(ax::mojom::StringAttribute::kName) == name)
     return &node;
-  }
 
   for (unsigned int i = 0; i < node.PlatformChildCount(); ++i) {
     BrowserAccessibility* result =

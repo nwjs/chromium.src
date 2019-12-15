@@ -54,7 +54,6 @@
 <translation id="2674318244760992338">ఫుటర్</translation>
 <translation id="2709516037105925701">స్వయంపూర్తి</translation>
 <translation id="2723001399770238859">ఆడియో</translation>
-<translation id="2725963129578236554">వ్యాఖ్యలు</translation>
 <translation id="2746543609216772311">విలువ తప్పనిసరిగా <ph name="MINIMUM_DATE_OR_TIME" /> లేదా అంతకంటే తదుపరిది అయి ఉండాలి.</translation>
 <translation id="2759744352195237655">పాప్ అప్ బటన్</translation>
 <translation id="2761667185364618470">మీరు కొనసాగాలనుకుంటే దయచేసి ఈ బాక్స్‌కి టిక్కు పెట్టండి.</translation>
@@ -106,6 +105,7 @@
 <translation id="4661075872484491155">tree</translation>
 <translation id="4664250907885839816">'<ph name="ATSIGN" />'కి తర్వాత ఉన్న భాగంలో '<ph name="INVALIDCHARACTER" />' చిహ్నం ఉండకూడదు.</translation>
 <translation id="4668956016107839909">అనుబంధం</translation>
+<translation id="4698212723196775569">కోడ్</translation>
 <translation id="4718048029184481307">చిత్రంలో చిత్రం మోడ్‌లో ప్లే అవుతోంది</translation>
 <translation id="4742539557769756338">ముఖచిత్రం</translation>
 <translation id="4748357248530471599">డిస్‌ప్లే కత్తిరింపు పూర్తి స్క్రీన్‌ని సక్రియం చేస్తుంది</translation>
@@ -114,6 +114,7 @@
 <translation id="479989351350248267">search</translation>
 <translation id="4812940957355064477">దయచేసి సంఖ్యను నమోదు చేయండి.</translation>
 <translation id="4912536737030637138">వివరణపట్టి నమోదు</translation>
+<translation id="492244087561876220">కామెంట్‌</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> ఎంచుకోబడ్డాయి</translation>
 <translation id="4992066212339426712">అన్‌మ్యూట్ చేయి</translation>
 <translation id="49969490063480558">దయచేసి '<ph name="ATSIGN" />'కి తర్వాత ఉన్న భాగాన్ని నమోదు చేయండి. '<ph name="INVALIDADDRESS" />' అసంపూర్ణంగా ఉంది.</translation>
@@ -163,7 +164,6 @@
 <translation id="6404546809543547843">ఆడియో సమయ స్క్రబ్బర్</translation>
 <translation id="6443871981718447451">ఉపశీర్షికల మెనూని చూపు</translation>
 <translation id="6453774872122745852">గుర్తింపులు</translation>
-<translation id="6475115390776617481">లైవ్ ప్రెజెన్స్</translation>
 <translation id="648732519525291180">సమయం ఎంపిక</translation>
 <translation id="6550675742724504774">ఎంపికలు</translation>
 <translation id="6572309429103589720">చెల్లని వ్యాకరణం</translation>
@@ -191,6 +191,7 @@
 <translation id="7118469954320184356">వివరణ అందుబాటులో లేదు.</translation>
 <translation id="7139483182332611405">ముందుమాట</translation>
 <translation id="7214187073215825913">కంటెంట్ సమాచారం</translation>
+<translation id="7238347055216017155">ఉద్ఘాటన</translation>
 <translation id="7263440858009898357">దయచేసి జాబితాలోని ఒక అంశాన్ని ఎంచుకోండి.</translation>
 <translation id="727747134524199931">నిలువు వరుస శీర్షిక</translation>
 <translation id="7320576522385648310">బఫర్ చేయడం</translation>
@@ -217,6 +218,7 @@
 <translation id="7888071071722539607">దయచేసి ఇమెయిల్ చిరునామాలో '<ph name="ATSIGN" />'ని చేర్చండి. '<ph name="INVALIDADDRESS" />'లో '<ph name="ATSIGN" />' లేదు.</translation>
 <translation id="7891486169920085145">విభజన</translation>
 <translation id="795667975304826397">ఫైల్ ఏదీ ఎంచుకోలేదు</translation>
+<translation id="8034303206267677282">ప్రబలమైనది</translation>
 <translation id="8053789581856978548">శోధన వచనం ఫీల్డ్</translation>
 <translation id="8057695513531652401">గమనిక</translation>
 <translation id="8105797009065549151">గమనిక సూచన</translation>
@@ -247,7 +249,6 @@
 <translation id="8711688047404765493">అవుట్‌పుట్</translation>
 <translation id="8750798805984357768">దయచేసి ఈ ఎంపికలలో ఒకదాన్ని ఎంచుకోండి.</translation>
 <translation id="8808573423886751634">అధ్యాయం</translation>
-<translation id="8822203815165896261">ఆథరింగ్ సమాచారం</translation>
 <translation id="8845239796550121995">ఇప్పుడు మీ టీవీలో ప్రసారం చేస్తోంది</translation>
 <translation id="8851136666856101339">main</translation>
 <translation id="8875657656876809964">వీడియో ప్లేబ్యాక్ ఎర్రర్</translation>
@@ -255,6 +256,7 @@
 <translation id="8987927404178983737">నెల</translation>
 <translation id="901493112792887934">సెకన్లలో ప్రస్తుత సమయం</translation>
 <translation id="901834265349196618">ఇమెయిల్</translation>
+<translation id="9023835124071926463">కామెంట్ విభాగం</translation>
 <translation id="9048119486235211610">నావిగేషన్</translation>
 <translation id="9062295712474918030">పత్రం</translation>
 <translation id="9093215626363556771">చిత్రంలో చిత్రం మోడ్ నుండి నిష్క్రమింపజేస్తుంది</translation>

@@ -51,6 +51,7 @@
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/constants.h"
+#include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/base/url_util.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -86,13 +87,20 @@ void FocusWebContents(Browser* browser) {
     contents->Focus();
 }
 
+// Shows |url| in a tab in |browser|. If a tab is already open to |url|,
+// ignoring the URL path, then that tab becomes selected. Overwrites the new tab
+// page if it is open.
+void ShowSingletonTabIgnorePathOverwriteNTP(Browser* browser, const GURL& url) {
+  NavigateParams params(GetSingletonTabNavigateParams(browser, url));
+  params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
+  ShowSingletonTabOverwritingNTP(browser, std::move(params));
+}
+
 void OpenBookmarkManagerForNode(Browser* browser, int64_t node_id) {
   GURL url = GURL(kChromeUIBookmarksURL)
                  .Resolve(base::StringPrintf(
                      "/?id=%s", base::NumberToString(node_id).c_str()));
-  NavigateParams params(GetSingletonTabNavigateParams(browser, url));
-  params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
-  ShowSingletonTabOverwritingNTP(browser, std::move(params));
+  ShowSingletonTabIgnorePathOverwriteNTP(browser, url);
 }
 
 #if defined(OS_CHROMEOS) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -112,8 +120,7 @@ const std::string BuildQueryString(Profile* profile) {
     channel_name = "stable";
   const std::string username = profile->GetProfileUserName();
   std::string user_type;
-  if (base::EndsWith(username, "@google.com",
-                     base::CompareCase::INSENSITIVE_ASCII)) {
+  if (gaia::IsGoogleInternalAccountEmail(username)) {
     user_type = "googler";
   } else if (profile->GetProfilePolicyConnector()->IsManaged()) {
     user_type = "managed";
@@ -239,14 +246,14 @@ std::string GenerateContentSettingsExceptionsSubPage(ContentSettingsType type) {
   // will no longer be needed.
   static base::NoDestructor<std::map<ContentSettingsType, std::string>>
       kSettingsPathOverrides(
-          {{CONTENT_SETTINGS_TYPE_AUTOMATIC_DOWNLOADS, "automaticDownloads"},
-           {CONTENT_SETTINGS_TYPE_BACKGROUND_SYNC, "backgroundSync"},
-           {CONTENT_SETTINGS_TYPE_MEDIASTREAM_MIC, "microphone"},
-           {CONTENT_SETTINGS_TYPE_MEDIASTREAM_CAMERA, "camera"},
-           {CONTENT_SETTINGS_TYPE_MIDI_SYSEX, "midiDevices"},
-           {CONTENT_SETTINGS_TYPE_PLUGINS, "flash"},
-           {CONTENT_SETTINGS_TYPE_ADS, "ads"},
-           {CONTENT_SETTINGS_TYPE_PPAPI_BROKER, "unsandboxedPlugins"}});
+          {{ContentSettingsType::AUTOMATIC_DOWNLOADS, "automaticDownloads"},
+           {ContentSettingsType::BACKGROUND_SYNC, "backgroundSync"},
+           {ContentSettingsType::MEDIASTREAM_MIC, "microphone"},
+           {ContentSettingsType::MEDIASTREAM_CAMERA, "camera"},
+           {ContentSettingsType::MIDI_SYSEX, "midiDevices"},
+           {ContentSettingsType::PLUGINS, "flash"},
+           {ContentSettingsType::ADS, "ads"},
+           {ContentSettingsType::PPAPI_BROKER, "unsandboxedPlugins"}});
   const auto it = kSettingsPathOverrides->find(type);
   const std::string content_type_path =
       (it == kSettingsPathOverrides->end())
@@ -285,10 +292,7 @@ void ShowSiteSettingsImpl(Browser* browser, Profile* profile, const GURL& url) {
 
 void ShowBookmarkManager(Browser* browser) {
   base::RecordAction(UserMetricsAction("ShowBookmarkManager"));
-  NavigateParams params(
-      GetSingletonTabNavigateParams(browser, GURL(kChromeUIBookmarksURL)));
-  params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
-  ShowSingletonTabOverwritingNTP(browser, std::move(params));
+  ShowSingletonTabIgnorePathOverwriteNTP(browser, GURL(kChromeUIBookmarksURL));
 }
 
 void ShowBookmarkManagerForNode(Browser* browser, int64_t node_id) {
@@ -298,10 +302,7 @@ void ShowBookmarkManagerForNode(Browser* browser, int64_t node_id) {
 
 void ShowHistory(Browser* browser) {
   base::RecordAction(UserMetricsAction("ShowHistory"));
-  NavigateParams params(
-      GetSingletonTabNavigateParams(browser, GURL(kChromeUIHistoryURL)));
-  params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
-  ShowSingletonTabOverwritingNTP(browser, std::move(params));
+  ShowSingletonTabIgnorePathOverwriteNTP(browser, GURL(kChromeUIHistoryURL));
 }
 
 void ShowDownloads(Browser* browser) {
@@ -317,17 +318,15 @@ void ShowDownloads(Browser* browser) {
 void ShowExtensions(Browser* browser,
                     const std::string& extension_to_highlight) {
   base::RecordAction(UserMetricsAction("ShowExtensions"));
-  NavigateParams params(
-      GetSingletonTabNavigateParams(browser, GURL(kChromeUIExtensionsURL)));
-  params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
+  GURL url(kChromeUIExtensionsURL);
   if (!extension_to_highlight.empty()) {
     GURL::Replacements replacements;
     std::string query("id=");
     query += extension_to_highlight;
     replacements.SetQueryStr(query);
-    params.url = params.url.ReplaceComponents(replacements);
+    url = url.ReplaceComponents(replacements);
   }
-  ShowSingletonTabOverwritingNTP(browser, std::move(params));
+  ShowSingletonTabIgnorePathOverwriteNTP(browser, url);
 }
 
 void ShowHelp(Browser* browser, HelpSource source) {
@@ -419,10 +418,7 @@ void ShowSettingsSubPageInTabbedBrowser(Browser* browser,
   // a menu, ensure the web contents (and therefore the settings page that is
   // about to be shown) is focused. (See crbug/926492 for motivation.)
   FocusWebContents(browser);
-  GURL gurl = GetSettingsUrl(sub_page);
-  NavigateParams params(GetSingletonTabNavigateParams(browser, gurl));
-  params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
-  ShowSingletonTabOverwritingNTP(browser, std::move(params));
+  ShowSingletonTabIgnorePathOverwriteNTP(browser, GetSettingsUrl(sub_page));
 }
 
 void ShowContentSettingsExceptions(Browser* browser,
@@ -485,10 +481,7 @@ void ShowAboutChrome(Browser* browser) {
     return;
   }
 #endif
-  NavigateParams params(
-      GetSingletonTabNavigateParams(browser, GURL(kChromeUIHelpURL)));
-  params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
-  ShowSingletonTabOverwritingNTP(browser, std::move(params));
+  ShowSingletonTabIgnorePathOverwriteNTP(browser, GURL(kChromeUIHelpURL));
 }
 
 void ShowSearchEngineSettings(Browser* browser) {
@@ -500,10 +493,7 @@ void ShowSearchEngineSettings(Browser* browser) {
 void ShowEnterpriseManagementPageInTabbedBrowser(Browser* browser) {
   // Management shows in a tab because it has a "back" arrow that takes the
   // user to the Chrome browser about page, which is part of browser settings.
-  NavigateParams params(
-      GetSingletonTabNavigateParams(browser, GURL(kChromeUIManagementURL)));
-  params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
-  ShowSingletonTabOverwritingNTP(browser, std::move(params));
+  ShowSingletonTabIgnorePathOverwriteNTP(browser, GURL(kChromeUIManagementURL));
 }
 
 void ShowAppManagementPage(Profile* profile, const std::string& app_id) {

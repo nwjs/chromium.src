@@ -9,6 +9,7 @@
 #include "ash/public/cpp/default_scale_factor_retriever.h"
 #include "ash/public/mojom/constants.mojom.h"
 #include "base/bind.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/apps/app_service/arc_apps_factory.h"
@@ -199,7 +200,10 @@ void ArcServiceLauncher::OnPrimaryUserProfilePrepared(Profile* profile) {
   ArcKioskBridge::GetForBrowserContext(profile);
   ArcLockScreenBridge::GetForBrowserContext(profile);
   ArcMediaSessionBridge::GetForBrowserContext(profile);
-  ArcMetricsService::GetForBrowserContext(profile);
+  ArcMetricsService::GetForBrowserContext(profile)->SetHistogramNamer(
+      base::BindRepeating([](const std::string& base_name) {
+        return GetHistogramNameByUserTypeForPrimaryProfile(base_name);
+      }));
   ArcMetricsServiceProxy::GetForBrowserContext(profile);
   ArcMidisBridge::GetForBrowserContext(profile);
   ArcNetHostImpl::GetForBrowserContext(profile)->SetPrefService(
@@ -229,9 +233,7 @@ void ArcServiceLauncher::OnPrimaryUserProfilePrepared(Profile* profile) {
   ArcWakeLockBridge::GetForBrowserContext(profile);
   ArcWallpaperService::GetForBrowserContext(profile);
   GpuArcVideoServiceHost::GetForBrowserContext(profile);
-  if (apps::ArcAppsFactory::IsEnabled()) {
-    apps::ArcAppsFactory::GetForProfile(profile);
-  }
+  apps::ArcAppsFactory::GetForProfile(profile);
   chromeos::ApkWebAppService::Get(profile);
 
   // ARC Container-only services.

@@ -11,11 +11,11 @@ import android.os.Handler;
 import android.view.ViewGroup;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ApplicationStatus.ActivityStateListener;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
@@ -30,7 +30,7 @@ import org.chromium.chrome.browser.compositor.layouts.eventfilter.ScrollDirectio
 import org.chromium.chrome.browser.compositor.overlays.SceneOverlay;
 import org.chromium.chrome.browser.compositor.scene_layer.SceneOverlayLayer;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
-import org.chromium.chrome.browser.tab.TabBrowserControlsState;
+import org.chromium.chrome.browser.tab.TabBrowserControlsConstraintsHelper;
 import org.chromium.content_public.browser.SelectionPopupController;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.BrowserControlsState;
@@ -440,7 +440,7 @@ public class OverlayPanel extends OverlayPanelAnimation implements ActivityState
         }
 
         @Override
-        public void onProgressBarUpdated(int progress) {
+        public void onProgressBarUpdated(float progress) {
             setProgressBarCompletion(progress);
             requestUpdate();
         }
@@ -513,7 +513,7 @@ public class OverlayPanel extends OverlayPanelAnimation implements ActivityState
      *                should jump immediately.
      */
     public void updateBrowserControlsState(int current, boolean animate) {
-        TabBrowserControlsState.update(mActivity.getActivityTab(), current, animate);
+        TabBrowserControlsConstraintsHelper.update(mActivity.getActivityTab(), current, animate);
     }
 
     /**

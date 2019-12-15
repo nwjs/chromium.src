@@ -15,7 +15,6 @@
 
 #include "base/feature_list.h"
 #include "base/macros.h"
-#include "base/memory/shared_memory.h"
 #include "base/process/process_handle.h"
 #include "base/run_loop.h"
 #include "base/test/task_environment.h"
@@ -27,6 +26,8 @@
 #include "content/renderer/loader/request_extra_data.h"
 #include "content/renderer/loader/test_request_peer.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/net_errors.h"
 #include "net/base/request_priority.h"
 #include "net/http/http_response_headers.h"
@@ -86,14 +87,14 @@ class ResourceDispatcherTest : public testing::Test,
   }
 
   void CreateLoaderAndStart(
-      network::mojom::URLLoaderRequest request,
+      mojo::PendingReceiver<network::mojom::URLLoader> receiver,
       int32_t routing_id,
       int32_t request_id,
       uint32_t options,
       const network::ResourceRequest& url_request,
-      network::mojom::URLLoaderClientPtr client,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client,
       const net::MutableNetworkTrafficAnnotationTag& annotation) override {
-    loader_and_clients_.emplace_back(std::move(request), std::move(client));
+    loader_and_clients_.emplace_back(std::move(receiver), std::move(client));
   }
 
   void Clone(mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver)
@@ -157,8 +158,8 @@ class ResourceDispatcherTest : public testing::Test,
   }
 
  protected:
-  std::vector<std::pair<network::mojom::URLLoaderRequest,
-                        network::mojom::URLLoaderClientPtr>>
+  std::vector<std::pair<mojo::PendingReceiver<network::mojom::URLLoader>,
+                        mojo::PendingRemote<network::mojom::URLLoaderClient>>>
       loader_and_clients_;
   base::test::SingleThreadTaskEnvironment task_environment_;
   std::unique_ptr<ResourceDispatcher> dispatcher_;
@@ -239,8 +240,8 @@ TEST_F(ResourceDispatcherTest, DelegateTest) {
   StartAsync(std::move(request), nullptr, &peer_context);
 
   ASSERT_EQ(1u, loader_and_clients_.size());
-  network::mojom::URLLoaderClientPtr client =
-      std::move(loader_and_clients_[0].second);
+  mojo::Remote<network::mojom::URLLoaderClient> client(
+      std::move(loader_and_clients_[0].second));
   loader_and_clients_.clear();
 
   // Set the delegate that inserts a new peer in OnReceivedResponse.
@@ -287,8 +288,8 @@ TEST_F(ResourceDispatcherTest, CancelDuringCallbackWithWrapperPeer) {
   peer_context.cancel_on_receive_response = true;
 
   ASSERT_EQ(1u, loader_and_clients_.size());
-  network::mojom::URLLoaderClientPtr client =
-      std::move(loader_and_clients_[0].second);
+  mojo::Remote<network::mojom::URLLoaderClient> client(
+      std::move(loader_and_clients_[0].second));
   loader_and_clients_.clear();
 
   // Set the delegate that inserts a new peer in OnReceivedResponse.
@@ -343,7 +344,8 @@ class TimeConversionTest : public ResourceDispatcherTest {
     StartAsync(std::move(request), nullptr, &peer_context);
 
     ASSERT_EQ(1u, loader_and_clients_.size());
-    auto client = std::move(loader_and_clients_[0].second);
+    mojo::Remote<network::mojom::URLLoaderClient> client(
+        std::move(loader_and_clients_[0].second));
     loader_and_clients_.clear();
     client->OnReceiveResponse(response_head);
   }
@@ -407,7 +409,8 @@ class CompletionTimeConversionTest : public ResourceDispatcherTest {
     StartAsync(std::move(request), nullptr, &peer_context_);
 
     ASSERT_EQ(1u, loader_and_clients_.size());
-    auto client = std::move(loader_and_clients_[0].second);
+    mojo::Remote<network::mojom::URLLoaderClient> client(
+        std::move(loader_and_clients_[0].second));
     network::ResourceResponseHead response_head;
     response_head.request_start = remote_request_start;
     response_head.load_timing.request_start = remote_request_start;

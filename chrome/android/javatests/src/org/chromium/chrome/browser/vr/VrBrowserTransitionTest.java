@@ -36,9 +36,9 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.ntp.IncognitoNewTabPage;
-import org.chromium.chrome.browser.preferences.Preferences;
-import org.chromium.chrome.browser.preferences.PreferencesLauncher;
-import org.chromium.chrome.browser.preferences.website.SingleWebsitePreferences;
+import org.chromium.chrome.browser.settings.PreferencesLauncher;
+import org.chromium.chrome.browser.settings.SettingsActivity;
+import org.chromium.chrome.browser.settings.website.SingleWebsitePreferences;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.vr.mock.MockVrDaydreamApi;
 import org.chromium.chrome.browser.vr.rules.ChromeTabbedActivityVrTestRule;
@@ -58,7 +58,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * End-to-end tests for state transitions in VR, e.g. exiting WebVR presentation
+ * End-to-end tests for state transitions in VR, e.g. exiting WebXR presentation
  * into the VR browser.
  */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -72,13 +72,11 @@ public class VrBrowserTransitionTest {
     public ChromeTabbedActivityVrTestRule mTestRule = new ChromeTabbedActivityVrTestRule();
 
     private WebXrVrTestFramework mWebXrVrTestFramework;
-    private WebVrTestFramework mWebVrTestFramework;
     private VrBrowserTestFramework mVrBrowserTestFramework;
 
     @Before
     public void setUp() {
         mWebXrVrTestFramework = new WebXrVrTestFramework(mTestRule);
-        mWebVrTestFramework = new WebVrTestFramework(mTestRule);
         mVrBrowserTestFramework = new VrBrowserTestFramework(mTestRule);
     }
 
@@ -238,21 +236,7 @@ public class VrBrowserTransitionTest {
 
     /**
      * Tests that the reported display dimensions are correct when exiting
-     * from WebVR presentation to the VR browser.
-     */
-    @Test
-    @CommandLineFlags.Add("enable-webvr")
-    @Restriction(RESTRICTION_TYPE_VIEWER_DAYDREAM_OR_STANDALONE)
-    @MediumTest
-    public void testExitPresentationWebVrToVrShell() throws IllegalArgumentException {
-        exitPresentationToVrShellImpl(
-                WebVrTestFramework.getFileUrlForHtmlTestFile("test_navigation_webvr_page"),
-                mWebVrTestFramework);
-    }
-
-    /**
-     * Tests that the reported display dimensions are correct when exiting
-     * from WebVR presentation to the VR browser.
+     * from WebXR presentation to the VR browser.
      */
     @Test
     @CommandLineFlags.Add("enable-features=WebXR")
@@ -286,21 +270,7 @@ public class VrBrowserTransitionTest {
     }
 
     /**
-     * Tests that entering WebVR presentation from the VR browser, exiting presentation, and
-     * re-entering presentation works. This is a regression test for crbug.com/799999.
-     */
-    @Test
-    @CommandLineFlags.Add("enable-webvr")
-    @Restriction(RESTRICTION_TYPE_VIEWER_DAYDREAM_OR_STANDALONE)
-    @MediumTest
-    public void testWebVrReEntryFromVrBrowser() {
-        reEntryFromVrBrowserImpl(
-                WebVrTestFramework.getFileUrlForHtmlTestFile("test_webvr_reentry_from_vr_browser"),
-                mWebVrTestFramework);
-    }
-
-    /**
-     * Tests that entering WebVR presentation from the VR browser, exiting presentation, and
+     * Tests that entering WebXR presentation from the VR browser, exiting presentation, and
      * re-entering presentation works. This is a regression test for crbug.com/799999.
      */
     @Test
@@ -310,19 +280,34 @@ public class VrBrowserTransitionTest {
     public void testWebXrReEntryFromVrBrowser() {
         reEntryFromVrBrowserImpl(WebXrVrTestFramework.getFileUrlForHtmlTestFile(
                                          "test_webxr_reentry_from_vr_browser"),
-                mWebXrVrTestFramework);
+                mWebXrVrTestFramework, false);
     }
 
-    private void reEntryFromVrBrowserImpl(String url, WebXrVrTestFramework framework) {
+    @Test
+    @Restriction(RESTRICTION_TYPE_VIEWER_DAYDREAM_OR_STANDALONE)
+    @MediumTest
+    public void testWebXrReEntryFromVrBrowserViaEndSession() {
+        reEntryFromVrBrowserImpl(WebXrVrTestFramework.getFileUrlForHtmlTestFile(
+                                         "test_webxr_reentry_from_vr_browser"),
+                mWebXrVrTestFramework, true);
+    }
+
+    private void reEntryFromVrBrowserImpl(
+            String url, WebXrVrTestFramework framework, boolean useEndSession) {
         VrBrowserTransitionUtils.forceEnterVrBrowserOrFail(POLL_TIMEOUT_LONG_MS);
 
         framework.loadUrlAndAwaitInitialization(url, PAGE_LOAD_TIMEOUT_S);
         framework.enterSessionWithUserGestureOrFail();
 
         framework.executeStepAndWait("stepVerifyFirstPresent()");
-        // The bug did not reproduce with vrDisplay.exitPresent(), so it might not reproduce with
-        // session.end(). Instead, use the controller to exit.
-        NativeUiUtils.clickAppButton(UserFriendlyElementName.NONE, new PointF());
+        if (useEndSession) {
+            // Exit presentation through JavaScript.
+            framework.endSession();
+        } else {
+            // The bug did not reproduce with vrDisplay.exitPresent(), so it might not reproduce
+            // with session.end(). Instead, use the controller to exit.
+            NativeUiUtils.clickAppButton(UserFriendlyElementName.NONE, new PointF());
+        }
         framework.executeStepAndWait("stepVerifyMagicWindow()");
 
         framework.enterSessionWithUserGestureOrFail();
@@ -416,7 +401,7 @@ public class VrBrowserTransitionTest {
         });
 
         ActivityUtils.waitForActivity(
-                InstrumentationRegistry.getInstrumentation(), Preferences.class);
+                InstrumentationRegistry.getInstrumentation(), SettingsActivity.class);
         VrShellDelegateUtils.getDelegateInstance().overrideDaydreamApiForTesting(null);
     }
 

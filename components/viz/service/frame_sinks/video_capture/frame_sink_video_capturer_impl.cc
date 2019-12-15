@@ -25,7 +25,8 @@
 #include "media/base/limits.h"
 #include "media/base/video_util.h"
 #include "media/capture/mojom/video_capture_types.mojom.h"
-#include "mojo/public/cpp/bindings/strong_binding.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/geometry/size.h"
 
@@ -61,10 +62,9 @@ constexpr gfx::ColorSpace FrameSinkVideoCapturerImpl::kDefaultColorSpace;
 
 FrameSinkVideoCapturerImpl::FrameSinkVideoCapturerImpl(
     FrameSinkVideoCapturerManager* frame_sink_manager,
-    mojom::FrameSinkVideoCapturerRequest request,
+    mojo::PendingReceiver<mojom::FrameSinkVideoCapturer> receiver,
     std::unique_ptr<media::VideoCaptureOracle> oracle)
     : frame_sink_manager_(frame_sink_manager),
-      binding_(this),
       copy_request_source_(base::UnguessableToken::Create()),
       clock_(base::DefaultTickClock::GetInstance()),
       oracle_(std::move(oracle)),
@@ -76,9 +76,9 @@ FrameSinkVideoCapturerImpl::FrameSinkVideoCapturerImpl(
   // Instantiate a default base::OneShotTimer instance.
   refresh_frame_retry_timer_.emplace();
 
-  if (request.is_pending()) {
-    binding_.Bind(std::move(request));
-    binding_.set_connection_error_handler(
+  if (receiver.is_valid()) {
+    receiver_.Bind(std::move(receiver));
+    receiver_.set_disconnect_handler(
         base::BindOnce(&FrameSinkVideoCapturerManager::OnCapturerConnectionLost,
                        base::Unretained(frame_sink_manager_), this));
   }
@@ -522,10 +522,12 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
                       frame_metadata.root_scroll_offset.x());
   metadata->SetDouble(VideoFrameMetadata::ROOT_SCROLL_OFFSET_Y,
                       frame_metadata.root_scroll_offset.y());
-  metadata->SetDouble(VideoFrameMetadata::TOP_CONTROLS_HEIGHT,
-                      frame_metadata.top_controls_height);
-  metadata->SetDouble(VideoFrameMetadata::TOP_CONTROLS_SHOWN_RATIO,
-                      frame_metadata.top_controls_shown_ratio);
+  if (frame_metadata.top_controls_visible_height.has_value()) {
+    last_top_controls_visible_height_ =
+        *frame_metadata.top_controls_visible_height;
+  }
+  metadata->SetDouble(VideoFrameMetadata::TOP_CONTROLS_VISIBLE_HEIGHT,
+                      last_top_controls_visible_height_);
 
   oracle_->RecordCapture(utilization);
   TRACE_EVENT_ASYNC_BEGIN2("gpu.capture", "Capture", oracle_frame_number,
@@ -787,12 +789,12 @@ void FrameSinkVideoCapturerImpl::MaybeDeliverFrame(
   DCHECK(frame->ColorSpace().IsValid());  // Ensure it was set by this point.
   info->color_space = frame->ColorSpace();
 
-  // Create an InFlightFrameDelivery for this frame, owned by its mojo binding.
+  // Create an InFlightFrameDelivery for this frame, owned by its mojo receiver.
   // It responds to the consumer's Done() notification by returning the video
   // frame to the |frame_pool_|. It responds to the optional ProvideFeedback()
   // by forwarding the measurement to the |oracle_|.
-  mojom::FrameSinkVideoConsumerFrameCallbacksPtr callbacks;
-  mojo::MakeStrongBinding(
+  mojo::PendingRemote<mojom::FrameSinkVideoConsumerFrameCallbacks> callbacks;
+  mojo::MakeSelfOwnedReceiver(
       std::make_unique<InFlightFrameDelivery>(
           base::BindOnce(
               [](scoped_refptr<VideoFrame> frame) {
@@ -802,7 +804,7 @@ void FrameSinkVideoCapturerImpl::MaybeDeliverFrame(
           base::BindOnce(&VideoCaptureOracle::RecordConsumerFeedback,
                          feedback_weak_factory_.GetWeakPtr(),
                          oracle_frame_number)),
-      mojo::MakeRequest(&callbacks));
+      callbacks.InitWithNewPipeAndPassReceiver());
 
   // Send the frame to the consumer.
   consumer_->OnFrameCaptured(std::move(handle), std::move(info), content_rect,

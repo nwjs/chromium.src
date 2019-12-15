@@ -1380,10 +1380,40 @@ void AutofillMetrics::LogIsAutofillEnabledAtStartup(bool enabled) {
 }
 
 // static
+void AutofillMetrics::LogIsAutofillProfileEnabledAtStartup(bool enabled) {
+  UMA_HISTOGRAM_BOOLEAN("Autofill.Address.IsEnabled.Startup", enabled);
+}
+
+// static
+void AutofillMetrics::LogIsAutofillCreditCardEnabledAtStartup(bool enabled) {
+  UMA_HISTOGRAM_BOOLEAN("Autofill.CreditCard.IsEnabled.Startup", enabled);
+}
+
+// static
 void AutofillMetrics::LogIsAutofillEnabledAtPageLoad(
     bool enabled,
     AutofillSyncSigninState sync_state) {
   std::string name("Autofill.IsEnabled.PageLoad");
+  UMA_HISTOGRAM_BOOLEAN(name, enabled);
+  base::UmaHistogramBoolean(name + GetMetricsSyncStateSuffix(sync_state),
+                            enabled);
+}
+
+// static
+void AutofillMetrics::LogIsAutofillProfileEnabledAtPageLoad(
+    bool enabled,
+    AutofillSyncSigninState sync_state) {
+  std::string name("Autofill.Address.IsEnabled.PageLoad");
+  UMA_HISTOGRAM_BOOLEAN(name, enabled);
+  base::UmaHistogramBoolean(name + GetMetricsSyncStateSuffix(sync_state),
+                            enabled);
+}
+
+// static
+void AutofillMetrics::LogIsAutofillCreditCardEnabledAtPageLoad(
+    bool enabled,
+    AutofillSyncSigninState sync_state) {
+  std::string name("Autofill.CreditCard.IsEnabled.PageLoad");
   UMA_HISTOGRAM_BOOLEAN(name, enabled);
   base::UmaHistogramBoolean(name + GetMetricsSyncStateSuffix(sync_state),
                             enabled);
@@ -1814,9 +1844,7 @@ void AutofillMetrics::LogDeveloperEngagementUkm(
 AutofillMetrics::FormInteractionsUkmLogger::FormInteractionsUkmLogger(
     ukm::UkmRecorder* ukm_recorder,
     const ukm::SourceId source_id)
-    : ukm_recorder_(ukm_recorder), source_id_(source_id) {
-  UMA_HISTOGRAM_BOOLEAN("Autofill.CanLogUKM", CanLog());
-}
+    : ukm_recorder_(ukm_recorder), source_id_(source_id) {}
 
 void AutofillMetrics::FormInteractionsUkmLogger::OnFormsParsed(
     const ukm::SourceId source_id) {

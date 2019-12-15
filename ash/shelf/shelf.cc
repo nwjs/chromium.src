@@ -8,6 +8,8 @@
 
 #include "ash/animation/animation_change_type.h"
 #include "ash/app_list/app_list_controller_impl.h"
+#include "ash/public/cpp/ash_features.h"
+#include "ash/public/cpp/ash_switches.h"
 #include "ash/public/cpp/keyboard/keyboard_controller_observer.h"
 #include "ash/public/cpp/shelf_item_delegate.h"
 #include "ash/public/cpp/shelf_model.h"
@@ -37,6 +39,7 @@ class Shelf::AutoHideEventHandler : public ui::EventHandler {
   explicit AutoHideEventHandler(Shelf* shelf) : shelf_(shelf) {
     Shell::Get()->AddPreTargetHandler(this);
   }
+
   ~AutoHideEventHandler() override {
     Shell::Get()->RemovePreTargetHandler(this);
   }
@@ -55,10 +58,8 @@ class Shelf::AutoHideEventHandler : public ui::EventHandler {
       return;
 
     // The event target should be the shelf widget or the hotseat widget.
-    aura::Window* target = static_cast<aura::Window*>(event->target());
-    const ShelfWidget* shelf_widget = Shelf::ForWindow(target)->shelf_widget();
-    if (target != shelf_widget->GetNativeView() &&
-        target != shelf_widget->hotseat_widget()->GetNativeView()) {
+    if (!shelf_->shelf_layout_manager()->IsShelfWindow(
+            static_cast<aura::Window*>(event->target()))) {
       return;
     }
 
@@ -77,6 +78,58 @@ class Shelf::AutoHideEventHandler : public ui::EventHandler {
  private:
   Shelf* shelf_;
   DISALLOW_COPY_AND_ASSIGN(AutoHideEventHandler);
+};
+
+// Shelf::AutoDimEventHandler -----------------------------------------------
+
+// Handles mouse and touch events and determines whether ShelfLayoutManager
+// should update shelf opacity for auto-dimming.
+class Shelf::AutoDimEventHandler : public ui::EventHandler {
+ public:
+  explicit AutoDimEventHandler(Shelf* shelf) : shelf_(shelf) {
+    Shell::Get()->AddPreTargetHandler(this);
+    UndimShelf();
+  }
+
+  ~AutoDimEventHandler() override {
+    Shell::Get()->RemovePreTargetHandler(this);
+  }
+
+  // ui::EventHandler:
+  void OnMouseEvent(ui::MouseEvent* event) override {
+    if (shelf_->shelf_layout_manager()->IsShelfWindow(
+            static_cast<aura::Window*>(event->target()))) {
+      UndimShelf();
+    }
+  }
+
+  void OnTouchEvent(ui::TouchEvent* event) override {
+    if (shelf_->shelf_layout_manager()->IsShelfWindow(
+            static_cast<aura::Window*>(event->target()))) {
+      UndimShelf();
+    }
+  }
+
+ private:
+  void DimShelf() { shelf_->shelf_layout_manager()->SetDimmed(true); }
+
+  // Sets shelf as active and sets timer to mark shelf as inactive.
+  void UndimShelf() {
+    shelf_->shelf_layout_manager()->SetDimmed(false);
+    update_shelf_dim_state_timer_.Start(
+        FROM_HERE, kDimDelay,
+        base::BindOnce(&AutoDimEventHandler::DimShelf, base::Unretained(this)));
+  }
+
+  // Unowned pointer to the shelf that owns this event handler.
+  Shelf* shelf_;
+  // OneShotTimer that dims shelf due to inactivity.
+  base::OneShotTimer update_shelf_dim_state_timer_;
+
+  // Delay before dimming the shelf.
+  const base::TimeDelta kDimDelay = base::TimeDelta::FromSeconds(5);
+
+  DISALLOW_COPY_AND_ASSIGN(AutoDimEventHandler);
 };
 
 // Shelf ---------------------------------------------------------------------
@@ -184,7 +237,7 @@ void Shelf::SetAlignment(ShelfAlignment alignment) {
     return;
 
   if (shelf_locking_manager_.is_locked() &&
-      alignment != SHELF_ALIGNMENT_BOTTOM_LOCKED) {
+      alignment != ShelfAlignment::kBottomLocked) {
     shelf_locking_manager_.set_stored_alignment(alignment);
     return;
   }
@@ -199,11 +252,11 @@ void Shelf::SetAlignment(ShelfAlignment alignment) {
 
 bool Shelf::IsHorizontalAlignment() const {
   switch (alignment_) {
-    case SHELF_ALIGNMENT_BOTTOM:
-    case SHELF_ALIGNMENT_BOTTOM_LOCKED:
+    case ShelfAlignment::kBottom:
+    case ShelfAlignment::kBottomLocked:
       return true;
-    case SHELF_ALIGNMENT_LEFT:
-    case SHELF_ALIGNMENT_RIGHT:
+    case ShelfAlignment::kLeft:
+    case ShelfAlignment::kRight:
       return false;
   }
   NOTREACHED();
@@ -212,12 +265,12 @@ bool Shelf::IsHorizontalAlignment() const {
 
 int Shelf::SelectValueForShelfAlignment(int bottom, int left, int right) const {
   switch (alignment_) {
-    case SHELF_ALIGNMENT_BOTTOM:
-    case SHELF_ALIGNMENT_BOTTOM_LOCKED:
+    case ShelfAlignment::kBottom:
+    case ShelfAlignment::kBottomLocked:
       return bottom;
-    case SHELF_ALIGNMENT_LEFT:
+    case ShelfAlignment::kLeft:
       return left;
-    case SHELF_ALIGNMENT_RIGHT:
+    case ShelfAlignment::kRight:
       return right;
   }
   NOTREACHED();
@@ -249,7 +302,7 @@ void Shelf::UpdateAutoHideState() {
 
 ShelfBackgroundType Shelf::GetBackgroundType() const {
   return shelf_widget_ ? shelf_widget_->GetBackgroundType()
-                       : SHELF_BACKGROUND_DEFAULT;
+                       : ShelfBackgroundType::kDefaultBg;
 }
 
 void Shelf::UpdateVisibilityState() {
@@ -274,6 +327,10 @@ gfx::Rect Shelf::GetIdealBounds() const {
   return shelf_layout_manager_->GetIdealBounds();
 }
 
+gfx::Rect Shelf::GetIdealBoundsForWorkAreaCalculation() {
+  return shelf_layout_manager_->GetIdealBoundsForWorkAreaCalculation();
+}
+
 gfx::Rect Shelf::GetScreenBoundsOfItemIconForWindow(aura::Window* window) {
   if (!shelf_widget_)
     return gfx::Rect();
@@ -294,7 +351,16 @@ void Shelf::ProcessMouseEvent(const ui::MouseEvent& event) {
 
 void Shelf::ProcessMouseWheelEvent(ui::MouseWheelEvent* event) {
   event->SetHandled();
-  Shell::Get()->app_list_controller()->ProcessMouseWheelEvent(*event);
+  if (!IsHorizontalAlignment())
+    return;
+  auto* app_list_controller = Shell::Get()->app_list_controller();
+  DCHECK(app_list_controller);
+  // If the App List is not visible, send MouseWheel events to the
+  // |shelf_layout_manager_| because these events are used to show the App List.
+  if (app_list_controller->IsVisible())
+    app_list_controller->ProcessMouseWheelEvent(*event);
+  else
+    shelf_layout_manager_->ProcessMouseWheelEventFromShelf(event);
 }
 
 void Shelf::AddObserver(ShelfObserver* observer) {
@@ -321,14 +387,14 @@ TrayBackgroundView* Shelf::GetSystemTrayAnchorView() const {
 gfx::Rect Shelf::GetSystemTrayAnchorRect() const {
   gfx::Rect work_area = GetWorkAreaInsets()->user_work_area_bounds();
   switch (alignment_) {
-    case SHELF_ALIGNMENT_BOTTOM:
-    case SHELF_ALIGNMENT_BOTTOM_LOCKED:
+    case ShelfAlignment::kBottom:
+    case ShelfAlignment::kBottomLocked:
       return gfx::Rect(
           base::i18n::IsRTL() ? work_area.x() : work_area.right() - 1,
           work_area.bottom() - 1, 0, 0);
-    case SHELF_ALIGNMENT_LEFT:
+    case ShelfAlignment::kLeft:
       return gfx::Rect(work_area.x(), work_area.bottom() - 1, 0, 0);
-    case SHELF_ALIGNMENT_RIGHT:
+    case ShelfAlignment::kRight:
       return gfx::Rect(work_area.right() - 1, work_area.bottom() - 1, 0, 0);
   }
   NOTREACHED();
@@ -369,6 +435,7 @@ ShelfView* Shelf::GetShelfViewForTesting() {
 void Shelf::WillDeleteShelfLayoutManager() {
   // Clear event handlers that might forward events to the destroyed instance.
   auto_hide_event_handler_.reset();
+  auto_dim_event_handler_.reset();
 
   DCHECK(shelf_layout_manager_);
   shelf_layout_manager_->RemoveObserver(this);
@@ -382,6 +449,10 @@ void Shelf::WillChangeVisibilityState(ShelfVisibilityState new_state) {
     auto_hide_event_handler_.reset();
   } else if (!auto_hide_event_handler_) {
     auto_hide_event_handler_ = std::make_unique<AutoHideEventHandler>(this);
+  }
+
+  if (!auto_dim_event_handler_ && ash::switches::IsUsingShelfAutoDim()) {
+    auto_dim_event_handler_ = std::make_unique<AutoDimEventHandler>(this);
   }
 }
 

@@ -41,7 +41,6 @@
 #include "extensions/common/extension_icon_set.h"
 #include "extensions/common/manifest_handlers/icons_handler.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "url/gurl.h"
@@ -72,12 +71,9 @@ SkBitmap CreateSquareBitmapWithColor(int size, SkColor color) {
   return bitmap;
 }
 
-WebApplicationIconInfo CreateIconInfoWithBitmap(int size, SkColor color) {
-  WebApplicationIconInfo icon_info;
-  icon_info.width = size;
-  icon_info.height = size;
-  icon_info.data = CreateSquareBitmapWithColor(size, color);
-  return icon_info;
+void SetAppIcon(WebApplicationInfo* web_app, int size, SkColor color) {
+  web_app->icon_bitmaps.clear();
+  web_app->icon_bitmaps[size] = CreateSquareBitmapWithColor(size, color);
 }
 
 void TestAcceptDialogCallback(
@@ -100,13 +96,6 @@ class BookmarkAppInstallFinalizerInstallOnly
   ~BookmarkAppInstallFinalizerInstallOnly() override = default;
 
   // InstallFinalizer:
-  void CreateOsShortcuts(const web_app::AppId& app_id,
-                         bool add_to_desktop,
-                         CreateOsShortcutsCallback callback) override {
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE,
-        base::BindOnce(std::move(callback), true /*shortcuts_created*/));
-  }
   void AddAppToQuickLaunchBar(const web_app::AppId& app_id) override {}
   void ReparentTab(const web_app::AppId& app_id,
                    bool shortcut_created,
@@ -279,6 +268,7 @@ class InstallManagerBookmarkAppTest : public ExtensionServiceTestBase {
           web_app::InstallManager::InstallParams{}) {
     base::RunLoop run_loop;
     web_app::AppId app_id;
+    install_params.fallback_start_url = GURL("https://example.com/fallback");
 
     auto* provider = web_app::WebAppProviderBase::GetProviderBase(profile());
 
@@ -537,7 +527,7 @@ TEST_F(InstallManagerBookmarkAppTest,
                                            /*is_installable=*/true);
 
     web_app::InstallManager::InstallParams params;
-    params.display_mode = blink::mojom::DisplayMode::kBrowser;
+    params.user_display_mode = web_app::DisplayMode::kBrowser;
 
     const Extension* extension =
         InstallWebAppWithParams(WebappInstallSource::INTERNAL_DEFAULT, params);
@@ -550,7 +540,7 @@ TEST_F(InstallManagerBookmarkAppTest,
                                            /*is_installable=*/false);
 
     web_app::InstallManager::InstallParams params;
-    params.display_mode = blink::mojom::DisplayMode::kStandalone;
+    params.user_display_mode = web_app::DisplayMode::kStandalone;
 
     const Extension* extension =
         InstallWebAppWithParams(WebappInstallSource::INTERNAL_DEFAULT, params);
@@ -589,8 +579,7 @@ TEST_F(InstallManagerBookmarkAppTest, CreateWebAppFromInfo) {
   web_app_info->title = base::UTF8ToUTF16(kAppTitle);
   web_app_info->description = base::UTF8ToUTF16(kAppDescription);
   web_app_info->scope = kAppScope;
-  web_app_info->icons.push_back(
-      CreateIconInfoWithBitmap(kIconSizeTiny, SK_ColorRED));
+  SetAppIcon(web_app_info.get(), kIconSizeTiny, SK_ColorRED);
 
   base::RunLoop run_loop;
   web_app::AppId app_id;
@@ -645,13 +634,11 @@ TEST_F(InstallManagerBookmarkAppTest, InstallWebAppFromSync) {
   web_app_info->title = base::UTF8ToUTF16(kAppTitle);
   web_app_info->description = base::UTF8ToUTF16(kAppDescription);
   web_app_info->scope = GURL(kAppScope);
-  web_app_info->icons.push_back(
-      CreateIconInfoWithBitmap(kIconSizeSmall, SK_ColorRED));
+  SetAppIcon(web_app_info.get(), kIconSizeSmall, SK_ColorRED);
 
   auto web_app_info2 = std::make_unique<WebApplicationInfo>(*web_app_info);
   web_app_info2->title = base::UTF8ToUTF16(kAlternativeAppTitle);
-  web_app_info2->icons[0] =
-      CreateIconInfoWithBitmap(kIconSizeLarge, SK_ColorRED);
+  SetAppIcon(web_app_info2.get(), kIconSizeLarge, SK_ColorRED);
   web_app_info2->scope = GURL(kAppAlternativeScope);
 
   auto* provider = web_app::WebAppProviderBase::GetProviderBase(profile());

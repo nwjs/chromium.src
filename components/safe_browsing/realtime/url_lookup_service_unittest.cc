@@ -28,15 +28,36 @@ class RealTimeUrlLookupServiceTest : public PlatformTest {
         std::make_unique<RealTimeUrlLookupService>(test_shared_loader_factory_);
   }
 
+  bool CanCheckUrl(const GURL& url) { return rt_service_->CanCheckUrl(url); }
   void HandleLookupError() { rt_service_->HandleLookupError(); }
   void HandleLookupSuccess() { rt_service_->HandleLookupSuccess(); }
   bool IsInBackoffMode() { return rt_service_->IsInBackoffMode(); }
+  std::unique_ptr<RTLookupRequest> FillRequestProto(const GURL& url) {
+    return rt_service_->FillRequestProto(url);
+  }
 
   network::TestURLLoaderFactory test_url_loader_factory_;
   scoped_refptr<network::SharedURLLoaderFactory> test_shared_loader_factory_;
   std::unique_ptr<RealTimeUrlLookupService> rt_service_;
   content::BrowserTaskEnvironment task_environment_;
 };
+
+TEST_F(RealTimeUrlLookupServiceTest, TestFillRequestProto) {
+  struct SanitizeUrlCase {
+    const char* url;
+    const char* expected_url;
+  } sanitize_url_cases[] = {
+      {"http://example.com/", "http://example.com/"},
+      {"http://user:pass@example.com/", "http://example.com/"},
+      {"http://%123:bar@example.com/", "http://example.com/"},
+      {"http://example.com#123", "http://example.com/"}};
+  for (size_t i = 0; i < base::size(sanitize_url_cases); i++) {
+    GURL url(sanitize_url_cases[i].url);
+    auto result = FillRequestProto(url);
+    EXPECT_EQ(sanitize_url_cases[i].expected_url, result->url());
+    EXPECT_EQ(RTLookupRequest::NAVIGATION, result->lookup_type());
+  }
+}
 
 TEST_F(RealTimeUrlLookupServiceTest, TestBackoffAndTimerReset) {
   // Not in backoff at the beginning.
@@ -121,6 +142,28 @@ TEST_F(RealTimeUrlLookupServiceTest, TestGetSBThreatTypeForRTThreatType) {
   EXPECT_EQ(SB_THREAT_TYPE_BILLING,
             RealTimeUrlLookupService::GetSBThreatTypeForRTThreatType(
                 RTLookupResponse::ThreatInfo::UNCLEAR_BILLING));
+}
+
+TEST_F(RealTimeUrlLookupServiceTest, TestCanCheckUrl) {
+  struct CanCheckUrlCases {
+    const char* url;
+    bool can_check;
+  } can_check_url_cases[] = {{"ftp://example.test/path", false},
+                             {"http://localhost/path", false},
+                             {"http://localhost.localdomain/path", false},
+                             {"http://127.0.0.1/path", false},
+                             {"http://127.0.0.1:2222/path", false},
+                             {"http://192.168.1.1/path", false},
+                             {"http://172.16.2.2/path", false},
+                             {"http://10.1.1.1/path", false},
+                             {"http://10.1.1.1.1/path", true},
+                             {"http://example.test/path", true},
+                             {"https://example.test/path", true}};
+  for (size_t i = 0; i < base::size(can_check_url_cases); i++) {
+    GURL url(can_check_url_cases[i].url);
+    bool expected_can_check = can_check_url_cases[i].can_check;
+    EXPECT_EQ(expected_can_check, CanCheckUrl(url));
+  }
 }
 
 }  // namespace safe_browsing

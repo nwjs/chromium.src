@@ -10,6 +10,7 @@
 #include <string>
 #include <utility>
 
+#include "base/base64.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
@@ -73,6 +74,8 @@ WebUIDataSource* CreateGpuHTMLSource() {
 
   source->UseStringsJs();
   source->AddResourcePath("gpu_internals.js", IDR_GPU_INTERNALS_JS);
+  source->AddResourcePath("vulkan_info.mojom.js", IDR_VULKAN_INFO_MOJO_JS);
+  source->AddResourcePath("vulkan_types.mojom.js", IDR_VULKAN_TYPES_MOJO_JS);
   source->SetDefaultResource(IDR_GPU_INTERNALS_HTML);
   return source;
 }
@@ -327,6 +330,13 @@ std::unique_ptr<base::DictionaryValue> GpuInfoAsDictionaryValue() {
   info->Set("diagnostics", std::move(dx_info));
 #endif
 
+#if BUILDFLAG(ENABLE_VULKAN)
+  if (gpu_info.vulkan_info) {
+    auto blob = gpu_info.vulkan_info->Serialize();
+    info->SetString("vulkanInfo", base::Base64Encode(blob));
+  }
+#endif
+
   return info;
 }
 
@@ -533,7 +543,7 @@ class GpuMessageHandler
   void OnGpuInfoUpdate() override;
 
   // ui::GpuSwitchingObserver implementation.
-  void OnGpuSwitched() override;
+  void OnGpuSwitched(gl::GpuPreference) override;
 
   // Messages
   void OnBrowserBridgeInitialized(const base::ListValue* list);
@@ -720,7 +730,7 @@ void GpuMessageHandler::OnGpuInfoUpdate() {
                                          *(gpu_info_val.get()));
 }
 
-void GpuMessageHandler::OnGpuSwitched() {
+void GpuMessageHandler::OnGpuSwitched(gl::GpuPreference active_gpu_heuristic_) {
   // Currently, about:gpu page does not update GPU info after the GPU switch.
   // If there is something to be updated, the code should be added here.
 }

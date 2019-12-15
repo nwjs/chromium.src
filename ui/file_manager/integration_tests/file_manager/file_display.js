@@ -36,6 +36,52 @@ testcase.fileDisplayDownloads = () => {
 };
 
 /**
+ * Tests opening the files app navigating to a local folder. Uses
+ * platform_util::OpenItem, a call to an API distinct from the one commonly used
+ * in other tests for the same operation.
+ */
+testcase.fileDisplayLaunchOnLocalFolder = async () => {
+  // Add a file to Downloads.
+  await addEntries(['local'], [ENTRIES.photos]);
+
+  // Open Files app on the Downloads directory.
+  await sendTestMessage(
+      {name: 'launchAppOnLocalFolder', localPath: 'Downloads/photos'});
+
+  // Wait for app window to open.
+  const appId = await remoteCall.waitForWindow('files#');
+
+  // Check: the Downloads/photos folder should be selected.
+  await remoteCall.waitForElement(
+      appId, '#file-list [file-name="photos"][selected]');
+
+  // The API used to launch the Files app does not set the IN_TEST flag to true:
+  // error when attempting to retrieve Web Store access token.
+  return IGNORE_APP_ERRORS;
+};
+
+/**
+ * Tests opening the files app navigating to the My Drive folder. Uses
+ * platform_util::OpenItem, a call to an API distinct from the one commonly used
+ * in other tests for the same operation.
+ */
+testcase.fileDisplayLaunchOnDrive = async () => {
+  // Open Files app on the Drive directory.
+  await sendTestMessage({name: 'launchAppOnDrive'});
+
+  // Wait for app window to open.
+  const appId = await remoteCall.waitForWindow('files#');
+
+  // Check: the app should be open on My Drive.
+  await remoteCall.waitForElement(
+      appId, '#directory-tree .tree-item[selected] [volume-type-icon="drive"]');
+
+  // The API used to launch the Files app does not set the IN_TEST flag to true:
+  // error when attempting to retrieve Web Store access token.
+  return IGNORE_APP_ERRORS;
+};
+
+/**
  * Tests files display in Google Drive.
  */
 testcase.fileDisplayDrive = () => {
@@ -797,6 +843,32 @@ testcase.fileDisplayCheckNoReadOnlyIconOnDownloads = async () => {
   // Open files app on Downloads containing ENTRIES.hello.
   const appId =
       await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.hello], []);
+
+  // Make sure read-only indicator on toolbar is NOT visible.
+  await remoteCall.waitForElement(appId, '#read-only-indicator[hidden]');
+};
+
+/**
+ * Tests to make sure read-only indicator is NOT visible when the current
+ * directory is the "Linux files" fake root.
+ */
+testcase.fileDisplayCheckNoReadOnlyIconOnLinuxFiles = async () => {
+  const fakeRoot = '#directory-tree [root-type-icon="crostini"]';
+
+  // Block mounts from progressing. This should cause the file manager to always
+  // show the loading bar for linux files.
+  await sendTestMessage({name: 'blockMounts'});
+
+  // Open files app on Downloads.
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.hello], []);
+
+  // Linux files fake root is shown.
+  await remoteCall.waitForElement(appId, fakeRoot);
+
+  // Click on Linux files.
+  await remoteCall.callRemoteTestUtil('fakeMouseClick', appId, [fakeRoot]);
+  await remoteCall.waitForElement(appId, 'paper-progress:not([hidden])');
 
   // Make sure read-only indicator on toolbar is NOT visible.
   await remoteCall.waitForElement(appId, '#read-only-indicator[hidden]');

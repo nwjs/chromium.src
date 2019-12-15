@@ -396,10 +396,23 @@ void DeferredImageDecoder::PrepareLazyDecodedFrames() {
   if (!metadata_decoder_ || !metadata_decoder_->IsSizeAvailable())
     return;
 
+  if (!image_metadata_)
+    image_metadata_ = metadata_decoder_->MakeMetadataForDecodeAcceleration();
+
+  // If the image contains a coded size with zero in either or both size
+  // dimensions, the image is invalid.
+  if (image_metadata_->coded_size.has_value() &&
+      image_metadata_->coded_size.value().IsEmpty())
+    return;
+
   ActivateLazyDecoding();
 
   const size_t previous_size = frame_data_.size();
   frame_data_.resize(metadata_decoder_->FrameCount());
+
+  // The decoder may be invalidated during a FrameCount(). Simply bail if so.
+  if (metadata_decoder_->Failed())
+    return;
 
   // We have encountered a broken image file. Simply bail.
   if (frame_data_.size() < previous_size)
@@ -422,9 +435,6 @@ void DeferredImageDecoder::PrepareLazyDecodedFrames() {
   can_yuv_decode_ =
       metadata_decoder_->CanDecodeToYUV() && all_data_received_ &&
       !frame_generator_->IsMultiFrame();
-
-  if (!image_metadata_)
-    image_metadata_ = metadata_decoder_->MakeMetadataForDecodeAcceleration();
 
   // If we've received all of the data, then we can reset the metadata decoder,
   // since everything we care about should now be stored in |frame_data_|.

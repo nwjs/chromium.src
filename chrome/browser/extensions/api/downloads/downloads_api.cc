@@ -50,7 +50,6 @@
 #include "chrome/browser/icon_manager.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/renderer_host/chrome_render_message_filter.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -1051,7 +1050,8 @@ bool DownloadsDownloadFunction::RunAsync() {
       new download::DownloadUrlParameters(
           download_url, source_process_id(),
           render_frame_host()->GetRenderViewHost()->GetRoutingID(),
-          render_frame_host()->GetRoutingID(), traffic_annotation));
+          render_frame_host()->GetRoutingID(), traffic_annotation,
+          render_frame_host()->GetNetworkIsolationKey()));
 
   base::FilePath creator_suggested_filename;
   if (options.filename.get()) {

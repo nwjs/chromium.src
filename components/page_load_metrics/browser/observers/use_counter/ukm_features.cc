@@ -99,7 +99,6 @@ UseCounterPageLoadMetricsObserver::GetAllowedUkmFeatures() {
           WebFeature::kOpenerNavigationDownloadCrossOrigin,
           WebFeature::kLinkRelPrerender,
           WebFeature::kAdClickNavigation,
-          WebFeature::kDownloadInSandboxWithoutUserGesture,
           WebFeature::kV8HTMLVideoElement_RequestPictureInPicture_Method,
           WebFeature::kMediaCapabilitiesDecodingInfoWithKeySystemConfig,
           WebFeature::kTextFragmentAnchor,
@@ -128,7 +127,6 @@ UseCounterPageLoadMetricsObserver::GetAllowedUkmFeatures() {
           WebFeature::kRequestedFileSystemPersistent,
           WebFeature::kSMSReceiverStart,
           WebFeature::kRequestFileSystem,
-          WebFeature::kMediaCapabilitiesFramerateRatio,
           WebFeature::kBaseElement,
           WebFeature::kBaseWithCrossOriginHref,
           WebFeature::kWakeLockAcquireScreenLock,
@@ -140,6 +138,12 @@ UseCounterPageLoadMetricsObserver::GetAllowedUkmFeatures() {
           WebFeature::kGetGamepadsFromCrossOriginSubframe,
           WebFeature::kGetGamepadsFromInsecureContext,
           WebFeature::kGetGamepads,
+          WebFeature::kMovedOrResizedPopup,
+          WebFeature::kMovedOrResizedPopup2sAfterCreation,
+          WebFeature::kDOMWindowOpenPositioningFeatures,
+          WebFeature::kCSSSelectorInternalMediaControlsOverlayCastButton,
+          WebFeature::kWebBluetoothRequestDevice,
+          WebFeature::kWebBluetoothRequestScan,
       }));
   return *opt_in_features;
 }

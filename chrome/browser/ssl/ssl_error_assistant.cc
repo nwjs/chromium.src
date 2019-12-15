@@ -36,6 +36,9 @@ net::CertStatus MapToCertStatus(
     case chrome_browser_ssl::DynamicInterstitial::
         ERR_CERTIFICATE_TRANSPARENCY_REQUIRED:
       return net::CERT_STATUS_CERTIFICATE_TRANSPARENCY_REQUIRED;
+    case chrome_browser_ssl::DynamicInterstitial::
+        ERR_CERT_KNOWN_INTERCEPTION_BLOCKED:
+      return net::CERT_STATUS_KNOWN_INTERCEPTION_BLOCKED;
     case chrome_browser_ssl::DynamicInterstitial::ERR_CERT_SYMANTEC_LEGACY:
       return net::CERT_STATUS_SYMANTEC_LEGACY;
     case chrome_browser_ssl::DynamicInterstitial::ERR_CERT_REVOKED:
@@ -318,7 +321,7 @@ SSLErrorAssistant::GetErrorAssistantProtoFromResourceBundle() {
   auto proto = std::make_unique<chrome_browser_ssl::SSLErrorAssistantConfig>();
   DCHECK(proto);
   ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
-  std::string data = bundle.DecompressDataResource(IDR_SSL_ERROR_ASSISTANT_PB);
+  std::string data = bundle.LoadDataResourceString(IDR_SSL_ERROR_ASSISTANT_PB);
   return proto->ParseFromString(data) ? std::move(proto) : nullptr;
 }
 

@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_TOOLBAR_TOOLBAR_ACCOUNT_ICON_CONTAINER_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_TOOLBAR_TOOLBAR_ACCOUNT_ICON_CONTAINER_VIEW_H_
 
-#include "base/macros.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_icon_container_view.h"
@@ -20,6 +19,10 @@ class ToolbarAccountIconContainerView : public ToolbarIconContainerView,
                                         public PageActionIconView::Delegate {
  public:
   explicit ToolbarAccountIconContainerView(Browser* browser);
+  ToolbarAccountIconContainerView(const ToolbarAccountIconContainerView&) =
+      delete;
+  ToolbarAccountIconContainerView& operator=(
+      const ToolbarAccountIconContainerView&) = delete;
   ~ToolbarAccountIconContainerView() override;
 
   // ToolbarIconContainerView:
@@ -33,25 +36,24 @@ class ToolbarAccountIconContainerView : public ToolbarIconContainerView,
 
   // views::View:
   void OnThemeChanged() override;
+  const char* GetClassName() const override;
 
   PageActionIconContainerView* page_action_icon_container() {
     return page_action_icon_container_view_;
   }
   AvatarToolbarButton* avatar_button() { return avatar_; }
 
+  static const char kToolbarAccountIconContainerViewClassName[];
+
  private:
   // ToolbarIconContainerView:
   const views::View::Views& GetChildren() const override;
-
-  SkColor GetIconColor() const;
 
   PageActionIconContainerView* page_action_icon_container_view_ = nullptr;
 
   AvatarToolbarButton* const avatar_ = nullptr;
 
   Browser* const browser_;
-
-  DISALLOW_COPY_AND_ASSIGN(ToolbarAccountIconContainerView);
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TOOLBAR_TOOLBAR_ACCOUNT_ICON_CONTAINER_VIEW_H_

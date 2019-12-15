@@ -328,7 +328,7 @@ void SyncManagerImpl::Init(InitArgs* args) {
   std::unique_ptr<syncable::DirectoryBackingStore> backing_store =
       args->engine_components_factory->BuildDirectoryBackingStore(
           EngineComponentsFactory::STORAGE_ON_DISK,
-          args->authenticated_account_id.id, cache_guid_generator,
+          args->authenticated_account_id.ToString(), cache_guid_generator,
           absolute_db_path);
 
   DCHECK(backing_store);
@@ -352,7 +352,7 @@ void SyncManagerImpl::Init(InitArgs* args) {
     allstatus_.SetLocalBackendFolder(
         args->local_sync_backend_folder.AsUTF8Unsafe());
     connection_manager_ = std::make_unique<LoopbackConnectionManager>(
-        args->cancelation_signal, args->local_sync_backend_folder);
+        args->local_sync_backend_folder);
   } else {
     connection_manager_ = std::make_unique<SyncServerConnectionManager>(
         args->service_url.host() + args->service_url.path(),
@@ -501,8 +501,8 @@ bool SyncManagerImpl::OpenDirectory(InitArgs* args) {
       MakeWeakHandle(js_mutation_event_observer_.AsWeakPtr()));
 
   syncable::DirOpenResult open_result = syncable::NOT_INITIALIZED;
-  open_result = directory()->Open(args->authenticated_account_id.id, this,
-                                  transaction_observer);
+  open_result = directory()->Open(args->authenticated_account_id.ToString(),
+                                  this, transaction_observer);
   if (open_result != syncable::OPENED_NEW &&
       open_result != syncable::OPENED_EXISTING) {
     DLOG(ERROR) << "Could not open share for: "

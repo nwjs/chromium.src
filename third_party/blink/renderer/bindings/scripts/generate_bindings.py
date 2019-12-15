@@ -39,7 +39,8 @@ def main():
     options, tasks = parse_options()
 
     dispatch_table = {
-        'example': bind_gen.run_example,
+        'dictionary': bind_gen.generate_dictionaries,
+        'interface': bind_gen.generate_interfaces,
     }
 
     for task in tasks:
@@ -51,6 +52,8 @@ def main():
         web_idl.Component('core'): options.output_dir_core,
         web_idl.Component('modules'): options.output_dir_modules,
     }
+
+    bind_gen.init(output_dirs)
 
     for task in tasks:
         dispatch_table[task](web_idl_database=web_idl_database,

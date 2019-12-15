@@ -323,6 +323,12 @@ class SSLClientSocketImpl::SSLContext {
         ssl_ctx_.get(), TLSEXT_cert_compression_brotli,
         nullptr /* compression not supported */, DecompressBrotliCert);
 #endif
+
+    if (base::FeatureList::IsEnabled(features::kPostQuantumCECPQ2)) {
+      static const int kCurves[] = {NID_CECPQ2, NID_X25519,
+                                    NID_X9_62_prime256v1, NID_secp384r1};
+      SSL_CTX_set1_curves(ssl_ctx_.get(), kCurves, base::size(kCurves));
+    }
   }
 
   static int ClientCertRequestCallback(SSL* ssl, void* arg) {
@@ -943,9 +949,6 @@ int SSLClientSocketImpl::DoHandshake() {
 }
 
 int SSLClientSocketImpl::DoHandshakeComplete(int result) {
-  if (in_confirm_handshake_)
-    MaybeRecordEarlyDataResult();
-
   if (result < 0)
     return result;
 
@@ -1072,12 +1075,18 @@ int SSLClientSocketImpl::DoHandshakeComplete(int result) {
       details = SSLHandshakeDetails::kTLS12Full;
     }
   } else {
+    bool used_hello_retry_request = SSL_used_hello_retry_request(ssl_.get());
     if (SSL_in_early_data(ssl_.get())) {
+      DCHECK(!used_hello_retry_request);
       details = SSLHandshakeDetails::kTLS13Early;
     } else if (SSL_session_reused(ssl_.get())) {
-      details = SSLHandshakeDetails::kTLS13Resume;
+      details = used_hello_retry_request
+                    ? SSLHandshakeDetails::kTLS13ResumeWithHelloRetryRequest
+                    : SSLHandshakeDetails::kTLS13Resume;
     } else {
-      details = SSLHandshakeDetails::kTLS13Full;
+      details = used_hello_retry_request
+                    ? SSLHandshakeDetails::kTLS13FullWithHelloRetryRequest
+                    : SSLHandshakeDetails::kTLS13Full;
     }
   }
   UMA_HISTOGRAM_ENUMERATION("Net.SSLHandshakeDetails", details);
@@ -1253,6 +1262,7 @@ ssl_verify_result_t SSLClientSocketImpl::HandleVerifyResult() {
 
   is_fatal_cert_error_ =
       IsCertStatusError(server_cert_verify_result_.cert_status) &&
+      result != ERR_CERT_KNOWN_INTERCEPTION_BLOCKED &&
       context_->transport_security_state()->ShouldSSLErrorsBeFatal(
           host_and_port_.host());
 
@@ -1372,8 +1382,6 @@ int SSLClientSocketImpl::DoPayloadRead(IOBuffer* buf, int buf_len) {
       DCHECK_NE(kSSLClientSocketNoPendingResult, signature_result_);
       pending_read_error_ = ERR_IO_PENDING;
     } else {
-      if (pending_read_ssl_error_ == SSL_ERROR_EARLY_DATA_REJECTED)
-        MaybeRecordEarlyDataResult();
       pending_read_error_ = MapLastOpenSSLError(
           pending_read_ssl_error_, err_tracer, &pending_read_error_info_);
     }
@@ -1390,8 +1398,6 @@ int SSLClientSocketImpl::DoPayloadRead(IOBuffer* buf, int buf_len) {
     // Return any bytes read to the caller. The error will be deferred to the
     // next call of DoPayloadRead.
     rv = total_bytes_read;
-
-    MaybeRecordEarlyDataResult();
 
     // Do not treat insufficient data as an error to return in the next call to
     // DoPayloadRead() - instead, let the call fall through to check SSL_read()
@@ -1455,6 +1461,29 @@ void SSLClientSocketImpl::DoPeek() {
   }
 
   crypto::OpenSSLErrStackTracer err_tracer(FROM_HERE);
+
+  if (ssl_config_.early_data_enabled && !recorded_early_data_result_) {
+    // |SSL_peek| will implicitly run |SSL_do_handshake| if needed, but run it
+    // manually to pick up the reject reason.
+    int rv = SSL_do_handshake(ssl_.get());
+    int ssl_err = SSL_get_error(ssl_.get(), rv);
+    if (ssl_err == SSL_ERROR_WANT_READ || ssl_err == SSL_ERROR_WANT_WRITE) {
+      return;
+    }
+
+    // Since the two-parameter version of the macro (which asks for a max value)
+    // requires that the max value sentinel be named |kMaxValue|, transform the
+    // max-value sentinel into a one-past-the-end ("boundary") sentinel by
+    // adding 1, in order to be able to use the three-parameter macro.
+    UMA_HISTOGRAM_ENUMERATION("Net.SSLHandshakeEarlyDataReason",
+                              SSL_get_early_data_reason(ssl_.get()),
+                              ssl_early_data_reason_max_value + 1);
+    recorded_early_data_result_ = true;
+    if (ssl_err != SSL_ERROR_NONE) {
+      peek_complete_ = true;
+      return;
+    }
+  }
 
   char byte;
   int rv = SSL_peek(ssl_.get(), &byte, 1);
@@ -1815,22 +1844,6 @@ void SSLClientSocketImpl::LogConnectEndEvent(int rv) {
 void SSLClientSocketImpl::RecordNegotiatedProtocol() const {
   UMA_HISTOGRAM_ENUMERATION("Net.SSLNegotiatedAlpnProtocol",
                             negotiated_protocol_, kProtoLast + 1);
-}
-
-void SSLClientSocketImpl::MaybeRecordEarlyDataResult() {
-  DCHECK(ssl_);
-  if (!ssl_config_.early_data_enabled || recorded_early_data_result_)
-    return;
-
-  recorded_early_data_result_ = true;
-  // Since the two-parameter version of the macro (which asks for a max
-  // value) requires that the max value sentinel be named |kMaxValue|,
-  // transform the max-value sentinel into a one-past-the-end ("boundary")
-  // sentinel by adding 1, in order to be able to use the three-parameter
-  // macro.
-  UMA_HISTOGRAM_ENUMERATION("Net.SSLHandshakeEarlyDataReason",
-                            SSL_get_early_data_reason(ssl_.get()),
-                            ssl_early_data_reason_max_value + 1);
 }
 
 int SSLClientSocketImpl::MapLastOpenSSLError(

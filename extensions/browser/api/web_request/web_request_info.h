@@ -22,12 +22,9 @@
 #include "ipc/ipc_message.h"
 #include "net/http/http_request_headers.h"
 #include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/mojom/url_response_head.mojom-forward.h"
 #include "url/gurl.h"
 #include "url/origin.h"
-
-namespace network {
-struct ResourceResponseHead;
-}
 
 namespace extensions {
 
@@ -50,7 +47,8 @@ struct WebRequestInfoInitParams {
       const network::ResourceRequest& request,
       bool is_download,
       bool is_async,
-      bool is_service_worker_script);
+      bool is_service_worker_script,
+      base::Optional<int64_t> navigation_id);
 
   ~WebRequestInfoInitParams();
 
@@ -74,6 +72,7 @@ struct WebRequestInfoInitParams {
   int web_view_embedder_process_id = -1;
   ExtensionApiFrameIdMap::FrameData frame_data;
   bool is_service_worker_script = false;
+  base::Optional<int64_t> navigation_id;
 
  private:
   void InitializeWebViewAndFrameData(
@@ -91,7 +90,7 @@ struct WebRequestInfo {
 
   // Fill in response data for this request.
   void AddResponseInfoFromResourceResponse(
-      const network::ResourceResponseHead& response);
+      const network::mojom::URLResponseHead& response);
 
   // A unique identifier for this request.
   const uint64_t id;
@@ -174,6 +173,9 @@ struct WebRequestInfo {
       dnr_actions;
 
   const bool is_service_worker_script;
+
+  // Valid if this request corresponds to a navigation.
+  const base::Optional<int64_t> navigation_id;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(WebRequestInfo);

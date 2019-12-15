@@ -121,14 +121,6 @@ bool DialogClientView::CanClose() {
   return delegate_allowed_close_;
 }
 
-DialogClientView* DialogClientView::AsDialogClientView() {
-  return this;
-}
-
-const DialogClientView* DialogClientView::AsDialogClientView() const {
-  return this;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // DialogClientView, View overrides:
 
@@ -445,7 +437,7 @@ void DialogClientView::SetupViews() {
   if (extra_view_)
     return;
 
-  extra_view_ = GetDialogDelegate()->CreateExtraView().release();
+  extra_view_ = GetDialogDelegate()->DisownExtraView().release();
   if (extra_view_ && Button::AsButton(extra_view_))
     extra_view_->SetGroup(kButtonGroup);
 }

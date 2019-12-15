@@ -49,6 +49,7 @@
 #include "third_party/re2/src/re2/re2.h"
 #include "url/origin.h"
 #include "url/url_constants.h"
+#include "components/safe_browsing/features.h"
 
 using autofill::PasswordForm;
 
@@ -143,8 +144,8 @@ enum DatabaseInitError {
   INIT_STATS_ERROR,
   MIGRATION_ERROR,
   COMMIT_TRANSACTION_ERROR,
-  INIT_LEAKED_CREDENTIALS_ERROR,
-
+  INIT_COMPROMISED_CREDENTIALS_ERROR,
+  INIT_FIELD_INFO_ERROR,
   DATABASE_INIT_ERROR_COUNT,
 };
 
@@ -773,7 +774,8 @@ bool LoginDatabase::Init() {
   }
 
   stats_table_.Init(&db_);
-  leaked_credentials_table_.Init(&db_);
+  compromised_credentials_table_.Init(&db_);
+  field_info_table_.Init(&db_);
 
   int current_version = meta_table_.GetVersionNumber();
   bool migration_success = FixVersionIfNeeded(&db_, &current_version);
@@ -812,9 +814,33 @@ bool LoginDatabase::Init() {
     return false;
   }
 
-  if (!leaked_credentials_table_.CreateTableIfNecessary()) {
-    LogDatabaseInitError(INIT_LEAKED_CREDENTIALS_ERROR);
-    LOG(ERROR) << "Unable to create the leaked credentials table.";
+  // The table "leaked_credentials" was previously created without a flag.
+  // The table is now renamed to "compromised_credentials" and also includes
+  // a new column so the old table needs to be deleted.
+  if (db_.DoesTableExist("leaked_credentials")) {
+    if (!db_.Execute("DROP TABLE leaked_credentials")) {
+      LOG(ERROR) << "Unable to create the stats table.";
+      transaction.Rollback();
+      db_.Close();
+      return false;
+    }
+  }
+
+  if (base::FeatureList::IsEnabled(password_manager::features::kLeakHistory) ||
+      base::FeatureList::IsEnabled(
+          safe_browsing::kPasswordProtectionShowDomainsForSavedPasswords)) {
+    if (!compromised_credentials_table_.CreateTableIfNecessary()) {
+      LogDatabaseInitError(INIT_COMPROMISED_CREDENTIALS_ERROR);
+      LOG(ERROR) << "Unable to create the compromised credentials table.";
+      transaction.Rollback();
+      db_.Close();
+      return false;
+    }
+  }
+
+  if (!field_info_table_.CreateTableIfNecessary()) {
+    LogDatabaseInitError(INIT_FIELD_INFO_ERROR);
+    LOG(ERROR) << "Unable to create the field info table.";
     transaction.Rollback();
     db_.Close();
     return false;
@@ -1132,6 +1158,7 @@ PasswordStoreChangeList LoginDatabase::AddLogin(const PasswordForm& form,
     }
     return list;
   }
+
   DCHECK(!add_statement_.empty());
   sql::Statement s(
       db_.GetCachedStatement(SQL_FROM_HERE, add_statement_.c_str()));
@@ -1140,19 +1167,26 @@ PasswordStoreChangeList LoginDatabase::AddLogin(const PasswordForm& form,
   db_.set_error_callback(base::BindRepeating(&AddCallback, &sqlite_error_code));
   const bool success = s.Run();
   if (success) {
-    list.emplace_back(PasswordStoreChange::ADD, form, db_.GetLastInsertRowId());
+    // If success, the row never existed so password was not changed.
+    list.emplace_back(PasswordStoreChange::ADD, form, db_.GetLastInsertRowId(),
+                      /*password_changed=*/false);
     return list;
   }
+
   // Repeat the same statement but with REPLACE semantic.
   sqlite_error_code = 0;
   DCHECK(!add_replace_statement_.empty());
+  const std::string encrpyted_old_password = GetEncryptedPassword(form);
+  bool password_changed = !encrpyted_old_password.empty() &&
+                          encrpyted_old_password != encrypted_password;
   int old_primary_key = GetPrimaryKey(form);
   s.Assign(
       db_.GetCachedStatement(SQL_FROM_HERE, add_replace_statement_.c_str()));
   BindAddStatement(form, encrypted_password, &s);
   if (s.Run()) {
     list.emplace_back(PasswordStoreChange::REMOVE, form, old_primary_key);
-    list.emplace_back(PasswordStoreChange::ADD, form, db_.GetLastInsertRowId());
+    list.emplace_back(PasswordStoreChange::ADD, form, db_.GetLastInsertRowId(),
+                      password_changed);
   } else if (error) {
     if (sqlite_error_code == 19 /*SQLITE_CONSTRAINT*/) {
       *error = AddLoginError::kConstraintViolation;
@@ -1196,6 +1230,10 @@ PasswordStoreChangeList LoginDatabase::UpdateLogin(const PasswordForm& form,
     }
     return PasswordStoreChangeList();
   }
+
+  const std::string encrpyted_old_password = GetEncryptedPassword(form);
+  bool password_changed = !encrpyted_old_password.empty() &&
+                          encrpyted_old_password != encrypted_password;
 
 #if defined(OS_IOS)
   DeleteEncryptedPassword(form);
@@ -1254,7 +1292,8 @@ PasswordStoreChangeList LoginDatabase::UpdateLogin(const PasswordForm& form,
 
   PasswordStoreChangeList list;
   if (db_.GetLastChangeCount()) {
-    list.emplace_back(PasswordStoreChange::UPDATE, form, GetPrimaryKey(form));
+    list.emplace_back(PasswordStoreChange::UPDATE, form, GetPrimaryKey(form),
+                      password_changed);
   } else if (error) {
     *error = UpdateLoginError::kNoUpdatedRecords;
   }
@@ -1290,7 +1329,8 @@ bool LoginDatabase::RemoveLogin(const PasswordForm& form,
     return false;
   }
   if (changes) {
-    changes->emplace_back(PasswordStoreChange::REMOVE, form, primary_key);
+    changes->emplace_back(PasswordStoreChange::REMOVE, form, primary_key,
+                          /*password_changed=*/true);
   }
   return true;
 }
@@ -1325,7 +1365,7 @@ bool LoginDatabase::RemoveLoginByPrimaryKey(int primary_key,
   }
   if (changes) {
     changes->emplace_back(PasswordStoreChange::REMOVE, std::move(form),
-                          primary_key);
+                          primary_key, /*password_changed=*/true);
   }
   return true;
 }
@@ -1363,7 +1403,8 @@ bool LoginDatabase::RemoveLoginsCreatedBetween(
     for (const auto& pair : key_to_form_map) {
       changes->emplace_back(PasswordStoreChange::REMOVE,
                             /*form=*/std::move(*pair.second),
-                            /*primary_key=*/pair.first);
+                            /*primary_key=*/pair.first,
+                            /*password_changed=*/true);
     }
   }
   return true;
@@ -1921,9 +1962,9 @@ FormRetrievalResult LoginDatabase::StatementToForms(
   key_to_form_map->clear();
   while (statement->Step()) {
     auto new_form = std::make_unique<PasswordForm>();
-    new_form->from_store = is_account_store()
-                               ? PasswordForm::Store::kAccountStore
-                               : PasswordForm::Store::kProfileStore;
+    new_form->in_store = is_account_store()
+                             ? PasswordForm::Store::kAccountStore
+                             : PasswordForm::Store::kProfileStore;
     int primary_key = -1;
     EncryptionResult result = InitPasswordFormFromStatement(
         *statement, /*decrypt_and_fill_password_value=*/true, &primary_key,

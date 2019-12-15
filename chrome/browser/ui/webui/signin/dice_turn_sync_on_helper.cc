@@ -43,7 +43,6 @@
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/sync/driver/sync_user_settings.h"
-#include "components/unified_consent/feature.h"
 #include "components/unified_consent/unified_consent_service.h"
 #include "content/public/browser/storage_partition.h"
 
@@ -293,8 +292,8 @@ void DiceTurnSyncOnHelper::TurnSyncOnWithProfileMode(ProfileMode profile_mode) {
           policy::UserPolicySigninServiceFactory::GetForProfile(profile_);
       policy_service->RegisterForPolicyWithAccountId(
           account_info_.email, account_info_.account_id,
-          base::Bind(&DiceTurnSyncOnHelper::OnRegisteredForPolicy,
-                     weak_pointer_factory_.GetWeakPtr()));
+          base::BindOnce(&DiceTurnSyncOnHelper::OnRegisteredForPolicy,
+                         weak_pointer_factory_.GetWeakPtr()));
       break;
     }
     case ProfileMode::NEW_PROFILE:
@@ -341,8 +340,8 @@ void DiceTurnSyncOnHelper::LoadPolicyWithCachedCredentials() {
       AccountIdFromAccountInfo(account_info_), dm_token_, client_id_,
       content::BrowserContext::GetDefaultStoragePartition(profile_)
           ->GetURLLoaderFactoryForBrowserProcess(),
-      base::Bind(&DiceTurnSyncOnHelper::OnPolicyFetchComplete,
-                 weak_pointer_factory_.GetWeakPtr()));
+      base::BindOnce(&DiceTurnSyncOnHelper::OnPolicyFetchComplete,
+                     weak_pointer_factory_.GetWeakPtr()));
 }
 
 void DiceTurnSyncOnHelper::OnPolicyFetchComplete(bool success) {

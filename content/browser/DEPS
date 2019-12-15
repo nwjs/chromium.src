@@ -14,7 +14,6 @@ include_rules = [
   "+components/services/font",
   "+components/services/filesystem",
   "+components/services/font/ppapi_fontconfig_matching.h",
-  "+components/services/leveldb",
   "+components/services/quarantine/test_support.h",
   "+components/services/quarantine/quarantine.h",
   "+components/services/storage",
@@ -29,6 +28,7 @@ include_rules = [
   "+components/payments",
   "+components/rappor/public",
   "+components/services/heap_profiling/public",
+  "+components/system_media_controls",
   "+components/tracing",
   "+components/ukm",
   "+components/url_formatter",
@@ -92,6 +92,7 @@ include_rules = [
   "+third_party/blink/public/mojom",
   "+third_party/blink/public/platform/resource_request_blocked_reason.h",
   "+third_party/blink/public/platform/WebAddressSpace.h",
+  "+third_party/blink/public/platform/viewport_intersection_state.h",
   "+third_party/blink/public/platform/web_client_hints_type.h",
   "+third_party/blink/public/platform/web_content_security_policy.h",
   "+third_party/blink/public/platform/web_cursor_info.h",
@@ -115,7 +116,6 @@ include_rules = [
   "+third_party/blink/public/platform/web_touch_event.h",
   "+third_party/blink/public/platform/web_text_input_type.h",
   "+third_party/blink/public/platform/mac/web_scrollbar_theme.h",
-  "+third_party/blink/public/platform/modules/indexeddb/web_idb_database_exception.h",
   "+third_party/blink/public/platform/modules/service_worker/web_service_worker_error.h",
   "+third_party/blink/public/platform/modules/sms/sms_receiver.mojom.h",
   "+third_party/blink/public/public_buildflags.h",
@@ -126,7 +126,7 @@ include_rules = [
   "+third_party/blink/public/web/web_device_emulation_params.h",
   "+third_party/blink/public/web/web_drag_status.h",
   "+third_party/blink/public/web/web_ime_text_span.h",
-  "+third_party/blink/public/web/web_media_player_action.h",
+  "+third_party/blink/public/common/media/media_player_action.h",
   "+third_party/blink/public/web/web_serialized_script_value_version.h",
   "+third_party/blink/public/web/WebSharedWorkerCreationContextType.h",
   "+third_party/blink/public/web/WebSharedWorkerCreationErrors.h",
@@ -142,5 +142,8 @@ specific_include_rules = {
   # To share values of UMA enums between product code and tests.
   "cross_site_document_blocking_browsertest.cc": [
     "+services/network/cross_origin_read_blocking.h",
+  ],
+  "storage_partition_impl_unittest.cc": [
+    "+third_party/leveldatabase",
   ],
 }

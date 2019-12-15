@@ -8,12 +8,13 @@ import android.accounts.Account;
 import android.content.Intent;
 import android.os.Build;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.google.protos.ipc.invalidation.Types;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
@@ -30,7 +31,7 @@ import org.chromium.components.sync.notifier.InvalidationPreferences;
 public class InvalidationService {
     private final long mNativeInvalidationServiceAndroid;
 
-    private static final String TAG = "cr_invalidation";
+    private static final String TAG = "invalidation";
 
     private InvalidationService(long nativeInvalidationServiceAndroid) {
         mNativeInvalidationServiceAndroid = nativeInvalidationServiceAndroid;

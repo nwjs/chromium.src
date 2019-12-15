@@ -58,7 +58,6 @@
 #include "third_party/blink/renderer/core/css/css_value_list.h"
 #include "third_party/blink/renderer/core/css/element_rule_collector.h"
 #include "third_party/blink/renderer/core/css/font_face.h"
-#include "third_party/blink/renderer/core/css/media_query_evaluator.h"
 #include "third_party/blink/renderer/core/css/page_rule_collector.h"
 #include "third_party/blink/renderer/core/css/part_names.h"
 #include "third_party/blink/renderer/core/css/properties/css_property.h"
@@ -66,7 +65,6 @@
 #include "third_party/blink/renderer/core/css/resolver/css_variable_animator.h"
 #include "third_party/blink/renderer/core/css/resolver/css_variable_resolver.h"
 #include "third_party/blink/renderer/core/css/resolver/match_result.h"
-#include "third_party/blink/renderer/core/css/resolver/media_query_result.h"
 #include "third_party/blink/renderer/core/css/resolver/scoped_style_resolver.h"
 #include "third_party/blink/renderer/core/css/resolver/selector_filter_parent_scope.h"
 #include "third_party/blink/renderer/core/css/resolver/style_adjuster.h"
@@ -90,6 +88,9 @@
 #include "third_party/blink/renderer/core/html/custom/custom_element_definition.h"
 #include "third_party/blink/renderer/core/html/html_iframe_element.h"
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
+#include "third_party/blink/renderer/core/html/track/text_track.h"
+#include "third_party/blink/renderer/core/html/track/vtt/vtt_cue.h"
+#include "third_party/blink/renderer/core/html/track/vtt/vtt_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/media_type_names.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
@@ -125,8 +126,6 @@ bool HasAnimationsOrTransitions(const StyleResolverState& state) {
 }
 
 }  // namespace
-
-using namespace html_names;
 
 static CSSPropertyValueSet* LeftToRightDeclaration() {
   DEFINE_STATIC_LOCAL(
@@ -312,6 +311,38 @@ static void MatchSlottedRules(const Element& element,
   }
 }
 
+const static TextTrack* GetTextTrackFromElement(const Element& element) {
+  if (auto* vtt_element = DynamicTo<VTTElement>(element))
+    return vtt_element->GetTrack();
+  if (auto* vtt_cue_background_box = DynamicTo<VTTCueBackgroundBox>(element))
+    return vtt_cue_background_box->GetTrack();
+  return nullptr;
+}
+
+static void MatchVTTRules(const Element& element,
+                                  ElementRuleCollector& collector) {
+  const TextTrack* text_track = GetTextTrackFromElement(element);
+  if (!text_track)
+    return;
+  const HeapVector<Member<CSSStyleSheet>>& styles =
+      text_track->GetCSSStyleSheets();
+  if (!styles.IsEmpty()) {
+    int style_sheet_index = 0;
+    collector.ClearMatchedRules();
+    for (CSSStyleSheet* style : styles) {
+      RuleSet* rule_set =
+          element.GetDocument().GetStyleEngine().RuleSetForSheet(*style);
+      if (rule_set) {
+        collector.CollectMatchingRules(
+            MatchRequest(rule_set, nullptr /* scope */, style,
+                         style_sheet_index, true /* is_from_webvtt */));
+        style_sheet_index++;
+      }
+    }
+    collector.SortAndTransferMatchedRules();
+  }
+}
+
 // Matches rules from the element's scope. The selectors may cross shadow
 // boundaries during matching, like for :host-context.
 static void MatchElementScopeRules(const Element& element,
@@ -324,6 +355,7 @@ static void MatchElementScopeRules(const Element& element,
     collector.SortAndTransferMatchedRules();
   }
 
+  MatchVTTRules(element, collector);
   if (element.IsStyledElement() && element.InlineStyle() &&
       !collector.IsCollectingForPseudoElement()) {
     // Inline style is immutable as long as there is no CSSOM wrapper.
@@ -751,17 +783,19 @@ scoped_refptr<ComputedStyle> StyleResolver::StyleForElement(
                              : ComputedStyle::kNotAtShadowBoundary);
       state.SetStyle(std::move(style));
     } else {
-      // Strictly, we should only allow the root element to inherit from initial
-      // styles, but we allow getComputedStyle() for connected elements outside
-      // the flat tree rooted at an unassigned shadow host child, or Shadow DOM
-      // V0 insertion points.
-      DCHECK(element == GetDocument().documentElement() ||
-             element->IsV0InsertionPoint() ||
-             (IsShadowHost(element->parentNode()) &&
-              !LayoutTreeBuilderTraversal::ParentElement(*element)));
       state.SetStyle(InitialStyleForElement(GetDocument()));
       state.SetParentStyle(ComputedStyle::Clone(*state.Style()));
       state.SetLayoutParentStyle(state.ParentStyle());
+      if (element != GetDocument().documentElement()) {
+        // Strictly, we should only allow the root element to inherit from
+        // initial styles, but we allow getComputedStyle() for connected
+        // elements outside the flat tree rooted at an unassigned shadow host
+        // child, or Shadow DOM V0 insertion points.
+        DCHECK(element->IsV0InsertionPoint() ||
+               (IsShadowHost(element->parentNode()) &&
+                !LayoutTreeBuilderTraversal::ParentElement(*element)));
+        state.Style()->SetIsEnsuredOutsideFlatTree();
+      }
     }
   }
 
@@ -868,6 +902,9 @@ scoped_refptr<ComputedStyle> StyleResolver::StyleForElement(
   if (state.Style()->HasRemUnits())
     GetDocument().GetStyleEngine().SetUsesRemUnit(true);
 
+  if (state.Style()->HasGlyphRelativeUnits())
+    UseCounter::Count(GetDocument(), WebFeature::kHasGlyphRelativeUnits);
+
   // Now return the style.
   return state.TakeStyle();
 }
@@ -940,6 +977,15 @@ bool StyleResolver::PseudoStyleForElementInternal(
                                    state.Style());
     collector.SetPseudoElementStyleRequest(pseudo_style_request);
 
+    // The UA sheet is supposed to set some styles to ::marker pseudo-elements,
+    // but that would use a slow universal element selector. So instead we apply
+    // the styles here as an optimization.
+    if (pseudo_style_request.pseudo_id == kPseudoIdMarker) {
+      state.Style()->SetUnicodeBidi(UnicodeBidi::kIsolate);
+      state.Style()->SetFontVariantNumericSpacing(
+          FontVariantNumeric::kTabularNums);
+    }
+
     MatchUARules(collector);
     MatchUserRules(collector);
     MatchAuthorRules(state.GetElement(), collector);
@@ -977,6 +1023,9 @@ bool StyleResolver::PseudoStyleForElementInternal(
 
   if (state.Style()->HasViewportUnits())
     GetDocument().SetHasViewportUnits();
+
+  if (state.Style()->HasGlyphRelativeUnits())
+    UseCounter::Count(GetDocument(), WebFeature::kHasGlyphRelativeUnits);
 
   return true;
 }
@@ -1462,6 +1511,43 @@ static inline bool IsValidFirstLetterStyleProperty(CSSPropertyID id) {
   }
 }
 
+static inline bool IsValidMarkerStyleProperty(CSSPropertyID id) {
+  switch (id) {
+    // Valid ::marker properties listed in spec:
+    // https://drafts.csswg.org/css-pseudo-4/#marker-pseudo
+    case CSSPropertyID::kColor:
+    case CSSPropertyID::kContent:
+    case CSSPropertyID::kDirection:
+    case CSSPropertyID::kFont:
+    case CSSPropertyID::kFontFamily:
+    case CSSPropertyID::kFontFeatureSettings:
+    case CSSPropertyID::kFontKerning:
+    case CSSPropertyID::kFontOpticalSizing:
+    case CSSPropertyID::kFontSize:
+    case CSSPropertyID::kFontSizeAdjust:
+    case CSSPropertyID::kFontStretch:
+    case CSSPropertyID::kFontStyle:
+    case CSSPropertyID::kFontVariant:
+    case CSSPropertyID::kFontVariantCaps:
+    case CSSPropertyID::kFontVariantEastAsian:
+    case CSSPropertyID::kFontVariantLigatures:
+    case CSSPropertyID::kFontVariantNumeric:
+    case CSSPropertyID::kFontVariationSettings:
+    case CSSPropertyID::kFontWeight:
+    case CSSPropertyID::kTextCombineUpright:
+    case CSSPropertyID::kUnicodeBidi:
+      return true;
+
+    // Not directly specified in spec, but variables should be supported nearly
+    // anywhere.
+    case CSSPropertyID::kVariable:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
 static bool PassesPropertyFilter(ValidPropertyFilter valid_property_filter,
                                  CSSPropertyID property,
                                  const Document& document) {
@@ -1472,6 +1558,8 @@ static bool PassesPropertyFilter(ValidPropertyFilter valid_property_filter,
       return IsValidFirstLetterStyleProperty(property);
     case ValidPropertyFilter::kCue:
       return IsValidCueStyleProperty(property);
+    case ValidPropertyFilter::kMarker:
+      return IsValidMarkerStyleProperty(property);
   }
   NOTREACHED();
   return true;

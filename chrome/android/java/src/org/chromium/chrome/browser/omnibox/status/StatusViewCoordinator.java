@@ -10,11 +10,12 @@ import android.text.TextWatcher;
 import android.view.View;
 
 import androidx.annotation.DrawableRes;
+import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
 import org.chromium.chrome.browser.page_info.PageInfoController;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
@@ -187,7 +188,7 @@ public class StatusViewCoordinator implements View.OnClickListener, TextWatcher 
             return;
         }
 
-        PageInfoController.show(mToolbarDataProvider.getTab().getActivity(),
+        PageInfoController.show(((TabImpl) mToolbarDataProvider.getTab()).getActivity(),
                 mToolbarDataProvider.getTab(), null, PageInfoController.OpenedFromSource.TOOLBAR);
     }
 

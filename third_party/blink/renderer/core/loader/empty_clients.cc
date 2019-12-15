@@ -81,14 +81,6 @@ void EmptyChromeClient::OpenTextDataListChooser(HTMLInputElement&) {}
 void EmptyChromeClient::OpenFileChooser(LocalFrame*,
                                         scoped_refptr<FileChooser>) {}
 
-void EmptyChromeClient::AttachRootGraphicsLayer(GraphicsLayer* layer,
-                                                LocalFrame* local_root) {
-  Page* page = local_root ? local_root->GetPage() : nullptr;
-  if (!page)
-    return;
-  page->GetVisualViewport().AttachLayerTree(layer);
-}
-
 void EmptyChromeClient::AttachRootLayer(scoped_refptr<cc::Layer>, LocalFrame*) {
 }
 
@@ -126,26 +118,6 @@ DocumentLoader* EmptyLocalFrameClient::CreateDocumentLoader(
   DCHECK(frame);
   return MakeGarbageCollected<DocumentLoader>(frame, navigation_type,
                                               std::move(navigation_params));
-}
-
-mojom::blink::DocumentInterfaceBroker*
-EmptyLocalFrameClient::GetDocumentInterfaceBroker() {
-  if (!document_interface_broker_.is_bound())
-    ignore_result(document_interface_broker_.BindNewPipeAndPassReceiver());
-  return document_interface_broker_.get();
-}
-
-mojo::ScopedMessagePipeHandle
-EmptyLocalFrameClient::SetDocumentInterfaceBrokerForTesting(
-    mojo::ScopedMessagePipeHandle blink_handle) {
-  mojo::PendingRemote<mojom::blink::DocumentInterfaceBroker> test_broker(
-      std::move(blink_handle), mojom::blink::DocumentInterfaceBroker::Version_);
-
-  mojo::ScopedMessagePipeHandle real_handle =
-      document_interface_broker_.Unbind().PassPipe();
-  document_interface_broker_.Bind(std::move(test_broker));
-
-  return real_handle;
 }
 
 LocalFrame* EmptyLocalFrameClient::CreateFrame(const AtomicString&,

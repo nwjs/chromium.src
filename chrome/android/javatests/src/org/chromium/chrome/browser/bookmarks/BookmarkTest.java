@@ -31,6 +31,7 @@ import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.FlakyTest;
 import org.chromium.base.test.util.Restriction;
@@ -42,6 +43,7 @@ import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge.BookmarkItem;
 import org.chromium.chrome.browser.night_mode.NightModeTestUtils;
 import org.chromium.chrome.browser.partnerbookmarks.PartnerBookmarksShim;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.widget.selection.SelectableListToolbar;
 import org.chromium.chrome.test.ChromeActivityTestRule;
@@ -91,6 +93,7 @@ public class BookmarkTest {
     protected static final String TEST_PAGE_URL_FOO = "/chrome/test/data/android/test.html";
     protected static final String TEST_PAGE_TITLE_FOO = "Foo";
     protected static final String TEST_FOLDER_TITLE = "Test folder";
+    protected static final String TEST_FOLDER_TITLE2 = "Test folder 2";
 
     protected BookmarkManager mManager;
     protected BookmarkModel mBookmarkModel;
@@ -113,10 +116,10 @@ public class BookmarkTest {
 
     @Before
     public void setUp() {
-        mActivityTestRule.startMainActivityFromLauncher();
+        mActivityTestRule.startMainActivityOnBlankPage();
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             mBookmarkModel = new BookmarkModel(
-                    mActivityTestRule.getActivity().getActivityTab().getProfile());
+                    ((TabImpl) mActivityTestRule.getActivity().getActivityTab()).getProfile());
         });
         mTestServer = EmbeddedTestServer.createAndStartServer(InstrumentationRegistry.getContext());
         mTestPage = mTestServer.getURL(TEST_PAGE_URL_GOOGLE);
@@ -244,15 +247,17 @@ public class BookmarkTest {
     @SmallTest
     public void testUrlComposition() {
         readPartnerBookmarks();
-        BookmarkId mobileId = mBookmarkModel.getMobileFolderId();
-        BookmarkId bookmarkBarId = mBookmarkModel.getDesktopFolderId();
-        BookmarkId otherId = mBookmarkModel.getOtherFolderId();
-        Assert.assertEquals("chrome-native://bookmarks/folder/" + mobileId,
-                BookmarkUIState.createFolderUrl(mobileId).toString());
-        Assert.assertEquals("chrome-native://bookmarks/folder/" + bookmarkBarId,
-                BookmarkUIState.createFolderUrl(bookmarkBarId).toString());
-        Assert.assertEquals("chrome-native://bookmarks/folder/" + otherId,
-                BookmarkUIState.createFolderUrl(otherId).toString());
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            BookmarkId mobileId = mBookmarkModel.getMobileFolderId();
+            BookmarkId bookmarkBarId = mBookmarkModel.getDesktopFolderId();
+            BookmarkId otherId = mBookmarkModel.getOtherFolderId();
+            Assert.assertEquals("chrome-native://bookmarks/folder/" + mobileId,
+                    BookmarkUIState.createFolderUrl(mobileId).toString());
+            Assert.assertEquals("chrome-native://bookmarks/folder/" + bookmarkBarId,
+                    BookmarkUIState.createFolderUrl(bookmarkBarId).toString());
+            Assert.assertEquals("chrome-native://bookmarks/folder/" + otherId,
+                    BookmarkUIState.createFolderUrl(otherId).toString());
+        });
     }
 
     @Test
@@ -326,16 +331,16 @@ public class BookmarkTest {
         syncDelegate.setMasterSyncAutomatically(true);
         AndroidSyncSettings.overrideForTests(syncDelegate, null);
         BookmarkPromoHeader.forcePromoStateForTests(BookmarkPromoHeader.PromoState.PROMO_SYNC);
-        addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestPage);
-        addBookmark(TEST_PAGE_TITLE_FOO, mTestPageFoo);
+        BookmarkId folder = addFolder(TEST_FOLDER_TITLE);
+        addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestPage, folder);
+        addBookmark(TEST_PAGE_TITLE_FOO, mTestPageFoo, folder);
         openBookmarkManager();
 
         RecyclerView.Adapter adapter = getAdapter();
         final BookmarkDelegate delegate = getBookmarkManager();
 
-        // Open the default folder where these bookmarks were created.
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> delegate.openFolder(mBookmarkModel.getDefaultFolder()));
+        // Open the new folder where these bookmarks were created.
+        openFolder(folder);
 
         Assert.assertEquals(BookmarkUIState.STATE_FOLDER, delegate.getCurrentState());
         Assert.assertEquals(
@@ -376,12 +381,16 @@ public class BookmarkTest {
     public void testSearchBookmarks_Delete() throws Exception {
         BookmarkPromoHeader.forcePromoStateForTests(BookmarkPromoHeader.PromoState.PROMO_NONE);
         BookmarkId testFolder = addFolder(TEST_FOLDER_TITLE);
-        BookmarkId testBookmark = addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestPage);
-        addBookmark(TEST_PAGE_TITLE_FOO, mTestPageFoo);
+        BookmarkId testFolder2 = addFolder(TEST_FOLDER_TITLE2, testFolder);
+        BookmarkId testBookmark = addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestPage, testFolder);
+        addBookmark(TEST_PAGE_TITLE_FOO, mTestPageFoo, testFolder);
         openBookmarkManager();
 
         RecyclerView.Adapter adapter = getAdapter();
         BookmarkManager manager = getBookmarkManager();
+
+        // Open the new folder where these bookmarks were created.
+        openFolder(testFolder);
 
         Assert.assertEquals("Wrong state, should be in folder", BookmarkUIState.STATE_FOLDER,
                 manager.getCurrentState());
@@ -394,8 +403,8 @@ public class BookmarkTest {
         Assert.assertEquals("Wrong state, should be searching", BookmarkUIState.STATE_SEARCHING,
                 manager.getCurrentState());
 
-        // Select the folder and delete it.
-        toggleSelectionAndEndAnimation(testFolder,
+        // Select testFolder2 and delete it.
+        toggleSelectionAndEndAnimation(testFolder2,
                 (BookmarkRow) mItemsContainer.findViewHolderForLayoutPosition(2).itemView);
         TestThreadUtils.runOnUiThreadBlocking(
                 ()
@@ -441,6 +450,7 @@ public class BookmarkTest {
     @MediumTest
     @Feature({"RenderTest"})
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
+    @DisabledTest(message = "Flaky. crbug.com/1030561")
     public void testBookmarkFolderIcon(boolean nightModeEnabled) throws Exception {
         BookmarkPromoHeader.forcePromoStateForTests(BookmarkPromoHeader.PromoState.PROMO_NONE);
         BookmarkId testId = addFolder(TEST_FOLDER_TITLE);
@@ -538,6 +548,13 @@ public class BookmarkTest {
         RecyclerViewTestUtils.waitForStableRecyclerView(mItemsContainer);
     }
 
+    protected BookmarkId addBookmark(final String title, final String url, BookmarkId parent)
+            throws ExecutionException {
+        readPartnerBookmarks();
+        return TestThreadUtils.runOnUiThreadBlocking(
+                () -> mBookmarkModel.addBookmark(parent, 0, title, url));
+    }
+
     protected BookmarkId addBookmark(final String title, final String url)
             throws ExecutionException {
         readPartnerBookmarks();
@@ -549,6 +566,13 @@ public class BookmarkTest {
         readPartnerBookmarks();
         return TestThreadUtils.runOnUiThreadBlocking(
                 () -> mBookmarkModel.addFolder(mBookmarkModel.getDefaultFolder(), 0, title));
+    }
+
+    protected BookmarkId addFolder(final String title, BookmarkId parent)
+            throws ExecutionException {
+        readPartnerBookmarks();
+        return TestThreadUtils.runOnUiThreadBlocking(
+                () -> mBookmarkModel.addFolder(parent, 0, title));
     }
 
     protected void removeBookmark(final BookmarkId bookmarkId) {
@@ -573,5 +597,11 @@ public class BookmarkTest {
 
     protected void searchBookmarks(final String query) {
         TestThreadUtils.runOnUiThreadBlocking(() -> getBookmarkItemsAdapter().search(query));
+    }
+
+    protected void openFolder(BookmarkId folder) {
+        final BookmarkDelegate delegate = getBookmarkManager();
+        TestThreadUtils.runOnUiThreadBlocking(() -> delegate.openFolder(folder));
+        RecyclerViewTestUtils.waitForStableRecyclerView(mItemsContainer);
     }
 }

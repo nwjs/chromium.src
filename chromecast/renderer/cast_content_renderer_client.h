@@ -23,10 +23,6 @@ class ExtensionsGuestViewContainerDispatcher;
 class CastExtensionsRendererClient;
 }  // namespace extensions
 
-namespace network_hints {
-class PrescientNetworkingDispatcher;
-}  // namespace network_hints
-
 namespace chromecast {
 class MemoryPressureObserverImpl;
 namespace media {
@@ -67,7 +63,8 @@ class CastContentRendererClient
   bool IsSupportedAudioType(const ::media::AudioType& type) override;
   bool IsSupportedVideoType(const ::media::VideoType& type) override;
   bool IsSupportedBitstreamAudioCodec(::media::AudioCodec codec) override;
-  blink::WebPrescientNetworking* GetPrescientNetworking() override;
+  std::unique_ptr<blink::WebPrescientNetworking> CreatePrescientNetworking(
+      content::RenderFrame* render_frame) override;
   bool DeferMediaLoad(content::RenderFrame* render_frame,
                       bool render_frame_has_played_media_before,
                       base::OnceClosure closure) override;
@@ -90,10 +87,9 @@ class CastContentRendererClient
 
  private:
   // mojom::ApplicationMediaCapabilitiesObserver implementation:
-  void OnSupportedBitstreamAudioCodecsChanged(int codecs) override;
+  void OnSupportedBitstreamAudioCodecsChanged(
+      const BitstreamAudioCodecsInfo& info) override;
 
-  std::unique_ptr<network_hints::PrescientNetworkingDispatcher>
-      prescient_networking_dispatcher_;
   std::unique_ptr<media::MediaCapsObserverImpl> media_caps_observer_;
   std::unique_ptr<media::SupportedCodecProfileLevelsMemo> supported_profiles_;
   mojo::Receiver<mojom::ApplicationMediaCapabilitiesObserver>
@@ -114,7 +110,7 @@ class CastContentRendererClient
   std::unique_ptr<media::CastAudioDeviceFactory> cast_audio_device_factory_;
 #endif
 
-  int supported_bitstream_audio_codecs_;
+  BitstreamAudioCodecsInfo supported_bitstream_audio_codecs_info_;
 
   DISALLOW_COPY_AND_ASSIGN(CastContentRendererClient);
 };

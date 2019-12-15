@@ -37,7 +37,7 @@ TEST(CanonicalCookieTest, Constructor) {
   std::unique_ptr<CanonicalCookie> cookie1(std::make_unique<CanonicalCookie>(
       "A", "2", "www.example.com", "/test", current_time, base::Time(),
       base::Time(), false, false, CookieSameSite::NO_RESTRICTION,
-      COOKIE_PRIORITY_DEFAULT));
+      COOKIE_PRIORITY_DEFAULT, CookieSourceScheme::kSecure));
   EXPECT_EQ("A", cookie1->Name());
   EXPECT_EQ("2", cookie1->Value());
   EXPECT_EQ("www.example.com", cookie1->Domain());
@@ -45,11 +45,12 @@ TEST(CanonicalCookieTest, Constructor) {
   EXPECT_FALSE(cookie1->IsSecure());
   EXPECT_FALSE(cookie1->IsHttpOnly());
   EXPECT_EQ(CookieSameSite::NO_RESTRICTION, cookie1->SameSite());
+  EXPECT_EQ(cookie1->SourceScheme(), CookieSourceScheme::kSecure);
 
   std::unique_ptr<CanonicalCookie> cookie2(std::make_unique<CanonicalCookie>(
       "A", "2", ".www.example.com", "/", current_time, base::Time(),
       base::Time(), false, false, CookieSameSite::NO_RESTRICTION,
-      COOKIE_PRIORITY_DEFAULT));
+      COOKIE_PRIORITY_DEFAULT, CookieSourceScheme::kNonSecure));
   EXPECT_EQ("A", cookie2->Name());
   EXPECT_EQ("2", cookie2->Value());
   EXPECT_EQ(".www.example.com", cookie2->Domain());
@@ -57,18 +58,27 @@ TEST(CanonicalCookieTest, Constructor) {
   EXPECT_FALSE(cookie2->IsSecure());
   EXPECT_FALSE(cookie2->IsHttpOnly());
   EXPECT_EQ(CookieSameSite::NO_RESTRICTION, cookie2->SameSite());
+  EXPECT_EQ(cookie2->SourceScheme(), CookieSourceScheme::kNonSecure);
 
-  auto cookie = std::make_unique<CanonicalCookie>(
+  // Set Secure to true but don't specify is_source_scheme_secure
+  auto cookie3 = std::make_unique<CanonicalCookie>(
+      "A", "2", ".www.example.com", "/", current_time, base::Time(),
+      base::Time(), true /* secure */, false, CookieSameSite::NO_RESTRICTION,
+      COOKIE_PRIORITY_DEFAULT);
+  EXPECT_TRUE(cookie3->IsSecure());
+  EXPECT_EQ(cookie3->SourceScheme(), CookieSourceScheme::kUnset);
+
+  auto cookie4 = std::make_unique<CanonicalCookie>(
       "A", "2", ".www.example.com", "/test", current_time, base::Time(),
       base::Time(), false, false, CookieSameSite::NO_RESTRICTION,
       COOKIE_PRIORITY_DEFAULT);
-  EXPECT_EQ("A", cookie->Name());
-  EXPECT_EQ("2", cookie->Value());
-  EXPECT_EQ(".www.example.com", cookie->Domain());
-  EXPECT_EQ("/test", cookie->Path());
-  EXPECT_FALSE(cookie->IsSecure());
-  EXPECT_FALSE(cookie->IsHttpOnly());
-  EXPECT_EQ(CookieSameSite::NO_RESTRICTION, cookie->SameSite());
+  EXPECT_EQ("A", cookie4->Name());
+  EXPECT_EQ("2", cookie4->Value());
+  EXPECT_EQ(".www.example.com", cookie4->Domain());
+  EXPECT_EQ("/test", cookie4->Path());
+  EXPECT_FALSE(cookie4->IsSecure());
+  EXPECT_FALSE(cookie4->IsHttpOnly());
+  EXPECT_EQ(CookieSameSite::NO_RESTRICTION, cookie4->SameSite());
 }
 
 TEST(CanonicalCookie, CreationCornerCases) {
@@ -102,6 +112,7 @@ TEST(CanonicalCookieTest, Create) {
   EXPECT_EQ("www.example.com", cookie->Domain());
   EXPECT_EQ("/test", cookie->Path());
   EXPECT_FALSE(cookie->IsSecure());
+  EXPECT_EQ(cookie->SourceScheme(), CookieSourceScheme::kNonSecure);
 
   GURL url2("http://www.foo.com");
   cookie = CanonicalCookie::Create(url2, "B=1", creation_time, server_time);
@@ -110,6 +121,7 @@ TEST(CanonicalCookieTest, Create) {
   EXPECT_EQ("www.foo.com", cookie->Domain());
   EXPECT_EQ("/", cookie->Path());
   EXPECT_FALSE(cookie->IsSecure());
+  EXPECT_EQ(cookie->SourceScheme(), CookieSourceScheme::kNonSecure);
 
   // Test creating secure cookies. Secure scheme is not checked upon creation,
   // so a URL of any scheme can create a Secure cookie.
@@ -121,6 +133,17 @@ TEST(CanonicalCookieTest, Create) {
   cookie = CanonicalCookie::Create(https_url, "A=2; Secure", creation_time,
                                    server_time, &status);
   EXPECT_TRUE(cookie->IsSecure());
+
+  GURL url3("https://www.foo.com");
+  cookie = CanonicalCookie::Create(url3, "A=2; Secure", creation_time,
+                                   server_time, &status);
+  EXPECT_TRUE(cookie->IsSecure());
+  EXPECT_EQ(cookie->SourceScheme(), CookieSourceScheme::kSecure);
+
+  cookie =
+      CanonicalCookie::Create(url3, "A=2", creation_time, server_time, &status);
+  EXPECT_FALSE(cookie->IsSecure());
+  EXPECT_EQ(cookie->SourceScheme(), CookieSourceScheme::kSecure);
 
   // Test creating http only cookies. HttpOnly is not checked upon creation.
   cookie = CanonicalCookie::Create(url, "A=2; HttpOnly", creation_time,
@@ -143,7 +166,7 @@ TEST(CanonicalCookieTest, Create) {
   cookie = CanonicalCookie::Create(url, "A=2; SameSite=Extended", creation_time,
                                    server_time);
   ASSERT_TRUE(cookie.get());
-  EXPECT_EQ(CookieSameSite::EXTENDED_MODE, cookie->SameSite());
+  EXPECT_EQ(CookieSameSite::UNSPECIFIED, cookie->SameSite());
   cookie = CanonicalCookie::Create(url, "A=2; SameSite=None", creation_time,
                                    server_time);
   ASSERT_TRUE(cookie.get());
@@ -479,23 +502,17 @@ TEST(CanonicalCookieTest, GetEffectiveSameSite) {
        CookieAccessSemantics::UNKNOWN},
       {CookieSameSite::STRICT_MODE, CookieEffectiveSameSite::STRICT_MODE,
        CookieAccessSemantics::UNKNOWN},
-      {CookieSameSite::EXTENDED_MODE, CookieEffectiveSameSite::LAX_MODE,
-       CookieAccessSemantics::UNKNOWN},
       {CookieSameSite::NO_RESTRICTION, CookieEffectiveSameSite::NO_RESTRICTION,
        CookieAccessSemantics::LEGACY},
       {CookieSameSite::LAX_MODE, CookieEffectiveSameSite::LAX_MODE,
        CookieAccessSemantics::LEGACY},
       {CookieSameSite::STRICT_MODE, CookieEffectiveSameSite::STRICT_MODE,
        CookieAccessSemantics::LEGACY},
-      {CookieSameSite::EXTENDED_MODE, CookieEffectiveSameSite::LAX_MODE,
-       CookieAccessSemantics::LEGACY},
       {CookieSameSite::NO_RESTRICTION, CookieEffectiveSameSite::NO_RESTRICTION,
        CookieAccessSemantics::NONLEGACY},
       {CookieSameSite::LAX_MODE, CookieEffectiveSameSite::LAX_MODE,
        CookieAccessSemantics::NONLEGACY},
       {CookieSameSite::STRICT_MODE, CookieEffectiveSameSite::STRICT_MODE,
-       CookieAccessSemantics::NONLEGACY},
-      {CookieSameSite::EXTENDED_MODE, CookieEffectiveSameSite::LAX_MODE,
        CookieAccessSemantics::NONLEGACY},
       // UNSPECIFIED always maps to NO_RESTRICTION if LEGACY access semantics.
       {CookieSameSite::UNSPECIFIED, CookieEffectiveSameSite::NO_RESTRICTION,
@@ -583,7 +600,7 @@ TEST(CanonicalCookieTest, GetEffectiveSameSite) {
 TEST(CanonicalCookieTest, IncludeForRequestURL) {
   GURL url("http://www.example.com");
   base::Time creation_time = base::Time::Now();
-  CookieOptions options;
+  CookieOptions options = CookieOptions::MakeAllInclusive();
   base::Optional<base::Time> server_time = base::nullopt;
 
   std::unique_ptr<CanonicalCookie> cookie(
@@ -2295,11 +2312,31 @@ TEST(CookieInclusionStatusTest, NotValid) {
 
 TEST(CookieInclusionStatusTest, AddExclusionReason) {
   CanonicalCookie::CookieInclusionStatus status;
+  status.set_warning(CanonicalCookie::CookieInclusionStatus::
+                         WARN_SAMESITE_UNSPECIFIED_LAX_ALLOW_UNSAFE);
   status.AddExclusionReason(
       CanonicalCookie::CookieInclusionStatus::EXCLUDE_UNKNOWN_ERROR);
   EXPECT_TRUE(status.IsValid());
   EXPECT_TRUE(status.HasExactlyExclusionReasonsForTesting(
       {CanonicalCookie::CookieInclusionStatus::EXCLUDE_UNKNOWN_ERROR}));
+  // Adding an exclusion reason other than
+  // EXCLUDE_SAMESITE_UNSPECIFIED_TREATED_AS_LAX or
+  // EXCLUDE_SAMESITE_NONE_INSECURE should clear any SameSite warning.
+  EXPECT_EQ(CanonicalCookie::CookieInclusionStatus::DO_NOT_WARN,
+            status.warning());
+
+  status = CanonicalCookie::CookieInclusionStatus();
+  status.set_warning(CanonicalCookie::CookieInclusionStatus::
+                         WARN_SAMESITE_UNSPECIFIED_CROSS_SITE_CONTEXT);
+  status.AddExclusionReason(CanonicalCookie::CookieInclusionStatus::
+                                EXCLUDE_SAMESITE_UNSPECIFIED_TREATED_AS_LAX);
+  EXPECT_TRUE(status.IsValid());
+  EXPECT_TRUE(status.HasExactlyExclusionReasonsForTesting(
+      {CanonicalCookie::CookieInclusionStatus::
+           EXCLUDE_SAMESITE_UNSPECIFIED_TREATED_AS_LAX}));
+  EXPECT_EQ(CanonicalCookie::CookieInclusionStatus::
+                WARN_SAMESITE_UNSPECIFIED_CROSS_SITE_CONTEXT,
+            status.warning());
 }
 
 TEST(CookieInclusionStatusTest, RemoveExclusionReason) {
@@ -2323,22 +2360,6 @@ TEST(CookieInclusionStatusTest, RemoveExclusionReason) {
   EXPECT_TRUE(status.IsValid());
   EXPECT_FALSE(status.HasExclusionReason(
       CanonicalCookie::CookieInclusionStatus::NUM_EXCLUSION_REASONS));
-}
-
-TEST(CookieInclusionStatusTest, AddExclusionReasonsAndWarningIfAny) {
-  CanonicalCookie::CookieInclusionStatus status1;
-  CanonicalCookie::CookieInclusionStatus status2;
-
-  status1.set_exclusion_reasons(0b00011111u);
-  status2.set_exclusion_reasons(0b11111000u);
-  status2.set_warning(
-      CanonicalCookie::CookieInclusionStatus::WARN_SAMESITE_NONE_INSECURE);
-
-  status1.AddExclusionReasonsAndWarningIfAny(status2);
-
-  EXPECT_EQ(0b11111111u, status1.exclusion_reasons());
-  EXPECT_EQ(CanonicalCookie::CookieInclusionStatus::WARN_SAMESITE_NONE_INSECURE,
-            status1.warning());
 }
 
 }  // namespace net

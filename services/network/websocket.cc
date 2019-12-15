@@ -85,8 +85,10 @@ class WebSocket::WebSocketEventHandler final
   // net::WebSocketEventInterface implementation
 
   void OnCreateURLRequest(net::URLRequest* url_request) override;
+  // TODO(yoichio): Merge OnAddChannelResponse and OnFinishOpeningHandshake.
   void OnAddChannelResponse(const std::string& selected_subprotocol,
-                            const std::string& extensions) override;
+                            const std::string& extensions,
+                            int64_t send_flow_control_quota) override;
   void OnDataFrame(bool fin,
                    WebSocketMessageType type,
                    base::span<const char> payload) override;
@@ -142,7 +144,8 @@ void WebSocket::WebSocketEventHandler::OnCreateURLRequest(
 
 void WebSocket::WebSocketEventHandler::OnAddChannelResponse(
     const std::string& selected_protocol,
-    const std::string& extensions) {
+    const std::string& extensions,
+    int64_t send_flow_control_quota) {
   DVLOG(3) << "WebSocketEventHandler::OnAddChannelResponse @"
            << reinterpret_cast<void*>(this) << " selected_protocol=\""
            << selected_protocol << "\""
@@ -181,10 +184,12 @@ void WebSocket::WebSocketEventHandler::OnAddChannelResponse(
       base::BindRepeating(&WebSocket::OnWritable, base::Unretained(impl_)));
   DCHECK_EQ(mojo_result, MOJO_RESULT_OK);
 
+  response_->selected_protocol = selected_protocol;
+  response_->extensions = extensions;
   impl_->handshake_client_->OnConnectionEstablished(
       impl_->receiver_.BindNewPipeAndPassRemote(),
-      impl_->client_.BindNewPipeAndPassReceiver(), selected_protocol,
-      extensions, std::move(response_), std::move(readable));
+      impl_->client_.BindNewPipeAndPassReceiver(), std::move(response_),
+      std::move(readable));
   impl_->receiver_.set_disconnect_handler(base::BindOnce(
       &WebSocket::OnConnectionError, base::Unretained(impl_), FROM_HERE));
   impl_->handshake_client_.reset();
@@ -192,6 +197,8 @@ void WebSocket::WebSocketEventHandler::OnAddChannelResponse(
   impl_->header_client_.reset();
   impl_->client_.set_disconnect_handler(base::BindOnce(
       &WebSocket::OnConnectionError, base::Unretained(impl_), FROM_HERE));
+
+  impl_->client_->AddSendFlowControlQuota(send_flow_control_quota);
 }
 
 void WebSocket::WebSocketEventHandler::OnDataFrame(
@@ -201,7 +208,6 @@ void WebSocket::WebSocketEventHandler::OnDataFrame(
   DVLOG(3) << "WebSocketEventHandler::OnDataFrame @"
            << reinterpret_cast<void*>(this) << " fin=" << fin
            << " type=" << type << " data is " << payload.size() << " bytes";
-  // TODO(yoichio): Merge OnDataFrame mojo channel into data pipe.
   impl_->client_->OnDataFrame(fin, OpCodeToMessageType(type), payload.size());
   if (payload.size() > 0) {
     impl_->pending_data_frames_.push(payload);
@@ -357,6 +363,7 @@ WebSocket::WebSocket(
     const GURL& url,
     const std::vector<std::string>& requested_protocols,
     const GURL& site_for_cookies,
+    const net::NetworkIsolationKey& network_isolation_key,
     std::vector<mojom::HttpHeaderPtr> additional_headers,
     int32_t child_id,
     int32_t frame_id,
@@ -402,11 +409,11 @@ WebSocket::WebSocket(
         FROM_HERE,
         base::BindOnce(&WebSocket::AddChannel, weak_ptr_factory_.GetWeakPtr(),
                        url, requested_protocols, site_for_cookies,
-                       std::move(additional_headers)),
+                       network_isolation_key, std::move(additional_headers)),
         delay_);
     return;
   }
-  AddChannel(url, requested_protocols, site_for_cookies,
+  AddChannel(url, requested_protocols, site_for_cookies, network_isolation_key,
              std::move(additional_headers));
 }
 
@@ -492,13 +499,14 @@ int WebSocket::OnHeadersReceived(
     net::CompletionOnceCallback callback,
     const net::HttpResponseHeaders* original_response_headers,
     scoped_refptr<net::HttpResponseHeaders>* override_response_headers,
-    GURL* allowed_unsafe_redirect_url) {
+    base::Optional<GURL>* preserve_fragment_on_redirect_url) {
   if (header_client_) {
     header_client_->OnHeadersReceived(
         original_response_headers->raw_headers(), net::IPEndPoint(),
         base::BindOnce(&WebSocket::OnHeadersReceivedComplete,
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback),
-                       override_response_headers, allowed_unsafe_redirect_url));
+                       override_response_headers,
+                       preserve_fragment_on_redirect_url));
     return net::ERR_IO_PENDING;
   }
   return net::OK;
@@ -524,6 +532,7 @@ void WebSocket::AddChannel(
     const GURL& socket_url,
     const std::vector<std::string>& requested_protocols,
     const GURL& site_for_cookies,
+    const net::NetworkIsolationKey& network_isolation_key,
     std::vector<mojom::HttpHeaderPtr> additional_headers) {
   DVLOG(3) << "WebSocket::AddChannel @" << reinterpret_cast<void*>(this)
            << " socket_url=\"" << socket_url << "\" requested_protocols=\""
@@ -551,7 +560,8 @@ void WebSocket::AddChannel(
     }
   }
   channel_->SendAddChannelRequest(socket_url, requested_protocols, origin_,
-                                  site_for_cookies, headers_to_pass);
+                                  site_for_cookies, network_isolation_key,
+                                  headers_to_pass);
 }
 
 void WebSocket::OnWritable(MojoResult result,
@@ -660,10 +670,10 @@ void WebSocket::OnBeforeSendHeadersComplete(
 void WebSocket::OnHeadersReceivedComplete(
     net::CompletionOnceCallback callback,
     scoped_refptr<net::HttpResponseHeaders>* out_headers,
-    GURL* out_allowed_unsafe_redirect_url,
+    base::Optional<GURL>* out_preserve_fragment_on_redirect_url,
     int result,
     const base::Optional<std::string>& headers,
-    const GURL& allowed_unsafe_redirect_url) {
+    const base::Optional<GURL>& preserve_fragment_on_redirect_url) {
   if (!channel_) {
     // Something happened before the OnHeadersReceived response arrives.
     return;

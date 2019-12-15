@@ -11,9 +11,12 @@
 #include <unordered_map>
 #include <vector>
 
+#include "base/callback.h"
 #include "base/containers/flat_map.h"
+#include "base/memory/weak_ptr.h"
 #include "cc/base/synced_property.h"
 #include "cc/cc_export.h"
+#include "cc/input/scroll_snap_data.h"
 #include "cc/paint/element_id.h"
 #include "cc/paint/filter_operations.h"
 #include "cc/trees/mutator_host_client.h"
@@ -26,7 +29,7 @@ namespace base {
 namespace trace_event {
 class TracedValue;
 }
-}
+}  // namespace base
 
 namespace viz {
 class CopyOutputRequest;
@@ -36,7 +39,6 @@ namespace cc {
 
 class LayerTreeImpl;
 class RenderSurfaceImpl;
-class ScrollState;
 struct ClipNode;
 struct EffectNode;
 struct ScrollAndScaleSet;
@@ -362,6 +364,23 @@ class CC_EXPORT EffectTree final : public PropertyTree<EffectNode> {
   std::vector<std::unique_ptr<RenderSurfaceImpl>> render_surfaces_;
 };
 
+// These callbacks are called in the main thread to notify changes of scroll
+// information in the compositor thread during commit.
+class ScrollCallbacks {
+ public:
+  // Called after the composited scroll offset changed.
+  virtual void DidScroll(ElementId scroll_element_id,
+                         const gfx::ScrollOffset&,
+                         const base::Optional<TargetSnapAreaElementIds>&) = 0;
+  // Called after the hidden status of composited scrollbars changed. Note that
+  // |scroll_element_id| is the element id of the scroll not of the scrollbars.
+  virtual void DidChangeScrollbarsHidden(ElementId scroll_element_id,
+                                         bool hidden) = 0;
+
+ protected:
+  virtual ~ScrollCallbacks() {}
+};
+
 class CC_EXPORT ScrollTree final : public PropertyTree<ScrollNode> {
  public:
   ScrollTree();
@@ -442,7 +461,6 @@ class CC_EXPORT ScrollTree final : public PropertyTree<ScrollNode> {
   const gfx::ScrollOffset GetScrollOffsetDeltaForTesting(ElementId id) const;
   void CollectScrollDeltasForTesting();
 
-  void DistributeScroll(ScrollNode* scroll_node, ScrollState* scroll_state);
   gfx::Vector2dF ScrollBy(ScrollNode* scroll_node,
                           const gfx::Vector2dF& scroll,
                           LayerTreeImpl* layer_tree_impl);
@@ -459,6 +477,15 @@ class CC_EXPORT ScrollTree final : public PropertyTree<ScrollNode> {
   ScrollNode* FindNodeFromElementId(ElementId id);
   const ScrollNode* FindNodeFromElementId(ElementId id) const;
 
+  void SetScrollCallbacks(base::WeakPtr<ScrollCallbacks> callbacks);
+
+  void NotifyDidScroll(
+      ElementId scroll_element_id,
+      const gfx::ScrollOffset& scroll_offset,
+      const base::Optional<TargetSnapAreaElementIds>& snap_target_ids);
+  void NotifyDidChangeScrollbarsHidden(ElementId scroll_element_id,
+                                       bool hidden);
+
  private:
   using ScrollOffsetMap = base::flat_map<ElementId, gfx::ScrollOffset>;
   using SyncedScrollOffsetMap =
@@ -473,6 +500,8 @@ class CC_EXPORT ScrollTree final : public PropertyTree<ScrollNode> {
   // and impl threads.
   ScrollOffsetMap scroll_offset_map_;
   SyncedScrollOffsetMap synced_scroll_offset_map_;
+
+  base::WeakPtr<ScrollCallbacks> callbacks_;
 
   SyncedScrollOffset* GetOrCreateSyncedScrollOffset(ElementId id);
   gfx::ScrollOffset PullDeltaForMainThread(SyncedScrollOffset* scroll_offset,

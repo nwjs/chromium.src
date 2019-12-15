@@ -15,6 +15,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/task/post_task.h"
 #include "base/values.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/printing/cups_print_job_manager.h"
 #include "chrome/browser/chromeos/printing/cups_print_job_manager_factory.h"
 #include "chrome/browser/chromeos/printing/cups_printers_manager.h"
@@ -51,6 +52,8 @@ PrinterBasicInfo ToBasicInfo(const chromeos::Printer& printer) {
   basic_info.options[kCUPSEnterprisePrinter] =
       (printer.source() == chromeos::Printer::SRC_POLICY) ? kValueTrue
                                                           : kValueFalse;
+  // TODO(1023589): Get the printer's EULA url from the printer object.
+  basic_info.options[kPrinterEulaURL] = "";
   basic_info.printer_name = printer.id();
   basic_info.display_name = printer.display_name();
   basic_info.printer_description = printer.description();
@@ -62,6 +65,16 @@ void AddPrintersToList(const std::vector<chromeos::Printer>& printers,
   for (const auto& printer : printers) {
     list->push_back(ToBasicInfo(printer));
   }
+}
+
+base::Value FetchCapabilitiesAsync(const std::string& device_name,
+                                   const PrinterBasicInfo& basic_info,
+                                   bool has_secure_protocol) {
+  auto print_backend = PrintBackend::CreateInstance(
+      nullptr, g_browser_process->GetApplicationLocale());
+  return GetSettingsOnBlockingTaskRunner(
+      device_name, basic_info, PrinterSemanticCapsAndDefaults::Papers(),
+      has_secure_protocol, print_backend);
 }
 
 void CapabilitiesFetched(base::Value policies,
@@ -84,9 +97,8 @@ void FetchCapabilities(const chromeos::Printer& printer,
   base::PostTaskAndReplyWithResult(
       FROM_HERE,
       {base::ThreadPool(), base::MayBlock(), base::TaskPriority::USER_VISIBLE},
-      base::BindOnce(&GetSettingsOnBlockingPool, printer.id(), basic_info,
-                     PrinterSemanticCapsAndDefaults::Papers(),
-                     has_secure_protocol, nullptr),
+      base::BindOnce(&FetchCapabilitiesAsync, printer.id(), basic_info,
+                     has_secure_protocol),
       base::BindOnce(&CapabilitiesFetched, std::move(policies), std::move(cb)));
 }
 
@@ -303,9 +315,6 @@ base::Value LocalPrinterHandlerChromeos::GetNativePrinterPolicies() const {
   policies.SetKey(
       kAllowedPinModes,
       base::Value(prefs->GetInteger(prefs::kPrintingAllowedPinModes)));
-  policies.SetKey(kAllowedBackgroundGraphicsModes,
-                  base::Value(prefs->GetInteger(
-                      prefs::kPrintingAllowedBackgroundGraphicsModes)));
   policies.SetKey(kDefaultColorMode,
                   base::Value(prefs->GetInteger(prefs::kPrintingColorDefault)));
   policies.SetKey(
@@ -313,9 +322,6 @@ base::Value LocalPrinterHandlerChromeos::GetNativePrinterPolicies() const {
       base::Value(prefs->GetInteger(prefs::kPrintingDuplexDefault)));
   policies.SetKey(kDefaultPinMode,
                   base::Value(prefs->GetInteger(prefs::kPrintingPinDefault)));
-  policies.SetKey(kDefaultBackgroundGraphicsMode,
-                  base::Value(prefs->GetInteger(
-                      prefs::kPrintingBackgroundGraphicsDefault)));
   return policies;
 }
 

@@ -346,6 +346,13 @@ var GetNameFrom = natives.GetNameFrom;
 /**
  * @param {string} axTreeID The id of the accessibility tree.
  * @param {number} nodeID The id of a node.
+ * @return {automation.DescriptionFromType} The node description source.
+ */
+var GetDescriptionFrom = natives.GetDescriptionFrom;
+
+/**
+ * @param {string} axTreeID The id of the accessibility tree.
+ * @param {number} nodeID The id of a node.
  * @return {?string} The image annotation status, which may
  *     include the annotation itself if completed successfully.
  */
@@ -493,6 +500,27 @@ var GetWordStartOffsets = natives.GetWordStartOffsets;
  * @return {!Array<number>}
  */
 var GetWordEndOffsets = natives.GetWordEndOffsets;
+
+/**
+ * @param {string} axTreeID The id of the accessibility tree.
+ * @param {number} nodeID The id of a node.
+ * @param {string} eventType
+ */
+var EventListenerAdded = natives.EventListenerAdded;
+
+/**
+ * @param {string} axTreeID The id of the accessibility tree.
+ * @param {number} nodeID The id of a node.
+ * @param {string} eventType
+ */
+var EventListenerRemoved = natives.EventListenerRemoved;
+
+/**
+ * @param {string} axTreeID The id of the accessibility tree.
+ * @param {number} nodeID The id of a node.
+ * @return {Array}
+ */
+var GetMarkers = natives.GetMarkers;
 
 var logging = requireNative('logging');
 var utils = require('utils');
@@ -662,6 +690,11 @@ AutomationNodeImpl.prototype = {
     return GetNameFrom(this.treeID, this.id);
   },
 
+
+  get descriptionFrom() {
+    return GetDescriptionFrom(this.treeID, this.id);
+  },
+
   get imageAnnotation() {
     return GetImageAnnotation(this.treeID, this.id);
   },
@@ -750,6 +783,10 @@ AutomationNodeImpl.prototype = {
 
   get nonInlineTextWordEnds() {
     return GetWordEndOffsets(this.treeID, this.id);
+  },
+
+  get markers() {
+    return GetMarkers(this.treeID, this.id);
   },
 
   doDefault: function() {
@@ -912,6 +949,7 @@ AutomationNodeImpl.prototype = {
       callback: callback,
       capture: !!capture,
     });
+    EventListenerAdded(this.treeID, this.id, eventType);
   },
 
   // TODO(dtseng/aboxhall): Check this impl against spec.
@@ -921,6 +959,10 @@ AutomationNodeImpl.prototype = {
       for (var i = 0; i < listeners.length; i++) {
         if (callback === listeners[i].callback)
           $Array.splice(listeners, i, 1);
+      }
+
+      if (listeners.length == 0) {
+        EventListenerRemoved(this.treeID, this.id, eventType);
       }
     }
   },
@@ -1201,7 +1243,7 @@ var intAttributes = [
 var nodeRefAttributes = [
     ['activedescendantId', 'activeDescendant', 'activeDescendantFor'],
     ['detailsId', 'details', 'detailsFor'],
-    ['errorMessageId', 'errorMessage', 'errorMessageFor'],
+    ['errormessageId', 'errorMessage', 'errorMessageFor'],
     ['inPageLinkTargetId', 'inPageLinkTarget', null],
     ['nextFocusId', 'nextFocus', null],
     ['nextOnLineId', 'nextOnLine', null],
@@ -1213,9 +1255,6 @@ var nodeRefAttributes = [
 
 var intListAttributes = [
     'lineBreaks',
-    'markerEnds',
-    'markerStarts',
-    'markerTypes',
     'wordEnds',
     'wordStarts'];
 
@@ -1729,42 +1768,44 @@ utils.expose(AutomationNode, AutomationNodeImpl, {
   readonly: $Array.concat(
       publicAttributes,
       [
-        'parent',
-        'firstChild',
-        'lastChild',
-        'children',
-        'previousSibling',
-        'nextSibling',
-        'isRootNode',
-        'role',
+        'bold',
         'checked',
+        'children',
+        'customActions',
         'defaultActionVerb',
+        'descriptionFrom',
+        'detectedLanguage',
+        'firstChild',
         'hasPopup',
-        'restriction',
-        'state',
-        'location',
+        'htmlAttributes',
         'imageAnnotation',
         'indexInParent',
-        'lineStartOffsets',
-        'root',
-        'htmlAttributes',
-        'nameFrom',
-        'bold',
+        'isRootNode',
         'italic',
-        'underline',
+        'lastChild',
+        'lineStartOffsets',
         'lineThrough',
-        'detectedLanguage',
-        'customActions',
-        'standardActions',
-        'unclippedLocation',
-        'tableCellColumnHeaders',
-        'tableCellRowHeaders',
-        'tableCellColumnIndex',
-        'tableCellRowIndex',
-        'tableCellAriaRowIndex',
-        'tableCellAriaColumnIndex',
-        'nonInlineTextWordStarts',
+        'location',
+        'markers',
+        'nameFrom',
+        'nextSibling',
         'nonInlineTextWordEnds',
+        'nonInlineTextWordStarts',
+        'parent',
+        'previousSibling',
+        'restriction',
+        'role',
+        'root',
+        'standardActions',
+        'state',
+        'tableCellAriaColumnIndex',
+        'tableCellAriaRowIndex',
+        'tableCellColumnHeaders',
+        'tableCellColumnIndex',
+        'tableCellRowHeaders',
+        'tableCellRowIndex',
+        'unclippedLocation',
+        'underline',
       ]),
 });
 

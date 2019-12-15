@@ -21,6 +21,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observer.h"
 #include "base/strings/string16.h"
+#include "base/timer/elapsed_timer.h"
 #include "build/build_config.h"
 #include "chrome/browser/devtools/devtools_toggle_action.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar.h"
@@ -31,6 +32,7 @@
 #include "chrome/browser/ui/chrome_web_modal_dialog_manager_delegate.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/profile_chooser_constants.h"
+#include "chrome/browser/ui/signin_view_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "components/content_settings/core/common/content_settings.h"
@@ -57,10 +59,6 @@
 
 #if defined(OS_ANDROID)
 #error This file should only be included on desktop.
-#endif
-
-#if !defined(OS_CHROMEOS)
-#include "chrome/browser/ui/signin_view_controller.h"
 #endif
 
 class BackgroundContents;
@@ -371,12 +369,9 @@ class Browser : public TabStripModelObserver,
   web_app::AppBrowserController* app_controller() {
     return app_controller_.get();
   }
-
-#if !defined(OS_CHROMEOS)
   SigninViewController* signin_view_controller() {
     return &signin_view_controller_;
   }
-#endif
 
   // Will lazy create the bubble manager.
   ChromeBubbleManager* GetBubbleManager();
@@ -558,13 +553,12 @@ class Browser : public TabStripModelObserver,
       TabStripModel* tab_strip_model,
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override;
-  void OnTabGroupVisualDataChanged(
-      TabStripModel* tab_strip_model,
-      TabGroupId group,
-      const TabGroupVisualData* visual_data) override;
+  void OnTabGroupChanged(const TabGroupChange& change) override;
   void TabPinnedStateChanged(TabStripModel* tab_strip_model,
                              content::WebContents* contents,
                              int index) override;
+  void TabGroupedStateChanged(base::Optional<TabGroupId> group,
+                              int index) override;
   void TabStripEmpty() override;
 
   // Overridden from content::WebContentsDelegate:
@@ -598,6 +592,11 @@ class Browser : public TabStripModelObserver,
       content::RenderFrameHost* frame,
       const content::BluetoothScanningPrompt::EventHandler& event_handler)
       override;
+  void CreateSmsPrompt(content::RenderFrameHost*,
+                       const url::Origin&,
+                       const std::string& one_time_code,
+                       base::OnceClosure on_confirm,
+                       base::OnceClosure on_cancel) override;
   void PassiveInsecureContentFound(const GURL& resource_url) override;
   bool ShouldAllowRunningInsecureContent(content::WebContents* web_contents,
                                          bool allowed_per_prefs,
@@ -618,6 +617,9 @@ class Browser : public TabStripModelObserver,
       bool did_start_load,
       bool did_finish_load) override;
   bool ShouldShowStaleContentOnEviction(content::WebContents* source) override;
+  bool IsFrameLowPriority(
+      const content::WebContents* web_contents,
+      const content::RenderFrameHost* render_frame_host) override;
 
   bool is_type_normal() const { return type_ == TYPE_NORMAL; }
   bool is_type_popup() const { return type_ == TYPE_POPUP; }
@@ -895,9 +897,6 @@ class Browser : public TabStripModelObserver,
   void OnTabReplacedAt(content::WebContents* old_contents,
                        content::WebContents* new_contents,
                        int index);
-  void OnTabGroupChanged(int index,
-                         base::Optional<TabGroupId> old_group,
-                         base::Optional<TabGroupId> new_group);
 
   // Handle changes to kDevToolsAvailability preference.
   void OnDevToolsAvailabilityChanged();
@@ -925,11 +924,6 @@ class Browser : public TabStripModelObserver,
 
   // Removes all entries from scheduled_updates_ whose source is contents.
   void RemoveScheduledUpdatesFor(content::WebContents* contents);
-
-  // Configures |nav_params| to create a new tab group with the source, if
-  // applicable.
-  void ConfigureTabGroupForNavigation(content::WebContents* source,
-                                      NavigateParams* nav_params);
 
   // Getters for UI ///////////////////////////////////////////////////////////
 
@@ -1189,9 +1183,8 @@ class Browser : public TabStripModelObserver,
   // True if the browser window has been shown at least once.
   bool window_has_shown_;
 
-#if !defined(OS_CHROMEOS)
+  // Controls both signin and sync consent.
   SigninViewController signin_view_controller_;
-#endif
 
   std::unique_ptr<ScopedKeepAlive> keep_alive_;
 
@@ -1201,6 +1194,8 @@ class Browser : public TabStripModelObserver,
   std::unique_ptr<extensions::ExtensionBrowserWindowHelper>
       extension_browser_window_helper_;
 #endif
+
+  const base::ElapsedTimer creation_timer_;
 
   // The following factory is used for chrome update coalescing.
   base::WeakPtrFactory<Browser> chrome_updater_factory_{this};

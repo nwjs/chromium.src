@@ -170,10 +170,10 @@ foreach(domain, devtools_domains) {
 action("gen_devtools_client_api") {
   script = "lib/browser/devtools_api/client_api_generator.py"
   deps = [
-    "//third_party/blink/renderer/core/inspector:protocol_version",
+    "//third_party/blink/public/devtools_protocol:protocol_version",
   ]
   inputs = [
-    "$root_gen_dir/third_party/blink/renderer/core/inspector/protocol.json",
+    "$root_gen_dir/third_party/blink/public/devtools_protocol/protocol.json",
   ]
 
   outputs = generated_devtools_api
@@ -213,10 +213,10 @@ if (headless_fontconfig_utils && !is_fuchsia) {
 inspector_protocol_generate("protocol_sources") {
   visibility = [ "//headless:headless_shared_sources" ]
   deps = [
-    "//third_party/blink/renderer/core/inspector:protocol_version",
+    "//third_party/blink/public/devtools_protocol:protocol_version",
   ]
   _blink_protocol_path = rebase_path(
-          "$root_gen_dir/third_party/blink/renderer/core/inspector/protocol.json",
+          "$root_gen_dir/third_party/blink/public/devtools_protocol/protocol.json",
           root_build_dir)
 
   inspector_protocol_dir = "//third_party/inspector_protocol"
@@ -225,7 +225,7 @@ inspector_protocol_generate("protocol_sources") {
   config_values = [ "protocol.path=$_blink_protocol_path" ]
 
   inputs = [
-    "$root_gen_dir/third_party/blink/renderer/core/inspector/protocol.json",
+    "$root_gen_dir/third_party/blink/public/devtools_protocol/protocol.json",
     config_file,
   ]
 
@@ -288,7 +288,7 @@ jumbo_source_set("headless_shared_sources") {
     "//base:base_static",
     "//content/public/common",
     "//content/public/common:service_names",
-    "//third_party/inspector_protocol:encoding",
+    "//third_party/inspector_protocol:crdtp",
     "//ui/base",
     "//url",
   ]
@@ -347,7 +347,6 @@ jumbo_component("headless_non_renderer") {
     "lib/browser/headless_window_tree_host.h",
     "lib/browser/protocol/browser_handler.cc",
     "lib/browser/protocol/browser_handler.h",
-    "lib/browser/protocol/domain_handler.cc",
     "lib/browser/protocol/domain_handler.h",
     "lib/browser/protocol/headless_devtools_session.cc",
     "lib/browser/protocol/headless_devtools_session.h",
@@ -473,7 +472,6 @@ jumbo_component("headless_non_renderer") {
   # use external v8 startup data too.
   if ((is_win && is_component_build) || !is_win) {
     if (v8_use_external_startup_data) {
-      data += [ "$root_out_dir/natives_blob.bin" ]
       public_deps += [ "//v8" ]
       if (use_v8_context_snapshot) {
         data += [ "$root_out_dir/v8_context_snapshot.bin" ]
@@ -749,24 +747,24 @@ if (is_win) {
     }
   }
 
-  # Headless library with child specific dependencies (e.g., renderer). This
-  # is used when no browser depencendies are needed (e.g. chrome:child_dll).
-  static_library("headless_shell_child_lib") {
-    sources = [
-      "app/headless_shell.cc",
-      "app/headless_shell.h",
-      "app/headless_shell_win.cc",
-      "public/headless_shell.h",
-    ]
-    deps = [
-      ":headless_renderer",
-      "//build:branding_buildflags",
-      "//content/public/child:child",
-      "//net",
-      "//ui/base",
-    ]
+  if (is_multi_dll_chrome) {
+    # Headless library with child specific dependencies (e.g., renderer). This
+    # is used when no browser depencendies are needed (e.g. chrome:child_dll).
+    static_library("headless_shell_child_lib") {
+      sources = [
+        "app/headless_shell.cc",
+        "app/headless_shell.h",
+        "app/headless_shell_win.cc",
+        "public/headless_shell.h",
+      ]
+      deps = [
+        ":headless_renderer",
+        "//build:branding_buildflags",
+        "//content/public/child:child",
+        "//net",
+        "//ui/base",
+      ]
 
-    if (is_multi_dll_chrome) {
       defines = [ "CHROME_MULTIPLE_DLL_CHILD" ]
       sources += [
         "lib/browser/headless_web_contents_impl.cc",

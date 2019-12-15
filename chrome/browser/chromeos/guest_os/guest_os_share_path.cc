@@ -20,15 +20,15 @@
 #include "chrome/browser/chromeos/plugin_vm/plugin_vm_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/components/drivefs/mojom/drivefs.mojom.h"
-#include "chromeos/dbus/concierge/service.pb.h"
+#include "chromeos/dbus/concierge/concierge_service.pb.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/seneschal_client.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
-#include "storage/browser/fileapi/external_mount_points.h"
-#include "storage/browser/fileapi/file_system_url.h"
+#include "storage/browser/file_system/external_mount_points.h"
+#include "storage/browser/file_system/file_system_url.h"
 #include "url/gurl.h"
 
 namespace {
@@ -133,16 +133,15 @@ void RemovePersistedPathFromPrefs(base::DictionaryValue* shared_paths,
                  << " for VM " << vm_name;
     return;
   }
-  auto& vms = found->GetList();
-  auto it = std::find(vms.begin(), vms.end(), base::Value(vm_name));
-  if (it == vms.end()) {
+  auto it = std::find(found->GetList().begin(), found->GetList().end(),
+                      base::Value(vm_name));
+  if (!found->EraseListIter(it)) {
     LOG(WARNING) << "VM not in prefs to ushare path " << path.value()
                  << " for VM " << vm_name;
     return;
   }
-  vms.erase(it);
   // If VM list is now empty, remove |path| from |shared_paths|.
-  if (vms.size() == 0) {
+  if (found->GetList().empty()) {
     shared_paths->RemoveKey(path.value());
   }
 }
@@ -452,8 +451,7 @@ std::vector<base::FilePath> GuestOsSharePath::GetPersistedSharedPaths(
       profile_->GetPrefs()->GetDictionary(prefs::kGuestOSPathsSharedToVms);
   for (const auto& it : shared_paths->DictItems()) {
     base::FilePath path(it.first);
-    base::span<const base::Value> vms = it.second.GetList();
-    for (const auto& vm : vms) {
+    for (const auto& vm : it.second.GetList()) {
       // Register all shared paths for all VMs since we want FilePathWatchers
       // to start immediately.
       RegisterSharedPath(vm.GetString(), path);
@@ -485,13 +483,12 @@ void GuestOsSharePath::RegisterPersistedPath(const std::string& vm_name,
   std::vector<base::FilePath> children;
   for (const auto& it : shared_paths->DictItems()) {
     base::FilePath shared(it.first);
-    auto& vms = it.second.GetList();
-    auto vm_matches =
-        std::find(vms.begin(), vms.end(), base::Value(vm_name)) != vms.end();
+    auto& vms = it.second;
+    auto vm_matches = base::Contains(vms.GetList(), base::Value(vm_name));
     if (path == shared) {
       already_shared = true;
       if (!vm_matches) {
-        vms.emplace_back(vm_name);
+        vms.Append(vm_name);
       }
     } else if (path.IsParent(shared) && vm_matches) {
       children.emplace_back(shared);

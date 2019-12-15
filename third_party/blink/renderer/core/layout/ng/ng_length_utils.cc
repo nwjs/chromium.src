@@ -96,9 +96,6 @@ bool BlockLengthUnresolvable(
     if (phase == LengthResolvePhase::kIntrinsic)
       return true;
 
-    // TODO(dgrogan): Make this account for constraint_space.IsFixedSizeBlock &&
-    // constraint_space.IsFixedBlockSizeIndefinite?
-
     LayoutUnit percentage_resolution_block_size =
         opt_percentage_resolution_block_size_for_min_max
             ? *opt_percentage_resolution_block_size_for_min_max
@@ -1235,16 +1232,36 @@ LayoutUnit CalculateChildPercentageBlockSizeForMinMax(
   return child_percentage_block_size;
 }
 
-LayoutUnit ClampIntrinsicBlockSize(const NGBlockNode& node,
-                                   const NGBoxStrut& border_scrollbar_padding,
-                                   LayoutUnit current_intrinsic_block_size) {
-  // With contain: size, we ignore intrinsic sizing. If the block-size was
-  // specified as auto, its content-box size will become 0, unless overridden by
-  // content-size.
-  if (node.ShouldApplySizeContainment()) {
-    return node.ContentBlockSizeForSizeContainment() +
-           border_scrollbar_padding.BlockSum();
+LayoutUnit ClampIntrinsicBlockSize(
+    const NGConstraintSpace& space,
+    const NGBlockNode& node,
+    const NGBoxStrut& border_scrollbar_padding,
+    LayoutUnit current_intrinsic_block_size,
+    base::Optional<LayoutUnit> body_margin_block_sum) {
+  const ComputedStyle& style = node.Style();
+
+  // Apply the "fills viewport" quirk if needed.
+  LayoutUnit available_block_size = space.AvailableSize().block_size;
+  if (node.IsQuirkyAndFillsViewport() && style.LogicalHeight().IsAuto() &&
+      available_block_size != kIndefiniteSize) {
+    DCHECK_EQ(node.IsBody() && !node.CreatesNewFormattingContext(),
+              body_margin_block_sum.has_value());
+    LayoutUnit margin_sum = body_margin_block_sum.value_or(
+        ComputeMarginsForSelf(space, style).BlockSum());
+    current_intrinsic_block_size = std::max(
+        current_intrinsic_block_size,
+        (space.AvailableSize().block_size - margin_sum).ClampNegativeToZero());
   }
+
+  // If the intrinsic size was overridden, then use that.
+  LayoutUnit intrinsic_size_override = node.OverrideIntrinsicContentBlockSize();
+  if (intrinsic_size_override != kIndefiniteSize)
+    return intrinsic_size_override + border_scrollbar_padding.BlockSum();
+
+  // If we have size containment, we ignore child contributions to intrinsic
+  // sizing.
+  if (node.ShouldApplySizeContainment())
+    return border_scrollbar_padding.BlockSum();
   return current_intrinsic_block_size;
 }
 
@@ -1256,14 +1273,17 @@ base::Optional<MinMaxSize> CalculateMinMaxSizesIgnoringChildren(
   if (type == NGMinMaxSizeType::kBorderBoxSize)
     sizes += border_scrollbar_padding.InlineSum();
 
-  // Size contained elements don't consider children for intrinsic sizing.
-  if (node.ShouldApplySizeContainment()) {
-    sizes += node.ContentInlineSizeForSizeContainment();
+  // If intrinsic size was overridden, then use that.
+  const LayoutUnit intrinsic_size_override =
+      node.OverrideIntrinsicContentInlineSize();
+  if (intrinsic_size_override != kIndefiniteSize) {
+    sizes += intrinsic_size_override;
     return sizes;
   }
 
-  // If we don't have children, we can also determine the size immediately.
-  if (!node.FirstChild())
+  // Size contained elements don't consider children for intrinsic sizing.
+  // Also, if we don't have children, we can determine the size immediately.
+  if (node.ShouldApplySizeContainment() || !node.FirstChild())
     return sizes;
 
   return base::nullopt;

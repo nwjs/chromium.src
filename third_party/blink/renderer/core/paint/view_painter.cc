@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/paint/view_painter.h"
 
+#include "base/containers/adapters.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
@@ -47,9 +48,12 @@ void ViewPainter::PaintBoxDecorationBackground(const PaintInfo& paint_info) {
   // The background rect always includes at least the visible content size.
   PhysicalRect background_rect(layout_view_.BackgroundRect());
 
-  // When printing, paint the entire unclipped scrolling content area.
-  if (paint_info.IsPrinting())
+  // When printing or painting a preview, paint the entire unclipped scrolling
+  // content area.
+  if (paint_info.IsPrinting() ||
+      !layout_view_.GetFrameView()->GetFrame().ClipsContent()) {
     background_rect.Unite(layout_view_.DocumentRect());
+  }
 
   const DisplayItemClient* background_client = &layout_view_;
 
@@ -182,8 +186,9 @@ void ViewPainter::PaintBoxDecorationBackgroundInternal(
   } else if (root_object->HasLayer()) {
     if (BoxDecorationData::IsPaintingScrollingBackground(paint_info,
                                                          layout_view_)) {
-      transform.Translate(layout_view_.ScrolledContentOffset().Width(),
-                          layout_view_.ScrolledContentOffset().Height());
+      transform.Translate(
+          layout_view_.PixelSnappedScrolledContentOffset().Width(),
+          layout_view_.PixelSnappedScrolledContentOffset().Height());
     }
     const PaintLayer& root_layer =
         *ToLayoutBoxModelObject(root_object)->Layer();
@@ -270,14 +275,11 @@ void ViewPainter::PaintBoxDecorationBackgroundInternal(
 
   BackgroundImageGeometry geometry(layout_view_);
   BoxModelObjectPainter box_model_painter(layout_view_);
-  for (auto it = reversed_paint_list.rbegin(); it != reversed_paint_list.rend();
-       ++it) {
-    DCHECK((*it)->Clip() == EFillBox::kBorder);
+  for (const auto* fill_layer : base::Reversed(reversed_paint_list)) {
+    DCHECK(fill_layer->Clip() == EFillBox::kBorder);
 
-    bool should_paint_in_viewport_space =
-        (*it)->Attachment() == EFillAttachment::kFixed;
-    if (should_paint_in_viewport_space) {
-      box_model_painter.PaintFillLayer(paint_info, Color(), **it,
+    if (BackgroundImageGeometry::ShouldUseFixedAttachment(*fill_layer)) {
+      box_model_painter.PaintFillLayer(paint_info, Color(), *fill_layer,
                                        PhysicalRect(background_rect),
                                        kBackgroundBleedNone, geometry);
     } else {
@@ -285,7 +287,7 @@ void ViewPainter::PaintBoxDecorationBackgroundInternal(
       // TODO(trchen): We should be able to handle 3D-transformed root
       // background with slimming paint by using transform display items.
       context.ConcatCTM(transform.ToAffineTransform());
-      box_model_painter.PaintFillLayer(paint_info, Color(), **it,
+      box_model_painter.PaintFillLayer(paint_info, Color(), *fill_layer,
                                        PhysicalRect(paint_rect),
                                        kBackgroundBleedNone, geometry);
       context.Restore();

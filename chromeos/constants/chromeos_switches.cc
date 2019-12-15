@@ -72,6 +72,10 @@ const char kArcAvailability[] = "arc-availability";
 // Signals the availability of the ARC instance on this device.
 const char kArcAvailable[] = "arc-available";
 
+// A JSON dictionary whose content is the same as cros config's
+// /arc/build-properties.
+const char kArcBuildProperties[] = "arc-build-properties";
+
 // Flag that forces ARC data be cleaned on each start.
 const char kArcDataCleanupOnStart[] = "arc-data-cleanup-on-start";
 
@@ -109,6 +113,13 @@ const char kArcPackagesCacheMode[] = "arc-packages-cache-mode";
 // on - auto-update is forced on.
 // off - auto-update is forced off.
 const char kArcPlayStoreAutoUpdate[] = "arc-play-store-auto-update";
+
+// Set the scale for ARC apps. This is in DPI. e.g. 280 DPI is ~ 1.75 device
+// scale factor.
+// See
+// https://source.android.com/compatibility/android-cdd#3_7_runtime_compatibility
+// for list of supported DPI values.
+const char kArcScale[] = "arc-scale";
 
 // Defines how to start ARC. This can take one of the following values:
 // - always-start automatically start with Play Store UI support.
@@ -267,6 +278,9 @@ const char kEnableMarketingOptInScreen[] = "enable-market-opt-in";
 
 // Enables request of tablet site (via user agent override).
 const char kEnableRequestTabletSite[] = "enable-request-tablet-site";
+
+// Enables tablet form factor.
+const char kEnableTabletFormFactor[] = "enable-tablet-form-factor";
 
 // Enables the touch calibration option in MD settings UI for valid touch
 // displays.
@@ -570,6 +584,11 @@ bool ShouldTetherHostScansIgnoreWiredConnections() {
 
 bool ShouldSkipOobePostLogin() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(kOobeSkipPostLogin);
+}
+
+bool IsTabletFormFactor() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      kEnableTabletFormFactor);
 }
 
 bool IsGaiaServicesDisabled() {

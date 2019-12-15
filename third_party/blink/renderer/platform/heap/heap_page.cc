@@ -35,11 +35,11 @@
 #include "base/trace_event/process_memory_dump.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
-#include "third_party/blink/renderer/platform/heap/address_cache.h"
 #include "third_party/blink/renderer/platform/heap/blink_gc_memory_dump_provider.h"
 #include "third_party/blink/renderer/platform/heap/heap_compact.h"
 #include "third_party/blink/renderer/platform/heap/heap_stats_collector.h"
 #include "third_party/blink/renderer/platform/heap/marking_verifier.h"
+#include "third_party/blink/renderer/platform/heap/page_bloom_filter.h"
 #include "third_party/blink/renderer/platform/heap/page_memory.h"
 #include "third_party/blink/renderer/platform/heap/page_pool.h"
 #include "third_party/blink/renderer/platform/heap/thread_state.h"
@@ -86,14 +86,6 @@
 #endif
 
 namespace blink {
-
-#if DCHECK_IS_ON() && defined(ARCH_CPU_64_BITS)
-NO_SANITIZE_ADDRESS
-void HeapObjectHeader::ZapMagic() {
-  CheckHeader();
-  magic_ = kZappedMagic;
-}
-#endif
 
 void HeapObjectHeader::Finalize(Address object, size_t object_size) {
   HeapAllocHooks::FreeHookIfEnabled(object);
@@ -639,7 +631,6 @@ bool NormalPageArena::PagesToBeSweptContains(Address address) {
 #endif
 
 void NormalPageArena::AllocatePage() {
-  GetThreadState()->Heap().address_cache()->MarkDirty();
   PageMemory* page_memory =
       GetThreadState()->Heap().GetFreePagePool()->Take(ArenaIndex());
 
@@ -676,8 +667,9 @@ void NormalPageArena::AllocatePage() {
       new (page_memory->WritableStart()) NormalPage(page_memory, this);
   swept_pages_.PushLocked(page);
 
-  GetThreadState()->Heap().stats_collector()->IncreaseAllocatedSpace(
-      page->size());
+  ThreadHeap& heap = GetThreadState()->Heap();
+  heap.stats_collector()->IncreaseAllocatedSpace(page->size());
+  heap.page_bloom_filter()->Add(page->GetAddress());
 #if DCHECK_IS_ON() || defined(LEAK_SANITIZER) || defined(ADDRESS_SANITIZER)
   // Allow the following addToFreeList() to add the newly allocated memory
   // to the free list.
@@ -691,8 +683,9 @@ void NormalPageArena::AllocatePage() {
 }
 
 void NormalPageArena::FreePage(NormalPage* page) {
-  GetThreadState()->Heap().stats_collector()->DecreaseAllocatedSpace(
-      page->size());
+  ThreadHeap& heap = GetThreadState()->Heap();
+  heap.stats_collector()->DecreaseAllocatedSpace(page->size());
+  heap.page_bloom_filter()->Remove(page->GetAddress());
 
   PageMemory* memory = page->Storage();
   page->~NormalPage();
@@ -979,7 +972,6 @@ Address LargeObjectArena::DoAllocateLargeObjectPage(size_t allocation_size,
   large_object_size += kAllocationGranularity;
 #endif
 
-  GetThreadState()->Heap().address_cache()->MarkDirty();
   PageMemory* page_memory = PageMemory::Allocate(
       large_object_size, GetThreadState()->Heap().GetRegionTree());
   Address large_object_address = page_memory->WritableStart();
@@ -1005,6 +997,14 @@ Address LargeObjectArena::DoAllocateLargeObjectPage(size_t allocation_size,
 
   swept_pages_.PushLocked(large_object);
 
+  // Add all segments of kBlinkPageSize to the bloom filter so that the large
+  // object can be kept by derived pointers on stack. An alternative might be to
+  // prohibit derived pointers to large objects, but that is dangerous since the
+  // compiler is free to optimize on-stack base pointers away.
+  for (Address page_begin = RoundToBlinkPageStart(large_object->GetAddress());
+       page_begin < large_object->PayloadEnd(); page_begin += kBlinkPageSize) {
+    GetThreadState()->Heap().page_bloom_filter()->Add(page_begin);
+  }
   GetThreadState()->Heap().stats_collector()->IncreaseAllocatedSpace(
       large_object->size());
   GetThreadState()->Heap().stats_collector()->IncreaseAllocatedObjectSize(
@@ -1015,8 +1015,9 @@ Address LargeObjectArena::DoAllocateLargeObjectPage(size_t allocation_size,
 void LargeObjectArena::FreeLargeObjectPage(LargeObjectPage* object) {
   ASAN_UNPOISON_MEMORY_REGION(object->Payload(), object->PayloadSize());
   object->ObjectHeader()->Finalize(object->Payload(), object->PayloadSize());
-  GetThreadState()->Heap().stats_collector()->DecreaseAllocatedSpace(
-      object->size());
+  ThreadHeap& heap = GetThreadState()->Heap();
+  heap.stats_collector()->DecreaseAllocatedSpace(object->size());
+  heap.page_bloom_filter()->Remove(object->GetAddress());
 
   // Unpoison the object header and allocationGranularity bytes after the
   // object before freeing.
@@ -1300,8 +1301,7 @@ void FreeList::CollectStatistics(
 }
 
 BasePage::BasePage(PageMemory* storage, BaseArena* arena, PageType page_type)
-    : magic_(GetMagic()),
-      storage_(storage),
+    : storage_(storage),
       arena_(arena),
       thread_state_(arena->GetThreadState()),
       page_type_(page_type) {
@@ -1659,7 +1659,6 @@ void NormalPage::VerifyObjectStartBitmapIsConsistentWithPayload() {
     const HeapObjectHeader* object_header =
         reinterpret_cast<HeapObjectHeader*>(object_address);
     DCHECK_EQ(object_header, current_header);
-    DCHECK(object_header->IsValidOrZapped());
     current_header = reinterpret_cast<HeapObjectHeader*>(object_address +
                                                          object_header->size());
     // Skip over allocation area.
@@ -1720,20 +1719,8 @@ HeapObjectHeader* NormalPage::ConservativelyFindHeaderFromAddress(
     return nullptr;
   HeapObjectHeader* header = reinterpret_cast<HeapObjectHeader*>(
       object_start_bit_map()->FindHeader(address));
-  DCHECK(header->IsValidOrZapped());
   if (header->IsFree())
     return nullptr;
-  DCHECK_LT(0u, header->GcInfoIndex());
-  DCHECK_GT(header->PayloadEnd(), address);
-  return header;
-}
-
-HeapObjectHeader* NormalPage::FindHeaderFromAddress(Address address) {
-  DCHECK(ContainedInObjectPayload(address));
-  DCHECK(!ArenaForNormalPage()->IsInCurrentAllocationPointRegion(address));
-  HeapObjectHeader* header = reinterpret_cast<HeapObjectHeader*>(
-      object_start_bit_map()->FindHeader(address));
-  DCHECK(header->IsValid());
   DCHECK_LT(0u, header->GcInfoIndex());
   DCHECK_GT(header->PayloadEnd(), address);
   return header;
@@ -1854,77 +1841,5 @@ bool LargeObjectPage::Contains(Address object) {
          object < RoundToBlinkPageEnd(GetAddress() + size());
 }
 #endif
-
-ALWAYS_INLINE uint32_t RotateLeft16(uint32_t x) {
-#if defined(COMPILER_MSVC)
-  return _lrotr(x, 16);
-#else
-  // http://blog.regehr.org/archives/1063
-  return (x << 16) | (x >> (-16 & 31));
-#endif
-}
-
-uint32_t ComputeRandomMagic() {
-// Ignore C4319: It is OK to 0-extend into the high-order bits of the uintptr_t
-// on 64-bit, in this case.
-#if defined(COMPILER_MSVC)
-#pragma warning(push)
-#pragma warning(disable : 4319)
-#endif
-
-  // Get an ASLR'd address from one of our own DLLs/.sos, and then another from
-  // a system DLL/.so:
-
-  const uint32_t random1 =
-      ~(RotateLeft16(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(
-          base::trace_event::MemoryAllocatorDump::kNameSize))));
-
-#if defined(OS_WIN)
-  uintptr_t random2 = reinterpret_cast<uintptr_t>(::ReadFile);
-#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
-  uintptr_t random2 = reinterpret_cast<uintptr_t>(::read);
-#else
-#error platform not supported
-#endif
-
-#if defined(ARCH_CPU_64_BITS)
-  static_assert(sizeof(uintptr_t) == sizeof(uint64_t),
-                "uintptr_t is not uint64_t");
-  // Shift in some high-order bits.
-  random2 = random2 >> 16;
-#elif defined(ARCH_CPU_32_BITS)
-  // Although we don't use heap metadata canaries on 32-bit due to memory
-  // pressure, keep this code around just in case we do, someday.
-  static_assert(sizeof(uintptr_t) == sizeof(uint32_t),
-                "uintptr_t is not uint32_t");
-#else
-#error architecture not supported
-#endif
-
-  random2 = ~(RotateLeft16(static_cast<uint32_t>(random2)));
-
-  // Combine the 2 values:
-  const uint32_t random = (random1 & 0x0000FFFFUL) |
-                          (static_cast<uint32_t>(random2) & 0xFFFF0000UL);
-
-#if defined(COMPILER_MSVC)
-#pragma warning(pop)
-#endif
-
-  return random;
-}
-
-#if defined(ARCH_CPU_64_BITS)
-// Returns a random magic value.
-uint32_t HeapObjectHeader::GetMagic() {
-  static const uint32_t magic = ComputeRandomMagic() ^ 0x6e0b6ead;
-  return magic;
-}
-#endif  // defined(ARCH_CPU_64_BITS)
-
-uint32_t BasePage::GetMagic() {
-  static const uint32_t magic = ComputeRandomMagic() ^ 0xba5e4a9e;
-  return magic;
-}
 
 }  // namespace blink

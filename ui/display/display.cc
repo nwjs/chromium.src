@@ -17,6 +17,7 @@
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/icc_profile.h"
+#include "ui/gfx/transform.h"
 
 namespace content {
 
@@ -30,15 +31,6 @@ bool g_force_cpu_draw = false;
 
 namespace display {
 namespace {
-
-constexpr int kDefaultBitsPerPixel = 24;
-constexpr int kDefaultBitsPerComponent = 8;
-
-constexpr int kHDR10BitsPerPixel = 30;
-constexpr int kHDR10BitsPerComponent = 10;
-
-constexpr int kSCRGBLinearBitsPerPixel = 48;
-constexpr int kSCRGBLinearBitsPerComponent = 16;
 
 // This variable tracks whether the forced device scale factor switch needs to
 // be read from the command line, i.e. if it is set to -1 then the command line
@@ -97,6 +89,21 @@ gfx::ColorSpace ForcedColorProfileStringToColorSpace(const std::string& value) {
   }
   LOG(ERROR) << "Invalid forced color profile: \"" << value << "\"";
   return gfx::ColorSpace::CreateSRGB();
+}
+
+const char* ToRotationString(display::Display::Rotation rotation) {
+  switch (rotation) {
+    case display::Display::ROTATE_0:
+      return "0";
+    case display::Display::ROTATE_90:
+      return "90";
+    case display::Display::ROTATE_180:
+      return "180";
+    case display::Display::ROTATE_270:
+      return "270";
+  }
+  NOTREACHED();
+  return "unkonwn";
 }
 
 }  // namespace
@@ -284,6 +291,38 @@ void Display::SetRotationAsDegree(int rotation) {
   }
 }
 
+int Display::PanelRotationAsDegree() const {
+  return RotationToDegrees(panel_rotation_);
+}
+
+// static
+gfx::Transform Display::GetRotationTransform(Rotation rotation,
+                                             const gfx::SizeF& size) {
+  // NB: Using gfx::Transform::Rotate() introduces very small errors here
+  // which are later exacerbated by use of gfx::EnclosingRect() in
+  // WindowTreeHost::GetTransformedRootWindowBoundsInPixels().
+  const gfx::Transform rotate_90(0.f, -1.f, 0.f, 0.f,  //
+                                 1.f, 0.f, 0.f, 0.f,   //
+                                 0.f, 0.f, 1.f, 0.f,   //
+                                 0.f, 0.f, 0.f, 1.f);
+  const gfx::Transform rotate_180 = rotate_90 * rotate_90;
+  const gfx::Transform rotate_270 = rotate_180 * rotate_90;
+  gfx::Transform translation;
+  switch (rotation) {
+    case display::Display::ROTATE_0:
+      return translation;
+    case display::Display::ROTATE_90:
+      translation.Translate(size.height(), 0);
+      return translation * rotate_90;
+    case display::Display::ROTATE_180:
+      translation.Translate(size.width(), size.height());
+      return translation * rotate_180;
+    case display::Display::ROTATE_270:
+      translation.Translate(0, size.width());
+      return translation * rotate_270;
+  }
+}
+
 gfx::Insets Display::GetWorkAreaInsets() const {
   return gfx::Insets(work_area_.y() - bounds_.y(), work_area_.x() - bounds_.x(),
                      bounds_.bottom() - work_area_.bottom(),
@@ -347,9 +386,11 @@ gfx::Size Display::GetSizeInPixel() const {
 
 std::string Display::ToString() const {
   return base::StringPrintf(
-      "Display[%lld] bounds=[%s], workarea=[%s], scale=%g, %s.",
+      "Display[%lld] bounds=[%s], workarea=[%s], scale=%g, rotation=%s, "
+      "panel_rotation=%s %s.",
       static_cast<long long int>(id_), bounds_.ToString().c_str(),
       work_area_.ToString().c_str(), device_scale_factor_,
+      ToRotationString(rotation_), ToRotationString(panel_rotation_),
       IsInternal() ? "internal" : "external");
 }
 

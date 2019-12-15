@@ -9,8 +9,9 @@
 #include "base/memory/ptr_util.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
-#include "third_party/blink/renderer/core/display_lock/before_activate_event.h"
+#include "third_party/blink/renderer/core/css/style_recalc.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
+#include "third_party/blink/renderer/core/display_lock/render_subtree_activation_event.h"
 #include "third_party/blink/renderer/core/display_lock/strict_yielding_display_lock_budget.h"
 #include "third_party/blink/renderer/core/display_lock/unyielding_display_lock_budget.h"
 #include "third_party/blink/renderer/core/display_lock/yielding_display_lock_budget.h"
@@ -19,6 +20,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/html_element_type_helpers.h"
 #include "third_party/blink/renderer/core/inspector/inspector_trace_events.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
@@ -118,9 +120,10 @@ void DisplayLockContext::UpdateActivationObservationIfNeeded() {
     return;
   }
 
-  bool should_observe = IsLocked() &&
-                        IsActivatable(DisplayLockActivationReason::kViewport) &&
-                        ConnectedToView();
+  bool should_observe =
+      IsLocked() &&
+      IsActivatable(DisplayLockActivationReason::kViewportIntersection) &&
+      ConnectedToView();
   if (should_observe && !is_observed_) {
     document_->RegisterDisplayLockActivationObservation(element_);
   } else if (!should_observe && is_observed_) {
@@ -129,7 +132,7 @@ void DisplayLockContext::UpdateActivationObservationIfNeeded() {
   is_observed_ = should_observe;
 }
 
-void DisplayLockContext::SetActivatable(unsigned char activatable_mask) {
+void DisplayLockContext::SetActivatable(uint16_t activatable_mask) {
   if (IsLocked()) {
     // If we're locked, the activatable mask might change the activation
     // blocking lock count. If we're not locked, the activation blocking lock
@@ -147,15 +150,31 @@ void DisplayLockContext::StartAcquire() {
   update_budget_.reset();
   state_ = kLocked;
 
+  // We're no longer activated, so if the signal didn't run yet, we should
+  // cancel it.
+  weak_factory_.InvalidateWeakPtrs();
+
   // If we're already connected then we need to ensure that we update our style
   // to check for containment later, layout size based on the options, and
   // also clear the painted output.
   if (!ConnectedToView())
     return;
 
-  element_->SetNeedsStyleRecalc(
-      kLocalStyleChange,
-      StyleChangeReasonForTracing::Create(style_change_reason::kDisplayLock));
+  // There are several ways we can call StartAcquire. Most of them require us to
+  // dirty style so that we can add proper containment onto the element.
+  // However, if we're doing a StartAcquire from within style recalc, then we
+  // don't need to do anything as we should have already added containment.
+  // Moreover, dirtying self style from within style recalc is not allowed,
+  // since either it has no effect and is cleaned before any work is done, or it
+  // causes DHCECKs in AssertLayoutTreeUpdated().
+  if (!document_->InStyleRecalc()) {
+    element_->SetNeedsStyleRecalc(
+        kLocalStyleChange,
+        StyleChangeReasonForTracing::Create(style_change_reason::kDisplayLock));
+  }
+
+  // In either case, we schedule an animation. If we're already inside a
+  // lifecycle update, this will be a no-op.
   ScheduleAnimation();
 
   // We need to notify the AX cache (if it exists) to update the  childrens
@@ -374,29 +393,41 @@ void DisplayLockContext::DidPaint(DisplayLockLifecycleTarget) {
 
 bool DisplayLockContext::IsActivatable(
     DisplayLockActivationReason reason) const {
-  return !IsLocked() ||
-         (activatable_mask_ & static_cast<unsigned char>(reason));
+  return !IsLocked() || (activatable_mask_ & static_cast<uint16_t>(reason));
+}
+
+void DisplayLockContext::FireActivationEvent(Element* activated_element) {
+  element_->DispatchEvent(
+      *MakeGarbageCollected<RenderSubtreeActivationEvent>(*activated_element));
 }
 
 void DisplayLockContext::CommitForActivationWithSignal(
     Element* activated_element) {
   DCHECK(activated_element);
-  element_->DispatchEvent(
-      *MakeGarbageCollected<BeforeActivateEvent>(*activated_element));
-
-  // The beforeactivate signal may have committed this lock already, in which
-  // case we have nothing to do.
-  if (!IsLocked())
-    return;
-
   DCHECK(element_);
   DCHECK(ConnectedToView());
+  DCHECK(IsLocked());
   DCHECK(ShouldCommitForActivation(DisplayLockActivationReason::kAny));
+
+  document_->EnqueueDisplayLockActivationTask(
+      WTF::Bind(&DisplayLockContext::FireActivationEvent,
+                weak_factory_.GetWeakPtr(), WrapPersistent(activated_element)));
+
   StartCommit();
+  is_activated_ = true;
+
   // Since setting the attribute might trigger a commit if we are still locked,
   // we set it after we start the commit.
-  if (element_->hasAttribute(html_names::kRendersubtreeAttr))
+  if (element_->FastHasAttribute(html_names::kRendersubtreeAttr))
     element_->setAttribute(html_names::kRendersubtreeAttr, "");
+}
+
+bool DisplayLockContext::IsActivated() const {
+  return is_activated_;
+}
+
+void DisplayLockContext::ClearActivated() {
+  is_activated_ = false;
 }
 
 bool DisplayLockContext::ShouldCommitForActivation(
@@ -450,8 +481,12 @@ void DisplayLockContext::StartCommit() {
 
   update_budget_.reset();
 
-  // We're committing without a budget, so ensure we can reach style.
-  MarkForStyleRecalcIfNeeded();
+  // We skip updating the style dirtiness if we're within style recalc. This is
+  // instead handled by a call to AdjustStyleRecalcChangeForChildren().
+  if (!document_->InStyleRecalc()) {
+    // We're committing without a budget, so ensure we can reach style.
+    MarkForStyleRecalcIfNeeded();
+  }
 
   // We also need to notify the AX cache (if it exists) to update the childrens
   // of |element_| in the AX cache.
@@ -521,6 +556,28 @@ void DisplayLockContext::MarkElementsForWhitespaceReattachment() {
   whitespace_reattach_set_.clear();
 }
 
+StyleRecalcChange DisplayLockContext::AdjustStyleRecalcChangeForChildren(
+    StyleRecalcChange change) {
+  // This code is similar to MarkForStyleRecalcIfNeeded, except that it acts on
+  // |change| and not on |element_|. This is only called during style recalc.
+  // Note that since we're already in self style recalc, this code is shorter
+  // since it doesn't have to deal with dirtying self-style.
+  DCHECK(document_->InStyleRecalc());
+  DCHECK(!IsAttributeVersion(this));
+
+  if (reattach_layout_tree_was_blocked_) {
+    change = change.ForceReattachLayoutTree();
+    reattach_layout_tree_was_blocked_ = false;
+  }
+
+  if (blocked_style_traversal_type_ == kStyleUpdateDescendants)
+    change = change.ForceRecalcDescendants();
+  else if (blocked_style_traversal_type_ == kStyleUpdateChildren)
+    change = change.EnsureAtLeast(StyleRecalcChange::kRecalcChildren);
+  blocked_style_traversal_type_ = kStyleUpdateNotRequired;
+  return change;
+}
+
 bool DisplayLockContext::MarkForStyleRecalcIfNeeded() {
   if (reattach_layout_tree_was_blocked_) {
     // We previously blocked a layout tree reattachment on |element_|'s
@@ -584,6 +641,9 @@ bool DisplayLockContext::MarkForLayoutIfNeeded() {
 }
 
 bool DisplayLockContext::MarkAncestorsForPrePaintIfNeeded() {
+  // TODO(vmpstr): We should add a compositing phase for proper bookkeeping.
+  bool compositing_dirtied = MarkForCompositingUpdatesIfNeeded();
+
   if (IsElementDirtyForPrePaint()) {
     auto* layout_object = element_->GetLayoutObject();
     if (auto* parent = layout_object->Parent())
@@ -603,7 +663,7 @@ bool DisplayLockContext::MarkAncestorsForPrePaintIfNeeded() {
     }
     return true;
   }
-  return false;
+  return compositing_dirtied;
 }
 
 bool DisplayLockContext::MarkPaintLayerNeedsRepaint() {
@@ -615,6 +675,32 @@ bool DisplayLockContext::MarkPaintLayerNeedsRepaint() {
       document_->View()->SetForeignLayerListNeedsUpdate();
       needs_graphics_layer_collection_ = false;
     }
+    return true;
+  }
+  return false;
+}
+
+bool DisplayLockContext::MarkForCompositingUpdatesIfNeeded() {
+  if (!ConnectedToView())
+    return false;
+
+  auto* layout_object = element_->GetLayoutObject();
+  if (!layout_object)
+    return false;
+
+  auto* layout_box = DynamicTo<LayoutBoxModelObject>(layout_object);
+  if (layout_box && layout_box->HasSelfPaintingLayer()) {
+    if (layout_box->Layer()->ChildNeedsCompositingInputsUpdate() &&
+        layout_box->Layer()->Parent()) {
+      // Note that if the layer's child needs compositing inputs update, then
+      // that layer itself also needs compositing inputs update. In order to
+      // propagate the dirty bit, we need to mark this layer's _parent_ as a
+      // needing an update.
+      layout_box->Layer()->Parent()->SetNeedsCompositingInputsUpdate();
+    }
+    if (needs_compositing_requirements_update_)
+      layout_box->Layer()->SetNeedsCompositingRequirementsUpdate();
+    needs_compositing_requirements_update_ = false;
     return true;
   }
   return false;
@@ -641,10 +727,14 @@ bool DisplayLockContext::IsElementDirtyForLayout() const {
 
 bool DisplayLockContext::IsElementDirtyForPrePaint() const {
   if (auto* layout_object = element_->GetLayoutObject()) {
+    auto* layout_box = DynamicTo<LayoutBoxModelObject>(layout_object);
     return PrePaintTreeWalk::ObjectRequiresPrePaint(*layout_object) ||
            PrePaintTreeWalk::ObjectRequiresTreeBuilderContext(*layout_object) ||
            needs_prepaint_subtree_walk_ ||
-           needs_effective_allowed_touch_action_update_;
+           needs_effective_allowed_touch_action_update_ ||
+           needs_compositing_requirements_update_ ||
+           (layout_box && layout_box->HasSelfPaintingLayer() &&
+            layout_box->Layer()->ChildNeedsCompositingInputsUpdate());
   }
   return false;
 }
@@ -787,7 +877,7 @@ const char* DisplayLockContext::ShouldForceUnlock() const {
   // We allow replaced elements to be locked. This check is similar to the check
   // in DefinitelyNewFormattingContext() in element.cc, but in this case we
   // allow object element to get locked.
-  if (IsHTMLObjectElement(element_) || IsHTMLImageElement(element_) ||
+  if (IsA<HTMLObjectElement>(*element_) || IsA<HTMLImageElement>(*element_) ||
       element_->IsFormControlElement() || element_->IsMediaElement() ||
       element_->IsFrameOwnerElement() || element_->IsSVGElement()) {
     return nullptr;
@@ -804,7 +894,7 @@ const char* DisplayLockContext::ShouldForceUnlock() const {
   auto* html_element = DynamicTo<HTMLElement>(element_.Get());
   if ((style->IsDisplayTableType() &&
        style->Display() != EDisplay::kTableCell) ||
-      (!html_element || IsHTMLRubyElement(html_element)) ||
+      (!html_element || IsA<HTMLRubyElement>(html_element)) ||
       (style->IsDisplayInlineType() && !style->IsDisplayReplacedType())) {
     return rejection_names::kContainmentNotSatisfied;
   }

@@ -13,6 +13,8 @@
 #include "base/memory/scoped_refptr.h"
 #include "components/viz/common/display/renderer_settings.h"
 #include "components/viz/common/surfaces/frame_sink_id_allocator.h"
+#include "mojo/public/cpp/bindings/associated_remote.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/viz/privileged/mojom/compositing/display_private.mojom.h"
 #include "services/viz/privileged/mojom/compositing/external_begin_frame_controller.mojom.h"
 #include "ui/compositor/compositor.h"
@@ -89,7 +91,8 @@ class HostContextFactoryPrivate : public ContextFactoryPrivate {
   void SetOutputIsSecure(Compositor* compositor, bool secure) override;
   void AddVSyncParameterObserver(
       Compositor* compositor,
-      viz::mojom::VSyncParameterObserverPtr observer) override;
+      mojo::PendingRemote<viz::mojom::VSyncParameterObserver> observer)
+      override;
 
  private:
   struct CompositorData {
@@ -100,9 +103,9 @@ class HostContextFactoryPrivate : public ContextFactoryPrivate {
 
     // Privileged interface that controls the display for a root
     // CompositorFrameSink.
-    viz::mojom::DisplayPrivateAssociatedPtr display_private;
+    mojo::AssociatedRemote<viz::mojom::DisplayPrivate> display_private;
     std::unique_ptr<viz::HostDisplayClient> display_client;
-    viz::mojom::ExternalBeginFrameControllerAssociatedPtr
+    mojo::AssociatedRemote<viz::mojom::ExternalBeginFrameController>
         external_begin_frame_controller;
 
     std::unique_ptr<PendingBeginFrameArgs> pending_begin_frame_args;

@@ -12,7 +12,6 @@
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/components/web_app_install_utils.h"
 #include "chrome/browser/web_applications/components/web_app_url_loader.h"
-#include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 
 enum class WebappInstallSource;
 struct WebApplicationInfo;
@@ -28,13 +27,17 @@ namespace web_app {
 enum class InstallResultCode;
 class InstallFinalizer;
 class AppRegistrar;
+class AppShortcutManager;
 
 // TODO(loyso): Rework this interface. Unify the API and merge similar
 // InstallWebAppZZZZ functions.
 class InstallManager {
  public:
+  // |app_id| may be empty on failure.
   using OnceInstallCallback =
       base::OnceCallback<void(const AppId& app_id, InstallResultCode code)>;
+  using OnceUninstallCallback =
+      base::OnceCallback<void(const AppId& app_id, bool uninstalled)>;
 
   // Callback used to indicate whether a user has accepted the installation of a
   // web app.
@@ -50,9 +53,18 @@ class InstallManager {
       ForInstallableSite for_installable_site,
       WebAppInstallationAcceptanceCallback acceptance_callback)>;
 
-  using WebAppInstallabilityCheckCallback =
-      base::OnceCallback<void(std::unique_ptr<content::WebContents>,
-                              bool is_installable)>;
+  enum class InstallableCheckResult {
+    kNotInstallable,
+    kInstallable,
+    kAlreadyInstalled,
+  };
+  // Callback with the result of an installability check.
+  // |web_contents| owns the WebContents that was used to check installability.
+  // |app_id| will be present iff already installed.
+  using WebAppInstallabilityCheckCallback = base::OnceCallback<void(
+      std::unique_ptr<content::WebContents> web_contents,
+      InstallableCheckResult result,
+      base::Optional<AppId> app_id)>;
 
   // Returns true if a web app can be installed for a given |web_contents|.
   virtual bool CanInstallWebApp(content::WebContents* web_contents) = 0;
@@ -88,8 +100,10 @@ class InstallManager {
 
   // These params are a subset of ExternalInstallOptions.
   struct InstallParams {
-    blink::mojom::DisplayMode display_mode =
-        blink::mojom::DisplayMode::kUndefined;
+    DisplayMode user_display_mode = DisplayMode::kUndefined;
+
+    // URL to be used as start_url if manifest is unavailable.
+    GURL fallback_start_url;
 
     bool add_to_applications_menu = true;
     bool add_to_desktop = true;
@@ -105,6 +119,7 @@ class InstallManager {
                                        WebappInstallSource install_source,
                                        OnceInstallCallback callback) = 0;
 
+  // For the old ExtensionSyncService-based system only:
   // Starts background installation or an update of a web app from the sync
   // system. |web_application_info| contains received sync data. Icons will be
   // downloaded from the icon URLs provided in |web_application_info|.
@@ -125,17 +140,21 @@ class InstallManager {
   explicit InstallManager(Profile* profile);
   virtual ~InstallManager();
 
-  void SetSubsystems(AppRegistrar* registrar, InstallFinalizer* finalizer);
+  void SetSubsystems(AppRegistrar* registrar,
+                     AppShortcutManager* shortcut_manager,
+                     InstallFinalizer* finalizer);
 
-  // Loads |web_app_url| in a new WebContents and determines if it is
-  // installable. Returns the WebContents and whether the app is installable or
-  // not.
-  void LoadWebAppAndCheckInstallability(const GURL& web_app_url,
-                                        WebAppInstallabilityCheckCallback);
+  // Loads |web_app_url| in a new WebContents and determines whether it is
+  // installable. Calls |callback| with results.
+  virtual void LoadWebAppAndCheckInstallability(
+      const GURL& web_app_url,
+      WebappInstallSource install_source,
+      WebAppInstallabilityCheckCallback callback) = 0;
 
  protected:
   Profile* profile() { return profile_; }
   AppRegistrar* registrar() { return registrar_; }
+  AppShortcutManager* shortcut_manager() { return shortcut_manager_; }
   InstallFinalizer* finalizer() { return finalizer_; }
 
  private:
@@ -143,6 +162,7 @@ class InstallManager {
   WebAppUrlLoader url_loader_;
 
   AppRegistrar* registrar_ = nullptr;
+  AppShortcutManager* shortcut_manager_ = nullptr;
   InstallFinalizer* finalizer_ = nullptr;
 };
 

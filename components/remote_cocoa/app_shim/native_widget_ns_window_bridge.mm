@@ -324,8 +324,7 @@ NativeWidgetNSWindowBridge::NativeWidgetNSWindowBridge(
     : id_(bridged_native_widget_id),
       host_(host),
       host_helper_(host_helper),
-      text_input_host_(text_input_host),
-      bridge_mojo_binding_(this) {
+      text_input_host_(text_input_host) {
   DCHECK(GetIdToWidgetImplMap().find(id_) == GetIdToWidgetImplMap().end());
   GetIdToWidgetImplMap().insert(std::make_pair(id_, this));
   display::Screen::GetScreen()->AddObserver(this);
@@ -341,12 +340,12 @@ NativeWidgetNSWindowBridge::~NativeWidgetNSWindowBridge() {
   DestroyContentView();
 }
 
-void NativeWidgetNSWindowBridge::BindRequest(
-    mojom::NativeWidgetNSWindowAssociatedRequest request,
+void NativeWidgetNSWindowBridge::BindReceiver(
+    mojo::PendingAssociatedReceiver<mojom::NativeWidgetNSWindow> receiver,
     base::OnceClosure connection_closed_callback) {
-  bridge_mojo_binding_.Bind(std::move(request),
-                            ui::WindowResizeHelperMac::Get()->task_runner());
-  bridge_mojo_binding_.set_connection_error_handler(
+  bridge_mojo_receiver_.Bind(std::move(receiver),
+                             ui::WindowResizeHelperMac::Get()->task_runner());
+  bridge_mojo_receiver_.set_disconnect_handler(
       std::move(connection_closed_callback));
 }
 
@@ -1098,11 +1097,17 @@ void NativeWidgetNSWindowBridge::InitCompositorView() {
   UpdateWindowGeometry();
 }
 
-void NativeWidgetNSWindowBridge::SortSubviews(RankMap rank) {
+void NativeWidgetNSWindowBridge::SortSubviews(
+    const std::vector<uint64_t>& attached_subview_ids) {
   // Ignore layer manipulation during a Close(). This can be reached during the
   // orderOut: in Close(), which notifies visibility changes to Views.
   if (!bridged_view_)
     return;
+  RankMap rank;
+  for (uint64_t subview_id : attached_subview_ids) {
+    if (NSView* subview = remote_cocoa::GetNSViewFromId(subview_id))
+      rank[subview] = rank.size() + 1;
+  }
   [bridged_view_ sortSubviewsUsingFunction:&SubviewSorter context:&rank];
 }
 

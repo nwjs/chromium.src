@@ -8,14 +8,13 @@ import android.content.Context;
 import android.view.ViewGroup;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ObserverList;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.accessibility_tab_switcher.OverviewListLayout;
 import org.chromium.chrome.browser.compositor.TitleCache;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel.StateChangeReason;
-import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior.OverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
 import org.chromium.chrome.browser.compositor.layouts.components.VirtualView;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
@@ -27,6 +26,7 @@ import org.chromium.chrome.browser.compositor.overlays.SceneOverlay;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManagementDelegate;
 import org.chromium.chrome.browser.device.DeviceClassManager;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
@@ -37,7 +37,6 @@ import org.chromium.chrome.browser.tasks.tab_management.TabManagementDelegate;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementModuleProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.util.AccessibilityUtil;
-import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.features.start_surface.StartSurface;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 
@@ -83,7 +82,7 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
         mOverviewModeObservers = new ObserverList<OverviewModeObserver>();
 
         // Build Event Filter Handlers
-        mToolbarSwipeHandler = new ToolbarSwipeHandler();
+        mToolbarSwipeHandler = createToolbarSwipeHandler(/* supportSwipeDown = */ true);
 
         // Build Layouts
         mOverviewListLayout = new OverviewListLayout(context, this, renderHost);
@@ -96,9 +95,11 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
                 assert tabManagementDelegate != null;
                 startSurface.setStateChangeObserver(new StartSurface.StateObserver() {
                     @Override
-                    public void onStateChanged(boolean shouldShowTabSwitcherToolbar) {
+                    public void onStateChanged(@OverviewModeState int overviewModeState,
+                            boolean shouldShowTabSwitcherToolbar) {
                         for (OverviewModeObserver observer : mOverviewModeObservers) {
-                            observer.onOverviewModeStateChanged(shouldShowTabSwitcherToolbar);
+                            observer.onOverviewModeStateChanged(
+                                    overviewModeState, shouldShowTabSwitcherToolbar);
                         }
                     }
                 });
@@ -126,6 +127,11 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
     @Override
     public EdgeSwipeHandler getToolbarSwipeHandler() {
         return mToolbarSwipeHandler;
+    }
+
+    @Override
+    public EdgeSwipeHandler createToolbarSwipeHandler(boolean supportSwipeDown) {
+        return new ToolbarSwipeHandler(supportSwipeDown);
     }
 
     @Override
@@ -425,6 +431,12 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
          */
         private static final float SWIPE_RANGE_DEG = 25;
 
+        private final boolean mSupportSwipeDown;
+
+        public ToolbarSwipeHandler(boolean supportSwipeDown) {
+            mSupportSwipeDown = supportSwipeDown;
+        }
+
         @Override
         public void swipeStarted(@ScrollDirection int direction, float x, float y) {
             mScrollDirection = ScrollDirection.UNKNOWN;
@@ -443,12 +455,12 @@ public class LayoutManagerChrome extends LayoutManager implements OverviewModeCo
             mScrollDirection = computeScrollDirection(dx, dy);
             if (mScrollDirection == ScrollDirection.UNKNOWN) return;
 
-            if (mOverviewLayout != null && mScrollDirection == ScrollDirection.DOWN) {
+            if (mSupportSwipeDown && mOverviewLayout != null
+                    && mScrollDirection == ScrollDirection.DOWN) {
                 RecordUserAction.record("MobileToolbarSwipeOpenStackView");
                 showOverview(true);
-            } else if (mToolbarSwipeLayout != null
-                    && (mScrollDirection == ScrollDirection.LEFT
-                            || mScrollDirection == ScrollDirection.RIGHT)) {
+            } else if (mScrollDirection == ScrollDirection.LEFT
+                    || mScrollDirection == ScrollDirection.RIGHT) {
                 startShowing(mToolbarSwipeLayout, true);
             }
 

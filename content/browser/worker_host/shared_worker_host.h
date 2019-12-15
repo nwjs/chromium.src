@@ -21,16 +21,15 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/shared_worker_instance.h"
 #include "media/mojo/mojom/video_decode_perf_history.mojom.h"
-#include "mojo/public/cpp/bindings/binding.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
-#include "services/service_manager/public/mojom/interface_provider.mojom.h"
 #include "third_party/blink/public/mojom/devtools/devtools_agent.mojom.h"
 #include "third_party/blink/public/mojom/payments/payment_app.mojom-forward.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom.h"
+#include "third_party/blink/public/mojom/webtransport/quic_transport_connector.mojom.h"
 #include "third_party/blink/public/mojom/worker/shared_worker.mojom.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_client.mojom.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_factory.mojom.h"
@@ -41,7 +40,7 @@ class GURL;
 
 namespace blink {
 class MessagePortChannel;
-class URLLoaderFactoryBundleInfo;
+class PendingURLLoaderFactoryBundle;
 }
 
 namespace content {
@@ -56,9 +55,7 @@ class SharedWorkerServiceImpl;
 // the browser <-> worker communication channel. This is owned by
 // SharedWorkerServiceImpl and destructed when a worker context or worker's
 // message filter is closed.
-class CONTENT_EXPORT SharedWorkerHost
-    : public blink::mojom::SharedWorkerHost,
-      public service_manager::mojom::InterfaceProvider {
+class CONTENT_EXPORT SharedWorkerHost : public blink::mojom::SharedWorkerHost {
  public:
   SharedWorkerHost(SharedWorkerServiceImpl* service,
                    const SharedWorkerInstance& instance,
@@ -77,7 +74,7 @@ class CONTENT_EXPORT SharedWorkerHost
   using CreateNetworkFactoryCallback = base::RepeatingCallback<void(
       mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver,
       int worker_process_id,
-      network::mojom::URLLoaderFactoryPtrInfo original_factory)>;
+      mojo::PendingRemote<network::mojom::URLLoaderFactory> original_factory)>;
   static void SetNetworkFactoryForSubresourcesForTesting(
       const CreateNetworkFactoryCallback& url_loader_factory_callback);
 
@@ -97,7 +94,7 @@ class CONTENT_EXPORT SharedWorkerHost
   void Start(
       mojo::PendingRemote<blink::mojom::SharedWorkerFactory> factory,
       blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
-      std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+      std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
           subresource_loader_factories,
       blink::mojom::ControllerServiceWorkerInfoPtr controller,
       base::WeakPtr<ServiceWorkerObjectHost>
@@ -108,15 +105,12 @@ class CONTENT_EXPORT SharedWorkerHost
   void AllowIndexedDB(const GURL& url, base::OnceCallback<void(bool)> callback);
   void AllowCacheStorage(const GURL& url,
                          base::OnceCallback<void(bool)> callback);
+  void AllowWebLocks(const GURL& url, base::OnceCallback<void(bool)> callback);
 
-  void BindVideoDecodePerfHistory(
-      mojo::PendingReceiver<media::mojom::VideoDecodePerfHistory> receiver);
   void CreateAppCacheBackend(
       mojo::PendingReceiver<blink::mojom::AppCacheBackend> receiver);
-  void CreatePaymentManager(
-      mojo::PendingReceiver<payments::mojom::PaymentManager> receiver);
-  void CreateIDBFactory(
-      mojo::PendingReceiver<blink::mojom::IDBFactory> receiver);
+  void CreateQuicTransportConnector(
+      mojo::PendingReceiver<blink::mojom::QuicTransportConnector> receiver);
 
   // Causes this instance to be deleted, which will terminate the worker. May
   // be done based on a UI action.
@@ -182,10 +176,6 @@ class CONTENT_EXPORT SharedWorkerHost
   void OnClientConnectionLost();
   void OnWorkerConnectionLost();
 
-  // service_manager::mojom::InterfaceProvider:
-  void GetInterface(const std::string& interface_name,
-                    mojo::ScopedMessagePipeHandle interface_pipe) override;
-
   // Creates a network factory for subresource requests from this worker. The
   // network factory is meant to be passed to the renderer.
   mojo::PendingRemote<network::mojom::URLLoaderFactory>
@@ -215,9 +205,6 @@ class CONTENT_EXPORT SharedWorkerHost
   // URLLoaderFactory) that are needed to stay alive while the worker is
   // starting or running.
   mojo::Remote<blink::mojom::SharedWorkerFactory> factory_;
-
-  mojo::Binding<service_manager::mojom::InterfaceProvider>
-      interface_provider_binding_;
 
   BrowserInterfaceBrokerImpl<SharedWorkerHost, const url::Origin&> broker_{
       this};

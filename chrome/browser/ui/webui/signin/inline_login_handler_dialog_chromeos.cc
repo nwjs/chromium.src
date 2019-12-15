@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <string>
 
+#include "ash/public/cpp/window_properties.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
@@ -66,6 +67,11 @@ void InlineLoginHandlerDialogChromeOS::Show(const std::string& email) {
   // Will be deleted by |SystemWebDialogDelegate::OnDialogClosed|.
   dialog = new InlineLoginHandlerDialogChromeOS(url);
   dialog->ShowSystemDialog();
+
+  // TODO(crbug.com/1016828): Remove/update this after the dialog behavior on
+  // Chrome OS is defined.
+  dialog->dialog_window()->SetProperty(
+      ash::kBackdropWindowMode, ash::BackdropWindowMode::kAutoSemiOpaque);
 }
 
 void InlineLoginHandlerDialogChromeOS::AdjustWidgetInitParams(
@@ -122,10 +128,8 @@ bool InlineLoginHandlerDialogChromeOS::ShouldShowDialogTitle() const {
   return false;
 }
 
-void InlineLoginHandlerDialogChromeOS::OnDialogShown(
-    content::WebUI* webui,
-    content::RenderViewHost* render_view_host) {
-  SystemWebDialogDelegate::OnDialogShown(webui, render_view_host);
+void InlineLoginHandlerDialogChromeOS::OnDialogShown(content::WebUI* webui) {
+  SystemWebDialogDelegate::OnDialogShown(webui);
   web_modal::WebContentsModalDialogManager::CreateForWebContents(
       webui->GetWebContents());
   web_modal::WebContentsModalDialogManager::FromWebContents(

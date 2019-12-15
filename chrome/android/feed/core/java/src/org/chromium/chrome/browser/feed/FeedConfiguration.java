@@ -6,11 +6,11 @@ package org.chromium.chrome.browser.feed;
 
 import android.text.TextUtils;
 
-import com.google.android.libraries.feed.api.host.config.Configuration;
-import com.google.android.libraries.feed.api.host.config.Configuration.ConfigKey;
+import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.feed.library.api.host.config.Configuration;
+import org.chromium.chrome.browser.feed.library.api.host.config.Configuration.ConfigKey;
 
 /**
  * Collection of configurable parameters and default values given to the Feed. Every getter passes
@@ -82,7 +82,7 @@ public final class FeedConfiguration {
 
     private static final String FEED_UI_ENABLED = "feed_ui_enabled";
     /** Default value for the type of UI to request from the server. */
-    public static final boolean FEED_UI_ENABLED_DEFAULT = false;
+    public static final boolean FEED_UI_ENABLED_DEFAULT = true;
 
     private static final String INITIAL_NON_CACHED_PAGE_SIZE = "initial_non_cached_page_size";
     /** Default value for initial non cached page size. */
@@ -119,7 +119,7 @@ public final class FeedConfiguration {
 
     private static final String SNIPPETS_ENABLED = "snippets_enabled";
     /** Default value for whether to show article snippets. */
-    public static final boolean SNIPPETS_ENABLED_DEFAULT = false;
+    public static final boolean SNIPPETS_ENABLED_DEFAULT = true;
 
     private static final String SPINNER_DELAY_MS = "spinner_delay";
     /** Default value for delay before showing a spinner. */

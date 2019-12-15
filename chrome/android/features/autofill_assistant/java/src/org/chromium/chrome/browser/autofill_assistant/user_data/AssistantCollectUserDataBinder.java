@@ -5,21 +5,20 @@
 package org.chromium.chrome.browser.autofill_assistant.user_data;
 
 import android.app.Activity;
-import android.text.TextUtils;
 import android.view.View;
+import android.view.ViewGroup;
 
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.ChromeVersionInfo;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill_assistant.user_data.additional_sections.AssistantAdditionalSectionContainer;
 import org.chromium.chrome.browser.payments.AddressEditor;
-import org.chromium.chrome.browser.payments.AutofillPaymentApp;
 import org.chromium.chrome.browser.payments.AutofillPaymentInstrument;
 import org.chromium.chrome.browser.payments.BasicCardUtils;
 import org.chromium.chrome.browser.payments.CardEditor;
 import org.chromium.chrome.browser.payments.ContactEditor;
-import org.chromium.chrome.browser.payments.PaymentInstrument;
 import org.chromium.chrome.browser.widget.prefeditor.EditorDialog;
+import org.chromium.components.payments.MethodStrings;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.payments.mojom.PaymentMethodData;
@@ -28,8 +27,6 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,51 +38,6 @@ import java.util.Map;
 class AssistantCollectUserDataBinder
         implements PropertyModelChangeProcessor.ViewBinder<AssistantCollectUserDataModel,
                 AssistantCollectUserDataBinder.ViewHolder, PropertyKey> {
-    /**
-     * Helper class that compares instances of {@link PersonalDataManager.AutofillProfile} by
-     * completeness in regards to the current state of the given {@link
-     * AssistantCollectUserDataModel}.
-     */
-    class CompletenessComparator implements Comparator<PersonalDataManager.AutofillProfile> {
-        final boolean mRequestName;
-        final boolean mRequestShipping;
-        final boolean mRequestEmail;
-        final boolean mRequestPhone;
-        CompletenessComparator(AssistantCollectUserDataModel model) {
-            mRequestName = model.get(AssistantCollectUserDataModel.REQUEST_NAME);
-            mRequestShipping = model.get(AssistantCollectUserDataModel.REQUEST_SHIPPING_ADDRESS);
-            mRequestEmail = model.get(AssistantCollectUserDataModel.REQUEST_EMAIL);
-            mRequestPhone = model.get(AssistantCollectUserDataModel.REQUEST_PHONE);
-        }
-
-        @Override
-        public int compare(
-                PersonalDataManager.AutofillProfile a, PersonalDataManager.AutofillProfile b) {
-            int result = countCompleteFields(a) - countCompleteFields(b);
-            // Fallback, compare by name alphabetically.
-            if (result == 0) {
-                return a.getFullName().compareTo(b.getFullName());
-            }
-            return result;
-        }
-
-        private int countCompleteFields(PersonalDataManager.AutofillProfile profile) {
-            int completeFields = 0;
-            if (mRequestName && !TextUtils.isEmpty((profile.getFullName()))) {
-                completeFields++;
-            }
-            if (mRequestShipping && !TextUtils.isEmpty(profile.getStreetAddress())) {
-                completeFields++;
-            }
-            if (mRequestEmail && !TextUtils.isEmpty(profile.getEmailAddress())) {
-                completeFields++;
-            }
-            if (mRequestPhone && !TextUtils.isEmpty(profile.getPhoneNumber())) {
-                completeFields++;
-            }
-            return completeFields;
-        }
-    }
 
     /**
      * A wrapper class that holds the different views of the CollectUserData request.
@@ -104,9 +56,9 @@ class AssistantCollectUserDataBinder
         private final AssistantTermsSection mTermsAsCheckboxSection;
         private final AssistantAdditionalSectionContainer mPrependedSections;
         private final AssistantAdditionalSectionContainer mAppendedSections;
+        private final ViewGroup mGenericUserInterfaceContainer;
         private final Object mDividerTag;
         private final Activity mActivity;
-        private PersonalDataManager.PersonalDataManagerObserver mPersonalDataManagerObserver;
 
         public ViewHolder(View rootView, AssistantVerticalExpanderAccordion accordion,
                 int sectionPadding, AssistantLoginSection loginSection,
@@ -117,8 +69,8 @@ class AssistantCollectUserDataBinder
                 AssistantShippingAddressSection shippingAddressSection,
                 AssistantTermsSection termsSection, AssistantTermsSection termsAsCheckboxSection,
                 AssistantAdditionalSectionContainer prependedSections,
-                AssistantAdditionalSectionContainer appendedSections, Object dividerTag,
-                Activity activity) {
+                AssistantAdditionalSectionContainer appendedSections,
+                ViewGroup genericUserInterfaceContainer, Object dividerTag, Activity activity) {
             mRootView = rootView;
             mPaymentRequestExpanderAccordion = accordion;
             mSectionToSectionPadding = sectionPadding;
@@ -132,32 +84,9 @@ class AssistantCollectUserDataBinder
             mTermsAsCheckboxSection = termsAsCheckboxSection;
             mPrependedSections = prependedSections;
             mAppendedSections = appendedSections;
+            mGenericUserInterfaceContainer = genericUserInterfaceContainer;
             mDividerTag = dividerTag;
             mActivity = activity;
-        }
-
-        /**
-         * Explicitly clean up.
-         */
-        public void destroy() {
-            stopListenToPersonalDataManager();
-        }
-
-        private void startListenToPersonalDataManager(
-                PersonalDataManager.PersonalDataManagerObserver observer) {
-            if (mPersonalDataManagerObserver != null) {
-                return;
-            }
-            mPersonalDataManagerObserver = observer;
-            PersonalDataManager.getInstance().registerDataObserver(mPersonalDataManagerObserver);
-        }
-
-        private void stopListenToPersonalDataManager() {
-            if (mPersonalDataManagerObserver == null) {
-                return;
-            }
-            PersonalDataManager.getInstance().unregisterDataObserver(mPersonalDataManagerObserver);
-            mPersonalDataManagerObserver = null;
         }
     }
 
@@ -242,10 +171,6 @@ class AssistantCollectUserDataBinder
             view.mAppendedSections.setDelegate(collectUserDataDelegate != null
                             ? collectUserDataDelegate::onKeyValueChanged
                             : null);
-        } else if (propertyKey == AssistantCollectUserDataModel.SUPPORTED_BASIC_CARD_NETWORKS) {
-            updateAvailablePaymentMethods(model);
-        } else if (propertyKey == AssistantCollectUserDataModel.SUPPORTED_PAYMENT_METHODS) {
-            updateAvailableAutofillPaymentMethods(model);
         } else {
             assert handled : "Unhandled property detected in AssistantCollectUserDataBinder!";
         }
@@ -281,10 +206,19 @@ class AssistantCollectUserDataBinder
      */
     private boolean updateSectionContents(
             AssistantCollectUserDataModel model, PropertyKey propertyKey, ViewHolder view) {
-        if (propertyKey == AssistantCollectUserDataModel.AVAILABLE_AUTOFILL_PAYMENT_METHODS) {
-            List<AutofillPaymentInstrument> availablePaymentMethods =
+        if (propertyKey == AssistantCollectUserDataModel.AVAILABLE_AUTOFILL_PAYMENT_METHODS
+                || propertyKey == AssistantCollectUserDataModel.WEB_CONTENTS) {
+            WebContents webContents = model.get(AssistantCollectUserDataModel.WEB_CONTENTS);
+            List<AssistantCollectUserDataModel.PaymentTuple> paymentTuples =
                     model.get(AssistantCollectUserDataModel.AVAILABLE_AUTOFILL_PAYMENT_METHODS);
-            if (availablePaymentMethods == null) availablePaymentMethods = Collections.emptyList();
+
+            List<AutofillPaymentInstrument> availablePaymentMethods;
+            if (webContents != null && paymentTuples != null) {
+                availablePaymentMethods =
+                        getPaymentInstrumentsFromPaymentTuples(webContents, paymentTuples);
+            } else {
+                availablePaymentMethods = Collections.emptyList();
+            }
             view.mPaymentMethodSection.onAvailablePaymentMethodsChanged(availablePaymentMethods);
             return true;
         } else if (propertyKey == AssistantCollectUserDataModel.AVAILABLE_PROFILES
@@ -355,6 +289,13 @@ class AssistantCollectUserDataBinder
             view.mTermsAsCheckboxSection.setThirdPartyPrivacyNoticeText(
                     model.get(AssistantCollectUserDataModel.THIRDPARTY_PRIVACY_NOTICE_TEXT));
             return true;
+        } else if (propertyKey == AssistantCollectUserDataModel.GENERIC_USER_INTERFACE) {
+            view.mGenericUserInterfaceContainer.removeAllViews();
+            if (model.get(AssistantCollectUserDataModel.GENERIC_USER_INTERFACE) != null) {
+                view.mGenericUserInterfaceContainer.addView(
+                        model.get(AssistantCollectUserDataModel.GENERIC_USER_INTERFACE));
+            }
+            return true;
         }
 
         return false;
@@ -413,18 +354,6 @@ class AssistantCollectUserDataBinder
         int visibility =
                 model.get(AssistantCollectUserDataModel.VISIBLE) ? View.VISIBLE : View.GONE;
         if (view.mRootView.getVisibility() != visibility) {
-            if (visibility == View.VISIBLE) {
-                // Update available profiles and credit cards before PR is made visible.
-                updateAvailableProfiles(model, view);
-                updateAvailablePaymentMethods(model);
-
-                view.startListenToPersonalDataManager(() -> {
-                    AssistantCollectUserDataBinder.this.updateAvailableProfiles(model, view);
-                    AssistantCollectUserDataBinder.this.updateAvailablePaymentMethods(model);
-                });
-            } else {
-                view.stopListenToPersonalDataManager();
-            }
             view.mRootView.setVisibility(visibility);
         }
         return true;
@@ -459,17 +388,6 @@ class AssistantCollectUserDataBinder
             return true;
         }
         return false;
-    }
-
-    // TODO(crbug.com/806868): Move this logic to native.
-    private void updateAvailableProfiles(AssistantCollectUserDataModel model, ViewHolder view) {
-        List<PersonalDataManager.AutofillProfile> autofillProfiles =
-                PersonalDataManager.getInstance().getProfilesToSuggest(
-                        /* includeNameInLabel= */ false);
-
-        // Suggest complete profiles first.
-        Collections.sort(autofillProfiles, new CompletenessComparator(model));
-        model.set(AssistantCollectUserDataModel.AVAILABLE_PROFILES, autofillProfiles);
     }
 
     /**
@@ -590,8 +508,7 @@ class AssistantCollectUserDataBinder
                 && (propertyKey != AssistantCollectUserDataModel.REQUEST_NAME)
                 && (propertyKey != AssistantCollectUserDataModel.REQUEST_EMAIL)
                 && (propertyKey != AssistantCollectUserDataModel.REQUEST_PHONE)
-                && (propertyKey
-                        != AssistantCollectUserDataModel.AVAILABLE_AUTOFILL_PAYMENT_METHODS)) {
+                && (propertyKey != AssistantCollectUserDataModel.SUPPORTED_BASIC_CARD_NETWORKS)) {
             return false;
         }
 
@@ -621,12 +538,11 @@ class AssistantCollectUserDataBinder
 
         CardEditor cardEditor = new CardEditor(webContents, addressEditor,
                 /* includeOrgLabel= */ false, /* observerForTest= */ null);
-        Map<String, PaymentMethodData> paymentMethods =
-                model.get(AssistantCollectUserDataModel.SUPPORTED_PAYMENT_METHODS);
-        if (paymentMethods != null) {
-            for (Map.Entry<String, PaymentMethodData> entry : paymentMethods.entrySet()) {
-                cardEditor.addAcceptedPaymentMethodIfRecognized(entry.getValue());
-            }
+        List<String> supportedCardNetworks =
+                model.get(AssistantCollectUserDataModel.SUPPORTED_BASIC_CARD_NETWORKS);
+        if (supportedCardNetworks != null) {
+            cardEditor.addAcceptedPaymentMethodIfRecognized(
+                    getPaymentMethodDataFromNetworks(supportedCardNetworks));
         }
 
         EditorDialog cardEditorDialog = new EditorDialog(view.mActivity, null,
@@ -641,60 +557,42 @@ class AssistantCollectUserDataBinder
         return true;
     }
 
-    /**
-     * Updates the map of supported payment methods (identifier -> methodData), filtered by
-     * |SUPPORTED_BASIC_CARD_NETWORKS|.
-     */
-    // TODO(crbug.com/806868): Move the logic to retrieve and filter payment methods to native.
-    private void updateAvailablePaymentMethods(AssistantCollectUserDataModel model) {
+    private PaymentMethodData getPaymentMethodDataFromNetworks(List<String> supportedCardNetworks) {
         // Only enable 'basic-card' payment method.
         PaymentMethodData methodData = new PaymentMethodData();
-        methodData.supportedMethod = BasicCardUtils.BASIC_CARD_METHOD_NAME;
+        methodData.supportedMethod = MethodStrings.BASIC_CARD;
 
         // Apply basic-card filter if specified
-        List<String> supportedBasicCardNetworks =
-                model.get(AssistantCollectUserDataModel.SUPPORTED_BASIC_CARD_NETWORKS);
-        if (supportedBasicCardNetworks != null && supportedBasicCardNetworks.size() > 0) {
+        if (supportedCardNetworks != null && supportedCardNetworks.size() > 0) {
             ArrayList<Integer> filteredNetworks = new ArrayList<>();
             Map<String, Integer> networks = BasicCardUtils.getNetworkIdentifiers();
-            for (int i = 0; i < supportedBasicCardNetworks.size(); i++) {
-                assert networks.containsKey(supportedBasicCardNetworks.get(i));
-                filteredNetworks.add(networks.get(supportedBasicCardNetworks.get(i)));
+            for (String network : supportedCardNetworks) {
+                assert networks.containsKey(network);
+                if (networks.containsKey(network)) {
+                    filteredNetworks.add(networks.get(network));
+                }
             }
 
             methodData.supportedNetworks = new int[filteredNetworks.size()];
-            for (int i = 0; i < filteredNetworks.size(); i++) {
+            for (int i = 0; i < filteredNetworks.size(); ++i) {
                 methodData.supportedNetworks[i] = filteredNetworks.get(i);
             }
         }
 
-        Map<String, PaymentMethodData> supportedPaymentMethods = new HashMap<>();
-        supportedPaymentMethods.put(BasicCardUtils.BASIC_CARD_METHOD_NAME, methodData);
-        model.set(AssistantCollectUserDataModel.SUPPORTED_PAYMENT_METHODS, supportedPaymentMethods);
+        return methodData;
     }
 
-    /**
-     * Updates the list of available autofill payment methods (i.e., the list of available payment
-     * methods available to the user as items in the UI).
-     */
-    // TODO(crbug.com/806868): Move this logic to native.
-    private void updateAvailableAutofillPaymentMethods(AssistantCollectUserDataModel model) {
-        WebContents webContents = model.get(AssistantCollectUserDataModel.WEB_CONTENTS);
+    private List<AutofillPaymentInstrument> getPaymentInstrumentsFromPaymentTuples(
+            WebContents webContents,
+            List<AssistantCollectUserDataModel.PaymentTuple> paymentTuples) {
+        List<AutofillPaymentInstrument> paymentInstruments = new ArrayList<>(paymentTuples.size());
 
-        AutofillPaymentApp autofillPaymentApp = new AutofillPaymentApp(webContents);
-        Map<String, PaymentMethodData> supportedPaymentMethods =
-                model.get(AssistantCollectUserDataModel.SUPPORTED_PAYMENT_METHODS);
-        List<PaymentInstrument> paymentMethods = autofillPaymentApp.getInstruments(
-                supportedPaymentMethods != null ? supportedPaymentMethods : Collections.emptyMap(),
-                /*forceReturnServerCards=*/true);
-
-        List<AutofillPaymentInstrument> availablePaymentMethods = new ArrayList<>();
-        for (PaymentInstrument method : paymentMethods) {
-            if (method instanceof AutofillPaymentInstrument) {
-                availablePaymentMethods.add(((AutofillPaymentInstrument) method));
-            }
+        for (AssistantCollectUserDataModel.PaymentTuple tuple : paymentTuples) {
+            paymentInstruments.add(new AutofillPaymentInstrument(webContents, tuple.getCreditCard(),
+                    tuple.getBillingAddress(), MethodStrings.BASIC_CARD,
+                    /* matchesMerchantCardTypeExactly= */ true));
         }
-        model.set(AssistantCollectUserDataModel.AVAILABLE_AUTOFILL_PAYMENT_METHODS,
-                availablePaymentMethods);
+
+        return paymentInstruments;
     }
 }

@@ -120,7 +120,8 @@ void UnifiedSystemTray::UiDelegate::HideMessageCenter() {
 UnifiedSystemTray::UnifiedSystemTray(Shelf* shelf)
     : TrayBackgroundView(shelf),
       ui_delegate_(std::make_unique<UiDelegate>(this)),
-      model_(std::make_unique<UnifiedSystemTrayModel>()),
+      model_(std::make_unique<UnifiedSystemTrayModel>(
+          shelf->GetStatusAreaWidget()->GetRootView())),
       slider_bubble_controller_(
           std::make_unique<UnifiedSliderBubbleController>(this)),
       current_locale_view_(new CurrentLocaleView(shelf)),
@@ -152,7 +153,6 @@ UnifiedSystemTray::UnifiedSystemTray(Shelf* shelf)
   tray_container()->AddChildView(new tray::PowerTrayView(shelf));
   tray_container()->AddChildView(time_view_);
 
-  SetInkDropMode(InkDropMode::ON);
   set_separator_visibility(false);
 
   ShelfConfig::Get()->AddObserver(this);
@@ -269,8 +269,8 @@ gfx::Rect UnifiedSystemTray::GetBubbleBoundsInScreen() const {
   return bubble_ ? bubble_->GetBoundsInScreen() : gfx::Rect();
 }
 
-void UnifiedSystemTray::UpdateAfterLoginStatusChange() {
-  SetVisible(true);
+void UnifiedSystemTray::UpdateAfterLoginStatusChange(LoginStatus status) {
+  SetVisiblePreferred(true);
   PreferredSizeChanged();
 }
 
@@ -376,8 +376,8 @@ void UnifiedSystemTray::ClickedOutsideBubble() {
   CloseBubble();
 }
 
-void UnifiedSystemTray::UpdateAfterShelfAlignmentChange() {
-  TrayBackgroundView::UpdateAfterShelfAlignmentChange();
+void UnifiedSystemTray::UpdateAfterShelfChange() {
+  TrayBackgroundView::UpdateAfterShelfChange();
   time_view_->UpdateAlignmentForShelf(shelf());
 }
 
@@ -391,8 +391,11 @@ void UnifiedSystemTray::ShowBubbleInternal(bool show_by_click) {
 
   bubble_ = std::make_unique<UnifiedSystemTrayBubble>(this, show_by_click);
 
-  if (features::IsUnifiedMessageCenterRefactorEnabled())
+  if (features::IsUnifiedMessageCenterRefactorEnabled()) {
     message_center_bubble_ = std::make_unique<UnifiedMessageCenterBubble>(this);
+    message_center_bubble_->ShowBubble();
+    FocusQuickSettings(false /*reverse*/);
+  }
 
   SetIsActive(true);
 }

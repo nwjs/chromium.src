@@ -80,7 +80,7 @@ void BrowserFrame::InitBrowserFrame() {
   if (frameless_)
     params.remove_standard_frame = true;
   if (browser_view_->browser()->is_transparent())
-    params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
+    params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   if (browser_view_->browser()->initial_ontop())
     params.z_order = ui::ZOrderLevel::kFloatingWindow;
   if (browser_view_->browser()->initial_allvisible())
@@ -215,13 +215,11 @@ const ui::ThemeProvider* BrowserFrame::GetThemeProvider() const {
 }
 
 const ui::NativeTheme* BrowserFrame::GetNativeTheme() const {
-#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_CHROMEOS)
   if (browser_view_->browser()->profile()->IsIncognitoProfile() &&
       ThemeServiceFactory::GetForProfile(browser_view_->browser()->profile())
           ->UsingDefaultTheme()) {
     return ui::NativeThemeDarkAura::instance();
   }
-#endif
   return views::Widget::GetNativeTheme();
 }
 

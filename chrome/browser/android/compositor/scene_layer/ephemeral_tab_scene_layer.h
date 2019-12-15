@@ -67,14 +67,13 @@ class EphemeralTabSceneLayer : public SceneLayer {
               jfloat bar_height,
               jboolean bar_border_visible,
               jfloat bar_border_height,
-              jboolean bar_shadow_visible,
               jint icon_color,
               jint drag_handlebar_color,
               jfloat favicon_opacity,
               jboolean progress_bar_visible,
               jfloat progress_bar_height,
               jfloat progress_bar_opacity,
-              jint progress_bar_completion,
+              jfloat progress_bar_completion,
               jint separator_line_color);
 
   void SetContentTree(

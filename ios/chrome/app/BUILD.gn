@@ -61,11 +61,11 @@ source_set("unit_tests") {
     "//ios/chrome/browser/tabs",
     "//ios/chrome/common/app_group",
     "//ios/chrome/test:test_support",
-    "//ios/chrome/test/base",
     "//ios/public/provider/chrome/browser:browser",
     "//ios/public/provider/chrome/browser:test_support",
     "//ios/public/provider/chrome/browser/distribution",
     "//ios/public/provider/chrome/browser/distribution:test_support",
+    "//ios/testing:block_swizzler",
     "//ios/web/public/test:test",
     "//testing/gtest",
     "//third_party/ocmock",
@@ -133,6 +133,7 @@ source_set("app_internal") {
     "main_application_delegate_testing.h",
     "main_controller.h",
     "main_controller.mm",
+    "main_controller_guts.h",
     "main_controller_private.h",
     "memory_monitor.h",
     "memory_monitor.mm",
@@ -262,7 +263,6 @@ source_set("app_internal") {
     "//ios/public/provider/chrome/browser/signin",
     "//ios/public/provider/chrome/browser/user_feedback",
     "//ios/testing/perf:startup",
-    "//ios/third_party/material_roboto_font_loader_ios",
     "//ios/web/common:web_view_creation_util",
     "//ios/web/public/webui",
     "//mojo/core/embedder",
@@ -310,7 +310,6 @@ source_set("main") {
     "//ios/chrome/browser/crash_report",
     "//ios/chrome/common",
     "//ios/testing/perf:startup",
-    "//third_party/google_toolbox_for_mac",
   ]
 }
 

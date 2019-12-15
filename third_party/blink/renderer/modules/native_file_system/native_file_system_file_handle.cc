@@ -15,6 +15,7 @@
 #include "third_party/blink/renderer/modules/native_file_system/native_file_system_error.h"
 #include "third_party/blink/renderer/modules/native_file_system/native_file_system_writer.h"
 #include "third_party/blink/renderer/platform/file_metadata.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
@@ -76,13 +77,14 @@ ScriptPromise NativeFileSystemFileHandle::getFile(ScriptState* script_state) {
 
   mojo_ptr_->AsBlob(WTF::Bind(
       [](ScriptPromiseResolver* resolver, const String& name,
-         NativeFileSystemErrorPtr result,
+         NativeFileSystemErrorPtr result, const base::File::Info& info,
          const scoped_refptr<BlobDataHandle>& blob) {
         if (result->status != mojom::blink::NativeFileSystemStatus::kOk) {
           native_file_system_error::Reject(resolver, *result);
           return;
         }
-        resolver->Resolve(File::Create(name, InvalidFileTime(), blob));
+        resolver->Resolve(MakeGarbageCollected<File>(
+            name, NullableTimeToOptionalTime(info.last_modified), blob));
       },
       WrapPersistent(resolver), name()));
 

@@ -15,9 +15,10 @@ Polymer({
   is: 'settings-internet-subpage',
 
   behaviors: [
-    CrNetworkListenerBehavior,
+    NetworkListenerBehavior,
     CrPolicyNetworkBehaviorMojo,
     settings.RouteObserverBehavior,
+    settings.RouteOriginBehavior,
     I18nBehavior,
   ],
 
@@ -112,6 +113,9 @@ Polymer({
     },
   },
 
+  /** settings.RouteOriginBehavior override */
+  route_: settings.routes.INTERNET_NETWORKS,
+
   observers: ['deviceStateChanged_(deviceState)'],
 
   /** @private {number|null} */
@@ -135,6 +139,9 @@ Polymer({
     this.browserProxy_.setGmsCoreNotificationsDisabledDeviceNamesCallback(
         this.onNotificationsDisabledDeviceNamesReceived_.bind(this));
     this.browserProxy_.requestGmsCoreNotificationsDisabledDeviceNames();
+
+    this.addFocusConfig_(
+        settings.routes.KNOWN_NETWORKS, '#knownNetworksSubpageButton');
   },
 
   /** override */
@@ -144,15 +151,18 @@ Polymer({
 
   /**
    * settings.RouteObserverBehavior
-   * @param {!settings.Route} route
+   * @param {!settings.Route} newRoute
+   * @param {!settings.Route} oldRoute
    * @protected
    */
-  currentRouteChanged: function(route) {
-    if (route != settings.routes.INTERNET_NETWORKS) {
+  currentRouteChanged: function(newRoute, oldRoute) {
+    if (newRoute != settings.routes.INTERNET_NETWORKS) {
       this.stopScanning_();
       return;
     }
     this.init();
+    settings.RouteOriginBehaviorImpl.currentRouteChanged.call(
+        this, newRoute, oldRoute);
   },
 
   init: function() {
@@ -168,19 +178,19 @@ Polymer({
   },
 
   /**
-   * CrNetworkListenerBehavior override
+   * NetworkListenerBehavior override
    * @param {!Array<OncMojo.NetworkStateProperties>} networks
    */
   onActiveNetworksChanged: function(networks) {
     this.getNetworkStateList_();
   },
 
-  /** CrNetworkListenerBehavior override */
+  /** NetworkListenerBehavior override */
   onNetworkStateListChanged: function() {
     this.getNetworkStateList_();
   },
 
-  /** CrNetworkListenerBehavior override */
+  /** NetworkListenerBehavior override */
   onVpnProvidersChanged: function() {
     if (this.deviceState.type != mojom.NetworkType.kVPN) {
       return;
@@ -248,9 +258,13 @@ Polymer({
       return;
     }
     const INTERVAL_MS = 10 * 1000;
-    this.networkConfig_.requestNetworkScan(this.deviceState.type);
+    let type = this.deviceState.type;
+    if (type == mojom.NetworkType.kCellular && this.tetherDeviceState) {
+      type = mojom.NetworkType.kMobile;
+    }
+    this.networkConfig_.requestNetworkScan(type);
     this.scanIntervalId_ = window.setInterval(() => {
-      this.networkConfig_.requestNetworkScan(this.deviceState.type);
+      this.networkConfig_.requestNetworkScan(type);
     }, INTERVAL_MS);
   },
 

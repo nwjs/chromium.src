@@ -17,7 +17,6 @@
 #include "base/files/file_path.h"
 #include "base/location.h"
 #include "base/memory/ref_counted.h"
-#include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
@@ -921,6 +920,30 @@ IN_PROC_BROWSER_TEST_F(BrowserTestWithTabGroupsEnabled,
   EXPECT_EQ(group_id, browser()->tab_strip_model()->GetTabGroupForTab(1));
 }
 
+IN_PROC_BROWSER_TEST_F(BrowserTestWithTabGroupsEnabled,
+                       TargetBlankLinkOpensInGroup) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  // Add a grouped tab.
+  TabStripModel* const model = browser()->tab_strip_model();
+  ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL(
+                     "/frame_tree/anchor_to_same_site_location.html"));
+  const TabGroupId group_id = model->AddToNewGroup({0});
+
+  // Click a target=_blank link.
+  WebContents* const contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(ExecuteScript(
+      contents, "simulateClick(\"test-anchor-with-blank-target\", {})"));
+
+  // The new tab should have inherited the tab group from the first tab.
+  EXPECT_EQ(group_id, browser()->tab_strip_model()->GetTabGroupForTab(1));
+}
+
+// TODO(crbug.com/997344): Test the above two scenarios with implicitly-created
+// links, if still applicable.
+
 // BeforeUnloadAtQuitWithTwoWindows is a regression test for
 // http://crbug.com/11842. It opens two windows, one of which has a
 // beforeunload handler and attempts to exit cleanly.
@@ -1308,6 +1331,9 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, AppIdSwitch) {
   EXPECT_EQ(expected_tabs, browser()->tab_strip_model()->count());
 }
 
+// Overscroll is only enabled on Aura platforms currently, and even then only
+// when a specific feature (OverscrollHistoryNavigation) is enabled.
+#if defined(USE_AURA)
 IN_PROC_BROWSER_TEST_F(BrowserTest, OverscrollEnabledInRegularWindows) {
   ASSERT_TRUE(browser()->is_type_normal());
   EXPECT_TRUE(browser()->CanOverscrollContent());
@@ -1326,6 +1352,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, OverscrollDisabledInDevToolsWindows) {
   ASSERT_EQ(dev_tools_browser->app_name(), DevToolsWindow::kDevToolsApp);
   EXPECT_FALSE(dev_tools_browser->CanOverscrollContent());
 }
+#endif
 
 // Open an app window and the dev tools window and ensure that the location
 // bar settings are correct.
@@ -1746,9 +1773,9 @@ IN_PROC_BROWSER_TEST_F(BrowserTest,
 
 namespace {
 
-void OnZoomLevelChanged(const base::Closure& callback,
+void OnZoomLevelChanged(base::OnceClosure* callback,
                         const HostZoomMap::ZoomLevelChange& host) {
-  callback.Run();
+  std::move(*callback).Run();
 }
 
 }  // namespace
@@ -1774,8 +1801,9 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, PageZoom) {
   {
     scoped_refptr<content::MessageLoopRunner> loop_runner(
         new content::MessageLoopRunner);
+    base::OnceClosure quit_closure = loop_runner->QuitClosure();
     content::HostZoomMap::ZoomLevelChangedCallback callback(
-        base::Bind(&OnZoomLevelChanged, loop_runner->QuitClosure()));
+        base::BindRepeating(&OnZoomLevelChanged, &quit_closure));
     std::unique_ptr<content::HostZoomMap::Subscription> sub =
         content::HostZoomMap::GetDefaultForBrowserContext(browser()->profile())
             ->AddZoomLevelChangedCallback(callback);
@@ -1790,8 +1818,9 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, PageZoom) {
   {
     scoped_refptr<content::MessageLoopRunner> loop_runner(
         new content::MessageLoopRunner);
+    base::OnceClosure quit_closure = loop_runner->QuitClosure();
     content::HostZoomMap::ZoomLevelChangedCallback callback(
-        base::Bind(&OnZoomLevelChanged, loop_runner->QuitClosure()));
+        base::Bind(&OnZoomLevelChanged, &quit_closure));
     std::unique_ptr<content::HostZoomMap::Subscription> sub =
         content::HostZoomMap::GetDefaultForBrowserContext(browser()->profile())
             ->AddZoomLevelChangedCallback(callback);
@@ -1806,8 +1835,9 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, PageZoom) {
   {
     scoped_refptr<content::MessageLoopRunner> loop_runner(
         new content::MessageLoopRunner);
+    base::OnceClosure quit_closure = loop_runner->QuitClosure();
     content::HostZoomMap::ZoomLevelChangedCallback callback(
-        base::Bind(&OnZoomLevelChanged, loop_runner->QuitClosure()));
+        base::Bind(&OnZoomLevelChanged, &quit_closure));
     std::unique_ptr<content::HostZoomMap::Subscription> sub =
         content::HostZoomMap::GetDefaultForBrowserContext(browser()->profile())
             ->AddZoomLevelChangedCallback(callback);
@@ -2844,7 +2874,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, DialogsAllowedInFullscreenWithinTabMode) {
       static_cast<web_modal::WebContentsModalDialogManagerDelegate*>(browser());
 
   // Simulate a screen-captured tab requesting fullscreen.
-  tab->IncrementCapturerCount(gfx::Size(1280, 720));
+  tab->IncrementCapturerCount(gfx::Size(1280, 720), /* stay_hidden */ false);
   browser_as_wc_delegate->EnterFullscreenModeForTab(
       tab, GURL(), blink::mojom::FullscreenOptions());
   EXPECT_TRUE(browser_as_wc_delegate->IsFullscreenForTabOrPending(tab));
@@ -2856,7 +2886,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, DialogsAllowedInFullscreenWithinTabMode) {
   EXPECT_TRUE(browser_as_wc_delegate->IsFullscreenForTabOrPending(tab));
 
   browser_as_dialog_delegate->SetWebContentsBlocked(tab, false);
-  tab->DecrementCapturerCount();
+  tab->DecrementCapturerCount(/* stay_hidden */ false);
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserTest, CountIncognitoWindows) {

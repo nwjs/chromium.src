@@ -11,17 +11,18 @@ import android.text.TextUtils;
 import android.text.format.DateUtils;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.CollectionUtil;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeVersionInfo;
 import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.ContextualSearchPanel;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchFieldTrial.ContextualSearchSetting;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchFieldTrial.ContextualSearchSwitch;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchSelectionController.SelectionType;
-import org.chromium.chrome.browser.preferences.ChromePreferenceManager;
-import org.chromium.chrome.browser.preferences.PrefServiceBridge;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
+import org.chromium.chrome.browser.settings.privacy.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.util.UrlConstants;
 
 import java.net.URL;
@@ -43,7 +44,7 @@ class ContextualSearchPolicy {
     private static final HashSet<String> PREDOMINENTLY_ENGLISH_SPEAKING_COUNTRIES =
             CollectionUtil.newHashSet("GB", "US");
 
-    private final ChromePreferenceManager mPreferenceManager;
+    private final SharedPreferencesManager mPreferencesManager;
     private final ContextualSearchSelectionController mSelectionController;
     private ContextualSearchNetworkCommunicator mNetworkCommunicator;
     private ContextualSearchPanel mSearchPanel;
@@ -58,7 +59,7 @@ class ContextualSearchPolicy {
      */
     public ContextualSearchPolicy(ContextualSearchSelectionController selectionController,
             ContextualSearchNetworkCommunicator networkCommunicator) {
-        mPreferenceManager = ChromePreferenceManager.getInstance();
+        mPreferencesManager = SharedPreferencesManager.getInstance();
 
         mSelectionController = selectionController;
         mNetworkCommunicator = networkCommunicator;
@@ -104,7 +105,7 @@ class ContextualSearchPolicy {
      * @return the {@link DisableablePromoTapCounter}.
      */
     DisableablePromoTapCounter getPromoTapCounter() {
-        return DisableablePromoTapCounter.getInstance(mPreferenceManager);
+        return DisableablePromoTapCounter.getInstance(mPreferencesManager);
     }
 
     /**
@@ -127,7 +128,7 @@ class ContextualSearchPolicy {
      */
     boolean shouldPrefetchSearchResult() {
         if (isMandatoryPromoAvailable()
-                || !PrefServiceBridge.getInstance().getNetworkPredictionEnabled()) {
+                || !PrivacyPreferencesManager.getInstance().getNetworkPredictionEnabled()) {
             return false;
         }
 
@@ -195,15 +196,14 @@ class ContextualSearchPolicy {
             // Bump the counter only when it is still enabled.
             if (promoTapCounter.isEnabled()) promoTapCounter.increment();
         }
-        int tapsSinceOpen = mPreferenceManager.incrementInt(
-                ChromePreferenceManager.CONTEXTUAL_SEARCH_TAP_SINCE_OPEN_COUNT);
+        int tapsSinceOpen = mPreferencesManager.incrementInt(
+                ChromePreferenceKeys.CONTEXTUAL_SEARCH_TAP_SINCE_OPEN_COUNT);
         if (isUserUndecided()) {
             ContextualSearchUma.logTapsSinceOpenForUndecided(tapsSinceOpen);
         } else {
             ContextualSearchUma.logTapsSinceOpenForDecided(tapsSinceOpen);
         }
-        mPreferenceManager.incrementInt(
-                ChromePreferenceManager.CONTEXTUAL_SEARCH_ALL_TIME_TAP_COUNT);
+        mPreferencesManager.incrementInt(ChromePreferenceKeys.CONTEXTUAL_SEARCH_ALL_TIME_TAP_COUNT);
     }
 
     /**
@@ -211,10 +211,10 @@ class ContextualSearchPolicy {
      */
     void updateCountersForOpen() {
         // Always completely reset the tap counters that accumulate only since the last open.
-        mPreferenceManager.writeInt(
-                ChromePreferenceManager.CONTEXTUAL_SEARCH_TAP_SINCE_OPEN_COUNT, 0);
-        mPreferenceManager.writeInt(
-                ChromePreferenceManager.CONTEXTUAL_SEARCH_TAP_SINCE_OPEN_QUICK_ANSWER_COUNT, 0);
+        mPreferencesManager.writeInt(
+                ChromePreferenceKeys.CONTEXTUAL_SEARCH_TAP_SINCE_OPEN_COUNT, 0);
+        mPreferencesManager.writeInt(
+                ChromePreferenceKeys.CONTEXTUAL_SEARCH_TAP_SINCE_OPEN_QUICK_ANSWER_COUNT, 0);
 
         // Disable the "promo tap" counter, but only if we're using the Opt-out onboarding.
         // For Opt-in, we never disable the promo tap counter.
@@ -222,12 +222,12 @@ class ContextualSearchPolicy {
             getPromoTapCounter().disable();
 
             // Bump the total-promo-opens counter.
-            int count = mPreferenceManager.incrementInt(
-                    ChromePreferenceManager.CONTEXTUAL_SEARCH_PROMO_OPEN_COUNT);
+            int count = mPreferencesManager.incrementInt(
+                    ChromePreferenceKeys.CONTEXTUAL_SEARCH_PROMO_OPEN_COUNT);
             ContextualSearchUma.logPromoOpenCount(count);
         }
-        mPreferenceManager.incrementInt(
-                ChromePreferenceManager.CONTEXTUAL_SEARCH_ALL_TIME_OPEN_COUNT);
+        mPreferencesManager.incrementInt(
+                ChromePreferenceKeys.CONTEXTUAL_SEARCH_ALL_TIME_OPEN_COUNT);
     }
 
     /**
@@ -238,10 +238,10 @@ class ContextualSearchPolicy {
      */
     void updateCountersForQuickAnswer(boolean wasActivatedByTap, boolean doesAnswer) {
         if (wasActivatedByTap && doesAnswer) {
-            mPreferenceManager.incrementInt(
-                    ChromePreferenceManager.CONTEXTUAL_SEARCH_TAP_SINCE_OPEN_QUICK_ANSWER_COUNT);
-            mPreferenceManager.incrementInt(
-                    ChromePreferenceManager.CONTEXTUAL_SEARCH_ALL_TIME_TAP_QUICK_ANSWER_COUNT);
+            mPreferencesManager.incrementInt(
+                    ChromePreferenceKeys.CONTEXTUAL_SEARCH_TAP_SINCE_OPEN_QUICK_ANSWER_COUNT);
+            mPreferencesManager.incrementInt(
+                    ChromePreferenceKeys.CONTEXTUAL_SEARCH_ALL_TIME_TAP_QUICK_ANSWER_COUNT);
         }
     }
 
@@ -341,10 +341,12 @@ class ContextualSearchPolicy {
         int selectionType = mSelectionController.getSelectionType();
         if (selectionType == SelectionType.TAP) {
             long currentTimeMillis = System.currentTimeMillis();
-            long lastAnimatedTimeMillis =
-                    mPreferenceManager.getContextualSearchLastAnimationTime();
+            long lastAnimatedTimeMillis = mPreferencesManager.readLong(
+                    ChromePreferenceKeys.CONTEXTUAL_SEARCH_LAST_ANIMATION_TIME);
             if (Math.abs(currentTimeMillis - lastAnimatedTimeMillis) > DateUtils.DAY_IN_MILLIS) {
-                mPreferenceManager.setContextualSearchLastAnimationTime(currentTimeMillis);
+                mPreferencesManager.writeLong(
+                        ChromePreferenceKeys.CONTEXTUAL_SEARCH_LAST_ANIMATION_TIME,
+                        currentTimeMillis);
                 return true;
             } else {
                 return false;
@@ -388,8 +390,7 @@ class ContextualSearchPolicy {
      */
     @VisibleForTesting
     int getPromoOpenCount() {
-        return mPreferenceManager.readInt(
-                ChromePreferenceManager.CONTEXTUAL_SEARCH_PROMO_OPEN_COUNT);
+        return mPreferencesManager.readInt(ChromePreferenceKeys.CONTEXTUAL_SEARCH_PROMO_OPEN_COUNT);
     }
 
     /**
@@ -397,8 +398,8 @@ class ContextualSearchPolicy {
      */
     @VisibleForTesting
     int getTapCount() {
-        return mPreferenceManager.readInt(
-                ChromePreferenceManager.CONTEXTUAL_SEARCH_TAP_SINCE_OPEN_COUNT);
+        return mPreferencesManager.readInt(
+                ChromePreferenceKeys.CONTEXTUAL_SEARCH_TAP_SINCE_OPEN_COUNT);
     }
 
     // --------------------------------------------------------------------------------------------
@@ -488,7 +489,7 @@ class ContextualSearchPolicy {
         // TODO(donnd) use dependency injection for the PrefServiceBridge instead!
         if (mDidOverrideDecidedStateForTesting) return !mDecidedStateForTesting;
 
-        return PrefServiceBridge.getInstance().isContextualSearchUninitialized();
+        return ContextualSearchManager.isContextualSearchUninitialized();
     }
 
     /**

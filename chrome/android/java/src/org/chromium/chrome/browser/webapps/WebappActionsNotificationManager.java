@@ -24,6 +24,7 @@ import org.chromium.chrome.browser.notifications.NotificationUmaTracker;
 import org.chromium.chrome.browser.notifications.PendingIntentProvider;
 import org.chromium.chrome.browser.notifications.channels.ChannelDefinitions;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.ui.base.Clipboard;
 
@@ -131,8 +132,9 @@ class WebappActionsNotificationManager {
 
         if (ACTION_SHARE.equals(intent.getAction())) {
             // Not routing through onMenuOrKeyboardAction to control UMA String.
-            webappActivity.onShareMenuItemSelected(
-                    false /* share directly */, webappActivity.getCurrentTabModel().isIncognito());
+            Tab tab = webappActivity.getActivityTab();
+            boolean isIncognito = tab.isIncognito();
+            webappActivity.getShareDelegate().share(tab, false);
             RecordUserAction.record("Webapp.NotificationShare");
             return true;
         } else if (ACTION_OPEN_IN_CHROME.equals(intent.getAction())) {
@@ -140,7 +142,9 @@ class WebappActionsNotificationManager {
             return true;
         } else if (ACTION_FOCUS.equals(intent.getAction())) {
             Tab tab = webappActivity.getActivityTab();
-            if (tab != null) Clipboard.getInstance().copyUrlToClipboard(tab.getOriginalUrl());
+            if (tab != null) {
+                Clipboard.getInstance().copyUrlToClipboard(((TabImpl) tab).getOriginalUrl());
+            }
             RecordUserAction.record("Webapp.NotificationFocused");
             return true;
         }

@@ -33,7 +33,6 @@
 #include "third_party/blink/public/platform/web_common.h"
 #include "third_party/blink/public/platform/web_drag_data.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
-#include "third_party/blink/public/platform/web_image.h"
 #include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_screen_info.h"
 #include "third_party/blink/renderer/core/clipboard/data_object.h"
@@ -46,7 +45,6 @@
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/text.h"
-#include "third_party/blink/renderer/core/dom/user_gesture_indicator.h"
 #include "third_party/blink/renderer/core/editing/commands/drag_and_drop_command.h"
 #include "third_party/blink/renderer/core/editing/drag_caret.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
@@ -241,10 +239,8 @@ void DragController::PerformDrag(DragData* drag_data, LocalFrame& local_root) {
   DCHECK(drag_data);
   document_under_mouse_ = local_root.DocumentAtPoint(
       PhysicalOffset::FromFloatPointRound(drag_data->ClientPosition()));
-  std::unique_ptr<UserGestureIndicator> gesture =
-      LocalFrame::NotifyUserActivation(
-          document_under_mouse_ ? document_under_mouse_->GetFrame() : nullptr,
-          UserGestureToken::kNewGesture);
+  LocalFrame::NotifyUserActivation(
+      document_under_mouse_ ? document_under_mouse_->GetFrame() : nullptr);
   if ((drag_destination_action_ & kDragDestinationActionDHTML) &&
       document_is_handling_drag_) {
     bool prevented_default = false;
@@ -355,9 +351,10 @@ DragOperation DragController::DragEnteredOrUpdated(DragData* drag_data,
 static HTMLInputElement* AsFileInput(Node* node) {
   DCHECK(node);
   for (; node; node = node->OwnerShadowHost()) {
-    if (IsHTMLInputElement(*node) &&
-        ToHTMLInputElement(node)->type() == input_type_names::kFile)
-      return ToHTMLInputElement(node);
+    auto* html_input_element = DynamicTo<HTMLInputElement>(node);
+    if (html_input_element &&
+        html_input_element->type() == input_type_names::kFile)
+      return html_input_element;
   }
   return nullptr;
 }

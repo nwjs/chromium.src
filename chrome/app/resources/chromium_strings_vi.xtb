@@ -31,7 +31,6 @@
 <translation id="2560420686485554789">Chromium cần quyền truy cập vào bộ nhớ để tải tệp xuống</translation>
 <translation id="2572494885440352020">Trình trợ giúp của Chromium</translation>
 <translation id="2587578672395088481">Chromium OS cần được khởi động lại để áp dụng bản cập nhật.</translation>
-<translation id="2647554856022461007">Chromium có thể sử dụng dịch vụ web để cải thiện trải nghiệm duyệt web của bạn. Bạn có thể tùy ý vô hiệu hóa các dịch vụ này. <ph name="BEGIN_LINK" />Tìm hiểu thêm<ph name="END_LINK" /></translation>
 <translation id="2648074677641340862">Đã xảy ra lỗi hệ điều hành khi cài đặt. Hãy tải xuống Chromium lại lần nữa.</translation>
 <translation id="2711502716910134313">Tab Chromium</translation>
 <translation id="2718390899429598676">Để bảo mật hơn, Chromium sẽ mã hóa dữ liệu của bạn.</translation>
@@ -59,7 +58,6 @@
 <translation id="3340978935015468852">cài đặt</translation>
 <translation id="3474745554856756813">Thao tác này sẽ xóa <ph name="ITEMS_COUNT" /> mục khỏi thiết bị này. Để truy xuất dữ liệu của bạn sau, hãy đăng nhập vào Chromium dưới dạng <ph name="USER_EMAIL" />.</translation>
 <translation id="3509308970982693815">Hãy đóng tất cả cửa sổ Chromium và thử lại.</translation>
-<translation id="352783484088404971">Xóa khỏi Chromium...</translation>
 <translation id="3575459661164320785">Máy tính của bạn có phần mềm độc hại. Chromium có thể xóa phần mềm này, khôi phục các tùy chọn cài đặt của bạn và tắt tiện ích để giúp trình duyệt hoạt động lại bình thường.</translation>
 <translation id="358997566136285270">Biểu trưng Chromium</translation>
 <translation id="3639635944603682591">Dữ liệu duyệt web của người này sẽ bị xóa khỏi thiết bị này. Để khôi phục dữ liệu, hãy đăng nhập vào Chromium bằng <ph name="USER_EMAIL" />.</translation>
@@ -84,7 +82,6 @@
 <translation id="4567424176335768812">Bạn đã đăng nhập với tên <ph name="USER_EMAIL_ADDRESS" />. Bây giờ, bạn có thể truy cập dấu trang, lịch sử và các cài đặt khác trên tất cả những thiết bị đã đăng nhập của bạn.</translation>
 <translation id="459535195905078186">Ứng dụng Chromium</translation>
 <translation id="4621240073146040695">Gần được cập nhật! Hãy khởi chạy lại Chromium để hoàn tất cập nhật.</translation>
-<translation id="4661006601577405669">Các phiên bản Chromium trong tương lai sẽ tự động cài đặt.</translation>
 <translation id="4677944499843243528">Dường như cấu hình này đang được quy trình Chromium khác (<ph name="PROCESS_ID" />) trên máy tính khác (<ph name="HOST_NAME" />) sử dụng. Chromium đã khóa cấu hình này để cấu hình không bị lỗi. Nếu bạn chắc chắn không có quy trình nào khác đang sử dụng cấu hình này, bạn có thể mở khóa cấu hình và chạy lại Chromium.</translation>
 <translation id="469338717132742108">Nhận trợ giúp về Chromium OS</translation>
 <translation id="4708774505295300557">Ai đó trước đây đã đăng nhập vào Chromium trên máy tính này bằng <ph name="ACCOUNT_EMAIL_LAST" />. Vui lòng tạo người dùng Chromium mới để giữ riêng biệt thông tin của bạn.</translation>
@@ -110,7 +107,6 @@
 <translation id="5631814766731275228">Tên và ảnh trên Chromium</translation>
 <translation id="5634636535844844681">Chromium yêu cầu Windows 7 trở lên.</translation>
 <translation id="5653831366781983928">Vui lòng khởi động lại Chromium ngay bây giờ</translation>
-<translation id="5680901439334282664">đăng nhập vào Chromium</translation>
 <translation id="5698481217667032250">Hiển thị Chromium bằng ngôn ngữ này</translation>
 <translation id="5820394555380036790">Hệ điều hành Chromium</translation>
 <translation id="5862307444128926510">Chào mừng bạn đến với Chromium</translation>
@@ -173,7 +169,6 @@ Chromium không thể khôi phục cài đặt của bạn.</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium dành cho nhà phát triển</translation>
 <translation id="7451052299415159299">Chromium cần có quyền truy cập vào máy ảnh của bạn cho trang web này</translation>
 <translation id="7483335560992089831">Không thể cài đặt phiên bản Chromium giống với phiên bản hiện đang chạy. Hãy đóng Chromium và thử lại.</translation>
-<translation id="751093125041325477">Các phiên bản Chromium trong tương lai sẽ tự động cài đặt. Khi tải xong phiên bản này xuống, Chromium sẽ khởi động lại và bạn có thể tiếp tục sử dụng.</translation>
 <translation id="753534427205733210">{0,plural, =1{Chromium sẽ khởi động lại sau 1 phút}other{Chromium sẽ khởi động lại sau # phút}}</translation>
 <translation id="7549178288319965365">Giới thiệu về Chromium OS</translation>
 <translation id="7561906087460245826">Đồng thời xóa dữ liệu khỏi Chromium (<ph name="URL" />)</translation>

@@ -19,7 +19,6 @@
 #include "base/lazy_instance.h"
 #include "base/location.h"
 #include "base/logging.h"
-#include "base/memory/shared_memory.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/single_thread_task_runner.h"
@@ -50,8 +49,6 @@
 #include "content/renderer/media/audio/audio_device_factory.h"
 #include "content/renderer/media/audio_decoder.h"
 #include "content/renderer/media/renderer_webaudiodevice_impl.h"
-#include "content/renderer/media/webrtc/peer_connection_tracker.h"
-#include "content/renderer/media/webrtc/rtc_peer_connection_handler.h"
 #include "content/renderer/render_frame_impl.h"
 #include "content/renderer/render_thread_impl.h"
 #include "content/renderer/storage_util.h"
@@ -89,14 +86,12 @@
 #include "third_party/blink/public/platform/scheduler/web_thread_scheduler.h"
 #include "third_party/blink/public/platform/url_conversion.h"
 #include "third_party/blink/public/platform/web_audio_latency_hint.h"
-#include "third_party/blink/public/platform/web_rtc_peer_connection_handler.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_theme_engine.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/platform/web_url_loader_factory.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/platform/web_vector.h"
-#include "third_party/blink/public/web/modules/peerconnection/peer_connection_dependency_factory.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_user_media_request.h"
 #include "third_party/sqlite/sqlite3.h"
@@ -118,14 +113,10 @@
 #include "base/win/windows_version.h"
 #endif
 
-#include "third_party/blink/public/platform/modules/mediastream/webrtc_uma_histograms.h"
-
 using blink::Platform;
 using blink::WebAudioDevice;
 using blink::WebAudioLatencyHint;
 using blink::WebMediaStreamTrack;
-using blink::WebRTCPeerConnectionHandler;
-using blink::WebRTCPeerConnectionHandlerClient;
 using blink::WebSize;
 using blink::WebString;
 using blink::WebURL;
@@ -225,7 +216,7 @@ RendererBlinkPlatformImpl::RendererBlinkPlatformImpl(
   top_level_blame_context_.Initialize();
   main_thread_scheduler_->SetTopLevelBlameContext(&top_level_blame_context_);
 
-  GetBrowserInterfaceBrokerProxy()->GetInterface(
+  GetBrowserInterfaceBroker()->GetInterface(
       code_cache_host_remote_.InitWithNewPipeAndPassReceiver());
 }
 
@@ -233,15 +224,7 @@ RendererBlinkPlatformImpl::~RendererBlinkPlatformImpl() {
   main_thread_scheduler_->SetTopLevelBlameContext(nullptr);
 }
 
-void RendererBlinkPlatformImpl::Shutdown() {
-#if defined(OS_LINUX) || defined(OS_MACOSX)
-  // SandboxSupport contains a map of OutOfProcessFont objects, which hold
-  // WebStrings and WebVectors, which become invalidated when blink is shut
-  // down. Hence, we need to clear that map now, just before blink::shutdown()
-  // is called.
-  sandbox_support_.reset();
-#endif
-}
+void RendererBlinkPlatformImpl::Shutdown() {}
 
 //------------------------------------------------------------------------------
 
@@ -268,7 +251,7 @@ RendererBlinkPlatformImpl::WrapURLLoaderFactory(
   return std::make_unique<WebURLLoaderFactoryImpl>(
       RenderThreadImpl::current()->resource_dispatcher()->GetWeakPtr(),
       base::MakeRefCounted<network::WrapperSharedURLLoaderFactory>(
-          network::mojom::URLLoaderFactoryPtrInfo(
+          mojo::PendingRemote<network::mojom::URLLoaderFactory>(
               std::move(url_loader_factory_handle),
               network::mojom::URLLoaderFactory::Version_)));
 }
@@ -288,13 +271,14 @@ RendererBlinkPlatformImpl::CreateDefaultURLLoaderFactoryBundle() {
                      base::Unretained(this)));
 }
 
-network::mojom::URLLoaderFactoryPtr
+mojo::PendingRemote<network::mojom::URLLoaderFactory>
 RendererBlinkPlatformImpl::CreateNetworkURLLoaderFactory() {
   RenderThreadImpl* render_thread = RenderThreadImpl::current();
   DCHECK(render_thread);
-  network::mojom::URLLoaderFactoryPtr factory_ptr;
-  ChildThread::Get()->BindHostReceiver(mojo::MakeRequest(&factory_ptr));
-  return factory_ptr;
+  mojo::PendingRemote<network::mojom::URLLoaderFactory> factory_remote;
+  ChildThread::Get()->BindHostReceiver(
+      factory_remote.InitWithNewPipeAndPassReceiver());
+  return factory_remote;
 }
 
 void RendererBlinkPlatformImpl::SetDisplayThreadPriority(
@@ -328,6 +312,9 @@ blink::WebThemeEngine* RendererBlinkPlatformImpl::ThemeEngine() {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kForceHighContrast))
     theme_engine->SetForcedColors(blink::ForcedColors::kActive);
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kForceDarkMode))
+    theme_engine->SetPreferredColorScheme(blink::PreferredColorScheme::kDark);
   return theme_engine;
 }
 
@@ -350,11 +337,6 @@ uint64_t RendererBlinkPlatformImpl::VisitedLinkHash(const char* canonical_url,
 
 bool RendererBlinkPlatformImpl::IsLinkVisited(uint64_t link_hash) {
   return GetContentClient()->renderer()->IsLinkVisited(link_hash);
-}
-
-blink::WebPrescientNetworking*
-RendererBlinkPlatformImpl::PrescientNetworking() {
-  return GetContentClient()->renderer()->GetPrescientNetworking();
 }
 
 blink::WebString RendererBlinkPlatformImpl::UserAgent() {
@@ -547,54 +529,6 @@ bool RendererBlinkPlatformImpl::RTCSmoothnessAlgorithmEnabled() {
 
 //------------------------------------------------------------------------------
 
-std::unique_ptr<WebRTCPeerConnectionHandler>
-RendererBlinkPlatformImpl::CreateRTCPeerConnectionHandler(
-    WebRTCPeerConnectionHandlerClient* client,
-    scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
-  // TODO(crbug.com/787254): Move this method body back to
-  // PeerConnectionDependencyFactory::CreateRTCPeerConnectionHandler
-  // when it the file gets Onion soup'ed.
-
-  // Save histogram data so we can see how much PeerConnection is used.
-  // The histogram counts the number of calls to the JS API
-  // RTCPeerConnection.
-  UpdateWebRTCMethodCount(blink::WebRTCAPIName::kRTCPeerConnection);
-
-  auto* rtc_dependency_factory =
-      blink::PeerConnectionDependencyFactory::GetInstance();
-  return std::make_unique<RTCPeerConnectionHandler>(
-      client, rtc_dependency_factory, task_runner);
-}
-
-//------------------------------------------------------------------------------
-
-scoped_refptr<base::SingleThreadTaskRunner>
-RendererBlinkPlatformImpl::GetWebRtcWorkerThread() {
-  auto* rtc_dependency_factory =
-      blink::PeerConnectionDependencyFactory::GetInstance();
-  rtc_dependency_factory->EnsureInitialized();
-  return rtc_dependency_factory->GetWebRtcWorkerThread();
-}
-
-std::unique_ptr<cricket::PortAllocator>
-RendererBlinkPlatformImpl::CreateWebRtcPortAllocator(
-    blink::WebLocalFrame* frame) {
-  auto* rtc_dependency_factory =
-      blink::PeerConnectionDependencyFactory::GetInstance();
-  rtc_dependency_factory->EnsureInitialized();
-  return rtc_dependency_factory->CreatePortAllocator(frame);
-}
-
-std::unique_ptr<webrtc::AsyncResolverFactory>
-RendererBlinkPlatformImpl::CreateWebRtcAsyncResolverFactory() {
-  auto* rtc_dependency_factory =
-      blink::PeerConnectionDependencyFactory::GetInstance();
-  rtc_dependency_factory->EnsureInitialized();
-  return rtc_dependency_factory->CreateAsyncResolverFactory();
-}
-
-//------------------------------------------------------------------------------
-
 base::Optional<double>
 RendererBlinkPlatformImpl::GetWebRtcMaxCaptureFrameRate() {
   const std::string max_fps_str =
@@ -725,12 +659,6 @@ base::Optional<int> RendererBlinkPlatformImpl::GetAgcStartupMinimumVolume() {
     return base::Optional<int>();
   }
   return base::Optional<int>(startup_min_volume);
-}
-
-void RendererBlinkPlatformImpl::TrackGetUserMedia(
-    const blink::WebUserMediaRequest& web_request) {
-  RenderThreadImpl::current()->peer_connection_tracker()->TrackGetUserMedia(
-      web_request);
 }
 
 bool RendererBlinkPlatformImpl::IsWebRtcHWH264DecodingEnabled(
@@ -891,21 +819,17 @@ RendererBlinkPlatformImpl::CreateSharedOffscreenGraphicsContext3DProvider() {
 
 std::unique_ptr<blink::WebGraphicsContext3DProvider>
 RendererBlinkPlatformImpl::CreateWebGPUGraphicsContext3DProvider(
-    const blink::WebURL& top_document_web_url,
-    blink::Platform::GraphicsInfo* gl_info) {
+    const blink::WebURL& top_document_web_url) {
 #if !BUILDFLAG(USE_DAWN)
   return nullptr;
 #else
   scoped_refptr<gpu::GpuChannelHost> gpu_channel_host(
       RenderThreadImpl::current()->EstablishGpuChannelSync());
   if (!gpu_channel_host) {
-    std::string error_message(
-        "WebGPUGraphicsContext3DProvider creation failed, GpuChannelHost "
-        "creation failed");
-    gl_info->error_message = WebString::FromUTF8(error_message);
+    // TODO(crbug.com/973017): Collect GPU info and surface context creation
+    // error.
     return nullptr;
   }
-  Collect3DContextInformation(gl_info, gpu_channel_host->gpu_info());
 
   gpu::ContextCreationAttribs attributes;
   // TODO(kainino): It's not clear yet how GPU preferences work for WebGPU.
@@ -963,9 +887,9 @@ void RendererBlinkPlatformImpl::RecordRapporURL(const char* metric,
 std::unique_ptr<blink::WebDedicatedWorkerHostFactoryClient>
 RendererBlinkPlatformImpl::CreateDedicatedWorkerHostFactoryClient(
     blink::WebDedicatedWorker* worker,
-    service_manager::InterfaceProvider* interface_provider) {
+    const blink::BrowserInterfaceBrokerProxy& interface_broker) {
   return std::make_unique<DedicatedWorkerHostFactoryClient>(worker,
-                                                            interface_provider);
+                                                            interface_broker);
 }
 
 void RendererBlinkPlatformImpl::DidStartWorkerThread() {

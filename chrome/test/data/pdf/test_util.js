@@ -4,7 +4,9 @@
 
 // Utilities that are used in multiple tests.
 
-function MockWindow(width, height, sizer) {
+import {html, Polymer} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+
+export function MockWindow(width, height, sizer) {
   this.innerWidth = width;
   this.innerHeight = height;
   this.addEventListener = function(e, f) {
@@ -53,8 +55,8 @@ function MockWindow(width, height, sizer) {
   this.timerCallback = null;
 }
 
-function MockSizer() {
-  var sizer = this;
+export function MockSizer() {
+  const sizer = this;
   this.style = {
     width_: '0px',
     height_: '0px',
@@ -79,7 +81,7 @@ function MockSizer() {
   };
 }
 
-function MockViewportChangedCallback() {
+export function MockViewportChangedCallback() {
   this.wasCalled = false;
   this.callback = function() {
     this.wasCalled = true;
@@ -89,13 +91,13 @@ function MockViewportChangedCallback() {
   };
 }
 
-function MockDocumentDimensions(width, height, layoutOptions) {
+export function MockDocumentDimensions(width, height, layoutOptions) {
   this.width = width || 0;
   this.height = height ? height : 0;
   this.layoutOptions = layoutOptions;
   this.pageDimensions = [];
   this.addPage = function(w, h) {
-    var y = 0;
+    let y = 0;
     if (this.pageDimensions.length != 0) {
       y = this.pageDimensions[this.pageDimensions.length - 1].y +
           this.pageDimensions[this.pageDimensions.length - 1].height;
@@ -120,19 +122,15 @@ function MockDocumentDimensions(width, height, layoutOptions) {
  * @return {!HTMLElement} An element containing a dom-repeat of bookmarks, for
  *     testing the bookmarks outside of the toolbar.
  */
-function createBookmarksForTest() {
-  const module = document.createElement('dom-module');
-  module.id = 'test-bookmarks';
-  module.innerHTML = `
-      <template>
-        <template is="dom-repeat" items="[[bookmarks]]">
-          <viewer-bookmark bookmark="[[item]]" depth="0"></viewer-bookmark>
-        </template>
-      </template>
-  `;
-  document.body.appendChild(module);
+export function createBookmarksForTest() {
   Polymer({
     is: 'test-bookmarks',
+
+    _template: html`
+      <template is="dom-repeat" items="[[bookmarks]]">
+        <viewer-bookmark bookmark="[[item]]" depth="0"></viewer-bookmark>
+      </template>`,
+
     properties: {
       bookmarks: Array,
     },

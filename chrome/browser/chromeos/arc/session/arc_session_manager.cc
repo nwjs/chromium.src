@@ -11,13 +11,16 @@
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/logging.h"
+#include "base/rand_util.h"
 #include "base/strings/string16.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "chrome/browser/chromeos/arc/arc_migration_guide_notification.h"
 #include "chrome/browser/chromeos/arc/arc_optin_uma.h"
 #include "chrome/browser/chromeos/arc/arc_support_host.h"
+#include "chrome/browser/chromeos/arc/arc_ui_availability_reporter.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/arc/auth/arc_auth_service.h"
 #include "chrome/browser/chromeos/arc/optin/arc_terms_of_service_default_negotiator.h"
@@ -49,10 +52,12 @@
 #include "components/arc/metrics/stability_metrics_manager.h"
 #include "components/arc/session/arc_data_remover.h"
 #include "components/arc/session/arc_instance_mode.h"
+#include "components/arc/session/arc_session.h"
 #include "components/arc/session/arc_session_runner.h"
 #include "components/arc/session/arc_supervision_transition.h"
 #include "components/prefs/pref_service.h"
 #include "components/session_manager/core/session_manager.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/browser_thread.h"
 #include "ui/display/types/display_constants.h"
 
@@ -143,6 +148,20 @@ void SetArcEnabledStateMetric(bool enabled) {
   if (!stability_metrics_manager)
     return;
   stability_metrics_manager->SetArcEnabledState(enabled);
+}
+
+std::string GetOrCreateSerialNumber(PrefService* prefs) {
+  DCHECK(prefs);
+  std::string serial_number = prefs->GetString(prefs::kArcSerialNumber);
+  if (!serial_number.empty())
+    return serial_number;
+  constexpr size_t kRandSize = 256;
+  constexpr size_t kMaxHardwareIdLen = 20;
+  serial_number =
+      base::HexEncode(base::RandBytesAsString(kRandSize).data(), kRandSize)
+          .substr(0, kMaxHardwareIdLen);
+  prefs->SetString(prefs::kArcSerialNumber, serial_number);
+  return serial_number;
 }
 
 }  // namespace
@@ -464,9 +483,11 @@ void ArcSessionManager::Initialize() {
   DCHECK_EQ(state_, State::NOT_INITIALIZED);
   state_ = State::STOPPED;
 
+  auto* prefs = profile_->GetPrefs();
   const std::string user_id_hash(
       chromeos::ProfileHelper::GetUserIdHashFromProfile(profile_));
-  arc_session_runner_->SetUserIdHashForProfile(user_id_hash);
+  arc_session_runner_->SetUserInfo(user_id_hash,
+                                   GetOrCreateSerialNumber(prefs));
 
   // Create the support host at initialization. Note that, practically,
   // ARC support Chrome app is rarely used (only opt-in and re-auth flow).
@@ -484,9 +505,8 @@ void ArcSessionManager::Initialize() {
     support_host_->SetErrorDelegate(this);
   }
   data_remover_ = std::make_unique<ArcDataRemover>(
-      profile_->GetPrefs(),
-      cryptohome::Identification(
-          multi_user_util::GetAccountIdFromProfile(profile_)));
+      prefs, cryptohome::Identification(
+                 multi_user_util::GetAccountIdFromProfile(profile_)));
   data_remover_->set_user_id_hash_for_profile(user_id_hash);
 
   if (g_enable_check_android_management_in_tests.value_or(g_ui_enabled))
@@ -520,6 +540,7 @@ void ArcSessionManager::Shutdown() {
   }
   pai_starter_.reset();
   fast_app_reinstall_starter_.reset();
+  arc_ui_availability_reporter_.reset();
   profile_ = nullptr;
   state_ = State::NOT_INITIALIZED;
   if (scoped_opt_in_tracker_) {
@@ -679,7 +700,9 @@ bool ArcSessionManager::RequestEnableImpl() {
   // the initial request.
   // |prefs::kArcProvisioningInitiatedFromOobe| is reset when provisioning is
   // done or ARC is opted out.
-  if (IsArcOobeOptInActive())
+  const bool opt_in_start = IsArcOobeOptInActive();
+  const bool signed_in = prefs->GetBoolean(prefs::kArcSignedIn);
+  if (opt_in_start)
     prefs->SetBoolean(prefs::kArcProvisioningInitiatedFromOobe, true);
 
   // If it is marked that sign in has been successfully done or if Play Store is
@@ -689,9 +712,9 @@ bool ArcSessionManager::RequestEnableImpl() {
   // In Public Session mode ARC should be started silently without user
   // interaction. If opt-in verification is disabled, skip negotiation, too.
   // This is for testing purpose.
-  const bool start_arc_directly =
-      prefs->GetBoolean(prefs::kArcSignedIn) || ShouldArcAlwaysStart() ||
-      IsRobotOrOfflineDemoAccountMode() || IsArcOptInVerificationDisabled();
+  const bool start_arc_directly = signed_in || ShouldArcAlwaysStart() ||
+                                  IsRobotOrOfflineDemoAccountMode() ||
+                                  IsArcOptInVerificationDisabled();
 
   // When ARC is blocked because of filesystem compatibility, do not proceed
   // to starting ARC nor follow further state transitions.
@@ -701,6 +724,18 @@ bool ArcSessionManager::RequestEnableImpl() {
     if (!start_arc_directly && g_ui_enabled)
       arc::ShowArcMigrationGuideNotification(profile_);
     return false;
+  }
+
+  // ARC might be re-enabled and in this case |arc_ui_availability_reporter_| is
+  // already set.
+  if (!arc_ui_availability_reporter_) {
+    arc_ui_availability_reporter_ = std::make_unique<ArcUiAvailabilityReporter>(
+        profile_,
+        opt_in_start
+            ? ArcUiAvailabilityReporter::Mode::kOobeProvisioning
+            : signed_in
+                  ? ArcUiAvailabilityReporter::Mode::kAlreadyProvisioned
+                  : ArcUiAvailabilityReporter::Mode::kInSessionProvisioning);
   }
 
   if (!pai_starter_ && IsPlayStoreAvailable())
@@ -752,6 +787,7 @@ void ArcSessionManager::RequestDisable() {
   scoped_opt_in_tracker_.reset();
   pai_starter_.reset();
   fast_app_reinstall_starter_.reset();
+  arc_ui_availability_reporter_.reset();
 
   // Reset any pending request to re-enable ARC.
   reenable_arc_ = false;
@@ -1022,7 +1058,7 @@ void ArcSessionManager::StartArc() {
     GetLocaleAndPreferredLanguages(profile_, &locale, &preferred_languages);
   }
 
-  ArcSession::UpgradeParams params;
+  UpgradeParams params;
 
   const chromeos::DemoSession* demo_session = chromeos::DemoSession::Get();
   params.is_demo_session = demo_session && demo_session->started();
@@ -1037,6 +1073,15 @@ void ArcSessionManager::StartArc() {
   // Empty |preferred_languages| is converted to empty array.
   params.preferred_languages = base::SplitString(
       preferred_languages, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
+
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
+  DCHECK(user_manager->GetPrimaryUser());
+  params.account_id =
+      cryptohome::Identification(user_manager->GetPrimaryUser()->GetAccountId())
+          .id();
+
+  params.is_account_managed =
+      profile_->GetProfilePolicyConnector()->IsManaged();
 
   arc_session_runner_->RequestUpgrade(std::move(params));
 }

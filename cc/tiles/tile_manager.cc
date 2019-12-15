@@ -845,12 +845,6 @@ TileManager::PrioritizedWorkToSchedule TileManager::AssignGpuMemoryToTiles() {
     }
   }
 
-  if (had_enough_memory_to_schedule_tiles_needed_now) {
-    int64_t tiles_gpu_memory_kb = memory_usage.memory_bytes() / 1024;
-    UMA_HISTOGRAM_MEMORY_KB("TileManager.TilesGPUMemoryUsage2",
-                            tiles_gpu_memory_kb);
-  }
-
   UMA_HISTOGRAM_BOOLEAN("TileManager.ExceededMemoryBudget",
                         !had_enough_memory_to_schedule_tiles_needed_now);
   did_oom_on_last_assign_ = !had_enough_memory_to_schedule_tiles_needed_now;
@@ -1135,11 +1129,14 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
   TRACE_EVENT1(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
                "TileManager::CreateRasterTask", "Tile", tile->id());
 
+  const int msaa_sample_count = client_->GetMSAASampleCountForRaster(
+      prioritized_tile.raster_source()->GetDisplayItemList());
+
   // Get the resource.
   ResourcePool::InUsePoolResource resource;
   uint64_t resource_content_id = 0;
   gfx::Rect invalidated_rect = tile->invalidated_content_rect();
-  if (UsePartialRaster() && tile->invalidated_id()) {
+  if (UsePartialRaster(msaa_sample_count) && tile->invalidated_id()) {
     resource = resource_pool_->TryAcquireResourceForPartialRaster(
         tile->id(), tile->invalidated_content_rect(), tile->invalidated_id(),
         &invalidated_rect);
@@ -1162,6 +1159,7 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
   const bool skip_images =
       prioritized_tile.priority().resolution == LOW_RESOLUTION;
   playback_settings.use_lcd_text = tile->can_use_lcd_text();
+  playback_settings.msaa_sample_count = msaa_sample_count;
 
   // Create and queue all image decode tasks that this tile depends on. Note
   // that we need to store the images for decode tasks in
@@ -1185,8 +1183,12 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
       prepare_tiles_count_, prioritized_tile.priority().priority_bin,
       ImageDecodeCache::TaskType::kInRaster);
   bool has_at_raster_images = false;
-  image_controller_.ConvertImagesToTasks(&sync_decoded_images, &decode_tasks,
-                                         &has_at_raster_images, tracing_info);
+  bool has_hardware_accelerated_jpeg_candidates = false;
+  bool has_hardware_accelerated_webp_candidates = false;
+  image_controller_.ConvertImagesToTasks(
+      &sync_decoded_images, &decode_tasks, &has_at_raster_images,
+      &has_hardware_accelerated_jpeg_candidates,
+      &has_hardware_accelerated_webp_candidates, tracing_info);
   // Notify |decoded_image_tracker_| after |image_controller_| to ensure we've
   // taken new refs on the images before releasing the predecode API refs.
   decoded_image_tracker_.OnImagesUsedInDraw(sync_decoded_images);
@@ -1227,7 +1229,9 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
 
   std::unique_ptr<RasterBuffer> raster_buffer =
       raster_buffer_provider_->AcquireBufferForRaster(
-          resource, resource_content_id, tile->invalidated_id());
+          resource, resource_content_id, tile->invalidated_id(),
+          has_at_raster_images, has_hardware_accelerated_jpeg_candidates,
+          has_hardware_accelerated_webp_candidates);
 
   base::Optional<PlaybackImageProvider::Settings> settings;
   if (!skip_images) {
@@ -1611,9 +1615,13 @@ TileManager::ScheduledTasksStateAsValue() const {
   return std::move(state);
 }
 
-bool TileManager::UsePartialRaster() const {
+bool TileManager::UsePartialRaster(int msaa_sample_count) const {
+  // Partial raster doesn't support MSAA, as the MSAA resolve is unaware of clip
+  // rects.
+  // TODO(crbug.com/629683): See if we can work around this limitation.
   return tile_manager_settings_.use_partial_raster &&
-         raster_buffer_provider_->CanPartialRasterIntoProvidedResource();
+         raster_buffer_provider_->CanPartialRasterIntoProvidedResource() &&
+         msaa_sample_count == 0;
 }
 
 void TileManager::CheckPendingGpuWorkAndIssueSignals() {

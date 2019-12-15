@@ -22,21 +22,6 @@ suite('InternetSubpage', function() {
       internetKnownNetworksPageTitle: 'internetKnownNetworksPageTitle',
     });
 
-    CrOncStrings = {
-      OncTypeCellular: 'OncTypeCellular',
-      OncTypeEthernet: 'OncTypeEthernet',
-      OncTypeMobile: 'OncTypeMobile',
-      OncTypeTether: 'OncTypeTether',
-      OncTypeVPN: 'OncTypeVPN',
-      OncTypeWiFi: 'OncTypeWiFi',
-      networkListItemConnected: 'networkListItemConnected',
-      networkListItemConnecting: 'networkListItemConnecting',
-      networkListItemConnectingTo: 'networkListItemConnectingTo',
-      networkListItemNotConnected: 'networkListItemNotConnected',
-      networkListItemNoNetwork: 'networkListItemNoNetwork',
-      vpnNameTemplate: 'vpnNameTemplate',
-    };
-
     mojoApi_ = new FakeNetworkConfig();
     network_config.MojoInterfaceProviderImpl.getInstance().remote_ = mojoApi_;
 
@@ -237,7 +222,7 @@ suite('InternetSubpage', function() {
       return flushAsync().then(() => {
         assertEquals(2, internetSubpage.networkStateList_.length);
         const allNetworkLists =
-            internetSubpage.shadowRoot.querySelectorAll('cr-network-list');
+            internetSubpage.shadowRoot.querySelectorAll('network-list');
         // Internal networks + 2 extension ids + 1 arc id (package name) = 4
         assertEquals(4, allNetworkLists.length);
         // 2 internal networks

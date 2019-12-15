@@ -67,6 +67,9 @@ const char kBrowserTest[] = "browser-test";
 const char kDefaultTileWidth[]              = "default-tile-width";
 const char kDefaultTileHeight[]             = "default-tile-height";
 
+// Sets the min tile height for GPU raster.
+const char kMinHeightForGpuRasterTile[] = "min-height-for-gpu-raster-tile";
+
 // Disable antialiasing on 2d canvas.
 const char kDisable2dCanvasAntialiasing[]   = "disable-canvas-aa";
 
@@ -359,6 +362,9 @@ const char kEnableExperimentalWebAssemblyFeatures[] =
 const char kEnableExperimentalWebPlatformFeatures[] =
     "enable-experimental-web-platform-features";
 
+// Enables support for FTP URLs. See https://crbug.com/333943.
+const char kEnableFtp[] = "enable-ftp";
+
 // Disables all RuntimeEnabledFeatures that can be enabled via OriginTrials.
 const char kDisableOriginTrialControlledBlinkFeatures[] =
     "disable-origin-trial-controlled-blink-features";
@@ -431,10 +437,6 @@ const char kEnableStrictMixedContentChecking[] =
 const char kEnableStrictPowerfulFeatureRestrictions[] =
     "enable-strict-powerful-feature-restrictions";
 
-// Feature flag to enable HTTPS subresource internal redirects to compressed
-// versions.
-const char kEnableSubresourceRedirect[] = "enable-subresource-redirect";
-
 // Enabled threaded compositing for web tests.
 const char kEnableThreadedCompositing[]     = "enable-threaded-compositing";
 
@@ -472,9 +474,6 @@ const char kEnableWebGLDraftExtensions[] = "enable-webgl-draft-extensions";
 // Enables WebGL rendering into a scanout buffer for overlay support.
 const char kEnableWebGLImageChromium[] = "enable-webgl-image-chromium";
 
-// Enables interaction with virtual reality devices.
-const char kEnableWebVR[] = "enable-webvr";
-
 // Enable rasterizer that writes directly to GPU memory associated with tiles.
 const char kEnableZeroCopy[]                = "enable-zero-copy";
 
@@ -503,6 +502,13 @@ const char kEnableOopRasterization[] = "enable-oop-rasterization";
 
 // Turns on skia deferred display list for out of process raster.
 const char kEnableOopRasterizationDDL[] = "enable-oop-rasterization-ddl";
+
+// Pins the default referrer policy to the pre-M80 value of
+// no-referrer-when-downgrade.
+// TODO(crbug.com/1016541): After M82, remove when the corresponding
+// enterprise policy has been deleted.
+const char kForceLegacyDefaultReferrerPolicy[] =
+    "force-legacy-default-referrer-policy";
 
 // The number of multisample antialiasing samples for GPU rasterization.
 // Requires MSAA support on GPU to have an effect. 0 disables MSAA.
@@ -571,10 +577,6 @@ const char kJavaScriptFlags[]               = "js-flags";
 
 // Flag to launch tests in the browser process.
 const char kLaunchAsBrowser[] = "as-browser";
-
-// Overrides the Lite Page Subresource host.
-const char kLitePagesServerSubresourceHost[] =
-    "litepage-server-subresource-host";
 
 // Logs GPU control list decisions when enforcing blacklist rules.
 const char kLogGpuControlListDecisions[]    = "log-gpu-control-list-decisions";
@@ -826,10 +828,9 @@ const char kTouchEventFeatureDetectionDisabled[] = "disabled";
 // the platform default is used.
 const char kTouchTextSelectionStrategy[]    = "touch-selection-strategy";
 
-// Accepts specified file URL of a trustable BundledExchanges file. This flag
+// Accepts specified file URL of a trustable WebBundle file. This flag
 // should be used only for testing purpose.
-const char kTrustableBundledExchangesFileUrl[] =
-    "trustable-bundled-exchanges-file-url";
+const char kTrustableWebBundleFileUrl[] = "trustable-web-bundles-file-url";
 
 // Replaces the existing codecs supported in peer connection with a single fake
 // codec entry that create a fake video encoder and decoder.
@@ -871,8 +872,7 @@ const char kWaitForDebuggerChildren[]       = "wait-for-debugger-children";
 // Flag used by WebUI test runners to wait for debugger to be attached.
 const char kWaitForDebuggerWebUI[] = "wait-for-debugger-webui";
 
-// Set the antialiasing method used for webgl. (none, explicit, implicit, or
-// screenspace)
+// Set the antialiasing method used for webgl. (none, explicit, implicit)
 const char kWebglAntialiasingMode[] = "webgl-antialiasing-mode";
 
 // Set a default sample count for webgl if msaa is enabled.
@@ -931,6 +931,11 @@ const char kWebRtcStunProbeTrialParameter[] = "webrtc-stun-probe-trial";
 // the path to which the local logs would be stored. Disabling is not possible
 // without restarting the browser and relaunching without this flag.
 const char kWebRtcLocalEventLogging[] = "webrtc-event-logging";
+
+// This switch allows the Web Components v0 APIs to be re-enabled temporarily
+// from M80 through M84.
+// TODO(937746): Remove this after M84.
+const char kWebComponentsV0Enabled[] = "web-components-v0-enabled";
 
 #if defined(OS_ANDROID)
 // Disable Media Session API

@@ -422,13 +422,14 @@ inline bool IsShadowHostWithoutCustomFocusLogic(const Element& element) {
 
 inline bool IsNonKeyboardFocusableShadowHost(const Element& element) {
   return IsShadowHostWithoutCustomFocusLogic(element) &&
-         !(element.ShadowRootIfV1() ? element.IsFocusable()
-                                    : element.IsKeyboardFocusable());
+         !(element.ShadowRootIfV1()
+               ? (element.IsFocusable() || element.DelegatesFocus())
+               : element.IsKeyboardFocusable());
 }
 
 inline bool IsKeyboardFocusableShadowHost(const Element& element) {
   return IsShadowHostWithoutCustomFocusLogic(element) &&
-         element.IsKeyboardFocusable();
+         (element.IsKeyboardFocusable() || element.DelegatesFocus());
 }
 
 inline bool IsNonFocusableFocusScopeOwner(Element& element) {
@@ -436,17 +437,24 @@ inline bool IsNonFocusableFocusScopeOwner(Element& element) {
          IsA<HTMLSlotElement>(element);
 }
 
-inline bool IsShadowHostDelegatesFocus(const Element& element) {
-  return element.AuthorShadowRoot() &&
-         element.AuthorShadowRoot()->delegatesFocus();
-}
-
 inline int AdjustedTabIndex(Element& element) {
-  return IsNonKeyboardFocusableShadowHost(element) ? 0 : element.tabIndex();
+  if (IsNonKeyboardFocusableShadowHost(element))
+    return 0;
+  if (element.DelegatesFocus() || IsA<HTMLSlotElement>(element)) {
+    // We can't use Element::tabIndex(), which returns -1 for invalid or
+    // missing values.
+    return element.GetIntegralAttribute(html_names::kTabindexAttr, 0);
+  }
+  bool default_focusable =
+      element.SupportsFocus() ||
+      (RuntimeEnabledFeatures::KeyboardFocusableScrollersEnabled() &&
+       IsScrollableNode(&element));
+  return element.GetIntegralAttribute(html_names::kTabindexAttr,
+                                      default_focusable ? 0 : -1);
 }
 
 inline bool ShouldVisit(Element& element) {
-  return element.IsKeyboardFocusable() ||
+  return element.IsKeyboardFocusable() || element.DelegatesFocus() ||
          IsNonFocusableFocusScopeOwner(element);
 }
 
@@ -586,9 +594,10 @@ Element* FindFocusableElementRecursivelyForward(
     FocusController::OwnerMap& owner_map) {
   // Starting element is exclusive.
   while (Element* found = scope.FindFocusableElement(kWebFocusTypeForward)) {
-    if (IsShadowHostDelegatesFocus(*found)) {
-      // If tabindex is positive, find focusable element inside its shadow tree.
-      if (found->tabIndex() >= 0 &&
+    if (found->DelegatesFocus()) {
+      // If tabindex is positive, invalid, or missing, find focusable element
+      // inside its shadow tree.
+      if (AdjustedTabIndex(*found) >= 0 &&
           IsShadowHostWithoutCustomFocusLogic(*found)) {
         ScopedFocusNavigation inner_scope =
             ScopedFocusNavigation::OwnedByShadowHost(*found, owner_map);
@@ -630,14 +639,14 @@ Element* FindFocusableElementRecursivelyBackward(
           FindFocusableElementRecursivelyBackward(inner_scope, owner_map);
       if (found_in_inner_focus_scope)
         return found_in_inner_focus_scope;
-      if (IsShadowHostDelegatesFocus(*found))
+      if (found->DelegatesFocus())
         continue;
       return found;
     }
 
     // If delegatesFocus is true and tabindex is negative, skip the whole shadow
     // tree under the shadow host.
-    if (IsShadowHostDelegatesFocus(*found) && found->tabIndex() < 0)
+    if (found->DelegatesFocus() && AdjustedTabIndex(*found) < 0)
       continue;
 
     // Now |found| is on a non focusable scope owner (a shadow host, a <shadow>
@@ -652,7 +661,7 @@ Element* FindFocusableElementRecursivelyBackward(
         return found_in_inner_focus_scope;
       continue;
     }
-    if (!IsShadowHostDelegatesFocus(*found))
+    if (!found->DelegatesFocus())
       return found;
   }
   return nullptr;
@@ -736,8 +745,7 @@ Element* FindFocusableElementAcrossFocusScopesBackward(
     if (!owner)
       break;
     current_scope = ScopedFocusNavigation::CreateFor(*owner, owner_map);
-    if (IsKeyboardFocusableShadowHost(*owner) &&
-        !IsShadowHostDelegatesFocus(*owner)) {
+    if (IsKeyboardFocusableShadowHost(*owner) && !owner->DelegatesFocus()) {
       found = owner;
       break;
     }
@@ -793,10 +801,10 @@ void FocusController::SetFocusedFrame(Frame* frame, bool notify_embedder) {
 
   is_changing_focused_frame_ = false;
 
-  // Checking client() is necessary, as the frame might have been detached as
-  // part of dispatching the focus event above. See https://crbug.com/570874.
-  if (focused_frame_ && focused_frame_->Client() && notify_embedder)
-    focused_frame_->Client()->FrameFocused();
+  // Checking IsAttached() is necessary, as the frame might have been detached
+  // as part of dispatching the focus event above. See https://crbug.com/570874.
+  if (notify_embedder && focused_frame_ && focused_frame_->IsAttached())
+    focused_frame_->DidFocus();
 
   NotifyFocusChangedObservers();
 }

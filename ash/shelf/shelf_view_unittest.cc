@@ -64,6 +64,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_mock_time_message_loop_task_runner.h"
 #include "base/time/time.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "components/prefs/pref_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -711,6 +712,26 @@ class ShelfViewTest : public AshTestBase {
   DISALLOW_COPY_AND_ASSIGN(ShelfViewTest);
 };
 
+// TODO(https://crbug.com/1009638): remove this class and all its descendants
+// when scrollable shelf is launched.
+class ShelfViewTestNotScrollable : public ShelfViewTest {
+ public:
+  ShelfViewTestNotScrollable() = default;
+  ~ShelfViewTestNotScrollable() override = default;
+
+  void SetUp() override {
+    scoped_feature_list_.InitWithFeatures({},
+                                          {chromeos::features::kShelfScrollable,
+                                           chromeos::features::kShelfHotseat});
+    ShelfViewTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+
+  DISALLOW_COPY_AND_ASSIGN(ShelfViewTestNotScrollable);
+};
+
 const char*
     ShelfViewTest::kTimeBetweenWindowMinimizedAndActivatedActionsHistogramName =
         ShelfButtonPressedMetricTracker::
@@ -766,12 +787,7 @@ TEST_F(ShelfViewTest, EnforceDragType) {
 
 // Adds platform app button until overflow and verifies that the last added
 // platform app button is hidden.
-TEST_F(ShelfViewTest, AddBrowserUntilOverflow) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, AddBrowserUntilOverflow) {
   // All buttons should be visible.
   ASSERT_EQ(test_api_->GetButtonCount(), shelf_view_->last_visible_index() + 1);
 
@@ -791,12 +807,7 @@ TEST_F(ShelfViewTest, AddBrowserUntilOverflow) {
   EXPECT_FALSE(GetButtonByID(last_added)->GetVisible());
 }
 
-TEST_F(ShelfViewTest, OverflowVisibleIndex) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, OverflowVisibleIndex) {
   AddAppShortcutsUntilOverflow();
   ASSERT_TRUE(shelf_view_->GetOverflowButton()->GetVisible());
   const int last_visible_index = shelf_view_->last_visible_index();
@@ -824,12 +835,8 @@ TEST_F(ShelfViewTest, OverflowVisibleIndex) {
 // Adds one platform app button then adds app shortcut until overflow. Verifies
 // that the browser button gets hidden on overflow and last added app shortcut
 // is still visible.
-TEST_F(ShelfViewTest, AddAppShortcutWithBrowserButtonUntilOverflow) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable,
+       AddAppShortcutWithBrowserButtonUntilOverflow) {
   // All buttons should be visible.
   ASSERT_EQ(test_api_->GetButtonCount(), shelf_view_->last_visible_index() + 1);
 
@@ -853,12 +860,7 @@ TEST_F(ShelfViewTest, AddAppShortcutWithBrowserButtonUntilOverflow) {
 
 // Making sure that no buttons on the shelf will ever overlap after adding many
 // of them.
-TEST_F(ShelfViewTest, AssertNoButtonsOverlap) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, AssertNoButtonsOverlap) {
   std::vector<ShelfID> button_ids;
   // Add app icons until the overflow button is visible.
   while (!shelf_view_->GetOverflowButton()->GetVisible()) {
@@ -888,8 +890,10 @@ TEST_F(ShelfViewTest, AssertNoButtonsOverlap) {
   // Test that any two successive visible icons never overlap in all shelf
   // alignment types.
   const ShelfAlignment kAlignments[] = {
-      SHELF_ALIGNMENT_LEFT, SHELF_ALIGNMENT_RIGHT, SHELF_ALIGNMENT_BOTTOM,
-      SHELF_ALIGNMENT_BOTTOM_LOCKED,
+      ShelfAlignment::kLeft,
+      ShelfAlignment::kRight,
+      ShelfAlignment::kBottom,
+      ShelfAlignment::kBottomLocked,
   };
 
   for (ShelfAlignment alignment : kAlignments) {
@@ -912,12 +916,7 @@ TEST_F(ShelfViewTest, AssertNoButtonsOverlap) {
 // Adds button until overflow then removes first added one. Verifies that
 // the last added one changes from invisible to visible and overflow
 // chevron is gone.
-TEST_F(ShelfViewTest, RemoveButtonRevealsOverflowed) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, RemoveButtonRevealsOverflowed) {
   // All buttons should be visible.
   ASSERT_EQ(test_api_->GetButtonCount(), shelf_view_->last_visible_index() + 1);
 
@@ -946,12 +945,7 @@ TEST_F(ShelfViewTest, RemoveButtonRevealsOverflowed) {
 }
 
 // Verifies that remove last overflowed button should hide overflow chevron.
-TEST_F(ShelfViewTest, RemoveLastOverflowed) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, RemoveLastOverflowed) {
   // All buttons should be visible.
   ASSERT_EQ(test_api_->GetButtonCount(), shelf_view_->last_visible_index() + 1);
 
@@ -970,12 +964,7 @@ TEST_F(ShelfViewTest, RemoveLastOverflowed) {
 
 // Tests the visiblity of certain shelf items when the overflow bubble is open
 // and entering or exiting tablet mode.
-TEST_F(ShelfViewTest, OverflowVisibleItemsInTabletMode) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, OverflowVisibleItemsInTabletMode) {
   // Helper to check whether the item with index |index| is visible on the shelf
   // associated with |shelf_test_api|.
   auto is_visible_on_shelf = [](int index, ShelfViewTestAPI* shelf_test_api) {
@@ -1019,12 +1008,7 @@ TEST_F(ShelfViewTest, OverflowVisibleItemsInTabletMode) {
 
 // Adds platform app button without waiting for animation to finish and verifies
 // that all added buttons are visible.
-TEST_F(ShelfViewTest, AddButtonQuickly) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, AddButtonQuickly) {
   // All buttons should be visible.
   ASSERT_EQ(test_api_->GetButtonCount(), shelf_view_->last_visible_index() + 1);
 
@@ -1228,7 +1212,7 @@ TEST_F(ShelfViewTest, ShelfRipOff) {
   ui::test::EventGenerator* generator = GetEventGenerator();
 
   // The test makes some assumptions that the shelf is bottom aligned.
-  ASSERT_EQ(shelf_view_->shelf()->alignment(), SHELF_ALIGNMENT_BOTTOM);
+  ASSERT_EQ(shelf_view_->shelf()->alignment(), ShelfAlignment::kBottom);
 
   // The rip off threshold. Taken from |kRipOffDistance| in shelf_view.cc.
   const int kRipOffDistance = 48;
@@ -1300,7 +1284,7 @@ TEST_F(ShelfViewTest, DragAndDropPinnedRunningApp) {
   ui::test::EventGenerator* generator = GetEventGenerator();
 
   // The test makes some assumptions that the shelf is bottom aligned.
-  ASSERT_EQ(shelf_view_->shelf()->alignment(), SHELF_ALIGNMENT_BOTTOM);
+  ASSERT_EQ(shelf_view_->shelf()->alignment(), ShelfAlignment::kBottom);
 
   // The rip off threshold. Taken from |kRipOffDistance| in shelf_view.cc.
   constexpr int kRipOffDistance = 48;
@@ -1399,12 +1383,7 @@ TEST_F(ShelfViewTest, ShelfTooltipTest) {
   EXPECT_EQ(nullptr, tooltip_manager->GetCurrentAnchorView());
 }
 
-TEST_F(ShelfViewTest, ButtonTitlesTest) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, ButtonTitlesTest) {
   AddAppShortcutsUntilOverflow();
   EXPECT_EQ(base::UTF8ToUTF16("Launcher"),
             shelf_view_->shelf_widget()->GetHomeButton()->GetAccessibleName());
@@ -1443,7 +1422,7 @@ TEST_F(ShelfViewTest, RemovingItemClosesTooltip) {
   EXPECT_FALSE(tooltip_manager->IsVisible());
 
   // Change the shelf layout. This should not crash.
-  GetPrimaryShelf()->SetAlignment(SHELF_ALIGNMENT_LEFT);
+  GetPrimaryShelf()->SetAlignment(ShelfAlignment::kLeft);
 }
 
 // Changing the shelf alignment closes any open tooltip.
@@ -1459,11 +1438,78 @@ TEST_F(ShelfViewTest, ShelfAlignmentClosesTooltip) {
   EXPECT_TRUE(tooltip_manager->IsVisible());
 
   // Changing shelf alignment hides the tooltip.
-  GetPrimaryShelf()->SetAlignment(SHELF_ALIGNMENT_LEFT);
+  GetPrimaryShelf()->SetAlignment(ShelfAlignment::kLeft);
   EXPECT_FALSE(tooltip_manager->IsVisible());
 }
 
-TEST_F(ShelfViewTest, ShouldHideTooltipTest) {
+// Verifies that the time of button press is recorded correctly in clamshell.
+TEST_F(ShelfViewTest, HomeButtonMetricsInClamshell) {
+  const HomeButton* home_button = shelf_view_->shelf_widget()->GetHomeButton();
+
+  // Make sure we're not showing the app list.
+  EXPECT_FALSE(home_button->IsShowingAppList());
+
+  base::UserActionTester user_action_tester;
+  ASSERT_EQ(0, user_action_tester.GetActionCount(
+                   "AppList_HomeButtonPressedClamshell"));
+
+  GetEventGenerator()->GestureTapAt(
+      home_button->GetBoundsInScreen().CenterPoint());
+  ASSERT_EQ(1, user_action_tester.GetActionCount(
+                   "AppList_HomeButtonPressedClamshell"));
+  EXPECT_TRUE(home_button->IsShowingAppList());
+}
+
+// Verifies that the time of button press is recorded correctly in tablet.
+TEST_F(ShelfViewTest, HomeButtonMetricsInTablet) {
+  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
+  const HomeButton* home_button = shelf_view_->shelf_widget()->GetHomeButton();
+
+  // Make sure we're not showing the app list.
+  std::unique_ptr<aura::Window> window = CreateTestWindow();
+  wm::ActivateWindow(window.get());
+  EXPECT_FALSE(home_button->IsShowingAppList());
+
+  base::UserActionTester user_action_tester;
+  ASSERT_EQ(
+      0, user_action_tester.GetActionCount("AppList_HomeButtonPressedTablet"));
+
+  GetEventGenerator()->GestureTapAt(
+      home_button->GetBoundsInScreen().CenterPoint());
+  ASSERT_EQ(
+      1, user_action_tester.GetActionCount("AppList_HomeButtonPressedTablet"));
+  EXPECT_TRUE(home_button->IsShowingAppList());
+}
+
+class HotseatShelfViewTest : public ShelfViewTest,
+                             public testing::WithParamInterface<bool> {
+ public:
+  HotseatShelfViewTest() = default;
+  ~HotseatShelfViewTest() override = default;
+
+  // AshTestBase:
+  void SetUp() override {
+    if (GetParam()) {
+      feature_list_.InitAndEnableFeature(chromeos::features::kShelfHotseat);
+    } else {
+      feature_list_.InitAndDisableFeature(chromeos::features::kShelfHotseat);
+    }
+    ShelfViewTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+  DISALLOW_COPY_AND_ASSIGN(HotseatShelfViewTest);
+};
+
+// Tests with both hotseat enabled and disabled.
+INSTANTIATE_TEST_SUITE_P(All, HotseatShelfViewTest, testing::Bool());
+
+TEST_P(HotseatShelfViewTest, ShouldHideTooltipTest) {
+  // TODO(https://crbug.com/1016823): Fix this test for the hotseat.
+  if (chromeos::switches::ShouldShowShelfHotseat())
+    return;
+
   ShelfID app_button_id = AddAppShortcut();
   ShelfID platform_button_id = AddApp();
   // TODO(manucornet): It should not be necessary to call this manually. The
@@ -1561,7 +1607,9 @@ TEST_F(ShelfViewTest, ShouldHideTooltipWithAppListWindowTest) {
 
 // Test that by moving the mouse cursor off the button onto the bubble it closes
 // the bubble.
-TEST_F(ShelfViewTest, ShouldHideTooltipWhenHoveringOnTooltip) {
+TEST_P(HotseatShelfViewTest, ShouldHideTooltipWhenHoveringOnTooltip) {
+  if (chromeos::switches::ShouldShowShelfHotseat())
+    return;
   ShelfTooltipManager* tooltip_manager = test_api_->tooltip_manager();
   tooltip_manager->set_timer_delay_for_test(0);
   ui::test::EventGenerator* generator = GetEventGenerator();
@@ -1601,12 +1649,7 @@ TEST_F(ShelfViewTest, ShouldHideTooltipWhenHoveringOnTooltip) {
 // Resizing shelf view while an add animation without fade-in is running,
 // which happens when overflow happens. Home button should end up in its
 // new ideal bounds.
-TEST_F(ShelfViewTest, ResizeDuringOverflowAddAnimation) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, ResizeDuringOverflowAddAnimation) {
   // All buttons should be visible.
   ASSERT_EQ(test_api_->GetButtonCount(), shelf_view_->last_visible_index() + 1);
 
@@ -1640,12 +1683,7 @@ TEST_F(ShelfViewTest, ResizeDuringOverflowAddAnimation) {
 }
 
 // Checks the overflow bubble size when an item is ripped off and re-inserted.
-TEST_F(ShelfViewTest, OverflowBubbleSize) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, OverflowBubbleSize) {
   AddAppShortcutsUntilOverflow();
   // Add one more button to prevent the overflow bubble to disappear upon
   // dragging an item out on windows (flakiness, see crbug.com/436131).
@@ -1698,12 +1736,8 @@ TEST_F(ShelfViewTest, OverflowBubbleSize) {
             overflow_shelf_view->GetPreferredSize().width());
 }
 
-TEST_F(ShelfViewTest, DISABLED_OverflowShelfColorIsDerivedFromWallpaper) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable,
+       DISABLED_OverflowShelfColorIsDerivedFromWallpaper) {
   WallpaperControllerTestApi wallpaper_test_api(
       Shell::Get()->wallpaper_controller());
   const SkColor opaque_expected_color =
@@ -1717,12 +1751,8 @@ TEST_F(ShelfViewTest, DISABLED_OverflowShelfColorIsDerivedFromWallpaper) {
 }
 
 // Check the drag insertion bounds of scrolled overflow bubble.
-TEST_F(ShelfViewTest, CheckDragInsertBoundsOfScrolledOverflowBubble) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable,
+       CheckDragInsertBoundsOfScrolledOverflowBubble) {
   UpdateDisplay("400x300");
 
   AddAppShortcutsUntilOverflow();
@@ -1796,12 +1826,7 @@ TEST_F(ShelfViewTest, CheckDragInsertBoundsOfScrolledOverflowBubble) {
 }
 
 // Check the drag insertion bounds of shelf view in multi monitor environment.
-TEST_F(ShelfViewTest, CheckDragInsertBoundsWithMultiMonitor) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, CheckDragInsertBoundsWithMultiMonitor) {
   UpdateDisplay("800x600,800x600");
   Shelf* secondary_shelf = Shelf::ForWindow(Shell::GetAllRootWindows()[1]);
   ShelfView* shelf_view_for_secondary =
@@ -1876,8 +1901,8 @@ TEST_F(ShelfViewTest, CheckRipOffFromLeftShelfAlignmentWithMultiMonitor) {
   aura::Window* root_window = Shell::GetAllRootWindows()[1];
   Shelf* secondary_shelf = Shelf::ForWindow(root_window);
 
-  secondary_shelf->SetAlignment(SHELF_ALIGNMENT_LEFT);
-  ASSERT_EQ(SHELF_ALIGNMENT_LEFT, secondary_shelf->alignment());
+  secondary_shelf->SetAlignment(ShelfAlignment::kLeft);
+  ASSERT_EQ(ShelfAlignment::kLeft, secondary_shelf->alignment());
 
   ShelfView* shelf_view_for_secondary =
       secondary_shelf->GetShelfViewForTesting();
@@ -1905,12 +1930,7 @@ TEST_F(ShelfViewTest, CheckRipOffFromLeftShelfAlignmentWithMultiMonitor) {
 
 // Checks various drag and drop operations from OverflowBubble to Shelf, and
 // vice versa.
-TEST_F(ShelfViewTest, CheckDragAndDropFromShelfToOtherShelf) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, CheckDragAndDropFromShelfToOtherShelf) {
   AddAppShortcutsUntilOverflow();
   // Add one more button to prevent the overflow bubble to disappear upon
   // dragging an item out on windows (flakiness, see crbug.com/425097).
@@ -1928,12 +1948,7 @@ TEST_F(ShelfViewTest, CheckDragAndDropFromShelfToOtherShelf) {
 }
 
 // Checks taking a screenshot while dragging an app into the overflow menu.
-TEST_F(ShelfViewTest, TestDragToOverflowAndTakeScreenshot) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, TestDragToOverflowAndTakeScreenshot) {
   // We'll need UI controls to trigger the accelerator for taking a screenshot.
   ui_controls::InstallUIControlsAura(test::CreateAshUIControls());
 
@@ -1998,12 +2013,7 @@ TEST_F(ShelfViewTest, TestDragToOverflowAndTakeScreenshot) {
 }
 
 // Checks drag-reorder items within the overflow shelf.
-TEST_F(ShelfViewTest, TestDragWithinOverflow) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, TestDragWithinOverflow) {
   // Prepare the overflow and open it.
   AddAppShortcutsUntilOverflow();
   // Add a couple more to make sure we have things to drag.
@@ -2051,12 +2061,7 @@ TEST_F(ShelfViewTest, TestDragWithinOverflow) {
 
 // Checks how the overflow button and menu get laid out when the display is
 // very narrow.
-TEST_F(ShelfViewTest, TestOverflowWithNarrowDisplay) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, TestOverflowWithNarrowDisplay) {
   UpdateDisplay("200x600");
 
   AddAppShortcutsUntilOverflow();
@@ -2072,12 +2077,7 @@ TEST_F(ShelfViewTest, TestOverflowWithNarrowDisplay) {
 
 // Checks creating app shortcut for an opened platform app in overflow bubble
 // should be invisible to the shelf. See crbug.com/605793.
-TEST_F(ShelfViewTest, CheckOverflowStatusPinOpenedAppToShelf) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, CheckOverflowStatusPinOpenedAppToShelf) {
   AddAppShortcutsUntilOverflow();
 
   // Add a running Platform app.
@@ -2143,12 +2143,7 @@ TEST_F(ShelfViewTest,
       kTimeBetweenWindowMinimizedAndActivatedActionsHistogramName, 1);
 }
 
-TEST_F(ShelfViewTest, TestHideOverflow) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, TestHideOverflow) {
   // Use an event generator instead of SimulateClick because the overflow bubble
   // uses a Shell pre-target EventHandler to observe input events.
   ui::test::EventGenerator* generator = GetEventGenerator();
@@ -2224,12 +2219,7 @@ TEST_F(ShelfViewTest, TestHideOverflow) {
   EXPECT_TRUE(shelf_view_->IsShowingOverflowBubble());
 }
 
-TEST_F(ShelfViewTest, UnpinningCancelsOverflow) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, UnpinningCancelsOverflow) {
   // Add just enough items for overflow; one fewer would not require overflow.
   const ShelfID first_shelf_id = AddAppShortcut();
   AddAppShortcutsUntilOverflow();
@@ -2266,7 +2256,7 @@ TEST_F(ShelfViewTest, TestShelfItemsAnimations) {
   // The shelf items should not animate when the whole shelf and its contents
   // have to move.
   observer.Reset();
-  shelf_view_->shelf()->SetAlignment(SHELF_ALIGNMENT_LEFT);
+  shelf_view_->shelf()->SetAlignment(ShelfAlignment::kLeft);
   test_api_->RunMessageLoopUntilAnimationsDone();
   EXPECT_EQ(1, observer.icon_positions_animation_duration().InMilliseconds());
 
@@ -2275,8 +2265,8 @@ TEST_F(ShelfViewTest, TestShelfItemsAnimations) {
   PrefService* prefs =
       Shell::Get()->session_controller()->GetLastActiveUserPrefService();
   const int64_t id = GetPrimaryDisplay().id();
-  shelf_view_->shelf()->SetAlignment(SHELF_ALIGNMENT_BOTTOM);
-  SetShelfAlignmentPref(prefs, id, SHELF_ALIGNMENT_BOTTOM);
+  shelf_view_->shelf()->SetAlignment(ShelfAlignment::kBottom);
+  SetShelfAlignmentPref(prefs, id, ShelfAlignment::kBottom);
   observer.Reset();
   Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
   test_api_->RunMessageLoopUntilAnimationsDone();
@@ -2289,8 +2279,8 @@ TEST_F(ShelfViewTest, TestShelfItemsAnimations) {
 
   // The shelf items should not animate if we are entering or exiting tablet
   // mode, and the shelf alignment is not bottom aligned.
-  shelf_view_->shelf()->SetAlignment(SHELF_ALIGNMENT_LEFT);
-  SetShelfAlignmentPref(prefs, id, SHELF_ALIGNMENT_LEFT);
+  shelf_view_->shelf()->SetAlignment(ShelfAlignment::kLeft);
+  SetShelfAlignmentPref(prefs, id, ShelfAlignment::kLeft);
   observer.Reset();
   Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
   test_api_->RunMessageLoopUntilAnimationsDone();
@@ -2335,35 +2325,8 @@ TEST_F(ShelfViewTest, TabletModeStartAndEndClosesContextMenu) {
   EXPECT_FALSE(test_api_->CloseMenu());
 }
 
-// Tests that the back button does not show a context menu.
-TEST_F(ShelfViewTest, NoContextMenuOnBackButton) {
-  ui::test::EventGenerator* generator = GetEventGenerator();
-
-  // Enable tablet mode to show the back button. Wait for tablet mode animations
-  // to finish in order for the BackButton to move out from under the
-  // HomeButton.
-  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
-
-  // We need to wait for the navigation widget's animation to be done.
-  test_api_->RunMessageLoopUntilAnimationsDone(
-      shelf_view_->shelf_widget()
-          ->navigation_widget()
-          ->get_bounds_animator_for_testing());
-
-  views::View* back_button = shelf_view_->shelf_widget()->GetBackButton();
-  generator->MoveMouseTo(back_button->GetBoundsInScreen().CenterPoint());
-  generator->PressRightButton();
-
-  EXPECT_FALSE(test_api_->CloseMenu());
-}
-
 // Tests that the overflow button does not show a context menu.
-TEST_F(ShelfViewTest, NoContextMenuOnOverflowButton) {
-  // No overflow bubble when scrollable shelf enabled.
-  // TODO(https://crbug.com/1002576): revisit when scrollable shelf is launched.
-  if (chromeos::switches::ShouldShowScrollableShelf())
-    return;
-
+TEST_F(ShelfViewTestNotScrollable, NoContextMenuOnOverflowButton) {
   ui::test::EventGenerator* generator = GetEventGenerator();
   AddAppShortcutsUntilOverflow();
   views::View* overflow_button = shelf_view_->GetOverflowButton();
@@ -2650,19 +2613,13 @@ TEST_F(ShelfViewTest, ReplacingDelegateCancelsContextMenu) {
   EXPECT_FALSE(shelf_view_->IsShowingMenu());
 }
 
-class OverflowBubbleViewTest : public ShelfViewTest {
+class OverflowBubbleViewTest : public ShelfViewTestNotScrollable {
  public:
   OverflowBubbleViewTest() = default;
   ~OverflowBubbleViewTest() override = default;
 
   void SetUp() override {
-    ShelfViewTest::SetUp();
-
-    // No overflow bubble when scrollable shelf enabled.
-    // TODO(https://crbug.com/1002576): revisit when scrollable shelf is
-    // launched.
-    if (chromeos::switches::ShouldShowScrollableShelf())
-      GTEST_SKIP();
+    ShelfViewTestNotScrollable::SetUp();
 
     UpdateDisplay("300x600");
     AddAppShortcutsUntilOverflow();
@@ -2920,14 +2877,13 @@ class ShelfViewMenuTest : public ShelfViewTest,
   DISALLOW_COPY_AND_ASSIGN(ShelfViewMenuTest);
 };
 
-INSTANTIATE_TEST_SUITE_P(, ShelfViewMenuTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All, ShelfViewMenuTest, testing::Bool());
 
 // Tests that menu anchor points are aligned with the shelf button bounds.
 TEST_P(ShelfViewMenuTest, ShelfViewMenuAnchorPoint) {
   const ShelfAppButton* shelf_button = GetButtonByID(AddApp());
   const bool context_menu = GetParam();
-  EXPECT_EQ(ash::ShelfAlignment::SHELF_ALIGNMENT_BOTTOM,
-            GetPrimaryShelf()->alignment());
+  EXPECT_EQ(ash::ShelfAlignment::kBottom, GetPrimaryShelf()->alignment());
 
   // Test for bottom shelf.
   EXPECT_EQ(
@@ -2936,7 +2892,7 @@ TEST_P(ShelfViewMenuTest, ShelfViewMenuAnchorPoint) {
           .y());
 
   // Test for left shelf.
-  GetPrimaryShelf()->SetAlignment(ash::ShelfAlignment::SHELF_ALIGNMENT_LEFT);
+  GetPrimaryShelf()->SetAlignment(ash::ShelfAlignment::kLeft);
 
   EXPECT_EQ(
       shelf_button->GetBoundsInScreen().x(),
@@ -2944,7 +2900,7 @@ TEST_P(ShelfViewMenuTest, ShelfViewMenuAnchorPoint) {
           .x());
 
   // Test for right shelf.
-  GetPrimaryShelf()->SetAlignment(ash::ShelfAlignment::SHELF_ALIGNMENT_RIGHT);
+  GetPrimaryShelf()->SetAlignment(ash::ShelfAlignment::kRight);
 
   EXPECT_EQ(
       shelf_button->GetBoundsInScreen().x(),
@@ -3613,19 +3569,13 @@ TEST_F(ShelfViewInkDropTest, DismissingMenuWithDoubleClickDoesntShowInkDrop) {
 }
 
 // Test fixture for testing material design ink drop on overflow button.
-class OverflowButtonInkDropTest : public ShelfViewInkDropTest {
+class OverflowButtonInkDropTest : public ShelfViewTestNotScrollable {
  public:
   OverflowButtonInkDropTest() = default;
   ~OverflowButtonInkDropTest() override = default;
 
   void SetUp() override {
-    ShelfViewInkDropTest::SetUp();
-
-    // No overflow bubble when scrollable shelf enabled.
-    // TODO(https://crbug.com/1002576): revisit when scrollable shelf is
-    // launched.
-    if (chromeos::switches::ShouldShowScrollableShelf())
-      GTEST_SKIP();
+    ShelfViewTestNotScrollable::SetUp();
 
     overflow_button_ = shelf_view_->GetOverflowButton();
 
@@ -3870,16 +3820,6 @@ class OverflowButtonTextDirectionTest
   OverflowButtonTextDirectionTest() : scoped_locale_(GetParam() ? "he" : "") {}
   ~OverflowButtonTextDirectionTest() override = default;
 
-  void SetUp() override {
-    OverflowButtonInkDropTest::SetUp();
-
-    // No overflow bubble when scrollable shelf enabled.
-    // TODO(https://crbug.com/1002576): revisit when scrollable shelf is
-    // launched.
-    if (chromeos::switches::ShouldShowScrollableShelf())
-      GTEST_SKIP();
-  }
-
  private:
   // Restores locale to the default when destructor is called.
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_;
@@ -3901,12 +3841,6 @@ class OverflowButtonActiveInkDropTest : public OverflowButtonInkDropTest {
 
   void SetUp() override {
     OverflowButtonInkDropTest::SetUp();
-
-    // No overflow bubble when scrollable shelf enabled.
-    // TODO(https://crbug.com/1002576): revisit when scrollable shelf is
-    // launched.
-    if (chromeos::switches::ShouldShowScrollableShelf())
-      GTEST_SKIP();
 
     test_api_->ShowOverflowBubble();
     ASSERT_TRUE(shelf_view_->IsShowingOverflowBubble());
@@ -4241,6 +4175,7 @@ TEST_F(ShelfViewFocusTest, UnfocusWithEsc) {
   ExpectNotFocused(shelf_view_);
 }
 
+// TODO(https://crbug.com/1009638): remove when scrollable shelf is launched.
 class ShelfViewOverflowFocusTest : public ShelfViewFocusTest {
  public:
   ShelfViewOverflowFocusTest() = default;
@@ -4248,13 +4183,10 @@ class ShelfViewOverflowFocusTest : public ShelfViewFocusTest {
 
   // AshTestBase:
   void SetUp() override {
+    scoped_feature_list_.InitWithFeatures({},
+                                          {chromeos::features::kShelfScrollable,
+                                           chromeos::features::kShelfHotseat});
     ShelfViewFocusTest::SetUp();
-
-    // No overflow bubble when scrollable shelf enabled.
-    // TODO(https://crbug.com/1002576): revisit when scrollable shelf is
-    // launched.
-    if (chromeos::switches::ShouldShowScrollableShelf())
-      GTEST_SKIP();
 
     // Add app shortcuts until the overflow button is visible. At this point
     // there will be two items on the overflow shelf.
@@ -4284,6 +4216,8 @@ class ShelfViewOverflowFocusTest : public ShelfViewFocusTest {
   std::unique_ptr<ShelfViewTestAPI> overflow_shelf_test_api_;
 
  private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+
   DISALLOW_COPY_AND_ASSIGN(ShelfViewOverflowFocusTest);
 };
 

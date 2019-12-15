@@ -50,9 +50,9 @@ class MetricsRenderFrameObserver
   void DidObserveLayoutShift(double score, bool after_input_or_scroll) override;
   void DidObserveLazyLoadBehavior(
       blink::WebLocalFrameClient::LazyLoadBehavior lazy_load_behavior) override;
-  void DidStartResponse(const GURL& response_url,
+  void DidStartResponse(const url::Origin& origin_of_final_response_url,
                         int request_id,
-                        const network::ResourceResponseHead& response_head,
+                        const network::mojom::URLResponseHead& response_head,
                         content::ResourceType resource_type,
                         content::PreviewsState previews_state) override;
   void DidReceiveTransferSizeUpdate(int request_id,

@@ -101,14 +101,13 @@ void EphemeralTabSceneLayer::Update(JNIEnv* env,
                                     jfloat bar_height,
                                     jboolean bar_border_visible,
                                     jfloat bar_border_height,
-                                    jboolean bar_shadow_visible,
                                     jint icon_color,
                                     jint drag_handlebar_color,
                                     jfloat favicon_opacity,
                                     jboolean progress_bar_visible,
                                     jfloat progress_bar_height,
                                     jfloat progress_bar_opacity,
-                                    jint progress_bar_completion,
+                                    jfloat progress_bar_completion,
                                     jint separator_line_color) {
   // NOTE(mdjones): It is possible to render the panel before content has been
   // created. If this is the case, do not attempt to access the WebContents
@@ -137,10 +136,10 @@ void EphemeralTabSceneLayer::Update(JNIEnv* env,
       progress_bar_background_resource_id, progress_bar_resource_id, dp_to_px,
       content_layer, panel_x, panel_y, panel_width, panel_height,
       bar_background_color, bar_margin_side, bar_margin_top, bar_height,
-      bar_border_visible, bar_border_height, bar_shadow_visible, icon_color,
-      drag_handlebar_color, favicon_opacity, progress_bar_visible,
-      progress_bar_height, progress_bar_opacity, progress_bar_completion,
-      separator_line_color, is_new_layout_);
+      bar_border_visible, bar_border_height, icon_color, drag_handlebar_color,
+      favicon_opacity, progress_bar_visible, progress_bar_height,
+      progress_bar_opacity, progress_bar_completion, separator_line_color,
+      is_new_layout_);
   // Make the layer visible if it is not already.
   ephemeral_tab_layer_->layer()->SetHideLayerAndSubtree(false);
 }

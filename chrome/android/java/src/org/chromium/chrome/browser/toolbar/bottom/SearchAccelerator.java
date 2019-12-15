@@ -19,10 +19,10 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.ThemeColorProvider.ThemeColorObserver;
 import org.chromium.chrome.browser.ThemeColorProvider.TintObserver;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.toolbar.IncognitoStateProvider;
 import org.chromium.chrome.browser.toolbar.IncognitoStateProvider.IncognitoStateObserver;
-import org.chromium.chrome.browser.util.ColorUtils;
-import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.browser.toolbar.ToolbarColors;
 import org.chromium.ui.widget.ChromeImageButton;
 
 /**
@@ -123,8 +123,8 @@ class SearchAccelerator extends ChromeImageButton
     private void updateBackground() {
         if (mThemeColorProvider == null || mIncognitoStateProvider == null) return;
 
-        mBackground.setColorFilter(ColorUtils.getTextBoxColorForToolbarBackground(mResources, false,
-                                           mThemeColorProvider.getThemeColor(),
+        mBackground.setColorFilter(ToolbarColors.getTextBoxColorForToolbarBackgroundInNonNativePage(
+                                           mResources, mThemeColorProvider.getThemeColor(),
                                            mIncognitoStateProvider.isIncognitoSelected()),
                 PorterDuff.Mode.SRC_IN);
     }

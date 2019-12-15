@@ -108,18 +108,21 @@ void TestAutofillClient::ShowLocalCardMigrationResults(
     MigrationDeleteCardCallback delete_local_card_callback) {}
 
 #if !defined(OS_ANDROID) && !defined(OS_IOS)
-void TestAutofillClient::ShowVerifyPendingDialog(
-    base::OnceClosure cancel_card_verification_callback) {}
-
-void TestAutofillClient::CloseVerifyPendingDialog() {}
-#endif
-
 void TestAutofillClient::ShowWebauthnOfferDialog(
-    WebauthnOfferDialogCallback callback) {}
+    WebauthnDialogCallback offer_dialog_callback) {}
 
-bool TestAutofillClient::CloseWebauthnOfferDialog() {
+void TestAutofillClient::ShowWebauthnVerifyPendingDialog(
+    WebauthnDialogCallback verify_pending_dialog_callback) {}
+
+void TestAutofillClient::UpdateWebauthnOfferDialogWithError() {}
+
+void TestAutofillClient::UpdateWebauthnVerifyPendingCancelButton(
+    bool should_be_enabled) {}
+
+bool TestAutofillClient::CloseWebauthnDialog() {
   return true;
 }
+#endif
 
 void TestAutofillClient::ConfirmSaveAutofillProfile(
     const AutofillProfile& profile,
@@ -145,9 +148,7 @@ void TestAutofillClient::ConfirmAccountNameFixFlow(
   credit_card_name_fix_flow_bubble_was_shown_ = true;
   std::move(callback).Run(base::string16(base::ASCIIToUTF16("Gaia Name")));
 }
-#endif  // defined(OS_ANDROID) || defined(OS_IOS)
 
-#if defined(OS_ANDROID)
 void TestAutofillClient::ConfirmExpirationDateFixFlow(
     const CreditCard& card,
     base::OnceCallback<void(const base::string16&, const base::string16&)>
@@ -157,7 +158,7 @@ void TestAutofillClient::ConfirmExpirationDateFixFlow(
       base::string16(base::ASCIIToUTF16("03")),
       base::string16(base::ASCIIToUTF16(test::NextYear().c_str())));
 }
-#endif  // defined(OS_ANDROID)
+#endif  // defined(OS_ANDROID) || defined(OS_IOS)
 
 void TestAutofillClient::ConfirmSaveCreditCardToCloud(
     const CreditCard& card,

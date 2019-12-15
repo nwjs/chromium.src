@@ -11,17 +11,19 @@ import android.os.Bundle;
 import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsSessionToken;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.prerender.ExternalPrerenderHandler;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabBuilder;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab_activity_glue.ReparentingTask;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.util.UrlUtilities;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -126,7 +128,7 @@ public class HiddenTabHolder {
         int width = bounds.right - bounds.left;
         int height = bounds.bottom - bounds.top;
         tab.getWebContents().setSize(width, height);
-        tab.detach();
+        ReparentingTask.detach(tab);
         return tab;
     }
 
@@ -164,7 +166,7 @@ public class HiddenTabHolder {
                 return tab;
             } else {
                 CustomTabsConnection.recordSpeculationStatusSwapTabNotMatched();
-                tab.destroy();
+                ((TabImpl) tab).destroy();
                 return null;
             }
         }
@@ -175,7 +177,7 @@ public class HiddenTabHolder {
         if (mSpeculation == null) return;
         if (session!= null && !session.equals(mSpeculation.session)) return;
 
-        mSpeculation.tab.destroy();
+        ((TabImpl) (mSpeculation.tab)).destroy();
         mSpeculation = null;
     }
 

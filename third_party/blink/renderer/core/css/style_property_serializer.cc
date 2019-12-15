@@ -41,8 +41,6 @@
 
 namespace blink {
 
-using namespace cssvalue;
-
 StylePropertySerializer::CSSPropertyValueSetForSerializer::
     CSSPropertyValueSetForSerializer(const CSSPropertyValueSet& properties)
     : property_set_(&properties),
@@ -354,7 +352,11 @@ static bool AllowInitialInShorthand(CSSPropertyID property_id) {
 String StylePropertySerializer::CommonShorthandChecks(
     const StylePropertyShorthand& shorthand) const {
   int longhand_count = shorthand.length();
-  DCHECK_LE(longhand_count, 17);
+  if (!longhand_count || longhand_count > 17) {
+    NOTREACHED();
+    return g_empty_string;
+  }
+
   const CSSValue* longhands[17] = {};
 
   bool has_important = false;
@@ -387,7 +389,7 @@ String StylePropertySerializer::CommonShorthandChecks(
     }
     if (success) {
       if (const auto* substitution_value =
-              DynamicTo<CSSPendingSubstitutionValue>(longhands[0])) {
+              DynamicTo<cssvalue::CSSPendingSubstitutionValue>(longhands[0])) {
         if (substitution_value->ShorthandPropertyId() != shorthand.id())
           return g_empty_string;
         return substitution_value->ShorthandValue()->CssText();
@@ -580,6 +582,8 @@ String StylePropertySerializer::SerializeShorthand(
       return PageBreakPropertyValue(pageBreakBeforeShorthand());
     case CSSPropertyID::kPageBreakInside:
       return PageBreakPropertyValue(pageBreakInsideShorthand());
+    case CSSPropertyID::kIntrinsicSize:
+      return Get2Values(intrinsicSizeShorthand());
     default:
       return String();
   }

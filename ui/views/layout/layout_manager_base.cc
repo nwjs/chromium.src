@@ -41,8 +41,12 @@ int LayoutManagerBase::GetPreferredHeightForWidth(const View* host,
 
 void LayoutManagerBase::Layout(View* host) {
   DCHECK_EQ(host_view_, host);
-  const gfx::Size size = host->size();
-  ApplyLayout(GetProposedLayout(size));
+  // A handful of views will cause invalidations while they are being
+  // positioned, which can result in loops or loss of layout data during layout
+  // application. Therefore we protect the layout manager from spurious
+  // invalidations during the layout process.
+  base::AutoReset<bool> setter(&suppress_invalidate_, true);
+  LayoutImpl();
 }
 
 std::vector<View*> LayoutManagerBase::GetChildViewsInPaintOrder(
@@ -92,6 +96,10 @@ bool LayoutManagerBase::IsChildIncludedInLayout(const View* child,
     return false;
 
   return !it->second.ignored && (include_hidden || it->second.can_be_visible);
+}
+
+void LayoutManagerBase::LayoutImpl() {
+  ApplyLayout(GetProposedLayout(host_view_->size()));
 }
 
 void LayoutManagerBase::ApplyLayout(const ProposedLayout& layout) {
@@ -203,16 +211,18 @@ void LayoutManagerBase::ViewRemoved(View* host, View* view) {
 
 void LayoutManagerBase::ViewVisibilitySet(View* host,
                                           View* view,
-                                          bool visible) {
+                                          bool old_visibility,
+                                          bool new_visibility) {
   DCHECK_EQ(host_view_, host);
   auto it = child_infos_.find(view);
   DCHECK(it != child_infos_.end());
   const bool was_ignored = it->second.ignored;
-  if (it->second.can_be_visible == visible)
+  if (it->second.can_be_visible == new_visibility)
     return;
 
   base::AutoReset<bool> setter(&suppress_invalidate_, true);
-  const bool invalidate = PropagateViewVisibilitySet(host, view, visible);
+  const bool invalidate =
+      PropagateViewVisibilitySet(host, view, new_visibility);
   if (invalidate || !was_ignored)
     InvalidateHost(false);
 }

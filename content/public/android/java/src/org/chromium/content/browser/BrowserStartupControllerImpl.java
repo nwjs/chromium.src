@@ -8,12 +8,12 @@ import android.content.Context;
 import android.os.StrictMode;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.BuildInfo;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
@@ -39,7 +39,7 @@ import java.util.List;
  */
 @JNINamespace("content")
 public class BrowserStartupControllerImpl implements BrowserStartupController {
-    private static final String TAG = "cr.BrowserStartup";
+    private static final String TAG = "BrowserStartup";
 
     // Helper constants for {@link #executeEnqueuedCallbacks(int, boolean)}.
     @VisibleForTesting
@@ -277,7 +277,7 @@ public class BrowserStartupControllerImpl implements BrowserStartupController {
         // Startup should now be complete
         assert mFullBrowserStartupDone;
         if (!mStartupSuccess) {
-            throw new ProcessInitException(LoaderErrors.LOADER_ERROR_NATIVE_STARTUP_FAILED);
+            throw new ProcessInitException(LoaderErrors.NATIVE_STARTUP_FAILED);
         }
     }
 
@@ -430,7 +430,7 @@ public class BrowserStartupControllerImpl implements BrowserStartupController {
     @VisibleForTesting
     void prepareToStartBrowserProcess(
             final boolean singleProcess, final Runnable completionCallback) {
-        Log.i(TAG, "Initializing chromium process, singleProcess=%b", singleProcess);
+        Log.d(TAG, "Initializing chromium process, singleProcess=%b", singleProcess);
 
         // This strictmode exception is to cover the case where the browser process is being started
         // asynchronously but not in the main browser flow.  The main browser flow will trigger

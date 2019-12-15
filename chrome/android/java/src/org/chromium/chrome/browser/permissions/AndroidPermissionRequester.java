@@ -15,7 +15,7 @@ import androidx.annotation.StringRes;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ContentSettingsType;
 import org.chromium.chrome.browser.metrics.WebApkUma;
-import org.chromium.chrome.browser.preferences.PrefServiceBridge;
+import org.chromium.chrome.browser.settings.website.WebsitePreferenceBridge;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.webapps.WebApkActivity;
 import org.chromium.ui.base.PermissionCallback;
@@ -50,7 +50,7 @@ public class AndroidPermissionRequester {
             WindowAndroid windowAndroid, int[] contentSettingsTypes) {
         SparseArray<String[]> permissionsToRequest = new SparseArray<>();
         for (int i = 0; i < contentSettingsTypes.length; i++) {
-            String[] permissions = PrefServiceBridge.getAndroidPermissionsForContentSetting(
+            String[] permissions = WebsitePreferenceBridge.getAndroidPermissionsForContentSetting(
                     contentSettingsTypes[i]);
             if (permissions == null) continue;
             List<String> missingPermissions = new ArrayList<>();
@@ -127,24 +127,19 @@ public class AndroidPermissionRequester {
                 if (allRequestable && !deniedContentSettings.isEmpty() && activity != null) {
                     int deniedStringId = -1;
                     if (deniedContentSettings.size() == 2
+                            && deniedContentSettings.contains(ContentSettingsType.MEDIASTREAM_MIC)
                             && deniedContentSettings.contains(
-                                       ContentSettingsType.CONTENT_SETTINGS_TYPE_MEDIASTREAM_MIC)
-                            && deniedContentSettings.contains(
-                                       ContentSettingsType
-                                               .CONTENT_SETTINGS_TYPE_MEDIASTREAM_CAMERA)) {
+                                    ContentSettingsType.MEDIASTREAM_CAMERA)) {
                         deniedStringId =
                                 R.string.infobar_missing_microphone_camera_permissions_text;
                     } else if (deniedContentSettings.size() == 1) {
-                        if (deniedContentSettings.contains(
-                                    ContentSettingsType.CONTENT_SETTINGS_TYPE_GEOLOCATION)) {
+                        if (deniedContentSettings.contains(ContentSettingsType.GEOLOCATION)) {
                             deniedStringId = R.string.infobar_missing_location_permission_text;
                         } else if (deniedContentSettings.contains(
-                                           ContentSettingsType
-                                                   .CONTENT_SETTINGS_TYPE_MEDIASTREAM_MIC)) {
+                                           ContentSettingsType.MEDIASTREAM_MIC)) {
                             deniedStringId = R.string.infobar_missing_microphone_permission_text;
                         } else if (deniedContentSettings.contains(
-                                           ContentSettingsType
-                                                   .CONTENT_SETTINGS_TYPE_MEDIASTREAM_CAMERA)) {
+                                           ContentSettingsType.MEDIASTREAM_CAMERA)) {
                             deniedStringId = R.string.infobar_missing_camera_permission_text;
                         }
                     }

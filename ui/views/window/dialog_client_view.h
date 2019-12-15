@@ -30,6 +30,10 @@ class Widget;
 //   +------------------------------+
 //   | [Extra View]   [OK] [Cancel] |
 //   +------------------------------+
+//
+// You must not directly depend on or use DialogClientView; it is internal to
+// //ui/views. Access it through the public interfaces on DialogDelegate. It is
+// only VIEWS_EXPORT to make it available to views_unittests.
 class VIEWS_EXPORT DialogClientView : public ClientView,
                                       public ButtonListener,
                                       public DialogObserver {
@@ -46,13 +50,12 @@ class VIEWS_EXPORT DialogClientView : public ClientView,
   // Accessors in case the user wishes to adjust these buttons.
   LabelButton* ok_button() const { return ok_button_; }
   LabelButton* cancel_button() const { return cancel_button_; }
+  View* extra_view() const { return extra_view_; }
 
   void SetButtonRowInsets(const gfx::Insets& insets);
 
   // ClientView implementation:
   bool CanClose() override;
-  DialogClientView* AsDialogClientView() override;
-  const DialogClientView* AsDialogClientView() const override;
 
   // View implementation:
   gfx::Size CalculatePreferredSize() const override;

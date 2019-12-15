@@ -1968,6 +1968,10 @@
         "test": "net_junit_tests"
       },
       {
+        "name": "paint_preview_junit_tests",
+        "test": "paint_preview_junit_tests"
+      },
+      {
         "name": "service_junit_tests",
         "test": "service_junit_tests"
       },
@@ -2376,7 +2380,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 2
+          "shards": 4
         },
         "test": "blink_unittests"
       },
@@ -2781,7 +2785,6 @@
       {
         "args": [
           "--disable-features=NetworkServiceInProcess",
-          "--gtest_filter=-org.chromium.chrome.browser.FeaturesAnnotationsTest#testFeaturesSetExistingFlags",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
@@ -2872,50 +2875,6 @@
           "shards": 2
         },
         "test": "chrome_public_test_vr_apk"
-      },
-      {
-        "args": [
-          "--gs-results-bucket=chromium-result-details",
-          "--recover-devices"
-        ],
-        "merge": {
-          "args": [
-            "--bucket",
-            "chromium-result-details",
-            "--test-name",
-            "color_unittests"
-          ],
-          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
-              "location": "bin",
-              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
-            }
-          ],
-          "dimension_sets": [
-            {
-              "device_os": "KTU84P",
-              "device_os_type": "userdebug",
-              "device_type": "hammerhead",
-              "os": "Android"
-            }
-          ],
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "args": [
@@ -4731,7 +4690,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 10
+          "shards": 2
         },
         "test": "unit_tests"
       },
@@ -5361,7 +5320,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 2
+          "shards": 4
         },
         "test": "blink_unittests"
       },
@@ -5771,51 +5730,6 @@
           "shards": 20
         },
         "test": "chrome_public_test_apk"
-      },
-      {
-        "args": [
-          "--gs-results-bucket=chromium-result-details",
-          "--recover-devices"
-        ],
-        "merge": {
-          "args": [
-            "--bucket",
-            "chromium-result-details",
-            "--test-name",
-            "color_unittests"
-          ],
-          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
-              "location": "bin",
-              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
-            }
-          ],
-          "dimension_sets": [
-            {
-              "device_os": "KTU84Z",
-              "device_os_type": "userdebug",
-              "device_type": "flo",
-              "os": "Android"
-            }
-          ],
-          "expiration": 10800,
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "args": [
@@ -7529,7 +7443,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 10
+          "shards": 2
         },
         "test": "unit_tests"
       },
@@ -8210,7 +8124,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 2
+          "shards": 4
         },
         "test": "blink_unittests"
       },
@@ -8759,7 +8673,6 @@
       {
         "args": [
           "--disable-features=NetworkServiceInProcess",
-          "--gtest_filter=-org.chromium.chrome.browser.FeaturesAnnotationsTest#testFeaturesSetExistingFlags",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
@@ -8852,51 +8765,6 @@
           "shards": 2
         },
         "test": "chrome_public_test_vr_apk"
-      },
-      {
-        "args": [
-          "--gs-results-bucket=chromium-result-details",
-          "--recover-devices"
-        ],
-        "merge": {
-          "args": [
-            "--bucket",
-            "chromium-result-details",
-            "--test-name",
-            "color_unittests"
-          ],
-          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
-              "location": "bin",
-              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
-            }
-          ],
-          "dimension_sets": [
-            {
-              "device_os": "LMY48I",
-              "device_os_type": "userdebug",
-              "device_type": "hammerhead",
-              "os": "Android"
-            }
-          ],
-          "expiration": 10800,
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "args": [
@@ -10754,7 +10622,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 10
+          "shards": 2
         },
         "test": "unit_tests"
       },
@@ -11620,7 +11488,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 2
+          "shards": 4
         },
         "test": "blink_unittests"
       },
@@ -12165,51 +12033,6 @@
           "shards": 20
         },
         "test": "chrome_public_test_apk"
-      },
-      {
-        "args": [
-          "--gs-results-bucket=chromium-result-details",
-          "--recover-devices"
-        ],
-        "merge": {
-          "args": [
-            "--bucket",
-            "chromium-result-details",
-            "--test-name",
-            "color_unittests"
-          ],
-          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
-              "location": "bin",
-              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
-            }
-          ],
-          "dimension_sets": [
-            {
-              "device_os": "LMY49B",
-              "device_os_type": "userdebug",
-              "device_type": "flo",
-              "os": "Android"
-            }
-          ],
-          "expiration": 10800,
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "args": [
@@ -13923,7 +13746,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 10
+          "shards": 2
         },
         "test": "unit_tests"
       },
@@ -14732,7 +14555,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 2
+          "shards": 4
         },
         "test": "blink_unittests"
       },
@@ -15269,7 +15092,6 @@
       {
         "args": [
           "--disable-features=NetworkServiceInProcess",
-          "--gtest_filter=-org.chromium.chrome.browser.FeaturesAnnotationsTest#testFeaturesSetExistingFlags",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
@@ -15360,50 +15182,6 @@
           "shards": 2
         },
         "test": "chrome_public_test_vr_apk"
-      },
-      {
-        "args": [
-          "--gs-results-bucket=chromium-result-details",
-          "--recover-devices"
-        ],
-        "merge": {
-          "args": [
-            "--bucket",
-            "chromium-result-details",
-            "--test-name",
-            "color_unittests"
-          ],
-          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
-              "location": "bin",
-              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
-            }
-          ],
-          "dimension_sets": [
-            {
-              "device_os": "MMB29Q",
-              "device_os_type": "userdebug",
-              "device_type": "bullhead",
-              "os": "Android"
-            }
-          ],
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "args": [
@@ -17219,7 +16997,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 10
+          "shards": 2
         },
         "test": "unit_tests"
       },
@@ -18075,7 +17853,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 2
+          "shards": 4
         },
         "test": "blink_unittests"
       },
@@ -18620,51 +18398,6 @@
           "shards": 20
         },
         "test": "chrome_public_test_apk"
-      },
-      {
-        "args": [
-          "--gs-results-bucket=chromium-result-details",
-          "--recover-devices"
-        ],
-        "merge": {
-          "args": [
-            "--bucket",
-            "chromium-result-details",
-            "--test-name",
-            "color_unittests"
-          ],
-          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
-              "location": "bin",
-              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
-            }
-          ],
-          "dimension_sets": [
-            {
-              "device_os": "MRA58Z",
-              "device_os_type": "userdebug",
-              "device_type": "flo",
-              "os": "Android"
-            }
-          ],
-          "expiration": 10800,
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "args": [
@@ -20378,7 +20111,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 10
+          "shards": 2
         },
         "test": "unit_tests"
       },
@@ -21599,6 +21332,11 @@
         },
         "test": "webview_instrumentation_test_apk"
       }
+    ]
+  },
+  "android-arm64-proguard-rel": {
+    "additional_compile_targets": [
+      "all"
     ]
   },
   "android-cronet-arm-dbg": {
@@ -23214,11 +22952,6 @@
       }
     ]
   },
-  "android-jumbo-rel": {
-    "additional_compile_targets": [
-      "all"
-    ]
-  },
   "android-kitkat-arm-rel": {
     "additional_compile_targets": [
       "cronet_test_instrumentation_apk",
@@ -23575,7 +23308,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 2
+          "shards": 4
         },
         "test": "blink_unittests"
       },
@@ -24023,50 +23756,6 @@
           "shards": 2
         },
         "test": "chrome_public_test_vr_apk"
-      },
-      {
-        "args": [
-          "--gs-results-bucket=chromium-result-details",
-          "--recover-devices"
-        ],
-        "merge": {
-          "args": [
-            "--bucket",
-            "chromium-result-details",
-            "--test-name",
-            "color_unittests"
-          ],
-          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
-              "location": "bin",
-              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
-            }
-          ],
-          "dimension_sets": [
-            {
-              "device_os": "KTU84P",
-              "device_os_type": "userdebug",
-              "device_type": "hammerhead",
-              "os": "Android"
-            }
-          ],
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "args": [
@@ -25742,7 +25431,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 10
+          "shards": 2
         },
         "test": "unit_tests"
       },
@@ -26044,6 +25733,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26088,6 +25778,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26132,6 +25823,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26176,6 +25868,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26220,6 +25913,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26264,6 +25958,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26308,6 +26003,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26352,6 +26048,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26396,6 +26093,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26433,7 +26131,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 2
+          "shards": 4
         },
         "test": "blink_unittests"
       },
@@ -26442,6 +26140,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26486,6 +26185,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26530,6 +26230,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26574,6 +26275,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26619,6 +26321,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26663,6 +26366,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26707,6 +26411,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26751,6 +26456,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26795,6 +26501,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26839,6 +26546,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26883,6 +26591,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26927,6 +26636,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -26963,7 +26673,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 20
+          "shards": 25
         },
         "test": "chrome_public_test_apk"
       },
@@ -26974,6 +26684,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27019,50 +26730,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
-        "merge": {
-          "args": [
-            "--bucket",
-            "chromium-result-details",
-            "--test-name",
-            "color_unittests"
-          ],
-          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
-              "location": "bin",
-              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
-            }
-          ],
-          "dimension_sets": [
-            {
-              "device_os": "MMB29Q",
-              "device_os_type": "userdebug",
-              "device_type": "bullhead",
-              "os": "Android"
-            }
-          ],
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ]
-        },
-        "test": "color_unittests"
-      },
-      {
-        "args": [
-          "--gs-results-bucket=chromium-result-details",
-          "--recover-devices"
-        ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27107,6 +26775,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27152,6 +26821,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27188,7 +26858,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 9
+          "shards": 16
         },
         "test": "content_browsertests"
       },
@@ -27197,6 +26867,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27242,6 +26913,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27287,6 +26959,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27331,6 +27004,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27375,6 +27049,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27419,6 +27094,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27463,6 +27139,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27507,6 +27184,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27551,6 +27229,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27595,6 +27274,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27639,6 +27319,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27683,6 +27364,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27727,6 +27409,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27771,6 +27454,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27815,6 +27499,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27859,6 +27544,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27903,6 +27589,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27947,6 +27634,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -27991,6 +27679,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28035,6 +27724,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28079,6 +27769,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28123,6 +27814,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28167,6 +27859,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28211,6 +27904,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28255,6 +27949,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28300,6 +27995,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28344,6 +28040,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28388,6 +28085,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28432,6 +28130,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28476,6 +28175,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28520,6 +28220,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28564,6 +28265,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28608,6 +28310,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28652,6 +28355,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28696,51 +28400,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
-        "merge": {
-          "args": [
-            "--bucket",
-            "chromium-result-details",
-            "--test-name",
-            "unit_tests"
-          ],
-          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
-              "location": "bin",
-              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
-            }
-          ],
-          "dimension_sets": [
-            {
-              "device_os": "MMB29Q",
-              "device_os_type": "userdebug",
-              "device_type": "bullhead",
-              "os": "Android"
-            }
-          ],
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
-          "shards": 10
-        },
-        "test": "unit_tests"
-      },
-      {
-        "args": [
-          "--gs-results-bucket=chromium-result-details",
-          "--recover-devices"
-        ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28785,6 +28445,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28829,6 +28490,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28873,6 +28535,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28917,6 +28580,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -28961,6 +28625,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -29005,6 +28670,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -29049,6 +28715,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -29094,6 +28761,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "isolate_coverage_data": true,
         "merge": {
           "args": [
             "--bucket",
@@ -29139,6 +28807,7 @@
         "args": [
           "--gtest-benchmark-name=components_perftests"
         ],
+        "isolate_coverage_data": true,
         "isolate_name": "components_perftests",
         "merge": {
           "args": [
@@ -29163,6 +28832,7 @@
         "args": [
           "--platform=android"
         ],
+        "isolate_coverage_data": true,
         "isolate_name": "content_shell_crash_test",
         "merge": {
           "args": [],
@@ -29180,170 +28850,155 @@
             }
           ]
         }
-      },
-      {
-        "isolate_name": "monochrome_apk_checker",
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "name": "monochrome_apk_checker",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "device_os": "MMB29Q",
-              "device_os_type": "userdebug",
-              "device_type": "bullhead",
-              "os": "Android"
-            }
-          ]
-        }
-      },
-      {
-        "args": [
-          "--browser=android-chromium",
-          "--device=android"
-        ],
-        "isolate_name": "telemetry_perf_unittests",
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "name": "telemetry_perf_unittests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "device_os": "MMB29Q",
-              "device_os_type": "userdebug",
-              "device_type": "bullhead",
-              "os": "Android",
-              "temp_band": "<30"
-            }
-          ],
-          "idempotent": false,
-          "shards": 15
-        }
       }
     ],
     "junit_tests": [
       {
+        "isolate_coverage_data": true,
         "name": "android_webview_junit_tests",
         "swarming": {},
         "test": "android_webview_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "base_junit_tests",
         "swarming": {},
         "test": "base_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "chrome_java_test_pagecontroller_junit_tests",
         "swarming": {},
         "test": "chrome_java_test_pagecontroller_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "chrome_junit_tests",
         "swarming": {},
         "test": "chrome_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "components_background_task_scheduler_junit_tests",
         "swarming": {},
         "test": "components_background_task_scheduler_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "components_gcm_driver_junit_tests",
         "swarming": {},
         "test": "components_gcm_driver_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "components_invalidation_impl_junit_tests",
         "swarming": {},
         "test": "components_invalidation_impl_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "components_policy_junit_tests",
         "swarming": {},
         "test": "components_policy_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "components_signin_junit_tests",
         "swarming": {},
         "test": "components_signin_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "components_variations_junit_tests",
         "swarming": {},
         "test": "components_variations_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "content_junit_tests",
         "swarming": {},
         "test": "content_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "device_junit_tests",
         "swarming": {},
         "test": "device_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "junit_unit_tests",
         "swarming": {},
         "test": "junit_unit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "keyboard_accessory_junit_tests",
         "swarming": {},
         "test": "keyboard_accessory_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "media_base_junit_tests",
         "swarming": {},
         "test": "media_base_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "media_router_junit_tests",
         "swarming": {},
         "test": "media_router_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "module_installer_junit_tests",
         "swarming": {},
         "test": "module_installer_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "net_junit_tests",
         "swarming": {},
         "test": "net_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
+        "name": "paint_preview_junit_tests",
+        "swarming": {},
+        "test": "paint_preview_junit_tests"
+      },
+      {
+        "isolate_coverage_data": true,
         "name": "service_junit_tests",
         "swarming": {},
         "test": "service_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "touch_to_fill_junit_tests",
         "swarming": {},
         "test": "touch_to_fill_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "ui_junit_tests",
         "swarming": {},
         "test": "ui_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "webapk_client_junit_tests",
         "swarming": {},
         "test": "webapk_client_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "webapk_shell_apk_h2o_junit_tests",
         "swarming": {},
         "test": "webapk_shell_apk_h2o_junit_tests"
       },
       {
+        "isolate_coverage_data": true,
         "name": "webapk_shell_apk_junit_tests",
         "swarming": {},
         "test": "webapk_shell_apk_junit_tests"
@@ -29377,7 +29032,8 @@
           ],
           "dimension_sets": [
             {
-              "device_os": "PQ1A.190105.004",
+              "device_os": "PQ3A.190801.002",
+              "device_os_flavor": "google",
               "device_os_type": "userdebug",
               "device_type": "walleye",
               "os": "Android"
@@ -29421,7 +29077,8 @@
           ],
           "dimension_sets": [
             {
-              "device_os": "PQ1A.190105.004",
+              "device_os": "PQ3A.190801.002",
+              "device_os_flavor": "google",
               "device_os_type": "userdebug",
               "device_type": "walleye",
               "os": "Android"
@@ -29468,7 +29125,8 @@
           ],
           "dimension_sets": [
             {
-              "device_os": "PQ1A.190105.004",
+              "device_os": "PQ3A.190801.002",
+              "device_os_flavor": "google",
               "device_os_type": "userdebug",
               "device_type": "walleye",
               "os": "Android"
@@ -29516,7 +29174,8 @@
           ],
           "dimension_sets": [
             {
-              "device_os": "PQ1A.190105.004",
+              "device_os": "PQ3A.190801.002",
+              "device_os_flavor": "google",
               "device_os_type": "userdebug",
               "device_type": "walleye",
               "os": "Android"
@@ -29567,7 +29226,8 @@
           ],
           "dimension_sets": [
             {
-              "device_os": "PQ1A.190105.004",
+              "device_os": "PQ3A.190801.002",
+              "device_os_flavor": "google",
               "device_os_type": "userdebug",
               "device_type": "walleye",
               "os": "Android"
@@ -29611,7 +29271,8 @@
           ],
           "dimension_sets": [
             {
-              "device_os": "PQ1A.190105.004",
+              "device_os": "PQ3A.190801.002",
+              "device_os_flavor": "google",
               "device_os_type": "userdebug",
               "device_type": "walleye",
               "os": "Android"
@@ -29655,7 +29316,8 @@
           ],
           "dimension_sets": [
             {
-              "device_os": "PQ1A.190105.004",
+              "device_os": "PQ3A.190801.002",
+              "device_os_flavor": "google",
               "device_os_type": "userdebug",
               "device_type": "walleye",
               "os": "Android"
@@ -29699,7 +29361,8 @@
           ],
           "dimension_sets": [
             {
-              "device_os": "PQ1A.190105.004",
+              "device_os": "PQ3A.190801.002",
+              "device_os_flavor": "google",
               "device_os_type": "userdebug",
               "device_type": "walleye",
               "os": "Android"
@@ -29744,7 +29407,8 @@
           ],
           "dimension_sets": [
             {
-              "device_os": "PQ1A.190105.004",
+              "device_os": "PQ3A.190801.002",
+              "device_os_flavor": "google",
               "device_os_type": "userdebug",
               "device_type": "walleye",
               "os": "Android"
@@ -29788,7 +29452,8 @@
           ],
           "dimension_sets": [
             {
-              "device_os": "PQ1A.190105.004",
+              "device_os": "PQ3A.190801.002",
+              "device_os_flavor": "google",
               "device_os_type": "userdebug",
               "device_type": "walleye",
               "os": "Android"
@@ -30219,7 +29884,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 2
+          "shards": 4
         },
         "test": "blink_unittests"
       },
@@ -30676,51 +30341,6 @@
           "shards": 20
         },
         "test": "chrome_public_test_apk"
-      },
-      {
-        "args": [
-          "--gs-results-bucket=chromium-result-details",
-          "--recover-devices"
-        ],
-        "merge": {
-          "args": [
-            "--bucket",
-            "chromium-result-details",
-            "--test-name",
-            "color_unittests"
-          ],
-          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
-              "location": "bin",
-              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
-            }
-          ],
-          "dimension_sets": [
-            {
-              "device_os": "PQ3A.190801.002",
-              "device_os_flavor": "google",
-              "device_os_type": "userdebug",
-              "device_type": "walleye",
-              "os": "Android"
-            }
-          ],
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ]
-        },
-        "test": "color_unittests"
       },
       {
         "args": [
@@ -32619,7 +32239,7 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "shards": 10
+          "shards": 2
         },
         "test": "unit_tests"
       },

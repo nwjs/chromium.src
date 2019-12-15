@@ -35,8 +35,7 @@
 #include "base/callback.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
-#include "mojo/public/cpp/bindings/interface_request.h"
-#include "services/service_manager/public/cpp/interface_provider.h"
+#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/websockets/websocket_connector.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
@@ -253,15 +252,9 @@ bool WebSocketChannelImpl::Connect(const KURL& url, const String& protocol) {
   }
 
   mojo::Remote<mojom::blink::WebSocketConnector> connector;
-  if (execution_context_->GetInterfaceProvider()) {
-    execution_context_->GetInterfaceProvider()->GetInterface(
-        connector.BindNewPipeAndPassReceiver(
-            execution_context_->GetTaskRunner(TaskType::kWebSocket)));
-  } else {
-    // Create a fake request. This will lead to a closed WebSocket due to
-    // a mojo connection error.
-    ignore_result(connector.BindNewPipeAndPassReceiver());
-  }
+  execution_context_->GetBrowserInterfaceBroker().GetInterface(
+      connector.BindNewPipeAndPassReceiver(
+          execution_context_->GetTaskRunner(TaskType::kWebSocket)));
 
   connector->Connect(
       url, protocols, GetBaseFetchContext()->GetSiteForCookies(),
@@ -336,8 +329,8 @@ void WebSocketChannelImpl::Send(
 
 WebSocketChannel::SendResult WebSocketChannelImpl::Send(
     const DOMArrayBuffer& buffer,
-    unsigned byte_offset,
-    unsigned byte_length,
+    size_t byte_offset,
+    size_t byte_length,
     base::OnceClosure completion_callback) {
   NETWORK_DVLOG(1) << this << " Send(" << buffer.Data() << ", " << byte_offset
                    << ", " << byte_length << ") "
@@ -457,11 +450,11 @@ void WebSocketChannelImpl::OnConnectionEstablished(
     mojo::PendingRemote<network::mojom::blink::WebSocket> websocket,
     mojo::PendingReceiver<network::mojom::blink::WebSocketClient>
         client_receiver,
-    const String& protocol,
-    const String& extensions,
     network::mojom::blink::WebSocketHandshakeResponsePtr response,
     mojo::ScopedDataPipeConsumerHandle readable) {
   DCHECK_EQ(GetState(), State::kConnecting);
+  const String& protocol = response->selected_protocol;
+  const String& extensions = response->extensions;
   NETWORK_DVLOG(1) << this << " OnConnectionEstablished(" << protocol << ", "
                    << extensions << ")";
   TRACE_EVENT_INSTANT1(
@@ -684,7 +677,7 @@ void WebSocketChannelImpl::ProcessSendQueue() {
         CHECK(message->array_buffer);
         SendInternal(network::mojom::blink::WebSocketMessageType::BINARY,
                      static_cast<const char*>(message->array_buffer->Data()),
-                     message->array_buffer->ByteLength(),
+                     message->array_buffer->DeprecatedByteLengthAsUnsigned(),
                      &consumed_buffered_amount);
         break;
       case kMessageTypeClose: {

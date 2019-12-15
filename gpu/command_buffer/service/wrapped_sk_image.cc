@@ -18,6 +18,7 @@
 #include "gpu/command_buffer/service/shared_image_backing.h"
 #include "gpu/command_buffer/service/shared_image_representation.h"
 #include "gpu/command_buffer/service/skia_utils.h"
+#include "skia/buildflags.h"
 #include "third_party/skia/include/core/SkPromiseImageTexture.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "third_party/skia/include/core/SkSurfaceProps.h"
@@ -201,6 +202,14 @@ class WrappedSkImage : public SharedImageBacking {
           tracing_id_ = reinterpret_cast<uint64_t>(image_info.fImage);
         break;
       }
+#if BUILDFLAG(SKIA_USE_DAWN)
+      case GrBackendApi::kDawn: {
+        GrDawnTextureInfo tex_info;
+        if (backend_texture.getDawnTextureInfo(&tex_info))
+          tracing_id_ = reinterpret_cast<uint64_t>(tex_info.fTexture.Get());
+        break;
+      }
+#endif
       default:
         NOTREACHED();
         return false;

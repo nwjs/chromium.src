@@ -35,6 +35,8 @@ DIR_SOURCE_ROOT = os.environ.get('CHECKOUT_SOURCE_ROOT',
                                  os.pardir, os.pardir, os.pardir, os.pardir)))
 JAVA_PATH = os.path.join(DIR_SOURCE_ROOT, 'third_party', 'jdk', 'current',
                          'bin', 'java')
+RT_JAR_PATH = os.path.join(DIR_SOURCE_ROOT, 'third_party', 'jdk', 'extras',
+                           'java_8', 'jre', 'lib', 'rt.jar')
 
 try:
   string_types = basestring
@@ -473,8 +475,6 @@ def MergeZips(output, input_zips, path_transform=None, compress=None):
   try:
     for in_file in input_zips:
       with zipfile.ZipFile(in_file, 'r') as in_zip:
-        # ijar creates zips with null CRCs.
-        in_zip._expected_crc = None
         for info in in_zip.infolist():
           # Ignore directories.
           if info.filename[-1] == '/':

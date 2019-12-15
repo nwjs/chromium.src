@@ -566,134 +566,115 @@ void NativeThemeWin::PaintDirect(SkCanvas* destination_canvas,
 SkColor NativeThemeWin::GetSystemColor(ColorId color_id,
                                        ColorScheme color_scheme) const {
   if (color_scheme == ColorScheme::kDefault)
-    color_scheme = GetSystemColorScheme();
+    color_scheme = GetDefaultSystemColorScheme();
 
-  // Win32 system colors currently don't support Dark Mode. As a result,
-  // fallback on the Aura colors. Inverted color schemes can be ignored here
-  // as it's only true when Chrome is running on a high-contrast AND when the
-  // relative luminance of COLOR_WINDOWTEXT is greater than COLOR_WINDOW (e.g.
-  // white on black), which is basically like dark mode.
-  if (color_scheme == ColorScheme::kDark)
-    return GetAuraColor(color_id, this, color_scheme);
+  return (color_scheme == ColorScheme::kPlatformHighContrast)
+             ? GetPlatformHighContrastColor(color_id)
+             : GetAuraColor(color_id, this, color_scheme);
+}
 
-  // TODO: Obtain the correct colors for these using GetSysColor.
-  // Button:
-  constexpr SkColor kButtonHoverColor = SkColorSetRGB(6, 45, 117);
-  constexpr SkColor kProminentButtonColorInvert = gfx::kGoogleBlue300;
-  // MenuItem:
-  constexpr SkColor kMenuSchemeHighlightBackgroundColorInvert =
-      SkColorSetRGB(0x30, 0x30, 0x30);
-  // Label:
-  constexpr SkColor kLabelTextSelectionBackgroundFocusedColor =
-      gfx::kGoogleBlue700;
-
+SkColor NativeThemeWin::GetPlatformHighContrastColor(ColorId color_id) const {
   switch (color_id) {
-    // Windows
+    // Window Background
     case kColorId_WindowBackground:
-      return system_colors_[SystemThemeColor::kWindow];
-
-    // Dialogs
     case kColorId_DialogBackground:
     case kColorId_BubbleBackground:
-      break;
+    case kColorId_BubbleFooterBackground:
+    case kColorId_TreeBackground:
+    case kColorId_TableHeaderBackground:
+    case kColorId_TableBackground:
+    case kColorId_TooltipBackground:
+    case kColorId_ProminentButtonDisabledColor:
+      return system_colors_[SystemThemeColor::kWindow];
 
-    // FocusableBorder
-    case kColorId_FocusedBorderColor:
-    case kColorId_UnfocusedBorderColor:
-      break;
+    // Window Text
+    case kColorId_DefaultIconColor:
+    case kColorId_DialogForeground:
+    case kColorId_LabelEnabledColor:
+    case kColorId_LabelSecondaryColor:
+    case kColorId_TreeText:
+    case kColorId_TableText:
+    case kColorId_TableHeaderText:
+    case kColorId_TableGroupingIndicatorColor:
+    case kColorId_TableHeaderSeparator:
+    case kColorId_TooltipText:
+    case kColorId_ThrobberSpinningColor:
+    case kColorId_ThrobberLightColor:
+    case kColorId_AlertSeverityLow:
+    case kColorId_AlertSeverityMedium:
+    case kColorId_AlertSeverityHigh:
+      return system_colors_[SystemThemeColor::kWindowText];
 
-    // Button
-    case kColorId_ButtonEnabledColor:
-      return system_colors_[SystemThemeColor::kButtonText];
-    case kColorId_ButtonHoverColor:
-      return kButtonHoverColor;
+    // Hyperlinks
+    case kColorId_LinkEnabled:
+    case kColorId_LinkPressed:
+    case kColorId_HighlightedMenuItemForegroundColor:
+      return system_colors_[SystemThemeColor::kHotlight];
+
+    // Gray/Disabled Text
+    case kColorId_DisabledMenuItemForegroundColor:
+    case kColorId_LinkDisabled:
 
     // Menu
     case kColorId_MenuBackgroundColor:
       return SK_ColorWHITE;
 
-    // Label
-    case kColorId_LabelEnabledColor:
-      return system_colors_[SystemThemeColor::kButtonText];
     case kColorId_LabelDisabledColor:
+    case kColorId_ButtonDisabledColor:
+    case kColorId_ThrobberWaitingColor:
       return system_colors_[SystemThemeColor::kGrayText];
-    case kColorId_LabelTextSelectionColor:
-      return system_colors_[SystemThemeColor::kHighlightText];
-    case kColorId_LabelTextSelectionBackgroundFocused:
-      return kLabelTextSelectionBackgroundFocusedColor;
 
-    // Textfield
-    case kColorId_TextfieldDefaultColor:
-      return system_colors_[SystemThemeColor::kWindowText];
+    // Button Background
+    case kColorId_MenuBackgroundColor:
+    case kColorId_HighlightedMenuItemBackgroundColor:
     case kColorId_TextfieldDefaultBackground:
-      return system_colors_[SystemThemeColor::kWindow];
-    case kColorId_TextfieldReadOnlyColor:
-      return system_colors_[SystemThemeColor::kGrayText];
     case kColorId_TextfieldReadOnlyBackground:
+    case kColorId_ButtonPressedShade:
       return system_colors_[SystemThemeColor::kButtonFace];
-    case kColorId_TextfieldSelectionColor:
-      return system_colors_[SystemThemeColor::kHighlightText];
+
+    // Button Text Foreground
+    case kColorId_EnabledMenuItemForegroundColor:
+    case kColorId_MenuItemMinorTextColor:
+    case kColorId_MenuBorderColor:
+    case kColorId_MenuSeparatorColor:
+    case kColorId_SeparatorColor:
+    case kColorId_TextfieldDefaultColor:
+    case kColorId_ButtonEnabledColor:
+    case kColorId_UnfocusedBorderColor:
+    case kColorId_TextfieldReadOnlyColor:
+    case kColorId_FocusedBorderColor:
+    case kColorId_TabTitleColorActive:
+    case kColorId_TabTitleColorInactive:
+    case kColorId_TabBottomBorder:
+      return system_colors_[SystemThemeColor::kButtonText];
+
+    // Highlight/Selected Background
+    case kColorId_ProminentButtonColor:
+    case kColorId_ProminentButtonFocusedColor:
+    case kColorId_ButtonBorderColor:
+    case kColorId_FocusedMenuItemBackgroundColor:
+    case kColorId_LabelTextSelectionBackgroundFocused:
     case kColorId_TextfieldSelectionBackgroundFocused:
-      return system_colors_[SystemThemeColor::kHighlight];
-
-    // Tooltip
-    case kColorId_TooltipBackground:
-      return system_colors_[SystemThemeColor::kWindow];
-    case kColorId_TooltipText:
-      return system_colors_[SystemThemeColor::kWindowText];
-
-    // Tree
-    // NOTE: these aren't right for all themes, but as close as I could get.
-    case kColorId_TreeBackground:
-      return system_colors_[SystemThemeColor::kWindow];
-    case kColorId_TreeText:
-      return system_colors_[SystemThemeColor::kWindowText];
-    case kColorId_TreeSelectedText:
-      return system_colors_[SystemThemeColor::kHighlightText];
-    case kColorId_TreeSelectedTextUnfocused:
-      return system_colors_[SystemThemeColor::kButtonText];
     case kColorId_TreeSelectionBackgroundFocused:
-      return system_colors_[SystemThemeColor::kHighlight];
     case kColorId_TreeSelectionBackgroundUnfocused:
-      return system_colors_[UsesHighContrastColors()
-                                ? SystemThemeColor::kMenuHighlight
-                                : SystemThemeColor::kButtonFace];
-
-    // Table
-    case kColorId_TableBackground:
-      return system_colors_[SystemThemeColor::kWindow];
-    case kColorId_TableText:
-      return system_colors_[SystemThemeColor::kWindowText];
-    case kColorId_TableSelectedText:
-      return system_colors_[SystemThemeColor::kHighlightText];
-    case kColorId_TableSelectedTextUnfocused:
-      return system_colors_[SystemThemeColor::kButtonText];
     case kColorId_TableSelectionBackgroundFocused:
-      return system_colors_[SystemThemeColor::kHighlight];
     case kColorId_TableSelectionBackgroundUnfocused:
-      return system_colors_[UsesHighContrastColors()
-                                ? SystemThemeColor::kMenuHighlight
-                                : SystemThemeColor::kButtonFace];
-    case kColorId_TableGroupingIndicatorColor:
-      return system_colors_[SystemThemeColor::kGrayText];
+      return system_colors_[SystemThemeColor::kHighlight];
+
+    // Highlight/Selected Text Foreground
+    case kColorId_TextOnProminentButtonColor:
+    case kColorId_SelectedMenuItemForegroundColor:
+    case kColorId_TextfieldSelectionColor:
+    case kColorId_LabelTextSelectionColor:
+    case kColorId_TreeSelectedText:
+    case kColorId_TreeSelectedTextUnfocused:
+    case kColorId_TableSelectedText:
+    case kColorId_TableSelectedTextUnfocused:
+      return system_colors_[SystemThemeColor::kHighlightText];
 
     default:
-      break;
+      return gfx::kPlaceholderColor;
   }
-
-  if (color_utils::IsInvertedColorScheme()) {
-    switch (color_id) {
-      case NativeTheme::kColorId_FocusedMenuItemBackgroundColor:
-        return kMenuSchemeHighlightBackgroundColorInvert;
-      case NativeTheme::kColorId_ProminentButtonColor:
-        return kProminentButtonColorInvert;
-      default:
-        return color_utils::InvertColor(
-            GetAuraColor(color_id, this, color_scheme));
-    }
-  }
-
-  return GetAuraColor(color_id, this, color_scheme);
 }
 
 bool NativeThemeWin::SupportsNinePatch(Part part) const {
@@ -741,6 +722,11 @@ NativeThemeWin::CalculatePreferredColorScheme() const {
   if (bg_color == SK_ColorBLACK && fg_color == SK_ColorWHITE)
     return NativeTheme::PreferredColorScheme::kDark;
   return NativeTheme::PreferredColorScheme::kNoPreference;
+}
+
+NativeTheme::ColorScheme NativeThemeWin::GetDefaultSystemColorScheme() const {
+  return UsesHighContrastColors() ? ColorScheme::kPlatformHighContrast
+                                  : NativeTheme::GetDefaultSystemColorScheme();
 }
 
 void NativeThemeWin::PaintIndirect(cc::PaintCanvas* destination_canvas,

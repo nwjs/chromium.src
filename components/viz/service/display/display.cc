@@ -9,12 +9,10 @@
 
 #include "base/debug/dump_without_crashing.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/numerics/checked_math.h"
 #include "base/optional.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "cc/base/math_util.h"
 #include "cc/base/simple_enclosed_region.h"
 #include "cc/benchmarks/benchmark_instrumentation.h"
 #include "components/viz/common/display/renderer_settings.h"
@@ -175,6 +173,7 @@ Display::Display(
       scheduler_(std::move(scheduler)),
       current_task_runner_(std::move(current_task_runner)),
       swapped_trace_id_(GetStartingTraceId()),
+      last_swap_ack_trace_id_(swapped_trace_id_),
       last_presented_trace_id_(swapped_trace_id_) {
   DCHECK(output_surface_);
   DCHECK(frame_sink_id_.is_valid());
@@ -494,7 +493,7 @@ bool Display::DrawAndSwap() {
     frame = aggregator_->Aggregate(
         current_surface_id_,
         scheduler_ ? scheduler_->current_frame_display_time() : now_time,
-        output_surface_->GetDisplayTransform(), ++swapped_trace_id_);
+        ++swapped_trace_id_);
   }
 
   UMA_HISTOGRAM_COUNTS_1M("Compositing.SurfaceAggregator.AggregateUs",
@@ -524,11 +523,16 @@ bool Display::DrawAndSwap() {
   bool have_damage = false;
   auto& last_render_pass = *frame.render_pass_list.back();
 
+  const gfx::OverlayTransform current_display_transform =
+      frame.metadata.display_transform_hint;
+  if (current_display_transform != output_surface_->GetDisplayTransform())
+    output_surface_->SetDisplayTransformHint(current_display_transform);
+
   // The CompositorFrame provided by the SurfaceAggregator includes the display
   // transform while |current_surface_size_| is the pre-transform size received
   // from the client.
   const gfx::Transform display_transform = gfx::OverlayTransformToTransform(
-      output_surface_->GetDisplayTransform(), current_surface_size_);
+      current_display_transform, gfx::SizeF(current_surface_size_));
   const gfx::Size current_surface_size =
       cc::MathUtil::MapEnclosedRectWith2dAxisAlignedTransform(
           display_transform, gfx::Rect(current_surface_size_))
@@ -577,12 +581,20 @@ bool Display::DrawAndSwap() {
     renderer_->DecideRenderPassAllocationsForFrame(frame.render_pass_list);
     renderer_->DrawFrame(&frame.render_pass_list, device_scale_factor_,
                          current_surface_size, sdr_white_level_);
-    if (software_renderer_) {
-      UMA_HISTOGRAM_COUNTS_1M("Compositing.DirectRenderer.Software.DrawFrameUs",
-                              draw_timer->Elapsed().InMicroseconds());
-    } else {
-      UMA_HISTOGRAM_COUNTS_1M("Compositing.DirectRenderer.GL.DrawFrameUs",
-                              draw_timer->Elapsed().InMicroseconds());
+    switch (output_surface_->type()) {
+      case OutputSurface::Type::kSoftware:
+        UMA_HISTOGRAM_COUNTS_1M(
+            "Compositing.DirectRenderer.Software.DrawFrameUs",
+            draw_timer->Elapsed().InMicroseconds());
+        break;
+      case OutputSurface::Type::kOpenGL:
+        UMA_HISTOGRAM_COUNTS_1M("Compositing.DirectRenderer.GL.DrawFrameUs",
+                                draw_timer->Elapsed().InMicroseconds());
+        break;
+      case OutputSurface::Type::kVulkan:
+        UMA_HISTOGRAM_COUNTS_1M("Compositing.DirectRenderer.VK.DrawFrameUs",
+                                draw_timer->Elapsed().InMicroseconds());
+        break;
     }
 
     PresentationGroupTiming presentation_group_timing;
@@ -608,19 +620,25 @@ bool Display::DrawAndSwap() {
   if (should_swap) {
     TRACE_EVENT_ASYNC_STEP_INTO0("viz,benchmark",
                                  "Graphics.Pipeline.DrawAndSwap",
-                                 swapped_trace_id_, "Swap");
+                                 swapped_trace_id_, "WaitForSwap");
     swapped_since_resize_ = true;
 
     ui::LatencyInfo::TraceIntermediateFlowEvents(frame.metadata.latency_info,
                                                  "Display::DrawAndSwap");
 
     cc::benchmark_instrumentation::IssueDisplayRenderingStatsEvent();
-    renderer_->SwapBuffers(std::move(frame.metadata.latency_info));
+    DirectRenderer::SwapFrameData swap_frame_data;
+    swap_frame_data.latency_info = std::move(frame.metadata.latency_info);
+    if (frame.metadata.top_controls_visible_height.has_value()) {
+      swap_frame_data.top_controls_visible_height_changed =
+          last_top_controls_visible_height_ !=
+          *frame.metadata.top_controls_visible_height;
+      last_top_controls_visible_height_ =
+          *frame.metadata.top_controls_visible_height;
+    }
+    renderer_->SwapBuffers(std::move(swap_frame_data));
     if (scheduler_)
       scheduler_->DidSwapBuffers();
-    TRACE_EVENT_ASYNC_STEP_INTO0("viz,benchmark",
-                                 "Graphics.Pipeline.DrawAndSwap",
-                                 swapped_trace_id_, "WaitForPresentation");
   } else {
     TRACE_EVENT_INSTANT0("viz", "Swap skipped.", TRACE_EVENT_SCOPE_THREAD);
 
@@ -668,6 +686,14 @@ void Display::DidReceiveSwapBuffersAck(const gfx::SwapTimings& timings) {
   // have been done in DrawAndSwap(), and should not be popped until
   // DidReceiveSwapBuffersAck.
   DCHECK(!pending_presentation_group_timings_.empty());
+
+  ++last_swap_ack_trace_id_;
+  TRACE_EVENT_ASYNC_STEP_INTO_WITH_TIMESTAMP0(
+      "viz,benchmark", "Graphics.Pipeline.DrawAndSwap", last_swap_ack_trace_id_,
+      "Swap", timings.swap_start);
+  TRACE_EVENT_ASYNC_STEP_INTO_WITH_TIMESTAMP0(
+      "viz,benchmark", "Graphics.Pipeline.DrawAndSwap", last_swap_ack_trace_id_,
+      "WaitForPresentation", timings.swap_end);
 
   if (scheduler_) {
     scheduler_->DidReceiveSwapBuffersAck();
@@ -740,10 +766,6 @@ void Display::DidReceivePresentationFeedback(
       copy_feedback.timestamp);
   presentation_group_timing.OnPresent(copy_feedback);
   pending_presentation_group_timings_.pop_front();
-}
-
-void Display::DidFinishLatencyInfo(
-    const std::vector<ui::LatencyInfo>& latency_info) {
 }
 
 void Display::SetNeedsRedrawRect(const gfx::Rect& damage_rect) {
@@ -845,39 +867,22 @@ void Display::RemoveOverdrawQuads(CompositorFrame* frame) {
   int minimum_draw_occlusion_width =
       settings_.kMinimumDrawOcclusionSize.width() * device_scale_factor_;
 
-  // Total quad area to be drawn on screen before applying draw occlusion.
-  base::CheckedNumeric<uint64_t> total_quad_area_shown_wo_occlusion_px = 0;
-
-  // Total area not draw skipped by draw occlusion.
-  base::CheckedNumeric<uint64_t> total_area_saved_in_px = 0;
-
   for (const auto& pass : frame->render_pass_list) {
     // TODO(yiyix): Add filter effects to draw occlusion calculation and perform
     // draw occlusion on render pass.
     if (!pass->filters.IsEmpty() || !pass->backdrop_filters.IsEmpty()) {
-      for (auto* const quad : pass->quad_list) {
-        total_quad_area_shown_wo_occlusion_px +=
-            quad->visible_rect.size().GetCheckedArea();
-      }
       continue;
     }
 
     // TODO(yiyix): Perform draw occlusion inside the render pass with
     // transparent background.
     if (pass != frame->render_pass_list.back()) {
-      for (auto* const quad : pass->quad_list) {
-        total_quad_area_shown_wo_occlusion_px +=
-            quad->visible_rect.size().GetCheckedArea();
-      }
       continue;
     }
 
     auto quad_list_end = pass->quad_list.end();
     gfx::Rect occlusion_in_quad_content_space;
     for (auto quad = pass->quad_list.begin(); quad != quad_list_end;) {
-      total_quad_area_shown_wo_occlusion_px +=
-          quad->visible_rect.size().GetCheckedArea();
-
       // Skip quad if it is a RenderPassDrawQuad because RenderPassDrawQuad is a
       // special type of DrawQuad where the visible_rect of shared quad state is
       // not entirely covered by draw quads in it; or the DrawQuad size is
@@ -965,7 +970,6 @@ void Display::RemoveOverdrawQuads(CompositorFrame* frame) {
         // Case 1: for simple transforms (scale or translation), define the
         // occlusion region in the quad content space. If the |quad| is not
         // shown on the screen, then remove |quad| from the compositor frame.
-        total_area_saved_in_px += quad->visible_rect.size().GetCheckedArea();
         quad = pass->quad_list.EraseAndInvalidateAllPointers(quad);
 
       } else if (occlusion_in_quad_content_space.Intersects(
@@ -977,7 +981,6 @@ void Display::RemoveOverdrawQuads(CompositorFrame* frame) {
         quad->visible_rect.Subtract(occlusion_in_quad_content_space);
         if (origin_rect != quad->visible_rect) {
           origin_rect.Subtract(quad->visible_rect);
-          total_area_saved_in_px += origin_rect.size().GetCheckedArea();
         }
         ++quad;
       } else if (occlusion_in_quad_content_space.IsEmpty() &&
@@ -987,26 +990,12 @@ void Display::RemoveOverdrawQuads(CompositorFrame* frame) {
         // Case 3: for non simple transforms, define the occlusion region in
         // target space. If the |quad| is not shown on the screen, then remove
         // |quad| from the compositor frame.
-        total_area_saved_in_px += quad->visible_rect.size().GetCheckedArea();
         quad = pass->quad_list.EraseAndInvalidateAllPointers(quad);
       } else {
         ++quad;
       }
     }
   }
-
-  UMA_HISTOGRAM_PERCENTAGE(
-      "Compositing.Display.Draw.Occlusion.Percentage.Saved",
-      total_quad_area_shown_wo_occlusion_px.ValueOrDefault(0) == 0
-          ? 0
-          : static_cast<uint64_t>(total_area_saved_in_px.ValueOrDie()) * 100 /
-                static_cast<uint64_t>(
-                    total_quad_area_shown_wo_occlusion_px.ValueOrDie()));
-
-  UMA_HISTOGRAM_COUNTS_1M(
-      "Compositing.Display.Draw.Occlusion.Drawing.Area.Saved2",
-      static_cast<uint64_t>(total_area_saved_in_px.ValueOrDefault(
-          std::numeric_limits<uint64_t>::max())));
 }
 
 void Display::RunDrawCallbacks() {
@@ -1039,10 +1028,6 @@ base::TimeDelta Display::GetPreferredFrameIntervalForFrameSinkId(
 void Display::SetSupportedFrameIntervals(
     std::vector<base::TimeDelta> intervals) {
   frame_rate_decider_->SetSupportedFrameIntervals(std::move(intervals));
-}
-
-void Display::SetDisplayTransformHint(gfx::OverlayTransform transform) {
-  output_surface_->SetDisplayTransformHint(transform);
 }
 
 base::ScopedClosureRunner Display::GetCacheBackBufferCb() {

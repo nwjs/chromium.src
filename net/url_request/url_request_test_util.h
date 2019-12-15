@@ -15,6 +15,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
+#include "base/optional.h"
 #include "base/path_service.h"
 #include "base/single_thread_task_runner.h"
 #include "base/strings/string16.h"
@@ -87,6 +88,14 @@ class TestURLRequestContext : public URLRequestContext {
   void set_create_default_http_user_agent_settings(bool value) {
     create_default_http_user_agent_settings_ = value;
   }
+
+  // Like CreateRequest, but also updates |site_for_cookies| to give the request
+  // a 1st-party context.
+  std::unique_ptr<URLRequest> CreateFirstPartyRequest(
+      const GURL& url,
+      RequestPriority priority,
+      URLRequest::Delegate* delegate,
+      NetworkTrafficAnnotationTag traffic_annotation) const;
 
  private:
   bool initialized_ = false;
@@ -188,6 +197,7 @@ class TestDelegate : public URLRequest::Delegate {
   bool certificate_errors_are_fatal() const {
     return certificate_errors_are_fatal_;
   }
+  int certificate_net_error() const { return certificate_net_error_; }
   bool auth_required_called() const { return auth_required_; }
   bool response_completed() const { return response_completed_; }
   int request_status() const { return request_status_; }
@@ -238,6 +248,7 @@ class TestDelegate : public URLRequest::Delegate {
   bool request_failed_ = false;
   bool have_certificate_errors_ = false;
   bool certificate_errors_are_fatal_ = false;
+  int certificate_net_error_ = 0;
   bool auth_required_ = false;
   std::string data_received_;
   bool response_completed_ = false;
@@ -280,8 +291,9 @@ class TestNetworkDelegate : public NetworkDelegateImpl {
     add_header_to_first_response_ = add_header_to_first_response;
   }
 
-  void set_allowed_unsafe_redirect_url(GURL allowed_unsafe_redirect_url) {
-    allowed_unsafe_redirect_url_ = allowed_unsafe_redirect_url;
+  void set_preserve_fragment_on_redirect_url(
+      const base::Optional<GURL>& preserve_fragment_on_redirect_url) {
+    preserve_fragment_on_redirect_url_ = preserve_fragment_on_redirect_url;
   }
 
   void set_cookie_options(int o) {cookie_options_bit_mask_ = o; }
@@ -340,7 +352,7 @@ class TestNetworkDelegate : public NetworkDelegateImpl {
       const HttpResponseHeaders* original_response_headers,
       scoped_refptr<HttpResponseHeaders>* override_response_headers,
       const IPEndPoint& endpoint,
-      GURL* allowed_unsafe_redirect_url) override;
+      base::Optional<GURL>* preserve_fragment_on_redirect_url) override;
   void OnBeforeRedirect(URLRequest* request, const GURL& new_location) override;
   void OnResponseStarted(URLRequest* request, int net_error) override;
   void OnCompleted(URLRequest* request, bool started, int net_error) override;
@@ -365,8 +377,9 @@ class TestNetworkDelegate : public NetworkDelegateImpl {
   int GetRequestId(URLRequest* request);
 
   GURL redirect_on_headers_received_url_;
-  // URL marked as safe for redirection at the onHeadersReceived stage.
-  GURL allowed_unsafe_redirect_url_;
+  // URL to mark as retaining its fragment if redirected to at the
+  // OnHeadersReceived() stage.
+  base::Optional<GURL> preserve_fragment_on_redirect_url_;
 
   int last_error_;
   int error_count_;

@@ -577,7 +577,8 @@ TEST_F(RenderViewImplTest, IsPinchGestureActivePropagatesToProxies) {
   cc::ApplyViewportChangesArgs args;
   args.page_scale_delta = 1.f;
   args.is_pinch_gesture_active = true;
-  args.browser_controls_delta = 0.f;
+  args.top_controls_delta = 0.f;
+  args.bottom_controls_delta = 0.f;
   args.browser_controls_constraint = cc::BrowserControlsState::kHidden;
   args.scroll_gesture_did_end = false;
 
@@ -844,6 +845,10 @@ TEST_F(RenderViewImplTest, BeginNavigation) {
   auto form_navigation_info = std::make_unique<blink::WebNavigationInfo>();
   form_navigation_info->url_request = blink::WebURLRequest(GetWebUIURL("foo"));
   form_navigation_info->url_request.SetHttpMethod("POST");
+  blink::WebHTTPBody post_body;
+  post_body.Initialize();
+  post_body.AppendData("blah");
+  form_navigation_info->url_request.SetHttpBody(post_body);
   form_navigation_info->url_request.SetRequestorOrigin(requestor_origin);
   form_navigation_info->frame_type =
       network::mojom::RequestContextFrameType::kTopLevel;
@@ -944,6 +949,10 @@ TEST_F(RenderViewImplTest, BeginNavigationForWebUI) {
       blink::WebURLRequest(GURL("data:text/html,foo"));
   data_navigation_info->url_request.SetRequestorOrigin(requestor_origin);
   data_navigation_info->url_request.SetHttpMethod("POST");
+  blink::WebHTTPBody post_body;
+  post_body.Initialize();
+  post_body.AppendData("blah");
+  data_navigation_info->url_request.SetHttpBody(post_body);
   data_navigation_info->frame_type =
       network::mojom::RequestContextFrameType::kTopLevel;
   data_navigation_info->navigation_type =
@@ -1064,7 +1073,7 @@ TEST_F(RenderViewImplTest, OriginReplicationForSwapOut) {
   child_frame2->SwapOut(kProxyRoutingId + 1, true, replication_state);
   EXPECT_TRUE(web_frame->FirstChild()->NextSibling()->IsWebRemoteFrame());
   EXPECT_TRUE(
-      web_frame->FirstChild()->NextSibling()->GetSecurityOrigin().IsUnique());
+      web_frame->FirstChild()->NextSibling()->GetSecurityOrigin().IsOpaque());
 }
 
 // When we enable --use-zoom-for-dsf, visiting the first web page after opening
@@ -1093,16 +1102,9 @@ TEST_F(RenderViewImplEnableZoomForDSFTest, UpdateDSFAfterSwapIn) {
   // Do the remote-to-local transition for the proxy, which is to create a
   // provisional local frame.
   int routing_id = kProxyRoutingId + 1;
-  service_manager::mojom::InterfaceProviderPtr stub_interface_provider;
-  mojo::MakeRequest(&stub_interface_provider);
-  mojo::PendingRemote<blink::mojom::DocumentInterfaceBroker>
-      stub_document_interface_broker_content;
-  ignore_result(
-      stub_document_interface_broker_content.InitWithNewPipeAndPassReceiver());
-  mojo::PendingRemote<blink::mojom::DocumentInterfaceBroker>
-      stub_document_interface_broker_blink;
-  ignore_result(
-      stub_document_interface_broker_blink.InitWithNewPipeAndPassReceiver());
+  mojo::PendingRemote<service_manager::mojom::InterfaceProvider>
+      stub_interface_provider;
+  ignore_result(stub_interface_provider.InitWithNewPipeAndPassReceiver());
   mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
       stub_browser_interface_broker;
   ignore_result(stub_browser_interface_broker.InitWithNewPipeAndPassReceiver());
@@ -1114,8 +1116,6 @@ TEST_F(RenderViewImplEnableZoomForDSFTest, UpdateDSFAfterSwapIn) {
   widget_params.visual_properties = test_visual_properties;
   RenderFrameImpl::CreateFrame(
       routing_id, std::move(stub_interface_provider),
-      std::move(stub_document_interface_broker_content),
-      std::move(stub_document_interface_broker_blink),
       std::move(stub_browser_interface_broker), kProxyRoutingId,
       MSG_ROUTING_NONE, MSG_ROUTING_NONE, MSG_ROUTING_NONE,
       base::UnguessableToken::Create(), replication_state, nullptr,
@@ -1171,24 +1171,15 @@ TEST_F(RenderViewImplTest, DetachingProxyAlsoDestroysProvisionalFrame) {
   // Do the first step of a remote-to-local transition for the child proxy,
   // which is to create a provisional local frame.
   int routing_id = kProxyRoutingId + 1;
-  service_manager::mojom::InterfaceProviderPtr stub_interface_provider;
-  mojo::MakeRequest(&stub_interface_provider);
-  mojo::PendingRemote<blink::mojom::DocumentInterfaceBroker>
-      stub_document_interface_broker_content;
-  ignore_result(
-      stub_document_interface_broker_content.InitWithNewPipeAndPassReceiver());
-  mojo::PendingRemote<blink::mojom::DocumentInterfaceBroker>
-      stub_document_interface_broker_blink;
-  ignore_result(
-      stub_document_interface_broker_blink.InitWithNewPipeAndPassReceiver());
+  mojo::PendingRemote<service_manager::mojom::InterfaceProvider>
+      stub_interface_provider;
+  ignore_result(stub_interface_provider.InitWithNewPipeAndPassReceiver());
   mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
       stub_browser_interface_broker;
   ignore_result(stub_browser_interface_broker.InitWithNewPipeAndPassReceiver());
 
   RenderFrameImpl::CreateFrame(
       routing_id, std::move(stub_interface_provider),
-      std::move(stub_document_interface_broker_content),
-      std::move(stub_document_interface_broker_blink),
       std::move(stub_browser_interface_broker), kProxyRoutingId,
       MSG_ROUTING_NONE, frame()->GetRoutingID(), MSG_ROUTING_NONE,
       base::UnguessableToken::Create(), replication_state, nullptr,

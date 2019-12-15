@@ -302,8 +302,7 @@ void InProcessContextFactory::CreateLayerTreeFrameSink(
       compositor->frame_sink_id(), GetHostFrameSinkManager(),
       frame_sink_manager_, display, nullptr /* display_client */,
       context_provider, shared_worker_context_provider_,
-      compositor->task_runner(), &gpu_memory_buffer_manager_,
-      features::IsVizHitTestingSurfaceLayerEnabled());
+      compositor->task_runner(), &gpu_memory_buffer_manager_);
   compositor->SetLayerTreeFrameSink(std::move(layer_tree_frame_sink));
 
   data->display->Resize(compositor->size());
@@ -336,7 +335,7 @@ InProcessContextFactory::SharedMainThreadContextProvider() {
       &gpu_memory_buffer_manager_, &image_factory_, support_locking);
   auto result = shared_main_thread_contexts_->BindToCurrentThread();
   if (result != gpu::ContextResult::kSuccess)
-    shared_main_thread_contexts_ = NULL;
+    shared_main_thread_contexts_.reset();
 
   return shared_main_thread_contexts_;
 }

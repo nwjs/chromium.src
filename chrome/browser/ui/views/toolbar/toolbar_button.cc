@@ -140,38 +140,41 @@ void ToolbarButton::UpdateColorsAndInsets() {
     ResetColorsFromNativeTheme();
   }
 
+  // ToolbarButtons are always the height the location bar.
+  const gfx::Insets paint_insets =
+      gfx::Insets((height() - GetLayoutConstant(LOCATION_BAR_HEIGHT)) / 2) +
+      *GetProperty(views::kInternalPaddingKey);
+
   base::Optional<SkColor> background_color =
       highlight_color_animation_.GetBackgroundColor();
   if (background_color) {
-    // ToolbarButtons are always the height the location bar.
-    const gfx::Insets bg_insets(
-        (height() - GetLayoutConstant(LOCATION_BAR_HEIGHT)) / 2);
     SetBackground(views::CreateBackgroundFromPainter(
         views::Painter::CreateSolidRoundRectPainter(
-            *background_color, highlight_radius, bg_insets)));
+            *background_color, highlight_radius, paint_insets)));
   } else {
     SetBackground(nullptr);
   }
 
-  gfx::Insets new_insets = GetLayoutInsets(TOOLBAR_BUTTON) +
-                           layout_inset_delta_ +
-                           *GetProperty(views::kInternalPaddingKey);
+  gfx::Insets target_insets =
+      layout_insets_.value_or(GetLayoutInsets(TOOLBAR_BUTTON)) +
+      layout_inset_delta_ + *GetProperty(views::kInternalPaddingKey);
   base::Optional<SkColor> border_color =
       highlight_color_animation_.GetBorderColor();
-  if (!border() || new_insets != border()->GetInsets() ||
+  if (!border() || target_insets != border()->GetInsets() ||
       last_border_color_ != border_color) {
     if (border_color) {
       int border_thickness_dp = GetText().empty()
                                     ? kBorderThicknessDpWithoutLabel
                                     : kBorderThicknessDpWithLabel;
-      // Create a border with insets equal to |new_insets|, just split into a
-      // solid border and padding.
-      SetBorder(views::CreatePaddedBorder(
-          views::CreateRoundedRectBorder(border_thickness_dp, highlight_radius,
-                                         *border_color),
-          new_insets - gfx::Insets(border_thickness_dp)));
+      // Create a border with insets totalling |target_insets|, split into
+      // painted insets (matching the background) and internal padding to
+      // position child views correctly.
+      std::unique_ptr<views::Border> border = views::CreateRoundedRectBorder(
+          border_thickness_dp, highlight_radius, paint_insets, *border_color);
+      const gfx::Insets extra_insets = target_insets - border->GetInsets();
+      SetBorder(views::CreatePaddedBorder(std::move(border), extra_insets));
     } else {
-      SetBorder(views::CreateEmptyBorder(new_insets));
+      SetBorder(views::CreateEmptyBorder(target_insets));
     }
     last_border_color_ = border_color;
   }
@@ -213,12 +216,25 @@ void ToolbarButton::SetLeadingMargin(int margin) {
   UpdateColorsAndInsets();
 }
 
+void ToolbarButton::SetTrailingMargin(int margin) {
+  gfx::Insets* const internal_padding = GetProperty(views::kInternalPaddingKey);
+  if (internal_padding->right() == margin)
+    return;
+  internal_padding->set_right(margin);
+  UpdateColorsAndInsets();
+}
+
 void ToolbarButton::ClearPendingMenu() {
   show_menu_factory_.InvalidateWeakPtrs();
 }
 
 bool ToolbarButton::IsMenuShowing() const {
   return menu_showing_;
+}
+
+void ToolbarButton::SetLayoutInsets(const gfx::Insets& insets) {
+  layout_insets_ = insets;
+  UpdateColorsAndInsets();
 }
 
 void ToolbarButton::OnBoundsChanged(const gfx::Rect& previous_bounds) {

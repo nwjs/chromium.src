@@ -306,6 +306,8 @@ void GraphicsContext::BeginRecording(const FloatRect& bounds) {
   canvas_ = paint_recorder_.beginRecording(bounds);
   if (metafile_)
     canvas_->SetPrintingMetafile(metafile_);
+  if (tracker_)
+    canvas_->SetPaintPreviewTracker(tracker_);
 }
 
 namespace {
@@ -1038,24 +1040,24 @@ void GraphicsContext::DrawImageTiled(Image* image,
   paint_controller_.SetImagePainted();
 }
 
-void GraphicsContext::DrawOval(const SkRect& oval, const PaintFlags& flags) {
+void GraphicsContext::DrawOval(const SkRect& oval,
+                               const PaintFlags& flags,
+                               const DarkModeFilter::ElementRole role) {
   if (ContextDisabled())
     return;
   DCHECK(canvas_);
 
-  canvas_->drawOval(
-      oval,
-      DarkModeFlags(this, flags, DarkModeFilter::ElementRole::kBackground));
+  canvas_->drawOval(oval, DarkModeFlags(this, flags, role));
 }
 
-void GraphicsContext::DrawPath(const SkPath& path, const PaintFlags& flags) {
+void GraphicsContext::DrawPath(const SkPath& path,
+                               const PaintFlags& flags,
+                               const DarkModeFilter::ElementRole role) {
   if (ContextDisabled())
     return;
   DCHECK(canvas_);
 
-  canvas_->drawPath(
-      path,
-      DarkModeFlags(this, flags, DarkModeFilter::ElementRole::kBackground));
+  canvas_->drawPath(path, DarkModeFlags(this, flags, role));
 }
 
 void GraphicsContext::DrawRect(const SkRect& rect,
@@ -1374,7 +1376,7 @@ void GraphicsContext::SetURLForRect(const KURL& link,
 
   // Intercept URL rects when painting previews.
   if (IsPaintingPreview() && tracker_) {
-    tracker_->AnnotateLink(link.GetString().Utf8(), dest_rect);
+    tracker_->AnnotateLink(GURL(link), dest_rect);
     return;
   }
 
@@ -1391,7 +1393,7 @@ void GraphicsContext::SetURLFragmentForRect(const String& dest_name,
 
   // Intercept URL rects when painting previews.
   if (IsPaintingPreview() && tracker_) {
-    tracker_->AnnotateLink(dest_name.Utf8(), rect);
+    tracker_->AnnotateLink(GURL(dest_name.Utf8()), rect);
     return;
   }
 

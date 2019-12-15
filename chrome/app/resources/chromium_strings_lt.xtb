@@ -33,7 +33,6 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="2560420686485554789">„Chromium“ reikia prieigos prie saugyklos, kad būtų galima atsisiųsti failus</translation>
 <translation id="2572494885440352020">„Chromium“ pagalbos priemonė</translation>
 <translation id="2587578672395088481">Kad būtų galima pritaikyti naujinį, „Chromium“ OS reikia paleisti iš naujo.</translation>
-<translation id="2647554856022461007">„Chromium“ gali naudoti žiniatinklio paslaugas naršymo funkcijoms pagerinti. Galite pasirinktinai išjungti šias paslaugas. <ph name="BEGIN_LINK" />Sužinokite daugiau<ph name="END_LINK" /></translation>
 <translation id="2648074677641340862">Diegiant įvyko operacinės sistemos klaida. Atsisiųskite „Chromium“ dar kartą.</translation>
 <translation id="2711502716910134313">„Chromium“ skirtukas</translation>
 <translation id="2718390899429598676">Kad būtų papildomai užtikrintas saugumas, „Chromium“ užšifruos jūsų duomenis.</translation>
@@ -61,7 +60,6 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="3340978935015468852">nustatymų</translation>
 <translation id="3474745554856756813">Atlikus šį veiksmą iš šio įrenginio bus ištrinti elementai (<ph name="ITEMS_COUNT" />). Jei vėliau norėsite gauti duomenis, prisijunkite prie „Chromium“ kaip <ph name="USER_EMAIL" />.</translation>
 <translation id="3509308970982693815">Uždarykite visus „Chromium“ langus ir bandykite dar kartą.</translation>
-<translation id="352783484088404971">Pašalinti iš „Chromium“...</translation>
 <translation id="3575459661164320785">Kompiuteryje yra kenkėjiškos programinės įrangos. „Chromium“ gali ją pašalinti, atkurti nustatymus ir išjungti plėtinius, kad naršyklė vėl veiktų įprastai.</translation>
 <translation id="358997566136285270">„Chromium“ logotipas</translation>
 <translation id="3639635944603682591">Šio asmens naršymo duomenys bus ištrinti iš šio įrenginio. Jei norite atkurti duomenis, prisijunkite prie „Chromium“ kaip <ph name="USER_EMAIL" />.</translation>
@@ -86,7 +84,6 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="4567424176335768812">Esate prisijungę kaip <ph name="USER_EMAIL_ADDRESS" />. Dabar galite pasiekti savo žymes, istoriją ir kitus nustatymus visuose įrenginiuose, kuriuose esate prisijungę.</translation>
 <translation id="459535195905078186">„Chromium“ programos</translation>
 <translation id="4621240073146040695">Beveik atnaujinta! Paleiskite „Chromium“ iš naujo, kad būtų užbaigtas naujinimas.</translation>
-<translation id="4661006601577405669">Būsimos „Chromium“ versijos bus įdiegtos automatiškai.</translation>
 <translation id="4677944499843243528">Atrodo, kad profilį naudoja kitas „Chromium“ procesas (<ph name="PROCESS_ID" />) kitame kompiuteryje (<ph name="HOST_NAME" />). „Chromium“ užrakino profilį, kad jis nebūtų sugadintas. Jei esate tikri, kad jokie kiti procesai nenaudoja šio profilio, galite atrakinti profilį ir iš naujo paleisti „Chromium“.</translation>
 <translation id="469338717132742108">Gaukite pagalbos dėl „Chromium“ OS</translation>
 <translation id="4708774505295300557">Kažkas anksčiau prisijungė prie „Chromium“ šiame kompiuteryje kaip <ph name="ACCOUNT_EMAIL_LAST" />. Sukurkite naują „Chromium“ naudotoją, kad apsaugotumėte savo informaciją.</translation>
@@ -112,7 +109,6 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="5631814766731275228">„Chromium“ pavadinimas ir paveikslėlis</translation>
 <translation id="5634636535844844681">Kad būtų galima naudoti „Chromium“, reikalinga 7 ar naujesnės versijos „Windows“.</translation>
 <translation id="5653831366781983928">Dabar iš naujo paleiskite „Chromium“</translation>
-<translation id="5680901439334282664">prisijunkite prie „Chromium“</translation>
 <translation id="5698481217667032250">Pateikti „Chromium“ šia kalba</translation>
 <translation id="5820394555380036790">„Chromium“ OS</translation>
 <translation id="5862307444128926510">Sveiki, tai „Chromium“</translation>
@@ -175,7 +171,6 @@ Kai kurios funkcijos gali būti nepasiekiamos. Nurodykite kitą profilio katalog
 <translation id="7449453770951226939">„<ph name="PAGE_TITLE" />“ – „Chromium Dev“</translation>
 <translation id="7451052299415159299">„Chromium“ reikia leidimo, kad galėtų naudoti fotoaparatą šioje svetainėje</translation>
 <translation id="7483335560992089831">Negalima įdiegti tos pačios „Chromium“ versijos, kuri šiuo metu paleista. Uždarykite „Chromium“ ir bandykite dar kartą.</translation>
-<translation id="751093125041325477">Būsimos „Chromium“ versijos bus įdiegtos automatiškai. Baigus atsisiųsti, „Chromium“ bus paleista iš naujo ir galėsite pradėti ja naudotis.</translation>
 <translation id="753534427205733210">{0,plural, =1{„Chromium“ bus paleista iš naujo po 1 minutės}one{„Chromium“ bus paleista iš naujo po # minutės}few{„Chromium“ bus paleista iš naujo po # minučių}many{„Chromium“ bus paleista iš naujo po # minutės}other{„Chromium“ bus paleista iš naujo po # minučių}}</translation>
 <translation id="7549178288319965365">Apie „Chromium“ OS</translation>
 <translation id="7561906087460245826">Taip pat išvalyti duomenis iš „Chromium“ (<ph name="URL" />)</translation>

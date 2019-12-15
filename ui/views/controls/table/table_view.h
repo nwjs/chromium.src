@@ -357,6 +357,10 @@ class VIEWS_EXPORT TableView
   // |visible_column_index| indexes into |visible_columns_|.
   AXVirtualView* GetVirtualAccessibilityCell(int row, int visible_column_index);
 
+  // Returns |rect|, adjusted for use in AXRelativeBounds by converting it to
+  // gfx::RectF and translating it into screen coordinates.
+  gfx::RectF AdjustRectForAXRelativeBounds(gfx::Rect rect) const;
+
   ui::TableModel* model_ = nullptr;
 
   std::vector<ui::TableColumn> columns_;
@@ -416,6 +420,14 @@ class VIEWS_EXPORT TableView
 
   // True if in SetVisibleColumnWidth().
   bool in_set_visible_column_width_ = false;
+
+  // Keeps track whether a focus change has occurred so that the accessibility
+  // focus would be updated after all the virtual accessibility children. Some
+  // screen readers don't process the accessibility focus event right away and
+  // by the time they do the focused virtual accessibility child is no longer
+  // there. We need to fire the accessibility focus event after the virtual
+  // accessibility children have been updated.
+  bool needs_update_accessibility_focus_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(TableView);
 };

@@ -29,7 +29,6 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
-import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.R;
@@ -41,6 +40,7 @@ import org.chromium.chrome.browser.omnibox.UrlBar;
 import org.chromium.chrome.browser.prerender.PrerenderTestHelper;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabStateBrowserControlsVisibilityDelegate;
+import org.chromium.chrome.browser.tab.TabTestUtils;
 import org.chromium.chrome.browser.tab.TabWebContentsDelegateAndroid;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -151,7 +151,7 @@ public class FullscreenManagerTest {
         mActivityTestRule.startMainActivityWithURL(LONG_HTML_TEST_PAGE);
 
         Tab tab = mActivityTestRule.getActivity().getActivityTab();
-        final TabWebContentsDelegateAndroid delegate = tab.getTabWebContentsDelegateAndroid();
+        final TabWebContentsDelegateAndroid delegate = TabTestUtils.getTabWebContentsDelegate(tab);
 
         FullscreenTestUtils.waitForFullscreenFlag(tab, false, mActivityTestRule.getActivity());
         FullscreenTestUtils.waitForPersistentFullscreen(delegate, false);
@@ -173,7 +173,7 @@ public class FullscreenManagerTest {
         mActivityTestRule.startMainActivityWithURL(LONG_HTML_TEST_PAGE);
 
         final Tab tab = mActivityTestRule.getActivity().getActivityTab();
-        final TabWebContentsDelegateAndroid delegate = tab.getTabWebContentsDelegateAndroid();
+        final TabWebContentsDelegateAndroid delegate = TabTestUtils.getTabWebContentsDelegate(tab);
 
         FullscreenTestUtils.waitForFullscreenFlag(tab, false, mActivityTestRule.getActivity());
         FullscreenTestUtils.waitForPersistentFullscreen(delegate, false);
@@ -208,8 +208,7 @@ public class FullscreenManagerTest {
 
         Tab tab = mActivityTestRule.getActivity().getActivityTab();
         View view = tab.getView();
-        final TabWebContentsDelegateAndroid delegate =
-                tab.getTabWebContentsDelegateAndroid();
+        final TabWebContentsDelegateAndroid delegate = TabTestUtils.getTabWebContentsDelegate(tab);
 
         TouchCommon.singleClickView(view);
         FullscreenTestUtils.waitForPersistentFullscreen(delegate, true);
@@ -292,7 +291,8 @@ public class FullscreenManagerTest {
                     @Override
                     public void onToggleOverlayVideoMode(boolean enabled) {}
                     @Override
-                    public void onBottomControlsHeightChanged(int bottomControlsHeight) {}
+                    public void onBottomControlsHeightChanged(
+                            int bottomControlsHeight, int bottomControlsMinHeight) {}
                     @Override
                     public void onUpdateViewportSize() {
                         viewportCallback.notifyCalled();
@@ -443,8 +443,7 @@ public class FullscreenManagerTest {
         FullscreenManagerTestUtils.scrollBrowserControls(mActivityTestRule, false);
 
         Tab tab = mActivityTestRule.getActivity().getActivityTab();
-        final TabWebContentsDelegateAndroid delegate =
-                tab.getTabWebContentsDelegateAndroid();
+        final TabWebContentsDelegateAndroid delegate = TabTestUtils.getTabWebContentsDelegate(tab);
         PostTask.runOrPostTask(
                 UiThreadTaskTraits.DEFAULT, () -> { delegate.rendererUnresponsive(); });
         FullscreenManagerTestUtils.waitForBrowserControlsPosition(mActivityTestRule, 0);
@@ -523,9 +522,10 @@ public class FullscreenManagerTest {
     }
 
     @Test
-    @LargeTest
-    @MinAndroidSdkLevel(Build.VERSION_CODES.KITKAT)
-    @Feature({"Fullscreen"})
+    //@LargeTest
+    //@MinAndroidSdkLevel(Build.VERSION_CODES.KITKAT)
+    //@Feature({"Fullscreen"})
+    @DisabledTest(message = "crbug.com/979189")
     public void testPersistentFullscreenWithOptions() {
         FullscreenManagerTestUtils.disableBrowserOverrides();
         mActivityTestRule.startMainActivityWithURL(LONG_FULLSCREEN_API_HTML_WITH_OPTIONS_TEST_PAGE);
@@ -536,7 +536,7 @@ public class FullscreenManagerTest {
 
         Tab tab = mActivityTestRule.getActivity().getActivityTab();
         View view = tab.getView();
-        final TabWebContentsDelegateAndroid delegate = tab.getTabWebContentsDelegateAndroid();
+        final TabWebContentsDelegateAndroid delegate = TabTestUtils.getTabWebContentsDelegate(tab);
 
         TouchCommon.singleClickView(view);
         FullscreenTestUtils.waitForPersistentFullscreen(delegate, true);

@@ -173,7 +173,7 @@ void RegisterChromeInterfacesForExtension(
       // as the BrowserProcessImpl.
       registry->AddInterface(
           base::BindRepeating(&extensions::MediaPerceptionAPIDelegate::
-                                  ForwardMediaPerceptionRequest,
+                                  ForwardMediaPerceptionReceiver,
                               base::Unretained(delegate)));
     }
   }
@@ -185,5 +185,10 @@ void RegisterChromeInterfacesForExtension(
   }
 #endif
 }
+
+void PopulateChromeFrameBindersForExtension(
+    service_manager::BinderMapWithContext<content::RenderFrameHost*>* map,
+    content::RenderFrameHost* render_frame_host,
+    const Extension* extension) {}
 
 }  // namespace extensions

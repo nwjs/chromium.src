@@ -8,9 +8,10 @@ import android.os.Bundle;
 import android.text.format.DateUtils;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ContextUtils;
-import org.chromium.base.VisibleForTesting;
+import org.chromium.base.ObserverList;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.browser.background_task_scheduler.NativeBackgroundTask;
@@ -26,6 +27,12 @@ import org.chromium.components.background_task_scheduler.TaskInfo;
  * Thread model: This class is to be run on the UI thread only.
  */
 public class BackgroundSyncBackgroundTaskScheduler {
+    /** An observer interface for BackgroundSyncBackgroundTaskScheduler. */
+    interface Observer {
+        void oneOffTaskScheduledFor(@BackgroundSyncTask int taskType, long delay);
+        void oneOffTaskCanceledFor(@BackgroundSyncTask int taskType);
+    }
+
     /**
      * Any tasks scheduled using GCMNetworkManager directly to wake up Chrome
      * would use this TASK_TAG. We no longer use GCMNetworkManager directly, so
@@ -58,6 +65,8 @@ public class BackgroundSyncBackgroundTaskScheduler {
     public static final String SOONEST_EXPECTED_WAKETIME = "SoonestWakeupTime";
 
     private static BackgroundSyncBackgroundTaskScheduler sInstance;
+
+    private final ObserverList<Observer> mObservers = new ObserverList<>();
 
     @CalledByNative
     public static BackgroundSyncBackgroundTaskScheduler getInstance() {
@@ -109,26 +118,44 @@ public class BackgroundSyncBackgroundTaskScheduler {
         }
     }
 
+    /** @param observer The observer to add. */
+    @VisibleForTesting
+    public void addObserver(Observer observer) {
+        mObservers.addObserver(observer);
+    }
+
+    /** @param observer The observer to remove. */
+    public void removeObserver(Observer observer) {
+        mObservers.removeObserver(observer);
+    }
+
     /**
      * Cancels a Background Sync one-off task, if there's one scheduled.
      *
      * @param taskType The Background Sync task to cancel.
      */
     @VisibleForTesting
+    @CalledByNative
     protected void cancelOneOffTask(@BackgroundSyncTask int taskType) {
         BackgroundTaskSchedulerFactory.getScheduler().cancel(
                 ContextUtils.getApplicationContext(), getAppropriateTaskId(taskType));
+
+        for (Observer observer : mObservers) {
+            observer.oneOffTaskCanceledFor(taskType);
+        }
     }
 
     /**
      * Schedules a one-off background task to wake the browser up on network
-     * connectivity and call into native code to fire ready periodic Background Sync
+     * connectivity and call into native code to fire ready (periodic) Background Sync
      * events.
      *
      * @param minDelayMs The minimum time to wait before waking the browser.
      * @param taskType   The Background Sync task to schedule.
      */
-    protected boolean scheduleOneOffTask(long minDelayMs, @BackgroundSyncTask int taskType) {
+    @VisibleForTesting
+    @CalledByNative
+    protected boolean scheduleOneOffTask(@BackgroundSyncTask int taskType, long minDelayMs) {
         // Pack SOONEST_EXPECTED_WAKETIME in extras.
         Bundle taskExtras = new Bundle();
         taskExtras.putLong(SOONEST_EXPECTED_WAKETIME, System.currentTimeMillis() + minDelayMs);
@@ -148,28 +175,14 @@ public class BackgroundSyncBackgroundTaskScheduler {
                                     .setExtras(taskExtras)
                                     .build();
         // This will overwrite any existing task with this ID.
-        return BackgroundTaskSchedulerFactory.getScheduler().schedule(
+        boolean didSchedule = BackgroundTaskSchedulerFactory.getScheduler().schedule(
                 ContextUtils.getApplicationContext(), taskInfo);
-    }
 
-    /**
-     * Based on shouldLaunch, either creates or cancels a one-off background
-     * task to wake up Chrome upon network connectivity.
-     *
-     * @param taskType The one-off background task to create.
-     * @param shouldLaunch Whether to launch the browser in the background.
-     * @param minDelayMs   The minimum time to wait before waking the browser.
-     */
-    @VisibleForTesting
-    @CalledByNative
-    protected void launchBrowserIfStopped(
-            @BackgroundSyncTask int taskType, boolean shouldLaunch, long minDelayMs) {
-        if (!shouldLaunch) {
-            cancelOneOffTask(taskType);
-            return;
+        for (Observer observer : mObservers) {
+            observer.oneOffTaskScheduledFor(taskType, minDelayMs);
         }
 
-        scheduleOneOffTask(minDelayMs, taskType);
+        return didSchedule;
     }
 
     /**
@@ -180,7 +193,7 @@ public class BackgroundSyncBackgroundTaskScheduler {
      * @param taskType The Background Sync task to reschedule.
      */
     public void reschedule(@BackgroundSyncTask int taskType) {
-        scheduleOneOffTask(MIN_SYNC_RECOVERY_TIME, taskType);
+        scheduleOneOffTask(taskType, MIN_SYNC_RECOVERY_TIME);
     }
 
     @NativeMethods

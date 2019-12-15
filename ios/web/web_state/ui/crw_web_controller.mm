@@ -15,7 +15,6 @@
 #include "base/metrics/user_metrics_action.h"
 #include "base/strings/sys_string_conversions.h"
 #import "ios/web/browsing_data/browsing_data_remover.h"
-#import "ios/web/browsing_data/browsing_data_remover_observer.h"
 #import "ios/web/common/crw_web_view_content_view.h"
 #include "ios/web/common/features.h"
 #include "ios/web/common/url_util.h"
@@ -90,8 +89,7 @@ NSString* const kScriptMessageName = @"crwebinvoke";
 
 }  // namespace
 
-@interface CRWWebController () <BrowsingDataRemoverObserver,
-                                CRWWKNavigationHandlerDelegate,
+@interface CRWWebController () <CRWWKNavigationHandlerDelegate,
                                 CRWContextMenuDelegate,
                                 CRWJSInjectorDelegate,
                                 CRWLegacyNativeContentControllerDelegate,
@@ -308,7 +306,6 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
     web::BrowserState* browserState = _webStateImpl->GetBrowserState();
     _certVerificationController = [[CRWCertVerificationController alloc]
         initWithBrowserState:browserState];
-    web::BrowsingDataRemover::FromBrowserState(browserState)->AddObserver(self);
     web::FindInPageManagerImpl::CreateForWebState(_webStateImpl);
     _faviconManager = std::make_unique<web::FaviconManager>(_webStateImpl);
     _jsWindowErrorManager =
@@ -815,7 +812,9 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
               ui::PageTransition::PAGE_TRANSITION_FORWARD_BACK),
           type == web::NavigationInitiationType::RENDERER_INITIATED);
   context->SetIsSameDocument(true);
-  self.webStateImpl->SetIsLoading(true);
+  if (!web::features::UseWKWebViewLoading()) {
+    self.webStateImpl->SetIsLoading(true);
+  }
   self.webStateImpl->OnNavigationStarted(context.get());
   [self updateHTML5HistoryState];
   [self setDocumentURL:URL context:context.get()];
@@ -858,7 +857,9 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
     // navigations.
     context->SetIsSameDocument(true);
   } else {
-    self.webStateImpl->SetIsLoading(true);
+    if (!web::features::UseWKWebViewLoading()) {
+      self.webStateImpl->SetIsLoading(true);
+    }
     self.navigationHandler.navigationState = web::WKNavigationState::REQUESTED;
   }
 
@@ -1038,16 +1039,6 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
     action();
   }
   [_pendingLoadCompleteActions removeAllObjects];
-}
-
-#pragma mark - BrowsingDataRemoverObserver
-
-- (void)willRemoveBrowsingData:(web::BrowsingDataRemover*)dataRemover {
-  self.webUsageEnabled = NO;
-}
-
-- (void)didRemoveBrowsingData:(web::BrowsingDataRemover*)dataRemover {
-  self.webUsageEnabled = YES;
 }
 
 #pragma mark - JavaScript history manipulation
@@ -1608,15 +1599,21 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
 }
 
 // Creates a web view if it's not yet created.
-- (void)ensureWebViewCreated {
+- (WKWebView*)ensureWebViewCreated {
   WKWebViewConfiguration* config =
       [self webViewConfigurationProvider].GetWebViewConfiguration();
-  [self ensureWebViewCreatedWithConfiguration:config];
+  return [self ensureWebViewCreatedWithConfiguration:config];
 }
 
 // Creates a web view with given |config|. No-op if web view is already created.
-- (void)ensureWebViewCreatedWithConfiguration:(WKWebViewConfiguration*)config {
+- (WKWebView*)ensureWebViewCreatedWithConfiguration:
+    (WKWebViewConfiguration*)config {
   if (!self.webView) {
+    // This has to be called to ensure the container view of `self.webView` is
+    // created. Otherwise `self.webView.frame.size` will be CGSizeZero which
+    // fails a DCHECK later.
+    [self ensureContainerViewCreated];
+
     [self setWebView:[self webViewWithConfiguration:config]];
     // The following is not called in -setWebView: as the latter used in unit
     // tests with fake web view, which cannot be added to view hierarchy.
@@ -1660,6 +1657,8 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
     if (![self.legacyNativeController shouldLoadURLInNativeView:visibleURL])
       [self displayWebView];
   }
+
+  return self.webView;
 }
 
 // Returns a new autoreleased web view created with given configuration.
@@ -1833,7 +1832,13 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
     // |webView:didCommitNavigation:| callback.
     return;
   }
-  [self updateSSLStatusForCurrentNavigationItem];
+  web::NavigationItem* item =
+      self.webStateImpl->GetNavigationManager()->GetLastCommittedItem();
+  // SSLStatus is manually set in CRWWKNavigationHandler for SSL errors, so
+  // skip calling the update method in these cases.
+  if (item && !net::IsCertStatusError(item->GetSSL().cert_status)) {
+    [self updateSSLStatusForCurrentNavigationItem];
+  }
 }
 
 // Called when WKWebView title has been changed.
@@ -2227,11 +2232,6 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
 - (WKWebView*)webViewForJSNavigationHandler:
     (CRWJSNavigationHandler*)navigationHandler {
   return self.webView;
-}
-
-- (CRWJSInjector*)JSInjectorForJSNavigationHandler:
-    (CRWJSNavigationHandler*)navigationHandler {
-  return self.jsInjector;
 }
 
 - (void)JSNavigationHandlerUpdateSSLStatusForCurrentNavigationItem:

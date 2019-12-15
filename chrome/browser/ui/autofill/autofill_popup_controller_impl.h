@@ -173,9 +173,6 @@ class AutofillPopupControllerImpl : public AutofillPopupController {
   AutofillPopupLayoutModel layout_model_;
   base::WeakPtr<AutofillPopupDelegate> delegate_;
 
-  // The text direction of the popup.
-  base::i18n::TextDirection text_direction_;
-
   // The current Autofill query values.
   std::vector<Suggestion> suggestions_;
 
@@ -187,10 +184,6 @@ class AutofillPopupControllerImpl : public AutofillPopupController {
   // The line that is currently selected by the user, null indicates that no
   // line is currently selected.
   base::Optional<int> selected_line_;
-
-  // The typesetter to use when eliding text. This must be BROWSER when the UI
-  // is drawn by Cocoa on macOS.
-  gfx::Typesetter typesetter_ = gfx::Typesetter::HARFBUZZ;
 
   base::WeakPtrFactory<AutofillPopupControllerImpl> weak_ptr_factory_{this};
 

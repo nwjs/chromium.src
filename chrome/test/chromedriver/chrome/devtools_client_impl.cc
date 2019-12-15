@@ -13,6 +13,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/values.h"
 #include "chrome/test/chromedriver/chrome/devtools_event_listener.h"
+#include "chrome/test/chromedriver/chrome/javascript_dialog_manager.h"
 #include "chrome/test/chromedriver/chrome/log.h"
 #include "chrome/test/chromedriver/chrome/status.h"
 #include "chrome/test/chromedriver/chrome/util.h"
@@ -25,8 +26,7 @@ namespace {
 
 const char kInspectorDefaultContextError[] =
     "Cannot find default execution context";
-const char kInspectorContextError[] =
-    "Cannot find execution context with given id";
+const char kInspectorContextError[] = "Cannot find context with specified id";
 const char kInspectorInvalidURL[] = "Cannot navigate to invalid URL";
 const char kInspectorInsecureContext[] =
     "Permission can't be granted in current context.";
@@ -278,9 +278,18 @@ Status DevToolsClientImpl::HandleEventsUntil(
         return Status(kOk);
     }
 
-    Status status = ProcessNextMessage(-1, timeout);
-    if (status.IsError())
+    // Create a small timeout so conditional_func can be retried
+    // when only funcinterval has expired, continue while loop
+    // but return timeout status if primary timeout has expired
+    Timeout funcinterval =
+        Timeout(base::TimeDelta::FromMilliseconds(100), &timeout);
+    Status status = ProcessNextMessage(-1, funcinterval);
+    if (status.code() == kTimeout) {
+      if (timeout.IsExpired())
+        return status;
+    } else if (status.IsError()) {
       return status;
+    }
   }
 }
 
@@ -352,6 +361,15 @@ Status DevToolsClientImpl::SendCommandInternal(
       }
       if (response_info->state == kBlocked) {
         response_info->state = kIgnored;
+        if (owner_) {
+          std::string alert_text;
+          Status status =
+              owner_->GetJavaScriptDialogManager()->GetDialogMessage(
+                  &alert_text);
+          if (status.IsOk())
+            return Status(kUnexpectedAlertOpen,
+                          "{Alert text : " + alert_text + "}");
+        }
         return Status(kUnexpectedAlertOpen);
       }
       CHECK_EQ(response_info->state, kReceived);
@@ -648,7 +666,7 @@ Status ParseInspectorError(const std::string& error_json) {
   if (error_found) {
     if (error_message == kInspectorDefaultContextError ||
         error_message == kInspectorContextError) {
-      return Status(kNoSuchExecutionContext);
+      return Status(kNoSuchWindow);
     } else if (error_message == kInspectorInvalidURL) {
       return Status(kInvalidArgument);
     } else if (error_message == kInspectorInsecureContext) {

@@ -72,7 +72,7 @@ class DesktopCommonSystemHealth(_CommonSystemHealthBenchmark):
 
 
 @benchmark.Info(emails=['charliea@chromium.org', 'sullivan@chromium.org',
-                        'tdresser@chromium.org', 'perezju@chromium.org',
+                        'tdresser@chromium.org',
                         'chrome-speed-metrics-dev@chromium.org'],
                 component='Speed>Metrics>SystemHealthRegressions',
                 documentation_url='https://bit.ly/system-health-benchmarks')
@@ -150,16 +150,14 @@ class MobileMemorySystemHealth(_MemorySystemHealthBenchmark):
     return 'system_health.memory_mobile'
 
 
-@benchmark.Info(emails=['perezju@chromium.org', 'torne@chromium.org',
-                         'changwan@chromium.org'],
-                 component='Mobile>WebView>Perf')
+@benchmark.Info(emails=['oksamyt@chromium.org', 'torne@chromium.org',
+                        'changwan@chromium.org'],
+                component='Mobile>WebView>Perf')
 class WebviewStartupSystemHealthBenchmark(perf_benchmark.PerfBenchmark):
   """Webview startup time benchmark
 
   Benchmark that measures how long WebView takes to start up
-  and load a blank page. Since thie metric only requires the trace
-  markers recorded in atrace, Chrome tracing is not enabled for this
-  benchmark.
+  and load a blank page.
   """
   options = {'pageset_repeat': 20}
   SUPPORTED_PLATFORMS = [story.expectations.ANDROID_WEBVIEW]
@@ -168,10 +166,12 @@ class WebviewStartupSystemHealthBenchmark(perf_benchmark.PerfBenchmark):
     return page_sets.SystemHealthBlankStorySet()
 
   def CreateCoreTimelineBasedMeasurementOptions(self):
-    options = timeline_based_measurement.Options()
+    cat_filter = chrome_trace_category_filter.ChromeTraceCategoryFilter(
+        filter_string='startup')
+    options = timeline_based_measurement.Options(cat_filter)
     options.SetTimelineBasedMetrics(['webviewStartupMetric'])
     options.config.enable_atrace_trace = True
-    options.config.enable_chrome_trace = False
+    options.config.enable_chrome_trace = True
     options.config.atrace_config.app_name = 'org.chromium.webview_shell'
     return options
 

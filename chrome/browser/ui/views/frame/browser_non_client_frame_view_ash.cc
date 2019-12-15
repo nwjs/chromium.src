@@ -67,6 +67,10 @@
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/window/caption_button_layout_constants.h"
 
+#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+#include "chrome/browser/ui/views/frame/webui_tab_strip_container_view.h"
+#endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+
 namespace {
 
 // Color for the window title text.
@@ -84,9 +88,12 @@ bool IsV1AppBackButtonEnabled() {
 // Returns true if the header should be painted so that it looks the same as
 // the header used for packaged apps.
 bool UsePackagedAppHeaderStyle(const Browser* browser) {
-  // Use for non tabbed trusted source windows, e.g. Settings, as well as apps.
-  return (!browser->is_type_normal() && browser->is_trusted_source()) ||
-         browser->deprecated_is_app();
+  if (browser->is_type_normal() ||
+      (browser->is_type_popup() && !browser->is_trusted_source())) {
+    return false;
+  }
+
+  return !browser->SupportsWindowFeature(Browser::FEATURE_TABSTRIP);
 }
 
 }  // namespace
@@ -246,6 +253,8 @@ void BrowserNonClientFrameViewAsh::UpdateFrameColor() {
   }
 
   frame_header_->UpdateFrameColors();
+
+  BrowserNonClientFrameView::UpdateFrameColor();
 }
 
 void BrowserNonClientFrameViewAsh::UpdateThrobber(bool running) {
@@ -380,8 +389,9 @@ void BrowserNonClientFrameViewAsh::Layout() {
   if (profile_indicator_icon_)
     LayoutProfileIndicator();
   if (web_app_frame_toolbar()) {
-    web_app_frame_toolbar()->LayoutInContainer(
-        0, caption_button_container_->x(), 0, painted_height);
+    web_app_frame_toolbar()->LayoutInContainer(GetToolbarLeftInset(),
+                                               caption_button_container_->x(),
+                                               0, painted_height);
   }
 
   BrowserNonClientFrameView::Layout();
@@ -635,7 +645,16 @@ bool BrowserNonClientFrameViewAsh::ShouldShowCaptionButtons() const {
   return !IsInOverviewMode();
 }
 
+int BrowserNonClientFrameViewAsh::GetToolbarLeftInset() const {
+  // Include padding on left and right of icon.
+  return profile_indicator_icon_
+             ? kProfileIndicatorPadding * 2 + profile_indicator_icon_->width()
+             : 0;
+}
+
 int BrowserNonClientFrameViewAsh::GetTabStripLeftInset() const {
+  // Include padding on left of icon.
+  // The tab strip has its own 'padding' to the right of the icon.
   return profile_indicator_icon_
              ? kProfileIndicatorPadding + profile_indicator_icon_->width()
              : 0;
@@ -654,7 +673,7 @@ bool BrowserNonClientFrameViewAsh::ShouldPaint() const {
 #if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
   // Normal windows that have a WebUI-based tab strip do not need a browser
   // frame as no tab strip is drawn on top of the browser frame.
-  if (base::FeatureList::IsEnabled(features::kWebUITabStrip) &&
+  if (WebUITabStripContainerView::UseTouchableTabStrip() &&
       browser_view()->IsBrowserTypeNormal()) {
     return false;
   }

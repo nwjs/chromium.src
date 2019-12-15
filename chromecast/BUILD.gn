@@ -25,7 +25,9 @@ declare_args() {
 # Depends on all non-test targets that should be built by the Chromecast
 # internal build infrastructure.
 group("all") {
-  deps = []
+  deps = [
+    "//chromecast/build:archive",
+  ]
   if (is_android && chromecast_branding == "public") {
     deps += [ ":cast_shell_apk" ]
   }
@@ -51,6 +53,12 @@ group("all") {
 # This is a config which is applied on all cast_* targets (which should be all
 # code under chromecast/).
 config("cast_config") {
+}
+
+config("iot_service") {
+  if (iot_service_rpath != "") {
+    ldflags = [ "-Wl,-rpath=${iot_service_rpath}" ]
+  }
 }
 
 # A list of all public test() binaries. This is an organizational target that
@@ -91,7 +99,7 @@ cast_test_group("cast_tests") {
   }
 
   if (use_v4l2_codec) {
-    tests += [ "//media/gpu:video_decode_accelerator_unittest" ]
+    tests += [ "//media/gpu:video_decode_accelerator_tests" ]
   }
 
   if (is_linux) {
@@ -269,7 +277,7 @@ cast_test_group("cast_tests") {
     if (is_android_things) {
       gtest_excludes += [
         "FontUniqueNameLookupTest.TestMatchPostScriptNameTtc",
-        "SiteInstanceTest.HasWrongProcessForURL",
+        "SiteInstanceTest.IsSuitableForURL",
       ]
     }
     if (target_os == "linux" && !is_cast_desktop_build) {
@@ -278,7 +286,7 @@ cast_test_group("cast_tests") {
       # Disable RenderWidgetHostTest.Background because we disable the
       # blacklist to enable WebGL (b/16142554)
       gtest_excludes += [
-        "DOMStorageDatabaseTest.TestCanOpenAndReadWebCoreDatabase",
+        "LegacyDomStorageDatabaseTest.TestCanOpenAndReadWebCoreDatabase",
         "DesktopCaptureDeviceTest.Capture",
         "GamepadProviderTest.PollingAccess",
         "PepperGamepadHostTest.WaitForReply",
@@ -657,9 +665,12 @@ if (is_android) {
     android_manifest = "$root_gen_dir/cast_shell_manifest/AndroidManifest.xml"
     android_manifest_dep = "//chromecast/browser/android:cast_shell_manifest"
 
+    min_sdk_version = 21
+    target_sdk_version = 28
+
     shared_libraries = [ "//chromecast/android:libcast_shell_android" ]
 
-    locale_config_java_packages = [ "org.chromium.chromecast.shell" ]
+    product_config_java_packages = [ "org.chromium.chromecast.shell" ]
 
     deps = [
       ":cast_shell_apk_assets",

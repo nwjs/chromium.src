@@ -28,10 +28,6 @@ const base::Feature kProactiveTabFreezeAndDiscard{
     resource_coordinator::kProactiveTabFreezeAndDiscardFeatureName,
     base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enables the site characteristics database.
-const base::Feature kSiteCharacteristicsDatabase{
-    "SiteCharacteristicsDatabase", base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Enables delaying the navigation of background tabs in order to improve
 // foreground tab's user experience.
 const base::Feature kStaggeredBackgroundTabOpening{
@@ -80,16 +76,14 @@ const char kProactiveTabFreezeAndDiscard_ShouldProactivelyDiscardParam[] =
     "ShouldProactivelyDiscard";
 const char kProactiveTabFreezeAndDiscard_ShouldPeriodicallyUnfreezeParam[] =
     "ShouldPeriodicallyUnfreeze";
-const char kProactiveTabFreezeAndDiscard_DisableHeuristicsParam[] =
-    "DisableHeuristicsProtections";
+const char kProactiveTabFreezeAndDiscard_FreezingProtectMediaOnlyParam[] =
+    "FreezingProtectMediaOnly";
 
 // Instantiate the feature parameters for proactive tab discarding.
 constexpr base::FeatureParam<bool>
     ProactiveTabFreezeAndDiscardParams::kShouldProactivelyDiscard;
 constexpr base::FeatureParam<bool>
     ProactiveTabFreezeAndDiscardParams::kShouldPeriodicallyUnfreeze;
-constexpr base::FeatureParam<bool> ProactiveTabFreezeAndDiscardParams::
-    kShouldProtectTabsSharingBrowsingInstance;
 constexpr base::FeatureParam<int>
     ProactiveTabFreezeAndDiscardParams::kLowLoadedTabCount;
 constexpr base::FeatureParam<int>
@@ -109,31 +103,12 @@ constexpr base::FeatureParam<int>
 constexpr base::FeatureParam<int>
     ProactiveTabFreezeAndDiscardParams::kRefreezeTimeout;
 constexpr base::FeatureParam<bool>
-    ProactiveTabFreezeAndDiscardParams::kDisableHeuristicsProtections;
-
-// Instantiate the feature parameters for the site characteristics database.
-constexpr base::FeatureParam<int>
-    SiteCharacteristicsDatabaseParams::kFaviconUpdateObservationWindow;
-constexpr base::FeatureParam<int>
-    SiteCharacteristicsDatabaseParams::kTitleUpdateObservationWindow;
-constexpr base::FeatureParam<int>
-    SiteCharacteristicsDatabaseParams::kAudioUsageObservationWindow;
-constexpr base::FeatureParam<int>
-    SiteCharacteristicsDatabaseParams::kNotificationsUsageObservationWindow;
-constexpr base::FeatureParam<int>
-    SiteCharacteristicsDatabaseParams::kTitleOrFaviconChangePostLoadGracePeriod;
-constexpr base::FeatureParam<int>
-    SiteCharacteristicsDatabaseParams::kFeatureUsagePostBackgroundGracePeriod;
+    ProactiveTabFreezeAndDiscardParams::kFreezingProtectMediaOnly;
 
 ProactiveTabFreezeAndDiscardParams::ProactiveTabFreezeAndDiscardParams() =
     default;
 ProactiveTabFreezeAndDiscardParams::ProactiveTabFreezeAndDiscardParams(
     const ProactiveTabFreezeAndDiscardParams& rhs) = default;
-
-SiteCharacteristicsDatabaseParams::SiteCharacteristicsDatabaseParams() =
-    default;
-SiteCharacteristicsDatabaseParams::SiteCharacteristicsDatabaseParams(
-    const SiteCharacteristicsDatabaseParams& rhs) = default;
 
 ProactiveTabFreezeAndDiscardParams GetProactiveTabFreezeAndDiscardParams(
     int memory_in_gb) {
@@ -149,10 +124,6 @@ ProactiveTabFreezeAndDiscardParams GetProactiveTabFreezeAndDiscardParams(
 
   params.should_periodically_unfreeze =
       ProactiveTabFreezeAndDiscardParams::kShouldPeriodicallyUnfreeze.Get();
-
-  params.should_protect_tabs_sharing_browsing_instance =
-      ProactiveTabFreezeAndDiscardParams::
-          kShouldProtectTabsSharingBrowsingInstance.Get();
 
   params.low_loaded_tab_count =
       ProactiveTabFreezeAndDiscardParams::kLowLoadedTabCount.Get();
@@ -189,8 +160,8 @@ ProactiveTabFreezeAndDiscardParams GetProactiveTabFreezeAndDiscardParams(
       ProactiveTabFreezeAndDiscardParams::kRefreezeTimeout.Get());
   DCHECK_LT(params.refreeze_timeout, kLargeTimeout);
 
-  params.disable_heuristics_protections =
-      ProactiveTabFreezeAndDiscardParams::kDisableHeuristicsProtections.Get();
+  params.freezing_protect_media_only =
+      ProactiveTabFreezeAndDiscardParams::kFreezingProtectMediaOnly.Get();
 
   return params;
 }
@@ -217,42 +188,6 @@ base::TimeDelta GetTabLoadTimeout(const base::TimeDelta& default_timeout) {
     return default_timeout;
 
   return base::TimeDelta::FromMilliseconds(timeout_in_ms);
-}
-
-SiteCharacteristicsDatabaseParams GetSiteCharacteristicsDatabaseParams() {
-  SiteCharacteristicsDatabaseParams params = {};
-
-  params.favicon_update_observation_window = base::TimeDelta::FromSeconds(
-      SiteCharacteristicsDatabaseParams::kFaviconUpdateObservationWindow.Get());
-
-  params.title_update_observation_window = base::TimeDelta::FromSeconds(
-      SiteCharacteristicsDatabaseParams::kTitleUpdateObservationWindow.Get());
-
-  params.audio_usage_observation_window = base::TimeDelta::FromSeconds(
-      SiteCharacteristicsDatabaseParams::kAudioUsageObservationWindow.Get());
-
-  params.notifications_usage_observation_window = base::TimeDelta::FromSeconds(
-      SiteCharacteristicsDatabaseParams::kNotificationsUsageObservationWindow
-          .Get());
-
-  params.title_or_favicon_change_post_load_grace_period =
-      base::TimeDelta::FromSeconds(
-          SiteCharacteristicsDatabaseParams::
-              kTitleOrFaviconChangePostLoadGracePeriod.Get());
-
-  params.feature_usage_post_background_grace_period =
-      base::TimeDelta::FromSeconds(
-          SiteCharacteristicsDatabaseParams::
-              kFeatureUsagePostBackgroundGracePeriod.Get());
-
-  return params;
-}
-
-const SiteCharacteristicsDatabaseParams&
-GetStaticSiteCharacteristicsDatabaseParams() {
-  static base::NoDestructor<SiteCharacteristicsDatabaseParams> params(
-      GetSiteCharacteristicsDatabaseParams());
-  return *params;
 }
 
 int GetNumOldestTabsToScoreWithTabRanker() {

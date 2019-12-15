@@ -112,6 +112,7 @@ source_set("prerequisites") {
     "//third_party/snappy",
     "//third_party/zlib",
     "//ui/base/ime/mojom",
+    "//ui/display/mojom:mojom_blink",
     "//ui/events:dom_keycode_converter",
     "//ui/gfx/geometry",
     "//ui/native_theme",
@@ -187,6 +188,7 @@ component("core") {
     "//third_party/blink/renderer/core/layout",
     "//third_party/blink/renderer/core/layout/svg:svg_layout",
     "//third_party/blink/renderer/core/loader",
+    "//third_party/blink/renderer/core/mathml",
     "//third_party/blink/renderer/core/messaging",
     "//third_party/blink/renderer/core/mojo",
     "//third_party/blink/renderer/core/offscreencanvas",
@@ -241,6 +243,8 @@ component("core") {
 }
 
 jumbo_source_set("testing") {
+  testonly = true
+
   configs += [
     ":blink_core_pch",
     "//third_party/blink/renderer:config",
@@ -263,18 +267,20 @@ jumbo_source_set("testing") {
     "html/forms/mock_file_chooser.h",
     "testing/callback_function_test.cc",
     "testing/callback_function_test.h",
+    "testing/color_scheme_helper.cc",
+    "testing/color_scheme_helper.h",
     "testing/death_aware_script_wrappable.cc",
     "testing/death_aware_script_wrappable.h",
     "testing/dictionary_test.cc",
     "testing/dictionary_test.h",
-    "testing/document_interface_broker_test_helpers.cc",
-    "testing/document_interface_broker_test_helpers.h",
     "testing/dummy_modulator.cc",
     "testing/dummy_modulator.h",
     "testing/dummy_page_holder.cc",
     "testing/dummy_page_holder.h",
     "testing/fake_local_frame_host.cc",
     "testing/fake_local_frame_host.h",
+    "testing/fake_remote_frame_host.cc",
+    "testing/fake_remote_frame_host.h",
     "testing/garbage_collected_script_wrappable.cc",
     "testing/garbage_collected_script_wrappable.h",
     "testing/gc_object_liveness_observer.h",
@@ -296,16 +302,14 @@ jumbo_source_set("testing") {
     "testing/origin_trials_test_partial.h",
     "testing/record_test.cc",
     "testing/record_test.h",
+    "testing/scoped_mock_overlay_scrollbars.h",
     "testing/sequence_test.cc",
     "testing/sequence_test.h",
     "testing/static_selection.cc",
     "testing/static_selection.h",
-    "testing/test_document_interface_broker.cc",
-    "testing/test_document_interface_broker.h",
     "testing/type_conversions.h",
     "testing/union_types_test.cc",
     "testing/union_types_test.h",
-    "testing/use_mock_scrollbar_settings.h",
     "testing/v8/web_core_test_support.cc",
     "testing/v8/web_core_test_support.h",
     "testing/wait_for_event.cc",
@@ -336,9 +340,11 @@ generate_event_interfaces("core_event_interfaces") {
   sources = [
     "css/font_face_set_load_event.idl",
     "css/media_query_list_event.idl",
-    "display_lock/before_activate_event.idl",
+    "display_lock/render_subtree_activation_event.idl",
     "dom/events/custom_event.idl",
     "dom/events/event.idl",
+    "editing/ime/text_format_update_event.idl",
+    "editing/ime/text_update_event.idl",
     "events/animation_event.idl",
     "events/animation_playback_event.idl",
     "events/application_cache_error_event.idl",
@@ -646,6 +652,33 @@ process_json5_files("make_core_generated_html_element_type_helpers") {
   ]
 }
 
+process_json5_files("make_core_generated_mathml_names") {
+  script = "../build/scripts/make_element_factory.py"
+
+  in_files = [
+    "mathml/mathml_tag_names.json5",
+    "mathml/mathml_attribute_names.json5",
+  ]
+  other_inputs = make_element_factory_files
+  outputs = [
+    "$blink_core_output_dir/mathml_element_factory.cc",
+    "$blink_core_output_dir/mathml_element_factory.h",
+    "$blink_core_output_dir/mathml_names.cc",
+    "$blink_core_output_dir/mathml_names.h",
+  ]
+}
+
+process_json5_files("make_core_generated_mathml_element_type_helpers") {
+  script = "../build/scripts/make_element_type_helpers.py"
+
+  in_files = [ "mathml/mathml_tag_names.json5" ]
+  other_inputs = make_element_type_helpers_files
+  outputs = [
+    "$blink_core_output_dir/mathml_element_type_helpers.cc",
+    "$blink_core_output_dir/mathml_element_type_helpers.h",
+  ]
+}
+
 process_json5_files("make_core_generated_svg_names") {
   script = "../build/scripts/make_element_factory.py"
 
@@ -731,8 +764,8 @@ make_names("make_core_generated_input_type_names") {
   output_dir = blink_core_output_dir
 }
 
-make_names("make_core_generated_input_mode_names") {
-  in_files = [ "editing/input_mode_names.json5" ]
+make_names("make_core_generated_keywords") {
+  in_files = [ "html/keywords.json5" ]
   output_dir = blink_core_output_dir
 }
 
@@ -741,23 +774,7 @@ make_names("make_core_generated_performance_entry_names") {
   output_dir = blink_core_output_dir
 }
 
-make_names("make_core_generated_enter_key_hint_names") {
-  in_files = [ "editing/enter_key_hint_names.json5" ]
-  output_dir = blink_core_output_dir
-}
-
 # make_qualified_names ---------------------------------------------------------
-
-make_qualified_names("make_core_generated_math_ml_names") {
-  in_files = [
-    "html/parser/mathml_tag_names.json5",
-    "html/parser/mathml_attribute_names.json5",
-  ]
-  outputs = [
-    "$blink_core_output_dir/mathml_names.cc",
-    "$blink_core_output_dir/mathml_names.h",
-  ]
-}
 
 make_qualified_names("make_core_generated_xlink_names") {
   in_files = [ "svg/xlink_attribute_names.json5" ]
@@ -784,25 +801,6 @@ make_qualified_names("make_core_generated_xml_names") {
 }
 
 # One-off scripts --------------------------------------------------------------
-
-action("make_minimized_css") {
-  script = "../build/scripts/minimize_css.py"
-
-  inputs = [
-    "html/resources/html.css",
-  ]
-  outputs = [
-    "$blink_core_output_dir/html.css",
-  ]
-
-  args = [
-    "--output_dir",
-    rel_blink_core_gen_dir,
-  ]
-  args += rebase_path(inputs, root_build_dir)
-
-  deps = make_core_generated_deps
-}
 
 action("make_core_generated_html_entity_table") {
   visibility = []  # Allow re-assignment of list.
@@ -978,7 +976,6 @@ targets_generating_sources = [
   ":make_core_generated_css_property_instances",
   ":make_core_generated_css_value_id_mappings",
   ":make_core_generated_cssom_types",
-  ":make_core_generated_enter_key_hint_names",
   ":make_core_generated_event_factory",
   ":make_core_generated_event_names",
   ":make_core_generated_event_target_names",
@@ -988,9 +985,10 @@ targets_generating_sources = [
   ":make_core_generated_html_element_lookup_trie",
   ":make_core_generated_html_entity_table",
   ":make_core_generated_html_tokenizer_names",
-  ":make_core_generated_input_mode_names",
   ":make_core_generated_input_type_names",
-  ":make_core_generated_math_ml_names",
+  ":make_core_generated_keywords",
+  ":make_core_generated_mathml_names",
+  ":make_core_generated_mathml_element_type_helpers",
   ":make_core_generated_media_feature_names",
   ":make_core_generated_media_type_names",
   ":make_core_generated_performance_entry_names",
@@ -1144,7 +1142,6 @@ jumbo_source_set("unit_tests") {
     "dom/text_test.cc",
     "dom/tree_scope_adopter_test.cc",
     "dom/tree_scope_test.cc",
-    "dom/user_gesture_indicator_test.cc",
     "dom/weak_identifier_map_test.cc",
     "dom/whitespace_attacher_test.cc",
     "editing/caret_display_item_client_test.cc",
@@ -1168,6 +1165,7 @@ jumbo_source_set("unit_tests") {
     "exported/web_frame_serializer_test_helper.cc",
     "exported/web_frame_serializer_test_helper.h",
     "exported/web_frame_test.cc",
+    "exported/web_image_test.cc",
     "exported/web_layer_test.cc",
     "exported/web_meaningful_layouts_test.cc",
     "exported/web_node_test.cc",
@@ -1176,7 +1174,6 @@ jumbo_source_set("unit_tests") {
     "exported/web_scoped_window_focus_allowed_indicator_test.cc",
     "exported/web_searchable_form_data_test.cc",
     "exported/web_selector_test.cc",
-    "exported/web_user_gesture_token_test.cc",
     "exported/web_view_test.cc",
     "feature_policy/feature_policy_test.cc",
     "feature_policy/policy_test.cc",
@@ -1202,6 +1199,7 @@ jumbo_source_set("unit_tests") {
     "frame/csp/csp_source_test.cc",
     "frame/csp/media_list_directive_test.cc",
     "frame/csp/source_list_directive_test.cc",
+    "frame/deprecation_report_body_test.cc",
     "frame/document_loading_rendering_test.cc",
     "frame/dom_timer_test.cc",
     "frame/find_in_page_test.cc",
@@ -1217,7 +1215,6 @@ jumbo_source_set("unit_tests") {
     "frame/local_frame_view_test.cc",
     "frame/mhtml_archive_test.cc",
     "frame/mhtml_loading_test.cc",
-    "frame/origins_using_features_test.cc",
     "frame/performance_monitor_test.cc",
     "frame/reporting_context_test.cc",
     "frame/root_frame_viewport_test.cc",
@@ -1552,9 +1549,11 @@ jumbo_source_set("unit_tests") {
     "style/style_difference_test.cc",
     "style/style_variables_test.cc",
     "style/svg_computed_style_test.cc",
+    "svg/animation/priority_queue_test.cc",
     "svg/graphics/svg_image_test.cc",
     "svg/svg_foreign_object_element_test.cc",
     "svg/svg_path_parser_test.cc",
+    "svg/svg_path_query_test.cc",
     "svg/svg_text_content_element_test.cc",
     "svg/svg_use_element_test.cc",
     "svg/unsafe_svg_attribute_sanitization_test.cc",
@@ -1573,6 +1572,7 @@ jumbo_source_set("unit_tests") {
     "testing/sim/sim_test.cc",
     "testing/sim/sim_test.h",
     "timing/memory_info_test.cc",
+    "timing/performance_mark_test.cc",
     "timing/performance_navigation_timing_test.cc",
     "timing/performance_observer_test.cc",
     "timing/performance_resource_timing_test.cc",
@@ -1581,11 +1581,11 @@ jumbo_source_set("unit_tests") {
     "timing/time_clamper_test.cc",
     "timing/window_performance_test.cc",
     "trustedtypes/trusted_types_util_test.cc",
+    "typed_arrays/array_buffer/array_buffer_contents_test.cc",
     "url/url_search_params_test.cc",
     "workers/dedicated_worker_test.cc",
     "workers/main_thread_worklet_test.cc",
     "workers/threaded_worklet_test.cc",
-    "workers/worker_fetch_test_helper.h",
     "workers/worker_thread_test.cc",
     "workers/worker_thread_test_helper.h",
     "workers/worklet_module_responses_map_test.cc",

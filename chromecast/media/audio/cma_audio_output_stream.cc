@@ -128,7 +128,8 @@ void CmaAudioOutputStream::Start(
 
   source_callback_ = source_callback;
   if (encountered_error_) {
-    source_callback_->OnError();
+    source_callback_->OnError(
+        ::media::AudioOutputStream::AudioSourceCallback::ErrorType::kUnknown);
     return;
   }
 
@@ -146,7 +147,6 @@ void CmaAudioOutputStream::Start(
   }
 
   if (!push_in_progress_) {
-    push_in_progress_ = true;
     PushBuffer();
   }
 }
@@ -161,7 +161,6 @@ void CmaAudioOutputStream::Stop(base::WaitableEvent* finished) {
     cma_backend_->Pause();
     cma_backend_state_ = CmaBackendState::kPaused;
   }
-  push_in_progress_ = false;
   source_callback_ = nullptr;
   finished->Signal();
 }
@@ -218,6 +217,7 @@ void CmaAudioOutputStream::PushBuffer() {
   // prevent the source callback from closing the output stream
   // mid-push.
   base::AutoLock lock(running_lock_);
+  DCHECK(!push_in_progress_);
 
   // Do not fill more buffers if we have stopped running.
   if (!running_)
@@ -227,10 +227,8 @@ void CmaAudioOutputStream::PushBuffer() {
   // Return quickly if so.
   if (!source_callback_ || encountered_error_ ||
       cma_backend_state_ != CmaBackendState::kStarted) {
-    push_in_progress_ = false;
     return;
   }
-  DCHECK(push_in_progress_);
 
   CmaBackend::AudioDecoder::RenderingDelay rendering_delay =
       audio_decoder_->GetRenderingDelay();
@@ -271,6 +269,7 @@ void CmaAudioOutputStream::PushBuffer() {
   decoder_buffer->set_timestamp(timestamp_helper_.GetTimestamp());
   timestamp_helper_.AddFrames(frame_count);
 
+  push_in_progress_ = true;
   BufferStatus status = audio_decoder_->PushBuffer(std::move(decoder_buffer));
   if (status != CmaBackend::BufferStatus::kBufferPending)
     OnPushBufferComplete(status);
@@ -288,7 +287,8 @@ void CmaAudioOutputStream::OnPushBufferComplete(BufferStatus status) {
   DCHECK_EQ(cma_backend_state_, CmaBackendState::kStarted);
 
   if (status != CmaBackend::BufferStatus::kBufferSuccess) {
-    source_callback_->OnError();
+    source_callback_->OnError(
+        ::media::AudioOutputStream::AudioSourceCallback::ErrorType::kUnknown);
     return;
   }
 
@@ -316,7 +316,6 @@ void CmaAudioOutputStream::OnPushBufferComplete(BufferStatus status) {
            << " delay=" << delay << " buffer_duration_=" << buffer_duration_;
 
   push_timer_.Start(FROM_HERE, delay, this, &CmaAudioOutputStream::PushBuffer);
-  push_in_progress_ = true;
 }
 
 void CmaAudioOutputStream::OnDecoderError() {
@@ -324,8 +323,10 @@ void CmaAudioOutputStream::OnDecoderError() {
   DCHECK_CALLED_ON_VALID_THREAD(media_thread_checker_);
 
   encountered_error_ = true;
-  if (source_callback_)
-    source_callback_->OnError();
+  if (source_callback_) {
+    source_callback_->OnError(
+        ::media::AudioOutputStream::AudioSourceCallback::ErrorType::kUnknown);
+  }
 }
 
 }  // namespace media

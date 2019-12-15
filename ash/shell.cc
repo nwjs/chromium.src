@@ -544,11 +544,15 @@ Shell::Shell(std::unique_ptr<ShellDelegate> shell_delegate,
   // Ash doesn't properly remove pre-target-handlers.
   ui::EventHandler::DisableCheckTargets();
 
+  // AccelerometerReader is important for screen orientation so we need
+  // USER_VISIBLE priority.
+  // Use CONTINUE_ON_SHUTDOWN to avoid blocking shutdown since the data reading
+  // could get blocked on certain devices. See https://crbug.com/1023989.
   AccelerometerReader::GetInstance()->Initialize(
       base::CreateSequencedTaskRunner(
           {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::BEST_EFFORT,
-           base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}));
+           base::TaskPriority::USER_VISIBLE,
+           base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN}));
 
   login_screen_controller_ =
       std::make_unique<LoginScreenController>(system_tray_notifier_.get());
@@ -873,12 +877,9 @@ void Shell::Init(
       std::make_unique<PolicyRecommendationRestorer>();
   screen_switch_check_controller_ =
       std::make_unique<ScreenSwitchCheckController>();
-  // Connector can be null in tests.
-  if (connector_) {
-    multidevice_notification_presenter_ =
-        std::make_unique<MultiDeviceNotificationPresenter>(
-            message_center::MessageCenter::Get(), connector_);
-  }
+  multidevice_notification_presenter_ =
+      std::make_unique<MultiDeviceNotificationPresenter>(
+          message_center::MessageCenter::Get());
 
   tablet_mode_controller_ = std::make_unique<TabletModeController>();
 
@@ -1044,8 +1045,10 @@ void Shell::Init(
 
   // |assistant_controller_| is put before |ambient_controller_| as it will be
   // used by the latter.
-  if (chromeos::features::IsAmbientModeEnabled())
-    ambient_controller_ = std::make_unique<AmbientController>();
+  if (chromeos::features::IsAmbientModeEnabled()) {
+    ambient_controller_ =
+        std::make_unique<AmbientController>(assistant_controller_.get());
+  }
 
   home_screen_controller_ = std::make_unique<HomeScreenController>();
 
@@ -1128,6 +1131,9 @@ void Shell::Init(
           message_center::MessageCenter::Get());
   screen_orientation_controller_ =
       std::make_unique<ScreenOrientationController>();
+
+  cros_display_config_ = std::make_unique<CrosDisplayConfig>();
+
   screen_layout_observer_.reset(new ScreenLayoutObserver());
   sms_observer_.reset(new SmsObserver());
   snap_controller_ = std::make_unique<SnapControllerImpl>();
@@ -1167,8 +1173,6 @@ void Shell::InitializeDisplayManager() {
           display_manager_.get(), window_tree_host_manager_.get());
   display_configuration_observer_ =
       std::make_unique<DisplayConfigurationObserver>();
-
-  cros_display_config_ = std::make_unique<CrosDisplayConfig>();
 
   persistent_window_controller_ =
       std::make_unique<PersistentWindowController>();

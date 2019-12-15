@@ -8,6 +8,8 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
@@ -47,8 +49,10 @@ public class AwMetricsServiceClient {
         }
     }
 
-    private static boolean shouldRecordPackageName(Context ctx) {
+    @CalledByNative
+    private static boolean canRecordPackageNameForAppType() {
         // Only record if it's a system app or it was installed from Play Store.
+        Context ctx = ContextUtils.getApplicationContext();
         String packageName = ctx.getPackageName();
         String installerPackageName = ctx.getPackageManager().getInstallerPackageName(packageName);
         return (ctx.getApplicationInfo().flags & ApplicationInfo.FLAG_SYSTEM) != 0
@@ -60,10 +64,22 @@ public class AwMetricsServiceClient {
         AwMetricsServiceClientJni.get().setHaveMetricsConsent(userConsent, !isAppOptedOut(ctx));
     }
 
+    @VisibleForTesting
+    public static void setFastStartupForTesting(boolean fastStartupForTesting) {
+        AwMetricsServiceClientJni.get().setFastStartupForTesting(fastStartupForTesting);
+    }
+
+    @VisibleForTesting
+    public static void setUploadIntervalForTesting(long uploadIntervalMs) {
+        AwMetricsServiceClientJni.get().setUploadIntervalForTesting(uploadIntervalMs);
+    }
+
     @CalledByNative
     private static String getAppPackageName() {
+        // Return this unconditionally; let native code enforce whether or not it's OK to include
+        // this in the logs.
         Context ctx = ContextUtils.getApplicationContext();
-        return shouldRecordPackageName(ctx) ? ctx.getPackageName() : null;
+        return ctx.getPackageName();
     }
 
     /**
@@ -91,5 +107,7 @@ public class AwMetricsServiceClient {
     @NativeMethods
     interface Natives {
         void setHaveMetricsConsent(boolean userConsent, boolean appConsent);
+        void setFastStartupForTesting(boolean fastStartupForTesting);
+        void setUploadIntervalForTesting(long uploadIntervalMs);
     }
 }

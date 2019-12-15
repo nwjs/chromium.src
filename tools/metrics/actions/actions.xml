@@ -749,6 +749,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Accel_Minimize_Top_Window_On_Back">
+  <owner>minch@chromium.org</owner>
+  <description>
+    Metric recorded when the user press back key in the keyboard to minimize the
+    top window at bottom page while in tablet mode.
+  </description>
+</action>
+
 <action name="Accel_Move_Active_Window_Between_Displays">
   <owner>warx@chromium.org</owner>
   <description>
@@ -2360,6 +2368,11 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="AppList_BackButtonPressed">
+  <owner>andrewxu@chromium.org</owner>
+  <description>User pressed the back button.</description>
+</action>
+
 <action name="AppList_ClickOnApp">
   <owner>vadimt@chromium.org</owner>
   <description>
@@ -2401,6 +2414,16 @@ should be able to be added at any place in this file.
 <action name="AppList_FullToPeeking">
   <owner>vadimt@chromium.org</owner>
   <description>CrOS Launcher went from full to peeking state.</description>
+</action>
+
+<action name="AppList_HomeButtonPressedClamshell">
+  <owner>andrewxu@chromium.org</owner>
+  <description>User pressed the launcher button in clamshell.</description>
+</action>
+
+<action name="AppList_HomeButtonPressedTablet">
+  <owner>andrewxu@chromium.org</owner>
+  <description>User pressed the launcher button in tablet.</description>
 </action>
 
 <action name="AppList_HomeLauncherToMRUWindow">
@@ -11272,7 +11295,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Media.OpenPreferencesClicked">
-  <owner>grunell@chromium.org</owner>
+  <owner>guidou@chromium.org</owner>
   <owner>engedy@chromium.org</owner>
   <owner>hkamila@chromium.org</owner>
   <description>
@@ -11303,7 +11326,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Media.ShowSystemMediaPermissionBubble">
-  <owner>grunell@chromium.org</owner>
+  <owner>guidou@chromium.org</owner>
   <owner>engedy@chromium.org</owner>
   <owner>hkamila@chromium.org</owner>
   <description>
@@ -11574,6 +11597,30 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="Mobile.OmniboxContextMenu.SearchCopiedImage">
+  <owner>rkgibson@google.com</owner>
+  <owner>stkhapugin@google.com</owner>
+  <description>
+    User pressed 'Search Copied Image' in the omnibox context menu (iOS only).
+  </description>
+</action>
+
+<action name="Mobile.OmniboxContextMenu.SearchCopiedText">
+  <owner>rkgibson@google.com</owner>
+  <owner>stkhapugin@google.com</owner>
+  <description>
+    User pressed 'Search Copied Text' in the omnibox context menu (iOS only).
+  </description>
+</action>
+
+<action name="Mobile.OmniboxContextMenu.VisitCopiedLink">
+  <owner>rkgibson@google.com</owner>
+  <owner>stkhapugin@google.com</owner>
+  <description>
+    User pressed 'Visit Copied Link' in the omnibox context menu (iOS only).
+  </description>
+</action>
+
 <action name="Mobile_FocusedDefocusedOmnibox_WithNoAction">
   <owner>stkhapugin@chromium.org</owner>
   <description>
@@ -11625,6 +11672,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileAddBookmarkViaIntent">
+  <obsolete>Feature removed 11/2019</obsolete>
   <owner>newt@chromium.org</owner>
   <description>
     User added a bookmark to Chrome via an intent from a third-party app.
@@ -12543,6 +12591,11 @@ should be able to be added at any place in this file.
 <action name="MobileMenuStop">
   <owner>tedchoc@chromium.org</owner>
   <description>User pressed the stop option in the app menu.</description>
+</action>
+
+<action name="MobileMenuTextZoom">
+  <owner>rkgibson@google.com</owner>
+  <description>User pressed 'Zoom Text' in the app menu</description>
 </action>
 
 <action name="MobileMenuTranslate">
@@ -15110,12 +15163,12 @@ should be able to be added at any place in this file.
 
 <action name="Options_AccessibilitySwitchAccess_Disable">
   <owner>dmazzoni@chromium.org</owner>
-  <description>Settings: Accessibility: Disable switch access</description>
+  <description>Settings: Accessibility: Disable Switch Access</description>
 </action>
 
 <action name="Options_AccessibilitySwitchAccess_Enable">
   <owner>dmazzoni@chromium.org</owner>
-  <description>Settings: Accessibility: Enable switch access</description>
+  <description>Settings: Accessibility: Enable Switch Access</description>
 </action>
 
 <action name="Options_AccessibilitySystemMenu_Disable">
@@ -19967,6 +20020,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccountPreDice_FromAvatarBubbleSignin">
+  <obsolete>Removed M80</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
@@ -19977,6 +20031,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccountPreDice_FromBookmarkBubble">
+  <obsolete>Removed M80</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
@@ -19987,6 +20042,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccountPreDice_FromBookmarkManager">
+  <obsolete>Removed M80</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
@@ -19998,6 +20054,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccountPreDice_FromExtensionInstallBubble">
+  <obsolete>Removed M80</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
@@ -20008,6 +20065,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccountPreDice_FromManageCardsBubble">
+  <obsolete>Removed M80</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>jsaul@chromium.org</owner>
   <owner>manasverma@google.com</owner>
@@ -20021,6 +20079,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccountPreDice_FromNTPContentSuggestions">
+  <obsolete>Removed M80</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
@@ -20031,6 +20090,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccountPreDice_FromPasswordBubble">
+  <obsolete>Removed M80</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
@@ -20041,6 +20101,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccountPreDice_FromRecentTabs">
+  <obsolete>Removed M80</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
@@ -20052,6 +20113,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccountPreDice_FromSaveCardBubble">
+  <obsolete>Removed M80</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>jsaul@chromium.org</owner>
   <owner>manasverma@google.com</owner>
@@ -20065,6 +20127,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccountPreDice_FromSettings">
+  <obsolete>Removed M80</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
@@ -20076,6 +20139,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccountPreDice_FromTabSwitcher">
+  <obsolete>Removed M80</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
@@ -21345,7 +21409,7 @@ should be able to be added at any place in this file.
   <owner>anastasi@google.com</owner>
   <owner>dtseng@chromium.org</owner>
   <description>
-    Ash system menu: Accessibility: Disable switch access
+    Ash system menu: Accessibility: Disable Switch Access
   </description>
 </action>
 
@@ -21353,7 +21417,7 @@ should be able to be added at any place in this file.
   <owner>anastasi@google.com</owner>
   <owner>dtseng@chromium.org</owner>
   <description>
-    Ash system menu: Accessibility: Enable switch access
+    Ash system menu: Accessibility: Enable Switch Access
   </description>
 </action>
 
@@ -21779,6 +21843,7 @@ should be able to be added at any place in this file.
 <action name="TabContextMenu_AddToExistingGroup">
   <owner>bsep@google.com</owner>
   <owner>tbergquist@google.com</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
   <description>
     User selected an entry in the Add to existing group submenu from the tab
     context menu.
@@ -21788,6 +21853,7 @@ should be able to be added at any place in this file.
 <action name="TabContextMenu_AddToNewGroup">
   <owner>bsep@google.com</owner>
   <owner>tbergquist@google.com</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
   <description>
     User selected Add to new group from the tab context menu.
   </description>
@@ -21802,7 +21868,8 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="TabContextMenu_CloseOtherTabs">
-  <owner>pbos@chromium.org</owner>
+  <owner>tbergquist@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
   <description>
     User selected Close Other Tabs from the tab context menu. Temporarily
     removed in M78.
@@ -21810,33 +21877,41 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="TabContextMenu_CloseTab">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>tbergquist@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>User selected Close Tabs from tab context menu.</description>
 </action>
 
 <action name="TabContextMenu_CloseTabsOpenedBy">
+  <obsolete>Could not find traces of this used in code.</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
 </action>
 
 <action name="TabContextMenu_CloseTabsToRight">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>tbergquist@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    User selected Close Tabs to the Right from tab context menu.
+  </description>
 </action>
 
 <action name="TabContextMenu_CompactNavigationBar">
+  <obsolete>Could not find traces of this used in code.</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
 </action>
 
 <action name="TabContextMenu_Duplicate">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>tbergquist@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>User selected Duplicate from tab context menu.</description>
 </action>
 
 <action name="TabContextMenu_FocusMode">
   <owner>dfried@chromium.org</owner>
   <owner>yiningwang@google.com</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
   <description>
     User selected Focus This Tab from the tab context menu.
   </description>
@@ -21850,30 +21925,35 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="TabContextMenu_NewTab">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>tbergquist@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
   <description>
     User selected New Tab to the Right from the tabstrip context menu.
   </description>
 </action>
 
 <action name="TabContextMenu_OpenTabsLeftToRight">
+  <obsolete>Could not find traces of this used in code.</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
 </action>
 
 <action name="TabContextMenu_OpenTabsRightToLeft">
+  <obsolete>Could not find traces of this used in code.</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
 </action>
 
 <action name="TabContextMenu_Reload">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>tbergquist@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>User selected Reload from tab context menu.</description>
 </action>
 
 <action name="TabContextMenu_RemoveFromGroup">
   <owner>bsep@google.com</owner>
   <owner>tbergquist@google.com</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
   <description>
     User selected Remove from group from the tab context menu.
   </description>
@@ -21926,8 +22006,9 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="TabContextMenu_TogglePinned">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>tbergquist@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>User selected Pin/Unpin from tab context menu.</description>
 </action>
 
 <action name="TabContextMenu_UnmuteTabs">
@@ -21938,16 +22019,19 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="TabContextMenu_UseDestinationsTab_Off">
+  <obsolete>Could not find traces of this used in code.</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
 </action>
 
 <action name="TabContextMenu_UseDestinationsTab_On">
+  <obsolete>Could not find traces of this used in code.</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
 </action>
 
 <action name="TabContextMenu_UseVerticalTabs">
+  <obsolete>Could not find traces of this used in code.</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
 </action>
@@ -21986,6 +22070,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="TabGridSheet.UndoCloseTab">
+  <obsolete>Deprecated as of 11/2019. Sheet UI is no longer used.</obsolete>
   <owner>yusufo@chromium.org</owner>
   <owner>wychen@chromium.org</owner>
   <description>
@@ -22128,6 +22213,42 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="TabsSuggestions.Close.Accepted">
+  <owner>yusufo@chromium.org</owner>
+  <owner>davidjm@chromium.org</owner>
+  <description>
+    The tab close suggestions were considered and accepted by the user (with
+    some possible editing).
+  </description>
+</action>
+
+<action name="TabsSuggestions.Close.Dismissed">
+  <owner>yusufo@chromium.org</owner>
+  <owner>davidjm@chromium.org</owner>
+  <description>
+    The tab close suggestions were considered and dismissed by the user (with
+    some possible editing).
+  </description>
+</action>
+
+<action name="TabsSuggestions.Close.SuggestionsReview.Accepted">
+  <owner>yusufo@chromium.org</owner>
+  <owner>davidjm@chromium.org</owner>
+  <description>
+    The tab close suggestions were considered by the user by following through
+    the tab suggestions offered in the snackbar.
+  </description>
+</action>
+
+<action name="TabsSuggestions.Close.SuggestionsReview.Dismissed">
+  <owner>yusufo@chromium.org</owner>
+  <owner>davidjm@chromium.org</owner>
+  <description>
+    The tab close suggestions were not considered at all by the user by
+    dismissing the snackbar indicating tab suggestions are available.
+  </description>
+</action>
+
 <action name="TabStrip.UndoCloseTab">
   <owner>yusufo@chromium.org</owner>
   <owner>wychen@chromium.org</owner>
@@ -22159,6 +22280,28 @@ should be able to be added at any place in this file.
 <action name="TaskManager">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="TasksSurface.FakeBox.LongPressed">
+  <owner>gogerald@chromium.org</owner>
+  <description>
+    Recorded when the user long pressed the fake box on the tasks surface.
+  </description>
+</action>
+
+<action name="TasksSurface.FakeBox.Tapped">
+  <owner>gogerald@chromium.org</owner>
+  <description>
+    Recorded when the user taps the fake box on the tasks surface.
+  </description>
+</action>
+
+<action name="TasksSurface.FakeBox.VoiceSearch">
+  <owner>gogerald@chromium.org</owner>
+  <description>
+    Recorded when the user taps the voice search button in the fake box on the
+    tasks surface.
+  </description>
 </action>
 
 <action name="TerminalSystemAppMenuButtonButton_Clicked">
@@ -23399,6 +23542,10 @@ should be able to be added at any place in this file.
   <suffix name="Bookmark" label="For Bookmark feature."/>
   <suffix name="BottomToolbarTip" label="For BottomToolbarTip feature."/>
   <suffix name="ChromeDuet" label="For ChromeDuet feature."/>
+  <suffix name="ChromeDuetHomeButton"
+      label="For ChromeDuetHomeButton feature."/>
+  <suffix name="ChromeDuetTabSwitcherButton"
+      label="For ChromeDuetTabSwitcherButton feature."/>
   <suffix name="ChromeHomeExpand" label="For ChromeHomeExpand feature."/>
   <suffix name="ChromeHomeMenuHeader"
       label="For ChromeHomeMenuHeader feature."/>
@@ -23437,6 +23584,7 @@ should be able to be added at any place in this file.
   <suffix name="GlobalMediaControls" label="For GlobalMediaControls feature."/>
   <suffix name="HomePageButton" label="For HomePageButton feature."/>
   <suffix name="HomepageTile" label="For HomepageTile feature."/>
+  <suffix name="IdentityDisc" label="For IdentityDisc feature."/>
   <suffix name="IncognitoWindow" label="For IncognitoWindow feature."/>
   <suffix name="LongPressToolbarTip" label="For LongPressToolbar feature."/>
   <suffix name="MediaDownload" label="For MediaDownload feature."/>
@@ -23454,6 +23602,7 @@ should be able to be added at any place in this file.
   <suffix name="TabGroupsYourTabsTogether"
       label="For tab switcher with tab groups."/>
   <suffix name="TranslateMenuButton" label="For translate menu button."/>
+  <suffix name="WebUITabStrip" label="For the WebUI tab strip."/>
   <affected-action name="InProductHelp.NotifyEvent.IPH"/>
   <affected-action name="InProductHelp.NotifyUsedEvent.IPH"/>
   <affected-action name="InProductHelp.ShouldTriggerHelpUI.IPH"/>

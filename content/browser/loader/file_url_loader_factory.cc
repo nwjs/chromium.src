@@ -25,7 +25,7 @@
 #include "base/task/post_task.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "content/browser/web_package/bundled_exchanges_utils.h"
+#include "content/browser/web_package/web_bundle_utils.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
@@ -33,7 +33,8 @@
 #include "content/public/browser/shared_cors_origin_access_list.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
-#include "mojo/public/cpp/bindings/strong_binding.h"
+#include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "mojo/public/cpp/system/data_pipe_producer.h"
 #include "mojo/public/cpp/system/file_data_source.h"
@@ -55,7 +56,7 @@
 #include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/mojom/cors.mojom-shared.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
-#include "storage/common/fileapi/file_system_util.h"
+#include "storage/common/file_system/file_system_util.h"
 #include "url/gurl.h"
 
 #if defined(OS_WIN)
@@ -151,16 +152,16 @@ class FileURLDirectoryLoader
   static void CreateAndStart(
       const base::FilePath& profile_path,
       const network::ResourceRequest& request,
-      network::mojom::URLLoaderRequest loader,
-      network::mojom::URLLoaderClientPtrInfo client_info,
+      mojo::PendingReceiver<network::mojom::URLLoader> loader,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client_remote,
       std::unique_ptr<FileURLLoaderObserver> observer,
       scoped_refptr<net::HttpResponseHeaders> response_headers) {
-    // Owns itself. Will live as long as its URLLoader and URLLoaderClientPtr
+    // Owns itself. Will live as long as its URLLoader and URLLoaderClient
     // bindings are alive - essentially until either the client gives up or all
     // file data has been sent to it.
     auto* file_url_loader = new FileURLDirectoryLoader;
     file_url_loader->Start(profile_path, request, std::move(loader),
-                           std::move(client_info), std::move(observer),
+                           std::move(client_remote), std::move(observer),
                            std::move(response_headers));
   }
 
@@ -174,21 +175,21 @@ class FileURLDirectoryLoader
   void ResumeReadingBodyFromNet() override {}
 
  private:
-  FileURLDirectoryLoader() : binding_(this) {}
+  FileURLDirectoryLoader() = default;
   ~FileURLDirectoryLoader() override = default;
 
   void Start(const base::FilePath& profile_path,
              const network::ResourceRequest& request,
-             network::mojom::URLLoaderRequest loader,
-             network::mojom::URLLoaderClientPtrInfo client_info,
+             mojo::PendingReceiver<network::mojom::URLLoader> loader,
+             mojo::PendingRemote<network::mojom::URLLoaderClient> client_remote,
              std::unique_ptr<content::FileURLLoaderObserver> observer,
              scoped_refptr<net::HttpResponseHeaders> response_headers) {
-    binding_.Bind(std::move(loader));
-    binding_.set_connection_error_handler(base::BindOnce(
-        &FileURLDirectoryLoader::OnConnectionError, base::Unretained(this)));
+    receiver_.Bind(std::move(loader));
+    receiver_.set_disconnect_handler(base::BindOnce(
+        &FileURLDirectoryLoader::OnMojoDisconnct, base::Unretained(this)));
 
-    network::mojom::URLLoaderClientPtr client;
-    client.Bind(std::move(client_info));
+    mojo::Remote<network::mojom::URLLoaderClient> client(
+        std::move(client_remote));
 
     if (!net::FileURLToFilePath(request.url, &path_)) {
       client->OnComplete(network::URLLoaderCompletionStatus(net::ERR_FAILED));
@@ -229,16 +230,16 @@ class FileURLDirectoryLoader
         std::move(pipe.producer_handle));
   }
 
-  void OnConnectionError() {
+  void OnMojoDisconnct() {
     lister_.reset();
     data_producer_.reset();
-    binding_.Close();
+    receiver_.reset();
     client_.reset();
     MaybeDeleteSelf();
   }
 
   void MaybeDeleteSelf() {
-    if (!binding_.is_bound() && !client_.is_bound() && !lister_)
+    if (!receiver_.is_bound() && !client_.is_bound() && !lister_)
       delete this;
   }
 
@@ -345,8 +346,8 @@ class FileURLDirectoryLoader
   bool wrote_header_ = false;
   int listing_result_;
 
-  mojo::Binding<network::mojom::URLLoader> binding_;
-  network::mojom::URLLoaderClientPtr client_;
+  mojo::Receiver<network::mojom::URLLoader> receiver_{this};
+  mojo::Remote<network::mojom::URLLoaderClient> client_;
 
   std::unique_ptr<mojo::DataPipeProducer> data_producer_;
   std::string pending_data_;
@@ -360,19 +361,19 @@ class FileURLLoader : public network::mojom::URLLoader {
   static void CreateAndStart(
       const base::FilePath& profile_path,
       const network::ResourceRequest& request,
-      network::mojom::URLLoaderRequest loader,
-      network::mojom::URLLoaderClientPtrInfo client_info,
+      mojo::PendingReceiver<network::mojom::URLLoader> loader,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client_remote,
       DirectoryLoadingPolicy directory_loading_policy,
       FileAccessPolicy file_access_policy,
       LinkFollowingPolicy link_following_policy,
       std::unique_ptr<FileURLLoaderObserver> observer,
       scoped_refptr<net::HttpResponseHeaders> extra_response_headers) {
-    // Owns itself. Will live as long as its URLLoader and URLLoaderClientPtr
+    // Owns itself. Will live as long as its URLLoader and URLLoaderClient
     // bindings are alive - essentially until either the client gives up or all
     // file data has been sent to it.
     auto* file_url_loader = new FileURLLoader;
     file_url_loader->Start(
-        profile_path, request, std::move(loader), std::move(client_info),
+        profile_path, request, std::move(loader), std::move(client_remote),
         directory_loading_policy, file_access_policy, link_following_policy,
         std::move(observer), std::move(extra_response_headers));
   }
@@ -387,13 +388,13 @@ class FileURLLoader : public network::mojom::URLLoader {
     if (redirect_data->is_directory) {
       FileURLDirectoryLoader::CreateAndStart(
           redirect_data->profile_path, redirect_data->request,
-          binding_.Unbind(), client_.PassInterface(),
+          receiver_.Unbind(), client_.Unbind(),
           std::move(redirect_data->observer),
           std::move(redirect_data->extra_response_headers));
     } else {
       FileURLLoader::CreateAndStart(
           redirect_data->profile_path, redirect_data->request,
-          binding_.Unbind(), client_.PassInterface(),
+          receiver_.Unbind(), client_.Unbind(),
           redirect_data->directory_loading_policy,
           redirect_data->file_access_policy,
           redirect_data->link_following_policy,
@@ -415,7 +416,7 @@ class FileURLLoader : public network::mojom::URLLoader {
     bool is_directory = false;
     base::FilePath profile_path;
     network::ResourceRequest request;
-    network::mojom::URLLoaderRequest loader;
+    mojo::PendingReceiver<network::mojom::URLLoader> loader;
     DirectoryLoadingPolicy directory_loading_policy =
         DirectoryLoadingPolicy::kFail;
     FileAccessPolicy file_access_policy = FileAccessPolicy::kRestricted;
@@ -425,13 +426,13 @@ class FileURLLoader : public network::mojom::URLLoader {
     scoped_refptr<net::HttpResponseHeaders> extra_response_headers;
   };
 
-  FileURLLoader() : binding_(this) {}
+  FileURLLoader() = default;
   ~FileURLLoader() override = default;
 
   void Start(const base::FilePath& profile_path,
              const network::ResourceRequest& request,
-             network::mojom::URLLoaderRequest loader,
-             network::mojom::URLLoaderClientPtrInfo client_info,
+             mojo::PendingReceiver<network::mojom::URLLoader> loader,
+             mojo::PendingRemote<network::mojom::URLLoaderClient> client_remote,
              DirectoryLoadingPolicy directory_loading_policy,
              FileAccessPolicy file_access_policy,
              LinkFollowingPolicy link_following_policy,
@@ -445,11 +446,11 @@ class FileURLLoader : public network::mojom::URLLoader {
     head.request_start = base::TimeTicks::Now();
     head.response_start = base::TimeTicks::Now();
     head.headers = extra_response_headers;
-    binding_.Bind(std::move(loader));
-    binding_.set_connection_error_handler(base::BindOnce(
-        &FileURLLoader::OnConnectionError, base::Unretained(this)));
+    receiver_.Bind(std::move(loader));
+    receiver_.set_disconnect_handler(base::BindOnce(
+        &FileURLLoader::OnMojoDisconnct, base::Unretained(this)));
 
-    client_.Bind(std::move(client_info));
+    client_.Bind(std::move(client_remote));
 
     base::FilePath path;
     if (!net::FileURLToFilePath(request.url, &path)) {
@@ -639,10 +640,10 @@ class FileURLLoader : public network::mojom::URLLoader {
       total_bytes_to_send -= write_size;
     }
 
-    // TODO(crbug.com/995177): Update mime_util.cc when BundledHTTPExchanges is
-    // launched and stop using GetBundledExchangesFileMimeTypeFromFile().
-    if (!bundled_exchanges_utils::GetBundledExchangesFileMimeTypeFromFile(
-            path, &head.mime_type) &&
+    // TODO(crbug.com/995177): Update mime_util.cc when WebBundles feature is
+    // launched and stop using GetWebBundleFileMimeTypeFromFile().
+    if (!web_bundle_utils::GetWebBundleFileMimeTypeFromFile(path,
+                                                            &head.mime_type) &&
         !net::GetMimeTypeFromFile(path, &head.mime_type)) {
       std::string new_type;
       net::SniffMimeType(
@@ -685,9 +686,9 @@ class FileURLLoader : public network::mojom::URLLoader {
                                          base::Unretained(this), nullptr));
   }
 
-  void OnConnectionError() {
+  void OnMojoDisconnct() {
     data_producer_.reset();
-    binding_.Close();
+    receiver_.reset();
     client_.reset();
     MaybeDeleteSelf();
   }
@@ -708,7 +709,7 @@ class FileURLLoader : public network::mojom::URLLoader {
   }
 
   void MaybeDeleteSelf() {
-    if (!binding_.is_bound() && !client_.is_bound())
+    if (!receiver_.is_bound() && !client_.is_bound())
       delete this;
   }
 
@@ -734,8 +735,8 @@ class FileURLLoader : public network::mojom::URLLoader {
   }
 
   std::unique_ptr<mojo::DataPipeProducer> data_producer_;
-  mojo::Binding<network::mojom::URLLoader> binding_;
-  network::mojom::URLLoaderClientPtr client_;
+  mojo::Receiver<network::mojom::URLLoader> receiver_{this};
+  mojo::Remote<network::mojom::URLLoaderClient> client_;
   std::unique_ptr<RedirectData> redirect_data_;
 
   // In case of successful loads, this holds the total number of bytes written
@@ -764,12 +765,12 @@ FileURLLoaderFactory::FileURLLoaderFactory(
 FileURLLoaderFactory::~FileURLLoaderFactory() = default;
 
 void FileURLLoaderFactory::CreateLoaderAndStart(
-    network::mojom::URLLoaderRequest loader,
+    mojo::PendingReceiver<network::mojom::URLLoader> loader,
     int32_t routing_id,
     int32_t request_id,
     uint32_t options,
     const network::ResourceRequest& request,
-    network::mojom::URLLoaderClientPtr client,
+    mojo::PendingRemote<network::mojom::URLLoaderClient> client,
     const net::MutableNetworkTrafficAnnotationTag& traffic_annotation) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
@@ -779,8 +780,9 @@ void FileURLLoaderFactory::CreateLoaderAndStart(
   // CORS mode requires a valid |request_inisiator|. Check this condition first
   // so that kDisableWebSecurity should not hide program errors in tests.
   if (cors_flag && !request.request_initiator) {
-    client->OnComplete(
-        network::URLLoaderCompletionStatus(net::ERR_INVALID_ARGUMENT));
+    mojo::Remote<network::mojom::URLLoaderClient>(std::move(client))
+        ->OnComplete(
+            network::URLLoaderCompletionStatus(net::ERR_INVALID_ARGUMENT));
     return;
   }
 
@@ -817,25 +819,26 @@ void FileURLLoaderFactory::CreateLoaderAndStart(
 
 void FileURLLoaderFactory::CreateLoaderAndStartInternal(
     const network::ResourceRequest request,
-    network::mojom::URLLoaderRequest loader,
-    network::mojom::URLLoaderClientPtr client,
+    mojo::PendingReceiver<network::mojom::URLLoader> loader,
+    mojo::PendingRemote<network::mojom::URLLoaderClient> client,
     bool cors_flag) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
   if (cors_flag) {
     // FileURLLoader doesn't support CORS and it's not covered by CorsURLLoader,
     // so we need to reject requests that need CORS manually.
-    client->OnComplete(
-        network::URLLoaderCompletionStatus(network::CorsErrorStatus(
-            network::mojom::CorsError::kCorsDisabledScheme)));
+    mojo::Remote<network::mojom::URLLoaderClient>(std::move(client))
+        ->OnComplete(
+            network::URLLoaderCompletionStatus(network::CorsErrorStatus(
+                network::mojom::CorsError::kCorsDisabledScheme)));
     return;
   }
 
   // Check file path just after all CORS flag checks are handled.
   base::FilePath file_path;
   if (!net::FileURLToFilePath(request.url, &file_path)) {
-    client->OnComplete(
-        network::URLLoaderCompletionStatus(net::ERR_INVALID_URL));
+    mojo::Remote<network::mojom::URLLoaderClient>(std::move(client))
+        ->OnComplete(network::URLLoaderCompletionStatus(net::ERR_INVALID_URL));
     return;
   }
 
@@ -843,18 +846,17 @@ void FileURLLoaderFactory::CreateLoaderAndStartInternal(
     task_runner_->PostTask(
         FROM_HERE,
         base::BindOnce(&FileURLDirectoryLoader::CreateAndStart, profile_path_,
-                       request, std::move(loader), client.PassInterface(),
+                       request, std::move(loader), std::move(client),
                        std::unique_ptr<FileURLLoaderObserver>(), nullptr));
   } else {
     task_runner_->PostTask(
-        FROM_HERE,
-        base::BindOnce(&FileURLLoader::CreateAndStart, profile_path_, request,
-                       std::move(loader), client.PassInterface(),
-                       DirectoryLoadingPolicy::kRespondWithListing,
-                       FileAccessPolicy::kRestricted,
-                       LinkFollowingPolicy::kFollow,
-                       std::unique_ptr<FileURLLoaderObserver>(),
-                       nullptr /* extra_response_headers */));
+        FROM_HERE, base::BindOnce(&FileURLLoader::CreateAndStart, profile_path_,
+                                  request, std::move(loader), std::move(client),
+                                  DirectoryLoadingPolicy::kRespondWithListing,
+                                  FileAccessPolicy::kRestricted,
+                                  LinkFollowingPolicy::kFollow,
+                                  std::unique_ptr<FileURLLoaderObserver>(),
+                                  nullptr /* extra_response_headers */));
   }
 }
 
@@ -867,8 +869,8 @@ void FileURLLoaderFactory::Clone(
 
 void CreateFileURLLoader(
     const network::ResourceRequest& request,
-    network::mojom::URLLoaderRequest loader,
-    network::mojom::URLLoaderClientPtr client,
+    mojo::PendingReceiver<network::mojom::URLLoader> loader,
+    mojo::PendingRemote<network::mojom::URLLoaderClient> client,
     std::unique_ptr<FileURLLoaderObserver> observer,
     bool allow_directory_listing,
     scoped_refptr<net::HttpResponseHeaders> extra_response_headers) {
@@ -882,7 +884,7 @@ void CreateFileURLLoader(
       FROM_HERE,
       base::BindOnce(
           &FileURLLoader::CreateAndStart, base::FilePath(), request,
-          std::move(loader), client.PassInterface(),
+          std::move(loader), std::move(client),
           allow_directory_listing ? DirectoryLoadingPolicy::kRespondWithListing
                                   : DirectoryLoadingPolicy::kFail,
           FileAccessPolicy::kUnrestricted, LinkFollowingPolicy::kDoNotFollow,

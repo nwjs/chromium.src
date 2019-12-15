@@ -16,7 +16,6 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "services/service_manager/public/cpp/binder_registry.h"
 
 namespace dom_distiller {
 
@@ -29,16 +28,12 @@ class DistillabilityDriver
   void CreateDistillabilityService(
       mojo::PendingReceiver<mojom::DistillabilityService> receiver);
 
-  void AddObserver(DistillabilityObserver* observer);
+  base::ObserverList<DistillabilityObserver>* GetObserverList() {
+    return &observers_;
+  }
   base::Optional<DistillabilityResult> GetLatestResult() const {
     return latest_result_;
   }
-
-  // content::WebContentsObserver implementation.
-  void OnInterfaceRequestFromFrame(
-      content::RenderFrameHost* render_frame_host,
-      const std::string& interface_name,
-      mojo::ScopedMessagePipeHandle* interface_pipe) override;
 
  private:
   explicit DistillabilityDriver(content::WebContents* web_contents);
@@ -54,8 +49,6 @@ class DistillabilityDriver
   // TODO(https://crbug.com/952042): Set this to nullopt when navigating to a
   // new page, accounting for same-document navigation.
   base::Optional<DistillabilityResult> latest_result_;
-
-  service_manager::BinderRegistry frame_interfaces_;
 
   base::WeakPtrFactory<DistillabilityDriver> weak_factory_{this};
 

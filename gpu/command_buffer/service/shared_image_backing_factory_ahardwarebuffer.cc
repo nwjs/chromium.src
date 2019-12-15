@@ -17,6 +17,7 @@
 #include "base/containers/flat_set.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/posix/eintr_wrapper.h"
 #include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "components/viz/common/resources/resource_format_utils.h"
 #include "components/viz/common/resources/resource_sizes.h"
@@ -290,8 +291,8 @@ class SharedImageRepresentationSkiaVkAHB
         /*gpu_compositing=*/true, format());
     auto surface = SkSurface::MakeFromBackendTextureAsRenderTarget(
         context_state_->gr_context(), promise_texture_->backendTexture(),
-        kTopLeft_GrSurfaceOrigin, final_msaa_count, sk_color_type, nullptr,
-        &surface_props);
+        kTopLeft_GrSurfaceOrigin, final_msaa_count, sk_color_type,
+        color_space().ToSkColorSpace(), &surface_props);
     DCHECK(surface);
     surface_ = surface.get();
     return surface;

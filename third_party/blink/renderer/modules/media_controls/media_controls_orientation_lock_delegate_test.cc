@@ -14,7 +14,6 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/renderer/core/dom/document.h"
-#include "third_party/blink/renderer/core/dom/user_gesture_indicator.h"
 #include "third_party/blink/renderer/core/frame/frame_view.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/screen_orientation_controller.h"
@@ -190,7 +189,7 @@ class MediaControlsOrientationLockDelegateTest
         RuntimeEnabledFeatures::OrientationEventEnabled();
 
     GetDocument().write("<body><video></body>");
-    video_ = ToHTMLVideoElement(*GetDocument().QuerySelector("video"));
+    video_ = To<HTMLVideoElement>(*GetDocument().QuerySelector("video"));
   }
 
   void TearDown() override {
@@ -204,8 +203,7 @@ class MediaControlsOrientationLockDelegateTest
   }
 
   void SimulateEnterFullscreen() {
-    std::unique_ptr<UserGestureIndicator> gesture =
-        LocalFrame::NotifyUserActivation(GetDocument().GetFrame());
+    LocalFrame::NotifyUserActivation(GetDocument().GetFrame());
     Fullscreen::RequestFullscreen(Video());
     test::RunPendingTasks();
   }
@@ -406,11 +404,8 @@ class MediaControlsOrientationLockAndRotateToFullscreenDelegateTest
   }
 
   void PlayVideo() {
-    {
-      std::unique_ptr<UserGestureIndicator> gesture =
-          LocalFrame::NotifyUserActivation(GetDocument().GetFrame());
-      Video().Play();
-    }
+    LocalFrame::NotifyUserActivation(GetDocument().GetFrame());
+    Video().Play();
     test::RunPendingTasks();
   }
 

@@ -318,7 +318,8 @@ void WorkerThread::TerminateAllWorkersForTesting() {
   TerminateThreadsInSet(WorkerThreads());
 }
 
-void WorkerThread::WillProcessTask(const base::PendingTask& pending_task) {
+void WorkerThread::WillProcessTask(const base::PendingTask& pending_task,
+                                   bool was_blocked_or_low_priority) {
   DCHECK(IsCurrentThread());
 
   // No tasks should get executed after we have closed.
@@ -818,6 +819,7 @@ void WorkerThread::PauseOrFreezeOnWorkerThread(
          state == mojom::FrameLifecycleState::kPaused);
   pause_or_freeze_count_++;
   GlobalScope()->SetLifecycleState(state);
+  GlobalScope()->SetDefersLoadingForResourceFetchers(true);
 
   // If already paused return early.
   if (pause_or_freeze_count_ > 1)
@@ -836,6 +838,7 @@ void WorkerThread::PauseOrFreezeOnWorkerThread(
         &nested_runner_, nested_runner.get());
     nested_runner->Run();
   }
+  GlobalScope()->SetDefersLoadingForResourceFetchers(false);
   GlobalScope()->SetLifecycleState(mojom::FrameLifecycleState::kRunning);
 }
 

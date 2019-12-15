@@ -186,11 +186,6 @@ public class OmniboxTestUtils {
         }
 
         @Override
-        protected long nativeInit(Profile profile) {
-            return 1;
-        }
-
-        @Override
         public void setProfile(Profile profile) {}
     }
 
@@ -218,11 +213,6 @@ public class OmniboxTestUtils {
 
         @Override
         public void stop(boolean clear) {}
-
-        @Override
-        protected long nativeInit(Profile profile) {
-            return 1;
-        }
 
         @Override
         public void setProfile(Profile profile) {}
@@ -277,10 +267,15 @@ public class OmniboxTestUtils {
         if (gainFocus) {
             // During early startup (before completion of its first onDraw), the UrlBar
             // is not focusable. Tests have to wait for that to happen before trying to focus it.
-            CriteriaHelper.pollUiThread(new Criteria("UrlBar was not focusable") {
+            CriteriaHelper.pollUiThread(new Criteria() {
                 @Override
                 public boolean isSatisfied() {
-                    return urlBar.isFocusable();
+                    boolean shown = urlBar.isShown();
+                    boolean focusable = urlBar.isFocusable();
+                    updateFailureReason(String.format(Locale.US,
+                            "UrlBar is invalid state - shown: %b, focusable: %b", shown,
+                            focusable));
+                    return shown && focusable;
                 }
             });
 

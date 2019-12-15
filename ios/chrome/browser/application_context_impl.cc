@@ -69,19 +69,21 @@ namespace {
 // Note that this cannot be called on a thread that is not the UI thread.
 void RequestProxyResolvingSocketFactoryOnUIThread(
     ApplicationContextImpl* app_context,
-    network::mojom::ProxyResolvingSocketFactoryRequest request) {
+    mojo::PendingReceiver<network::mojom::ProxyResolvingSocketFactory>
+        receiver) {
   network::mojom::NetworkContext* network_context =
       app_context->GetSystemNetworkContext();
-  network_context->CreateProxyResolvingSocketFactory(std::move(request));
+  network_context->CreateProxyResolvingSocketFactory(std::move(receiver));
 }
 
 // Wrapper on top of the method above. This does a PostTask to the UI thread.
 void RequestProxyResolvingSocketFactory(
     ApplicationContextImpl* app_context,
-    network::mojom::ProxyResolvingSocketFactoryRequest request) {
+    mojo::PendingReceiver<network::mojom::ProxyResolvingSocketFactory>
+        receiver) {
   base::PostTask(FROM_HERE, {web::WebThread::UI},
                  base::BindOnce(&RequestProxyResolvingSocketFactoryOnUIThread,
-                                app_context, std::move(request)));
+                                app_context, std::move(receiver)));
 }
 
 // Passed to NetworkConnectionTracker to bind a NetworkChangeManager receiver.
@@ -101,8 +103,6 @@ ApplicationContextImpl::ApplicationContextImpl(
       was_last_shutdown_clean_(false) {
   DCHECK(!GetApplicationContext());
   SetApplicationContext(this);
-
-  net_log_ = std::make_unique<net::NetLog>();
 
   SetApplicationLocale(locale);
 
@@ -294,7 +294,7 @@ rappor::RapporServiceImpl* ApplicationContextImpl::GetRapporServiceImpl() {
 
 net::NetLog* ApplicationContextImpl::GetNetLog() {
   DCHECK(thread_checker_.CalledOnValidThread());
-  return net_log_.get();
+  return net::NetLog::Get();
 }
 
 net_log::NetExportFileWriter* ApplicationContextImpl::GetNetExportFileWriter() {

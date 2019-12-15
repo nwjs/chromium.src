@@ -5,6 +5,8 @@
 #ifndef UI_ACCESSIBILITY_PLATFORM_AX_PLATFORM_NODE_TEXTRANGEPROVIDER_WIN_H_
 #define UI_ACCESSIBILITY_PLATFORM_AX_PLATFORM_NODE_TEXTRANGEPROVIDER_WIN_H_
 
+#include <wrl/client.h>
+
 #include <string>
 #include <tuple>
 #include <vector>
@@ -89,7 +91,11 @@ class AX_EXPORT __declspec(uuid("3071e40d-a10d-45ff-a59f-6e8e1138e2c1"))
   friend class AXPlatformNodeTextProviderTest;
   friend class AXRangeScreenRectDelegateImpl;
 
-  base::string16 GetString(int max_count);
+  static bool AtStartOfLinePredicate(const AXPositionInstance& position);
+  static bool AtEndOfLinePredicate(const AXPositionInstance& position);
+
+  base::string16 GetString(int max_count,
+                           size_t* appended_newlines_count = nullptr);
   AXPlatformNodeWin* owner() const;
   AXPlatformNodeDelegate* GetDelegate(
       const AXPositionInstanceType* position) const;
@@ -134,9 +140,10 @@ class AX_EXPORT __declspec(uuid("3071e40d-a10d-45ff-a59f-6e8e1138e2c1"))
       const int count,
       int* units_moved);
 
+  void NormalizeAsUnignoredTextRange();
   void NormalizeTextRange();
 
-  CComPtr<AXPlatformNodeWin> owner_;
+  Microsoft::WRL::ComPtr<AXPlatformNodeWin> owner_;
   AXPositionInstance start_;
   AXPositionInstance end_;
 };

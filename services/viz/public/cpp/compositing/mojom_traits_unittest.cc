@@ -25,7 +25,7 @@
 #include "gpu/ipc/common/sync_token_mojom_traits.h"
 #include "ipc/ipc_message_utils.h"
 #include "mojo/public/cpp/base/time_mojom_traits.h"
-#include "mojo/public/cpp/bindings/binding_set.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "services/viz/public/cpp/compositing/begin_frame_args_mojom_traits.h"
 #include "services/viz/public/cpp/compositing/compositor_frame_metadata_mojom_traits.h"
@@ -366,14 +366,17 @@ TEST_F(StructTraitsTest, CopyOutputRequest_CallbackRunsOnce) {
             ++*n_called;
           },
           base::Unretained(&n_called)));
-  auto result_sender = mojo::StructTraits<
+  auto result_sender_pending_remote = mojo::StructTraits<
       mojom::CopyOutputRequestDataView,
       std::unique_ptr<CopyOutputRequest>>::result_sender(request);
+
+  mojo::Remote<mojom::CopyOutputResultSender> result_sender_remote(
+      std::move(result_sender_pending_remote));
   for (int i = 0; i < 10; i++)
-    result_sender->SendResult(std::make_unique<CopyOutputResult>(
+    result_sender_remote->SendResult(std::make_unique<CopyOutputResult>(
         request->result_format(), gfx::Rect()));
   EXPECT_EQ(0, n_called);
-  result_sender.FlushForTesting();
+  result_sender_remote.FlushForTesting();
   EXPECT_EQ(1, n_called);
 }
 
@@ -638,8 +641,7 @@ TEST_F(StructTraitsTest, CompositorFrameMetadata) {
   uint64_t begin_frame_ack_sequence_number = 0xdeadbeef;
   FrameDeadline frame_deadline(base::TimeTicks(), 4u, base::TimeDelta(), true);
   const float min_page_scale_factor = 3.5f;
-  const float top_bar_height(1234.5f);
-  const float top_bar_shown_ratio(1.0f);
+  const float top_controls_visible_height = 12.f;
   const base::TimeTicks local_surface_id_allocation_time =
       base::TimeTicks::Now();
 
@@ -659,8 +661,7 @@ TEST_F(StructTraitsTest, CompositorFrameMetadata) {
   input.frame_token = frame_token;
   input.begin_frame_ack.sequence_number = begin_frame_ack_sequence_number;
   input.min_page_scale_factor = min_page_scale_factor;
-  input.top_controls_height = top_bar_height;
-  input.top_controls_shown_ratio = top_bar_shown_ratio;
+  input.top_controls_visible_height.emplace(top_controls_visible_height);
   input.local_surface_id_allocation_time = local_surface_id_allocation_time;
 
   CompositorFrameMetadata output;
@@ -689,8 +690,7 @@ TEST_F(StructTraitsTest, CompositorFrameMetadata) {
   EXPECT_EQ(begin_frame_ack_sequence_number,
             output.begin_frame_ack.sequence_number);
   EXPECT_EQ(min_page_scale_factor, output.min_page_scale_factor);
-  EXPECT_EQ(top_bar_height, output.top_controls_height);
-  EXPECT_EQ(top_bar_shown_ratio, output.top_controls_shown_ratio);
+  EXPECT_EQ(*output.top_controls_visible_height, top_controls_visible_height);
   EXPECT_EQ(local_surface_id_allocation_time,
             output.local_surface_id_allocation_time);
 }
@@ -768,7 +768,7 @@ TEST_F(StructTraitsTest, RenderPass) {
           base::nullopt,
           SurfaceId(FrameSinkId(1337, 1234),
                     LocalSurfaceId(1234, base::UnguessableToken::Create()))),
-      SK_ColorYELLOW, false, false);
+      SK_ColorYELLOW, false);
   // Test non-default values.
   surface_quad->is_reflection = !surface_quad->is_reflection;
   surface_quad->allow_merge = !surface_quad->allow_merge;
@@ -924,7 +924,7 @@ TEST_F(StructTraitsTest, QuadListBasic) {
       render_pass->CreateAndAppendDrawQuad<SurfaceDrawQuad>();
   primary_surface_quad->SetNew(
       sqs, rect3, rect3, SurfaceRange(fallback_surface_id, primary_surface_id),
-      SK_ColorBLUE, false, false);
+      SK_ColorBLUE, false);
 
   const gfx::Rect rect4(1234, 5678, 9101112, 13141516);
   const ResourceId resource_id4(1337);

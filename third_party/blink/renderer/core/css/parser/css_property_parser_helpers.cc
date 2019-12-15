@@ -36,8 +36,6 @@
 
 namespace blink {
 
-using namespace cssvalue;
-
 namespace css_property_parser_helpers {
 
 namespace {
@@ -668,13 +666,14 @@ CSSStringValue* ConsumeString(CSSParserTokenRange& range) {
       range.ConsumeIncludingWhitespace().Value().ToString());
 }
 
-StringView ConsumeUrlAsStringView(CSSParserTokenRange& range) {
+StringView ConsumeUrlAsStringView(CSSParserTokenRange& range,
+                                  const CSSParserContext* context) {
+  StringView url;
   const CSSParserToken& token = range.Peek();
   if (token.GetType() == kUrlToken) {
     range.ConsumeIncludingWhitespace();
-    return token.Value();
-  }
-  if (token.FunctionId() == CSSValueID::kUrl) {
+    url = token.Value();
+  } else if (token.FunctionId() == CSSValueID::kUrl) {
     CSSParserTokenRange url_range = range;
     CSSParserTokenRange url_args = url_range.ConsumeBlock();
     const CSSParserToken& next = url_args.ConsumeIncludingWhitespace();
@@ -683,19 +682,32 @@ StringView ConsumeUrlAsStringView(CSSParserTokenRange& range) {
     DCHECK_EQ(next.GetType(), kStringToken);
     range = url_range;
     range.ConsumeWhitespace();
-    return next.Value();
+    url = next.Value();
   }
 
-  return StringView();
+  // Invalidate the URL if only data URLs are allowed and the protocol is not
+  // data.
+  if (!url.IsNull() &&
+      context->ResourceFetchRestriction() ==
+          ResourceFetchRestriction::kOnlyDataUrls &&
+      !ProtocolIs(url.ToString(), "data")) {
+    // The StringView must be instantiated with an empty string otherwise the
+    // URL will incorrectly be identified as null. The resource should behave as
+    // if it failed to load.
+    url = StringView("");
+  }
+
+  return url;
 }
 
-CSSURIValue* ConsumeUrl(CSSParserTokenRange& range,
-                        const CSSParserContext* context) {
-  StringView url = ConsumeUrlAsStringView(range);
+cssvalue::CSSURIValue* ConsumeUrl(CSSParserTokenRange& range,
+                                  const CSSParserContext* context) {
+  StringView url = ConsumeUrlAsStringView(range, context);
   if (url.IsNull())
     return nullptr;
   String url_string = url.ToString();
-  return CSSURIValue::Create(url_string, context->CompleteURL(url_string));
+  return cssvalue::CSSURIValue::Create(url_string,
+                                       context->CompleteURL(url_string));
 }
 
 static int ClampRGBComponent(const CSSPrimitiveValue& value) {
@@ -891,6 +903,10 @@ CSSValue* ConsumeColor(CSSParserTokenRange& range,
         (color->GetValueID() == CSSValueID::kLinktext ||
          color->GetValueID() == CSSValueID::kVisitedtext)) {
       return nullptr;
+    } else if (!RuntimeEnabledFeatures::NewSystemColorsEnabled() &&
+               (id == CSSValueID::kActivetext || id == CSSValueID::kField ||
+                id == CSSValueID::kFieldtext)) {
+      return nullptr;
     }
     return color;
   }
@@ -899,7 +915,7 @@ CSSValue* ConsumeColor(CSSParserTokenRange& range,
       !ParseColorFunction(range, color)) {
     return ParseLightDarkColor(range, css_parser_mode);
   }
-  return CSSColorValue::Create(color);
+  return cssvalue::CSSColorValue::Create(color);
 }
 
 CSSValue* ConsumeLineWidth(CSSParserTokenRange& range,
@@ -1221,9 +1237,10 @@ static CSSValue* ConsumeDeprecatedGradientStopColor(
   return ConsumeColor(args, css_parser_mode);
 }
 
-static bool ConsumeDeprecatedGradientColorStop(CSSParserTokenRange& range,
-                                               CSSGradientColorStop& stop,
-                                               CSSParserMode css_parser_mode) {
+static bool ConsumeDeprecatedGradientColorStop(
+    CSSParserTokenRange& range,
+    cssvalue::CSSGradientColorStop& stop,
+    CSSParserMode css_parser_mode) {
   CSSValueID id = range.Peek().FunctionId();
   if (id != CSSValueID::kFrom && id != CSSValueID::kTo &&
       id != CSSValueID::kColorStop)
@@ -1296,15 +1313,17 @@ static CSSValue* ConsumeDeprecatedGradient(CSSParserTokenRange& args,
       return nullptr;
   }
 
-  CSSGradientValue* result =
+  cssvalue::CSSGradientValue* result =
       (id == CSSValueID::kRadial)
-          ? CSSRadialGradientValue::Create(
+          ? cssvalue::CSSRadialGradientValue::Create(
                 first_x, first_y, first_radius, second_x, second_y,
-                second_radius, kNonRepeating, kCSSDeprecatedRadialGradient)
-          : MakeGarbageCollected<CSSLinearGradientValue>(
-                first_x, first_y, second_x, second_y, nullptr, kNonRepeating,
-                kCSSDeprecatedLinearGradient);
-  CSSGradientColorStop stop;
+                second_radius, cssvalue::kNonRepeating,
+                cssvalue::kCSSDeprecatedRadialGradient)
+          : MakeGarbageCollected<cssvalue::CSSLinearGradientValue>(
+                first_x, first_y, second_x, second_y, nullptr,
+                cssvalue::kNonRepeating,
+                cssvalue::kCSSDeprecatedLinearGradient);
+  cssvalue::CSSGradientColorStop stop;
   while (ConsumeCommaIncludingWhitespace(args)) {
     if (!ConsumeDeprecatedGradientColorStop(args, stop, css_parser_mode))
       return nullptr;
@@ -1343,16 +1362,17 @@ using PositionFunctor = CSSPrimitiveValue* (*)(CSSParserTokenRange&,
 
 static bool ConsumeGradientColorStops(CSSParserTokenRange& range,
                                       const CSSParserContext& context,
-                                      CSSGradientValue* gradient,
+                                      cssvalue::CSSGradientValue* gradient,
                                       PositionFunctor consume_position_func) {
-  bool supports_color_hints = gradient->GradientType() == kCSSLinearGradient ||
-                              gradient->GradientType() == kCSSRadialGradient ||
-                              gradient->GradientType() == kCSSConicGradient;
+  bool supports_color_hints =
+      gradient->GradientType() == cssvalue::kCSSLinearGradient ||
+      gradient->GradientType() == cssvalue::kCSSRadialGradient ||
+      gradient->GradientType() == cssvalue::kCSSConicGradient;
 
   // The first color stop cannot be a color hint.
   bool previous_stop_was_color_hint = true;
   do {
-    CSSGradientColorStop stop;
+    cssvalue::CSSGradientColorStop stop;
     stop.color_ = ConsumeColor(range, context.Mode());
     // Two hints in a row are not allowed.
     if (!stop.color_ && (!supports_color_hints || previous_stop_was_color_hint))
@@ -1385,7 +1405,7 @@ static bool ConsumeGradientColorStops(CSSParserTokenRange& range,
 static CSSValue* ConsumeDeprecatedRadialGradient(
     CSSParserTokenRange& args,
     const CSSParserContext& context,
-    CSSGradientRepeat repeating) {
+    cssvalue::CSSGradientRepeat repeating) {
   CSSValue* center_x = nullptr;
   CSSValue* center_y = nullptr;
   ConsumeOneOrTwoValuedPosition(args, context.Mode(), UnitlessQuirk::kForbid,
@@ -1419,9 +1439,9 @@ static CSSValue* ConsumeDeprecatedRadialGradient(
     ConsumeCommaIncludingWhitespace(args);
   }
 
-  CSSGradientValue* result = CSSRadialGradientValue::Create(
+  cssvalue::CSSGradientValue* result = cssvalue::CSSRadialGradientValue::Create(
       center_x, center_y, shape, size_keyword, horizontal_size, vertical_size,
-      repeating, kCSSPrefixedRadialGradient);
+      repeating, cssvalue::kCSSPrefixedRadialGradient);
   return ConsumeGradientColorStops(args, context, result,
                                    ConsumeGradientLengthOrPercent)
              ? result
@@ -1430,7 +1450,7 @@ static CSSValue* ConsumeDeprecatedRadialGradient(
 
 static CSSValue* ConsumeRadialGradient(CSSParserTokenRange& args,
                                        const CSSParserContext& context,
-                                       CSSGradientRepeat repeating) {
+                                       cssvalue::CSSGradientRepeat repeating) {
   const CSSIdentifierValue* shape = nullptr;
   const CSSIdentifierValue* size_keyword = nullptr;
   const CSSPrimitiveValue* horizontal_size = nullptr;
@@ -1510,31 +1530,32 @@ static CSSValue* ConsumeRadialGradient(CSSParserTokenRange& args,
     return nullptr;
   }
 
-  CSSGradientValue* result = CSSRadialGradientValue::Create(
+  cssvalue::CSSGradientValue* result = cssvalue::CSSRadialGradientValue::Create(
       center_x, center_y, shape, size_keyword, horizontal_size, vertical_size,
-      repeating, kCSSRadialGradient);
+      repeating, cssvalue::kCSSRadialGradient);
   return ConsumeGradientColorStops(args, context, result,
                                    ConsumeGradientLengthOrPercent)
              ? result
              : nullptr;
 }
 
-static CSSValue* ConsumeLinearGradient(CSSParserTokenRange& args,
-                                       const CSSParserContext& context,
-                                       CSSGradientRepeat repeating,
-                                       CSSGradientType gradient_type) {
+static CSSValue* ConsumeLinearGradient(
+    CSSParserTokenRange& args,
+    const CSSParserContext& context,
+    cssvalue::CSSGradientRepeat repeating,
+    cssvalue::CSSGradientType gradient_type) {
   bool expect_comma = true;
   const CSSPrimitiveValue* angle =
       ConsumeAngle(args, &context, WebFeature::kUnitlessZeroAngleGradient);
   const CSSIdentifierValue* end_x = nullptr;
   const CSSIdentifierValue* end_y = nullptr;
   if (!angle) {
-    if (gradient_type == kCSSPrefixedLinearGradient ||
+    if (gradient_type == cssvalue::kCSSPrefixedLinearGradient ||
         ConsumeIdent<CSSValueID::kTo>(args)) {
       end_x = ConsumeIdent<CSSValueID::kLeft, CSSValueID::kRight>(args);
       end_y = ConsumeIdent<CSSValueID::kBottom, CSSValueID::kTop>(args);
       if (!end_x && !end_y) {
-        if (gradient_type == kCSSLinearGradient)
+        if (gradient_type == cssvalue::kCSSLinearGradient)
           return nullptr;
         end_y = CSSIdentifierValue::Create(CSSValueID::kTop);
         expect_comma = false;
@@ -1549,8 +1570,9 @@ static CSSValue* ConsumeLinearGradient(CSSParserTokenRange& args,
   if (expect_comma && !ConsumeCommaIncludingWhitespace(args))
     return nullptr;
 
-  CSSGradientValue* result = MakeGarbageCollected<CSSLinearGradientValue>(
-      end_x, end_y, nullptr, nullptr, angle, repeating, gradient_type);
+  cssvalue::CSSGradientValue* result =
+      MakeGarbageCollected<cssvalue::CSSLinearGradientValue>(
+          end_x, end_y, nullptr, nullptr, angle, repeating, gradient_type);
   return ConsumeGradientColorStops(args, context, result,
                                    ConsumeGradientLengthOrPercent)
              ? result
@@ -1559,7 +1581,7 @@ static CSSValue* ConsumeLinearGradient(CSSParserTokenRange& args,
 
 static CSSValue* ConsumeConicGradient(CSSParserTokenRange& args,
                                       const CSSParserContext& context,
-                                      CSSGradientRepeat repeating) {
+                                      cssvalue::CSSGradientRepeat repeating) {
   const CSSPrimitiveValue* from_angle = nullptr;
   if (ConsumeIdent<CSSValueID::kFrom>(args)) {
     if (!(from_angle = ConsumeAngle(args, &context,
@@ -1581,8 +1603,8 @@ static CSSValue* ConsumeConicGradient(CSSParserTokenRange& args,
     return nullptr;
   }
 
-  CSSGradientValue* result =
-      CSSConicGradientValue::Create(center_x, center_y, from_angle, repeating);
+  cssvalue::CSSGradientValue* result = cssvalue::CSSConicGradientValue::Create(
+      center_x, center_y, from_angle, repeating);
   return ConsumeGradientColorStops(args, context, result,
                                    ConsumeGradientAngleOrPercent)
              ? result
@@ -1601,7 +1623,7 @@ CSSValue* ConsumeAxis(CSSParserTokenRange& range) {
   if (axis_id == CSSValueID::kX || axis_id == CSSValueID::kY ||
       axis_id == CSSValueID::kZ) {
     ConsumeIdent(range);
-    return MakeGarbageCollected<CSSAxisValue>(axis_id);
+    return MakeGarbageCollected<cssvalue::CSSAxisValue>(axis_id);
   }
 
   CSSValue* x_dimension =
@@ -1615,7 +1637,7 @@ CSSValue* ConsumeAxis(CSSParserTokenRange& range) {
   double x = To<CSSPrimitiveValue>(x_dimension)->GetDoubleValue();
   double y = To<CSSPrimitiveValue>(y_dimension)->GetDoubleValue();
   double z = To<CSSPrimitiveValue>(z_dimension)->GetDoubleValue();
-  return MakeGarbageCollected<CSSAxisValue>(x, y, z);
+  return MakeGarbageCollected<cssvalue::CSSAxisValue>(x, y, z);
 }
 
 static CSSValue* ConsumeCrossFade(CSSParserTokenRange& args,
@@ -1640,8 +1662,8 @@ static CSSValue* ConsumeCrossFade(CSSParserTokenRange& args,
 
   if (!percentage)
     return nullptr;
-  return MakeGarbageCollected<CSSCrossfadeValue>(from_image_value,
-                                                 to_image_value, percentage);
+  return MakeGarbageCollected<cssvalue::CSSCrossfadeValue>(
+      from_image_value, to_image_value, percentage);
 }
 
 static CSSValue* ConsumePaint(CSSParserTokenRange& args,
@@ -1692,36 +1714,38 @@ static CSSValue* ConsumeGeneratedImage(CSSParserTokenRange& range,
   CSSParserTokenRange args = ConsumeFunction(range_copy);
   CSSValue* result = nullptr;
   if (id == CSSValueID::kRadialGradient) {
-    result = ConsumeRadialGradient(args, *context, kNonRepeating);
+    result = ConsumeRadialGradient(args, *context, cssvalue::kNonRepeating);
   } else if (id == CSSValueID::kRepeatingRadialGradient) {
-    result = ConsumeRadialGradient(args, *context, kRepeating);
+    result = ConsumeRadialGradient(args, *context, cssvalue::kRepeating);
   } else if (id == CSSValueID::kWebkitLinearGradient) {
     context->Count(WebFeature::kDeprecatedWebKitLinearGradient);
-    result = ConsumeLinearGradient(args, *context, kNonRepeating,
-                                   kCSSPrefixedLinearGradient);
+    result = ConsumeLinearGradient(args, *context, cssvalue::kNonRepeating,
+                                   cssvalue::kCSSPrefixedLinearGradient);
   } else if (id == CSSValueID::kWebkitRepeatingLinearGradient) {
     context->Count(WebFeature::kDeprecatedWebKitRepeatingLinearGradient);
-    result = ConsumeLinearGradient(args, *context, kRepeating,
-                                   kCSSPrefixedLinearGradient);
+    result = ConsumeLinearGradient(args, *context, cssvalue::kRepeating,
+                                   cssvalue::kCSSPrefixedLinearGradient);
   } else if (id == CSSValueID::kRepeatingLinearGradient) {
-    result =
-        ConsumeLinearGradient(args, *context, kRepeating, kCSSLinearGradient);
+    result = ConsumeLinearGradient(args, *context, cssvalue::kRepeating,
+                                   cssvalue::kCSSLinearGradient);
   } else if (id == CSSValueID::kLinearGradient) {
-    result = ConsumeLinearGradient(args, *context, kNonRepeating,
-                                   kCSSLinearGradient);
+    result = ConsumeLinearGradient(args, *context, cssvalue::kNonRepeating,
+                                   cssvalue::kCSSLinearGradient);
   } else if (id == CSSValueID::kWebkitGradient) {
     context->Count(WebFeature::kDeprecatedWebKitGradient);
     result = ConsumeDeprecatedGradient(args, context->Mode());
   } else if (id == CSSValueID::kWebkitRadialGradient) {
     context->Count(WebFeature::kDeprecatedWebKitRadialGradient);
-    result = ConsumeDeprecatedRadialGradient(args, *context, kNonRepeating);
+    result = ConsumeDeprecatedRadialGradient(args, *context,
+                                             cssvalue::kNonRepeating);
   } else if (id == CSSValueID::kWebkitRepeatingRadialGradient) {
     context->Count(WebFeature::kDeprecatedWebKitRepeatingRadialGradient);
-    result = ConsumeDeprecatedRadialGradient(args, *context, kRepeating);
+    result =
+        ConsumeDeprecatedRadialGradient(args, *context, cssvalue::kRepeating);
   } else if (id == CSSValueID::kConicGradient) {
-    result = ConsumeConicGradient(args, *context, kNonRepeating);
+    result = ConsumeConicGradient(args, *context, cssvalue::kNonRepeating);
   } else if (id == CSSValueID::kRepeatingConicGradient) {
-    result = ConsumeConicGradient(args, *context, kRepeating);
+    result = ConsumeConicGradient(args, *context, cssvalue::kRepeating);
   } else if (id == CSSValueID::kWebkitCrossFade) {
     result = ConsumeCrossFade(args, context);
   } else if (id == CSSValueID::kPaint) {
@@ -1758,7 +1782,8 @@ static CSSValue* ConsumeImageSet(CSSParserTokenRange& range,
   CSSParserTokenRange args = ConsumeFunction(range_copy);
   auto* image_set = MakeGarbageCollected<CSSImageSetValue>(context->Mode());
   do {
-    AtomicString url_value = ConsumeUrlAsStringView(args).ToAtomicString();
+    AtomicString url_value =
+        ConsumeUrlAsStringView(args, context).ToAtomicString();
     if (url_value.IsNull())
       return nullptr;
 
@@ -1801,7 +1826,7 @@ static bool IsGeneratedImage(CSSValueID id) {
 CSSValue* ConsumeImage(CSSParserTokenRange& range,
                        const CSSParserContext* context,
                        ConsumeGeneratedImagePolicy generated_image) {
-  AtomicString uri = ConsumeUrlAsStringView(range).ToAtomicString();
+  AtomicString uri = ConsumeUrlAsStringView(range, context).ToAtomicString();
   if (!uri.IsNull())
     return CreateCSSImageValueWithReferrer(uri, context);
   if (range.Peek().GetType() == kFunctionToken) {

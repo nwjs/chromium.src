@@ -24,6 +24,7 @@
 #include "chrome/browser/signin/account_reconcilor_factory.h"
 #include "chrome/browser/signin/chrome_signin_client.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
+#include "chrome/browser/signin/cookie_reminter_factory.h"
 #include "chrome/browser/signin/dice_response_handler.h"
 #include "chrome/browser/signin/dice_tab_helper.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -34,6 +35,7 @@
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/common/url_constants.h"
 #include "components/signin/core/browser/account_reconcilor.h"
+#include "components/signin/core/browser/cookie_reminter.h"
 #include "components/signin/public/base/account_consistency_method.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -226,7 +228,6 @@ void ProcessMirrorHeader(
     // invalid, so that if/when this account is re-authenticated, we can force a
     // reconciliation for this account instead of treating it as a no-op.
     // See https://crbug.com/1012649 for details.
-
     signin::IdentityManager* const identity_manager =
         IdentityManagerFactory::GetForProfile(profile);
     base::Optional<AccountInfo> maybe_account_info =
@@ -234,7 +235,9 @@ void ProcessMirrorHeader(
             ->FindExtendedAccountInfoForAccountWithRefreshTokenByEmailAddress(
                 manage_accounts_params.email);
     if (maybe_account_info.has_value()) {
-      account_reconcilor->ForceCookieRemintingOnNextTokenUpdate(
+      CookieReminter* const cookie_reminter =
+          CookieReminterFactory::GetForProfile(profile);
+      cookie_reminter->ForceCookieRemintingOnNextTokenUpdate(
           maybe_account_info.value());
     }
 
@@ -314,13 +317,9 @@ void ProcessDiceHeader(
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   DCHECK(!profile->IsOffTheRecord());
 
-  AccountConsistencyMethod account_consistency =
-      AccountConsistencyModeManager::GetMethodForProfile(profile);
-  if (account_consistency == AccountConsistencyMethod::kMirror ||
-      account_consistency == AccountConsistencyMethod::kDisabled) {
-    // Ignore Dice response headers if Dice is not enabled at all.
+  // Ignore Dice response headers if Dice is not enabled.
+  if (!AccountConsistencyModeManager::IsDiceEnabledForProfile(profile))
     return;
-  }
 
   signin_metrics::AccessPoint access_point =
       signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN;
@@ -346,8 +345,8 @@ void ProcessDiceHeader(
   dice_response_handler->ProcessDiceHeader(
       dice_params,
       std::make_unique<ProcessDiceHeaderDelegateImpl>(
-          web_contents, account_consistency,
-          IdentityManagerFactory::GetForProfile(profile), is_sync_signin_tab,
+          web_contents, IdentityManagerFactory::GetForProfile(profile),
+          is_sync_signin_tab,
           base::BindOnce(&CreateDiceTurnOnSyncHelper, base::Unretained(profile),
                          access_point, promo_action, reason),
           base::BindOnce(&ShowDiceSigninError, base::Unretained(profile)),

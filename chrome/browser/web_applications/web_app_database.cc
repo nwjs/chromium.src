@@ -6,8 +6,6 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "chrome/browser/web_applications/components/web_app_constants.h"
-#include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_database_factory.h"
 #include "chrome/browser/web_applications/web_app_registry_update.h"
@@ -15,7 +13,6 @@
 #include "components/sync/model/metadata_batch.h"
 #include "components/sync/model/metadata_change_list.h"
 #include "components/sync/model/model_error.h"
-#include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 
 namespace web_app {
 
@@ -50,11 +47,11 @@ void WebAppDatabase::Write(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(opened_);
 
-  DCHECK(!update_data.IsEmpty());
-
   std::unique_ptr<syncer::ModelTypeStore::WriteBatch> write_batch =
       store_->CreateWriteBatch();
 
+  // |update_data| can be empty here but we should write |metadata_change_list|
+  // anyway.
   write_batch->TakeMetadataChangesFrom(std::move(metadata_change_list));
 
   for (const std::unique_ptr<WebApp>& web_app : update_data.apps_to_create) {
@@ -94,8 +91,8 @@ std::unique_ptr<WebAppProto> WebAppDatabase::CreateWebAppProto(
 
   local_data->set_name(web_app.name());
 
-  sync_data->set_display_mode(
-      ToWebAppSpecificsDisplayMode(web_app.display_mode()));
+  sync_data->set_user_display_mode(
+      ToWebAppSpecificsUserDisplayMode(web_app.user_display_mode()));
 
   DCHECK(web_app.sources_.any());
   local_data->mutable_sources()->set_system(web_app.sources_[Source::kSystem]);
@@ -109,6 +106,10 @@ std::unique_ptr<WebAppProto> WebAppDatabase::CreateWebAppProto(
   local_data->set_is_locally_installed(web_app.is_locally_installed());
 
   // Optional fields:
+  if (web_app.display_mode() != DisplayMode::kUndefined) {
+    local_data->set_display_mode(
+        ToWebAppProtoDisplayMode(web_app.display_mode()));
+  }
   local_data->set_description(web_app.description());
   if (!web_app.scope().is_empty())
     local_data->set_scope(web_app.scope().spec());
@@ -122,11 +123,15 @@ std::unique_ptr<WebAppProto> WebAppDatabase::CreateWebAppProto(
   if (web_app.sync_data().theme_color.has_value())
     sync_data->set_theme_color(web_app.sync_data().theme_color.value());
 
-  for (const WebApp::IconInfo& icon : web_app.icons()) {
-    WebAppIconInfoProto* icon_proto = local_data->add_icons();
-    icon_proto->set_url(icon.url.spec());
-    icon_proto->set_size_in_px(icon.size_in_px);
+  for (const WebApplicationIconInfo& icon_info : web_app.icon_infos()) {
+    WebAppIconInfoProto* icon_info_proto = local_data->add_icon_infos();
+    icon_info_proto->set_size_in_px(icon_info.square_size_px);
+    DCHECK(!icon_info.url.is_empty());
+    icon_info_proto->set_url(icon_info.url.spec());
   }
+
+  for (SquareSizePx size : web_app.downloaded_icon_sizes())
+    local_data->add_downloaded_icon_sizes(size);
 
   return local_data;
 }
@@ -178,11 +183,12 @@ std::unique_ptr<WebApp> WebAppDatabase::CreateWebApp(
   }
   web_app->SetName(local_data.name());
 
-  if (!sync_data.has_display_mode()) {
-    DLOG(ERROR) << "WebApp proto parse error: no display_mode field";
+  if (!sync_data.has_user_display_mode()) {
+    DLOG(ERROR) << "WebApp proto parse error: no user_display_mode field";
     return nullptr;
   }
-  web_app->SetDisplayMode(ToMojomDisplayMode(sync_data.display_mode()));
+  web_app->SetUserDisplayMode(
+      ToMojomDisplayMode(sync_data.user_display_mode()));
 
   if (!local_data.has_is_locally_installed()) {
     DLOG(ERROR) << "WebApp proto parse error: no is_locally_installed field";
@@ -191,6 +197,9 @@ std::unique_ptr<WebApp> WebAppDatabase::CreateWebApp(
   web_app->SetIsLocallyInstalled(local_data.is_locally_installed());
 
   // Optional fields:
+  if (local_data.has_display_mode())
+    web_app->SetDisplayMode(ToMojomDisplayMode(local_data.display_mode()));
+
   if (local_data.has_description())
     web_app->SetDescription(local_data.description());
 
@@ -218,20 +227,30 @@ std::unique_ptr<WebApp> WebAppDatabase::CreateWebApp(
     parsed_sync_data.theme_color = sync_data.theme_color();
   web_app->SetSyncData(std::move(parsed_sync_data));
 
-  WebApp::Icons icons;
-  for (int i = 0; i < local_data.icons_size(); ++i) {
-    const WebAppIconInfoProto& icon_proto = local_data.icons(i);
-
-    GURL icon_url(icon_proto.url());
+  std::vector<WebApplicationIconInfo> icon_infos;
+  for (const WebAppIconInfoProto& icon_info_proto : local_data.icon_infos()) {
+    WebApplicationIconInfo icon_info;
+    icon_info.square_size_px = icon_info_proto.size_in_px();
+    if (!icon_info_proto.has_url()) {
+      DLOG(ERROR) << "WebApp IconInfo has missing url";
+      return nullptr;
+    }
+    GURL icon_url(icon_info_proto.url());
     if (icon_url.is_empty() || !icon_url.is_valid()) {
       DLOG(ERROR) << "WebApp IconInfo proto url parse error: "
                   << icon_url.possibly_invalid_spec();
       return nullptr;
     }
+    icon_info.url = icon_url;
 
-    icons.push_back({icon_url, icon_proto.size_in_px()});
+    icon_infos.push_back(std::move(icon_info));
   }
-  web_app->SetIcons(std::move(icons));
+  web_app->SetIconInfos(std::move(icon_infos));
+
+  std::vector<SquareSizePx> icon_sizes_on_disk;
+  for (int32_t size : local_data.downloaded_icon_sizes())
+    icon_sizes_on_disk.push_back(size);
+  web_app->SetDownloadedIconSizes(std::move(icon_sizes_on_disk));
 
   return web_app;
 }
@@ -326,32 +345,57 @@ std::unique_ptr<WebApp> WebAppDatabase::ParseWebApp(const AppId& app_id,
   return web_app;
 }
 
-blink::mojom::DisplayMode ToMojomDisplayMode(
-    ::sync_pb::WebAppSpecifics::DisplayMode display_mode) {
+DisplayMode ToMojomDisplayMode(WebAppProto::DisplayMode display_mode) {
   switch (display_mode) {
-    case ::sync_pb::WebAppSpecifics::kBrowser:
-      return blink::mojom::DisplayMode::kBrowser;
-    case ::sync_pb::WebAppSpecifics::kMinimalUi:
-      return blink::mojom::DisplayMode::kMinimalUi;
-    case ::sync_pb::WebAppSpecifics::kStandalone:
-      return blink::mojom::DisplayMode::kStandalone;
+    case WebAppProto::BROWSER:
+      return DisplayMode::kBrowser;
+    case WebAppProto::MINIMAL_UI:
+      return DisplayMode::kMinimalUi;
+    case WebAppProto::STANDALONE:
+      return DisplayMode::kStandalone;
+    case WebAppProto::FULLSCREEN:
+      return DisplayMode::kFullscreen;
   }
 }
 
-::sync_pb::WebAppSpecifics::DisplayMode ToWebAppSpecificsDisplayMode(
-    blink::mojom::DisplayMode display_mode) {
+DisplayMode ToMojomDisplayMode(
+    ::sync_pb::WebAppSpecifics::UserDisplayMode user_display_mode) {
+  switch (user_display_mode) {
+    case ::sync_pb::WebAppSpecifics::BROWSER:
+      return DisplayMode::kBrowser;
+    case ::sync_pb::WebAppSpecifics::STANDALONE:
+      return DisplayMode::kStandalone;
+  }
+}
+
+WebAppProto::DisplayMode ToWebAppProtoDisplayMode(DisplayMode display_mode) {
   switch (display_mode) {
-    case blink::mojom::DisplayMode::kBrowser:
-      return ::sync_pb::WebAppSpecifics::kBrowser;
-    case blink::mojom::DisplayMode::kMinimalUi:
-      return ::sync_pb::WebAppSpecifics::kMinimalUi;
-    case blink::mojom::DisplayMode::kUndefined:
+    case DisplayMode::kBrowser:
+      return WebAppProto::BROWSER;
+    case DisplayMode::kMinimalUi:
+      return WebAppProto::MINIMAL_UI;
+    case DisplayMode::kUndefined:
       NOTREACHED();
       FALLTHROUGH;
-    case blink::mojom::DisplayMode::kFullscreen:
-    case blink::mojom::DisplayMode::kStandalone:
-      // We do not persist kFullscreen - see crbug.com/850465.
-      return ::sync_pb::WebAppSpecifics::kStandalone;
+    case DisplayMode::kStandalone:
+      return WebAppProto::STANDALONE;
+    case DisplayMode::kFullscreen:
+      return WebAppProto::FULLSCREEN;
+  }
+}
+
+::sync_pb::WebAppSpecifics::UserDisplayMode ToWebAppSpecificsUserDisplayMode(
+    DisplayMode user_display_mode) {
+  switch (user_display_mode) {
+    case DisplayMode::kBrowser:
+      return ::sync_pb::WebAppSpecifics::BROWSER;
+    case DisplayMode::kUndefined:
+    case DisplayMode::kMinimalUi:
+    case DisplayMode::kFullscreen:
+      NOTREACHED();
+      FALLTHROUGH;
+    case DisplayMode::kStandalone:
+      return ::sync_pb::WebAppSpecifics::STANDALONE;
   }
 }
 

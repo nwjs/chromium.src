@@ -91,10 +91,14 @@ class PageActionIconContainerView : public views::View,
   // See comment in browser_window.h for more info.
   void ZoomChangedForActiveTab(bool can_show_bubble);
 
+  // views::View:
+  const char* GetClassName() const override;
+
+  static const char kPageActionIconContainerViewClassName[];
+
  private:
   // views::View:
   void ChildPreferredSizeChanged(views::View* child) override;
-  void ChildVisibilityChanged(views::View* child) override;
 
   // ZoomEventManagerObserver:
   // Updates the view for the zoom icon when default zoom levels change.

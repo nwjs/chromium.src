@@ -27,8 +27,9 @@ import android.view.accessibility.AccessibilityManager.AccessibilityStateChangeL
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeProvider;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.UserData;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
@@ -66,6 +67,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProvider
     private static final String ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE =
             "ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE";
     private static final int WINDOW_CONTENT_CHANGED_DELAY_MS = 500;
+    private static final int SCROLLED_TO_ANCHOR_DELAY_MS = 500;
 
     // Constants from AccessibilityNodeInfo defined in the M SDK.
     // Source: https://developer.android.com/reference/android/R.id.html
@@ -100,6 +102,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProvider
     protected int mAccessibilityFocusId;
     protected int mSelectionNodeId;
     private Runnable mSendWindowContentChangedRunnable;
+    private Runnable mScrolledToAnchorRunnable;
     private View mAutofillPopupView;
     private CaptioningController mCaptioningController;
 
@@ -190,6 +193,13 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProvider
     @Override
     public void setAccessibilityEnabledForTesting() {
         mAccessibilityEnabledForTesting = true;
+    }
+
+    @VisibleForTesting
+    @Override
+    public void addSpellingErrorForTesting(int virtualViewId, int startOffset, int endOffset) {
+        WebContentsAccessibilityImplJni.get().addSpellingErrorForTesting(mNativeObj,
+                WebContentsAccessibilityImpl.this, virtualViewId, startOffset, endOffset);
     }
 
     // WindowEventObserver
@@ -432,6 +442,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProvider
                             WebContentsAccessibilityImpl.this, mAccessibilityFocusId, View.NO_ID);
                     mAccessibilityFocusId = View.NO_ID;
                     mAccessibilityFocusRect = null;
+                }
+                if (mLastHoverId == virtualViewId) {
+                    sendAccessibilityEvent(mLastHoverId, AccessibilityEvent.TYPE_VIEW_HOVER_EXIT);
+                    mLastHoverId = View.NO_ID;
                 }
                 return true;
             case AccessibilityNodeInfo.ACTION_CLICK:
@@ -1044,8 +1058,27 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProvider
     }
 
     @CalledByNative
-    private void handleScrolledToAnchor(int id) {
-        moveAccessibilityFocusToId(id);
+    private void handleScrolledToAnchor(final int id) {
+        // "Scrolled to anchor" means that the user followed a same-page link;
+        // the id here is of the element that was scrolled into view, and that
+        // should be where accessibility focus lands.
+        //
+        // However, in practice there's a race condition because following a
+        // same-page link often results in a focus change from the same-page link
+        // that was focused previously.
+        //
+        // As a result, it works better to move accessibility focus to the new
+        // location after a short delay, after the focus change.
+        if (mScrolledToAnchorRunnable != null) return;
+        mScrolledToAnchorRunnable = new Runnable() {
+            @Override
+            public void run() {
+                moveAccessibilityFocusToId(id);
+                mScrolledToAnchorRunnable = null;
+            }
+        };
+
+        mView.postDelayed(mScrolledToAnchorRunnable, SCROLLED_TO_ANCHOR_DELAY_MS);
     }
 
     @CalledByNative
@@ -1204,12 +1237,15 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProvider
     @SuppressLint("NewApi")
     @CalledByNative
     private void setAccessibilityNodeInfoText(AccessibilityNodeInfo node, String text,
-            boolean annotateAsLink, boolean isEditableText, String language) {
-        CharSequence computedText = computeText(text, isEditableText, language);
+            boolean annotateAsLink, boolean isEditableText, String language, int[] suggestionStarts,
+            int[] suggestionEnds, String[] suggestions) {
+        CharSequence computedText = computeText(
+                text, isEditableText, language, suggestionStarts, suggestionEnds, suggestions);
         node.setText(computedText);
     }
 
-    protected CharSequence computeText(String text, boolean annotateAsLink, String language) {
+    protected CharSequence computeText(String text, boolean annotateAsLink, String language,
+            int[] suggestionStarts, int[] suggestionEnds, String[] suggestions) {
         if (annotateAsLink) {
             SpannableString spannable = new SpannableString(text);
             spannable.setSpan(new URLSpan(""), 0, spannable.length(), 0);
@@ -1282,7 +1318,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProvider
     protected void setAccessibilityNodeInfoKitKatAttributes(AccessibilityNodeInfo node,
             boolean isRoot, boolean isEditableText, String role, String roleDescription,
             String hint, int selectionStartIndex, int selectionEndIndex, boolean hasImage,
-            boolean contentInvalid) {
+            boolean contentInvalid, String targetUrl) {
         // Requires KitKat or higher.
     }
 
@@ -1587,5 +1623,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProvider
                 WebContentsAccessibilityImpl caller, int id, int start, int len);
         int getTextLength(long nativeWebContentsAccessibilityAndroid,
                 WebContentsAccessibilityImpl caller, int id);
+        void addSpellingErrorForTesting(long nativeWebContentsAccessibilityAndroid,
+                WebContentsAccessibilityImpl caller, int id, int startOffset, int endOffset);
     }
 }

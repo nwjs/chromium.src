@@ -106,8 +106,10 @@ void ShowBookmarkAppDialog(content::WebContents* web_contents,
                            AppInstallationAcceptanceCallback callback);
 
 // Sets whether |ShowBookmarkAppDialog| should accept immediately without any
-// user interaction.
-void SetAutoAcceptBookmarkAppDialogForTesting(bool auto_accept);
+// user interaction. |auto_open_in_window| sets whether the open in window
+// checkbox is checked.
+void SetAutoAcceptBookmarkAppDialogForTesting(bool auto_accept,
+                                              bool auto_open_in_window);
 
 // Shows the PWA installation confirmation modal dialog.
 //
@@ -252,6 +254,7 @@ enum class DialogIdentifier {
   PHONE_CHOOSER = 98,
   QR_CODE_GENERATOR = 99,
   CROSTINI_FORCE_CLOSE = 100,
+  APP_UNINSTALL = 101,
   // Add values above this line with a corresponding label in
   // tools/metrics/histograms/enums.xml
   MAX_VALUE

@@ -14,6 +14,7 @@
 #include "base/bind.h"
 #include "base/bits.h"
 #include "base/callback_helpers.h"
+#include "base/command_line.h"
 #include "base/fuchsia/default_context.h"
 #include "base/fuchsia/fuchsia_logging.h"
 #include "base/location.h"
@@ -30,6 +31,7 @@
 #include "media/base/bind_to_current_loop.h"
 #include "media/base/cdm_context.h"
 #include "media/base/decryptor.h"
+#include "media/base/media_switches.h"
 #include "media/base/video_decoder.h"
 #include "media/base/video_decoder_config.h"
 #include "media/base/video_frame.h"
@@ -96,11 +98,16 @@ class OutputMailbox {
     mailboxes[0].mailbox = mailbox_;
     mailboxes[0].sync_token = shared_image_interface_->GenUnverifiedSyncToken();
 
-    return VideoFrame::WrapNativeTextures(
+    auto frame = VideoFrame::WrapNativeTextures(
         pixel_format, mailboxes,
         BindToCurrentLoop(base::BindOnce(&OutputMailbox::OnFrameDestroyed,
                                          base::Unretained(this))),
         coded_size, visible_rect, natural_size, timestamp);
+
+    // Request a fence we'll wait on before reusing the buffer.
+    frame->metadata()->SetBoolean(VideoFrameMetadata::READ_LOCK_FENCES_ENABLED,
+                                  true);
+    return frame;
   }
 
   // Called by FuchsiaVideoDecoder when it no longer needs this mailbox.
@@ -315,6 +322,11 @@ FuchsiaVideoDecoder::FuchsiaVideoDecoder(
 }
 
 FuchsiaVideoDecoder::~FuchsiaVideoDecoder() {
+  // Call ReleaseInputBuffers() to make sure the corresponding fields are
+  // destroyed in the right order.
+  ReleaseInputBuffers();
+
+  // Release mailboxes used for output frames.
   ReleaseOutputBuffers();
 }
 
@@ -410,6 +422,20 @@ void FuchsiaVideoDecoder::Initialize(const VideoDecoderConfig& config,
     default:
       std::move(done_callback).Run(false);
       return;
+  }
+
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableProtectedVideoBuffers)) {
+    if (decryptor_) {
+      decoder_params.set_secure_input_mode(
+          fuchsia::mediacodec::SecureMemoryMode::ON);
+    }
+
+    if (decryptor_ || base::CommandLine::ForCurrentProcess()->HasSwitch(
+                          switches::kForceProtectedVideoOutputBuffers)) {
+      decoder_params.set_secure_output_mode(
+          fuchsia::mediacodec::SecureMemoryMode::ON);
+    }
   }
 
   decoder_params.set_promise_separate_access_units_on_input(true);

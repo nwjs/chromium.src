@@ -42,7 +42,7 @@ class OmniboxPopupContentsView::AutocompletePopupWidget
     // once http://crbug.com/125248 is fixed.
     params.force_software_compositing = true;
 #endif
-    params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
+    params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
     params.parent = parent_widget->GetNativeView();
     params.bounds = bounds;
     params.context = parent_widget->GetNativeWindow();
@@ -194,9 +194,8 @@ void OmniboxPopupContentsView::UnselectButton() {
   model_->SetSelectedLineState(OmniboxPopupModel::NORMAL);
 }
 
-void OmniboxPopupContentsView::ProvideButtonFocusHint(size_t line) {
-  OmniboxResultView* result = result_view_at(line);
-  result->ProvideButtonFocusHint();
+OmniboxResultView* OmniboxPopupContentsView::result_view_at(size_t i) {
+  return static_cast<OmniboxResultView*>(children()[i]);
 }
 
 bool OmniboxPopupContentsView::InExplicitExperimentalKeywordMode() {
@@ -281,6 +280,7 @@ void OmniboxPopupContentsView::UpdatePopupAppearance() {
 
     popup_->SetVisibilityAnimationTransition(views::Widget::ANIMATE_NONE);
     popup_->SetPopupContentsView(this);
+    popup_->AddObserver(this);
     popup_->StackAbove(omnibox_view_->GetRelativeWindowForPopup());
     // For some IMEs GetRelativeWindowForPopup triggers the omnibox to lose
     // focus, thereby closing (and destroying) the popup. TODO(sky): this won't
@@ -298,6 +298,10 @@ void OmniboxPopupContentsView::UpdatePopupAppearance() {
     }
   }
   InvalidateLayout();
+}
+
+void OmniboxPopupContentsView::ProvideButtonFocusHint(size_t line) {
+  result_view_at(line)->ProvideButtonFocusHint();
 }
 
 void OmniboxPopupContentsView::OnMatchIconUpdated(size_t match_index) {
@@ -346,6 +350,15 @@ void OmniboxPopupContentsView::OnGestureEvent(ui::GestureEvent* event) {
   event->SetHandled();
 }
 
+void OmniboxPopupContentsView::OnWidgetBoundsChanged(
+    views::Widget* widget,
+    const gfx::Rect& new_bounds) {
+  // This is called on rotation or device scale change. We have to re-align to
+  // the new location bar location.
+  DCHECK_EQ(popup_.get(), widget);
+  UpdatePopupAppearance();
+}
+
 gfx::Rect OmniboxPopupContentsView::GetTargetBounds() {
   DCHECK_GE(children().size(), model_->result().size());
   int popup_height = std::accumulate(
@@ -392,10 +405,6 @@ size_t OmniboxPopupContentsView::GetIndexForPoint(const gfx::Point& point) {
       return i;
   }
   return OmniboxPopupModel::kNoMatch;
-}
-
-OmniboxResultView* OmniboxPopupContentsView::result_view_at(size_t i) {
-  return static_cast<OmniboxResultView*>(children()[i]);
 }
 
 void OmniboxPopupContentsView::GetAccessibleNodeData(

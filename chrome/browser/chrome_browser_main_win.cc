@@ -75,6 +75,7 @@
 #include "components/crash/content/app/crash_export_thunks.h"
 #include "components/crash/content/app/dump_hung_process_with_ptype.h"
 #include "components/crash/core/common/crash_key.h"
+#include "components/os_crypt/os_crypt.h"
 #include "components/version_info/channel.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -512,6 +513,13 @@ void ChromeBrowserMainPartsWin::PreMainMessageLoopStart() {
   // setup.exe.  In Chrome, these strings are in the locale files.
   SetupInstallerUtilStrings();
 
+  PrefService* local_state = g_browser_process->local_state();
+  DCHECK(local_state);
+
+  // Initialize the OSCrypt.
+  bool os_crypt_init = OSCrypt::Init(local_state);
+  DCHECK(os_crypt_init);
+
   ChromeBrowserMainParts::PreMainMessageLoopStart();
   if (!parameters().ui_task) {
     // Make sure that we know how to handle exceptions from the message loop.
@@ -563,8 +571,7 @@ void ChromeBrowserMainPartsWin::PostProfileInit() {
   // What truly controls if the blocking is enabled is the presence of the
   // module blacklist cache file. This means that to disable the feature, the
   // cache must be deleted and the browser relaunched.
-  if (base::IsMachineExternallyManaged() ||
-      !ModuleDatabase::IsThirdPartyBlockingPolicyEnabled() ||
+  if (!ModuleDatabase::IsThirdPartyBlockingPolicyEnabled() ||
       !ModuleBlacklistCacheUpdater::IsBlockingEnabled())
     ThirdPartyConflictsManager::DisableThirdPartyModuleBlocking(
         base::CreateTaskRunner(

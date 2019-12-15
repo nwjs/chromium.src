@@ -22,7 +22,6 @@
 #include "build/build_config.h"
 #include "components/signin/core/browser/account_reconcilor_delegate.h"
 #include "components/signin/core/browser/consistency_cookie_manager_base.h"
-#include "components/signin/core/browser/cookie_reminter.h"
 #include "components/signin/public/base/account_consistency_method.h"
 #include "components/signin/public/base/signin_client.h"
 #include "components/signin/public/base/signin_metrics.h"
@@ -40,14 +39,6 @@
 
 using signin::AccountReconcilorDelegate;
 using signin_metrics::AccountReconcilorState;
-
-#if defined(OS_ANDROID) || defined(OS_IOS)
-const base::Feature kUseMultiloginEndpoint{"UseMultiloginEndpoint",
-                                           base::FEATURE_ENABLED_BY_DEFAULT};
-#else
-const base::Feature kUseMultiloginEndpoint{"UseMultiloginEndpoint",
-                                           base::FEATURE_DISABLED_BY_DEFAULT};
-#endif
 
 namespace {
 
@@ -348,7 +339,6 @@ void AccountReconcilor::RegisterWithIdentityManager() {
   if (registered_with_identity_manager_)
     return;
 
-  cookie_reminter_ = std::make_unique<CookieReminter>(identity_manager_);
   identity_manager_->AddObserver(this);
   registered_with_identity_manager_ = true;
 }
@@ -358,7 +348,6 @@ void AccountReconcilor::UnregisterWithIdentityManager() {
   if (!registered_with_identity_manager_)
     return;
 
-  cookie_reminter_.reset();
   identity_manager_->RemoveObserver(this);
   registered_with_identity_manager_ = false;
 }
@@ -370,11 +359,6 @@ AccountReconcilorState AccountReconcilor::GetState() {
 std::unique_ptr<AccountReconcilor::ScopedSyncedDataDeletion>
 AccountReconcilor::GetScopedSyncDataDeletion() {
   return base::WrapUnique(new ScopedSyncedDataDeletion(this));
-}
-
-void AccountReconcilor::ForceCookieRemintingOnNextTokenUpdate(
-    const CoreAccountInfo& account_info) {
-  cookie_reminter_->ForceCookieRemintingOnNextTokenUpdate(account_info);
 }
 
 void AccountReconcilor::AddObserver(Observer* observer) {
@@ -391,7 +375,7 @@ void AccountReconcilor::OnContentSettingChanged(
     ContentSettingsType content_type,
     const std::string& resource_identifier) {
   // If this is not a change to cookie settings, just ignore.
-  if (content_type != CONTENT_SETTINGS_TYPE_COOKIES)
+  if (content_type != ContentSettingsType::COOKIES)
     return;
 
   // If this does not affect GAIA, just ignore.  If the primary pattern is
@@ -459,13 +443,8 @@ void AccountReconcilor::PerformSetCookiesAction(
   //
   // Using Unretained is safe here because the CookieManagerService outlives
   // the AccountReconcilor.
-  // TODO(triploblastic): Remove this vector once account_reconcilor and
-  // related classes has been refactored to use CoreAccountId.
-  std::vector<CoreAccountId> accounts_to_send;
-  for (const auto& account : parameters.accounts_to_send)
-    accounts_to_send.push_back(CoreAccountId(account));
   identity_manager_->GetAccountsCookieMutator()->SetAccountsInCookie(
-      accounts_to_send, delegate_->GetGaiaApiSource(),
+      parameters, delegate_->GetGaiaApiSource(),
       base::BindOnce(&AccountReconcilor::OnSetAccountsInCookieCompleted,
                      base::Unretained(this)));
 }
@@ -551,13 +530,6 @@ void AccountReconcilor::FinishReconcileWithMultiloginEndpoint(
   DCHECK(!set_accounts_in_progress_);
   DCHECK_EQ(AccountReconcilorState::ACCOUNT_RECONCILOR_RUNNING, state_);
 
-#if defined(OS_CHROMEOS)
-  // Cookie may need to be reminted on Chrome OS. See https://crbug.com/1012649
-  // for details.
-  if (cookie_reminter_->RemintCookieIfRequired())
-    gaia_accounts.clear();
-#endif
-
   bool primary_has_error =
       identity_manager_->HasAccountWithRefreshTokenInPersistentErrorState(
           primary_account);
@@ -606,8 +578,7 @@ void AccountReconcilor::FinishReconcileWithMultiloginEndpoint(
     DCHECK_NE(AccountReconcilorState::ACCOUNT_RECONCILOR_RUNNING, state_);
     CoreAccountId first_gaia_account_after_reconcile =
         PickFirstGaiaAccount(parameters_for_multilogin, gaia_accounts);
-    delegate_->OnReconcileFinished(first_gaia_account_after_reconcile,
-                                   reconcile_is_noop_);
+    delegate_->OnReconcileFinished(first_gaia_account_after_reconcile);
   }
   first_execution_ = false;
 }
@@ -765,9 +736,6 @@ void AccountReconcilor::FinishReconcile(
   DCHECK(delegate_->IsUnknownInvalidAccountInCookieAllowed())
       << "Only supported in UPDATE mode";
 
-  delegate_->MaybeLogInconsistencyReason(primary_account, chrome_accounts,
-                                         gaia_accounts, first_execution_);
-
   size_t number_gaia_accounts = gaia_accounts.size();
   // If there are any accounts in the gaia cookie but not in chrome, then
   // those accounts need to be removed from the cookie.  This means we need
@@ -787,14 +755,6 @@ void AccountReconcilor::FinishReconcile(
       (number_gaia_accounts > 0) && (first_account != gaia_accounts[0].id);
 
   bool rebuild_cookie = first_account_mismatch || (removed_from_cookie > 0);
-
-#if defined(OS_CHROMEOS)
-  // Cookie may need to be reminted on Chrome OS. See https://crbug.com/1012649
-  // for details.
-  if (cookie_reminter_->RemintCookieIfRequired())
-    rebuild_cookie = true;
-#endif
-
   std::vector<gaia::ListedAccount> original_gaia_accounts = gaia_accounts;
   if (rebuild_cookie) {
     VLOG(1) << "AccountReconcilor::FinishReconcile: rebuild cookie";
@@ -857,7 +817,7 @@ void AccountReconcilor::FinishReconcile(
   first_execution_ = false;
   CalculateIfReconcileIsDone();
   if (!is_reconcile_started_)
-    delegate_->OnReconcileFinished(first_account, reconcile_is_noop_);
+    delegate_->OnReconcileFinished(first_account);
   ScheduleStartReconcileIfChromeAccountsChanged();
 }
 
@@ -1050,11 +1010,7 @@ void AccountReconcilor::HandleReconcileTimeout() {
 }
 
 bool AccountReconcilor::IsMultiloginEndpointEnabled() const {
-#if defined(OS_ANDROID)
-  if (base::FeatureList::IsEnabled(signin::kMiceFeature))
-    return true;  // Mice is only implemented with multilogin.
-#endif
-  return base::FeatureList::IsEnabled(kUseMultiloginEndpoint);
+  return delegate_->IsMultiloginEndpointEnabled();
 }
 
 bool AccountReconcilor::CookieNeedsUpdate(

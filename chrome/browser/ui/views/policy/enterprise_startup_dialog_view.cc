@@ -30,7 +30,6 @@
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/throbber.h"
 #include "ui/views/layout/grid_layout.h"
-#include "ui/views/window/dialog_client_view.h"
 
 #if defined(OS_MACOSX)
 #include "base/message_loop/message_loop_current.h"
@@ -94,6 +93,7 @@ EnterpriseStartupDialogView::EnterpriseStartupDialogView(
     EnterpriseStartupDialog::DialogResultCallback callback)
     : callback_(std::move(callback)) {
   DialogDelegate::set_draggable(true);
+  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_OK);
   DialogDelegate::SetExtraView(CreateLogoView());
   SetBorder(views::CreateEmptyBorder(GetDialogInsets()));
   CreateDialogWidget(this, nullptr, nullptr)->Show();
@@ -130,8 +130,12 @@ void EnterpriseStartupDialogView::DisplayErrorMessage(
                             GetNativeTheme()->GetSystemColor(
                                 ui::NativeTheme::kColorId_AlertSeverityHigh)));
 
-  if (accept_button)
-    GetDialogClientView()->ok_button()->SetText(*accept_button);
+  if (accept_button) {
+    // TODO(ellyjones): This should use DialogDelegate::set_button_label()
+    // instead of changing the button text directly - this might break the
+    // dialog's layout.
+    GetOkButton()->SetText(*accept_button);
+  }
   SetupLayout(std::move(error_icon), std::move(text));
 }
 
@@ -194,18 +198,14 @@ ui::ModalType EnterpriseStartupDialogView::GetModalType() const {
   return ui::MODAL_TYPE_NONE;
 }
 
-int EnterpriseStartupDialogView::GetDialogButtons() const {
-  return ui::DIALOG_BUTTON_OK;
-}
-
 gfx::Size EnterpriseStartupDialogView::CalculatePreferredSize() const {
   return gfx::Size(kDialogContentWidth, kDialogContentHeight);
 }
 
 void EnterpriseStartupDialogView::ResetDialog(bool show_accept_button) {
-  DCHECK(GetDialogClientView()->ok_button());
+  DCHECK(GetOkButton());
 
-  GetDialogClientView()->ok_button()->SetVisible(show_accept_button);
+  GetOkButton()->SetVisible(show_accept_button);
   RemoveAllChildViews(true);
 }
 
@@ -236,8 +236,9 @@ void EnterpriseStartupDialogView::SetupLayout(
   layout->AddView(std::move(text));
   layout->AddPaddingRow(1.0, 0);
 
-  GetDialogClientView()->Layout();
-  GetDialogClientView()->SchedulePaint();
+  // TODO(ellyjones): Why is this being done here?
+  GetWidget()->GetRootView()->Layout();
+  GetWidget()->GetRootView()->SchedulePaint();
 }
 
 /*

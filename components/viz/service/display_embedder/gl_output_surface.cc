@@ -116,7 +116,8 @@ void GLOutputSurface::SwapBuffers(OutputSurfaceFrame frame) {
   gfx::Size swap_size = ApplyDisplayInverse(gfx::Rect(size_)).size();
   auto swap_callback = base::BindOnce(
       &GLOutputSurface::OnGpuSwapBuffersCompleted,
-      weak_ptr_factory_.GetWeakPtr(), std::move(frame.latency_info), swap_size);
+      weak_ptr_factory_.GetWeakPtr(), std::move(frame.latency_info),
+      frame.top_controls_visible_height_changed, swap_size);
   gpu::ContextSupport::PresentationCallback presentation_callback;
   presentation_callback = base::BindOnce(&GLOutputSurface::OnPresentation,
                                          weak_ptr_factory_.GetWeakPtr());
@@ -175,6 +176,7 @@ void GLOutputSurface::HandlePartialSwap(
 
 void GLOutputSurface::OnGpuSwapBuffersCompleted(
     std::vector<ui::LatencyInfo> latency_info,
+    bool top_controls_visible_height_changed,
     const gfx::Size& pixel_size,
     const gpu::SwapBuffersCompleteParams& params) {
   if (!params.texture_in_use_responses.empty())
@@ -184,8 +186,8 @@ void GLOutputSurface::OnGpuSwapBuffersCompleted(
   DidReceiveSwapBuffersAck(params.swap_response);
 
   UpdateLatencyInfoOnSwap(params.swap_response, &latency_info);
-  latency_tracker_.OnGpuSwapBuffersCompleted(latency_info);
-  client_->DidFinishLatencyInfo(latency_info);
+  latency_tracker_.OnGpuSwapBuffersCompleted(
+      latency_info, top_controls_visible_height_changed);
 
   if (needs_swap_size_notifications_)
     client_->DidSwapWithSize(pixel_size);
@@ -235,7 +237,7 @@ gfx::OverlayTransform GLOutputSurface::GetDisplayTransform() {
 
 gfx::Rect GLOutputSurface::ApplyDisplayInverse(const gfx::Rect& input) {
   gfx::Transform display_inverse = gfx::OverlayTransformToTransform(
-      gfx::InvertOverlayTransform(GetDisplayTransform()), size_);
+      gfx::InvertOverlayTransform(GetDisplayTransform()), gfx::SizeF(size_));
   return cc::MathUtil::MapEnclosedRectWith2dAxisAlignedTransform(
       display_inverse, input);
 }

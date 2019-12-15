@@ -14,9 +14,10 @@
 #include "base/optional.h"
 #include "content/common/navigation_params.mojom.h"
 #include "content/public/browser/certificate_request_result_type.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
-#include "third_party/blink/public/mojom/choosers/file_chooser.mojom.h"
+#include "services/network/public/mojom/url_response_head.mojom-forward.h"
 
 class GURL;
 
@@ -29,14 +30,9 @@ class SSLInfo;
 class X509Certificate;
 }  // namespace net
 
-namespace network {
-struct ResourceResponse;
-}
-
 namespace content {
 class SignedExchangeEnvelope;
 class FrameTreeNode;
-class FileSelectListener;
 class NavigationHandle;
 class NavigationRequest;
 class NavigationThrottle;
@@ -59,11 +55,6 @@ bool WillCreateURLLoaderFactory(
     mojo::PendingReceiver<network::mojom::URLLoaderFactory>*
         loader_factory_receiver);
 
-bool InterceptFileChooser(
-    RenderFrameHostImpl* rfh,
-    std::unique_ptr<content::FileSelectListener>* listener,
-    const blink::mojom::FileChooserParams& params);
-
 bool WillCreateURLLoaderFactoryForServiceWorker(
     RenderProcessHost* rph,
     int routing_id,
@@ -78,8 +69,9 @@ bool WillCreateURLLoaderFactory(
 
 void OnResetNavigationRequest(NavigationRequest* navigation_request);
 void OnNavigationRequestWillBeSent(const NavigationRequest& navigation_request);
-void OnNavigationResponseReceived(const NavigationRequest& nav_request,
-                                  const network::ResourceResponse& response);
+void OnNavigationResponseReceived(
+    const NavigationRequest& nav_request,
+    const network::mojom::URLResponseHead& response);
 void OnNavigationRequestFailed(
     const NavigationRequest& nav_request,
     const network::URLLoaderCompletionStatus& status);
@@ -92,7 +84,7 @@ void OnSignedExchangeReceived(
     FrameTreeNode* frame_tree_node,
     base::Optional<const base::UnguessableToken> devtools_navigation_token,
     const GURL& outer_request_url,
-    const network::ResourceResponseHead& outer_response,
+    const network::mojom::URLResponseHead& outer_response,
     const base::Optional<SignedExchangeEnvelope>& header,
     const scoped_refptr<net::X509Certificate>& certificate,
     const base::Optional<net::SSLInfo>& ssl_info,
@@ -108,7 +100,7 @@ void OnSignedExchangeCertificateResponseReceived(
     const base::UnguessableToken& request_id,
     const base::UnguessableToken& loader_id,
     const GURL& url,
-    const network::ResourceResponseHead& head);
+    const network::mojom::URLResponseHead& head);
 void OnSignedExchangeCertificateRequestCompleted(
     FrameTreeNode* frame_tree_node,
     const base::UnguessableToken& request_id,

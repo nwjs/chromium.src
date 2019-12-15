@@ -14,7 +14,6 @@
 #include "base/task/post_task.h"
 #include "cc/mojo_embedder/async_layer_tree_frame_sink.h"
 #include "cc/raster/single_thread_task_graph_runner.h"
-#include "components/viz/client/hit_test_data_provider_draw_quad.h"
 #include "components/viz/common/gpu/context_provider.h"
 #include "components/viz/common/gpu/raster_context_provider.h"
 #include "components/viz/common/switches.h"
@@ -404,8 +403,10 @@ VizProcessTransportFactory::TryCreateContextsForGpuCompositing(
 
   const auto& gpu_feature_info = gpu_channel_host->gpu_feature_info();
   // Fallback to software compositing if GPU compositing is blacklisted.
+  // TODO(sgilhuly): For now assume that if GL is blacklisted, then Vulkan is
+  // also. Just check GL to see if GPU compositing is disabled.
   auto gpu_compositing_status =
-      gpu_feature_info.status_values[gpu::GPU_FEATURE_TYPE_GPU_COMPOSITING];
+      gpu_feature_info.status_values[gpu::GPU_FEATURE_TYPE_ACCELERATED_GL];
   if (gpu_compositing_status != gpu::kGpuFeatureStatusEnabled)
     return gpu::ContextResult::kFatalFailure;
 

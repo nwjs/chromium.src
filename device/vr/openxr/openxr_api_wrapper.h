@@ -11,8 +11,10 @@
 #include <memory>
 #include <vector>
 
+#include "base/callback.h"
 #include "base/macros.h"
 #include "base/optional.h"
+#include "device/vr/public/mojom/vr_service.mojom.h"
 #include "device/vr/vr_export.h"
 #include "third_party/openxr/src/include/openxr/openxr.h"
 #include "third_party/openxr/src/include/openxr/openxr_platform.h"
@@ -38,9 +40,6 @@ class OpenXrApiWrapper {
 
   static std::unique_ptr<OpenXrApiWrapper> Create();
 
-  static bool IsHardwareAvailable();
-  static bool IsApiAvailable();
-
   static VRTestHook* GetTestHook();
 
   bool session_ended() const { return session_ended_; }
@@ -52,16 +51,21 @@ class OpenXrApiWrapper {
   XrResult EndFrame();
 
   XrResult GetHeadPose(base::Optional<gfx::Quaternion>* orientation,
-                       base::Optional<gfx::Point3F>* position) const;
+                       base::Optional<gfx::Point3F>* position,
+                       bool* emulated_position) const;
   void GetHeadFromEyes(XrView* left, XrView* right) const;
 
-  bool HasPosition() const;
   gfx::Size GetViewSize() const;
   XrTime GetPredictedDisplayTime() const;
   XrResult GetLuid(LUID* luid) const;
-  std::string GetRuntimeName() const;
   bool GetStageParameters(XrExtent2Df* stage_bounds,
-                          gfx::Transform* local_from_stage) const;
+                          gfx::Transform* local_from_stage);
+  void RegisterInteractionProfileChangeCallback(
+      const base::RepeatingCallback<void(XrResult*)>&
+          interaction_profile_callback);
+  void RegisterVisibilityChangeCallback(
+      const base::RepeatingCallback<void(mojom::XRVisibilityState)>&
+          visibility_changed_callback);
 
   static void DEVICE_VR_EXPORT SetTestHook(VRTestHook* hook);
 
@@ -95,9 +99,14 @@ class OpenXrApiWrapper {
   bool HasFrameState() const;
 
   uint32_t GetRecommendedSwapchainSampleCount() const;
-  XrResult GetStageBounds(XrExtent2Df* stage_bounds) const;
+  XrResult UpdateStageBounds();
 
   bool session_ended_;
+
+  base::RepeatingCallback<void(XrResult*)>
+      interaction_profile_changed_callback_;
+  base::RepeatingCallback<void(mojom::XRVisibilityState)>
+      visibility_changed_callback_;
 
   // Testing objects
   static VRTestHook* test_hook_;
@@ -110,6 +119,7 @@ class OpenXrApiWrapper {
   XrSystemId system_;
   std::vector<XrViewConfigurationView> view_configs_;
   XrEnvironmentBlendMode blend_mode_;
+  XrExtent2Df stage_bounds_;
 
   // These objects are valid only while a session is active,
   // and stay constant throughout the lifetime of a session.

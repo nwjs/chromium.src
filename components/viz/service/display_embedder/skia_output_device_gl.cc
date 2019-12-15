@@ -32,16 +32,17 @@ SkiaOutputDeviceGL::SkiaOutputDeviceGL(
     gpu::MailboxManager* mailbox_manager,
     scoped_refptr<gl::GLSurface> gl_surface,
     scoped_refptr<gpu::gles2::FeatureInfo> feature_info,
-    const DidSwapBufferCompleteCallback& did_swap_buffer_complete_callback)
-    : SkiaOutputDevice(false /*need_swap_semaphore */,
-                       did_swap_buffer_complete_callback),
+    DidSwapBufferCompleteCallback did_swap_buffer_complete_callback)
+    : SkiaOutputDevice(/*need_swap_semaphore=*/false,
+                       std::move(did_swap_buffer_complete_callback)),
       mailbox_manager_(mailbox_manager),
       gl_surface_(std::move(gl_surface)) {
   capabilities_.flipped_output_surface = gl_surface_->FlipsVertically();
   capabilities_.supports_post_sub_buffer = gl_surface_->SupportsPostSubBuffer();
   if (feature_info->workarounds()
-          .disable_post_sub_buffers_for_onscreen_surfaces)
+          .disable_post_sub_buffers_for_onscreen_surfaces) {
     capabilities_.supports_post_sub_buffer = false;
+  }
   capabilities_.max_frames_pending = gl_surface_->GetBufferCount() - 1;
   capabilities_.supports_gpu_vsync = gl_surface_->SupportsGpuVSync();
   capabilities_.supports_dc_layers = gl_surface_->SupportsDCLayers();
@@ -55,11 +56,21 @@ SkiaOutputDeviceGL::SkiaOutputDeviceGL(
 #endif
 }
 
+SkiaOutputDeviceGL::~SkiaOutputDeviceGL() = default;
+
 void SkiaOutputDeviceGL::Initialize(GrContext* gr_context,
                                     gl::GLContext* gl_context) {
   DCHECK(gr_context);
   DCHECK(gl_context);
   gr_context_ = gr_context;
+
+  if (gl_surface_->SupportsSwapTimestamps()) {
+    gl_surface_->SetEnableSwapTimestamps();
+
+    // Changes to swap timestamp queries are only picked up when making current.
+    gl_context->ReleaseCurrent(nullptr);
+    gl_context->MakeCurrent(gl_surface_.get());
+  }
 
   gl::CurrentGL* current_gl = gl_context->GetCurrentGL();
   DCHECK(current_gl);
@@ -79,8 +90,6 @@ void SkiaOutputDeviceGL::Initialize(GrContext* gr_context,
   CHECK_GL_ERROR();
   supports_alpha_ = alpha_bits > 0;
 }
-
-SkiaOutputDeviceGL::~SkiaOutputDeviceGL() {}
 
 bool SkiaOutputDeviceGL::Reshape(const gfx::Size& size,
                                  float device_scale_factor,
@@ -111,8 +120,13 @@ bool SkiaOutputDeviceGL::Reshape(const gfx::Size& size,
   sk_surface_ = SkSurface::MakeFromBackendRenderTarget(
       gr_context_, render_target, origin, color_type,
       color_space.ToSkColorSpace(), &surface_props);
-  DCHECK(sk_surface_);
-  return true;
+  if (!sk_surface_) {
+    LOG(ERROR) << "Couldn't create surface: " << gr_context_->abandoned() << " "
+               << color_type << " " << framebuffer_info.fFBOID << " "
+               << framebuffer_info.fFormat << " " << color_space.ToString()
+               << " " << size.ToString();
+  }
+  return !!sk_surface_;
 }
 
 void SkiaOutputDeviceGL::SwapBuffers(
@@ -176,13 +190,14 @@ void SkiaOutputDeviceGL::SetGpuVSyncEnabled(bool enabled) {
   gl_surface_->SetGpuVSyncEnabled(enabled);
 }
 
+#if defined(OS_WIN)
 void SkiaOutputDeviceGL::SetEnableDCLayers(bool enable) {
   gl_surface_->SetEnableDCLayers(enable);
 }
 
-void SkiaOutputDeviceGL::ScheduleDCLayers(
-    std::vector<DCLayerOverlay> dc_layers) {
-  for (auto& dc_layer : dc_layers) {
+void SkiaOutputDeviceGL::ScheduleOverlays(
+    SkiaOutputSurface::OverlayList overlays) {
+  for (auto& dc_layer : overlays) {
     ui::DCRendererLayerParams params;
 
     // Get GLImages for DC layer textures.
@@ -220,6 +235,7 @@ void SkiaOutputDeviceGL::ScheduleDCLayers(
       DLOG(ERROR) << "ScheduleDCLayer failed";
   }
 }
+#endif
 
 void SkiaOutputDeviceGL::EnsureBackbuffer() {
   gl_surface_->SetBackbufferAllocation(true);

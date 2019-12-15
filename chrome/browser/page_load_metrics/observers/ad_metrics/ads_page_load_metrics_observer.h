@@ -30,7 +30,7 @@ class AdsPageLoadMetricsObserver
     : public page_load_metrics::PageLoadMetricsObserver,
       public subresource_filter::SubresourceFilterObserver {
  public:
-  // Returns a new AdsPageLoadMetricObserver. If the feature is disabled it
+  // Returns a new AdsPageLoadMetricsObserver. If the feature is disabled it
   // returns nullptr.
   static std::unique_ptr<AdsPageLoadMetricsObserver> CreateIfNeeded(
       content::WebContents* web_contents);
@@ -60,7 +60,10 @@ class AdsPageLoadMetricsObserver
   // for heavy ads. A different noise should be generated for each frame.
   class HeavyAdThresholdNoiseProvider {
    public:
-    HeavyAdThresholdNoiseProvider() = default;
+    // |use_noise| indicates whether this provider should give values of noise
+    // or just 0. If the heavy ad blocklist mitigation is disabled, |use_noise|
+    // should be set to false to provide a deterministic debugging path.
+    explicit HeavyAdThresholdNoiseProvider(bool use_noise);
     virtual ~HeavyAdThresholdNoiseProvider() = default;
 
     // Gets a random amount of noise to add to a threshold. The generated noise
@@ -71,6 +74,10 @@ class AdsPageLoadMetricsObserver
     // Maximum amount of additive noise to add to the network threshold to
     // obscure cross origin resource sizes: 1303 KB.
     static const int kMaxNetworkThresholdNoiseBytes = 1303 * 1024;
+
+   private:
+    // Whether to use noise.
+    const bool use_noise_;
   };
 
   explicit AdsPageLoadMetricsObserver(base::TickClock* clock = nullptr,
@@ -178,7 +185,6 @@ class AdsPageLoadMetricsObserver
 
   bool IsBlocklisted();
   HeavyAdBlocklist* GetHeavyAdBlocklist();
-  void RecordHeavyAdInterventionDisallowedByBlocklist(bool disallowed);
 
   // Stores the size data of each ad frame. Pointed to by ad_frames_ so use a
   // data structure that won't move the data around. This only stores ad frames
@@ -240,6 +246,10 @@ class AdsPageLoadMetricsObserver
   // The tick clock used to get the current time.  Can be replaced by tests.
   const base::TickClock* clock_;
 
+  // Whether the page load currently being observed is a reload of a previous
+  // page.
+  bool page_load_is_reload_ = false;
+
   // Stores whether the heavy ad intervention is blocklisted or not for the user
   // on the URL of this page. Incognito Profiles will cause this to be set to
   // true. Used as a cache to avoid checking the blocklist once the page is
@@ -250,8 +260,8 @@ class AdsPageLoadMetricsObserver
   // be replaced by tests.
   HeavyAdBlocklist* heavy_ad_blocklist_;
 
-  // Whether the heavy ad blocklist feature is enabled.
-  const bool heavy_ad_blocklist_enabled_;
+  // Whether the heavy ad privacy mitigations feature is enabled.
+  const bool heavy_ad_privacy_mitigations_enabled_;
 
   // Whether there was a heavy ad on the page at some point.
   bool heavy_ad_on_page_ = false;

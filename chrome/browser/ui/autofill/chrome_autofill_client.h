@@ -24,16 +24,13 @@
 #include "content/public/browser/web_contents_user_data.h"
 
 #if defined(OS_ANDROID)
+#include "components/autofill/core/browser/ui/payments/card_expiration_date_fix_flow_controller_impl.h"
 #include "components/autofill/core/browser/ui/payments/card_name_fix_flow_controller_impl.h"
 #else  // !OS_ANDROID
 #include "chrome/browser/ui/autofill/payments/manage_migration_ui_controller.h"
 #include "chrome/browser/ui/autofill/payments/save_card_bubble_controller.h"
 #include "components/zoom/zoom_observer.h"
 #endif
-
-#if defined(OS_ANDROID)
-#include "components/autofill/core/browser/ui/payments/card_name_fix_flow_controller_impl.h"
-#endif  // defined(OS_ANDROID)
 
 namespace content {
 class WebContents;
@@ -90,13 +87,14 @@ class ChromeAutofillClient
       const std::vector<MigratableCreditCard>& migratable_credit_cards,
       MigrationDeleteCardCallback delete_local_card_callback) override;
 #if !defined(OS_ANDROID)
-  void ShowVerifyPendingDialog(
-      base::OnceClosure cancel_card_verification_callback) override;
-  void CloseVerifyPendingDialog() override;
-#endif  // !defined(OS_ANDROID)
-  void ShowWebauthnOfferDialog(WebauthnOfferDialogCallback callback) override;
-  bool CloseWebauthnOfferDialog() override;
+  void ShowWebauthnOfferDialog(
+      WebauthnDialogCallback offer_dialog_callback) override;
+  void ShowWebauthnVerifyPendingDialog(
+      WebauthnDialogCallback verify_pending_dialog_callback) override;
   void UpdateWebauthnOfferDialogWithError() override;
+  void UpdateWebauthnVerifyPendingCancelButton(bool should_be_enabled) override;
+  bool CloseWebauthnDialog() override;
+#endif  // !defined(OS_ANDROID)
   void ConfirmSaveAutofillProfile(const AutofillProfile& profile,
                                   base::OnceClosure callback) override;
   void ConfirmSaveCreditCardLocally(
@@ -178,6 +176,8 @@ class ChromeAutofillClient
   CardUnmaskPromptControllerImpl unmask_controller_;
   std::unique_ptr<LogManager> log_manager_;
 #if defined(OS_ANDROID)
+  CardExpirationDateFixFlowControllerImpl
+      card_expiration_date_fix_flow_controller_;
   CardNameFixFlowControllerImpl card_name_fix_flow_controller_;
 #endif
 

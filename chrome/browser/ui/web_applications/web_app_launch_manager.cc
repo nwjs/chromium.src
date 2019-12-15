@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/web_applications/system_web_app_ui_utils.h"
+#include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/components/web_app_install_utils.h"
 #include "chrome/browser/web_applications/components/web_app_tab_helper.h"
@@ -69,8 +70,7 @@ content::WebContents* ShowWebApplicationWindow(
 
   SetWebAppPrefsForWebContents(web_contents);
 
-  web_app::WebAppTabHelper* tab_helper =
-      web_app::WebAppTabHelper::FromWebContents(web_contents);
+  WebAppTabHelper* tab_helper = WebAppTabHelper::FromWebContents(web_contents);
   DCHECK(tab_helper);
   tab_helper->SetAppId(app_id);
 
@@ -88,8 +88,7 @@ content::WebContents* ShowWebApplicationWindow(
 }  // namespace
 
 WebAppLaunchManager::WebAppLaunchManager(Profile* profile)
-    : apps::LaunchManager(profile),
-      provider_(web_app::WebAppProvider::Get(profile)) {}
+    : apps::LaunchManager(profile), provider_(WebAppProvider::Get(profile)) {}
 
 WebAppLaunchManager::~WebAppLaunchManager() = default;
 
@@ -98,20 +97,24 @@ content::WebContents* WebAppLaunchManager::OpenApplication(
   if (!provider_->registrar().IsInstalled(params.app_id))
     return nullptr;
 
+  if (params.container == apps::mojom::LaunchContainer::kLaunchContainerWindow)
+    RecordAppWindowLaunch(profile(), params.app_id);
+
+  const GURL url = params.override_url.is_empty()
+                       ? provider_->registrar().GetAppLaunchURL(params.app_id)
+                       : params.override_url;
+
   // System Web Apps go through their own launch path.
-  base::Optional<web_app::SystemAppType> system_app_type =
-      web_app::GetSystemWebAppTypeForAppId(profile(), params.app_id);
+  base::Optional<SystemAppType> system_app_type =
+      GetSystemWebAppTypeForAppId(profile(), params.app_id);
   if (system_app_type) {
     Browser* browser =
-        web_app::LaunchSystemWebApp(profile(), *system_app_type, GURL());
+        LaunchSystemWebApp(profile(), *system_app_type, url, params);
     return browser->tab_strip_model()->GetActiveWebContents();
   }
 
   Browser* browser = CreateWebApplicationWindow(profile(), params.app_id);
 
-  const GURL url = params.override_url.is_empty()
-                       ? provider_->registrar().GetAppLaunchURL(params.app_id)
-                       : params.override_url;
   content::WebContents* web_contents =
       ShowWebApplicationWindow(params, params.app_id, url, browser,
                                WindowOpenDisposition::NEW_FOREGROUND_TAB);
@@ -186,6 +189,20 @@ bool WebAppLaunchManager::OpenApplicationTab(const std::string& app_id) {
 void WebAppLaunchManager::OpenWebApplication(
     const apps::AppLaunchParams& params) {
   OpenApplication(params);
+}
+
+void RecordAppWindowLaunch(Profile* profile, const std::string& app_id) {
+  WebAppProvider* provider = WebAppProvider::Get(profile);
+  if (!provider)
+    return;
+
+  DisplayMode display = provider->registrar().GetAppDisplayMode(app_id);
+  if (display == DisplayMode::kUndefined)
+    return;
+
+  DCHECK_LT(DisplayMode::kUndefined, display);
+  DCHECK_LE(display, DisplayMode::kMaxValue);
+  UMA_HISTOGRAM_ENUMERATION("Launch.WebAppDisplayMode", display);
 }
 
 }  // namespace web_app

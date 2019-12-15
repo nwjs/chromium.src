@@ -54,18 +54,18 @@ class TestExtensionBuilder {
 
   void WriteComputedHashes() {
     int block_size = extension_misc::kContentVerificationDefaultBlockSize;
-    ComputedHashes::Writer computed_hashes_writer;
+    ComputedHashes::Data computed_hashes_data;
 
     for (const auto& resource : extension_resources_) {
-      std::vector<std::string> hashes;
-      ComputedHashes::ComputeHashesForContent(resource.contents, block_size,
-                                              &hashes);
-      computed_hashes_writer.AddHashes(resource.relative_path, block_size,
-                                       hashes);
+      std::vector<std::string> hashes =
+          ComputedHashes::GetHashesForContent(resource.contents, block_size);
+      computed_hashes_data[resource.relative_path] =
+          ComputedHashes::HashInfo(block_size, hashes);
     }
 
-    ASSERT_TRUE(computed_hashes_writer.WriteToFile(
-        file_util::GetComputedHashesPath(extension_dir_.UnpackedPath())));
+    ASSERT_TRUE(ComputedHashes(std::move(computed_hashes_data))
+                    .WriteToFile(file_util::GetComputedHashesPath(
+                        extension_dir_.UnpackedPath())));
   }
 
   void WriteVerifiedContents() {
@@ -196,8 +196,8 @@ class ContentHashUnittest : public ExtensionsTest {
       const std::vector<uint8_t>& content_verifier_public_key) {
     ContentHash::FetchKey key(
         extension->id(), extension->path(), extension->version(),
-        nullptr /* url_loader_factory_ptr_info */, GURL() /* fetch_url */,
-        content_verifier_public_key);
+        mojo::NullRemote() /* url_loader_factory_remote */,
+        GURL() /* fetch_url */, content_verifier_public_key);
     return ContentHashWaiter().CreateAndWaitForCallback(std::move(key),
                                                         source_type);
   }
@@ -230,6 +230,43 @@ TEST_F(ContentHashUnittest, ExtensionWithSignedHashes) {
   DCHECK(result);
 
   EXPECT_TRUE(result->success);
+}
+
+TEST_F(ContentHashUnittest, ExtensionWithUnsignedHashes) {
+  TestExtensionBuilder builder;
+  builder.WriteManifest();
+  builder.WriteResource(FILE_PATH_LITERAL("background.js"),
+                        "console.log('Nothing special');");
+  builder.WriteComputedHashes();
+
+  scoped_refptr<Extension> extension = LoadExtension(builder);
+  ASSERT_NE(nullptr, extension);
+
+  std::unique_ptr<ContentHashResult> result = CreateContentHash(
+      extension.get(),
+      ContentVerifierDelegate::VerifierSourceType::UNSIGNED_HASHES,
+      builder.GetTestContentVerifierPublicKey());
+  DCHECK(result);
+
+  EXPECT_TRUE(result->success);
+}
+
+TEST_F(ContentHashUnittest, ExtensionWithoutHashes) {
+  TestExtensionBuilder builder;
+  builder.WriteManifest();
+  builder.WriteResource(FILE_PATH_LITERAL("background.js"),
+                        "console.log('Nothing special');");
+
+  scoped_refptr<Extension> extension = LoadExtension(builder);
+  ASSERT_NE(nullptr, extension);
+
+  std::unique_ptr<ContentHashResult> result = CreateContentHash(
+      extension.get(),
+      ContentVerifierDelegate::VerifierSourceType::UNSIGNED_HASHES,
+      builder.GetTestContentVerifierPublicKey());
+  DCHECK(result);
+
+  EXPECT_FALSE(result->success);
 }
 
 }  // namespace extensions

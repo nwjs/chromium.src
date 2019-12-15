@@ -6,7 +6,8 @@
 
 #include "chromeos/components/media_app_ui/media_app_guest_ui.h"
 #include "chromeos/components/media_app_ui/url_constants.h"
-#include "chromeos/grit/chromeos_resources.h"
+#include "chromeos/grit/chromeos_media_app_bundle_resources.h"
+#include "chromeos/grit/chromeos_media_app_resources.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
@@ -17,10 +18,16 @@ namespace {
 content::WebUIDataSource* CreateHostDataSource() {
   content::WebUIDataSource* source =
       content::WebUIDataSource::Create(kChromeUIMediaAppHost);
+
+  // Add resources from chromeos_media_app_resources.pak.
   source->SetDefaultResource(IDR_MEDIA_APP_INDEX_HTML);
   source->AddResourcePath("pwa.html", IDR_MEDIA_APP_PWA_HTML);
   source->AddResourcePath("manifest.json", IDR_MEDIA_APP_MANIFEST);
-  source->AddResourcePath("assets/app_icon_256.png", IDR_MEDIA_APP_ICON_256);
+  source->AddResourcePath("launch.js", IDR_MEDIA_APP_LAUNCH_JS);
+
+  // Add resources from chromeos_media_app_bundle_resources.pak.
+  source->AddResourcePath("system_assets/app_icon_256.png",
+                          IDR_MEDIA_APP_APP_ICON_256_PNG);
   return source;
 }
 
@@ -38,17 +45,6 @@ MediaAppUI::MediaAppUI(content::WebUI* web_ui) : MojoWebUIController(web_ui) {
   // option for the guest.
   std::string csp = std::string("frame-src ") + kChromeUIMediaAppGuestURL + ";";
   host_source->OverrideContentSecurityPolicyChildSrc(csp);
-
-  // We also add the guest data source here (and allow it to be iframed). If
-  // it's only added in the MediaAppGuestUI constructor, then a user navigation
-  // to chrome://media-app-guest is required before the <iframe> can see it.
-  // This is due to logic in RenderFrameHostManager::GetFrameHostForNavigation()
-  // that currently skips creating webui objects when !IsMainFrame() (which is
-  // temporary according to https://crbug.com/713313 but, long-term, the guest
-  // shouldn't need the webui objects in any case - just the data source).
-  content::WebUIDataSource* guest_source = MediaAppGuestUI::CreateDataSource();
-  guest_source->DisableDenyXFrameOptions();
-  content::WebUIDataSource::Add(browser_context, guest_source);
 }
 
 MediaAppUI::~MediaAppUI() = default;

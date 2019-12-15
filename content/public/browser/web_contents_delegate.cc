@@ -293,8 +293,20 @@ int WebContentsDelegate::GetTopControlsHeight() {
   return 0;
 }
 
+int WebContentsDelegate::GetTopControlsMinHeight() {
+  return 0;
+}
+
 int WebContentsDelegate::GetBottomControlsHeight() {
   return 0;
+}
+
+int WebContentsDelegate::GetBottomControlsMinHeight() {
+  return 0;
+}
+
+bool WebContentsDelegate::ShouldAnimateBrowserControlsHeightChanges() {
+  return false;
 }
 
 bool WebContentsDelegate::DoBrowserControlsShrinkRendererSize(
@@ -325,4 +337,11 @@ bool WebContentsDelegate::ShouldShowStaleContentOnEviction(
     WebContents* source) {
   return false;
 }
+
+bool WebContentsDelegate::IsFrameLowPriority(
+    const WebContents* web_contents,
+    const RenderFrameHost* render_frame_host) {
+  return false;
+}
+
 }  // namespace content

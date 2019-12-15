@@ -13,6 +13,7 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "net/base/mime_util.h"
+#include "third_party/zlib/google/compression_utils.h"
 
 namespace {
 // TODO(crbug.com/846546): Initially set to load crosh, but change to
@@ -24,9 +25,17 @@ constexpr base::FilePath::CharType kDefaultFile[] =
 constexpr char kDefaultMime[] = "text/html";
 
 void ReadFile(const base::FilePath& path,
-              const content::URLDataSource::GotDataCallback& callback) {
+              content::URLDataSource::GotDataCallback callback) {
   std::string content;
+  // First look for uncompressed resource, then try for gzipped file.
   bool result = base::ReadFileToString(path, &content);
+  if (!result) {
+    result =
+        base::ReadFileToString(base::FilePath(path.value() + ".gz"), &content);
+    std::string uncompressed;
+    result = compression::GzipUncompress(content, &uncompressed);
+    content = std::move(uncompressed);
+  }
   // Allow missing files in <root>/_locales only.
   DCHECK(result || base::FilePath(kTerminalRoot)
                        .Append("_locales")
@@ -34,7 +43,7 @@ void ReadFile(const base::FilePath& path,
       << path;
   scoped_refptr<base::RefCountedString> response =
       base::RefCountedString::TakeString(&content);
-  callback.Run(response.get());
+  std::move(callback).Run(response.get());
 }
 }  // namespace
 
@@ -49,9 +58,11 @@ bool TerminalSource::AllowCaching() {
 #endif
 
 void TerminalSource::StartDataRequest(
-    const std::string& path,
+    const GURL& url,
     const content::WebContents::Getter& wc_getter,
-    const content::URLDataSource::GotDataCallback& callback) {
+    content::URLDataSource::GotDataCallback callback) {
+  // TODO(crbug/1009127): Simplify usages of |path| since |url| is available.
+  const std::string path = content::URLDataSource::URLToRequestPath(url);
   // Reparse path to strip any query or fragment, skip first '/' in path.
   std::string reparsed =
       GURL(chrome::kChromeUITerminalURL + path).path().substr(1);
@@ -61,7 +72,7 @@ void TerminalSource::StartDataRequest(
   base::PostTask(
       FROM_HERE,
       {base::ThreadPool(), base::MayBlock(), base::TaskPriority::USER_BLOCKING},
-      base::BindOnce(&ReadFile, file_path, callback));
+      base::BindOnce(&ReadFile, file_path, std::move(callback)));
 }
 
 std::string TerminalSource::GetMimeType(const std::string& path) {

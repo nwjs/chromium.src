@@ -24,7 +24,6 @@
 #include "ui/views/border.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/vector_icons.h"
-#include "ui/views/window/dialog_client_view.h"
 
 namespace {
 
@@ -155,20 +154,6 @@ int AuthenticatorRequestDialogView::GetDialogButtons() const {
   return button_mask;
 }
 
-base::string16 AuthenticatorRequestDialogView::GetDialogButtonLabel(
-    ui::DialogButton button) const {
-  switch (button) {
-    case ui::DIALOG_BUTTON_NONE:
-      break;
-    case ui::DIALOG_BUTTON_OK:
-      return sheet()->model()->GetAcceptButtonLabel();
-    case ui::DIALOG_BUTTON_CANCEL:
-      return sheet()->model()->GetCancelButtonLabel();
-  }
-  NOTREACHED();
-  return base::string16();
-}
-
 bool AuthenticatorRequestDialogView::IsDialogButtonEnabled(
     ui::DialogButton button) const {
   switch (button) {
@@ -177,7 +162,7 @@ bool AuthenticatorRequestDialogView::IsDialogButtonEnabled(
     case ui::DIALOG_BUTTON_OK:
       return sheet()->model()->IsAcceptButtonEnabled();
     case ui::DIALOG_BUTTON_CANCEL:
-      return true;  // Cancel is always enabled if visible.
+      return sheet()->model()->IsCancelButtonEnabled();
   }
   NOTREACHED();
   return false;
@@ -198,14 +183,16 @@ views::View* AuthenticatorRequestDialogView::GetInitiallyFocusedView() {
 
   if (sheet()->model()->IsAcceptButtonVisible() &&
       sheet()->model()->IsAcceptButtonEnabled()) {
-    return GetDialogClientView()->ok_button();
+    return GetOkButton();
   }
 
   if (ShouldOtherTransportsButtonBeVisible())
     return other_transports_button_;
 
-  if (sheet()->model()->IsCancelButtonVisible())
-    return GetDialogClientView()->cancel_button();
+  if (sheet()->model()->IsCancelButtonVisible() &&
+      sheet()->model()->IsCancelButtonEnabled()) {
+    return GetCancelButton();
+  }
 
   return nullptr;
 }
@@ -332,6 +319,10 @@ void AuthenticatorRequestDialogView::UpdateUIForCurrentSheet() {
   DialogDelegate::set_default_button(sheet_->model()->IsAcceptButtonVisible()
                                          ? ui::DIALOG_BUTTON_OK
                                          : ui::DIALOG_BUTTON_NONE);
+  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_OK,
+                                   sheet_->model()->GetAcceptButtonLabel());
+  DialogDelegate::set_button_label(ui::DIALOG_BUTTON_CANCEL,
+                                   sheet_->model()->GetCancelButtonLabel());
 
   // Whether to show the `Choose another option` button, or other dialog
   // configuration is delegated to the |sheet_|, and the new sheet likely wants
@@ -346,8 +337,8 @@ void AuthenticatorRequestDialogView::UpdateUIForCurrentSheet() {
 
   // Force re-layout of the entire dialog client view, which includes the sheet
   // content as well as the button row on the bottom.
-  DCHECK(GetDialogClientView());
-  GetDialogClientView()->Layout();
+  // TODO(ellyjones): Why is this necessary?
+  GetWidget()->GetRootView()->Layout();
 
   // The accessibility title is also sourced from the |sheet_|'s step title.
   GetWidget()->UpdateWindowTitle();

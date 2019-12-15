@@ -94,7 +94,7 @@ TEST_P(PaintLayerTest, RootLayerCompositedBounds) {
 }
 
 TEST_P(PaintLayerTest, RootLayerScrollBounds) {
-  ScopedOverlayScrollbarsForTest overlay_scrollbars(false);
+  USE_NON_OVERLAY_SCROLLBARS();
 
   SetBodyInnerHTML(
       "<style> body { width: 1000px; height: 1000px; margin: 0 } </style>");
@@ -211,10 +211,11 @@ TEST_P(PaintLayerTest, CompositedScrollingNoNeedsRepaint) {
   GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
   EXPECT_EQ(PhysicalOffset(0, 0),
             content_layer->LocationWithoutPositionOffset());
-  EXPECT_EQ(LayoutSize(1000, 1000),
-            content_layer->ContainingLayer()->ScrolledContentOffset());
-  EXPECT_FALSE(content_layer->NeedsRepaint());
-  EXPECT_FALSE(scroll_layer->NeedsRepaint());
+  EXPECT_EQ(
+      LayoutSize(1000, 1000),
+      content_layer->ContainingLayer()->PixelSnappedScrolledContentOffset());
+  EXPECT_FALSE(content_layer->SelfNeedsRepaint());
+  EXPECT_FALSE(scroll_layer->SelfNeedsRepaint());
   UpdateAllLifecyclePhasesForTest();
 }
 
@@ -244,11 +245,12 @@ TEST_P(PaintLayerTest, NonCompositedScrollingNeedsRepaint) {
   GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
   EXPECT_EQ(PhysicalOffset(0, 0),
             content_layer->LocationWithoutPositionOffset());
-  EXPECT_EQ(LayoutSize(1000, 1000),
-            content_layer->ContainingLayer()->ScrolledContentOffset());
+  EXPECT_EQ(
+      LayoutSize(1000, 1000),
+      content_layer->ContainingLayer()->PixelSnappedScrolledContentOffset());
 
-  EXPECT_TRUE(scroll_layer->NeedsRepaint());
-  EXPECT_FALSE(content_layer->NeedsRepaint());
+  EXPECT_TRUE(scroll_layer->SelfNeedsRepaint());
+  EXPECT_FALSE(content_layer->SelfNeedsRepaint());
   UpdateAllLifecyclePhasesForTest();
 }
 
@@ -1616,7 +1618,7 @@ TEST_P(PaintLayerTest, FloatLayerUnderInlineLayerScrolled) {
   EXPECT_EQ(PhysicalOffset(100, 100),
             span->GetLayoutObject().OffsetForInFlowPosition());
   EXPECT_EQ(LayoutSize(0, 400),
-            span->ContainingLayer()->ScrolledContentOffset());
+            span->ContainingLayer()->PixelSnappedScrolledContentOffset());
   if (RuntimeEnabledFeatures::LayoutNGEnabled()) {
     EXPECT_EQ(PhysicalOffset(0, 0), floating->LocationWithoutPositionOffset());
     EXPECT_EQ(PhysicalOffset(50, 50),
@@ -1629,7 +1631,7 @@ TEST_P(PaintLayerTest, FloatLayerUnderInlineLayerScrolled) {
     EXPECT_EQ(PhysicalOffset(50, 50),
               floating->GetLayoutObject().OffsetForInFlowPosition());
     EXPECT_EQ(LayoutSize(0, 400),
-              floating->ContainingLayer()->ScrolledContentOffset());
+              floating->ContainingLayer()->PixelSnappedScrolledContentOffset());
     EXPECT_EQ(PhysicalOffset(-50, -50),
               floating->VisualOffsetFromAncestor(span));
     EXPECT_EQ(PhysicalOffset(50, -350),
@@ -1894,7 +1896,7 @@ TEST_P(PaintLayerTest, ColumnSpanLayerUnderExtraLayerScrolled) {
             spanner->GetLayoutObject().OffsetForInFlowPosition());
 
   EXPECT_EQ(LayoutSize(200, 0),
-            spanner->ContainingLayer()->ScrolledContentOffset());
+            spanner->ContainingLayer()->PixelSnappedScrolledContentOffset());
   EXPECT_EQ(PhysicalOffset(0, 0), extra_layer->LocationWithoutPositionOffset());
   EXPECT_EQ(PhysicalOffset(100, 100),
             extra_layer->GetLayoutObject().OffsetForInFlowPosition());
@@ -1941,12 +1943,12 @@ TEST_P(PaintLayerTest, NeedsRepaintOnSelfPaintingStatusChange) {
   // Target layer is self painting because it is a multicol container.
   EXPECT_TRUE(target_layer->IsSelfPaintingLayer());
   EXPECT_EQ(span_layer, target_layer->CompositingContainer());
-  EXPECT_FALSE(target_layer->NeedsRepaint());
-  EXPECT_FALSE(span_layer->NeedsRepaint());
+  EXPECT_FALSE(target_layer->SelfNeedsRepaint());
+  EXPECT_FALSE(span_layer->SelfNeedsRepaint());
 
   // Removing column-width: 10px makes target layer no longer self-painting,
   // and change its compositing container. The original compositing container
-  // span_layer should be marked NeedsRepaint.
+  // span_layer should be marked SelfNeedsRepaint.
   target_element->setAttribute(html_names::kStyleAttr,
                                "overflow: hidden; float: left");
 
@@ -1962,9 +1964,9 @@ TEST_P(PaintLayerTest, NeedsRepaintOnSelfPaintingStatusChange) {
   } else {
     EXPECT_EQ(span_layer->Parent(), target_layer->CompositingContainer());
   }
-  EXPECT_TRUE(target_layer->NeedsRepaint());
-  EXPECT_TRUE(target_layer->CompositingContainer()->NeedsRepaint());
-  EXPECT_TRUE(span_layer->NeedsRepaint());
+  EXPECT_TRUE(target_layer->SelfNeedsRepaint());
+  EXPECT_TRUE(target_layer->CompositingContainer()->SelfNeedsRepaint());
+  EXPECT_TRUE(span_layer->SelfNeedsRepaint());
   UpdateAllLifecyclePhasesForTest();
 }
 
@@ -1990,8 +1992,8 @@ TEST_P(PaintLayerTest, NeedsRepaintOnRemovingStackedLayer) {
   GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
 
   EXPECT_FALSE(target_object->HasLayer());
-  EXPECT_TRUE(body_layer->NeedsRepaint());
-  EXPECT_TRUE(old_compositing_container->NeedsRepaint());
+  EXPECT_TRUE(body_layer->SelfNeedsRepaint());
+  EXPECT_TRUE(old_compositing_container->DescendantNeedsRepaint());
 
   UpdateAllLifecyclePhasesForTest();
 }
@@ -2229,16 +2231,19 @@ TEST_P(PaintLayerTest, SetNeedsRepaintSelfPaintingUnderNonSelfPainting) {
   auto* span_layer = GetPaintLayerByElementId("span");
   auto* floating_layer = GetPaintLayerByElementId("floating");
   auto* multicol_layer = GetPaintLayerByElementId("multicol");
-  EXPECT_FALSE(html_layer->NeedsRepaint());
-  EXPECT_FALSE(span_layer->NeedsRepaint());
-  EXPECT_FALSE(floating_layer->NeedsRepaint());
-  EXPECT_FALSE(multicol_layer->NeedsRepaint());
+  EXPECT_FALSE(html_layer->SelfNeedsRepaint());
+  EXPECT_FALSE(span_layer->SelfNeedsRepaint());
+  EXPECT_FALSE(floating_layer->SelfNeedsRepaint());
+  EXPECT_FALSE(multicol_layer->SelfNeedsRepaint());
 
   multicol_layer->SetNeedsRepaint();
-  EXPECT_TRUE(html_layer->NeedsRepaint());
-  EXPECT_TRUE(span_layer->NeedsRepaint());
-  EXPECT_TRUE(floating_layer->NeedsRepaint());
-  EXPECT_TRUE(multicol_layer->NeedsRepaint());
+  EXPECT_TRUE(html_layer->DescendantNeedsRepaint());
+  if (RuntimeEnabledFeatures::LayoutNGEnabled())
+    EXPECT_TRUE(span_layer->DescendantNeedsRepaint());
+  else
+    EXPECT_TRUE(span_layer->SelfNeedsRepaint());
+  EXPECT_TRUE(floating_layer->DescendantNeedsRepaint());
+  EXPECT_TRUE(multicol_layer->SelfNeedsRepaint());
 }
 
 TEST_P(PaintLayerTest, HitTestPseudoElementWithContinuation) {
@@ -2359,6 +2364,91 @@ TEST_P(PaintLayerTest, HitTestFirstLetterPseudoElementDisplayContents) {
   EXPECT_EQ(target, result.InnerNode());
   EXPECT_EQ(container->GetPseudoElement(kPseudoIdFirstLetter),
             result.InnerPossiblyPseudoNode());
+}
+
+TEST_P(PaintLayerTest, HitTestOverlayResizer) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      * {
+        margin: 0;
+      }
+      div {
+        width: 200px;
+        height: 200px;
+      }
+      body > div {
+        overflow: hidden;
+        resize: both;
+        display: none;
+      }
+      #target_0 {
+        position: relative;
+        z-index: -1;
+      }
+      #target_2 {
+        position: relative;
+      }
+      #target_3 {
+        position: relative;
+        z-index: 1;
+      }
+    </style>
+    <!--
+      Definitions: Nor(Normal flow paint layer), Pos(Positive paint layer),
+      Neg(Negative paint layer)
+    -->
+    <!--0. Neg+Pos-->
+    <div id="target_0" class="resize">
+      <div style="position: relative"></div>
+    </div>
+
+    <!--1. Nor+Pos-->
+    <div id="target_1" class="resize">
+      <div style="position: relative"></div>
+    </div>
+
+    <!--2. Pos+Pos(siblings)-->
+    <div id="target_2" class="resize">
+      <div style="position: relative"></div>
+    </div>
+
+    <!--3. Pos+Pos(parent-child)-->
+    <div id="target_3" class="resize">
+      <div style="position: relative"></div>
+    </div>
+
+    <!--4. Nor+Pos+Nor-->
+    <div id="target_4" class="resize">
+      <div style="position: relative; z-index: 1">
+        <div style="position: relative"></div>
+      </div>
+    </div>
+
+    <!--5. Nor+Pos+Neg-->
+    <div id="target_5" class="resize">
+      <div style="position: relative; z-index: -1">
+        <div style="position: relative"></div>
+      </div>
+    </div>
+  )HTML");
+
+  for (int i = 0; i < 6; i++) {
+    Element* target_element = GetDocument().getElementById(
+        AtomicString(String::Format("target_%d", i)));
+    target_element->setAttribute(html_names::kStyleAttr, "display: block");
+    UpdateAllLifecyclePhasesForTest();
+
+    HitTestRequest request(HitTestRequest::kIgnoreClipping);
+    HitTestLocation location((IntPoint(198, 198)));
+    HitTestResult result(request, location);
+    GetDocument().GetLayoutView()->HitTest(location, result);
+    if (i == 0)
+      EXPECT_NE(target_element, result.InnerNode());
+    else
+      EXPECT_EQ(target_element, result.InnerNode());
+
+    target_element->setAttribute(html_names::kStyleAttr, "display: none");
+  }
 }
 
 TEST_P(PaintLayerTest, BackgroundIsKnownToBeOpaqueInRectChildren) {

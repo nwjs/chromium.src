@@ -37,13 +37,12 @@
 namespace views {
 
 Tab::Tab(TabbedPane* tabbed_pane, const base::string16& title, View* contents)
-    : tabbed_pane_(tabbed_pane),
-      contents_(contents) {
+    : tabbed_pane_(tabbed_pane), contents_(contents) {
   // Calculate the size while the font list is bold.
   auto title_label = std::make_unique<Label>(title, style::CONTEXT_LABEL,
                                              style::STYLE_TAB_ACTIVE);
   title_ = title_label.get();
-  preferred_title_width_ = title_label->GetPreferredSize().width();
+  UpdatePreferredTitleWidth();
 
   if (tabbed_pane_->GetOrientation() == TabbedPane::Orientation::kVertical) {
     title_label->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT);
@@ -59,12 +58,9 @@ Tab::Tab(TabbedPane* tabbed_pane, const base::string16& title, View* contents)
     SetBorder(CreateEmptyBorder(kBorderThickness));
   }
 
-  SetLayoutManager(std::make_unique<FillLayout>());
   SetState(State::kInactive);
-  // Calculate the size while the font list is normal and set the max size.
-  preferred_title_width_ =
-      std::max(preferred_title_width_, title_label->GetPreferredSize().width());
   AddChildView(std::move(title_label));
+  SetLayoutManager(std::make_unique<FillLayout>());
 
   // Use leaf so that name is spoken by screen reader without exposing the
   // children.
@@ -93,18 +89,8 @@ const base::string16& Tab::GetTitleText() const {
 
 void Tab::SetTitleText(const base::string16& text) {
   title_->SetText(text);
-
-  // Active and inactive states use different font sizes. Find the largest size
-  // and reserve that amount of space.
-  State old_state = state_;
-  SetState(State::kActive);
-  preferred_title_width_ = GetPreferredSize().width();
-  SetState(State::kInactive);
-  preferred_title_width_ =
-      std::max(preferred_title_width_, GetPreferredSize().width());
-  SetState(old_state);
-
-  InvalidateLayout();
+  UpdatePreferredTitleWidth();
+  PreferredSizeChanged();
 }
 
 bool Tab::OnMousePressed(const ui::MouseEvent& event) {
@@ -272,6 +258,18 @@ void Tab::OnPaint(gfx::Canvas* canvas) {
   canvas->DrawPath(path, fill_flags);
 }
 
+void Tab::UpdatePreferredTitleWidth() {
+  // Active and inactive states use different font sizes. Find the largest size
+  // and reserve that amount of space.
+  const State old_state = state_;
+  SetState(State::kActive);
+  preferred_title_width_ = title_->GetPreferredSize().width();
+  SetState(State::kInactive);
+  preferred_title_width_ =
+      std::max(preferred_title_width_, title_->GetPreferredSize().width());
+  SetState(old_state);
+}
+
 BEGIN_METADATA(Tab)
 METADATA_PARENT_CLASS(View)
 END_METADATA()
@@ -319,9 +317,11 @@ void TabStrip::AnimationEnded(const gfx::Animation* animation) {
     contract_animation_->Start();
 }
 
-void TabStrip::OnSelectedTabChanged(Tab* from_tab, Tab* to_tab) {
+void TabStrip::OnSelectedTabChanged(Tab* from_tab, Tab* to_tab, bool animate) {
   DCHECK(!from_tab->selected());
   DCHECK(to_tab->selected());
+  if (!animate)
+    return;
 
   if (GetOrientation() == TabbedPane::Orientation::kHorizontal) {
     animating_from_ = gfx::Range(from_tab->GetMirroredX(),
@@ -534,7 +534,7 @@ void TabbedPane::AddTabInternal(size_t index,
   PreferredSizeChanged();
 }
 
-void TabbedPane::SelectTab(Tab* new_selected_tab) {
+void TabbedPane::SelectTab(Tab* new_selected_tab, bool animate) {
   Tab* old_selected_tab = tab_strip_->GetSelectedTab();
   if (old_selected_tab == new_selected_tab)
     return;
@@ -544,7 +544,8 @@ void TabbedPane::SelectTab(Tab* new_selected_tab) {
     if (old_selected_tab->HasFocus())
       new_selected_tab->RequestFocus();
     old_selected_tab->SetSelected(false);
-    tab_strip_->OnSelectedTabChanged(old_selected_tab, new_selected_tab);
+    tab_strip_->OnSelectedTabChanged(old_selected_tab, new_selected_tab,
+                                     animate);
   }
   tab_strip_->SchedulePaint();
 
@@ -560,10 +561,10 @@ void TabbedPane::SelectTab(Tab* new_selected_tab) {
     listener()->TabSelectedAt(tab_strip_->GetIndexOf(new_selected_tab));
 }
 
-void TabbedPane::SelectTabAt(size_t index) {
+void TabbedPane::SelectTabAt(size_t index, bool animate) {
   Tab* tab = tab_strip_->GetTabAtIndex(index);
   if (tab)
-    SelectTab(tab);
+    SelectTab(tab, animate);
 }
 
 TabbedPane::Orientation TabbedPane::GetOrientation() const {
@@ -597,8 +598,8 @@ void TabbedPane::ViewHierarchyChanged(
     const ViewHierarchyChangedDetails& details) {
   if (details.is_add) {
     // Support navigating tabs by Ctrl+Tab and Ctrl+Shift+Tab.
-    AddAccelerator(ui::Accelerator(ui::VKEY_TAB,
-                                   ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN));
+    AddAccelerator(
+        ui::Accelerator(ui::VKEY_TAB, ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN));
     AddAccelerator(ui::Accelerator(ui::VKEY_TAB, ui::EF_CONTROL_DOWN));
   }
 }

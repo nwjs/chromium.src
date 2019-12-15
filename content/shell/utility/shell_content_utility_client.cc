@@ -15,18 +15,16 @@
 #include "base/process/process.h"
 #include "content/public/child/child_thread.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/service_manager_connection.h"
-#include "content/public/common/simple_connection_filter.h"
 #include "content/public/test/test_service.h"
 #include "content/public/test/test_service.mojom.h"
 #include "content/public/utility/utility_thread.h"
 #include "content/shell/common/power_monitor_test.mojom.h"
 #include "content/shell/common/power_monitor_test_impl.h"
+#include "mojo/public/cpp/bindings/binder_map.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "mojo/public/cpp/bindings/service_factory.h"
 #include "mojo/public/cpp/system/buffer.h"
-#include "services/service_manager/public/cpp/binder_registry.h"
 #include "services/test/echo/echo_service.h"
 
 namespace content {
@@ -101,17 +99,13 @@ ShellContentUtilityClient::ShellContentUtilityClient(bool is_browsertest) {
 ShellContentUtilityClient::~ShellContentUtilityClient() {
 }
 
-void ShellContentUtilityClient::UtilityThreadStarted() {
-  auto registry = std::make_unique<service_manager::BinderRegistry>();
-  registry->AddInterface(base::BindRepeating(&TestUtilityServiceImpl::Create),
-                         base::ThreadTaskRunnerHandle::Get());
-  registry->AddInterface<mojom::PowerMonitorTest>(
+void ShellContentUtilityClient::ExposeInterfacesToBrowser(
+    mojo::BinderMap* binders) {
+  binders->Add(base::BindRepeating(&TestUtilityServiceImpl::Create),
+               base::ThreadTaskRunnerHandle::Get());
+  binders->Add<mojom::PowerMonitorTest>(
       base::BindRepeating(&PowerMonitorTestImpl::MakeSelfOwnedReceiver),
       base::ThreadTaskRunnerHandle::Get());
-  content::ChildThread::Get()
-      ->GetServiceManagerConnection()
-      ->AddConnectionFilter(
-          std::make_unique<SimpleConnectionFilter>(std::move(registry)));
 }
 
 bool ShellContentUtilityClient::HandleServiceRequest(

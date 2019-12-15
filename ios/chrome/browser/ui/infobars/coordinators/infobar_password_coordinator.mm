@@ -35,7 +35,8 @@
     InfobarPasswordTableViewController* modalViewController;
 // The InfobarType for the banner presented by this Coordinator.
 @property(nonatomic, assign, readonly) InfobarType infobarBannerType;
-
+// YES if the Infobar has been Accepted.
+@property(nonatomic, assign) BOOL infobarAccepted;
 @end
 
 @implementation InfobarPasswordCoordinator
@@ -65,6 +66,7 @@
 - (void)start {
   if (!self.started) {
     self.started = YES;
+    self.infobarAccepted = NO;
     self.bannerViewController = [[InfobarBannerViewController alloc]
         initWithDelegate:self
            presentsModal:self.hasBadge
@@ -149,6 +151,10 @@
   return YES;
 }
 
+- (BOOL)isInfobarAccepted {
+  return self.infobarAccepted;
+}
+
 - (void)infobarBannerWasPresented {
   // There's a chance the Delegate was destroyed while the presentation was
   // taking place e.g. User navigated away. Check if the delegate still exists.
@@ -165,12 +171,17 @@
   self.passwordInfoBarDelegate->InfobarPresenting(NO /*automatic*/);
 }
 
-- (void)dismissBannerWhenInteractionIsFinished {
+- (void)dismissBannerIfReady {
   [self.bannerViewController dismissWhenInteractionIsFinished];
+}
+
+- (BOOL)infobarActionInProgress {
+  return NO;
 }
 
 - (void)performInfobarAction {
   self.passwordInfoBarDelegate->Accept();
+  self.infobarAccepted = YES;
 }
 
 - (void)infobarBannerWillBeDismissed:(BOOL)userInitiated {
@@ -217,7 +228,7 @@
                    animated:YES
                  completion:^{
                    // Completely remove the Infobar along with its badge after
-                   // blacklisting the Website.
+                   // blocking the Website.
                    [self detachView];
                  }];
 }

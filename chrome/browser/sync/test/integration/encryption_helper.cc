@@ -148,7 +148,10 @@ ServerNigoriChecker::ServerNigoriChecker(
       fake_server_(fake_server),
       expected_passphrase_type_(expected_passphrase_type) {}
 
-bool ServerNigoriChecker::IsExitConditionSatisfied() {
+bool ServerNigoriChecker::IsExitConditionSatisfied(std::ostream* os) {
+  *os << "Waiting for a Nigori node with the proper passphrase type to become "
+         "available on the server.";
+
   std::vector<sync_pb::SyncEntity> nigori_entities =
       fake_server_->GetPermanentSyncEntitiesByModelType(syncer::NIGORI);
   EXPECT_LE(nigori_entities.size(), 1U);
@@ -158,9 +161,26 @@ bool ServerNigoriChecker::IsExitConditionSatisfied() {
              expected_passphrase_type_;
 }
 
-std::string ServerNigoriChecker::GetDebugMessage() const {
-  return "Waiting for a Nigori node with the proper passphrase type to become "
-         "available on the server.";
+ServerNigoriKeyNameChecker::ServerNigoriKeyNameChecker(
+    const std::string& expected_key_name,
+    syncer::ProfileSyncService* service,
+    fake_server::FakeServer* fake_server)
+    : SingleClientStatusChangeChecker(service),
+      fake_server_(fake_server),
+      expected_key_name_(expected_key_name) {}
+
+bool ServerNigoriKeyNameChecker::IsExitConditionSatisfied(std::ostream* os) {
+  std::vector<sync_pb::SyncEntity> nigori_entities =
+      fake_server_->GetPermanentSyncEntitiesByModelType(syncer::NIGORI);
+  DCHECK_EQ(nigori_entities.size(), 1U);
+
+  const std::string given_key_name =
+      nigori_entities[0].specifics().nigori().encryption_keybag().key_name();
+
+  *os << "Waiting for a Nigori node with proper key bag encryption key name ("
+      << expected_key_name_ << ") to become available on the server."
+      << "The server key bag encryption key name is " << given_key_name << ".";
+  return given_key_name == expected_key_name_;
 }
 
 PassphraseRequiredStateChecker::PassphraseRequiredStateChecker(
@@ -168,15 +188,28 @@ PassphraseRequiredStateChecker::PassphraseRequiredStateChecker(
     bool desired_state)
     : SingleClientStatusChangeChecker(service), desired_state_(desired_state) {}
 
-bool PassphraseRequiredStateChecker::IsExitConditionSatisfied() {
+bool PassphraseRequiredStateChecker::IsExitConditionSatisfied(
+    std::ostream* os) {
+  *os << "Waiting until decryption passphrase is " +
+             std::string(desired_state_ ? "required" : "not required");
   return service()
              ->GetUserSettings()
              ->IsPassphraseRequiredForPreferredDataTypes() == desired_state_;
 }
 
-std::string PassphraseRequiredStateChecker::GetDebugMessage() const {
-  return "Waiting until decryption passphrase is " +
-         std::string(desired_state_ ? "required" : "not required");
+TrustedVaultKeyRequiredStateChecker::TrustedVaultKeyRequiredStateChecker(
+    syncer::ProfileSyncService* service,
+    bool desired_state)
+    : SingleClientStatusChangeChecker(service), desired_state_(desired_state) {}
+
+bool TrustedVaultKeyRequiredStateChecker::IsExitConditionSatisfied(
+    std::ostream* os) {
+  *os << "Waiting until trusted vault keys are " +
+             std::string(desired_state_ ? "required" : "not required");
+  return service()
+             ->GetUserSettings()
+             ->IsTrustedVaultKeyRequiredForPreferredDataTypes() ==
+         desired_state_;
 }
 
 ScopedScryptFeatureToggler::ScopedScryptFeatureToggler(

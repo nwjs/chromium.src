@@ -10,9 +10,11 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/ui_base_types.h"
 
+class Browser;
 class Tab;
 class TabGroupVisualData;
 class TabGroupId;
+class TabSlotView;
 
 enum class BrowserFrameActiveState;
 
@@ -93,7 +95,7 @@ class TabController {
 
   // Potentially starts a drag for the specified Tab.
   virtual void MaybeStartDrag(
-      Tab* tab,
+      TabSlotView* source,
       const ui::LocatedEvent& event,
       const ui::ListSelectionModel& original_selection) = 0;
 
@@ -190,6 +192,14 @@ class TabController {
 
   virtual void SetVisualDataForGroup(TabGroupId group,
                                      TabGroupVisualData visual_data) = 0;
+
+  virtual void CloseAllTabsInGroup(TabGroupId group) = 0;
+
+  virtual void UngroupAllTabsInGroup(TabGroupId group) = 0;
+
+  virtual void AddNewTabInGroup(TabGroupId group) = 0;
+
+  virtual const Browser* GetBrowser() = 0;
 
  protected:
   virtual ~TabController() {}

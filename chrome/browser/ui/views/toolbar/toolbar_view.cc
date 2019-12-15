@@ -49,6 +49,7 @@
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
 #include "chrome/browser/ui/views/toolbar/browser_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
+#include "chrome/browser/ui/views/toolbar/button_utils.h"
 #include "chrome/browser/ui/views/toolbar/home_button.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_account_icon_container_view.h"
@@ -65,9 +66,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
-#include "content/public/browser/media_session.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/system_connector.h"
 #include "content/public/browser/web_contents.h"
 #include "media/base/media_switches.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -81,7 +80,6 @@
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/native_theme/native_theme_aura.h"
-#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/view_class_properties.h"
@@ -146,7 +144,6 @@ ToolbarView::ToolbarView(Browser* browser, BrowserView* browser_view)
   chrome::AddCommandObserver(browser_, IDC_RELOAD, this);
   chrome::AddCommandObserver(browser_, IDC_HOME, this);
   chrome::AddCommandObserver(browser_, IDC_SHOW_AVATAR_MENU, this);
-  chrome::AddCommandObserver(browser_, IDC_LOAD_NEW_TAB_PAGE, this);
 
   UpgradeDetector::GetInstance()->AddObserver(this);
   md_observer_.Add(ui::MaterialDesignController::GetInstance());
@@ -163,7 +160,6 @@ ToolbarView::~ToolbarView() {
   chrome::RemoveCommandObserver(browser_, IDC_RELOAD, this);
   chrome::RemoveCommandObserver(browser_, IDC_HOME, this);
   chrome::RemoveCommandObserver(browser_, IDC_SHOW_AVATAR_MENU, this);
-  chrome::RemoveCommandObserver(browser_, IDC_LOAD_NEW_TAB_PAGE, this);
 }
 
 void ToolbarView::Init() {
@@ -187,55 +183,14 @@ void ToolbarView::Init() {
     return;
   }
 
-  auto back = std::make_unique<ToolbarButton>(
-      this,
-      std::make_unique<BackForwardMenuModel>(
-          browser_, BackForwardMenuModel::ModelType::kBackward),
-      browser_->tab_strip_model());
-  back->set_hide_ink_drop_when_showing_context_menu(false);
-  back->set_triggerable_event_flags(ui::EF_LEFT_MOUSE_BUTTON |
-                                    ui::EF_MIDDLE_MOUSE_BUTTON);
-  back->set_tag(IDC_BACK);
-  back->SetTooltipText(l10n_util::GetStringUTF16(IDS_TOOLTIP_BACK));
-  back->SetAccessibleName(l10n_util::GetStringUTF16(IDS_ACCNAME_BACK));
-  back->GetViewAccessibility().OverrideDescription(
-      l10n_util::GetStringUTF8(IDS_ACCDESCRIPTION_BACK));
-  back->SetID(VIEW_ID_BACK_BUTTON);
-  back->Init();
+  std::unique_ptr<ToolbarButton> back = CreateBackButton(this, browser_);
 
-  auto forward = std::make_unique<ToolbarButton>(
-      this,
-      std::make_unique<BackForwardMenuModel>(
-          browser_, BackForwardMenuModel::ModelType::kForward),
-      browser_->tab_strip_model());
-  forward->set_hide_ink_drop_when_showing_context_menu(false);
-  forward->set_triggerable_event_flags(ui::EF_LEFT_MOUSE_BUTTON |
-                                       ui::EF_MIDDLE_MOUSE_BUTTON);
-  forward->set_tag(IDC_FORWARD);
-  forward->SetTooltipText(l10n_util::GetStringUTF16(IDS_TOOLTIP_FORWARD));
-  forward->SetAccessibleName(l10n_util::GetStringUTF16(IDS_ACCNAME_FORWARD));
-  forward->GetViewAccessibility().OverrideDescription(
-      l10n_util::GetStringUTF8(IDS_ACCDESCRIPTION_FORWARD));
-  forward->SetID(VIEW_ID_FORWARD_BUTTON);
-  forward->Init();
+  std::unique_ptr<ToolbarButton> forward = CreateForwardButton(this, browser_);
 
-  auto reload = std::make_unique<ReloadButton>(browser_->command_controller());
-  reload->set_triggerable_event_flags(ui::EF_LEFT_MOUSE_BUTTON |
-                                      ui::EF_MIDDLE_MOUSE_BUTTON);
-  reload->set_tag(IDC_RELOAD);
-  reload->SetAccessibleName(l10n_util::GetStringUTF16(IDS_ACCNAME_RELOAD));
-  reload->SetID(VIEW_ID_RELOAD_BUTTON);
-  reload->Init();
+  std::unique_ptr<ReloadButton> reload =
+      CreateReloadButton(browser_, ReloadButton::IconStyle::kBrowser);
 
-  auto home = std::make_unique<HomeButton>(this, browser_);
-  home->set_triggerable_event_flags(ui::EF_LEFT_MOUSE_BUTTON |
-                                    ui::EF_MIDDLE_MOUSE_BUTTON);
-  home->set_tag(IDC_HOME);
-  home->SetTooltipText(l10n_util::GetStringUTF16(IDS_TOOLTIP_HOME));
-  home->SetAccessibleName(l10n_util::GetStringUTF16(IDS_ACCNAME_HOME));
-  home->SetID(VIEW_ID_HOME_BUTTON);
-  home->Init();
-  home->SizeToPreferredSize();
+  std::unique_ptr<HomeButton> home = CreateHomeButton(this, browser_);
 
   std::unique_ptr<ExtensionsToolbarContainer> extensions_container;
   std::unique_ptr<BrowserActionsContainer> browser_actions;
@@ -257,10 +212,7 @@ void ToolbarView::Init() {
 
   std::unique_ptr<MediaToolbarButtonView> media_button;
   if (base::FeatureList::IsEnabled(media::kGlobalMediaControls)) {
-    const base::UnguessableToken& source_id =
-        content::MediaSession::GetSourceId(browser_->profile());
-    media_button = std::make_unique<MediaToolbarButtonView>(
-        source_id, content::GetSystemConnector(), browser_);
+    media_button = std::make_unique<MediaToolbarButtonView>(browser_);
   }
 
   std::unique_ptr<ToolbarAccountIconContainerView>
@@ -320,15 +272,6 @@ void ToolbarView::Init() {
   // |kAutofillEnableToolbarStatusChip| is fully launched.
   if (avatar)
     avatar_ = AddChildView(std::move(avatar));
-
-#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
-  if (browser_view_->webui_tab_strip()) {
-    webui_new_tab_button_ =
-        AddChildView(browser_view_->webui_tab_strip()->CreateNewTabButton());
-    webui_toggle_button_ =
-        AddChildView(browser_view_->webui_tab_strip()->CreateToggleButton());
-  }
-#endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 
   app_menu_button_ = AddChildView(std::move(app_menu_button));
 
@@ -414,6 +357,19 @@ void ToolbarView::UpdateCustomTabBarVisibility(bool visible, bool animate) {
   }
 }
 
+void ToolbarView::UpdateForWebUITabStrip() {
+#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+  if (browser_view_->webui_tab_strip() && app_menu_button_) {
+    const int insertion_index = GetIndexOf(app_menu_button_);
+    AddChildViewAt(browser_view_->webui_tab_strip()->CreateTabCounter(),
+                   insertion_index);
+    AddChildViewAt(browser_view_->webui_tab_strip()->CreateNewTabButton(),
+                   insertion_index);
+    LoadImages();
+  }
+#endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+}
+
 void ToolbarView::ResetTabState(WebContents* tab) {
   if (location_bar_)
     location_bar_->ResetTabState(tab);
@@ -468,19 +424,6 @@ void ToolbarView::ShowBookmarkBubble(
 
 ExtensionsToolbarButton* ToolbarView::GetExtensionsButton() const {
   return extensions_container_->extensions_button();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// ToolbarView, views::MenuButtonListener implementation:
-
-void ToolbarView::OnMenuButtonClicked(views::Button* source,
-                                      const gfx::Point& point,
-                                      const ui::Event* event) {
-  TRACE_EVENT0("views", "ToolbarView::OnMenuButtonClicked");
-  DCHECK_EQ(VIEW_ID_APP_MENU, source->GetID());
-  app_menu_button_->ShowMenu((event && event->IsKeyEvent())
-                                 ? views::MenuRunner::SHOULD_SHOW_MNEMONICS
-                                 : views::MenuRunner::NO_FLAGS);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -559,6 +502,14 @@ void ToolbarView::EnabledStateChangedForCommand(int id, bool enabled) {
 
 void ToolbarView::ButtonPressed(views::Button* sender,
                                 const ui::Event& event) {
+  TRACE_EVENT0("views", "ToolbarView::ButtonPressed");
+  if (sender->GetID() == VIEW_ID_APP_MENU) {
+    DCHECK_EQ(VIEW_ID_APP_MENU, sender->GetID());
+    app_menu_button_->ShowMenu(event.IsKeyEvent()
+                                   ? views::MenuRunner::SHOULD_SHOW_MNEMONICS
+                                   : views::MenuRunner::NO_FLAGS);
+  }
+
   chrome::ExecuteCommandWithDisposition(
       browser_, sender->tag(), ui::DispositionFromEventFlags(event.flags()));
 }
@@ -700,15 +651,20 @@ void ToolbarView::InitLayout() {
   const int default_margin = GetLayoutConstant(TOOLBAR_ELEMENT_PADDING);
   // TODO(dfried): rename this constant.
   const int location_bar_margin = GetLayoutConstant(TOOLBAR_STANDARD_SPACING);
-  const views::FlexSpecification browser_actions_flex_rule =
-      views::FlexSpecification::ForCustomRule(
-          BrowserActionsContainer::GetFlexRule())
-          .WithOrder(2);
+  const views::FlexSpecification account_container_flex_rule =
+      views::FlexSpecification::ForSizeRule(
+          views::MinimumFlexSizeRule::kScaleToMinimum,
+          views::MaximumFlexSizeRule::kPreferred)
+          .WithOrder(1);
   const views::FlexSpecification location_bar_flex_rule =
       views::FlexSpecification::ForSizeRule(
           views::MinimumFlexSizeRule::kScaleToMinimum,
           views::MaximumFlexSizeRule::kUnbounded)
-          .WithOrder(1);
+          .WithOrder(2);
+  const views::FlexSpecification browser_actions_flex_rule =
+      views::FlexSpecification::ForCustomRule(
+          BrowserActionsContainer::GetFlexRule())
+          .WithOrder(3);
 
   layout_manager_ = SetLayoutManager(std::make_unique<views::FlexLayout>());
 
@@ -729,6 +685,11 @@ void ToolbarView::InitLayout() {
                                   gfx::Insets(0, location_bar_margin));
   }
 
+  if (toolbar_account_icon_container_) {
+    toolbar_account_icon_container_->SetProperty(views::kFlexBehaviorKey,
+                                                 account_container_flex_rule);
+  }
+
   LayoutCommon();
 }
 
@@ -739,10 +700,14 @@ void ToolbarView::LayoutCommon() {
       GetLayoutInsets(LayoutInset::TOOLBAR_INTERIOR_MARGIN);
   layout_manager_->SetInteriorMargin(interior_margin);
 
-  const bool maximized =
-      browser_->window() && browser_->window()->IsMaximized();
-  back_->SetLeadingMargin(maximized ? interior_margin.left() : 0);
-  app_menu_button_->SetTrailingMargin(maximized ? interior_margin.right() : 0);
+  // Extend buttons to the window edge if we're either in a maximized or
+  // fullscreen window. This makes the buttons easier to hit, see Fitts' law.
+  const bool extend_buttons_to_edge =
+      browser_->window() &&
+      (browser_->window()->IsMaximized() || browser_->window()->IsFullscreen());
+  back_->SetLeadingMargin(extend_buttons_to_edge ? interior_margin.left() : 0);
+  app_menu_button_->SetTrailingMargin(
+      extend_buttons_to_edge ? interior_margin.right() : 0);
 
   // Cast button visibility is controlled externally.
 }
@@ -792,7 +757,7 @@ ToolbarActionView* ToolbarView::GetToolbarActionViewForId(
 
 views::View* ToolbarView::GetDefaultExtensionDialogAnchorView() {
   if (extensions_container_)
-    return extensions_container_;
+    return extensions_container_->extensions_button();
   return GetAppMenuButton();
 }
 
@@ -812,7 +777,7 @@ AppMenuButton* ToolbarView::GetAppMenuButton() {
   return app_menu_button_;
 }
 
-gfx::Rect ToolbarView::GetFindBarBoundingBox(int contents_height) const {
+gfx::Rect ToolbarView::GetFindBarBoundingBox(int contents_bottom) const {
   if (!browser_->SupportsWindowFeature(Browser::FEATURE_LOCATIONBAR))
     return gfx::Rect();
 
@@ -822,7 +787,7 @@ gfx::Rect ToolbarView::GetFindBarBoundingBox(int contents_height) const {
   gfx::Rect bounds =
       location_bar_->ConvertRectToWidget(location_bar_->GetLocalBounds());
   return gfx::Rect(bounds.x(), bounds.bottom(), bounds.width(),
-                   contents_height);
+                   contents_bottom - bounds.bottom());
 }
 
 void ToolbarView::FocusToolbar() {
@@ -862,6 +827,14 @@ AvatarToolbarButton* ToolbarView::GetAvatarToolbarButton() {
     return avatar_;
 
   return nullptr;
+}
+
+ToolbarButton* ToolbarView::GetBackButton() {
+  return back_;
+}
+
+ReloadButton* ToolbarView::GetReloadButton() {
+  return reload_;
 }
 
 BrowserRootView::DropIndex ToolbarView::GetDropIndex(
@@ -918,14 +891,10 @@ void ToolbarView::LoadImages() {
   if (media_button_)
     media_button_->UpdateIcon();
 
-  if (webui_new_tab_button_) {
-    webui_new_tab_button_->SetImage(
-        views::Button::STATE_NORMAL,
-        gfx::CreateVectorIcon(kAddIcon, normal_color));
-    webui_toggle_button_->SetImage(
-        views::Button::STATE_NORMAL,
-        gfx::CreateVectorIcon(kCaretUpIcon, normal_color));
-  }
+#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+  if (browser_view_->webui_tab_strip())
+    browser_view_->webui_tab_strip()->UpdateButtons();
+#endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 
   if (avatar_)
     avatar_->UpdateIcon();
@@ -935,7 +904,7 @@ void ToolbarView::LoadImages() {
 
   app_menu_button_->UpdateIcon();
 
-  reload_->LoadImages();
+  reload_->SetColors(normal_color, disabled_color);
 }
 
 void ToolbarView::ShowCriticalNotification() {

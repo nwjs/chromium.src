@@ -15,6 +15,7 @@
 #include "chromecast/graphics/cast_window_tree_host_aura.h"
 #include "chromecast/graphics/gestures/cast_system_gesture_event_handler.h"
 #include "chromecast/graphics/gestures/side_swipe_detector.h"
+#include "chromecast/graphics/rounded_window_corners.h"
 #include "ui/aura/client/default_capture_client.h"
 #include "ui/aura/client/focus_change_observer.h"
 #include "ui/aura/client/screen_position_client.h"
@@ -37,32 +38,9 @@ namespace chromecast {
 namespace {
 
 gfx::Transform GetPrimaryDisplayRotationTransform() {
-  // NB: Using gfx::Transform::Rotate() introduces very small errors here
-  // which are later exacerbated by use of gfx::EnclosingRect() in
-  // WindowTreeHost::GetTransformedRootWindowBoundsInPixels().
-  const gfx::Transform rotate_90(0.f, -1.f, 0.f, 0.f,  //
-                                 1.f, 0.f, 0.f, 0.f,   //
-                                 0.f, 0.f, 1.f, 0.f,   //
-                                 0.f, 0.f, 0.f, 1.f);
-  const gfx::Transform rotate_180 = rotate_90 * rotate_90;
-  const gfx::Transform rotate_270 = rotate_180 * rotate_90;
-
-  gfx::Transform translation;
-  display::Display display(display::Screen::GetScreen()->GetPrimaryDisplay());
-  switch (display.rotation()) {
-    case display::Display::ROTATE_0:
-      return translation;
-    case display::Display::ROTATE_90:
-      translation.Translate(display.bounds().height(), 0);
-      return translation * rotate_90;
-    case display::Display::ROTATE_180:
-      translation.Translate(display.bounds().width(),
-                            display.bounds().height());
-      return translation * rotate_180;
-    case display::Display::ROTATE_270:
-      translation.Translate(0, display.bounds().width());
-      return translation * rotate_270;
-  }
+  display::Display display = display::Screen::GetScreen()->GetPrimaryDisplay();
+  return display::Display::GetRotationTransform(display.rotation(),
+                                                gfx::SizeF(display.size()));
 }
 
 gfx::Rect GetPrimaryDisplayHostBounds() {
@@ -251,11 +229,14 @@ void CastWindowManagerAura::Setup() {
   system_gesture_event_handler_ =
       std::make_unique<CastSystemGestureEventHandler>(
           system_gesture_dispatcher_.get(), root_window);
-  // No need for the edge swipe detector when side gestures are pass-through.
-  if (!chromecast::IsFeatureEnabled(kEnableSideGesturePassThrough)) {
-    side_swipe_detector_ = std::make_unique<SideSwipeDetector>(
-        system_gesture_dispatcher_.get(), root_window);
-  }
+  // TODO(rdaum): Remove side swipe detection when all services requiring it
+  // have been rewritten.
+  side_swipe_detector_ = std::make_unique<SideSwipeDetector>(
+      system_gesture_dispatcher_.get(), root_window);
+
+  // Add rounded corners, but defaulted to hidden until explicitly asked for by
+  // a component.
+  rounded_window_corners_ = RoundedWindowCorners::Create(this);
 
 #if BUILDFLAG(IS_CAST_AUDIO_ONLY)
   if (base::FeatureList::IsEnabled(kReduceHeadlessFrameRate)) {
@@ -294,9 +275,12 @@ void CastWindowManagerAura::TearDown() {
   window_tree_host_.reset();
 }
 
-void CastWindowManagerAura::SetWindowId(gfx::NativeView window,
-                                        WindowId window_id) {
-  window->set_id(window_id);
+void CastWindowManagerAura::SetZOrder(gfx::NativeView window,
+                                      mojom::ZOrder z_order) {
+  // Use aura::Window ID to maintain z-order. When the window's visibility
+  // changes, we stack sibling windows based on this ID. Windows with higher
+  // IDs are stacked on top.
+  window->set_id(static_cast<int>(z_order));
 }
 
 void CastWindowManagerAura::InjectEvent(ui::Event* event) {
@@ -368,6 +352,14 @@ void CastWindowManagerAura::AddTouchActivityObserver(
 void CastWindowManagerAura::RemoveTouchActivityObserver(
     CastTouchActivityObserver* observer) {
   event_gate_->RemoveObserver(observer);
+}
+
+void CastWindowManagerAura::SetEnableRoundedCorners(bool enable) {
+  rounded_window_corners_->SetEnabled(enable);
+}
+
+void CastWindowManagerAura::NotifyColorInversionEnabled(bool enabled) {
+  rounded_window_corners_->SetColorInversion(enabled);
 }
 
 }  // namespace chromecast

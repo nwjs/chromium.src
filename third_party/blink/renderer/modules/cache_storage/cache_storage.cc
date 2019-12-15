@@ -8,7 +8,7 @@
 
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
-#include "services/service_manager/public/cpp/interface_provider.h"
+#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/cache_storage/cache_storage_utils.h"
 #include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-blink.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
@@ -70,8 +70,7 @@ bool IsCacheStorageAllowed(ScriptState* script_state) {
       return false;
     if (auto* settings_client = frame->GetContentSettingsClient()) {
       // This triggers a sync IPC.
-      return settings_client->AllowCacheStorage(
-          WebSecurityOrigin(context->GetSecurityOrigin()));
+      return settings_client->AllowCacheStorage();
     }
     return true;
   }
@@ -81,7 +80,7 @@ bool IsCacheStorageAllowed(ScriptState* script_state) {
   if (!content_settings_client)
     return true;
   // This triggers a sync IPC.
-  return content_settings_client->AllowCacheStorage(WebSecurityOrigin());
+  return content_settings_client->AllowCacheStorage();
 }
 
 }  // namespace
@@ -479,7 +478,7 @@ CacheStorage::CacheStorage(ExecutionContext* context,
     }
   }
 
-  context->GetInterfaceProvider()->GetInterface(
+  context->GetBrowserInterfaceBroker().GetInterface(
       cache_storage_remote_.BindNewPipeAndPassReceiver(task_runner));
 }
 

@@ -5,10 +5,10 @@
 package org.chromium.chrome.browser.signin;
 
 import android.accounts.Account;
-import android.app.Activity;
 
 import androidx.annotation.MainThread;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
@@ -16,7 +16,6 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.metrics.RecordHistogram;
@@ -24,7 +23,6 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.externalauth.ExternalAuthUtils;
 import org.chromium.components.signin.AccountIdProvider;
-import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.AccountTrackerService;
 import org.chromium.components.signin.ChromeSigninController;
 import org.chromium.components.signin.identitymanager.ClearAccountsAction;
@@ -115,6 +113,7 @@ public class SigninManager
      * cleared atomically, and all final fields to be set upon initialization.
      */
     private static class SignInState {
+        final @SigninAccessPoint int mAccessPoint;
         final Account mAccount;
         final SignInCallback mCallback;
 
@@ -133,10 +132,13 @@ public class SigninManager
         CoreAccountInfo mCoreAccountInfo;
 
         /**
+         * @param accessPoint {@link SigninAccessPoint} that has initiated the sign-in.
          * @param account The account to sign in to.
          * @param callback Called when the sign-in process finishes or is cancelled. Can be null.
          */
-        SignInState(Account account, @Nullable SignInCallback callback) {
+        SignInState(@SigninAccessPoint int accessPoint, Account account,
+                @Nullable SignInCallback callback) {
+            mAccessPoint = accessPoint;
             this.mAccount = account;
             this.mCallback = callback;
         }
@@ -160,8 +162,6 @@ public class SigninManager
             this.mShouldWipeUserData = shouldWipeUserData;
         }
     }
-
-    private static int sSignInAccessPoint = SigninAccessPoint.UNKNOWN;
 
     /**
      * Address of the native Signin Manager android.
@@ -232,6 +232,8 @@ public class SigninManager
 
         mAccountTrackerService.addSystemAccountsSeededListener(this);
         mIdentityManager.addObserver(this);
+
+        reloadAllAccountsFromSystem();
     }
 
     /**
@@ -246,19 +248,14 @@ public class SigninManager
     }
 
     /**
-    * Log the access point when the user see the view of choosing account to sign in.
-    * @param accessPoint the enum value of AccessPoint defined in signin_metrics.h.
-    */
-    public static void logSigninStartAccessPoint(int accessPoint) {
+     * Logs the access point when the user see the view of choosing account to sign in. Sign-in
+     * completion histogram is recorded by {@link #signIn}.
+     *
+     * @param accessPoint {@link SigninAccessPoint} that initiated the sign-in flow.
+     */
+    public static void logSigninStartAccessPoint(@SigninAccessPoint int accessPoint) {
         RecordHistogram.recordEnumeratedHistogram(
                 "Signin.SigninStartedAccessPoint", accessPoint, SigninAccessPoint.MAX);
-        sSignInAccessPoint = accessPoint;
-    }
-
-    private void logSigninCompleteAccessPoint() {
-        RecordHistogram.recordEnumeratedHistogram(
-                "Signin.SigninCompletedAccessPoint", sSignInAccessPoint, SigninAccessPoint.MAX);
-        sSignInAccessPoint = SigninAccessPoint.UNKNOWN;
     }
 
     /**
@@ -378,11 +375,13 @@ public class SigninManager
      *   - Complete sign-in with the native SigninManager and kick off token requests.
      *   - Call the callback if provided.
      *
+     * @param accessPoint {@link SigninAccessPoint} that initiated the sign-in flow.
      * @param account The account to sign in to.
      * @param callback Optional callback for when the sign-in process is finished.
      */
     // TODO(crbug.com/1002056) SigninManager.Signin should use CoreAccountInfo as a parameter.
-    public void signIn(Account account, @Nullable SignInCallback callback) {
+    public void signIn(@SigninAccessPoint int accessPoint, Account account,
+            @Nullable SignInCallback callback) {
         if (account == null) {
             Log.w(TAG, "Ignoring sign-in request due to null account.");
             if (callback != null) callback.onSignInAborted();
@@ -401,20 +400,10 @@ public class SigninManager
             return;
         }
 
-        mSignInState = new SignInState(account, callback);
+        mSignInState = new SignInState(accessPoint, account, callback);
         notifySignInAllowedChanged();
 
         progressSignInFlowSeedSystemAccounts();
-    }
-
-    /**
-     * Same as above but retrieves the Account object for the given accountName.
-     */
-    // TODO(crbug.com/1002056) SigninManager.Signin should use CoreAccountInfo as a parameter.
-    public void signIn(String accountName, @Nullable final Activity activity,
-            @Nullable final SignInCallback callback) {
-        AccountManagerFacade.get().getAccountFromName(
-                accountName, account -> signIn(account, callback));
     }
 
     private void progressSignInFlowSeedSystemAccounts() {
@@ -459,6 +448,9 @@ public class SigninManager
         // This method should be called at most once per sign-in flow.
         assert mSignInState != null && mSignInState.mCoreAccountInfo != null;
 
+        // The user should not be already signed in
+        assert !mIdentityManager.hasPrimaryAccount();
+
         if (!mIdentityMutator.setPrimaryAccount(mSignInState.mCoreAccountInfo.getId())) {
             Log.w(TAG, "Failed to set the PrimaryAccount in IdentityManager, aborting signin");
             abortSignIn();
@@ -475,12 +467,12 @@ public class SigninManager
             mSignInState.mCallback.onSignInComplete();
         }
 
-        // Trigger token requests via native.
-        mIdentityMutator.reloadAllAccountsFromSystemWithPrimaryAccount(
-                mSignInState.mCoreAccountInfo.getId());
+        // Trigger token requests via identity mutator.
+        reloadAllAccountsFromSystem();
 
         RecordUserAction.record("Signin_Signin_Succeed");
-        logSigninCompleteAccessPoint();
+        RecordHistogram.recordEnumeratedHistogram("Signin.SigninCompletedAccessPoint",
+                mSignInState.mAccessPoint, SigninAccessPoint.MAX);
         // Log signin in reason as defined in signin_metrics.h. Right now only
         // SIGNIN_PRIMARY_ACCOUNT available on Android.
         RecordHistogram.recordEnumeratedHistogram(
@@ -582,6 +574,14 @@ public class SigninManager
      */
     public String getManagementDomain() {
         return SigninManagerJni.get().getManagementDomain(mNativeSigninManagerAndroid);
+    }
+
+    /**
+     * Reloads accounts from system within IdentityManager.
+     */
+    void reloadAllAccountsFromSystem() {
+        mIdentityMutator.reloadAllAccountsFromSystemWithPrimaryAccount(
+                mIdentityManager.getPrimaryAccountId());
     }
 
     /**
@@ -699,6 +699,11 @@ public class SigninManager
             SigninManagerJni.get().wipeGoogleServiceWorkerCaches(
                     mNativeSigninManagerAndroid, wipeDataCallback);
         }
+    }
+
+    @VisibleForTesting
+    IdentityMutator getIdentityMutator() {
+        return mIdentityMutator;
     }
 
     // Native methods.

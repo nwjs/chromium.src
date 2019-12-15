@@ -237,17 +237,16 @@ bool ReplaceCharsT(const StringType& input,
 
 bool ReplaceChars(const string16& input,
                   StringPiece16 replace_chars,
-                  const string16& replace_with,
+                  StringPiece16 replace_with,
                   string16* output) {
-  return ReplaceCharsT(input, replace_chars, StringPiece16(replace_with),
-                       output);
+  return ReplaceCharsT(input, replace_chars, replace_with, output);
 }
 
 bool ReplaceChars(const std::string& input,
                   StringPiece replace_chars,
-                  const std::string& replace_with,
+                  StringPiece replace_with,
                   std::string* output) {
-  return ReplaceCharsT(input, replace_chars, StringPiece(replace_with), output);
+  return ReplaceCharsT(input, replace_chars, replace_with, output);
 }
 
 bool RemoveChars(const string16& input,
@@ -1107,6 +1106,10 @@ WStringPiece TrimString(WStringPiece input,
                         WStringPiece trim_chars,
                         TrimPositions positions) {
   return TrimStringPieceT(input, trim_chars, positions);
+}
+
+wchar_t* WriteInto(std::wstring* str, size_t length_with_null) {
+  return WriteIntoT(str, length_with_null);
 }
 
 #endif

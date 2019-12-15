@@ -112,6 +112,10 @@ const gfx::Image& GetAvatarImage(Profile* profile,
 
 }  // namespace
 
+// static
+const char AvatarToolbarButton::kAvatarToolbarButtonClassName[] =
+    "AvatarToolbarButton";
+
 AvatarToolbarButton::AvatarToolbarButton(Browser* browser)
     : AvatarToolbarButton(browser, nullptr) {}
 
@@ -289,6 +293,10 @@ void AvatarToolbarButton::RemoveObserver(Observer* observer) {
   observer_list_.RemoveObserver(observer);
 }
 
+const char* AvatarToolbarButton::GetClassName() const {
+  return kAvatarToolbarButtonClassName;
+}
+
 void AvatarToolbarButton::NotifyClick(const ui::Event& event) {
   Button::NotifyClick(event);
   MaybeHideIdentityAnimation();
@@ -412,6 +420,16 @@ void AvatarToolbarButton::OnHighlightChanged() {
 void AvatarToolbarButton::ShowIdentityAnimation() {
   DCHECK_EQ(identity_animation_state_,
             IdentityAnimationState::kWaitingForImage);
+
+  // Check that the user is still signed in. See https://crbug.com/1025674
+  CoreAccountInfo user_identity =
+      IdentityManagerFactory::GetForProfile(profile_)
+          ->GetUnconsentedPrimaryAccountInfo();
+  if (user_identity.IsEmpty()) {
+    identity_animation_state_ = IdentityAnimationState::kNotShowing;
+    return;
+  }
+
   identity_animation_state_ = IdentityAnimationState::kShowingUntilTimeout;
 
   UpdateText();

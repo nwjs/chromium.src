@@ -28,7 +28,8 @@ namespace viz {
 
 FakeSkiaOutputSurface::FakeSkiaOutputSurface(
     scoped_refptr<ContextProvider> context_provider)
-    : context_provider_(std::move(context_provider)) {
+    : SkiaOutputSurface(SkiaOutputSurface::Type::kOpenGL),
+      context_provider_(std::move(context_provider)) {
   texture_deleter_ =
       std::make_unique<TextureDeleter>(base::ThreadTaskRunnerHandle::Get());
 }
@@ -187,13 +188,11 @@ FakeSkiaOutputSurface::CreateImageContext(
       holder, size, format, ycbcr_info, std::move(color_space));
 }
 
-gpu::SyncToken FakeSkiaOutputSurface::SkiaSwapBuffers(OutputSurfaceFrame frame,
-                                                      bool wants_sync_token) {
+void FakeSkiaOutputSurface::SkiaSwapBuffers(OutputSurfaceFrame frame) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::BindOnce(&FakeSkiaOutputSurface::SwapBuffersAck,
                                 weak_ptr_factory_.GetWeakPtr()));
-  return gpu::SyncToken();
 }
 
 SkCanvas* FakeSkiaOutputSurface::BeginPaintRenderPass(
@@ -368,13 +367,6 @@ void FakeSkiaOutputSurface::SendOverlayPromotionNotification(
     std::vector<gpu::SyncToken> sync_tokens,
     base::flat_set<gpu::Mailbox> promotion_denied,
     base::flat_map<gpu::Mailbox, gfx::Rect> possible_promotions) {
-  NOTIMPLEMENTED();
-}
-
-void FakeSkiaOutputSurface::RenderToOverlay(
-    gpu::SyncToken sync_token,
-    gpu::Mailbox overlay_candidate_mailbox,
-    const gfx::Rect& bounds) {
   NOTIMPLEMENTED();
 }
 

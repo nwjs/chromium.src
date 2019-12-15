@@ -17,6 +17,7 @@ namespace {
 // respected (there's 3 * unit / 4 in use to express 12).
 // The Harmony layout unit. All distances are in terms of this unit.
 constexpr int kHarmonyLayoutUnit = 16;
+constexpr int kExtraSmallBubbleSize = 240;
 constexpr int kSmallSnapPoint = 320;
 constexpr int kMediumSnapPoint = 448;
 constexpr int kLargeSnapPoint = 512;
@@ -71,8 +72,6 @@ gfx::Insets ChromeLayoutProvider::GetInsetsMetric(int metric) const {
       return touch_ui ? gfx::Insets(8, 10) : gfx::Insets(6);
     case INSETS_TOAST:
       return gfx::Insets(0, kHarmonyLayoutUnit);
-    case INSETS_TAB_GROUP_TITLE_CHIP:
-      return gfx::Insets(0, 12);
     default:
       return LayoutProvider::GetInsetsMetric(metric);
   }
@@ -144,8 +143,6 @@ int ChromeLayoutProvider::GetDistanceMetric(int metric) const {
       return kHarmonyLayoutUnit * 12;
     case DISTANCE_SUBSECTION_HORIZONTAL_INDENT:
       return 0;
-    case DISTANCE_TAB_GROUP_TITLE_CHIP_MARGIN:
-      return 4;
     case DISTANCE_TOAST_CONTROL_VERTICAL:
       return 8;
     case DISTANCE_TOAST_LABEL_VERTICAL:
@@ -160,6 +157,8 @@ int ChromeLayoutProvider::GetDistanceMetric(int metric) const {
       return kHarmonyLayoutUnit;
     case DISTANCE_UNRELATED_CONTROL_VERTICAL_LARGE:
       return kHarmonyLayoutUnit;
+    case DISTANCE_BUBBLE_TABSTRIP_PREFERRED_WIDTH:
+      return kExtraSmallBubbleSize;
     case DISTANCE_BUBBLE_PREFERRED_WIDTH:
       return kSmallSnapPoint;
     case DISTANCE_MODAL_DIALOG_PREFERRED_WIDTH:

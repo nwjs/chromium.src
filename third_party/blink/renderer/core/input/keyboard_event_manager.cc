@@ -10,7 +10,6 @@
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_input_event.h"
 #include "third_party/blink/renderer/core/dom/element.h"
-#include "third_party/blink/renderer/core/dom/user_gesture_indicator.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
@@ -184,11 +183,10 @@ WebInputEventResult KeyboardEventManager::KeyEvent(
   bool is_modifier = ui::KeycodeConverter::IsDomKeyForModifier(
       static_cast<ui::DomKey>(initial_key_event.dom_key));
 
-  std::unique_ptr<UserGestureIndicator> gesture_indicator;
   if (!is_modifier && initial_key_event.dom_key != ui::DomKey::ESCAPE &&
       (initial_key_event.GetType() == WebInputEvent::kKeyDown ||
        initial_key_event.GetType() == WebInputEvent::kRawKeyDown)) {
-    gesture_indicator = LocalFrame::NotifyUserActivation(frame_);
+    LocalFrame::NotifyUserActivation(frame_);
   }
 
   // In IE, access keys are special, they are handled after default keydown
@@ -272,6 +270,11 @@ WebInputEventResult KeyboardEventManager::KeyEvent(
   keydown->SetTarget(node);
 
   keydown->SetStopPropagation(!send_key_event);
+
+  // If this keydown did not involve a meta-key press, update the keyboard event
+  // state and trigger :focus-visible matching if necessary.
+  if (!keydown->ctrlKey() && !keydown->altKey() && !keydown->metaKey())
+    node->UpdateHadKeyboardEvent(*keydown);
 
   DispatchEventResult dispatch_result = node->DispatchEvent(*keydown);
   if (dispatch_result != DispatchEventResult::kNotCanceled)

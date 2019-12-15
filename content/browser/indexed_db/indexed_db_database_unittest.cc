@@ -18,6 +18,7 @@
 #include "base/test/bind_test_util.h"
 #include "base/test/mock_callback.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "components/services/storage/indexed_db/scopes/disjoint_range_lock_manager.h"
 #include "content/browser/indexed_db/fake_indexed_db_metadata_coding.h"
 #include "content/browser/indexed_db/indexed_db.h"
 #include "content/browser/indexed_db/indexed_db_backing_store.h"
@@ -34,7 +35,6 @@
 #include "content/browser/indexed_db/mock_indexed_db_callbacks.h"
 #include "content/browser/indexed_db/mock_indexed_db_database_callbacks.h"
 #include "content/browser/indexed_db/mock_indexed_db_factory.h"
-#include "content/browser/indexed_db/scopes/disjoint_range_lock_manager.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -188,7 +188,7 @@ TEST_F(IndexedDBDatabaseTest, ForcedClose) {
       transaction_id, std::set<int64_t>(scope.begin(), scope.end()),
       blink::mojom::IDBTransactionMode::ReadOnly,
       new IndexedDBBackingStore::Transaction(
-          backing_store_.get(),
+          backing_store_->AsWeakPtr(),
           blink::mojom::IDBTransactionDurability::Relaxed));
   db_->RegisterAndScheduleTransaction(transaction);
 

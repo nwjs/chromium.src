@@ -3,7 +3,6 @@
 <translationbundle lang="de">
 <translation id="1001534784610492198">Das Installationsarchiv ist beschädigt oder ungültig. Laden Sie Google Chrome erneut herunter.</translation>
 <translation id="102763973188675173">Google Chrome anpassen und Einstellungen festlegen. Ein Update ist verfügbar.</translation>
-<translation id="1035334672863811645">In Chrome anmelden</translation>
 <translation id="1051826050538111504">Schädliche Software wurde auf Ihrem Computer gefunden. Chrome kann diese Software entfernen, Ihre Einstellungen wiederherstellen und Erweiterungen deaktivieren, sodass Ihr Browser wieder wie gewohnt funktioniert.</translation>
 <translation id="1065672644894730302">Ihre Einstellungen können nicht gelesen werden. Einige Funktionen sind möglicherweise nicht verfügbar und Änderungen an Einstellungen werden nicht gespeichert.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> hat zuvor Chrome verwendet</translation>
@@ -72,7 +71,6 @@
 <translation id="3065168410429928842">Chrome-Tab</translation>
 <translation id="3080151273017101988">Apps im Hintergrund ausführen, wenn Google Chrome geschlossen ist</translation>
 <translation id="3089968997497233615">Es gibt eine neue, sicherere Version von Google Chrome.</translation>
-<translation id="3138848678222082288">Künftige Versionen von Chrome werden automatisch installiert. Nach Abschluss des Downloads wird Chrome neu gestartet und Sie können fortfahren.</translation>
 <translation id="3149510190863420837">Chrome-Apps</translation>
 <translation id="3282568296779691940">In Chrome anmelden</translation>
 <translation id="3340978935015468852">Einstellungen</translation>
@@ -93,7 +91,6 @@
 <translation id="3718181793972440140">Dadurch wird 1 Element von diesem Gerät gelöscht. Wenn Sie Ihre Daten später abrufen möchten, melden Sie sich als <ph name="USER_EMAIL" /> in Chrome an.</translation>
 <translation id="3735758079232443276">Die beim Start von Chrome angezeigte Seite wurde durch die Erweiterung <ph name="EXTENSION_NAME" /> geändert.</translation>
 <translation id="3780814664026482060">Chrome – <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Aus Chrome entfernen...</translation>
 <translation id="386202838227397562">Schließen Sie alle Google Chrome-Fenster und versuchen Sie es erneut.</translation>
 <translation id="3873044882194371212">Link in Chrome-Inkognitofenster öffnen</translation>
 <translation id="3889417619312448367">Google Chrome deinstallieren</translation>
@@ -173,7 +170,6 @@
 <translation id="677276454032249905">Chrome trotzdem beenden?</translation>
 <translation id="683440813066116847">Eingangsregel für die Zulassung von mDNS-Verkehr in Google Chrome Canary</translation>
 <translation id="6885412569789873916">Chrome Beta-Apps</translation>
-<translation id="6906909733186691861">Künftige Versionen von Chrome werden automatisch installiert.</translation>
 <translation id="6943584222992551122">Die Browserdaten dieser Person werden von diesem Gerät gelöscht. Um die Daten wiederherzustellen, melden Sie sich als <ph name="USER_EMAIL" /> in Chrome an.</translation>
 <translation id="6967962315388095737">Eingangsregel für die Zulassung von mDNS-Verkehr in Google Chrome Beta.</translation>
 <translation id="6982337800632491844">Vor der Verwendung dieses Geräts ist es erforderlich, dass Sie die folgenden Nutzungsbedingungen von <ph name="DOMAIN" /> akzeptieren. Durch diese Nutzungsbedingungen werden die Google Chrome OS-Nutzungsbedingungen nicht erweitert, geändert oder eingeschränkt.</translation>
@@ -224,7 +220,6 @@
 <translation id="8521348052903287641">Eingangsregel für die Zulassung von mDNS-Verkehr in Google Chrome Dev.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Es gibt eine neue Version von Google Chrome, die schneller ist, als anderen zuvor.</translation>
-<translation id="8606668294522778825">Google Chrome verwendet möglicherweise Webdienste zur Unterstützung Ihrer Onlinesuche. Sie haben die Möglichkeit, diese Dienste zu deaktivieren. <ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome reagiert nicht. Jetzt neu starten?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome wird in einer Minute neu gestartet}other{Chrome wird in # Minuten neu gestartet}}</translation>
 <translation id="8669527147644353129">Google Chrome Helper</translation>

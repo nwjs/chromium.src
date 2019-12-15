@@ -20,6 +20,7 @@ import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.MainThread;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ApplicationStatus;
@@ -29,7 +30,6 @@ import org.chromium.base.FileUtils;
 import org.chromium.base.Log;
 import org.chromium.base.StrictModeContext;
 import org.chromium.base.TimeUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.library_loader.LibraryProcessType;
@@ -39,8 +39,8 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.IntentHandler;
+import org.chromium.chrome.browser.document.ChromeIntentUtil;
 import org.chromium.chrome.browser.download.items.OfflineContentAggregatorFactory;
-import org.chromium.chrome.browser.download.ui.DownloadFilter;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.media.MediaViewerUtils;
 import org.chromium.chrome.browser.offlinepages.DownloadUiActionFlags;
@@ -48,11 +48,13 @@ import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.offlinepages.OfflinePageOrigin;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.offlinepages.downloads.OfflinePageDownloadBridge;
+import org.chromium.chrome.browser.preferences.Pref;
+import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.document.TabDelegate;
-import org.chromium.chrome.browser.util.ChromeIntentUtil;
 import org.chromium.chrome.browser.util.ConversionUtils;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.chrome.browser.util.UrlConstants;
@@ -79,11 +81,8 @@ import java.io.File;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
 
 /**
@@ -106,20 +105,11 @@ public class DownloadUtils {
     private static final int[] BYTES_STRINGS = {
             R.string.download_ui_kb, R.string.download_ui_mb, R.string.download_ui_gb};
 
-    // Set will be more expensive to initialize, so use an ArrayList here.
-    private static final List<String> MIME_TYPES_TO_OPEN =
-            new ArrayList<String>(Arrays.asList(OMADownloadHandler.OMA_DOWNLOAD_DESCRIPTOR_MIME,
-                    "application/pdf", "application/x-x509-ca-cert", "application/x-x509-user-cert",
-                    "application/x-x509-server-cert", "application/x-pkcs12",
-                    "application/application/x-pem-file", "application/pkix-cert",
-                    "application/x-wifi-config"));
-
     private static final String TAG = "download";
 
     private static final String DEFAULT_MIME_TYPE = "*/*";
     private static final String MIME_TYPE_DELIMITER = "/";
     private static final String MIME_TYPE_SHARING_URL = "text/plain";
-    private static final String UNKNOWN_MIME_TYPE = "application/unknown";
 
     private static final String EXTRA_IS_OFF_THE_RECORD =
             "org.chromium.chrome.browser.download.IS_OFF_THE_RECORD";
@@ -180,7 +170,7 @@ public class DownloadUtils {
         if (isTablet) {
             // Download Home shows up as a tab on tablets.
             LoadUrlParams params = new LoadUrlParams(UrlConstants.DOWNLOADS_URL);
-            if (tab == null || !tab.isInitialized()) {
+            if (tab == null || !((TabImpl) tab).isInitialized()) {
                 // Open a new tab, which pops Chrome into the foreground.
                 TabDelegate delegate = new TabDelegate(false);
                 delegate.createNewTab(params, TabLaunchType.FROM_CHROME_UI, null);
@@ -217,7 +207,8 @@ public class DownloadUtils {
 
         if (BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
                         .isFullBrowserStarted()) {
-            Profile profile = (tab == null ? Profile.getLastUsedProfile() : tab.getProfile());
+            Profile profile =
+                    (tab == null ? Profile.getLastUsedProfile() : ((TabImpl) tab).getProfile());
             Tracker tracker = TrackerFactory.getTrackerForProfile(profile);
             tracker.notifyEvent(EventConstants.DOWNLOAD_HOME_OPENED);
         }
@@ -255,8 +246,8 @@ public class DownloadUtils {
      * @param tab The Tab containing the page being downloaded.
      */
     public static void recordDownloadPageMetrics(Tab tab) {
-        RecordHistogram.recordPercentageHistogram("OfflinePages.SavePage.PercentLoaded",
-                tab.getProgress());
+        RecordHistogram.recordPercentageHistogram(
+                "OfflinePages.SavePage.PercentLoaded", Math.round(tab.getProgress() * 100));
     }
 
     /**
@@ -298,7 +289,8 @@ public class DownloadUtils {
         if (tab.isShowingErrorPage()) {
             // The download needs to be scheduled to happen at later time due to current network
             // error.
-            final OfflinePageBridge bridge = OfflinePageBridge.getForProfile(tab.getProfile());
+            final OfflinePageBridge bridge =
+                    OfflinePageBridge.getForProfile(((TabImpl) tab).getProfile());
             bridge.scheduleDownload(tab.getWebContents(), OfflinePageBridge.ASYNC_NAMESPACE,
                     tab.getUrl(), DownloadUiActionFlags.PROMPT_DUPLICATE, origin);
         } else {
@@ -307,7 +299,7 @@ public class DownloadUtils {
             DownloadUtils.recordDownloadPageMetrics(tab);
         }
 
-        Tracker tracker = TrackerFactory.getTrackerForProfile(tab.getProfile());
+        Tracker tracker = TrackerFactory.getTrackerForProfile(((TabImpl) tab).getProfile());
         tracker.notifyEvent(EventConstants.DOWNLOAD_PAGE_STARTED);
     }
 
@@ -329,11 +321,12 @@ public class DownloadUtils {
 
         // Download will only be allowed for the error page if download button is shown in the page.
         if (tab.isShowingErrorPage()) {
-            final OfflinePageBridge bridge = OfflinePageBridge.getForProfile(tab.getProfile());
+            final OfflinePageBridge bridge =
+                    OfflinePageBridge.getForProfile(((TabImpl) tab).getProfile());
             return bridge.isShowingDownloadButtonInErrorPage(tab.getWebContents());
         }
 
-        if (tab.isShowingInterstitialPage()) return false;
+        if (((TabImpl) tab).isShowingInterstitialPage()) return false;
 
         // Don't allow re-downloading the currently displayed offline page.
         if (OfflinePageUtils.isOfflinePage(tab)) return false;
@@ -388,47 +381,6 @@ public class DownloadUtils {
         if (ContentUriUtils.isContentUri(filePath)) return filePath;
         Uri uri = getUriForItem(filePath);
         return uri != null ? uri.toString() : new String();
-    }
-
-    /**
-     * If the given MIME type is null, or one of the "generic" types (text/plain
-     * or application/octet-stream) map it to a type that Android can deal with.
-     * If the given type is not generic, return it unchanged.
-     * See {@code ChromeDownloadDelegate#remapGenericMimeType}.
-     *
-     * @param mimeType MIME type provided by the server.
-     * @param url URL of the data being loaded.
-     * @param filename file name obtained from content disposition header
-     * @return The MIME type that should be used for this data.
-     */
-    @CalledByNative
-    public static String remapGenericMimeType(String mimeType, String url, String filename) {
-        if (TextUtils.isEmpty(mimeType)) mimeType = UNKNOWN_MIME_TYPE;
-        return ChromeDownloadDelegate.remapGenericMimeType(mimeType, url, filename);
-    }
-
-    /**
-     * Returns true if the download is for OMA download description file.
-     *
-     * @param mimeType The mime type of the download.
-     * @return true if the downloaded is OMA download description, or false otherwise.
-     */
-    public static boolean isOMADownloadDescription(String mimeType) {
-        return OMADownloadHandler.OMA_DOWNLOAD_DESCRIPTOR_MIME.equalsIgnoreCase(mimeType);
-    }
-
-    /**
-     * Determines if the download should be immediately opened after
-     * downloading.
-     *
-     * @param mimeType The mime type of the download.
-     * @param hasUserGesture Whether the download is associated with an user gesture.
-     * @return true if the downloaded content should be opened, or false otherwise.
-     */
-    @VisibleForTesting
-    @CalledByNative
-    public static boolean shouldAutoOpenDownload(String mimeType, boolean hasUserGesture) {
-        return hasUserGesture && MIME_TYPES_TO_OPEN.contains(mimeType);
     }
 
     /**
@@ -1042,22 +994,18 @@ public class DownloadUtils {
     }
 
     /**
-     * Parses an originating URL string and returns a valid Uri that can be inserted into
-     * DownloadProvider. The returned Uri has to be null or non-empty http(s) scheme.
-     * @param originalUrl String representation of the originating URL.
-     * @return A valid Uri that can be accepted by DownloadProvider.
+     * @return The status of prompt for download pref, defined by {@link DownloadPromptStatus}.
      */
-    public static Uri parseOriginalUrl(String originalUrl) {
-        Uri originalUri = TextUtils.isEmpty(originalUrl) ? null : Uri.parse(originalUrl);
-        if (originalUri != null) {
-            String scheme = originalUri.normalizeScheme().getScheme();
-            if (scheme == null
-                    || (!scheme.equals(UrlConstants.HTTPS_SCHEME)
-                            && !scheme.equals(UrlConstants.HTTP_SCHEME))) {
-                originalUri = null;
-            }
-        }
-        return originalUri;
+    @DownloadPromptStatus
+    public static int getPromptForDownloadAndroid() {
+        return PrefServiceBridge.getInstance().getInteger(Pref.PROMPT_FOR_DOWNLOAD_ANDROID);
+    }
+
+    /**
+     * @param status New status to update the prompt for download preference.
+     */
+    public static void setPromptForDownloadAndroid(@DownloadPromptStatus int status) {
+        PrefServiceBridge.getInstance().setInteger(Pref.PROMPT_FOR_DOWNLOAD_ANDROID, status);
     }
 
     @NativeMethods

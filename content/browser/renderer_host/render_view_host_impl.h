@@ -35,6 +35,7 @@
 #include "third_party/blink/public/web/web_console_message.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/gl/gpu_preference.h"
 #include "ui/gl/gpu_switching_observer.h"
 
 namespace content {
@@ -102,8 +103,6 @@ class CONTENT_EXPORT RenderViewHostImpl
   SiteInstanceImpl* GetSiteInstance() override;
   bool IsRenderViewLive() override;
   void NotifyMoveOrResizeStarted() override;
-  void SetWebUIProperty(const std::string& name,
-                        const std::string& value) override;
   WebPreferences GetWebkitPreferences() override;
   void UpdateWebkitPreferences(const WebPreferences& prefs) override;
   void OnWebkitPreferencesChanged() override;
@@ -113,7 +112,7 @@ class CONTENT_EXPORT RenderViewHostImpl
                            const ChildProcessTerminationInfo& info) override;
 
   // GpuSwitchingObserver implementation.
-  void OnGpuSwitched() override;
+  void OnGpuSwitched(gl::GpuPreference active_gpu_heuristic) override;
 
   // Set up the RenderView child process. Virtual because it is overridden by
   // TestRenderViewHost.
@@ -211,11 +210,36 @@ class CONTENT_EXPORT RenderViewHostImpl
   // Called when the RenderFrameHostImpls/RenderFrameProxyHosts that own this
   // RenderViewHost leave the BackForwardCache. This occurs immediately before a
   // restored document is committed.
-  void LeaveBackForwardCache();
+  // |navigation_start| is the timestamp corresponding to the start of the
+  // back-forward cached navigation, which would be communicated to the page
+  // to allow it to record the latency of this navigation.
+  void LeaveBackForwardCache(base::TimeTicks navigation_start);
 
   // Called during frame eviction to return all SurfaceIds in the frame tree.
   // Marks all views in the frame tree as evicted.
   std::vector<viz::SurfaceId> CollectSurfaceIdsForEviction();
+
+  // Resets any per page state. This should be called when a main frame
+  // associated with this RVH commits a navigation to a new document. Note that
+  // this means it should NOT be called for same document navigations or when
+  // restoring a page from the back-forward cache.
+  void ResetPerPageState();
+
+  bool did_first_visually_non_empty_paint() const {
+    return did_first_visually_non_empty_paint_;
+  }
+
+  void OnThemeColorChanged(RenderFrameHostImpl* rfh,
+                           const base::Optional<SkColor>& theme_color);
+
+  base::Optional<SkColor> theme_color() const {
+    return main_frame_theme_color_;
+  }
+
+  // Notifies that / returns whether main document's onload() handler was
+  // completed.
+  void DocumentOnLoadCompletedInMainFrame();
+  bool IsDocumentOnLoadCompletedInMainFrame();
 
   // Manual RTTI to ensure safe downcasts in tests.
   virtual bool IsTestRenderViewHost() const;
@@ -363,8 +387,24 @@ class CONTENT_EXPORT RenderViewHostImpl
   // duplicate RenderViewCreated events.
   bool has_notified_about_creation_ = false;
 
+  // ---------- Per page state START ------------------------------------------
+  // The following members will get reset when this RVH commits a navigation to
+  // a new document. See ResetPerPageState()
+
+  // Whether the first visually non-empty paint has occurred.
+  bool did_first_visually_non_empty_paint_ = false;
+
+  // The theme color for the underlying document as specified
+  // by theme-color meta tag.
+  base::Optional<SkColor> main_frame_theme_color_;
+
+  // ---------- Per page state END --------------------------------------------
+
   // BackForwardCache:
   bool is_in_back_forward_cache_ = false;
+
+  // True if the current main document finished executing onload() handler.
+  bool is_document_on_load_completed_in_main_frame_ = false;
 
   base::WeakPtrFactory<RenderViewHostImpl> weak_factory_{this};
 

@@ -472,6 +472,11 @@ autofillManagerFromWebState:(web::WebState*)webState
     autofillManager->OnDidFillAutofillFormData(form, base::TimeTicks::Now());
 }
 
+- (void)handleParsedForms:(const std::vector<autofill::FormStructure*>&)forms
+                  inFrame:(web::WebFrame*)frame {
+  // No op.
+}
+
 - (void)fillFormDataPredictions:
             (const std::vector<autofill::FormDataPredictions>&)forms
                         inFrame:(web::WebFrame*)frame {
@@ -812,8 +817,10 @@ autofillManagerFromWebState:(web::WebState*)webState
 // Returns whether Autofill is enabled by checking if Autofill is turned on and
 // if the current URL has a web scheme and the page content is HTML.
 - (BOOL)isAutofillEnabled {
-  if (!autofill::prefs::IsAutofillEnabled(prefService_))
+  if (!autofill::prefs::IsAutofillProfileEnabled(prefService_) &&
+      !autofill::prefs::IsAutofillCreditCardEnabled(prefService_)) {
     return NO;
+  }
 
   // Only web URLs are supported by Autofill.
   return web::UrlHasWebScheme(webState_->GetLastCommittedURL()) &&

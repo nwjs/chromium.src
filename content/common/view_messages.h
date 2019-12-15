@@ -14,7 +14,6 @@
 #include <string>
 #include <vector>
 
-#include "base/memory/shared_memory.h"
 #include "base/optional.h"
 #include "base/process/process.h"
 #include "base/strings/string16.h"
@@ -133,12 +132,6 @@ IPC_MESSAGE_ROUTED2(ViewMsg_PluginActionAt,
 // Sets the page scale for the current main frame to the given page scale.
 IPC_MESSAGE_ROUTED1(ViewMsg_SetPageScale, float /* page_scale_factor */)
 
-// Tell the renderer to add a property to the WebUI binding object.  This
-// only works if we allowed WebUI bindings.
-IPC_MESSAGE_ROUTED2(ViewMsg_SetWebUIProperty,
-                    std::string /* property_name */,
-                    std::string /* property_value_json */)
-
 // Used to notify the render-view that we have received a target URL. Used
 // to prevent target URLs spamming the browser.
 IPC_MESSAGE_ROUTED0(ViewMsg_UpdateTargetURL_ACK)
@@ -155,33 +148,6 @@ IPC_MESSAGE_ROUTED0(ViewMsg_MoveOrResizeStarted)
 
 // Used to instruct the RenderView to send back updates to the preferred size.
 IPC_MESSAGE_ROUTED0(ViewMsg_EnablePreferredSizeChangedMode)
-
-// Response message to ViewHostMsg_CreateWorker.
-// Sent when the worker has started.
-IPC_MESSAGE_ROUTED0(ViewMsg_WorkerCreated)
-
-// Sent when the worker failed to load the worker script.
-// In normal cases, this message is sent after ViewMsg_WorkerCreated is sent.
-// But if the shared worker of the same URL already exists and it has failed
-// to load the script, when the renderer send ViewHostMsg_CreateWorker before
-// the shared worker is killed only ViewMsg_WorkerScriptLoadFailed is sent.
-IPC_MESSAGE_ROUTED0(ViewMsg_WorkerScriptLoadFailed)
-
-// Sent when the worker has connected.
-// This message is sent only if the worker successfully loaded the script.
-// |used_features| is the set of features that the worker has used. The values
-// must be from blink::UseCounter::Feature enum.
-IPC_MESSAGE_ROUTED1(ViewMsg_WorkerConnected,
-                    std::set<uint32_t> /* used_features */)
-
-// Sent when the worker is destroyed.
-IPC_MESSAGE_ROUTED0(ViewMsg_WorkerDestroyed)
-
-// Sent when the worker calls API that should be recored in UseCounter.
-// |feature| must be one of the values from blink::UseCounter::Feature
-// enum.
-IPC_MESSAGE_ROUTED1(ViewMsg_CountFeatureOnSharedWorker,
-                    uint32_t /* feature */)
 
 #if BUILDFLAG(ENABLE_PLUGINS)
 // Reply to ViewHostMsg_OpenChannelToPpapiBroker

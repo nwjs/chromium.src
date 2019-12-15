@@ -33,8 +33,8 @@
 #include "components/prefs/pref_member.h"
 #include "components/safe_browsing/buildflags.h"
 #include "content/public/browser/render_widget_host.h"
-#include "content/public/browser/web_contents_binding_set.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/browser/web_contents_receiver_set.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "ui/gfx/geometry/rect.h"
 
@@ -62,7 +62,6 @@ class WebContents;
 // ChromePasswordManagerClient implements the PasswordManagerClient interface.
 class ChromePasswordManagerClient
     : public password_manager::PasswordManagerClient,
-      public password_manager::PasswordManagerClientHelperDelegate,
       public content::WebContentsObserver,
       public content::WebContentsUserData<ChromePasswordManagerClient>,
       public autofill::mojom::PasswordGenerationDriver,
@@ -129,6 +128,7 @@ class ChromePasswordManagerClient
   password_manager::SyncState GetPasswordSyncState() const override;
   bool WasLastNavigationHTTPError() const override;
   net::CertStatus GetMainFrameCertStatus() const override;
+  void PromptUserToEnableAutosignin() override;
   bool IsIncognito() const override;
   const password_manager::PasswordManager* GetPasswordManager() const override;
   const password_manager::PasswordFeatureManager* GetPasswordFeatureManager()
@@ -153,6 +153,7 @@ class ChromePasswordManagerClient
   void NavigateToManagePasswordsPage(
       password_manager::ManagePasswordsReferrer referrer) override;
   bool IsNewTabPage() const override;
+  password_manager::FieldInfoManager* GetFieldInfoManager() const override;
 
   // autofill::mojom::PasswordGenerationDriver overrides.
   void AutomaticGenerationAvailable(
@@ -179,6 +180,8 @@ class ChromePasswordManagerClient
           saving_flow_recorder);
 
   void OnImeTextCommittedEvent(const base::string16& text_str) override;
+  void OnImeSetComposingTextEvent(const base::string16& text_str) override;
+  void OnImeFinishComposingTextEvent() override;
 #endif  // defined(OS_ANDROID)
 
 #if defined(ON_FOCUS_PING_ENABLED)
@@ -271,10 +274,6 @@ class ChromePasswordManagerClient
   // without custom sync passphrase.
   static bool ShouldAnnotateNavigationEntries(Profile* profile);
 
-  // password_manager::PasswordManagerClientHelperDelegate implementation.
-  void PromptUserToEnableAutosignin() override;
-  password_manager::PasswordManager* GetPasswordManager() override;
-
   // |ui_data| is empty in case the renderer failed to start manual generation.
   // In this case nothing should happen.
   void ShowManualPasswordGenerationPopup(
@@ -309,6 +308,11 @@ class ChromePasswordManagerClient
   // Controller for the Touch To Fill sheet. Created on demand during the first
   // call to GetOrCreateTouchToFillController().
   std::unique_ptr<TouchToFillController> touch_to_fill_controller_;
+
+  // Last composing text from ime, this is updated when ime set composing text
+  // event is triggered. It is sent to password reuse detection manager and
+  // reset when ime finish composing text event is triggered.
+  base::string16 last_composing_text_;
 #endif
 
   password_manager::ContentPasswordManagerDriverFactory* driver_factory_;
@@ -318,8 +322,9 @@ class ChromePasswordManagerClient
   // once main frame host was created.
   password_manager::ContentCredentialManager content_credential_manager_;
 
-  content::WebContentsFrameBindingSet<autofill::mojom::PasswordGenerationDriver>
-      password_generation_driver_bindings_;
+  content::WebContentsFrameReceiverSet<
+      autofill::mojom::PasswordGenerationDriver>
+      password_generation_driver_receivers_;
 
   // Observer for password generation popup.
   PasswordGenerationPopupObserver* observer_;

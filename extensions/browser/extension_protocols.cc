@@ -69,7 +69,9 @@
 #include "extensions/common/manifest_handlers/shared_module_info.h"
 #include "extensions/common/manifest_handlers/web_accessible_resources_info.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/filename_util.h"
 #include "net/base/io_buffer.h"
 #include "net/base/mime_util.h"
@@ -77,8 +79,8 @@
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_response_info.h"
-#include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/cpp/url_loader_completion_status.h"
+#include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/features.h"
 #include "url/url_util.h"
 
@@ -391,14 +393,15 @@ class ExtensionURLLoaderFactory : public network::mojom::URLLoaderFactory {
   ~ExtensionURLLoaderFactory() override = default;
 
   // network::mojom::URLLoaderFactory:
-  void CreateLoaderAndStart(network::mojom::URLLoaderRequest loader,
-                            int32_t routing_id,
-                            int32_t request_id,
-                            uint32_t options,
-                            const network::ResourceRequest& request,
-                            network::mojom::URLLoaderClientPtr client,
-                            const net::MutableNetworkTrafficAnnotationTag&
-                                traffic_annotation) override {
+  void CreateLoaderAndStart(
+      mojo::PendingReceiver<network::mojom::URLLoader> loader,
+      int32_t routing_id,
+      int32_t request_id,
+      uint32_t options,
+      const network::ResourceRequest& request,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client,
+      const net::MutableNetworkTrafficAnnotationTag& traffic_annotation)
+      override {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
     const std::string extension_id = request.url.host();
@@ -417,8 +420,9 @@ class ExtensionURLLoaderFactory : public network::mojom::URLLoaderFactory {
             render_process_id_, browser_context_->IsOffTheRecord(),
             extension.get(), incognito_enabled, enabled_extensions,
             *process_map)) {
-      client->OnComplete(
-          network::URLLoaderCompletionStatus(net::ERR_BLOCKED_BY_CLIENT));
+      mojo::Remote<network::mojom::URLLoaderClient>(std::move(client))
+          ->OnComplete(
+              network::URLLoaderCompletionStatus(net::ERR_BLOCKED_BY_CLIENT));
       return;
     }
 
@@ -426,7 +430,8 @@ class ExtensionURLLoaderFactory : public network::mojom::URLLoaderFactory {
     if (!GetDirectoryForExtensionURL(request.url, extension_id, extension.get(),
                                      registry->disabled_extensions(),
                                      &directory_path)) {
-      client->OnComplete(network::URLLoaderCompletionStatus(net::ERR_FAILED));
+      mojo::Remote<network::mojom::URLLoaderClient>(std::move(client))
+          ->OnComplete(network::URLLoaderCompletionStatus(net::ERR_FAILED));
       return;
     }
 
@@ -440,11 +445,12 @@ class ExtensionURLLoaderFactory : public network::mojom::URLLoaderFactory {
   }
 
  private:
-  void LoadExtension(network::mojom::URLLoaderRequest loader,
-                     const network::ResourceRequest& request,
-                     network::mojom::URLLoaderClientPtr client,
-                     scoped_refptr<const Extension> extension,
-                     base::FilePath directory_path) {
+  void LoadExtension(
+      mojo::PendingReceiver<network::mojom::URLLoader> loader,
+      const network::ResourceRequest& request,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client,
+      scoped_refptr<const Extension> extension,
+      base::FilePath directory_path) {
     // Set up content security policy.
     std::string content_security_policy;
     bool send_cors_header = false;
@@ -460,25 +466,29 @@ class ExtensionURLLoaderFactory : public network::mojom::URLLoaderFactory {
       // chunk of HTML.
 
       // Leave cache headers out of generated background page jobs.
-      network::ResourceResponseHead head;
+      auto head = network::mojom::URLResponseHead::New();
       const bool send_cors_headers = false;
-      head.headers = BuildHttpHeaders(content_security_policy,
-                                      send_cors_headers, base::Time());
+      head->headers = BuildHttpHeaders(content_security_policy,
+                                       send_cors_headers, base::Time());
       std::string contents;
-      GenerateBackgroundPageContents(extension.get(), &head.mime_type,
-                                     &head.charset, &contents);
+      GenerateBackgroundPageContents(extension.get(), &head->mime_type,
+                                     &head->charset, &contents);
       uint32_t size = base::saturated_cast<uint32_t>(contents.size());
       mojo::DataPipe pipe(size);
       MojoResult result = pipe.producer_handle->WriteData(
           contents.data(), &size, MOJO_WRITE_DATA_FLAG_NONE);
+      mojo::Remote<network::mojom::URLLoaderClient> client_remote(
+          std::move(client));
       if (result != MOJO_RESULT_OK || size < contents.size()) {
-        client->OnComplete(network::URLLoaderCompletionStatus(net::ERR_FAILED));
+        client_remote->OnComplete(
+            network::URLLoaderCompletionStatus(net::ERR_FAILED));
         return;
       }
 
-      client->OnReceiveResponse(head);
-      client->OnStartLoadingResponseBody(std::move(pipe.consumer_handle));
-      client->OnComplete(network::URLLoaderCompletionStatus(net::OK));
+      client_remote->OnReceiveResponse(std::move(head));
+      client_remote->OnStartLoadingResponseBody(
+          std::move(pipe.consumer_handle));
+      client_remote->OnComplete(network::URLLoaderCompletionStatus(net::OK));
       return;
     }
 
@@ -502,8 +512,9 @@ class ExtensionURLLoaderFactory : public network::mojom::URLLoaderFactory {
     // files there are internal implementation details that should not be
     // considered part of the extension.
     if (base::FilePath(kMetadataFolder).IsParent(relative_path)) {
-      client->OnComplete(
-          network::URLLoaderCompletionStatus(net::ERR_FILE_NOT_FOUND));
+      mojo::Remote<network::mojom::URLLoaderClient>(std::move(client))
+          ->OnComplete(
+              network::URLLoaderCompletionStatus(net::ERR_FILE_NOT_FOUND));
       return;
     }
 
@@ -526,8 +537,9 @@ class ExtensionURLLoaderFactory : public network::mojom::URLLoaderFactory {
         extension_id = new_extension_id;
         relative_path = base::FilePath::FromUTF8Unsafe(new_relative_path);
       } else {
-        client->OnComplete(
-            network::URLLoaderCompletionStatus(net::ERR_BLOCKED_BY_CLIENT));
+        mojo::Remote<network::mojom::URLLoaderClient>(std::move(client))
+            ->OnComplete(
+                network::URLLoaderCompletionStatus(net::ERR_BLOCKED_BY_CLIENT));
         return;
       }
     }
@@ -561,8 +573,8 @@ class ExtensionURLLoaderFactory : public network::mojom::URLLoaderFactory {
       const base::FilePath* read_file_path,
       const base::Time* last_modified_time,
       network::ResourceRequest request,
-      network::mojom::URLLoaderRequest loader,
-      network::mojom::URLLoaderClientPtr client,
+      mojo::PendingReceiver<network::mojom::URLLoader> loader,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client,
       scoped_refptr<ContentVerifier> content_verifier,
       const extensions::ExtensionResource& resource,
       const std::string& content_security_policy,
@@ -580,8 +592,8 @@ class ExtensionURLLoaderFactory : public network::mojom::URLLoaderFactory {
 
   static void StartVerifyJob(
       network::ResourceRequest request,
-      network::mojom::URLLoaderRequest loader,
-      network::mojom::URLLoaderClientPtr client,
+      mojo::PendingReceiver<network::mojom::URLLoader> loader,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client,
       scoped_refptr<ContentVerifier> content_verifier,
       const ExtensionResource& resource,
       scoped_refptr<net::HttpResponseHeaders> response_headers) {

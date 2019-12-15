@@ -137,7 +137,7 @@ class BaseScrollbarLayerTest : public testing::Test {
 
   LayerImpl* LayerImplForScrollAreaAndScrollbar(
       FakeLayerTreeHost* host,
-      std::unique_ptr<Scrollbar> scrollbar,
+      scoped_refptr<Scrollbar> scrollbar,
       bool reverse_order,
       bool use_solid_color_scrollbar,
       int thumb_thickness,
@@ -195,6 +195,9 @@ class FakePaintedOverlayScrollbar : public FakeScrollbar {
   gfx::Rect NinePatchThumbAperture() const override {
     return gfx::Rect(1, 1, 1, 1);
   }
+
+ private:
+  ~FakePaintedOverlayScrollbar() override = default;
 };
 
 // Test that a painted overlay scrollbar will repaint and recrate its resource
@@ -203,11 +206,9 @@ class FakePaintedOverlayScrollbar : public FakeScrollbar {
 TEST_F(ScrollbarLayerTest, RepaintOverlayWhenResourceDisposed) {
   scoped_refptr<Layer> layer_tree_root = Layer::Create();
   scoped_refptr<Layer> content_layer = Layer::Create();
-  std::unique_ptr<FakePaintedOverlayScrollbar> scrollbar(
-      new FakePaintedOverlayScrollbar);
-  FakePaintedOverlayScrollbar* fake_scrollbar = scrollbar.get();
+  auto fake_scrollbar = base::MakeRefCounted<FakePaintedOverlayScrollbar>();
   scoped_refptr<PaintedOverlayScrollbarLayer> scrollbar_layer =
-      PaintedOverlayScrollbarLayer::Create(std::move(scrollbar));
+      PaintedOverlayScrollbarLayer::Create(fake_scrollbar);
   scrollbar_layer->SetScrollElementId(layer_tree_root->element_id());
 
   // Setup.
@@ -224,7 +225,7 @@ TEST_F(ScrollbarLayerTest, RepaintOverlayWhenResourceDisposed) {
   // First call to update should create a resource. The scrollbar itself thinks
   // it needs a repaint.
   {
-    fake_scrollbar->set_needs_paint_thumb(true);
+    fake_scrollbar->set_needs_repaint_thumb(true);
     EXPECT_EQ(0u, fake_ui_resource_manager_->UIResourceCount());
     EXPECT_TRUE(scrollbar_layer->Update());
     EXPECT_EQ(1u, fake_ui_resource_manager_->UIResourceCount());
@@ -233,7 +234,7 @@ TEST_F(ScrollbarLayerTest, RepaintOverlayWhenResourceDisposed) {
   // Now the scrollbar has been painted and nothing else has changed, calling
   // Update() shouldn't have an effect.
   {
-    fake_scrollbar->set_needs_paint_thumb(false);
+    fake_scrollbar->set_needs_repaint_thumb(false);
     EXPECT_FALSE(scrollbar_layer->Update());
     EXPECT_EQ(1u, fake_ui_resource_manager_->UIResourceCount());
   }
@@ -258,11 +259,12 @@ class FakeNinePatchScrollbar : public FakeScrollbar {
       : FakeScrollbar(/*paint*/ true, /*has_thumb*/ true, /*is_overlay*/ true) {
   }
   bool UsesNinePatchThumbResource() const override { return true; }
+
+ private:
+  ~FakeNinePatchScrollbar() override = default;
 };
 
 TEST_F(ScrollbarLayerTest, ScrollElementIdPushedAcrossCommit) {
-  std::unique_ptr<Scrollbar> scrollbar1(new FakeScrollbar);
-  std::unique_ptr<Scrollbar> scrollbar2(new FakeNinePatchScrollbar);
   scoped_refptr<Layer> layer_tree_root = Layer::Create();
   scoped_refptr<Layer> layer_a = Layer::Create();
   scoped_refptr<Layer> layer_b = Layer::Create();
@@ -270,10 +272,11 @@ TEST_F(ScrollbarLayerTest, ScrollElementIdPushedAcrossCommit) {
   layer_b->SetElementId(LayerIdToElementIdForTesting(layer_b->id()));
 
   scoped_refptr<PaintedScrollbarLayer> painted_scrollbar_layer =
-      PaintedScrollbarLayer::Create(std::move(scrollbar1));
+      PaintedScrollbarLayer::Create(base::MakeRefCounted<FakeScrollbar>());
   painted_scrollbar_layer->SetScrollElementId(layer_a->element_id());
   scoped_refptr<PaintedOverlayScrollbarLayer> painted_overlay_scrollbar_layer =
-      PaintedOverlayScrollbarLayer::Create(std::move(scrollbar2));
+      PaintedOverlayScrollbarLayer::Create(
+          base::MakeRefCounted<FakeNinePatchScrollbar>());
   painted_overlay_scrollbar_layer->SetScrollElementId(layer_a->element_id());
   scoped_refptr<SolidColorScrollbarLayer> solid_color_scrollbar_layer =
       SolidColorScrollbarLayer::Create(VERTICAL, 1, 1, false);
@@ -331,13 +334,12 @@ TEST_F(ScrollbarLayerTest, ScrollElementIdPushedAcrossCommit) {
 }
 
 TEST_F(ScrollbarLayerTest, ScrollOffsetSynchronization) {
-  std::unique_ptr<Scrollbar> scrollbar(new FakeScrollbar);
   scoped_refptr<Layer> layer_tree_root = Layer::Create();
   scoped_refptr<Layer> scroll_layer = Layer::Create();
   scroll_layer->SetElementId(LayerIdToElementIdForTesting(scroll_layer->id()));
   scoped_refptr<Layer> content_layer = Layer::Create();
   scoped_refptr<PaintedScrollbarLayer> scrollbar_layer =
-      PaintedScrollbarLayer::Create(std::move(scrollbar));
+      PaintedScrollbarLayer::Create(base::MakeRefCounted<FakeScrollbar>());
   scrollbar_layer->SetScrollElementId(scroll_layer->element_id());
 
   // Choose bounds to give max_scroll_offset = (30, 50).
@@ -420,10 +422,8 @@ TEST_F(ScrollbarLayerTest, UpdatePropertiesOfScrollBarWhenThumbRemoved) {
   scrollbar_layer->SetScrollElementId(root_layer->element_id());
 
   // The track_rect should be relative to the scrollbar's origin.
-  scrollbar_layer->fake_scrollbar()->set_location(gfx::Point(20, 10));
   scrollbar_layer->fake_scrollbar()->set_track_rect(gfx::Rect(10, 10, 50, 10));
-  scrollbar_layer->fake_scrollbar()->set_thumb_thickness(10);
-  scrollbar_layer->fake_scrollbar()->set_thumb_length(4);
+  scrollbar_layer->fake_scrollbar()->set_thumb_size(gfx::Size(4, 10));
 
   LayerImpl* root_layer_impl = nullptr;
   PaintedScrollbarLayerImpl* scrollbar_layer_impl = nullptr;
@@ -461,10 +461,8 @@ TEST_F(ScrollbarLayerTest, ThumbRect) {
   scrollbar_layer->SetScrollElementId(root_layer->element_id());
 
   // The track_rect should be relative to the scrollbar's origin.
-  scrollbar_layer->fake_scrollbar()->set_location(gfx::Point(20, 10));
   scrollbar_layer->fake_scrollbar()->set_track_rect(gfx::Rect(10, 10, 50, 10));
-  scrollbar_layer->fake_scrollbar()->set_thumb_thickness(10);
-  scrollbar_layer->fake_scrollbar()->set_thumb_length(4);
+  scrollbar_layer->fake_scrollbar()->set_thumb_size(gfx::Size(4, 10));
 
   layer_tree_host_->UpdateLayers();
   LayerImpl* root_layer_impl = nullptr;
@@ -493,8 +491,7 @@ TEST_F(ScrollbarLayerTest, ThumbRect) {
             scrollbar_layer_impl->ComputeThumbQuadRect().ToString());
 
   // Change thumb thickness and length.
-  scrollbar_layer->fake_scrollbar()->set_thumb_thickness(4);
-  scrollbar_layer->fake_scrollbar()->set_thumb_length(6);
+  scrollbar_layer->fake_scrollbar()->set_thumb_size(gfx::Size(6, 4));
 
   UPDATE_AND_EXTRACT_LAYER_POINTERS();
   EXPECT_EQ(gfx::Rect(54, 0, 6, 4).ToString(),
@@ -502,7 +499,6 @@ TEST_F(ScrollbarLayerTest, ThumbRect) {
 
   // Shrink the scrollbar layer to cover only the track.
   scrollbar_layer->SetBounds(gfx::Size(50, 10));
-  scrollbar_layer->fake_scrollbar()->set_location(gfx::Point(30, 10));
   scrollbar_layer->fake_scrollbar()->set_track_rect(gfx::Rect(0, 10, 50, 10));
 
   UPDATE_AND_EXTRACT_LAYER_POINTERS();
@@ -535,8 +531,7 @@ TEST_F(ScrollbarLayerTest, ThumbRectForOverlayLeftSideVerticalScrollbar) {
   scrollbar_layer->SetBounds(gfx::Size(10, 20));
   scrollbar_layer->SetScrollElementId(root_layer->element_id());
   scrollbar_layer->fake_scrollbar()->set_track_rect(gfx::Rect(0, 0, 10, 20));
-  scrollbar_layer->fake_scrollbar()->set_thumb_thickness(10);
-  scrollbar_layer->fake_scrollbar()->set_thumb_length(4);
+  scrollbar_layer->fake_scrollbar()->set_thumb_size(gfx::Size(10, 4));
   layer_tree_host_->UpdateLayers();
   LayerImpl* root_layer_impl = nullptr;
   PaintedScrollbarLayerImpl* scrollbar_layer_impl = nullptr;
@@ -557,8 +552,7 @@ TEST_F(ScrollbarLayerTest, ThumbRectForOverlayLeftSideVerticalScrollbar) {
             scrollbar_layer_impl->ComputeThumbQuadRect().ToString());
 
   // Change thumb thickness and length.
-  scrollbar_layer->fake_scrollbar()->set_thumb_thickness(4);
-  scrollbar_layer->fake_scrollbar()->set_thumb_length(6);
+  scrollbar_layer->fake_scrollbar()->set_thumb_size(gfx::Size(4, 6));
   UPDATE_AND_EXTRACT_LAYER_POINTERS();
   // For left side vertical scrollbars thumb_rect.x = bounds.width() -
   // thumb_thickness.
@@ -571,9 +565,9 @@ TEST_F(ScrollbarLayerTest, SolidColorDrawQuads) {
   const int kTrackStart = 1;
   const int kTrackLength = 100;
 
-  std::unique_ptr<Scrollbar> scrollbar(new FakeScrollbar(false, true, true));
   LayerImpl* layer_impl_tree_root = LayerImplForScrollAreaAndScrollbar(
-      layer_tree_host_.get(), std::move(scrollbar), false, true,
+      layer_tree_host_.get(),
+      base::MakeRefCounted<FakeScrollbar>(false, true, true), false, true,
       kThumbThickness, kTrackStart);
   ScrollbarLayerImplBase* scrollbar_layer_impl =
       static_cast<SolidColorScrollbarLayerImpl*>(
@@ -632,16 +626,13 @@ TEST_F(ScrollbarLayerTest, LayerDrivenSolidColorDrawQuads) {
   const int kTrackStart = 0;
   const int kTrackLength = 10;
 
-  std::unique_ptr<Scrollbar> scrollbar(new FakeScrollbar(false, true, true));
-
   scoped_refptr<Layer> layer_tree_root = Layer::Create();
   scoped_refptr<Layer> scroll_layer = Layer::Create();
   scroll_layer->SetElementId(LayerIdToElementIdForTesting(scroll_layer->id()));
   scoped_refptr<Layer> child1 = Layer::Create();
   const bool kIsLeftSideVerticalScrollbar = false;
   scoped_refptr<SolidColorScrollbarLayer> child2 =
-      SolidColorScrollbarLayer::Create(scrollbar->Orientation(),
-                                       kThumbThickness, kTrackStart,
+      SolidColorScrollbarLayer::Create(HORIZONTAL, kThumbThickness, kTrackStart,
                                        kIsLeftSideVerticalScrollbar);
   child2->SetScrollElementId(scroll_layer->element_id());
   scroll_layer->AddChild(child1);
@@ -689,8 +680,6 @@ TEST_F(ScrollbarLayerTest, ScrollbarLayerOpacity) {
   const int kThumbThickness = 3;
   const int kTrackStart = 0;
 
-  std::unique_ptr<Scrollbar> scrollbar(new FakeScrollbar(false, true, true));
-
   scoped_refptr<Layer> layer_tree_root = Layer::Create();
   scoped_refptr<Layer> scroll_layer = Layer::Create();
   scroll_layer->SetElementId(ElementId(200));
@@ -698,8 +687,7 @@ TEST_F(ScrollbarLayerTest, ScrollbarLayerOpacity) {
   scoped_refptr<SolidColorScrollbarLayer> scrollbar_layer;
   const bool kIsLeftSideVerticalScrollbar = false;
   scrollbar_layer = SolidColorScrollbarLayer::Create(
-      scrollbar->Orientation(), kThumbThickness, kTrackStart,
-      kIsLeftSideVerticalScrollbar);
+      HORIZONTAL, kThumbThickness, kTrackStart, kIsLeftSideVerticalScrollbar);
   scrollbar_layer->SetScrollElementId(scroll_layer->element_id());
   scrollbar_layer->SetElementId(ElementId(300));
   scroll_layer->AddChild(child1);
@@ -767,7 +755,6 @@ TEST_F(ScrollbarLayerTest, ScrollbarLayerPushProperties) {
   // its properties after scroll layer.
   const int kThumbThickness = 3;
   const int kTrackStart = 0;
-  std::unique_ptr<Scrollbar> scrollbar(new FakeScrollbar(false, true, true));
 
   scoped_refptr<Layer> layer_tree_root = Layer::Create();
   scoped_refptr<Layer> scroll_layer = Layer::Create();
@@ -775,8 +762,7 @@ TEST_F(ScrollbarLayerTest, ScrollbarLayerPushProperties) {
   scoped_refptr<Layer> child1 = Layer::Create();
   const bool kIsLeftSideVerticalScrollbar = false;
   scoped_refptr<SolidColorScrollbarLayer> scrollbar_layer =
-      SolidColorScrollbarLayer::Create(scrollbar->Orientation(),
-                                       kThumbThickness, kTrackStart,
+      SolidColorScrollbarLayer::Create(HORIZONTAL, kThumbThickness, kTrackStart,
                                        kIsLeftSideVerticalScrollbar);
   scrollbar_layer->SetScrollElementId(scroll_layer->element_id());
   scroll_layer->AddChild(child1);
@@ -915,10 +901,8 @@ TEST_F(AuraScrollbarLayerTest, ScrollbarLayerCreateAfterSetScrollable) {
   layer_tree_host_->CommitAndCreatePendingTree();
   host_impl->ActivateSyncTree();
 
-  std::unique_ptr<Scrollbar> scrollbar(new FakeScrollbar(false, true, true));
   scoped_refptr<SolidColorScrollbarLayer> scrollbar_layer =
-      SolidColorScrollbarLayer::Create(scrollbar->Orientation(),
-                                       kThumbThickness, kTrackStart,
+      SolidColorScrollbarLayer::Create(HORIZONTAL, kThumbThickness, kTrackStart,
                                        kIsLeftSideVerticalScrollbar);
   scrollbar_layer->SetScrollElementId(scroll_layer->element_id());
   scroll_layer->InsertChild(scrollbar_layer, 1);
@@ -1035,7 +1019,6 @@ class ScrollbarLayerTestResourceCreationAndRelease : public ScrollbarLayerTest {
                           int expected_created,
                           int expected_deleted,
                           bool use_solid_color_scrollbar) {
-    std::unique_ptr<Scrollbar> scrollbar(new FakeScrollbar(false, true, false));
     scoped_refptr<Layer> layer_tree_root = Layer::Create();
     scoped_refptr<Layer> content_layer = Layer::Create();
     scoped_refptr<ScrollbarLayerBase> scrollbar_layer;
@@ -1044,10 +1027,11 @@ class ScrollbarLayerTestResourceCreationAndRelease : public ScrollbarLayerTest {
       const int kTrackStart = 0;
       const bool kIsLeftSideVerticalScrollbar = false;
       scrollbar_layer = SolidColorScrollbarLayer::Create(
-          scrollbar->Orientation(), kThumbThickness, kTrackStart,
+          HORIZONTAL, kThumbThickness, kTrackStart,
           kIsLeftSideVerticalScrollbar);
     } else {
-      scrollbar_layer = PaintedScrollbarLayer::Create(std::move(scrollbar));
+      scrollbar_layer = PaintedScrollbarLayer::Create(
+          base::MakeRefCounted<FakeScrollbar>(false, true, false));
     }
     scrollbar_layer->SetScrollElementId(layer_tree_root->element_id());
     layer_tree_root->AddChild(content_layer);
@@ -1349,7 +1333,6 @@ class ScaledScrollbarLayerTestScaledRasterization : public ScrollbarLayerTest {
 
     scrollbar_layer->SetBounds(scrollbar_rect.size());
     scrollbar_layer->SetPosition(gfx::PointF(scrollbar_rect.origin()));
-    scrollbar_layer->fake_scrollbar()->set_location(scrollbar_rect.origin());
     scrollbar_layer->fake_scrollbar()->set_track_rect(
         gfx::Rect(scrollbar_rect.size()));
 

@@ -185,13 +185,11 @@ class CreditCardFIDOAuthenticatorTest : public testing::Test {
     key_info
         .FindKeyOfType("authenticator_transport_support",
                        base::Value::Type::LIST)
-        ->GetList()
-        .push_back(base::Value("INTERNAL"));
+        ->Append("INTERNAL");
 
     request_options.SetKey("key_info", base::Value(base::Value::Type::LIST));
     request_options.FindKeyOfType("key_info", base::Value::Type::LIST)
-        ->GetList()
-        .push_back(std::move(key_info));
+        ->Append(std::move(key_info));
     return request_options;
   }
 
@@ -597,8 +595,9 @@ TEST_F(CreditCardFIDOAuthenticatorTest, Register_NewCardAuthorization) {
   EXPECT_TRUE(fido_authenticator_->IsUserOptedIn());
 
   fido_authenticator_->Authorize(
-      kTestAuthToken, GetTestRequestOptions(kTestChallenge, kTestRelyingPartyId,
-                                            kTestCredentialId));
+      requester_->GetWeakPtr(), kTestAuthToken,
+      GetTestRequestOptions(kTestChallenge, kTestRelyingPartyId,
+                            kTestCredentialId));
   EXPECT_EQ(CreditCardFIDOAuthenticator::Flow::FOLLOWUP_AFTER_CVC_AUTH_FLOW,
             fido_authenticator_->current_flow());
 

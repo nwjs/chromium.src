@@ -1,6 +1,3 @@
-EVENT(fullscreenchange)
-END OF TEST
-
 {
   "layers": [
     {

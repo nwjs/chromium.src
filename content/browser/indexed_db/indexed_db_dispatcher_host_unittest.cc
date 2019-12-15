@@ -11,20 +11,22 @@
 #include "base/memory/ref_counted.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
-#include "base/strings/utf_offset_string_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/test/bind_test_util.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/mock_callback.h"
 #include "base/test/test_simple_task_runner.h"
 #include "base/threading/thread.h"
 #include "base/time/default_clock.h"
 #include "build/build_config.h"
+#include "content/browser/blob_storage/chrome_blob_storage_context.h"
 #include "content/browser/indexed_db/indexed_db_callbacks.h"
 #include "content/browser/indexed_db/indexed_db_context_impl.h"
 #include "content/browser/indexed_db/indexed_db_database_callbacks.h"
 #include "content/browser/indexed_db/indexed_db_factory.h"
+#include "content/browser/indexed_db/indexed_db_leveldb_env.h"
 #include "content/browser/indexed_db/indexed_db_pending_connection.h"
-#include "content/browser/indexed_db/leveldb/leveldb_env.h"
 #include "content/browser/indexed_db/mock_mojo_indexed_db_callbacks.h"
 #include "content/browser/indexed_db/mock_mojo_indexed_db_database_callbacks.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -41,9 +43,9 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom.h"
-#include "third_party/blink/public/platform/modules/indexeddb/web_idb_database_exception.h"
 #include "url/origin.h"
 
+using base::test::RunClosure;
 using blink::IndexedDBDatabaseMetadata;
 using blink::IndexedDBIndexKeys;
 using blink::IndexedDBKey;
@@ -66,10 +68,6 @@ ACTION_TEMPLATE(MoveArg,
   *out = std::move(*::testing::get<k>(args));
 }
 
-ACTION_P(RunClosure, closure) {
-  closure.Run();
-}
-
 ACTION_P(QuitLoop, run_loop) {
   run_loop->Quit();
 }
@@ -84,8 +82,6 @@ MATCHER_P(IsAssociatedInterfacePtrInfoValid,
 MATCHER_P(MatchesIDBKey, key, "") {
   return arg.Equals(key);
 }
-
-typedef void (base::Closure::*ClosureRunFcn)() const &;
 
 static const char kDatabaseName[] = "db";
 static const char kOrigin[] = "https://www.example.com";
@@ -142,11 +138,11 @@ struct TestDatabaseConnection {
   DISALLOW_COPY_AND_ASSIGN(TestDatabaseConnection);
 };
 
-void StatusCallback(const base::Closure& callback,
+void StatusCallback(base::OnceClosure callback,
                     blink::mojom::IDBStatus* status_out,
                     blink::mojom::IDBStatus status) {
   *status_out = status;
-  callback.Run();
+  std::move(callback).Run();
 }
 
 class TestIndexedDBObserver : public IndexedDBContextImpl::Observer {
@@ -188,7 +184,7 @@ class IndexedDBDispatcherHostTest : public testing::Test {
         host_(new IndexedDBDispatcherHost(
                   kFakeProcessId,
                   context_impl_,
-                  ChromeBlobStorageContext::GetFor(&browser_context_)),
+                  ChromeBlobStorageContext::GetRemoteFor(&browser_context_)),
               base::OnTaskRunnerDeleter(context_impl_->TaskRunner())) {}
 
   void TearDown() override {
@@ -496,18 +492,18 @@ TEST_F(IndexedDBDispatcherHostTest, DISABLED_PutWithInvalidBlob) {
 
         EXPECT_CALL(
             put_callback,
-            Run(IsCallbackError(blink::kWebIDBDatabaseExceptionUnknownError)))
+            Run(IsCallbackError(blink::mojom::IDBException::kUnknownError)))
             .Times(1)
             .WillOnce(RunClosure(quit_closure2));
 
-        EXPECT_CALL(*connection->connection_callbacks,
-                    Abort(kTransactionId,
-                          blink::kWebIDBDatabaseExceptionUnknownError, _))
+        EXPECT_CALL(
+            *connection->connection_callbacks,
+            Abort(kTransactionId, blink::mojom::IDBException::kUnknownError, _))
             .Times(1)
             .WillOnce(RunClosure(quit_closure2));
 
         EXPECT_CALL(*connection->open_callbacks,
-                    Error(blink::kWebIDBDatabaseExceptionAbortError, _))
+                    Error(blink::mojom::IDBException::kAbortError, _))
             .Times(1)
             .WillOnce(RunClosure(std::move(quit_closure2)));
 
@@ -667,13 +663,13 @@ TEST_F(IndexedDBDispatcherHostTest, CompactDatabaseWhileDoingTransaction) {
       FROM_HERE, base::BindLambdaForTesting([&]() {
         ::testing::InSequence dummy;
 
-        EXPECT_CALL(*connection->connection_callbacks,
-                    Abort(kTransactionId,
-                          blink::kWebIDBDatabaseExceptionUnknownError, _))
+        EXPECT_CALL(
+            *connection->connection_callbacks,
+            Abort(kTransactionId, blink::mojom::IDBException::kUnknownError, _))
             .Times(1)
             .WillOnce(RunClosure(quit_closure2));
         EXPECT_CALL(*connection->open_callbacks,
-                    Error(blink::kWebIDBDatabaseExceptionAbortError, _))
+                    Error(blink::mojom::IDBException::kAbortError, _))
             .Times(1)
             .WillOnce(RunClosure(quit_closure2));
         EXPECT_CALL(*connection->connection_callbacks, ForcedClose())
@@ -743,13 +739,13 @@ TEST_F(IndexedDBDispatcherHostTest, CompactDatabaseWhileUpgrading) {
       FROM_HERE, base::BindLambdaForTesting([&]() {
         ::testing::InSequence dummy;
 
-        EXPECT_CALL(*connection->connection_callbacks,
-                    Abort(kTransactionId,
-                          blink::kWebIDBDatabaseExceptionUnknownError, _))
+        EXPECT_CALL(
+            *connection->connection_callbacks,
+            Abort(kTransactionId, blink::mojom::IDBException::kUnknownError, _))
             .Times(1)
             .WillOnce(RunClosure(quit_closure2));
         EXPECT_CALL(*connection->open_callbacks,
-                    Error(blink::kWebIDBDatabaseExceptionAbortError, _))
+                    Error(blink::mojom::IDBException::kAbortError, _))
             .Times(1)
             .WillOnce(RunClosure(quit_closure2));
         EXPECT_CALL(*connection->connection_callbacks, ForcedClose())
@@ -894,13 +890,13 @@ TEST_F(IndexedDBDispatcherHostTest, AbortTransactionsWhileDoingTransaction) {
       FROM_HERE, base::BindLambdaForTesting([&]() {
         ::testing::InSequence dummy;
 
-        EXPECT_CALL(*connection->connection_callbacks,
-                    Abort(kTransactionId,
-                          blink::kWebIDBDatabaseExceptionUnknownError, _))
+        EXPECT_CALL(
+            *connection->connection_callbacks,
+            Abort(kTransactionId, blink::mojom::IDBException::kUnknownError, _))
             .Times(1)
             .WillOnce(RunClosure(quit_closure2));
         EXPECT_CALL(*connection->open_callbacks,
-                    Error(blink::kWebIDBDatabaseExceptionAbortError, _))
+                    Error(blink::mojom::IDBException::kAbortError, _))
             .Times(1)
             .WillOnce(RunClosure(quit_closure2));
         EXPECT_CALL(*connection->connection_callbacks, ForcedClose())
@@ -971,13 +967,13 @@ TEST_F(IndexedDBDispatcherHostTest, AbortTransactionsWhileUpgrading) {
       FROM_HERE, base::BindLambdaForTesting([&]() {
         ::testing::InSequence dummy;
 
-        EXPECT_CALL(*connection->connection_callbacks,
-                    Abort(kTransactionId,
-                          blink::kWebIDBDatabaseExceptionUnknownError, _))
+        EXPECT_CALL(
+            *connection->connection_callbacks,
+            Abort(kTransactionId, blink::mojom::IDBException::kUnknownError, _))
             .Times(1)
             .WillOnce(RunClosure(quit_closure2));
         EXPECT_CALL(*connection->open_callbacks,
-                    Error(blink::kWebIDBDatabaseExceptionAbortError, _))
+                    Error(blink::mojom::IDBException::kAbortError, _))
             .Times(1)
             .WillOnce(RunClosure(quit_closure2));
         EXPECT_CALL(*connection->connection_callbacks, ForcedClose())
@@ -1052,7 +1048,8 @@ TEST_F(IndexedDBDispatcherHostTest, DISABLED_NotifyIndexedDBListChanged) {
   {
     ::testing::InSequence dummy;
     base::RunLoop loop;
-    base::Closure quit_closure = base::BarrierClosure(2, loop.QuitClosure());
+    base::RepeatingClosure quit_closure =
+        base::BarrierClosure(2, loop.QuitClosure());
 
     EXPECT_CALL(*connection1.connection_callbacks, Complete(kTransactionId1))
         .Times(1)
@@ -1108,7 +1105,8 @@ TEST_F(IndexedDBDispatcherHostTest, DISABLED_NotifyIndexedDBListChanged) {
   {
     ::testing::InSequence dummy;
     base::RunLoop loop;
-    base::Closure quit_closure = base::BarrierClosure(2, loop.QuitClosure());
+    base::RepeatingClosure quit_closure =
+        base::BarrierClosure(2, loop.QuitClosure());
 
     EXPECT_CALL(*connection2.connection_callbacks, Complete(kTransactionId2))
         .Times(1)
@@ -1160,7 +1158,8 @@ TEST_F(IndexedDBDispatcherHostTest, DISABLED_NotifyIndexedDBListChanged) {
   {
     ::testing::InSequence dummy;
     base::RunLoop loop;
-    base::Closure quit_closure = base::BarrierClosure(2, loop.QuitClosure());
+    base::RepeatingClosure quit_closure =
+        base::BarrierClosure(2, loop.QuitClosure());
 
     EXPECT_CALL(*connection3.connection_callbacks, Complete(kTransactionId3))
         .Times(1)

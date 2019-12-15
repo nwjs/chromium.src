@@ -35,6 +35,23 @@ class NET_EXPORT NetworkIsolationKey {
       const NetworkIsolationKey& network_isolation_key);
   NetworkIsolationKey& operator=(NetworkIsolationKey&& network_isolation_key);
 
+  // Creates a transient non-empty NetworkIsolationKey by creating an opaque
+  // origin. This prevents the NetworkIsolationKey from sharing data with other
+  // NetworkIsolationKeys. Data for transient NetworkIsolationKeys is not
+  // persisted to disk.
+  static NetworkIsolationKey CreateTransient();
+
+  // Creates a new key using |top_frame_origin_| and |new_frame_origin|.
+  NetworkIsolationKey CreateWithNewFrameOrigin(
+      const url::Origin& new_frame_origin) const;
+
+  // Intended for temporary use in locations that should be using a non-empty
+  // NetworkIsolationKey(), but are not yet. This both reduces the chance of
+  // accidentally copying the lack of a NIK where one should be used, and
+  // provides a reasonable way of locating callsites that need to have their
+  // NetworkIsolationKey filled in.
+  static NetworkIsolationKey Todo() { return NetworkIsolationKey(); }
+
   // Compare keys for equality, true if all enabled fields are equal.
   bool operator==(const NetworkIsolationKey& other) const {
     return top_frame_origin_ == other.top_frame_origin_ &&
@@ -96,6 +113,8 @@ class NET_EXPORT NetworkIsolationKey {
       WARN_UNUSED_RESULT;
 
  private:
+  void ReplaceOriginsWithRegistrableDomains();
+
   // Whether or not to use the |frame_origin_| as part of the key.
   bool use_frame_origin_;
 

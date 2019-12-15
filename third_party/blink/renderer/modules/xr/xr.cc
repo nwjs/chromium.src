@@ -313,11 +313,17 @@ XR::PendingRequestSessionQuery::PendingRequestSessionQuery(
       mode_(session_mode),
       required_features_(std::move(required_features)),
       optional_features_(std::move(optional_features)),
-      ukm_source_id_(ukm_source_id) {}
+      ukm_source_id_(ukm_source_id) {
+  ParseSensorRequirement();
+}
 
-void XR::PendingRequestSessionQuery::Resolve(XRSession* session) {
+void XR::PendingRequestSessionQuery::Resolve(
+    XRSession* session,
+    mojo::PendingRemote<device::mojom::blink::XRSessionMetricsRecorder>
+        metrics_recorder) {
   resolver_->Resolve(session);
-  ReportRequestSessionResult(SessionRequestStatus::kSuccess);
+  ReportRequestSessionResult(SessionRequestStatus::kSuccess, session,
+                             std::move(metrics_recorder));
 }
 
 void XR::PendingRequestSessionQuery::RejectWithDOMException(
@@ -365,17 +371,69 @@ void XR::PendingRequestSessionQuery::RejectWithTypeError(
   ReportRequestSessionResult(SessionRequestStatus::kOtherError);
 }
 
+device::mojom::XRSessionFeatureRequestStatus
+XR::PendingRequestSessionQuery::GetFeatureRequestStatus(
+    device::mojom::XRSessionFeature feature,
+    const XRSession* session) const {
+  using device::mojom::XRSessionFeatureRequestStatus;
+
+  if (RequiredFeatures().Contains(feature)) {
+    // In the case of required features, accepted/rejected state is
+    // the same as the entire session.
+    return XRSessionFeatureRequestStatus::kRequired;
+  }
+
+  if (OptionalFeatures().Contains(feature)) {
+    if (!session || !session->IsFeatureEnabled(feature)) {
+      return XRSessionFeatureRequestStatus::kOptionalRejected;
+    }
+
+    return XRSessionFeatureRequestStatus::kOptionalAccepted;
+  }
+
+  return XRSessionFeatureRequestStatus::kNotRequested;
+}
+
 void XR::PendingRequestSessionQuery::ReportRequestSessionResult(
-    SessionRequestStatus status) {
+    SessionRequestStatus status,
+    XRSession* session,
+    mojo::PendingRemote<device::mojom::blink::XRSessionMetricsRecorder>
+        metrics_recorder) {
+  using device::mojom::XRSessionFeature;
+
   LocalFrame* frame = resolver_->GetFrame();
   Document* doc = frame ? frame->GetDocument() : nullptr;
   if (!doc)
     return;
 
+  auto feature_request_viewer =
+      GetFeatureRequestStatus(XRSessionFeature::REF_SPACE_VIEWER, session);
+  auto feature_request_local =
+      GetFeatureRequestStatus(XRSessionFeature::REF_SPACE_LOCAL, session);
+  auto feature_request_local_floor =
+      GetFeatureRequestStatus(XRSessionFeature::REF_SPACE_LOCAL_FLOOR, session);
+  auto feature_request_bounded_floor = GetFeatureRequestStatus(
+      XRSessionFeature::REF_SPACE_BOUNDED_FLOOR, session);
+  auto feature_request_unbounded =
+      GetFeatureRequestStatus(XRSessionFeature::REF_SPACE_UNBOUNDED, session);
+
   ukm::builders::XR_WebXR_SessionRequest(ukm_source_id_)
       .SetMode(static_cast<int64_t>(mode_))
       .SetStatus(static_cast<int64_t>(status))
+      .SetFeature_Viewer(static_cast<int64_t>(feature_request_viewer))
+      .SetFeature_Local(static_cast<int64_t>(feature_request_local))
+      .SetFeature_LocalFloor(static_cast<int64_t>(feature_request_local_floor))
+      .SetFeature_BoundedFloor(
+          static_cast<int64_t>(feature_request_bounded_floor))
+      .SetFeature_Unbounded(static_cast<int64_t>(feature_request_unbounded))
       .Record(doc->UkmRecorder());
+
+  if (session && metrics_recorder) {
+    mojo::Remote<device::mojom::blink::XRSessionMetricsRecorder> recorder(
+        std::move(metrics_recorder));
+    session->SetMetricsReporter(
+        std::make_unique<XRSession::MetricsReporter>(std::move(recorder)));
+  }
 }
 
 XRSession::SessionMode XR::PendingRequestSessionQuery::mode() const {
@@ -402,6 +460,33 @@ bool XR::PendingRequestSessionQuery::InvalidOptionalFeatures() const {
 
 ScriptState* XR::PendingRequestSessionQuery::GetScriptState() const {
   return resolver_->GetScriptState();
+}
+
+void XR::PendingRequestSessionQuery::ParseSensorRequirement() {
+  // All modes other than inline require sensors.
+  if (mode_ != XRSession::kModeInline) {
+    sensor_requirement_ = SensorRequirement::kRequired;
+    return;
+  }
+
+  // If any required features require sensors, then sensors are required.
+  for (const auto& feature : RequiredFeatures()) {
+    if (feature != device::mojom::XRSessionFeature::REF_SPACE_VIEWER) {
+      sensor_requirement_ = SensorRequirement::kRequired;
+      return;
+    }
+  }
+
+  // If any optional features require sensors, then sensors are optional.
+  for (const auto& feature : OptionalFeatures()) {
+    if (feature != device::mojom::XRSessionFeature::REF_SPACE_VIEWER) {
+      sensor_requirement_ = SensorRequirement::kOptional;
+      return;
+    }
+  }
+
+  // By this point any situation that requires sensors should have returned.
+  sensor_requirement_ = kNone;
 }
 
 void XR::PendingRequestSessionQuery::Trace(blink::Visitor* visitor) {
@@ -433,8 +518,8 @@ XR::XR(LocalFrame& frame, int64_t ukm_source_id)
   frame.GetBrowserInterfaceBroker().GetInterface(
       service_.BindNewPipeAndPassReceiver(
           frame.GetTaskRunner(TaskType::kMiscPlatformAPI)));
-  service_.set_disconnect_handler(
-      WTF::Bind(&XR::Dispose, WrapWeakPersistent(this)));
+  service_.set_disconnect_handler(WTF::Bind(
+      &XR::Dispose, WrapWeakPersistent(this), DisposeType::kDisconnected));
 }
 
 void XR::FocusedFrameChanged() {
@@ -478,9 +563,14 @@ void XR::AddEnvironmentProviderErrorHandler(
   environment_provider_error_callbacks_.push_back(std::move(callback));
 }
 
-void XR::ExitPresent() {
-  DCHECK(service_);
-  service_->ExitPresent();
+void XR::ExitPresent(base::OnceClosure on_exited) {
+  DVLOG(1) << __func__;
+  if (service_) {
+    service_->ExitPresent(std::move(on_exited));
+  } else {
+    // The service was already shut down, run the callback immediately.
+    std::move(on_exited).Run();
+  }
 
   // If the document was potentially being shown in a DOM overlay via
   // fullscreened elements, make sure to clear any fullscreen states on exiting
@@ -565,9 +655,7 @@ ScriptPromise XR::InternalIsSessionSupported(ScriptState* script_state,
 
   if (session_mode == XRSession::kModeImmersiveAR &&
       !RuntimeEnabledFeatures::WebXRARModuleEnabled(doc)) {
-    query->RejectWithTypeError(
-        String::Format(kImmersiveArModeNotValid, "supportsSession"),
-        &exception_state);
+    query->Resolve(false);
     return promise;
   }
 
@@ -608,6 +696,7 @@ void XR::RequestImmersiveSession(LocalFrame* frame,
                                  Document* doc,
                                  PendingRequestSessionQuery* query,
                                  ExceptionState* exception_state) {
+  DVLOG(2) << __func__;
   // Log an immersive session request if we haven't already
   if (!did_log_request_immersive_session_) {
     ukm::builders::XR_WebXR(GetSourceId())
@@ -663,6 +752,7 @@ void XR::RequestImmersiveSession(LocalFrame* frame,
 void XR::RequestInlineSession(LocalFrame* frame,
                               PendingRequestSessionQuery* query,
                               ExceptionState* exception_state) {
+  DVLOG(2) << __func__;
   // Make sure the inline session request was allowed
   auto* inline_session_request_error =
       CheckInlineSessionRequestAllowed(frame, *query);
@@ -672,21 +762,27 @@ void XR::RequestInlineSession(LocalFrame* frame,
     return;
   }
 
-  if (!service_) {
-    // If we don't have a service by the time we reach this call, there is no XR
-    // hardware. Create a sensorless session if possible.
-    if (CanCreateSensorlessInlineSession(query)) {
-      XRSession* session = CreateSensorlessInlineSession();
-      query->Resolve(session);
-    } else {
-      query->RejectWithDOMException(DOMExceptionCode::kNotSupportedError,
-                                    kSessionNotSupported, exception_state);
-    }
+  // Reject session if any of the required features were invalid.
+  if (query->InvalidRequiredFeatures()) {
+    query->RejectWithDOMException(DOMExceptionCode::kNotSupportedError,
+                                  kSessionNotSupported, exception_state);
     return;
   }
 
-  // Reject session if any of the required features were invalid.
-  if (query->InvalidRequiredFeatures()) {
+  auto sensor_requirement = query->GetSensorRequirement();
+
+  // If no sensors are requested, or if we don't have a service and sensors are
+  // not required, then just create a sensorless session.
+  if (sensor_requirement == SensorRequirement::kNone ||
+      (!service_ && sensor_requirement != SensorRequirement::kRequired)) {
+    query->Resolve(CreateSensorlessInlineSession());
+    return;
+  }
+
+  // If we don't have a service, then we don't have any WebXR hardware.
+  // If we didn't already create a sensorless session, we can't create a session
+  // without hardware, so just reject now.
+  if (!service_) {
     query->RejectWithDOMException(DOMExceptionCode::kNotSupportedError,
                                   kSessionNotSupported, exception_state);
     return;
@@ -750,6 +846,7 @@ ScriptPromise XR::requestSession(ScriptState* script_state,
                                  const String& mode,
                                  XRSessionInit* session_init,
                                  ExceptionState& exception_state) {
+  DVLOG(2) << __func__;
   // TODO(https://crbug.com/968622): Make sure we don't forget to call
   // metrics-related methods when the promise gets resolved/rejected.
   LocalFrame* frame = GetFrame();
@@ -875,15 +972,12 @@ void XR::OnRequestSessionReturned(
     has_outstanding_immersive_request_ = false;
   }
 
-  device::mojom::blink::XRSessionPtr session_ptr =
-      result->is_session() ? std::move(result->get_session()) : nullptr;
-
   // TODO(https://crbug.com/872316) Improve the error messaging to indicate why
   // a request failed.
-  if (!session_ptr) {
+  if (!result->is_success()) {
     // |service_| does not support the requested mode. Attempt to create a
     // sensorless session.
-    if (CanCreateSensorlessInlineSession(query)) {
+    if (query->GetSensorRequirement() != SensorRequirement::kRequired) {
       XRSession* session = CreateSensorlessInlineSession();
       query->Resolve(session);
       return;
@@ -898,19 +992,15 @@ void XR::OnRequestSessionReturned(
     return;
   }
 
+  auto session_ptr = std::move(result->get_success()->session);
+  auto metrics_recorder = std::move(result->get_success()->metrics_recorder);
+
   bool environment_integration = query->mode() == XRSession::kModeImmersiveAR;
 
   // immersive sessions must supply display info.
   DCHECK(session_ptr->display_info);
-  // If the session supports environment integration, ensure the device does
-  // as well.
-  DCHECK(!environment_integration || session_ptr->display_info->capabilities
-                                         ->can_provide_environment_integration);
   DVLOG(2) << __func__
-           << ": environment_integration=" << environment_integration
-           << "can_provide_environment_integration="
-           << session_ptr->display_info->capabilities
-                  ->can_provide_environment_integration;
+           << ": environment_integration=" << environment_integration;
 
   // TODO(https://crbug.com/944936): The blend mode could be "additive".
   XRSession::EnvironmentBlendMode blend_mode = XRSession::kBlendModeOpaque;
@@ -996,7 +1086,7 @@ void XR::OnRequestSessionReturned(
   UseCounter::Count(ExecutionContext::From(query->GetScriptState()),
                     WebFeature::kWebXrSessionCreated);
 
-  query->Resolve(session);
+  query->Resolve(session, std::move(metrics_recorder));
 }
 
 void XR::ReportImmersiveSupported(bool supported) {
@@ -1029,7 +1119,7 @@ void XR::AddedEventListener(const AtomicString& event_type,
 }
 
 void XR::ContextDestroyed(ExecutionContext*) {
-  Dispose();
+  Dispose(DisposeType::kContextDestroyed);
 }
 
 // A session is always created and returned.
@@ -1051,23 +1141,6 @@ XRSession* XR::CreateSession(
   return session;
 }
 
-bool XR::CanCreateSensorlessInlineSession(
-    const PendingRequestSessionQuery* query) const {
-  // Sensorless can only support an inline mode
-  if (query->mode() != XRSession::kModeInline)
-    return false;
-
-  // Sensorless can only be supported if the only required feature is the
-  // viewer reference space.
-  for (const auto& feature : query->RequiredFeatures()) {
-    if (feature != device::mojom::XRSessionFeature::REF_SPACE_VIEWER) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 XRSession* XR::CreateSensorlessInlineSession() {
   // TODO(https://crbug.com/944936): The blend mode could be "additive".
   XRSession::EnvironmentBlendMode blend_mode = XRSession::kBlendModeOpaque;
@@ -1079,7 +1152,16 @@ XRSession* XR::CreateSensorlessInlineSession() {
                        true /* sensorless_session */);
 }
 
-void XR::Dispose() {
+void XR::Dispose(DisposeType dispose_type) {
+  switch (dispose_type) {
+    case DisposeType::kContextDestroyed:
+      is_context_destroyed_ = true;
+      break;
+    case DisposeType::kDisconnected:
+      // nothing to do
+      break;
+  }
+
   // If the document context was destroyed, shut down the client connection
   // and never call the mojo service again.
   service_.reset();

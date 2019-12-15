@@ -129,7 +129,6 @@ CPP_INTEGER_CONVERSION_RULES = {
     'unsigned long long': 'uint64_t',
 }
 CPP_SPECIAL_CONVERSION_RULES = {
-    'Date': 'double',
     'Dictionary': 'Dictionary',
     'EventHandler': 'EventListener*',
     'Promise': 'ScriptPromise',
@@ -541,7 +540,8 @@ def impl_forward_declaration_name(idl_type):
     if element_type:
         return element_type.impl_forward_declaration_name
 
-    if idl_type.is_wrapper_type and not idl_type.is_typed_array:
+    if ((idl_type.is_wrapper_type and not idl_type.is_typed_array)
+            or idl_type.is_dictionary):
         return idl_type.implemented_as
     return None
 
@@ -581,7 +581,7 @@ def v8_conversion_needs_exception_state(idl_type):
             idl_type.is_enum or
             idl_type.is_dictionary or
             idl_type.is_array_buffer_view_or_typed_array or
-            idl_type.name in ('Boolean', 'ByteString', 'Date', 'Dictionary', 'USVString', 'SerializedScriptValue'))
+            idl_type.name in ('Boolean', 'ByteString', 'Dictionary', 'USVString', 'SerializedScriptValue'))
 
 IdlType.v8_conversion_needs_exception_state = property(v8_conversion_needs_exception_state)
 IdlArrayOrSequenceType.v8_conversion_needs_exception_state = True
@@ -592,7 +592,6 @@ IdlUnionType.v8_conversion_needs_exception_state = True
 TRIVIAL_CONVERSIONS = frozenset([
     'any',
     'boolean',
-    'Date',
     'Dictionary',
     'NodeFilter',
     'XPathNSResolver',
@@ -714,7 +713,8 @@ def v8_value_to_cpp_value(idl_type, extended_attributes, v8_value, variable_name
 
 # FIXME: this function should be refactored, as this takes too many flags.
 def v8_value_to_local_cpp_value(idl_type, extended_attributes, v8_value, variable_name, declare_variable=True,
-                                isolate='info.GetIsolate()', bailout_return_value=None, use_exception_state=False):
+                                isolate='info.GetIsolate()', bailout_return_value=None, use_exception_state=False,
+                                code_generation_target=None):
     """Returns an expression that converts a V8 value to a C++ value and stores it as a local value."""
 
     this_cpp_type = idl_type.cpp_type_args(extended_attributes=extended_attributes, raw_type=True)
@@ -763,6 +763,13 @@ def v8_value_to_local_cpp_value(idl_type, extended_attributes, v8_value, variabl
 
     # Types that don't need error handling, and simply assign a value to the
     # local variable.
+
+    if (idl_type.is_explicit_nullable
+            and code_generation_target == 'attribute_set'):
+        assign_expression = (
+            "is_null "
+            "? {cpp_type}() "
+            ": {expr}".format(cpp_type=this_cpp_type, expr=assign_expression))
 
     return {
         'assign_expression': assign_expression,
@@ -907,7 +914,6 @@ V8_SET_RETURN_VALUE = {
     # and then use general V8SetReturnValue.
     'sequence': 'V8SetReturnValue(info, {cpp_value})',
     'FrozenArray': 'V8SetReturnValue(info, {cpp_value})',
-    'Date': 'V8SetReturnValue(info, {cpp_value})',
     'EventHandler': 'V8SetReturnValue(info, {cpp_value})',
     'NodeFilter': 'V8SetReturnValue(info, {cpp_value})',
     'ScriptValue': 'V8SetReturnValue(info, {cpp_value})',
@@ -970,7 +976,7 @@ def v8_set_return_value(idl_type, cpp_value, extended_attributes=None, script_wr
     idl_type, cpp_value = preprocess_idl_type_and_value(idl_type, cpp_value, extended_attributes)
     this_v8_conversion_type = idl_type.v8_conversion_type(extended_attributes)
     # SetReturn-specific overrides
-    if this_v8_conversion_type in ('Date', 'EventHandler', 'NodeFilter', 'ScriptValue',
+    if this_v8_conversion_type in ('EventHandler', 'NodeFilter', 'ScriptValue',
                                    'SerializedScriptValue', 'sequence', 'FrozenArray'):
         # Convert value to V8 and then use general V8SetReturnValue
         cpp_value = idl_type.cpp_value_to_v8_value(cpp_value, extended_attributes=extended_attributes)
@@ -989,7 +995,6 @@ IdlTypeBase.v8_set_return_value = v8_set_return_value
 
 CPP_VALUE_TO_V8_VALUE = {
     # Built-in types
-    'Date': 'v8::Date::New({isolate}->GetCurrentContext(), {cpp_value})',
     'DOMString': 'V8String({isolate}, {cpp_value})',
     'ByteString': 'V8String({isolate}, {cpp_value})',
     'USVString': 'V8String({isolate}, {cpp_value})',

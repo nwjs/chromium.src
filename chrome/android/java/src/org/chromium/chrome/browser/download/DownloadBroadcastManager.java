@@ -26,20 +26,20 @@ import android.os.Handler;
 import android.os.IBinder;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.google.ipc.invalidation.util.Preconditions;
 
 import org.chromium.base.ContentUriUtils;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.download.DownloadNotificationUmaHelper.UmaDownloadResumption;
 import org.chromium.chrome.browser.download.items.OfflineContentAggregatorNotificationBridgeUiFactory;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.init.BrowserParts;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.init.EmptyBrowserParts;
-import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.components.offline_items_collection.ContentId;
 import org.chromium.components.offline_items_collection.LegacyHelpers;
@@ -335,7 +335,7 @@ public class DownloadBroadcastManager extends Service {
                 intent, DownloadNotificationService.EXTRA_DOWNLOAD_FILE_PATH);
         if (ContentUriUtils.isContentUri(downloadFilePath)) {
             // On Q+, content URI is being used and there is no download ID.
-            openDownloadWithId(context, intent, DownloadItem.INVALID_DOWNLOAD_ID, contentId);
+            openDownloadWithId(context, intent, DownloadConstants.INVALID_DOWNLOAD_ID, contentId);
         } else {
             long[] ids =
                     intent.getLongArrayExtra(DownloadManager.EXTRA_NOTIFICATION_CLICK_DOWNLOAD_IDS);
@@ -360,7 +360,8 @@ public class DownloadBroadcastManager extends Service {
      * Called to open a particular download item with the given ID.
      * @param context Context of the receiver.
      * @param intent Intent from the notification.
-     * @param id ID from the Android DownloadManager, or DownloadItem.INVALID_DOWNLOAD_ID on Q+.
+     * @param id ID from the Android DownloadManager, or DownloadConstants.INVALID_DOWNLOAD_ID on
+     *         Q+.
      * @param contentId Content ID of the download.
      */
     private void openDownloadWithId(Context context, Intent intent, long id, ContentId contentId) {

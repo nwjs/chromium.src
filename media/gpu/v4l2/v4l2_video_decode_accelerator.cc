@@ -32,7 +32,6 @@
 #include "media/base/video_frame_layout.h"
 #include "media/base/video_types.h"
 #include "media/gpu/chromeos/fourcc.h"
-#include "media/gpu/image_processor_factory.h"
 #include "media/gpu/macros.h"
 #include "media/gpu/v4l2/v4l2_image_processor.h"
 #include "media/gpu/v4l2/v4l2_stateful_workaround.h"
@@ -654,7 +653,16 @@ void V4L2VideoDecodeAccelerator::ImportBufferForPictureTask(
     NOTIFY_ERROR(INVALID_ARGUMENT);
     return;
   }
+
   int adjusted_coded_width = stride * 8 / plane_horiz_bits_per_pixel;
+  // If this is the first picture, then adjust the EGL width.
+  // Otherwise just check that it remains the same.
+  if (decoder_state_ == kAwaitingPictureBuffers) {
+    DCHECK_GE(adjusted_coded_width, egl_image_size_.width());
+    egl_image_size_.set_width(adjusted_coded_width);
+  }
+  DCHECK_EQ(egl_image_size_.width(), adjusted_coded_width);
+
   if (image_processor_device_ && !image_processor_) {
     DCHECK_EQ(kAwaitingPictureBuffers, decoder_state_);
     // This is the first buffer import. Create the image processor and change
@@ -663,12 +671,9 @@ void V4L2VideoDecodeAccelerator::ImportBufferForPictureTask(
     // width to create the image processor.
     DVLOGF(3) << "Original egl_image_size=" << egl_image_size_.ToString()
               << ", adjusted coded width=" << adjusted_coded_width;
-    DCHECK_GE(adjusted_coded_width, egl_image_size_.width());
-    egl_image_size_.set_width(adjusted_coded_width);
     if (!CreateImageProcessor())
       return;
   }
-  DCHECK_EQ(egl_image_size_.width(), adjusted_coded_width);
 
   if (reset_pending_) {
     FinishReset();
@@ -684,8 +689,8 @@ void V4L2VideoDecodeAccelerator::ImportBufferForPictureTask(
     DCHECK(!iter->output_frame);
 
     auto layout = VideoFrameLayout::Create(
-        Fourcc::FromV4L2PixFmt(output_format_fourcc_).ToVideoPixelFormat(),
-        coded_size_);
+        Fourcc::FromV4L2PixFmt(egl_image_format_fourcc_).ToVideoPixelFormat(),
+        egl_image_size_);
     if (!layout) {
       VLOGF(1) << "Cannot create layout!";
       NOTIFY_ERROR(INVALID_ARGUMENT);
@@ -2401,6 +2406,7 @@ bool V4L2VideoDecodeAccelerator::CreateImageProcessor() {
       output_format_fourcc_, egl_image_format_fourcc_, coded_size_,
       egl_image_size_, visible_size_, output_buffer_map_.size(),
       image_processor_device_, image_processor_output_mode,
+      decoder_thread_.task_runner(),
       // Unretained(this) is safe for ErrorCB because |decoder_thread_| is owned
       // by this V4L2VideoDecodeAccelerator and |this| must be valid when
       // ErrorCB is executed.

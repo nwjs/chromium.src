@@ -60,13 +60,13 @@
 #include "chrome/browser/extensions/install_verifier.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/infobars/infobar_service.h"
-#include "chrome/browser/lookalikes/safety_tips/safety_tip_test_utils.h"
 #include "chrome/browser/metrics/subprocess_metrics_provider.h"
 #include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_browsertest_util.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
+#include "chrome/browser/reputation/safety_tip_test_utils.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -833,8 +833,7 @@ class DownloadTest : public InProcessBrowserTest {
 
     // TODO(ahendrickson) -- |expected_title_in_progress| and
     // |expected_title_finished| need to be checked.
-    base::FilePath filename;
-    net::FileURLToFilePath(url, &filename);
+    base::FilePath filename = base::FilePath::FromUTF8Unsafe(url.path());
     base::string16 expected_title_in_progress(
         base::ASCIIToUTF16(partial_indication) + filename.LossyDisplayName());
     base::string16 expected_title_finished(
@@ -870,10 +869,8 @@ class DownloadTest : public InProcessBrowserTest {
 
     // TODO(ahendrickson): check download status text after downloading.
 
-    base::FilePath basefilename(filename.BaseName());
-    net::FileURLToFilePath(url, &filename);
     base::FilePath download_path =
-        GetDownloadDirectory(browser).Append(basefilename);
+        GetDownloadDirectory(browser).Append(filename.BaseName());
 
     bool downloaded_path_exists = base::PathExists(download_path);
     EXPECT_TRUE(downloaded_path_exists);
@@ -1135,6 +1132,7 @@ class DownloadTest : public InProcessBrowserTest {
     base::FilePath destination_folder = GetDownloadDirectory(browser());
     DVLOG(1) << " " << __FUNCTION__ << "()"
              << " folder = '" << destination_folder.value() << "'";
+    base::ScopedAllowBlockingForTesting allow_blocking;
     base::FilePermissionRestorer permission_restorer(destination_folder);
     EXPECT_TRUE(base::MakeFileUnwritable(destination_folder));
 
@@ -2613,7 +2611,15 @@ class DownloadTestWithHistogramTester : public DownloadTest {
   std::unique_ptr<URLLoaderInterceptor> url_loader_interceptor_;
 };
 
-IN_PROC_BROWSER_TEST_F(DownloadTestWithHistogramTester, SavePageNonHTMLViaGet) {
+// Flaky on Linux and Windows. https://crbug.com/1028371
+#if defined(OS_LINUX) || defined(OS_WIN)
+#define MAYBE_SavePageNonHTMLViaGet DISABLED_SavePageNonHTMLViaGet
+#else
+#define MAYBE_SavePageNonHTMLViaGet SavePageNonHTMLViaGet
+#endif
+
+IN_PROC_BROWSER_TEST_F(DownloadTestWithHistogramTester,
+                       MAYBE_SavePageNonHTMLViaGet) {
   embedded_test_server()->ServeFilesFromDirectory(GetTestDataDirectory());
   ASSERT_TRUE(embedded_test_server()->Start());
   EnableFileChooser(true);
@@ -2654,7 +2660,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTestWithHistogramTester, SavePageNonHTMLViaGet) {
           DownloadManagerForBrowser(browser()), 1,
           content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_FAIL));
   content::ContextMenuParams context_menu_params;
-  context_menu_params.media_type = blink::WebContextMenuData::kMediaTypeImage;
+  context_menu_params.media_type = blink::ContextMenuDataMediaType::kImage;
   context_menu_params.src_url = url;
   context_menu_params.page_url = url;
   TestRenderViewContextMenu menu(
@@ -2721,7 +2727,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, MAYBE_SaveLargeImage) {
           DownloadManagerForBrowser(browser()), 1,
           content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_FAIL));
   content::ContextMenuParams context_menu_params;
-  context_menu_params.media_type = blink::WebContextMenuData::kMediaTypeImage;
+  context_menu_params.media_type = blink::ContextMenuDataMediaType::kImage;
   context_menu_params.src_url = GURL(data_url);
   context_menu_params.page_url = url;
   TestRenderViewContextMenu menu(
@@ -2825,7 +2831,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SavePageNonHTMLViaPost) {
           DownloadManagerForBrowser(browser()), 1,
           content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_FAIL));
   content::ContextMenuParams context_menu_params;
-  context_menu_params.media_type = blink::WebContextMenuData::kMediaTypeImage;
+  context_menu_params.media_type = blink::ContextMenuDataMediaType::kImage;
   context_menu_params.src_url = jpeg_url;
   context_menu_params.page_url = jpeg_url;
   TestRenderViewContextMenu menu(web_contents->GetMainFrame(),
@@ -3323,7 +3329,7 @@ IN_PROC_BROWSER_TEST_P(DownloadReferrerPolicyTest,
           DownloadManagerForBrowser(browser()), 1,
           content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_FAIL));
   content::ContextMenuParams context_menu_params;
-  context_menu_params.media_type = blink::WebContextMenuData::kMediaTypeImage;
+  context_menu_params.media_type = blink::ContextMenuDataMediaType::kImage;
   context_menu_params.page_url = url;
   context_menu_params.src_url = img_url;
   TestRenderViewContextMenu menu(
@@ -4117,6 +4123,49 @@ IN_PROC_BROWSER_TEST_F(DownloadWakeLockTest, WakeLockAcquireAndCancel) {
   EXPECT_EQ(DownloadItem::CANCELLED, download_item->GetState());
   EXPECT_EQ(0, GetActiveWakeLocks(
                    device::mojom::WakeLockType::kPreventAppSuspension));
+}
+
+// Downloading a data URL that's bigger than url::kMaxURLChars should work.
+IN_PROC_BROWSER_TEST_F(DownloadTest, DownloadLargeDataURL) {
+  embedded_test_server()->ServeFilesFromDirectory(GetTestDataDirectory());
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  auto completion_observer =
+      std::make_unique<content::DownloadTestObserverTerminal>(
+          DownloadManagerForBrowser(browser()), 1,
+          content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_IGNORE);
+
+  // Navigating to large_data_url.html will trigger a download of a data URL
+  // that is larger than 2MB.
+  GURL url = embedded_test_server()->GetURL("/downloads/large_data_url.html");
+  ui_test_utils::NavigateToURL(browser(), url);
+
+  base::FilePath data_file = ui_test_utils::GetTestFilePath(
+      base::FilePath().AppendASCII("downloads"),
+      base::FilePath().AppendASCII("large_image.png"));
+  std::string png_data;
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    CHECK(base::ReadFileToString(data_file, &png_data));
+  }
+
+  completion_observer->WaitForFinished();
+  EXPECT_EQ(
+      1u, completion_observer->NumDownloadsSeenInState(DownloadItem::COMPLETE));
+
+  // Validate that the correct file was downloaded via the context menu.
+  std::vector<DownloadItem*> download_items;
+  GetDownloads(browser(), &download_items);
+  ASSERT_EQ(base::FilePath(FILE_PATH_LITERAL("large.png")),
+            download_items[0]->GetFileNameToReportUser());
+
+  std::string downloaded_data;
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    CHECK(base::ReadFileToString(download_items[0]->GetFullPath(),
+                                 &downloaded_data));
+  }
+  ASSERT_EQ(downloaded_data, png_data);
 }
 
 // Testing the behavior of resuming with only in-progress download manager.

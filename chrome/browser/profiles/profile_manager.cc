@@ -276,8 +276,8 @@ void NukeProfileFromDisk(const base::FilePath& profile_path) {
   // Delete both the profile directory and its corresponding cache.
   base::FilePath cache_path;
   chrome::GetUserCacheDirectory(profile_path, &cache_path);
-  base::DeleteFile(profile_path, true);
-  base::DeleteFile(cache_path, true);
+  base::DeleteFileRecursively(profile_path);
+  base::DeleteFileRecursively(cache_path);
 }
 
 // Called after a deleted profile was checked and cleaned up.
@@ -1270,7 +1270,6 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
   // Create the Previews Service and begin loading opt out history from
   // persistent memory.
   PreviewsServiceFactory::GetForProfile(profile)->Initialize(
-      g_browser_process->optimization_guide_service(), proto_db_provider,
       base::CreateSingleThreadTaskRunner({BrowserThread::UI}),
       profile->GetPath());
 

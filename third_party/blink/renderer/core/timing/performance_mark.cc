@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 #include "third_party/blink/renderer/core/timing/performance_mark.h"
 
+#include "third_party/blink/public/mojom/timing/performance_mark_or_measure.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/serialized_script_value.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -17,7 +18,6 @@
 namespace blink {
 
 PerformanceMark::PerformanceMark(
-    ScriptState* script_state,
     const AtomicString& name,
     double start_time,
     scoped_refptr<SerializedScriptValue> serialized_detail,
@@ -41,9 +41,8 @@ PerformanceMark* PerformanceMark::Create(ScriptState* script_state,
     if (exception_state.HadException())
       return nullptr;
   }
-  return MakeGarbageCollected<PerformanceMark>(script_state, name, start_time,
-                                               std::move(serialized_detail),
-                                               exception_state);
+  return MakeGarbageCollected<PerformanceMark>(
+      name, start_time, std::move(serialized_detail), exception_state);
 }
 
 // static
@@ -76,6 +75,14 @@ AtomicString PerformanceMark::entryType() const {
 
 PerformanceEntryType PerformanceMark::EntryTypeEnum() const {
   return PerformanceEntry::EntryType::kMark;
+}
+
+mojom::blink::PerformanceMarkOrMeasurePtr
+PerformanceMark::ToMojoPerformanceMarkOrMeasure() {
+  auto mojo_performance_mark_or_measure =
+      PerformanceEntry::ToMojoPerformanceMarkOrMeasure();
+  mojo_performance_mark_or_measure->detail = serialized_detail_->GetWireData();
+  return mojo_performance_mark_or_measure;
 }
 
 ScriptValue PerformanceMark::detail(ScriptState* script_state) {

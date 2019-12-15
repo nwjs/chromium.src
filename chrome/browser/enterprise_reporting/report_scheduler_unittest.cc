@@ -9,6 +9,7 @@
 #include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "build/build_config.h"
 #include "chrome/browser/enterprise_reporting/prefs.h"
 #include "chrome/browser/enterprise_reporting/request_timer.h"
 #include "chrome/browser/policy/fake_browser_dm_token_storage.h"
@@ -77,9 +78,9 @@ class FakeRequestTimer : public RequestTimer {
 };
 
 ACTION_P(ScheduleGeneratorCallback, request_number) {
-  ReportGenerator::Requests requests;
+  ReportGenerator::ReportRequests requests;
   for (int i = 0; i < request_number; i++)
-    requests.push(std::make_unique<em::ChromeDesktopReportRequest>());
+    requests.push(std::make_unique<ReportGenerator::ReportRequest>());
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::BindOnce(std::move(arg0), std::move(requests)));
 }
@@ -94,12 +95,12 @@ class MockReportUploader : public ReportUploader {
  public:
   MockReportUploader() : ReportUploader(nullptr, 0) {}
   ~MockReportUploader() override = default;
-  void SetRequestAndUpload(Requests requests,
+  void SetRequestAndUpload(ReportRequests requests,
                            ReportCallback callback) override {
     OnSetRequestAndUpload(requests, callback);
   }
   MOCK_METHOD2(OnSetRequestAndUpload,
-               void(Requests& requests, ReportCallback& callback));
+               void(ReportRequests& requests, ReportCallback& callback));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockReportUploader);
@@ -136,9 +137,8 @@ class ReportSchedulerTest : public ::testing::Test {
   }
 
   void CreateScheduler() {
-    scheduler_ = std::make_unique<ReportScheduler>(std::move(client_ptr_),
-                                                   std::move(timer_ptr_),
-                                                   std::move(generator_ptr_));
+    scheduler_ = std::make_unique<ReportScheduler>(
+        client_, std::move(timer_ptr_), std::move(generator_ptr_));
     scheduler_->SetReportUploaderForTesting(std::move(uploader_ptr_));
   }
 
@@ -167,11 +167,30 @@ class ReportSchedulerTest : public ::testing::Test {
     }
   }
 
-  ReportGenerator::Requests CreateRequests(int number) {
-    ReportGenerator::Requests requests;
+  ReportGenerator::ReportRequests CreateRequests(int number) {
+    ReportGenerator::ReportRequests requests;
     for (int i = 0; i < number; i++)
-      requests.push(std::make_unique<em::ChromeDesktopReportRequest>());
+      requests.push(std::make_unique<ReportGenerator::ReportRequest>());
     return requests;
+  }
+
+  // Chrome OS needn't setup registration.
+  void EXPECT_CALL_SetupRegistration() {
+#if defined(OS_CHROMEOS)
+    EXPECT_CALL(*client_, SetupRegistration(_, _, _)).Times(0);
+#else
+    EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _));
+#endif
+  }
+
+  void EXPECT_CALL_SetupRegistrationWithSetDMToken() {
+#if defined(OS_CHROMEOS)
+    EXPECT_CALL(*client_, SetupRegistration(_, _, _)).Times(0);
+#else
+    EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _))
+        .WillOnce(WithArgs<0>(
+            Invoke(client_, &policy::MockCloudPolicyClient::SetDMToken)));
+#endif
   }
 
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -202,6 +221,8 @@ TEST_F(ReportSchedulerTest, NoReportWithoutPolicy) {
   EXPECT_FALSE(timer_->is_running());
 }
 
+// Chrome OS needn't set dm token and client id in the report scheduler.
+#if !defined(OS_CHROMEOS)
 TEST_F(ReportSchedulerTest, NoReportWithoutDMToken) {
   Init(true, "", kClientId);
   CreateScheduler();
@@ -213,9 +234,10 @@ TEST_F(ReportSchedulerTest, NoReportWithoutClientId) {
   CreateScheduler();
   EXPECT_FALSE(timer_->is_running());
 }
+#endif
 
 TEST_F(ReportSchedulerTest, UploadReportSucceeded) {
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _));
+  EXPECT_CALL_SetupRegistration();
   EXPECT_CALL(*generator_, OnGenerate(_))
       .WillOnce(WithArgs<0>(ScheduleGeneratorCallback(1)));
   EXPECT_CALL(*uploader_, OnSetRequestAndUpload(_, _))
@@ -241,7 +263,7 @@ TEST_F(ReportSchedulerTest, UploadReportSucceeded) {
 }
 
 TEST_F(ReportSchedulerTest, UploadReportTransientError) {
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _));
+  EXPECT_CALL_SetupRegistration();
   EXPECT_CALL(*generator_, OnGenerate(_))
       .WillOnce(WithArgs<0>(ScheduleGeneratorCallback(1)));
   EXPECT_CALL(*uploader_, OnSetRequestAndUpload(_, _))
@@ -267,9 +289,7 @@ TEST_F(ReportSchedulerTest, UploadReportTransientError) {
 }
 
 TEST_F(ReportSchedulerTest, UploadReportPersistentError) {
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _))
-      .WillOnce(WithArgs<0>(
-          Invoke(client_, &policy::MockCloudPolicyClient::SetDMToken)));
+  EXPECT_CALL_SetupRegistrationWithSetDMToken();
   EXPECT_CALL(*generator_, OnGenerate(_))
       .WillOnce(WithArgs<0>(ScheduleGeneratorCallback(1)));
   EXPECT_CALL(*uploader_, OnSetRequestAndUpload(_, _))
@@ -300,9 +320,7 @@ TEST_F(ReportSchedulerTest, UploadReportPersistentError) {
 }
 
 TEST_F(ReportSchedulerTest, NoReportGenerate) {
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _))
-      .WillOnce(WithArgs<0>(
-          Invoke(client_, &policy::MockCloudPolicyClient::SetDMToken)));
+  EXPECT_CALL_SetupRegistrationWithSetDMToken();
   EXPECT_CALL(*generator_, OnGenerate(_))
       .WillOnce(WithArgs<0>(ScheduleGeneratorCallback(0)));
   EXPECT_CALL(*uploader_, OnSetRequestAndUpload(_, _)).Times(0);
@@ -335,7 +353,7 @@ TEST_F(ReportSchedulerTest, TimerDelayWithLastUploadTimestamp) {
   int gap = 10;
   SetLastUploadInHour(gap);
 
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _));
+  EXPECT_CALL_SetupRegistration();
 
   CreateScheduler();
   EXPECT_TRUE(timer_->is_running());
@@ -350,7 +368,7 @@ TEST_F(ReportSchedulerTest, TimerDelayWithLastUploadTimestamp) {
 }
 
 TEST_F(ReportSchedulerTest, TimerDelayWithoutLastUploadTimestamp) {
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _));
+  EXPECT_CALL_SetupRegistration();
 
   CreateScheduler();
   EXPECT_TRUE(timer_->is_running());
@@ -364,7 +382,7 @@ TEST_F(ReportSchedulerTest, TimerDelayWithoutLastUploadTimestamp) {
 
 TEST_F(ReportSchedulerTest,
        ReportingIsDisabledWhileNewReportIsScheduledButNotPosted) {
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _));
+  EXPECT_CALL_SetupRegistration();
 
   CreateScheduler();
   EXPECT_TRUE(timer_->is_running());
@@ -380,7 +398,7 @@ TEST_F(ReportSchedulerTest,
 }
 
 TEST_F(ReportSchedulerTest, ReportingIsDisabledWhileNewReportIsPosted) {
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _));
+  EXPECT_CALL_SetupRegistration();
   EXPECT_CALL(*generator_, OnGenerate(_))
       .WillOnce(WithArgs<0>(ScheduleGeneratorCallback(1)));
   EXPECT_CALL(*uploader_, OnSetRequestAndUpload(_, _))
@@ -405,7 +423,7 @@ TEST_F(ReportSchedulerTest, ReportingIsDisabledWhileNewReportIsPosted) {
 }
 
 TEST_F(ReportSchedulerTest, NoStaleProfileMetricsForSystemAndGuestProfile) {
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _));
+  EXPECT_CALL_SetupRegistration();
   CreateScheduler();
   // Does not record for system or guest profile.
   profile_manager_.CreateSystemProfile();
@@ -415,7 +433,7 @@ TEST_F(ReportSchedulerTest, NoStaleProfileMetricsForSystemAndGuestProfile) {
 }
 
 TEST_F(ReportSchedulerTest, NoStaleProfileMetricsBeforeFirstReport) {
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _));
+  EXPECT_CALL_SetupRegistration();
   CreateScheduler();
   profile_manager_.CreateTestingProfile("profile1");
   scheduler_.reset();
@@ -423,7 +441,7 @@ TEST_F(ReportSchedulerTest, NoStaleProfileMetricsBeforeFirstReport) {
 }
 
 TEST_F(ReportSchedulerTest, StaleProfileMetricsForProfileAdded) {
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _));
+  EXPECT_CALL_SetupRegistration();
   EXPECT_CALL(*generator_, OnGenerate(_))
       .WillOnce(WithArgs<0>(ScheduleGeneratorCallback(1)));
   EXPECT_CALL(*uploader_, OnSetRequestAndUpload(_, _))
@@ -440,7 +458,7 @@ TEST_F(ReportSchedulerTest, StaleProfileMetricsForProfileAdded) {
 }
 
 TEST_F(ReportSchedulerTest, StaleProfileMetricsForProfileRemoved) {
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _));
+  EXPECT_CALL_SetupRegistration();
   EXPECT_CALL(*generator_, OnGenerate(_))
       .WillOnce(WithArgs<0>(ScheduleGeneratorCallback(1)));
   EXPECT_CALL(*uploader_, OnSetRequestAndUpload(_, _))
@@ -463,7 +481,7 @@ TEST_F(ReportSchedulerTest, StaleProfileMetricsForProfileRemoved) {
 }
 
 TEST_F(ReportSchedulerTest, StaleProfileMetricsResetAfterNewUpload) {
-  EXPECT_CALL(*client_, SetupRegistration(kDMToken, kClientId, _));
+  EXPECT_CALL_SetupRegistration();
   EXPECT_CALL(*generator_, OnGenerate(_))
       .WillRepeatedly(WithArgs<0>(ScheduleGeneratorCallback(1)));
   EXPECT_CALL(*uploader_, OnSetRequestAndUpload(_, _))

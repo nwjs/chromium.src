@@ -661,7 +661,7 @@ bool ThreadableLoader::RedirectReceived(
           SecurityOrigin::Create(original_url);
       scoped_refptr<const SecurityOrigin> new_origin =
           SecurityOrigin::Create(new_url);
-      if (!original_origin->IsSameSchemeHostPort(new_origin.get()))
+      if (!original_origin->IsSameOriginWith(new_origin.get()))
         security_origin_ = SecurityOrigin::CreateUniqueOpaque();
     }
 
@@ -727,15 +727,6 @@ void ThreadableLoader::DataDownloaded(Resource* resource,
 
   checker_.DataDownloaded();
   client_->DidDownloadData(data_length);
-}
-
-void ThreadableLoader::DidReceiveResourceTiming(
-    Resource* resource,
-    const ResourceTimingInfo& info) {
-  DCHECK(client_);
-  DCHECK_EQ(resource, GetResource());
-
-  client_->DidReceiveResourceTiming(info);
 }
 
 void ThreadableLoader::DidDownloadToBlob(Resource* resource,

@@ -49,11 +49,11 @@ class AX_EXPORT AXNode final {
       ax::mojom::TextAffinity focus_affinity;
     };
 
-    // See AXTree.
+    // See AXTree::GetAXTreeID.
     virtual AXTreeID GetAXTreeID() const = 0;
-    // See AXTree.
+    // See AXTree::GetTableInfo.
     virtual AXTableInfo* GetTableInfo(const AXNode* table_node) const = 0;
-    // See AXTree.
+    // See AXTree::GetFromId.
     virtual AXNode* GetFromId(int32_t id) const = 0;
 
     virtual int32_t GetPosInSet(const AXNode& node,
@@ -371,6 +371,10 @@ class AX_EXPORT AXNode final {
 
   // Returns true if node has ignored state or ignored role.
   bool IsIgnored() const;
+
+  // Returns true if this current node is a list marker or if it's a descendant
+  // of a list marker node. Returns false otherwise.
+  bool IsInListMarker() const;
 
  private:
   // Computes the text offset where each line starts by traversing all child

@@ -99,6 +99,14 @@ void FlushQueue() {
   g_event_queue.Get().clear();
 }
 
+void PostFlushEventQueueTaskIfNecessary() {
+  if (!g_is_queueing_events) {
+    g_is_queueing_events = true;
+    base::OnceCallback<void()> cb = base::BindOnce(&FlushQueue);
+    base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE, std::move(cb));
+  }
+}
+
 }  // namespace
 
 struct ViewAXPlatformNodeDelegate::ChildWidgetsResult {
@@ -164,10 +172,15 @@ void ViewAXPlatformNodeDelegate::NotifyAccessibilityEvent(
       // before the next focus event. It makes sense to delay the entire next
       // synchronous batch of next events so that ordering remains the same.
       // Begin queueing subsequent events and flush queue asynchronously.
-      g_is_queueing_events = true;
-      base::OnceCallback<void()> cb = base::BindOnce(&FlushQueue);
-      base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE, std::move(cb));
+      PostFlushEventQueueTaskIfNecessary();
       break;
+    }
+    case ax::mojom::Event::kLiveRegionChanged: {
+      // Fire after a delay so that screen readers don't wipe it out when
+      // another user-generated event fires simultaneously.
+      PostFlushEventQueueTaskIfNecessary();
+      g_event_queue.Get().emplace_back(event_type, GetUniqueId());
+      return;
     }
     default:
       break;
@@ -178,7 +191,7 @@ void ViewAXPlatformNodeDelegate::NotifyAccessibilityEvent(
 }
 
 #if defined(OS_MACOSX)
-void ViewAXPlatformNodeDelegate::AnnounceText(base::string16& text) {
+void ViewAXPlatformNodeDelegate::AnnounceText(const base::string16& text) {
   ax_platform_node_->AnnounceText(text);
 }
 #endif
@@ -510,7 +523,7 @@ void ViewAXPlatformNodeDelegate::GetViewsInGroupForSet(
             ViewAXPlatformNodeDelegate* ax_delegate =
                 static_cast<ViewAXPlatformNodeDelegate*>(&view_accessibility);
             if (ax_delegate)
-              is_ignored = is_ignored || ui::IsIgnored(ax_delegate->GetData());
+              is_ignored = is_ignored || ax_delegate->GetData().IsIgnored();
             return is_ignored;
           }),
       views_in_group->end());

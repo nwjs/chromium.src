@@ -25,6 +25,7 @@
 #include <memory>
 #include <utility>
 
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/platform/web_client_hints_type.h"
 #include "third_party/blink/public/platform/web_url_request.h"
@@ -64,7 +65,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/memory_cache.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_loading_log.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+#include "third_party/blink/renderer/platform/network/network_state_notifier.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 
@@ -388,10 +389,11 @@ static void ConfigureRequest(
     params.SetFetchImportanceMode(importance_mode);
   }
 
+  auto* html_image_element = DynamicTo<HTMLImageElement>(element);
   if (client_hints_preferences.ShouldSend(
           mojom::WebClientHintsType::kResourceWidth) &&
-      IsHTMLImageElement(element))
-    params.SetResourceWidth(ToHTMLImageElement(element).GetResourceWidth());
+      html_image_element)
+    params.SetResourceWidth(html_image_element->GetResourceWidth());
 }
 
 inline void ImageLoader::DispatchErrorEvent() {
@@ -489,9 +491,9 @@ void ImageLoader::DoUpdateFromElement(
     if (IsA<HTMLPictureElement>(GetElement()->parentNode()) ||
         !GetElement()->FastGetAttribute(html_names::kSrcsetAttr).IsNull()) {
       resource_request.SetRequestContext(mojom::RequestContextType::IMAGE_SET);
-    } else if (IsHTMLObjectElement(GetElement())) {
+    } else if (IsA<HTMLObjectElement>(GetElement())) {
       resource_request.SetRequestContext(mojom::RequestContextType::OBJECT);
-    } else if (IsHTMLEmbedElement(GetElement())) {
+    } else if (IsA<HTMLEmbedElement>(GetElement())) {
       resource_request.SetRequestContext(mojom::RequestContextType::EMBED);
     }
 
@@ -521,7 +523,7 @@ void ImageLoader::DoUpdateFromElement(
     if (update_behavior != kUpdateForcedReload &&
         lazy_image_load_state_ == LazyImageLoadState::kNone) {
       const auto* frame = document.GetFrame();
-      if (auto* html_image = ToHTMLImageElementOrNull(GetElement())) {
+      if (auto* html_image = DynamicTo<HTMLImageElement>(GetElement())) {
         switch (LazyImageHelper::DetermineEligibilityAndTrackVisibilityMetrics(
             *frame, html_image, params.Url())) {
           case LazyImageHelper::Eligibility::kEnabledFullyDeferred:
@@ -548,6 +550,23 @@ void ImageLoader::DoUpdateFromElement(
     if (!was_fully_deferred_ &&
         lazy_image_load_state_ == LazyImageLoadState::kFullImage) {
       params.SetLazyImageAutoReload();
+    }
+
+    // Enable subresource redirect for <img> elements created by parser when
+    // data saver is on. Images created from javascript, fetched via XHR/Fetch
+    // API should not be subresource redirected due to the additional CORB/CORS
+    // handling needed for them.
+    // TODO(rajendrant): Disable subresource redirect when CORS,
+    // content-security-policy does not allow cross-origin accesses.
+    if (auto* html_image = DynamicTo<HTMLImageElement>(GetElement())) {
+      if (base::FeatureList::IsEnabled(blink::features::kSubresourceRedirect) &&
+          html_image->ElementCreatedByParser() &&
+          GetNetworkStateNotifier().SaveDataEnabled()) {
+        auto& resource_request = params.MutableResourceRequest();
+        resource_request.SetPreviewsState(
+            resource_request.GetPreviewsState() |
+            WebURLRequest::kSubresourceRedirectOn);
+      }
     }
 
     if (lazy_image_load_state_ == LazyImageLoadState::kDeferred &&
@@ -732,7 +751,8 @@ bool ImageLoader::ShouldLoadImmediately(const KURL& url) const {
     if (resource && !resource->ErrorOccurred())
       return true;
   }
-  return (IsHTMLObjectElement(element_) || IsHTMLEmbedElement(element_));
+  return (IsA<HTMLObjectElement>(*element_) ||
+          IsA<HTMLEmbedElement>(*element_));
 }
 
 void ImageLoader::ImageChanged(ImageResourceContent* content,
@@ -808,14 +828,15 @@ void ImageLoader::ImageNotifyFinished(ImageResourceContent* resource) {
   // TODO(loonybear): support image policies on other images in addition to
   // HTMLImageElement.
   // crbug.com/930281
+  auto* html_image_element = DynamicTo<HTMLImageElement>(element_.Get());
   if (CheckForUnoptimizedImagePolicy(element_->GetDocument(), image_content_) &&
-      IsHTMLImageElement(element_))
-    ToHTMLImageElement(element_.Get())->SetImagePolicyViolated();
+      html_image_element)
+    html_image_element->SetImagePolicyViolated();
 
   DispatchDecodeRequestsIfComplete();
 
-  if (auto* html_image = ToHTMLImageElementOrNull(GetElement()))
-    LazyImageHelper::RecordMetricsOnLoadFinished(html_image);
+  if (html_image_element)
+    LazyImageHelper::RecordMetricsOnLoadFinished(html_image_element);
 
   if (loading_image_document_) {
     CHECK(!pending_load_event_.IsActive());

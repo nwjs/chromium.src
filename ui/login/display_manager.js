@@ -20,6 +20,7 @@
 /** @const */ var SCREEN_OOBE_DEMO_PREFERENCES = 'demo-preferences';
 /** @const */ var SCREEN_OOBE_KIOSK_ENABLE = 'kiosk-enable';
 /** @const */ var SCREEN_OOBE_AUTO_ENROLLMENT_CHECK = 'auto-enrollment-check';
+/** @const */ var SCREEN_PACKAGED_LICENSE = 'packaged-license';
 /** @const */ var SCREEN_GAIA_SIGNIN = 'gaia-signin';
 /** @const */ var SCREEN_ACCOUNT_PICKER = 'account-picker';
 /** @const */ var SCREEN_ERROR_MESSAGE = 'error-message';
@@ -103,7 +104,8 @@ cr.define('cr.ui.login', function() {
 
   /**
    * Group of screens (screen IDs) where factory-reset screen invocation is
-   * available.
+   * available. Newer screens using Polymer use the attribute
+   * `resetAllowed` in their `ready()` method.
    * @type Array<string>
    * @const
    */
@@ -119,7 +121,6 @@ cr.define('cr.ui.login', function() {
     SCREEN_ERROR_MESSAGE,
     SCREEN_TPM_ERROR,
     SCREEN_PASSWORD_CHANGED,
-    SCREEN_TERMS_OF_SERVICE,
     SCREEN_ARC_TERMS_OF_SERVICE,
     SCREEN_WRONG_HWID,
     SCREEN_CONFIRM_PASSWORD,
@@ -134,7 +135,8 @@ cr.define('cr.ui.login', function() {
 
   /**
    * Group of screens (screen IDs) where enable debuggingscreen invocation is
-   * available.
+   * available. Newer screens using Polymer use the attribute
+   * `enableDebuggingAllowed` in their `ready()` method.
    * @type Array<string>
    * @const
    */
@@ -142,8 +144,7 @@ cr.define('cr.ui.login', function() {
     SCREEN_OOBE_HID_DETECTION,
     SCREEN_OOBE_NETWORK,
     SCREEN_OOBE_EULA,
-    SCREEN_OOBE_UPDATE,
-    SCREEN_TERMS_OF_SERVICE
+    SCREEN_OOBE_UPDATE
   ];
 
   /**
@@ -410,6 +411,7 @@ cr.define('cr.ui.login', function() {
       } else if (name == ACCELERATOR_ENROLLMENT) {
         if (attributes.startEnrollmentAllowed ||
             currentStepId == SCREEN_GAIA_SIGNIN ||
+            currentStepId == SCREEN_PACKAGED_LICENSE ||
             currentStepId == SCREEN_ACCOUNT_PICKER) {
           chrome.send('toggleEnrollmentScreen');
         } else if (attributes.postponeEnrollmentAllowed ||

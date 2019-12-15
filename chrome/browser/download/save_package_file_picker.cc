@@ -134,18 +134,18 @@ SavePackageFilePicker::SavePackageFilePicker(
     const base::FilePath::StringType& default_extension,
     bool can_save_as_complete,
     DownloadPrefs* download_prefs,
-    const content::SavePackagePathPickedCallback& callback)
+    content::SavePackagePathPickedCallback callback)
     : render_process_id_(web_contents->GetMainFrame()->GetProcess()->GetID()),
       can_save_as_complete_(can_save_as_complete),
       download_prefs_(download_prefs),
-      callback_(callback) {
+      callback_(std::move(callback)) {
   base::FilePath suggested_path_copy = suggested_path;
   base::FilePath::StringType default_extension_copy = default_extension;
   int file_type_index = 0;
   ui::SelectFileDialog::FileTypeInfo file_type_info;
 
   file_type_info.allowed_paths =
-      ui::SelectFileDialog::FileTypeInfo::NATIVE_OR_DRIVE_PATH;
+      ui::SelectFileDialog::FileTypeInfo::NATIVE_PATH;
 
   if (can_save_as_complete_) {
     // The option index is not zero-based. Put a dummy entry.
@@ -263,8 +263,8 @@ void SavePackageFilePicker::FileSelected(
 
   download_prefs_->SetSaveFilePath(path_copy.DirName());
 
-  callback_.Run(path_copy, save_type,
-                base::Bind(&OnSavePackageDownloadCreated));
+  std::move(callback_).Run(path_copy, save_type,
+                           base::BindOnce(&OnSavePackageDownloadCreated));
 }
 
 void SavePackageFilePicker::FileSelectionCanceled(void* unused_params) {

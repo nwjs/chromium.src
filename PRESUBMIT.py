@@ -25,7 +25,6 @@ _EXCLUDED_PATHS = (
     r".+_pb2\.py$",
     r".+[\\/]pnacl_shim\.c$",
     r"^gpu[\\/]config[\\/].*_list_json\.cc$",
-    r"^chrome[\\/]browser[\\/]resources[\\/]pdf[\\/]index.js",
     r"tools[\\/]md_browser[\\/].*\.css$",
     # Test pages for Maps telemetry tests.
     r"tools[\\/]perf[\\/]page_sets[\\/]maps_perf_test.*",
@@ -60,6 +59,8 @@ _TEST_CODE_EXCLUDED_PATHS = (
     r'mojo[\\/]examples[\\/].*',
     # Launcher for running iOS tests on the simulator.
     r'testing[\\/]iossim[\\/]iossim\.mm$',
+    # EarlGrey app side code for tests.
+    r'ios[\\/].*_app_interface\.mm$',
 )
 
 _THIRD_PARTY_EXCEPT_BLINK = 'third_party/(?!blink/)'
@@ -68,7 +69,9 @@ _TEST_ONLY_WARNING = (
     'You might be calling functions intended only for testing from\n'
     'production code.  It is OK to ignore this warning if you know what\n'
     'you are doing, as the heuristics used to detect the situation are\n'
-    'not perfect.  The commit queue will not block on this warning.')
+    'not perfect.  The commit queue will not block on this warning,\n'
+    'however the android-binary-size trybot will block if the method\n'
+    'exists in the release apk.')
 
 
 _INCLUDE_ORDER_WARNING = (
@@ -248,9 +251,9 @@ _BANNED_IOS_EGTEST_FUNCTIONS = (
 
 # Directories that contain deprecated Bind() or Callback types.
 # Find sub-directories from a given directory by running:
-# for i in `find . -maxdepth 1 -type d`; do
+# for i in `find . -maxdepth 1 -type d|sort`; do
 #   echo "-- $i"
-#   (cd $i; git grep -P 'base::(Bind\(|(Callback<|Closure))'|wc -l)
+#   (cd $i; git grep -nP 'base::(Bind\(|(Callback<|Closure))'|wc -l)
 # done
 #
 # TODO(crbug.com/714018): Remove (or narrow the scope of) paths from this list
@@ -268,7 +271,6 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^chrome/chrome_watcher/',
   '^chrome/common/',
   '^chrome/installer/',
-  '^chrome/notification_helper/',
   '^chrome/renderer/',
   '^chrome/services/',
   '^chrome/test/',
@@ -281,28 +283,20 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^chromecast/metrics/',
   '^chromecast/net/',
   '^chromeos/attestation/',
-  '^chromeos/audio/',
   '^chromeos/components/',
-  '^chromeos/cryptohome/',
   '^chromeos/dbus/',
-  '^chromeos/geolocation/',
   '^chromeos/login/',
   '^chromeos/network/',
-  '^chromeos/process_proxy/',
   '^chromeos/services/',
   '^chromeos/settings/',
-  '^chromeos/timezone/',
-  '^chromeos/tpm/',
   '^components/arc/',
   '^components/assist_ranker/',
   '^components/autofill/',
   '^components/autofill_assistant/',
   '^components/bookmarks/',
-  '^components/browser_sync/',
   '^components/browser_watcher/',
   '^components/browsing_data/',
   '^components/cast_channel/',
-  '^components/certificate_transparency/',
   '^components/chromeos_camera/',
   '^components/component_updater/',
   '^components/content_settings/',
@@ -310,17 +304,15 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^components/cronet/',
   '^components/data_reduction_proxy/',
   '^components/discardable_memory/',
-  '^components/dom_distiller/',
   '^components/domain_reliability/',
+  '^components/dom_distiller/',
   '^components/download/',
   '^components/drive/',
   '^components/exo/',
-  '^components/favicon/',
   '^components/feature_engagement/',
   '^components/feedback/',
   '^components/flags_ui/',
   '^components/gcm_driver/',
-  '^components/google/',
   '^components/guest_view/',
   '^components/heap_profiling/',
   '^components/history/',
@@ -336,11 +328,9 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^components/network_time/',
   '^components/ntp_snippets/',
   '^components/ntp_tiles/',
-  '^components/offline_items_collection/',
   '^components/offline_pages/',
   '^components/omnibox/',
   '^components/ownership/',
-  '^components/pairing/',
   '^components/password_manager/',
   '^components/payments/',
   '^components/plugins/',
@@ -351,7 +341,6 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^components/quirks/',
   '^components/rappor/',
   '^components/remote_cocoa/',
-  '^components/renderer_context_menu/',
   '^components/rlz/',
   '^components/safe_browsing/',
   '^components/search_engines/',
@@ -365,10 +354,7 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^components/storage_monitor/',
   '^components/subresource_filter/',
   '^components/suggestions/',
-  '^components/supervised_user_error_page/',
   '^components/sync/',
-  '^components/sync_bookmarks/',
-  '^components/sync_device_info/',
   '^components/sync_preferences/',
   '^components/sync_sessions/',
   '^components/test/',
@@ -379,40 +365,14 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^components/upload_list/',
   '^components/variations/',
   '^components/visitedlink/',
-  '^components/web_cache/',
   '^components/webcrypto/',
   '^components/webdata/',
   '^components/webdata_services/',
   '^components/wifi/',
-  '^components/zoom/',
-  '^content/app/',
   '^content/browser/',
-  '^content/child/',
-  '^content/common/',
   '^content/public/',
-  '^content/renderer/android/',
-  '^content/renderer/fetchers/',
-  '^content/renderer/image_downloader/',
-  '^content/renderer/input/',
-  '^content/renderer/java/',
-  '^content/renderer/media/',
-  '^content/renderer/media_capture_from_element/',
-  '^content/renderer/media_recorder/',
-  '^content/renderer/p2p/',
-  '^content/renderer/pepper/',
-  '^content/renderer/service_worker/',
-  '^content/renderer/worker/',
-  '^content/test/',
-  '^content/utility/',
-  '^dbus/',
-  '^device/base/',
   '^device/bluetooth/',
-  '^device/fido/',
-  '^device/gamepad/',
-  '^device/udev_linux/',
-  '^device/vr/',
   '^extensions/',
-  '^gin/',
   '^google_apis/dive/',
   '^google_apis/gaia/',
   '^google_apis/gcm/',
@@ -425,6 +385,7 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^ipc/',
   '^media/audio/',
   '^media/base/',
+  '^media/blink/',
   '^media/capture/',
   '^media/cast/',
   '^media/cdm/',
@@ -438,8 +399,6 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^media/remoting/',
   '^media/renderers/',
   '^media/test/',
-  '^mojo/core/',
-  '^mojo/public/',
   '^net/',
   '^ppapi/proxy/',
   '^ppapi/shared_impl/',
@@ -454,12 +413,7 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^remoting/protocol/',
   '^remoting/signaling/',
   '^remoting/test/',
-  '^sandbox/linux/',
-  '^sandbox/win/',
   '^services/',
-  '^storage/browser/',
-  '^testing/gmock_mutant.h',
-  '^testing/libfuzzer/',
   '^third_party/blink/',
   '^third_party/crashpad/crashpad/test/gtest_main.cc',
   '^third_party/leveldatabase/leveldb_chrome.cc',
@@ -472,17 +426,10 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^tools/clang/base_bind_rewriters/',  # Intentional.
   '^tools/gdb/gdb_chrome.py',  # Intentional.
   '^ui/accelerated_widget_mac/',
-  '^ui/android/',
-  '^ui/aura/',
   '^ui/base/',
   '^ui/compositor/',
   '^ui/display/',
-  '^ui/events/',
-  '^ui/gfx/',
-  '^ui/message_center/',
-  '^ui/snapshot/',
-  '^ui/views_content_client/',
-  '^ui/wm/',
+  '^weblayer/',
 ))
 
 # Format: Sequence of tuples containing:
@@ -498,6 +445,16 @@ _BANNED_CPP_FUNCTIONS = (
       ),
       False,
       (),
+    ),
+    (
+      r'/\busing namespace ',
+      (
+       'Using directives ("using namespace x") are banned by the Google Style',
+       'Guide ( http://google.github.io/styleguide/cppguide.html#Namespaces ).',
+       'Explicitly qualify symbols or use using declarations ("using x::foo").',
+      ),
+      True,
+      [_THIRD_PARTY_EXCEPT_BLINK],  # Don't warn in third_party folders.
     ),
     # Make sure that gtest's FRIEND_TEST() macro is not used; the
     # FRIEND_TEST_ALL_PREFIXES() macro from base/gtest_prod_util.h should be
@@ -826,7 +783,9 @@ _BANNED_CPP_FUNCTIONS = (
         'std::shared_ptr should not be used. Use scoped_refptr instead.',
       ),
       True,
-      [_THIRD_PARTY_EXCEPT_BLINK],  # Not an error in third_party folders.
+      [_THIRD_PARTY_EXCEPT_BLINK,
+       '^third_party/blink/renderer/core/typed_arrays/array_buffer/' +
+         'array_buffer_contents\.(cc|h)'],
     ),
     (
       r'/\bstd::weak_ptr\b',
@@ -912,7 +871,7 @@ _BANNED_CPP_FUNCTIONS = (
           'of base::Bind. (crbug.com/714018)',
       ),
       False,
-      _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK,
+      (_NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK,),
     ),
     (
       r'/\bbase::Callback[<:]',
@@ -921,7 +880,7 @@ _BANNED_CPP_FUNCTIONS = (
           'of base::Callback. (crbug.com/714018)',
       ),
       False,
-      _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK,
+      (_NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK,),
     ),
     (
       r'/\bbase::Closure\b',
@@ -930,16 +889,7 @@ _BANNED_CPP_FUNCTIONS = (
           'of base::Closure. (crbug.com/714018)',
       ),
       False,
-      _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK,
-    ),
-    (
-      r'/base::SharedMemory(|Handle)',
-      (
-          'base::SharedMemory is deprecated. Please use',
-          '{Writable,ReadOnly}SharedMemoryRegion instead.',
-      ),
-      False,
-      (),
+      (_NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK,),
     ),
     (
       r'/\bRunMessageLoop\b',
@@ -1064,6 +1014,33 @@ _BANNED_CPP_FUNCTIONS = (
       ),
     ),
     (
+      r'/\bIsHTML.+Element\(\b',
+      (
+        'Function IsHTMLXXXXElement is deprecated. Instead, use downcast ',
+        ' helpers IsA<HTMLXXXXElement> from ',
+        '//third_party/blink/renderer/platform/casting.h.'
+      ),
+      False,
+      (
+        r'^third_party/blink/renderer/.*\.(cc|h)$',
+      ),
+    ),
+    (
+      r'/\bToHTML.+Element(|OrNull)\(\b',
+      (
+        'Function ToHTMLXXXXElement and ToHTMLXXXXElementOrNull are '
+        'deprecated. Instead, use downcast helpers To<HTMLXXXXElement> '
+        'and DynamicTo<HTMLXXXXElement> from ',
+        '//third_party/blink/renderer/platform/casting.h.'
+        'auto* html_xxxx_ele = To<HTMLXXXXElement>(n)'
+        'auto* html_xxxx_ele_or_null = DynamicTo<HTMLXXXXElement>(n)'
+      ),
+      False,
+      (
+        r'^third_party/blink/renderer/.*\.(cc|h)$',
+      ),
+    ),
+    (
       r'/\bmojo::DataPipe\b',
       (
         'mojo::DataPipe is deprecated. Use mojo::CreateDataPipe instead.',
@@ -1127,6 +1104,16 @@ _BANNED_CPP_FUNCTIONS = (
         r'^third_party/blink/.*\.(cc|h)$',
         r'^content/renderer/.*\.(cc|h)$',
       ),
+    ),
+    (
+      'CComPtr',
+      (
+        'New code should use Microsoft::WRL::ComPtr from wrl/client.h as a ',
+        'replacement for CComPtr from ATL. See http://crbug.com/5027 for more ',
+        'details.'
+      ),
+      False,
+      (),
     ),
 )
 
@@ -1269,6 +1256,9 @@ _JAVA_MULTIPLE_DEFINITION_EXCLUDED_PATHS = [
     r".*chrome[\\\/]android[\\\/]feed[\\\/]dummy[\\\/].*\.java",
 ]
 
+# List of image extensions that are used as resources in chromium.
+_IMAGE_EXTENSIONS = ['.svg', '.png', '.webp']
+
 # These paths contain test data and other known invalid JSON files.
 _KNOWN_INVALID_JSON_FILE_PATTERNS = [
     r'test[\\/]data[\\/]',
@@ -1312,6 +1302,7 @@ _ANDROID_SPECIFIC_PYDEPS_FILES = [
     'build/android/devil_chromium.pydeps',
     'build/android/gyp/aar.pydeps',
     'build/android/gyp/aidl.pydeps',
+    'build/android/gyp/allot_native_libraries.pydeps',
     'build/android/gyp/apkbuilder.pydeps',
     'build/android/gyp/assert_static_initializers.pydeps',
     'build/android/gyp/bytecode_processor.pydeps',
@@ -1323,7 +1314,6 @@ _ANDROID_SPECIFIC_PYDEPS_FILES = [
     'build/android/gyp/create_apk_operations_script.pydeps',
     'build/android/gyp/create_java_binary_script.pydeps',
     'build/android/gyp/create_size_info_files.pydeps',
-    'build/android/gyp/create_tool_wrapper.pydeps',
     'build/android/gyp/desugar.pydeps',
     'build/android/gyp/dexsplitter.pydeps',
     'build/android/gyp/dex.pydeps',
@@ -1353,6 +1343,7 @@ _ANDROID_SPECIFIC_PYDEPS_FILES = [
     'build/android/test_wrapper/logdog_wrapper.pydeps',
     'build/protoc_java.pydeps',
     'chrome/android/features/create_stripped_java_factory.pydeps',
+    'components/module_installer/android/module_desc_java.pydeps',
     'net/tools/testserver/testserver.pydeps',
     'testing/scripts/run_android_wpt.pydeps',
     'third_party/android_platform/development/scripts/stack.pydeps',
@@ -1382,7 +1373,8 @@ _KNOWN_ROBOTS = set(
   ) | set('%s@appspot.gserviceaccount.com' % s for s in ('findit-for-me',)
   ) | set('%s@developer.gserviceaccount.com' % s for s in ('3su6n15k.default',)
   ) | set('%s@chops-service-accounts.iam.gserviceaccount.com' % s
-          for s in ('v8-ci-autoroll-builder', 'wpt-autoroller',)
+          for s in ('bling-autoroll-builder', 'v8-ci-autoroll-builder',
+                    'wpt-autoroller',)
   ) | set('%s@skia-public.iam.gserviceaccount.com' % s
           for s in ('chromium-autoroll',)
   ) | set('%s@skia-corp.google.com.iam.gserviceaccount.com' % s
@@ -2211,6 +2203,46 @@ def _CheckHardcodedGoogleHostsInLowerLayers(input_api, output_api):
     return []
 
 
+def _CheckChromeOsSyncedPrefRegistration(input_api, output_api):
+  """Warns if Chrome OS C++ files register syncable prefs as browser prefs."""
+  def FileFilter(affected_file):
+    """Includes directories known to be Chrome OS only."""
+    return input_api.FilterSourceFile(
+      affected_file,
+      white_list=('^ash/',
+                  '^chromeos/',  # Top-level src/chromeos.
+                  '/chromeos/',  # Any path component.
+                  '^components/arc',
+                  '^components/exo'),
+      black_list=(input_api.DEFAULT_BLACK_LIST))
+
+  prefs = []
+  priority_prefs = []
+  for f in input_api.AffectedFiles(file_filter=FileFilter):
+    for line_num, line in f.ChangedContents():
+      if input_api.re.search('PrefRegistrySyncable::SYNCABLE_PREF', line):
+        prefs.append('    %s:%d:' % (f.LocalPath(), line_num))
+        prefs.append('      %s' % line)
+      if input_api.re.search(
+          'PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF', line):
+        priority_prefs.append('    %s:%d' % (f.LocalPath(), line_num))
+        priority_prefs.append('      %s' % line)
+
+  results = []
+  if (prefs):
+    results.append(output_api.PresubmitPromptWarning(
+        'Preferences were registered as SYNCABLE_PREF and will be controlled '
+        'by browser sync settings. If these prefs should be controlled by OS '
+        'sync settings use SYNCABLE_OS_PREF instead.\n' + '\n'.join(prefs)))
+  if (priority_prefs):
+    results.append(output_api.PresubmitPromptWarning(
+        'Preferences were registered as SYNCABLE_PRIORITY_PREF and will be '
+        'controlled by browser sync settings. If these prefs should be '
+        'controlled by OS sync settings use SYNCABLE_OS_PRIORITY_PREF '
+        'instead.\n' + '\n'.join(prefs)))
+  return results
+
+
 # TODO: add unit tests.
 def _CheckNoAbbreviationInPngFileName(input_api, output_api):
   """Makes sure there are no abbreviations in the name of PNG files.
@@ -2418,13 +2450,14 @@ def _CheckSpamLogging(input_api, output_api):
                  r"^courgette[\\/]courgette_tool\.cc$",
                  r"^extensions[\\/]renderer[\\/]logging_native_handler\.cc$",
                  r"^fuchsia[\\/]engine[\\/]browser[\\/]frame_impl.cc$",
+                 r"^fuchsia[\\/]engine[\\/]context_provider_main.cc$",
                  r"^headless[\\/]app[\\/]headless_shell\.cc$",
                  r"^ipc[\\/]ipc_logging\.cc$",
                  r"^native_client_sdk[\\/]",
                  r"^remoting[\\/]base[\\/]logging\.h$",
                  r"^remoting[\\/]host[\\/].*",
                  r"^sandbox[\\/]linux[\\/].*",
-                 r"^storage[\\/]browser[\\/]fileapi[\\/]" +
+                 r"^storage[\\/]browser[\\/]file_system[\\/]" +
                      r"dump_file_system.cc$",
                  r"^tools[\\/]",
                  r"^ui[\\/]base[\\/]resource[\\/]data_pack.cc$",
@@ -2828,9 +2861,10 @@ def _GetOwnersFilesToCheckForIpcOwners(input_api):
   # matching the above patterns, which trigger false positives.
   exclude_paths = [
       'third_party/crashpad/*',
+      'third_party/blink/renderer/platform/bindings/*',
       'third_party/protobuf/benchmarks/python/*',
-      'third_party/third_party/blink/renderer/platform/bindings/*',
       'third_party/win_build_output/*',
+      'third_party/feed_library/*',
       # These files are just used to communicate between class loaders running
       # in the same process.
       'weblayer/browser/java/org/chromium/weblayer_private/interfaces/*',
@@ -2974,6 +3008,71 @@ def _CheckIpcOwners(input_api, output_api):
         'review coverage.\nPlease update the OWNERS files below:',
         long_text='\n\n'.join(errors)))
 
+  return results
+
+
+def _CheckSetNoParent(input_api, output_api):
+  """Checks that set noparent is only used together with an OWNERS file in
+     //build/OWNERS.setnoparent (see also
+     //docs/code_reviews.md#owners-files-details)
+  """
+  errors = []
+
+  allowed_owners_files_file = 'build/OWNERS.setnoparent'
+  allowed_owners_files = set()
+  with open(allowed_owners_files_file, 'r') as f:
+    for line in f:
+      line = line.strip()
+      if not line or line.startswith('#'):
+        continue
+      allowed_owners_files.add(line)
+
+  per_file_pattern = input_api.re.compile('per-file (.+)=(.+)')
+
+  for f in input_api.AffectedFiles(include_deletes=False):
+    if not f.LocalPath().endswith('OWNERS'):
+      continue
+
+    found_owners_files = set()
+    found_set_noparent_lines = dict()
+
+    # Parse the OWNERS file.
+    for lineno, line in enumerate(f.NewContents(), 1):
+      line = line.strip()
+      if line.startswith('set noparent'):
+        found_set_noparent_lines[''] = lineno
+      if line.startswith('file://'):
+        if line in allowed_owners_files:
+          found_owners_files.add('')
+      if line.startswith('per-file'):
+        match = per_file_pattern.match(line)
+        if match:
+          glob = match.group(1).strip()
+          directive = match.group(2).strip()
+          if directive == 'set noparent':
+            found_set_noparent_lines[glob] = lineno
+          if directive.startswith('file://'):
+            if directive in allowed_owners_files:
+              found_owners_files.add(glob)
+
+    # Check that every set noparent line has a corresponding file:// line
+    # listed in build/OWNERS.setnoparent.
+    for set_noparent_line in found_set_noparent_lines:
+      if set_noparent_line in found_owners_files:
+        continue
+      errors.append('  %s:%d' % (f.LocalPath(),
+                                 found_set_noparent_lines[set_noparent_line]))
+
+  results = []
+  if errors:
+    if input_api.is_committing:
+      output = output_api.PresubmitError
+    else:
+      output = output_api.PresubmitPromptWarning
+    results.append(output(
+        'Found the following "set noparent" restrictions in OWNERS files that '
+        'do not include owners from build/OWNERS.setnoparent:',
+        long_text='\n\n'.join(errors)))
   return results
 
 
@@ -3125,11 +3224,9 @@ def _CheckAndroidCrLogUsage(input_api, output_api):
   # Extract the tag from lines like `Log.d(TAG, "*");` or `Log.d("TAG", "*");`
   log_call_pattern = input_api.re.compile(r'^\s*Log\.\w\((?P<tag>\"?\w+\"?)\,')
   log_decl_pattern = input_api.re.compile(
-      r'^\s*private static final String TAG = "(?P<name>(.*))";',
-      input_api.re.MULTILINE)
+      r'static final String TAG = "(?P<name>(.*))"')
 
-  REF_MSG = ('See docs/android_logging.md '
-            'or contact dgn@chromium.org for more info.')
+  REF_MSG = ('See docs/android_logging.md for more info.')
   sources = lambda x: input_api.FilterSourceFile(x, white_list=[r'.*\.java$'],
       black_list=cr_log_check_excluded_paths)
 
@@ -3988,6 +4085,36 @@ def _CheckFuzzTargets(input_api, output_api):
         long_text=long_text)]
 
 
+def _CheckNewImagesWarning(input_api, output_api):
+  """
+  Warns authors who add images into the repo to make sure their images are
+  optimized before committing.
+  """
+  images_added = False
+  image_paths = []
+  errors = []
+  filter_lambda = lambda x: input_api.FilterSourceFile(
+    x,
+    black_list=(('(?i).*test', r'.*\/junit\/')
+                + input_api.DEFAULT_BLACK_LIST),
+    white_list=[r'.*\/(drawable|mipmap)' ]
+  )
+  for f in input_api.AffectedFiles(
+      include_deletes=False, file_filter=filter_lambda):
+    local_path = f.LocalPath().lower()
+    if any(local_path.endswith(extension) for extension in _IMAGE_EXTENSIONS):
+      images_added = True
+      image_paths.append(f)
+  if images_added:
+    errors.append(output_api.PresubmitPromptWarning(
+        'It looks like you are trying to commit some images. If these are '
+        'non-test-only images, please make sure to read and apply the tips in '
+        'https://chromium.googlesource.com/chromium/src/+/HEAD/docs/speed/'
+        'binary_size/optimization_advice.md#optimizing-images\nThis check is '
+        'FYI only and will not block your CL on the CQ.', image_paths))
+  return errors
+
+
 def _AndroidSpecificOnUploadChecks(input_api, output_api):
   """Groups upload checks that target android code."""
   results = []
@@ -4000,6 +4127,7 @@ def _AndroidSpecificOnUploadChecks(input_api, output_api):
   results.extend(_CheckAndroidTestAnnotationUsage(input_api, output_api))
   results.extend(_CheckAndroidWebkitImports(input_api, output_api))
   results.extend(_CheckAndroidXmlStyle(input_api, output_api, True))
+  results.extend(_CheckNewImagesWarning(input_api, output_api))
   return results
 
 def _AndroidSpecificOnCommitChecks(input_api, output_api):
@@ -4042,6 +4170,7 @@ def _CommonChecks(input_api, output_api):
   results.extend(_CheckForVersionControlConflicts(input_api, output_api))
   results.extend(_CheckPatchFiles(input_api, output_api))
   results.extend(_CheckHardcodedGoogleHostsInLowerLayers(input_api, output_api))
+  results.extend(_CheckChromeOsSyncedPrefRegistration(input_api, output_api))
   results.extend(_CheckNoAbbreviationInPngFileName(input_api, output_api))
   results.extend(_CheckBuildConfigMacrosWithoutInclude(input_api, output_api))
   results.extend(_CheckForInvalidOSMacros(input_api, output_api))
@@ -4066,6 +4195,7 @@ def _CommonChecks(input_api, output_api):
   results.extend(_CheckPydepsNeedsUpdating(input_api, output_api))
   results.extend(_CheckJavaStyle(input_api, output_api))
   results.extend(_CheckIpcOwners(input_api, output_api))
+  results.extend(_CheckSetNoParent(input_api, output_api))
   results.extend(_CheckUselessForwardDeclarations(input_api, output_api))
   results.extend(_CheckForRelativeIncludes(input_api, output_api))
   results.extend(_CheckForCcIncludes(input_api, output_api))
@@ -4280,7 +4410,7 @@ def _CheckForLongPathnames(input_api, output_api):
   This causes issues on Windows.
   """
   problems = []
-  for f in input_api.AffectedSourceFiles(None):
+  for f in input_api.AffectedTestableFiles():
     local_path = f.LocalPath()
     # Windows has a path limit of 260 characters. Limit path length to 200 so
     # that we have some extra for the prefix on dev machines and the bots.

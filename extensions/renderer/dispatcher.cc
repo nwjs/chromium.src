@@ -778,6 +778,7 @@ std::vector<Dispatcher::JsResourceInfo> Dispatcher::GetJsResources() {
   std::vector<JsResourceInfo> resources = {
       {"appView", IDR_APP_VIEW_JS},
       {"appViewElement", IDR_APP_VIEW_ELEMENT_JS},
+      {"appViewDeny", IDR_APP_VIEW_DENY_JS},
       {"entryIdManager", IDR_ENTRY_ID_MANAGER},
       {"extensionOptions", IDR_EXTENSION_OPTIONS_JS},
       {"extensionOptionsElement", IDR_EXTENSION_OPTIONS_ELEMENT_JS},
@@ -808,6 +809,7 @@ std::vector<Dispatcher::JsResourceInfo> Dispatcher::GetJsResources() {
       {"webView", IDR_WEB_VIEW_JS},
       {"webViewElement", IDR_WEB_VIEW_ELEMENT_JS},
       {"extensionsWebViewElement", IDR_EXTENSIONS_WEB_VIEW_ELEMENT_JS},
+      {"webViewDeny", IDR_WEB_VIEW_DENY_JS},
       {"webViewActionRequests", IDR_WEB_VIEW_ACTION_REQUESTS_JS},
       {"webViewApiMethods", IDR_WEB_VIEW_API_METHODS_JS},
       {"webViewAttributes", IDR_WEB_VIEW_ATTRIBUTES_JS},
@@ -839,12 +841,6 @@ std::vector<Dispatcher::JsResourceInfo> Dispatcher::GetJsResources() {
       // Platform app sources that are not API-specific..
       {"platformApp", IDR_PLATFORM_APP_JS},
   };
-
-  if (base::FeatureList::IsEnabled(::features::kGuestViewCrossProcessFrames)) {
-    resources.push_back({"guestViewIframe", IDR_GUEST_VIEW_IFRAME_JS});
-    resources.push_back(
-        {"guestViewIframeContainer", IDR_GUEST_VIEW_IFRAME_CONTAINER_JS});
-  }
 
   if (base::FeatureList::IsEnabled(::features::kNWNewWin))
     resources.push_back({"nw.Window",    IDR_NWAPI_NEWWIN_JS});
@@ -1434,12 +1430,8 @@ void Dispatcher::UpdateOriginPermissions(const Extension& extension) {
 
 void Dispatcher::EnableCustomElementWhiteList() {
   blink::WebCustomElement::AddEmbedderCustomElementName("appview");
-  blink::WebCustomElement::AddEmbedderCustomElementName("appviewbrowserplugin");
   blink::WebCustomElement::AddEmbedderCustomElementName("extensionoptions");
-  blink::WebCustomElement::AddEmbedderCustomElementName(
-      "extensionoptionsbrowserplugin");
   blink::WebCustomElement::AddEmbedderCustomElementName("webview");
-  blink::WebCustomElement::AddEmbedderCustomElementName("webviewbrowserplugin");
 }
 
 void Dispatcher::UpdateAllBindings() {
@@ -1513,6 +1505,23 @@ void Dispatcher::RequireGuestViewModules(ScriptContext* context) {
   ModuleSystem* module_system = context->module_system();
   bool requires_guest_view_module = false;
 
+  // This determines whether to register error-providing custom elements for the
+  // GuestView types that are not available. We only do this in contexts where
+  // it is possible to gain access to a given GuestView element by declaring the
+  // necessary permission in a manifest file. We don't want to define
+  // error-providing elements in other extension contexts as the names could
+  // collide with names used in the extension. Also, WebUIs may be whitelisted
+  // to use GuestViews, but we don't define the error-providing elements in this
+  // case.
+  const bool is_platform_app =
+      context->context_type() == Feature::BLESSED_EXTENSION_CONTEXT &&
+      !context->IsForServiceWorker() && context->extension() &&
+      context->extension()->is_platform_app();
+  const bool app_view_permission_exists = is_platform_app;
+  // The webview permission is also available to internal whitelisted
+  // extensions, but not to extensions in general.
+  const bool web_view_permission_exists = is_platform_app;
+
   // TODO(fsamuel): Eagerly calling Require on context startup is expensive.
   // It would be better if there were a light way of detecting when a webview
   // or appview is created and only then set up the infrastructure.
@@ -1521,6 +1530,8 @@ void Dispatcher::RequireGuestViewModules(ScriptContext* context) {
   if (context->GetAvailability("appViewEmbedderInternal").is_available()) {
     requires_guest_view_module = true;
     module_system->Require("appViewElement");
+  } else if (app_view_permission_exists) {
+    module_system->Require("appViewDeny");
   }
 
   // Require ExtensionOptions.
@@ -1535,12 +1546,8 @@ void Dispatcher::RequireGuestViewModules(ScriptContext* context) {
     // The embedder of the extensions layer may define its own implementation
     // of WebView.
     delegate_->RequireWebViewModules(context);
-  }
-
-  if (requires_guest_view_module &&
-      base::FeatureList::IsEnabled(::features::kGuestViewCrossProcessFrames)) {
-    module_system->Require("guestViewIframe");
-    module_system->Require("guestViewIframeContainer");
+  } else if (web_view_permission_exists) {
+    module_system->Require("webViewDeny");
   }
 
   if (requires_guest_view_module) {
@@ -1552,15 +1559,6 @@ void Dispatcher::RequireGuestViewModules(ScriptContext* context) {
         ->View()
         ->GetSettings()
         ->SetForceMainWorldInitialization(true);
-  }
-
-  // The "guestViewDeny" module must always be loaded last. It registers
-  // error-providing custom elements for the GuestView types that are not
-  // available, and thus all of those types must have been checked and loaded
-  // (or not loaded) beforehand.
-  if (context->context_type() == Feature::BLESSED_EXTENSION_CONTEXT &&
-      !context->IsForServiceWorker()) {
-    module_system->Require("guestViewDeny");
   }
 }
 

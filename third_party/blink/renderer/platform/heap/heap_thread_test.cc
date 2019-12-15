@@ -81,7 +81,7 @@ class AlternatingThreadTester {
     ActiveThread() = kMainThreadActive;
 
     std::unique_ptr<Thread> worker_thread = Platform::Current()->CreateThread(
-        ThreadCreationParams(WebThreadType::kTestThread)
+        ThreadCreationParams(ThreadType::kTestThread)
             .SetThreadNameForTest("Test Worker Thread"));
     PostCrossThreadTask(
         *worker_thread->GetTaskRunner(), FROM_HERE,
@@ -199,15 +199,13 @@ class MarkingSameThreadCheckTester : public AlternatingThreadTester {
 };
 
 #if DCHECK_IS_ON()
-// TODO(keishi) This test is flaky on mac-rel bot.
-// crbug.com/709069
-#if !defined(OS_MACOSX)
-TEST_F(HeapThreadDeathTest, MarkingSameThreadCheck) {
+// TODO(keishi) This test is flaky on mac-rel bot. https://crbug.com/709069, and
+// times out on other bots. https://crbug.com/993148.
+TEST_F(HeapThreadDeathTest, DISABLED_MarkingSameThreadCheck) {
   // This will crash during marking, at the DCHECK in Visitor::markHeader() or
   // earlier.
   EXPECT_DEATH(MarkingSameThreadCheckTester().Test(), "");
 }
-#endif
 #endif
 
 class DestructorLockingObject

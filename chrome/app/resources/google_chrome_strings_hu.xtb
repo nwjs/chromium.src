@@ -3,7 +3,6 @@
 <translationbundle lang="hu">
 <translation id="1001534784610492198">A telepítő tömörített állománya megsérült vagy érvénytelen. Kérjük, töltse le újra a Google Chrome böngészőt.</translation>
 <translation id="102763973188675173">A Google Chrome személyre szabása és vezérlése. Van rendelkezésre álló frissítés.</translation>
-<translation id="1035334672863811645">bejelentkezés a Chrome-ba</translation>
 <translation id="1051826050538111504">A számítógépen kártékony szoftver található. A Chrome képes a kártékony szoftver eltávolítására, a beállítások visszaállítására és a bővítmények letiltására, hogy a böngésző újra a szokásos módon működhessen.</translation>
 <translation id="1065672644894730302">A beállításait nem sikerült olvasni. Egyes funkciókat esetleg nem ér el, és a beállításaiban végrehajtott módosításokat nem menti a rendszer.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> előzőleg Chrome-ot használt</translation>
@@ -72,7 +71,6 @@
 <translation id="3065168410429928842">Chrome-lap</translation>
 <translation id="3080151273017101988">A háttéralkalmazások továbbfuttatása, ha a Google Chrome-ot bezárják</translation>
 <translation id="3089968997497233615">Elérhető a Google Chrome új, biztonságosabb verziója.</translation>
-<translation id="3138848678222082288">A Chrome jövőbeli verziói automatikusan települnek. A letöltés befejezése után a Chrome újraindul, és már rendelkezésre is áll.</translation>
 <translation id="3149510190863420837">Chrome-alkalmazások</translation>
 <translation id="3282568296779691940">Bejelentkezés a Chrome-ba</translation>
 <translation id="3340978935015468852">beállítások</translation>
@@ -93,7 +91,6 @@
 <translation id="3718181793972440140">Ezzel egyetlen elemet töröl az eszközről. Az adatok későbbi lekéréséhez jelentkezzen be a Chrome-ba a következő e-mail-címmel: <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">A(z) <ph name="EXTENSION_NAME" /> bővítmény módosította, hogy melyik oldal jelenjen meg a Chrome indításakor.</translation>
 <translation id="3780814664026482060">Chrome – <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Eltávolítás a Chrome-ból…</translation>
 <translation id="386202838227397562">Zárjon be minden Google Chrome-ablakot, és próbálkozzon újra.</translation>
 <translation id="3873044882194371212">Link megnyitása Chrome-inko&amp;gnitóablakban</translation>
 <translation id="3889417619312448367">A Google Chrome eltávolítása</translation>
@@ -173,7 +170,6 @@
 <translation id="677276454032249905">Biztosan kilép a Chrome-ból?</translation>
 <translation id="683440813066116847">Bejövő szabály a Google Chrome Canaryhoz az mDNS forgalom engedélyezése céljából.</translation>
 <translation id="6885412569789873916">Chrome Beta-alkalmazások</translation>
-<translation id="6906909733186691861">A Chrome jövőbeli verziói automatikusan települnek.</translation>
 <translation id="6943584222992551122">A személy böngészési adatai törlődnek az eszközről. Az adatok visszaállításához jelentkezzen be a Chrome-ba a következő felhasználóként: <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Bejövő szabály a Google Chrome Bétához az mDNS forgalom engedélyezése céljából.</translation>
 <translation id="6982337800632491844">A(z) <ph name="DOMAIN" /> megköveteli, hogy olvassa el, majd fogadja el a következő Általános Szerződési Feltételeket, mielőtt használná ezt az eszközt. Ezek a feltételek nem bővítik, módosítják vagy korlátozzák a Google Chrome OS feltételeit.</translation>
@@ -224,7 +220,6 @@
 <translation id="8521348052903287641">Bejövő szabály a Google Chrome Devhez az mDNS forgalom engedélyezése céljából.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Elérhető a Google Chrome új verziója, amely gyorsabb, mint ezelőtt bármikor.</translation>
-<translation id="8606668294522778825">Előfordulhat, hogy a Google Chrome internetes szolgáltatásokat használ böngészési élménye javítására. Lehetősége van e szolgáltatások letiltására. <ph name="BEGIN_LINK" />További információ<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">A Google Chrome nem válaszol. Újraindítja most?</translation>
 <translation id="8625237574518804553">{0,plural, =1{A Chrome 1 percen belül újraindul}other{A Chrome # percen belül újraindul}}</translation>
 <translation id="8669527147644353129">Google Chrome segéd</translation>

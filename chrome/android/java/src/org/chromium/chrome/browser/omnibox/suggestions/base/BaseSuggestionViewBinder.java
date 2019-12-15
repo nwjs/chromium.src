@@ -4,17 +4,20 @@
 
 package org.chromium.chrome.browser.omnibox.suggestions.base;
 
+import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.support.annotation.CallSuper;
+import android.support.annotation.ColorRes;
 import android.support.v4.view.ViewCompat;
+import android.support.v7.content.res.AppCompatResources;
 import android.view.View;
 import android.widget.ImageView;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties;
+import org.chromium.chrome.browser.ui.styles.ChromeColors;
 import org.chromium.chrome.browser.ui.widget.RoundedCornerImageView;
-import org.chromium.chrome.browser.util.ColorUtils;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor.ViewBinder;
@@ -51,37 +54,48 @@ public class BaseSuggestionViewBinder
     private static void updateSuggestionIcon(PropertyModel model, BaseSuggestionView baseView) {
         final RoundedCornerImageView view = baseView.getSuggestionImageView();
         final SuggestionDrawableState sds = model.get(BaseSuggestionViewProperties.ICON);
-        final Resources res = view.getContext().getResources();
-        final int paddingStart = res.getDimensionPixelSize(sds.isLarge
-                        ? R.dimen.omnibox_suggestion_36dp_icon_margin_start
-                        : R.dimen.omnibox_suggestion_24dp_icon_margin_start);
 
-        final int paddingEnd = res.getDimensionPixelSize(sds.isLarge
-                        ? R.dimen.omnibox_suggestion_36dp_icon_margin_end
-                        : R.dimen.omnibox_suggestion_24dp_icon_margin_end);
+        if (sds != null) {
+            final Resources res = view.getContext().getResources();
+            final int paddingStart = res.getDimensionPixelSize(sds.isLarge
+                            ? R.dimen.omnibox_suggestion_36dp_icon_margin_start
+                            : R.dimen.omnibox_suggestion_24dp_icon_margin_start);
+            final int paddingEnd = res.getDimensionPixelSize(sds.isLarge
+                            ? R.dimen.omnibox_suggestion_36dp_icon_margin_end
+                            : R.dimen.omnibox_suggestion_24dp_icon_margin_end);
+            final int edgeSize = res.getDimensionPixelSize(sds.isLarge
+                            ? R.dimen.omnibox_suggestion_36dp_icon_size
+                            : R.dimen.omnibox_suggestion_24dp_icon_size);
 
-        // TODO(ender): move logic applying corner rounding to updateIcon when action images use
-        // RoundedCornerImageView too.
-        RoundedCornerImageView rciv = (RoundedCornerImageView) view;
-        int radius = sds.useRoundedCorners
-                ? res.getDimensionPixelSize(R.dimen.default_rounded_corner_radius)
-                : 0;
-        rciv.setRoundedCorners(radius, radius, radius, radius);
+            view.setPadding(paddingStart, 0, paddingEnd, 0);
+            view.setMinimumHeight(edgeSize);
 
-        view.setPadding(paddingStart, 0, paddingEnd, 0);
-        updateIcon(view, sds, isDarkMode(model));
+            // TODO(ender): move logic applying corner rounding to updateIcon when action images use
+            // RoundedCornerImageView too.
+            RoundedCornerImageView rciv = (RoundedCornerImageView) view;
+            int radius = sds.useRoundedCorners
+                    ? res.getDimensionPixelSize(R.dimen.default_rounded_corner_radius)
+                    : 0;
+            rciv.setRoundedCorners(radius, radius, radius, radius);
+        }
+
+        @ColorRes
+        int tint = isDarkMode(model) ? R.color.default_icon_color_secondary_list
+                                     : R.color.white_mode_tint;
+
+        updateIcon(view, sds, tint);
     }
 
     /** Update attributes of decorated suggestion icon. */
     private static void updateActionIcon(PropertyModel model, BaseSuggestionView baseView) {
         final ImageView view = baseView.getActionImageView();
         final SuggestionDrawableState sds = model.get(BaseSuggestionViewProperties.ACTION_ICON);
-        updateIcon(view, sds, isDarkMode(model));
+        updateIcon(view, sds, ChromeColors.getIconTintRes(!isDarkMode(model)));
     }
 
     /** Update image view using supplied drawable state object */
     private static void updateIcon(
-            ImageView view, SuggestionDrawableState sds, boolean useDarkColors) {
+            ImageView view, SuggestionDrawableState sds, @ColorRes int tintRes) {
         final Resources res = view.getContext().getResources();
 
         view.setVisibility(sds == null ? View.GONE : View.VISIBLE);
@@ -91,10 +105,12 @@ public class BaseSuggestionViewBinder
             return;
         }
 
-        view.setImageDrawable(sds.drawable);
+        ColorStateList tint = null;
         if (sds.allowTint) {
-            ApiCompatibilityUtils.setImageTintList(
-                    view, ColorUtils.getIconTint(view.getContext(), !useDarkColors));
+            tint = AppCompatResources.getColorStateList(view.getContext(), tintRes);
         }
+
+        view.setImageDrawable(sds.drawable);
+        ApiCompatibilityUtils.setImageTintList(view, tint);
     }
 }

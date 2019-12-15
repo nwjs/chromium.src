@@ -25,8 +25,7 @@
 namespace cc {
 
 template <typename T>
-PropertyTree<T>::PropertyTree()
-    : needs_update_(false) {
+PropertyTree<T>::PropertyTree() : needs_update_(false) {
   nodes_.push_back(T());
   back()->id = kRootNodeId;
   back()->parent_id = kInvalidNodeId;
@@ -1148,11 +1147,12 @@ ScrollTree::~ScrollTree() = default;
 ScrollTree& ScrollTree::operator=(const ScrollTree& from) {
   PropertyTree::operator=(from);
   currently_scrolling_node_id_ = kInvalidNodeId;
-  // Maps for ScrollOffsets/SyncedScrollOffsets are intentionally ommitted here
+  // Maps for ScrollOffsets/SyncedScrollOffsets are intentionally omitted here
   // since we can not directly copy them. Pushing of these updates from main
   // currently depends on Layer properties for scroll offset animation changes
   // (setting clobber_active_value for scroll offset animations interrupted on
   // the main thread) being pushed to impl first.
+  // |callbacks_| is omitted because it's for the main thread only.
   return *this;
 }
 
@@ -1160,6 +1160,8 @@ bool ScrollTree::operator==(const ScrollTree& other) const {
   if (scroll_offset_map_ != other.scroll_offset_map_)
     return false;
   if (synced_scroll_offset_map_ != other.synced_scroll_offset_map_)
+    return false;
+  if (callbacks_.get() != other.callbacks_.get())
     return false;
 
   bool is_currently_scrolling_node_equal =
@@ -1173,6 +1175,7 @@ void ScrollTree::CopyCompleteTreeState(const ScrollTree& other) {
   currently_scrolling_node_id_ = other.currently_scrolling_node_id_;
   scroll_offset_map_ = other.scroll_offset_map_;
   synced_scroll_offset_map_ = other.synced_scroll_offset_map_;
+  callbacks_ = other.callbacks_;
 }
 #endif
 
@@ -1202,7 +1205,9 @@ void ScrollTree::clear() {
 
 #if DCHECK_IS_ON()
   ScrollTree tree;
-  if (!property_trees()->is_main_thread) {
+  if (property_trees()->is_main_thread) {
+    tree.callbacks_ = callbacks_;
+  } else {
     DCHECK(scroll_offset_map_.empty());
     tree.currently_scrolling_node_id_ = currently_scrolling_node_id_;
     tree.synced_scroll_offset_map_ = synced_scroll_offset_map_;
@@ -1417,6 +1422,7 @@ void ScrollTree::CollectScrollDeltas(ScrollAndScaleSet* scroll_info,
                                      ElementId inner_viewport_scroll_element_id,
                                      bool use_fractional_deltas) {
   DCHECK(!property_trees()->is_main_thread);
+  TRACE_EVENT0("cc", "ScrollTree::CollectScrollDeltas");
   for (auto map_entry : synced_scroll_offset_map_) {
     gfx::ScrollOffset scroll_delta =
         PullDeltaForMainThread(map_entry.second.get(), use_fractional_deltas);
@@ -1424,12 +1430,25 @@ void ScrollTree::CollectScrollDeltas(ScrollAndScaleSet* scroll_info,
     ElementId id = map_entry.first;
 
     if (!scroll_delta.IsZero()) {
+      TRACE_EVENT_INSTANT2("cc", "CollectScrollDeltas",
+                           TRACE_EVENT_SCOPE_THREAD, "x", scroll_delta.x(), "y",
+                           scroll_delta.y());
+      // The snap targets will change on cc only if the node was scrolled, so it
+      // is safe to update the snap targets only when the scroll delta is not
+      // zero.
+      ScrollNode* scroll_node = FindNodeFromElementId(id);
+      base::Optional<TargetSnapAreaElementIds> snap_target_ids;
+      if (scroll_node && scroll_node->snap_container_data) {
+        snap_target_ids = scroll_node->snap_container_data.value()
+                              .GetTargetSnapAreaElementIds();
+      }
+      ScrollAndScaleSet::ScrollUpdateInfo update(id, scroll_delta,
+                                                 snap_target_ids);
       if (id == inner_viewport_scroll_element_id) {
         // Inner (visual) viewport is stored separately.
-        scroll_info->inner_viewport_scroll.element_id = id;
-        scroll_info->inner_viewport_scroll.scroll_delta = scroll_delta;
+        scroll_info->inner_viewport_scroll = std::move(update);
       } else {
-        scroll_info->scrolls.push_back({id, scroll_delta});
+        scroll_info->scrolls.push_back(std::move(update));
       }
     }
   }
@@ -1581,23 +1600,6 @@ const gfx::ScrollOffset ScrollTree::GetScrollOffsetDeltaForTesting(
     return gfx::ScrollOffset();
 }
 
-void ScrollTree::DistributeScroll(ScrollNode* scroll_node,
-                                  ScrollState* scroll_state) {
-  DCHECK(scroll_node && scroll_state);
-  if (scroll_state->FullyConsumed())
-    return;
-  scroll_state->DistributeToScrollChainDescendant();
-
-  // If we're currently scrolling a node other than this one, prevent the scroll
-  // from propagating to this node.
-  if (scroll_state->delta_consumed_for_scroll_sequence() &&
-      scroll_state->current_native_scrolling_node()->id != scroll_node->id) {
-    return;
-  }
-
-  scroll_state->layer_tree_impl()->ApplyScroll(scroll_node, scroll_state);
-}
-
 gfx::Vector2dF ScrollTree::ScrollBy(ScrollNode* scroll_node,
                                     const gfx::Vector2dF& scroll,
                                     LayerTreeImpl* layer_tree_impl) {
@@ -1624,6 +1626,27 @@ gfx::ScrollOffset ScrollTree::ClampScrollOffsetToLimits(
   offset.SetToMin(MaxScrollOffset(scroll_node.id));
   offset.SetToMax(gfx::ScrollOffset());
   return offset;
+}
+
+void ScrollTree::SetScrollCallbacks(base::WeakPtr<ScrollCallbacks> callbacks) {
+  DCHECK(property_trees()->is_main_thread);
+  callbacks_ = std::move(callbacks);
+}
+
+void ScrollTree::NotifyDidScroll(
+    ElementId scroll_element_id,
+    const gfx::ScrollOffset& scroll_offset,
+    const base::Optional<TargetSnapAreaElementIds>& snap_target_ids) {
+  DCHECK(property_trees()->is_main_thread);
+  if (callbacks_)
+    callbacks_->DidScroll(scroll_element_id, scroll_offset, snap_target_ids);
+}
+
+void ScrollTree::NotifyDidChangeScrollbarsHidden(ElementId scroll_element_id,
+                                                 bool hidden) {
+  DCHECK(property_trees()->is_main_thread);
+  if (callbacks_)
+    callbacks_->DidChangeScrollbarsHidden(scroll_element_id, hidden);
 }
 
 PropertyTreesCachedData::PropertyTreesCachedData()

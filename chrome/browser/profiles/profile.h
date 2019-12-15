@@ -352,6 +352,8 @@ class Profile : public content::BrowserContext {
   // Returns whether it is a system profile.
   virtual bool IsSystemProfile() const;
 
+  bool CanUseDiskWhenOffTheRecord() override;
+
   // Did the user restore the last session? This is set by SessionRestore.
   void set_restored_last_session(bool restored_last_session) {
     restored_last_session_ = restored_last_session;
@@ -453,9 +455,9 @@ class Profile : public content::BrowserContext {
   static PrefStore* CreateExtensionPrefStore(Profile*,
                                              bool incognito_pref_store);
 
- private:
   void NotifyOffTheRecordProfileCreated(Profile* off_the_record);
 
+ private:
   bool restored_last_session_;
 
   // Used to prevent the notification that this Profile is destroyed from

@@ -30,8 +30,7 @@ TestResourceFetcherProperties::TestResourceFetcherProperties(
               AllowedByNosniff::MimeTypeCheck::kStrict,
               network::mojom::IPAddressSpace::kPublic,
               kLeaveInsecureRequestsAlone,
-              FetchClientSettingsObject::InsecureNavigationsSet(),
-              false /* mixed_autoupgrade_opt_out */)) {}
+              FetchClientSettingsObject::InsecureNavigationsSet())) {}
 
 TestResourceFetcherProperties::TestResourceFetcherProperties(
     const FetchClientSettingsObject& fetch_client_settings_object)
@@ -40,6 +39,10 @@ TestResourceFetcherProperties::TestResourceFetcherProperties(
 void TestResourceFetcherProperties::Trace(Visitor* visitor) {
   visitor->Trace(fetch_client_settings_object_);
   ResourceFetcherProperties::Trace(visitor);
+}
+
+const KURL& TestResourceFetcherProperties::WebBundlePhysicalUrl() const {
+  return NullURL();
 }
 
 }  // namespace blink

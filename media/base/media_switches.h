@@ -49,6 +49,11 @@ MEDIA_EXPORT extern const char kTrySupportedChannelLayouts[];
 MEDIA_EXPORT extern const char kWaveOutBuffers[];
 #endif
 
+#if defined(OS_FUCHSIA)
+MEDIA_EXPORT extern const char kEnableProtectedVideoBuffers[];
+MEDIA_EXPORT extern const char kForceProtectedVideoOutputBuffers[];
+#endif
+
 #if defined(USE_CRAS)
 MEDIA_EXPORT extern const char kUseCras[];
 #endif
@@ -107,11 +112,16 @@ MEDIA_EXPORT extern const base::Feature kD3D11VideoDecoder;
 MEDIA_EXPORT extern const base::Feature kD3D11VideoDecoderIgnoreWorkarounds;
 MEDIA_EXPORT extern const base::Feature kD3D11VideoDecoderVP9Profile2;
 MEDIA_EXPORT extern const base::Feature kD3D11VideoDecoderCopyPictures;
+MEDIA_EXPORT extern const base::Feature kD3D11VideoDecoderSkipMultithreaded;
+MEDIA_EXPORT extern const base::Feature kD3D11VideoDecoderAlwaysCopy;
+MEDIA_EXPORT extern const base::Feature kD3D11VideoDecoderAllowOverlay;
 MEDIA_EXPORT extern const base::Feature kExternalClearKeyForTesting;
 MEDIA_EXPORT extern const base::Feature kFFmpegDecodeOpaqueVP8;
 MEDIA_EXPORT extern const base::Feature kFailUrlProvisionFetcherForTesting;
 MEDIA_EXPORT extern const base::Feature kFallbackAfterDecodeError;
 MEDIA_EXPORT extern const base::Feature kGlobalMediaControls;
+MEDIA_EXPORT extern const base::Feature kGlobalMediaControlsForCast;
+MEDIA_EXPORT extern const base::Feature kGlobalMediaControlsOverlayControls;
 MEDIA_EXPORT extern const base::Feature kHardwareMediaKeyHandling;
 MEDIA_EXPORT extern const base::Feature kHardwareSecureDecryption;
 MEDIA_EXPORT extern const base::Feature kInternalMediaSession;
@@ -123,6 +133,7 @@ MEDIA_EXPORT extern const base::Feature kMediaEngagementHTTPSOnly;
 MEDIA_EXPORT extern const base::Feature kMediaInspectorLogging;
 MEDIA_EXPORT extern const base::Feature kMediaLearningExperiment;
 MEDIA_EXPORT extern const base::Feature kMediaLearningFramework;
+MEDIA_EXPORT extern const base::Feature kMediaPowerExperiment;
 MEDIA_EXPORT extern const base::Feature kMemoryPressureBasedSourceBufferGC;
 MEDIA_EXPORT extern const base::Feature kChromeosVideoDecoder;
 MEDIA_EXPORT extern const base::Feature kNewEncodeCpuLoadEstimator;
@@ -138,12 +149,11 @@ MEDIA_EXPORT extern const base::Feature kResumeBackgroundVideo;
 MEDIA_EXPORT extern const base::Feature kRevokeMediaSourceObjectURLOnAttach;
 MEDIA_EXPORT extern const base::Feature kSpecCompliantCanPlayThrough;
 MEDIA_EXPORT extern const base::Feature kUnifiedAutoplay;
-MEDIA_EXPORT extern const base::Feature kUseAndroidOverlay;
 MEDIA_EXPORT extern const base::Feature kUseAndroidOverlayAggressively;
 MEDIA_EXPORT extern const base::Feature kUseFakeDeviceForMediaStream;
+MEDIA_EXPORT extern const base::Feature kUseMediaHistoryStore;
 MEDIA_EXPORT extern const base::Feature kUseNewMediaCache;
 MEDIA_EXPORT extern const base::Feature kUseR16Texture;
-MEDIA_EXPORT extern const base::Feature kUseSurfaceLayerForVideo;
 MEDIA_EXPORT extern const base::Feature kVaapiH264AMDEncoder;
 MEDIA_EXPORT extern const base::Feature kVaapiLowPowerEncoder;
 MEDIA_EXPORT extern const base::Feature kVaapiVP8Encoder;

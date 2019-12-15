@@ -15,7 +15,6 @@
 #include "base/location.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
-#include "base/memory/shared_memory.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
 #include "base/strings/utf_string_conversions.h"
@@ -45,10 +44,10 @@
 #include "components/viz/test/test_latest_local_surface_id_lookup_delegate.h"
 #include "content/browser/browser_main_loop.h"
 #include "content/browser/compositor/test/test_image_transport_factory.h"
-#include "content/browser/frame_host/render_widget_host_view_guest.h"
 #include "content/browser/gpu/compositor_util.h"
 #include "content/browser/renderer_host/delegated_frame_host.h"
 #include "content/browser/renderer_host/delegated_frame_host_client_aura.h"
+#include "content/browser/renderer_host/frame_token_message_queue.h"
 #include "content/browser/renderer_host/input/input_router.h"
 #include "content/browser/renderer_host/input/mouse_wheel_event_queue.h"
 #include "content/browser/renderer_host/overscroll_controller.h"
@@ -207,7 +206,7 @@ class TestWindowObserver : public aura::WindowObserver {
 class FakeWindowEventDispatcher : public aura::WindowEventDispatcher {
  public:
   FakeWindowEventDispatcher(aura::WindowTreeHost* host)
-      : WindowEventDispatcher(host, true), processed_touch_event_count_(0) {}
+      : WindowEventDispatcher(host), processed_touch_event_count_(0) {}
 
   void ProcessedTouchEvent(
       uint32_t unique_event_id,
@@ -243,10 +242,8 @@ class FakeDelegatedFrameHostClientAura : public DelegatedFrameHostClientAura {
 
 class FakeRenderWidgetHostViewAura : public RenderWidgetHostViewAura {
  public:
-  FakeRenderWidgetHostViewAura(RenderWidgetHost* widget,
-                               bool is_guest_view_hack)
-      : RenderWidgetHostViewAura(widget, is_guest_view_hack),
-        is_guest_view_hack_(is_guest_view_hack),
+  FakeRenderWidgetHostViewAura(RenderWidgetHost* widget)
+      : RenderWidgetHostViewAura(widget),
         delegated_frame_host_client_(
             new FakeDelegatedFrameHostClientAura(this)) {
     InstallDelegatedFrameHostClient(
@@ -310,15 +307,12 @@ class FakeRenderWidgetHostViewAura : public RenderWidgetHostViewAura {
         metadata);
   }
 
-  bool is_guest_view_hack() { return is_guest_view_hack_; }
-
   gfx::Size last_frame_size_;
   FakeWindowEventDispatcher* dispatcher_;
   std::unique_ptr<FakeRendererCompositorFrameSink>
       renderer_compositor_frame_sink_;
 
  private:
-  bool is_guest_view_hack_;
   FakeDelegatedFrameHostClientAura* delegated_frame_host_client_;
   mojo::Remote<viz::mojom::CompositorFrameSinkClient>
       renderer_compositor_frame_sink_remote_;
@@ -430,7 +424,8 @@ class MockRenderWidgetHostImpl : public RenderWidgetHostImpl {
                              process,
                              routing_id,
                              std::move(widget),
-                             false),
+                             /*hidden=*/false,
+                             std::make_unique<FrameTokenMessageQueue>()),
         widget_impl_(std::move(widget_impl)) {
     lastWheelOrTouchEventLatencyInfo = ui::LatencyInfo();
   }
@@ -486,8 +481,7 @@ void TestScopedKeyboardHook::LockSpecificKey(ui::DomCode dom_code) {
 class RenderWidgetHostViewAuraTest : public testing::Test {
  public:
   RenderWidgetHostViewAuraTest()
-      : widget_host_uses_shutdown_to_destroy_(false),
-        is_guest_view_hack_(false) {
+      : widget_host_uses_shutdown_to_destroy_(false) {
     ui::GestureConfiguration::GetInstance()->set_scroll_debounce_interval_in_ms(
         0);
   }
@@ -507,25 +501,22 @@ class RenderWidgetHostViewAuraTest : public testing::Test {
         false /* should_register_frame_sink_id */);
   }
 
-  FakeRenderWidgetHostViewAura* CreateView(bool is_guest_view_hack) {
+  FakeRenderWidgetHostViewAura* CreateView() {
     int32_t routing_id = process_host_->GetNextRoutingID();
     delegates_.push_back(base::WrapUnique(new MockRenderWidgetHostDelegate));
     auto* widget_host = MockRenderWidgetHostImpl::Create(
         delegates_.back().get(), process_host_, routing_id);
     delegates_.back()->set_widget_host(widget_host);
     widget_host->Init();
-    return new FakeRenderWidgetHostViewAura(widget_host, is_guest_view_hack);
+    return new FakeRenderWidgetHostViewAura(widget_host);
   }
 
   void DestroyView(FakeRenderWidgetHostViewAura* view) {
     // For guest-views, |view_| is not the view used by |widget_host_|.
-    bool is_guest_view_hack = view->is_guest_view_hack();
     RenderWidgetHostImpl* host = view->host();
-    if (!is_guest_view_hack)
-      EXPECT_EQ(view, host->GetView());
+    EXPECT_EQ(view, host->GetView());
     view->Destroy();
-    if (!is_guest_view_hack)
-      EXPECT_EQ(nullptr, host->GetView());
+    EXPECT_EQ(nullptr, host->GetView());
 
     if (widget_host_uses_shutdown_to_destroy_)
       host->ShutdownAndDestroyWidget(true);
@@ -553,13 +544,12 @@ class RenderWidgetHostViewAuraTest : public testing::Test {
     parent_host_ = MockRenderWidgetHostImpl::Create(delegates_.back().get(),
                                                     process_host_, routing_id);
     delegates_.back()->set_widget_host(parent_host_);
-    parent_view_ =
-        new RenderWidgetHostViewAura(parent_host_, is_guest_view_hack_);
+    parent_view_ = new RenderWidgetHostViewAura(parent_host_);
     parent_view_->InitAsChild(nullptr);
     aura::client::ParentWindowWithContext(parent_view_->GetNativeView(),
                                           aura_test_helper_->root_window(),
                                           gfx::Rect());
-    view_ = CreateView(is_guest_view_hack_);
+    view_ = CreateView();
     widget_host_ = static_cast<MockRenderWidgetHostImpl*>(view_->host());
     // Set the mouse_wheel_phase_handler_ timer timeout to 100ms.
     view_->event_handler()->set_mouse_wheel_wheel_phase_handler_timeout(
@@ -662,13 +652,12 @@ class RenderWidgetHostViewAuraTest : public testing::Test {
 
     TextInputState state_with_type_text;
     state_with_type_text.type = type;
+    state_with_type_text.show_ime_if_needed = true;
     view->TextInputStateChanged(state_with_type_text);
   }
 
   // If true, then calls RWH::Shutdown() instead of deleting RWH.
   bool widget_host_uses_shutdown_to_destroy_;
-
-  bool is_guest_view_hack_;
 
   BrowserTaskEnvironment task_environment_;
   std::unique_ptr<aura::test::AuraTestHelper> aura_test_helper_;
@@ -714,24 +703,10 @@ class RenderWidgetHostViewGuestAuraTest : public RenderWidgetHostViewAuraTest {
     set_widget_host_uses_shutdown_to_destroy(true);
   }
 
-  // We explicitly invoke SetUp to allow gesture debounce customization.
-  void SetUp() override {
-    is_guest_view_hack_ = true;
-
-    RenderWidgetHostViewAuraTest::SetUp();
-
-    guest_view_weak_ = (RenderWidgetHostViewGuest::Create(widget_host_, nullptr,
-                                                          view_->GetWeakPtr()))
-                           ->GetWeakPtr();
-  }
-
   void TearDown() override {
     // Internal override to do nothing, we clean up ourselves in the test body.
     // This helps us test that |guest_view_weak_| does not leak.
   }
-
- protected:
-  base::WeakPtr<RenderWidgetHostViewBase> guest_view_weak_;
 
  private:
 
@@ -2107,6 +2082,10 @@ TEST_F(RenderWidgetHostViewAuraTest,
 // Tests that a gesture fling start with touchpad source resets wheel phase
 // state.
 TEST_F(RenderWidgetHostViewAuraTest, TouchpadFlingStartResetsWheelPhaseState) {
+  // Calling InitAsChild so it will create aura::Window. This will be queried by
+  // fling controller to get the root viewport size when it receives GFS.
+  view_->InitAsChild(nullptr);
+  view_->SetSize(gfx::Size(100, 100));
   // Set the mouse_wheel_phase_handler_ timer timeout to a large value to make
   // sure that the timer is still running when the touchpad fling start is sent.
   view_->event_handler()->set_mouse_wheel_wheel_phase_handler_timeout(
@@ -3522,7 +3501,7 @@ TEST_F(RenderWidgetHostViewAuraTest, DiscardDelegatedFrames) {
                                                 process_host_, routing_id);
     delegates_.back()->set_widget_host(hosts[i]);
     hosts[i]->Init();
-    views[i] = new FakeRenderWidgetHostViewAura(hosts[i], false);
+    views[i] = new FakeRenderWidgetHostViewAura(hosts[i]);
     // Prevent frames from being skipped due to resize, this test does not
     // run a UI compositor so the DelegatedFrameHost doesn't get the chance
     // to release its resize lock once it receives a frame of the expected
@@ -3636,7 +3615,7 @@ TEST_F(RenderWidgetHostViewAuraTest, DiscardDelegatedFramesWithMemoryPressure) {
                                                 process_host_, routing_id);
     delegates_.back()->set_widget_host(hosts[i]);
     hosts[i]->Init();
-    views[i] = new FakeRenderWidgetHostViewAura(hosts[i], false);
+    views[i] = new FakeRenderWidgetHostViewAura(hosts[i]);
     views[i]->InitAsChild(nullptr);
     aura::client::ParentWindowWithContext(
         views[i]->GetNativeView(),
@@ -5253,14 +5232,6 @@ TEST_F(RenderWidgetHostViewAuraTest, VirtualKeyboardFocusEnsureCaretInRect) {
 }
 #endif  // defined(OS_CHROMEOS)
 
-// Tests that when view initiated shutdown happens (i.e. RWHView is deleted
-// before RWH), we clean up properly and don't leak the RWHVGuest.
-TEST_F(RenderWidgetHostViewGuestAuraTest, GuestViewDoesNotLeak) {
-  view_->InitAsChild(nullptr);
-  TearDownEnvironment();
-  ASSERT_FALSE(guest_view_weak_.get());
-}
-
 // Tests that invalid touch events are consumed and handled
 // synchronously.
 TEST_F(RenderWidgetHostViewAuraTest,
@@ -5579,7 +5550,7 @@ class TouchpadRenderWidgetHostViewAuraTest
   DISALLOW_COPY_AND_ASSIGN(TouchpadRenderWidgetHostViewAuraTest);
 };
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          TouchpadRenderWidgetHostViewAuraTest,
                          testing::Bool());
 
@@ -5894,7 +5865,7 @@ TEST_F(RenderWidgetHostViewAuraTest, TakeFallbackContent) {
   view_->Show();
 
   // Create and initialize the second view.
-  FakeRenderWidgetHostViewAura* view2 = CreateView(false);
+  FakeRenderWidgetHostViewAura* view2 = CreateView();
   view2->InitAsChild(nullptr);
   aura::client::ParentWindowWithContext(
       view2->GetNativeView(), parent_view_->GetNativeView()->GetRootWindow(),
@@ -5927,7 +5898,7 @@ class RenderWidgetHostViewAuraWithViewHarnessTest
     delete contents()->GetRenderViewHost()->GetWidget()->GetView();
     // This instance is destroyed in the TearDown method below.
     view_ = new RenderWidgetHostViewAura(
-        contents()->GetRenderViewHost()->GetWidget(), false);
+        contents()->GetRenderViewHost()->GetWidget());
   }
 
   void TearDown() override {
@@ -6210,18 +6181,33 @@ TEST_F(InputMethodResultAuraTest, SetCompositionText) {
 
 // This test is for ui::TextInputClient::ConfirmCompositionText.
 TEST_F(InputMethodResultAuraTest, ConfirmCompositionText) {
-  base::Closure ime_call =
-      base::Bind(&ui::TextInputClient::ConfirmCompositionText,
-                 base::Unretained(text_input_client()));
+  base::Closure ime_call = base::Bind(
+      &ui::TextInputClient::ConfirmCompositionText,
+      base::Unretained(text_input_client()), /** keep_selection */ true);
   for (auto index : active_view_sequence_) {
     ActivateViewForTextInputManager(views_[index], ui::TEXT_INPUT_TYPE_TEXT);
     SetHasCompositionTextToTrue();
+    // Due to a webkit bug. See: https://bugs.webkit.org/show_bug.cgi?id=37788
+    // RenderWidgetHostViewAura::SetCompositionText() will ignore the
+    // selection range passed into it. Hence, RWHVA::SetCompositionText()
+    // cannot be used to set the selection range.
+
+    // RenderWidgetHostViewAura::GetFocusedFrame() does not return a focused
+    // frame due to (crbug.com/689777). Hence,
+    // RWHVA::SetEditableSelectionRange(gfx::Range(0, 2)) also cannot be used
+    // to set the selection range.
+
+    // Hence, there exists no easy way to set the selection range to a specific
+    //  value and test the behaviour of keep_selection.
     ime_call.Run();
     base::RunLoop().RunUntilIdle();
     EXPECT_EQ("SetComposition FinishComposingText",
               GetMessageNames(widget_hosts_[index]
                                   ->input_handler()
                                   ->GetAndResetDispatchedMessages()));
+    // TODO(keithlee) - If either of the previous bugs get fixed, amend
+    // this unittest to check if the TIC::SelectionRange is updated to the
+    // gfx::Range(0,2) value after the IME call.
   }
 }
 
@@ -6757,7 +6743,7 @@ class RenderWidgetHostViewAuraKeyboardTest
 
 TEST_F(RenderWidgetHostViewAuraKeyboardTest, KeyboardObserverDestroyed) {
   parent_view_->SetLastPointerType(ui::EventPointerType::POINTER_TYPE_TOUCH);
-  parent_view_->FocusedNodeTouched(true);
+  ActivateViewForTextInputManager(parent_view_, ui::TEXT_INPUT_TYPE_TEXT);
   EXPECT_NE(parent_view_->keyboard_observer_.get(), nullptr);
   EXPECT_EQ(keyboard_controller_observer_count(), 1u);
   // Detach the RenderWidgetHostViewAura from the IME.
@@ -6770,12 +6756,12 @@ TEST_F(RenderWidgetHostViewAuraKeyboardTest,
        KeyboardObserverForOnlyTouchInput) {
   // Show virtual keyboard for touch inputs.
   parent_view_->SetLastPointerType(ui::EventPointerType::POINTER_TYPE_TOUCH);
-  parent_view_->FocusedNodeTouched(true);
+  ActivateViewForTextInputManager(parent_view_, ui::TEXT_INPUT_TYPE_TEXT);
   EXPECT_NE(parent_view_->keyboard_observer_.get(), nullptr);
   EXPECT_EQ(keyboard_controller_observer_count(), 1u);
   // Do not show virtual keyboard for mouse inputs.
   parent_view_->SetLastPointerType(ui::EventPointerType::POINTER_TYPE_MOUSE);
-  parent_view_->FocusedNodeTouched(true);
+  ActivateViewForTextInputManager(parent_view_, ui::TEXT_INPUT_TYPE_TEXT);
   EXPECT_EQ(parent_view_->keyboard_observer_.get(), nullptr);
   EXPECT_EQ(keyboard_controller_observer_count(), 0u);
 }

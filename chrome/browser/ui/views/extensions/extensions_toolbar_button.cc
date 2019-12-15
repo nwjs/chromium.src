@@ -7,6 +7,7 @@
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_view.h"
+#include "chrome/browser/ui/views/extensions/extensions_toolbar_container.h"
 #include "chrome/grit/generated_resources.h"
 #include "extensions/browser/extension_registry.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -18,10 +19,17 @@
 
 ExtensionsToolbarButton::ExtensionsToolbarButton(
     Browser* browser,
-    ExtensionsContainer* extensions_container)
+    ExtensionsToolbarContainer* extensions_container)
     : ToolbarButton(this),
       browser_(browser),
       extensions_container_(extensions_container) {
+  std::unique_ptr<views::MenuButtonController> menu_button_controller =
+      std::make_unique<views::MenuButtonController>(
+          this, this,
+          std::make_unique<views::Button::DefaultButtonControllerDelegate>(
+              this));
+  menu_button_controller_ = menu_button_controller.get();
+  SetButtonController(std::move(menu_button_controller));
   SetTooltipText(l10n_util::GetStringUTF16(IDS_TOOLTIP_EXTENSIONS_BUTTON));
   button_controller()->set_notify_action(
       views::ButtonController::NotifyAction::kOnPress);
@@ -32,10 +40,9 @@ void ExtensionsToolbarButton::UpdateIcon() {
   const int icon_size = ui::MaterialDesignController::touch_ui()
                             ? kDefaultTouchableIconSize
                             : kDefaultIconSize;
-  const SkColor normal_color =
-      GetThemeProvider()->GetColor(ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
   SetImage(views::Button::STATE_NORMAL,
-           gfx::CreateVectorIcon(kExtensionIcon, icon_size, normal_color));
+           gfx::CreateVectorIcon(kExtensionIcon, icon_size,
+                                 extensions_container_->GetIconColor()));
 }
 
 void ExtensionsToolbarButton::ButtonPressed(views::Button* sender,

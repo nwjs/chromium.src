@@ -165,9 +165,13 @@ interface CookieStore : EventTarget
     method delete
     method get
     method getAll
-    method getChangeSubscriptions
     method set
-    method subscribeToChanges
+interface CookieStoreManager
+    attribute @@toStringTag
+    method constructor
+    method getSubscriptions
+    method subscribe
+    method unsubscribe
 interface CountQueuingStrategy
     attribute @@toStringTag
     getter highWaterMark
@@ -497,6 +501,7 @@ interface FetchEvent : ExtendableEvent
     getter preloadResponse
     getter request
     getter resultingClientId
+    method addPerformanceEntry
     method constructor
     method respondWith
 interface File : Blob
@@ -834,8 +839,6 @@ interface Mojo
     static method createDataPipe
     static method createMessagePipe
     static method createSharedBuffer
-    static method getDocumentInterfaceBrokerHandle
-    static method replaceDocumentInterfaceBrokerForTesting
     attribute @@toStringTag
     attribute RESULT_ABORTED
     attribute RESULT_ALREADY_EXISTS
@@ -992,6 +995,7 @@ interface OffscreenCanvasRenderingContext2D
     method fillText
     method getImageData
     method getLineDash
+    method getTransform
     method isPointInPath
     method isPointInStroke
     method lineTo
@@ -1139,6 +1143,7 @@ interface PerformanceResourceTiming : PerformanceEntry
     getter serverTiming
     getter transferSize
     getter workerStart
+    getter workerTiming
     method constructor
     method toJSON
 interface PerformanceServerTiming
@@ -1219,6 +1224,10 @@ interface PushSubscriptionOptions
     getter applicationServerKey
     getter userVisibleOnly
     method constructor
+interface QuicTransport
+    attribute @@toStringTag
+    method close
+    method constructor
 interface ReadableStream
     attribute @@toStringTag
     getter locked
@@ -1282,7 +1291,7 @@ interface Response
 interface ScreenManager
     attribute @@toStringTag
     method constructor
-    method requestDisplays
+    method getScreens
 interface SecurityPolicyViolationEvent : Event
     attribute @@toStringTag
     getter blockedURI
@@ -1315,6 +1324,7 @@ interface ServiceWorkerRegistration : EventTarget
     attribute @@toStringTag
     getter active
     getter backgroundFetch
+    getter cookies
     getter index
     getter installing
     getter navigationPreload

@@ -13,6 +13,7 @@
 #include "components/page_load_metrics/renderer/page_timing_metrics_sender.h"
 #include "components/page_load_metrics/renderer/page_timing_sender.h"
 #include "content/public/renderer/render_frame.h"
+#include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_document_loader.h"
@@ -66,7 +67,10 @@ MetricsRenderFrameObserver::MetricsRenderFrameObserver(
     : content::RenderFrameObserver(render_frame),
       scoped_ad_resource_observer_(this) {}
 
-MetricsRenderFrameObserver::~MetricsRenderFrameObserver() {}
+MetricsRenderFrameObserver::~MetricsRenderFrameObserver() {
+  if (page_timing_metrics_sender_)
+    page_timing_metrics_sender_->SendLatest();
+}
 
 void MetricsRenderFrameObserver::DidChangePerformanceTiming() {
   SendMetrics();
@@ -116,9 +120,9 @@ void MetricsRenderFrameObserver::DidObserveLazyLoadBehavior(
 }
 
 void MetricsRenderFrameObserver::DidStartResponse(
-    const GURL& response_url,
+    const url::Origin& origin_of_final_response_url,
     int request_id,
-    const network::ResourceResponseHead& response_head,
+    const network::mojom::URLResponseHead& response_head,
     content::ResourceType resource_type,
     content::PreviewsState previews_state) {
   if (provisional_frame_resource_data_use_ &&
@@ -128,10 +132,12 @@ void MetricsRenderFrameObserver::DidStartResponse(
     // case. There should be a guarantee that DidStartProvisionalLoad be called
     // before DidStartResponse for the frame request.
     provisional_frame_resource_data_use_->DidStartResponse(
-        response_url, request_id, response_head, resource_type, previews_state);
+        origin_of_final_response_url, request_id, response_head, resource_type,
+        previews_state);
   } else if (page_timing_metrics_sender_) {
     page_timing_metrics_sender_->DidStartResponse(
-        response_url, request_id, response_head, resource_type, previews_state);
+        origin_of_final_response_url, request_id, response_head, resource_type,
+        previews_state);
     UpdateResourceMetadata(request_id);
   }
 }
@@ -195,7 +201,10 @@ void MetricsRenderFrameObserver::DidLoadResourceFromMemoryCache(
 }
 
 void MetricsRenderFrameObserver::FrameDetached() {
-  page_timing_metrics_sender_.reset();
+  if (page_timing_metrics_sender_) {
+    page_timing_metrics_sender_->SendLatest();
+    page_timing_metrics_sender_.reset();
+  }
 }
 
 void MetricsRenderFrameObserver::ReadyToCommitNavigation(
@@ -204,6 +213,11 @@ void MetricsRenderFrameObserver::ReadyToCommitNavigation(
   provisional_frame_resource_data_use_ =
       std::make_unique<PageResourceDataUse>();
   provisional_frame_resource_id_ = 0;
+
+  // Send current metrics before the next page load commits. Don't reset here
+  // as it may be a same document load.
+  if (page_timing_metrics_sender_)
+    page_timing_metrics_sender_->SendLatest();
 }
 
 void MetricsRenderFrameObserver::DidFailProvisionalLoad() {
@@ -264,7 +278,17 @@ void MetricsRenderFrameObserver::MaybeSetCompletedBeforeFCP(int request_id) {
   const blink::WebPerformance& perf =
       render_frame()->GetWebFrame()->Performance();
 
-  DCHECK_GT(base::Time::Now(), base::Time::FromDoubleT(perf.NavigationStart()));
+  // Blink returns 0 if the performance metrics are unavailable. Check that
+  // navigation start is set to determine if performance metrics are
+  // available.
+  if (perf.NavigationStart() == 0)
+    return;
+
+  // This should not be possible, but none the less occasionally fails in edge
+  // case tests. Since we don't expect this to be valid, throw out this entry.
+  // See crbug.com/1027535.
+  if (base::Time::Now() < base::Time::FromDoubleT(perf.NavigationStart()))
+    return;
 
   if (perf.FirstContentfulPaint() == 0)
     before_fcp_request_ids_.insert(request_id);
@@ -311,7 +335,7 @@ void MetricsRenderFrameObserver::SendMetrics() {
     return;
   if (HasNoRenderFrame())
     return;
-  page_timing_metrics_sender_->Send(GetTiming());
+  page_timing_metrics_sender_->SendSoon(GetTiming());
 }
 
 mojom::PageLoadTimingPtr MetricsRenderFrameObserver::GetTiming() const {

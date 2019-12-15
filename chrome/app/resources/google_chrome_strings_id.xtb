@@ -3,7 +3,6 @@
 <translationbundle lang="id">
 <translation id="1001534784610492198">Arsip instalatur rusak atau tidak valid. Download kembali Google Chrome.</translation>
 <translation id="102763973188675173">Sesuaikan dan kontrol Google Chrome. Update tersedia.</translation>
-<translation id="1035334672863811645">login ke Chrome</translation>
 <translation id="1051826050538111504">Ada software berbahaya di komputer Anda. Chrome dapat menghapusnya, memulihkan setelan Anda, dan menonaktifkan ekstensi agar browser berfungsi kembali secara normal.</translation>
 <translation id="1065672644894730302">Preferensi Anda tidak dapat dibaca. Beberapa fitur mungkin tidak tersedia dan perubahan pada preferensi tidak akan disimpan.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> sebelumnya menggunakan Chrome</translation>
@@ -73,7 +72,6 @@
 <translation id="3065168410429928842">Tab Chrome</translation>
 <translation id="3080151273017101988">Terus jalankan apl latar belakang saat Google Chrome ditutup</translation>
 <translation id="3089968997497233615">Tersedia versi Google Chrome yang baru dan lebih aman.</translation>
-<translation id="3138848678222082288">Versi Chrome berikutnya akan diinstal secara otomatis. Saat download ini selesai, Chrome akan dimulai ulang dan siap digunakan.</translation>
 <translation id="3149510190863420837">Aplikasi Chrome</translation>
 <translation id="3282568296779691940">Login ke Chrome</translation>
 <translation id="3340978935015468852">setelan</translation>
@@ -94,7 +92,6 @@
 <translation id="3718181793972440140">Tindakan ini akan menghapus 1 item dari perangkat ini. Untuk mengambil data nanti, login ke Chrome sebagai <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">Ekstensi "<ph name="EXTENSION_NAME" />" telah mengubah apa yang ditampilkan oleh halaman saat Anda memulai Chrome.</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Hapus Dari Chrome...</translation>
 <translation id="386202838227397562">Tutup semua jendela Google Chrome, lalu coba lagi.</translation>
 <translation id="3873044882194371212">Buka link di jendela sa&amp;maran Chrome</translation>
 <translation id="3889417619312448367">Hapus Penginstalan Google Chrome</translation>
@@ -175,7 +172,6 @@
 <translation id="677276454032249905">Tetap tutup Chrome?</translation>
 <translation id="683440813066116847">Inbound rule untuk Google Chrome Canary guna mengizinkan lalu lintas mDNS.</translation>
 <translation id="6885412569789873916">Aplikasi Chrome Beta</translation>
-<translation id="6906909733186691861">Versi Chrome berikutnya akan diinstal secara otomatis.</translation>
 <translation id="6943584222992551122">Data browsing pengguna ini akan dihapus dari perangkat ini. Untuk memulihkan data, login ke Chrome sebagai <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Inbound rule untuk Google Chrome Beta guna mengizinkan traffic mDNS.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> mewajibkan Anda membaca dan menyetujui Persyaratan Layanan sebelum menggunakan perangkat ini. Persyaratan ini tidak memperluas, mengubah, atau membatasi Persyaratan Chrome OS.</translation>
@@ -226,7 +222,6 @@
 <translation id="8521348052903287641">Inbound rule untuk Google Chrome Dev guna mengizinkan traffic mDNS.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Tersedia versi Google Chrome yang baru, dan versi ini lebih cepat dari sebelumnya.</translation>
-<translation id="8606668294522778825">Google Chrome dapat menggunakan layanan web untuk meningkatkan pengalaman penjelajahan Anda. Anda dapat memilih untuk menonaktifkan layanan ini. <ph name="BEGIN_LINK" />Pelajari lebih lanjut<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome tidak merespons. Luncurkan ulang sekarang?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome akan diluncurkan ulang dalam 1 menit}other{Chrome akan diluncurkan ulang dalam # menit}}</translation>
 <translation id="8669527147644353129">Pembantu Google Chrome</translation>

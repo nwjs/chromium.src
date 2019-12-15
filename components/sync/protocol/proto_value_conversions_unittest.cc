@@ -58,7 +58,7 @@ namespace {
 
 DEFINE_SPECIFICS_TO_VALUE_TEST(encrypted)
 
-static_assert(41 == syncer::ModelType::NUM_ENTRIES,
+static_assert(40 == syncer::ModelType::NUM_ENTRIES,
               "When adding a new field, add a DEFINE_SPECIFICS_TO_VALUE_TEST "
               "for your field below, and optionally a test for the specific "
               "conversions.");
@@ -81,7 +81,6 @@ DEFINE_SPECIFICS_TO_VALUE_TEST(favicon_tracking)
 DEFINE_SPECIFICS_TO_VALUE_TEST(history_delete_directive)
 DEFINE_SPECIFICS_TO_VALUE_TEST(managed_user_setting)
 DEFINE_SPECIFICS_TO_VALUE_TEST(managed_user_whitelist)
-DEFINE_SPECIFICS_TO_VALUE_TEST(mountain_share)
 DEFINE_SPECIFICS_TO_VALUE_TEST(nigori)
 DEFINE_SPECIFICS_TO_VALUE_TEST(os_preference)
 DEFINE_SPECIFICS_TO_VALUE_TEST(os_priority_preference)
@@ -140,30 +139,43 @@ TEST(ProtoValueConversionsTest, AutofillWalletSpecificsToValue) {
   specifics.mutable_masked_card()->set_name_on_card("Igloo");
   specifics.mutable_address()->set_recipient_name("John");
   specifics.mutable_customer_data()->set_id("123456");
+  specifics.mutable_cloud_token_data()->set_masked_card_id("1111");
 
   specifics.set_type(sync_pb::AutofillWalletSpecifics::UNKNOWN);
   auto value = AutofillWalletSpecificsToValue(specifics);
   EXPECT_FALSE(value->Get("masked_card", nullptr));
   EXPECT_FALSE(value->Get("address", nullptr));
   EXPECT_FALSE(value->Get("customer_data", nullptr));
+  EXPECT_FALSE(value->Get("cloud_token_data", nullptr));
 
   specifics.set_type(sync_pb::AutofillWalletSpecifics::MASKED_CREDIT_CARD);
   value = AutofillWalletSpecificsToValue(specifics);
   EXPECT_TRUE(value->Get("masked_card", nullptr));
   EXPECT_FALSE(value->Get("address", nullptr));
   EXPECT_FALSE(value->Get("customer_data", nullptr));
+  EXPECT_FALSE(value->Get("cloud_token_data", nullptr));
 
   specifics.set_type(sync_pb::AutofillWalletSpecifics::POSTAL_ADDRESS);
   value = AutofillWalletSpecificsToValue(specifics);
   EXPECT_FALSE(value->Get("masked_card", nullptr));
   EXPECT_TRUE(value->Get("address", nullptr));
   EXPECT_FALSE(value->Get("customer_data", nullptr));
+  EXPECT_FALSE(value->Get("cloud_token_data", nullptr));
 
   specifics.set_type(sync_pb::AutofillWalletSpecifics::CUSTOMER_DATA);
   value = AutofillWalletSpecificsToValue(specifics);
   EXPECT_FALSE(value->Get("masked_card", nullptr));
   EXPECT_FALSE(value->Get("address", nullptr));
   EXPECT_TRUE(value->Get("customer_data", nullptr));
+  EXPECT_FALSE(value->Get("cloud_token_data", nullptr));
+
+  specifics.set_type(
+      sync_pb::AutofillWalletSpecifics::CREDIT_CARD_CLOUD_TOKEN_DATA);
+  value = AutofillWalletSpecificsToValue(specifics);
+  EXPECT_FALSE(value->Get("masked_card", nullptr));
+  EXPECT_FALSE(value->Get("address", nullptr));
+  EXPECT_FALSE(value->Get("customer_data", nullptr));
+  EXPECT_TRUE(value->Get("cloud_token_data", nullptr));
 }
 
 TEST(ProtoValueConversionsTest, BookmarkSpecificsData) {

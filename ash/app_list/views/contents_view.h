@@ -117,6 +117,8 @@ class APP_LIST_EXPORT ContentsView : public views::View,
   void ShowEmbeddedAssistantUI(bool show);
   bool IsShowingEmbeddedAssistantUI() const;
 
+  void FocusEmbeddedAssistantPage();
+
   void ShowFolderContent(AppListFolderItem* folder);
 
   // Sets the active launcher page and animates the pages into place.
@@ -203,7 +205,7 @@ class APP_LIST_EXPORT ContentsView : public views::View,
   const char* GetClassName() const override;
 
   // Overridden from PaginationModelObserver:
-  void TotalPagesChanged() override;
+  void TotalPagesChanged(int previous_page_count, int new_page_count) override;
   void SelectedPageChanged(int old_selected, int new_selected) override;
   void TransitionStarted() override;
   void TransitionChanged() override;
@@ -337,6 +339,7 @@ class APP_LIST_EXPORT ContentsView : public views::View,
   // Used primarily to determine the initial search box position when animating
   // to a new app list view state.
   base::Optional<ash::AppListState> target_page_for_last_view_state_update_;
+  base::Optional<ash::AppListViewState> last_target_view_state_;
 
   base::ObserverList<SearchBoxUpdateObserver> search_box_observers_;
 

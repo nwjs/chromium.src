@@ -173,6 +173,37 @@ WARN_UNUSED_RESULT ::testing::AssertionResult ReadCompleteLogFile(
     return ::testing::AssertionFailure()
            << log_path.value() << " does not exist.";
   }
+
+  // Check file permissions. These tests are only done on POSIX for simplicity,
+  // since base has better support for the POSIX permission model.
+#if defined(OS_POSIX)
+  int actual_permissions = 0;
+  if (!base::GetPosixFilePermissions(log_path, &actual_permissions)) {
+    return ::testing::AssertionFailure()
+           << "Failed getting file permissions for " << log_path.value();
+  }
+
+  // Creating the file will have requested permission 600 (or 644 on Chrome
+  // OS). This cannot be asserted directly since the shell's umask may further
+  // restrict the final permissions. For instance if your umask is 0027 and you
+  // try running the Chrome OS tests on Linux, the final permissions will be
+  // 640 rather than 644.
+  int expected_permissions = base::FILE_PERMISSION_READ_BY_USER |
+                             base::FILE_PERMISSION_WRITE_BY_USER
+#if defined(OS_CHROMEOS)
+                             | base::FILE_PERMISSION_READ_BY_GROUP |
+                             base::FILE_PERMISSION_READ_BY_OTHERS
+#endif
+      ;
+
+  if ((actual_permissions & expected_permissions) != actual_permissions) {
+    return ::testing::AssertionFailure()
+           << "Unexpected permissions: "
+           << base::StringPrintf("%o", actual_permissions) << " vs "
+           << base::StringPrintf("%o", expected_permissions);
+  }
+#endif  // defined(OS_POSIX)
+
   // Parse log file contents into a dictionary
   std::string log_string;
   if (!base::ReadFileToString(log_path, &log_string)) {
@@ -718,13 +749,13 @@ TEST_F(NetExportFileWriterTest, StartWithNetworkContextActive) {
 
   ASSERT_TRUE(InitializeThenVerifyNewState(true, false));
 
-  network::mojom::URLLoaderFactoryPtr url_loader_factory;
+  mojo::Remote<network::mojom::URLLoaderFactory> url_loader_factory;
   auto url_loader_factory_params =
       network::mojom::URLLoaderFactoryParams::New();
   url_loader_factory_params->process_id = network::mojom::kBrowserProcessId;
   url_loader_factory_params->is_corb_enabled = false;
   network_context()->CreateURLLoaderFactory(
-      mojo::MakeRequest(&url_loader_factory),
+      url_loader_factory.BindNewPipeAndPassReceiver(),
       std::move(url_loader_factory_params));
 
   const char kRedirectURL[] = "/server-redirect?/block";

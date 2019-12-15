@@ -78,7 +78,6 @@
 #include "net/base/port_util.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
-#include "services/data_decoder/public/cpp/safe_json_parser.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "url/gurl.h"
@@ -87,15 +86,12 @@
 #include "chrome/browser/sync/test/integration/printers_helper.h"
 #include "chrome/browser/sync/test/integration/sync_arc_package_helper.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs_factory.h"
+#include "chrome/browser/ui/app_list/test/fake_app_list_model_updater.h"
 #include "chromeos/components/account_manager/account_manager.h"
 #include "chromeos/components/account_manager/account_manager_factory.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "components/arc/arc_util.h"
 #endif  // defined(OS_CHROMEOS)
-
-#if BUILDFLAG(ENABLE_APP_LIST)
-#include "chrome/browser/ui/app_list/test/fake_app_list_model_updater.h"
-#endif  // BUILDFLAG(ENABLE_APP_LIST)
 
 using syncer::ProfileSyncService;
 
@@ -132,7 +128,6 @@ class FakePerUserTopicRegistrationManager
             /*identity_provider=*/nullptr,
             /*pref_service=*/local_state,
             /*url_loader_factory=*/nullptr,
-            base::BindRepeating(&data_decoder::SafeJsonParser::Parse, nullptr),
             /*project_id*/ kInvalidationGCMSenderId,
             /*migrate_prefs=*/false) {}
   ~FakePerUserTopicRegistrationManager() override = default;
@@ -163,7 +158,6 @@ CreatePerUserTopicRegistrationManager(
     invalidation::IdentityProvider* identity_provider,
     PrefService* local_state,
     network::mojom::URLLoaderFactory* url_loader_factory,
-    const syncer::ParseJSONCallback& parse_json,
     const std::string& project_id,
     bool migrate_prefs) {
   return std::make_unique<FakePerUserTopicRegistrationManager>(local_state);
@@ -217,11 +211,10 @@ class EncryptionChecker : public SingleClientStatusChangeChecker {
   explicit EncryptionChecker(ProfileSyncService* service)
       : SingleClientStatusChangeChecker(service) {}
 
-  bool IsExitConditionSatisfied() override {
+  bool IsExitConditionSatisfied(std::ostream* os) override {
+    *os << "Waiting for encryption to complete";
     return IsEncryptionComplete(service());
   }
-
-  std::string GetDebugMessage() const override { return "Encryption"; }
 };
 
 }  // namespace
@@ -352,7 +345,8 @@ bool SyncTest::CreateGaiaAccount(const std::string& username,
   return entry->GetHttpStatusCode() == 200;
 }
 
-void SyncTest::BeforeSetupClient(int index) {}
+void SyncTest::BeforeSetupClient(int index,
+                                 const base::FilePath& profile_path) {}
 
 bool SyncTest::CreateProfile(int index) {
   base::FilePath profile_path;
@@ -386,6 +380,8 @@ bool SyncTest::CreateProfile(int index) {
     profile_path = user_data_dir.AppendASCII(
         base::StringPrintf("SyncIntegrationTestClient%d", index));
   }
+
+  BeforeSetupClient(index, profile_path);
 
   if (UsingExternalServers()) {
     // If running against an EXTERNAL_LIVE_SERVER, we signin profiles using real
@@ -439,27 +435,6 @@ Profile* SyncTest::MakeProfileForUISignin(base::FilePath profile_path) {
 }
 
 Profile* SyncTest::MakeTestProfile(base::FilePath profile_path, int index) {
-  const auto& preference_contents_it =
-      preexisting_preferences_file_contents_.find(index);
-  if (preference_contents_it != preexisting_preferences_file_contents_.end() &&
-      !preference_contents_it->second.empty()) {
-    // The profile directory might not exist yet (e.g. for the verifier_
-    // profile).
-    if (!base::PathExists(profile_path) &&
-        !base::CreateDirectory(profile_path)) {
-      LOG(FATAL) << "Could not create profile directory: " << profile_path;
-    }
-    base::FilePath pref_path(profile_path.Append(chrome::kPreferencesFilename));
-    int write_result =
-        base::WriteFile(pref_path, preference_contents_it->second.c_str(),
-                        preference_contents_it->second.size());
-    if (write_result !=
-        static_cast<int>(preference_contents_it->second.size())) {
-      LOG(FATAL) << "Preexisting Preferences file could not be written to "
-                 << pref_path;
-    }
-  }
-
   std::unique_ptr<Profile> profile =
       Profile::CreateProfile(profile_path, profile_delegates_[index].get(),
                              Profile::CREATE_MODE_SYNCHRONOUS);
@@ -602,7 +577,6 @@ bool SyncTest::SetupClients() {
 #endif
 
   for (int i = 0; i < num_clients_; ++i) {
-    BeforeSetupClient(i);
     if (!CreateProfile(i)) {
       return false;
     }
@@ -650,11 +624,9 @@ void SyncTest::InitializeProfile(int index, Profile* profile) {
           GetProfile(index));
 
   if (server_type_ == IN_PROCESS_FAKE_SERVER) {
-    // TODO(pvalenzuela): Run the fake server via EmbeddedTestServer.
-    profile_sync_service->OverrideNetworkResourcesForTest(
-        base::WrapUnique<syncer::NetworkResources>(
-            new fake_server::FakeServerNetworkResources(
-                fake_server_->AsWeakPtr())));
+    profile_sync_service->OverrideNetworkForTest(
+        fake_server::CreateFakeServerHttpPostProviderFactory(
+            GetFakeServer()->AsWeakPtr()));
   }
 
   ProfileSyncServiceHarness::SigninType singin_type =
@@ -972,9 +944,7 @@ std::unique_ptr<KeyedService> SyncTest::CreateProfileInvalidationProvider(
               base::RetainedRef(
                   content::BrowserContext::GetDefaultStoragePartition(profile)
                       ->GetURLLoaderFactoryForBrowserProcess()
-                      .get()),
-              base::BindRepeating(&data_decoder::SafeJsonParser::Parse,
-                                  nullptr)),
+                      .get())),
           instance_id_driver, profile->GetPrefs(), kInvalidationGCMSenderId);
   fcm_invalidation_service->Init();
 
@@ -998,7 +968,12 @@ void SyncTest::ResetSyncForPrimaryAccount() {
     int old_use_new_user_data_dir = use_new_user_data_dir_;
     use_new_user_data_dir_ = true;
     num_clients_ = 1;
-    SetupSyncInternal(/*setup_mode=*/WAIT_FOR_SYNC_SETUP_TO_COMPLETE);
+    // Do not wait for sync complete. Some tests set passphrase and sync
+    // will fail. NO_WAITING mode gives access token and birthday so
+    // ProfileSyncServiceHarness::ResetSyncForPrimaryAccount() can succeed.
+    // The passphrase will be reset together with the rest of the sync data
+    // clearing.
+    SetupSyncNoWaitingForCompletion();
     GetClient(0)->ResetSyncForPrimaryAccount();
     GetClient(0)->StopSyncServiceAndClearData();
     ClearProfiles();
@@ -1203,10 +1178,4 @@ arc::SyncArcPackageHelper* SyncTest::sync_arc_helper() {
 #else
   return nullptr;
 #endif
-}
-
-void SyncTest::SetPreexistingPreferencesFileContents(
-    int index,
-    const std::string& contents) {
-  preexisting_preferences_file_contents_[index] = contents;
 }

@@ -35,10 +35,12 @@ class WebContentsObserverProxy : public WebContentsObserver {
   void RenderProcessGone(base::TerminationStatus termination_status) override;
   void DidStartLoading() override;
   void DidStopLoading() override;
+  void LoadProgressChanged(double progress) override;
   void DidFailLoad(RenderFrameHost* render_frame_host,
                    const GURL& validated_url,
                    int error_code,
                    const base::string16& error_description) override;
+  void DidChangeVisibleSecurityState() override;
   void DocumentAvailableInMainFrame() override;
   void DidFirstVisuallyNonEmptyPaint() override;
   void OnVisibilityChanged(content::Visibility visibility) override;

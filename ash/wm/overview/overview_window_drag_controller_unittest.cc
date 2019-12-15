@@ -24,7 +24,7 @@
 #include "ash/wm/window_util.h"
 #include "base/stl_util.h"
 #include "base/test/scoped_feature_list.h"
-#include "chromeos/constants/chromeos_switches.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/display/test/display_manager_test_api.h"
 #include "ui/events/test/event_generator.h"
@@ -301,7 +301,8 @@ TEST_F(OverviewWindowDragControllerWithDesksTest,
 // Tests the behavior of dragging a window in portrait tablet mode with virtual
 // desks enabled.
 class OverviewWindowDragControllerDesksPortraitTabletTest
-    : public OverviewWindowDragControllerWithDesksTest {
+    : public AshTestBase,
+      public testing::WithParamInterface<bool> {
  public:
   OverviewWindowDragControllerDesksPortraitTabletTest() = default;
   ~OverviewWindowDragControllerDesksPortraitTabletTest() override = default;
@@ -324,7 +325,7 @@ class OverviewWindowDragControllerDesksPortraitTabletTest
   }
 
   SplitViewDragIndicators* drag_indicators() {
-    return overview_session()->split_view_drag_indicators();
+    return overview_session()->grid_list()[0]->split_view_drag_indicators();
   }
 
   OverviewGrid* overview_grid() {
@@ -337,9 +338,24 @@ class OverviewWindowDragControllerDesksPortraitTabletTest
     return overview_grid()->desks_bar_view()->GetWidget();
   }
 
+  bool IsHotseatEnabled() { return GetParam(); }
+
   // OverviewWindowDragControllerWithDesksTest:
   void SetUp() override {
-    OverviewWindowDragControllerWithDesksTest::SetUp();
+    if (IsHotseatEnabled()) {
+      scoped_feature_list_.InitWithFeatures(
+          /* enabled */ {features::kVirtualDesks,
+                         chromeos::features::kShelfScrollable,
+                         chromeos::features::kShelfHotseat},
+          /* disabled */ {});
+    } else {
+      scoped_feature_list_.InitWithFeatures(
+          /* enabled */ {features::kVirtualDesks},
+          /* disabled */ {chromeos::features::kShelfScrollable,
+                          chromeos::features::kShelfHotseat});
+    }
+
+    AshTestBase::SetUp();
 
     // Setup a portrait internal display in tablet mode.
     UpdateDisplay("800x600");
@@ -387,8 +403,8 @@ class OverviewWindowDragControllerDesksPortraitTabletTest
     EXPECT_EQ(OverviewWindowDragController::DragBehavior::kNormalDrag,
               drag_controller()->current_drag_behavior());
     ASSERT_TRUE(drag_indicators());
-    EXPECT_EQ(IndicatorState::kDragArea,
-              drag_indicators()->current_indicator_state());
+    EXPECT_EQ(SplitViewDragIndicators::WindowDraggingState::kFromOverview,
+              drag_indicators()->current_window_dragging_state());
     // Note that it's ok to use screen bounds here since we only have a single
     // primary display.
     EXPECT_EQ(GetExpectedDesksBarShiftAmount(),
@@ -396,13 +412,15 @@ class OverviewWindowDragControllerDesksPortraitTabletTest
   }
 
  private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+
   DISALLOW_COPY_AND_ASSIGN(OverviewWindowDragControllerDesksPortraitTabletTest);
 };
 
-TEST_F(OverviewWindowDragControllerDesksPortraitTabletTest,
+TEST_P(OverviewWindowDragControllerDesksPortraitTabletTest,
        DragAndDropInEmptyArea) {
   // TODO(https://crbug.com/1011128): Fix this test when the hotseat is enabled.
-  if (chromeos::switches::ShouldShowShelfHotseat())
+  if (IsHotseatEnabled())
     return;
 
   auto window = CreateAppWindow(gfx::Rect(0, 0, 250, 100));
@@ -417,10 +435,10 @@ TEST_F(OverviewWindowDragControllerDesksPortraitTabletTest,
   EXPECT_EQ(0, desks_bar_widget()->GetWindowBoundsInScreen().y());
 }
 
-TEST_F(OverviewWindowDragControllerDesksPortraitTabletTest,
+TEST_P(OverviewWindowDragControllerDesksPortraitTabletTest,
        DragAndDropInSnapAreas) {
   // TODO(https://crbug.com/1011128): Fix this test when the hotseat is enabled.
-  if (chromeos::switches::ShouldShowShelfHotseat())
+  if (IsHotseatEnabled())
     return;
 
   auto window = CreateAppWindow(gfx::Rect(0, 0, 250, 100));
@@ -431,16 +449,16 @@ TEST_F(OverviewWindowDragControllerDesksPortraitTabletTest,
   auto* event_generator = GetEventGenerator();
   event_generator->MoveMouseTo(GetScreenInPixelsPoint(300, 800));
   ASSERT_TRUE(drag_indicators());
-  EXPECT_EQ(IndicatorState::kPreviewAreaRight,
-            drag_indicators()->current_indicator_state());
+  EXPECT_EQ(SplitViewDragIndicators::WindowDraggingState::kToSnapRight,
+            drag_indicators()->current_window_dragging_state());
   EXPECT_EQ(overview_grid()->bounds().y(),
             desks_bar_widget()->GetWindowBoundsInScreen().y());
 
   // Drag back to the middle, the desks bar should be shifted again.
   event_generator->MoveMouseTo(GetScreenInPixelsPoint(300, 400));
   ASSERT_TRUE(drag_indicators());
-  EXPECT_EQ(IndicatorState::kDragArea,
-            drag_indicators()->current_indicator_state());
+  EXPECT_EQ(SplitViewDragIndicators::WindowDraggingState::kFromOverview,
+            drag_indicators()->current_window_dragging_state());
   EXPECT_EQ(GetExpectedDesksBarShiftAmount(),
             desks_bar_widget()->GetWindowBoundsInScreen().y());
 
@@ -448,8 +466,8 @@ TEST_F(OverviewWindowDragControllerDesksPortraitTabletTest,
   // widget is no longer shifted.
   event_generator->MoveMouseTo(GetScreenInPixelsPoint(300, 0));
   ASSERT_TRUE(drag_indicators());
-  EXPECT_EQ(IndicatorState::kPreviewAreaLeft,
-            drag_indicators()->current_indicator_state());
+  EXPECT_EQ(SplitViewDragIndicators::WindowDraggingState::kToSnapLeft,
+            drag_indicators()->current_window_dragging_state());
   EXPECT_EQ(overview_grid()->bounds().y(),
             desks_bar_widget()->GetWindowBoundsInScreen().y());
 
@@ -464,9 +482,9 @@ TEST_F(OverviewWindowDragControllerDesksPortraitTabletTest,
             desks_bar_widget()->GetWindowBoundsInScreen().y());
 }
 
-TEST_F(OverviewWindowDragControllerDesksPortraitTabletTest, DragAndDropInDesk) {
+TEST_P(OverviewWindowDragControllerDesksPortraitTabletTest, DragAndDropInDesk) {
   // TODO(https://crbug.com/1011128): Fix this test when the hotseat is enabled.
-  if (chromeos::switches::ShouldShowShelfHotseat())
+  if (IsHotseatEnabled())
     return;
 
   auto window = CreateAppWindow(gfx::Rect(0, 0, 250, 100));
@@ -484,8 +502,8 @@ TEST_F(OverviewWindowDragControllerDesksPortraitTabletTest, DragAndDropInDesk) {
   event_generator->MoveMouseTo(
       GetScreenInPixelsPoint(mini_view_location.x(), mini_view_location.y()));
   ASSERT_TRUE(drag_indicators());
-  EXPECT_EQ(IndicatorState::kDragArea,
-            drag_indicators()->current_indicator_state());
+  EXPECT_EQ(SplitViewDragIndicators::WindowDraggingState::kFromOverview,
+            drag_indicators()->current_window_dragging_state());
   EXPECT_EQ(GetExpectedDesksBarShiftAmount(),
             desks_bar_widget()->GetWindowBoundsInScreen().y());
 
@@ -497,8 +515,12 @@ TEST_F(OverviewWindowDragControllerDesksPortraitTabletTest, DragAndDropInDesk) {
   EXPECT_TRUE(overview_controller()->InOverviewSession());
   EXPECT_EQ(overview_grid()->bounds().y(),
             desks_bar_widget()->GetWindowBoundsInScreen().y());
-  EXPECT_EQ(IndicatorState::kNone,
-            drag_indicators()->current_indicator_state());
+  EXPECT_EQ(SplitViewDragIndicators::WindowDraggingState::kNoDrag,
+            drag_indicators()->current_window_dragging_state());
 }
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         OverviewWindowDragControllerDesksPortraitTabletTest,
+                         testing::Bool());
 
 }  // namespace ash

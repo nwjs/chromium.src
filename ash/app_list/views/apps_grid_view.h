@@ -57,7 +57,7 @@ class PulsingBlockView;
 class GhostImageView;
 
 // Represents the index to an item view in the grid.
-struct GridIndex {
+struct APP_LIST_EXPORT GridIndex {
   GridIndex() : page(-1), slot(-1) {}
   GridIndex(int page, int slot) : page(page), slot(slot) {}
 
@@ -282,6 +282,12 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   // need updating), so it should be used sparingly.
   void OnAppListConfigUpdated();
 
+  // Returns the expected bounds rect in grid coordinates for the item with the
+  // provided id, if the item is in the first page.
+  // If the item is not in the current page (or cannot be found), this will
+  // return 1x1 rectangle in the apps grid center.
+  gfx::Rect GetExpectedItemBoundsInFirstPage(const std::string& id) const;
+
   // Helper for getting current app list config from the parents in the app list
   // view hierarchy.
   const AppListConfig& GetAppListConfig() const;
@@ -480,7 +486,7 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   void OnAppListItemHighlight(size_t index, bool highlight) override;
 
   // Overridden from PaginationModelObserver:
-  void TotalPagesChanged() override;
+  void TotalPagesChanged(int previous_page_count, int new_page_count) override;
   void SelectedPageChanged(int old_selected, int new_selected) override;
   void TransitionStarting() override;
   void TransitionStarted() override;
@@ -617,7 +623,7 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   void CalculateIdealBounds();
 
   // Returns model index of the item view of the specified item.
-  int GetModelIndexOfItem(const AppListItem* item);
+  int GetModelIndexOfItem(const AppListItem* item) const;
 
   // Returns the target model index based on item index. (Item index is the
   // index of an item in item list.) This should be used when the item is
@@ -662,11 +668,20 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   // folder or creating a folder with two apps.
   void MaybeCreateFolderDroppingAccessibilityEvent();
 
-  // Modifies the announcement view to verbalize |moving_view_title| is creating
-  // a folder or moving into an existing folder with |target_view_title|.
+  // Modifies the announcement view to verbalize that the current drag will move
+  // |moving_view_title| and create a folder or move it into an existing folder
+  // with |target_view_title|.
   void AnnounceFolderDrop(const base::string16& moving_view_title,
                           const base::string16& target_view_title,
                           bool target_is_folder);
+
+  // Modifies the announcement view to vervalize that the most recent keyboard
+  // foldering action has either moved |moving_view_title| into
+  // |target_view_title| folder or that |moving_view_title| and
+  // |target_view_title| have formed a new folder.
+  void AnnounceKeyboardFoldering(const base::string16& moving_view_title,
+                                 const base::string16& target_view_title,
+                                 bool target_is_folder);
 
   // During an app drag, creates an a11y event to verbalize drop target
   // location.

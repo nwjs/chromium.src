@@ -57,9 +57,11 @@ PasswordStoreChangeList AddChangeForForm(const PasswordForm& form) {
       1, PasswordStoreChange(PasswordStoreChange::ADD, form));
 }
 
-PasswordStoreChangeList UpdateChangeForForm(const PasswordForm& form) {
+PasswordStoreChangeList UpdateChangeForForm(const PasswordForm& form,
+                                            const bool password_changed) {
   return PasswordStoreChangeList(
-      1, PasswordStoreChange(PasswordStoreChange::UPDATE, form));
+      1,
+      PasswordStoreChange(PasswordStoreChange::UPDATE, form, password_changed));
 }
 
 PasswordStoreChangeList RemoveChangeForForm(const PasswordForm& form) {
@@ -87,7 +89,7 @@ void GenerateExamplePasswordForm(PasswordForm* form) {
   form->federation_origin =
       url::Origin::Create(GURL("https://accounts.google.com/"));
   form->skip_zero_click = true;
-  form->from_store = PasswordForm::Store::kProfileStore;
+  form->in_store = PasswordForm::Store::kProfileStore;
 }
 
 // Helper functions to read the value of the first column of an executed
@@ -377,7 +379,8 @@ TEST_F(LoginDatabaseTest, Logins) {
 
   // We update, and check to make sure it matches the
   // old form, and there is only one record.
-  EXPECT_EQ(UpdateChangeForForm(form5), db().UpdateLogin(form5));
+  EXPECT_EQ(UpdateChangeForForm(form5, /*passwordchanged=*/true),
+            db().UpdateLogin(form5));
   // matches
   EXPECT_TRUE(db().GetLogins(PasswordStore::FormDigest(form5), &result));
   EXPECT_EQ(1U, result.size());
@@ -554,9 +557,9 @@ TEST_F(LoginDatabaseTest, TestFederatedMatching) {
   EXPECT_TRUE(db().GetAutofillableLogins(&result));
   EXPECT_EQ(2U, result.size());
 
-  // When we retrieve the forms from the store, |from_store| should be set.
-  form.from_store = PasswordForm::Store::kProfileStore;
-  form2.from_store = PasswordForm::Store::kProfileStore;
+  // When we retrieve the forms from the store, |in_store| should be set.
+  form.in_store = PasswordForm::Store::kProfileStore;
+  form2.in_store = PasswordForm::Store::kProfileStore;
 
   // Match against desktop.
   PasswordStore::FormDigest form_request = {PasswordForm::Scheme::kHtml,
@@ -595,9 +598,9 @@ TEST_F(LoginDatabaseTest, TestFederatedMatchingLocalhost) {
   EXPECT_EQ(AddChangeForForm(form), db().AddLogin(form));
   EXPECT_EQ(AddChangeForForm(form_with_port), db().AddLogin(form_with_port));
 
-  // When we retrieve the forms from the store, |from_store| should be set.
-  form.from_store = PasswordForm::Store::kProfileStore;
-  form_with_port.from_store = PasswordForm::Store::kProfileStore;
+  // When we retrieve the forms from the store, |in_store| should be set.
+  form.in_store = PasswordForm::Store::kProfileStore;
+  form_with_port.in_store = PasswordForm::Store::kProfileStore;
 
   // Match localhost with and without port.
   PasswordStore::FormDigest form_request(PasswordForm::Scheme::kHtml,
@@ -710,9 +713,9 @@ TEST_F(LoginDatabaseTest, TestFederatedMatchingWithoutPSLMatching) {
   EXPECT_TRUE(db().GetAutofillableLogins(&result));
   EXPECT_EQ(2U, result.size());
 
-  // When we retrieve the forms from the store, |from_store| should be set.
-  form.from_store = PasswordForm::Store::kProfileStore;
-  form2.from_store = PasswordForm::Store::kProfileStore;
+  // When we retrieve the forms from the store, |in_store| should be set.
+  form.in_store = PasswordForm::Store::kProfileStore;
+  form2.in_store = PasswordForm::Store::kProfileStore;
 
   // Match against the first one.
   PasswordStore::FormDigest form_request = {PasswordForm::Scheme::kHtml,
@@ -741,8 +744,8 @@ TEST_F(LoginDatabaseTest, TestFederatedPSLMatching) {
   form.scheme = PasswordForm::Scheme::kHtml;
   EXPECT_EQ(AddChangeForForm(form), db().AddLogin(form));
 
-  // When we retrieve the form from the store, it should have |from_store| set.
-  form.from_store = PasswordForm::Store::kProfileStore;
+  // When we retrieve the form from the store, it should have |in_store| set.
+  form.in_store = PasswordForm::Store::kProfileStore;
 
   // Match against.
   PasswordStore::FormDigest form_request = {PasswordForm::Scheme::kHtml,
@@ -1131,8 +1134,8 @@ TEST_F(LoginDatabaseTest, BlacklistedLogins) {
   EXPECT_TRUE(db().GetAutofillableLogins(&result));
   ASSERT_EQ(0U, result.size());
 
-  // When we retrieve the form from the store, it should have |from_store| set.
-  form.from_store = PasswordForm::Store::kProfileStore;
+  // When we retrieve the form from the store, it should have |in_store| set.
+  form.in_store = PasswordForm::Store::kProfileStore;
 
   // GetLogins should give the blacklisted result.
   EXPECT_TRUE(db().GetLogins(PasswordStore::FormDigest(form), &result));
@@ -1232,8 +1235,8 @@ TEST_F(LoginDatabaseTest, UpdateIncompleteCredentials) {
 
   // This time we should have all the info available.
   PasswordForm expected_form(completed_form);
-  // When we retrieve the form from the store, it should have |from_store| set.
-  expected_form.from_store = PasswordForm::Store::kProfileStore;
+  // When we retrieve the form from the store, it should have |in_store| set.
+  expected_form.in_store = PasswordForm::Store::kProfileStore;
   EXPECT_EQ(expected_form, *result[0]);
   result.clear();
 }
@@ -1276,12 +1279,12 @@ TEST_F(LoginDatabaseTest, UpdateOverlappingCredentials) {
   // Simulate the user changing their password.
   complete_form.password_value = ASCIIToUTF16("new_password");
   complete_form.date_synced = base::Time::Now();
-  EXPECT_EQ(UpdateChangeForForm(complete_form),
+  EXPECT_EQ(UpdateChangeForForm(complete_form, /*passwordchanged=*/true),
             db().UpdateLogin(complete_form));
 
-  // When we retrieve the forms from the store, |from_store| should be set.
-  complete_form.from_store = PasswordForm::Store::kProfileStore;
-  incomplete_form.from_store = PasswordForm::Store::kProfileStore;
+  // When we retrieve the forms from the store, |in_store| should be set.
+  complete_form.in_store = PasswordForm::Store::kProfileStore;
+  incomplete_form.in_store = PasswordForm::Store::kProfileStore;
 
   // Both still exist now.
   EXPECT_TRUE(db().GetAutofillableLogins(&result));
@@ -1362,12 +1365,12 @@ TEST_F(LoginDatabaseTest, UpdateLogin) {
   form.skip_zero_click = true;
 
   PasswordStoreChangeList changes = db().UpdateLogin(form);
-  EXPECT_EQ(UpdateChangeForForm(form), changes);
+  EXPECT_EQ(UpdateChangeForForm(form, /*passwordchanged=*/true), changes);
   ASSERT_EQ(1U, changes.size());
   EXPECT_EQ(1, changes[0].primary_key());
 
-  // When we retrieve the form from the store, it should have |from_store| set.
-  form.from_store = PasswordForm::Store::kProfileStore;
+  // When we retrieve the form from the store, it should have |in_store| set.
+  form.in_store = PasswordForm::Store::kProfileStore;
 
   std::vector<std::unique_ptr<PasswordForm>> result;
   EXPECT_TRUE(db().GetLogins(PasswordStore::FormDigest(form), &result));
@@ -2380,8 +2383,8 @@ PasswordForm LoginDatabaseUndecryptableLoginsTest::AddDummyLogin(
     EXPECT_EQ(db.GetLastChangeCount(), 1);
   }
 
-  // When we retrieve the form from the store, |from_store| should be set.
-  form.from_store = PasswordForm::Store::kProfileStore;
+  // When we retrieve the form from the store, |in_store| should be set.
+  form.in_store = PasswordForm::Store::kProfileStore;
 
   return form;
 }

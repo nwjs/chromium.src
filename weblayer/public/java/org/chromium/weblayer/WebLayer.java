@@ -87,8 +87,8 @@ public final class WebLayer {
      * @throws UnsupportedVersionException If {@link #isAvailable} returns false. See
      * {@link #isAvailable} for details.
      */
-    public static void loadAsync(@NonNull Context appContext,
-            @NonNull Callback<WebLayer> callback) throws UnsupportedVersionException {
+    public static void loadAsync(@NonNull Context appContext, @NonNull Callback<WebLayer> callback)
+            throws UnsupportedVersionException {
         ThreadCheck.ensureOnUiThread();
         checkAvailable(appContext);
         appContext = appContext.getApplicationContext();

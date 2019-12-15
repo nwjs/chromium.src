@@ -35,7 +35,6 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/mojom/referrer_policy.mojom-blink.h"
-#include "services/service_manager/public/mojom/interface_provider.mojom-blink.h"
 #include "third_party/blink/public/mojom/browser_interface_broker.mojom-blink.h"
 #include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-blink.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_installed_scripts_manager.mojom-blink.h"
@@ -121,7 +120,6 @@ void WebEmbeddedWorkerImpl::StartWorkerContext(
         installed_scripts_manager_params,
     mojo::ScopedMessagePipeHandle content_settings_handle,
     mojo::ScopedMessagePipeHandle cache_storage,
-    mojo::ScopedMessagePipeHandle interface_provider,
     mojo::ScopedMessagePipeHandle browser_interface_broker,
     scoped_refptr<base::SingleThreadTaskRunner> initiator_thread_task_runner) {
   DCHECK(!asked_to_terminate_);
@@ -159,9 +157,6 @@ void WebEmbeddedWorkerImpl::StartWorkerContext(
               std::move(content_settings_handle), 0u)),
       mojo::PendingRemote<mojom::blink::CacheStorage>(
           std::move(cache_storage), mojom::blink::CacheStorage::Version_),
-      service_manager::mojom::blink::InterfaceProviderPtrInfo(
-          std::move(interface_provider),
-          service_manager::mojom::blink::InterfaceProvider::Version_),
       mojo::PendingRemote<mojom::blink::BrowserInterfaceBroker>(
           std::move(browser_interface_broker),
           mojom::blink::BrowserInterfaceBroker::Version_),
@@ -188,8 +183,6 @@ void WebEmbeddedWorkerImpl::StartWorkerThread(
         installed_scripts_manager,
     std::unique_ptr<ServiceWorkerContentSettingsProxy> content_settings_proxy,
     mojo::PendingRemote<mojom::blink::CacheStorage> cache_storage_remote,
-    service_manager::mojom::blink::InterfaceProviderPtrInfo
-        interface_provider_info,
     mojo::PendingRemote<mojom::blink::BrowserInterfaceBroker>
         browser_interface_broker,
     scoped_refptr<base::SingleThreadTaskRunner> initiator_thread_task_runner) {
@@ -257,8 +250,8 @@ void WebEmbeddedWorkerImpl::StartWorkerThread(
       // Generate the full code cache in the first execution of the script.
       kV8CacheOptionsFullCodeWithoutHeatCheck,
       nullptr /* worklet_module_respones_map */,
-      std::move(interface_provider_info), std::move(browser_interface_broker),
-      BeginFrameProviderParams(), nullptr /* parent_feature_policy */,
+      std::move(browser_interface_broker), BeginFrameProviderParams(),
+      nullptr /* parent_feature_policy */,
       base::UnguessableToken() /* agent_cluster_id */);
 
   worker_thread_ = std::make_unique<ServiceWorkerThread>(
@@ -350,10 +343,9 @@ WebEmbeddedWorkerImpl::CreateFetchClientSettingsObjectData(
       passed_settings_object.referrer_policy,
       KURL::CreateIsolated(
           passed_settings_object.outgoing_referrer.GetString()),
-      https_state, AllowedByNosniff::MimeTypeCheck::kLax, address_space,
-      insecure_requests_policy,
-      FetchClientSettingsObject::InsecureNavigationsSet(),
-      false /* mixed_autoupgrade_opt_out */);
+      https_state, AllowedByNosniff::MimeTypeCheck::kLaxForWorker,
+      address_space, insecure_requests_policy,
+      FetchClientSettingsObject::InsecureNavigationsSet());
 }
 
 void WebEmbeddedWorkerImpl::WaitForShutdownForTesting() {

@@ -309,20 +309,6 @@ void RenderAccessibilityImpl::HandleAccessibilityFindInPageTermination() {
   Send(new AccessibilityHostMsg_FindInPageTermination(routing_id()));
 }
 
-void RenderAccessibilityImpl::AccessibilityFocusedElementChanged(
-    const WebElement& element) {
-  const WebDocument& document = GetMainDocument();
-  if (document.IsNull())
-    return;
-
-  if (element.IsNull()) {
-    // When focus is cleared, implicitly focus the document.
-    // TODO(dmazzoni): Make Blink send this notification instead.
-    HandleAXEvent(WebAXObject::FromWebDocument(document),
-                  ax::mojom::Event::kBlur);
-  }
-}
-
 void RenderAccessibilityImpl::HandleAXEvent(const WebAXObject& obj,
                                             ax::mojom::Event event,
                                             ax::mojom::EventFrom event_from,
@@ -774,9 +760,9 @@ void RenderAccessibilityImpl::OnPerformAction(
       target->Increment();
       break;
     case ax::mojom::Action::kScrollToMakeVisible:
-      target->ScrollToMakeVisibleWithSubFocus(data.target_rect,
-                                              data.horizontal_scroll_alignment,
-                                              data.vertical_scroll_alignment);
+      target->ScrollToMakeVisibleWithSubFocus(
+          data.target_rect, data.horizontal_scroll_alignment,
+          data.vertical_scroll_alignment, data.scroll_behavior);
       break;
     case ax::mojom::Action::kScrollToPoint:
       target->ScrollToGlobalPoint(data.target_point);

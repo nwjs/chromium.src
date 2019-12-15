@@ -171,17 +171,24 @@ class TestHintsFetcher : public optimization_guide::HintsFetcher {
       override {
     switch (fetch_state_) {
       case HintsFetcherEndState::kFetchFailed:
-        std::move(hints_fetched_callback).Run(request_context, base::nullopt);
+        std::move(hints_fetched_callback)
+            .Run(request_context,
+                 optimization_guide::HintsFetcherRequestStatus::kResponseError,
+                 base::nullopt);
         return false;
       case HintsFetcherEndState::kFetchSuccessWithHints:
         hints_fetched_ = true;
         std::move(hints_fetched_callback)
-            .Run(request_context, BuildHintsResponse({"host.com"}));
+            .Run(request_context,
+                 optimization_guide::HintsFetcherRequestStatus::kSuccess,
+                 BuildHintsResponse({"host.com"}));
         return true;
       case HintsFetcherEndState::kFetchSuccessWithNoHints:
         hints_fetched_ = true;
         std::move(hints_fetched_callback)
-            .Run(request_context, BuildHintsResponse({}));
+            .Run(request_context,
+                 optimization_guide::HintsFetcherRequestStatus::kSuccess,
+                 BuildHintsResponse({}));
         return true;
     }
     return true;
@@ -207,7 +214,9 @@ class OptimizationGuideHintsManagerTest
         data_reduction_proxy::DataReductionProxyTestContext::Builder()
             .WithMockConfig()
             .Build();
-    CreateServiceAndHintsManager(/*top_host_provider=*/nullptr);
+    CreateServiceAndHintsManager(
+        /*optimization_types_at_initialization=*/{},
+        /*top_host_provider=*/nullptr);
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
         data_reduction_proxy::switches::kEnableDataReductionProxy);
   }
@@ -219,6 +228,8 @@ class OptimizationGuideHintsManagerTest
   }
 
   void CreateServiceAndHintsManager(
+      const std::vector<optimization_guide::proto::OptimizationType>&
+          optimization_types_at_initialization,
       optimization_guide::TopHostProvider* top_host_provider) {
     if (hints_manager_) {
       ResetHintsManager();
@@ -234,9 +245,9 @@ class OptimizationGuideHintsManagerTest
             &test_url_loader_factory_);
 
     hints_manager_ = std::make_unique<OptimizationGuideHintsManager>(
-        optimization_guide_service_.get(), &testing_profile_, temp_dir(),
-        pref_service_.get(), db_provider_.get(), top_host_provider,
-        url_loader_factory_);
+        optimization_types_at_initialization, optimization_guide_service_.get(),
+        &testing_profile_, temp_dir(), pref_service_.get(), db_provider_.get(),
+        top_host_provider, url_loader_factory_);
     hints_manager_->SetClockForTesting(task_environment_.GetMockClock());
 
     // Add observer is called after the HintCache is fully initialized,
@@ -349,17 +360,6 @@ class OptimizationGuideHintsManagerTest
     return navigation_handle;
   }
 
-  // Returns the optimization guide navigation data attached to
-  // |navigation_handle|.
-  OptimizationGuideNavigationData* GetOptimizationGuideNavigationData(
-      content::NavigationHandle* navigation_handle) {
-    OptimizationGuideWebContentsObserver* observer =
-        OptimizationGuideWebContentsObserver::FromWebContents(
-            navigation_handle->GetWebContents());
-    return observer->GetOrCreateOptimizationGuideNavigationData(
-        navigation_handle);
-  }
-
   OptimizationGuideHintsManager* hints_manager() const {
     return hints_manager_.get();
   }
@@ -413,6 +413,45 @@ class OptimizationGuideHintsManagerTest
 };
 
 TEST_F(OptimizationGuideHintsManagerTest,
+       OptimizationTypesProvidedAtInitializationAreRegistered) {
+  std::vector<optimization_guide::proto::OptimizationType>
+      optimization_targets =
+          std::vector<optimization_guide::proto::OptimizationType>{
+              optimization_guide::proto::DEFER_ALL_SCRIPT};
+  CreateServiceAndHintsManager(optimization_targets,
+                               /*top_host_provider=*/nullptr);
+
+  EXPECT_TRUE(hints_manager()->HasRegisteredOptimizationTypes());
+  optimization_guide::proto::Configuration config;
+  optimization_guide::BloomFilter blacklist_bloom_filter(
+      kBlackBlacklistBloomFilterNumHashFunctions,
+      kBlackBlacklistBloomFilterNumBits);
+  PopulateBlackBlacklistBloomFilter(&blacklist_bloom_filter);
+  AddBlacklistBloomFilterToConfig(optimization_guide::proto::DEFER_ALL_SCRIPT,
+                                  blacklist_bloom_filter,
+                                  kBlackBlacklistBloomFilterNumHashFunctions,
+                                  kBlackBlacklistBloomFilterNumBits, &config);
+  AddBlacklistBloomFilterToConfig(optimization_guide::proto::NOSCRIPT,
+                                  blacklist_bloom_filter,
+                                  kBlackBlacklistBloomFilterNumHashFunctions,
+                                  kBlackBlacklistBloomFilterNumBits, &config);
+
+  base::HistogramTester histogram_tester;
+
+  ProcessHints(config, "1.0.0.0");
+
+  histogram_tester.ExpectBucketCount(
+      "OptimizationGuide.OptimizationFilterStatus.DeferAllScript",
+      optimization_guide::OptimizationFilterStatus::kFoundServerBlacklistConfig,
+      1);
+  histogram_tester.ExpectBucketCount(
+      "OptimizationGuide.OptimizationFilterStatus.DeferAllScript",
+      optimization_guide::OptimizationFilterStatus::kCreatedServerBlacklist, 1);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.OptimizationFilterStatus.NoScript", 0);
+}
+
+TEST_F(OptimizationGuideHintsManagerTest,
        ProcessHintsWithValidCommandLineOverride) {
   base::HistogramTester histogram_tester;
 
@@ -432,7 +471,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
 
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       optimization_guide::switches::kHintsProtoOverride, encoded_config);
-  CreateServiceAndHintsManager(/*top_host_provider=*/nullptr);
+  CreateServiceAndHintsManager(/*optimization_types_at_initialization=*/{},
+                               /*top_host_provider=*/nullptr);
 
   // The below histogram should not be recorded since hints weren't coming
   // directly from the component.
@@ -449,7 +489,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
 
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       optimization_guide::switches::kHintsProtoOverride, "this-is-not-a-proto");
-  CreateServiceAndHintsManager(/*top_host_provider=*/nullptr);
+  CreateServiceAndHintsManager(/*optimization_types_at_initialization=*/{},
+                               /*top_host_provider=*/nullptr);
 
   // The below histogram should not be recorded since hints weren't coming
   // directly from the component.
@@ -479,7 +520,9 @@ TEST_F(OptimizationGuideHintsManagerTest,
     base::HistogramTester histogram_tester;
     base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
         optimization_guide::switches::kHintsProtoOverride, encoded_config);
-    CreateServiceAndHintsManager(/*top_host_provider=*/nullptr);
+    CreateServiceAndHintsManager(
+        /*optimization_types_at_initialization=*/{},
+        /*top_host_provider=*/nullptr);
     // The below histogram should not be recorded since hints weren't coming
     // directly from the component.
     histogram_tester.ExpectTotalCount("OptimizationGuide.ProcessHintsResult",
@@ -690,7 +733,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
                                       true, 1);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
   EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
@@ -714,7 +758,8 @@ TEST_F(OptimizationGuideHintsManagerTest, LoadHintForNavigationWithHint) {
                                       true, 1);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
   EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_after_commit());
@@ -738,7 +783,8 @@ TEST_F(OptimizationGuideHintsManagerTest, LoadHintForNavigationNoHint) {
                                       false, 1);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
   EXPECT_FALSE(navigation_data->has_hint_before_commit().value());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_after_commit());
@@ -761,7 +807,8 @@ TEST_F(OptimizationGuideHintsManagerTest, LoadHintForNavigationNoHost) {
   histogram_tester.ExpectTotalCount("OptimizationGuide.LoadedHint.Result", 0);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_after_commit());
@@ -963,10 +1010,11 @@ TEST_F(OptimizationGuideHintsManagerTest,
        HintsFetchNotAllowedIfFeatureIsEnabledButTopHostProviderIsNotProvided) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      {optimization_guide::features::kOptimizationHintsFetching}, {});
+      {optimization_guide::features::kRemoteOptimizationGuideFetching}, {});
 
   SetUserPermissions(/*data_saver_enabled=*/true, /*has_seen_infobar=*/true);
-  CreateServiceAndHintsManager(/*top_host_provider=*/nullptr);
+  CreateServiceAndHintsManager(/*optimization_types_at_initialization=*/{},
+                               /*top_host_provider=*/nullptr);
   hints_manager()->SetHintsFetcherForTesting(
       BuildTestHintsFetcher(HintsFetcherEndState::kFetchSuccessWithHints));
   InitializeWithDefaultConfig("1.0.0");
@@ -980,14 +1028,15 @@ TEST_F(OptimizationGuideHintsManagerTest,
        HintsFetchNotAllowedIfFeatureIsEnabledButDataSaverIsNotEnabled) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      {optimization_guide::features::kOptimizationHintsFetching}, {});
+      {optimization_guide::features::kRemoteOptimizationGuideFetching}, {});
 
   SetUserPermissions(/*data_saver_enabled=*/false, /*has_seen_infobar=*/true);
   std::unique_ptr<FakeTopHostProvider> top_host_provider =
       std::make_unique<FakeTopHostProvider>(
           std::vector<std::string>({"example1.com", "example2.com"}));
 
-  CreateServiceAndHintsManager(top_host_provider.get());
+  CreateServiceAndHintsManager(/*optimization_types_at_initialization=*/{},
+                               top_host_provider.get());
   hints_manager()->SetHintsFetcherForTesting(
       BuildTestHintsFetcher(HintsFetcherEndState::kFetchSuccessWithHints));
   InitializeWithDefaultConfig("1.0.0");
@@ -1002,14 +1051,15 @@ TEST_F(OptimizationGuideHintsManagerTest,
        HintsFetchNotAllowedIfFeatureIsNotEnabled) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      {}, {optimization_guide::features::kOptimizationHintsFetching});
+      {}, {optimization_guide::features::kRemoteOptimizationGuideFetching});
 
   SetUserPermissions(/*data_saver_enabled=*/true, /*has_seen_infobar=*/true);
   std::unique_ptr<FakeTopHostProvider> top_host_provider =
       std::make_unique<FakeTopHostProvider>(
           std::vector<std::string>({"example1.com", "example2.com"}));
 
-  CreateServiceAndHintsManager(top_host_provider.get());
+  CreateServiceAndHintsManager(/*optimization_types_at_initialization=*/{},
+                               top_host_provider.get());
   InitializeWithDefaultConfig("1.0.0");
 
   // Force timer to expire and schedule a hints fetch.
@@ -1021,14 +1071,15 @@ TEST_F(OptimizationGuideHintsManagerTest,
        HintsFetchAllowedIfFeatureIsEnabledAndDataSaverUserHasNotSeenInfobar) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      {optimization_guide::features::kOptimizationHintsFetching}, {});
+      {optimization_guide::features::kRemoteOptimizationGuideFetching}, {});
 
   std::unique_ptr<FakeTopHostProvider> top_host_provider =
       std::make_unique<FakeTopHostProvider>(
           std::vector<std::string>({"example1.com", "example2.com"}));
 
   SetUserPermissions(/*data_saver_enabled=*/true, /*has_seen_infobar=*/false);
-  CreateServiceAndHintsManager(top_host_provider.get());
+  CreateServiceAndHintsManager(/*optimization_types_at_initialization=*/{},
+                               top_host_provider.get());
   hints_manager()->SetHintsFetcherForTesting(
       BuildTestHintsFetcher(HintsFetcherEndState::kFetchSuccessWithHints));
   InitializeWithDefaultConfig("1.0.0");
@@ -1044,14 +1095,15 @@ TEST_F(
     HintsFetchAllowedIfFeatureIsEnabledAndUserMeetsAllDataSaverUserCriteria) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      {optimization_guide::features::kOptimizationHintsFetching}, {});
+      {optimization_guide::features::kRemoteOptimizationGuideFetching}, {});
 
   std::unique_ptr<FakeTopHostProvider> top_host_provider =
       std::make_unique<FakeTopHostProvider>(
           std::vector<std::string>({"example1.com", "example2.com"}));
 
   SetUserPermissions(/*data_saver_enabled=*/true, /*has_seen_infobar=*/true);
-  CreateServiceAndHintsManager(top_host_provider.get());
+  CreateServiceAndHintsManager(/*optimization_types_at_initialization=*/{},
+                               top_host_provider.get());
   hints_manager()->SetHintsFetcherForTesting(
       BuildTestHintsFetcher(HintsFetcherEndState::kFetchSuccessWithHints));
   InitializeWithDefaultConfig("1.0.0");
@@ -1065,12 +1117,13 @@ TEST_F(
 TEST_F(OptimizationGuideHintsManagerTest, HintsFetcherEnabledNoHostsToFetch) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(
-      optimization_guide::features::kOptimizationHintsFetching);
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
 
   SetUserPermissions(/*data_saver_enabled=*/true, /*has_seen_infobar=*/true);
   std::unique_ptr<FakeTopHostProvider> top_host_provider =
       std::make_unique<FakeTopHostProvider>(std::vector<std::string>({}));
-  CreateServiceAndHintsManager(top_host_provider.get());
+  CreateServiceAndHintsManager(/*optimization_types_at_initialization=*/{},
+                               top_host_provider.get());
   hints_manager()->SetHintsFetcherForTesting(
       BuildTestHintsFetcher(HintsFetcherEndState::kFetchSuccessWithHints));
   InitializeWithDefaultConfig("1.0.0");
@@ -1085,13 +1138,14 @@ TEST_F(OptimizationGuideHintsManagerTest,
        HintsFetcherEnabledWithHostsNoHintsInResponse) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(
-      optimization_guide::features::kOptimizationHintsFetching);
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
 
   SetUserPermissions(/*data_saver_enabled=*/true, /*has_seen_infobar=*/true);
   std::unique_ptr<FakeTopHostProvider> top_host_provider =
       std::make_unique<FakeTopHostProvider>(
           std::vector<std::string>({"example1.com", "example2.com"}));
-  CreateServiceAndHintsManager(top_host_provider.get());
+  CreateServiceAndHintsManager(/*optimization_types_at_initialization=*/{},
+                               top_host_provider.get());
   hints_manager()->SetHintsFetcherForTesting(
       BuildTestHintsFetcher(HintsFetcherEndState::kFetchSuccessWithNoHints));
   InitializeWithDefaultConfig("1.0.0");
@@ -1112,14 +1166,15 @@ TEST_F(OptimizationGuideHintsManagerTest,
 TEST_F(OptimizationGuideHintsManagerTest, HintsFetcherTimerRetryDelay) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(
-      optimization_guide::features::kOptimizationHintsFetching);
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
 
   SetUserPermissions(/*data_saver_enabled=*/true, /*has_seen_infobar=*/true);
   std::unique_ptr<FakeTopHostProvider> top_host_provider =
       std::make_unique<FakeTopHostProvider>(
           std::vector<std::string>({"example1.com", "example2.com"}));
 
-  CreateServiceAndHintsManager(top_host_provider.get());
+  CreateServiceAndHintsManager(/*optimization_types_at_initialization=*/{},
+                               top_host_provider.get());
   hints_manager()->SetHintsFetcherForTesting(
       BuildTestHintsFetcher(HintsFetcherEndState::kFetchFailed));
   InitializeWithDefaultConfig("1.0.0");
@@ -1141,7 +1196,7 @@ TEST_F(OptimizationGuideHintsManagerTest, HintsFetcherTimerRetryDelay) {
 TEST_F(OptimizationGuideHintsManagerTest, HintsFetcherTimerFetchSucceeds) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(
-      optimization_guide::features::kOptimizationHintsFetching);
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
 
   SetUserPermissions(/*data_saver_enabled=*/true, /*has_seen_infobar=*/true);
   std::unique_ptr<FakeTopHostProvider> top_host_provider =
@@ -1149,7 +1204,8 @@ TEST_F(OptimizationGuideHintsManagerTest, HintsFetcherTimerFetchSucceeds) {
           std::vector<std::string>({"example1.com", "example2.com"}));
 
   // Force hints fetch scheduling.
-  CreateServiceAndHintsManager(top_host_provider.get());
+  CreateServiceAndHintsManager(/*optimization_types_at_initialization=*/{},
+                               top_host_provider.get());
   hints_manager()->SetHintsFetcherForTesting(
       BuildTestHintsFetcher(HintsFetcherEndState::kFetchSuccessWithHints));
   InitializeWithDefaultConfig("1.0.0");
@@ -1209,7 +1265,8 @@ TEST_F(OptimizationGuideHintsManagerTest, CanApplyOptimizationUrlWithNoHost) {
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_after_commit());
   EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
@@ -1253,7 +1310,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
   EXPECT_FALSE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
@@ -1300,7 +1358,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
   EXPECT_FALSE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
@@ -1347,7 +1406,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
   EXPECT_FALSE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
@@ -1394,7 +1454,8 @@ TEST_F(OptimizationGuideHintsManagerTest, CanApplyOptimizationNoECTEstimate) {
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
   EXPECT_FALSE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
@@ -1442,7 +1503,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
   EXPECT_FALSE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
@@ -1486,7 +1548,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
   EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
@@ -1525,7 +1588,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
   EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
@@ -1565,7 +1629,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
   EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
@@ -1592,21 +1657,23 @@ TEST_F(OptimizationGuideHintsManagerTest,
       optimization_guide::proto::OPTIMIZATION_TARGET_UNKNOWN,
       optimization_guide::proto::NOSCRIPT, &optimization_target_decision,
       &optimization_type_decision, &optimization_metadata);
-  // Make sure metadata is cleared.
-  EXPECT_EQ(0, optimization_metadata.previews_metadata.inflation_percent());
+  // Make sure metadata is populated.
+  EXPECT_EQ(1234, optimization_metadata.previews_metadata.inflation_percent());
 
   // Make sure decisions are logged correctly.
-  EXPECT_EQ(optimization_guide::OptimizationTargetDecision::kUnknown,
+  EXPECT_EQ(optimization_guide::OptimizationTargetDecision::
+                kModelNotAvailableOnClient,
             optimization_target_decision);
-  EXPECT_EQ(optimization_guide::OptimizationTypeDecision::kUnknown,
+  EXPECT_EQ(optimization_guide::OptimizationTypeDecision::kAllowedByHint,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
-  EXPECT_EQ(base::nullopt, navigation_data->has_hint_after_commit());
-  EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
-  EXPECT_FALSE(navigation_data->has_page_hint_value());
+  EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
+  EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
+  EXPECT_TRUE(navigation_data->has_page_hint_value());
 }
 
 TEST_F(OptimizationGuideHintsManagerTest,
@@ -1641,7 +1708,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
   EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
@@ -1666,7 +1734,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
   // Purposely set the page hint to be null to show that we override the page
   // hint information from the navigation handle.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   navigation_data->set_page_hint(nullptr);
 
   optimization_guide::OptimizationTargetDecision optimization_target_decision;
@@ -1728,7 +1797,7 @@ TEST_F(OptimizationGuideHintsManagerTest, HintsFetched_AtSRP_ECT_SLOW_2G) {
       {optimization_guide::proto::DEFER_ALL_SCRIPT});
   base::test::ScopedFeatureList scoped_list;
   scoped_list.InitAndEnableFeature(
-      optimization_guide::features::kOptimizationHintsFetching);
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
   InitializeWithDefaultConfig("1.0.0.0");
 
   // Set ECT estimate so hint is activated.
@@ -1754,7 +1823,7 @@ TEST_F(OptimizationGuideHintsManagerTest,
       {optimization_guide::proto::DEFER_ALL_SCRIPT});
   base::test::ScopedFeatureList scoped_list;
   scoped_list.InitAndEnableFeature(
-      optimization_guide::features::kOptimizationHintsFetching);
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
   InitializeWithDefaultConfig("1.0.0.0");
 
   // Set ECT estimate so hint is activated.
@@ -1786,7 +1855,7 @@ TEST_F(OptimizationGuideHintsManagerTest,
       {optimization_guide::proto::DEFER_ALL_SCRIPT});
   base::test::ScopedFeatureList scoped_list;
   scoped_list.InitAndEnableFeature(
-      optimization_guide::features::kOptimizationHintsFetching);
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
   InitializeWithDefaultConfig("1.0.0.0");
 
   // Set ECT estimate so hint is activated.
@@ -1815,7 +1884,7 @@ TEST_F(OptimizationGuideHintsManagerTest, HintsFetched_AtSRP_ECT_4G) {
       {optimization_guide::proto::DEFER_ALL_SCRIPT});
   base::test::ScopedFeatureList scoped_list;
   scoped_list.InitAndEnableFeature(
-      optimization_guide::features::kOptimizationHintsFetching);
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
   InitializeWithDefaultConfig("1.0.0.0");
 
   // Set ECT estimate so hint is activated.
@@ -1840,7 +1909,7 @@ TEST_F(OptimizationGuideHintsManagerTest, HintsFetched_AtNonSRP_ECT_SLOW_2G) {
       {optimization_guide::proto::DEFER_ALL_SCRIPT});
   base::test::ScopedFeatureList scoped_list;
   scoped_list.InitAndEnableFeature(
-      optimization_guide::features::kOptimizationHintsFetching);
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
   InitializeWithDefaultConfig("1.0.0.0");
 
   // Set ECT estimate so hint is activated.
@@ -1866,7 +1935,7 @@ TEST_F(OptimizationGuideHintsManagerTest,
       {optimization_guide::proto::DEFER_ALL_SCRIPT});
   base::test::ScopedFeatureList scoped_list;
   scoped_list.InitAndEnableFeature(
-      optimization_guide::features::kOptimizationHintsFetching);
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
   InitializeWithDefaultConfig("1.0.0.0");
 
   // Set ECT estimate so hint is activated.
@@ -1882,6 +1951,15 @@ TEST_F(OptimizationGuideHintsManagerTest,
   run_loop.Run();
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 1, 1);
+
+  // Make sure navigation data is populated correctly.
+  OptimizationGuideNavigationData* navigation_data =
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
+  EXPECT_TRUE(
+      navigation_data->was_hint_for_host_attempted_to_be_fetched().has_value());
+  EXPECT_TRUE(
+      navigation_data->was_hint_for_host_attempted_to_be_fetched().value());
 }
 
 TEST_F(OptimizationGuideHintsManagerTest,
@@ -1890,7 +1968,7 @@ TEST_F(OptimizationGuideHintsManagerTest,
       {optimization_guide::proto::DEFER_ALL_SCRIPT});
   base::test::ScopedFeatureList scoped_list;
   scoped_list.InitAndEnableFeature(
-      optimization_guide::features::kOptimizationHintsFetching);
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
   InitializeWithDefaultConfig("1.0.0.0");
 
   // Set ECT estimate so hint is activated.
@@ -1906,6 +1984,13 @@ TEST_F(OptimizationGuideHintsManagerTest,
   run_loop.Run();
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 0);
+
+  // Make sure navigation data is populated correctly.
+  OptimizationGuideNavigationData* navigation_data =
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
+  EXPECT_FALSE(
+      navigation_data->was_hint_for_host_attempted_to_be_fetched().has_value());
 }
 
 TEST_F(OptimizationGuideHintsManagerTest,
@@ -1914,7 +1999,7 @@ TEST_F(OptimizationGuideHintsManagerTest,
       {optimization_guide::proto::DEFER_ALL_SCRIPT});
   base::test::ScopedFeatureList scoped_list;
   scoped_list.InitAndEnableFeature(
-      optimization_guide::features::kOptimizationHintsFetching);
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
   InitializeWithDefaultConfig("1.0.0.0");
 
   // Set ECT estimate so hint is activated.
@@ -1930,6 +2015,41 @@ TEST_F(OptimizationGuideHintsManagerTest,
   run_loop.Run();
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount", 0);
+  // Make sure navigation data is populated correctly.
+  OptimizationGuideNavigationData* navigation_data =
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
+  EXPECT_FALSE(
+      navigation_data->was_hint_for_host_attempted_to_be_fetched().has_value());
+}
+
+TEST_F(OptimizationGuideHintsManagerTest, CanApplyOptimizationCalledMidFetch) {
+  hints_manager()->RegisterOptimizationTypes(
+      {optimization_guide::proto::DEFER_ALL_SCRIPT});
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitAndEnableFeature(
+      optimization_guide::features::kRemoteOptimizationGuideFetching);
+  InitializeWithDefaultConfig("1.0.0.0");
+
+  // Set ECT estimate so hint will attempt to be fetched.
+  hints_manager()->OnEffectiveConnectionTypeChanged(
+      net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_2G);
+  std::unique_ptr<content::MockNavigationHandle> navigation_handle =
+      CreateMockNavigationHandleWithOptimizationGuideWebContentsObserver(
+          url_without_hints());
+  hints_manager()->OnNavigationStartOrRedirect(navigation_handle.get(),
+                                               base::DoNothing());
+  optimization_guide::OptimizationTargetDecision unused_target_decision;
+  optimization_guide::OptimizationTypeDecision optimization_type_decision;
+  hints_manager()->CanApplyOptimization(
+      navigation_handle.get(),
+      optimization_guide::proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD,
+      optimization_guide::proto::DEFER_ALL_SCRIPT, &unused_target_decision,
+      &optimization_type_decision, /*optimization_metadata=*/nullptr);
+
+  EXPECT_EQ(optimization_type_decision,
+            optimization_guide::OptimizationTypeDecision::
+                kHintFetchStartedButNotAvailableInTime);
 }
 
 TEST_F(OptimizationGuideHintsManagerTest,
@@ -1964,7 +2084,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
   EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
@@ -2000,7 +2121,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
   EXPECT_FALSE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
@@ -2035,7 +2157,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
       optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_EQ(base::nullopt, navigation_data->has_hint_before_commit());
   EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ(base::nullopt, navigation_data->serialized_hint_version_string());
@@ -2098,7 +2221,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
   EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());
@@ -2162,7 +2286,8 @@ TEST_F(OptimizationGuideHintsManagerTest,
             optimization_type_decision);
   // Make sure navigation data is populated correctly.
   OptimizationGuideNavigationData* navigation_data =
-      GetOptimizationGuideNavigationData(navigation_handle.get());
+      OptimizationGuideNavigationData::GetFromNavigationHandle(
+          navigation_handle.get());
   EXPECT_TRUE(navigation_data->has_hint_before_commit().value());
   EXPECT_TRUE(navigation_data->has_hint_after_commit().value());
   EXPECT_EQ("someversion", navigation_data->serialized_hint_version_string());

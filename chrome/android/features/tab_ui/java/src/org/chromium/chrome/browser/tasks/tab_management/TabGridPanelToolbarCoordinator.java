@@ -9,7 +9,7 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 
-import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -17,7 +17,7 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
 /**
  * Coordinator for the toolbar component that will be shown on top of the tab
- * grid components, used in {@link TabGridSheetCoordinator} and {@link TabGridDialogCoordinator}.
+ * grid components, used in {@link TabGridDialogCoordinator}.
  */
 class TabGridPanelToolbarCoordinator implements Destroyable {
     private final TabGroupUiToolbarView mToolbarView;
@@ -41,7 +41,7 @@ class TabGridPanelToolbarCoordinator implements Destroyable {
             PropertyModel toolbarPropertyModel, TabGridDialogParent dialog) {
         mToolbarView = (TabGroupUiToolbarView) LayoutInflater.from(context).inflate(
                 R.layout.bottom_tab_grid_toolbar, contentView, false);
-        mToolbarView.setupToolbarLayout(dialog != null);
+        mToolbarView.setupToolbarLayout();
         if (!FeatureUtilities.isTabGroupsAndroidContinuationEnabled()) {
             mToolbarView.hideTabGroupsContinuationWidgets();
         }

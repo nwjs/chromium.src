@@ -6,15 +6,17 @@
 
 #include <memory>
 
+#include "base/command_line.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/strings/string_piece.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_layout.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/browser/navigation_controller.h"
@@ -32,11 +34,16 @@ namespace {
 
 class MockTabStripUIEmbedder : public TabStripUI::Embedder {
  public:
+  MOCK_METHOD(const ui::AcceleratorProvider*,
+              GetAcceleratorProvider,
+              (),
+              (const override));
   MOCK_METHOD(void, CloseContainer, (), (override));
   MOCK_METHOD(void,
               ShowContextMenuAtPoint,
               (gfx::Point point, std::unique_ptr<ui::MenuModel> menu_model),
               (override));
+  MOCK_METHOD(TabStripUILayout, GetLayout, (), (override));
 };
 
 }  // namespace
@@ -47,16 +54,17 @@ class TabStripUIBrowserTest : public InProcessBrowserTest {
     // In this test, we create our own TabStripUI instance with a mock
     // Embedder. Disable the production one to avoid conflicting with
     // it.
-    feature_override_.InitAndDisableFeature(features::kWebUITabStrip);
+    base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+        switches::kWebUITabStrip);
     InProcessBrowserTest::SetUp();
   }
 
-  void TearDown() override {
-    InProcessBrowserTest::TearDown();
-    feature_override_.Reset();
-  }
-
   void SetUpOnMainThread() override {
+    const TabStripUILayout default_layout =
+        TabStripUILayout::CalculateForWebViewportSize(gfx::Size(200, 200));
+    ON_CALL(mock_embedder_, GetLayout())
+        .WillByDefault(::testing::Return(default_layout));
+
     webui_contents_ = content::WebContents::Create(
         content::WebContents::CreateParams(browser()->profile()));
 
@@ -88,7 +96,8 @@ class TabStripUIBrowserTest : public InProcessBrowserTest {
 // static
 const std::string TabStripUIBrowserTest::tab_query_js(
     "document.querySelector('tabstrip-tab-list')"
-    "    .shadowRoot.querySelector('tabstrip-tab')");
+    "    .shadowRoot.querySelector('tabstrip-tab')"
+    "    .shadowRoot.querySelector('#tab')");
 
 IN_PROC_BROWSER_TEST_F(TabStripUIBrowserTest, ActivatingTabClosesEmbedder) {
   const std::string activate_tab_js = tab_query_js + ".click()";

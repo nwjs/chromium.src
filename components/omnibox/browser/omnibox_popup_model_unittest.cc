@@ -33,6 +33,7 @@ class TestOmniboxPopupView : public OmniboxPopupView {
   void InvalidateLine(size_t line) override {}
   void OnLineSelected(size_t line) override {}
   void UpdatePopupAppearance() override {}
+  void ProvideButtonFocusHint(size_t line) override {}
   void OnMatchIconUpdated(size_t match_index) override {}
   void OnDragCanceled() override {}
 };
@@ -93,6 +94,39 @@ TEST_F(OmniboxPopupModelTest, SetSelectedLine) {
   EXPECT_FALSE(popup_model()->has_selected_match());
   popup_model()->SetSelectedLine(0, false, false);
   EXPECT_TRUE(popup_model()->has_selected_match());
+}
+
+TEST_F(OmniboxPopupModelTest, SetSelectedLineWithNoDefaultMatches) {
+  // Creates a set of matches with NO matches allowed to be default.
+  ACMatches matches;
+  for (size_t i = 0; i < 2; ++i) {
+    AutocompleteMatch match(nullptr, 1000, false,
+                            AutocompleteMatchType::URL_WHAT_YOU_TYPED);
+    match.keyword = base::ASCIIToUTF16("match");
+    matches.push_back(match);
+  }
+  auto* result = &model()->autocomplete_controller()->result_;
+  AutocompleteInput input(base::UTF8ToUTF16("match"),
+                          metrics::OmniboxEventProto::NTP,
+                          TestSchemeClassifier());
+  result->AppendMatches(input, matches);
+  result->SortAndCull(input, nullptr);
+
+  popup_model()->OnResultChanged();
+  EXPECT_EQ(OmniboxPopupModel::kNoMatch, popup_model()->selected_line());
+  EXPECT_FALSE(popup_model()->has_selected_match());
+
+  popup_model()->SetSelectedLine(0, false, false);
+  EXPECT_EQ(0U, popup_model()->selected_line());
+  EXPECT_TRUE(popup_model()->has_selected_match());
+
+  popup_model()->SetSelectedLine(1, false, false);
+  EXPECT_EQ(1U, popup_model()->selected_line());
+  EXPECT_TRUE(popup_model()->has_selected_match());
+
+  popup_model()->ResetToInitialState();
+  EXPECT_EQ(OmniboxPopupModel::kNoMatch, popup_model()->selected_line());
+  EXPECT_FALSE(popup_model()->has_selected_match());
 }
 
 TEST_F(OmniboxPopupModelTest, PopupPositionChanging) {

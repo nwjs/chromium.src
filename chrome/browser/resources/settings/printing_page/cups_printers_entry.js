@@ -15,7 +15,7 @@ Polymer({
 
     /**
      * TODO(jimmyxgong): Determine how subtext should be set and what
-     * information it should have.
+     * information it should have, including necessary ARIA labeling
      * The additional information subtext for a printer.
      * @type {string}
      */
@@ -63,5 +63,15 @@ Polymer({
    */
   isAutomaticPrinter_: function() {
     return this.printerEntry.printerType == PrinterType.AUTOMATIC;
-  }
+  },
+
+  getSaveButtonAria_: function() {
+    return loadTimeData.getStringF('savePrinterAria',
+      this.printerEntry.printerInfo.printerName);
+  },
+
+  getSetupButtonAria_: function() {
+    return loadTimeData.getStringF('setupPrinterAria',
+      this.printerEntry.printerInfo.printerName);
+  },
 });

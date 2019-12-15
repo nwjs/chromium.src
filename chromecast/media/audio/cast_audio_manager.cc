@@ -15,6 +15,7 @@
 #include "chromecast/media/audio/audio_buildflags.h"
 #include "chromecast/media/audio/cast_audio_mixer.h"
 #include "chromecast/media/audio/cast_audio_output_stream.h"
+#include "chromecast/media/audio/mixer_service/constants.h"
 #include "chromecast/media/cma/backend/cma_backend_factory.h"
 #include "chromecast/public/cast_media_shlib.h"
 #include "chromecast/public/media/media_pipeline_backend.h"
@@ -270,26 +271,25 @@ void CastAudioManager::SetConnectorForTesting(
 
 service_manager::Connector* CastAudioManager::GetConnector() {
   if (!connector_) {
-    service_manager::mojom::ConnectorRequest request;
-    connector_ = service_manager::Connector::Create(&request);
+    mojo::PendingReceiver<service_manager::mojom::Connector> receiver;
+    connector_ = service_manager::Connector::Create(&receiver);
     browser_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(&CastAudioManager::BindConnectorRequest,
-                                  weak_this_, std::move(request)));
+        FROM_HERE, base::BindOnce(&CastAudioManager::BindConnectorReceiver,
+                                  weak_this_, std::move(receiver)));
   }
   return connector_.get();
 }
 
-void CastAudioManager::BindConnectorRequest(
-    service_manager::mojom::ConnectorRequest request) {
-  browser_connector_->BindConnectorRequest(std::move(request));
+void CastAudioManager::BindConnectorReceiver(
+    mojo::PendingReceiver<service_manager::mojom::Connector> receiver) {
+  browser_connector_->BindConnectorReceiver(std::move(receiver));
 }
 
 bool CastAudioManager::UseMixerOutputStream(
     const ::media::AudioParameters& params) {
   bool use_cma_backend =
       (params.effects() & ::media::AudioParameters::MULTIZONE) ||
-      !CastMediaShlib::AddDirectAudioSource ||
-      force_use_cma_backend_for_output_;
+      !mixer_service::HaveFullMixer() || force_use_cma_backend_for_output_;
 
   return !use_cma_backend;
 }

@@ -2056,7 +2056,7 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
   // the full web content.
   BOOL isAttributedString = [string isKindOfClass:[NSAttributedString class]];
   NSString* im_text = isAttributedString ? [string string] : string;
-  if (handlingKeyDown_) {
+  if (handlingKeyDown_ && replacementRange.location == NSNotFound) {
     textToBeInserted_.append(base::SysNSStringToUTF16(im_text));
     shouldRequestTextSubstitutions_ = YES;
   } else {
@@ -2230,7 +2230,9 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
 }
 
 - (NSTouchBar*)makeTouchBar {
-  if (textInputType_ != ui::TEXT_INPUT_TYPE_NONE) {
+  if (textInputType_ != ui::TEXT_INPUT_TYPE_NONE &&
+      !(textInputFlags_ & blink::kWebTextInputFlagAutocorrectOff) &&
+      !(textInputFlags_ & blink::kWebTextInputFlagSpellcheckOff)) {
     candidateListTouchBarItem_.reset([[NSCandidateListTouchBarItem alloc]
         initWithIdentifier:NSTouchBarItemIdentifierCandidateList]);
     auto* candidateListItem = candidateListTouchBarItem_.get();
@@ -2243,8 +2245,20 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
     auto* touchBar = scopedTouchBar.get();
     touchBar.customizationIdentifier = ui::GetTouchBarId(kWebContentTouchBarId);
     touchBar.templateItems = [NSSet setWithObject:candidateListTouchBarItem_];
-    touchBar.defaultItemIdentifiers =
-        @[ NSTouchBarItemIdentifierCandidateList ];
+    bool includeEmojiPicker =
+        textInputType_ == ui::TEXT_INPUT_TYPE_TEXT ||
+        textInputType_ == ui::TEXT_INPUT_TYPE_SEARCH ||
+        textInputType_ == ui::TEXT_INPUT_TYPE_TEXT_AREA ||
+        textInputType_ == ui::TEXT_INPUT_TYPE_CONTENT_EDITABLE;
+    if (includeEmojiPicker) {
+      touchBar.defaultItemIdentifiers = @[
+        NSTouchBarItemIdentifierCharacterPicker,
+        NSTouchBarItemIdentifierCandidateList
+      ];
+    } else {
+      touchBar.defaultItemIdentifiers =
+          @[ NSTouchBarItemIdentifierCandidateList ];
+    }
     return scopedTouchBar.autorelease();
   }
 

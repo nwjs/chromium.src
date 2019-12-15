@@ -75,7 +75,6 @@
 #include "net/base/escape.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_request_headers.h"
-#include "services/data_decoder/public/cpp/test_data_decoder_service.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
@@ -189,7 +188,6 @@ class NotificationsObserver : public content::NotificationObserver {
         new content::MessageLoopRunner;
     quit_closure_ = runner->QuitClosure();
     runner->Run();
-    quit_closure_.Reset();
   }
 
  private:
@@ -197,7 +195,7 @@ class NotificationsObserver : public content::NotificationObserver {
                const content::NotificationSource& source,
                const content::NotificationDetails& details) override {
     if (!quit_closure_.is_null())
-      quit_closure_.Run();
+      std::move(quit_closure_).Run();
     for (size_t i = 0; i < base::size(kNotificationsObserved); ++i) {
       if (kNotificationsObserved[i] == type) {
         count_[i]++;
@@ -214,7 +212,7 @@ class NotificationsObserver : public content::NotificationObserver {
   content::NotificationRegistrar registrar_;
   size_t count_[base::size(kNotificationsObserved)];
   std::set<std::string> updated_;
-  base::Closure quit_closure_;
+  base::OnceClosure quit_closure_;
 
   DISALLOW_COPY_AND_ASSIGN(NotificationsObserver);
 };
@@ -283,7 +281,7 @@ class MockService : public TestExtensionService {
     return identity_test_env_.get();
   }
 
-  const std::string& account_id() { return account_info_.account_id.id; }
+  const CoreAccountId& account_id() { return account_info_.account_id; }
 
   // Creates test extensions and inserts them into list. The name and
   // version are all based on their index. If |update_url| is non-null, it
@@ -335,7 +333,7 @@ class MockService : public TestExtensionService {
             test_shared_url_loader_factory_,
             downloader_delegate_override_ ? downloader_delegate_override_
                                           : delegate,
-            /*connector=*/nullptr, GetTestVerifierFormat());
+            GetTestVerifierFormat());
     return downloader;
   }
 
@@ -1102,10 +1100,6 @@ class ExtensionUpdaterTest : public testing::Test {
                                          &not_updateable, &errors);
     EXPECT_THAT(not_updateable, testing::UnorderedElementsAre(id1, id4));
     EXPECT_THAT(errors, testing::UnorderedElementsAre(id2, id5, id7));
-    EXPECT_THAT(histogram_tester.GetAllSamples(
-                    "Extensions.UpdateManifestDuplicateEntryCount"),
-                testing::ElementsAre(base::Bucket(0, 1), base::Bucket(1, 3),
-                                     base::Bucket(2, 2), base::Bucket(4, 1)));
     ASSERT_EQ(2u, updateable.size());
     EXPECT_EQ("1.3.1.0", updateable[0]->version);
     EXPECT_EQ("1.6.1.0", updateable[1]->version);
@@ -1160,7 +1154,8 @@ class ExtensionUpdaterTest : public testing::Test {
       EXPECT_CALL(
           delegate,
           OnExtensionDownloadFailed(
-              "1111", ExtensionDownloaderDelegate::MANIFEST_FETCH_FAILED, _, _))
+              "1111", ExtensionDownloaderDelegate::Error::MANIFEST_FETCH_FAILED,
+              _, _))
           .WillOnce(InvokeWithoutArgs(&delegate,
                                       &MockExtensionDownloaderDelegate::Quit));
       delegate.Wait();
@@ -1178,7 +1173,8 @@ class ExtensionUpdaterTest : public testing::Test {
       EXPECT_CALL(
           delegate,
           OnExtensionDownloadFailed(
-              "2222", ExtensionDownloaderDelegate::MANIFEST_INVALID, _, _))
+              "2222", ExtensionDownloaderDelegate::Error::MANIFEST_INVALID, _,
+              _))
           .WillOnce(InvokeWithoutArgs(&delegate,
                                       &MockExtensionDownloaderDelegate::Quit));
       delegate.Wait();
@@ -1208,7 +1204,8 @@ class ExtensionUpdaterTest : public testing::Test {
       EXPECT_CALL(
           delegate,
           OnExtensionDownloadFailed(
-              "3333", ExtensionDownloaderDelegate::NO_UPDATE_AVAILABLE, _, _))
+              "3333", ExtensionDownloaderDelegate::Error::NO_UPDATE_AVAILABLE,
+              _, _))
           .WillOnce(InvokeWithoutArgs(&delegate,
                                       &MockExtensionDownloaderDelegate::Quit));
       delegate.Wait();
@@ -1268,8 +1265,11 @@ class ExtensionUpdaterTest : public testing::Test {
     RunUntilIdle();
 
     // ExtensionDownloader should retry kMaxRetries times and then fail.
-    EXPECT_CALL(delegate, OnExtensionDownloadFailed(
-        "1111", ExtensionDownloaderDelegate::MANIFEST_FETCH_FAILED, _, _));
+    EXPECT_CALL(
+        delegate,
+        OnExtensionDownloadFailed(
+            "1111", ExtensionDownloaderDelegate::Error::MANIFEST_FETCH_FAILED,
+            _, _));
     helper.test_url_loader_factory().SetInterceptor(base::BindLambdaForTesting(
         [&](const network::ResourceRequest& request) {
           EXPECT_TRUE(request.load_flags == kExpectedLoadFlags);
@@ -1298,8 +1298,11 @@ class ExtensionUpdaterTest : public testing::Test {
     helper.downloader().StartUpdateCheck(std::move(fetch));
     RunUntilIdle();
 
-    EXPECT_CALL(delegate, OnExtensionDownloadFailed(
-        "1111", ExtensionDownloaderDelegate::MANIFEST_FETCH_FAILED, _, _));
+    EXPECT_CALL(
+        delegate,
+        OnExtensionDownloadFailed(
+            "1111", ExtensionDownloaderDelegate::Error::MANIFEST_FETCH_FAILED,
+            _, _));
 
     // The first fetch will fail, and require retrying.
     {

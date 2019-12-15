@@ -3,7 +3,6 @@
 <translationbundle lang="vi">
 <translation id="1001534784610492198">Lưu trữ trình cài đặt bị lỗi hoặc không hợp lệ. Vui lòng tải xuống lại Google Chrome.</translation>
 <translation id="102763973188675173">Tùy chỉnh và kiểm soát Google Chrome. Đã có bản cập nhật.</translation>
-<translation id="1035334672863811645">đăng nhập vào Chrome</translation>
 <translation id="1051826050538111504">Máy tính của bạn có phần mềm độc hại. Chrome có thể xóa phần mềm này, khôi phục các tùy chọn cài đặt của bạn và tắt tiện ích để giúp trình duyệt hoạt động lại bình thường.</translation>
 <translation id="1065672644894730302">Không thể đọc tùy chọn của bạn. Một số tính năng có thể không khả dụng và các thay đổi đối với tùy chọn sẽ không được lưu.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> trước đó đã sử dụng Chrome</translation>
@@ -75,7 +74,6 @@
 <translation id="3065168410429928842">Tab Chrome</translation>
 <translation id="3080151273017101988">Tiếp tục chạy các ứng dụng nền khi Google Chrome đóng</translation>
 <translation id="3089968997497233615">Đã có phiên bản Google Chrome mới và an toàn hơn.</translation>
-<translation id="3138848678222082288">Các phiên bản Chrome trong tương lai sẽ tự động cài đặt. Khi tải xong phiên bản này xuống, Chrome sẽ khởi động lại và bạn có thể tiếp tục sử dụng.</translation>
 <translation id="3149510190863420837">Ứng dụng Chrome</translation>
 <translation id="3282568296779691940">Đăng nhập vào Chrome</translation>
 <translation id="3340978935015468852">cài đặt</translation>
@@ -96,7 +94,6 @@
 <translation id="3718181793972440140">Thao tác này sẽ xóa 1 mục khỏi thiết bị này. Để truy xuất dữ liệu của bạn sau, hãy đăng nhập vào Chrome dưới dạng <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">Tiện ích "<ph name="EXTENSION_NAME" />" đã thay đổi trang nào được hiển thị khi bạn khởi động Chrome.</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Xóa khỏi Chrome...</translation>
 <translation id="386202838227397562">Vui lòng đóng tất cả cửa sổ của Google Chrome và thử lại.</translation>
 <translation id="3873044882194371212">Mở liên kết trong cửa sổ ẩn &amp;danh của Chrome</translation>
 <translation id="3889417619312448367">Gỡ cài đặt Google Chrome</translation>
@@ -179,7 +176,6 @@ Một số tính năng có thể không khả dụng. Vui lòng chỉ định th
 <translation id="677276454032249905">Bạn vẫn muốn thoát khỏi Chrome?</translation>
 <translation id="683440813066116847">Quy tắc kết nối để Google Chrome Canary cho phép lưu lượng truy cập mDNS.</translation>
 <translation id="6885412569789873916">Ứng dụng Chrome Beta</translation>
-<translation id="6906909733186691861">Các phiên bản Chrome trong tương lai sẽ tự động cài đặt.</translation>
 <translation id="6943584222992551122">Dữ liệu duyệt web của người này sẽ bị xóa khỏi thiết bị này. Để khôi phục dữ liệu, hãy đăng nhập vào Chrome bằng <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Quy tắc kết nối để Google Chrome Beta cho phép lưu lượng truy cập mDNS.</translation>
 <translation id="6982337800632491844"><ph name="DOMAIN" /> yêu cầu bạn đọc và chấp nhận Điều khoản dịch vụ sau đây trước khi sử dụng thiết bị này. Những điều khoản này không mở rộng, sửa đổi hoặc giới hạn Điều khoản Google Chrome OS.</translation>
@@ -230,7 +226,6 @@ Một số tính năng có thể không khả dụng. Vui lòng chỉ định th
 <translation id="8521348052903287641">Quy tắc kết nối để Google Chrome Dev cho phép lưu lượng truy cập mDNS.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Hiện đã có phiên bản mới của Google Chrome và phiên bản này nhanh hơn bao giờ hết.</translation>
-<translation id="8606668294522778825">Google Chrome có thể sử dụng dịch vụ web để cải thiện trải nghiệm duyệt web của bạn. Bạn có thể tùy ý vô hiệu hóa các dịch vụ này. <ph name="BEGIN_LINK" />Tìm hiểu thêm<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome không hồi đáp. Chạy lại ngay bây giờ?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome sẽ khởi động lại sau 1 phút}other{Chrome sẽ khởi động lại sau # phút}}</translation>
 <translation id="8669527147644353129">Trình trợ giúp của Google Chrome</translation>

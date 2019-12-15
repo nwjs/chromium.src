@@ -49,9 +49,12 @@ namespace blink {
 
 namespace {
 
-static bool UseMockTheme() {
-  return WebTestSupport::IsRunningWebTest();
-}
+// Use fixed scrollbar thickness for web_tests because many tests are
+// expecting that. Rebaselining is relatively easy for platform differences,
+// but tens of testharness tests will fail without this on Windows.
+// TODO(crbug.com/953847): Adapt testharness tests to native themes and remove
+// this.
+constexpr int kScrollbarThicknessForWebTests = 15;
 
 // Contains a flag indicating whether WebThemeEngine should paint a UI widget
 // for a scrollbar part, and if so, what part and state apply.
@@ -93,8 +96,6 @@ PartPaintingParams ButtonPartPaintingParams(const Scrollbar& scrollbar,
     if (part == kBackButtonStartPart) {
       paint_part = WebThemeEngine::kPartScrollbarLeftArrow;
       check_min = true;
-    } else if (UseMockTheme() && part != kForwardButtonEndPart) {
-      return PartPaintingParams();
     } else {
       paint_part = WebThemeEngine::kPartScrollbarRightArrow;
       check_max = true;
@@ -103,19 +104,14 @@ PartPaintingParams ButtonPartPaintingParams(const Scrollbar& scrollbar,
     if (part == kBackButtonStartPart) {
       paint_part = WebThemeEngine::kPartScrollbarUpArrow;
       check_min = true;
-    } else if (UseMockTheme() && part != kForwardButtonEndPart) {
-      return PartPaintingParams();
     } else {
       paint_part = WebThemeEngine::kPartScrollbarDownArrow;
       check_max = true;
     }
   }
 
-  if (UseMockTheme() && !scrollbar.Enabled()) {
-    state = WebThemeEngine::kStateDisabled;
-  } else if (!UseMockTheme() &&
-             ((check_min && (position <= 0)) ||
-              (check_max && position >= scrollbar.Maximum()))) {
+  if ((check_min && (position <= 0)) ||
+      (check_max && position >= scrollbar.Maximum())) {
     state = WebThemeEngine::kStateDisabled;
   } else {
     if (part == scrollbar.PressedPart())
@@ -127,22 +123,11 @@ PartPaintingParams ButtonPartPaintingParams(const Scrollbar& scrollbar,
   return PartPaintingParams(paint_part, state);
 }
 
-static int GetScrollbarThickness() {
-  return Platform::Current()
-      ->ThemeEngine()
-      ->GetSize(WebThemeEngine::kPartScrollbarVerticalThumb)
-      .width;
-}
-
 }  // namespace
 
 ScrollbarTheme& ScrollbarTheme::NativeTheme() {
-  if (RuntimeEnabledFeatures::OverlayScrollbarsEnabled()) {
-    DEFINE_STATIC_LOCAL(
-        ScrollbarThemeOverlay, theme,
-        (GetScrollbarThickness(), 0, ScrollbarThemeOverlay::kAllowHitTest));
-    return theme;
-  }
+  if (OverlayScrollbarsEnabled())
+    return ScrollbarThemeOverlay::GetInstance();
 
   DEFINE_STATIC_LOCAL(ScrollbarThemeAura, theme, ());
   return theme;
@@ -160,11 +145,10 @@ bool ScrollbarThemeAura::SupportsDragSnapBack() const {
 }
 
 int ScrollbarThemeAura::ScrollbarThickness(ScrollbarControlSize control_size) {
+  if (WebTestSupport::IsRunningWebTest())
+    return kScrollbarThicknessForWebTests;
+
   // Horiz and Vert scrollbars are the same thickness.
-  // In unit tests we don't have the mock theme engine (because of layering
-  // violations), so we hard code the size (see bug 327470).
-  if (UseMockTheme())
-    return 15;
   IntSize scrollbar_size = Platform::Current()->ThemeEngine()->GetSize(
       WebThemeEngine::kPartScrollbarVerticalTrack);
   return scrollbar_size.Width();
@@ -233,35 +217,28 @@ int ScrollbarThemeAura::MinimumThumbLength(const Scrollbar& scrollbar) {
       .width;
 }
 
-void ScrollbarThemeAura::PaintTrackBackground(GraphicsContext& context,
-                                              const Scrollbar& scrollbar,
-                                              const IntRect& rect) {
-  // Just assume a forward track part. We only paint the track as a single piece
-  // when there is no thumb.
-  if (!HasThumb(scrollbar) && !rect.IsEmpty())
-    PaintTrackPiece(context, scrollbar, rect, kForwardTrackPart);
-}
+void ScrollbarThemeAura::PaintTrack(GraphicsContext& context,
+                                    const Scrollbar& scrollbar,
+                                    const IntRect& rect) {
+  if (rect.IsEmpty())
+    return;
 
-void ScrollbarThemeAura::PaintTrackPiece(GraphicsContext& gc,
-                                         const Scrollbar& scrollbar,
-                                         const IntRect& rect,
-                                         ScrollbarPart part_type) {
-  WebThemeEngine::State state = scrollbar.HoveredPart() == part_type
-                                    ? WebThemeEngine::kStateHover
-                                    : WebThemeEngine::kStateNormal;
+  // We always paint the track as a single piece, so don't support hover state
+  // of the back track and forward track.
+  auto state = WebThemeEngine::kStateNormal;
 
-  if (UseMockTheme() && !scrollbar.Enabled())
-    state = WebThemeEngine::kStateDisabled;
-
+  // TODO(wangxianzhu): The extra params for scrollbar track were for painting
+  // back and forward tracks separately, which we don't support. Remove them.
   IntRect align_rect = TrackRect(scrollbar);
   WebThemeEngine::ExtraParams extra_params;
-  extra_params.scrollbar_track.is_back = (part_type == kBackTrackPart);
+  extra_params.scrollbar_track.is_back = false;
   extra_params.scrollbar_track.track_x = align_rect.X();
   extra_params.scrollbar_track.track_y = align_rect.Y();
   extra_params.scrollbar_track.track_width = align_rect.Width();
   extra_params.scrollbar_track.track_height = align_rect.Height();
+
   Platform::Current()->ThemeEngine()->Paint(
-      gc.Canvas(),
+      context.Canvas(),
       scrollbar.Orientation() == kHorizontalScrollbar
           ? WebThemeEngine::kPartScrollbarHorizontalTrack
           : WebThemeEngine::kPartScrollbarVerticalTrack,

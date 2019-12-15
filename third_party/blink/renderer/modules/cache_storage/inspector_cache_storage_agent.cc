@@ -12,7 +12,7 @@
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
-#include "services/service_manager/public/cpp/interface_provider.h"
+#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/cache_storage/cache_storage_utils.h"
 #include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -124,7 +124,7 @@ ProtocolResponse AssertCacheStorage(
 
   if (it == caches->end()) {
     mojo::Remote<mojom::blink::CacheStorage> cache_storage_remote;
-    context->GetInterfaceProvider()->GetInterface(
+    context->GetBrowserInterfaceBroker().GetInterface(
         cache_storage_remote.BindNewPipeAndPassReceiver());
     *result = cache_storage_remote.get();
     caches->Set(security_origin, std::move(cache_storage_remote));
@@ -198,6 +198,8 @@ CachedResponseType ResponseTypeToString(
 struct DataRequestParams {
   String cache_name;
   int skip_count;
+  // If set to -1, pagination is disabled and all available requests are
+  // returned.
   int page_size;
   String path_filter;
 };
@@ -318,7 +320,8 @@ class ResponsesAccumulator : public RefCounted<ResponsesAccumulator> {
     size_t returned_entries_count = responses_.size();
     if (params_.skip_count > 0)
       responses_.EraseAt(0, params_.skip_count);
-    if (static_cast<size_t>(params_.page_size) < responses_.size()) {
+    if (params_.page_size != -1 &&
+        static_cast<size_t>(params_.page_size) < responses_.size()) {
       responses_.EraseAt(params_.page_size,
                          responses_.size() - params_.page_size);
     }
@@ -547,8 +550,8 @@ void InspectorCacheStorageAgent::requestCacheNames(
 
 void InspectorCacheStorageAgent::requestEntries(
     const String& cache_id,
-    int skip_count,
-    int page_size,
+    protocol::Maybe<int> skip_count,
+    protocol::Maybe<int> page_size,
     protocol::Maybe<String> path_filter,
     std::unique_ptr<RequestEntriesCallback> callback) {
   int64_t trace_id = blink::cache_storage::CreateTraceId();
@@ -566,8 +569,8 @@ void InspectorCacheStorageAgent::requestEntries(
   }
   DataRequestParams params;
   params.cache_name = cache_name;
-  params.page_size = page_size;
-  params.skip_count = skip_count;
+  params.page_size = page_size.fromMaybe(-1);
+  params.skip_count = skip_count.fromMaybe(0);
   params.path_filter = path_filter.fromMaybe("");
 
   cache_storage->Open(

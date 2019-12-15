@@ -305,6 +305,14 @@ base::DictionaryValue* ExtensionTabUtil::OpenTab(ExtensionFunction* function,
   navigate_params.tabstrip_add_types = add_types;
   Navigate(&navigate_params);
 
+  // This happens in locked fullscreen mode.
+  if (!navigate_params.navigated_or_inserted_contents) {
+    if (error) {
+      *error = tabs_constants::kLockedFullscreenModeNewTabError;
+    }
+    return nullptr;
+  }
+
   // The tab may have been created in a different window, so make sure we look
   // at the right tab strip.
   TabStripModel* tab_strip = navigate_params.browser->tab_strip_model();
@@ -550,9 +558,6 @@ std::unique_ptr<api::tabs::MutedInfo> ExtensionTabUtil::CreateMutedInfo(
     case TabMutedReason::CONTENT_SETTING_CHROME:
     case TabMutedReason::CONTEXT_MENU:
       info->reason = api::tabs::MUTED_INFO_REASON_USER;
-      break;
-    case TabMutedReason::MEDIA_CAPTURE:
-      info->reason = api::tabs::MUTED_INFO_REASON_CAPTURE;
       break;
     case TabMutedReason::EXTENSION:
       info->reason = api::tabs::MUTED_INFO_REASON_EXTENSION;

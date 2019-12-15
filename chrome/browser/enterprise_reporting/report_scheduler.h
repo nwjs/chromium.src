@@ -11,6 +11,7 @@
 
 #include "base/containers/flat_set.h"
 #include "base/macros.h"
+#include "build/build_config.h"
 #include "chrome/browser/enterprise_reporting/report_generator.h"
 #include "chrome/browser/enterprise_reporting/report_uploader.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
@@ -28,13 +29,15 @@ class RequestTimer;
 // all pending uploads if the report policy is turned off.
 class ReportScheduler : public ProfileManagerObserver {
  public:
-  ReportScheduler(std::unique_ptr<policy::CloudPolicyClient> client,
+  ReportScheduler(policy::CloudPolicyClient* client,
                   std::unique_ptr<RequestTimer> request_timer,
                   std::unique_ptr<ReportGenerator> report_generator);
 
   ~ReportScheduler() override;
 
   void SetReportUploaderForTesting(std::unique_ptr<ReportUploader> uploader);
+
+  RequestTimer* GetRequestTimerForTesting() const;
 
   void OnDMTokenUpdated();
 
@@ -46,6 +49,13 @@ class ReportScheduler : public ProfileManagerObserver {
   // policy value check during startup.
   void OnReportEnabledPrefChanged();
 
+  // Stop |request_timer_| if it is existing.
+  void StopRequestTimer();
+
+  // Register |cloud_policy_client_| with dm token and client id for desktop
+  // browser only. (Chrome OS doesn't need this step here.)
+  bool SetupBrowserPolicyClientRegistration();
+
   // Schedules the first update request.
   void Start();
 
@@ -53,7 +63,7 @@ class ReportScheduler : public ProfileManagerObserver {
   void GenerateAndUploadReport();
 
   // Callback once report is generated.
-  void OnReportGenerated(ReportGenerator::Requests requests);
+  void OnReportGenerated(ReportGenerator::ReportRequests requests);
 
   // Callback once report upload request is finished.
   void OnReportUploaded(ReportUploader::ReportStatus status);
@@ -68,7 +78,7 @@ class ReportScheduler : public ProfileManagerObserver {
   // Policy value watcher
   PrefChangeRegistrar pref_change_registrar_;
 
-  std::unique_ptr<policy::CloudPolicyClient> cloud_policy_client_;
+  policy::CloudPolicyClient* cloud_policy_client_;
 
   std::unique_ptr<RequestTimer> request_timer_;
 

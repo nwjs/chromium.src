@@ -100,6 +100,7 @@
     },
     {
       name: "AccessibilityExposeARIAAnnotations",
+      origin_trial_feature_name: "AccessibilityExposeARIAAnnotations",
       status: "experimental",
     },
     {
@@ -138,7 +139,11 @@
       status: "experimental",
     },
     {
-      name: "AOMPhase1",
+      name: "AOMAriaProperties",
+      status: "experimental",
+    },
+    {
+      name: "AOMAriaRelationshipProperties",
       status: "experimental",
     },
     {
@@ -230,7 +235,7 @@
       name: "BlockHTMLParserOnStyleSheets",
     },
     {
-      name: "BlockingDownloadsInSandboxWithoutUserActivation",
+      name: "BlockingDownloadsInSandbox",
       status: "test",
     },
     {
@@ -262,8 +267,9 @@
       name: "CacheInlineScriptCode"
     },
     {
-      name: "CacheStorageAddAllRejectsDuplicates",
-      status: "stable",
+      name: "CacheStorageCodeCacheHint",
+      origin_trial_feature_name: "CacheStorageCodeCacheHint",
+      status: "experimental",
     },
     {
       name: "Canvas2dContextLostRestored",
@@ -297,6 +303,13 @@
       status: "experimental",
     },
     {
+      name: "CloneableNativeFileSystemHandles",
+      status: {"Android": "test", "default": "experimental"},
+      // NativeFileSystem is in Origin Trial, which doesn't support having
+      // non-origin-trial-enabled features depend on it. https://crbug.com/1000486
+      // depends_on: ["NativeFileSystem"]
+    },
+    {
       name: "CompositeAfterPaint",
     },
     {
@@ -308,10 +321,6 @@
       status: "test",
     },
     {
-      name: "CompressionStreams",
-      status: "experimental",
-    },
-    {
       name: "ComputedAccessibilityInfo",
       status: "experimental",
     },
@@ -320,16 +329,18 @@
     },
     {
       name: "ContactsManager",
-      origin_trial_feature_name: "ContactsManager",
+      status:  {"Android": "stable", "default": "test"},
+    },
+    {
+      name: "ContactsManagerExtraProperties",
+      origin_trial_feature_name: "ContactsManagerExtraProperties",
       origin_trial_os: ["android"],
       status: {"Android": "experimental", "default": "test"},
     },
     {
-      name: "ContactsManagerAddresses",
-      status: {"Android": "experimental", "default": "test"},
-    },
-    {
       name: "ContentIndex",
+      origin_trial_feature_name: "ContentIndex",
+      origin_trial_os: ["android"],
       status: "experimental",
     },
     {
@@ -347,7 +358,7 @@
     },
     {
       name: "CookiesWithoutSameSiteMustBeSecure",
-      status: "experimental",
+      status: "test",
     },
     {
       name: "CooperativeScheduling"
@@ -362,16 +373,12 @@
     },
     {
       name: "CSS3TextBreakAnywhere",
-      status: "experimental",
+      status: "stable",
     },
     {
       name: "CSSAdditiveAnimations",
       depends_on: ["StackedCSSPropertyAnimations"],
       status: "experimental",
-    },
-    {
-      name: "CSSBackdropFilter",
-      status: "stable",
     },
     {
       name: "CSSCalcAsInt",
@@ -390,13 +397,6 @@
       // https://drafts.csswg.org/css-values-4/#comp-func
       name: "CSSComparisonFunctions",
       status: "stable",
-    },
-    {
-      // Support for CSS content-size property.
-      // http://tabatkins.github.io/specs/css-content-size/
-      name: "CSSContentSize",
-      implied_by: ["DisplayLocking"],
-      status: "experimental",
     },
     {
       name: "CSSFocusVisible",
@@ -418,6 +418,13 @@
       status: "experimental",
     },
     {
+      // Support for CSS intrinsic-* sizing properties.
+      // https://drafts.csswg.org/css-sizing-4/#intrinsic-size-override
+      name: "CSSIntrinsicSize",
+      implied_by: ["DisplayLocking"],
+      status: "experimental",
+    },
+    {
       name: "CSSLayoutAPI",
       status: "experimental",
     },
@@ -429,6 +436,10 @@
     {
       name: "CSSLogicalOverflow",
       status: "test",
+    },
+    {
+      name: "CSSMarkerPseudoElement",
+      status: "experimental",
     },
     {
       name: "CSSMaskSourceType",
@@ -469,6 +480,10 @@
       status: "experimental",
     },
     {
+      name: "CSSRenderSubtree",
+      status: "test",
+    },
+    {
       name: "CSSSnapSize",
       status: "experimental",
     },
@@ -502,12 +517,12 @@
       name: "CustomElementDefaultStyle",
       status: "experimental",
     },
-    // Introduced this flag as stable so web developers can test their sites
-    // without native Custom Elements v0 support.
+    // TODO(937746): Web Components v0 is disabled by default, and will be
+    // removed after M87.
     {
       name: "CustomElementsV0",
       origin_trial_feature_name: "WebComponentsV0",
-      status: "stable",
+      status: "test",
     },
     {
       name: "CustomStatePseudoClass",
@@ -519,7 +534,6 @@
     },
     {
       name: "DecodeJpeg420ImagesToYUV",
-      status: "test"
     },
     {
       name: "DecodeLossyWebPImagesToYUV",
@@ -532,6 +546,10 @@
     {
       name: "DisableHardwareNoiseSuppression",
       origin_trial_feature_name: "DisableHardwareNoiseSuppression",
+      status: "experimental",
+    },
+    {
+      name: "DisallowDocumentAccess",
       status: "experimental",
     },
     {
@@ -560,14 +578,13 @@
       name: "DocumentWrite",
     },
     {
-      // http://crbug.com/707656 content editable in LayoutNG.
-      name: "EditingNG",
+      name: "EditContext",
+      settable_from_internals: true,
+      status: "test",
     },
     {
-      // http://crbug.com/905922
-      name: "ElementInternals",
-      status: "stable",
-      implied_by: ["FormAssociatedCustomElements"],
+      // http://crbug.com/707656 content editable in LayoutNG.
+      name: "EditingNG",
     },
     {
       name: "EmbeddedVTTStylesheets",
@@ -651,10 +668,6 @@
       status: "experimental",
     },
     {
-      name: "FastMobileScrolling",
-      status: {"Android": "stable"},
-    },
-    {
       name: "FeaturePolicyForClientHints",
       status: "experimental",
     },
@@ -697,6 +710,7 @@
     // flat-tree instead of shadow-including ancestors for child dirtiness.
     {
       name: "FlatTreeStyleRecalc",
+      status: "stable",
     },
     {
       name: "FocuslessSpatialNavigation",
@@ -725,18 +739,10 @@
       name: "ForceTallerSelectPopup",
       status: {"ChromeOS": "stable"},
     },
-    {
-      name: "FormAssociatedCustomElements",
-      status: "stable",
-    },
     // This is to communicate features::FormControlsRefresh from ui (and can be
     // removed when the feature launches).
     {
       name: "FormControlsRefresh",
-    },
-    {
-      name: "FormDataEvent",
-      status: "stable",
     },
     {
       name: "FractionalMouseEvent",
@@ -767,20 +773,12 @@
       origin_trial_feature_name: "HrefTranslate",
       status: "experimental",
     },
-    // https://crbug.com/766694 for testing disabling the feature.
+    // TODO(937746): Web Components v0 is disabled by default, and will be
+    // removed after M87.
     {
       name: "HTMLImports",
       origin_trial_feature_name: "WebComponentsV0",
-      status: "stable",
-    },
-    // Allow import only chrome internal resources.
-    {
-      name: "HTMLImportsOnlyChrome",
-    },
-    // https://crbug.com/523952 for testing disabling the feature.
-    {
-      name: "HTMLImportsStyleApplication",
-      status: "stable",
+      status: "test",
     },
     {
       name: "IDBObserver",
@@ -864,7 +862,7 @@
     },
     {
       name: "LayoutNG",
-      implied_by: ["LayoutNGBlockFragmentation", "LayoutNGFieldset", "LayoutNGFlexBox", "LayoutNGFragmentItem", "LayoutNGFragmentPaint", "LayoutNGLineCache", "EditingNG", "BidiCaretAffinity", "LayoutNGTable"],
+      implied_by: ["LayoutNGBlockFragmentation", "LayoutNGFieldset", "LayoutNGFlexBox", "LayoutNGFragmentItem", "LayoutNGLineCache", "EditingNG", "BidiCaretAffinity", "LayoutNGTable"],
       status: "stable",
     },
     {
@@ -885,6 +883,7 @@
     },
     {
       name: "LayoutNGFragmentPaint",
+      implied_by: ["LayoutNG"],
     },
     {
       name: "LayoutNGLineCache",
@@ -927,6 +926,11 @@
       status:"experimental",
     },
     {
+      name: "MathMLCore",
+      status:"test",
+      depends_on: ["LayoutNG"],
+    },
+    {
       name:"MeasureMemory",
       status:"experimental",
     },
@@ -936,8 +940,11 @@
     },
     {
       name: "MediaCapabilitiesEncryptedMedia",
-      origin_trial_feature_name: "MediaCapabilitiesEncryptedMedia",
-      status: "experimental",
+      status: "stable",
+    },
+    {
+      name: "MediaCapabilitiesSpatialAudio",
+      status: "test",
     },
     {
       name: "MediaCapture",
@@ -972,6 +979,10 @@
     // Set to reflect the kMediaEngagementBypassAutoplayPolicies feature.
     {
       name: "MediaEngagementBypassAutoplayPolicies",
+    },
+    {
+      name: "MediaLatencyHint",
+      status: "test",
     },
     {
       name: "MediaQueryNavigationControls",
@@ -1016,9 +1027,6 @@
       name: "MediaSourceStable",
       status: "stable",
     },
-    {
-      name: "MergeBlockingNonBlockingPools",
-    },
     // Support for META tag for setting color-scheme used for opting into dark
     // UA theming and opting out of forced dark mode.
     // https://drafts.csswg.org/css-color-adjust/#color-scheme-meta
@@ -1031,17 +1039,13 @@
       name: "MiddleClickAutoscroll",
       status: "test",
     },
-    // Specific mime-types such as PDF are rendered in cross-process frames.
-    {
-      name: "MimeHandlerViewInCrossProcessFrame",
-    },
     {
 
       name: "MobileLayoutTheme",
     },
     {
       name: "ModuleDedicatedWorker",
-      status: "experimental",
+      status: "stable",
     },
     {
       name: "ModuleServiceWorker",
@@ -1065,7 +1069,7 @@
       // Also enabled when blink::features::kNativeFileSystemAPI is overridden
       // on the command line (or via chrome://flags).
       name: "NativeFileSystem",
-      status: "experimental",
+      status: {"Android": "test", "default": "experimental"},
       origin_trial_feature_name: "NativeFileSystem",
       origin_trial_os: ["win", "macosx", "linux", "chromeos"],
     },
@@ -1087,9 +1091,16 @@
       // Only Android, ChromeOS support NetInfo downlinkMax, type and ontypechange now
       status: {"Android": "stable", "ChromeOS": "stable"},
     },
+    {
+      name: "NeverSlowMode",
+    },
     // Not a web exposed feature, enabled from the command line.
     {
       name: "NewRemotePlaybackPipeline",
+    },
+    {
+      name: "NewSystemColors",
+      status: "stable",
     },
     {
       name: "NoIdleEncodingForWebTests",
@@ -1141,25 +1152,35 @@
       name: "OriginTrialsSampleAPI",
       origin_trial_feature_name: "Frobulate",
     },
+    // As above. Do not change this flag to stable, as it exists solely to
+    // generate code used by the origin trials sample API implementation.
     // TODO(yashard): Add tests for this feature.
     {
       name: "OriginTrialsSampleAPIDependent",
       depends_on: ["OriginTrialsSampleAPI"],
     },
-    // Define a sample API for testing integration with the Origin Trials
-    // Framework. The sample API is used in both unit and web tests for the
-    // Origin Trials Framework. Do not change this flag to stable, as it exists
-    // solely to generate code used by the sample API implementation.
+    // As above. Do not change this flag to stable, as it exists solely to
+    // generate code used by the origin trials sample API implementation.
+    {
+      name: "OriginTrialsSampleAPIDeprecation",
+      origin_trial_feature_name: "FrobulateDeprecation",
+    },
+    // As above. Do not change this flag to stable, as it exists solely to
+    // generate code used by the origin trials sample API implementation.
     {
       name: "OriginTrialsSampleAPIImplied",
       origin_trial_feature_name: "FrobulateImplied",
       implied_by: ["OriginTrialsSampleAPI", "OriginTrialsSampleAPIInvalidOS"],
     },
+    // As above. Do not change this flag to stable, as it exists solely to
+    // generate code used by the origin trials sample API implementation.
     {
       name: "OriginTrialsSampleAPIInvalidOS",
       origin_trial_feature_name: "FrobulateInvalidOS",
       origin_trial_os: ["invalid"],
     },
+    // As above. Do not change this flag to stable, as it exists solely to
+    // generate code used by the origin trials sample API implementation.
     {
       name: "OriginTrialsSampleAPINavigation",
       origin_trial_feature_name: "FrobulateNavigation",
@@ -1169,10 +1190,6 @@
     },
     {
       name: "OverflowIconsForMediaControls",
-    },
-    {
-      name: "OverlayScrollbars",
-      settable_from_internals: true,
     },
     {
       name: "OverscrollCustomization",
@@ -1185,12 +1202,10 @@
     {
       name: "PageFreezeOptIn",
       origin_trial_feature_name: "PageFreezeOptIn",
-      status: "experimental",
     },
     {
       name: "PageFreezeOptOut",
       origin_trial_feature_name: "PageFreezeOptOut",
-      status: "experimental",
     },
     {
       name: "PagePopup",
@@ -1212,6 +1227,11 @@
     {
       name: "PassPaintVisualRectToCompositor",
     },
+    // This is to add an option to enable the Reveal button on password inputs while waiting ::reveal gets standardized.
+    {
+      name: "PasswordReveal",
+      depends_on: ["FormControlsRefresh"],
+    },
     {
       name: "PaymentApp",
       status: "experimental",
@@ -1222,7 +1242,7 @@
     },
     {
       name: "PaymentHandlerHandlesShippingAndContact",
-      status: "experimental",
+      status: "stable",
     },
     {
       name: "PaymentMethodChangeEvent",
@@ -1253,9 +1273,7 @@
     },
     {
       name: "PeriodicBackgroundSync",
-      origin_trial_feature_name: "PeriodicBackgroundSync",
-      settable_from_internals: true,
-      status: "test",
+      status: "stable",
     },
     {
       name: "PerMethodCanMakePaymentQuota",
@@ -1344,6 +1362,10 @@
       status: "experimental",
     },
     {
+      name: "QuicTransport",
+      status: "experimental",
+    },
+    {
       name: "ReducedReferrerGranularity",
     },
     {
@@ -1415,6 +1437,7 @@
     // Spec: https://w3c.github.io/webrtc-svc/
     {
       name: "RTCSvcScalabilityMode",
+      status: "experimental",
     },
     // Enables the use of |RTCConfiguration::sdpSemantics| to override the
     // default SDP semantics at RTCPeerConnection construction.
@@ -1429,7 +1452,7 @@
     },
     {
       name: "SameSiteByDefaultCookies",
-      status: "experimental",
+      status: "test",
     },
     // Exposes the displays connected to the device and provides the display
     // properties needed for window placement features.
@@ -1452,6 +1475,10 @@
     },
     {
       name: "ScrollCustomization",
+    },
+    {
+      name: "ScrollSnapAfterLayout",
+      status: "experimental",
     },
     {
       name: "ScrollTimeline",
@@ -1479,6 +1506,7 @@
     },
     {
       name: "Serial",
+      origin_trial_feature_name: "Serial",
       status: {"Android": "", "default": "experimental"},
     },
     {
@@ -1486,15 +1514,19 @@
       status: "experimental",
     },
     {
+      name: "ServiceWorkerFetchEventWorkerTiming",
+      status: "experimental",
+    },
+    {
       name: "SetRootScroller",
       status: "experimental",
     },
-    // Introduced this flag as stable so web developers can test their sites
-    // without native Shadow DOM v0 support
+    // TODO(937746): Web Components v0 is disabled by default, and will be
+    // removed after M87.
     {
       name: "ShadowDOMV0",
       origin_trial_feature_name: "WebComponentsV0",
-      status: "stable",
+      status: "test",
     },
     {
       name: "ShadowPiercingDescendantCombinator",
@@ -1540,7 +1572,8 @@
     {
       name: "SmsReceiver",
       origin_trial_feature_name: "SmsReceiver",
-      status: {"Android": "experimental", "default": "test"},
+      origin_trial_os: ["android"],
+      status: {"default": "experimental"},
     },
     // Used as argument in attribute of stable-release functions/interfaces
     // where a runtime-enabled feature name is required for correct IDL syntax.
@@ -1561,6 +1594,10 @@
     {
       name: "StorageQuotaDetails",
       status: "stable"
+    },
+    {
+      name: "StrictMimeTypesForWorkers",
+      status: "experimental"
     },
     {
       name: "SurfaceEmbeddingFeatures",
@@ -1645,10 +1682,6 @@
       name: "UserActivationSameOriginVisibility",
     },
     {
-      name: "UserActivationV2",
-      status: "stable",
-    },
-    {
       name: "UserAgentClientHint",
       status: "experimental"
     },
@@ -1670,6 +1703,11 @@
     },
     {
       name: "VideoFullscreenOrientationLock",
+    },
+    {
+      // See https://crbug.com/1012063
+      name: "VideoRequestAnimationFrame",
+      status: "experimental",
     },
     {
       name: "VideoRotateToFullscreen",
@@ -1700,8 +1738,14 @@
       origin_trial_feature_name: "WebAssemblyThreads",
       status: "experimental",
     },
+    // WebAuth is disabled on Android versions prior to N (7.0) due to lack of
+    // supporting APIs, see runtime_features.cc.
     {
       name: "WebAuth",
+      status: "stable",
+    },
+    {
+      name: "WebAuthenticationFeaturePolicy",
       status: "experimental",
     },
     // WebBluetooth is enabled by default on Android, ChromeOS and Mac.
@@ -1779,11 +1823,6 @@
       depends_on: ["WebUSB"],
     },
     {
-      name: "WebVR",
-      origin_trial_feature_name: "WebVR1.1M62",
-      status: "experimental",
-    },
-    {
       name: "WebVTTRegions",
       status: "experimental",
     },
@@ -1818,6 +1857,11 @@
     {
       name: "WebXRPlaneDetection",
       // depends_on: ["WebXRARModule"],  // TODO(https://crbug.com/954679): uncomment once bug is fixed
+    },
+    // Extends window placement functionality for multi-screen devices.
+    {
+      name: "WindowPlacement",
+      status: "experimental",
     },
     {
       name: "XSLT",

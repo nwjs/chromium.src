@@ -780,7 +780,12 @@ class PixelTestPages(object):
             'size': [1, 1],
             'color': [255, 215, 0],
           }
-        ])
+        ]),
+      PixelTestPage(
+        'pixel_precision_rounded_corner.html',
+        base_name + '_PrecisionRoundedCorner',
+        test_rect=[0, 0, 400, 400],
+        browser_args=browser_args)
     ]
 
   # Pages that should be run with experimental canvas features.
@@ -1166,6 +1171,41 @@ class PixelTestPages(object):
             # This is the color if it isn't.
             # 'color': [101, 76, 12],
           },
+        ]),
+    ]
+
+  # Pages that should be run only on dual-GPU MacBook Pros (at the
+  # present time, anyway).
+  @staticmethod
+  def DualGPUMacSpecificPages(base_name):
+    return [
+      PixelTestPage(
+        'pixel_webgl_high_to_low_power.html',
+        base_name + '_WebGLHighToLowPower',
+        test_rect=[0, 0, 300, 300],
+        tolerance=3,
+        expected_colors=[
+          {
+            'comment': 'solid green',
+            'location': [100, 100],
+            'size': [100, 100],
+            'color': [0, 255, 0],
+          }
+        ],
+        optional_action='RunTestWithHighPerformanceTab'),
+
+      PixelTestPage(
+        'pixel_webgl_low_to_high_power.html',
+        base_name + '_WebGLLowToHighPower',
+        test_rect=[0, 0, 300, 300],
+        tolerance=3,
+        expected_colors=[
+          {
+            'comment': 'solid green',
+            'location': [100, 100],
+            'size': [100, 100],
+            'color': [0, 255, 0],
+          }
         ]),
     ]
 

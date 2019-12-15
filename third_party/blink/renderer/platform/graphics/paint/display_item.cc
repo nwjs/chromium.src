@@ -126,6 +126,8 @@ static String ForeignLayerTypeAsDebugString(DisplayItem::Type type) {
     DEBUG_STRING_CASE(ForeignLayerWrapper);
     DEBUG_STRING_CASE(ForeignLayerContentsWrapper);
     DEBUG_STRING_CASE(ForeignLayerLinkHighlight);
+    DEBUG_STRING_CASE(ForeignLayerViewportScroll);
+    DEBUG_STRING_CASE(ForeignLayerViewportScrollbar);
     DEFAULT_CASE;
   }
 }
@@ -153,6 +155,8 @@ WTF::String DisplayItem::TypeAsDebugString(Type type) {
     DEBUG_STRING_CASE(LayerChunkFloat);
     DEBUG_STRING_CASE(LayerChunkForeground);
     DEBUG_STRING_CASE(LayerChunkNormalFlowAndPositiveZOrderChildren);
+    DEBUG_STRING_CASE(ScrollbarHorizontal);
+    DEBUG_STRING_CASE(ScrollbarVertical);
     DEBUG_STRING_CASE(UninitializedType);
     DEFAULT_CASE;
   }

@@ -52,18 +52,16 @@
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/mime_handler_view_mode.h"
 #include "content/public/common/service_names.mojom.h"
 #include "content/public/common/user_agent.h"
 #include "crypto/sha2.h"
-#include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/features.h"
 #include "net/net_buildflags.h"
 #include "net/third_party/uri_template/uri_template.h"
 #include "services/network/network_service.h"
-#include "services/network/public/cpp/cross_thread_shared_url_loader_factory_info.h"
+#include "services/network/public/cpp/cross_thread_pending_shared_url_loader_factory.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/mojom/host_resolver.mojom.h"
@@ -86,6 +84,10 @@
 #include "chrome/grit/chromium_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #endif  // defined(OS_LINUX) && !defined(OS_CHROMEOS)
+
+#if defined(OS_WIN) || defined(OS_MACOSX)
+#include "content/public/common/network_service_util.h"
+#endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "extensions/common/constants.h"
@@ -283,19 +285,20 @@ class SystemNetworkContextManager::URLLoaderFactoryForSystem
 
   // mojom::URLLoaderFactory implementation:
 
-  void CreateLoaderAndStart(network::mojom::URLLoaderRequest request,
-                            int32_t routing_id,
-                            int32_t request_id,
-                            uint32_t options,
-                            const network::ResourceRequest& url_request,
-                            network::mojom::URLLoaderClientPtr client,
-                            const net::MutableNetworkTrafficAnnotationTag&
-                                traffic_annotation) override {
+  void CreateLoaderAndStart(
+      mojo::PendingReceiver<network::mojom::URLLoader> receiver,
+      int32_t routing_id,
+      int32_t request_id,
+      uint32_t options,
+      const network::ResourceRequest& url_request,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client,
+      const net::MutableNetworkTrafficAnnotationTag& traffic_annotation)
+      override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     if (!manager_)
       return;
     manager_->GetURLLoaderFactory()->CreateLoaderAndStart(
-        std::move(request), routing_id, request_id, options, url_request,
+        std::move(receiver), routing_id, request_id, options, url_request,
         std::move(client), traffic_annotation);
   }
 
@@ -307,9 +310,9 @@ class SystemNetworkContextManager::URLLoaderFactoryForSystem
   }
 
   // SharedURLLoaderFactory implementation:
-  std::unique_ptr<network::SharedURLLoaderFactoryInfo> Clone() override {
+  std::unique_ptr<network::PendingSharedURLLoaderFactory> Clone() override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    return std::make_unique<network::CrossThreadSharedURLLoaderFactoryInfo>(
+    return std::make_unique<network::CrossThreadPendingSharedURLLoaderFactory>(
         this);
   }
 
@@ -343,7 +346,7 @@ network::mojom::NetworkContext* SystemNetworkContextManager::GetContext() {
 network::mojom::URLLoaderFactory*
 SystemNetworkContextManager::GetURLLoaderFactory() {
   // Create the URLLoaderFactory as needed.
-  if (url_loader_factory_ && !url_loader_factory_.encountered_error()) {
+  if (url_loader_factory_ && url_loader_factory_.is_connected()) {
     return url_loader_factory_.get();
   }
 
@@ -352,8 +355,9 @@ SystemNetworkContextManager::GetURLLoaderFactory() {
   params->process_id = network::mojom::kBrowserProcessId;
   params->is_corb_enabled = false;
   params->is_trusted = true;
-  GetContext()->CreateURLLoaderFactory(mojo::MakeRequest(&url_loader_factory_),
-                                       std::move(params));
+  url_loader_factory_.reset();
+  GetContext()->CreateURLLoaderFactory(
+      url_loader_factory_.BindNewPipeAndPassReceiver(), std::move(params));
   return url_loader_factory_.get();
 }
 
@@ -573,47 +577,41 @@ void SystemNetworkContextManager::OnNetworkServiceCreated(
   network_service->ConfigureHttpAuthPrefs(
       CreateHttpAuthDynamicParams(local_state_));
 
-  // TODO(lukasza): https://crbug.com/944162: Once
-  // kMimeHandlerViewInCrossProcessFrame feature ships, unconditionally include
+  // TODO(lukasza): https://crbug.com/944162: Unconditionally include
   // the MIME types below in GetNeverSniffedMimeTypes in
-  // services/network/cross_origin_read_blocking.cc.  Without
-  // kMimeHandlerViewInCrossProcessFrame feature, PDFs and other similar
-  // MimeHandlerView-handled resources may be fetched from a cross-origin
-  // renderer (see https://crbug.com/929300).
-  if (content::MimeHandlerViewMode::UsesCrossProcessFrame()) {
-    network_service->AddExtraMimeTypesForCorb(
-        {"application/msexcel",
-         "application/mspowerpoint",
-         "application/msword",
-         "application/msword-template",
-         "application/pdf",
-         "application/vnd.ces-quickpoint",
-         "application/vnd.ces-quicksheet",
-         "application/vnd.ces-quickword",
-         "application/vnd.ms-excel",
-         "application/vnd.ms-excel.sheet.macroenabled.12",
-         "application/vnd.ms-powerpoint",
-         "application/vnd.ms-powerpoint.presentation.macroenabled.12",
-         "application/vnd.ms-word",
-         "application/vnd.ms-word.document.12",
-         "application/vnd.ms-word.document.macroenabled.12",
-         "application/vnd.msword",
-         "application/"
-         "vnd.openxmlformats-officedocument.presentationml.presentation",
-         "application/"
-         "vnd.openxmlformats-officedocument.presentationml.template",
-         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-         "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
-         "application/"
-         "vnd.openxmlformats-officedocument.wordprocessingml.document",
-         "application/"
-         "vnd.openxmlformats-officedocument.wordprocessingml.template",
-         "application/vnd.presentation-openxml",
-         "application/vnd.presentation-openxmlm",
-         "application/vnd.spreadsheet-openxml",
-         "application/vnd.wordprocessing-openxml",
-         "text/csv"});
-  }
+  // services/network/cross_origin_read_blocking.cc.
+  network_service->AddExtraMimeTypesForCorb(
+      {"application/msexcel",
+       "application/mspowerpoint",
+       "application/msword",
+       "application/msword-template",
+       "application/pdf",
+       "application/vnd.ces-quickpoint",
+       "application/vnd.ces-quicksheet",
+       "application/vnd.ces-quickword",
+       "application/vnd.ms-excel",
+       "application/vnd.ms-excel.sheet.macroenabled.12",
+       "application/vnd.ms-powerpoint",
+       "application/vnd.ms-powerpoint.presentation.macroenabled.12",
+       "application/vnd.ms-word",
+       "application/vnd.ms-word.document.12",
+       "application/vnd.ms-word.document.macroenabled.12",
+       "application/vnd.msword",
+       "application/"
+       "vnd.openxmlformats-officedocument.presentationml.presentation",
+       "application/"
+       "vnd.openxmlformats-officedocument.presentationml.template",
+       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+       "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
+       "application/"
+       "vnd.openxmlformats-officedocument.wordprocessingml.document",
+       "application/"
+       "vnd.openxmlformats-officedocument.wordprocessingml.template",
+       "application/vnd.presentation-openxml",
+       "application/vnd.presentation-openxmlm",
+       "application/vnd.spreadsheet-openxml",
+       "application/vnd.wordprocessing-openxml",
+       "text/csv"});
 
   int max_connections_per_proxy =
       local_state_->GetInteger(prefs::kMaxConnectionsPerProxy);
@@ -659,9 +657,13 @@ void SystemNetworkContextManager::OnNetworkServiceCreated(
   chrome::GetDefaultUserDataDirectory(&config->user_data_path);
   content::GetNetworkService()->SetCryptConfig(std::move(config));
 #endif
-#if defined(OS_MACOSX)
-  content::GetNetworkService()->SetEncryptionKey(
-      OSCrypt::GetRawEncryptionKey());
+#if defined(OS_WIN) || defined(OS_MACOSX)
+  // The OSCrypt keys are process bound, so if network service is out of
+  // process, send it the required key.
+  if (content::IsOutOfProcessNetworkService()) {
+    content::GetNetworkService()->SetEncryptionKey(
+        OSCrypt::GetRawEncryptionKey());
+  }
 #endif
 
   // Asynchronously reapply the most recently received CRLSet (if any).
@@ -848,7 +850,7 @@ SystemNetworkContextManager::CreateNetworkContextParams() {
   // These are needed for PAC scripts that use FTP URLs.
 #if !BUILDFLAG(DISABLE_FTP_SUPPORT)
   network_context_params->enable_ftp_url_support =
-      base::FeatureList::IsEnabled(features::kEnableFtp);
+      base::FeatureList::IsEnabled(features::kFtpProtocol);
 #endif
 
   network_context_params->primary_network_context = true;

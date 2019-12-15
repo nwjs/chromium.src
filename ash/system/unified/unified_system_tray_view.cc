@@ -234,11 +234,11 @@ class UnifiedSystemTrayView::FocusSearch : public views::FocusSearch {
 SkColor UnifiedSystemTrayView::GetBackgroundColor() {
   if (features::IsBackgroundBlurEnabled()) {
     return AshColorProvider::Get()->DeprecatedGetBaseLayerColor(
-        AshColorProvider::BaseLayerType::kTransparentWithBlur,
+        AshColorProvider::BaseLayerType::kTransparent74,
         kUnifiedMenuBackgroundColorWithBlur);
   }
   return AshColorProvider::Get()->DeprecatedGetBaseLayerColor(
-      AshColorProvider::BaseLayerType::kTransparentWithoutBlur,
+      AshColorProvider::BaseLayerType::kTransparent90,
       kUnifiedMenuBackgroundColor);
 }
 
@@ -332,7 +332,7 @@ void UnifiedSystemTrayView::SetMaxHeight(int max_height) {
   feature_pods_container_->SetMaxHeight(
       max_height - top_shortcuts_view_->GetPreferredSize().height() -
       page_indicator_view_->GetPreferredSize().height() -
-      sliders_container_->GetPreferredSize().height() -
+      sliders_container_->GetExpandedHeight() -
       system_info_view_->GetPreferredSize().height());
 
   if (!features::IsUnifiedMessageCenterRefactorEnabled()) {
@@ -426,7 +426,7 @@ int UnifiedSystemTrayView::GetExpandedSystemTrayHeight() const {
               : 0) +
          top_shortcuts_view_->GetPreferredSize().height() +
          feature_pods_container_->GetExpandedHeight() +
-         page_indicator_view_->GetPreferredSize().height() +
+         page_indicator_view_->GetExpandedHeight() +
          sliders_container_->GetExpandedHeight() +
          system_info_view_->GetPreferredSize().height();
 }
@@ -569,8 +569,7 @@ void UnifiedSystemTrayView::OnDidChangeFocus(views::View* before,
     return;
 
   if (feature_pods_container_->Contains(now)) {
-    feature_pods_container_->EnsurePageWithButton(
-        static_cast<FeaturePodButton*>(now));
+    feature_pods_container_->EnsurePageWithButton(now);
   }
 
   views::View* first_view = GetFirstFocusableChild();

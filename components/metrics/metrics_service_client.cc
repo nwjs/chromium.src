@@ -69,11 +69,15 @@ base::TimeDelta MetricsServiceClient::GetUploadInterval() {
   return GetStandardUploadInterval();
 }
 
-bool MetricsServiceClient::SyncStateAllowsUkm() {
+bool MetricsServiceClient::ShouldStartUpFastForTesting() const {
   return false;
 }
 
-bool MetricsServiceClient::SyncStateAllowsExtensionUkm() {
+bool MetricsServiceClient::IsUkmAllowedForAllProfiles() {
+  return false;
+}
+
+bool MetricsServiceClient::IsUkmAllowedWithExtensionsForAllProfiles() {
   return false;
 }
 

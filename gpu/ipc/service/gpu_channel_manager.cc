@@ -110,7 +110,8 @@ GpuChannelManager::GpuChannelManager(
     scoped_refptr<gl::GLSurface> default_offscreen_surface,
     ImageDecodeAcceleratorWorker* image_decode_accelerator_worker,
     viz::VulkanContextProvider* vulkan_context_provider,
-    viz::MetalContextProvider* metal_context_provider)
+    viz::MetalContextProvider* metal_context_provider,
+    viz::DawnContextProvider* dawn_context_provider)
     : task_runner_(task_runner),
       io_task_runner_(io_task_runner),
       gpu_preferences_(gpu_preferences),
@@ -133,7 +134,8 @@ GpuChannelManager::GpuChannelManager(
           base::BindRepeating(&GpuChannelManager::HandleMemoryPressure,
                               base::Unretained(this))),
       vulkan_context_provider_(vulkan_context_provider),
-      metal_context_provider_(metal_context_provider) {
+      metal_context_provider_(metal_context_provider),
+      dawn_context_provider_(dawn_context_provider) {
   DCHECK(task_runner->BelongsToCurrentThread());
   DCHECK(io_task_runner);
   DCHECK(scheduler);
@@ -283,6 +285,9 @@ void GpuChannelManager::GetVideoMemoryUsageStats(
     video_memory_usage_stats->process_map[channel->GetClientPID()]
         .video_memory += size;
   }
+
+  if (shared_context_state_ && !shared_context_state_->context_lost())
+    total_size += shared_context_state_->GetMemoryUsage();
 
   // Assign the total across all processes in the GPU process
   video_memory_usage_stats->process_map[base::GetCurrentProcId()].video_memory =
@@ -481,7 +486,8 @@ scoped_refptr<SharedContextState> GpuChannelManager::GetSharedContextState(
       use_virtualized_gl_contexts,
       base::BindOnce(&GpuChannelManager::OnContextLost, base::Unretained(this),
                      /*synthetic_loss=*/false),
-      vulkan_context_provider_, metal_context_provider_);
+      gpu_preferences_.gr_context_type, vulkan_context_provider_,
+      metal_context_provider_, dawn_context_provider_, peak_memory_monitor());
 
   // OOP-R needs GrContext for raster tiles.
   bool need_gr_context =
@@ -492,7 +498,7 @@ scoped_refptr<SharedContextState> GpuChannelManager::GetSharedContextState(
   need_gr_context |= features::IsUsingSkiaRenderer();
 
   if (need_gr_context) {
-    if (!vulkan_context_provider_ && !metal_context_provider_) {
+    if (gpu_preferences_.gr_context_type == gpu::GrContextType::kGL) {
       auto feature_info = base::MakeRefCounted<gles2::FeatureInfo>(
           gpu_driver_bug_workarounds(), gpu_feature_info());
       if (!shared_context_state_->InitializeGL(gpu_preferences_,

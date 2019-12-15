@@ -13,6 +13,7 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "content/browser/compositor/test/test_image_transport_factory.h"
 #include "content/browser/gpu/compositor_util.h"
+#include "content/browser/renderer_host/frame_token_message_queue.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/common/input_messages.h"
@@ -149,13 +150,14 @@ TEST_F(RenderWidgetHostViewMacEditCommandHelperWithTaskEnvTest,
             widget.InitWithNewPipeAndPassReceiver());
 
     RenderWidgetHostImpl* render_widget = new RenderWidgetHostImpl(
-        &delegate, process_host, routing_id, std::move(widget), false);
+        &delegate, process_host, routing_id, std::move(widget),
+        /*hidden=*/false, std::make_unique<FrameTokenMessageQueue>());
 
     ui::WindowResizeHelperMac::Get()->Init(base::ThreadTaskRunnerHandle::Get());
 
     // Owned by its |GetInProcessNSView()|, i.e. |rwhv_cocoa|.
     RenderWidgetHostViewMac* rwhv_mac =
-        new RenderWidgetHostViewMac(render_widget, false);
+        new RenderWidgetHostViewMac(render_widget);
     base::scoped_nsobject<RenderWidgetHostViewCocoa> rwhv_cocoa(
         [rwhv_mac->GetInProcessNSView() retain]);
 

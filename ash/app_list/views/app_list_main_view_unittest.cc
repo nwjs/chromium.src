@@ -47,8 +47,8 @@ class GridViewVisibleWaiter {
       return;
 
     check_timer_.Start(FROM_HERE, base::TimeDelta::FromMilliseconds(50),
-                       base::Bind(&GridViewVisibleWaiter::OnTimerCheck,
-                                  base::Unretained(this)));
+                       base::BindRepeating(&GridViewVisibleWaiter::OnTimerCheck,
+                                           base::Unretained(this)));
     run_loop_ = std::make_unique<base::RunLoop>();
     run_loop_->Run();
     check_timer_.Stop();
@@ -102,7 +102,7 @@ class AppListMainViewTest : public views::ViewsTestBase {
         CreateParams(views::Widget::InitParams::TYPE_CONTROL);
     search_box_widget_params.parent = main_widget_->GetNativeView();
     search_box_widget_params.opacity =
-        views::Widget::InitParams::TRANSLUCENT_WINDOW;
+        views::Widget::InitParams::WindowOpacity::kTranslucent;
     search_box_widget_->Init(search_box_widget_params);
     search_box_widget_->SetContentsView(search_box_view_);
 #endif

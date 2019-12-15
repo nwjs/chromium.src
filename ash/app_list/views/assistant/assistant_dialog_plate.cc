@@ -7,11 +7,13 @@
 #include "ash/assistant/model/assistant_ui_model.h"
 #include "ash/assistant/ui/assistant_ui_constants.h"
 #include "ash/assistant/ui/assistant_view_delegate.h"
+#include "ash/assistant/ui/assistant_view_ids.h"
 #include "ash/assistant/ui/base/assistant_button.h"
 #include "ash/assistant/ui/dialog_plate/dialog_plate.h"
 #include "ash/assistant/ui/dialog_plate/mic_view.h"
 #include "ash/assistant/ui/logo_view/logo_view.h"
 #include "ash/assistant/util/animation_util.h"
+#include "ash/keyboard/ui/keyboard_ui_controller.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "base/bind.h"
@@ -25,7 +27,6 @@
 #include "ui/views/border.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/textfield/textfield.h"
-#include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 
@@ -51,6 +52,17 @@ constexpr base::TimeDelta kAnimationTransformInDuration =
     base::TimeDelta::FromMilliseconds(333);
 constexpr int kAnimationTranslationDip = 30;
 
+// Textfield used for inputting text based Assistant queries.
+class AssistantTextfield : public views::Textfield {
+ public:
+  AssistantTextfield() : views::Textfield() {
+    SetID(AssistantViewID::kTextQueryField);
+  }
+
+  // views::Textfield overrides:
+  const char* GetClassName() const override { return "AssistantTextfield"; }
+};
+
 }  // namespace
 
 // AssistantDialogPlate --------------------------------------------------------
@@ -66,6 +78,7 @@ AssistantDialogPlate::AssistantDialogPlate(ash::AssistantViewDelegate* delegate)
               base::Unretained(this)))),
       query_history_iterator_(
           delegate_->GetInteractionModel()->query_history().GetIterator()) {
+  SetID(AssistantViewID::kDialogPlate);
   InitLayout();
 
   // The AssistantViewDelegate should outlive AssistantDialogPlate.
@@ -86,9 +99,9 @@ gfx::Size AssistantDialogPlate::CalculatePreferredSize() const {
   return gfx::Size(INT_MAX, GetHeightForWidth(INT_MAX));
 }
 
-void AssistantDialogPlate::ButtonPressed(views::Button* sender,
-                                         const ui::Event& event) {
-  OnButtonPressed(static_cast<ash::AssistantButtonId>(sender->GetID()));
+void AssistantDialogPlate::OnButtonPressed(AssistantButtonId button_id) {
+  delegate_->OnDialogPlateButtonPressed(button_id);
+  textfield_->SetText(base::string16());
 }
 
 bool AssistantDialogPlate::HandleKeyEvent(views::Textfield* textfield,
@@ -101,7 +114,7 @@ bool AssistantDialogPlate::HandleKeyEvent(views::Textfield* textfield,
       // In tablet mode the virtual keyboard should not be sticky, so we hide it
       // when committing a query.
       if (delegate_->IsTabletMode())
-        textfield_->GetFocusManager()->ClearFocus();
+        keyboard::KeyboardUIController::Get()->HideKeyboardImplicitlyBySystem();
 
       const base::StringPiece16& trimmed_text = base::TrimWhitespace(
           textfield_->GetText(), base::TrimPositions::TRIM_ALL);
@@ -266,6 +279,7 @@ void AssistantDialogPlate::InitLayout() {
 
   // Molecule icon.
   molecule_icon_ = ash::LogoView::Create();
+  molecule_icon_->SetID(AssistantViewID::kModuleIcon);
   molecule_icon_->SetPreferredSize(gfx::Size(kIconSizeDip, kIconSizeDip));
   molecule_icon_->SetState(ash::LogoView::State::kMoleculeWavy,
                            /*animate=*/false);
@@ -309,7 +323,7 @@ void AssistantDialogPlate::InitKeyboardLayoutContainer() {
       ash::assistant::ui::GetDefaultFontList().DeriveWithSizeDelta(2);
 
   // Textfield.
-  textfield_ = new views::Textfield();
+  textfield_ = new AssistantTextfield();
   textfield_->SetBackgroundColor(SK_ColorTRANSPARENT);
   textfield_->SetBorder(views::NullBorder());
   textfield_->set_controller(this);
@@ -327,11 +341,12 @@ void AssistantDialogPlate::InitKeyboardLayoutContainer() {
   layout_manager->SetFlexForView(textfield_, 1);
 
   // Voice input toggle.
-  voice_input_toggle_ = ash::AssistantButton::Create(
-      this, ash::kMicIcon, kButtonSizeDip, kIconSizeDip,
-      IDS_ASH_ASSISTANT_DIALOG_PLATE_MIC_ACCNAME,
-      ash::AssistantButtonId::kVoiceInputToggle,
-      IDS_ASH_ASSISTANT_DIALOG_PLATE_MIC_TOOLTIP);
+  voice_input_toggle_ =
+      AssistantButton::Create(this, kMicIcon, kButtonSizeDip, kIconSizeDip,
+                              IDS_ASH_ASSISTANT_DIALOG_PLATE_MIC_ACCNAME,
+                              AssistantButtonId::kVoiceInputToggle,
+                              IDS_ASH_ASSISTANT_DIALOG_PLATE_MIC_TOOLTIP);
+  voice_input_toggle_->SetID(AssistantViewID::kVoiceInputToggle);
   keyboard_layout_container_->AddChildView(voice_input_toggle_);
 
   input_modality_layout_container_->AddChildView(keyboard_layout_container_);
@@ -369,6 +384,7 @@ void AssistantDialogPlate::InitVoiceLayoutContainer() {
   // Animated voice input toggle.
   animated_voice_input_toggle_ = new ash::MicView(
       this, delegate_, ash::AssistantButtonId::kVoiceInputToggle);
+  animated_voice_input_toggle_->SetID(AssistantViewID::kMicView);
   animated_voice_input_toggle_->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_ASH_ASSISTANT_DIALOG_PLATE_MIC_ACCNAME));
   voice_layout_container_->AddChildView(animated_voice_input_toggle_);
@@ -384,14 +400,10 @@ void AssistantDialogPlate::InitVoiceLayoutContainer() {
       IDS_ASH_ASSISTANT_DIALOG_PLATE_KEYBOARD_ACCNAME,
       ash::AssistantButtonId::kKeyboardInputToggle,
       IDS_ASH_ASSISTANT_DIALOG_PLATE_KEYBOARD_TOOLTIP);
+  keyboard_input_toggle_->SetID(AssistantViewID::kKeyboardInputToggle);
   voice_layout_container_->AddChildView(keyboard_input_toggle_);
 
   input_modality_layout_container_->AddChildView(voice_layout_container_);
-}
-
-void AssistantDialogPlate::OnButtonPressed(ash::AssistantButtonId id) {
-  delegate_->OnDialogPlateButtonPressed(id);
-  textfield_->SetText(base::string16());
 }
 
 void AssistantDialogPlate::OnAnimationStarted(

@@ -39,7 +39,7 @@
 #include "chrome/browser/download/save_package_file_picker.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/safe_browsing/download_protection/binary_upload_service.h"
+#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/ui/chrome_pages.h"
@@ -48,6 +48,7 @@
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/common/net/safe_search_util.h"
 #include "chrome/common/pdf_util.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/safe_browsing/file_type_policies.h"
@@ -280,10 +281,12 @@ void ConnectToQuarantineService(
                               std::move(receiver));
 }
 
-bool IsDownloadTooLargeOrEncrypted(download::DownloadDangerType danger_type) {
+bool IsDangerTypeBlocked(download::DownloadDangerType danger_type) {
   return (danger_type == download::DOWNLOAD_DANGER_TYPE_BLOCKED_TOO_LARGE ||
           danger_type ==
-              download::DOWNLOAD_DANGER_TYPE_BLOCKED_PASSWORD_PROTECTED);
+              download::DOWNLOAD_DANGER_TYPE_BLOCKED_PASSWORD_PROTECTED ||
+          danger_type ==
+              download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK);
 }
 
 void OnCheckExistingDownloadPathDone(
@@ -305,10 +308,6 @@ ChromeDownloadManagerDelegate::ChromeDownloadManagerDelegate(Profile* profile)
       next_download_id_(download::DownloadItem::kInvalidId),
       next_id_retrieved_(false),
       download_prefs_(new DownloadPrefs(profile)),
-      disk_access_task_runner_(base::CreateSequencedTaskRunner(
-          {base::ThreadPool(), base::MayBlock(),
-           base::TaskPriority::BEST_EFFORT,
-           base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})),
       is_file_picker_showing_(false) {
 #if defined(OS_ANDROID)
   location_dialog_bridge_.reset(new DownloadLocationDialogBridgeImpl);
@@ -627,15 +626,11 @@ void ChromeDownloadManagerDelegate::ChooseSavePath(
     const base::FilePath& suggested_path,
     const base::FilePath::StringType& default_extension,
     bool can_save_as_complete,
-    const content::SavePackagePathPickedCallback& callback) {
+    content::SavePackagePathPickedCallback callback) {
   // Deletes itself.
-  new SavePackageFilePicker(
-      web_contents,
-      suggested_path,
-      default_extension,
-      can_save_as_complete,
-      download_prefs_.get(),
-      callback);
+  new SavePackageFilePicker(web_contents, suggested_path, default_extension,
+                            can_save_as_complete, download_prefs_.get(),
+                            std::move(callback));
 }
 
 void ChromeDownloadManagerDelegate::SanitizeSavePackageResourceName(
@@ -652,6 +647,16 @@ void ChromeDownloadManagerDelegate::SanitizeSavePackageResourceName(
       l10n_util::GetStringUTF8(IDS_DEFAULT_DOWNLOAD_FILENAME));
   *filename = filename->AddExtension(default_filename.BaseName().value());
 #endif
+}
+
+void ChromeDownloadManagerDelegate::SanitizeDownloadParameters(
+    download::DownloadUrlParameters* params) {
+  if (profile_->GetPrefs()->GetBoolean(prefs::kForceGoogleSafeSearch)) {
+    GURL safe_url;
+    safe_search_util::ForceGoogleSafeSearch(params->url(), &safe_url);
+    if (!safe_url.is_empty())
+      params->set_url(std::move(safe_url));
+  }
 }
 
 void ChromeDownloadManagerDelegate::OpenDownloadUsingPlatformHandler(
@@ -754,20 +759,6 @@ void ChromeDownloadManagerDelegate::ShowDownloadInShell(
       GetPlatformDownloadPath(profile_, download, PLATFORM_CURRENT_PATH));
   DCHECK(!platform_path.empty());
   platform_util::ShowItemInFolder(profile_, platform_path);
-}
-
-void ContinueCheckingForFileExistence(
-    content::CheckForFileExistenceCallback callback) {
-  std::move(callback).Run(false);
-}
-
-void ChromeDownloadManagerDelegate::CheckForFileExistence(
-    DownloadItem* download,
-    content::CheckForFileExistenceCallback callback) {
-  base::PostTaskAndReplyWithResult(
-      disk_access_task_runner_.get(), FROM_HERE,
-      base::BindOnce(&base::PathExists, download->GetTargetFilePath()),
-      std::move(callback));
 }
 
 std::string
@@ -1169,16 +1160,25 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
       case safe_browsing::DownloadCheckResult::BLOCKED_TOO_LARGE:
         danger_type = download::DOWNLOAD_DANGER_TYPE_BLOCKED_TOO_LARGE;
         break;
+      case safe_browsing::DownloadCheckResult::SENSITIVE_CONTENT_WARNING:
+        danger_type = download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_WARNING;
+        break;
+      case safe_browsing::DownloadCheckResult::SENSITIVE_CONTENT_BLOCK:
+        danger_type = download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK;
+        break;
+      case safe_browsing::DownloadCheckResult::DEEP_SCANNED_SAFE:
+        danger_type = download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_SAFE;
+        break;
     }
     DCHECK_NE(danger_type,
               download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT);
 
-    if (item->GetDangerType() ==
-        download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING) {
+    if (item->GetState() == DownloadItem::COMPLETE &&
+        item->GetDangerType() ==
+            download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING) {
       // If the file was opened during async scanning, we override the danger
       // type, since the user can no longer discard the download.
-      if (item->GetState() == DownloadItem::COMPLETE &&
-          danger_type != download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS) {
+      if (danger_type != download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS) {
         item->OnAsyncScanningCompleted(
             download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_OPENED_DANGEROUS);
       } else {
@@ -1189,7 +1189,7 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
       // blocking of the file. For BLOCKED_TOO_LARGE and
       // BLOCKED_PASSWORD_PROTECTED, we want to display more clear UX, so
       // allow those danger types.
-      if (!IsDownloadTooLargeOrEncrypted(danger_type))
+      if (!IsDangerTypeBlocked(danger_type))
         danger_type = download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS;
       item->OnContentCheckCompleted(
           danger_type, download::DOWNLOAD_INTERRUPT_REASON_FILE_BLOCKED);
@@ -1296,7 +1296,7 @@ bool ChromeDownloadManagerDelegate::ShouldBlockFile(
   DownloadPrefs::DownloadRestriction download_restriction =
       download_prefs_->download_restriction();
 
-  if (IsDownloadTooLargeOrEncrypted(danger_type))
+  if (IsDangerTypeBlocked(danger_type))
     return true;
 
   if (item &&

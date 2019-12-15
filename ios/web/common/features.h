@@ -39,6 +39,25 @@ extern const base::Feature kClearOldNavigationRecordsWorkaround;
 // Used to enable committed interstitials for SSL errors.
 extern const base::Feature kSSLCommittedInterstitials;
 
+// Used to enable using WKWebView.loading for WebState::IsLoading.
+extern const base::Feature kUseWKWebViewLoading;
+
+// Feature flag to move -LogLoadStarted() to WebStateDidStartNavigation().
+extern const base::Feature kLogLoadStartedInDidStartNavigation;
+
+// Feature flag enabling persistent downloads.
+extern const base::Feature kEnablePersistentDownloads;
+
+// Feature flag for the new error page workflow, using JavaScript.
+extern const base::Feature kUseJSForErrorPage;
+
+// Feature flag to request the desktop version of web pages on iPad.
+extern const base::Feature kDefaultToDesktopOnIPad;
+
+// Use WKWebView.loading to update WebState::IsLoading.
+// TODO(crbug.com/1006012): Clean up this flag after experiment.
+bool UseWKWebViewLoading();
+
 }  // namespace features
 }  // namespace web
 

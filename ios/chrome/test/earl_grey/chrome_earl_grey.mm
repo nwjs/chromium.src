@@ -20,16 +20,16 @@
 #import <WebKit/WebKit.h>
 
 #import "ios/chrome/browser/ui/static_content/static_html_view_controller.h"  // nogncheck
-#import "ios/chrome/test/app/chrome_test_util.h"                   // nogncheck
-#import "ios/chrome/test/app/history_test_util.h"                  // nogncheck
-#include "ios/chrome/test/app/navigation_test_util.h"              // nogncheck
-#import "ios/chrome/test/app/sync_test_util.h"                     // nogncheck
-#import "ios/chrome/test/app/tab_test_util.h"                      // nogncheck
-#import "ios/web/public/deprecated/crw_js_injection_receiver.h"    // nogncheck
-#import "ios/web/public/test/earl_grey/js_test_util.h"             // nogncheck
-#import "ios/web/public/test/web_view_content_test_util.h"         // nogncheck
-#import "ios/web/public/test/web_view_interaction_test_util.h"     // nogncheck
-#import "ios/web/public/web_state.h"                               // nogncheck
+#import "ios/chrome/test/app/browsing_data_test_util.h"          // nogncheck
+#import "ios/chrome/test/app/chrome_test_util.h"                 // nogncheck
+#include "ios/chrome/test/app/navigation_test_util.h"            // nogncheck
+#import "ios/chrome/test/app/sync_test_util.h"                   // nogncheck
+#import "ios/chrome/test/app/tab_test_util.h"                    // nogncheck
+#import "ios/web/public/deprecated/crw_js_injection_receiver.h"  // nogncheck
+#import "ios/web/public/test/earl_grey/js_test_util.h"           // nogncheck
+#import "ios/web/public/test/web_view_content_test_util.h"       // nogncheck
+#import "ios/web/public/test/web_view_interaction_test_util.h"   // nogncheck
+#import "ios/web/public/web_state.h"                             // nogncheck
 #endif
 
 using base::test::ios::kWaitForJSCompletionTimeout;
@@ -66,6 +66,32 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 
 #pragma mark - Device Utilities
 
+- (void)rotateDeviceToOrientation:(UIDeviceOrientation)deviceOrientation
+                            error:(NSError**)error {
+#if defined(CHROME_EARL_GREY_1)
+  NSError* strongErrorReference = nil;
+  [EarlGrey rotateDeviceToOrientation:deviceOrientation
+                           errorOrNil:&strongErrorReference];
+  if (error)
+    *error = strongErrorReference;
+#elif defined(CHROME_EARL_GREY_2)
+  [EarlGrey rotateDeviceToOrientation:deviceOrientation error:error];
+#else
+#error Neither CHROME_EARL_GREY_1 nor CHROME_EARL_GREY_2 are defined
+#endif
+}
+
+- (BOOL)isKeyboardShownWithError:(NSError**)error {
+  return
+#if defined(CHROME_EARL_GREY_1)
+      [GREYKeyboard isKeyboardShown];
+#elif defined(CHROME_EARL_GREY_2)
+      [EarlGrey isKeyboardShownWithError:error];
+#else
+#error Neither CHROME_EARL_GREY_1 nor CHROME_EARL_GREY_2 are defined
+#endif
+}
+
 - (BOOL)isIPadIdiom {
 #if defined(CHROME_EARL_GREY_1)
   UIUserInterfaceIdiom idiom = [[UIDevice currentDevice] userInterfaceIdiom];
@@ -78,16 +104,43 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 }
 
 - (BOOL)isCompactWidth {
-#if defined(CHROME_EARL_GREY_1)
   UIUserInterfaceSizeClass horizontalSpace =
+#if defined(CHROME_EARL_GREY_1)
       [[[[UIApplication sharedApplication] keyWindow] traitCollection]
           horizontalSizeClass];
 #elif defined(CHROME_EARL_GREY_2)
-  UIUserInterfaceSizeClass horizontalSpace =
       [[[[GREY_REMOTE_CLASS_IN_APP(UIApplication) sharedApplication] keyWindow]
           traitCollection] horizontalSizeClass];
 #endif
   return horizontalSpace == UIUserInterfaceSizeClassCompact;
+}
+
+- (BOOL)isCompactHeight {
+  UIUserInterfaceSizeClass verticalSpace =
+#if defined(CHROME_EARL_GREY_1)
+      [[[[UIApplication sharedApplication] keyWindow] traitCollection]
+          verticalSizeClass];
+#elif defined(CHROME_EARL_GREY_2)
+      [[[[GREY_REMOTE_CLASS_IN_APP(UIApplication) sharedApplication] keyWindow]
+          traitCollection] verticalSizeClass];
+#endif
+  return verticalSpace == UIUserInterfaceSizeClassCompact;
+}
+
+- (BOOL)isSplitToolbarMode {
+  return [self isCompactWidth] && ![self isCompactHeight];
+}
+
+- (BOOL)isRegularXRegularSizeClass {
+  UITraitCollection* traitCollection =
+#if defined(CHROME_EARL_GREY_1)
+      [[[UIApplication sharedApplication] keyWindow] traitCollection];
+#elif defined(CHROME_EARL_GREY_2)
+      [[[GREY_REMOTE_CLASS_IN_APP(UIApplication) sharedApplication] keyWindow]
+          traitCollection];
+#endif
+  return traitCollection.verticalSizeClass == UIUserInterfaceSizeClassRegular &&
+         traitCollection.horizontalSizeClass == UIUserInterfaceSizeClassRegular;
 }
 
 #pragma mark - History Utilities (EG2)
@@ -99,6 +152,11 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
   // After clearing browsing history via code, wait for the UI to be done
   // with any updates. This includes icons from the new tab page being removed.
   [[GREYUIThreadExecutor sharedInstance] drainUntilIdle];
+}
+
+- (void)removeBrowsingCache {
+  EG_TEST_HELPER_ASSERT_NO_ERROR(
+      [ChromeEarlGreyAppInterface removeBrowsingCache]);
 }
 
 #pragma mark - Navigation Utilities (EG2)
@@ -115,8 +173,14 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 }
 
 - (void)reload {
+  [self reloadAndWaitForCompletion:YES];
+}
+
+- (void)reloadAndWaitForCompletion:(BOOL)wait {
   [ChromeEarlGreyAppInterface startReloading];
-  [self waitForPageToFinishLoading];
+  if (wait) {
+    [self waitForPageToFinishLoading];
+  }
 }
 
 #pragma mark - Tab Utilities (EG2)
@@ -154,6 +218,14 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
       [ChromeEarlGreyAppInterface simulateTabsBackgrounding]);
 }
 
+- (void)saveSessionImmediately {
+  [ChromeEarlGreyAppInterface saveSessionImmediately];
+
+  // Saving is always performed on a separate thread, so spin the run loop a
+  // bit to ensure save.
+  base::test::ios::SpinRunLoopWithMaxDelay(base::TimeDelta::FromSeconds(1));
+}
+
 - (void)setCurrentTabsToBeColdStartTabs {
   EG_TEST_HELPER_ASSERT_NO_ERROR(
       [ChromeEarlGreyAppInterface setCurrentTabsToBeColdStartTabs]);
@@ -183,6 +255,12 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 
 - (void)closeAllTabsInCurrentMode {
   [ChromeEarlGreyAppInterface closeAllTabsInCurrentMode];
+  [[GREYUIThreadExecutor sharedInstance] drainUntilIdle];
+}
+
+- (void)closeAllNormalTabs {
+  EG_TEST_HELPER_ASSERT_NO_ERROR(
+      [ChromeEarlGreyAppInterface closeAllNormalTabs]);
   [[GREYUIThreadExecutor sharedInstance] drainUntilIdle];
 }
 
@@ -263,18 +341,36 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
   return [ChromeEarlGreyAppInterface nextTabID];
 }
 
+- (void)showTabSwitcher {
+  id<GREYMatcher> matcher = chrome_test_util::TabGridOpenButton();
+  // Perform a tap with a timeout. Occasionally EG doesn't sync up properly to
+  // the animations of tab switcher, so it is necessary to poll here.
+  GREYCondition* tapTabSwitcher =
+      [GREYCondition conditionWithName:@"Tap tab switcher button"
+                                 block:^BOOL {
+                                   NSError* error;
+                                   [[EarlGrey selectElementWithMatcher:matcher]
+                                       performAction:grey_tap()
+                                               error:&error];
+                                   return error == nil;
+                                 }];
+  // Wait until 2 seconds for the tap.
+  BOOL hasClicked = [tapTabSwitcher waitWithTimeout:2];
+  EG_TEST_HELPER_ASSERT_TRUE(hasClicked, @"Tab switcher could not be clicked.");
+}
+
 #pragma mark - Cookie Utilities (EG2)
 
 - (NSDictionary*)cookies {
   NSString* const kGetCookiesScript =
       @"document.cookie ? document.cookie.split(/;\\s*/) : [];";
   id result = [self executeJavaScript:kGetCookiesScript];
-  EG_TEST_HELPER_ASSERT_TRUE([result isKindOfClass:[NSArray class]],
-                             @"Unexpected script response");
+  EG_TEST_HELPER_ASSERT_TRUE(
+      [result respondsToSelector:@selector(objectEnumerator)],
+      @"The script response is not iterable.");
 
-  NSArray* nameValuePairs = base::mac::ObjCCastStrict<NSArray>(result);
   NSMutableDictionary* cookies = [NSMutableDictionary dictionary];
-  for (NSString* nameValuePair in nameValuePairs) {
+  for (NSString* nameValuePair in result) {
     NSArray* cookieNameValue = [nameValuePair componentsSeparatedByString:@"="];
     EG_TEST_HELPER_ASSERT_TRUE((2 == cookieNameValue.count),
                                @"Cookie has invalid format.");
@@ -290,14 +386,8 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 #pragma mark - WebState Utilities (EG2)
 
 - (void)tapWebStateElementWithID:(NSString*)elementID {
-  NSError* error = nil;
-  bool success = [ChromeEarlGreyAppInterface tapWebStateElementWithID:elementID
-                                                                error:error];
-  EG_TEST_HELPER_ASSERT_NO_ERROR(error);
-  NSString* description =
-      [NSString stringWithFormat:@"Failed to tap web state element with ID: %@",
-                                 elementID];
-  EG_TEST_HELPER_ASSERT_TRUE(success, description);
+  EG_TEST_HELPER_ASSERT_NO_ERROR(
+      [ChromeEarlGreyAppInterface tapWebStateElementWithID:elementID]);
 }
 
 - (void)tapWebStateElementInIFrameWithID:(const std::string&)elementID {
@@ -420,6 +510,11 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
       base::SysNSStringToUTF8([ChromeEarlGreyAppInterface webStateVisibleURL]));
 }
 
+- (GURL)webStateLastCommittedURL {
+  return GURL(base::SysNSStringToUTF8(
+      [ChromeEarlGreyAppInterface webStateLastCommittedURL]));
+}
+
 - (void)purgeCachedWebViewPages {
   [ChromeEarlGreyAppInterface purgeCachedWebViewPages];
   [self waitForRestoreSessionToFinish];
@@ -427,8 +522,7 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 }
 
 - (void)triggerRestoreViaTabGridRemoveAllUndo {
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::ShowTabsButton()]
-      performAction:grey_tap()];
+  [ChromeEarlGrey showTabSwitcher];
   [[EarlGrey selectElementWithMatcher:chrome_test_util::TabGridCloseAllButton()]
       performAction:grey_tap()];
   [[EarlGrey
@@ -438,6 +532,14 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
       performAction:grey_tap()];
   [self waitForRestoreSessionToFinish];
   [self waitForPageToFinishLoading];
+}
+
+- (BOOL)webStateWebViewUsesContentInset {
+  return [ChromeEarlGreyAppInterface webStateWebViewUsesContentInset];
+}
+
+- (CGSize)webStateWebViewSize {
+  return [ChromeEarlGreyAppInterface webStateWebViewSize];
 }
 
 #pragma mark - Settings Utilities (EG2)
@@ -616,12 +718,6 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
   return [ChromeEarlGreyAppInterface displayTitleForURL:spec];
 }
 
-#pragma mark - Autofill Utilities (EG2)
-
-- (void)clearCreditCards {
-  [ChromeEarlGreyAppInterface clearCreditCards];
-}
-
 #pragma mark - Accessibility Utilities (EG2)
 
 - (void)verifyAccessibilityForCurrentScreen {
@@ -663,6 +759,10 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
   return [ChromeEarlGreyAppInterface isCreditCardScannerEnabled];
 }
 
+- (BOOL)isAutofillCompanyNameEnabled {
+  return [ChromeEarlGreyAppInterface isAutofillCompanyNameEnabled];
+}
+
 - (BOOL)isCustomWebKitLoadedIfRequested {
   return [ChromeEarlGreyAppInterface isCustomWebKitLoadedIfRequested];
 }
@@ -675,6 +775,10 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 
 - (void)setPopupPrefValue:(ContentSetting)value {
   return [ChromeEarlGreyAppInterface setPopupPrefValue:value];
+}
+
+- (NSInteger)registeredKeyCommandCount {
+  return [ChromeEarlGreyAppInterface registeredKeyCommandCount];
 }
 
 @end

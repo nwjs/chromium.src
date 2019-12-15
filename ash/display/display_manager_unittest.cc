@@ -30,6 +30,7 @@
 #include "ash/wm/window_util.h"
 #include "base/command_line.h"
 #include "base/format_macros.h"
+#include "base/numerics/math_constants.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -1998,32 +1999,6 @@ TEST_F(DisplayManagerTest, Rotate) {
             post_rotation_info.GetActiveRotation());
 }
 
-TEST_F(DisplayManagerTest, FHD125DefaultsTo08UIScaling) {
-  int64_t display_id = display::Screen::GetScreen()->GetPrimaryDisplay().id();
-
-  display_id++;
-  display::test::ScopedSetInternalDisplayId set_internal(display_manager(),
-                                                         display_id);
-
-  // Setup the display modes with UI-scale.
-  display::ManagedDisplayInfo native_display_info =
-      display::CreateDisplayInfo(display_id, gfx::Rect(0, 0, 1920, 1080));
-  native_display_info.set_device_scale_factor(1.25);
-
-  const display::ManagedDisplayMode base_mode(gfx::Size(1920, 1080), 60.0f,
-                                              false, false);
-  display::ManagedDisplayInfo::ManagedDisplayModeList mode_list =
-      CreateInternalManagedDisplayModeList(base_mode);
-  native_display_info.SetManagedDisplayModes(mode_list);
-
-  std::vector<display::ManagedDisplayInfo> display_info_list;
-  display_info_list.push_back(native_display_info);
-
-  display_manager()->OnNativeDisplaysChanged(display_info_list);
-
-  EXPECT_EQ(1.25f, GetDisplayInfoAt(0).GetEffectiveDeviceScaleFactor());
-}
-
 TEST_F(DisplayManagerTest, ResolutionChangeInUnifiedMode) {
   // Don't check root window destruction in unified mode.
   Shell::GetPrimaryRootWindow()->RemoveObserver(this);
@@ -2955,7 +2930,7 @@ TEST_F(DisplayManagerTest, UnifiedDesktopGridLayout2x2) {
 
   // Default shelf alignment is bottom.
   Shelf* shelf = Shell::GetPrimaryRootWindowController()->shelf();
-  EXPECT_EQ(shelf->alignment(), SHELF_ALIGNMENT_BOTTOM);
+  EXPECT_EQ(shelf->alignment(), ShelfAlignment::kBottom);
 
   // Display in bottom-left cell is considered the primary mirroring display.
   EXPECT_EQ(list[2], Shell::Get()
@@ -2978,7 +2953,7 @@ TEST_F(DisplayManagerTest, UnifiedDesktopGridLayout2x2) {
 
   // Change the shelf alignment to left, and expect that the primary mirroring
   // display in the top-left display in the matrix.
-  shelf->SetAlignment(SHELF_ALIGNMENT_LEFT);
+  shelf->SetAlignment(ShelfAlignment::kLeft);
   EXPECT_EQ(list[0], Shell::Get()
                          ->display_configuration_controller()
                          ->GetPrimaryMirroringDisplayForUnifiedDesktop()
@@ -2986,7 +2961,7 @@ TEST_F(DisplayManagerTest, UnifiedDesktopGridLayout2x2) {
 
   // Change the shelf alignment to right, and expect that the primary mirroring
   // display in the top-right display in the matrix.
-  shelf->SetAlignment(SHELF_ALIGNMENT_RIGHT);
+  shelf->SetAlignment(ShelfAlignment::kRight);
   EXPECT_EQ(list[1], Shell::Get()
                          ->display_configuration_controller()
                          ->GetPrimaryMirroringDisplayForUnifiedDesktop()
@@ -3020,7 +2995,7 @@ TEST_F(DisplayManagerTest, UnifiedDesktopGridLayout3x2) {
 
   // Default shelf alignment is bottom.
   Shelf* shelf = Shell::GetPrimaryRootWindowController()->shelf();
-  EXPECT_EQ(shelf->alignment(), SHELF_ALIGNMENT_BOTTOM);
+  EXPECT_EQ(shelf->alignment(), ShelfAlignment::kBottom);
 
   // Display in bottom-left cell is considered the primary mirroring display.
   EXPECT_EQ(list[4], Shell::Get()
@@ -3048,7 +3023,7 @@ TEST_F(DisplayManagerTest, UnifiedDesktopGridLayout3x2) {
 
   // Change the shelf alignment to left, and expect that the primary mirroring
   // display in the top-left display in the matrix.
-  shelf->SetAlignment(SHELF_ALIGNMENT_LEFT);
+  shelf->SetAlignment(ShelfAlignment::kLeft);
   EXPECT_EQ(list[0], Shell::Get()
                          ->display_configuration_controller()
                          ->GetPrimaryMirroringDisplayForUnifiedDesktop()
@@ -3056,7 +3031,7 @@ TEST_F(DisplayManagerTest, UnifiedDesktopGridLayout3x2) {
 
   // Change the shelf alignment to right, and expect that the primary mirroring
   // display in the top-right display in the matrix.
-  shelf->SetAlignment(SHELF_ALIGNMENT_RIGHT);
+  shelf->SetAlignment(ShelfAlignment::kRight);
   EXPECT_EQ(list[1], Shell::Get()
                          ->display_configuration_controller()
                          ->GetPrimaryMirroringDisplayForUnifiedDesktop()
@@ -3323,26 +3298,11 @@ TEST_F(DisplayManagerFontTest,
   EXPECT_NE(gfx::FontRenderParams::HINTING_NONE, GetFontHintingParams());
 }
 
-TEST_F(DisplayManagerTest, SubsequentInitializationOfDisplayZoom) {
-  int64_t id = display_manager()->GetDisplayAt(0).id();
-  const float zoom_factor = 1.5f;
-  // Negative value of ui scale means that this is not the first boot with
-  // display zoom enabled.
-  display_manager()->RegisterDisplayProperty(id, display::Display::ROTATE_0,
-                                             -1000, nullptr, gfx::Size(), 1.f,
-                                             zoom_factor, 60.f, false);
-
-  const display::ManagedDisplayInfo& info =
-      display_manager()->GetDisplayInfo(id);
-
-  EXPECT_FLOAT_EQ(info.zoom_factor(), zoom_factor);
-}
-
 TEST_F(DisplayManagerTest, CheckInitializationOfRotationProperty) {
   int64_t id = display_manager()->GetDisplayAt(0).id();
   display_manager()->RegisterDisplayProperty(id, display::Display::ROTATE_90,
-                                             1.0f, nullptr, gfx::Size(), 1.0f,
-                                             1.0f, 60.f, false);
+                                             nullptr, gfx::Size(), 1.0f, 1.0f,
+                                             60.f, false);
 
   const display::ManagedDisplayInfo& info =
       display_manager()->GetDisplayInfo(id);
@@ -3594,13 +3554,12 @@ class DisplayManagerOrientationTest : public DisplayManagerTest {
 
   void SetUp() override {
     DisplayManagerTest::SetUp();
-    const float kMeanGravity = 9.8066f;
     portrait_primary->Set(ACCELEROMETER_SOURCE_SCREEN, false,
-                          -kMeanGravity, 0.f, 0.f);
+                          -base::kMeanGravityFloat, 0.f, 0.f);
     portrait_secondary->Set(ACCELEROMETER_SOURCE_SCREEN, false,
-                            kMeanGravity, 0.f, 0.f);
-    landscape_primary->Set(ACCELEROMETER_SOURCE_SCREEN, false,
-                           0, -kMeanGravity, 0.f);
+                            base::kMeanGravityFloat, 0.f, 0.f);
+    landscape_primary->Set(ACCELEROMETER_SOURCE_SCREEN, false, 0,
+                           -base::kMeanGravityFloat, 0.f);
   }
 
  protected:
@@ -4651,6 +4610,26 @@ TEST_F(DisplayManagerTest, UpdateRootWindowForNewWindows) {
               Shell::GetRootWindowForNewWindows());
     display_manager()->SetUnifiedDesktopEnabled(false);
   }
+}
+
+// Test that exiting mirror mode in tablet mode with a fullscreen window
+// does not cause a crash (crbug.com/1021662).
+TEST_F(DisplayManagerTest, ExitMirrorModeInTabletMode) {
+  // Simulate a tablet with and external display connected.
+  display::test::DisplayManagerTestApi(display_manager())
+      .SetFirstDisplayAsInternalDisplay();
+  UpdateDisplay("800x600,800x600");
+  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
+  base::RunLoop().RunUntilIdle();
+  EXPECT_TRUE(display_manager()->IsInSoftwareMirrorMode());
+
+  // Create a window to force in-app shelf.
+  std::unique_ptr<aura::Window> window = CreateTestWindow();
+
+  // Exit mirror mode.
+  display_manager()->SetMirrorMode(display::MirrorMode::kOff, base::nullopt);
+  base::RunLoop().RunUntilIdle();
+  EXPECT_FALSE(display_manager()->IsInSoftwareMirrorMode());
 }
 
 }  // namespace ash

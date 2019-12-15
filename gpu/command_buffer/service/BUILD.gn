@@ -5,6 +5,7 @@
 import("//build/config/jumbo.gni")
 import("//build/config/ui.gni")
 import("//gpu/vulkan/features.gni")
+import("//skia/features.gni")
 import("//third_party/protobuf/proto_library.gni")
 import("//ui/gl/features.gni")
 
@@ -136,8 +137,6 @@ target(link_target_type, "gles2_sources") {
     "gl_state_restorer_impl.h",
     "gl_utils.cc",
     "gl_utils.h",
-    "gles2_cmd_apply_framebuffer_attachment_cmaa_intel.cc",
-    "gles2_cmd_apply_framebuffer_attachment_cmaa_intel.h",
     "gles2_cmd_clear_framebuffer.cc",
     "gles2_cmd_clear_framebuffer.h",
     "gles2_cmd_copy_tex_image.cc",
@@ -311,6 +310,7 @@ target(link_target_type, "gles2_sources") {
     "//gpu/config",
     "//gpu/ipc/common",
     "//gpu/vulkan:buildflags",
+    "//skia:buildflags",
     "//third_party/angle:angle_image_util",
     "//third_party/angle:commit_id",
     "//third_party/angle:translator",
@@ -325,6 +325,12 @@ target(link_target_type, "gles2_sources") {
     "//ui/gl:buildflags",
     "//ui/gl/init",
   ]
+
+  if (use_ozone) {
+    deps += [
+      "//ui/ozone",
+    ]
+  }
 
   if (enable_vulkan) {
     deps += [
@@ -342,6 +348,13 @@ target(link_target_type, "gles2_sources") {
         "external_vk_image_gl_representation.h",
         "external_vk_image_skia_representation.cc",
         "external_vk_image_skia_representation.h",
+      ]
+    }
+
+    if (use_ozone) {
+      sources += [
+        "shared_image_backing_ozone.cc",
+        "shared_image_backing_ozone.h",
       ]
     }
 
@@ -370,6 +383,13 @@ target(link_target_type, "gles2_sources") {
       "IOSurface.framework",
       "Metal.framework",
       "OpenGL.framework",
+    ]
+  }
+
+  if (skia_use_dawn) {
+    deps += [
+      "//components/viz/common:dawn_context_provider",
+      "//third_party/dawn/src/dawn:libdawn",
     ]
   }
 

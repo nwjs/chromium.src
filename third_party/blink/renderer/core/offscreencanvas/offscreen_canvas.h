@@ -63,6 +63,7 @@ class CORE_EXPORT OffscreenCanvas final
 
   // CanvasResourceDispatcherClient
   bool BeginFrame() override;
+  void SetFilterQualityInResource(SkFilterQuality filter_quality) override;
 
   // API Methods
   ImageBitmap* transferToImageBitmap(ScriptState*, ExceptionState&);
@@ -91,12 +92,8 @@ class CORE_EXPORT OffscreenCanvas final
   void SetDisableReadingFromCanvasTrue() {
     disable_reading_from_canvas_ = true;
   }
-  void SetNeedsMatrixClipRestore() override {
-    needs_matrix_clip_restore_ = true;
-  }
 
   CanvasResourceProvider* GetOrCreateResourceProvider();
-  void DiscardResourceProvider() override;
 
   void SetFrameSinkId(uint32_t client_id, uint32_t sink_id) {
     client_id_ = client_id;

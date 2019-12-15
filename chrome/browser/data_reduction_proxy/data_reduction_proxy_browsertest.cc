@@ -495,6 +495,11 @@ IN_PROC_BROWSER_TEST_F(DataReductionProxyBrowsertest, DisabledOnIncognito) {
   ASSERT_TRUE(test_server.Start());
 
   Browser* incognito = CreateIncognitoBrowser();
+  ASSERT_FALSE(DataReductionProxyChromeSettingsFactory::GetForBrowserContext(
+      incognito->profile()));
+  ASSERT_TRUE(DataReductionProxyChromeSettingsFactory::GetForBrowserContext(
+      browser()->profile()));
+
   ui_test_utils::NavigateToURL(
       incognito, GetURLWithMockHost(test_server, "/echoheader?Chrome-Proxy"));
   EXPECT_EQ(GetBody(incognito), kDummyBody);
@@ -752,7 +757,7 @@ IN_PROC_BROWSER_TEST_P(DataReductionProxyWithHoldbackBrowsertest,
 // enabled. Second parameter is true if lite page redirect preview is enabled.
 // Third parameter is true if data reduction proxy config should always be
 // fetched.
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          DataReductionProxyWithHoldbackBrowsertest,
                          ::testing::Combine(::testing::Bool(),
                                             ::testing::Bool(),
@@ -1457,7 +1462,7 @@ IN_PROC_BROWSER_TEST_P(
 // Second parameter is true if the test proxy server should set via header
 // correctly on the response headers.
 INSTANTIATE_TEST_SUITE_P(
-    ,
+    All,
     DataReductionProxyWarmupURLBrowsertest,
     ::testing::Combine(
         testing::Values(ProxyServer_ProxyScheme_HTTP,

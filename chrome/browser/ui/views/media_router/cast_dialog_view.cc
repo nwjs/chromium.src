@@ -41,7 +41,6 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/view.h"
-#include "ui/views/window/dialog_client_view.h"
 
 namespace media_router {
 
@@ -138,10 +137,6 @@ base::string16 CastDialogView::GetWindowTitle() const {
       NOTREACHED();
       return base::string16();
   }
-}
-
-int CastDialogView::GetDialogButtons() const {
-  return ui::DIALOG_BUTTON_NONE;
 }
 
 bool CastDialogView::Close() {
@@ -266,7 +261,8 @@ CastDialogView::CastDialogView(views::View* anchor_view,
       selected_source_(SourceType::kTab),
       controller_(controller),
       profile_(profile),
-      metrics_(start_time) {
+      metrics_(start_time, profile) {
+  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
   sources_button_ = DialogDelegate::SetExtraView(CreateSourcesButton(this));
   ShowNoSinksView();
 }

@@ -37,7 +37,7 @@ component("test_dummy") {
 
   # Test dummy native entrypoints belong in the partition.
   if (use_native_partitions) {
-    cflags = [ "-fsymbol-partition=libtest_dummy.so" ]
+    cflags = [ "-fsymbol-partition=test_dummy_partition" ]
   }
 }
 
@@ -55,14 +55,4 @@ generate_jni_registration("jni_registration") {
       "//chrome/android:chrome_modern_public_bundle__test_dummy_bundle_module"
   header_output = "$target_gen_dir/jni_registration.h"
   namespace = "test_dummy"
-}
-
-android_assets("pak_assets") {
-  sources = [
-    "$root_gen_dir/chrome/test_dummy_resources.pak",
-  ]
-  deps = [
-    "//chrome/android/features/test_dummy/internal:resources_native",
-  ]
-  disable_compression = true
 }

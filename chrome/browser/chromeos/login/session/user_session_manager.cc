@@ -20,6 +20,7 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "base/files/file_util.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -44,7 +45,8 @@
 #include "chrome/browser/chromeos/base/locale_util.h"
 #include "chrome/browser/chromeos/boot_times_recorder.h"
 #include "chrome/browser/chromeos/child_accounts/child_policy_observer.h"
-#include "chrome/browser/chromeos/child_accounts/consumer_status_reporting_service_factory.h"
+#include "chrome/browser/chromeos/child_accounts/child_status_reporting_service_factory.h"
+#include "chrome/browser/chromeos/child_accounts/child_user_service_factory.h"
 #include "chrome/browser/chromeos/child_accounts/screen_time_controller_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
 #include "chrome/browser/chromeos/first_run/first_run.h"
@@ -571,7 +573,7 @@ scoped_refptr<Authenticator> UserSessionManager::CreateAuthenticator(
   if (ScreenLocker::default_screen_locker()) {
     if (authenticator_.get())
       authenticator_->SetConsumer(NULL);
-    authenticator_ = NULL;
+    authenticator_.reset();
   }
 
   if (authenticator_.get() == NULL) {
@@ -1404,7 +1406,7 @@ void UserSessionManager::InitProfilePreferences(
             AccountManager::AccountKey{
                 gaia_id, account_manager::AccountType::ACCOUNT_TYPE_GAIA},
             user->GetDisplayEmail() /* raw_email */,
-            user_context.GetRefreshToken(), false /* revoke_old_token */);
+            user_context.GetRefreshToken());
       }
       // else: If |user_context| does not contain a refresh token, then we are
       // restoring an existing Profile, in which case the account will be
@@ -1432,7 +1434,7 @@ void UserSessionManager::InitProfilePreferences(
               gaia_id, user_context.GetAccountId().GetUserEmail());
     }
 
-    std::string account_id = identity_manager->GetPrimaryAccountId();
+    CoreAccountId account_id = identity_manager->GetPrimaryAccountId();
     VLOG(1) << "Seed IdentityManager with the authenticated account info, "
             << "success=" << !account_id.empty();
 
@@ -1492,6 +1494,9 @@ void UserSessionManager::UserProfileInitialized(Profile* profile,
         content::NotificationService::AllSources(),
         content::Details<Profile>(profile));
 
+    session_manager::SessionManager::Get()->NotifyUserProfileLoaded(
+        ProfileHelper::Get()->GetUserByProfile(profile)->GetAccountId());
+
     if (delegate_)
       delegate_->OnProfilePrepared(profile, false);
 
@@ -1522,11 +1527,23 @@ void UserSessionManager::UserProfileInitialized(Profile* profile,
       }
     }
 
-    // Update password expiry data if new data came in during SAML login:
-    if (base::FeatureList::IsEnabled(::features::kInSessionPasswordChange) &&
+    const bool in_session_password_change_feature_enabled =
+        base::FeatureList::IsEnabled(::features::kInSessionPasswordChange);
+
+    if (in_session_password_change_feature_enabled &&
         user_context_.GetSamlPasswordAttributes().has_value()) {
+      // Update password expiry data if new data came in during SAML login,
+      // and the in-session password change feature is enabled:
       user_context_.GetSamlPasswordAttributes()->SaveToPrefs(
           profile->GetPrefs());
+
+    } else if (!in_session_password_change_feature_enabled ||
+               user_context_.GetAuthFlow() ==
+                   UserContext::AUTH_FLOW_GAIA_WITHOUT_SAML) {
+      // These attributes are no longer relevant and should be deleted if either
+      // a) the in-session password change feature is no longer enabled or
+      // b) this user is no longer using SAML to log in.
+      SamlPasswordAttributes::DeleteFromPrefs(profile->GetPrefs());
     }
 
     // Transfers authentication-related data from the profile that was used for
@@ -1766,7 +1783,8 @@ void UserSessionManager::InitializeBrowser(Profile* profile) {
 }
 
 void UserSessionManager::InitializeChildUserServices(Profile* profile) {
-  ConsumerStatusReportingServiceFactory::GetForBrowserContext(profile);
+  ChildStatusReportingServiceFactory::GetForBrowserContext(profile);
+  ChildUserServiceFactory::GetForBrowserContext(profile);
   ScreenTimeControllerFactory::GetForBrowserContext(profile);
 }
 
@@ -1817,8 +1835,7 @@ bool UserSessionManager::InitializeUserSession(Profile* profile) {
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
 
   // Kiosk apps has their own session initialization pipeline.
-  if (user_manager->IsLoggedInAsKioskApp() ||
-      user_manager->IsLoggedInAsArcKioskApp()) {
+  if (user_manager->IsLoggedInAsAnyKioskApp()) {
     return false;
   }
 
@@ -2004,7 +2021,8 @@ void UserSessionManager::OnRestoreActiveSessions(
     LOG(ERROR) << "Could not get list of active user sessions after crash.";
     // If we could not get list of active user sessions it is safer to just
     // sign out so that we don't get in the inconsistent state.
-    SessionTerminationManager::Get()->StopSession();
+    SessionTerminationManager::Get()->StopSession(
+        login_manager::SessionStopReason::RESTORE_ACTIVE_SESSIONS);
     return;
   }
 
@@ -2355,7 +2373,7 @@ void UserSessionManager::RemoveProfileForTesting(Profile* profile) {
 void UserSessionManager::InjectAuthenticatorBuilder(
     std::unique_ptr<StubAuthenticatorBuilder> builder) {
   injected_authenticator_builder_ = std::move(builder);
-  authenticator_ = NULL;
+  authenticator_.reset();
 }
 
 void UserSessionManager::SendUserPodsMetrics() {

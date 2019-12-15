@@ -146,23 +146,6 @@
             }
           ]
         },
-        "test": "color_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04",
-              "pool": "Chrome-CrOS-VM"
-            }
-          ]
-        },
         "test": "cros_browser_sanity_test"
       },
       {
@@ -288,6 +271,24 @@
           ]
         },
         "test": "latency_unittests"
+      },
+      {
+        "experiment_percentage": 100,
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04",
+              "pool": "Chrome-CrOS-VM"
+            }
+          ]
+        },
+        "test": "libcups_unittests"
       },
       {
         "args": [
@@ -975,7 +976,7 @@
               "os": "Ubuntu-16.04"
             }
           ],
-          "shards": 21
+          "shards": 30
         },
         "test": "browser_tests"
       },
@@ -995,27 +996,7 @@
               "os": "Ubuntu-16.04"
             }
           ],
-          "shards": 20
-        },
-        "test": "browser_tests"
-      },
-      {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_browser_tests.filter"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_browser_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04"
-            }
-          ]
+          "shards": 30
         },
         "test": "browser_tests"
       },
@@ -1155,21 +1136,6 @@
             }
           ]
         },
-        "test": "color_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
         "test": "components_browsertests"
       },
       {
@@ -1234,7 +1200,7 @@
               "os": "Ubuntu-16.04"
             }
           ],
-          "shards": 10
+          "shards": 4
         },
         "test": "content_browsertests"
       },
@@ -1525,26 +1491,6 @@
             }
           ],
           "shards": 3
-        },
-        "test": "interactive_ui_tests"
-      },
-      {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_interactive_ui_tests.filter"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_interactive_ui_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04"
-            }
-          ]
         },
         "test": "interactive_ui_tests"
       },
@@ -2118,7 +2064,8 @@
             {
               "os": "Ubuntu-16.04"
             }
-          ]
+          ],
+          "shards": 2
         },
         "test": "unit_tests"
       },
@@ -2474,7 +2421,7 @@
               "os": "Ubuntu-16.04"
             }
           ],
-          "shards": 10
+          "shards": 20
         },
         "test": "browser_tests"
       },
@@ -2495,28 +2442,7 @@
               "os": "Ubuntu-16.04"
             }
           ],
-          "shards": 10
-        },
-        "test": "browser_tests"
-      },
-      {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_browser_tests.filter"
-        ],
-        "isolate_coverage_data": true,
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_browser_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04"
-            }
-          ]
+          "shards": 20
         },
         "test": "browser_tests"
       },
@@ -2665,22 +2591,6 @@
             }
           ]
         },
-        "test": "color_unittests"
-      },
-      {
-        "isolate_coverage_data": true,
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
         "test": "components_browsertests"
       },
       {
@@ -2728,7 +2638,7 @@
               "os": "Ubuntu-16.04"
             }
           ],
-          "shards": 6
+          "shards": 3
         },
         "test": "content_browsertests"
       },
@@ -2749,7 +2659,7 @@
               "os": "Ubuntu-16.04"
             }
           ],
-          "shards": 10
+          "shards": 4
         },
         "test": "content_browsertests"
       },
@@ -3059,27 +2969,6 @@
             }
           ],
           "shards": 3
-        },
-        "test": "interactive_ui_tests"
-      },
-      {
-        "args": [
-          "--disable-blink-features=HTMLImports,ShadowDOMV0,CustomElementsV0",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/webui_html_imports_polyfill_interactive_ui_tests.filter"
-        ],
-        "isolate_coverage_data": true,
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webui_html_imports_polyfill_interactive_ui_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04"
-            }
-          ]
         },
         "test": "interactive_ui_tests"
       },
@@ -3690,7 +3579,8 @@
             {
               "os": "Ubuntu-16.04"
             }
-          ]
+          ],
+          "shards": 2
         },
         "test": "unit_tests"
       },

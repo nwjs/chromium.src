@@ -159,12 +159,6 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual void LoadingStateChanged(WebContents* source,
                                    bool to_different_document) {}
 
-  // Notifies the delegate that the page has made some progress loading.
-  // |progress| is a value between 0.0 (nothing loaded) to 1.0 (page fully
-  // loaded).
-  virtual void LoadProgressChanged(WebContents* source,
-                                   double progress) {}
-
   // Request the delegate to close this web contents, and do whatever cleanup
   // it needs to do.
   virtual void CloseContents(WebContents* source) {}
@@ -601,13 +595,17 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual void SetTopControlsShownRatio(WebContents* web_contents,
                                         float ratio) {}
 
-  // Requests to get browser controls info such as the height of the top/bottom
-  // controls, and whether they will shrink the Blink's view size.
-  // Note that they are not complete in the sense that there is no API to tell
-  // content to poll these values again, except part of resize. But this is not
-  // needed by embedder because it's always accompanied by view size change.
+  // Requests to get browser controls info such as the height/min height of the
+  // top/bottom controls, and whether to animate these changes to height or
+  // whether they will shrink the Blink's view size. Note that they are not
+  // complete in the sense that there is no API to tell content to poll these
+  // values again, except part of resize. But this is not needed by embedder
+  // because it's always accompanied by view size change.
   virtual int GetTopControlsHeight();
+  virtual int GetTopControlsMinHeight();
   virtual int GetBottomControlsHeight();
+  virtual int GetBottomControlsMinHeight();
+  virtual bool ShouldAnimateBrowserControlsHeightChanges();
   virtual bool DoBrowserControlsShrinkRendererSize(
       const WebContents* web_contents);
 
@@ -672,6 +670,10 @@ class CONTENT_EXPORT WebContentsDelegate {
   // eviction and displayed until a new frame is generated. If false, a white
   // solid color is displayed instead.
   virtual bool ShouldShowStaleContentOnEviction(WebContents* source);
+
+  // Determine if the frame is of a low priority.
+  virtual bool IsFrameLowPriority(const WebContents* web_contents,
+                                  const RenderFrameHost* render_frame_host);
 
  protected:
   virtual ~WebContentsDelegate();

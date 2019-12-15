@@ -21,10 +21,12 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "third_party/openscreen/src/cast/common/channel/proto/cast_channel.pb.h"
 
 namespace media_router {
 
 struct CastSinkExtraData;
+class CastActivityManagerBase;
 
 class MirroringActivityRecord : public ActivityRecord,
                                 public mirroring::mojom::SessionObserver,
@@ -36,10 +38,11 @@ class MirroringActivityRecord : public ActivityRecord,
                           const std::string& app_id,
                           cast_channel::CastMessageHandler* message_handler,
                           CastSessionTracker* session_tracker,
-                          DataDecoder* data_decoder,
                           int target_tab_id,
                           const CastSinkExtraData& cast_data,
                           mojom::MediaRouter* media_router,
+                          MediaSinkServiceBase* media_sink_service,
+                          CastActivityManagerBase* activity_manager,
                           OnStopCallback callback);
   ~MirroringActivityRecord() override;
 
@@ -76,7 +79,7 @@ class MirroringActivityRecord : public ActivityRecord,
   void ClosePresentationConnections(
       blink::mojom::PresentationConnectionCloseReason close_reason) override;
   void TerminatePresentationConnections() override;
-  void OnAppMessage(const cast_channel::CastMessage& message) override;
+  void OnAppMessage(const cast::channel::CastMessage& message) override;
   void OnInternalMessage(const cast_channel::InternalMessage& message) override;
 
  protected:
@@ -107,6 +110,8 @@ class MirroringActivityRecord : public ActivityRecord,
 
   const int channel_id_;
   const MirroringType mirroring_type_;
+  MediaSinkServiceBase* const media_sink_service_;
+  CastActivityManagerBase* const activity_manager_;
   OnStopCallback on_stop_;
   base::WeakPtrFactory<MirroringActivityRecord> weak_ptr_factory_{this};
 };

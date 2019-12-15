@@ -293,7 +293,7 @@ FloatRect PaintTimingDetector::CalculateVisualRect(
   frame_view_->GetFrame()
       .LocalFrameRoot()
       .View()
-      ->MapToVisualRectInTopFrameSpace(layout_visual_rect);
+      ->MapToVisualRectInRemoteRootFrame(layout_visual_rect);
   WebFloatRect float_rect = FloatRect(layout_visual_rect);
   ConvertViewportToWindow(&float_rect);
   return float_rect;
@@ -336,9 +336,10 @@ void ScopedPaintTimingDetectorBlockPaintHook::EmplaceIfNeeded(
   // aggregation corresponds to an element. See crbug.com/988593. When set,
   // |top_| becomes |this|, and |top_| is restored to the previous value when
   // the ScopedPaintTimingDetectorBlockPaintHook goes out of scope.
-  if (aggregator.GetNode())
-    reset_top_.emplace(&top_, this);
+  if (!aggregator.GetNode())
+    return;
 
+  reset_top_.emplace(&top_, this);
   TextPaintTimingDetector* detector = aggregator.GetFrameView()
                                           ->GetPaintTimingDetector()
                                           .GetTextPaintTimingDetector();

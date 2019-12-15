@@ -36,8 +36,8 @@ struct RootCompositorFrameSinkParams {
   pending_associated_receiver<CompositorFrameSink> compositor_frame_sink;
   pending_remote<CompositorFrameSinkClient> compositor_frame_sink_client;
 
-  associated DisplayPrivate& display_private;
-  DisplayClient display_client;
+  pending_associated_receiver<DisplayPrivate> display_private;
+  pending_remote<DisplayClient> display_client;
 
   associated ExternalBeginFrameController&? external_begin_frame_controller;
 };
@@ -119,10 +119,10 @@ interface FrameSinkManager {
 
   // Requests viz to notify |observer| whenever video activity is detected in
   // one of the clients. See viz::VideoDetector.
-  AddVideoDetectorObserver(VideoDetectorObserver observer);
+  AddVideoDetectorObserver(pending_remote<VideoDetectorObserver> observer);
 
   // Creates a FrameSinkVideoCapturer instance.
-  CreateVideoCapturer(FrameSinkVideoCapturer& request);
+  CreateVideoCapturer(pending_receiver<FrameSinkVideoCapturer> receiver);
 
   // Marks the given SurfaceIds for destruction.
   EvictSurfaces(array<SurfaceId> surface_ids);

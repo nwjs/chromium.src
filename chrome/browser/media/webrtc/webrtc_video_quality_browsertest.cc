@@ -23,6 +23,7 @@
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/media/webrtc/webrtc_browsertest_base.h"
 #include "chrome/browser/media/webrtc/webrtc_browsertest_common.h"
+#include "chrome/browser/media/webrtc/webrtc_browsertest_perf.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -224,10 +225,16 @@ class WebRtcVideoQualityBrowserTest : public WebRtcTestBase,
     printf("Output was:\n\n%s\n", output.c_str());
     bool has_result_lines = output.find("RESULT") != std::string::npos;
     if (!ok || !has_result_lines) {
-      LOG(ERROR) << "Failed to compare videos; see output above to see what "
-                 << "the error was.";
+      LOG(ERROR) << "Failed to compare videos; see output to see what "
+                 << "the error was:\n\n"
+                 << output;
       return false;
     }
+    // TODO(http://crbug.com/1874811): Enable this and drop the printf above
+    // when ready to switch to histogram sets.
+    // if (!test::WriteCompareVideosOutputAsHistogram(test_label, output))
+    //  return false;
+
     return true;
   }
 
@@ -321,16 +328,23 @@ INSTANTIATE_TEST_SUITE_P(WebRtcVideoQualityBrowserTests,
                          WebRtcVideoQualityBrowserTest,
                          testing::ValuesIn(kVideoConfigurations));
 
+// WebRTC's frame_analyzer doesn't build from a Chromium's component build.
+#if defined(COMPONENT_BUILD)
+#define MAYBE_MANUAL_TestVideoQualityVp8 DISABLED_MANUAL_TestVideoQualityVp8
+#else
+#define MAYBE_MANUAL_TestVideoQualityVp8 MANUAL_TestVideoQualityVp8
+#endif
 IN_PROC_BROWSER_TEST_P(WebRtcVideoQualityBrowserTest,
-                       MANUAL_TestVideoQualityVp8) {
+                       MAYBE_MANUAL_TestVideoQualityVp8) {
   base::ScopedAllowBlockingForTesting allow_blocking;
   TestVideoQuality("VP8", false /* prefer_hw_video_codec */);
 }
 
-// Flaky on windows.
+// Flaky on windows and WebRTC's frame_analyzer doesn't build from a Chromium's
+// component build.
 // TODO(crbug.com/1008766): re-enable when flakiness is investigated, diagnosed
 // and resolved.
-#if defined(OS_WIN)
+#if defined(OS_WIN) || defined(COMPONENT_BUILD)
 #define MAYBE_MANUAL_TestVideoQualityVp9 DISABLED_MANUAL_TestVideoQualityVp9
 #else
 #define MAYBE_MANUAL_TestVideoQualityVp9 MANUAL_TestVideoQualityVp9
@@ -343,8 +357,9 @@ IN_PROC_BROWSER_TEST_P(WebRtcVideoQualityBrowserTest,
 
 #if BUILDFLAG(RTC_USE_H264)
 
-// Flaky on mac: crbug.com/754684
-#if defined(OS_MACOSX)
+// Flaky on mac (crbug.com/754684) and WebRTC's frame_analyzer doesn't build
+// from a Chromium's component build.
+#if defined(OS_MACOSX) || defined(COMPONENT_BUILD)
 #define MAYBE_MANUAL_TestVideoQualityH264 DISABLED_MANUAL_TestVideoQualityH264
 #else
 #define MAYBE_MANUAL_TestVideoQualityH264 MANUAL_TestVideoQualityH264

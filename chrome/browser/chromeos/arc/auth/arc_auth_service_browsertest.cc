@@ -332,12 +332,12 @@ class ArcAuthServiceTest : public InProcessBrowserTest {
         ->MakeAccountAvailable(email);
   }
 
-  void SetInvalidRefreshTokenForAccount(const std::string& account_id) {
+  void SetInvalidRefreshTokenForAccount(const CoreAccountId& account_id) {
     identity_test_environment_adaptor_->identity_test_env()
         ->SetInvalidRefreshTokenForAccount(account_id);
   }
 
-  void SetRefreshTokenForAccount(const std::string& account_id) {
+  void SetRefreshTokenForAccount(const CoreAccountId& account_id) {
     identity_test_environment_adaptor_->identity_test_env()
         ->SetRefreshTokenForAccount(account_id);
   }
@@ -1030,6 +1030,21 @@ IN_PROC_BROWSER_TEST_F(ArcAuthServiceTest, ChildTransition) {
     EXPECT_EQ(ArcSessionManager::State::STOPPED, session->state());
     EXPECT_FALSE(IsDataRemovalConfirmationDialogOpenForTesting());
   }
+}
+
+IN_PROC_BROWSER_TEST_F(ArcAuthServiceTest,
+                       RegularUserSecondaryAccountsArePropagated) {
+  SetAccountAndProfile(user_manager::USER_TYPE_REGULAR);
+  SeedAccountInfo(kSecondaryAccountEmail);
+  EXPECT_EQ(2, auth_instance().num_account_upserted_calls());
+}
+
+IN_PROC_BROWSER_TEST_F(ArcAuthServiceTest,
+                       ChildUserSecondaryAccountsNotPropagated) {
+  SetAccountAndProfile(user_manager::USER_TYPE_CHILD);
+  SeedAccountInfo(kSecondaryAccountEmail);
+  EXPECT_TRUE(profile()->IsChild());
+  EXPECT_EQ(1, auth_instance().num_account_upserted_calls());
 }
 
 }  // namespace arc

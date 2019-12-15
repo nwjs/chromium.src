@@ -22,24 +22,27 @@
 #include "components/autofill/ios/browser/autofill_util.h"
 #include "components/infobars/core/infobar.h"
 #include "components/keyed_service/core/service_access_type.h"
+#include "components/security_state/ios/security_state_utils.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/translate/core/browser/translate_manager.h"
+#include "components/ukm/ios/ukm_url_recorder.h"
 #include "ios/chrome/browser/application_context.h"
 #include "ios/chrome/browser/autofill/address_normalizer_factory.h"
 #include "ios/chrome/browser/autofill/autocomplete_history_manager_factory.h"
 #import "ios/chrome/browser/autofill/autofill_log_router_factory.h"
 #include "ios/chrome/browser/autofill/personal_data_manager_factory.h"
 #include "ios/chrome/browser/autofill/strike_database_factory.h"
-#include "ios/chrome/browser/infobars/infobar.h"
+#include "ios/chrome/browser/infobars/infobar_ios.h"
 #include "ios/chrome/browser/infobars/infobar_utils.h"
-#include "ios/chrome/browser/metrics/ukm_url_recorder.h"
 #include "ios/chrome/browser/signin/identity_manager_factory.h"
-#include "ios/chrome/browser/ssl/ios_security_state_tab_helper.h"
 #include "ios/chrome/browser/sync/profile_sync_service_factory.h"
 #include "ios/chrome/browser/translate/chrome_ios_translate_client.h"
+#include "ios/chrome/browser/ui/autofill/card_expiration_date_fix_flow_view_bridge.h"
 #include "ios/chrome/browser/ui/autofill/card_name_fix_flow_view_bridge.h"
 #include "ios/chrome/browser/ui/autofill/card_unmask_prompt_view_bridge.h"
 #include "ios/chrome/browser/ui/autofill/save_card_infobar_controller.h"
+#import "ios/chrome/browser/ui/infobars/coordinators/infobar_save_card_coordinator.h"
+#import "ios/chrome/browser/ui/infobars/infobar_feature.h"
 #include "ios/chrome/browser/webdata_services/web_data_service_factory.h"
 #include "ios/chrome/common/channel_info.h"
 #include "ios/public/provider/chrome/browser/chrome_browser_provider.h"
@@ -56,9 +59,23 @@ namespace {
 // Creates and returns an infobar for saving credit cards.
 std::unique_ptr<infobars::InfoBar> CreateSaveCardInfoBarMobile(
     std::unique_ptr<autofill::AutofillSaveCardInfoBarDelegateMobile> delegate) {
-  SaveCardInfoBarController* controller = [[SaveCardInfoBarController alloc]
-      initWithInfoBarDelegate:delegate.get()];
-  return std::make_unique<InfoBarIOS>(controller, std::move(delegate));
+  if (IsSaveCardInfobarMessagesUIEnabled()) {
+    InfobarSaveCardCoordinator* coordinator =
+        [[InfobarSaveCardCoordinator alloc]
+            initWithInfoBarDelegate:delegate.get()];
+    return std::make_unique<InfoBarIOS>(coordinator, std::move(delegate));
+  } else {
+    SaveCardInfoBarController* controller = [[SaveCardInfoBarController alloc]
+        initWithInfoBarDelegate:delegate.get()];
+    return std::make_unique<InfoBarIOS>(controller, std::move(delegate));
+  }
+}
+
+autofill::CardUnmaskPromptView* CreateCardUnmaskPromptViewBridge(
+    autofill::CardUnmaskPromptControllerImpl* unmask_controller,
+    UIViewController* base_view_controller) {
+  return new autofill::CardUnmaskPromptViewBridge(unmask_controller,
+                                                  base_view_controller);
 }
 
 }  // namespace
@@ -168,14 +185,7 @@ AddressNormalizer* ChromeAutofillClientIOS::GetAddressNormalizer() {
 
 security_state::SecurityLevel
 ChromeAutofillClientIOS::GetSecurityLevelForUmaHistograms() {
-  auto* ios_security_state_tab_helper =
-      IOSSecurityStateTabHelper::FromWebState(web_state_);
-
-  // If there is no helper, return SECURITY_LEVEL_COUNT which won't be logged.
-  if (!ios_security_state_tab_helper)
-    return security_state::SecurityLevel::SECURITY_LEVEL_COUNT;
-
-  return ios_security_state_tab_helper->GetSecurityLevel();
+  return security_state::GetSecurityLevelForWebState(web_state_);
 }
 
 std::string ChromeAutofillClientIOS::GetPageLanguage() const {
@@ -199,12 +209,10 @@ void ChromeAutofillClientIOS::ShowUnmaskPrompt(
     const CreditCard& card,
     UnmaskCardReason reason,
     base::WeakPtr<CardUnmaskDelegate> delegate) {
-  unmask_controller_.ShowPrompt(
-      // autofill::CardUnmaskPromptViewBridge manages its own lifetime, so
-      // do not use std::unique_ptr<> here.
-      new autofill::CardUnmaskPromptViewBridge(&unmask_controller_,
-                                               base_view_controller_),
-      card, reason, delegate);
+  unmask_controller_.ShowPrompt(base::Bind(&CreateCardUnmaskPromptViewBridge,
+                                    base::Unretained(&unmask_controller_),
+                                    base::Unretained(base_view_controller_)),
+                                card, reason, delegate);
 }
 
 void ChromeAutofillClientIOS::OnUnmaskVerificationResult(
@@ -230,11 +238,6 @@ void ChromeAutofillClientIOS::ShowLocalCardMigrationResults(
     const base::string16& tip_message,
     const std::vector<MigratableCreditCard>& migratable_credit_cards,
     MigrationDeleteCardCallback delete_local_card_callback) {
-  NOTIMPLEMENTED();
-}
-
-void ChromeAutofillClientIOS::ShowWebauthnOfferDialog(
-    WebauthnOfferDialogCallback callback) {
   NOTIMPLEMENTED();
 }
 
@@ -274,6 +277,18 @@ void ChromeAutofillClientIOS::ConfirmAccountNameFixFlow(
       new autofill::CardNameFixFlowViewBridge(&card_name_fix_flow_controller_,
                                               base_view_controller_),
       account_name, std::move(callback));
+}
+
+void ChromeAutofillClientIOS::ConfirmExpirationDateFixFlow(
+    const CreditCard& card,
+    base::OnceCallback<void(const base::string16&, const base::string16&)>
+        callback) {
+  card_expiration_date_fix_flow_controller_.Show(
+      // autofill::CardExpirationDateFixFlowViewBridge manages its own lifetime,
+      // so do not use std::unique_ptr<> here.
+      new autofill::CardExpirationDateFixFlowViewBridge(
+          &card_expiration_date_fix_flow_controller_, base_view_controller_),
+      card, std::move(callback));
 }
 
 void ChromeAutofillClientIOS::ConfirmSaveCreditCardToCloud(

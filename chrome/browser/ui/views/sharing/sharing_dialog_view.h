@@ -43,8 +43,6 @@ class SharingDialogView : public SharingDialog,
   base::string16 GetWindowTitle() const override;
   void WindowClosing() override;
   void WebContentsDestroyed() override;
-  int GetDialogButtons() const override;
-  std::unique_ptr<views::View> CreateFootnoteView() override;
   gfx::Size CalculatePreferredSize() const override;
   void AddedToWidget() override;
   void OnThemeChanged() override;
@@ -68,6 +66,8 @@ class SharingDialogView : public SharingDialog,
   FRIEND_TEST_ALL_PREFIXES(SharingDialogViewTest, DevicePressed);
   FRIEND_TEST_ALL_PREFIXES(SharingDialogViewTest, AppPressed);
   FRIEND_TEST_ALL_PREFIXES(SharingDialogViewTest, ThemeChangedEmptyList);
+
+  FRIEND_TEST_ALL_PREFIXES(ClickToCallBrowserTest, LeftClick_ChooseDevice);
 
   SharingDialogType GetDialogType() const;
 

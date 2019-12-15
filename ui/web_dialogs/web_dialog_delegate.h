@@ -19,7 +19,6 @@ class GURL;
 
 namespace content {
 class RenderFrameHost;
-class RenderViewHost;
 class WebContents;
 class WebUI;
 class WebUIMessageHandler;
@@ -88,9 +87,7 @@ class WEB_DIALOGS_EXPORT WebDialogDelegate {
 
   // A callback to notify the delegate that a web dialog has been shown.
   // |webui| is the WebUI with which the dialog is associated.
-  // |render_view_host| is the RenderViewHost for the shown dialog.
-  virtual void OnDialogShown(content::WebUI* webui,
-                             content::RenderViewHost* render_view_host) {}
+  virtual void OnDialogShown(content::WebUI* webui) {}
 
   // A callback to notify the delegate that the window is requesting to be
   // closed.  If this returns true, the dialog is closed, otherwise the
@@ -122,6 +119,10 @@ class WEB_DIALOGS_EXPORT WebDialogDelegate {
   // A callback to allow the delegate to dictate that the window should not
   // have a title bar.  This is useful when presenting branded interfaces.
   virtual bool ShouldShowDialogTitle() const = 0;
+
+  // A callback to allow the delegate to center title text. Default is
+  // false.
+  virtual bool ShouldCenterDialogTitleText() const;
 
   // Returns true if the dialog should show a close button in the title bar.
   // Default implementation returns true.

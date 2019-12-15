@@ -235,6 +235,7 @@ class CloudPolicyClientTest : public testing::Test {
     upload_status_request_.mutable_child_status_report_request();
 
     chrome_desktop_report_request_.mutable_chrome_desktop_report_request();
+    chrome_os_user_report_request_.mutable_chrome_os_user_report_request();
 
     remote_command_request_.mutable_remote_command_request()
         ->set_last_command_unique_id(kLastCommandId);
@@ -459,6 +460,16 @@ class CloudPolicyClientTest : public testing::Test {
                                    chrome_desktop_report_response_)));
   }
 
+  void ExpectChromeOsUserReport() {
+    EXPECT_CALL(service_, StartJob(_))
+        .WillOnce(DoAll(
+            service_.CaptureJobType(&job_type_),
+            service_.CaptureQueryParams(&query_params_),
+            service_.CaptureRequest(&job_request_),
+            service_.StartJobAsync(net::OK, DeviceManagementService::kSuccess,
+                                   chrome_os_user_report_response_)));
+  }
+
   void ExpectRealtimeReport() {
     EXPECT_CALL(service_, StartJob(_))
         .WillOnce(DoAll(service_.CaptureJobType(&job_type_),
@@ -559,6 +570,7 @@ class CloudPolicyClientTest : public testing::Test {
   em::DeviceManagementRequest upload_enrollment_id_request_;
   em::DeviceManagementRequest upload_status_request_;
   em::DeviceManagementRequest chrome_desktop_report_request_;
+  em::DeviceManagementRequest chrome_os_user_report_request_;
   em::DeviceManagementRequest remote_command_request_;
   em::DeviceManagementRequest attribute_update_permission_request_;
   em::DeviceManagementRequest attribute_update_request_;
@@ -574,6 +586,7 @@ class CloudPolicyClientTest : public testing::Test {
   em::DeviceManagementResponse upload_certificate_response_;
   em::DeviceManagementResponse upload_status_response_;
   em::DeviceManagementResponse chrome_desktop_report_response_;
+  em::DeviceManagementResponse chrome_os_user_report_response_;
   em::DeviceManagementResponse attribute_update_permission_response_;
   em::DeviceManagementResponse attribute_update_response_;
   em::DeviceManagementResponse gcm_id_update_response_;
@@ -1446,6 +1459,26 @@ TEST_F(CloudPolicyClientTest, UploadChromeDesktopReport) {
   EXPECT_EQ(DM_STATUS_SUCCESS, client_->status());
 }
 
+TEST_F(CloudPolicyClientTest, UploadChromeOsUserReport) {
+  RegisterClient();
+
+  ExpectChromeOsUserReport();
+  EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
+  CloudPolicyClient::StatusCallback callback =
+      base::Bind(&MockStatusCallbackObserver::OnCallbackComplete,
+                 base::Unretained(&callback_observer_));
+  std::unique_ptr<em::ChromeOsUserReportRequest> chrome_os_user_report =
+      std::make_unique<em::ChromeOsUserReportRequest>();
+  client_->UploadChromeOsUserReport(std::move(chrome_os_user_report), callback);
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(
+      DeviceManagementService::JobConfiguration::TYPE_CHROME_OS_USER_REPORT,
+      job_type_);
+  EXPECT_EQ(job_request_.SerializePartialAsString(),
+            chrome_os_user_report_request_.SerializePartialAsString());
+  EXPECT_EQ(DM_STATUS_SUCCESS, client_->status());
+}
+
 #if defined(OS_WIN) || defined(OS_MACOSX) || \
     defined(OS_LINUX) && !defined(OS_CHROMEOS)
 TEST_F(CloudPolicyClientTest, UploadRealtimeReport) {
@@ -1495,6 +1528,9 @@ TEST_F(CloudPolicyClientTest, UploadRealtimeReport) {
   EXPECT_EQ(version_info::GetVersionNumber(),
             *payload->FindStringPath(
                 RealtimeReportingJobConfiguration::kChromeVersionKey));
+  EXPECT_EQ(policy::GetOSPlatform(),
+            *payload->FindStringPath(
+                RealtimeReportingJobConfiguration::kOsPlatformKey));
   EXPECT_EQ(policy::GetOSVersion(),
             *payload->FindStringPath(
                 RealtimeReportingJobConfiguration::kOsVersionKey));
@@ -1502,8 +1538,7 @@ TEST_F(CloudPolicyClientTest, UploadRealtimeReport) {
   base::Value* events =
       payload->FindPath(RealtimeReportingJobConfiguration::kEventsKey);
   EXPECT_EQ(base::Value::Type::LIST, events->type());
-  base::span<const base::Value> list = events->GetList();
-  EXPECT_EQ(1u, list.size());
+  EXPECT_EQ(1u, events->GetList().size());
 }
 
 TEST_F(CloudPolicyClientTest, RealtimeReportMerge) {

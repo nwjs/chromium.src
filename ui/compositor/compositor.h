@@ -24,6 +24,7 @@
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/surfaces/frame_sink_id.h"
 #include "components/viz/host/host_frame_sink_client.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/viz/privileged/mojom/compositing/vsync_parameter_observer.mojom-forward.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkMatrix44.h"
@@ -37,6 +38,7 @@
 #include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/gpu_memory_buffer.h"
 #include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/overlay_transform.h"
 
 namespace base {
 class SingleThreadTaskRunner;
@@ -72,7 +74,6 @@ class RasterContextProvider;
 namespace ui {
 
 class Compositor;
-class LatencyInfo;
 class Layer;
 class Reflector;
 class ScopedAnimationDurationScaleMode;
@@ -155,7 +156,7 @@ class COMPOSITOR_EXPORT ContextFactoryPrivate {
   // Adds an observer for vsync parameter changes.
   virtual void AddVSyncParameterObserver(
       Compositor* compositor,
-      viz::mojom::VSyncParameterObserverPtr observer) = 0;
+      mojo::PendingRemote<viz::mojom::VSyncParameterObserver> observer) = 0;
 };
 
 // This class abstracts the creation of the 3D context for the compositor. It is
@@ -276,8 +277,6 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
   void DisableSwapUntilResize();
   void ReenableSwap();
 
-  void SetLatencyInfo(const LatencyInfo& latency_info);
-
   // Sets the compositor's device scale factor and size.
   void SetScaleAndSize(
       float scale,
@@ -289,6 +288,12 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
   void SetDisplayColorSpace(
       const gfx::ColorSpace& color_space,
       float sdr_white_level = gfx::ColorSpace::kDefaultSDRWhiteLevel);
+
+  // Set the transform/rotation info for the display output surface.
+  void SetDisplayTransformHint(gfx::OverlayTransform hint);
+  gfx::OverlayTransform display_transform_hint() const {
+    return host_->display_transform_hint();
+  }
 
   // Returns the size of the widget that is being drawn to in pixel coordinates.
   const gfx::Size& size() const { return size_; }
@@ -314,7 +319,7 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
   void SetDisplayVSyncParameters(base::TimeTicks timebase,
                                  base::TimeDelta interval);
   void AddVSyncParameterObserver(
-      viz::mojom::VSyncParameterObserverPtr observer);
+      mojo::PendingRemote<viz::mojom::VSyncParameterObserver> observer);
 
   // Sets the widget for the compositor to render into.
   void SetAcceleratedWidget(gfx::AcceleratedWidget widget);

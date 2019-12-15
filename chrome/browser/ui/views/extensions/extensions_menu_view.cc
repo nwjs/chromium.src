@@ -8,20 +8,18 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_controller.h"
+#include "chrome/browser/ui/views/bubble_menu_item_factory.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_item_view.h"
-#include "chrome/browser/ui/views/hover_button.h"
-#include "chrome/browser/ui/views/hover_button_controller.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/vector_icons/vector_icons.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/views/animation/ink_drop_host_view.h"
-#include "ui/views/controls/button/image_button.h"
-#include "ui/views/controls/button/image_button_factory.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/scroll_view.h"
@@ -31,6 +29,10 @@
 #include "ui/views/view_class_properties.h"
 
 namespace {
+// If true, allows more than one instance of the ExtensionsMenuView, which may
+// not be the active instance in g_extensions_dialog.
+bool g_allow_testing_dialogs = false;
+
 ExtensionsMenuView* g_extensions_dialog = nullptr;
 
 constexpr int EXTENSIONS_SETTINGS_ID = 42;
@@ -55,11 +57,14 @@ ExtensionsMenuView::ExtensionsMenuView(
                                views::BubbleBorder::Arrow::TOP_RIGHT),
       browser_(browser),
       extensions_container_(extensions_container),
-      model_(ToolbarActionsModel::Get(browser_->profile())),
-      model_observer_(this),
+      toolbar_model_(ToolbarActionsModel::Get(browser_->profile())),
+      toolbar_model_observer_(this),
       button_listener_(browser_) {
-  model_observer_.Add(model_);
+  toolbar_model_observer_.Add(toolbar_model_);
+  browser_->tab_strip_model()->AddObserver(this);
   set_margins(gfx::Insets(0));
+
+  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
 
   EnableUpDownKeyboardAccelerators();
 
@@ -69,9 +74,13 @@ ExtensionsMenuView::ExtensionsMenuView(
 }
 
 ExtensionsMenuView::~ExtensionsMenuView() {
-  DCHECK_EQ(g_extensions_dialog, this);
+  if (!g_allow_testing_dialogs)
+    DCHECK_EQ(g_extensions_dialog, this);
   g_extensions_dialog = nullptr;
   extensions_menu_items_.clear();
+
+  // Note: No need to call TabStripModel::RemoveObserver(), because it's handled
+  // directly within TabStripModelObserver::~TabStripModelObserver().
 }
 
 base::string16 ExtensionsMenuView::GetWindowTitle() const {
@@ -80,10 +89,6 @@ base::string16 ExtensionsMenuView::GetWindowTitle() const {
 
 bool ExtensionsMenuView::ShouldShowCloseButton() const {
   return true;
-}
-
-int ExtensionsMenuView::GetDialogButtons() const {
-  return ui::DIALOG_BUTTON_NONE;
 }
 
 gfx::Size ExtensionsMenuView::CalculatePreferredSize() const {
@@ -108,29 +113,16 @@ void ExtensionsMenuView::Repopulate() {
 
   AddChildView(std::make_unique<views::Separator>());
 
-  constexpr gfx::Insets kDefaultBorderInsets = gfx::Insets(12);
-  auto footer = std::make_unique<views::LabelButton>(
-      &button_listener_, l10n_util::GetStringUTF16(IDS_MANAGE_EXTENSION),
-      views::style::CONTEXT_BUTTON);
-  footer->SetButtonController(std::make_unique<HoverButtonController>(
-      footer.get(), &button_listener_,
-      std::make_unique<views::Button::DefaultButtonControllerDelegate>(
-          footer.get())));
+  auto footer = CreateBubbleMenuItem(
+      EXTENSIONS_SETTINGS_ID, l10n_util::GetStringUTF16(IDS_MANAGE_EXTENSION),
+      &button_listener_);
   footer->SetImage(
       views::Button::STATE_NORMAL,
       gfx::CreateVectorIcon(vector_icons::kSettingsIcon, 16,
                             GetNativeTheme()->GetSystemColor(
                                 ui::NativeTheme::kColorId_DefaultIconColor)));
-
-  // Items within a menu should not show focus rings.
-  footer->SetInstallFocusRingOnFocus(false);
-  footer->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
-  footer->SetBorder(views::CreateEmptyBorder(kDefaultBorderInsets));
-  footer->SetInkDropMode(views::InkDropHostView::InkDropMode::ON);
-  footer->set_ink_drop_base_color(HoverButton::GetInkDropColor(footer.get()));
   footer->SetImageLabelSpacing(ChromeLayoutProvider::Get()->GetDistanceMetric(
       views::DISTANCE_BUTTON_HORIZONTAL_PADDING));
-  footer->SetID(EXTENSIONS_SETTINGS_ID);
   manage_extensions_button_for_testing_ = footer.get();
   AddChildView(std::move(footer));
 }
@@ -145,9 +137,9 @@ ExtensionsMenuView::CreateExtensionButtonsContainer() {
   std::vector<std::unique_ptr<ToolbarActionViewController>> cant_access;
   std::vector<std::unique_ptr<ToolbarActionViewController>> wants_access;
   std::vector<std::unique_ptr<ToolbarActionViewController>> accessing_site_data;
-  for (auto action_id : model_->action_ids()) {
-    auto action = model_->CreateActionForId(browser_, extensions_container_,
-                                            false, action_id);
+  for (auto action_id : toolbar_model_->action_ids()) {
+    auto action = toolbar_model_->CreateActionForId(
+        browser_, extensions_container_, false, action_id);
     switch (action->GetPageInteractionStatus(web_contents)) {
       case ToolbarActionViewController::PageInteractionStatus::kNone:
         cant_access.push_back(std::move(action));
@@ -180,6 +172,7 @@ ExtensionsMenuView::CreateExtensionButtonsContainer() {
             l10n_util::GetStringUTF16(label_string_id),
             ChromeTextContext::CONTEXT_BODY_TEXT_LARGE,
             views::style::STYLE_SECONDARY);
+        label->SetMultiLine(true);
         label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
         const int horizontal_spacing =
             ChromeLayoutProvider::Get()->GetDistanceMetric(
@@ -218,6 +211,19 @@ ExtensionsMenuView::CreateExtensionButtonsContainer() {
   add_group(&cant_access, IDS_EXTENSIONS_MENU_CANT_ACCESS_SITE_DATA);
 
   return extension_buttons;
+}
+
+void ExtensionsMenuView::TabChangedAt(content::WebContents* contents,
+                                      int index,
+                                      TabChangeType change_type) {
+  Repopulate();
+}
+
+void ExtensionsMenuView::OnTabStripModelChanged(
+    TabStripModel* tab_strip_model,
+    const TabStripModelChange& change,
+    const TabStripSelectionChange& selection) {
+  Repopulate();
 }
 
 // TODO(pbos): Revisit observed events below.
@@ -266,6 +272,11 @@ void ExtensionsMenuView::OnToolbarPinnedActionsChanged() {
 }
 
 // static
+base::AutoReset<bool> ExtensionsMenuView::AllowInstancesForTesting() {
+  return base::AutoReset<bool>(&g_allow_testing_dialogs, true);
+}
+
+// static
 void ExtensionsMenuView::ShowBubble(views::View* anchor_view,
                                     Browser* browser,
                                     ExtensionsContainer* extensions_container) {
@@ -284,16 +295,6 @@ bool ExtensionsMenuView::IsShowing() {
 void ExtensionsMenuView::Hide() {
   if (IsShowing())
     g_extensions_dialog->GetWidget()->Close();
-}
-
-// static
-std::unique_ptr<views::ImageView>
-ExtensionsMenuView::CreateFixedSizeIconView() {
-  // Note that this size is larger than the 16dp extension icons as it needs to
-  // accommodate 24dp click-to-script badging and surrounding shadows.
-  auto image_view = std::make_unique<views::ImageView>();
-  image_view->SetPreferredSize(kExtensionsMenuIconSize);
-  return image_view;
 }
 
 ExtensionsMenuView* ExtensionsMenuView::GetExtensionsMenuViewForTesting() {

@@ -17,6 +17,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "content/browser/service_worker/embedded_worker_test_helper.h"
+#include "content/browser/service_worker/service_worker_container_host.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
 #include "content/browser/service_worker/service_worker_provider_host.h"
@@ -56,7 +57,7 @@ class ServiceWorkerControlleeRequestHandlerTest : public testing::Test {
               TRAFFIC_ANNOTATION_FOR_TESTS)),
           handler_(std::make_unique<ServiceWorkerControlleeRequestHandler>(
               test->context()->AsWeakPtr(),
-              test->provider_host_,
+              test->container_host_,
               type,
               /*skip_service_worker=*/false)) {}
 
@@ -89,12 +90,10 @@ class ServiceWorkerControlleeRequestHandlerTest : public testing::Test {
   ServiceWorkerControlleeRequestHandlerTest()
       : task_environment_(BrowserTaskEnvironment::IO_MAINLOOP) {}
 
-  void SetUp() override {
-    SetUpWithHelper(new EmbeddedWorkerTestHelper(base::FilePath()));
-  }
+  void SetUp() override { SetUpWithHelper(/*is_parent_frame_secure=*/true); }
 
-  void SetUpWithHelper(EmbeddedWorkerTestHelper* helper) {
-    helper_.reset(helper);
+  void SetUpWithHelper(bool is_parent_frame_secure) {
+    helper_.reset(new EmbeddedWorkerTestHelper(base::FilePath()));
 
     // A new unstored registration/version.
     scope_ = GURL("https://host/scope/");
@@ -120,8 +119,9 @@ class ServiceWorkerControlleeRequestHandlerTest : public testing::Test {
     // An empty host.
     remote_endpoints_.emplace_back();
     provider_host_ = CreateProviderHostForWindow(
-        helper_->mock_render_process_id(), true /* is_parent_frame_secure */,
+        helper_->mock_render_process_id(), is_parent_frame_secure,
         helper_->context()->AsWeakPtr(), &remote_endpoints_.back());
+    container_host_ = provider_host_->container_host()->GetWeakPtr();
   }
 
   void TearDown() override {
@@ -132,17 +132,13 @@ class ServiceWorkerControlleeRequestHandlerTest : public testing::Test {
 
   ServiceWorkerContextCore* context() const { return helper_->context(); }
 
-  void SetProviderHostIsSecure(ServiceWorkerProviderHost* host,
-                               bool is_secure) {
-    host->is_parent_frame_secure_ = is_secure;
-  }
-
  protected:
   BrowserTaskEnvironment task_environment_;
   std::unique_ptr<EmbeddedWorkerTestHelper> helper_;
   scoped_refptr<ServiceWorkerRegistration> registration_;
   scoped_refptr<ServiceWorkerVersion> version_;
   base::WeakPtr<ServiceWorkerProviderHost> provider_host_;
+  base::WeakPtr<ServiceWorkerContainerHost> container_host_;
   net::URLRequestContext url_request_context_;
   net::TestDelegate url_request_delegate_;
   GURL scope_;
@@ -285,6 +281,9 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, DisallowServiceWorker) {
 }
 
 TEST_F(ServiceWorkerControlleeRequestHandlerTest, InsecureContext) {
+  // Reset the provider host as insecure.
+  SetUpWithHelper(/*is_parent_frame_secure=*/false);
+
   // Store an activated worker.
   version_->set_fetch_handler_existence(
       ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
@@ -293,8 +292,6 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, InsecureContext) {
   context()->storage()->StoreRegistration(registration_.get(), version_.get(),
                                           base::DoNothing());
   base::RunLoop().RunUntilIdle();
-
-  SetProviderHostIsSecure(provider_host_.get(), false);
 
   // Conduct a main resource load.
   ServiceWorkerRequestTestResources test_resources(
@@ -357,8 +354,8 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, InstallingRegistration) {
   // claim().
   EXPECT_FALSE(test_resources.loader());
   EXPECT_FALSE(version_->HasControllee());
-  EXPECT_FALSE(provider_host_->controller());
-  EXPECT_EQ(registration_.get(), provider_host_->MatchRegistration());
+  EXPECT_FALSE(container_host_->controller());
+  EXPECT_EQ(registration_.get(), container_host_->MatchRegistration());
 }
 
 // Test to not regress crbug/414118.
@@ -384,7 +381,7 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, DeletedProviderHost) {
   // Shouldn't crash if the ProviderHost is deleted prior to completion of
   // the database lookup.
   context()->RemoveProviderHost(provider_host_->provider_id());
-  EXPECT_FALSE(provider_host_.get());
+  EXPECT_FALSE(container_host_.get());
   base::RunLoop().RunUntilIdle();
   EXPECT_FALSE(test_resources.loader());
 }
@@ -407,7 +404,7 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, SkipServiceWorker) {
       this, GURL("https://host/scope/doc"), ResourceType::kMainFrame);
   test_resources.SetHandler(
       std::make_unique<ServiceWorkerControlleeRequestHandler>(
-          context()->AsWeakPtr(), provider_host_, ResourceType::kMainFrame,
+          context()->AsWeakPtr(), container_host_, ResourceType::kMainFrame,
           /*skip_service_worker=*/true));
 
   // Conduct a main resource load.
@@ -421,7 +418,7 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, SkipServiceWorker) {
   EXPECT_FALSE(version_->HasControllee());
 
   // The host should still have the correct URL.
-  EXPECT_EQ(GURL("https://host/scope/doc"), provider_host_->url());
+  EXPECT_EQ(GURL("https://host/scope/doc"), container_host_->url());
 }
 
 // Tests interception after the context core has been destroyed and the provider
@@ -446,7 +443,7 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, NullContext) {
       this, GURL("https://host/scope/doc"), ResourceType::kMainFrame);
   test_resources.SetHandler(
       std::make_unique<ServiceWorkerControlleeRequestHandler>(
-          context()->AsWeakPtr(), provider_host_, ResourceType::kMainFrame,
+          context()->AsWeakPtr(), container_host_, ResourceType::kMainFrame,
           /*skip_service_worker=*/false));
 
   // Destroy the context and make a new one.
@@ -465,7 +462,7 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, NullContext) {
   EXPECT_FALSE(version_->HasControllee());
 
   // The host should still have the correct URL.
-  EXPECT_EQ(GURL("https://host/scope/doc"), provider_host_->url());
+  EXPECT_EQ(GURL("https://host/scope/doc"), container_host_->url());
 }
 
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
@@ -477,8 +474,8 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, FallbackWithOfflineHeader) {
   context()->storage()->StoreRegistration(registration_.get(), version_.get(),
                                           base::DoNothing());
   base::RunLoop().RunUntilIdle();
-  version_ = NULL;
-  registration_ = NULL;
+  version_.reset();
+  registration_.reset();
 
   ServiceWorkerRequestTestResources test_resources(
       this, GURL("https://host/scope/doc"), ResourceType::kMainFrame);
@@ -498,8 +495,8 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, FallbackWithNoOfflineHeader) {
   context()->storage()->StoreRegistration(registration_.get(), version_.get(),
                                           base::DoNothing());
   base::RunLoop().RunUntilIdle();
-  version_ = NULL;
-  registration_ = NULL;
+  version_.reset();
+  registration_.reset();
 
   ServiceWorkerRequestTestResources test_resources(
       this, GURL("https://host/scope/doc"), ResourceType::kMainFrame);

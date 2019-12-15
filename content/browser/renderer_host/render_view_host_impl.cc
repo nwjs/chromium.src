@@ -51,6 +51,7 @@
 #include "content/common/frame_messages.h"
 #include "content/common/input_messages.h"
 #include "content/common/inter_process_time_ticks_converter.h"
+#include "content/common/page_messages.h"
 #include "content/common/render_message_filter.mojom.h"
 #include "content/common/renderer.mojom.h"
 #include "content/common/swapped_out_messages.h"
@@ -111,10 +112,10 @@
 
 using base::TimeDelta;
 
+using blink::MediaPlayerAction;
 using blink::PluginAction;
 using blink::WebConsoleMessage;
 using blink::WebInputEvent;
-using blink::WebMediaPlayerAction;
 
 namespace content {
 namespace {
@@ -228,7 +229,7 @@ RenderViewHostImpl::RenderViewHostImpl(
       routing_id_(routing_id),
       main_frame_routing_id_(main_frame_routing_id) {
   DCHECK(instance_.get());
-  CHECK(delegate_);  // http://crbug.com/82827
+  DCHECK(delegate_);
   DCHECK_NE(GetRoutingID(), render_widget_host_->GetRoutingID());
 
   std::pair<RoutingIDViewMap::iterator, bool> result =
@@ -347,12 +348,8 @@ bool RenderViewHostImpl::CreateRenderView(
   if (main_rfh) {
     params->main_frame_interface_bundle =
         mojom::DocumentScopedInterfaceBundle::New();
-    main_rfh->BindInterfaceProviderRequest(mojo::MakeRequest(
-        &params->main_frame_interface_bundle->interface_provider));
-    main_rfh->BindDocumentInterfaceBrokerReceiver(
-        params->main_frame_interface_bundle->document_interface_broker_content
-            .InitWithNewPipeAndPassReceiver(),
-        params->main_frame_interface_bundle->document_interface_broker_blink
+    main_rfh->BindInterfaceProviderReceiver(
+        params->main_frame_interface_bundle->interface_provider
             .InitWithNewPipeAndPassReceiver());
     main_rfh->BindBrowserInterfaceBrokerReceiver(
         params->main_frame_interface_bundle->browser_interface_broker
@@ -376,8 +373,7 @@ bool RenderViewHostImpl::CreateRenderView(
   }
   params->devtools_main_frame_token = devtools_frame_token;
   // GuestViews in the same StoragePartition need to find each other's frames.
-  params->renderer_wide_named_frame_lookup =
-      GetSiteInstance()->GetSiteURL().SchemeIs(kGuestScheme);
+  params->renderer_wide_named_frame_lookup = GetSiteInstance()->IsGuest();
   params->inside_portal = delegate_->IsPortal();
 
   // TODO(danakj): Make the visual_properties optional in the message.
@@ -413,14 +409,19 @@ void RenderViewHostImpl::EnterBackForwardCache() {
   FrameTree* frame_tree = GetDelegate()->GetFrameTree();
   frame_tree->UnregisterRenderViewHost(this);
   is_in_back_forward_cache_ = true;
+  // TODO(altimin, dcheng): This should be a ViewMsg.
+  Send(new PageMsg_PutPageIntoBackForwardCache(GetRoutingID()));
 }
 
-void RenderViewHostImpl::LeaveBackForwardCache() {
+void RenderViewHostImpl::LeaveBackForwardCache(
+    base::TimeTicks navigation_start) {
   FrameTree* frame_tree = GetDelegate()->GetFrameTree();
   // At this point, the frames |this| RenderViewHostImpl belongs to are
   // guaranteed to be committed, so it should be reused going forward.
   frame_tree->RegisterRenderViewHost(this);
   is_in_back_forward_cache_ = false;
+  Send(new PageMsg_RestorePageFromBackForwardCache(GetRoutingID(),
+                                                   navigation_start));
 }
 
 bool RenderViewHostImpl::IsRenderViewLive() {
@@ -502,15 +503,9 @@ const WebPreferences RenderViewHostImpl::ComputeWebPreferences() {
       atoi(command_line.GetSwitchValueASCII(
       switches::kAcceleratedCanvas2dMSAASampleCount).c_str());
 
-  prefs.use_solid_color_scrollbars = false;
-
   prefs.disable_ipc_flooding_protection =
       command_line.HasSwitch(switches::kDisableIpcFloodingProtection) ||
       command_line.HasSwitch(switches::kDisablePushStateThrottle);
-
-#if defined(OS_ANDROID)
-  prefs.use_solid_color_scrollbars = true;
-#endif  // defined(OS_ANDROID)
 
   prefs.accelerated_video_decode_enabled =
       !command_line.HasSwitch(switches::kDisableAcceleratedVideoDecode);
@@ -556,7 +551,7 @@ const WebPreferences RenderViewHostImpl::ComputeWebPreferences() {
 
   prefs.viewport_enabled = command_line.HasSwitch(switches::kEnableViewport);
 
-  if (delegate_ && delegate_->IsOverridingUserAgent())
+  if (delegate_->IsOverridingUserAgent())
     prefs.viewport_meta_enabled = false;
 
   prefs.main_frame_resizes_are_orientation_changes =
@@ -565,7 +560,7 @@ const WebPreferences RenderViewHostImpl::ComputeWebPreferences() {
   prefs.spatial_navigation_enabled = command_line.HasSwitch(
       switches::kEnableSpatialNavigation);
 
-  if (delegate_ && delegate_->IsSpatialNavigationDisabled())
+  if (delegate_->IsSpatialNavigationDisabled())
     prefs.spatial_navigation_enabled = false;
 
   prefs.caret_browsing_enabled =
@@ -595,11 +590,11 @@ const WebPreferences RenderViewHostImpl::ComputeWebPreferences() {
   prefs.user_gesture_required_for_presentation = !command_line.HasSwitch(
       switches::kDisableGestureRequirementForPresentation);
 
-  if (delegate_ && delegate_->HideDownloadUI())
+  if (delegate_->HideDownloadUI())
     prefs.hide_download_ui = true;
 
   // `media_controls_enabled` is `true` by default.
-  if (delegate_ && delegate_->HasPersistentVideo())
+  if (delegate_->HasPersistentVideo())
     prefs.media_controls_enabled = false;
 
   GetContentClient()->browser()->OverrideWebkitPrefs(this, &prefs);
@@ -771,18 +766,6 @@ RenderFrameHost* RenderViewHostImpl::GetMainFrame() {
   return delegate_->GetPendingMainFrame();
 }
 
-void RenderViewHostImpl::SetWebUIProperty(const std::string& name,
-                                          const std::string& value) {
-  // This is a sanity check before telling the renderer to enable the property.
-  // It could lie and send the corresponding IPC messages anyway, but we will
-  // not act on them if enabled_bindings_ doesn't agree. If we get here without
-  // WebUI bindings, kill the renderer process.
-  if (GetMainFrame()->GetEnabledBindings() & BINDINGS_POLICY_WEB_UI)
-    Send(new ViewMsg_SetWebUIProperty(GetRoutingID(), name, value));
-  else
-    ReceivedBadMessage(GetProcess(), bad_message::RVH_WEB_UI_BINDINGS_MISMATCH);
-}
-
 void RenderViewHostImpl::RenderWidgetGotFocus() {
   RenderViewHostDelegateView* view = delegate_->GetDelegateView();
   if (view)
@@ -800,6 +783,7 @@ void RenderViewHostImpl::SetInitialFocus(bool reverse) {
 }
 
 void RenderViewHostImpl::RenderWidgetDidFirstVisuallyNonEmptyPaint() {
+  did_first_visually_non_empty_paint_ = true;
   delegate_->DidFirstVisuallyNonEmptyPaint(this);
 }
 
@@ -1040,7 +1024,7 @@ void RenderViewHostImpl::PostRenderViewReady() {
       &RenderViewHostImpl::RenderViewReady, weak_factory_.GetWeakPtr()));
 }
 
-void RenderViewHostImpl::OnGpuSwitched() {
+void RenderViewHostImpl::OnGpuSwitched(gl::GpuPreference active_gpu_heuristic) {
   OnHardwareConfigurationChanged();
 }
 
@@ -1078,6 +1062,29 @@ std::vector<viz::SurfaceId> RenderViewHostImpl::CollectSurfaceIdsForEviction() {
     view->set_is_evicted();
   }
   return ids;
+}
+
+void RenderViewHostImpl::ResetPerPageState() {
+  did_first_visually_non_empty_paint_ = false;
+  main_frame_theme_color_.reset();
+  is_document_on_load_completed_in_main_frame_ = false;
+}
+
+void RenderViewHostImpl::OnThemeColorChanged(
+    RenderFrameHostImpl* rfh,
+    const base::Optional<SkColor>& theme_color) {
+  if (GetMainFrame() != rfh)
+    return;
+  main_frame_theme_color_ = theme_color;
+  delegate_->OnThemeColorChanged(this);
+}
+
+void RenderViewHostImpl::DocumentOnLoadCompletedInMainFrame() {
+  is_document_on_load_completed_in_main_frame_ = true;
+}
+
+bool RenderViewHostImpl::IsDocumentOnLoadCompletedInMainFrame() {
+  return is_document_on_load_completed_in_main_frame_;
 }
 
 bool RenderViewHostImpl::IsTestRenderViewHost() const {

@@ -323,8 +323,7 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session) {
           : protocol::TargetHandler::AccessMode::kAutoAttachOnly,
       GetId(), GetRendererChannel(), session->GetRootSession()));
   session->AddHandler(std::make_unique<protocol::PageHandler>(
-      emulation_handler_ptr, &active_file_chooser_interceptor_,
-      session->client()->MayWriteLocalFiles(),
+      emulation_handler_ptr, session->client()->MayWriteLocalFiles(),
       session->client()->MayReadLocalFiles()));
   session->AddHandler(std::make_unique<protocol::SecurityHandler>());
   if (!frame_tree_node_ || !frame_tree_node_->parent()) {
@@ -801,8 +800,7 @@ bool RenderFrameDevToolsAgentHost::ShouldAllowSession(
     if (!manager->delegate()->AllowInspectingRenderFrameHost(frame_host_))
       return false;
   }
-  const bool is_webui =
-      frame_host_ && (frame_host_->web_ui() || frame_host_->pending_web_ui());
+  const bool is_webui = frame_host_ && frame_host_->web_ui();
   if (!session->client()->MayAttachToRenderer(frame_host_, is_webui))
     return false;
   return true;

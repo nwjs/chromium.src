@@ -131,9 +131,13 @@ class PageInfoUI {
     // Site's safety tip info. Only set if the feature is enabled to show the
     // Safety Tip UI.
     security_state::SafetyTipInfo safety_tip_info;
+
+#if defined(OS_ANDROID)
     // Textual description of the site's identity status that is displayed to
     // the user.
-    std::string identity_status_description;
+    std::string identity_status_description_android;
+#endif
+
     // The server certificate if a secure connection.
     scoped_refptr<net::X509Certificate> certificate;
     // Status of the site's connection.
@@ -200,7 +204,7 @@ class PageInfoUI {
 
   // Returns the connection icon ID for the given connection |status|.
   static int GetConnectionIconID(PageInfo::SiteConnectionStatus status);
-#else
+#else  // !defined(OS_ANDROID)
   // Returns icons for the given PermissionInfo |info|. If |info|'s current
   // setting is CONTENT_SETTING_DEFAULT, it will return the icon for |info|'s
   // default setting.

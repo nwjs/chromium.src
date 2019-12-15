@@ -8,10 +8,10 @@ import android.net.Uri;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.CollectionUtil;
 import org.chromium.base.Log;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.content_public.common.ContentUrlConstants;
 
@@ -189,10 +189,6 @@ public class UrlUtilities {
 
     /**
      * @param url An Android intent:// URL to validate.
-     *
-     * @throws URISyntaxException if url is not a valid Android intent://
-     * URL, as specified at
-     * https://developer.chrome.com/multidevice/android/intents#syntax.
      */
     @VisibleForTesting
     public static boolean validateIntentUrl(String url) {

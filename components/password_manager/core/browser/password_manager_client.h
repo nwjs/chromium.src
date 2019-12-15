@@ -54,6 +54,7 @@ class PasswordProtectionService;
 
 namespace password_manager {
 
+class FieldInfoManager;
 class PasswordFeatureManager;
 class PasswordFormManagerForUI;
 class PasswordManager;
@@ -237,6 +238,10 @@ class PasswordManagerClient {
   // Obtains the cert status for the main frame.
   virtual net::CertStatus GetMainFrameCertStatus() const;
 
+  // Shows the dialog where the user can accept or decline the global autosignin
+  // setting as a first run experience.
+  virtual void PromptUserToEnableAutosignin();
+
   // If this browsing session should not be persisted.
   virtual bool IsIncognito() const;
 
@@ -245,6 +250,7 @@ class PasswordManagerClient {
   PasswordManager* GetPasswordManager();
   virtual const PasswordManager* GetPasswordManager() const;
 
+  PasswordFeatureManager* GetPasswordFeatureManager();
   virtual const PasswordFeatureManager* GetPasswordFeatureManager() const = 0;
 
   // Returns the HttpAuthManager associated with this client.
@@ -350,6 +356,9 @@ class PasswordManagerClient {
 
   // Returns true if the current page is to the new tab page.
   virtual bool IsNewTabPage() const = 0;
+
+  // Returns a FieldInfoManager associated with the current profile.
+  virtual FieldInfoManager* GetFieldInfoManager() const = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PasswordManagerClient);

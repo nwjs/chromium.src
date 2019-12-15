@@ -332,7 +332,7 @@ void PrerenderManager::CancelAllPrerenders() {
 
 PrerenderManager::Params::Params(NavigateParams* params,
                                  content::WebContents* contents_being_navigated)
-    : uses_post(params->uses_post),
+    : uses_post(!!params->post_data),
       extra_headers(params->extra_headers),
       should_replace_current_entry(params->should_replace_current_entry),
       contents_being_navigated(contents_being_navigated) {}
@@ -497,7 +497,7 @@ WebContents* PrerenderManager::SwapInternal(const GURL& url,
   DCHECK(prerender_tab_helper);
   prerender_tab_helper->PrerenderSwappedIn();
 
-  if (old_web_contents->NeedToFireBeforeUnload()) {
+  if (old_web_contents->NeedToFireBeforeUnloadOrUnload()) {
     // Schedule the delete to occur after the tab has run its unload handlers.
     // TODO(davidben): Honor the beforeunload event. http://crbug.com/304932
     WebContents* old_web_contents_ptr = old_web_contents.get();
@@ -786,11 +786,6 @@ void PrerenderManager::MaybePreconnect(Origin origin,
   if (cookie_settings->ShouldBlockThirdPartyCookies()) {
     return;
   }
-
-  // Currently, the fallback is only enabled for prerenders initiated by
-  // omnibox.
-  if (origin != ORIGIN_OMNIBOX)
-    return;
 
   auto* loading_predictor = predictors::LoadingPredictorFactory::GetForProfile(
       Profile::FromBrowserContext(profile_));
@@ -1110,6 +1105,10 @@ PrerenderManager::FindIteratorForPrerenderContents(
 
 bool PrerenderManager::DoesRateLimitAllowPrerender(Origin origin) const {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  // Allow navigation predictor to manage its own rate limit.
+  if (origin == ORIGIN_NAVIGATION_PREDICTOR)
+    return true;
   base::TimeDelta elapsed_time =
       GetCurrentTimeTicks() - last_prerender_start_time_;
   if (!config_.rate_limit_enabled)

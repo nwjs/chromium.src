@@ -11,18 +11,20 @@ import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Pair;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.ContextUtils;
 import org.chromium.base.PackageUtils;
 import org.chromium.base.StrictModeContext;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.browserservices.permissiondelegation.TrustedWebActivityPermissionStore;
 import org.chromium.chrome.browser.browsing_data.UrlFilter;
 import org.chromium.chrome.browser.browsing_data.UrlFilterBridge;
-import org.chromium.chrome.browser.preferences.ChromePreferenceManager;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.webapk.lib.common.WebApkConstants;
 
@@ -298,8 +300,8 @@ public class WebappRegistry {
 
         // Do not delete WebappDataStorage if we still need it for UKM logging.
         Set<String> webApkPackagesWithPendingUkm =
-                ChromePreferenceManager.getInstance().readStringSet(
-                        ChromePreferenceManager.WEBAPK_UNINSTALLED_PACKAGES);
+                SharedPreferencesManager.getInstance().readStringSet(
+                        ChromePreferenceKeys.WEBAPK_UNINSTALLED_PACKAGES);
         if (webApkPackagesWithPendingUkm.contains(webApkPackageName)) return false;
 
         return !PackageUtils.isPackageInstalled(

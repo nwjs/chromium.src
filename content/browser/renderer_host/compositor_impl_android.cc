@@ -38,7 +38,6 @@
 #include "cc/resources/ui_resource_manager.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/layer_tree_settings.h"
-#include "components/viz/client/hit_test_data_provider_draw_quad.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/gpu/context_provider.h"
 #include "components/viz/common/quads/compositor_frame.h"
@@ -189,8 +188,10 @@ void CreateContextProviderAfterGpuChannelEstablished(
     gpu::SharedMemoryLimits shared_memory_limits,
     Compositor::ContextProviderCallback callback,
     scoped_refptr<gpu::GpuChannelHost> gpu_channel_host) {
-  if (!gpu_channel_host)
-    callback.Run(nullptr);
+  if (!gpu_channel_host) {
+    std::move(callback).Run(nullptr);
+    return;
+  }
 
   gpu::GpuChannelEstablishFactory* factory =
       BrowserMainLoop::GetInstance()->gpu_channel_establish_factory();
@@ -210,7 +211,7 @@ void CreateContextProviderAfterGpuChannelEstablished(
           automatic_flushes, support_locking, support_grcontext,
           shared_memory_limits, attributes,
           viz::command_buffer_metrics::ContextType::UNKNOWN);
-  callback.Run(std::move(context_provider));
+  std::move(callback).Run(std::move(context_provider));
 }
 
 static bool g_initialized = false;
@@ -275,9 +276,9 @@ void Compositor::CreateContextProvider(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   BrowserMainLoop::GetInstance()
       ->gpu_channel_establish_factory()
-      ->EstablishGpuChannel(
-          base::BindOnce(&CreateContextProviderAfterGpuChannelEstablished,
-                         handle, attributes, shared_memory_limits, callback));
+      ->EstablishGpuChannel(base::BindOnce(
+          &CreateContextProviderAfterGpuChannelEstablished, handle, attributes,
+          shared_memory_limits, std::move(callback)));
 }
 
 // static
@@ -418,7 +419,6 @@ void CompositorImpl::CreateLayerTreeHost() {
 
   cc::LayerTreeSettings settings;
   settings.use_zero_copy = true;
-  settings.build_hit_test_data = features::IsVizHitTestingSurfaceLayerEnabled();
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   settings.initial_debug_state.SetRecordRenderingStats(
@@ -446,6 +446,10 @@ void CompositorImpl::CreateLayerTreeHost() {
   DCHECK(!host_->IsVisible());
   host_->SetViewportRectAndScale(gfx::Rect(size_), root_window_->GetDipScale(),
                                  GenerateLocalSurfaceId());
+  const auto& display_props =
+      display::Screen::GetScreen()->GetDisplayNearestWindow(root_window_);
+  host_->set_display_transform_hint(
+      RotationToDisplayTransform(display_props.rotation()));
 
   if (needs_animate_)
     host_->SetNeedsAnimate();
@@ -492,7 +496,7 @@ void CompositorImpl::TearDownDisplayAndUnregisterRootFrameSink() {
     // Note that while this is not a Sync IPC, the call to
     // InvalidateFrameSinkId below will end up triggering a sync call to
     // FrameSinkManager::DestroyCompositorFrameSink, as this is the root
-    // frame sink. Because |display_private_| is an associated interface to
+    // frame sink. Because |display_private_| is an associated remote to
     // FrameSinkManager, this subsequent sync call will ensure ordered
     // execution of this call.
     display_private_->ForceImmediateDrawAndSwapIfPossible();
@@ -770,10 +774,9 @@ void CompositorImpl::OnDisplayMetricsChanged(const display::Display& display,
                                    GenerateLocalSurfaceId());
   }
 
-  if ((changed_metrics &
-       display::DisplayObserver::DisplayMetric::DISPLAY_METRIC_ROTATION) &&
-      display_private_) {
-    display_private_->SetDisplayTransformHint(
+  if (changed_metrics &
+      display::DisplayObserver::DisplayMetric::DISPLAY_METRIC_ROTATION) {
+    host_->set_display_transform_hint(
         RotationToDisplayTransform(display.rotation()));
   }
 }
@@ -827,10 +830,11 @@ void CompositorImpl::InitializeVizLayerTreeFrameSink(
   mojo::PendingReceiver<viz::mojom::CompositorFrameSinkClient> client_receiver =
       root_params->compositor_frame_sink_client
           .InitWithNewPipeAndPassReceiver();
-  root_params->display_private = mojo::MakeRequest(&display_private_);
+  display_private_.reset();
+  root_params->display_private =
+      display_private_.BindNewEndpointAndPassReceiver();
   display_client_ = std::make_unique<AndroidHostDisplayClient>(this);
-  root_params->display_client =
-      display_client_->GetBoundPtr(task_runner).PassInterface();
+  root_params->display_client = display_client_->GetBoundRemote(task_runner);
 
   const auto& display_props =
       display::Screen::GetScreen()->GetDisplayNearestWindow(root_window_);
@@ -861,10 +865,6 @@ void CompositorImpl::InitializeVizLayerTreeFrameSink(
                                          ->GetGpuMemoryBufferManager();
   params.pipes.compositor_frame_sink_associated_remote = std::move(sink_remote);
   params.pipes.client_receiver = std::move(client_receiver);
-  params.hit_test_data_provider =
-      std::make_unique<viz::HitTestDataProviderDrawQuad>(
-          false /* should_ask_for_child_region */,
-          true /* root_accepts_events */);
   params.client_name = kBrowser;
   auto layer_tree_frame_sink =
       std::make_unique<cc::mojo_embedder::AsyncLayerTreeFrameSink>(
@@ -877,8 +877,6 @@ void CompositorImpl::InitializeVizLayerTreeFrameSink(
   display_private_->SetVSyncPaused(vsync_paused_);
   display_private_->SetSupportedRefreshRates(
       root_window_->GetSupportedRefreshRates());
-  display_private_->SetDisplayTransformHint(
-      RotationToDisplayTransform(display_props.rotation()));
 }
 
 viz::LocalSurfaceIdAllocation CompositorImpl::GenerateLocalSurfaceId() {

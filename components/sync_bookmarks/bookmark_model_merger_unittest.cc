@@ -23,6 +23,8 @@
 
 using testing::_;
 using testing::Eq;
+using testing::Ne;
+using testing::NotNull;
 using testing::UnorderedElementsAre;
 
 namespace sync_bookmarks {
@@ -63,6 +65,7 @@ std::unique_ptr<syncer::UpdateResponseData> CreateUpdateResponseData(
 
   auto data = std::make_unique<syncer::EntityData>();
   data->id = server_id;
+  data->originator_client_item_id = *guid;
   data->parent_id = parent_id;
   data->unique_position = unique_position.ToProto();
 
@@ -128,13 +131,17 @@ bool PositionsInTrackerMatchModel(const bookmarks::BookmarkNode* node,
                      });
 }
 
-void Merge(syncer::UpdateResponseDataList* updates,
-           bookmarks::BookmarkModel* bookmark_model) {
-  SyncedBookmarkTracker tracker(std::vector<NodeMetadataPair>(),
-                                std::make_unique<sync_pb::ModelTypeState>());
+std::unique_ptr<SyncedBookmarkTracker> Merge(
+    syncer::UpdateResponseDataList updates,
+    bookmarks::BookmarkModel* bookmark_model) {
+  auto tracker = std::make_unique<SyncedBookmarkTracker>(
+      std::vector<NodeMetadataPair>(),
+      std::make_unique<sync_pb::ModelTypeState>());
   testing::NiceMock<favicon::MockFaviconService> favicon_service;
-  BookmarkModelMerger(updates, bookmark_model, &favicon_service, &tracker)
+  BookmarkModelMerger(std::move(updates), bookmark_model, &favicon_service,
+                      tracker.get())
       .Merge();
+  return tracker;
 }
 
 static syncer::UniquePosition MakeRandomPosition() {
@@ -268,12 +275,8 @@ TEST(BookmarkModelMergerTest, ShouldMergeLocalAndRemoteModels) {
   //    |- url3(http://www.url3.com)
   //    |- url4(http://www.url4.com)
 
-  SyncedBookmarkTracker tracker(std::vector<NodeMetadataPair>(),
-                                std::make_unique<sync_pb::ModelTypeState>());
-  testing::NiceMock<favicon::MockFaviconService> favicon_service;
-  BookmarkModelMerger(&updates, bookmark_model.get(), &favicon_service,
-                      &tracker)
-      .Merge();
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
   ASSERT_THAT(bookmark_bar_node->children().size(), Eq(3u));
 
   // Verify Folder 1.
@@ -325,9 +328,9 @@ TEST(BookmarkModelMergerTest, ShouldMergeLocalAndRemoteModels) {
               Eq(GURL(kUrl4)));
 
   // Verify the tracker contents.
-  EXPECT_THAT(tracker.TrackedEntitiesCountForTest(), Eq(11U));
+  EXPECT_THAT(tracker->TrackedEntitiesCountForTest(), Eq(11U));
   std::vector<const SyncedBookmarkTracker::Entity*> local_changes =
-      tracker.GetEntitiesWithLocalChanges(kMaxEntries);
+      tracker->GetEntitiesWithLocalChanges(kMaxEntries);
 
   EXPECT_THAT(local_changes.size(), Eq(4U));
   std::vector<const bookmarks::BookmarkNode*> nodes_with_local_changes;
@@ -344,7 +347,7 @@ TEST(BookmarkModelMergerTest, ShouldMergeLocalAndRemoteModels) {
                   bookmark_bar_node->children()[2]->children()[1].get()));
 
   // Verify positions in tracker.
-  EXPECT_TRUE(PositionsInTrackerMatchModel(bookmark_bar_node, tracker));
+  EXPECT_TRUE(PositionsInTrackerMatchModel(bookmark_bar_node, *tracker));
 }
 
 TEST(BookmarkModelMergerTest, ShouldMergeRemoteReorderToLocalModel) {
@@ -416,12 +419,8 @@ TEST(BookmarkModelMergerTest, ShouldMergeRemoteReorderToLocalModel) {
   //  |- folder 3
   //  |- folder 2
 
-  SyncedBookmarkTracker tracker(std::vector<NodeMetadataPair>(),
-                                std::make_unique<sync_pb::ModelTypeState>());
-  testing::NiceMock<favicon::MockFaviconService> favicon_service;
-  BookmarkModelMerger(&updates, bookmark_model.get(), &favicon_service,
-                      &tracker)
-      .Merge();
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
   ASSERT_THAT(bookmark_bar_node->children().size(), Eq(3u));
 
   EXPECT_THAT(bookmark_bar_node->children()[0]->GetTitle(),
@@ -432,15 +431,15 @@ TEST(BookmarkModelMergerTest, ShouldMergeRemoteReorderToLocalModel) {
               Eq(base::ASCIIToUTF16(kFolder2Title)));
 
   // Verify the tracker contents.
-  EXPECT_THAT(tracker.TrackedEntitiesCountForTest(), Eq(4U));
+  EXPECT_THAT(tracker->TrackedEntitiesCountForTest(), Eq(4U));
 
   // There should be no local changes.
   std::vector<const SyncedBookmarkTracker::Entity*> local_changes =
-      tracker.GetEntitiesWithLocalChanges(kMaxEntries);
+      tracker->GetEntitiesWithLocalChanges(kMaxEntries);
   EXPECT_THAT(local_changes.size(), Eq(0U));
 
   // Verify positions in tracker.
-  EXPECT_TRUE(PositionsInTrackerMatchModel(bookmark_bar_node, tracker));
+  EXPECT_TRUE(PositionsInTrackerMatchModel(bookmark_bar_node, *tracker));
 }
 
 TEST(BookmarkModelMergerTest, ShouldMergeFaviconsForRemoteNodesOnly) {
@@ -492,8 +491,8 @@ TEST(BookmarkModelMergerTest, ShouldMergeFaviconsForRemoteNodesOnly) {
               AddPageNoVisitForBookmark(kUrl2, base::UTF8ToUTF16(kTitle2)));
   EXPECT_CALL(favicon_service, MergeFavicon(kUrl2, _, _, _, _));
 
-  BookmarkModelMerger(&updates, bookmark_model.get(), &favicon_service,
-                      &tracker)
+  BookmarkModelMerger(std::move(updates), bookmark_model.get(),
+                      &favicon_service, &tracker)
       .Merge();
 }
 
@@ -527,17 +526,13 @@ TEST(BookmarkModelMergerTest,
       /*url=*/std::string(),
       /*is_folder=*/true, /*unique_position=*/pos));
 
-  SyncedBookmarkTracker tracker(std::vector<NodeMetadataPair>(),
-                                std::make_unique<sync_pb::ModelTypeState>());
-  testing::NiceMock<favicon::MockFaviconService> favicon_service;
-  BookmarkModelMerger(&updates, bookmark_model.get(), &favicon_service,
-                      &tracker)
-      .Merge();
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
 
   // Both titles should have matched against each other and only node is in the
   // model and the tracker.
   EXPECT_THAT(bookmark_bar_node->children().size(), Eq(1u));
-  EXPECT_THAT(tracker.TrackedEntitiesCountForTest(), Eq(2U));
+  EXPECT_THAT(tracker->TrackedEntitiesCountForTest(), Eq(2U));
 }
 
 // This tests that truncated titles produced by legacy clients are properly
@@ -582,8 +577,8 @@ TEST(BookmarkModelMergerTest,
   SyncedBookmarkTracker tracker(std::vector<NodeMetadataPair>(),
                                 std::make_unique<sync_pb::ModelTypeState>());
   testing::NiceMock<favicon::MockFaviconService> favicon_service;
-  BookmarkModelMerger(&updates, bookmark_model.get(), &favicon_service,
-                      &tracker)
+  BookmarkModelMerger(std::move(updates), bookmark_model.get(),
+                      &favicon_service, &tracker)
       .Merge();
 
   // Both titles should have matched against each other and only node is in the
@@ -609,12 +604,15 @@ TEST(BookmarkModelMergerTest, ShouldMergeRemoteCreationWithoutGUID) {
       /*is_folder=*/true, /*unique_position=*/MakeRandomPosition(),
       /*guid=*/""));
 
-  Merge(&updates, bookmark_model.get());
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
 
   // Node should have been created and new GUID should have been set.
   ASSERT_EQ(bookmark_model->bookmark_bar_node()->children().size(), 1u);
-  EXPECT_TRUE(base::IsValidGUID(
-      bookmark_model->bookmark_bar_node()->children()[0].get()->guid()));
+  const bookmarks::BookmarkNode* bookmark =
+      bookmark_model->bookmark_bar_node()->children()[0].get();
+  EXPECT_TRUE(base::IsValidGUID(bookmark->guid()));
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(bookmark), NotNull());
 }
 
 TEST(BookmarkModelMergerTest, ShouldMergeAndUseRemoteGUID) {
@@ -641,12 +639,16 @@ TEST(BookmarkModelMergerTest, ShouldMergeAndUseRemoteGUID) {
       /*is_folder=*/true, /*unique_position=*/MakeRandomPosition(),
       /*guid=*/kRemoteGuid));
 
-  Merge(&updates, bookmark_model.get());
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
 
   // Node should have been replaced and GUID should be set to that stored in the
   // specifics.
   ASSERT_EQ(bookmark_bar_node->children().size(), 1u);
-  EXPECT_EQ(bookmark_bar_node->children()[0].get()->guid(), kRemoteGuid);
+  const bookmarks::BookmarkNode* bookmark =
+      bookmark_model->bookmark_bar_node()->children()[0].get();
+  EXPECT_EQ(bookmark->guid(), kRemoteGuid);
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(bookmark), NotNull());
 }
 
 TEST(BookmarkModelMergerTest,
@@ -675,12 +677,16 @@ TEST(BookmarkModelMergerTest,
       /*unique_position=*/MakeRandomPosition(),
       /*guid=*/""));
 
-  Merge(&updates, bookmark_model.get());
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
 
   // Node should not have been replaced and GUID should not have been set to
   // that stored in the specifics, as it was invalid.
   ASSERT_EQ(bookmark_bar_node->children().size(), 1u);
-  EXPECT_EQ(bookmark_bar_node->children()[0].get()->guid(), old_guid);
+  const bookmarks::BookmarkNode* bookmark =
+      bookmark_model->bookmark_bar_node()->children()[0].get();
+  EXPECT_EQ(bookmark->guid(), old_guid);
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(bookmark), NotNull());
 }
 
 TEST(BookmarkModelMergerTest, ShouldMergeBookmarkByGUID) {
@@ -721,7 +727,8 @@ TEST(BookmarkModelMergerTest, ShouldMergeBookmarkByGUID) {
       /*unique_position=*/MakeRandomPosition(),
       /*guid=*/kGuid));
 
-  Merge(&updates, bookmark_model.get());
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
 
   // -------- The merged model --------
   // bookmark_bar
@@ -730,6 +737,7 @@ TEST(BookmarkModelMergerTest, ShouldMergeBookmarkByGUID) {
   // Node should have been merged.
   EXPECT_THAT(bookmark_bar_node->children(), ElementRawPointersAre(bookmark));
   EXPECT_EQ(bookmark->GetTitle(), base::UTF8ToUTF16(kRemoteTitle));
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(bookmark), NotNull());
 }
 
 TEST(BookmarkModelMergerTest, ShouldMergeBookmarkByGUIDAndReparent) {
@@ -776,7 +784,8 @@ TEST(BookmarkModelMergerTest, ShouldMergeBookmarkByGUIDAndReparent) {
       /*unique_position=*/MakeRandomPosition(),
       /*guid=*/kGuid));
 
-  Merge(&updates, bookmark_model.get());
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
 
   // -------- The merged model --------
   // bookmark_bar
@@ -789,6 +798,8 @@ TEST(BookmarkModelMergerTest, ShouldMergeBookmarkByGUIDAndReparent) {
               ElementRawPointersAre(bookmark, folder));
   EXPECT_EQ(folder->children().size(), 0u);
   EXPECT_EQ(bookmark->GetTitle(), base::UTF8ToUTF16(kRemoteTitle));
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(bookmark), NotNull());
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(folder), NotNull());
 }
 
 TEST(BookmarkModelMergerTest, ShouldMergeFolderByGUIDAndNotSemantics) {
@@ -839,7 +850,8 @@ TEST(BookmarkModelMergerTest, ShouldMergeFolderByGUIDAndNotSemantics) {
       /*unique_position=*/MakeRandomPosition(),
       /*guid=*/kGuid2));
 
-  Merge(&updates, bookmark_model.get());
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
 
   // -------- The merged model --------
   // bookmark_bar
@@ -854,6 +866,8 @@ TEST(BookmarkModelMergerTest, ShouldMergeFolderByGUIDAndNotSemantics) {
   EXPECT_EQ(folder1->children().size(), 0u);
   EXPECT_EQ(folder2->guid(), kGuid2);
   EXPECT_EQ(folder2->GetTitle(), base::UTF8ToUTF16(kTitle1));
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(folder1), NotNull());
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(folder2), NotNull());
 }
 
 TEST(
@@ -921,7 +935,8 @@ TEST(
       /*unique_position=*/pos2,
       /*guid=*/kGuid1));
 
-  Merge(&updates, bookmark_model.get());
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
 
   // -------- The merged model --------
   // bookmark_bar
@@ -939,6 +954,7 @@ TEST(
   EXPECT_EQ(bookmark_bar_node->children()[1]->GetTitle(),
             base::UTF8ToUTF16(kNewTitle));
   EXPECT_EQ(bookmark_bar_node->children()[1]->children().size(), 1u);
+  EXPECT_THAT(tracker->TrackedEntitiesCountForTest(), Eq(4U));
 }
 
 TEST(BookmarkModelMergerTest,
@@ -1005,7 +1021,7 @@ TEST(BookmarkModelMergerTest,
       /*unique_position=*/pos2,
       /*guid=*/kGuid2));
 
-  Merge(&updates, bookmark_model.get());
+  Merge(std::move(updates), bookmark_model.get());
 
   // -------- The merged model --------
   // bookmark_bar
@@ -1062,7 +1078,7 @@ TEST(BookmarkModelMergerTest, ShouldReplaceBookmarkGUIDWithConflictingURLs) {
       /*unique_position=*/MakeRandomPosition(),
       /*guid=*/kGuid));
 
-  Merge(&updates, bookmark_model.get());
+  Merge(std::move(updates), bookmark_model.get());
 
   // -------- The merged model --------
   // bookmark_bar
@@ -1114,7 +1130,7 @@ TEST(BookmarkModelMergerTest, ShouldReplaceBookmarkGUIDWithConflictingTypes) {
       /*unique_position=*/MakeRandomPosition(),
       /*guid=*/kGuid));
 
-  Merge(&updates, bookmark_model.get());
+  Merge(std::move(updates), bookmark_model.get());
 
   // -------- The merged model --------
   // bookmark_bar
@@ -1128,6 +1144,262 @@ TEST(BookmarkModelMergerTest, ShouldReplaceBookmarkGUIDWithConflictingTypes) {
   EXPECT_NE(bookmark_bar_node->children()[1]->guid(), kGuid);
   EXPECT_TRUE(base::IsValidGUID(bookmark_bar_node->children()[1]->guid()));
   EXPECT_FALSE(bookmark_bar_node->children()[1]->is_folder());
+}
+
+// Tests that the GUID-based matching algorithm handles well the case where a
+// local bookmark matches a remote bookmark that is orphan. In this case the
+// remote node should be ignored and the local bookmark included in the merged
+// tree.
+TEST(BookmarkModelMergerTest, ShouldIgnoreRemoteGUIDIfOrphanNode) {
+  base::test::ScopedFeatureList override_features;
+  override_features.InitAndEnableFeature(switches::kMergeBookmarksUsingGUIDs);
+
+  const std::string kId = "Id";
+  const std::string kInexistentParentId = "InexistentParentId";
+  const std::string kTitle = "Title";
+  const std::string kUrl = "http://www.foo.com/";
+  const std::string kGuid = base::GenerateGUID();
+
+  std::unique_ptr<bookmarks::BookmarkModel> bookmark_model =
+      bookmarks::TestBookmarkClient::CreateModel();
+
+  // -------- The local model --------
+  // bookmark_bar
+  //  | - bookmark(kGuid/kTitle)
+
+  const bookmarks::BookmarkNode* bookmark_bar_node =
+      bookmark_model->bookmark_bar_node();
+  const bookmarks::BookmarkNode* bookmark = bookmark_model->AddURL(
+      /*parent=*/bookmark_bar_node, /*index=*/0, base::UTF8ToUTF16(kTitle),
+      GURL(kUrl), nullptr, base::Time::Now(), kGuid);
+  ASSERT_TRUE(bookmark);
+  ASSERT_THAT(bookmark_bar_node->children(), ElementRawPointersAre(bookmark));
+
+  // -------- The remote model --------
+  // bookmark_bar
+  // Orphan node: bookmark(kGuid/kTitle)
+
+  syncer::UpdateResponseDataList updates;
+  updates.push_back(CreateBookmarkBarNodeUpdateData());
+  updates.push_back(CreateUpdateResponseData(
+      /*server_id=*/kId, /*parent_id=*/kInexistentParentId, kTitle,
+      /*url=*/kUrl,
+      /*is_folder=*/false,
+      /*unique_position=*/MakeRandomPosition(),
+      /*guid=*/kGuid));
+
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
+
+  // -------- The merged model --------
+  // bookmark_bar
+  //  |- bookmark(kGuid/kTitle)
+
+  // The local node should have been tracked.
+  EXPECT_THAT(bookmark_bar_node->children(), ElementRawPointersAre(bookmark));
+  EXPECT_EQ(bookmark->GetTitle(), base::UTF8ToUTF16(kTitle));
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(bookmark), NotNull());
+}
+
+// Tests that the GUID-based matching algorithm handles well the case where a
+// local bookmark matches a remote bookmark that contains invalid specifics
+// (e.g. invalid URL). In this case the remote node should be ignored and the
+// local bookmark included in the merged tree.
+TEST(BookmarkModelMergerTest, ShouldIgnoreRemoteGUIDIfInvalidSpecifics) {
+  base::test::ScopedFeatureList override_features;
+  override_features.InitAndEnableFeature(switches::kMergeBookmarksUsingGUIDs);
+
+  const std::string kId = "Id";
+  const std::string kTitle = "Title";
+  const std::string kLocalUrl = "http://www.foo.com/";
+  const std::string kInvalidUrl = "invalidurl";
+  const std::string kGuid = base::GenerateGUID();
+
+  std::unique_ptr<bookmarks::BookmarkModel> bookmark_model =
+      bookmarks::TestBookmarkClient::CreateModel();
+
+  // -------- The local model --------
+  // bookmark_bar
+  //  | - bookmark(kGuid/kLocalUrl/kTitle)
+
+  const bookmarks::BookmarkNode* bookmark_bar_node =
+      bookmark_model->bookmark_bar_node();
+  const bookmarks::BookmarkNode* bookmark = bookmark_model->AddURL(
+      /*parent=*/bookmark_bar_node, /*index=*/0, base::UTF8ToUTF16(kTitle),
+      GURL(kLocalUrl), nullptr, base::Time::Now(), kGuid);
+  ASSERT_TRUE(bookmark);
+  ASSERT_THAT(bookmark_bar_node->children(), ElementRawPointersAre(bookmark));
+
+  // -------- The remote model --------
+  // bookmark_bar
+  //  | - bookmark (kGuid/kInvalidURL/kTitle)
+
+  syncer::UpdateResponseDataList updates;
+  updates.push_back(CreateBookmarkBarNodeUpdateData());
+  updates.push_back(CreateUpdateResponseData(
+      /*server_id=*/kId, /*parent_id=*/kBookmarkBarId, kTitle,
+      /*url=*/kInvalidUrl,
+      /*is_folder=*/false,
+      /*unique_position=*/MakeRandomPosition(),
+      /*guid=*/kGuid));
+
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
+
+  // -------- The merged model --------
+  // bookmark_bar
+  //  |- bookmark(kGuid/kLocalUrl/kTitle)
+
+  // The local node should have been tracked.
+  EXPECT_THAT(bookmark_bar_node->children(), ElementRawPointersAre(bookmark));
+  EXPECT_EQ(bookmark->url(), GURL(kLocalUrl));
+  EXPECT_EQ(bookmark->GetTitle(), base::UTF8ToUTF16(kTitle));
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(bookmark), NotNull());
+}
+
+// Tests that the GUID-based matching algorithm does not match two remote nodes
+// with the same local node, even if the remote data contains duplicate GUIDs.
+TEST(BookmarkModelMergerTest, ShouldIgnoreRemoteDuplicateGUID) {
+  base::test::ScopedFeatureList override_features;
+  override_features.InitAndEnableFeature(switches::kMergeBookmarksUsingGUIDs);
+
+  const std::string kId1 = "Id1";
+  const std::string kId2 = "Id2";
+  const std::string kTitle1 = "Title1";
+  const std::string kTitle2 = "Title2";
+  const std::string kLocalTitle = "LocalTitle";
+  const std::string kUrl = "http://www.foo.com/";
+  const std::string kGuid = base::GenerateGUID();
+
+  std::unique_ptr<bookmarks::BookmarkModel> bookmark_model =
+      bookmarks::TestBookmarkClient::CreateModel();
+
+  // -------- The local model --------
+  //  | - bookmark(kGuid/kUrl/kLocalTitle)
+  const bookmarks::BookmarkNode* bookmark_bar_node =
+      bookmark_model->bookmark_bar_node();
+  const bookmarks::BookmarkNode* bookmark = bookmark_model->AddURL(
+      /*parent=*/bookmark_bar_node, /*index=*/0, base::UTF8ToUTF16(kLocalTitle),
+      GURL(kUrl), nullptr, base::Time::Now(), kGuid);
+  ASSERT_TRUE(bookmark);
+  ASSERT_THAT(bookmark_bar_node->children(), ElementRawPointersAre(bookmark));
+
+  // -------- The remote model --------
+  // bookmark_bar
+  //  | - bookmark (kGuid/kUrl/kTitle1)
+  //  | - bookmark (kGuid/kUrl/kTitle2)
+  const std::string suffix = syncer::UniquePosition::RandomSuffix();
+  syncer::UniquePosition position1 =
+      syncer::UniquePosition::InitialPosition(suffix);
+  syncer::UniquePosition position2 =
+      syncer::UniquePosition::After(position1, suffix);
+
+  syncer::UpdateResponseDataList updates;
+  updates.push_back(CreateBookmarkBarNodeUpdateData());
+  updates.push_back(CreateUpdateResponseData(
+      /*server_id=*/kId1, /*parent_id=*/kBookmarkBarId, kTitle1,
+      /*url=*/kUrl,
+      /*is_folder=*/false, /*unique_position=*/position1,
+      /*guid=*/kGuid));
+  updates.push_back(CreateUpdateResponseData(
+      /*server_id=*/kId2, /*parent_id=*/kBookmarkBarId, kTitle2,
+      /*url=*/kUrl,
+      /*is_folder=*/false, /*unique_position=*/position2,
+      /*guid=*/kGuid));
+
+  // |originator_client_item_id| cannot itself be duplicated because
+  // ModelTypeWorker guarantees otherwise.
+  updates.back()->entity->originator_client_item_id = base::GenerateGUID();
+
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
+
+  // -------- The merged model --------
+  //  | - bookmark (kGuid/kUrl/kTitle1)
+  //  | - bookmark (<some-other-guid>/kUrl/kTitle2)
+
+  // Both remote nodes should be present in the merged tree.
+  ASSERT_EQ(bookmark_bar_node->children().size(), 2u);
+  const bookmarks::BookmarkNode* bookmark1 =
+      bookmark_model->bookmark_bar_node()->children()[0].get();
+  const bookmarks::BookmarkNode* bookmark2 =
+      bookmark_model->bookmark_bar_node()->children()[1].get();
+  EXPECT_THAT(bookmark1->guid(), Eq(kGuid));
+  EXPECT_THAT(bookmark2->guid(), Ne(kGuid));
+
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(bookmark1), NotNull());
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(bookmark2), NotNull());
+}
+
+// Same as previous test but in addition all nodes match semantically.
+TEST(BookmarkModelMergerTest, ShouldIgnoreRemoteDuplicateGUIDAndSemanticMatch) {
+  base::test::ScopedFeatureList override_features;
+  override_features.InitAndEnableFeature(switches::kMergeBookmarksUsingGUIDs);
+
+  const std::string kId1 = "Id1";
+  const std::string kId2 = "Id2";
+  const std::string kTitle = "Title";
+  const std::string kUrl = "http://www.foo.com/";
+  const std::string kGuid = base::GenerateGUID();
+
+  std::unique_ptr<bookmarks::BookmarkModel> bookmark_model =
+      bookmarks::TestBookmarkClient::CreateModel();
+
+  // -------- The local model --------
+  //  | - bookmark(kGuid/kUrl/kTitle)
+  const bookmarks::BookmarkNode* bookmark_bar_node =
+      bookmark_model->bookmark_bar_node();
+  const bookmarks::BookmarkNode* bookmark = bookmark_model->AddURL(
+      /*parent=*/bookmark_bar_node, /*index=*/0, base::UTF8ToUTF16(kTitle),
+      GURL(kUrl), nullptr, base::Time::Now(), kGuid);
+  ASSERT_TRUE(bookmark);
+  ASSERT_THAT(bookmark_bar_node->children(), ElementRawPointersAre(bookmark));
+
+  // -------- The remote model --------
+  // bookmark_bar
+  //  | - bookmark (kGuid/kUrl/kTitle)
+  //  | - bookmark (kGuid/kUrl/kTitle)
+  const std::string suffix = syncer::UniquePosition::RandomSuffix();
+  syncer::UniquePosition position1 =
+      syncer::UniquePosition::InitialPosition(suffix);
+  syncer::UniquePosition position2 =
+      syncer::UniquePosition::After(position1, suffix);
+
+  syncer::UpdateResponseDataList updates;
+  updates.push_back(CreateBookmarkBarNodeUpdateData());
+  updates.push_back(CreateUpdateResponseData(
+      /*server_id=*/kId1, /*parent_id=*/kBookmarkBarId, kTitle,
+      /*url=*/kUrl,
+      /*is_folder=*/false, /*unique_position=*/position1,
+      /*guid=*/kGuid));
+  updates.push_back(CreateUpdateResponseData(
+      /*server_id=*/kId2, /*parent_id=*/kBookmarkBarId, kTitle,
+      /*url=*/kUrl,
+      /*is_folder=*/false, /*unique_position=*/position2,
+      /*guid=*/kGuid));
+
+  // |originator_client_item_id| cannot itself be duplicated because
+  // ModelTypeWorker guarantees otherwise.
+  updates.back()->entity->originator_client_item_id = base::GenerateGUID();
+
+  std::unique_ptr<SyncedBookmarkTracker> tracker =
+      Merge(std::move(updates), bookmark_model.get());
+
+  // -------- The merged model --------
+  //  | - bookmark (kGuid/kUrl/kTitle)
+  //  | - bookmark (<some-other-guid>/kUrl/kTitle)
+
+  // Both remote nodes should be present in the merged tree.
+  ASSERT_EQ(bookmark_bar_node->children().size(), 2u);
+  const bookmarks::BookmarkNode* bookmark1 =
+      bookmark_model->bookmark_bar_node()->children()[0].get();
+  const bookmarks::BookmarkNode* bookmark2 =
+      bookmark_model->bookmark_bar_node()->children()[1].get();
+  EXPECT_THAT(bookmark1->guid(), Eq(kGuid));
+  EXPECT_THAT(bookmark2->guid(), Ne(kGuid));
+
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(bookmark1), NotNull());
+  EXPECT_THAT(tracker->GetEntityForBookmarkNode(bookmark2), NotNull());
 }
 
 }  // namespace sync_bookmarks

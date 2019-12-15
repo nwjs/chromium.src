@@ -116,6 +116,9 @@
 #include "chromeos/constants/chromeos_paths.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/hugepage_text/hugepage_text.h"
+#include "chromeos/memory/kstaled.h"
+#include "chromeos/memory/memory.h"
+#include "chromeos/memory/swap_configuration.h"
 #endif
 
 #if defined(OS_ANDROID)
@@ -626,6 +629,15 @@ void ChromeMainDelegate::PostFieldTrialInitialization() {
   if (is_browser_process) {
     heap_profiler_controller_ = std::make_unique<HeapProfilerController>();
     heap_profiler_controller_->Start();
+
+#if defined(OS_CHROMEOS)
+    chromeos::ConfigureSwap();
+    chromeos::InitializeKstaled();
+
+    // If we're in an experimental group that locks the browser text we will do
+    // that now.
+    chromeos::LockMainProgramText();
+#endif
   }
 }
 
@@ -645,12 +657,19 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
   // because this is the earliest callback. Many places in Chromium gate
   // security features around kDisableWebSecurity, and it is unreasonable to
   // expect them all to properly also check for kUserDataDir.
-  if (command_line.HasSwitch(switches::kDisableWebSecurity) &&
-      !command_line.HasSwitch(switches::kUserDataDir)) {
-    LOG(ERROR) << "Web security may only be disabled if '--user-data-dir' is "
-                  "also specified.";
-    base::CommandLine::ForCurrentProcess()->RemoveSwitch(
-        switches::kDisableWebSecurity);
+  if (command_line.HasSwitch(switches::kDisableWebSecurity)) {
+    base::FilePath default_user_data_dir;
+    chrome::GetDefaultUserDataDirectory(&default_user_data_dir);
+    const base::FilePath specified_user_data_dir =
+        command_line.GetSwitchValuePath(switches::kUserDataDir)
+            .StripTrailingSeparators();
+    if (specified_user_data_dir.empty() ||
+        specified_user_data_dir == default_user_data_dir) {
+      LOG(ERROR) << "Web security may only be disabled if '--user-data-dir' is "
+                    "also specified with a non-default value.";
+      base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+          switches::kDisableWebSecurity);
+    }
   }
 
 #if defined(OS_WIN)

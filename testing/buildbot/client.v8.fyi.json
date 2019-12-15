@@ -169,7 +169,7 @@
           "--browser=android-chromium",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_cr_revision}",
@@ -491,7 +491,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_cr_revision}",
@@ -808,7 +808,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_cr_revision}",
@@ -1120,7 +1120,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_cr_revision}",
@@ -1299,9 +1299,10 @@
     "isolated_scripts": [
       {
         "args": [
-          "--num-retries=3"
+          "--num-retries=3",
+          "--fuzzy-diff"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -1348,9 +1349,10 @@
       {
         "args": [
           "--num-retries=3",
-          "--debug"
+          "--debug",
+          "--fuzzy-diff"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -1397,9 +1399,10 @@
       {
         "args": [
           "--num-retries=3",
-          "--additional-driver-flag=--js-flags=--future"
+          "--additional-driver-flag=--js-flags=--future",
+          "--fuzzy-diff"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -1448,7 +1451,7 @@
         "args": [
           "--num-retries=3"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -1497,7 +1500,7 @@
         "args": [
           "--num-retries=3"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -1524,7 +1527,7 @@
         "args": [
           "--num-retries=3"
         ],
-        "isolate_name": "blink_web_tests_exparchive",
+        "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
             "--verbose"
@@ -1758,7 +1761,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--dont-restore-color-profile-after-test",
           "--build-revision",
           "${got_cr_revision}",

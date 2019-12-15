@@ -19,6 +19,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/user_manager/user_manager.h"
+#include "google_apis/gaia/gaia_auth_util.h"
 #include "third_party/icu/source/common/unicode/locid.h"
 #include "ui/chromeos/events/keyboard_layout_util.h"
 
@@ -41,8 +42,7 @@ ash::mojom::AssistantAllowedState IsAssistantAllowedForProfile(
   if (user_manager::UserManager::Get()->IsLoggedInAsPublicAccount())
     return ash::mojom::AssistantAllowedState::DISALLOWED_BY_PUBLIC_SESSION;
 
-  if (user_manager::UserManager::Get()->IsLoggedInAsKioskApp() ||
-      user_manager::UserManager::Get()->IsLoggedInAsArcKioskApp()) {
+  if (user_manager::UserManager::Get()->IsLoggedInAsAnyKioskApp()) {
     return ash::mojom::AssistantAllowedState::DISALLOWED_BY_KIOSK_MODE;
   }
 
@@ -107,12 +107,10 @@ ash::mojom::AssistantAllowedState IsAssistantAllowedForProfile(
 
     if (identity_manager) {
       const std::string email = identity_manager->GetPrimaryAccountInfo().email;
-      if (base::EndsWith(email, "@gmail.com",
-                         base::CompareCase::INSENSITIVE_ASCII) ||
-          base::EndsWith(email, "@googlemail.com",
-                         base::CompareCase::INSENSITIVE_ASCII) ||
-          base::EndsWith(email, "@google.com",
-                         base::CompareCase::INSENSITIVE_ASCII)) {
+      if (!email.empty() &&
+          (gaia::ExtractDomainName(email) == "gmail.com" ||
+           gaia::ExtractDomainName(email) == "googlemail.com" ||
+           gaia::IsGoogleInternalAccountEmail(email))) {
         account_supported = true;
       }
     }

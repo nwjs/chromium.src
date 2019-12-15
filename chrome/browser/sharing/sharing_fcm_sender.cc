@@ -11,7 +11,6 @@
 #include "chrome/browser/sharing/vapid_key_manager.h"
 #include "components/gcm_driver/common/gcm_message.h"
 #include "components/gcm_driver/gcm_driver.h"
-#include "components/sync_device_info/device_info.h"
 
 SharingFCMSender::SharingFCMSender(gcm::GCMDriver* gcm_driver,
                                    SharingSyncPreference* sync_preference,
@@ -23,10 +22,9 @@ SharingFCMSender::SharingFCMSender(gcm::GCMDriver* gcm_driver,
 SharingFCMSender::~SharingFCMSender() = default;
 
 void SharingFCMSender::SendMessageToDevice(
-    syncer::DeviceInfo::SharingInfo target,
+    syncer::DeviceInfo::SharingTargetInfo target,
     base::TimeDelta time_to_live,
     SharingMessage message,
-    std::unique_ptr<syncer::DeviceInfo> sender_device_info,
     SendMessageCallback callback) {
   base::Optional<SharingSyncPreference::FCMRegistration> fcm_registration =
       sync_preference_->GetFCMRegistration();
@@ -43,22 +41,6 @@ void SharingFCMSender::SendMessageToDevice(
     std::move(callback).Run(SharingSendMessageResult::kInternalError,
                             base::nullopt);
     return;
-  }
-
-  if (message.payload_case() != SharingMessage::kAckMessage) {
-    DCHECK(sender_device_info);
-
-    message.set_sender_guid(sender_device_info->guid());
-    message.set_sender_device_name(sender_device_info->client_name());
-
-    base::Optional<syncer::DeviceInfo::SharingInfo> sharing_info =
-        sender_device_info->sharing_info();
-    DCHECK(sharing_info);
-
-    auto* sender_info = message.mutable_sender_info();
-    sender_info->set_fcm_token(sharing_info->fcm_token);
-    sender_info->set_p256dh(sharing_info->p256dh);
-    sender_info->set_auth_secret(sharing_info->auth_secret);
   }
 
   gcm::WebPushMessage web_push_message;

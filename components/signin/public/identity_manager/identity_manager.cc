@@ -12,6 +12,7 @@
 #include "components/signin/internal/identity_manager/account_tracker_service.h"
 #include "components/signin/internal/identity_manager/gaia_cookie_manager_service.h"
 #include "components/signin/internal/identity_manager/ubertoken_fetcher_impl.h"
+#include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/identity_manager/accounts_cookie_mutator.h"
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
 #include "components/signin/public/identity_manager/accounts_mutator.h"
@@ -24,7 +25,9 @@
 #include "base/android/jni_string.h"
 #include "components/signin/internal/identity_manager/android/jni_headers/IdentityManager_jni.h"
 #include "components/signin/internal/identity_manager/profile_oauth2_token_service_delegate.h"
-#elif !defined(OS_IOS)
+#endif
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.h"
 #endif
 
@@ -79,7 +82,8 @@ IdentityManager::IdentityManager(
 
 #if defined(OS_ANDROID)
   java_identity_manager_ = Java_IdentityManager_create(
-      base::android::AttachCurrentThread(), reinterpret_cast<intptr_t>(this));
+      base::android::AttachCurrentThread(), reinterpret_cast<intptr_t>(this),
+      token_service_->GetDelegate()->GetJavaObject());
 #endif
 }
 
@@ -295,11 +299,10 @@ IdentityManager::CreateUbertokenFetcherForAccount(
     const CoreAccountId& account_id,
     UbertokenFetcher::CompletionCallback callback,
     gaia::GaiaSource source,
-    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    bool bount_to_channel_id) {
+    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory) {
   return std::make_unique<UbertokenFetcherImpl>(
       account_id, token_service_.get(), std::move(callback), source,
-      url_loader_factory, bount_to_channel_id);
+      url_loader_factory);
 }
 
 AccountsInCookieJarInfo IdentityManager::GetAccountsInCookieJar() const {
@@ -365,7 +368,7 @@ void IdentityManager::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   AccountFetcherService::RegisterPrefs(registry);
   AccountTrackerService::RegisterPrefs(registry);
   GaiaCookieManagerService::RegisterPrefs(registry);
-#if !defined(OS_ANDROID) && !defined(OS_IOS)
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
   MutableProfileOAuth2TokenServiceDelegate::RegisterProfilePrefs(registry);
 #endif
 }
@@ -378,11 +381,6 @@ DiagnosticsProvider* IdentityManager::GetDiagnosticsProvider() {
 base::android::ScopedJavaLocalRef<jobject>
 IdentityManager::LegacyGetAccountTrackerServiceJavaObject() {
   return account_tracker_service_->GetJavaObject();
-}
-
-base::android::ScopedJavaLocalRef<jobject>
-IdentityManager::LegacyGetOAuth2TokenServiceJavaObject() {
-  return token_service_->GetDelegate()->GetJavaObject();
 }
 
 base::android::ScopedJavaLocalRef<jobject> IdentityManager::GetJavaObject() {
@@ -406,6 +404,20 @@ bool IdentityManager::HasPrimaryAccount(JNIEnv* env) const {
   return HasPrimaryAccount();
 }
 
+base::android::ScopedJavaLocalRef<jobject>
+IdentityManager::GetPrimaryAccountInfo(JNIEnv* env) const {
+  if (HasPrimaryAccount())
+    return ConvertToJavaCoreAccountInfo(env, GetPrimaryAccountInfo());
+  return nullptr;
+}
+
+base::android::ScopedJavaLocalRef<jobject> IdentityManager::GetPrimaryAccountId(
+    JNIEnv* env) const {
+  if (HasPrimaryAccount())
+    return ConvertToJavaCoreAccountId(env, GetPrimaryAccountId());
+  return nullptr;
+}
+
 base::android::ScopedJavaLocalRef<jobject> IdentityManager::
     FindExtendedAccountInfoForAccountWithRefreshTokenByEmailAddress(
         JNIEnv* env,
@@ -416,6 +428,27 @@ base::android::ScopedJavaLocalRef<jobject> IdentityManager::
   if (!account_info.has_value())
     return nullptr;
   return ConvertToJavaCoreAccountInfo(env, account_info.value());
+}
+
+base::android::ScopedJavaLocalRef<jobjectArray>
+IdentityManager::GetAccountsWithRefreshTokens(JNIEnv* env) const {
+  std::vector<CoreAccountInfo> accounts = GetAccountsWithRefreshTokens();
+
+  base::android::ScopedJavaLocalRef<jclass> coreaccountinfo_clazz =
+      base::android::GetClass(
+          env,
+          "org/chromium/components/signin/identitymanager/CoreAccountInfo");
+  base::android::ScopedJavaLocalRef<jobjectArray> array(
+      env, env->NewObjectArray(accounts.size(), coreaccountinfo_clazz.obj(),
+                               nullptr));
+  base::android::CheckException(env);
+
+  for (size_t i = 0; i < accounts.size(); ++i) {
+    base::android::ScopedJavaLocalRef<jobject> item =
+        ConvertToJavaCoreAccountInfo(env, accounts[i]);
+    env->SetObjectArrayElement(array.obj(), i, item.obj());
+  }
+  return array;
 }
 #endif
 
@@ -472,7 +505,7 @@ IdentityManager::ComputeUnconsentedPrimaryAccountInfo() const {
   // On ChromeOS and on mobile platforms, we support only the primary account as
   // the unconsented primary account. By this early return, we avoid an extra
   // request to GAIA that lists cookie accounts.
-  return base::nullopt;
+  return CoreAccountInfo();
 #else
   AccountsInCookieJarInfo cookie_info = GetAccountsInCookieJar();
 
@@ -668,9 +701,9 @@ void IdentityManager::OnAccountUpdated(const AccountInfo& info) {
 }
 
 void IdentityManager::OnAccountRemoved(const AccountInfo& info) {
+  UpdateUnconsentedPrimaryAccount();
   for (auto& observer : observer_list_)
     observer.OnExtendedAccountInfoRemoved(info);
-  UpdateUnconsentedPrimaryAccount();
 }
 
 }  // namespace signin

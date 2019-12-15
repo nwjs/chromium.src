@@ -23,6 +23,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/test_launcher_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test_utils.h"
 #include "media/base/media_switches.h"
 #include "media/base/test_data_util.h"
@@ -110,7 +111,6 @@ const char kTypeErrorResult[] = "TypeError";
 class EncryptedMediaSupportedTypesTest : public InProcessBrowserTest {
  protected:
   EncryptedMediaSupportedTypesTest() {
-    audio_webm_codecs_.push_back("opus");
     audio_webm_codecs_.push_back("vorbis");
 
     video_webm_codecs_.push_back("vp8");
@@ -135,6 +135,9 @@ class EncryptedMediaSupportedTypesTest : public InProcessBrowserTest {
     invalid_codecs_.push_back("hvc1.1.6.L93.B0");
     invalid_codecs_.push_back("hev1.1.6.L93.B0");
 #endif
+
+    // Opus is supported in both MP4 and WebM.
+    opus_codecs_.push_back("opus");
 
     // New multi-part VP9 codecs are allowed in both MP4 and WebM.
     // For vp9 codec string format, see https://www.webmproject.org/vp9/mp4/
@@ -185,6 +188,7 @@ class EncryptedMediaSupportedTypesTest : public InProcessBrowserTest {
   const CodecVector& video_mp4_hi10p_codecs() const {
     return video_mp4_hi10p_codecs_;
   }
+  const CodecVector& opus_codecs() const { return opus_codecs_; }
   const CodecVector& vp9_profile0_codecs() const {
     return vp9_profile0_codecs_;
   }
@@ -202,7 +206,7 @@ class EncryptedMediaSupportedTypesTest : public InProcessBrowserTest {
         default_command_line, switches::kDisableComponentUpdate, command_line);
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
     command_line->AppendSwitchASCII(
-        "enable-blink-features",
+        switches::kEnableBlinkFeatures,
         "EncryptedMediaEncryptionSchemeQuery,"
         "EncryptedMediaPersistentUsageRecordSession");
   }
@@ -402,6 +406,7 @@ class EncryptedMediaSupportedTypesTest : public InProcessBrowserTest {
   CodecVector audio_mp4_flac_codecs_;
   CodecVector video_mp4_codecs_;
   CodecVector video_mp4_hi10p_codecs_;
+  CodecVector opus_codecs_;
   CodecVector vp9_profile0_codecs_;
   CodecVector vp9_profile2_codecs_;
   CodecVector av1_codecs_;
@@ -526,6 +531,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesClearKeyTest, Basic) {
                                         video_webm_codecs()));
   EXPECT_SUCCESS(IsSupportedByKeySystem(kClearKey, kAudioWebMMimeType,
                                         audio_webm_codecs()));
+  EXPECT_SUCCESS(
+      IsSupportedByKeySystem(kClearKey, kAudioWebMMimeType, opus_codecs()));
   EXPECT_SUCCESS(IsSupportedByKeySystem(kClearKey, kAudioMP4MimeType,
                                         audio_mp4_flac_codecs()));
   EXPECT_PROPRIETARY(
@@ -592,6 +599,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesClearKeyTest, Video_WebM) {
   // Non-video WebM codecs.
   EXPECT_UNSUPPORTED(IsSupportedByKeySystem(kClearKey, kVideoWebMMimeType,
                                             audio_webm_codecs()));
+  EXPECT_UNSUPPORTED(
+      IsSupportedByKeySystem(kClearKey, kVideoWebMMimeType, opus_codecs()));
 
   // Invalid or non-Webm video codecs.
   EXPECT_UNSUPPORTED(
@@ -606,6 +615,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesClearKeyTest, Audio_WebM) {
   // Valid audio types.
   EXPECT_SUCCESS(IsSupportedByKeySystem(kClearKey, kAudioWebMMimeType,
                                         audio_webm_codecs()));
+  EXPECT_SUCCESS(
+      IsSupportedByKeySystem(kClearKey, kAudioWebMMimeType, opus_codecs()));
 
   // Non-audio WebM codecs.
   EXPECT_UNSUPPORTED(IsSupportedByKeySystem(kClearKey, kAudioWebMMimeType,
@@ -646,6 +657,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesClearKeyTest, Video_MP4) {
   // Non-video MP4 codecs.
   EXPECT_UNSUPPORTED(
       IsSupportedByKeySystem(kClearKey, kVideoMP4MimeType, audio_mp4_codecs()));
+  EXPECT_UNSUPPORTED(
+      IsSupportedByKeySystem(kClearKey, kVideoMP4MimeType, opus_codecs()));
 
   // Invalid or non-MP4 codecs.
   EXPECT_UNSUPPORTED(
@@ -660,6 +673,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesClearKeyTest, Audio_MP4) {
   // Valid audio types.
   EXPECT_PROPRIETARY(
       IsSupportedByKeySystem(kClearKey, kAudioMP4MimeType, audio_mp4_codecs()));
+  EXPECT_SUCCESS(
+      IsSupportedByKeySystem(kClearKey, kAudioMP4MimeType, opus_codecs()));
   EXPECT_SUCCESS(IsSupportedByKeySystem(kClearKey, kAudioMP4MimeType,
                                         audio_mp4_flac_codecs()));
 
@@ -731,6 +746,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesExternalClearKeyTest,
                                     video_webm_codecs()));
   EXPECT_ECK(IsSupportedByKeySystem(kExternalClearKey, kAudioWebMMimeType,
                                     audio_webm_codecs()));
+  EXPECT_ECK(IsSupportedByKeySystem(kExternalClearKey, kAudioWebMMimeType,
+                                    opus_codecs()));
   EXPECT_ECK(IsSupportedByKeySystem(kExternalClearKey, kAudioMP4MimeType,
                                     audio_mp4_flac_codecs()));
   EXPECT_ECK_PROPRIETARY(IsSupportedByKeySystem(
@@ -798,6 +815,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesExternalClearKeyTest,
   // Non-video WebM codecs.
   EXPECT_UNSUPPORTED(IsSupportedByKeySystem(
       kExternalClearKey, kVideoWebMMimeType, audio_webm_codecs()));
+  EXPECT_UNSUPPORTED(IsSupportedByKeySystem(kExternalClearKey,
+                                            kVideoWebMMimeType, opus_codecs()));
 
   // Invalid or non-Webm codecs.
   EXPECT_UNSUPPORTED(IsSupportedByKeySystem(
@@ -813,6 +832,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesExternalClearKeyTest,
   // Valid audio types.
   EXPECT_ECK(IsSupportedByKeySystem(kExternalClearKey, kAudioWebMMimeType,
                                     audio_webm_codecs()));
+  EXPECT_ECK(IsSupportedByKeySystem(kExternalClearKey, kAudioWebMMimeType,
+                                    opus_codecs()));
 
   // Non-audio WebM codecs.
   EXPECT_UNSUPPORTED(IsSupportedByKeySystem(
@@ -848,6 +869,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesExternalClearKeyTest,
   // Non-video MP4 codecs.
   EXPECT_UNSUPPORTED(IsSupportedByKeySystem(
       kExternalClearKey, kVideoMP4MimeType, audio_mp4_codecs()));
+  EXPECT_UNSUPPORTED(IsSupportedByKeySystem(kExternalClearKey,
+                                            kVideoMP4MimeType, opus_codecs()));
 
   // Invalid or non-MP4 codecs.
   EXPECT_UNSUPPORTED(IsSupportedByKeySystem(
@@ -863,6 +886,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesExternalClearKeyTest,
   // Valid audio types.
   EXPECT_ECK_PROPRIETARY(IsSupportedByKeySystem(
       kExternalClearKey, kAudioMP4MimeType, audio_mp4_codecs()));
+  EXPECT_ECK(IsSupportedByKeySystem(kExternalClearKey, kAudioMP4MimeType,
+                                    opus_codecs()));
   EXPECT_ECK(IsSupportedByKeySystem(kExternalClearKey, kAudioMP4MimeType,
                                     audio_mp4_flac_codecs()));
 
@@ -953,12 +978,16 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesWidevineTest, Basic) {
                                            video_webm_codecs()));
   EXPECT_WV_SUCCESS(IsSupportedByKeySystem(kWidevine, kAudioWebMMimeType,
                                            audio_webm_codecs()));
+  EXPECT_WV_SUCCESS(
+      IsSupportedByKeySystem(kWidevine, kAudioWebMMimeType, opus_codecs()));
   EXPECT_WV_SUCCESS(IsSupportedByKeySystem(kWidevine, kAudioMP4MimeType,
                                            audio_mp4_flac_codecs()));
   EXPECT_WV_PROPRIETARY(
       IsSupportedByKeySystem(kWidevine, kVideoMP4MimeType, video_mp4_codecs()));
   EXPECT_WV_PROPRIETARY(
       IsSupportedByKeySystem(kWidevine, kAudioMP4MimeType, audio_mp4_codecs()));
+  EXPECT_WV_SUCCESS(
+      IsSupportedByKeySystem(kWidevine, kAudioMP4MimeType, opus_codecs()));
 }
 
 IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesWidevineTest,
@@ -1007,16 +1036,16 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesWidevineTest, Video_WebM) {
                                            video_webm_codecs()));
   EXPECT_WV_SUCCESS(IsSupportedByKeySystem(kWidevine, kVideoWebMMimeType,
                                            vp9_profile0_codecs()));
+  EXPECT_WV_SUCCESS(IsSupportedByKeySystem(kWidevine, kVideoWebMMimeType,
+                                           vp9_profile2_codecs()));
   EXPECT_WV_AV1(
       IsSupportedByKeySystem(kWidevine, kVideoWebMMimeType, av1_codecs()));
 
   // Non-video WebM codecs.
   EXPECT_UNSUPPORTED(IsSupportedByKeySystem(kWidevine, kVideoWebMMimeType,
                                             audio_webm_codecs()));
-
-  // TODO(crbug.com/996372): Change to EXPECT_WV_SUCCESS after new CDM is in.
-  EXPECT_ANY(IsSupportedByKeySystem(kWidevine, kVideoWebMMimeType,
-                                    vp9_profile2_codecs()));
+  EXPECT_UNSUPPORTED(
+      IsSupportedByKeySystem(kWidevine, kVideoWebMMimeType, opus_codecs()));
 
   // Invalid or non-Webm codecs.
   EXPECT_UNSUPPORTED(
@@ -1033,6 +1062,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesWidevineTest, Audio_WebM) {
   // Valid audio types.
   EXPECT_WV_SUCCESS(IsSupportedByKeySystem(kWidevine, kAudioWebMMimeType,
                                            audio_webm_codecs()));
+  EXPECT_WV_SUCCESS(
+      IsSupportedByKeySystem(kWidevine, kAudioWebMMimeType, opus_codecs()));
 
   // Non-audio WebM codecs.
   EXPECT_UNSUPPORTED(IsSupportedByKeySystem(kWidevine, kAudioWebMMimeType,
@@ -1055,6 +1086,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesWidevineTest, Video_MP4) {
       IsSupportedByKeySystem(kWidevine, kVideoMP4MimeType, video_mp4_codecs()));
   EXPECT_WV_SUCCESS(IsSupportedByKeySystem(kWidevine, kVideoMP4MimeType,
                                            vp9_profile0_codecs()));
+  EXPECT_WV_SUCCESS(IsSupportedByKeySystem(kWidevine, kVideoMP4MimeType,
+                                           vp9_profile2_codecs()));
   EXPECT_WV_AV1(
       IsSupportedByKeySystem(kWidevine, kVideoMP4MimeType, av1_codecs()));
 
@@ -1065,12 +1098,10 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesWidevineTest, Video_MP4) {
   // Non-video MP4 codecs.
   EXPECT_UNSUPPORTED(
       IsSupportedByKeySystem(kWidevine, kVideoMP4MimeType, audio_mp4_codecs()));
+  EXPECT_UNSUPPORTED(
+      IsSupportedByKeySystem(kWidevine, kVideoMP4MimeType, opus_codecs()));
   EXPECT_UNSUPPORTED(IsSupportedByKeySystem(kWidevine, kVideoMP4MimeType,
                                             audio_mp4_flac_codecs()));
-
-  // TODO(crbug.com/996372): Change to EXPECT_WV_SUCCESS after new CDM is in.
-  EXPECT_ANY(IsSupportedByKeySystem(kWidevine, kVideoMP4MimeType,
-                                    vp9_profile2_codecs()));
 
   // Invalid or non-MP4 codecs.
   EXPECT_UNSUPPORTED(
@@ -1085,6 +1116,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesWidevineTest, Audio_MP4) {
   // Valid audio types.
   EXPECT_WV_PROPRIETARY(
       IsSupportedByKeySystem(kWidevine, kAudioMP4MimeType, audio_mp4_codecs()));
+  EXPECT_WV_SUCCESS(
+      IsSupportedByKeySystem(kWidevine, kAudioMP4MimeType, opus_codecs()));
   EXPECT_WV_SUCCESS(IsSupportedByKeySystem(kWidevine, kAudioMP4MimeType,
                                            audio_mp4_flac_codecs()));
 

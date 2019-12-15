@@ -9,7 +9,12 @@
 #include "base/numerics/ranges.h"
 #include "base/task_runner.h"
 #include "base/threading/sequenced_task_runner_handle.h"
+#include "build/build_config.h"
+#include "chrome/app/chrome_command_ids.h"
+#include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/command_observer.h"
 #include "chrome/browser/ui/browser_command_controller.h"
+#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_content_setting_bubble_model_delegate.h"
 #include "chrome/browser/ui/content_settings/content_setting_image_model.h"
 #include "chrome/browser/ui/layout_constants.h"
@@ -21,23 +26,40 @@
 #include "chrome/browser/ui/views/location_bar/content_setting_image_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_container_view.h"
 #include "chrome/browser/ui/views/toolbar/browser_actions_container.h"
+#include "chrome/browser/ui/views/toolbar/button_utils.h"
+#include "chrome/browser/ui/views/toolbar/reload_button.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/web_apps/web_app_menu_button.h"
 #include "chrome/browser/ui/views/web_apps/web_app_origin_text.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/common/chrome_features.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/features.h"
+#include "components/vector_icons/vector_icons.h"
 #include "third_party/blink/public/common/features.h"
 #include "ui/base/hit_test.h"
+#include "ui/base/material_design/material_design_controller.h"
+#include "ui/base/material_design/material_design_controller_observer.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/compositor/layer_animation_element.h"
 #include "ui/compositor/layer_animation_sequence.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
+#include "ui/events/event.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/color_utils.h"
+#include "ui/gfx/geometry/insets.h"
+#include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/paint_vector_icon.h"
+#include "ui/gfx/vector_icon_types.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/layout/flex_layout.h"
+#include "ui/views/layout/flex_layout_types.h"
 #include "ui/views/layout/layout_provider.h"
+#include "ui/views/layout/layout_types.h"
+#include "ui/views/view_class_properties.h"
 #include "ui/views/window/custom_frame_view.h"
 #include "ui/views/window/hit_test_utils.h"
 
@@ -51,6 +73,14 @@ bool g_animation_disabled_for_testing = false;
 
 constexpr base::TimeDelta kContentSettingsFadeInDuration =
     base::TimeDelta::FromMilliseconds(500);
+
+constexpr int kPaddingBetweenNavigationButtons = 9;
+
+#if defined(OS_CHROMEOS)
+constexpr int kWebAppFrameLeftMargin = 4;
+#else
+constexpr int kWebAppFrameLeftMargin = 9;
+#endif
 
 class WebAppToolbarActionsBar : public ToolbarActionsBar {
  public:
@@ -77,12 +107,198 @@ class WebAppToolbarActionsBar : public ToolbarActionsBar {
   DISALLOW_COPY_AND_ASSIGN(WebAppToolbarActionsBar);
 };
 
-int HorizontalPaddingBetweenItems() {
+int HorizontalPaddingBetweenPageActionsAndAppMenuButtons() {
   return views::LayoutProvider::Get()->GetDistanceMetric(
       views::DISTANCE_RELATED_CONTROL_HORIZONTAL);
 }
 
+int WebAppFrameRightMargin() {
+#if defined(OS_MACOSX)
+  return kWebAppMenuMargin;
+#else
+  return HorizontalPaddingBetweenPageActionsAndAppMenuButtons();
+#endif
+}
+
+// An ink drop with round corners in shown when the user hovers over the button.
+// Insets are kept small to avoid increasing web app frame toolbar height.
+void SetInsetsForWebAppToolbarButton(ToolbarButton* toolbar_button,
+                                     bool is_browser_focus_mode) {
+  if (!is_browser_focus_mode) {
+    toolbar_button->SetLayoutInsets(gfx::Insets(2));
+
+    constexpr gfx::Insets kInkDropInsets(2);
+    toolbar_button->SetProperty(views::kInternalPaddingKey, kInkDropInsets);
+  }
+}
+
+const gfx::VectorIcon& GetBackImage(bool touch_ui) {
+#if defined(OS_WIN)
+  if (UseWindowsIconsForMinimalUI())
+    return touch_ui ? kBackArrowWindowsTouchIcon : kBackArrowWindowsIcon;
+#endif
+
+  return touch_ui ? kBackArrowTouchIcon : vector_icons::kBackArrowIcon;
+}
+
 }  // namespace
+
+// Holds controls in the far left of the toolbar.
+class WebAppFrameToolbarView::NavigationButtonContainer
+    : public views::View,
+      public CommandObserver,
+      public views::ButtonListener,
+      public ui::MaterialDesignControllerObserver {
+ public:
+  explicit NavigationButtonContainer(BrowserView* browser_view)
+      : browser_view_(browser_view) {
+    views::BoxLayout& layout =
+        *SetLayoutManager(std::make_unique<views::BoxLayout>(
+            views::BoxLayout::Orientation::kHorizontal,
+            gfx::Insets(0, kWebAppFrameLeftMargin),
+            kPaddingBetweenNavigationButtons));
+    // Right align to clip the leftmost items first when not enough space.
+    layout.set_main_axis_alignment(views::BoxLayout::MainAxisAlignment::kEnd);
+    layout.set_cross_axis_alignment(
+        views::BoxLayout::CrossAxisAlignment::kCenter);
+
+    back_button_ =
+        AddChildView(CreateBackButton(this, browser_view_->browser()));
+    reload_button_ = AddChildView(CreateReloadButton(
+        browser_view_->browser(), ReloadButton::IconStyle::kMinimalUi));
+
+    const bool is_browser_focus_mode =
+        browser_view_->browser()->is_focus_mode();
+    SetInsetsForWebAppToolbarButton(back_button_, is_browser_focus_mode);
+    SetInsetsForWebAppToolbarButton(reload_button_, is_browser_focus_mode);
+
+    views::SetHitTestComponent(back_button_, static_cast<int>(HTCLIENT));
+    views::SetHitTestComponent(reload_button_, static_cast<int>(HTCLIENT));
+
+    chrome::AddCommandObserver(browser_view_->browser(), IDC_BACK, this);
+    chrome::AddCommandObserver(browser_view_->browser(), IDC_RELOAD, this);
+    md_observer_.Add(ui::MaterialDesignController::GetInstance());
+  }
+
+  ~NavigationButtonContainer() override {
+    chrome::RemoveCommandObserver(browser_view_->browser(), IDC_BACK, this);
+    chrome::RemoveCommandObserver(browser_view_->browser(), IDC_RELOAD, this);
+  }
+
+  ToolbarButton* back_button() { return back_button_; }
+
+  ReloadButton* reload_button() { return reload_button_; }
+
+  void SetIconColor(SkColor icon_color) {
+    icon_color_ = icon_color;
+    GenerateMinimalUIButtonImages();
+  }
+
+  void GenerateMinimalUIButtonImages() {
+    const SkColor disabled_color =
+        SkColorSetA(icon_color_, gfx::kDisabledControlAlpha);
+
+    const bool touch_ui = ui::MaterialDesignController::touch_ui();
+    const gfx::VectorIcon& back_image = GetBackImage(touch_ui);
+    back_button_->SetImage(views::Button::STATE_NORMAL,
+                           gfx::CreateVectorIcon(back_image, icon_color_));
+    back_button_->SetImage(views::Button::STATE_DISABLED,
+                           gfx::CreateVectorIcon(back_image, disabled_color));
+
+    reload_button_->SetColors(icon_color_, disabled_color);
+  }
+
+ protected:
+  // CommandObserver:
+  void EnabledStateChangedForCommand(int id, bool enabled) override {
+    switch (id) {
+      case IDC_BACK:
+        back_button_->SetEnabled(enabled);
+        break;
+      case IDC_RELOAD:
+        reload_button_->SetEnabled(enabled);
+        break;
+      default:
+        NOTREACHED();
+    }
+  }
+
+  // views::ButtonListener:
+  void ButtonPressed(views::Button* sender, const ui::Event& event) override {
+    chrome::ExecuteCommandWithDisposition(
+        browser_view_->browser(), sender->tag(),
+        ui::DispositionFromEventFlags(event.flags()));
+  }
+
+  // ui::MaterialDesignControllerObserver:
+  void OnTouchUiChanged() override {
+    GenerateMinimalUIButtonImages();
+    SchedulePaint();
+  }
+
+ private:
+  // The containing browser view.
+  BrowserView* const browser_view_;
+
+  SkColor icon_color_ = gfx::kPlaceholderColor;
+
+  ScopedObserver<ui::MaterialDesignController,
+                 ui::MaterialDesignControllerObserver>
+      md_observer_{this};
+
+  // These members are owned by the views hierarchy.
+  ToolbarButton* back_button_ = nullptr;
+  ReloadButton* reload_button_ = nullptr;
+};
+
+// Holds controls in the far left or far right of the toolbar.
+// Forces a layout of the toolbar (and hence the window text) whenever a control
+// changes visibility.
+class WebAppFrameToolbarView::ToolbarButtonContainer : public views::View {
+ public:
+  ToolbarButtonContainer() {
+    views::BoxLayout& layout =
+        *SetLayoutManager(std::make_unique<views::BoxLayout>(
+            views::BoxLayout::Orientation::kHorizontal,
+            gfx::Insets(0, WebAppFrameRightMargin()),
+            HorizontalPaddingBetweenPageActionsAndAppMenuButtons()));
+    // Right align to clip the leftmost items first when not enough space.
+    layout.set_main_axis_alignment(views::BoxLayout::MainAxisAlignment::kEnd);
+    layout.set_cross_axis_alignment(
+        views::BoxLayout::CrossAxisAlignment::kCenter);
+  }
+  ~ToolbarButtonContainer() override = default;
+
+  void SetChildControllingHeight(views::View* child) {
+    child_controlling_height_ = child;
+  }
+
+ private:
+  // views::View:
+  gfx::Size CalculatePreferredSize() const override {
+    if (!child_controlling_height_)
+      return views::View::CalculatePreferredSize();
+
+    // Prefer height consistency over accommodating edge case icons that may
+    // bump up the container height (e.g. extension action icons with badges).
+    // TODO(https://crbug.com/889745): Fix the inconsistent icon sizes found in
+    // the right-hand container and turn this into a DCHECK that the container
+    // height is the same as the app menu button height.
+    return gfx::Size(views::View::CalculatePreferredSize().width(),
+                     child_controlling_height_->GetPreferredSize().height());
+  }
+
+  void ChildPreferredSizeChanged(views::View* child) override {
+    PreferredSizeChanged();
+  }
+
+  void ChildVisibilityChanged(views::View* child) override {
+    // Changes to layout need to be taken into account by the toolbar view.
+    PreferredSizeChanged();
+  }
+
+  views::View* child_controlling_height_ = nullptr;
+};
 
 const char WebAppFrameToolbarView::kViewClassName[] = "WebAppFrameToolbarView";
 
@@ -145,11 +361,6 @@ class WebAppFrameToolbarView::ContentSettingsContainer : public views::View {
   }
 
  private:
-  // views::View:
-  void ChildVisibilityChanged(views::View* child) override {
-    PreferredSizeChanged();
-  }
-
   // Owned by the views hierarchy.
   std::vector<ContentSettingImageView*> content_setting_views_;
 
@@ -186,8 +397,7 @@ WebAppFrameToolbarView::ContentSettingsContainer::ContentSettingsContainer(
 WebAppFrameToolbarView::WebAppFrameToolbarView(views::Widget* widget,
                                                BrowserView* browser_view,
                                                SkColor active_color,
-                                               SkColor inactive_color,
-                                               base::Optional<int> right_margin)
+                                               SkColor inactive_color)
     : browser_view_(browser_view),
       active_color_(active_color),
       inactive_color_(inactive_color) {
@@ -197,26 +407,50 @@ WebAppFrameToolbarView::WebAppFrameToolbarView(views::Widget* widget,
 
   SetID(VIEW_ID_WEB_APP_FRAME_TOOLBAR);
 
-  views::BoxLayout& layout =
-      *SetLayoutManager(std::make_unique<views::BoxLayout>(
-          views::BoxLayout::Orientation::kHorizontal,
-          gfx::Insets(0,
-                      right_margin.value_or(HorizontalPaddingBetweenItems())),
-          HorizontalPaddingBetweenItems()));
-  // Right align to clip the leftmost items first when not enough space.
-  layout.set_main_axis_alignment(views::BoxLayout::MainAxisAlignment::kEnd);
-  layout.set_cross_axis_alignment(
-      views::BoxLayout::CrossAxisAlignment::kCenter);
+  {
+    views::FlexLayout* layout =
+        SetLayoutManager(std::make_unique<views::FlexLayout>());
+    layout->SetOrientation(views::LayoutOrientation::kHorizontal);
+    layout->SetMainAxisAlignment(views::LayoutAlignment::kEnd);
+    layout->SetCrossAxisAlignment(views::LayoutAlignment::kStretch);
+  }
 
-  auto* app_controller = browser_view_->browser()->app_controller();
+  const auto* app_controller = browser_view_->browser()->app_controller();
+
+  if (base::FeatureList::IsEnabled(features::kDesktopMinimalUI) &&
+      app_controller->HasMinimalUiButtons()) {
+    left_container_ = AddChildView(
+        std::make_unique<NavigationButtonContainer>(browser_view_));
+    left_container_->SetProperty(
+        views::kFlexBehaviorKey,
+        views::FlexSpecification::ForSizeRule(
+            views::MinimumFlexSizeRule::kScaleToMinimumSnapToZero,
+            views::MaximumFlexSizeRule::kPreferred)
+            .WithOrder(2));
+  }
+
+  center_container_ = AddChildView(std::make_unique<views::View>());
+  center_container_->SetProperty(views::kFlexBehaviorKey,
+                                 views::FlexSpecification::ForSizeRule(
+                                     views::MinimumFlexSizeRule::kScaleToZero,
+                                     views::MaximumFlexSizeRule::kUnbounded)
+                                     .WithOrder(3));
+
+  right_container_ = AddChildView(std::make_unique<ToolbarButtonContainer>());
+  right_container_->SetProperty(views::kFlexBehaviorKey,
+                                views::FlexSpecification::ForSizeRule(
+                                    views::MinimumFlexSizeRule::kScaleToZero,
+                                    views::MaximumFlexSizeRule::kPreferred)
+                                    .WithOrder(1));
+
   if (app_controller->HasTitlebarAppOriginText()) {
-    web_app_origin_text_ = AddChildView(
-        std::make_unique<WebAppOriginText>(browser_view->browser()));
+    web_app_origin_text_ = right_container_->AddChildView(
+        std::make_unique<WebAppOriginText>(browser_view_->browser()));
   }
 
   if (app_controller->HasTitlebarContentSettings()) {
-    content_settings_container_ =
-        AddChildView(std::make_unique<ContentSettingsContainer>(this));
+    content_settings_container_ = right_container_->AddChildView(
+        std::make_unique<ContentSettingsContainer>(this));
     views::SetHitTestComponent(content_settings_container_,
                                static_cast<int>(HTCLIENT));
   }
@@ -233,24 +467,25 @@ WebAppFrameToolbarView::WebAppFrameToolbarView(views::Widget* widget,
   params.types_enabled.push_back(PageActionIconType::kSaveCard);
   params.icon_size = GetLayoutConstant(WEB_APP_PAGE_ACTION_ICON_SIZE);
   params.icon_color = GetCaptionColor();
-  params.between_icon_spacing = HorizontalPaddingBetweenItems();
+  params.between_icon_spacing =
+      HorizontalPaddingBetweenPageActionsAndAppMenuButtons();
   params.browser = browser_view_->browser();
   params.command_updater = browser_view_->browser()->command_controller();
   params.page_action_icon_delegate = this;
-  page_action_icon_container_view_ =
-      AddChildView(std::make_unique<PageActionIconContainerView>(params));
+  page_action_icon_container_view_ = right_container_->AddChildView(
+      std::make_unique<PageActionIconContainerView>(params));
   views::SetHitTestComponent(page_action_icon_container_view_,
                              static_cast<int>(HTCLIENT));
 
   if (base::FeatureList::IsEnabled(features::kExtensionsToolbarMenu)) {
-    extensions_container_ = AddChildView(
+    extensions_container_ = right_container_->AddChildView(
         std::make_unique<ExtensionsToolbarContainer>(browser_view_->browser()));
     views::SetHitTestComponent(extensions_container_,
                                static_cast<int>(HTCLIENT));
   } else {
-    browser_actions_container_ =
-        AddChildView(std::make_unique<BrowserActionsContainer>(
-            browser_view->browser(), nullptr, this, false /* interactive */));
+    browser_actions_container_ = right_container_->AddChildView(
+        std::make_unique<BrowserActionsContainer>(
+            browser_view_->browser(), nullptr, this, false /* interactive */));
     views::SetHitTestComponent(browser_actions_container_,
                                static_cast<int>(HTCLIENT));
   }
@@ -258,16 +493,19 @@ WebAppFrameToolbarView::WebAppFrameToolbarView(views::Widget* widget,
 // TODO(crbug.com/998900): Create AppControllerUi class to contain this logic.
 #if defined(OS_CHROMEOS)
   if (app_controller->UseTitlebarTerminalSystemAppMenu()) {
-    web_app_menu_button_ = AddChildView(
-        std::make_unique<TerminalSystemAppMenuButton>(browser_view));
+    web_app_menu_button_ = right_container_->AddChildView(
+        std::make_unique<TerminalSystemAppMenuButton>(browser_view_));
   } else {
-    web_app_menu_button_ =
-        AddChildView(std::make_unique<WebAppMenuButton>(browser_view));
+    web_app_menu_button_ = right_container_->AddChildView(
+        std::make_unique<WebAppMenuButton>(browser_view_));
   }
 #else
-  web_app_menu_button_ =
-      AddChildView(std::make_unique<WebAppMenuButton>(browser_view));
+  web_app_menu_button_ = right_container_->AddChildView(
+      std::make_unique<WebAppMenuButton>(browser_view_));
 #endif
+  const bool is_browser_focus_mode = browser_view_->browser()->is_focus_mode();
+  SetInsetsForWebAppToolbarButton(web_app_menu_button_, is_browser_focus_mode);
+  right_container_->SetChildControllingHeight(web_app_menu_button_);
 
   UpdateChildrenColor();
   UpdateStatusIconsVisibility();
@@ -299,6 +537,10 @@ void WebAppFrameToolbarView::UpdateStatusIconsVisibility() {
 void WebAppFrameToolbarView::UpdateCaptionColors() {
   const BrowserNonClientFrameView* frame_view =
       browser_view_->frame()->GetFrameView();
+
+  // frame_view is nullptr during BrowserNonClientFrameViewAsh::Init().
+  if (!frame_view)
+    return;
   active_color_ = frame_view->GetCaptionColor(BrowserFrameActiveState::kActive);
   inactive_color_ =
       frame_view->GetCaptionColor(BrowserFrameActiveState::kInactive);
@@ -312,24 +554,32 @@ void WebAppFrameToolbarView::SetPaintAsActive(bool active) {
   UpdateChildrenColor();
 }
 
-int WebAppFrameToolbarView::LayoutInContainer(int leading_x,
-                                              int trailing_x,
-                                              int y,
-                                              int available_height) {
+std::pair<int, int> WebAppFrameToolbarView::LayoutInContainer(
+    int leading_x,
+    int trailing_x,
+    int y,
+    int available_height) {
   if (available_height == 0) {
     SetSize(gfx::Size());
-    return trailing_x;
+    return std::pair<int, int>(0, 0);
   }
 
   gfx::Size preferred_size = GetPreferredSize();
-  const int width =
-      base::ClampToRange(trailing_x - leading_x, 0, preferred_size.width());
+  const int width = std::max(trailing_x - leading_x, 0);
   const int height = preferred_size.height();
   DCHECK_LE(height, available_height);
-  SetBounds(trailing_x - width, y + (available_height - height) / 2, width,
-            height);
+  SetBounds(leading_x, y + (available_height - height) / 2, width, height);
   Layout();
-  return bounds().x();
+
+  if (!center_container_->GetVisible())
+    return std::pair<int, int>(0, 0);
+
+  // Bounds for remaining inner space, in parent container coordinates.
+  gfx::Rect center_bounds = center_container_->bounds();
+  DCHECK(center_bounds.x() == 0 || left_container_);
+  center_bounds.Offset(bounds().OffsetFromOrigin());
+
+  return std::pair<int, int>(center_bounds.x(), center_bounds.right());
 }
 
 const char* WebAppFrameToolbarView::GetClassName() const {
@@ -357,6 +607,7 @@ WebAppFrameToolbarView::CreateToolbarActionsBar(
   DCHECK_EQ(browser_view_->browser(), browser);
   return std::make_unique<WebAppToolbarActionsBar>(delegate, browser, main_bar);
 }
+
 
 SkColor WebAppFrameToolbarView::GetContentSettingInkDropColor() const {
   return GetCaptionColor();
@@ -422,21 +673,23 @@ AppMenuButton* WebAppFrameToolbarView::GetAppMenuButton() {
 }
 
 gfx::Rect WebAppFrameToolbarView::GetFindBarBoundingBox(
-    int contents_height) const {
+    int contents_bottom) const {
   if (!IsDrawn())
     return gfx::Rect();
 
+  // If LTR find bar will be right aligned so align to right edge of app menu
+  // button. Otherwise it will be left aligned so align to the left edge of the
+  // app menu button.
   gfx::Rect anchor_bounds = web_app_menu_button_->ConvertRectToWidget(
       web_app_menu_button_->GetLocalBounds());
+  int x_pos = 0;
+  int width = anchor_bounds.right();
   if (base::i18n::IsRTL()) {
-    // Find bar will be left aligned so align to left edge of app menu button.
-    int widget_width = GetWidget()->GetRootView()->width();
-    return gfx::Rect(anchor_bounds.x(), anchor_bounds.bottom(),
-                     widget_width - anchor_bounds.x(), contents_height);
+    x_pos = anchor_bounds.x();
+    width = GetWidget()->GetRootView()->width() - anchor_bounds.x();
   }
-  // Find bar will be right aligned so align to right edge of app menu button.
-  return gfx::Rect(0, anchor_bounds.bottom(),
-                   anchor_bounds.x() + anchor_bounds.width(), contents_height);
+  return gfx::Rect(x_pos, anchor_bounds.bottom(), width,
+                   contents_bottom - anchor_bounds.bottom());
 }
 
 void WebAppFrameToolbarView::FocusToolbar() {
@@ -459,6 +712,14 @@ AvatarToolbarButton* WebAppFrameToolbarView::GetAvatarToolbarButton() {
   return nullptr;
 }
 
+ToolbarButton* WebAppFrameToolbarView::GetBackButton() {
+  return left_container_ ? left_container_->back_button() : nullptr;
+}
+
+ReloadButton* WebAppFrameToolbarView::GetReloadButton() {
+  return left_container_ ? left_container_->reload_button() : nullptr;
+}
+
 void WebAppFrameToolbarView::OnWidgetVisibilityChanged(views::Widget* widget,
                                                        bool visibility) {
   if (!visibility || !pending_widget_visibility_)
@@ -477,26 +738,15 @@ void WebAppFrameToolbarView::DisableAnimationForTesting() {
   g_animation_disabled_for_testing = true;
 }
 
+views::View* WebAppFrameToolbarView::GetRightContainerForTesting() {
+  return right_container_;
+}
+
 views::View* WebAppFrameToolbarView::GetPageActionIconContainerForTesting() {
   return page_action_icon_container_view_;
 }
 
-gfx::Size WebAppFrameToolbarView::CalculatePreferredSize() const {
-  // Prefer height consistency over accommodating edge case icons that may bump
-  // up the container height (e.g. extension action icons with badges).
-  // TODO(https://crbug.com/889745): Fix the inconsistent icon sizes found in
-  // this container and turn this into a DCHECK that the conatiner height is the
-  // same as the app menu button height.
-  return gfx::Size(views::View::CalculatePreferredSize().width(),
-                   web_app_menu_button_->GetPreferredSize().height());
-}
-
 void WebAppFrameToolbarView::ChildPreferredSizeChanged(views::View* child) {
-  PreferredSizeChanged();
-}
-
-void WebAppFrameToolbarView::ChildVisibilityChanged(views::View* child) {
-  // Changes to layout need to be taken into account by the frame view.
   PreferredSizeChanged();
 }
 
@@ -536,10 +786,14 @@ SkColor WebAppFrameToolbarView::GetCaptionColor() const {
 
 void WebAppFrameToolbarView::UpdateChildrenColor() {
   SkColor icon_color = GetCaptionColor();
+  if (left_container_)
+    left_container_->SetIconColor(icon_color);
   if (web_app_origin_text_)
     web_app_origin_text_->SetTextColor(icon_color);
   if (content_settings_container_)
     content_settings_container_->SetIconColor(icon_color);
+  if (extensions_container_)
+    extensions_container_->OverrideIconColor(icon_color);
   page_action_icon_container_view_->SetIconColor(icon_color);
   web_app_menu_button_->SetColor(icon_color);
 }

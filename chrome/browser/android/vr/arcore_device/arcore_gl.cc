@@ -22,6 +22,7 @@
 #include "chrome/browser/android/vr/arcore_device/ar_image_transport.h"
 #include "chrome/browser/android/vr/arcore_device/arcore_impl.h"
 #include "chrome/browser/android/vr/arcore_device/arcore_session_utils.h"
+#include "chrome/browser/android/vr/arcore_device/type_converters.h"
 #include "chrome/browser/android/vr/web_xr_presentation_state.h"
 #include "device/vr/public/mojom/vr_service.mojom.h"
 #include "gpu/ipc/common/gpu_memory_buffer_impl_android_hardware_buffer.h"
@@ -45,6 +46,8 @@ constexpr std::array<float, 6> kDisplayCoordinatesForTransform = {
     0.f, 0.f, 1.f, 0.f, 0.f, 1.f};
 
 constexpr uint32_t kInputSourceId = 1;
+
+const char kInputSourceProfileName[] = "generic-touchscreen";
 
 gfx::Transform ConvertUvsToTransformMatrix(const std::vector<float>& uvs) {
   // We're creating a matrix that transforms viewport UV coordinates (for a
@@ -413,15 +416,14 @@ void ArCoreGl::GetFrameData(
     frame_data->detected_planes_data = arcore_->GetDetectedPlanesData();
   }
 
-  frame_data->anchors_data = arcore_->GetAnchorsData();
-
   fps_meter_.AddFrame(base::TimeTicks::Now());
   TRACE_COUNTER1("gpu", "WebXR FPS", fps_meter_.GetFPS());
 
   // Post a task to finish processing the frame so any calls to
   // RequestHitTest() that were made during this function, which can block
   // on the arcore_->Update() call above, can be processed in this frame.
-  // Additionally, this gives a chance for OnScreenTouch() tasks to run.
+  // Additionally, this gives a chance for OnScreenTouch() tasks to run
+  // and added anchors to be registered.
   gl_thread_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&ArCoreGl::ProcessFrame, weak_ptr_factory_.GetWeakPtr(),
@@ -660,6 +662,7 @@ void ArCoreGl::RequestHitTest(
 
 void ArCoreGl::SubscribeToHitTest(
     mojom::XRNativeOriginInformationPtr native_origin_information,
+    const std::vector<mojom::EntityTypeForHitTest>& entity_types,
     mojom::XRRayPtr ray,
     mojom::XREnvironmentIntegrationProvider::SubscribeToHitTestCallback
         callback) {
@@ -678,8 +681,8 @@ void ArCoreGl::SubscribeToHitTest(
     }
   }
 
-  base::Optional<uint32_t> maybe_subscription_id = arcore_->SubscribeToHitTest(
-      std::move(native_origin_information), std::move(ray));
+  base::Optional<uint64_t> maybe_subscription_id = arcore_->SubscribeToHitTest(
+      std::move(native_origin_information), entity_types, std::move(ray));
 
   if (maybe_subscription_id) {
     DVLOG(2) << __func__ << ": subscription_id=" << *maybe_subscription_id;
@@ -692,17 +695,41 @@ void ArCoreGl::SubscribeToHitTest(
   }
 }
 
-void ArCoreGl::UnsubscribeFromHitTest(uint32_t subscription_id) {
+void ArCoreGl::SubscribeToHitTestForTransientInput(
+    const std::string& profile_name,
+    const std::vector<mojom::EntityTypeForHitTest>& entity_types,
+    mojom::XRRayPtr ray,
+    mojom::XREnvironmentIntegrationProvider::
+        SubscribeToHitTestForTransientInputCallback callback) {
+  DVLOG(2) << __func__ << ": ray origin=" << ray->origin.ToString()
+           << ", ray direction=" << ray->direction.ToString();
+
+  base::Optional<uint64_t> maybe_subscription_id =
+      arcore_->SubscribeToHitTestForTransientInput(profile_name, entity_types,
+                                                   std::move(ray));
+
+  if (maybe_subscription_id) {
+    DVLOG(2) << __func__ << ": subscription_id=" << *maybe_subscription_id;
+    std::move(callback).Run(device::mojom::SubscribeToHitTestResult::SUCCESS,
+                            *maybe_subscription_id);
+  } else {
+    DVLOG(1) << __func__ << ": subscription failed";
+    std::move(callback).Run(
+        device::mojom::SubscribeToHitTestResult::FAILURE_GENERIC, 0);
+  }
+}
+
+void ArCoreGl::UnsubscribeFromHitTest(uint64_t subscription_id) {
   DVLOG(2) << __func__;
 
   arcore_->UnsubscribeFromHitTest(subscription_id);
 }
 
-void ArCoreGl::CreateAnchor(mojom::VRPosePtr anchor_pose,
+void ArCoreGl::CreateAnchor(mojom::PosePtr anchor_pose,
                             CreateAnchorCallback callback) {
   DVLOG(2) << __func__;
 
-  base::Optional<uint32_t> maybe_anchor_id = arcore_->CreateAnchor(anchor_pose);
+  base::Optional<uint64_t> maybe_anchor_id = arcore_->CreateAnchor(anchor_pose);
 
   if (maybe_anchor_id) {
     std::move(callback).Run(device::mojom::CreateAnchorResult::SUCCESS,
@@ -712,12 +739,12 @@ void ArCoreGl::CreateAnchor(mojom::VRPosePtr anchor_pose,
   }
 }
 
-void ArCoreGl::CreatePlaneAnchor(mojom::VRPosePtr anchor_pose,
-                                 uint32_t plane_id,
+void ArCoreGl::CreatePlaneAnchor(mojom::PosePtr anchor_pose,
+                                 uint64_t plane_id,
                                  CreatePlaneAnchorCallback callback) {
   DVLOG(2) << __func__;
 
-  base::Optional<uint32_t> maybe_anchor_id =
+  base::Optional<uint64_t> maybe_anchor_id =
       arcore_->CreateAnchor(anchor_pose, plane_id);
 
   if (maybe_anchor_id) {
@@ -728,7 +755,7 @@ void ArCoreGl::CreatePlaneAnchor(mojom::VRPosePtr anchor_pose,
   }
 }
 
-void ArCoreGl::DetachAnchor(uint32_t anchor_id) {
+void ArCoreGl::DetachAnchor(uint64_t anchor_id) {
   DVLOG(2) << __func__;
 
   arcore_->DetachAnchor(anchor_id);
@@ -759,13 +786,18 @@ void ArCoreGl::ProcessFrame(
     mojom::XRInputSourceStatePtr input_state = GetInputSourceState();
     if (input_state) {
       input_states_.push_back(std::move(input_state));
-      frame_data->pose->input_state = std::move(input_states_);
+      frame_data->input_state = std::move(input_states_);
     }
 
     // Get results for hit test subscriptions.
     frame_data->hit_test_subscription_results =
-        arcore_->GetHitTestSubscriptionResults(frame_data->pose);
+        arcore_->GetHitTestSubscriptionResults(
+            mojo::ConvertTo<gfx::Transform>(frame_data->pose),
+            frame_data->input_state);
   }
+
+  // Get anchors data, including anchors created this frame.
+  frame_data->anchors_data = arcore_->GetAnchorsData();
 
   // The timing requirements for hit-test are documented here:
   // https://github.com/immersive-web/hit-test/blob/master/explainer.md#timing
@@ -832,6 +864,8 @@ mojom::XRInputSourceStatePtr ArCoreGl::GetInputSourceState() {
 
   state->description->target_ray_mode = device::mojom::XRTargetRayMode::TAPPING;
 
+  state->description->profiles.push_back(kInputSourceProfileName);
+
   // Controller doesn't have a measured position.
   state->emulated_position = true;
 
@@ -870,22 +904,17 @@ mojom::XRInputSourceStatePtr ArCoreGl::GetInputSourceState() {
   new_y.Cross(new_x);
   new_y.GetNormalized(&new_y);
 
-  // Fill in the transform matrix in column-major order. The first three columns
+  // Fill in the transform matrix in row-major order. The first three columns
   // contain the basis vectors, the fourth column the position offset.
-  gfx::Transform from_ray_space(
-      new_x.x(), new_x.y(), new_x.z(), 0,  // X basis vector
-      new_y.x(), new_y.y(), new_y.z(), 0,  // Y basis vector
-      new_z.x(), new_z.y(), new_z.z(), 0,  // Z basis vector
-      touch_point.x(), touch_point.y(), touch_point.z(), 1);
-  DVLOG(3) << __func__ << ": from_ray_space=" << from_ray_space.ToString();
+  gfx::Transform viewer_from_pointer(
+      new_x.x(), new_y.x(), new_z.x(), touch_point.x(),  // row 1
+      new_x.y(), new_y.y(), new_z.y(), touch_point.y(),  // row 2
+      new_x.z(), new_y.z(), new_z.z(), touch_point.z(),  // row 3
+      0, 0, 0, 1);
+  DVLOG(3) << __func__ << ": viewer_from_pointer=\n"
+           << viewer_from_pointer.ToString();
 
-  // We now have a transform from ray space to viewer space, but the mojo
-  // matrices go in the opposite direction, in this case it expects a transform
-  // from grip matrix (== viewer space) to ray space, so we need to invert it.
-  gfx::Transform to_ray_space;
-  bool can_invert = from_ray_space.GetInverse(&to_ray_space);
-  state->description->pointer_offset = to_ray_space;
-  DCHECK(can_invert);
+  state->description->input_from_pointer = viewer_from_pointer;
 
   return state;
 }

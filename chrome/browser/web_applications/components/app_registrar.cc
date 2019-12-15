@@ -85,11 +85,40 @@ bool AppRegistrar::HasExternalAppWithInstallSource(
       profile()->GetPrefs(), app_id, install_source);
 }
 
-std::vector<web_app::AppId> AppRegistrar::FindAppsInScope(
-    const GURL& scope) const {
+base::Optional<AppId> AppRegistrar::FindAppWithUrlInScope(
+    const GURL& url) const {
+  const std::string url_path = url.spec();
+
+  base::Optional<AppId> best_app_id;
+  size_t best_app_path_length = 0U;
+  bool best_app_is_shortcut = true;
+
+  for (const AppId& app_id : GetAppIds()) {
+    // TODO(crbug.com/910016): Treat shortcuts as PWAs.
+    bool app_is_shortcut = IsShortcutApp(app_id);
+    if (app_is_shortcut && !best_app_is_shortcut)
+      continue;
+
+    const base::Optional<GURL> scope = GetAppScope(app_id);
+    const std::string app_path =
+        scope ? scope->spec() : GetAppLaunchURL(app_id).Resolve(".").spec();
+
+    if ((app_path.size() > best_app_path_length ||
+         (best_app_is_shortcut && !app_is_shortcut)) &&
+        base::StartsWith(url_path, app_path, base::CompareCase::SENSITIVE)) {
+      best_app_id = app_id;
+      best_app_path_length = app_path.size();
+      best_app_is_shortcut = app_is_shortcut;
+    }
+  }
+
+  return best_app_id;
+}
+
+std::vector<AppId> AppRegistrar::FindAppsInScope(const GURL& scope) const {
   std::string scope_str = scope.spec();
 
-  std::vector<web_app::AppId> in_scope;
+  std::vector<AppId> in_scope;
   for (const auto& app_id : GetAppIds()) {
     const base::Optional<GURL>& app_scope = GetAppScope(app_id);
     if (!app_scope)
@@ -110,6 +139,16 @@ bool AppRegistrar::IsShortcutApp(const AppId& app_id) const {
   // TODO (crbug/910016): Make app scope always return a value and record this
   //  distinction in some other way.
   return !GetAppScope(app_id).has_value();
+}
+
+DisplayMode AppRegistrar::GetAppEffectiveDisplayMode(
+    const AppId& app_id) const {
+  auto app_display_mode = GetAppDisplayMode(app_id);
+  auto user_display_mode = GetAppUserDisplayMode(app_id);
+  if (user_display_mode == DisplayMode::kUndefined)
+    return DisplayMode::kUndefined;
+
+  return ResolveEffectiveDisplayMode(app_display_mode, user_display_mode);
 }
 
 }  // namespace web_app

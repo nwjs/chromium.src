@@ -78,17 +78,6 @@ PaintResult PaintLayerPainter::Paint(
   // https://code.google.com/p/chromium/issues/detail?id=343772
   DisableCompositingQueryAsserts disabler;
 
-  if (paint_layer_.GetCompositingState() != kNotComposited) {
-    if (painting_info.GetGlobalPaintFlags() &
-        kGlobalPaintFlattenCompositingLayers) {
-      // FIXME: ok, but what about GlobalPaintFlattenCompositingLayers? That's
-      // for printing and drag-image.
-      // FIXME: why isn't the code here global, as opposed to being set on each
-      // paint() call?
-      paint_flags |= kPaintLayerUncachedClipRects;
-    }
-  }
-
   // Non self-painting layers without self-painting descendants don't need to be
   // painted as their layoutObject() should properly paint itself.
   if (!paint_layer_.IsSelfPaintingLayer() &&
@@ -123,8 +112,8 @@ static bool ShouldCreateSubsequence(const PaintLayer& paint_layer,
                                     const GraphicsContext& context,
                                     const PaintLayerPaintingInfo& painting_info,
                                     PaintLayerFlags paint_flags) {
-  // Caching is not needed during printing.
-  if (context.Printing())
+  // Caching is not needed during printing or painting previews.
+  if (context.Printing() || context.IsPaintingPreview())
     return false;
 
   if (context.GetPaintController().IsSkippingCache())
@@ -146,8 +135,8 @@ static bool ShouldCreateSubsequence(const PaintLayer& paint_layer,
   if (painting_info.GetGlobalPaintFlags() &
       kGlobalPaintFlattenCompositingLayers)
     return false;
-  if (paint_flags & (kPaintLayerPaintingOverlayOverflowControls |
-                     kPaintLayerUncachedClipRects))
+
+  if (paint_flags & kPaintLayerPaintingOverlayOverflowControls)
     return false;
 
   return true;
@@ -157,7 +146,7 @@ static bool ShouldRepaintSubsequence(
     PaintLayer& paint_layer,
     const PaintLayerPaintingInfo& painting_info) {
   // Repaint subsequence if the layer is marked for needing repaint.
-  if (paint_layer.NeedsRepaint())
+  if (paint_layer.SelfOrDescendantNeedsRepaint())
     return true;
 
   // Repaint if previously the layer may be clipped by cull rect, and cull rect
@@ -209,8 +198,7 @@ static bool IsMainFrameNotClippingContents(const PaintLayer& layer) {
   // of the main frame.
   if (layer.GetLayoutObject().IsLayoutView()) {
     const auto* frame = layer.GetLayoutObject().GetFrame();
-    if (frame && frame->IsMainFrame() &&
-        !frame->GetSettings()->GetMainFrameClipsContent())
+    if (frame && frame->IsMainFrame() && !frame->ClipsContent())
       return true;
   }
   return false;
@@ -266,13 +254,19 @@ void PaintLayerPainter::AdjustForPaintProperties(
       // transform space. Convert cull_rect from the root layer's local space.
       cull_rect.MoveBy(RoundedIntPoint(first_root_fragment.PaintOffset()));
       base::Optional<CullRect> old_cull_rect;
-      if (!paint_layer_.NeedsRepaint()) {
+      if (!paint_layer_.SelfOrDescendantNeedsRepaint()) {
         old_cull_rect = paint_layer_.PreviousCullRect();
         // Convert old_cull_rect into the layer's transform space.
         old_cull_rect->MoveBy(RoundedIntPoint(first_fragment.PaintOffset()));
       }
+
+      // Don't clip to the view scrolling container when printing because we
+      // need to print the whole document.
+      bool clip_to_scroll_container =
+          !(context.Printing() &&
+            (paint_flags & kPaintLayerPaintingOverflowContents));
       cull_rect.ApplyTransforms(*source_transform, destination_transform,
-                                old_cull_rect);
+                                old_cull_rect, clip_to_scroll_container);
       // Convert cull_rect from the layer's transform space to the layer's local
       // space.
       cull_rect.MoveBy(-RoundedIntPoint(first_fragment.PaintOffset()));

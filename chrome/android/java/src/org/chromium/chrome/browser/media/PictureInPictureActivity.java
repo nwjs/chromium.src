@@ -27,8 +27,10 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.init.AsyncInitializationActivity;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.thinwebview.CompositorView;
 import org.chromium.chrome.browser.thinwebview.CompositorViewFactory;
+import org.chromium.chrome.browser.thinwebview.ThinWebViewConstraints;
 import org.chromium.chrome.browser.util.MathUtils;
 import org.chromium.content_public.browser.MediaSession;
 import org.chromium.content_public.browser.MediaSessionObserver;
@@ -87,7 +89,7 @@ public class PictureInPictureActivity extends AsyncInitializationActivity {
 
         @Override
         public void onDestroyed(Tab tab) {
-            if (tab.isClosing() || !isInitiatorTabAlive()) {
+            if (((TabImpl) tab).isClosing() || !isInitiatorTabAlive()) {
                 mStatus = Status.DESTROYED;
                 if (mActivity != null) mActivity.finish();
             }
@@ -109,7 +111,8 @@ public class PictureInPictureActivity extends AsyncInitializationActivity {
     public void finishNativeInitialization() {
         super.finishNativeInitialization();
 
-        mCompositorView = CompositorViewFactory.create(this, getWindowAndroid());
+        mCompositorView = CompositorViewFactory.create(
+                this, getWindowAndroid(), new ThinWebViewConstraints());
         addContentView(mCompositorView.getView(),
                 new ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -262,7 +265,7 @@ public class PictureInPictureActivity extends AsyncInitializationActivity {
 
         sNativeOverlayWindowAndroid = nativeOverlayWindowAndroid;
         sInitiatorTab = (Tab) initiatorTab;
-        sInitiatorTabTaskID = sInitiatorTab.getActivity().getTaskId();
+        sInitiatorTabTaskID = ((TabImpl) sInitiatorTab).getActivity().getTaskId();
 
         sTabObserver = new InitiatorTabObserver();
         sInitiatorTab.addObserver(sTabObserver);

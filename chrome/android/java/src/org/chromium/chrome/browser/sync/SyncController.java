@@ -9,13 +9,13 @@ import android.app.Activity;
 import android.content.Context;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ApplicationStatus.ActivityStateListener;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.identity.UniqueIdentificationGenerator;
@@ -26,7 +26,7 @@ import org.chromium.chrome.browser.signin.SigninManager;
 import org.chromium.components.signin.ChromeSigninController;
 import org.chromium.components.sync.AndroidSyncSettings;
 import org.chromium.components.sync.ModelType;
-import org.chromium.components.sync.Passphrase;
+import org.chromium.components.sync.PassphraseType;
 import org.chromium.components.sync.StopSource;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 
@@ -206,7 +206,9 @@ public class SyncController implements ProfileSyncService.SyncStateChangedListen
     public boolean isSyncingUrlsWithKeystorePassphrase() {
         return mProfileSyncService.isEngineInitialized()
                 && mProfileSyncService.getPreferredDataTypes().contains(ModelType.TYPED_URLS)
-                && mProfileSyncService.getPassphraseType() == Passphrase.Type.KEYSTORE;
+                && (mProfileSyncService.getPassphraseType() == PassphraseType.KEYSTORE_PASSPHRASE
+                        || mProfileSyncService.getPassphraseType()
+                                == PassphraseType.TRUSTED_VAULT_PASSPHRASE);
     }
 
     /**

@@ -23,6 +23,7 @@
 #include "media/mojo/services/media_interface_provider.h"
 #include "media/renderers/paint_canvas_video_renderer.h"
 #include "media/video/gpu_video_accelerator_factories.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/service_manager/public/cpp/connector.h"
 #include "services/viz/public/cpp/gpu/context_provider_command_buffer.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -209,15 +210,16 @@ void DownloadMediaParser::OnGpuVideoAcceleratorFactoriesReady(
 }
 
 void DownloadMediaParser::DecodeVideoFrame() {
-  media::mojom::VideoDecoderPtr video_decoder_ptr;
+  mojo::PendingRemote<media::mojom::VideoDecoder> video_decoder_remote;
   GetMediaInterfaceFactory()->CreateVideoDecoder(
-      mojo::MakeRequest(&video_decoder_ptr));
+      video_decoder_remote.InitWithNewPipeAndPassReceiver());
 
   // Build and config the decoder.
   DCHECK(gpu_factories_);
   auto mojo_decoder = std::make_unique<media::MojoVideoDecoder>(
       base::ThreadTaskRunnerHandle::Get(), gpu_factories_.get(), this,
-      std::move(video_decoder_ptr), media::VideoDecoderImplementation::kDefault,
+      std::move(video_decoder_remote),
+      media::VideoDecoderImplementation::kDefault,
       base::BindRepeating(&OnRequestOverlayInfo), gfx::ColorSpace());
 
   decoder_ = std::make_unique<media::VideoThumbnailDecoder>(
@@ -264,15 +266,17 @@ void DownloadMediaParser::RenderVideoFrame(
 media::mojom::InterfaceFactory*
 DownloadMediaParser::GetMediaInterfaceFactory() {
   if (!media_interface_factory_) {
-    service_manager::mojom::InterfaceProviderPtr interfaces;
+    mojo::PendingRemote<service_manager::mojom::InterfaceProvider> interfaces;
     media_interface_provider_ = std::make_unique<media::MediaInterfaceProvider>(
-        mojo::MakeRequest(&interfaces));
-    media::mojom::MediaServicePtr media_service;
+        interfaces.InitWithNewPipeAndPassReceiver());
+    mojo::Remote<media::mojom::MediaService> media_service;
     content::GetSystemConnector()->BindInterface(
-        media::mojom::kMediaServiceName, &media_service);
+        media::mojom::kMediaServiceName,
+        media_service.BindNewPipeAndPassReceiver());
     media_service->CreateInterfaceFactory(
-        MakeRequest(&media_interface_factory_), std::move(interfaces));
-    media_interface_factory_.set_connection_error_handler(
+        media_interface_factory_.BindNewPipeAndPassReceiver(),
+        std::move(interfaces));
+    media_interface_factory_.set_disconnect_handler(
         base::BindOnce(&DownloadMediaParser::OnDecoderConnectionError,
                        base::Unretained(this)));
   }

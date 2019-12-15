@@ -10,6 +10,7 @@
 #include "base/callback_list.h"
 #include "chrome/browser/sharing/sharing_constants.h"
 #include "chrome/browser/sharing/sharing_sync_preference.h"
+#include "chrome/browser/sharing/sharing_utils.h"
 #include "chrome/browser/sharing/vapid_key_manager.h"
 #include "components/gcm_driver/fake_gcm_driver.h"
 #include "components/sync_device_info/device_info.h"
@@ -25,12 +26,7 @@ const char kMessageId[] = "message_id";
 const char kFcmToken[] = "fcm_token";
 const char kP256dh[] = "p256dh";
 const char kAuthSecret[] = "auth_secret";
-const char kSenderFcmToken[] = "sender_fcm_token";
-const char kSenderP256dh[] = "sender_p256dh";
-const char kSenderAuthSecret[] = "sender_auth_secret";
 const char kAuthorizedEntity[] = "authorized_entity";
-const char kLocalGuid[] = "id";
-const char kLocalClientName[] = "name";
 const int kTtlSeconds = 10;
 
 class FakeGCMDriver : public gcm::FakeGCMDriver {
@@ -126,9 +122,7 @@ TEST_F(SharingFCMSenderTest, NoFcmRegistration) {
   ON_CALL(vapid_key_manager_, GetOrCreateKey())
       .WillByDefault(testing::Return(vapid_key.get()));
 
-  syncer::DeviceInfo::SharingInfo target(
-      kFcmToken, kP256dh, kAuthSecret,
-      std::set<sync_pb::SharingSpecificFields::EnabledFeatures>());
+  syncer::DeviceInfo::SharingTargetInfo target{kFcmToken, kP256dh, kAuthSecret};
 
   SharingSendMessageResult result;
   base::Optional<std::string> message_id;
@@ -136,7 +130,7 @@ TEST_F(SharingFCMSenderTest, NoFcmRegistration) {
   sharing_message.mutable_ack_message();
   sharing_fcm_sender_.SendMessageToDevice(
       std::move(target), base::TimeDelta::FromSeconds(kTtlSeconds),
-      std::move(sharing_message), /*sender_device_info=*/nullptr,
+      std::move(sharing_message),
       base::BindOnce(&SharingFCMSenderTest::OnMessageSent,
                      base::Unretained(this), &result, &message_id));
 
@@ -150,9 +144,7 @@ TEST_F(SharingFCMSenderTest, NoVapidKey) {
   ON_CALL(vapid_key_manager_, GetOrCreateKey())
       .WillByDefault(testing::Return(nullptr));
 
-  syncer::DeviceInfo::SharingInfo target(
-      kFcmToken, kP256dh, kAuthSecret,
-      std::set<sync_pb::SharingSpecificFields::EnabledFeatures>());
+  syncer::DeviceInfo::SharingTargetInfo target{kFcmToken, kP256dh, kAuthSecret};
 
   SharingSendMessageResult result;
   base::Optional<std::string> message_id;
@@ -160,7 +152,7 @@ TEST_F(SharingFCMSenderTest, NoVapidKey) {
   sharing_message.mutable_ack_message();
   sharing_fcm_sender_.SendMessageToDevice(
       std::move(target), base::TimeDelta::FromSeconds(kTtlSeconds),
-      std::move(sharing_message), /*sender_device_info=*/nullptr,
+      std::move(sharing_message),
       base::BindOnce(&SharingFCMSenderTest::OnMessageSent,
                      base::Unretained(this), &result, &message_id));
 
@@ -199,16 +191,6 @@ class SharingFCMSenderResultTest
 TEST_P(SharingFCMSenderResultTest, ResultTest) {
   sync_prefs_.SetFCMRegistration(SharingSyncPreference::FCMRegistration(
       kAuthorizedEntity, base::Time::Now()));
-  std::unique_ptr<syncer::DeviceInfo> sender_device_info =
-      std::make_unique<syncer::DeviceInfo>(
-          "id", "name", "chrome_version", "user_agent",
-          sync_pb::SyncEnums_DeviceType_TYPE_LINUX, "device_id",
-          base::SysInfo::HardwareInfo{"model", "manufacturer", "serial"},
-          /*last_updated_timestamp=*/base::Time::Now(),
-          /*send_tab_to_self_receiving_enabled=*/false,
-          syncer::DeviceInfo::SharingInfo(
-              kSenderFcmToken, kSenderP256dh, kSenderAuthSecret,
-              std::set<sync_pb::SharingSpecificFields::EnabledFeatures>()));
   fake_gcm_driver_.set_result(GetParam().web_push_result);
 
   std::unique_ptr<crypto::ECPrivateKey> vapid_key =
@@ -216,9 +198,7 @@ TEST_P(SharingFCMSenderResultTest, ResultTest) {
   ON_CALL(vapid_key_manager_, GetOrCreateKey())
       .WillByDefault(testing::Return(vapid_key.get()));
 
-  syncer::DeviceInfo::SharingInfo target(
-      kFcmToken, kP256dh, kAuthSecret,
-      std::set<sync_pb::SharingSpecificFields::EnabledFeatures>());
+  syncer::DeviceInfo::SharingTargetInfo target{kFcmToken, kP256dh, kAuthSecret};
 
   SharingSendMessageResult result;
   base::Optional<std::string> message_id;
@@ -226,11 +206,9 @@ TEST_P(SharingFCMSenderResultTest, ResultTest) {
   sharing_message.mutable_ping_message();
   sharing_fcm_sender_.SendMessageToDevice(
       std::move(target), base::TimeDelta::FromSeconds(kTtlSeconds),
-      std::move(sharing_message), std::move(sender_device_info),
+      std::move(sharing_message),
       base::BindOnce(&SharingFCMSenderTest::OnMessageSent,
                      base::Unretained(this), &result, &message_id));
-
-  fake_device_info_sync_service.GetLocalDeviceInfoProvider()->SetReady(true);
 
   EXPECT_EQ(kSharingFCMAppID, fake_gcm_driver_.app_id());
   EXPECT_EQ(kAuthorizedEntity, fake_gcm_driver_.authorized_entity());
@@ -245,12 +223,6 @@ TEST_P(SharingFCMSenderResultTest, ResultTest) {
   chrome_browser_sharing::SharingMessage message_sent;
   message_sent.ParseFromString(fake_gcm_driver_.message().payload);
   EXPECT_TRUE(message_sent.has_ping_message());
-  EXPECT_EQ(kLocalGuid, message_sent.sender_guid());
-  EXPECT_EQ(kLocalClientName, message_sent.sender_device_name());
-  EXPECT_TRUE(message_sent.has_sender_info());
-  EXPECT_EQ(kSenderFcmToken, message_sent.sender_info().fcm_token());
-  EXPECT_EQ(kSenderP256dh, message_sent.sender_info().p256dh());
-  EXPECT_EQ(kSenderAuthSecret, message_sent.sender_info().auth_secret());
 
   EXPECT_EQ(GetParam().expected_result, result);
   EXPECT_EQ(kMessageId, message_id);

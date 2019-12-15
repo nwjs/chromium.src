@@ -982,7 +982,7 @@ scoped_refptr<const NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
 
   if (NGFragmentItemsBuilder* items_builder = context_->ItemsBuilder()) {
     DCHECK(RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled());
-    container_builder_.AddOutOfFlowChildren(line_box_);
+    container_builder_.PropagateChildrenData(line_box_);
     scoped_refptr<const NGLayoutResult> layout_result =
         container_builder_.ToLineBoxFragment();
     if (items_builder->TextContent(false).IsNull())
@@ -1046,16 +1046,17 @@ NGPositionedFloat NGInlineLayoutAlgorithm::PositionFloat(
     LayoutUnit origin_bfc_block_offset,
     LayoutObject* floating_object,
     NGExclusionSpace* exclusion_space) const {
-  NGUnpositionedFloat unpositioned_float(
-      NGBlockNode(ToLayoutBox(floating_object)), /* break_token */ nullptr);
-
   NGBfcOffset origin_bfc_offset = {ConstraintSpace().BfcOffset().line_offset,
                                    origin_bfc_block_offset};
-  return ::blink::PositionFloat(
-      ConstraintSpace().AvailableSize(),
+
+  NGUnpositionedFloat unpositioned_float(
+      NGBlockNode(ToLayoutBox(floating_object)),
+      /* break_token */ nullptr, ConstraintSpace().AvailableSize(),
       ConstraintSpace().PercentageResolutionSize(),
       ConstraintSpace().ReplacedPercentageResolutionSize(), origin_bfc_offset,
-      &unpositioned_float, ConstraintSpace(), Style(), exclusion_space);
+      ConstraintSpace(), Style());
+
+  return ::blink::PositionFloat(&unpositioned_float, exclusion_space);
 }
 
 void NGInlineLayoutAlgorithm::BidiReorder(TextDirection base_direction) {

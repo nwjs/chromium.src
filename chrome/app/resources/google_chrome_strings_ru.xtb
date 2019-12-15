@@ -3,7 +3,6 @@
 <translationbundle lang="ru">
 <translation id="1001534784610492198">Архив программы установки поврежден или имеет неправильный формат. Скачайте Google Chrome снова.</translation>
 <translation id="102763973188675173">Новая версия Google Chrome уже вышла!</translation>
-<translation id="1035334672863811645">войдите в Chrome</translation>
 <translation id="1051826050538111504">На компьютере обнаружено вредоносное ПО. Chrome может удалить его, восстановить настройки и отключить расширения. Это вернет браузер в обычное состояние.</translation>
 <translation id="1065672644894730302">Не удается получить настройки. Некоторые функции могут быть недоступны, а изменения настроек не будут сохраняться.</translation>
 <translation id="1088300314857992706">Адрес <ph name="USER_EMAIL_ADDRESS" /> уже использовался в Chrome</translation>
@@ -72,7 +71,6 @@
 <translation id="3065168410429928842">Вкладка Chrome</translation>
 <translation id="3080151273017101988">Не отключать работающие в фоновом режиме сервисы при закрытии браузера</translation>
 <translation id="3089968997497233615">Доступна новая, более безопасная версия Google Chrome.</translation>
-<translation id="3138848678222082288">Новые версии Chrome будут устанавливаться автоматически. Когда скачивание завершится, Chrome перезапустится и вы сможете продолжить работу.</translation>
 <translation id="3149510190863420837">Приложения Chrome</translation>
 <translation id="3282568296779691940">Войти в Chrome</translation>
 <translation id="3340978935015468852">настройках</translation>
@@ -93,7 +91,6 @@
 <translation id="3718181793972440140">С устройства будет удален 1 объект. Чтобы восстановить данные позже, войдите в Chrome как <ph name="USER_EMAIL" />.</translation>
 <translation id="3735758079232443276">Расширение "<ph name="EXTENSION_NAME" />" изменило стартовую страницу Chrome.</translation>
 <translation id="3780814664026482060">Chrome – <ph name="PAGE_TITLE" /></translation>
-<translation id="3784527566857328444">Удалить из Chrome</translation>
 <translation id="386202838227397562">Закройте все окна Chrome и повторите попытку снова.</translation>
 <translation id="3873044882194371212">Открыть ссылку в режиме инкогнито браузера Chrome</translation>
 <translation id="3889417619312448367">Удалить Google Chrome</translation>
@@ -173,7 +170,6 @@
 <translation id="677276454032249905">Закрыть Chrome?</translation>
 <translation id="683440813066116847">Разрешить в Google Chrome Canary передачу входящего трафика по протоколу mDNS</translation>
 <translation id="6885412569789873916">Приложения Chrome (бета)</translation>
-<translation id="6906909733186691861">Новые версии Chrome будут устанавливаться автоматически.</translation>
 <translation id="6943584222992551122">Данные о работе этого пользователя в браузере будут удалены с устройства. Чтобы восстановить их, войдите в Chrome как <ph name="USER_EMAIL" />.</translation>
 <translation id="6967962315388095737">Разрешить в Google Chrome (бета) передачу входящего трафика по протоколу mDNS</translation>
 <translation id="6982337800632491844">До начала работы с устройством необходимо ознакомиться с Условиями использования на веб-сайте <ph name="DOMAIN" /> и принять их. Эти условия не дополняют, не заменяют и не ограничивают Условий использования Chrome OS.</translation>
@@ -224,7 +220,6 @@
 <translation id="8521348052903287641">Разрешить в Google Chrome для разработчиков передачу входящего трафика по протоколу mDNS</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8556340503434111824">Доступна новая версия Google Chrome, которая стала еще быстрее.</translation>
-<translation id="8606668294522778825">Для более качественной работы Google Chrome может использовать веб-сервисы. При необходимости вы можете отключить их. <ph name="BEGIN_LINK" />Подробнее…<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome не отвечает. Перезапустить сейчас?</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome перезапустится через 1 минуту}one{Chrome перезапустится через # минуту}few{Chrome перезапустится через # минуты}many{Chrome перезапустится через # минут}other{Chrome перезапустится через # минуты}}</translation>
 <translation id="8669527147644353129">Google Chrome Helper</translation>

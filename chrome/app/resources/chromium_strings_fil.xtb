@@ -33,7 +33,6 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="2560420686485554789">Kailangan ng Chromium ang access sa storage upang maka-download ng mga file</translation>
 <translation id="2572494885440352020">Helper ng Chromium</translation>
 <translation id="2587578672395088481">Kailangang ma-restart ang Chromium OS upang mailapat ang update.</translation>
-<translation id="2647554856022461007">Maaaring gumamit ang Chromium ng mga serbisyo sa web upang mapahusay ang iyong karanasan sa pag-browse. Opsyonal mong madi-disable ang mga serbisyong ito. <ph name="BEGIN_LINK" />Matuto pa<ph name="END_LINK" /></translation>
 <translation id="2648074677641340862">May naganap na error sa operating system sa panahon ng pag-install. Mangyaring i-download muli ang Chromium.</translation>
 <translation id="2711502716910134313">Tab ng Chromium</translation>
 <translation id="2718390899429598676">Para sa karagdagang seguridad, ie-encrypt ng Chromium ang iyong data.</translation>
@@ -61,7 +60,6 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="3340978935015468852">mga setting</translation>
 <translation id="3474745554856756813">Magde-delete ito ng <ph name="ITEMS_COUNT" /> (na) item sa device na ito. Upang makuha ang iyong data sa ibang pagkakataon, mag-sign in sa Chromium bilang <ph name="USER_EMAIL" />.</translation>
 <translation id="3509308970982693815">Pakisara ang lahat ng window sa Chromium at subukang muli.</translation>
-<translation id="352783484088404971">Alisin Sa Chromium...</translation>
 <translation id="3575459661164320785">May mapaminsalang software sa iyong computer. Magagawa ng Chromium na alisin ito, i-restore ang iyong mga setting, at i-disable ang mga extension para muling mapagana nang normal ang browser mo.</translation>
 <translation id="358997566136285270">Logo ng Chromium</translation>
 <translation id="3639635944603682591">Made-delete sa device na ito ang data sa pag-browse ng taong ito. Para ma-recover ang data, mag-sign in sa Chromium bilang <ph name="USER_EMAIL" />.</translation>
@@ -86,7 +84,6 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="4567424176335768812">Naka-sign in ka bilang <ph name="USER_EMAIL_ADDRESS" />. Maaari mo na ngayong i-access ang iyong mga bookmark, kasaysayan, at iba pang setting sa lahat ng iyong device na naka-sign in.</translation>
 <translation id="459535195905078186">Chromium Apps</translation>
 <translation id="4621240073146040695">Halos napapanahon na! Muling ilunsad ang Chromium upang tapusin ang pag-a-update.</translation>
-<translation id="4661006601577405669">Awtomatikong ii-install ang mga bersyon ng Chromium sa hinaharap.</translation>
 <translation id="4677944499843243528">Mukhang ginagamit ang profile ng iba pang proseso ng Chromium (<ph name="PROCESS_ID" />) sa iba pang computer (<ph name="HOST_NAME" />).  Ni-lock ng Chromium ang profile upang hindi ito ma-corrupt.  Kung nakakatiyak ka na walang ibang mga proseso ang gumagamit sa profile na ito, maaari mong i-unlock ang profile at ilunsad muli ang Chromium.</translation>
 <translation id="469338717132742108">Humingi ng tulong sa Chromium OS</translation>
 <translation id="4708774505295300557">May nag-sign in dati sa Chromium sa computer na ito bilang <ph name="ACCOUNT_EMAIL_LAST" />. Mangyaring gumawa ng bagong user ng Chromium upang ihiwalay ang iyong impormasyon.</translation>
@@ -112,7 +109,6 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="5631814766731275228">pangalan at larawan sa Chromium</translation>
 <translation id="5634636535844844681">Kailangan ng Chromium ng Windows 7 o mas bago.</translation>
 <translation id="5653831366781983928">Paki-restart ang Chromium ngayon</translation>
-<translation id="5680901439334282664">mag-sign in sa Chromium</translation>
 <translation id="5698481217667032250">Ipakita ang Chromium sa wikang ito</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5862307444128926510">Maligayang Pagdating sa Chromium</translation>
@@ -175,7 +171,6 @@ Hindi mabawi ng Chromium ang iyong mga setting.</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium Dev</translation>
 <translation id="7451052299415159299">Kailangan ng Chromium ng pahintulot na i-access ang iyong camera para sa site na ito</translation>
 <translation id="7483335560992089831">Hindi ma-install ang parehong Bersyon ng Chromium na kasalukuyang tumatakbo. Pakisara ang Chromium at subukang muli.</translation>
-<translation id="751093125041325477">Awtomatikong ii-install ang mga bersyon ng Chromium sa hinaharap. Kapag nakumpleto ang pag-download na ito, magre-restart ang Chromium at makakapagpatuloy ka na.</translation>
 <translation id="753534427205733210">{0,plural, =1{Muling ilulunsad ang Chromium sa loob ng 1 minuto}one{Muling ilulunsad ang Chromium sa loob ng # minuto}other{Muling ilulunsad ang Chromium sa loob ng # na minuto}}</translation>
 <translation id="7549178288319965365">Tungkol sa Chromium OS</translation>
 <translation id="7561906087460245826">I-clear din ang data sa Chromium (<ph name="URL" />)</translation>

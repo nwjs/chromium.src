@@ -51,6 +51,7 @@ class MockWebMediaPlayer : public WebMediaPlayer {
   void Seek(double seconds) override {}
   void SetRate(double) override {}
   void SetVolume(double) override {}
+  void SetLatencyHint(double) override {}
   void OnRequestPictureInPicture() override {}
   WebTimeRanges Buffered() const override { return WebTimeRanges(); }
   WebTimeRanges Seekable() const override { return WebTimeRanges(); }
@@ -191,7 +192,7 @@ TEST_P(HTMLVideoElementCapturerSourceTest, GetFormatsAndStartAndStop) {
   Mock::VerifyAndClearExpectations(this);
 }
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          HTMLVideoElementCapturerSourceTest,
                          ::testing::Bool());
 

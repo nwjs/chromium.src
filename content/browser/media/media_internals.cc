@@ -39,7 +39,7 @@
 #include "media/base/audio_parameters.h"
 #include "media/base/media_log_event.h"
 #include "media/webrtc/webrtc_switches.h"
-#include "mojo/public/cpp/bindings/strong_binding.h"
+#include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "services/service_manager/sandbox/features.h"
 #include "services/service_manager/sandbox/sandbox_type.h"
 
@@ -354,7 +354,7 @@ static bool ConvertEventToUpdate(int render_process_id,
     }
     media::PipelineStatus error = static_cast<media::PipelineStatus>(status);
     dict.SetString("params.pipeline_error",
-                   media::MediaLog::PipelineStatusToString(error));
+                   media::PipelineStatusToString(error));
   } else {
     dict.SetKey("params", event.params.Clone());
   }
@@ -435,7 +435,6 @@ void MediaInternals::SendGeneralAudioInformation() {
                            base::Value(feature_value ? "Enabled" : "Disabled"));
   };
 
-  set_feature_data(features::kAudioServiceAudioStreams);
   set_feature_data(features::kAudioServiceOutOfProcess);
 
   std::string feature_value_string;
@@ -529,27 +528,28 @@ std::unique_ptr<media::AudioLog> MediaInternals::CreateAudioLog(
   return CreateAudioLogImpl(component, component_id, -1, MSG_ROUTING_NONE);
 }
 
-media::mojom::AudioLogPtr MediaInternals::CreateMojoAudioLog(
+mojo::PendingRemote<media::mojom::AudioLog> MediaInternals::CreateMojoAudioLog(
     media::AudioLogFactory::AudioComponent component,
     int component_id,
     int render_process_id,
     int render_frame_id) {
-  media::mojom::AudioLogPtr audio_log_ptr;
-  CreateMojoAudioLog(component, component_id, mojo::MakeRequest(&audio_log_ptr),
+  mojo::PendingRemote<media::mojom::AudioLog> audio_log;
+  CreateMojoAudioLog(component, component_id,
+                     audio_log.InitWithNewPipeAndPassReceiver(),
                      render_process_id, render_frame_id);
-  return audio_log_ptr;
+  return audio_log;
 }
 
 void MediaInternals::CreateMojoAudioLog(
     media::AudioLogFactory::AudioComponent component,
     int component_id,
-    media::mojom::AudioLogRequest request,
+    mojo::PendingReceiver<media::mojom::AudioLog> receiver,
     int render_process_id,
     int render_frame_id) {
-  mojo::MakeStrongBinding(
+  mojo::MakeSelfOwnedReceiver(
       CreateAudioLogImpl(component, component_id, render_process_id,
                          render_frame_id),
-      std::move(request));
+      std::move(receiver));
 }
 
 std::unique_ptr<MediaInternals::AudioLogImpl>

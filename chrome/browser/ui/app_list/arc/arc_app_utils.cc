@@ -14,6 +14,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/observer_list.h"
+#include "base/scoped_observer.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -22,13 +23,13 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/arc/arc_migration_guide_notification.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/arc/boot_phase_monitor/arc_boot_phase_monitor_bridge.h"
 #include "chrome/browser/chromeos/arc/notification/arc_supervision_transition_notification.h"
 #include "chrome/browser/chromeos/arc/session/arc_session_manager.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/browser/ui/ash/launcher/arc_app_shelf_id.h"
 #include "chrome/browser/ui/ash/launcher/arc_shelf_spinner_item_controller.h"
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
@@ -43,10 +44,6 @@
 #include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/notification_observer.h"
-#include "content/public/browser/notification_registrar.h"
-#include "content/public/browser/notification_service.h"
-#include "content/public/browser/notification_source.h"
 #include "ui/aura/window.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
@@ -112,36 +109,10 @@ bool IsMouseOrTouchEventFromFlags(int event_flags) {
 using AppLaunchObserverMap =
     std::map<content::BrowserContext*, base::ObserverList<AppLaunchObserver>>;
 
-AppLaunchObserverMap* GetAppLaunchObserverMap();
-
-content::NotificationObserver* GetNotificationObserver() {
-  class ProfileDestroyedObserver : public content::NotificationObserver {
-   public:
-    void Observe(int type,
-                 const content::NotificationSource& source,
-                 const content::NotificationDetails& details) override {
-      if (type == chrome::NOTIFICATION_PROFILE_DESTROYED) {
-        GetAppLaunchObserverMap()->erase(
-            content::Source<Profile>(source).ptr());
-      }
-    }
-  };
-  static base::NoDestructor<ProfileDestroyedObserver> observer;
-  return observer.get();
-}
-
 AppLaunchObserverMap* GetAppLaunchObserverMap() {
   static base::NoDestructor<
       std::map<content::BrowserContext*, base::ObserverList<AppLaunchObserver>>>
       instance;
-  static base::NoDestructor<content::NotificationRegistrar> registrar;
-  if (!registrar->IsRegistered(
-          GetNotificationObserver(), chrome::NOTIFICATION_PROFILE_DESTROYED,
-          content::NotificationService::AllBrowserContextsAndSources())) {
-    registrar->Add(
-        GetNotificationObserver(), chrome::NOTIFICATION_PROFILE_DESTROYED,
-        content::NotificationService::AllBrowserContextsAndSources());
-  }
   return instance.get();
 }
 
@@ -237,24 +208,35 @@ int64_t GetValidDisplayId(int64_t display_id) {
 
 }  // namespace
 
-const char kCameraAppId[] = "goamfaniemdfcajgcmmflhchgkmbngka";
-const char kCameraMigrationAppId[] = "ngmkobaiicipbagcngcmilfkhejlnfci";
-const char kGoogleDuo[] = "djkcbcmkefiiphjkonbeknmcgiheajce";
-const char kInfinitePainter[] = "afihfgfghkmdmggakhkgnfhlikhdpima";
-const char kLightRoom[] = "fpegfnbgomakooccabncdaelhfppceni";
-const char kPlayStoreAppId[] = "cnbgggchhmkkdmeppjobngjoejnihlei";
-const char kPlayBooksAppId[] = "cafegjnmmjpfibnlddppihpnkbkgicbg";
-const char kPlayGamesAppId[] = "nplnnjkbeijcggmpdcecpabgbjgeiedc";
-const char kLegacyCameraAppId[] = "obfofkigjfamlldmipdegnjlcpincibc";
-const char kPlayMoviesAppId[] = "dbbihmicnlldbflflckpafphlekmjfnm";
-const char kPlayMusicAppId[] = "ophbaopahelaolbjliokocojjbgfadfn";
-const char kPlayStorePackage[] = "com.android.vending";
-const char kPlayStoreActivity[] = "com.android.vending.AssetBrowserActivity";
-const char kSettingsAppId[] = "mconboelelhjpkbdhhiijkgcimoangdj";
+// Package names, kept in sorted order.
 const char kInitialStartParam[] = "S.org.chromium.arc.start_type=initialStart";
-constexpr char kSettingsAppPackage[] = "com.android.settings";
+const char kRequestStartTimeParamTemplate[] =
+    "S.org.chromium.arc.request.start=%" PRId64;
+const char kPlayStoreActivity[] = "com.android.vending.AssetBrowserActivity";
+const char kPlayStorePackage[] = "com.android.vending";
 const char kSettingsAppDomainUrlActivity[] =
     "com.android.settings.Settings$ManageDomainUrlsActivity";
+
+constexpr char kSettingsAppPackage[] = "com.android.settings";
+
+// App IDs, kept in sorted order.
+const char kCameraAppId[] = "goamfaniemdfcajgcmmflhchgkmbngka";
+const char kCameraMigrationAppId[] = "ngmkobaiicipbagcngcmilfkhejlnfci";
+const char kGmailAppId[] = "hhkfkjpmacfncmbapfohfocpjpdnobjg";
+const char kGoogleCalendarAppId[] = "decaoeahkmjpajbmlbpogjjkjbjokeed";
+const char kGoogleDuoAppId[] = "djkcbcmkefiiphjkonbeknmcgiheajce";
+const char kGoogleMapsAppId[] = "gmhipfhgnoelkiiofcnimehjnpaejiel";
+const char kGooglePhotosAppId[] = "fdbkkojdbojonckghlanfaopfakedeca";
+const char kInfinitePainterAppId[] = "afihfgfghkmdmggakhkgnfhlikhdpima";
+const char kLegacyCameraAppId[] = "obfofkigjfamlldmipdegnjlcpincibc";
+const char kLightRoomAppId[] = "fpegfnbgomakooccabncdaelhfppceni";
+const char kPlayBooksAppId[] = "cafegjnmmjpfibnlddppihpnkbkgicbg";
+const char kPlayGamesAppId[] = "nplnnjkbeijcggmpdcecpabgbjgeiedc";
+const char kPlayMoviesAppId[] = "dbbihmicnlldbflflckpafphlekmjfnm";
+const char kPlayMusicAppId[] = "ophbaopahelaolbjliokocojjbgfadfn";
+const char kPlayStoreAppId[] = "cnbgggchhmkkdmeppjobngjoejnihlei";
+const char kSettingsAppId[] = "mconboelelhjpkbdhhiijkgcimoangdj";
+const char kYoutubeAppId[] = "aniolghapcdkoolpkffememnhpphmjkl";
 
 bool ShouldShowInLauncher(const std::string& app_id) {
   for (auto* const id : kAppIdsHiddenInLauncher) {
@@ -335,13 +317,15 @@ bool LaunchAppWithIntent(content::BrowserContext* context,
 
   ArcAppListPrefs* prefs = ArcAppListPrefs::Get(context);
   std::unique_ptr<ArcAppListPrefs::AppInfo> app_info = prefs->GetApp(app_id);
+  base::Optional<std::string> launch_intent_to_send = std::move(launch_intent);
   if (app_info && !app_info->ready) {
     if (!IsArcPlayStoreEnabledForProfile(profile)) {
       if (prefs->IsDefault(app_id)) {
         // The setting can fail if the preference is managed.  However, the
         // caller is responsible to not call this function in such case.  DCHECK
         // is here to prevent possible mistake.
-        SetArcPlayStoreEnabledForProfile(profile, true);
+        if (!SetArcPlayStoreEnabledForProfile(profile, true))
+          return false;
         DCHECK(IsArcPlayStoreEnabledForProfile(profile));
 
         // PlayStore item has special handling for shelf controllers. In order
@@ -379,8 +363,9 @@ bool LaunchAppWithIntent(content::BrowserContext* context,
     // chrome_controller may be null in tests.
     if (chrome_controller) {
       chrome_controller->GetShelfSpinnerController()->AddSpinnerToShelf(
-          app_id, std::make_unique<ArcShelfSpinnerItemController>(
-                      app_id, event_flags, GetValidDisplayId(display_id)));
+          app_id,
+          std::make_unique<ArcShelfSpinnerItemController>(
+              app_id, event_flags, user_action, GetValidDisplayId(display_id)));
 
       // On some boards, ARC is booted with a restricted set of resources by
       // default to avoid slowing down Chrome's user session restoration.
@@ -390,10 +375,18 @@ bool LaunchAppWithIntent(content::BrowserContext* context,
     }
     prefs->SetLastLaunchTime(app_id);
     return true;
+  } else if (app_id == kPlayStoreAppId && !launch_intent_to_send) {
+    // Record launch request time in order to track Play Store default launch
+    // performance.
+    launch_intent_to_send = GetLaunchIntent(
+        kPlayStorePackage, kPlayStoreActivity,
+        {base::StringPrintf(
+            kRequestStartTimeParamTemplate,
+            (base::TimeTicks::Now() - base::TimeTicks()).InMilliseconds())});
   }
 
   arc::ArcBootPhaseMonitorBridge::RecordFirstAppLaunchDelayUMA(context);
-  return Launch(context, app_id, launch_intent, event_flags,
+  return Launch(context, app_id, launch_intent_to_send, event_flags,
                 GetValidDisplayId(display_id));
 }
 
@@ -712,10 +705,34 @@ bool IsArcAppSticky(const std::string& app_id, Profile* profile) {
 
 void AddAppLaunchObserver(content::BrowserContext* context,
                           AppLaunchObserver* observer) {
+  class ProfileDestroyedObserver : public ProfileObserver {
+   public:
+    ProfileDestroyedObserver() = default;
+    ~ProfileDestroyedObserver() override = default;
+
+    void Observe(Profile* profile) {
+      if (!observed_profiles_.IsObserving(profile))
+        observed_profiles_.Add(profile);
+    }
+
+    void OnProfileWillBeDestroyed(Profile* profile) override {
+      observed_profiles_.Remove(profile);
+      GetAppLaunchObserverMap()->erase(profile);
+    }
+
+   private:
+    ScopedObserver<Profile, ProfileObserver> observed_profiles_{this};
+
+    DISALLOW_COPY_AND_ASSIGN(ProfileDestroyedObserver);
+  };
+  static base::NoDestructor<ProfileDestroyedObserver>
+      profile_destroyed_observer;
+
   AppLaunchObserverMap* const map = GetAppLaunchObserverMap();
   auto result =
       map->emplace(std::piecewise_construct, std::forward_as_tuple(context),
                    std::forward_as_tuple());
+  profile_destroyed_observer->Observe(Profile::FromBrowserContext(context));
   result.first->second.AddObserver(observer);
 }
 

@@ -73,11 +73,10 @@ Supported statistic types are:
 There can also be one or more `index` tags which define additional aggregation
 keys. These are a comma-separated list of keys that is appended to the standard
 set. These additional keys are optional but, if present, are always present
-together. In other words, "fields=profile.county,profile.form_factory" will
-cause all the standard aggregations plus each with *both* country *and*
-form_factor but **not** with all the standard aggregations (see above) plus only
-one of them. If individual and combined versions are desired, use multiple index
-tags.
+together. In other words, "fields=profile.county,profile.form_factor" will cause
+all the standard aggregations plus each with *both* country *and* form_factor
+but **not** with all the standard aggregations (see above) plus only one of
+them. If individual and combined versions are desired, use multiple index tags.
 
 Currently supported additional index fields are:
 
@@ -87,40 +86,7 @@ Currently supported additional index fields are:
 
 ### Aggregation by Metrics in the Same Event
 
-In addition to the standard "profile" keys, aggregation can be done against
-another metric in the same event. This is accomplished with the same `<index>`
-tag as above but including "metrics.OtherMetricName" in the fields list. There
-is no event name included as the metric must always be in the same event.
-
-The metric to act as a key must also have `<aggregation>`, `<history>`, and
-`<statistics>` tags with a valid statistic (currently only `<enumeration>`
-metrics are supported as keys). However, since generating statistics for this
-"key" metric isn't likely to be useful on its own, add `export="False"` to its
-`<statistics>` tag.
-
-```xml
-<event name="Memory.Experimental">
-  <metric name="ProcessType" enum="MemoryProcessType">
-    <aggregation>
-      <history>
-        <statistics export="False">
-          <enumeration/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="PrivateMemoryFootprint" unit="MB">
-    <aggregation>
-      <history>
-        <index fields="metrics.ProcessType"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-</event>
-```
+WARNING: This feature is still under development and isn't ready for use.
 
 ### Enumeration Proportions
 

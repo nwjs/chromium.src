@@ -80,7 +80,8 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadUrlParameters {
   // non-privileged frame.
   DownloadUrlParameters(
       const GURL& url,
-      const net::NetworkTrafficAnnotationTag& traffic_annotation);
+      const net::NetworkTrafficAnnotationTag& traffic_annotation,
+      const net::NetworkIsolationKey& network_isolation_key);
 
   // The RenderView routing ID must correspond to the RenderView of the
   // RenderFrame, both of which share the same RenderProcess. This may be a
@@ -90,7 +91,8 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadUrlParameters {
       int render_process_host_id,
       int render_view_host_routing_id,
       int render_frame_host_routing_id,
-      const net::NetworkTrafficAnnotationTag& traffic_annotation);
+      const net::NetworkTrafficAnnotationTag& traffic_annotation,
+      const net::NetworkIsolationKey& network_isolation_key);
 
   ~DownloadUrlParameters();
 
@@ -256,11 +258,6 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadUrlParameters {
     require_safety_checks_ = require_safety_checks;
   }
 
-  void set_network_isolation_key(
-      const net::NetworkIsolationKey& network_isolation_key) {
-    network_isolation_key_ = network_isolation_key;
-  }
-
   OnStartedCallback& callback() { return callback_; }
   bool content_initiated() const { return content_initiated_; }
   const std::string& last_modified() const { return last_modified_; }
@@ -305,6 +302,7 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadUrlParameters {
   }
   bool prompt() const { return save_info_.prompt_for_save_location; }
   const GURL& url() const { return url_; }
+  void set_url(GURL url) { url_ = std::move(url); }
   bool do_not_prompt_for_login() const { return do_not_prompt_for_login_; }
   network::mojom::RedirectMode cross_origin_redirects() const {
     return cross_origin_redirects_;

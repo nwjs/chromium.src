@@ -795,7 +795,9 @@ bool AXNode::SetRoleMatchesItemRole(const AXNode* ordered_set) const {
       return item_role == ax::mojom::Role::kListBoxOption;
     case ax::mojom::Role::kMenuListPopup:
       return item_role == ax::mojom::Role::kMenuListOption ||
-             item_role == ax::mojom::Role::kMenuItem;
+             item_role == ax::mojom::Role::kMenuItem ||
+             item_role == ax::mojom::Role::kMenuItemRadio ||
+             item_role == ax::mojom::Role::kMenuItemCheckBox;
     case ax::mojom::Role::kRadioGroup:
       return item_role == ax::mojom::Role::kRadioButton;
     case ax::mojom::Role::kDescriptionList:
@@ -871,7 +873,33 @@ AXNode* AXNode::ComputeFirstUnignoredChildRecursive() const {
 }
 
 bool AXNode::IsIgnored() const {
-  return ui::IsIgnored(data());
+  return data().IsIgnored();
+}
+
+bool AXNode::IsInListMarker() const {
+  if (data().role == ax::mojom::Role::kListMarker)
+    return true;
+
+  // List marker node's children can only be text elements.
+  if (!IsText())
+    return false;
+
+  // There is no need to iterate over all the ancestors of the current anchor
+  // since a list marker node only has children on 2 levels.
+  // i.e.:
+  // AXLayoutObject role=kListMarker
+  // ++StaticText
+  // ++++InlineTextBox
+  AXNode* parent_node = GetUnignoredParent();
+  if (parent_node && parent_node->data().role == ax::mojom::Role::kListMarker)
+    return true;
+
+  AXNode* grandparent_node = parent_node->GetUnignoredParent();
+  if (grandparent_node &&
+      grandparent_node->data().role == ax::mojom::Role::kListMarker)
+    return true;
+
+  return false;
 }
 
 }  // namespace ui

@@ -36,6 +36,10 @@
 #include "base/android/content_uri_utils.h"
 #endif
 
+#if defined(OS_MACOSX)
+#include "base/message_loop/message_loop_current.h"
+#endif
+
 namespace content {
 namespace {
 
@@ -74,7 +78,7 @@ NetworkServiceClient::NetworkServiceClient(
 #if defined(OS_ANDROID)
     DCHECK(!net::NetworkChangeNotifier::CreateIfNeeded());
     GetNetworkService()->GetNetworkChangeManager(
-        mojo::MakeRequest(&network_change_manager_));
+        network_change_manager_.BindNewPipeAndPassReceiver());
     net::NetworkChangeNotifier::AddConnectionTypeObserver(this);
     net::NetworkChangeNotifier::AddMaxBandwidthObserver(this);
     net::NetworkChangeNotifier::AddIPAddressObserver(this);
@@ -184,17 +188,6 @@ void NetworkServiceClient::OnIPAddressChanged() {
 }
 
 void NetworkServiceClient::OnDNSChanged() {
-  network_change_manager_->OnNetworkChanged(
-      true /* dns_changed */, false /* ip_address_changed */,
-      false /* connection_type_changed */,
-      network::mojom::ConnectionType(
-          net::NetworkChangeNotifier::GetConnectionType()),
-      false /* connection_subtype_changed */,
-      network::mojom::ConnectionSubtype(
-          net::NetworkChangeNotifier::GetConnectionSubtype()));
-}
-
-void NetworkServiceClient::OnInitialDNSConfigRead() {
   network_change_manager_->OnNetworkChanged(
       true /* dns_changed */, false /* ip_address_changed */,
       false /* connection_type_changed */,

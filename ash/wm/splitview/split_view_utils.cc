@@ -20,13 +20,11 @@
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_state.h"
 #include "base/command_line.h"
-#include "ui/aura/window_delegate.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
-#include "ui/wm/core/window_util.h"
 
 namespace ash {
 
@@ -249,7 +247,7 @@ void MaybeRestoreSplitView(bool refresh_snapped_windows) {
         Shell::Get()->mru_window_tracker()->BuildWindowListIgnoreModal(
             kActiveDesk);
     for (aura::Window* window : windows) {
-      if (!CanSnapInSplitview(window)) {
+      if (!split_view_controller->CanSnapWindow(window)) {
         // Since we are in tablet mode, and this window is not snappable, we
         // should maximize it.
         WindowState::Get(window)->Maximize();
@@ -321,33 +319,6 @@ bool ShouldAllowSplitView() {
   return true;
 }
 
-bool CanSnapInSplitview(aura::Window* window) {
-  if (!ShouldAllowSplitView())
-    return false;
-
-  if (!wm::CanActivateWindow(window))
-    return false;
-
-  if (!WindowState::Get(window)->CanSnap())
-    return false;
-
-  if (window->delegate()) {
-    // If the window's minimum size is larger than half of the display's work
-    // area size, the window can't be snapped in this case.
-    const gfx::Size min_size = window->delegate()->GetMinimumSize();
-    const gfx::Rect display_area =
-        screen_util::GetDisplayWorkAreaBoundsInScreenForActiveDeskContainer(
-            window);
-    const bool is_landscape = (display_area.width() > display_area.height());
-    if ((is_landscape && min_size.width() > display_area.width() / 2) ||
-        (!is_landscape && min_size.height() > display_area.height() / 2)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 void ShowAppCannotSnapToast() {
   ash::Shell::Get()->toast_manager()->Show(ash::ToastData(
       kAppCannotSnapToastId,
@@ -363,18 +334,22 @@ bool IsPhysicalLeftOrTop(SplitViewController::SnapPosition position) {
 }
 
 SplitViewController::SnapPosition GetSnapPosition(
+    aura::Window* root_window,
     aura::Window* window,
-    const gfx::Point& location_in_screen,
-    const gfx::Rect& work_area) {
-  if (!ShouldAllowSplitView() || !CanSnapInSplitview(window))
+    const gfx::Point& location_in_screen) {
+  if (!ShouldAllowSplitView() ||
+      !SplitViewController::Get(root_window)->CanSnapWindow(window)) {
     return SplitViewController::NONE;
+  }
 
   const bool is_landscape = IsCurrentScreenOrientationLandscape();
   const bool is_primary = IsCurrentScreenOrientationPrimary();
 
   // Check to see if the current event location |location_in_screen|is within
   // the drag indicators bounds.
-  gfx::Rect area(work_area);
+  gfx::Rect area(
+      screen_util::GetDisplayWorkAreaBoundsInScreenForActiveDeskContainer(
+          root_window));
   if (is_landscape) {
     const int screen_edge_inset_for_drag =
         area.width() * kHighlightScreenPrimaryAxisRatio +
@@ -400,26 +375,6 @@ SplitViewController::SnapPosition GetSnapPosition(
   if (location_in_screen.y() >= area.bottom() - 1)
     return is_primary ? SplitViewController::RIGHT : SplitViewController::LEFT;
   return SplitViewController::NONE;
-}
-
-IndicatorState GetIndicatorState(
-    aura::Window* window,
-    SplitViewController::SnapPosition snap_position) {
-  if (!ShouldAllowSplitView())
-    return IndicatorState::kNone;
-
-  switch (snap_position) {
-    case SplitViewController::LEFT:
-      return IndicatorState::kPreviewAreaLeft;
-    case SplitViewController::RIGHT:
-      return IndicatorState::kPreviewAreaRight;
-    case SplitViewController::NONE:
-      return CanSnapInSplitview(window) ? IndicatorState::kDragArea
-                                        : IndicatorState::kCannotSnap;
-  }
-
-  NOTREACHED();
-  return IndicatorState::kNone;
 }
 
 }  // namespace ash

@@ -282,8 +282,8 @@ IntersectionObserver::IntersectionObserver(
   }
 }
 
-void IntersectionObserver::ClearWeakMembers(Visitor* visitor) {
-  if (RootIsImplicit() || (root() && ThreadHeap::IsHeapObjectAlive(root())))
+void IntersectionObserver::ProcessCustomWeakness(const WeakCallbackInfo& info) {
+  if (RootIsImplicit() || (root() && info.IsHeapObjectAlive(root())))
     return;
   DummyExceptionStateForTesting exception_state;
   disconnect(exception_state);
@@ -400,8 +400,9 @@ bool IntersectionObserver::ComputeIntersections(unsigned flags) {
   DCHECK(!RootIsImplicit());
   if (!RootIsValid() || !GetExecutionContext() || observations_.IsEmpty())
     return false;
-  IntersectionGeometry::RootGeometry root_geometry(root()->GetLayoutObject(),
-                                                   root_margin_);
+  IntersectionGeometry::RootGeometry root_geometry(
+      IntersectionGeometry::GetRootLayoutObjectForTarget(root(), nullptr),
+      root_margin_);
   HeapVector<Member<IntersectionObservation>> observations_to_process;
   // TODO(szager): Is this copy necessary?
   CopyToVector(observations_, observations_to_process);
@@ -441,8 +442,8 @@ bool IntersectionObserver::HasPendingActivity() const {
 }
 
 void IntersectionObserver::Trace(blink::Visitor* visitor) {
-  visitor->template RegisterWeakMembers<
-      IntersectionObserver, &IntersectionObserver::ClearWeakMembers>(this);
+  visitor->template RegisterWeakCallbackMethod<
+      IntersectionObserver, &IntersectionObserver::ProcessCustomWeakness>(this);
   visitor->Trace(delegate_);
   visitor->Trace(observations_);
   ScriptWrappable::Trace(visitor);

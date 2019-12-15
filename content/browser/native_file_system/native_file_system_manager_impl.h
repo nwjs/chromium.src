@@ -19,7 +19,7 @@
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/unique_receiver_set.h"
-#include "storage/browser/fileapi/file_system_url.h"
+#include "storage/browser/file_system/file_system_url.h"
 #include "third_party/blink/public/mojom/native_file_system/native_file_system_file_writer.mojom.h"
 #include "third_party/blink/public/mojom/native_file_system/native_file_system_manager.mojom.h"
 #include "third_party/blink/public/mojom/permissions/permission_status.mojom.h"
@@ -92,6 +92,14 @@ class CONTENT_EXPORT NativeFileSystemManagerImpl
       std::vector<blink::mojom::ChooseFileSystemEntryAcceptsOptionPtr> accepts,
       bool include_accepts_all,
       ChooseEntriesCallback callback) override;
+  void GetFileHandleFromToken(
+      mojo::PendingRemote<blink::mojom::NativeFileSystemTransferToken> token,
+      mojo::PendingReceiver<blink::mojom::NativeFileSystemFileHandle>
+          file_handle_receiver) override;
+  void GetDirectoryHandleFromToken(
+      mojo::PendingRemote<blink::mojom::NativeFileSystemTransferToken> token,
+      mojo::PendingReceiver<blink::mojom::NativeFileSystemDirectoryHandle>
+          directory_handle_receiver) override;
 
   // NativeFileSystemEntryFactory:
   blink::mojom::NativeFileSystemEntryPtr CreateFileEntryFromPath(
@@ -148,6 +156,17 @@ class CONTENT_EXPORT NativeFileSystemManagerImpl
   void ResolveTransferToken(
       mojo::PendingRemote<blink::mojom::NativeFileSystemTransferToken> token,
       ResolvedTokenCallback callback);
+
+  void DidResolveTransferTokenForFileHandle(
+      const BindingContext& binding_context,
+      mojo::PendingReceiver<blink::mojom::NativeFileSystemFileHandle>
+          file_handle_receiver,
+      NativeFileSystemTransferTokenImpl* resolved_token);
+  void DidResolveTransferTokenForDirectoryHandle(
+      const BindingContext& binding_context,
+      mojo::PendingReceiver<blink::mojom::NativeFileSystemDirectoryHandle>
+          directory_handle_receiver,
+      NativeFileSystemTransferTokenImpl* resolved_token);
 
   storage::FileSystemContext* context() {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -229,15 +248,6 @@ class CONTENT_EXPORT NativeFileSystemManagerImpl
       const base::FilePath& file_path,
       NativeFileSystemPermissionContext::UserAction user_action);
 
-  void CreateFileWriterImpl(
-      const BindingContext& binding_context,
-      const storage::FileSystemURL& url,
-      const storage::FileSystemURL& swap_url,
-      const SharedHandleState& handle_state,
-      mojo::PendingReceiver<blink::mojom::NativeFileSystemFileWriter>
-          writer_receiver,
-      bool has_transient_user_activation);
-
   SEQUENCE_CHECKER(sequence_checker_);
 
   const scoped_refptr<storage::FileSystemContext> context_;
@@ -245,9 +255,9 @@ class CONTENT_EXPORT NativeFileSystemManagerImpl
   base::SequenceBound<storage::FileSystemOperationRunner> operation_runner_;
   NativeFileSystemPermissionContext* permission_context_;
 
-  // All the mojo receivers for this NativeFileSystemManager itself. Keeps track
-  // of associated origin and other state as well to not have to rely on the
-  // renderer passing that in, and to be able to do security checks around
+  // All the mojo receivers for this NativeFileSystemManager itself. Keeps
+  // track of associated origin and other state as well to not have to rely on
+  // the renderer passing that in, and to be able to do security checks around
   // transferability etc.
   mojo::ReceiverSet<blink::mojom::NativeFileSystemManager, BindingContext>
       receivers_;

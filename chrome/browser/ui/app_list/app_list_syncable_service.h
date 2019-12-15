@@ -15,6 +15,7 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "base/one_shot_event.h"
 #include "build/build_config.h"
 #include "chrome/browser/sync/glue/sync_start_util.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -27,11 +28,7 @@
 
 class AppListModelUpdater;
 class AppServiceAppModelBuilder;
-class ArcAppModelBuilder;
 class ChromeAppListItem;
-class CrostiniAppModelBuilder;
-class ExtensionAppModelBuilder;
-class InternalAppModelBuilder;
 class Profile;
 
 namespace extensions {
@@ -158,6 +155,9 @@ class AppListSyncableService : public syncer::SyncableService,
 
   // Returns true if this service was initialized.
   bool IsInitialized() const;
+
+  // Signalled when AppListSyncableService is Initialized.
+  const base::OneShotEvent& on_initialized() const { return on_initialized_; }
 
   // Returns true if sync was started.
   bool IsSyncing() const;
@@ -321,12 +321,6 @@ class AppListSyncableService : public syncer::SyncableService,
   std::unique_ptr<ModelUpdaterObserver> model_updater_observer_;
 
   std::unique_ptr<AppServiceAppModelBuilder> app_service_apps_builder_;
-  // TODO(crbug.com/826982): delete all the other FooModelBuilder's, after
-  // folding them into the App Service.
-  std::unique_ptr<ExtensionAppModelBuilder> ext_apps_builder_;
-  std::unique_ptr<ArcAppModelBuilder> arc_apps_builder_;
-  std::unique_ptr<CrostiniAppModelBuilder> crostini_apps_builder_;
-  std::unique_ptr<InternalAppModelBuilder> internal_apps_builder_;
   std::unique_ptr<syncer::SyncChangeProcessor> sync_processor_;
   std::unique_ptr<syncer::SyncErrorFactory> sync_error_handler_;
   SyncItemMap sync_items_;
@@ -336,12 +330,12 @@ class AppListSyncableService : public syncer::SyncableService,
   syncer::SyncableService::StartSyncFlare flare_;
   bool initial_sync_data_processed_;
   bool first_app_list_sync_;
-  const bool is_app_service_enabled_;
   std::string oem_folder_name_;
   base::OnceClosure wait_until_ready_to_sync_cb_;
 
   // List of observers.
   base::ObserverList<Observer>::Unchecked observer_list_;
+  base::OneShotEvent on_initialized_;
 
   base::WeakPtrFactory<AppListSyncableService> weak_ptr_factory_{this};
 

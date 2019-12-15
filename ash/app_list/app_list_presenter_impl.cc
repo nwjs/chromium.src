@@ -14,10 +14,12 @@
 #include "ash/public/cpp/app_list/app_list_switches.h"
 #include "ash/public/cpp/app_list/app_list_types.h"
 #include "ash/public/cpp/pagination/pagination_model.h"
+#include "ash/public/cpp/shell_window_ids.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
+#include "base/optional.h"
 #include "ui/aura/client/focus_client.h"
 #include "ui/aura/window.h"
 #include "ui/compositor/layer.h"
@@ -26,12 +28,19 @@
 #include "ui/display/types/display_constants.h"
 #include "ui/gfx/presentation_feedback.h"
 #include "ui/gfx/transform.h"
+#include "ui/gfx/transform_util.h"
 #include "ui/views/widget/widget.h"
 #include "ui/wm/core/transient_window_manager.h"
 #include "ui/wm/public/activation_client.h"
 
 namespace ash {
 namespace {
+
+constexpr std::array<int, 6> kIdsOfContainersThatWontHideAppList = {
+    kShellWindowId_AppListContainer,     kShellWindowId_HomeScreenContainer,
+    kShellWindowId_MenuContainer,        kShellWindowId_SettingBubbleContainer,
+    kShellWindowId_ShelfBubbleContainer, kShellWindowId_ShelfContainer,
+};
 
 inline ui::Layer* GetLayer(views::Widget* widget) {
   return widget->GetNativeView()->layer();
@@ -163,10 +172,6 @@ bool AppListPresenterImpl::HandleCloseOpenFolder() {
   return is_target_visibility_show_ && view_ && view_->HandleCloseOpenFolder();
 }
 
-bool AppListPresenterImpl::HandleCloseOpenSearchBox() {
-  return view_ && view_->HandleCloseOpenSearchBox();
-}
-
 ash::ShelfAction AppListPresenterImpl::ToggleAppList(
     int64_t display_id,
     AppListShowSource show_source,
@@ -232,6 +237,7 @@ void AppListPresenterImpl::ProcessMouseWheelOffset(
 void AppListPresenterImpl::UpdateYPositionAndOpacityForHomeLauncher(
     int y_position_in_screen,
     float opacity,
+    base::Optional<TabletModeAnimationTransition> transition,
     UpdateHomeLauncherAnimationSettingsCallback callback) {
   if (!view_)
     return;
@@ -256,18 +262,19 @@ void AppListPresenterImpl::UpdateYPositionAndOpacityForHomeLauncher(
     view_->ResetTransitionMetricsReporter();
   }
 
-  std::unique_ptr<ui::ScopedLayerAnimationSettings> settings;
+  base::Optional<ui::ScopedLayerAnimationSettings> settings;
   if (!callback.is_null()) {
-    settings = std::make_unique<ui::ScopedLayerAnimationSettings>(
-        layer->GetAnimator());
-    callback.Run(settings.get());
+    settings.emplace(layer->GetAnimator());
+    callback.Run(&settings.value());
   }
+
+  // The animation metrics reporter will run for opacity and transform
+  // animations separately - to avoid reporting duplicated values, add the
+  // reported for transform animation only.
   layer->SetOpacity(opacity);
 
-  // Only record animation metrics for transformation animation. Because the
-  // animation triggered by setting opacity should have the same metrics values
-  // with the transformation animation.
-  if (settings.get()) {
+  if (settings.has_value() && transition.has_value()) {
+    view_->OnTabletModeAnimationTransitionNotified(transition.value());
     settings->SetAnimationMetricsReporter(
         view_->GetStateTransitionMetricsReporter());
   }
@@ -276,6 +283,52 @@ void AppListPresenterImpl::UpdateYPositionAndOpacityForHomeLauncher(
 
   // Update child views' y positions to target state to avoid stale positions.
   view_->app_list_main_view()->contents_view()->UpdateYPositionAndOpacity();
+}
+
+void AppListPresenterImpl::UpdateScaleAndOpacityForHomeLauncher(
+    float scale,
+    float opacity,
+    base::Optional<TabletModeAnimationTransition> transition,
+    UpdateHomeLauncherAnimationSettingsCallback callback) {
+  if (!view_)
+    return;
+
+  ui::Layer* layer = view_->GetWidget()->GetNativeWindow()->layer();
+  if (!delegate_->IsTabletMode()) {
+    // In clamshell mode, set the opacity of the AppList immediately to
+    // instantly hide it. Opacity of the AppList is reset when it is shown
+    // again.
+    layer->SetOpacity(opacity);
+    return;
+  }
+
+  if (layer->GetAnimator()->is_animating()) {
+    layer->GetAnimator()->StopAnimating();
+
+    // Reset the animation metrics reporter when the animation is interrupted.
+    view_->ResetTransitionMetricsReporter();
+  }
+
+  base::Optional<ui::ScopedLayerAnimationSettings> settings;
+  if (!callback.is_null()) {
+    settings.emplace(layer->GetAnimator());
+    callback.Run(&settings.value());
+  }
+
+  // The animation metrics reporter will run for opacity and transform
+  // animations separately - to avoid reporting duplicated values, add the
+  // reported for transform animation only.
+  layer->SetOpacity(opacity);
+
+  if (settings.has_value() && transition.has_value()) {
+    view_->OnTabletModeAnimationTransitionNotified(*transition);
+    settings->SetAnimationMetricsReporter(
+        view_->GetStateTransitionMetricsReporter());
+  }
+
+  gfx::Transform transform =
+      gfx::GetScaleTransform(gfx::Rect(layer->size()).CenterPoint(), scale);
+  layer->SetTransform(transform);
 }
 
 void AppListPresenterImpl::ShowEmbeddedAssistantUI(bool show) {
@@ -366,35 +419,55 @@ void AppListPresenterImpl::OnVisibilityWillChange(bool visible,
 
 void AppListPresenterImpl::OnWindowFocused(aura::Window* gained_focus,
                                            aura::Window* lost_focus) {
-  if (view_ && is_target_visibility_show_) {
-    aura::Window* applist_window = view_->GetWidget()->GetNativeView();
-    aura::Window* applist_container = applist_window->parent();
-    // An AppList dialog window may take focus from the AppList window. Don't
-    // consider this a visibility change.
-    const bool app_list_lost_focus =
-        gained_focus ? !applist_container->Contains(gained_focus)
-                     : (lost_focus && applist_container->Contains(lost_focus));
+  if (!view_ || !is_target_visibility_show_)
+    return;
 
-    if (delegate_->IsTabletMode()) {
-      const bool is_shown = !app_list_lost_focus;
-      if (is_shown != delegate_->IsVisible()) {
-        if (is_shown)
-          view_->OnHomeLauncherGainingFocusWithoutAnimation();
-        else
-          HandleCloseOpenSearchBox();
+  int gained_focus_container_id = kShellWindowId_Invalid;
+  if (gained_focus) {
+    gained_focus_container_id = gained_focus->id();
+    const aura::Window* container =
+        delegate_->GetContainerForWindow(gained_focus);
+    if (container)
+      gained_focus_container_id = container->id();
+  }
+  aura::Window* applist_window = view_->GetWidget()->GetNativeView();
+  const aura::Window* applist_container = applist_window->parent();
 
-        OnVisibilityWillChange(is_shown, GetDisplayId());
-        OnVisibilityChanged(is_shown, GetDisplayId());
+  // An AppList dialog window, or a child window of the system tray, may
+  // take focus from the AppList window. Don't consider this a visibility
+  // change since the app list is still visible for the most part.
+  const bool gained_focus_hides_app_list =
+      gained_focus_container_id != kShellWindowId_Invalid &&
+      !base::Contains(kIdsOfContainersThatWontHideAppList,
+                      gained_focus_container_id);
+
+  const bool app_list_lost_focus =
+      gained_focus ? gained_focus_hides_app_list
+                   : (lost_focus && applist_container->Contains(lost_focus));
+
+  if (delegate_->IsTabletMode()) {
+    const bool is_shown = !app_list_lost_focus;
+    if (is_shown != delegate_->IsVisible()) {
+      if (is_shown) {
+        view_->OnHomeLauncherGainingFocusWithoutAnimation();
+      } else {
+        // In tablet mode, when |AppList| lost focus after other new App window
+        // opened, we should perform "back" action on the active page, e.g.
+        // close the search box or the embedded Assistant UI if it's opened.
+        view_->Back();
       }
-    }
 
-    if (applist_window->Contains(gained_focus))
-      base::RecordAction(base::UserMetricsAction("AppList_WindowFocused"));
-
-    if (app_list_lost_focus && !switches::ShouldNotDismissOnBlur() &&
-        !delegate_->IsTabletMode()) {
-      Dismiss(base::TimeTicks());
+      OnVisibilityWillChange(is_shown, GetDisplayId());
+      OnVisibilityChanged(is_shown, GetDisplayId());
     }
+  }
+
+  if (applist_window->Contains(gained_focus))
+    base::RecordAction(base::UserMetricsAction("AppList_WindowFocused"));
+
+  if (app_list_lost_focus && !switches::ShouldNotDismissOnBlur() &&
+      !delegate_->IsTabletMode()) {
+    Dismiss(base::TimeTicks());
   }
 }
 
@@ -440,7 +513,8 @@ void AppListPresenterImpl::OnWidgetVisibilityChanged(views::Widget* widget,
 ////////////////////////////////////////////////////////////////////////////////
 // AppListPresenterImpl, PaginationModelObserver implementation:
 
-void AppListPresenterImpl::TotalPagesChanged() {}
+void AppListPresenterImpl::TotalPagesChanged(int previous_page_count,
+                                             int new_page_count) {}
 
 void AppListPresenterImpl::SelectedPageChanged(int old_selected,
                                                int new_selected) {

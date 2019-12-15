@@ -217,12 +217,6 @@ class ProgressCenterPanel {
     this.feedbackHost_ = document.querySelector('#progress-panel');
 
     /**
-     * Reference to the feedback panel host for completed operations.
-     * TODO(crbug.com/947388) Add closure annotation here.
-     */
-    this.completedHost_ = document.querySelector('#completed-panel');
-
-    /**
      * Close view that is a summarized progress item.
      * @type {ProgressCenterItemElement}
      * @private
@@ -283,9 +277,12 @@ class ProgressCenterPanel {
 
     /**
      * Timeout for hiding file operations in progress.
-     * @const @type {number}
+     * @type {number}
      */
     this.PENDING_TIME_MS_ = 2000;
+    if (window.IN_TEST) {
+      this.PENDING_TIME_MS_ = 0;
+    }
 
     // Register event handlers.
     element.addEventListener('click', this.onClick_.bind(this));
@@ -434,6 +431,7 @@ class ProgressCenterPanel {
         }
         if (signal === 'dismiss') {
           this.feedbackHost_.removePanelItem(panelItem);
+          this.dismissErrorItemCallback(item.id);
         }
       };
       panelItem.progress = item.progressRateInPercent.toString();
@@ -441,9 +439,8 @@ class ProgressCenterPanel {
         case 'completed':
           // Create a completed panel for copies and moves.
           // TODO(crbug.com/947388) decide if we want these for delete, etc.
-          if (panelItem.hidden === false &&
-              (item.type === 'copy' || item.type === 'move')) {
-            const donePanelItem = this.completedHost_.addPanelItem(item.id);
+          if (item.type === 'copy' || item.type === 'move') {
+            const donePanelItem = this.feedbackHost_.addPanelItem(item.id);
             donePanelItem.panelType = donePanelItem.panelTypeDone;
             donePanelItem.primaryText =
                 this.generateSourceString_(item, panelItem.userData);
@@ -451,13 +448,13 @@ class ProgressCenterPanel {
                 this.generateDestinationString_(item, panelItem.userData);
             donePanelItem.signalCallback = (signal) => {
               if (signal === 'dismiss') {
-                this.completedHost_.removePanelItem(donePanelItem);
+                this.feedbackHost_.removePanelItem(donePanelItem);
               }
             };
             // Delete after 4 seconds, doesn't matter if it's manually deleted
             // before the timer fires, as removePanelItem handles that case.
             setTimeout(() => {
-              this.completedHost_.removePanelItem(donePanelItem);
+              this.feedbackHost_.removePanelItem(donePanelItem);
             }, 4000);
           }
           // Drop through to remove the progress panel.

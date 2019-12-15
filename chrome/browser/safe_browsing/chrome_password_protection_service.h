@@ -167,9 +167,12 @@ class ChromePasswordProtectionService : public PasswordProtectionService {
   GURL GetDefaultChangePasswordURL() const;
 
   // Gets the detailed warning text that should show in the modal warning dialog
-  // and page info bubble.
+  // and page info bubble. |placeholder_offsets| are the start points/indices of
+  // the placeholders that are passed into the resource string. It is only set
+  // for saved passwords.
   base::string16 GetWarningDetailText(
-      ReusedPasswordAccountType password_type) const;
+      ReusedPasswordAccountType password_type,
+      std::vector<size_t>* placeholder_offsets) const;
 
   // If password protection trigger is configured via enterprise policy, gets
   // the name of the organization that owns the enterprise policy. Otherwise,
@@ -214,6 +217,16 @@ class ChromePasswordProtectionService : public PasswordProtectionService {
   // policy.
   bool IsURLWhitelistedForPasswordEntry(const GURL& url,
                                         RequestOutcome* reason) const override;
+
+  // Persist the phished saved password credential in the "compromised
+  // credentials" table. Calls the password store to add a row for each domain
+  // where the phished saved password is used on.
+  void PersistPhishedSavedPasswordCredential(
+      const std::string& username,
+      const std::vector<std::string>& matching_domains) override;
+
+  // Returns the profile PasswordStore associated with this instance.
+  password_manager::PasswordStore* GetProfilePasswordStore() const;
 
   // Gets the type of sync account associated with current profile or
   // |NOT_SIGNED_IN|.
@@ -397,6 +410,8 @@ class ChromePasswordProtectionService : public PasswordProtectionService {
                            VerifyPasswordCaptureEventRecorded);
   FRIEND_TEST_ALL_PREFIXES(ChromePasswordProtectionServiceTest,
                            VerifyPasswordReuseDetectedSecurityEventRecorded);
+  FRIEND_TEST_ALL_PREFIXES(ChromePasswordProtectionServiceTest,
+                           VerifyPersistPhishedSavedPasswordCredential);
   // Browser tests
   FRIEND_TEST_ALL_PREFIXES(ChromePasswordProtectionServiceBrowserTest,
                            VerifyCheckGaiaPasswordChange);
@@ -456,6 +471,12 @@ class ChromePasswordProtectionService : public PasswordProtectionService {
   // enterprise password hashes.
   void OnWarningTriggerChanged();
 
+  // Gets the warning text for saved password reuse warnings.
+  // |placeholder_offsets| are the start points/indices of the placeholders that
+  // are passed into the resource string.
+  base::string16 GetWarningDetailTextForSavedPasswords(
+      std::vector<size_t>* placeholder_offsets) const;
+
   // Informs PasswordReuseDetector that enterprise password URLs (login URL or
   // change password URL) have been changed.
   void OnEnterprisePasswordUrlChanged();
@@ -508,6 +529,9 @@ class ChromePasswordProtectionService : public PasswordProtectionService {
 
   // Bypasses the check for probability when sending sample pings.
   bool bypass_probability_for_tests_ = false;
+
+  // Can be set for testing.
+  base::Clock* clock_;
 
   // Used to inject a different password hash, for testing. It's done as a
   // member callback rather than a virtual function because it's needed in the

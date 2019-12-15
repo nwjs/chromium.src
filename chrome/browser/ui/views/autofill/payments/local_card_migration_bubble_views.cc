@@ -32,7 +32,6 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/style/typography.h"
-#include "ui/views/window/dialog_client_view.h"
 
 namespace autofill {
 
@@ -50,6 +49,7 @@ LocalCardMigrationBubbleViews::LocalCardMigrationBubbleViews(
     : LocationBarBubbleDelegateView(anchor_view, web_contents),
       controller_(controller) {
   DCHECK(controller);
+  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_OK);
   DialogDelegate::set_button_label(
       ui::DIALOG_BUTTON_OK,
       l10n_util::GetStringUTF16(
@@ -85,10 +85,6 @@ bool LocalCardMigrationBubbleViews::Cancel() {
 
 bool LocalCardMigrationBubbleViews::Close() {
   return true;
-}
-
-int LocalCardMigrationBubbleViews::GetDialogButtons() const {
-  return ui::DIALOG_BUTTON_OK;
 }
 
 gfx::Size LocalCardMigrationBubbleViews::CalculatePreferredSize() const {

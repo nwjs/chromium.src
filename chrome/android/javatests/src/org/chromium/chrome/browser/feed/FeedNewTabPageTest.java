@@ -45,9 +45,10 @@ import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ntp.cards.SignInPromo;
 import org.chromium.chrome.browser.ntp.snippets.SectionHeader;
-import org.chromium.chrome.browser.preferences.ChromePreferenceManager;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.suggestions.SiteSuggestion;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.util.UrlConstants;
@@ -176,11 +177,11 @@ public class FeedNewTabPageTest {
     @MediumTest
     @Feature({"FeedNewTabPage"})
     public void testSignInPromo_DismissBySwipe() {
-        boolean dismissed = ChromePreferenceManager.getInstance().readBoolean(
-                ChromePreferenceManager.NTP_SIGNIN_PROMO_DISMISSED, false);
+        boolean dismissed = SharedPreferencesManager.getInstance().readBoolean(
+                ChromePreferenceKeys.NTP_SIGNIN_PROMO_DISMISSED, false);
         if (dismissed) {
-            ChromePreferenceManager.getInstance().writeBoolean(
-                    ChromePreferenceManager.NTP_SIGNIN_PROMO_DISMISSED, false);
+            SharedPreferencesManager.getInstance().writeBoolean(
+                    ChromePreferenceKeys.NTP_SIGNIN_PROMO_DISMISSED, false);
         }
 
         // Verify that sign-in promo is displayed initially.
@@ -203,8 +204,8 @@ public class FeedNewTabPageTest {
         onView(withId(R.id.ntp_content)).check(matches(isDisplayed()));
 
         // Reset state.
-        ChromePreferenceManager.getInstance().writeBoolean(
-                ChromePreferenceManager.NTP_SIGNIN_PROMO_DISMISSED, dismissed);
+        SharedPreferencesManager.getInstance().writeBoolean(
+                ChromePreferenceKeys.NTP_SIGNIN_PROMO_DISMISSED, dismissed);
     }
 
     @Test

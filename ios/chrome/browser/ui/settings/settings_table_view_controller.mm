@@ -58,6 +58,7 @@
 #import "ios/chrome/browser/ui/settings/password/passwords_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/privacy_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/search_engine_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/settings_table_view_controller_constants.h"
 #import "ios/chrome/browser/ui/settings/sync/utils/sync_util.h"
 #import "ios/chrome/browser/ui/settings/table_cell_catalog_view_controller.h"
 #import "ios/chrome/browser/ui/settings/utils/pref_backed_boolean.h"
@@ -84,12 +85,6 @@
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
 #endif
-
-NSString* const kSettingsTableViewId = @"kSettingsTableViewId";
-NSString* const kSettingsSignInCellId = @"kSettingsSignInCellId";
-NSString* const kSettingsAccountCellId = @"kSettingsAccountCellId";
-NSString* const kSettingsSearchEngineCellId = @"Search Engine";
-NSString* const kSettingsVoiceSearchCellId = @"Voice Search Settings";
 
 namespace {
 
@@ -536,7 +531,7 @@ NSString* kDevViewSourceKey = @"DevViewSource";
 
 - (TableViewItem*)AutoFillCreditCardDetailItem {
   BOOL autofillCreditCardEnabled =
-      autofill::prefs::IsCreditCardAutofillEnabled(_browserState->GetPrefs());
+      autofill::prefs::IsAutofillCreditCardEnabled(_browserState->GetPrefs());
   NSString* detailText = autofillCreditCardEnabled
                              ? l10n_util::GetNSString(IDS_IOS_SETTING_ON)
                              : l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
@@ -551,7 +546,7 @@ NSString* kDevViewSourceKey = @"DevViewSource";
 
 - (TableViewItem*)autoFillProfileDetailItem {
   BOOL autofillProfileEnabled =
-      autofill::prefs::IsProfileAutofillEnabled(_browserState->GetPrefs());
+      autofill::prefs::IsAutofillProfileEnabled(_browserState->GetPrefs());
   NSString* detailText = autofillProfileEnabled
                              ? l10n_util::GetNSString(IDS_IOS_SETTING_ON)
                              : l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
@@ -795,9 +790,8 @@ NSString* kDevViewSourceKey = @"DevViewSource";
                         completion:nil];
       break;
     case ItemTypeAccount:
-      controller = [[AccountsTableViewController alloc]
-               initWithBrowserState:_browserState
-          closeSettingsOnAddAccount:NO];
+      controller = [[AccountsTableViewController alloc] initWithBrowser:_browser
+                                              closeSettingsOnAddAccount:NO];
       break;
     case ItemGoogleServices:
       [self showSyncGoogleService];
@@ -924,7 +918,7 @@ NSString* kDevViewSourceKey = @"DevViewSource";
   _googleServicesSettingsCoordinator =
       [[GoogleServicesSettingsCoordinator alloc]
           initWithBaseViewController:self.navigationController
-                        browserState:_browserState
+                             browser:_browser
                                 mode:GoogleServicesSettingsModeSettings];
   _googleServicesSettingsCoordinator.dispatcher = self.dispatcher;
   _googleServicesSettingsCoordinator.navigationController =
@@ -1007,7 +1001,7 @@ NSString* kDevViewSourceKey = @"DevViewSource";
         IDS_IOS_GOOGLE_SERVICES_SETTINGS_SYNC_DISABLBED_BY_ADMINISTRATOR_STATUS);
     googleServicesItem.image =
         [UIImage imageNamed:kSyncAndGoogleServicesSyncOffImageName];
-  } else if (!syncSetupService->HasFinishedInitialSetup()) {
+  } else if (!syncSetupService->IsFirstSetupComplete()) {
     googleServicesItem.detailText =
         l10n_util::GetNSString(IDS_IOS_SYNC_SETUP_IN_PROGRESS);
     googleServicesItem.image =
@@ -1058,9 +1052,9 @@ NSString* kDevViewSourceKey = @"DevViewSource";
                     completion:(ShowSigninCommandCompletionCallback)completion {
   DCHECK(![self.signinInteractionCoordinator isActive]);
   if (!self.signinInteractionCoordinator) {
-    self.signinInteractionCoordinator = [[SigninInteractionCoordinator alloc]
-        initWithBrowserState:_browserState
-                  dispatcher:self.dispatcher];
+    self.signinInteractionCoordinator =
+        [[SigninInteractionCoordinator alloc] initWithBrowser:_browser
+                                                   dispatcher:self.dispatcher];
   }
 
   __weak SettingsTableViewController* weakSelf = self;
@@ -1210,7 +1204,7 @@ NSString* kDevViewSourceKey = @"DevViewSource";
 
   if (preferenceName == autofill::prefs::kAutofillProfileEnabled) {
     BOOL autofillProfileEnabled =
-        autofill::prefs::IsProfileAutofillEnabled(_browserState->GetPrefs());
+        autofill::prefs::IsAutofillProfileEnabled(_browserState->GetPrefs());
     NSString* detailText = autofillProfileEnabled
                                ? l10n_util::GetNSString(IDS_IOS_SETTING_ON)
                                : l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
@@ -1220,7 +1214,7 @@ NSString* kDevViewSourceKey = @"DevViewSource";
 
   if (preferenceName == autofill::prefs::kAutofillCreditCardEnabled) {
     BOOL autofillCreditCardEnabled =
-        autofill::prefs::IsCreditCardAutofillEnabled(_browserState->GetPrefs());
+        autofill::prefs::IsAutofillCreditCardEnabled(_browserState->GetPrefs());
     NSString* detailText = autofillCreditCardEnabled
                                ? l10n_util::GetNSString(IDS_IOS_SETTING_ON)
                                : l10n_util::GetNSString(IDS_IOS_SETTING_OFF);

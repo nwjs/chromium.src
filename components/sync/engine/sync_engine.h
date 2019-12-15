@@ -27,15 +27,12 @@
 #include "components/sync/engine/sync_backend_registrar.h"
 #include "components/sync/engine/sync_credentials.h"
 #include "components/sync/engine/sync_manager_factory.h"
-
-class GURL;
+#include "url/gurl.h"
 
 namespace syncer {
 
-class CancelationSignal;
 class HttpPostProviderFactory;
 class SyncEngineHost;
-class SyncManagerFactory;
 class UnrecoverableErrorHandler;
 
 // The interface into the sync engine, which is the part of sync that performs
@@ -47,8 +44,7 @@ class SyncEngine : public ModelTypeConfigurer {
   using AllNodesCallback =
       base::OnceCallback<void(ModelType, std::unique_ptr<base::ListValue>)>;
   using HttpPostProviderFactoryGetter =
-      base::OnceCallback<std::unique_ptr<HttpPostProviderFactory>(
-          CancelationSignal*)>;
+      base::OnceCallback<std::unique_ptr<HttpPostProviderFactory>()>;
 
   // Utility struct for holding initialization options.
   struct InitParams {
@@ -63,7 +59,6 @@ class SyncEngine : public ModelTypeConfigurer {
     scoped_refptr<ExtensionsActivity> extensions_activity;
     WeakHandle<JsEventHandler> event_handler;
     GURL service_url;
-    std::string sync_user_agent;
     SyncEngine::HttpPostProviderFactoryGetter http_factory_getter;
     CoreAccountId authenticated_account_id;
     std::string invalidator_client_id;

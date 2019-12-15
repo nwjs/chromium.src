@@ -54,7 +54,6 @@
 <translation id="2674318244760992338">ಅಡಿಟಿಪ್ಪಣಿ</translation>
 <translation id="2709516037105925701">ಸ್ವಯಂತುಂಬುವಿಕೆ</translation>
 <translation id="2723001399770238859">ಆಡಿಯೋ</translation>
-<translation id="2725963129578236554">ಕಾಮೆಂಟ್‌ಗಳು</translation>
 <translation id="2746543609216772311">ಮೌಲ್ಯವು <ph name="MINIMUM_DATE_OR_TIME" /> ಅಥವಾ ನಂತರದ್ದಾಗಿರಬೇಕು.</translation>
 <translation id="2759744352195237655">ಪಾಪ್ ಅಪ್ ಬಟನ್</translation>
 <translation id="2761667185364618470">ನೀವು ಮುಂದುವರೆಯಬೇಕಾದರೆ ದಯವಿಟ್ಟು ಈ ಬಾಕ್ಸ್ ಅನ್ನು ಪರೀಕ್ಷಿಸಿ.</translation>
@@ -106,6 +105,7 @@
 <translation id="4661075872484491155">ಮರ</translation>
 <translation id="4664250907885839816">'<ph name="ATSIGN" />' ನಂತರದ ಭಾಗವು '<ph name="INVALIDCHARACTER" />' ಚಿಹ್ನೆಯನ್ನು ಒಳಗೊಂಡಿರಬಾರದು.</translation>
 <translation id="4668956016107839909">ಅನುಬಂಧ</translation>
+<translation id="4698212723196775569">ಕೋಡ್</translation>
 <translation id="4718048029184481307">ಚಿತ್ರದಲ್ಲಿ ಚಿತ್ರ ಮೋಡ್‌ನಲ್ಲಿ ಪ್ಲೇ ಮಾಡಲಾಗುತ್ತಿದೆ</translation>
 <translation id="4742539557769756338">ಕವರ್</translation>
 <translation id="4748357248530471599">ಡಿಸ್‌ಪ್ಲೇ ಕಟ್‌ಔಟ್ ಪೂರ್ಣ ಸ್ಕ್ರೀನ್ ಟಾಗಲ್ ಮಾಡಿ</translation>
@@ -114,6 +114,7 @@
 <translation id="479989351350248267">ಹುಡುಕಾಡಿ</translation>
 <translation id="4812940957355064477">ದಯವಿಟ್ಟು ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ.</translation>
 <translation id="4912536737030637138">ಗ್ರಂಥಸೂಚಿ ನಮೂದು</translation>
+<translation id="492244087561876220">ಕಾಮೆಂಟ್</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> ಆಯ್ಕೆ ಮಾಡಲಾಗಿದೆ</translation>
 <translation id="4992066212339426712">ಅನ್‌ಮ್ಯೂಟ್</translation>
 <translation id="49969490063480558">'<ph name="ATSIGN" />' ನಂತರದ ಒಂದು ಭಾಗವನ್ನು ನಮೂದಿಸಿ. '<ph name="INVALIDADDRESS" />' ಅಪೂರ್ಣವಾಗಿದೆ.</translation>
@@ -163,7 +164,6 @@
 <translation id="6404546809543547843">ಆಡಿಯೊ ಸಮಯ ಸ್ಕ್ರಬ್ಬರ್</translation>
 <translation id="6443871981718447451">ಮುಚ್ಚಿದ ಶೀರ್ಷಿಕೆಗಳ ಮೆನುವನ್ನು ತೋರಿಸಿ</translation>
 <translation id="6453774872122745852">ಅಂಗೀಕಾರಗಳು</translation>
-<translation id="6475115390776617481">ಪ್ರಸ್ತುತವಾಗಿ ಈ ವಿಷಯವನ್ನು ಪರಿಶೀಲಿಸುತ್ತಿರುವವರು ಅಥವಾ ಎಡಿಟ್ ಮಾಡುತ್ತಿರುವವರು</translation>
 <translation id="648732519525291180">ಸಮಯ ಪಿಕರ್</translation>
 <translation id="6550675742724504774">ಆಯ್ಕೆಗಳು</translation>
 <translation id="6572309429103589720">ಅಮಾನ್ಯ ವ್ಯಾಕರಣ</translation>
@@ -191,6 +191,7 @@
 <translation id="7118469954320184356">ಯಾವುದೇ ವಿವರಣೆ ಲಭ್ಯವಿಲ್ಲ.</translation>
 <translation id="7139483182332611405">ಮುನ್ನುಡಿ</translation>
 <translation id="7214187073215825913">ವಿಷಯದ ಮಾಹಿತಿ</translation>
+<translation id="7238347055216017155">ಎಂಫಸಿಸ್</translation>
 <translation id="7263440858009898357">ಪಟ್ಟಿಯಲ್ಲಿನ ಐಟಂ ಅನ್ನು ದಯವಿಟ್ಟು ಆಯ್ಕೆ ಮಾಡಿ.</translation>
 <translation id="727747134524199931">ಕಾಲಮ್ ಶಿರೋನಾಮೆ</translation>
 <translation id="7320576522385648310">ಬಫರ್ ಆಗುತ್ತಿದೆ</translation>
@@ -217,6 +218,7 @@
 <translation id="7888071071722539607">ಇಮೇಲ್ ವಿಳಾಸದಲ್ಲಿ ಒಂದು '<ph name="ATSIGN" />' ಅನ್ನು ಸೇರಿಸಿ. '<ph name="ATSIGN" />' ನಲ್ಲಿ '<ph name="INVALIDADDRESS" />' ಕಾಣೆಯಾಗಿದೆ.</translation>
 <translation id="7891486169920085145">ಛೇದಕ</translation>
 <translation id="795667975304826397">ಯಾವುದೇ ಫೈಲ್ ಆಯ್ಕೆ ಮಾಡಿಲ್ಲ</translation>
+<translation id="8034303206267677282">ಪ್ರಬಲ</translation>
 <translation id="8053789581856978548">ಪಠ್ಯ ಹುಡುಕಾಟದ ಫೀಲ್ಡ್</translation>
 <translation id="8057695513531652401">ಸೂಚನೆ</translation>
 <translation id="8105797009065549151">ಸೂಚನೆ ಉಲ್ಲೇಖ</translation>
@@ -247,7 +249,6 @@
 <translation id="8711688047404765493">ಔಟ್‌ಪುಟ್</translation>
 <translation id="8750798805984357768">ದಯವಿಟ್ಟು ಈ ಕೆಳಗಿನ ಆಯ್ಕೆಗಳಲ್ಲಿ ಒಂದನ್ನು ಆರಿಸಿ.</translation>
 <translation id="8808573423886751634">ಅಧ್ಯಾಯ</translation>
-<translation id="8822203815165896261">ಲೇಖಕರ ಮಾಹಿತಿ</translation>
 <translation id="8845239796550121995">ಈಗ ನಿಮ್ಮ ಟಿವಿಯನ್ನು ಬಿತ್ತರಿಸಲಾಗುತ್ತಿದೆ</translation>
 <translation id="8851136666856101339">ಮುಖ್ಯ</translation>
 <translation id="8875657656876809964">ವೀಡಿಯೊ ಪ್ಲೇಬ್ಯಾಕ್ ದೋಷ</translation>
@@ -255,6 +256,7 @@
 <translation id="8987927404178983737">ತಿಂಗಳು</translation>
 <translation id="901493112792887934">ಸೆಕೆಂಡ್‌ಗಳಲ್ಲಿ ಪ್ರಸ್ತುತ ಸಮಯ</translation>
 <translation id="901834265349196618">ಇಮೇಲ್</translation>
+<translation id="9023835124071926463">ಕಾಮೆಂಟ್ ವಿಭಾಗ</translation>
 <translation id="9048119486235211610">ನ್ಯಾವಿಗೇಷನ್</translation>
 <translation id="9062295712474918030">ಡಾಕ್ಯುಮೆಂಟ್</translation>
 <translation id="9093215626363556771">ಚಿತ್ರದಲ್ಲಿನ ಚಿತ್ರದಿಂದ ನಿರ್ಗಮಿಸಿ</translation>

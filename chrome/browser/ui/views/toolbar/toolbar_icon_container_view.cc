@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/stl_util.h"
+#include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
@@ -16,6 +17,10 @@
 #include "ui/views/layout/animating_layout_manager.h"
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/view_class_properties.h"
+
+// static
+const char ToolbarIconContainerView::kToolbarIconContainerViewClassName[] =
+    "ToolbarIconContainerView";
 
 ToolbarIconContainerView::ToolbarIconContainerView(bool uses_highlight)
     : uses_highlight_(uses_highlight) {
@@ -35,8 +40,6 @@ ToolbarIconContainerView::~ToolbarIconContainerView() {
   // destroying |observers_|.
   RemoveAllChildViews(true);
 }
-
-void ToolbarIconContainerView::UpdateAllIcons() {}
 
 void ToolbarIconContainerView::AddMainButton(views::Button* main_button) {
   DCHECK(!main_button_);
@@ -97,15 +100,15 @@ void ToolbarIconContainerView::OnMouseExited(const ui::MouseEvent& event) {
   UpdateHighlight();
 }
 
-void ToolbarIconContainerView::ChildPreferredSizeChanged(views::View* child) {
-  PreferredSizeChanged();
-}
-
 gfx::Insets ToolbarIconContainerView::GetInsets() const {
   // Use empty insets to have the border paint into the view instead of around
   // it. This prevents inadvertently increasing its size while the stroke is
   // drawn.
   return gfx::Insets();
+}
+
+const char* ToolbarIconContainerView::GetClassName() const {
+  return kToolbarIconContainerViewClassName;
 }
 
 bool ToolbarIconContainerView::ShouldDisplayHighlight() {
@@ -149,6 +152,18 @@ void ToolbarIconContainerView::UpdateHighlight() {
     return;
   for (Observer& observer : observers_)
     observer.OnHighlightChanged();
+}
+
+void ToolbarIconContainerView::OverrideIconColor(SkColor color) {
+  icon_color_ = color;
+  UpdateAllIcons();
+}
+
+SkColor ToolbarIconContainerView::GetIconColor() const {
+  if (icon_color_)
+    return icon_color_.value();
+  return GetThemeProvider()->GetColor(
+      ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
 }
 
 bool ToolbarIconContainerView::IsHighlighted() {

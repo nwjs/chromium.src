@@ -30,6 +30,7 @@
 
 #include "third_party/blink/renderer/core/html/track/vtt/vtt_parser.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
@@ -51,8 +52,6 @@
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
 namespace blink {
-
-using namespace html_names;
 
 const unsigned kFileIdentifierLength = 6;
 const unsigned kRegionIdentifierLength = 6;
@@ -99,7 +98,8 @@ VTTParser::VTTParser(VTTParserClient* client, Document& document)
       current_start_time_(0),
       current_end_time_(0),
       current_region_(nullptr),
-      client_(client) {
+      client_(client),
+      contains_style_block_(false) {
   UseCounter::Count(document, WebFeature::kVTTCueParser);
 }
 
@@ -127,6 +127,9 @@ void VTTParser::Flush() {
   Parse();
   FlushPendingCue();
   region_map_.clear();
+
+  base::UmaHistogramBoolean("Accessibility.VTTContainsStyleBlock",
+                            contains_style_block_);
 }
 
 void VTTParser::Parse() {
@@ -279,12 +282,13 @@ VTTParser::ParseState VTTParser::CollectWebVTTBlock(const String& line) {
     // line starts with the substring "STYLE" and remaining characters
     // zero or more U+0020 SPACE characters or U+0009 CHARACTER TABULATION
     // (tab) characters expected other than these characters it is invalid.
-    if (RuntimeEnabledFeatures::EmbeddedVTTStylesheetsEnabled() &&
-        line.StartsWith("STYLE") &&
-        StringView(line, kStyleIdentifierLength)
-            .IsAllSpecialCharacters<IsASpace>()) {
-      current_content_.Clear();
-      return kStyle;
+    if (line.StartsWith("STYLE") && StringView(line, kStyleIdentifierLength)
+                                        .IsAllSpecialCharacters<IsASpace>()) {
+      contains_style_block_ = true;
+      if (RuntimeEnabledFeatures::EmbeddedVTTStylesheetsEnabled()) {
+        current_content_.Clear();
+        return kStyle;
+      }
     }
   }
 
@@ -608,7 +612,7 @@ void VTTTreeBuilder::ConstructTreeFromToken(Document& document) {
       child->SetTrack(track_);
 
       if (!token_.Classes().IsEmpty())
-        child->setAttribute(kClassAttr, token_.Classes());
+        child->setAttribute(html_names::kClassAttr, token_.Classes());
 
       if (node_type == kVTTNodeTypeVoice) {
         child->setAttribute(VTTElement::VoiceAttributeName(),
@@ -656,8 +660,9 @@ void VTTTreeBuilder::ConstructTreeFromToken(Document& document) {
     case VTTTokenTypes::kTimestampTag: {
       double parsed_time_stamp;
       if (VTTParser::CollectTimeStamp(token_.Characters(), parsed_time_stamp)) {
-        current_node_->ParserAppendChild(ProcessingInstruction::Create(
-            document, "timestamp", SerializeTimeStamp(parsed_time_stamp)));
+        current_node_->ParserAppendChild(
+            MakeGarbageCollected<ProcessingInstruction>(
+                document, "timestamp", SerializeTimeStamp(parsed_time_stamp)));
       }
       break;
     }

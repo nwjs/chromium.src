@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "base/strings/string16.h"
+#include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/autofill_driver.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
@@ -69,12 +70,10 @@ class CreditCardFIDOAuthenticator
     virtual void OnFIDOAuthenticationComplete(
         bool did_succeed,
         const CreditCard* card = nullptr) = 0;
+    virtual void OnFidoAuthorizationComplete(bool did_succeed) = 0;
   };
   CreditCardFIDOAuthenticator(AutofillDriver* driver, AutofillClient* client);
   ~CreditCardFIDOAuthenticator() override;
-
-  // Offer the option to use WebAuthn for authenticating future card unmasking.
-  void ShowWebauthnOfferDialog(std::string card_authorization_token);
 
   // Invokes Authentication flow. Responds to |accessor_| with full pan.
   void Authenticate(const CreditCard* card,
@@ -90,8 +89,10 @@ class CreditCardFIDOAuthenticator
 
   // Invokes an Authorization flow. Sends signature created from
   // |request_options| along with the |card_authorization_token| to Payments in
-  // order to authorize the corresponding card.
-  void Authorize(std::string card_authorization_token,
+  // order to authorize the corresponding card. Notifies |requester| once
+  // Authorization is complete.
+  void Authorize(base::WeakPtr<Requester> requester,
+                 std::string card_authorization_token,
                  base::Value request_options);
 
   // Opts the user out.
@@ -107,6 +108,18 @@ class CreditCardFIDOAuthenticator
 
   // Ensures that local user opt-in pref is in-sync with payments server.
   void SyncUserOptIn(AutofillClient::UnmaskDetails& unmask_details);
+
+  // Cancel the ongoing verification process. Used to reset states in this class
+  // and in the FullCardRequest if any.
+  void CancelVerification();
+
+#if !defined(OS_ANDROID)
+  // Invoked when a Webauthn offer dialog is about to be shown.
+  void OnWebauthnOfferDialogRequested(std::string card_authorization_token);
+
+  // Invoked when the WebAuthn offer dialog is accepted or declined/cancelled.
+  void OnWebauthnOfferDialogUserResponse(bool did_accept);
+#endif
 
   // Retrieves the strike database for offering FIDO authentication.
   FidoAuthenticationStrikeDatabase*
@@ -160,10 +173,6 @@ class CreditCardFIDOAuthenticator
   void OnDidGetOptChangeResult(
       AutofillClient::PaymentsRpcResult result,
       payments::PaymentsClient::OptChangeResponseDetails& response);
-
-  // The callback invoked from the WebAuthn offer dialog when it is accepted or
-  // declined/cancelled.
-  void OnWebauthnOfferDialogUserResponse(bool did_accept);
 
   // payments::FullCardRequest::ResultDelegate:
   void OnFullCardRequestSucceeded(

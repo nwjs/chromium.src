@@ -11,8 +11,8 @@
 #include "base/run_loop.h"
 #include "base/stl_util.h"
 #include "base/strings/string_util.h"
+#include "base/synchronization/lock.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/mock_entropy_provider.h"
 #include "build/build_config.h"
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
@@ -139,8 +139,7 @@ class ClientHintsBrowserTest : public InProcessBrowserTest,
                                public testing::WithParamInterface<bool> {
  public:
   ClientHintsBrowserTest()
-      : field_trial_list_(std::make_unique<base::MockEntropyProvider>()),
-        http_server_(net::EmbeddedTestServer::TYPE_HTTP),
+      : http_server_(net::EmbeddedTestServer::TYPE_HTTP),
         https_server_(net::EmbeddedTestServer::TYPE_HTTPS),
         https_cross_origin_server_(net::EmbeddedTestServer::TYPE_HTTPS),
         expect_client_hints_on_main_frame_(false),
@@ -284,10 +283,10 @@ class ClientHintsBrowserTest : public InProcessBrowserTest,
     content::WebContents* web_contents =
         browser()->tab_strip_model()->GetActiveWebContents();
     EXPECT_FALSE(TabSpecificContentSettings::FromWebContents(web_contents)
-                     ->IsContentBlocked(CONTENT_SETTINGS_TYPE_COOKIES));
+                     ->IsContentBlocked(ContentSettingsType::COOKIES));
 
     EXPECT_FALSE(TabSpecificContentSettings::FromWebContents(web_contents)
-                     ->IsContentBlocked(CONTENT_SETTINGS_TYPE_JAVASCRIPT));
+                     ->IsContentBlocked(ContentSettingsType::JAVASCRIPT));
   }
 
   void SetExpectedEffectiveConnectionType(
@@ -405,10 +404,12 @@ class ClientHintsBrowserTest : public InProcessBrowserTest,
   const GURL& redirect_url() const { return redirect_url_; }
 
   size_t count_user_agent_hint_headers_seen() const {
+    base::AutoLock lock(count_headers_lock_);
     return count_user_agent_hint_headers_seen_;
   }
 
   size_t count_client_hints_headers_seen() const {
+    base::AutoLock lock(count_headers_lock_);
     return count_client_hints_headers_seen_;
   }
 
@@ -424,11 +425,11 @@ class ClientHintsBrowserTest : public InProcessBrowserTest,
     return main_frame_ua_observed_;
   }
 
-  base::FieldTrialList field_trial_list_;
   base::test::ScopedFeatureList scoped_feature_list_;
 
   std::string intercept_iframe_resource_;
   bool intercept_to_http_equiv_iframe_ = false;
+  mutable base::Lock count_headers_lock_;
 
  private:
   // Intercepts only the main frame requests that contain
@@ -584,6 +585,7 @@ class ClientHintsBrowserTest : public InProcessBrowserTest,
     for (size_t i = 0; i < blink::kClientHintsMappingsCount; ++i) {
       if (base::Contains(request.headers,
                          blink::kClientHintsHeaderMapping[i])) {
+        base::AutoLock lock(count_headers_lock_);
         // The user agent hint is special:
         if (std::string(blink::kClientHintsHeaderMapping[i]) == "sec-ch-ua") {
           count_user_agent_hint_headers_seen_++;
@@ -801,13 +803,12 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   HostContentSettingsMap* host_content_settings_map =
       HostContentSettingsMapFactory::GetForProfile(browser()->profile());
   host_content_settings_map->GetSettingsForOneType(
-      CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
-      &client_hints_settings);
+      ContentSettingsType::CLIENT_HINTS, std::string(), &client_hints_settings);
   ASSERT_EQ(1U, client_hints_settings.size());
 
   // Copy the client hints setting for localhost to foo.com.
   host_content_settings_map->SetWebsiteSettingDefaultScope(
-      GURL("https://foo.com/"), GURL(), CONTENT_SETTINGS_TYPE_CLIENT_HINTS,
+      GURL("https://foo.com/"), GURL(), ContentSettingsType::CLIENT_HINTS,
       std::string(),
       std::make_unique<base::Value>(
           client_hints_settings.at(0).setting_value.Clone()));
@@ -816,8 +817,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   host_content_settings_map =
       HostContentSettingsMapFactory::GetForProfile(browser()->profile());
   host_content_settings_map->GetSettingsForOneType(
-      CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
-      &client_hints_settings);
+      ContentSettingsType::CLIENT_HINTS, std::string(), &client_hints_settings);
   ASSERT_EQ(2U, client_hints_settings.size());
 
   // Navigating to without_accept_ch_without_lifetime_img_localhost() should
@@ -953,7 +953,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   ContentSettingsForOneType host_settings;
 
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
@@ -990,7 +990,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   ContentSettingsForOneType host_settings;
 
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
@@ -1022,7 +1022,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   ContentSettingsForOneType host_settings;
 
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
@@ -1055,7 +1055,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   ContentSettingsForOneType host_settings;
 
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
@@ -1088,7 +1088,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   ContentSettingsForOneType host_settings;
 
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
@@ -1108,7 +1108,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
 
   // Clients hints preferences for one origin should be persisted.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(1u, host_settings.size());
 
@@ -1150,7 +1150,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   ContentSettingsForOneType host_settings;
 
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
@@ -1171,7 +1171,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
 
   // Clients hints preferences for one origin should be persisted.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(1u, host_settings.size());
 
@@ -1200,7 +1200,7 @@ IN_PROC_BROWSER_TEST_F(ClientHintsBrowserTest,
   ContentSettingsForOneType host_settings;
 
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
@@ -1220,7 +1220,7 @@ IN_PROC_BROWSER_TEST_F(ClientHintsBrowserTest,
 
   // Clients hints preferences for one origin should be persisted.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(1u, host_settings.size());
 
@@ -1256,7 +1256,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   ContentSettingsForOneType host_settings;
 
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
@@ -1277,7 +1277,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
 
   // Clients hints preferences for one origin should be persisted.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(1u, host_settings.size());
 
@@ -1308,14 +1308,14 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   // Block cookies.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
       ->SetContentSettingDefaultScope(gurl_with, GURL(),
-                                      CONTENT_SETTINGS_TYPE_COOKIES,
+                                      ContentSettingsType::COOKIES,
                                       std::string(), CONTENT_SETTING_BLOCK);
 
   // Fetching |gurl_with| should persist the request for client hints.
   ui_test_utils::NavigateToURL(browser(), gurl_with);
   histogram_tester.ExpectTotalCount("ClientHints.UpdateEventCount", 1);
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(1u, host_settings.size());
   VerifyContentSettingsNotNotified();
@@ -1332,7 +1332,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   ContentSettingsForOneType host_settings;
 
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
@@ -1350,14 +1350,14 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
 
   // Clients hints preferences for one origin should be persisted.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(1u, host_settings.size());
 
   // Block the cookies: Client hints should be attached.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
       ->SetContentSettingDefaultScope(gurl_without, GURL(),
-                                      CONTENT_SETTINGS_TYPE_COOKIES,
+                                      ContentSettingsType::COOKIES,
                                       std::string(), CONTENT_SETTING_BLOCK);
 
   SetClientHintExpectationsOnMainFrame(true);
@@ -1374,7 +1374,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
 
   // Clear settings.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->ClearSettingsForOneType(CONTENT_SETTINGS_TYPE_COOKIES);
+      ->ClearSettingsForOneType(ContentSettingsType::COOKIES);
 }
 
 // Ensure that when the JavaScript is blocked, client hint preferences are not
@@ -1395,11 +1395,11 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   // Block the JavaScript: Client hint preferences should not be persisted.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
       ->SetContentSettingDefaultScope(gurl, GURL(),
-                                      CONTENT_SETTINGS_TYPE_JAVASCRIPT,
+                                      ContentSettingsType::JAVASCRIPT,
                                       std::string(), CONTENT_SETTING_BLOCK);
   ui_test_utils::NavigateToURL(browser(), accept_ch_with_lifetime_url());
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
   VerifyContentSettingsNotNotified();
@@ -1407,17 +1407,17 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   // Allow the JavaScript: Client hint preferences should be persisted.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
       ->SetContentSettingDefaultScope(gurl, GURL(),
-                                      CONTENT_SETTINGS_TYPE_JAVASCRIPT,
+                                      ContentSettingsType::JAVASCRIPT,
                                       std::string(), CONTENT_SETTING_ALLOW);
   ui_test_utils::NavigateToURL(browser(), accept_ch_with_lifetime_url());
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(1u, host_settings.size());
 
   // Clear settings.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->ClearSettingsForOneType(CONTENT_SETTINGS_TYPE_JAVASCRIPT);
+      ->ClearSettingsForOneType(ContentSettingsType::JAVASCRIPT);
 }
 
 // Ensure that when the JavaScript is blocked, persisted client hints are not
@@ -1431,7 +1431,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   ContentSettingsForOneType host_settings;
 
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
@@ -1452,7 +1452,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
 
   // Clients hints preferences for one origin should be persisted.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(1u, host_settings.size());
 
@@ -1473,7 +1473,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   // Block JavaScript via ContentSetting: Client hints should not be attached.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
       ->SetContentSettingDefaultScope(without_accept_ch_without_lifetime_url(),
-                                      GURL(), CONTENT_SETTINGS_TYPE_JAVASCRIPT,
+                                      GURL(), ContentSettingsType::JAVASCRIPT,
                                       std::string(), CONTENT_SETTING_BLOCK);
   ui_test_utils::NavigateToURL(browser(),
                                without_accept_ch_without_lifetime_url());
@@ -1484,7 +1484,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   // Allow JavaScript: Client hints should now be attached.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
       ->SetContentSettingDefaultScope(without_accept_ch_without_lifetime_url(),
-                                      GURL(), CONTENT_SETTINGS_TYPE_JAVASCRIPT,
+                                      GURL(), ContentSettingsType::JAVASCRIPT,
                                       std::string(), CONTENT_SETTING_ALLOW);
 
   SetClientHintExpectationsOnMainFrame(true);
@@ -1501,7 +1501,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
 
   // Clear settings.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->ClearSettingsForOneType(CONTENT_SETTINGS_TYPE_JAVASCRIPT);
+      ->ClearSettingsForOneType(ContentSettingsType::JAVASCRIPT);
 }
 
 // Test that if the content settings are malformed, then the browser does not
@@ -1519,16 +1519,17 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   auto expiration_times_dictionary = std::make_unique<base::DictionaryValue>();
   expiration_times_dictionary->SetList("client_hints",
                                        std::move(expiration_times_list));
-  // Do not set |expiration_time| in the dictionary.
+  expiration_times_dictionary->SetDouble(
+      "expiration_time",
+      (base::Time::Now() + base::TimeDelta::FromDays(1)).ToDoubleT());
   host_content_settings_map->SetWebsiteSettingDefaultScope(
       without_accept_ch_without_lifetime_url(), GURL(),
-      CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ContentSettingsType::CLIENT_HINTS, std::string(),
       std::make_unique<base::Value>(expiration_times_dictionary->Clone()));
 
   // Reading the settings should now return one setting.
   host_content_settings_map->GetSettingsForOneType(
-      CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
-      &client_hints_settings);
+      ContentSettingsType::CLIENT_HINTS, std::string(), &client_hints_settings);
   EXPECT_EQ(1U, client_hints_settings.size());
 
   SetClientHintExpectationsOnMainFrame(false);
@@ -1548,7 +1549,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   ContentSettingsForOneType host_settings;
 
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
@@ -1557,7 +1558,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
       ->SetContentSettingDefaultScope(
           accept_ch_without_lifetime_img_localhost(), GURL(),
-          CONTENT_SETTINGS_TYPE_JAVASCRIPT, std::string(),
+          ContentSettingsType::JAVASCRIPT, std::string(),
           CONTENT_SETTING_BLOCK);
   ui_test_utils::NavigateToURL(browser(),
                                accept_ch_without_lifetime_img_localhost());
@@ -1570,7 +1571,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
       ->SetContentSettingDefaultScope(
           accept_ch_without_lifetime_img_localhost(), GURL(),
-          CONTENT_SETTINGS_TYPE_JAVASCRIPT, std::string(),
+          ContentSettingsType::JAVASCRIPT, std::string(),
           CONTENT_SETTING_ALLOW);
 
   SetClientHintExpectationsOnSubresources(true);
@@ -1585,14 +1586,14 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
 
   // Clear settings.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->ClearSettingsForOneType(CONTENT_SETTINGS_TYPE_JAVASCRIPT);
+      ->ClearSettingsForOneType(ContentSettingsType::JAVASCRIPT);
 
   // Block the Javascript again: Client hints should not be attached.
   SetClientHintExpectationsOnSubresources(false);
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
       ->SetContentSettingDefaultScope(
           accept_ch_without_lifetime_img_localhost(), GURL(),
-          CONTENT_SETTINGS_TYPE_JAVASCRIPT, std::string(),
+          ContentSettingsType::JAVASCRIPT, std::string(),
           CONTENT_SETTING_BLOCK);
   ui_test_utils::NavigateToURL(browser(),
                                accept_ch_without_lifetime_img_localhost());
@@ -1603,7 +1604,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
 
   // Clear settings.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->ClearSettingsForOneType(CONTENT_SETTINGS_TYPE_JAVASCRIPT);
+      ->ClearSettingsForOneType(ContentSettingsType::JAVASCRIPT);
 }
 
 // Ensure that when the cookies is blocked, client hints are attached to the
@@ -1620,14 +1621,14 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
       CookieSettingsFactory::GetForProfile(browser()->profile());
 
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
   // Block cookies.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
       ->SetContentSettingDefaultScope(gurl, GURL(),
-                                      CONTENT_SETTINGS_TYPE_COOKIES,
+                                      ContentSettingsType::COOKIES,
                                       std::string(), CONTENT_SETTING_BLOCK);
   base::RunLoop().RunUntilIdle();
 
@@ -1640,7 +1641,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
 
   // Clear settings.
   HostContentSettingsMapFactory::GetForProfile(browser()->profile())
-      ->ClearSettingsForOneType(CONTENT_SETTINGS_TYPE_COOKIES);
+      ->ClearSettingsForOneType(ContentSettingsType::COOKIES);
 }
 
 // Verify that client hints are sent in the incognito profiles, and server
@@ -1655,7 +1656,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
   ContentSettingsForOneType host_settings;
 
   HostContentSettingsMapFactory::GetForProfile(incognito->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(0u, host_settings.size());
 
@@ -1676,7 +1677,7 @@ IN_PROC_BROWSER_TEST_P(ClientHintsBrowserTest,
 
   // Clients hints preferences for one origin should be persisted.
   HostContentSettingsMapFactory::GetForProfile(incognito->profile())
-      ->GetSettingsForOneType(CONTENT_SETTINGS_TYPE_CLIENT_HINTS, std::string(),
+      ->GetSettingsForOneType(ContentSettingsType::CLIENT_HINTS, std::string(),
                               &host_settings);
   EXPECT_EQ(1u, host_settings.size());
 

@@ -11,6 +11,7 @@
 #include "base/optional.h"
 #include "base/process/kill.h"
 #include "base/process/process_handle.h"
+#include "components/viz/common/vertical_scroll_direction.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/reload_type.h"
@@ -53,6 +54,7 @@ struct FaviconURL;
 struct FocusedNodeDetails;
 struct LoadCommittedDetails;
 struct MediaPlayerId;
+struct MediaPlayerWatchTime;
 struct PrunedDetails;
 struct Referrer;
 
@@ -227,12 +229,18 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener {
   virtual void DidReceiveResponse() {}
   virtual void DidStopLoading() {}
 
+  // The page has made some progress loading. |progress| is a value between 0.0
+  // (nothing loaded) to 1.0 (page fully loaded).
+  virtual void LoadProgressChanged(double progress) {}
+
   // This method is invoked once the window.document object of the main frame
   // was created.
   virtual void DocumentAvailableInMainFrame() {}
 
   // This method is invoked once the onload handler of the main frame has
   // completed.
+  // Prefer using WebContents::IsDocumentOnLoadCompletedInMainFrame instead
+  // of saving this state in your component.
   virtual void DocumentOnLoadCompletedInMainFrame() {}
 
   // This method is invoked when the document in the given frame finished
@@ -464,6 +472,15 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener {
   virtual void DidAttachInterstitialPage() {}
   virtual void DidDetachInterstitialPage() {}
 
+  // Invoked when the vertical scroll direction of the root layer is changed.
+  // Note that if a scroll in a given direction occurs, the scroll is completed,
+  // and then another scroll in the *same* direction occurs, we will not
+  // consider the second scroll event to have caused a change in direction. Also
+  // note that this API will *never* be called with |kNull| which only exists to
+  // indicate the absence of a vertical scroll direction.
+  virtual void DidChangeVerticalScrollDirection(
+      viz::VerticalScrollDirection scroll_direction) {}
+
   // Invoked before a form repost warning is shown.
   virtual void BeforeFormRepostWarningShow() {}
 
@@ -501,6 +518,10 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener {
     bool has_video;
     bool has_audio;
   };
+
+  // Invoked when media playback is interrupted or completed.
+  virtual void MediaWatchTimeChanged(
+      const content::MediaPlayerWatchTime& watch_time) {}
 
   virtual void MediaStartedPlaying(const MediaPlayerInfo& video_type,
                                    const MediaPlayerId& id) {}

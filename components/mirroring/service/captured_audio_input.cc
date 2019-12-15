@@ -11,8 +11,7 @@
 namespace mirroring {
 
 CapturedAudioInput::CapturedAudioInput(StreamCreatorCallback callback)
-    : stream_creator_callback_(std::move(callback)),
-      stream_client_binding_(this) {
+    : stream_creator_callback_(std::move(callback)) {
   DETACH_FROM_SEQUENCE(sequence_checker_);
   DCHECK(!stream_creator_callback_.is_null());
 }
@@ -48,8 +47,7 @@ void CapturedAudioInput::SetVolume(double volume) {
 void CapturedAudioInput::CloseStream() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   delegate_ = nullptr;
-  if (stream_client_binding_.is_bound())
-    stream_client_binding_.Unbind();
+  stream_client_receiver_.reset();
   stream_.reset();
 }
 
@@ -59,17 +57,17 @@ void CapturedAudioInput::SetOutputDeviceForAec(
 }
 
 void CapturedAudioInput::StreamCreated(
-    media::mojom::AudioInputStreamPtr stream,
-    media::mojom::AudioInputStreamClientRequest client_request,
+    mojo::PendingRemote<media::mojom::AudioInputStream> stream,
+    mojo::PendingReceiver<media::mojom::AudioInputStreamClient> client_receiver,
     media::mojom::ReadOnlyAudioDataPipePtr data_pipe,
     bool initially_muted) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(delegate_);
   DCHECK(!stream_);
-  DCHECK(!stream_client_binding_.is_bound());
+  DCHECK(!stream_client_receiver_.is_bound());
 
-  stream_ = std::move(stream);
-  stream_client_binding_.Bind(std::move(client_request));
+  stream_.Bind(std::move(stream));
+  stream_client_receiver_.Bind(std::move(client_receiver));
 
   base::PlatformFile socket_handle;
   auto result =

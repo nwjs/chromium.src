@@ -39,7 +39,6 @@ class SaveCardBubbleViews : public SaveCardBubbleView,
   void Hide() override;
 
   // views::BubbleDialogDelegateView:
-  std::unique_ptr<views::View> CreateFootnoteView() override;
   bool Accept() override;
   bool Cancel() override;
   bool Close() override;
@@ -86,8 +85,8 @@ class SaveCardBubbleViews : public SaveCardBubbleView,
 
   SaveCardBubbleController* controller() const { return controller_; }
 
-  // Attributes IDs to the DialogClientView and its buttons.
-  void AssignIdsToDialogClientView();
+  // Attributes IDs to the dialog's DialogDelegate-supplied buttons.
+  void AssignIdsToDialogButtons();
 
   // views::BubbleDialogDelegateView:
   void Init() override;

@@ -260,7 +260,7 @@ class AXPlatformNodeTextRangeProviderWinBrowserTest
         ToBrowserAccessibilityWin(browser_accessibility_start)->GetCOM();
     ASSERT_NE(nullptr, start_browser_accessibility_com_win);
 
-    CComPtr<ITextRangeProvider> text_range_provider =
+    ComPtr<ITextRangeProvider> text_range_provider =
         ui::AXPlatformNodeTextRangeProviderWin::CreateTextRangeProvider(
             start_browser_accessibility_com_win, std::move(start),
             std::move(end));
@@ -643,8 +643,11 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
       <html>
       <body>
         <div>plain 1</div><div>plain 2</div>
-        <div style="font-style: italic">italic 1</div>
+        <div role="heading">plain heading</div>
+        <div role="article" style="font-style: italic">italic 1</div>
         <div style="font-style: italic">italic 2</div>
+        <h1>heading</h1>
+        <h1>heading</h1>
         <div style="font-weight: bold">bold 1</div>
         <div style="font-weight: bold">bold 2</div>
       </body>
@@ -668,30 +671,49 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
       text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Format,
       /*count*/ 1,
       /*expected_text*/
-      L"plain 1\nplain 2\nitalic 1\nitalic 2",
+      L"plain 1\nplain 2\nplain heading",
+      /*expected_count*/ 1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Format,
+      /*count*/ 1,
+      /*expected_text*/
+      L"plain 1\nplain 2\nplain heading\nitalic 1\nitalic 2",
       /*expected_count*/ 1);
   EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
       text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Format,
       /*count*/ -1,
-      /*expected_text*/ L"plain 1\nplain 2\n",
+      /*expected_text*/ L"plain 1\nplain 2\nplain heading\n",
       /*expected_count*/ -1);
   EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
       text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Format,
       /*count*/ 1,
       /*expected_text*/
-      L"plain 1\nplain 2\nitalic 1\nitalic 2",
+      L"plain 1\nplain 2\nplain heading\nitalic 1\nitalic 2",
+      /*expected_count*/ 1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Format,
+      /*count*/ 1,
+      /*expected_text*/
+      L"plain 1\nplain 2\nplain heading\nitalic 1\nitalic 2\nheading",
+      /*expected_count*/ 1);
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Format,
+      /*count*/ 1,
+      /*expected_text*/
+      L"plain 1\nplain 2\nplain heading\nitalic 1\nitalic 2\nheading\nheading",
       /*expected_count*/ 1);
   EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
       text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Format,
       /*count*/ 5,
       /*expected_text*/
-      L"plain 1\nplain 2\nitalic 1\nitalic 2\nbold 1\nbold 2",
+      L"plain 1\nplain 2\nplain heading\nitalic 1\nitalic 2"
+      L"\nheading\nheading\nbold 1\nbold 2",
       /*expected_count*/ 1);
   EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
       text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Format,
-      /*count*/ -4,
+      /*count*/ -8,
       /*expected_text*/ L"",
-      /*expected_count*/ -3);
+      /*expected_count*/ -6);
   EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
       text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Format,
       /*count*/ 1,
@@ -1478,6 +1500,53 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
+                       MoveByUnitParagraphWithAriaHiddenNodes) {
+  const std::string html_markup = R"HTML(<!DOCTYPE html>
+  <html>
+    <body>
+      <div>start</div>
+      <div>
+        1. Paragraph with hidden <span aria-hidden="true">
+          [IGNORED]
+        </span> inline in between
+      </div>
+      <div>
+        <span>2. Paragraph parts wrapped by</span> <span aria-hidden="true">
+          [IGNORED]
+        </span> <span>span with hidden inline in between</span>
+      </div>
+      <div>
+        <span>3. Paragraph before hidden block</span><div aria-hidden="true">
+          [IGNORED]
+        </div><span>4. Paragraph after hidden block</span>
+      </div>
+      <div>
+        <span aria-hidden="true">[IGNORED]</span><span>5. Paragraph with leading
+        and trailing hidden span</span><span aria-hidden="true">[IGNORED]</span>
+      </div>
+      <div>
+        <div aria-hidden="true">[IGNORED]</div><span>6. Paragraph with leading
+        and trailing hidden block</span><div aria-hidden="true">[IGNORED]</div>
+      </div>
+      <div>end</div>
+    </body>
+  </html>)HTML";
+
+  const std::vector<const wchar_t*> paragraphs = {
+      L"start",
+      L"1. Paragraph with hidden inline in between",
+      L"2. Paragraph parts wrapped by span with hidden inline in between",
+      L"3. Paragraph before hidden block",
+      L"4. Paragraph after hidden block",
+      L"5. Paragraph with leading and trailing hidden span",
+      L"6. Paragraph with leading and trailing hidden block",
+      L"end",
+  };
+
+  AssertMoveByUnitForMarkup(TextUnit_Paragraph, html_markup, paragraphs);
+}
+
+IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
                        IFrameTraversal) {
   LoadInitialAccessibilityTreeFromUrl(embedded_test_server()->GetURL(
       "/accessibility/html/iframe-cross-process.html"));
@@ -1723,6 +1792,30 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
+                       EntireMarkupSuccessiveMoveByCharacter) {
+  AssertMoveByUnitForMarkup(
+      TextUnit_Character, "Test ing.",
+      {L"T", L"e", L"s", L"t", L" ", L"i", L"n", L"g", L"."});
+
+  // The text consists of an e acute, and two emoticons.
+  const std::string html = R"HTML(<!DOCTYPE html>
+      <html>
+        <body>
+          <input type="text" value="">
+          <script>
+            document.querySelector('input').value = 'e\u0301' +
+                '\uD83D\uDC69\u200D\u2764\uFE0F\u200D\uD83D\uDC69' +
+                '\uD83D\uDC36';
+          </script>
+        </body>
+      </html>)HTML";
+  AssertMoveByUnitForMarkup(
+      TextUnit_Character, html,
+      {L"e\x0301", L"\xD83D\xDC69\x200D\x2764\xFE0F\x200D\xD83D\xDC69",
+       L"\xD83D\xDC36"});
+}
+
+IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
                        EntireMarkupSuccessiveMoveByWord) {
   AssertMoveByUnitForMarkup(TextUnit_Word, "this is a test.",
                             {L"this ", L"is ", L"a ", L"test."});
@@ -1745,9 +1838,14 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
                             "text</span> and text after.",
                             {L"a ", L"and ", L"text ", L"after."});
 
+  AssertMoveByUnitForMarkup(
+      TextUnit_Word, "<ol><li>item one</li><li>item two</li></ol>",
+      {L"1. ", L"item ", L"one", L"2. ", L"item ", L"two"});
+
+  // The following test should be enabled when crbug.com/1015100 is fixed.
   // AssertMoveByUnitForMarkup(
   //     TextUnit_Word, "<ul><li>item one</li><li>item two</li></ul>",
-  //     {L"* ", L"item ", L"one\n", L"* ", L"item ", L"two"});
+  //     {L"• ", L"item ", L"one", L"• ", L"item ", L"two"});
 }
 
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
@@ -1809,6 +1907,34 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
+                       EntireMarkupSuccessiveMoveByLine) {
+  AssertMoveByUnitForMarkup(TextUnit_Line, "<div style='width:0'>one two</div>",
+                            {L"one ", L"two"});
+
+  AssertMoveByUnitForMarkup(TextUnit_Line, "line one<br>line two",
+                            {L"line one", L"line two"});
+
+  AssertMoveByUnitForMarkup(TextUnit_Line,
+                            "<div>line one</div><div><div>line two</div></div>",
+                            {L"line one", L"line two"});
+
+  AssertMoveByUnitForMarkup(
+      TextUnit_Line, "<div style='display:inline-block'>a</div>", {L"a"});
+
+  // This tests a weird edge-case; TextUnit_Line breaks at the beginning of an
+  // inline-block, but not at the end.
+  AssertMoveByUnitForMarkup(TextUnit_Line,
+                            "a<div style='display:inline-block'>b</div>c",
+                            {L"a", L"b\nc"});
+
+  // The following test should be enabled when crbug.com/1015100 is fixed.
+  // AssertMoveByUnitForMarkup(
+  //     TextUnit_Line,
+  //     "<h1>line one</h1><ul><li>line two</li><li>line three</li></ul>",
+  //     {L"line one\n", L"* line two\n", L"* line three"});
+}
+
+IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
                        BoundingRectangleOfWordBeforeListItemMarker) {
   LoadInitialAccessibilityTreeFromHtml(
       R"HTML(<!DOCTYPE html>
@@ -1848,9 +1974,9 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
   EXPECT_UIA_DOUBLE_SAFEARRAY_EQ(rectangles.Get(), expected_values);
 
   EXPECT_UIA_MOVE(text_range_provider, TextUnit_Character,
-                  /*count*/ 17,
+                  /*count*/ 19,
                   /*expected_text*/ L"e",
-                  /*expected_count*/ 17);
+                  /*expected_count*/ 19);
   text_range_provider->ExpandToEnclosingUnit(TextUnit_Word);
   EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"item");
 

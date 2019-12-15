@@ -51,6 +51,10 @@ class ExternalVkImageBacking final : public SharedImageBacking {
 
   SharedContextState* context_state() const { return context_state_; }
   const GrBackendTexture& backend_texture() const { return backend_texture_; }
+  const scoped_refptr<gles2::TexturePassthrough>& GetTexturePassthrough()
+      const {
+    return texture_passthrough_;
+  }
   VulkanImplementation* vulkan_implementation() const {
     return context_state()->vk_context_provider()->GetVulkanImplementation();
   }
@@ -103,7 +107,7 @@ class ExternalVkImageBacking final : public SharedImageBacking {
   std::unique_ptr<SharedImageRepresentationDawn> ProduceDawn(
       SharedImageManager* manager,
       MemoryTypeTracker* tracker,
-      DawnDevice dawnDevice) override;
+      WGPUDevice dawnDevice) override;
   std::unique_ptr<SharedImageRepresentationGLTexture> ProduceGLTexture(
       SharedImageManager* manager,
       MemoryTypeTracker* tracker) override;
@@ -128,7 +132,7 @@ class ExternalVkImageBacking final : public SharedImageBacking {
                          VkFormat vk_format,
                          VulkanCommandPool* command_pool,
                          const GrVkYcbcrConversionInfo& ycbcr_info,
-                         base::Optional<DawnTextureFormat> dawn_format,
+                         base::Optional<WGPUTextureFormat> wgpu_format,
                          base::Optional<uint32_t> memory_type_index);
 
 #ifdef OS_LINUX
@@ -141,6 +145,8 @@ class ExternalVkImageBacking final : public SharedImageBacking {
       base::WritableSharedMemoryMapping shared_memory_mapping,
       size_t stride,
       size_t memory_offset);
+  // Returns texture_service_id for ProduceGLTexture and GLTexturePassthrough.
+  GLuint ProduceGLTextureInternal();
 
   using FillBufferCallback = base::OnceCallback<void(void* buffer)>;
   bool WritePixels(size_t data_size,
@@ -160,6 +166,7 @@ class ExternalVkImageBacking final : public SharedImageBacking {
   bool is_write_in_progress_ = false;
   uint32_t reads_in_progress_ = 0;
   gles2::Texture* texture_ = nullptr;
+  scoped_refptr<gles2::TexturePassthrough> texture_passthrough_;
 
   // GMB related stuff.
   base::WritableSharedMemoryMapping shared_memory_mapping_;
@@ -173,7 +180,7 @@ class ExternalVkImageBacking final : public SharedImageBacking {
   };
   uint32_t latest_content_ = 0;
 
-  base::Optional<DawnTextureFormat> dawn_format_;
+  base::Optional<WGPUTextureFormat> wgpu_format_;
   base::Optional<uint32_t> memory_type_index_;
 
   DISALLOW_COPY_AND_ASSIGN(ExternalVkImageBacking);

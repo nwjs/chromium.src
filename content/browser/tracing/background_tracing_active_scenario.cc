@@ -16,14 +16,13 @@
 #include "content/browser/tracing/background_tracing_manager_impl.h"
 #include "content/browser/tracing/background_tracing_rule.h"
 #include "content/browser/tracing/tracing_controller_impl.h"
-#include "content/public/browser/system_connector.h"
-#include "mojo/public/cpp/bindings/binding.h"
+#include "content/public/browser/tracing_service.h"
+#include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/data_pipe_drainer.h"
-#include "services/service_manager/public/cpp/connector.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_config.h"
 #include "services/tracing/public/cpp/perfetto/trace_event_data_source.h"
 #include "services/tracing/public/cpp/tracing_features.h"
-#include "services/tracing/public/mojom/constants.mojom.h"
 
 using base::trace_event::TraceConfig;
 using Metrics = content::BackgroundTracingManagerImpl::Metrics;
@@ -34,7 +33,7 @@ class BackgroundTracingActiveScenario::TracingTimer {
  public:
   TracingTimer(BackgroundTracingActiveScenario* scenario,
                BackgroundTracingManager::StartedFinalizingCallback callback)
-      : scenario_(scenario), callback_(callback) {
+      : scenario_(scenario), callback_(std::move(callback)) {
     DCHECK_NE(scenario->GetConfig()->tracing_mode(),
               BackgroundTracingConfigImpl::SYSTEM);
   }
@@ -52,7 +51,7 @@ class BackgroundTracingActiveScenario::TracingTimer {
   }
 
  private:
-  void TracingTimerFired() { scenario_->BeginFinalizing(callback_); }
+  void TracingTimerFired() { scenario_->BeginFinalizing(std::move(callback_)); }
 
   BackgroundTracingActiveScenario* scenario_;
   base::OneShotTimer tracing_timer_;
@@ -62,8 +61,8 @@ class BackgroundTracingActiveScenario::TracingTimer {
 class BackgroundTracingActiveScenario::TracingSession {
  public:
   virtual ~TracingSession() = default;
-  virtual void BeginFinalizing(const base::RepeatingClosure& on_success,
-                               const base::RepeatingClosure& on_failure) = 0;
+  virtual void BeginFinalizing(base::OnceClosure on_success,
+                               base::OnceClosure on_failure) = 0;
   virtual void AbortScenario(
       const base::RepeatingClosure& on_abort_callback) = 0;
 };
@@ -87,43 +86,39 @@ class PerfettoTracingSession
     }
 #endif
 
-    GetSystemConnector()->BindInterface(tracing::mojom::kServiceName,
-                                        &consumer_host_);
+    GetTracingService().BindConsumerHost(
+        consumer_host_.BindNewPipeAndPassReceiver());
 
     perfetto::TraceConfig perfetto_config = tracing::GetDefaultPerfettoConfig(
         chrome_config, /*privacy_filtering_enabled=*/true);
     perfetto_config.mutable_incremental_state_config()->set_clear_period_ms(
         interning_reset_interval_ms);
 
-    mojo::PendingRemote<tracing::mojom::TracingSessionClient>
-        tracing_session_client;
-    binding_.Bind(tracing_session_client.InitWithNewPipeAndPassReceiver());
-    binding_.set_connection_error_handler(
+    consumer_host_->EnableTracing(
+        tracing_session_host_.BindNewPipeAndPassReceiver(),
+        receiver_.BindNewPipeAndPassRemote(), std::move(perfetto_config),
+        tracing::mojom::TracingClientPriority::kBackground);
+    receiver_.set_disconnect_handler(
         base::BindOnce(&PerfettoTracingSession::OnTracingSessionEnded,
                        base::Unretained(this)));
-
-    consumer_host_->EnableTracing(
-        mojo::MakeRequest(&tracing_session_host_),
-        std::move(tracing_session_client), std::move(perfetto_config),
-        tracing::mojom::TracingClientPriority::kBackground);
-    tracing_session_host_.set_connection_error_handler(
+    tracing_session_host_.set_disconnect_handler(
         base::BindOnce(&PerfettoTracingSession::OnTracingSessionEnded,
                        base::Unretained(this)));
   }
 
   // BackgroundTracingActiveScenario::TracingSession implementation.
-  void BeginFinalizing(const base::RepeatingClosure& on_success,
-                       const base::RepeatingClosure& on_failure) override {
+  void BeginFinalizing(base::OnceClosure on_success,
+                       base::OnceClosure on_failure) override {
     bool is_allowed_finalization =
         BackgroundTracingManagerImpl::GetInstance()->IsAllowedFinalization();
 
     if (!is_allowed_finalization) {
-      on_failure.Run();
+      std::move(on_failure).Run();
       return;
     }
 
     tracing_session_host_->DisableTracing();
-    on_success.Run();
+    std::move(on_success).Run();
   }
 
   void AbortScenario(const base::RepeatingClosure& on_abort_callback) override {
@@ -178,10 +173,10 @@ class PerfettoTracingSession
   void OnTracingSessionEnded() { parent_scenario_->AbortScenario(); }
 
   BackgroundTracingActiveScenario* const parent_scenario_;
-  mojo::Binding<tracing::mojom::TracingSessionClient> binding_{this};
-  tracing::mojom::TracingSessionHostPtr tracing_session_host_;
+  mojo::Receiver<tracing::mojom::TracingSessionClient> receiver_{this};
+  mojo::Remote<tracing::mojom::TracingSessionHost> tracing_session_host_;
   std::unique_ptr<mojo::DataPipeDrainer> drainer_;
-  tracing::mojom::ConsumerHostPtr consumer_host_;
+  mojo::Remote<tracing::mojom::ConsumerHost> consumer_host_;
   std::unique_ptr<std::string> raw_data_;
   bool has_finished_read_buffers_ = false;
   bool has_finished_receiving_data_ = false;
@@ -219,24 +214,25 @@ class LegacyTracingSession
   }
 
   // BackgroundTracingActiveScenario::TracingSession implementation.
-  void BeginFinalizing(const base::RepeatingClosure& on_success,
-                       const base::RepeatingClosure& on_failure) override {
+  void BeginFinalizing(base::OnceClosure on_success,
+                       base::OnceClosure on_failure) override {
     if (!BackgroundTracingManagerImpl::GetInstance()->IsAllowedFinalization()) {
       TracingControllerImpl::GetInstance()->StopTracing(
-          TracingControllerImpl::CreateCallbackEndpoint(base::BindRepeating(
-              [](const base::RepeatingClosure& on_failure,
-                 std::unique_ptr<std::string>) { on_failure.Run(); },
+          TracingControllerImpl::CreateCallbackEndpoint(base::BindOnce(
+              [](base::OnceClosure on_failure, std::unique_ptr<std::string>) {
+                std::move(on_failure).Run();
+              },
               std::move(on_failure))));
       return;
     }
 
     auto trace_data_endpoint =
         TracingControllerImpl::CreateCompressedStringEndpoint(
-            TracingControllerImpl::CreateCallbackEndpoint(base::BindRepeating(
+            TracingControllerImpl::CreateCallbackEndpoint(base::BindOnce(
                 [](base::WeakPtr<BackgroundTracingActiveScenario> weak_this,
-                   const base::RepeatingClosure& on_success,
+                   base::OnceClosure on_success,
                    std::unique_ptr<std::string> file_contents) {
-                  on_success.Run();
+                  std::move(on_success).Run();
                   if (weak_this) {
                     weak_this->OnJSONDataComplete(std::move(file_contents));
                   }
@@ -388,7 +384,12 @@ void BackgroundTracingActiveScenario::BeginFinalizing(
   triggered_named_event_handle_ = -1;
   tracing_timer_.reset();
 
-  auto on_begin_finalization_success = base::BindRepeating(
+  // |callback| is only run once, but we need 2 callbacks pointing to it.
+  auto run_callback = callback
+                          ? base::AdaptCallbackForRepeating(std::move(callback))
+                          : base::NullCallback();
+
+  base::OnceClosure on_begin_finalization_success = base::BindOnce(
       [](base::WeakPtr<BackgroundTracingActiveScenario> weak_this,
          BackgroundTracingManager::StartedFinalizingCallback callback) {
         if (!weak_this) {
@@ -400,13 +401,13 @@ void BackgroundTracingActiveScenario::BeginFinalizing(
             Metrics::FINALIZATION_ALLOWED);
         DCHECK(!weak_this->started_finalizing_closure_);
         if (!callback.is_null()) {
-          weak_this->started_finalizing_closure_ =
-              base::BindOnce(callback, /*is_allowed_finalization=*/true);
+          weak_this->started_finalizing_closure_ = base::BindOnce(
+              std::move(callback), /*is_allowed_finalization=*/true);
         }
       },
-      weak_ptr_factory_.GetWeakPtr(), callback);
+      weak_ptr_factory_.GetWeakPtr(), run_callback);
 
-  auto on_begin_finalization_failure = base::BindRepeating(
+  base::OnceClosure on_begin_finalization_failure = base::BindOnce(
       [](base::WeakPtr<BackgroundTracingActiveScenario> weak_this,
          BackgroundTracingManager::StartedFinalizingCallback callback) {
         if (!weak_this) {
@@ -418,10 +419,10 @@ void BackgroundTracingActiveScenario::BeginFinalizing(
         weak_this->SetState(State::kAborted);
 
         if (!callback.is_null()) {
-          callback.Run(false);
+          std::move(callback).Run(false);
         }
       },
-      weak_ptr_factory_.GetWeakPtr(), callback);
+      weak_ptr_factory_.GetWeakPtr(), run_callback);
 
   tracing_session_->BeginFinalizing(std::move(on_begin_finalization_success),
                                     std::move(on_begin_finalization_failure));

@@ -5,7 +5,6 @@
 #include "weblayer/test/weblayer_browser_test.h"
 
 #include "base/macros.h"
-#include "build/build_config.h"
 #include "net/test/url_request/url_request_failed_job.h"
 #include "weblayer/shell/browser/shell.h"
 #include "weblayer/test/weblayer_browser_test_utils.h"

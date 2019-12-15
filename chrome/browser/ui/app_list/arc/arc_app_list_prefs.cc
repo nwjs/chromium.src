@@ -35,6 +35,7 @@
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/arc/arc_prefs.h"
 #include "components/arc/arc_service_manager.h"
 #include "components/arc/arc_util.h"
@@ -145,7 +146,7 @@ bool InstallIconFromFileThread(const base::FilePath& icon_path,
 void DeleteAppFolderFromFileThread(const base::FilePath& path) {
   DCHECK(path.DirName().BaseName().MaybeAsASCII() == arc::prefs::kArcApps &&
          (!base::PathExists(path) || base::DirectoryExists(path)));
-  const bool deleted = base::DeleteFile(path, true);
+  const bool deleted = base::DeleteFileRecursively(path);
   DCHECK(deleted);
 }
 
@@ -922,8 +923,9 @@ void ArcAppListPrefs::SetDefaultAppsFilterLevel() {
   // Match this requirement and don't show pre-installed apps for managed users
   // in app list.
   if (arc::policy_util::IsAccountManaged(profile_)) {
-    if (profile_->IsChild()) {
+    if (profile_->IsChild() || chromeos::switches::IsTabletFormFactor()) {
       // For child accounts, filter only optional apps.
+      // For tablet form factor devices, filter only optional apps.
       default_apps_->set_filter_level(
           ArcDefaultAppList::FilterLevel::OPTIONAL_APPS);
     } else {
@@ -1737,6 +1739,12 @@ bool ArcAppListPrefs::IsUnknownPackage(const std::string& package_name) const {
   if (apps_installations_.count(package_name))
     return false;
   return true;
+}
+
+bool ArcAppListPrefs::IsDefaultPackage(const std::string& package_name) const {
+  DCHECK(default_apps_ready_);
+  return default_apps_->HasPackage(package_name) ||
+         default_apps_->HasHiddenPackage(package_name);
 }
 
 void ArcAppListPrefs::OnPackageAdded(

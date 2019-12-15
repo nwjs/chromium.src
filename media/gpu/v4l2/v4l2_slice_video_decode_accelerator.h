@@ -358,6 +358,12 @@ class MEDIA_GPU_EXPORT V4L2SliceVideoDecodeAccelerator
                       size_t ip_buffer_index,
                       scoped_refptr<VideoFrame> frame);
 
+  // Returns whether |profile| is supported by a v4l2 decoder driver.
+  bool IsSupportedProfile(VideoCodecProfile profile);
+
+  // VideoCodecProfiles supported by a v4l2 decoder driver.
+  std::vector<VideoCodecProfile> supported_profiles_;
+
   size_t input_planes_count_;
   size_t output_planes_count_;
 
@@ -499,6 +505,9 @@ class MEDIA_GPU_EXPORT V4L2SliceVideoDecodeAccelerator
   gfx::Size gl_image_size_;
   // Number of planes for GLImage.
   size_t gl_image_planes_count_;
+
+  // Reference to request queue to get free requests.
+  V4L2RequestsQueue* requests_queue_;
 
   // The WeakPtrFactory for |weak_this_|.
   base::WeakPtrFactory<V4L2SliceVideoDecodeAccelerator> weak_this_factory_;

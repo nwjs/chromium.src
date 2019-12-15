@@ -24,13 +24,8 @@
 #include "media/media_buildflags.h"
 #include "services/audio/public/mojom/constants.mojom.h"
 #include "services/audio/service_factory.h"
-#include "services/data_decoder/data_decoder_service.h"
-#include "services/data_decoder/public/mojom/constants.mojom.h"
 #include "services/network/network_service.h"
 #include "services/service_manager/public/mojom/service.mojom.h"
-#include "services/tracing/public/cpp/tracing_features.h"
-#include "services/tracing/public/mojom/constants.mojom.h"
-#include "services/tracing/tracing_service.h"
 
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
 #include "media/cdm/cdm_adapter_factory.h"           // nogncheck
@@ -83,7 +78,7 @@ class ContentCdmServiceClient final : public media::CdmService::Client {
   std::unique_ptr<media::CdmFactory> CreateCdmFactory(
       service_manager::mojom::InterfaceProvider* host_interfaces) override {
     return std::make_unique<media::CdmAdapterFactory>(
-        base::Bind(&CreateCdmHelper, host_interfaces));
+        base::BindRepeating(&CreateCdmHelper, host_interfaces));
   }
 
 #if BUILDFLAG(ENABLE_CDM_HOST_VERIFICATION)
@@ -122,14 +117,6 @@ void UtilityServiceFactory::RunService(
   std::unique_ptr<service_manager::Service> service;
   if (service_name == audio::mojom::kServiceName) {
     service = CreateAudioService(std::move(request));
-  } else if (service_name == data_decoder::mojom::kServiceName) {
-    content::UtilityThread::Get()->EnsureBlinkInitialized();
-    service =
-        std::make_unique<data_decoder::DataDecoderService>(std::move(request));
-  } else if (service_name == tracing::mojom::kServiceName &&
-             !base::FeatureList::IsEnabled(
-                 features::kTracingServiceInProcess)) {
-    service = std::make_unique<tracing::TracingService>(std::move(request));
   }
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
   else if (service_name == media::mojom::kCdmServiceName) {

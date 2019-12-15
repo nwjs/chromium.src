@@ -49,10 +49,11 @@ class CheckNativeFileSystemWriteRequest
                                   bool upload_requested,
                                   const std::string& request_data,
                                   const std::string& response_body) override;
-  bool ShouldReturnAsynchronousVerdict(
+  bool MaybeReturnAsynchronousVerdict(
       DownloadCheckResultReason reason) override;
   bool ShouldUploadBinary(DownloadCheckResultReason reason) override;
-  void UploadBinary(DownloadCheckResultReason reason) override;
+  void UploadBinary(DownloadCheckResult result,
+                    DownloadCheckResultReason reason) override;
   void NotifyRequestFinished(DownloadCheckResult result,
                              DownloadCheckResultReason reason) override;
 

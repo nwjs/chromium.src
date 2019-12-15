@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/component_export.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/memory/scoped_refptr.h"
 #include "mojo/public/cpp/base/file_mojom_traits.h"
 #include "mojo/public/cpp/base/file_path_mojom_traits.h"
@@ -17,6 +18,7 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/struct_traits.h"
 #include "net/base/request_priority.h"
+#include "net/url_request/url_request_job.h"
 #include "services/network/public/cpp/data_element.h"
 #include "services/network/public/cpp/network_isolation_key_mojom_traits.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -58,6 +60,14 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
       const network::ResourceRequest::TrustedParams& trusted_params) {
     return trusted_params.update_network_isolation_key_on_redirect;
   }
+  static bool disable_secure_dns(
+      const network::ResourceRequest::TrustedParams& trusted_params) {
+    return trusted_params.disable_secure_dns;
+  }
+  static bool has_user_activation(
+      const network::ResourceRequest::TrustedParams& trusted_params) {
+    return trusted_params.has_user_activation;
+  }
 
   static bool Read(network::mojom::TrustedUrlRequestParamsDataView data,
                    network::ResourceRequest::TrustedParams* out);
@@ -91,9 +101,7 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
       const network::ResourceRequest& request) {
     return request.isolated_world_origin;
   }
-  static const GURL& referrer(const network::ResourceRequest& request) {
-    return request.referrer;
-  }
+  static const GURL& referrer(const network::ResourceRequest& request);
   static net::URLRequest::ReferrerPolicy referrer_policy(
       const network::ResourceRequest& request) {
     return request.referrer_policy;

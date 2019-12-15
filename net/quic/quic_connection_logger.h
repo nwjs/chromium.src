@@ -47,7 +47,6 @@ class NET_EXPORT_PRIVATE QuicConnectionLogger
 
   // QuicConnectionDebugVisitorInterface
   void OnPacketSent(const quic::SerializedPacket& serialized_packet,
-                    quic::QuicPacketNumber original_packet_number,
                     quic::TransmissionType transmission_type,
                     quic::QuicTime sent_time) override;
   void OnIncomingAck(quic::QuicPacketNumber ack_packet_number,
@@ -86,6 +85,13 @@ class NET_EXPORT_PRIVATE QuicConnectionLogger
   void OnBlockedFrame(const quic::QuicBlockedFrame& frame) override;
   void OnGoAwayFrame(const quic::QuicGoAwayFrame& frame) override;
   void OnPingFrame(const quic::QuicPingFrame& frame) override;
+  void OnPaddingFrame(const quic::QuicPaddingFrame& frame) override;
+  void OnNewConnectionIdFrame(
+      const quic::QuicNewConnectionIdFrame& frame) override;
+  void OnNewTokenFrame(const quic::QuicNewTokenFrame& frame) override;
+  void OnRetireConnectionIdFrame(
+      const quic::QuicRetireConnectionIdFrame& frame) override;
+  void OnMessageFrame(const quic::QuicMessageFrame& frame) override;
   void OnPublicResetPacket(const quic::QuicPublicResetPacket& packet) override;
   void OnVersionNegotiationPacket(
       const quic::QuicVersionNegotiationPacket& packet) override;

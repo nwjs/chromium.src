@@ -2,7 +2,26 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-'use strict';
+import {assert, assertNotReached} from 'chrome://resources/js/assert.m.js';
+import {EventTracker} from 'chrome://resources/js/event_tracker.m.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
+import {PromiseResolver} from 'chrome://resources/js/promise_resolver.m.js';
+import {$, hasKeyModifiers, isRTL} from 'chrome://resources/js/util.m.js';
+
+import {BrowserApi} from './browser_api.js';
+import {ContentController, InkController, MessageData, PluginController, PrintPreviewParams} from './controller.js';
+import {Bookmark} from './elements/viewer-bookmark.js';
+import {FitToChangedEvent} from './elements/viewer-zoom-toolbar.js';
+import {GestureDetector} from './gesture_detector.js';
+import {PDFMetrics} from './metrics.js';
+import {NavigatorDelegate, PdfNavigator} from './navigator.js';
+import {OpenPdfParamsParser} from './open_pdf_params_parser.js';
+import {FittingType} from './pdf_fitting_type.js';
+import {DeserializeKeyEvent, LoadState, SerializeKeyEvent} from './pdf_scripting_api.js';
+import {ToolbarManager} from './toolbar_manager.js';
+import {LayoutOptions, Point, Viewport} from './viewport.js';
+import {ViewportScroller} from './viewport_scroller.js';
+import {ZoomManager} from './zoom_manager.js';
 
 /**
  * @typedef {{
@@ -82,7 +101,7 @@ function getScrollbarWidth() {
  * @param {string} url The URL to get the filename from.
  * @return {string} The filename component.
  */
-function getFilenameFromURL(url) {
+export function getFilenameFromURL(url) {
   // Ignore the query and fragment.
   const mainUrl = url.split(/#|\?/)[0];
   const components = mainUrl.split(/\/|\\/);
@@ -103,7 +122,7 @@ function getFilenameFromURL(url) {
  * @param {Element} activeElement The currently selected DOM node.
  * @return {boolean} True if keydown events should be ignored.
  */
-function shouldIgnoreKeyEvents(activeElement) {
+export function shouldIgnoreKeyEvents(activeElement) {
   while (activeElement.shadowRoot != null &&
          activeElement.shadowRoot.activeElement != null) {
     activeElement = activeElement.shadowRoot.activeElement;
@@ -119,7 +138,7 @@ function shouldIgnoreKeyEvents(activeElement) {
  * Creates a new PDFViewer. There should only be one of these objects per
  * document.
  */
-class PDFViewer {
+export class PDFViewer {
   /**
    * @param {!BrowserApi} browserApi An object providing an API to the browser.
    */
@@ -159,6 +178,8 @@ class PDFViewer {
 
     /** @private {boolean} */
     this.isPrintPreview_ = location.origin === 'chrome://print';
+    document.documentElement.toggleAttribute(
+        'is-print-preview', this.isPrintPreview_);
 
     /** @private {boolean} */
     this.isPrintPreviewLoadingFinished_ = false;
@@ -307,11 +328,11 @@ class PDFViewer {
     /** @private {!ViewerZoomToolbarElement} */
     this.zoomToolbar_ =
         /** @type {!ViewerZoomToolbarElement} */ ($('zoom-toolbar'));
-    this.zoomToolbar_.setIsPrintPreview(this.isPrintPreview_);
+    this.zoomToolbar_.isPrintPreview = this.isPrintPreview_;
     this.zoomToolbar_.addEventListener(
         'fit-to-changed',
         e => this.fitToChanged_(
-            /** @type {!CustomEvent<FitToChangedEvent>}} */ (e)));
+            /** @type {!CustomEvent<FitToChangedEvent>} */ (e)));
     this.zoomToolbar_.addEventListener(
         'zoom-in', () => this.viewport_.zoomIn());
     this.zoomToolbar_.addEventListener(
@@ -420,9 +441,6 @@ class PDFViewer {
 
     /** @private {!Point} */
     this.lastViewportPosition_;
-
-    /** @private {boolean} */
-    this.reverseZoomToolbar_;
 
     /** @private {boolean} */
     this.inPrintPreviewMode_;
@@ -883,14 +901,9 @@ class PDFViewer {
     document.documentElement.lang = stringsDictionary.language;
 
     loadTimeData.data = strings;
-    const isNewPrintPreview = this.isPrintPreview_ &&
-        loadTimeData.getBoolean('newPrintPreviewLayoutEnabled');
-    if (isNewPrintPreview) {
+    if (this.isPrintPreview_) {
       this.sendBackgroundColorForPrintPreview_();
-      this.toolbarManager_.reverseSideToolbar();
     }
-    this.reverseZoomToolbar_ = isNewPrintPreview;
-    this.zoomToolbar_.newPrintPreview = isNewPrintPreview;
 
     $('toolbar').strings = strings;
     $('toolbar').pdfAnnotationsEnabled =
@@ -990,7 +1003,7 @@ class PDFViewer {
     // when the NewPrintPreview flag is enabled, the zoom toolbar is on the left
     // left side, but the scrollbar is still on the right, so this is not
     // necessary.
-    if (isRTL() === this.reverseZoomToolbar_) {
+    if (isRTL() === this.isPrintPreview_) {
       this.zoomToolbar_.style.right =
           -verticalScrollbarWidth + (scrollbarWidth / 2) + 'px';
     }
@@ -1165,7 +1178,12 @@ class PDFViewer {
       } else {
         targetOrigin = this.originalUrl_;
       }
-      this.parentWindow_.postMessage(message, targetOrigin);
+      try {
+        this.parentWindow_.postMessage(message, targetOrigin);
+      } catch (ok) {
+        // TODO(crbug.com/1004425): targetOrigin probably was rejected, such as
+        // a "data:" URL. This shouldn't cause this method to throw, though.
+      }
     }
   }
 
@@ -1460,7 +1478,7 @@ class PDFViewer {
   /** @private */
   rotateClockwise_() {
     PDFMetrics.record(PDFMetrics.UserAction.ROTATE);
-    this.viewport_.rotateClockwise(1);
+    this.viewport_.rotateClockwise();
     this.currentController_.rotateClockwise();
     this.updateAnnotationAvailable_();
   }
@@ -1468,7 +1486,7 @@ class PDFViewer {
   /** @private */
   rotateCounterclockwise_() {
     PDFMetrics.record(PDFMetrics.UserAction.ROTATE);
-    this.viewport_.rotateClockwise(3);
+    this.viewport_.rotateCounterclockwise();
     this.currentController_.rotateCounterclockwise();
     this.updateAnnotationAvailable_();
   }
@@ -1490,6 +1508,10 @@ class PDFViewer {
     }
   }
 }
+
+// Export on |window| such that scripts injected from pdf_extension_test.cc can
+// access it.
+window.PDFViewer = PDFViewer;
 
 /**
  * The height of the toolbar along the top of the page. The document will be

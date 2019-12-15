@@ -234,14 +234,18 @@ WebHTTPBody GetWebHTTPBodyForRequestBody(
       case network::mojom::DataElementType::kBytes:
         http_body.AppendData(WebData(element.bytes(), element.length()));
         break;
-      case network::mojom::DataElementType::kFile:
+      case network::mojom::DataElementType::kFile: {
+        base::Optional<base::Time> modification_time;
+        if (!element.expected_modification_time().is_null())
+          modification_time = element.expected_modification_time();
         http_body.AppendFileRange(
             blink::FilePathToWebString(element.path()), element.offset(),
             (element.length() != std::numeric_limits<uint64_t>::max())
                 ? element.length()
                 : -1,
-            element.expected_modification_time().ToDoubleT());
+            modification_time);
         break;
+      }
       case network::mojom::DataElementType::kBlob:
           http_body.AppendBlob(WebString::FromASCII(element.blob_uuid()));
         break;
@@ -295,7 +299,7 @@ scoped_refptr<network::ResourceRequestBody> GetRequestBodyForWebHTTPBody(
               blink::WebStringToFilePath(element.file_path),
               static_cast<uint64_t>(element.file_start),
               static_cast<uint64_t>(element.file_length),
-              base::Time::FromDoubleT(element.modification_time));
+              element.modification_time.value_or(base::Time()));
         }
         break;
       case WebHTTPBody::Element::kTypeBlob: {
@@ -353,15 +357,9 @@ blink::mojom::RequestContextType GetRequestContextTypeForWebURLRequest(
 
 blink::WebMixedContentContextType GetMixedContentContextTypeForWebURLRequest(
     const WebURLRequest& request) {
-  bool block_mixed_plugin_content = false;
-  if (request.GetExtraData()) {
-    RequestExtraData* extra_data =
-        static_cast<RequestExtraData*>(request.GetExtraData());
-    block_mixed_plugin_content = extra_data->block_mixed_plugin_content();
-  }
-
   return blink::WebMixedContent::ContextTypeFromRequestContext(
-      request.GetRequestContext(), block_mixed_plugin_content);
+      request.GetRequestContext(),
+      /*strict_mixed_content_checking_for_plugin=*/false);
 }
 
 #undef STATIC_ASSERT_ENUM

@@ -68,6 +68,7 @@
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/screen_pinning_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
+#include "ash/wm/tablet_mode/tablet_mode_window_manager.h"
 #include "ash/wm/window_cycle_controller.h"
 #include "ash/wm/window_positioning_utils.h"
 #include "ash/wm/window_state.h"
@@ -75,6 +76,7 @@
 #include "ash/wm/wm_event.h"
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
@@ -517,7 +519,8 @@ void HandleSwitchToLastUsedIme(const ui::Accelerator& accelerator) {
   // Else: consume the Ctrl+Space ET_KEY_RELEASED event but do not do anything.
 }
 
-display::Display::Rotation GetNextRotation(display::Display::Rotation current) {
+display::Display::Rotation GetNextRotationInClamshell(
+    display::Display::Rotation current) {
   switch (current) {
     case display::Display::ROTATE_0:
       return display::Display::ROTATE_90;
@@ -532,15 +535,95 @@ display::Display::Rotation GetNextRotation(display::Display::Rotation current) {
   return display::Display::ROTATE_0;
 }
 
+display::Display::Rotation GetNextRotationInTabletMode(
+    int64_t display_id,
+    display::Display::Rotation current) {
+  Shell* shell = Shell::Get();
+  DCHECK(shell->tablet_mode_controller()->InTabletMode());
+
+  if (!display::Display::HasInternalDisplay() ||
+      display_id != display::Display::InternalDisplayId()) {
+    return GetNextRotationInClamshell(current);
+  }
+
+  const OrientationLockType app_requested_lock =
+      shell->screen_orientation_controller()
+          ->GetCurrentAppRequestedOrientationLock();
+
+  bool add_180_degrees = false;
+  switch (app_requested_lock) {
+    case OrientationLockType::kCurrent:
+    case OrientationLockType::kLandscapePrimary:
+    case OrientationLockType::kLandscapeSecondary:
+    case OrientationLockType::kPortraitPrimary:
+    case OrientationLockType::kPortraitSecondary:
+    case OrientationLockType::kNatural:
+      // Do not change the current orientation.
+      return current;
+
+    case OrientationLockType::kLandscape:
+    case OrientationLockType::kPortrait:
+      // App allows both primary and secondary orientations in either landscape
+      // or portrait, therefore switch to the next one by adding 180 degrees.
+      add_180_degrees = true;
+      break;
+
+    default:
+      break;
+  }
+
+  switch (current) {
+    case display::Display::ROTATE_0:
+      return add_180_degrees ? display::Display::ROTATE_180
+                             : display::Display::ROTATE_90;
+    case display::Display::ROTATE_90:
+      return add_180_degrees ? display::Display::ROTATE_270
+                             : display::Display::ROTATE_180;
+    case display::Display::ROTATE_180:
+      return add_180_degrees ? display::Display::ROTATE_0
+                             : display::Display::ROTATE_270;
+    case display::Display::ROTATE_270:
+      return add_180_degrees ? display::Display::ROTATE_90
+                             : display::Display::ROTATE_0;
+  }
+  NOTREACHED() << "Unknown rotation:" << current;
+  return display::Display::ROTATE_0;
+}
+
+bool ShouldLockRotation(int64_t display_id) {
+  return display::Display::HasInternalDisplay() &&
+         display_id == display::Display::InternalDisplayId() &&
+         Shell::Get()->tablet_mode_controller()->is_in_tablet_physical_state();
+}
+
+int64_t GetDisplayIdForRotation() {
+  const gfx::Point point = display::Screen::GetScreen()->GetCursorScreenPoint();
+  return display::Screen::GetScreen()->GetDisplayNearestPoint(point).id();
+}
+
 void RotateScreen() {
-  gfx::Point point = display::Screen::GetScreen()->GetCursorScreenPoint();
-  display::Display display =
-      display::Screen::GetScreen()->GetDisplayNearestPoint(point);
+  auto* shell = Shell::Get();
+  const bool in_tablet_mode =
+      Shell::Get()->tablet_mode_controller()->InTabletMode();
+  const int64_t display_id = GetDisplayIdForRotation();
   const display::ManagedDisplayInfo& display_info =
-      Shell::Get()->display_manager()->GetDisplayInfo(display.id());
-  Shell::Get()->display_configuration_controller()->SetDisplayRotation(
-      display.id(), GetNextRotation(display_info.GetActiveRotation()),
-      display::Display::RotationSource::USER);
+      shell->display_manager()->GetDisplayInfo(display_id);
+  const auto active_rotation = display_info.GetActiveRotation();
+  const auto next_rotation =
+      in_tablet_mode ? GetNextRotationInTabletMode(display_id, active_rotation)
+                     : GetNextRotationInClamshell(active_rotation);
+  if (active_rotation == next_rotation)
+    return;
+
+  // When the device is in a physical tablet state, display rotation requests of
+  // the internal display are treated as requests to lock the user rotation.
+  if (ShouldLockRotation(display_id)) {
+    shell->screen_orientation_controller()->SetLockToRotation(next_rotation);
+    return;
+  }
+
+  shell->display_configuration_controller()->SetDisplayRotation(
+      display_id, next_rotation, display::Display::RotationSource::USER);
 }
 
 void OnRotationDialogAccepted() {
@@ -754,6 +837,12 @@ void HandleWindowSnap(AcceleratorAction action) {
 void HandleWindowMinimize() {
   base::RecordAction(base::UserMetricsAction("Accel_Toggle_Minimized_Minus"));
   accelerators::ToggleMinimized();
+}
+
+void HandleTopWindowMinimizeOnBack() {
+  base::RecordAction(
+      base::UserMetricsAction("Accel_Minimize_Top_Window_On_Back"));
+  WindowState::Get(TabletModeWindowManager::GetTopWindow())->Minimize();
 }
 
 void HandleShowImeMenuBubble() {
@@ -1422,6 +1511,10 @@ bool AcceleratorControllerImpl::IsRegistered(
   return accelerator_manager_->IsRegistered(accelerator);
 }
 
+ui::AcceleratorHistory* AcceleratorControllerImpl::GetAcceleratorHistory() {
+  return accelerator_history_.get();
+}
+
 bool AcceleratorControllerImpl::IsPreferred(
     const ui::Accelerator& accelerator) const {
   std::map<ui::Accelerator, AcceleratorAction>::const_iterator iter =
@@ -1670,6 +1763,8 @@ bool AcceleratorControllerImpl::CanPerformAction(
       return CanHandleWindowSnap();
     case FOCUS_PIP:
       return !!FindPipWidget();
+    case MINIMIZE_TOP_WINDOW_ON_BACK:
+      return TabletModeWindowManager::ShouldMinimizeTopWindowOnBack();
 
     // The following are always enabled.
     case BRIGHTNESS_DOWN:
@@ -2065,6 +2160,9 @@ void AcceleratorControllerImpl::PerformAction(
       break;
     case WINDOW_MINIMIZE:
       HandleWindowMinimize();
+      break;
+    case MINIMIZE_TOP_WINDOW_ON_BACK:
+      HandleTopWindowMinimizeOnBack();
       break;
   }
 }

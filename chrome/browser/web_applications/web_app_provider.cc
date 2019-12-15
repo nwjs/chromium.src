@@ -14,6 +14,7 @@
 #include "chrome/browser/web_applications/components/manifest_update_manager.h"
 #include "chrome/browser/web_applications/components/policy/web_app_policy_manager.h"
 #include "chrome/browser/web_applications/components/web_app_audio_focus_id_map.h"
+#include "chrome/browser/web_applications/components/web_app_prefs_utils.h"
 #include "chrome/browser/web_applications/components/web_app_ui_manager.h"
 #include "chrome/browser/web_applications/components/web_app_utils.h"
 #include "chrome/browser/web_applications/extensions/bookmark_app_file_handler_manager.h"
@@ -149,6 +150,7 @@ void WebAppProvider::Shutdown() {
   pending_app_manager_->Shutdown();
   install_manager_->Shutdown();
   manifest_update_manager_->Shutdown();
+  system_web_app_manager_->Shutdown();
 }
 
 void WebAppProvider::StartImpl() {
@@ -159,7 +161,7 @@ void WebAppProvider::CreateCommonSubsystems(Profile* profile) {
   audio_focus_id_map_ = std::make_unique<WebAppAudioFocusIdMap>();
   ui_manager_ = WebAppUiManager::Create(profile);
   install_manager_ = std::make_unique<WebAppInstallManager>(profile);
-  manifest_update_manager_ = std::make_unique<ManifestUpdateManager>();
+  manifest_update_manager_ = std::make_unique<ManifestUpdateManager>(profile);
   pending_app_manager_ = std::make_unique<PendingAppManagerImpl>(profile);
   external_web_app_manager_ = std::make_unique<ExternalWebAppManager>(profile);
   system_web_app_manager_ = std::make_unique<SystemWebAppManager>(profile);
@@ -187,7 +189,7 @@ void WebAppProvider::CreateWebAppsSubsystems(Profile* profile) {
   auto icon_manager = std::make_unique<WebAppIconManager>(
       profile, *registrar, std::make_unique<FileUtilsWrapper>());
   install_finalizer_ = std::make_unique<WebAppInstallFinalizer>(
-      sync_bridge.get(), icon_manager.get());
+      profile, sync_bridge.get(), icon_manager.get());
   file_handler_manager_ = std::make_unique<WebAppFileHandlerManager>(profile);
   shortcut_manager_ = std::make_unique<WebAppShortcutManager>(profile);
 
@@ -214,16 +216,19 @@ void WebAppProvider::ConnectSubsystems() {
   DCHECK(!started_);
 
   install_finalizer_->SetSubsystems(registrar_.get(), ui_manager_.get());
-  install_manager_->SetSubsystems(registrar_.get(), install_finalizer_.get());
+  install_manager_->SetSubsystems(registrar_.get(), shortcut_manager_.get(),
+                                  install_finalizer_.get());
   manifest_update_manager_->SetSubsystems(registrar_.get(), ui_manager_.get(),
                                           install_manager_.get());
-  pending_app_manager_->SetSubsystems(registrar_.get(), ui_manager_.get(),
+  pending_app_manager_->SetSubsystems(registrar_.get(), shortcut_manager_.get(),
+                                      ui_manager_.get(),
                                       install_finalizer_.get());
   external_web_app_manager_->SetSubsystems(pending_app_manager_.get());
   system_web_app_manager_->SetSubsystems(pending_app_manager_.get(),
                                          registrar_.get(), ui_manager_.get());
   web_app_policy_manager_->SetSubsystems(pending_app_manager_.get());
-  file_handler_manager_->SetSubsystems(registrar_.get());
+  file_handler_manager_->SetSubsystems(registrar_.get(),
+                                       shortcut_manager_.get());
   shortcut_manager_->SetSubsystems(registrar_.get());
 
   connected_ = true;
@@ -238,13 +243,11 @@ void WebAppProvider::StartRegistryController() {
 void WebAppProvider::OnRegistryControllerReady() {
   DCHECK(!on_registry_ready_.is_signaled());
 
-  // TODO(crbug.com/877898): Port all these managers to support BMO. Start them.
-  if (!base::FeatureList::IsEnabled(features::kDesktopPWAsWithoutExtensions)) {
-    external_web_app_manager_->Start();
-    web_app_policy_manager_->Start();
-    system_web_app_manager_->Start();
-  }
+  external_web_app_manager_->Start();
+  web_app_policy_manager_->Start();
+  system_web_app_manager_->Start();
   manifest_update_manager_->Start();
+  file_handler_manager_->Start();
 
   on_registry_ready_.Signal();
 }
@@ -260,6 +263,7 @@ void WebAppProvider::RegisterProfilePrefs(
   ExternallyInstalledWebAppPrefs::RegisterProfilePrefs(registry);
   WebAppPolicyManager::RegisterProfilePrefs(registry);
   SystemWebAppManager::RegisterProfilePrefs(registry);
+  WebAppPrefsUtilsRegisterProfilePrefs(registry);
   RegisterInstallBounceMetricProfilePrefs(registry);
 }
 

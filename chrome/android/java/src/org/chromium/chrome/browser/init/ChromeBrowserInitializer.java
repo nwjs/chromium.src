@@ -35,8 +35,8 @@ import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.FileProviderHelper;
 import org.chromium.chrome.browser.crash.LogcatExtractionRunnable;
 import org.chromium.chrome.browser.download.DownloadManagerService;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.services.GoogleServicesManager;
-import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.webapps.ActivityAssigner;
 import org.chromium.chrome.browser.webapps.ChromeWebApkHost;
 import org.chromium.components.background_task_scheduler.BackgroundTaskSchedulerExternalUma;
@@ -317,8 +317,9 @@ public class ChromeBrowserInitializer {
 
         int startupMode =
                 getBrowserStartupController().getStartupMode(delegate.startServiceManagerOnly());
-        tasks.add(UiThreadTaskTraits.DEFAULT,
-                () -> { BackgroundTaskSchedulerExternalUma.reportStartupMode(startupMode); });
+        tasks.add(UiThreadTaskTraits.DEFAULT, () -> {
+            BackgroundTaskSchedulerExternalUma.getInstance().reportStartupMode(startupMode);
+        });
 
         if (isAsync) {
             // We want to start this queue once the C++ startup tasks have run; allow the

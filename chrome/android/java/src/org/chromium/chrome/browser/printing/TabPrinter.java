@@ -13,6 +13,7 @@ import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.printing.Printable;
 
@@ -30,6 +31,7 @@ public class TabPrinter implements Printable {
 
     private final WeakReference<Tab> mTab;
     private final String mDefaultTitle;
+    private final String mErrorMessage;
 
     @CalledByNative
     private static TabPrinter getPrintable(Tab tab) {
@@ -38,15 +40,16 @@ public class TabPrinter implements Printable {
 
     public TabPrinter(Tab tab) {
         mTab = new WeakReference<Tab>(tab);
-        mDefaultTitle = ContextUtils.getApplicationContext().getResources().getString(
-                R.string.menu_print);
+        mDefaultTitle = ContextUtils.getApplicationContext().getString(R.string.menu_print);
+        mErrorMessage =
+                ContextUtils.getApplicationContext().getString(R.string.error_printing_failed);
     }
 
     @Override
     public boolean print(int renderProcessId, int renderFrameId) {
         if (!canPrint()) return false;
         Tab tab = mTab.get();
-        assert tab != null && tab.isInitialized();
+        assert tab != null && ((TabImpl) tab).isInitialized();
         return TabPrinterJni.get().print(tab.getWebContents(), renderProcessId, renderFrameId);
     }
 
@@ -67,12 +70,17 @@ public class TabPrinter implements Printable {
     @Override
     public boolean canPrint() {
         Tab tab = mTab.get();
-        if (tab == null || !tab.isInitialized()) {
-            // tab.isInitialized() will be false if tab is in destroy process.
+        if (tab == null || !((TabImpl) tab).isInitialized()) {
+            // ((TabImpl) tab).isInitialized() will be false if tab is in destroy process.
             Log.d(TAG, "Tab is not avaliable for printing.");
             return false;
         }
         return true;
+    }
+
+    @Override
+    public String getErrorMessage() {
+        return mErrorMessage;
     }
 
     @NativeMethods

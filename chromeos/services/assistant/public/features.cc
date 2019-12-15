@@ -4,6 +4,7 @@
 
 #include "chromeos/services/assistant/public/features.h"
 
+#include "ash/public/cpp/app_list/app_list_features.h"
 #include "base/feature_list.h"
 
 namespace chromeos {
@@ -29,12 +30,30 @@ const base::Feature kAssistantProactiveSuggestions{
 const base::FeatureParam<int> kAssistantProactiveSuggestionsMaxWidth{
     &kAssistantProactiveSuggestions, "max-width", 280};
 
+// The desired corner radius (in dip) for the rich proactive suggestions entry
+// point. As the rich UI has yet to be defined, corner radius may need to be
+// dynamically modified later.
+const base::FeatureParam<int>
+    kAssistantProactiveSuggestionsRichEntryPointCornerRadius{
+        &kAssistantProactiveSuggestions, "rich-entry-point-corner-radius", 16};
+
 const base::FeatureParam<std::string>
     kAssistantProactiveSuggestionsServerExperimentIds{
         &kAssistantProactiveSuggestions, "server-experiment-ids", ""};
 
+// When enabled, the proactive suggestions view will show only after the user
+// scrolls up in the source web contents. When disabled, the view will be shown
+// immediately once the set of proactive suggestions are available.
+const base::FeatureParam<bool> kAssistantProactiveSuggestionsShowOnScroll{
+    &kAssistantProactiveSuggestions, "show-on-scroll", true};
+
+// When enabled, we will use the rich, content-forward entry point for the
+// proactive suggestions feature in lieu of the simple entry point affordance.
+const base::FeatureParam<bool> kAssistantProactiveSuggestionsShowRichEntryPoint{
+    &kAssistantProactiveSuggestions, "show-rich-entry-point", false};
+
 const base::FeatureParam<bool> kAssistantProactiveSuggestionsSuppressDuplicates{
-    &kAssistantProactiveSuggestions, "suppress-duplicates", true};
+    &kAssistantProactiveSuggestions, "suppress-duplicates", false};
 
 const base::FeatureParam<int>
     kAssistantProactiveSuggestionsTimeoutThresholdMillis{
@@ -78,6 +97,10 @@ const base::Feature kDisableVoiceMatch{"DisableVoiceMatch",
 
 int GetProactiveSuggestionsMaxWidth() {
   return kAssistantProactiveSuggestionsMaxWidth.Get();
+}
+
+int GetProactiveSuggestionsRichEntryPointCornerRadius() {
+  return kAssistantProactiveSuggestionsRichEntryPointCornerRadius.Get();
 }
 
 std::string GetProactiveSuggestionsServerExperimentIds() {
@@ -126,6 +149,14 @@ bool IsProactiveSuggestionsEnabled() {
   return base::FeatureList::IsEnabled(kAssistantProactiveSuggestions);
 }
 
+bool IsProactiveSuggestionsShowOnScrollEnabled() {
+  return kAssistantProactiveSuggestionsShowOnScroll.Get();
+}
+
+bool IsProactiveSuggestionsShowRichEntryPointEnabled() {
+  return kAssistantProactiveSuggestionsShowRichEntryPoint.Get();
+}
+
 bool IsProactiveSuggestionsSuppressDuplicatesEnabled() {
   return kAssistantProactiveSuggestionsSuppressDuplicates.Get();
 }
@@ -150,6 +181,10 @@ bool IsWarmerWelcomeEnabled() {
 
 bool IsVoiceMatchDisabled() {
   return base::FeatureList::IsEnabled(kDisableVoiceMatch);
+}
+
+bool IsAssistantWebContainerEnabled() {
+  return app_list_features::IsAssistantLauncherUIEnabled();
 }
 
 }  // namespace features

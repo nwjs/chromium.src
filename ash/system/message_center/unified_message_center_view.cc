@@ -97,6 +97,9 @@ UnifiedMessageCenterView::UnifiedMessageCenterView(
   scroller_->SetVerticalScrollBar(base::WrapUnique(scroll_bar_));
   scroller_->SetDrawOverflowIndicator(false);
   AddChildView(scroller_);
+
+  notification_bar_->Update(message_list_view_->GetTotalNotificationCount(),
+                            GetStackedNotifications());
 }
 
 UnifiedMessageCenterView::~UnifiedMessageCenterView() {
@@ -119,7 +122,7 @@ void UnifiedMessageCenterView::SetAvailableHeight(int available_height) {
 }
 
 void UnifiedMessageCenterView::SetExpanded() {
-  if (!collapsed_)
+  if (!GetVisible() || !collapsed_)
     return;
 
   collapsed_ = false;
@@ -129,7 +132,7 @@ void UnifiedMessageCenterView::SetExpanded() {
 }
 
 void UnifiedMessageCenterView::SetCollapsed(bool animate) {
-  if (collapsed_)
+  if (!GetVisible() || collapsed_)
     return;
 
   collapsed_ = true;
@@ -492,6 +495,10 @@ void UnifiedMessageCenterView::NotifyRectBelowScroll() {
   rect_below_scroll.set_width(notification_bounds.width());
 
   SetNotificationRectBelowScroll(rect_below_scroll);
+}
+
+void UnifiedMessageCenterView::FocusOut(bool reverse) {
+  message_center_bubble_->FocusOut(reverse);
 }
 
 void UnifiedMessageCenterView::FocusEntered(bool reverse) {

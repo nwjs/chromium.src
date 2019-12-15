@@ -8,7 +8,7 @@
 #include <string>
 
 #include "base/files/file_path.h"
-#include "chromeos/dbus/concierge/service.pb.h"
+#include "chromeos/dbus/concierge/concierge_service.pb.h"
 
 // This file contains simple C++ types (enums and Plain-Old-Data structs).
 // Importantly, #include'ing this file will not depend on eventually executing
@@ -69,7 +69,10 @@ enum class CrostiniResult {
   UPGRADE_CONTAINER_ALREADY_UPGRADED = 43,
   UPGRADE_CONTAINER_FAILED = 44,
   CANCEL_UPGRADE_CONTAINER_FAILED = 45,
-  kMaxValue = CANCEL_UPGRADE_CONTAINER_FAILED,
+  CONCIERGE_START_FAILED = 46,
+  CONTAINER_CONFIGURATION_FAILED = 47,
+  LOAD_COMPONENT_UPDATE_IN_PROGRESS = 48,
+  kMaxValue = LOAD_COMPONENT_UPDATE_IN_PROGRESS,
 };
 
 enum class InstallLinuxPackageProgressStatus {
@@ -168,6 +171,17 @@ struct LinuxPackageInfo {
   std::string version;
   std::string summary;
   std::string description;
+};
+
+constexpr char kCrostiniCorruptionHistogram[] = "Crostini.FilesystemCorruption";
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class CorruptionStates {
+  MOUNT_FAILED = 0,
+  MOUNT_ROLLED_BACK = 1,
+  OTHER_CORRUPTION = 2,
+  kMaxValue = OTHER_CORRUPTION,
 };
 
 }  // namespace crostini

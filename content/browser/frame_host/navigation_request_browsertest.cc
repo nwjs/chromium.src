@@ -1209,7 +1209,7 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
   EXPECT_EQ(2, installer.install_count());
   EXPECT_EQ(b_url, url_recorder.urls().back());
   EXPECT_EQ(2ul, url_recorder.urls().size());
-  EXPECT_EQ(blink::mojom::RequestContextType::LOCATION,
+  EXPECT_EQ(blink::mojom::RequestContextType::IFRAME,
             installer.navigation_throttle()->request_context_type());
 
   // Ditto for frame c navigation.
@@ -1218,7 +1218,7 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
   EXPECT_EQ(3, installer.install_count());
   EXPECT_EQ(c_url, url_recorder.urls().back());
   EXPECT_EQ(3ul, url_recorder.urls().size());
-  EXPECT_EQ(blink::mojom::RequestContextType::LOCATION,
+  EXPECT_EQ(blink::mojom::RequestContextType::IFRAME,
             installer.navigation_throttle()->request_context_type());
 
   // Lets the final navigation finish so that we conclude running the
@@ -2825,6 +2825,57 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest, AuthChallengeInfo) {
   EXPECT_EQ("Basic realm=\"testrealm\"",
             observer.auth_challenge_info()->challenge);
   EXPECT_EQ("/auth-basic", observer.auth_challenge_info()->path);
+}
+
+class TestMixedContentWebContentsDelegate : public WebContentsDelegate {
+ public:
+  TestMixedContentWebContentsDelegate() {}
+  TestMixedContentWebContentsDelegate(
+      const TestMixedContentWebContentsDelegate&) = delete;
+  TestMixedContentWebContentsDelegate& operator=(
+      const TestMixedContentWebContentsDelegate&) = delete;
+
+  bool passive_insecure_content_found() {
+    return passive_insecure_content_found_;
+  }
+
+  // WebContentsDelegate:
+  void PassiveInsecureContentFound(const GURL& resource_url) override {
+    passive_insecure_content_found_ = true;
+  }
+
+ private:
+  bool passive_insecure_content_found_ = false;
+};
+
+// Tests that an iframe with a non-webby scheme is not treated as mixed
+// content. See https://crbug.com/621131.
+IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
+                       NonWebbyIframeIsNotMixedContent) {
+  net::EmbeddedTestServer https_server(net::EmbeddedTestServer::TYPE_HTTPS);
+  https_server.ServeFilesFromSourceDirectory(GetTestDataFilePath());
+  ASSERT_TRUE(https_server.Start());
+
+  GURL url(https_server.GetURL("/title1.html"));
+  ASSERT_TRUE(NavigateToURL(shell(), url));
+
+  // Inject a test delegate to observe when mixed content is detected.
+  WebContents* contents = shell()->web_contents();
+  TestMixedContentWebContentsDelegate test_delegate;
+  contents->SetDelegate(&test_delegate);
+
+  // Insert an iframe and navigate it to a non-webby scheme. It shouldn't be
+  // treated as mixed content.
+  GURL non_webby_url("foo://bar");
+  TestNavigationObserver observer(contents);
+  ASSERT_NE(false,
+            EvalJs(contents,
+                   JsReplace("var iframe = document.createElement('iframe');"
+                             "iframe.src = $1;"
+                             "document.body.appendChild(iframe);",
+                             non_webby_url)));
+  observer.Wait();
+  EXPECT_FALSE(test_delegate.passive_insecure_content_found());
 }
 
 }  // namespace content

@@ -20,6 +20,7 @@
 #include "base/timer/timer.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor_keyed_service.h"
 #include "components/optimization_guide/hints_component_info.h"
+#include "components/optimization_guide/hints_fetcher.h"
 #include "components/optimization_guide/optimization_guide_service_observer.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "components/optimization_guide/proto/models.pb.h"
@@ -44,8 +45,6 @@ class SharedURLLoaderFactory;
 
 namespace optimization_guide {
 class HintCache;
-class HintUpdateData;
-class HintsFetcher;
 enum class OptimizationGuideDecision;
 class OptimizationFilter;
 struct OptimizationMetadata;
@@ -53,6 +52,7 @@ class OptimizationGuideService;
 enum class OptimizationTarget;
 enum class OptimizationTargetDecision;
 enum class OptimizationTypeDecision;
+class StoreUpdateData;
 class TopHostProvider;
 }  // namespace optimization_guide
 
@@ -65,6 +65,8 @@ class OptimizationGuideHintsManager
       public NavigationPredictorKeyedService::Observer {
  public:
   OptimizationGuideHintsManager(
+      const std::vector<optimization_guide::proto::OptimizationType>&
+          optimization_types_at_initialization,
       optimization_guide::OptimizationGuideService* optimization_guide_service,
       Profile* profile,
       const base::FilePath& profile_path,
@@ -156,11 +158,11 @@ class OptimizationGuideHintsManager
   //
   // Should always be called on the thread that belongs to
   // |background_task_runner_|.
-  std::unique_ptr<optimization_guide::HintUpdateData> ProcessHintsComponent(
+  std::unique_ptr<optimization_guide::StoreUpdateData> ProcessHintsComponent(
       const optimization_guide::HintsComponentInfo& info,
       const base::flat_set<optimization_guide::proto::OptimizationType>&
           registered_optimization_types,
-      std::unique_ptr<optimization_guide::HintUpdateData> update_data);
+      std::unique_ptr<optimization_guide::StoreUpdateData> update_data);
 
   // Processes the optimization filters contained in the hints component.
   //
@@ -180,7 +182,7 @@ class OptimizationGuideHintsManager
   // Updates the cache with the latest hints sent by the Component Updater.
   void UpdateComponentHints(
       base::OnceClosure update_closure,
-      std::unique_ptr<optimization_guide::HintUpdateData> hint_update_data);
+      std::unique_ptr<optimization_guide::StoreUpdateData> update_data);
 
   // Called when the hints have been fully updated with the latest hints from
   // the Component Updater. This is used as a signal during tests.
@@ -201,9 +203,11 @@ class OptimizationGuideHintsManager
   void FetchTopHostsHints();
 
   // Called when the hints have been fetched from the remote Optimization Guide
-  // Service and are ready for parsing.
+  // Service and are ready for parsing or when the fetch was not able to be
+  // completed.
   void OnHintsFetched(
       optimization_guide::proto::RequestContext request_context,
+      optimization_guide::HintsFetcherRequestStatus fetch_status,
       base::Optional<
           std::unique_ptr<optimization_guide::proto::GetHintsResponse>>
           get_hints_response);
@@ -267,6 +271,10 @@ class OptimizationGuideHintsManager
   void OnPredictionUpdated(
       const base::Optional<NavigationPredictorKeyedService::Prediction>&
           prediction) override;
+
+  // Returns whether a hint for |host| is currently being fetched from the
+  // remote Optimization Guide Service.
+  bool IsHintBeingFetched(const std::string& host) const;
 
   // The OptimizationGuideService that this guide is listening to. Not owned.
   optimization_guide::OptimizationGuideService* const

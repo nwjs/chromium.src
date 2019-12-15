@@ -8,7 +8,6 @@
 #include <memory>
 #include <set>
 
-#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
 #include "base/scoped_observer.h"
@@ -28,6 +27,8 @@ class BrowserAppMenuButton : public AppMenuButton,
                              public ui::MaterialDesignControllerObserver {
  public:
   explicit BrowserAppMenuButton(ToolbarView* toolbar_view);
+  BrowserAppMenuButton(const BrowserAppMenuButton&) = delete;
+  BrowserAppMenuButton& operator=(const BrowserAppMenuButton&) = delete;
   ~BrowserAppMenuButton() override;
 
   void SetTypeAndSeverity(
@@ -47,15 +48,10 @@ class BrowserAppMenuButton : public AppMenuButton,
   void SetPromoFeature(base::Optional<InProductHelpFeature> promo_feature);
 
   // views::MenuButton:
-  gfx::Rect GetAnchorBoundsInScreen() const override;
   void OnThemeChanged() override;
 
   // Updates the presentation according to |severity_| and the theme provider.
   void UpdateIcon();
-
-  // Sets |margin_trailing_| when the browser is maximized and updates layout
-  // to make the focus rectangle centered.
-  void SetTrailingMargin(int margin);
 
   // Opens the app menu immediately during a drag-and-drop operation.
   // Used only in testing.
@@ -66,14 +62,11 @@ class BrowserAppMenuButton : public AppMenuButton,
   void OnTouchUiChanged() override;
 
  private:
-  void UpdateBorder();
-
   // If the button is being used as an anchor for a promo, returns the best
   // promo color given the current background color.
   base::Optional<SkColor> GetPromoHighlightColor() const;
 
   // AppMenuButton:
-  void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   const char* GetClassName() const override;
   bool GetDropFormats(int* formats,
                       std::set<ui::ClipboardFormatType>* format_types) override;
@@ -105,8 +98,6 @@ class BrowserAppMenuButton : public AppMenuButton,
 
   // Used to spawn weak pointers for delayed tasks to open the overflow menu.
   base::WeakPtrFactory<BrowserAppMenuButton> weak_factory_{this};
-
-  DISALLOW_COPY_AND_ASSIGN(BrowserAppMenuButton);
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TOOLBAR_BROWSER_APP_MENU_BUTTON_H_

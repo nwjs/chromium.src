@@ -38,7 +38,6 @@
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/platform/geometry/float_rect.h"
-#include "third_party/blink/renderer/platform/graphics/paint/cull_rect.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
 
 namespace blink {
@@ -90,7 +89,7 @@ Scrollbar::Scrollbar(ScrollableArea* scrollable_area,
   current_pos_ = ScrollableAreaCurrentPos();
 }
 
-Scrollbar::~Scrollbar() =default;
+Scrollbar::~Scrollbar() = default;
 
 void Scrollbar::Trace(blink::Visitor* visitor) {
   visitor->Trace(scrollable_area_);
@@ -176,12 +175,8 @@ void Scrollbar::SetProportion(int visible_size, int total_size) {
   SetNeedsPaintInvalidation(kAllParts);
 }
 
-void Scrollbar::Paint(GraphicsContext& context,
-                      const CullRect& cull_rect) const {
-  if (!cull_rect.Intersects(FrameRect()))
-    return;
-
-  GetTheme().Paint(*this, context, cull_rect);
+void Scrollbar::Paint(GraphicsContext& context) const {
+  GetTheme().Paint(*this, context);
 }
 
 void Scrollbar::AutoscrollTimerFired(TimerBase*) {
@@ -511,7 +506,10 @@ void Scrollbar::MouseUp(const WebMouseEvent& mouse_event) {
   if (scrollable_area_) {
     if (is_captured)
       scrollable_area_->MouseReleasedScrollbar();
-    scrollable_area_->SnapAfterScrollbarScrolling(orientation_);
+
+    ScrollableArea* scrollable_area_for_scrolling =
+        ScrollableArea::GetForScrolling(scrollable_area_->GetLayoutBox());
+    scrollable_area_for_scrolling->SnapAfterScrollbarScrolling(orientation_);
 
     ScrollbarPart part = GetTheme().HitTest(
         *this, FlooredIntPoint(mouse_event.PositionInRootFrame()));
@@ -673,6 +671,10 @@ int Scrollbar::ScrollbarThickness() const {
     return thickness;
   return chrome_client_->WindowToViewportScalar(
       scrollable_area_->GetLayoutBox()->GetFrame(), theme_scrollbar_thickness_);
+}
+
+bool Scrollbar::IsSolidColor() const {
+  return theme_.IsSolidColor();
 }
 
 bool Scrollbar::IsOverlayScrollbar() const {

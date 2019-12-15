@@ -55,6 +55,12 @@ to the classpath for downstream development. See "additional_entries" below.
     <classpathentry kind="src" path="chrome/android/webapk/shell_apk/src"/>
     <classpathentry kind="src" path="chrome/browser/android/thin_webview/internal/java/src"/>
     <classpathentry kind="src" path="chrome/browser/android/thin_webview/java/src"/>
+    <classpathentry kind="src" path="chrome/browser/download/android/java/src"/>
+    <classpathentry kind="src" path="chrome/browser/image_fetcher/android/java/src"/>
+    <classpathentry kind="src" path="chrome/browser/share/android/java/src"/>
+    <classpathentry kind="src" path="chrome/browser/touch_to_fill/android/java/src"/>
+    <classpathentry kind="src" path="chrome/browser/touch_to_fill/android/internal/java/src"/>
+    <classpathentry kind="src" path="chrome/browser/ui/android/styles/java/src"/>
     <classpathentry kind="src" path="chrome/browser/ui/android/widget/java/src"/>
     <classpathentry kind="src" path="chrome/browser/ui/android/widget/test/java/src"/>
     <classpathentry kind="src" path="chrome/browser/util/android/java/src"/>
@@ -139,7 +145,7 @@ to the classpath for downstream development. See "additional_entries" below.
     <classpathentry kind="src" path="ui/android/java/src"/>
     <classpathentry kind="src" path="ui/android/javatests/src"/>
     <classpathentry kind="lib" path="../src/third_party/android_sdk/public/extras/google/gcm/gcm-client/dist/gcm.jar" sourcepath="../src/third_party/android_sdk/public/extras/google/gcm/gcm-client/src"/>
-    <classpathentry kind="lib" path="../src/third_party/android_sdk/public/platforms/android-28/android.jar" sourcepath="../src/third_party/android_sdk/public/sources/">
+    <classpathentry kind="lib" path="../src/third_party/android_sdk/public/platforms/android-29/android.jar" sourcepath="../src/third_party/android_sdk/public/sources/">
         <attributes>
             <attribute name="javadoc_location" value="http://developer.android.com/reference/"/>
         </attributes>
@@ -173,6 +179,7 @@ to the classpath for downstream development. See "additional_entries" below.
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/mojo/public/java/system/system_impl_java.jar"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/net/android/net_java.jar"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/printing/printing_java.jar"/>
+    <classpathentry kind="lib" path="../src/out/Debug/lib.java/services/network/public/mojom/mojom_java.jar"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/services/service_manager/public/mojom/mojom_java.jar"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/android_data_chart/android_data_chart_java.jar"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/android_deps/android_arch_core_common.jar"/>
@@ -225,10 +232,14 @@ to the classpath for downstream development. See "additional_entries" below.
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/android_deps/com_android_support_viewpager_java.jar"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/android_media/android_media_java.jar"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/android_protobuf/protobuf_nano_javalib.jar"/>
+    <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/android_support_test_runner/runner-release-no-dep.jar"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/android_swipe_refresh/android_swipe_refresh_java.jar"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/cacheinvalidation/cacheinvalidation_javalib.jar"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/cacheinvalidation/cacheinvalidation_proto_java.jar"/>
+    <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/espresso/espresso-core-release-no-dep.jar"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/gif_player/gif_player_java.jar"/>
+    <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/hamcrest/hamcrest-core.jar"/>
+    <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/hamcrest/hamcrest-library.jar"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/robolectric/robolectric_annotations_java.jar" sourcepath="../src/third_party/robolectric/robolectric/robolectric-annotations/src/main/java"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/robolectric/robolectric_java.jar" sourcepath="../src/third_party/robolectric/robolectric/robolectric/src/main/java"/>
     <classpathentry kind="lib" path="../src/out/Debug/lib.java/third_party/robolectric/robolectric_resources_java.jar" sourcepath="../src/third_party/robolectric/robolectric/robolectric-resources/src/main/java"/>

@@ -8,7 +8,6 @@
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "cc/mojo_embedder/async_layer_tree_frame_sink.h"
-#include "components/viz/client/hit_test_data_provider_draw_quad.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/switches.h"
 #include "components/viz/host/host_display_client.h"
@@ -111,17 +110,18 @@ void HostContextFactoryPrivate::ConfigureCompositor(
   mojo::PendingReceiver<viz::mojom::CompositorFrameSinkClient> client_receiver =
       root_params->compositor_frame_sink_client
           .InitWithNewPipeAndPassReceiver();
+  compositor_data.display_private.reset();
   root_params->display_private =
-      mojo::MakeRequest(&compositor_data.display_private);
+      compositor_data.display_private.BindNewEndpointAndPassReceiver();
   compositor_data.display_client =
       std::make_unique<HostDisplayClient>(compositor);
   root_params->display_client =
-      compositor_data.display_client->GetBoundPtr(resize_task_runner_)
-          .PassInterface();
+      compositor_data.display_client->GetBoundRemote(resize_task_runner_);
 
   if (compositor->use_external_begin_frame_control()) {
     root_params->external_begin_frame_controller =
-        mojo::MakeRequest(&compositor_data.external_begin_frame_controller);
+        compositor_data.external_begin_frame_controller
+            .BindNewEndpointAndPassReceiver();
   }
 
   root_params->frame_sink_id = compositor->frame_sink_id();
@@ -151,12 +151,6 @@ void HostContextFactoryPrivate::ConfigureCompositor(
       compositor->context_factory()->GetGpuMemoryBufferManager();
   params.pipes.compositor_frame_sink_associated_remote = std::move(sink_remote);
   params.pipes.client_receiver = std::move(client_receiver);
-  if (!features::IsVizHitTestingSurfaceLayerEnabled()) {
-    params.hit_test_data_provider =
-        std::make_unique<viz::HitTestDataProviderDrawQuad>(
-            false /* should_ask_for_child_region */,
-            true /* root_accepts_events */);
-  }
   params.client_name = kBrowser;
   compositor->SetLayerTreeFrameSink(
       std::make_unique<cc::mojo_embedder::AsyncLayerTreeFrameSink>(
@@ -302,7 +296,7 @@ void HostContextFactoryPrivate::SetOutputIsSecure(Compositor* compositor,
 
 void HostContextFactoryPrivate::AddVSyncParameterObserver(
     Compositor* compositor,
-    viz::mojom::VSyncParameterObserverPtr observer) {
+    mojo::PendingRemote<viz::mojom::VSyncParameterObserver> observer) {
   auto iter = compositor_data_map_.find(compositor);
   if (iter == compositor_data_map_.end())
     return;

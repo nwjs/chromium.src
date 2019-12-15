@@ -17,11 +17,12 @@
 #include "chromecast/public/media/media_capabilities_shlib.h"
 #include "chromecast/renderer/cast_media_playback_options.h"
 #include "chromecast/renderer/cast_url_loader_throttle_provider.h"
+#include "chromecast/renderer/js_channel_bindings.h"
 #include "chromecast/renderer/media/key_systems_cast.h"
 #include "chromecast/renderer/media/media_caps_observer_impl.h"
 #include "chromecast/renderer/on_load_script_injector.h"
 #include "chromecast/renderer/queryable_data_bindings.h"
-#include "components/network_hints/renderer/prescient_networking_dispatcher.h"
+#include "components/network_hints/renderer/web_prescient_networking_impl.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
@@ -77,8 +78,7 @@ constexpr base::TimeDelta kAudioRendererStartingCapacityEncrypted =
 
 CastContentRendererClient::CastContentRendererClient()
     : supported_profiles_(
-          std::make_unique<media::SupportedCodecProfileLevelsMemo>()),
-      supported_bitstream_audio_codecs_(kBitstreamAudioCodecNone) {
+          std::make_unique<media::SupportedCodecProfileLevelsMemo>()) {
 #if defined(OS_ANDROID)
   DCHECK(::media::MediaCodecUtil::IsMediaCodecAvailable())
       << "MediaCodec is not available!";
@@ -118,9 +118,6 @@ void CastContentRendererClient::RenderThreadStarted() {
       new MemoryPressureObserverImpl(&memory_pressure_proxy));
   memory_pressure_controller->AddObserver(std::move(memory_pressure_proxy));
 #endif
-
-  prescient_networking_dispatcher_.reset(
-      new network_hints::PrescientNetworkingDispatcher());
 
 #if !defined(OS_FUCHSIA)
   // TODO(crbug.com/753619): Enable crash reporting on Fuchsia.
@@ -194,6 +191,11 @@ void CastContentRendererClient::RenderFrameCreated(
 
   dispatcher->OnRenderFrameCreated(render_frame);
 #endif
+
+#if BUILDFLAG(ENABLE_CAST_WAYLAND_SERVER)
+  // JsChannelBindings destroys itself when the RenderFrame is destroyed.
+  JsChannelBindings::Create(render_frame);
+#endif
 }
 
 content::BrowserPluginDelegate*
@@ -236,15 +238,21 @@ void CastContentRendererClient::AddSupportedKeySystems(
 
 bool CastContentRendererClient::IsSupportedAudioType(
     const ::media::AudioType& type) {
+  if (type.spatialRendering)
+    return false;
+
 #if defined(OS_ANDROID)
   // No ATV device we know of has (E)AC3 decoder, so it relies on the audio sink
   // device.
   if (type.codec == ::media::kCodecEAC3)
-    return kBitstreamAudioCodecEac3 & supported_bitstream_audio_codecs_;
+    return kBitstreamAudioCodecEac3 &
+           supported_bitstream_audio_codecs_info_.codecs;
   if (type.codec == ::media::kCodecAC3)
-    return kBitstreamAudioCodecAc3 & supported_bitstream_audio_codecs_;
+    return kBitstreamAudioCodecAc3 &
+           supported_bitstream_audio_codecs_info_.codecs;
   if (type.codec == ::media::kCodecMpegHAudio)
-    return kBitstreamAudioCodecMpegHAudio & supported_bitstream_audio_codecs_;
+    return kBitstreamAudioCodecMpegHAudio &
+           supported_bitstream_audio_codecs_info_.codecs;
 
   // TODO(sanfin): Implement this for Android.
   return true;
@@ -285,16 +293,21 @@ bool CastContentRendererClient::IsSupportedVideoType(
 bool CastContentRendererClient::IsSupportedBitstreamAudioCodec(
     ::media::AudioCodec codec) {
   return (codec == ::media::kCodecAC3 &&
-          (kBitstreamAudioCodecAc3 & supported_bitstream_audio_codecs_)) ||
+          (kBitstreamAudioCodecAc3 &
+           supported_bitstream_audio_codecs_info_.codecs)) ||
          (codec == ::media::kCodecEAC3 &&
-          (kBitstreamAudioCodecEac3 & supported_bitstream_audio_codecs_)) ||
+          (kBitstreamAudioCodecEac3 &
+           supported_bitstream_audio_codecs_info_.codecs)) ||
          (codec == ::media::kCodecMpegHAudio &&
-          (kBitstreamAudioCodecMpegHAudio & supported_bitstream_audio_codecs_));
+          (kBitstreamAudioCodecMpegHAudio &
+           supported_bitstream_audio_codecs_info_.codecs));
 }
 
-blink::WebPrescientNetworking*
-CastContentRendererClient::GetPrescientNetworking() {
-  return prescient_networking_dispatcher_.get();
+std::unique_ptr<blink::WebPrescientNetworking>
+CastContentRendererClient::CreatePrescientNetworking(
+    content::RenderFrame* render_frame) {
+  return std::make_unique<network_hints::WebPrescientNetworkingImpl>(
+      render_frame);
 }
 
 bool CastContentRendererClient::DeferMediaLoad(
@@ -326,8 +339,8 @@ void CastContentRendererClient::
 }
 
 void CastContentRendererClient::OnSupportedBitstreamAudioCodecsChanged(
-    int codecs) {
-  supported_bitstream_audio_codecs_ = codecs;
+    const BitstreamAudioCodecsInfo& info) {
+  supported_bitstream_audio_codecs_info_ = info;
 }
 
 std::unique_ptr<content::URLLoaderThrottleProvider>

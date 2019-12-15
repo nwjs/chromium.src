@@ -21,7 +21,6 @@
 #include "cc/layers/content_layer_client.h"
 #include "cc/layers/effect_tree_layer_list_iterator.h"
 #include "cc/layers/layer.h"
-#include "cc/layers/layer_client.h"
 #include "cc/layers/layer_impl.h"
 #include "cc/layers/render_surface_impl.h"
 #include "cc/test/animation_test_common.h"
@@ -6160,8 +6159,7 @@ TEST_F(DrawPropertiesTest, ViewportBoundsDeltaAffectVisibleContentRect) {
 
   LayerTreeImpl* active_tree = host_impl()->active_tree();
   active_tree->SetDeviceViewportRect(device_viewport_rect);
-  active_tree->set_browser_controls_shrink_blink_size(true);
-  active_tree->SetTopControlsHeight(50);
+  active_tree->SetBrowserControlsParams({50, 0, 0, 0, false, true});
   active_tree->PushPageScaleFromMainThread(1.0f, 1.0f, 1.0f);
 
   LayerImpl* root = root_layer();
@@ -6171,12 +6169,12 @@ TEST_F(DrawPropertiesTest, ViewportBoundsDeltaAffectVisibleContentRect) {
   LayerImpl* scroll_layer = InnerViewportScrollLayer();
   scroll_layer->SetDrawsContent(true);
 
-  active_tree->SetCurrentBrowserControlsShownRatio(1.0f);
+  active_tree->SetCurrentBrowserControlsShownRatio(1.0f, 1.0f);
   active_tree->UpdateViewportContainerSizes();
   UpdateActiveTreeDrawProperties();
   EXPECT_EQ(gfx::Rect(container_size), scroll_layer->visible_layer_rect());
 
-  active_tree->SetCurrentBrowserControlsShownRatio(0.0f);
+  active_tree->SetCurrentBrowserControlsShownRatio(0.0f, 0.0f);
   active_tree->UpdateViewportContainerSizes();
   UpdateActiveTreeDrawProperties();
 

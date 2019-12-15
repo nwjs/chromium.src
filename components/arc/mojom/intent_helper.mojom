@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
-// Next MinVersion: 31
+// Next MinVersion: 35
 
 module arc.mojom;
 
@@ -151,6 +151,14 @@ enum ChromePage {
   LAST = ABOUTHISTORY,
 };
 
+// Describes an unique chrome app.
+[Extensible]
+enum ChromeApp {
+  CAMERA,
+
+  LAST = CAMERA,
+};
+
 // Describes an action given by the android text selection delegate (e.g. open
 // maps).
 struct TextSelectionAction {
@@ -184,7 +192,7 @@ interface CustomTabSession {
 
 // Handles intents from ARC in Chrome.
 // Deprecated method ID: 4
-// Next method ID: 14
+// Next method ID: 17
 interface IntentHelperHost {
   // Called when icons associated with the package are no longer up to date.
   [MinVersion=3] OnIconInvalidated@1(string package_name);
@@ -254,16 +262,36 @@ interface IntentHelperHost {
   // called when apps are installed, uninstalled or updated.
   [MinVersion=29] OnIntentFiltersUpdatedForPackage@13(
       string package_name, array<IntentFilter> intent_filters);
+
+  // Closes Chrome camera app.
+  [MinVersion=31] CloseCameraApp@14();
+
+  // Checks if given chrome app is enabled.
+  [MinVersion=33] IsChromeAppEnabled@15(ChromeApp app) => (bool is_enabled);
+
+  // Send the preferred app changes from ARC to Chrome.
+  [MinVersion=34] OnPreferredAppsChanged@16(array<IntentFilter> added,
+                                            array<IntentFilter> deleted);
 };
 
 // Sends intents to ARC on behalf of Chrome.
-// Next method ID: 17
+// Next method ID: 18
 interface IntentHelperInstance {
   // Sets the given package as a preferred package. The next time an ACTION_VIEW
   // intent is sent with a URL that requires disambiguation, instead of opening
   // the ResolverActivity, this package will be picked if it is on the list.
   // When multiple packages are set as preferred, the most recent setting wins.
   [MinVersion=7] AddPreferredPackage@8(string package_name);
+
+  // Sets the given package as a preferred app for the given |intent_filter|
+  // and |intent_info|.
+  // The |package_name| is selected by the user on Chrome-side to remember the
+  // user preference. The |intent_info| is used to generate the components set
+  // and match for setting the preferred activity.
+  // This is used to sync the preferred app setting from Chrome OS.
+  [MinVersion=32] AddPreferredApp@17(string package_name,
+                                     IntentFilter intent_filter,
+                                     IntentInfo intent_info);
 
   // DEPRECATED. Use FileSystemInstance.GetFileSize() instead.
   [MinVersion=15] GetFileSizeDeprecated@11(string url) => (int64 size);

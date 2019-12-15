@@ -64,7 +64,6 @@
 #include "extensions/browser/guest_view/guest_view_events.h"
 #include "extensions/browser/guest_view/web_view/web_view_constants.h"
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
-#include "extensions/browser/io_thread_extension_message_filter.h"
 #include "extensions/browser/runtime_data.h"
 #include "extensions/browser/warning_service.h"
 #include "extensions/browser/warning_set.h"
@@ -79,6 +78,7 @@
 #include "extensions/common/permissions/permissions_data.h"
 #include "extensions/common/url_pattern.h"
 #include "extensions/strings/grit/extensions_strings.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/base/auth.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_util.h"
@@ -499,14 +499,17 @@ bool FilterResponseHeaders(net::HttpResponseHeaders* response_headers,
 
 // Helper to record a matched DNR action in RulesetManager's ActionTracker.
 void OnDNRActionMatched(content::BrowserContext* browser_context,
-                        const DNRRequestAction& action,
-                        int tab_id) {
+                        const WebRequestInfo& request,
+                        const DNRRequestAction& action) {
+  if (action.tracked)
+    return;
+
   declarative_net_request::ActionTracker& action_tracker =
       declarative_net_request::RulesMonitorService::Get(browser_context)
-          ->ruleset_manager()
           ->action_tracker();
 
-  action_tracker.OnRuleMatched(action.extension_id, tab_id);
+  action_tracker.OnRuleMatched(action, request);
+  action.tracked = true;
 }
 
 // Helper to remove request headers based on a matched DNR action. Returns
@@ -693,6 +696,7 @@ bool WebRequestAPI::MaybeProxyURLLoaderFactory(
     content::RenderFrameHost* frame,
     int render_process_id,
     URLLoaderFactoryType type,
+    base::Optional<int64_t> navigation_id,
     mojo::PendingReceiver<network::mojom::URLLoaderFactory>* factory_receiver,
     mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>*
         header_client) {
@@ -722,13 +726,14 @@ bool WebRequestAPI::MaybeProxyURLLoaderFactory(
   }
 
   auto proxied_receiver = std::move(*factory_receiver);
-  network::mojom::URLLoaderFactoryPtrInfo target_factory_info;
-  *factory_receiver = mojo::MakeRequest(&target_factory_info);
+  mojo::PendingRemote<network::mojom::URLLoaderFactory> target_factory_remote;
+  *factory_receiver = target_factory_remote.InitWithNewPipeAndPassReceiver();
 
   std::unique_ptr<ExtensionNavigationUIData> navigation_ui_data;
   const bool is_navigation = (type == URLLoaderFactoryType::kNavigation);
   if (is_navigation) {
     DCHECK(frame);
+    DCHECK(navigation_id);
     int tab_id;
     int window_id;
     ExtensionsBrowserClient::Get()->GetTabAndWindowIdForWebContents(
@@ -752,8 +757,9 @@ bool WebRequestAPI::MaybeProxyURLLoaderFactory(
   WebRequestProxyingURLLoaderFactory::StartProxying(
       browser_context, is_navigation ? -1 : render_process_id,
       request_id_generator_, std::move(navigation_ui_data),
-      std::move(proxied_receiver), std::move(target_factory_info),
-      std::move(header_client_receiver), proxies_.get(), type);
+      std::move(navigation_id), std::move(proxied_receiver),
+      std::move(target_factory_remote), std::move(header_client_receiver),
+      proxies_.get(), type);
   return true;
 }
 
@@ -1092,19 +1098,22 @@ int ExtensionWebRequestEventRouter::OnBeforeRequest(
       case DNRRequestAction::Type::BLOCK:
         ClearPendingCallbacks(*request);
         DCHECK_EQ(1u, actions.size());
-        OnDNRActionMatched(browser_context, action, request->frame_data.tab_id);
+        OnDNRActionMatched(browser_context, *request, action);
         return net::ERR_BLOCKED_BY_CLIENT;
       case DNRRequestAction::Type::COLLAPSE:
         ClearPendingCallbacks(*request);
         DCHECK_EQ(1u, actions.size());
-        OnDNRActionMatched(browser_context, action, request->frame_data.tab_id);
+        OnDNRActionMatched(browser_context, *request, action);
         *should_collapse_initiator = true;
         return net::ERR_BLOCKED_BY_CLIENT;
+      case DNRRequestAction::Type::ALLOW:
+        NOTREACHED();
+        break;
       case DNRRequestAction::Type::REDIRECT:
         ClearPendingCallbacks(*request);
         DCHECK_EQ(1u, actions.size());
         DCHECK(action.redirect_url);
-        OnDNRActionMatched(browser_context, action, request->frame_data.tab_id);
+        OnDNRActionMatched(browser_context, *request, action);
         *new_url = action.redirect_url.value();
         return net::OK;
       case DNRRequestAction::Type::REMOVE_HEADERS:
@@ -1157,7 +1166,7 @@ int ExtensionWebRequestEventRouter::OnBeforeSendHeaders(
         RemoveRequestHeadersForAction(headers, action, &removed_headers);
 
     if (headers_removed_for_action)
-      OnDNRActionMatched(browser_context, action, request->frame_data.tab_id);
+      OnDNRActionMatched(browser_context, *request, action);
   }
 
   bool initialize_blocked_requests = false;
@@ -1235,7 +1244,7 @@ int ExtensionWebRequestEventRouter::OnHeadersReceived(
     net::CompletionOnceCallback callback,
     const net::HttpResponseHeaders* original_response_headers,
     scoped_refptr<net::HttpResponseHeaders>* override_response_headers,
-    GURL* allowed_unsafe_redirect_url) {
+    GURL* preserve_fragment_on_redirect_url) {
   if (ShouldHideEvent(browser_context, *request))
     return net::OK;
 
@@ -1264,7 +1273,7 @@ int ExtensionWebRequestEventRouter::OnHeadersReceived(
           mutable_response_headers.get(), action.response_headers_to_remove);
 
       if (headers_filtered_for_action)
-        OnDNRActionMatched(browser_context, action, request->frame_data.tab_id);
+        OnDNRActionMatched(browser_context, *request, action);
 
       headers_filtered |= headers_filtered_for_action;
     }
@@ -1316,7 +1325,7 @@ int ExtensionWebRequestEventRouter::OnHeadersReceived(
   blocked_request.callback = std::move(callback);
   blocked_request.override_response_headers = override_response_headers;
   blocked_request.filtered_response_headers = filtered_response_headers;
-  blocked_request.new_url = allowed_unsafe_redirect_url;
+  blocked_request.new_url = preserve_fragment_on_redirect_url;
 
   if (blocked_request.num_handlers_blocking == 0) {
     // If there are no blocking handlers, only the declarative rules tried

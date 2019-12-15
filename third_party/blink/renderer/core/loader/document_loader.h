@@ -31,12 +31,14 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LOADER_DOCUMENT_LOADER_H_
 
 #include <memory>
+
 #include "base/memory/scoped_refptr.h"
 #include "base/optional.h"
 #include "base/unguessable_token.h"
 #include "mojo/public/cpp/base/big_buffer.h"
 #include "third_party/blink/public/common/loader/loading_behavior_flag.h"
 #include "third_party/blink/public/mojom/loader/mhtml_load_result.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/timing/worker_timing_container.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/scheduler/web_scoped_virtual_time_pauser.h"
 #include "third_party/blink/public/platform/web_navigation_body_loader.h"
 #include "third_party/blink/public/web/web_document_loader.h"
@@ -68,8 +70,6 @@
 #include "third_party/blink/renderer/platform/weborigin/referrer.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/shared_buffer.h"
-
-#include <memory>
 
 namespace base {
 class TickClock;
@@ -294,6 +294,8 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
 
   bool IsBrowserInitiated() const { return is_browser_initiated_; }
 
+  bool IsSameOriginNavigation() const { return is_same_origin_navigation_; }
+
   // TODO(dcheng, japhet): Some day, Document::Url() will always match
   // DocumentLoader::Url(), and one of them will be removed. Today is not that
   // day though.
@@ -308,6 +310,11 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
   void SetHistoryItemStateForCommit(HistoryItem* old_item,
                                     WebFrameLoadType,
                                     HistoryNavigationType);
+
+  mojo::PendingReceiver<mojom::blink::WorkerTimingContainer>
+  TakePendingWorkerTimingReceiver(int request_id);
+
+  const KURL& WebBundlePhysicalUrl() const { return web_bundle_physical_url_; }
 
  protected:
   Vector<KURL> redirect_chain_;
@@ -415,6 +422,7 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
       network::mojom::IPAddressSpace::kUnknown;
   bool grant_load_local_resources_ = false;
   base::Optional<blink::mojom::FetchCacheMode> force_fetch_cache_mode_;
+  base::Optional<FramePolicy> frame_policy_;
 
   // Params are saved in constructor and are cleared after StartLoading().
   // TODO(dgozman): remove once StartLoading is merged with constructor.
@@ -489,6 +497,9 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
   // Whether this load request was initiated by the browser.
   bool is_browser_initiated_ = false;
 
+  // Whether this load request was initiated by the same origin.
+  bool is_same_origin_navigation_ = false;
+
   // See WebNavigationParams for definition.
   bool was_discarded_ = false;
 
@@ -503,7 +514,8 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
   WebScopedVirtualTimePauser virtual_time_pauser_;
   Member<SourceKeyedCachedMetadataHandler> cached_metadata_handler_;
   Member<PrefetchedSignedExchangeManager> prefetched_signed_exchange_manager_;
-  KURL base_url_override_for_bundled_exchanges_;
+  KURL web_bundle_physical_url_;
+  KURL base_url_override_for_web_bundle_;
 
   // This UseCounterHelper tracks feature usage associated with the lifetime of
   // the document load. Features recorded prior to commit will be recorded

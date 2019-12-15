@@ -15,8 +15,8 @@
 #include "base/timer/timer.h"
 #include "components/page_load_metrics/common/page_load_metrics_constants.h"
 #include "components/page_load_metrics/renderer/page_timing_sender.h"
-#include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/cpp/url_loader_completion_status.h"
+#include "services/network/public/mojom/url_response_head.mojom.h"
 
 namespace page_load_metrics {
 
@@ -52,13 +52,11 @@ PageTimingMetricsSender::PageTimingMetricsSender(
   }
 }
 
-// On destruction, we want to send any data we have if we have a timer
-// currently running (and thus are talking to a browser process)
 PageTimingMetricsSender::~PageTimingMetricsSender() {
-  if (timer_->IsRunning()) {
-    timer_->Stop();
-    SendNow();
-  }
+  // Make sure we don't have any unsent data. If this assertion fails, then it
+  // means metrics are somehow coming in between MetricsRenderFrameObserver's
+  // ReadyToCommitNavigation and DidCommitProvisionalLoad.
+  DCHECK(!timer_->IsRunning());
 }
 
 void PageTimingMetricsSender::DidObserveLoadingBehavior(
@@ -125,9 +123,9 @@ void PageTimingMetricsSender::DidObserveLazyLoadBehavior(
 }
 
 void PageTimingMetricsSender::DidStartResponse(
-    const GURL& response_url,
+    const url::Origin& origin_of_final_response_url,
     int resource_id,
-    const network::ResourceResponseHead& response_head,
+    const network::mojom::URLResponseHead& response_head,
     content::ResourceType resource_type,
     content::PreviewsState previews_state) {
   DCHECK(!base::Contains(page_resource_data_use_, resource_id));
@@ -135,8 +133,9 @@ void PageTimingMetricsSender::DidStartResponse(
   auto resource_it = page_resource_data_use_.emplace(
       std::piecewise_construct, std::forward_as_tuple(resource_id),
       std::forward_as_tuple(std::make_unique<PageResourceDataUse>()));
-  resource_it.first->second->DidStartResponse(
-      response_url, resource_id, response_head, resource_type, previews_state);
+  resource_it.first->second->DidStartResponse(origin_of_final_response_url,
+                                              resource_id, response_head,
+                                              resource_type, previews_state);
 }
 
 void PageTimingMetricsSender::DidReceiveTransferSizeUpdate(
@@ -227,7 +226,7 @@ void PageTimingMetricsSender::UpdateResourceMetadata(
   it->second->SetIsMainFrameResource(is_main_frame_resource);
 }
 
-void PageTimingMetricsSender::Send(mojom::PageLoadTimingPtr timing) {
+void PageTimingMetricsSender::SendSoon(mojom::PageLoadTimingPtr timing) {
   if (last_timing_->Equals(*timing)) {
     return;
   }
@@ -244,21 +243,30 @@ void PageTimingMetricsSender::Send(mojom::PageLoadTimingPtr timing) {
   EnsureSendTimer();
 }
 
+void PageTimingMetricsSender::SendLatest() {
+  if (!timer_->IsRunning())
+    return;
+
+  timer_->Stop();
+  SendNow();
+}
+
 void PageTimingMetricsSender::UpdateCpuTiming(base::TimeDelta task_time) {
   last_cpu_timing_->task_time += task_time;
   EnsureSendTimer();
 }
 
 void PageTimingMetricsSender::EnsureSendTimer() {
-  if (!timer_->IsRunning()) {
-    // Send the first IPC eagerly to make sure the receiving side knows we're
-    // sending metrics as soon as possible.
-    int delay_ms =
-        have_sent_ipc_ ? buffer_timer_delay_ms_ : kInitialTimerDelayMillis;
-    timer_->Start(
-        FROM_HERE, base::TimeDelta::FromMilliseconds(delay_ms),
-        base::Bind(&PageTimingMetricsSender::SendNow, base::Unretained(this)));
-  }
+  if (timer_->IsRunning())
+    return;
+
+  // Send the first IPC eagerly to make sure the receiving side knows we're
+  // sending metrics as soon as possible.
+  int delay_ms =
+      have_sent_ipc_ ? buffer_timer_delay_ms_ : kInitialTimerDelayMillis;
+  timer_->Start(FROM_HERE, base::TimeDelta::FromMilliseconds(delay_ms),
+                base::BindOnce(&PageTimingMetricsSender::SendNow,
+                               base::Unretained(this)));
 }
 
 void PageTimingMetricsSender::SendNow() {

@@ -53,7 +53,7 @@ extern const base::Feature kAppNotificationStatusMessaging;
 
 #if !defined(OS_ANDROID)
 COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kAppServiceAsh;
+extern const base::Feature kAppServiceInstanceRegistry;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kAppServiceIntentHandling;
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -61,11 +61,6 @@ extern const base::Feature kAppServiceShelf;
 #endif  // !defined(OS_ANDROID)
 
 COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kAsyncDns;
-
-#if defined(OS_ANDROID)
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kAutoFetchOnNetErrorPage;
-#endif
 
 #if defined(OS_WIN) || defined(OS_LINUX)
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -132,15 +127,20 @@ extern const base::Feature kCrostiniForceClose;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kCupsPrintersUiOverhaul;
 COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kPluginVm;
-COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kWilcoDtc;
+COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kPrintServerUi;
+COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kTerminalSystemApp;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kTerminalSystemAppSplits;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kUploadZippedSystemLogs;
+COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kWilcoDtc;
 #endif
-
-COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kTerminalSystemApp;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kDesktopCaptureTabSharingInfobar;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kDesktopMinimalUI;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kDesktopPWAsWithoutExtensions;
@@ -159,9 +159,6 @@ extern const base::Feature kDesktopPWAsUnifiedLaunch;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kDesktopPWAsUSS;
-
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kDesktopPWAsOmniboxInstall;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kDisallowUnsafeHttpDownloads;
@@ -192,14 +189,14 @@ extern const base::Feature kEnableAmbientAuthenticationInGuestSession;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kEnableAmbientAuthenticationInIncognito;
 
-#if !BUILDFLAG(DISABLE_FTP_SUPPORT)
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kEnableFtp;
-#endif
-
 #if !defined(OS_ANDROID)
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kEnterpriseReportingInBrowser;
+#endif
+
+#if defined(OS_CHROMEOS)
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kEnterpriseReportingInChromeOS;
 #endif
 
 #if defined(OS_CHROMEOS)
@@ -362,6 +359,9 @@ extern const base::Feature kParentAccessCode;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kParentAccessCodeForTimeChange;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kPerAppTimeLimits;
 #endif
 
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -384,9 +384,6 @@ extern const base::Feature kFlashDeprecationWarning;
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kCloudPrinterHandler;
-
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kNewPrintPreviewLayout;
 #endif
 
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -421,14 +418,11 @@ extern const char kSitePerProcessOnlyForHighMemoryClientsParamName[];
 #if defined(OS_CHROMEOS)
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kStreamlinedUsbPrinterSetup;
-COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kNativeSmb;
+COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kSmbFs;
 #endif
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kSoundContentSetting;
-
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kSubresourceRedirectIncludedMediaSuffixes;
 
 #if !defined(OS_ANDROID)
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -468,7 +462,7 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kHeavyAdIntervention;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kHeavyAdBlocklist;
+extern const base::Feature kHeavyAdPrivacyMitigations;
 
 #if defined(OS_ANDROID)
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -525,8 +519,6 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kWebRtcRemoteEventLog;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kWebRtcRemoteEventLogGzipped;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kWebUIA11yEnhancements;
 #endif
 
 COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kWebUIDarkMode;
@@ -541,6 +533,11 @@ extern const base::Feature kWriteBasicSystemProfileToPersistentHistogramsFile;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kAccessibilityInternalsPageImprovements;
+
+#if defined(OS_CHROMEOS)
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kWebTimeLimits;
+#endif  // defined(OS_CHROMEOS)
 
 bool PrefServiceEnabled();
 

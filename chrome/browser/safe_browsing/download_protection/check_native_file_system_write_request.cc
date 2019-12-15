@@ -66,6 +66,8 @@ CheckNativeFileSystemWriteRequest::CheckNativeFileSystemWriteRequest(
                                      item->full_path,
                                      TabUrlsFromWebContents(item->web_contents),
                                      item->size,
+                                     "application/octet-stream",
+                                     item->sha256_hash,
                                      item->browser_context,
                                      std::move(callback),
                                      service,
@@ -151,7 +153,7 @@ void CheckNativeFileSystemWriteRequest::MaybeStorePingsForDownload(
   // TODO(https://crbug.com/996797): Integrate with DownloadFeedbackService.
 }
 
-bool CheckNativeFileSystemWriteRequest::ShouldReturnAsynchronousVerdict(
+bool CheckNativeFileSystemWriteRequest::MaybeReturnAsynchronousVerdict(
     DownloadCheckResultReason reason) {
   return false;
 }
@@ -162,6 +164,7 @@ bool CheckNativeFileSystemWriteRequest::ShouldUploadBinary(
 }
 
 void CheckNativeFileSystemWriteRequest::UploadBinary(
+    DownloadCheckResult result,
     DownloadCheckResultReason reason) {}
 
 void CheckNativeFileSystemWriteRequest::NotifyRequestFinished(

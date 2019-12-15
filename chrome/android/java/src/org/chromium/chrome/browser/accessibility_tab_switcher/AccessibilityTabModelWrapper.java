@@ -14,8 +14,9 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.ApiCompatibilityUtils;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.accessibility_tab_switcher.AccessibilityTabModelAdapter.AccessibilityTabModelAdapterListener;
 import org.chromium.chrome.browser.tab.Tab;
@@ -62,19 +63,6 @@ public class AccessibilityTabModelWrapper extends LinearLayout {
     // TODO(bauerb): Use View#isAttachedToWindow() as soon as we are guaranteed
     // to run against API version 19.
     private boolean mIsAttachedToWindow;
-
-    private class ButtonOnClickListener implements View.OnClickListener {
-        private final boolean mIncognito;
-
-        public ButtonOnClickListener(boolean incognito) {
-            mIncognito = incognito;
-        }
-
-        @Override
-        public void onClick(View v) {
-            setSelectedModel(mIncognito);
-        }
-    }
 
     public AccessibilityTabModelWrapper(Context context) {
         super(context);
@@ -171,8 +159,8 @@ public class AccessibilityTabModelWrapper extends LinearLayout {
 
         updateVisibilityForLayoutOrStackButton();
         if (incognitoSelected) {
-            setBackgroundColor(ApiCompatibilityUtils.getColor(
-                    getResources(), R.color.incognito_modern_primary_color));
+            setBackgroundColor(
+                    ApiCompatibilityUtils.getColor(getResources(), R.color.dark_primary_color));
             mStackButtonWrapper.setSelectedTabIndicatorColor(
                     mTabIconSelectedLightColor.getDefaultColor());
             ApiCompatibilityUtils.setImageTintList(mStandardButtonIcon, mTabIconLightColor);

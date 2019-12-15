@@ -22,7 +22,6 @@
 #include "ui/views/views_features.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
-#include "ui/views/window/dialog_client_view.h"
 
 #if defined(OS_WIN)
 #include "ui/base/win/shell.h"
@@ -88,17 +87,17 @@ Widget* CreateBubbleWidget(BubbleDialogDelegateView* bubble) {
   Widget::InitParams bubble_params(Widget::InitParams::TYPE_BUBBLE);
   bubble_params.delegate = bubble;
   bubble_params.opacity = CustomShadowsSupported()
-                              ? Widget::InitParams::TRANSLUCENT_WINDOW
-                              : Widget::InitParams::OPAQUE_WINDOW;
+                              ? Widget::InitParams::WindowOpacity::kTranslucent
+                              : Widget::InitParams::WindowOpacity::kOpaque;
   bubble_params.accept_events = bubble->accept_events();
   bubble_params.remove_standard_frame = true;
   // Use a window default shadow if the bubble doesn't provides its own.
   if (bubble->GetShadow() == BubbleBorder::NO_ASSETS)
-    bubble_params.shadow_type = Widget::InitParams::SHADOW_TYPE_DEFAULT;
+    bubble_params.shadow_type = Widget::InitParams::ShadowType::kDefault;
   else if (CustomShadowsSupported())
-    bubble_params.shadow_type = Widget::InitParams::SHADOW_TYPE_NONE;
+    bubble_params.shadow_type = Widget::InitParams::ShadowType::kNone;
   else
-    bubble_params.shadow_type = Widget::InitParams::SHADOW_TYPE_DROP;
+    bubble_params.shadow_type = Widget::InitParams::ShadowType::kDrop;
   if (bubble->parent_window())
     bubble_params.parent = bubble->parent_window();
   else if (bubble->anchor_widget())
@@ -161,7 +160,7 @@ NonClientFrameView* BubbleDialogDelegateView::CreateNonClientFrameView(
 
   frame->set_footnote_margins(
       provider->GetInsetsMetric(INSETS_DIALOG_SUBSECTION));
-  frame->SetFootnoteView(CreateFootnoteView());
+  frame->SetFootnoteView(DisownFootnoteView());
 
   std::unique_ptr<BubbleBorder> border =
       std::make_unique<BubbleBorder>(arrow(), GetShadow(), color());

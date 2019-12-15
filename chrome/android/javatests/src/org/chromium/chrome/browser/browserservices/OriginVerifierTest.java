@@ -4,7 +4,6 @@
 
 package org.chromium.chrome.browser.browserservices;
 
-import android.net.Uri;
 import android.support.test.filters.SmallTest;
 
 import org.junit.Assert;
@@ -23,7 +22,7 @@ import org.chromium.chrome.browser.browserservices.OriginVerifier.OriginVerifica
 import org.chromium.chrome.browser.browsing_data.BrowsingDataType;
 import org.chromium.chrome.browser.browsing_data.TimePeriod;
 import org.chromium.chrome.browser.preferences.ChromePreferenceManager;
-import org.chromium.chrome.browser.preferences.privacy.BrowsingDataBridge;
+import org.chromium.chrome.browser.settings.privacy.BrowsingDataBridge;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
@@ -85,8 +84,8 @@ public class OriginVerifierTest {
     public void setUp() throws Exception {
         mActivityTestRule.startMainActivityOnBlankPage();
 
-        mHttpsOrigin = new Origin("https://www.example.com");
-        mHttpOrigin = new Origin("http://www.android.com");
+        mHttpsOrigin = Origin.create("https://www.example.com");
+        mHttpOrigin = Origin.create("http://www.android.com");
 
         mHandleAllUrlsVerifier = new OriginVerifier(
                 PACKAGE_NAME, CustomTabsService.RELATION_HANDLE_ALL_URLS, new MockWebContents());
@@ -114,12 +113,6 @@ public class OriginVerifierTest {
     @Test
     @SmallTest
     public void testOnlyHttpsAllowed() throws InterruptedException {
-        Origin origin = new Origin(Uri.parse("LOL"));
-        PostTask.postTask(UiThreadTaskTraits.DEFAULT,
-                () -> mHandleAllUrlsVerifier.start(new TestOriginVerificationListener(), origin));
-        Assert.assertTrue(
-                mVerificationResultSemaphore.tryAcquire(TIMEOUT_MS, TimeUnit.MILLISECONDS));
-        Assert.assertFalse(mLastVerified);
         PostTask.postTask(UiThreadTaskTraits.DEFAULT,
                 () -> mHandleAllUrlsVerifier.start(
                                 new TestOriginVerificationListener(), mHttpOrigin));

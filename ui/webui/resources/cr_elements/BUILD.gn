@@ -24,6 +24,7 @@ group("closure_compile") {
     "cr_radio_group:closure_compile",
     "cr_search_field:closure_compile",
     "cr_slider:closure_compile",
+    "cr_splitter:closure_compile",
     "cr_tabs:closure_compile",
     "cr_toast:closure_compile",
     "cr_toggle:closure_compile",
@@ -45,6 +46,7 @@ group("closure_compile") {
     "cr_radio_button:closure_compile_module",
     "cr_radio_group:closure_compile_module",
     "cr_search_field:closure_compile_module",
+    "cr_splitter:closure_compile_module",
     "cr_tabs:closure_compile_module",
     "cr_toast:closure_compile_module",
     "cr_toggle:closure_compile_module",
@@ -133,6 +135,12 @@ polymer_modulizer("icons") {
   html_type = "iron-iconset"
 }
 
+polymer_modulizer("search_highlight_style_css") {
+  js_file = "search_highlight_style_css.m.js"
+  html_file = "search_highlight_style_css.html"
+  html_type = "style-module"
+}
+
 js_modulizer("modulize") {
   input_files = [ "cr_container_shadow_behavior.js" ]
   deps = []
@@ -147,6 +155,7 @@ group("polymer3_elements") {
     ":icons_module",
     ":md_select_css_module",
     ":modulize",
+    ":search_highlight_style_css_module",
     ":shared_style_css_module",
     ":shared_vars_css_module",
     "cr_action_menu:cr_action_menu_module",
@@ -166,6 +175,7 @@ group("polymer3_elements") {
     "cr_radio_group:cr_radio_group_module",
     "cr_search_field:cr_search_field_module",
     "cr_search_field:modulize",
+    "cr_splitter:cr_splitter_module",
     "cr_tabs:cr_tabs_module",
     "cr_toast:cr_toast_manager_module",
     "cr_toast:cr_toast_module",
@@ -179,6 +189,7 @@ group("polymer3_elements") {
 }
 
 js_type_check("cr_elements_module_resources") {
+  uses_js_modules = true
   deps = [
     ":cr_container_shadow_behavior.m",
   ]

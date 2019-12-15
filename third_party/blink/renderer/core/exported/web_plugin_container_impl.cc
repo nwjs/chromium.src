@@ -60,7 +60,6 @@
 #include "third_party/blink/renderer/core/clipboard/data_transfer.h"
 #include "third_party/blink/renderer/core/clipboard/system_clipboard.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
-#include "third_party/blink/renderer/core/dom/user_gesture_indicator.h"
 #include "third_party/blink/renderer/core/events/drag_event.h"
 #include "third_party/blink/renderer/core/events/gesture_event.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
@@ -162,7 +161,8 @@ void WebPluginContainerImpl::Paint(GraphicsContext& context,
     layer_->SetHitTestable(true);
     // When compositing is after paint, composited plugins should have their
     // layers inserted rather than invoking WebPlugin::paint.
-    RecordForeignLayer(context, DisplayItem::kForeignLayerPlugin, layer_,
+    RecordForeignLayer(context, *element_->GetLayoutObject(),
+                       DisplayItem::kForeignLayerPlugin, layer_,
                        FloatPoint(DocumentLocation()));
     return;
   }
@@ -338,10 +338,8 @@ void WebPluginContainerImpl::SetCcLayer(cc::Layer* new_layer,
 
   if (layer_)
     GraphicsLayer::UnregisterContentsLayer(layer_);
-  if (new_layer) {
+  if (new_layer)
     GraphicsLayer::RegisterContentsLayer(new_layer);
-    new_layer->set_owner_node_id(DOMNodeIds::IdForNode(element_.Get()));
-  }
 
   layer_ = new_layer;
   prevent_contents_opaque_changes_ = prevent_contents_opaque_changes;
@@ -528,11 +526,8 @@ WebString WebPluginContainerImpl::ExecuteScriptURL(const WebURL& url,
   }
   script = script.Substring(strlen("javascript:"));
 
-  std::unique_ptr<UserGestureIndicator> gesture_indicator;
-  if (popups_allowed) {
-    gesture_indicator =
-        LocalFrame::NotifyUserActivation(frame, UserGestureToken::kNewGesture);
-  }
+  if (popups_allowed)
+    LocalFrame::NotifyUserActivation(frame);
 
   v8::HandleScope handle_scope(ToIsolate(frame));
   v8::Local<v8::Value> result =

@@ -54,7 +54,6 @@
 <translation id="2674318244760992338">piè di pagina</translation>
 <translation id="2709516037105925701">Compilazione automatica</translation>
 <translation id="2723001399770238859">audio</translation>
-<translation id="2725963129578236554">commenti</translation>
 <translation id="2746543609216772311">Il valore deve essere <ph name="MINIMUM_DATE_OR_TIME" /> o successivo.</translation>
 <translation id="2759744352195237655">pulsante popup</translation>
 <translation id="2761667185364618470">Seleziona questa casella se intendi procedere.</translation>
@@ -106,6 +105,7 @@
 <translation id="4661075872484491155">tree</translation>
 <translation id="4664250907885839816">Una parte che segue "<ph name="ATSIGN" />" non deve contenere il simbolo "<ph name="INVALIDCHARACTER" />".</translation>
 <translation id="4668956016107839909">appendice</translation>
+<translation id="4698212723196775569">codice</translation>
 <translation id="4718048029184481307">Riproduzione in modalità Picture in picture</translation>
 <translation id="4742539557769756338">copertina</translation>
 <translation id="4748357248530471599">attiva/disattiva lo schermo intero tagliato dalla visualizzazione</translation>
@@ -114,6 +114,7 @@
 <translation id="479989351350248267">ricerca</translation>
 <translation id="4812940957355064477">Inserisci un numero.</translation>
 <translation id="4912536737030637138">voce bibliografica</translation>
+<translation id="492244087561876220">commento</translation>
 <translation id="4975562563186953947">Elementi selezionati: <ph name="SELECTED_COUNT" /></translation>
 <translation id="4992066212339426712">Riattiva audio</translation>
 <translation id="49969490063480558">Inserisci una parte dopo "<ph name="ATSIGN" />". Il valore "<ph name="INVALIDADDRESS" />" è incompleto.</translation>
@@ -163,7 +164,6 @@
 <translation id="6404546809543547843">dispositivo di scorrimento durata audio</translation>
 <translation id="6443871981718447451">mostra menu sottotitoli</translation>
 <translation id="6453774872122745852">riconoscimenti</translation>
-<translation id="6475115390776617481">presenza dal vivo</translation>
 <translation id="648732519525291180">selettore di ora</translation>
 <translation id="6550675742724504774">Opzioni</translation>
 <translation id="6572309429103589720">Grammatica non valida</translation>
@@ -191,6 +191,7 @@
 <translation id="7118469954320184356">Descrizione non disponibile.</translation>
 <translation id="7139483182332611405">prefazione</translation>
 <translation id="7214187073215825913">informazioni sui contenuti</translation>
+<translation id="7238347055216017155">corsivo</translation>
 <translation id="7263440858009898357">Seleziona un elemento nell'elenco.</translation>
 <translation id="727747134524199931">intestazione di colonna</translation>
 <translation id="7320576522385648310">Buffering</translation>
@@ -217,6 +218,7 @@
 <translation id="7888071071722539607">Aggiungi un simbolo "<ph name="ATSIGN" />" nell'indirizzo email. In "<ph name="INVALIDADDRESS" />" manca un simbolo "<ph name="ATSIGN" />".</translation>
 <translation id="7891486169920085145">barra di divisione</translation>
 <translation id="795667975304826397">Nessun file selezionato</translation>
+<translation id="8034303206267677282">importante</translation>
 <translation id="8053789581856978548">campo di testo della ricerca</translation>
 <translation id="8057695513531652401">informativa</translation>
 <translation id="8105797009065549151">riferimento note</translation>
@@ -247,7 +249,6 @@
 <translation id="8711688047404765493">uscita</translation>
 <translation id="8750798805984357768">Seleziona una di queste opzioni.</translation>
 <translation id="8808573423886751634">capitolo</translation>
-<translation id="8822203815165896261">informazioni creazione</translation>
 <translation id="8845239796550121995">Ora in fase di trasmissione alla TV</translation>
 <translation id="8851136666856101339">main</translation>
 <translation id="8875657656876809964">Errore di riproduzione video</translation>
@@ -255,6 +256,7 @@
 <translation id="8987927404178983737">Mese</translation>
 <translation id="901493112792887934">tempo attuale in secondi</translation>
 <translation id="901834265349196618">email</translation>
+<translation id="9023835124071926463">sezione dei commenti</translation>
 <translation id="9048119486235211610">navigazione</translation>
 <translation id="9062295712474918030">documento</translation>
 <translation id="9093215626363556771">esci da picture in picture</translation>

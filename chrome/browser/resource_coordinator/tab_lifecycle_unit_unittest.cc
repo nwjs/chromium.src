@@ -18,6 +18,8 @@
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/media/webrtc/media_stream_capture_indicator.h"
 #include "chrome/browser/metrics/desktop_session_duration/desktop_session_duration_tracker.h"
+#include "chrome/browser/notifications/notification_permission_context.h"
+#include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/resource_coordinator/lifecycle_unit_observer.h"
 #include "chrome/browser/resource_coordinator/local_site_characteristics_data_unittest_utils.h"
 #include "chrome/browser/resource_coordinator/local_site_characteristics_webcontents_observer.h"
@@ -575,13 +577,6 @@ TEST_F(TabLifecycleUnitTest, CannotProactivelyDiscardTabWithFaviconHeuristic) {
       &SiteCharacteristicsDataWriter::NotifyUpdatesFaviconInBackground);
 }
 
-TEST_F(TabLifecycleUnitTest,
-       CannotProactivelyDiscardTabWithNotificationsHeuristic) {
-  TestCannotDiscardBasedOnHeuristicUsage(
-      DecisionFailureReason::HEURISTIC_NOTIFICATIONS,
-      &SiteCharacteristicsDataWriter::NotifyUsesNotificationsInBackground);
-}
-
 TEST_F(TabLifecycleUnitTest, CannotProactivelyDiscardTabWithTitleHeuristic) {
   TestCannotDiscardBasedOnHeuristicUsage(
       DecisionFailureReason::HEURISTIC_TITLE,
@@ -679,20 +674,6 @@ TEST_F(TabLifecycleUnitTest, CannotFreezeOrDiscardIfSharingBrowsingInstance) {
   EXPECT_FALSE(decision_details.IsPositive());
   EXPECT_EQ(DecisionFailureReason::LIVE_STATE_SHARING_BROWSING_INSTANCE,
             decision_details.FailureReason());
-
-  {
-    GetMutableStaticProactiveTabFreezeAndDiscardParamsForTesting()
-        ->should_protect_tabs_sharing_browsing_instance = false;
-    decision_details.Clear();
-    EXPECT_TRUE(tab_lifecycle_unit.CanFreeze(&decision_details));
-    EXPECT_TRUE(decision_details.IsPositive());
-
-    decision_details.Clear();
-
-    EXPECT_TRUE(tab_lifecycle_unit.CanDiscard(
-        LifecycleUnitDiscardReason::PROACTIVE, &decision_details));
-    EXPECT_TRUE(decision_details.IsPositive());
-  }
 }
 
 TEST_F(TabLifecycleUnitTest, CannotDiscardIfEnterpriseOptOutUsed) {
@@ -765,7 +746,7 @@ TEST_F(TabLifecycleUnitTest, ReloadingAFrozenTabUnfreezeIt) {
   EXPECT_NE(LifecycleUnitState::FROZEN, tab_lifecycle_unit.GetState());
 }
 
-TEST_F(TabLifecycleUnitTest, DisableHeuristicsFlag) {
+TEST_F(TabLifecycleUnitTest, FreezingProtectMediaOnly) {
   TabLifecycleUnit tab_lifecycle_unit(GetTabLifecycleUnitSource(), &observers_,
                                       usage_clock_.get(), web_contents_,
                                       tab_strip_model_.get());
@@ -777,11 +758,6 @@ TEST_F(TabLifecycleUnitTest, DisableHeuristicsFlag) {
   EXPECT_TRUE(decision_details.IsPositive());
   decision_details.Clear();
 
-  EXPECT_TRUE(tab_lifecycle_unit.CanDiscard(
-      LifecycleUnitDiscardReason::PROACTIVE, &decision_details));
-  EXPECT_TRUE(decision_details.IsPositive());
-  decision_details.Clear();
-
   // Use one of the heuristics on the tab to prevent it from being frozen or
   // discarded.
   ScopedEnterpriseOptOut enterprise_opt_out;
@@ -790,23 +766,14 @@ TEST_F(TabLifecycleUnitTest, DisableHeuristicsFlag) {
   EXPECT_FALSE(decision_details.IsPositive());
   decision_details.Clear();
 
-  EXPECT_FALSE(tab_lifecycle_unit.CanDiscard(
-      LifecycleUnitDiscardReason::PROACTIVE, &decision_details));
-  EXPECT_FALSE(decision_details.IsPositive());
-  decision_details.Clear();
-
-  // Disable the heuristics and check that the tab can now be safely discarded.
-  base::AutoReset<bool> disable_heuristics_protections(
+  // Set the param to only protect media tabs and verify that the tab can now be
+  // frozen.
+  base::AutoReset<bool> freezing_protect_media_only(
       &GetMutableStaticProactiveTabFreezeAndDiscardParamsForTesting()
-           ->disable_heuristics_protections,
+           ->freezing_protect_media_only,
       true);
 
   EXPECT_TRUE(tab_lifecycle_unit.CanFreeze(&decision_details));
-  EXPECT_TRUE(decision_details.IsPositive());
-  decision_details.Clear();
-
-  EXPECT_TRUE(tab_lifecycle_unit.CanDiscard(
-      LifecycleUnitDiscardReason::PROACTIVE, &decision_details));
   EXPECT_TRUE(decision_details.IsPositive());
   decision_details.Clear();
 }
@@ -953,6 +920,70 @@ TEST_F(TabLifecycleUnitTest, TabUnfreezeOnIndexedDBLockAcquisition) {
             tab_lifecycle_unit.GetState());
 
   tab_lifecycle_unit.SetIsHoldingIndexedDBLock(false);
+}
+
+TEST_F(TabLifecycleUnitTest, TabUnfreezeOnOriginTrialOptOut) {
+  TabLifecycleUnit tab_lifecycle_unit(GetTabLifecycleUnitSource(), &observers_,
+                                      usage_clock_.get(), web_contents_,
+                                      tab_strip_model_.get());
+  TabLoadTracker::Get()->TransitionStateForTesting(web_contents_,
+                                                   LoadingState::LOADED);
+  // Advance time enough that the tab is urgent discardable.
+  test_clock_.Advance(kBackgroundUrgentProtectionTime);
+  ExpectCanDiscardTrueAllReasons(&tab_lifecycle_unit);
+
+  DecisionDetails decision_details;
+  EXPECT_TRUE(tab_lifecycle_unit.CanFreeze(&decision_details));
+
+  // Freeze the tab.
+  EXPECT_CALL(observer_, OnFrozenStateChange(web_contents_, true));
+  tab_lifecycle_unit.Freeze();
+  ::testing::Mock::VerifyAndClear(&observer_);
+  EXPECT_EQ(LifecycleUnitState::PENDING_FREEZE, tab_lifecycle_unit.GetState());
+
+  // Indicates that the tab opted out from the Freeze policy via Origin Trial,
+  // this should unfreeze it.
+  EXPECT_CALL(observer_, OnFrozenStateChange(web_contents_, false));
+  tab_lifecycle_unit.UpdateOriginTrialFreezePolicy(
+      performance_manager::mojom::InterventionPolicy::kOptOut);
+  ::testing::Mock::VerifyAndClear(&observer_);
+  EXPECT_EQ(LifecycleUnitState::PENDING_UNFREEZE,
+            tab_lifecycle_unit.GetState());
+}
+
+TEST_F(TabLifecycleUnitTest,
+       CannotFreezeOrDiscardTabWithNotificationsPermission) {
+  TabLifecycleUnit tab_lifecycle_unit(GetTabLifecycleUnitSource(), &observers_,
+                                      usage_clock_.get(), web_contents_,
+                                      tab_strip_model_.get());
+  TabLoadTracker::Get()->TransitionStateForTesting(web_contents_,
+                                                   LoadingState::LOADED);
+  // Advance time enough that the tab is urgent discardable.
+  test_clock_.Advance(kBackgroundUrgentProtectionTime);
+  DecisionDetails decision_details;
+  ExpectCanDiscardTrueAllReasons(&tab_lifecycle_unit);
+  EXPECT_TRUE(tab_lifecycle_unit.CanFreeze(&decision_details));
+
+  NotificationPermissionContext::UpdatePermission(
+      profile(), web_contents_->GetLastCommittedURL().GetOrigin(),
+      CONTENT_SETTING_ALLOW);
+
+  decision_details.Clear();
+  EXPECT_FALSE(tab_lifecycle_unit.CanFreeze(&decision_details));
+  EXPECT_FALSE(decision_details.IsPositive());
+  EXPECT_EQ(DecisionFailureReason::LIVE_STATE_HAS_NOTIFICATIONS_PERMISSION,
+            decision_details.FailureReason());
+
+  decision_details.Clear();
+  EXPECT_FALSE(tab_lifecycle_unit.CanDiscard(
+      LifecycleUnitDiscardReason::PROACTIVE, &decision_details));
+  EXPECT_FALSE(decision_details.IsPositive());
+  EXPECT_EQ(DecisionFailureReason::LIVE_STATE_HAS_NOTIFICATIONS_PERMISSION,
+            decision_details.FailureReason());
+
+  NotificationPermissionContext::UpdatePermission(
+      profile(), web_contents_->GetLastCommittedURL().GetOrigin(),
+      CONTENT_SETTING_DEFAULT);
 }
 
 }  // namespace resource_coordinator

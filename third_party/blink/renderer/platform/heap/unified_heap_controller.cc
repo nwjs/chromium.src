@@ -50,13 +50,12 @@ void UnifiedHeapController::TracePrologue(
       BlinkGC::kConcurrentAndLazySweeping,
       thread_state_->current_gc_data_.reason);
 
-  // Reset any previously scheduled garbage collections.
   thread_state_->SetGCState(ThreadState::kNoGCScheduled);
   BlinkGC::GCReason gc_reason =
       (v8_flags & v8::EmbedderHeapTracer::TraceFlags::kReduceMemory)
           ? BlinkGC::GCReason::kUnifiedHeapForMemoryReductionGC
           : BlinkGC::GCReason::kUnifiedHeapGC;
-  thread_state_->IncrementalMarkingStart(gc_reason);
+  thread_state_->StartIncrementalMarking(gc_reason);
 
   is_tracing_done_ = false;
 }
@@ -147,6 +146,11 @@ bool UnifiedHeapController::IsTracingDone() {
 
 bool UnifiedHeapController::IsRootForNonTracingGC(
     const v8::TracedReference<v8::Value>& handle) {
+  if (thread_state()->IsIncrementalMarking()) {
+    // We have a non-tracing GC while unified GC is in progress. Treat all
+    // objects as roots to avoid stale pointers in the marking worklists.
+    return true;
+  }
   const uint16_t class_id = handle.WrapperClassId();
   // Stand-alone reference or kCustomWrappableId. Keep as root as
   // we don't know better.
@@ -177,6 +181,12 @@ void UnifiedHeapController::ResetHandleInNonTracingGC(
       class_id != WrapperTypeInfo::kObjectClassId)
     return;
 
+  // We should not reset any handles during an already running tracing
+  // collection. Resetting a handle could re-allocate a backing or trigger
+  // potential in place rehashing. Both operations may trigger write barriers by
+  // moving references. Such references may already be dead but not yet cleared
+  // which would result in reporting dead objects to V8.
+  DCHECK(!thread_state()->IsIncrementalMarking());
   // Clearing the wrapper below adjusts the DOM wrapper store which may
   // re-allocate its backing. We have to avoid report memory to V8 as that may
   // trigger GC during GC.

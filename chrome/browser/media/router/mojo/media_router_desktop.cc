@@ -19,28 +19,14 @@
 #include "chrome/common/media_router/media_source.h"
 #include "components/cast_channel/cast_socket_service.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/system_connector.h"
 #include "extensions/common/extension.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "services/service_manager/public/cpp/connector.h"
 #if defined(OS_WIN)
 #include "chrome/browser/media/router/mojo/media_route_provider_util_win.h"
 #endif
 
 namespace media_router {
-
-namespace {
-
-// Returns the system Connector object for the browser process. It is the
-// caller's responsibility to clone the returned object to be used in another
-// thread.
-service_manager::Connector* GetConnector() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  return content::GetSystemConnector();
-}
-
-}  // namespace
 
 MediaRouterDesktop::~MediaRouterDesktop() = default;
 
@@ -116,8 +102,8 @@ void MediaRouterDesktop::RegisterMediaRouteProvider(
   // discovery / sink query. We are migrating discovery from the external Media
   // Route Provider to the Media Router (https://crbug.com/687383), so we need
   // to disable it in the provider.
-  config->enable_cast_discovery = !CastDiscoveryEnabled();
-  config->enable_dial_sink_query = !DialMediaRouteProviderEnabled();
+  config->enable_cast_discovery = false;
+  config->enable_dial_sink_query = false;
   config->enable_cast_sink_query = !CastMediaRouteProviderEnabled();
   config->use_mirroring_service = ShouldUseMirroringService();
   std::move(callback).Run(instance_id(), std::move(config));
@@ -277,8 +263,7 @@ void MediaRouterDesktop::InitializeCastMediaRouteProvider() {
               std::move(media_router_remote),
               media_sink_service_->GetCastMediaSinkServiceImpl(),
               media_sink_service_->cast_app_discovery_service(),
-              GetCastMessageHandler(), GetConnector(), GetHashToken(),
-              task_runner),
+              GetCastMessageHandler(), GetHashToken(), task_runner),
           base::OnTaskRunnerDeleter(task_runner));
   RegisterMediaRouteProvider(MediaRouteProviderId::CAST,
                              std::move(cast_provider_remote),
@@ -300,7 +285,7 @@ void MediaRouterDesktop::InitializeDialMediaRouteProvider() {
           new DialMediaRouteProvider(
               dial_provider_remote.InitWithNewPipeAndPassReceiver(),
               std::move(media_router_remote), dial_media_sink_service,
-              GetConnector(), GetHashToken(), task_runner),
+              GetHashToken(), task_runner),
           base::OnTaskRunnerDeleter(task_runner));
   RegisterMediaRouteProvider(MediaRouteProviderId::DIAL,
                              std::move(dial_provider_remote),
@@ -309,13 +294,7 @@ void MediaRouterDesktop::InitializeDialMediaRouteProvider() {
 
 #if defined(OS_WIN)
 void MediaRouterDesktop::EnsureMdnsDiscoveryEnabled() {
-  if (CastDiscoveryEnabled()) {
-    media_sink_service_->StartMdnsDiscovery();
-  } else {
-    media_route_providers_[MediaRouteProviderId::EXTENSION]
-        ->EnableMdnsDiscovery();
-  }
-
+  media_sink_service_->StartMdnsDiscovery();
   // Record that we enabled mDNS discovery, so that we will know to enable again
   // when we reconnect to the component extension.
   should_enable_mdns_discovery_ = true;

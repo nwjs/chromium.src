@@ -755,12 +755,12 @@ class RequestDataBrowserTest : public ContentBrowserTest {
     base::AutoLock auto_lock(requests_lock_);
     requests_.push_back(data);
     if (requests_closure_)
-      requests_closure_.Run();
+      std::move(requests_closure_).Run();
   }
 
   base::Lock requests_lock_;
   std::vector<RequestData> requests_;
-  base::Closure requests_closure_;
+  base::OnceClosure requests_closure_;
   std::unique_ptr<URLLoaderInterceptor> interceptor_;
 };
 
@@ -1108,7 +1108,7 @@ class URLModifyingThrottle : public blink::URLLoaderThrottle {
 
   void WillRedirectRequest(
       net::RedirectInfo* redirect_info,
-      const network::ResourceResponseHead& response_head,
+      const network::mojom::URLResponseHead& response_head,
       bool* defer,
       std::vector<std::string>* to_be_removed_request_headers,
       net::HttpRequestHeaders* modified_request_headers) override {

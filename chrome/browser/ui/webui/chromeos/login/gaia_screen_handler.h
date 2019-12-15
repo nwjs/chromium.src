@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/webui/chromeos/login/base_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/core_oobe_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/network_state_informer.h"
+#include "chrome/browser/ui/webui/chromeos/login/saml_challenge_key_handler.h"
 #include "chromeos/network/portal_detector/network_portal_detector.h"
 #include "components/user_manager/user_type.h"
 #include "net/base/net_errors.h"
@@ -133,6 +134,9 @@ class GaiaScreenHandler : public BaseScreenHandler,
   // WebUI (i.e. WebUI mignt not have completed transition to the new mode).
   bool IsOfflineLoginActive() const;
 
+  void SetNextSamlChallengeKeyHandlerForTesting(
+      std::unique_ptr<SamlChallengeKeyHandler> handler_for_test);
+
  private:
   // TODO (xiaoyinh): remove this dependency.
   friend class SigninScreenHandler;
@@ -218,6 +222,9 @@ class GaiaScreenHandler : public BaseScreenHandler,
   void HandleUsingSAMLAPI(bool is_third_party_idp);
   void HandleScrapedPasswordCount(int password_count);
   void HandleScrapedPasswordVerificationFailed();
+  void HandleSamlChallengeMachineKey(const std::string& callback_id,
+                                     const std::string& url,
+                                     const std::string& challenge);
 
   void HandleGaiaUIReady();
 
@@ -332,6 +339,10 @@ class GaiaScreenHandler : public BaseScreenHandler,
     return !security_token_pin_dialog_closed_callback_.is_null();
   }
 
+  // Assigns new SamlChallengeKeyHandler object or an object for testing to
+  // |saml_challenge_key_handler_|.
+  void CreateSamlChallengeKeyHandler();
+
   // Current state of Gaia frame.
   FrameState frame_state_ = FRAME_STATE_UNKNOWN;
 
@@ -434,6 +445,10 @@ class GaiaScreenHandler : public BaseScreenHandler,
   // Is non-empty iff the dialog is active.
   SecurityTokenPinDialogClosedCallback
       security_token_pin_dialog_closed_callback_;
+
+  // Handler for |samlChallengeMachineKey| request.
+  std::unique_ptr<SamlChallengeKeyHandler> saml_challenge_key_handler_;
+  std::unique_ptr<SamlChallengeKeyHandler> saml_challenge_key_handler_for_test_;
 
   base::WeakPtrFactory<GaiaScreenHandler> weak_factory_{this};
 

@@ -6,7 +6,7 @@
 
 #include "base/bind.h"
 #include "build/build_config.h"
-#include "mojo/public/cpp/bindings/strong_binding.h"
+#include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "services/video_capture/public/mojom/scoped_access_permission.mojom.h"
 
@@ -65,7 +65,7 @@ void CloneGpuMemoryBufferHandle(const gfx::GpuMemoryBufferHandle& source,
 }  // anonymous namespace
 
 BroadcastingReceiver::ClientContext::ClientContext(
-    mojo::PendingRemote<mojom::Receiver> client,
+    mojo::PendingRemote<mojom::VideoFrameHandler> client,
     media::VideoCaptureBufferType target_buffer_type)
     : client_(std::move(client)),
       target_buffer_type_(target_buffer_type),
@@ -242,7 +242,7 @@ void BroadcastingReceiver::SetOnStoppedHandler(
 }
 
 int32_t BroadcastingReceiver::AddClient(
-    mojo::PendingRemote<mojom::Receiver> client,
+    mojo::PendingRemote<mojom::VideoFrameHandler> client,
     media::VideoCaptureBufferType target_buffer_type) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto client_id = next_client_id_++;
@@ -284,7 +284,7 @@ void BroadcastingReceiver::ResumeClient(int32_t client_id) {
   clients_.at(client_id).set_is_suspended(false);
 }
 
-mojo::Remote<mojom::Receiver> BroadcastingReceiver::RemoveClient(
+mojo::Remote<mojom::VideoFrameHandler> BroadcastingReceiver::RemoveClient(
     int32_t client_id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto client = std::move(clients_.at(client_id));
@@ -310,7 +310,7 @@ void BroadcastingReceiver::OnNewBuffer(
 void BroadcastingReceiver::OnFrameReadyInBuffer(
     int32_t buffer_id,
     int32_t frame_feedback_id,
-    mojom::ScopedAccessPermissionPtr access_permission,
+    mojo::PendingRemote<mojom::ScopedAccessPermission> access_permission,
     media::mojom::VideoFrameInfoPtr frame_info) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (clients_.empty())
@@ -323,12 +323,13 @@ void BroadcastingReceiver::OnFrameReadyInBuffer(
       continue;
     if (access_permission)
       buffer_context.set_access_permission(std::move(access_permission));
-    mojom::ScopedAccessPermissionPtr consumer_access_permission;
-    mojo::MakeStrongBinding(
+    mojo::PendingRemote<mojom::ScopedAccessPermission>
+        consumer_access_permission;
+    mojo::MakeSelfOwnedReceiver(
         std::make_unique<ConsumerAccessPermission>(base::BindOnce(
             &BroadcastingReceiver::OnClientFinishedConsumingFrame,
             weak_factory_.GetWeakPtr(), buffer_context.buffer_context_id())),
-        mojo::MakeRequest(&consumer_access_permission));
+        consumer_access_permission.InitWithNewPipeAndPassReceiver());
     client.second.client()->OnFrameReadyInBuffer(
         buffer_context.buffer_context_id(), frame_feedback_id,
         std::move(consumer_access_permission), frame_info.Clone());

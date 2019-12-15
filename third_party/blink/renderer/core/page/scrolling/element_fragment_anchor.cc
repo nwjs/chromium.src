@@ -69,12 +69,13 @@ ElementFragmentAnchor* ElementFragmentAnchor::TryCreate(const KURL& url,
   doc.SetCSSTarget(target);
 
   if (doc.IsSVGDocument()) {
-    if (SVGSVGElement* svg = ToSVGSVGElementOrNull(doc.documentElement()))
+    if (auto* svg = DynamicTo<SVGSVGElement>(doc.documentElement()))
       svg->SetupInitialView(fragment, target);
   }
 
   if (target) {
-    target->ActivateDisplayLockIfNeeded(DisplayLockActivationReason::kUser);
+    target->ActivateDisplayLockIfNeeded(
+        DisplayLockActivationReason::kFragmentNavigation);
     target->DispatchActivateInvisibleEventIfNeeded();
   }
 

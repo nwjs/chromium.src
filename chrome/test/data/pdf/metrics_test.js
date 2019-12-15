@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {PDFMetrics} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/metrics.js';
+import {FittingType} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_fitting_type.js';
+
 chrome.test.runTests(function() {
   'use strict';
 
@@ -41,7 +44,7 @@ chrome.test.runTests(function() {
 
       chrome.metricsPrivate = new MockMetricsPrivate();
       PDFMetrics.record(PDFMetrics.UserAction.DOCUMENT_OPENED);
-      for (var i = 0; i < 4; i++) {
+      for (let i = 0; i < 4; i++) {
         PDFMetrics.record(PDFMetrics.UserAction.ROTATE);
       }
 

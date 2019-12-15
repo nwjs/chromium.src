@@ -1331,7 +1331,8 @@ TEST_F(AutofillManagerTest, GetProfileSuggestions_AutofillDisabledByUser) {
   FormsSeen(forms);
 
   // Disable Autofill.
-  autofill_manager_->SetAutofillEnabled(false);
+  autofill_manager_->SetAutofillProfileEnabled(false);
+  autofill_manager_->SetAutofillCreditCardEnabled(false);
 
   const FormFieldData& field = form.fields[0];
   GetAutofillSuggestions(form, field);
@@ -2156,6 +2157,52 @@ TEST_F(AutofillManagerTest, GetProfileSuggestions_ForPhonePrefixOrSuffix) {
 
   // Test that we sent the right suffix values to the external delegate.
   CheckSuggestions(kDefaultPageID, Suggestion("9377", "1800FLOWERS", "", 1));
+}
+
+// Tests that we return email profile suggestions values
+// when the email field with username autocomplete attribute exist.
+TEST_F(AutofillManagerTest,
+       GetProfileSuggestions_ForEmailFieldWithUserNameAutocomplete) {
+  // Set up our form data.
+  FormData form;
+  form.name = ASCIIToUTF16("MyForm");
+  form.url = GURL("http://myform.com/form.html");
+  form.action = GURL("http://myform.com/submit.html");
+
+  struct {
+    const char* const label;
+    const char* const name;
+    size_t max_length;
+    const char* const autocomplete_attribute;
+  } test_fields[] = {{"First Name", "firstname", 30, "given-name"},
+                     {"Last Name", "lastname", 30, "family-name"},
+                     {"Email", "email", 30, "username"},
+                     {"Password", "password", 30, "new-password"}};
+
+  FormFieldData field;
+  for (const auto& test_field : test_fields) {
+    const char* const field_type =
+        strcmp(test_field.name, "password") == 0 ? "password" : "text";
+    test::CreateTestFormField(test_field.label, test_field.name, "", field_type,
+                              &field);
+    field.max_length = test_field.max_length;
+    field.autocomplete_attribute = test_field.autocomplete_attribute;
+    form.fields.push_back(field);
+  }
+
+  std::vector<FormData> forms(1, form);
+  FormsSeen(forms);
+
+  personal_data_.ClearProfiles();
+  AutofillProfile profile;
+  profile.set_guid("00000000-0000-0000-0000-000000000103");
+  profile.SetRawInfo(NAME_FULL, ASCIIToUTF16("Natty Bumppo"));
+  profile.SetRawInfo(EMAIL_ADDRESS, ASCIIToUTF16("test@example.com"));
+  personal_data_.AddProfile(profile);
+
+  GetAutofillSuggestions(form, form.fields[2]);
+  CheckSuggestions(kDefaultPageID,
+                   Suggestion("test@example.com", "Natty Bumppo", "", 1));
 }
 
 // Test that we correctly fill an address form.
@@ -4180,7 +4227,8 @@ TEST_F(AutofillManagerTest, FormSubmittedAutocompleteEnabled) {
   autofill_manager_.reset(
       new TestAutofillManager(autofill_driver_.get(), &client, &personal_data_,
                               autocomplete_history_manager_.get()));
-  autofill_manager_->SetAutofillEnabled(false);
+  autofill_manager_->SetAutofillProfileEnabled(false);
+  autofill_manager_->SetAutofillCreditCardEnabled(false);
 
   // Set up our form data.
   FormData form;
@@ -4227,7 +4275,8 @@ TEST_F(AutofillManagerTest, AutocompleteSuggestions_SomeWhenAutofillDisabled) {
   autofill_manager_.reset(
       new TestAutofillManager(autofill_driver_.get(), &client, &personal_data_,
                               autocomplete_history_manager_.get()));
-  autofill_manager_->SetAutofillEnabled(false);
+  autofill_manager_->SetAutofillProfileEnabled(false);
+  autofill_manager_->SetAutofillCreditCardEnabled(false);
   autofill_manager_->SetExternalDelegate(external_delegate_.get());
 
   // Set up our form data.
@@ -4252,7 +4301,8 @@ TEST_F(AutofillManagerTest,
   autofill_manager_.reset(
       new TestAutofillManager(autofill_driver_.get(), &client, &personal_data_,
                               autocomplete_history_manager_.get()));
-  autofill_manager_->SetAutofillEnabled(false);
+  autofill_manager_->SetAutofillProfileEnabled(false);
+  autofill_manager_->SetAutofillCreditCardEnabled(false);
   autofill_manager_->SetExternalDelegate(external_delegate_.get());
 
   // Set up our form data.
@@ -4321,7 +4371,8 @@ TEST_F(AutofillManagerTest,
   autofill_manager_.reset(
       new TestAutofillManager(autofill_driver_.get(), &client, &personal_data_,
                               autocomplete_history_manager_.get()));
-  autofill_manager_->SetAutofillEnabled(false);
+  autofill_manager_->SetAutofillProfileEnabled(false);
+  autofill_manager_->SetAutofillCreditCardEnabled(false);
   autofill_manager_->SetExternalDelegate(external_delegate_.get());
 
   // Set up our form data.
@@ -4348,7 +4399,8 @@ TEST_F(AutofillManagerTest,
   autofill_manager_.reset(
       new TestAutofillManager(autofill_driver_.get(), &client, &personal_data_,
                               autocomplete_history_manager_.get()));
-  autofill_manager_->SetAutofillEnabled(false);
+  autofill_manager_->SetAutofillProfileEnabled(false);
+  autofill_manager_->SetAutofillCreditCardEnabled(false);
   autofill_manager_->SetExternalDelegate(external_delegate_.get());
 
   // Set up our form data.
@@ -4397,7 +4449,8 @@ TEST_F(AutofillManagerTest, AutocompleteOffRespectedForAutocomplete) {
   autofill_manager_.reset(
       new TestAutofillManager(autofill_driver_.get(), &client, &personal_data_,
                               autocomplete_history_manager_.get()));
-  autofill_manager_->SetAutofillEnabled(false);
+  autofill_manager_->SetAutofillProfileEnabled(false);
+  autofill_manager_->SetAutofillCreditCardEnabled(false);
   autofill_manager_->SetExternalDelegate(external_delegate_.get());
 
   EXPECT_CALL(*(autocomplete_history_manager_.get()),
@@ -6117,7 +6170,7 @@ TEST_F(AutofillManagerTest, FillInUpdatedExpirationDate) {
 }
 
 TEST_F(AutofillManagerTest, ProfileDisabledDoesNotFillFormData) {
-  autofill_manager_->SetProfileEnabled(false);
+  autofill_manager_->SetAutofillProfileEnabled(false);
 
   // Set up our form data.
   FormData form;
@@ -6135,7 +6188,7 @@ TEST_F(AutofillManagerTest, ProfileDisabledDoesNotFillFormData) {
 }
 
 TEST_F(AutofillManagerTest, ProfileDisabledDoesNotSuggest) {
-  autofill_manager_->SetProfileEnabled(false);
+  autofill_manager_->SetAutofillProfileEnabled(false);
 
   // Set up our form data.
   FormData form;
@@ -6152,7 +6205,7 @@ TEST_F(AutofillManagerTest, ProfileDisabledDoesNotSuggest) {
 }
 
 TEST_F(AutofillManagerTest, CreditCardDisabledDoesNotFillFormData) {
-  autofill_manager_->SetCreditCardEnabled(false);
+  autofill_manager_->SetAutofillCreditCardEnabled(false);
 
   // Set up our form data.
   FormData form;
@@ -6170,7 +6223,7 @@ TEST_F(AutofillManagerTest, CreditCardDisabledDoesNotFillFormData) {
 }
 
 TEST_F(AutofillManagerTest, CreditCardDisabledDoesNotSuggest) {
-  autofill_manager_->SetCreditCardEnabled(false);
+  autofill_manager_->SetAutofillCreditCardEnabled(false);
 
   // Set up our form data.
   FormData form;
@@ -6712,7 +6765,8 @@ TEST_F(AutofillManagerTest, ShouldUploadForm) {
   }
 
   // Autofill disabled.
-  autofill_manager_->SetAutofillEnabled(false);
+  autofill_manager_->SetAutofillProfileEnabled(false);
+  autofill_manager_->SetAutofillCreditCardEnabled(false);
   EXPECT_FALSE(autofill_manager_->ShouldUploadForm(FormStructure(form)));
 }
 
@@ -7919,18 +7973,20 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(All, OnFocusOnFormFieldTest, testing::Bool());
 
 #if defined(OS_IOS) || defined(OS_ANDROID)
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          SuggestionMatchingTest,
                          testing::Values(std::make_tuple(0, ""),
                                          std::make_tuple(1, "show-all"),
                                          std::make_tuple(1, "show-one")));
 #else
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          SuggestionMatchingTest,
                          testing::Values(std::make_tuple(0, ""),
                                          std::make_tuple(1, "")));
 #endif  // defined(OS_IOS) || defined(OS_ANDROID)
 
-INSTANTIATE_TEST_SUITE_P(, CreditCardSuggestionMatchingTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All,
+                         CreditCardSuggestionMatchingTest,
+                         testing::Bool());
 
 }  // namespace autofill

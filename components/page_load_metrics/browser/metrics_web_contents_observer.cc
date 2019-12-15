@@ -91,7 +91,7 @@ MetricsWebContentsObserver::MetricsWebContentsObserver(
                      content::Visibility::HIDDEN),
       embedder_interface_(std::move(embedder_interface)),
       has_navigated_(false),
-      page_load_metrics_binding_(web_contents, this) {
+      page_load_metrics_receiver_(web_contents, this) {
   // Prerenders erroneously report that they are initially visible, so we
   // manually override visibility state for prerender.
   if (embedder_interface_->IsPrerender(web_contents))
@@ -221,10 +221,6 @@ void MetricsWebContentsObserver::WillStartNavigationRequestImpl(
   const GURL& currently_committed_url =
       committed_load_ ? committed_load_->url() : opener_url;
 
-  // We can have two provisional loads in some cases. E.g. a same-site
-  // navigation can have a concurrent cross-process navigation started
-  // from the omnibox.
-  DCHECK_GT(2ul, provisional_loads_.size());
   // Passing raw pointers to observers_ and embedder_interface_ is safe because
   // the MetricsWebContentsObserver owns them both list and they are torn down
   // after the PageLoadTracker. The PageLoadTracker does not hold on to
@@ -333,7 +329,8 @@ void MetricsWebContentsObserver::ResourceLoadComplete(
     const content::mojom::CommonNetworkInfoPtr& network_info =
         resource_load_info.network_info;
     ExtraRequestCompleteInfo extra_request_complete_info(
-        resource_load_info.url, network_info->remote_endpoint.value(),
+        url::Origin::Create(resource_load_info.url),
+        network_info->remote_endpoint.value(),
         render_frame_host->GetFrameTreeNodeId(), resource_load_info.was_cached,
         resource_load_info.raw_body_bytes, original_content_length,
         std::move(data_reduction_proxy_data), resource_load_info.resource_type,
@@ -739,7 +736,7 @@ void MetricsWebContentsObserver::UpdateTiming(
     mojom::CpuTimingPtr cpu_timing,
     mojom::DeferredResourceCountsPtr new_deferred_resource_data) {
   content::RenderFrameHost* render_frame_host =
-      page_load_metrics_binding_.GetCurrentTargetFrame();
+      page_load_metrics_receiver_.GetCurrentTargetFrame();
   OnTimingUpdated(render_frame_host, std::move(timing), std::move(metadata),
                   std::move(new_features), resources, std::move(render_data),
                   std::move(cpu_timing), std::move(new_deferred_resource_data));

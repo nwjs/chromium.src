@@ -13,6 +13,7 @@
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -37,21 +38,20 @@
 
 namespace web_app {
 
-base::Optional<SystemAppType> GetSystemWebAppTypeForAppId(
-    Profile* profile,
-    web_app::AppId app_id) {
+base::Optional<SystemAppType> GetSystemWebAppTypeForAppId(Profile* profile,
+                                                          AppId app_id) {
   auto* provider = WebAppProvider::Get(profile);
   return provider ? provider->system_web_app_manager().GetSystemAppTypeForAppId(
                         app_id)
                   : base::Optional<SystemAppType>();
 }
 
-base::Optional<web_app::AppId> GetAppIdForSystemWebApp(Profile* profile,
-                                                       SystemAppType app_type) {
+base::Optional<AppId> GetAppIdForSystemWebApp(Profile* profile,
+                                              SystemAppType app_type) {
   auto* provider = WebAppProvider::Get(profile);
   return provider
              ? provider->system_web_app_manager().GetAppIdForSystemApp(app_type)
-             : base::Optional<web_app::AppId>();
+             : base::Optional<AppId>();
 }
 
 Browser* LaunchSystemWebApp(Profile* profile,
@@ -61,18 +61,7 @@ Browser* LaunchSystemWebApp(Profile* profile,
   if (did_create)
     *did_create = false;
 
-  Browser* browser = FindSystemWebAppBrowser(profile, app_type);
-  if (browser) {
-    content::WebContents* web_contents =
-        browser->tab_strip_model()->GetWebContentsAt(0);
-    if (web_contents && web_contents->GetURL() == url) {
-      browser->window()->Show();
-      return browser;
-    }
-  }
-
-  base::Optional<web_app::AppId> app_id =
-      GetAppIdForSystemWebApp(profile, app_type);
+  base::Optional<AppId> app_id = GetAppIdForSystemWebApp(profile, app_type);
   // TODO(calamity): Queue a task to launch app after it is installed.
   if (!app_id)
     return nullptr;
@@ -87,6 +76,39 @@ Browser* LaunchSystemWebApp(Profile* profile,
       profile, extension, 0, extensions::AppLaunchSource::kSourceChromeInternal,
       display::kInvalidDisplayId);
   params.override_url = url;
+
+  return LaunchSystemWebApp(profile, app_type, url, params, did_create);
+}
+
+Browser* LaunchSystemWebApp(Profile* profile,
+                            SystemAppType app_type,
+                            const GURL& url,
+                            const apps::AppLaunchParams& params,
+                            bool* did_create) {
+  auto* provider = WebAppProvider::Get(profile);
+  if (!provider)
+    return nullptr;
+
+  DCHECK_EQ(params.app_id, *GetAppIdForSystemWebApp(profile, app_type));
+
+  if (did_create)
+    *did_create = false;
+
+  // TODO(https://crbug.com/1027030): Better understand and improve SWA launch
+  // behavior. Early exit here skips logic in ShowApplicationWindow.
+  Browser* browser = nullptr;
+  if (provider->system_web_app_manager().IsSingleWindow(app_type)) {
+    browser = FindSystemWebAppBrowser(profile, app_type);
+  }
+
+  if (browser) {
+    content::WebContents* web_contents =
+        browser->tab_strip_model()->GetWebContentsAt(0);
+    if (web_contents && web_contents->GetURL() == url) {
+      browser->window()->Show();
+      return browser;
+    }
+  }
 
   if (!browser) {
     if (did_create)
@@ -103,8 +125,7 @@ Browser* LaunchSystemWebApp(Profile* profile,
 Browser* FindSystemWebAppBrowser(Profile* profile, SystemAppType app_type) {
   // TODO(calamity): Determine whether, during startup, we need to wait for
   // app install and then provide a valid answer here.
-  base::Optional<web_app::AppId> app_id =
-      GetAppIdForSystemWebApp(profile, app_type);
+  base::Optional<AppId> app_id = GetAppIdForSystemWebApp(profile, app_type);
   if (!app_id)
     return nullptr;
 
@@ -140,8 +161,8 @@ gfx::Size GetSystemWebAppMinimumWindowSize(Browser* browser) {
   if (!browser->app_controller())
     return gfx::Size();  // Not an app.
 
-  base::Optional<AppId> app_id = browser->app_controller()->GetAppId();
-  if (!app_id)
+  auto* app_controller = browser->app_controller();
+  if (!app_controller->HasAppId())
     return gfx::Size();
 
   auto* provider = WebAppProvider::Get(browser->profile());
@@ -149,7 +170,7 @@ gfx::Size GetSystemWebAppMinimumWindowSize(Browser* browser) {
     return gfx::Size();
 
   return provider->system_web_app_manager().GetMinimumWindowSize(
-      app_id.value());
+      app_controller->GetAppId());
 }
 
 void SetManifestRequestFilter(content::WebUIDataSource* source,
@@ -173,9 +194,10 @@ void SetManifestRequestFilter(content::WebUIDataSource* source,
           [](const std::string& path) { return path == "manifest.json"; }),
       base::BindRepeating(
           [](const std::string& response, const std::string& path,
-             const content::WebUIDataSource::GotDataCallback& callback) {
+             content::WebUIDataSource::GotDataCallback callback) {
             std::string response_copy = response;
-            callback.Run(base::RefCountedString::TakeString(&response_copy));
+            std::move(callback).Run(
+                base::RefCountedString::TakeString(&response_copy));
           },
           std::move(response)));
 }

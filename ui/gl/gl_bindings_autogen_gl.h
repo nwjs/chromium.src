@@ -20,7 +20,6 @@ class GLContext;
 typedef void(GL_BINDING_CALL* glActiveShaderProgramProc)(GLuint pipeline,
                                                          GLuint program);
 typedef void(GL_BINDING_CALL* glActiveTextureProc)(GLenum texture);
-typedef void(GL_BINDING_CALL* glApplyFramebufferAttachmentCMAAINTELProc)(void);
 typedef void(GL_BINDING_CALL* glAttachShaderProc)(GLuint program,
                                                   GLuint shader);
 typedef void(GL_BINDING_CALL* glBeginQueryProc)(GLenum target, GLuint id);
@@ -401,6 +400,12 @@ typedef void(GL_BINDING_CALL* glDrawArraysInstancedANGLEProc)(
     GLint first,
     GLsizei count,
     GLsizei primcount);
+typedef void(GL_BINDING_CALL* glDrawArraysInstancedBaseInstanceANGLEProc)(
+    GLenum mode,
+    GLint first,
+    GLsizei count,
+    GLsizei primcount,
+    GLuint baseinstance);
 typedef void(GL_BINDING_CALL* glDrawBufferProc)(GLenum mode);
 typedef void(GL_BINDING_CALL* glDrawBuffersARBProc)(GLsizei n,
                                                     const GLenum* bufs);
@@ -417,6 +422,15 @@ typedef void(GL_BINDING_CALL* glDrawElementsInstancedANGLEProc)(
     GLenum type,
     const void* indices,
     GLsizei primcount);
+typedef void(
+    GL_BINDING_CALL* glDrawElementsInstancedBaseVertexBaseInstanceANGLEProc)(
+    GLenum mode,
+    GLsizei count,
+    GLenum type,
+    const void* indices,
+    GLsizei primcount,
+    GLint baseVertex,
+    GLuint baseInstance);
 typedef void(GL_BINDING_CALL* glDrawRangeElementsProc)(GLenum mode,
                                                        GLuint start,
                                                        GLuint end,
@@ -1082,6 +1096,13 @@ typedef void(GL_BINDING_CALL* glMultiDrawArraysInstancedANGLEProc)(
     const GLsizei* counts,
     const GLsizei* instanceCounts,
     GLsizei drawcount);
+typedef void(GL_BINDING_CALL* glMultiDrawArraysInstancedBaseInstanceANGLEProc)(
+    GLenum mode,
+    const GLint* firsts,
+    const GLsizei* counts,
+    const GLsizei* instanceCounts,
+    const GLuint* baseInstances,
+    GLsizei drawcount);
 typedef void(GL_BINDING_CALL* glMultiDrawElementsANGLEProc)(
     GLenum mode,
     const GLsizei* counts,
@@ -1094,6 +1115,16 @@ typedef void(GL_BINDING_CALL* glMultiDrawElementsInstancedANGLEProc)(
     GLenum type,
     const GLvoid* const* indices,
     const GLsizei* instanceCounts,
+    GLsizei drawcount);
+typedef void(GL_BINDING_CALL*
+                 glMultiDrawElementsInstancedBaseVertexBaseInstanceANGLEProc)(
+    GLenum mode,
+    const GLsizei* counts,
+    GLenum type,
+    const GLvoid* const* indices,
+    const GLsizei* instanceCounts,
+    const GLint* baseVertices,
+    const GLuint* baseInstances,
     GLsizei drawcount);
 typedef void(GL_BINDING_CALL* glObjectLabelProc)(GLenum identifier,
                                                  GLuint name,
@@ -1863,6 +1894,7 @@ typedef void(GL_BINDING_CALL* glWindowRectanglesEXTProc)(GLenum mode,
 
 struct ExtensionsGL {
   bool b_GL_AMD_framebuffer_multisample_advanced;
+  bool b_GL_ANGLE_base_vertex_base_instance;
   bool b_GL_ANGLE_framebuffer_blit;
   bool b_GL_ANGLE_framebuffer_multisample;
   bool b_GL_ANGLE_instanced_arrays;
@@ -1901,6 +1933,7 @@ struct ExtensionsGL {
   bool b_GL_CHROMIUM_gles_depth_binding_hack;
   bool b_GL_CHROMIUM_glgetstringi_hack;
   bool b_GL_CHROMIUM_path_rendering;
+  bool b_GL_EXT_base_instance;
   bool b_GL_EXT_blend_func_extended;
   bool b_GL_EXT_clear_texture;
   bool b_GL_EXT_debug_marker;
@@ -1930,7 +1963,6 @@ struct ExtensionsGL {
   bool b_GL_EXT_unpack_subimage;
   bool b_GL_EXT_window_rectangles;
   bool b_GL_IMG_multisampled_render_to_texture;
-  bool b_GL_INTEL_framebuffer_CMAA;
   bool b_GL_KHR_blend_equation_advanced;
   bool b_GL_KHR_debug;
   bool b_GL_KHR_parallel_shader_compile;
@@ -1954,8 +1986,6 @@ struct ExtensionsGL {
 struct ProcsGL {
   glActiveShaderProgramProc glActiveShaderProgramFn;
   glActiveTextureProc glActiveTextureFn;
-  glApplyFramebufferAttachmentCMAAINTELProc
-      glApplyFramebufferAttachmentCMAAINTELFn;
   glAttachShaderProc glAttachShaderFn;
   glBeginQueryProc glBeginQueryFn;
   glBeginTransformFeedbackProc glBeginTransformFeedbackFn;
@@ -2061,11 +2091,15 @@ struct ProcsGL {
   glDrawArraysProc glDrawArraysFn;
   glDrawArraysIndirectProc glDrawArraysIndirectFn;
   glDrawArraysInstancedANGLEProc glDrawArraysInstancedANGLEFn;
+  glDrawArraysInstancedBaseInstanceANGLEProc
+      glDrawArraysInstancedBaseInstanceANGLEFn;
   glDrawBufferProc glDrawBufferFn;
   glDrawBuffersARBProc glDrawBuffersARBFn;
   glDrawElementsProc glDrawElementsFn;
   glDrawElementsIndirectProc glDrawElementsIndirectFn;
   glDrawElementsInstancedANGLEProc glDrawElementsInstancedANGLEFn;
+  glDrawElementsInstancedBaseVertexBaseInstanceANGLEProc
+      glDrawElementsInstancedBaseVertexBaseInstanceANGLEFn;
   glDrawRangeElementsProc glDrawRangeElementsFn;
   glEGLImageTargetRenderbufferStorageOESProc
       glEGLImageTargetRenderbufferStorageOESFn;
@@ -2262,8 +2296,12 @@ struct ProcsGL {
   glMinSampleShadingProc glMinSampleShadingFn;
   glMultiDrawArraysANGLEProc glMultiDrawArraysANGLEFn;
   glMultiDrawArraysInstancedANGLEProc glMultiDrawArraysInstancedANGLEFn;
+  glMultiDrawArraysInstancedBaseInstanceANGLEProc
+      glMultiDrawArraysInstancedBaseInstanceANGLEFn;
   glMultiDrawElementsANGLEProc glMultiDrawElementsANGLEFn;
   glMultiDrawElementsInstancedANGLEProc glMultiDrawElementsInstancedANGLEFn;
+  glMultiDrawElementsInstancedBaseVertexBaseInstanceANGLEProc
+      glMultiDrawElementsInstancedBaseVertexBaseInstanceANGLEFn;
   glObjectLabelProc glObjectLabelFn;
   glObjectPtrLabelProc glObjectPtrLabelFn;
   glPathCommandsNVProc glPathCommandsNVFn;
@@ -2462,7 +2500,6 @@ class GL_EXPORT GLApi {
 
   virtual void glActiveShaderProgramFn(GLuint pipeline, GLuint program) = 0;
   virtual void glActiveTextureFn(GLenum texture) = 0;
-  virtual void glApplyFramebufferAttachmentCMAAINTELFn(void) = 0;
   virtual void glAttachShaderFn(GLuint program, GLuint shader) = 0;
   virtual void glBeginQueryFn(GLenum target, GLuint id) = 0;
   virtual void glBeginTransformFeedbackFn(GLenum primitiveMode) = 0;
@@ -2800,6 +2837,12 @@ class GL_EXPORT GLApi {
                                             GLint first,
                                             GLsizei count,
                                             GLsizei primcount) = 0;
+  virtual void glDrawArraysInstancedBaseInstanceANGLEFn(
+      GLenum mode,
+      GLint first,
+      GLsizei count,
+      GLsizei primcount,
+      GLuint baseinstance) = 0;
   virtual void glDrawBufferFn(GLenum mode) = 0;
   virtual void glDrawBuffersARBFn(GLsizei n, const GLenum* bufs) = 0;
   virtual void glDrawElementsFn(GLenum mode,
@@ -2814,6 +2857,14 @@ class GL_EXPORT GLApi {
                                               GLenum type,
                                               const void* indices,
                                               GLsizei primcount) = 0;
+  virtual void glDrawElementsInstancedBaseVertexBaseInstanceANGLEFn(
+      GLenum mode,
+      GLsizei count,
+      GLenum type,
+      const void* indices,
+      GLsizei primcount,
+      GLint baseVertex,
+      GLuint baseInstance) = 0;
   virtual void glDrawRangeElementsFn(GLenum mode,
                                      GLuint start,
                                      GLuint end,
@@ -3398,6 +3449,13 @@ class GL_EXPORT GLApi {
                                                  const GLsizei* counts,
                                                  const GLsizei* instanceCounts,
                                                  GLsizei drawcount) = 0;
+  virtual void glMultiDrawArraysInstancedBaseInstanceANGLEFn(
+      GLenum mode,
+      const GLint* firsts,
+      const GLsizei* counts,
+      const GLsizei* instanceCounts,
+      const GLuint* baseInstances,
+      GLsizei drawcount) = 0;
   virtual void glMultiDrawElementsANGLEFn(GLenum mode,
                                           const GLsizei* counts,
                                           GLenum type,
@@ -3409,6 +3467,15 @@ class GL_EXPORT GLApi {
       GLenum type,
       const GLvoid* const* indices,
       const GLsizei* instanceCounts,
+      GLsizei drawcount) = 0;
+  virtual void glMultiDrawElementsInstancedBaseVertexBaseInstanceANGLEFn(
+      GLenum mode,
+      const GLsizei* counts,
+      GLenum type,
+      const GLvoid* const* indices,
+      const GLsizei* instanceCounts,
+      const GLint* baseVertices,
+      const GLuint* baseInstances,
       GLsizei drawcount) = 0;
   virtual void glObjectLabelFn(GLenum identifier,
                                GLuint name,
@@ -4116,8 +4183,6 @@ class GL_EXPORT GLApi {
 #define glActiveShaderProgram \
   ::gl::g_current_gl_context->glActiveShaderProgramFn
 #define glActiveTexture ::gl::g_current_gl_context->glActiveTextureFn
-#define glApplyFramebufferAttachmentCMAAINTEL \
-  ::gl::g_current_gl_context->glApplyFramebufferAttachmentCMAAINTELFn
 #define glAttachShader ::gl::g_current_gl_context->glAttachShaderFn
 #define glBeginQuery ::gl::g_current_gl_context->glBeginQueryFn
 #define glBeginTransformFeedback \
@@ -4261,6 +4326,8 @@ class GL_EXPORT GLApi {
 #define glDrawArraysIndirect ::gl::g_current_gl_context->glDrawArraysIndirectFn
 #define glDrawArraysInstancedANGLE \
   ::gl::g_current_gl_context->glDrawArraysInstancedANGLEFn
+#define glDrawArraysInstancedBaseInstanceANGLE \
+  ::gl::g_current_gl_context->glDrawArraysInstancedBaseInstanceANGLEFn
 #define glDrawBuffer ::gl::g_current_gl_context->glDrawBufferFn
 #define glDrawBuffersARB ::gl::g_current_gl_context->glDrawBuffersARBFn
 #define glDrawElements ::gl::g_current_gl_context->glDrawElementsFn
@@ -4268,6 +4335,9 @@ class GL_EXPORT GLApi {
   ::gl::g_current_gl_context->glDrawElementsIndirectFn
 #define glDrawElementsInstancedANGLE \
   ::gl::g_current_gl_context->glDrawElementsInstancedANGLEFn
+#define glDrawElementsInstancedBaseVertexBaseInstanceANGLE \
+  ::gl::g_current_gl_context                               \
+      ->glDrawElementsInstancedBaseVertexBaseInstanceANGLEFn
 #define glDrawRangeElements ::gl::g_current_gl_context->glDrawRangeElementsFn
 #define glEGLImageTargetRenderbufferStorageOES \
   ::gl::g_current_gl_context->glEGLImageTargetRenderbufferStorageOESFn
@@ -4554,10 +4624,15 @@ class GL_EXPORT GLApi {
   ::gl::g_current_gl_context->glMultiDrawArraysANGLEFn
 #define glMultiDrawArraysInstancedANGLE \
   ::gl::g_current_gl_context->glMultiDrawArraysInstancedANGLEFn
+#define glMultiDrawArraysInstancedBaseInstanceANGLE \
+  ::gl::g_current_gl_context->glMultiDrawArraysInstancedBaseInstanceANGLEFn
 #define glMultiDrawElementsANGLE \
   ::gl::g_current_gl_context->glMultiDrawElementsANGLEFn
 #define glMultiDrawElementsInstancedANGLE \
   ::gl::g_current_gl_context->glMultiDrawElementsInstancedANGLEFn
+#define glMultiDrawElementsInstancedBaseVertexBaseInstanceANGLE \
+  ::gl::g_current_gl_context                                    \
+      ->glMultiDrawElementsInstancedBaseVertexBaseInstanceANGLEFn
 #define glObjectLabel ::gl::g_current_gl_context->glObjectLabelFn
 #define glObjectPtrLabel ::gl::g_current_gl_context->glObjectPtrLabelFn
 #define glPathCommandsNV ::gl::g_current_gl_context->glPathCommandsNVFn

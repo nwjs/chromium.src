@@ -5,10 +5,13 @@
 #ifndef ASH_PUBLIC_CPP_ASSISTANT_ASSISTANT_STATE_BASE_H_
 #define ASH_PUBLIC_CPP_ASSISTANT_ASSISTANT_STATE_BASE_H_
 
+#include <memory>
 #include <string>
 
 #include "ash/public/mojom/assistant_state_controller.mojom.h"
 #include "base/macros.h"
+#include "base/observer_list.h"
+#include "base/observer_list_types.h"
 #include "base/optional.h"
 #include "chromeos/services/assistant/public/cpp/assistant_prefs.h"
 

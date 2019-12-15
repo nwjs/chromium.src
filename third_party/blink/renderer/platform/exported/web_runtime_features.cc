@@ -30,6 +30,7 @@
 
 #include "third_party/blink/public/platform/web_runtime_features.h"
 
+#include "third_party/blink/renderer/platform/graphics/scrollbar_theme_settings.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 
@@ -192,10 +193,6 @@ void WebRuntimeFeatures::EnableFallbackCursorMode(bool enable) {
   RuntimeEnabledFeatures::SetFallbackCursorModeEnabled(enable);
 }
 
-void WebRuntimeFeatures::EnableFastMobileScrolling(bool enable) {
-  RuntimeEnabledFeatures::SetFastMobileScrollingEnabled(enable);
-}
-
 void WebRuntimeFeatures::EnableFeaturePolicyForSandbox(bool enable) {
   RuntimeEnabledFeatures::SetFeaturePolicyForSandboxEnabled(enable);
 }
@@ -272,10 +269,6 @@ void WebRuntimeFeatures::EnableMediaSession(bool enable) {
   RuntimeEnabledFeatures::SetMediaSessionEnabled(enable);
 }
 
-void WebRuntimeFeatures::EnableMimeHandlerViewInCrossProcessFrame(bool enable) {
-  RuntimeEnabledFeatures::SetMimeHandlerViewInCrossProcessFrameEnabled(enable);
-}
-
 void WebRuntimeFeatures::EnableNotificationConstructor(bool enable) {
   RuntimeEnabledFeatures::SetNotificationConstructorEnabled(enable);
 }
@@ -294,6 +287,10 @@ void WebRuntimeFeatures::EnableNavigatorContentUtils(bool enable) {
 
 void WebRuntimeFeatures::EnableNetInfoDownlinkMax(bool enable) {
   RuntimeEnabledFeatures::SetNetInfoDownlinkMaxEnabled(enable);
+}
+
+void WebRuntimeFeatures::EnableNeverSlowMode(bool enable) {
+  RuntimeEnabledFeatures::SetNeverSlowModeEnabled(enable);
 }
 
 void WebRuntimeFeatures::EnableOnDeviceChange(bool enable) {
@@ -389,10 +386,6 @@ void WebRuntimeFeatures::EnableUserActivationSameOriginVisibility(bool enable) {
   RuntimeEnabledFeatures::SetUserActivationSameOriginVisibilityEnabled(enable);
 }
 
-void WebRuntimeFeatures::EnableUserActivationV2(bool enable) {
-  RuntimeEnabledFeatures::SetUserActivationV2Enabled(enable);
-}
-
 void WebRuntimeFeatures::EnableTouchEventFeatureDetection(bool enable) {
   RuntimeEnabledFeatures::SetTouchEventFeatureDetectionEnabled(enable);
 }
@@ -414,7 +407,7 @@ void WebRuntimeFeatures::EnableXSLT(bool enable) {
 }
 
 void WebRuntimeFeatures::EnableOverlayScrollbars(bool enable) {
-  RuntimeEnabledFeatures::SetOverlayScrollbarsEnabled(enable);
+  ScrollbarThemeSettings::SetOverlayScrollbarsEnabled(enable);
 }
 
 void WebRuntimeFeatures::ForceOverlayFullscreenVideo(bool enable) {
@@ -463,10 +456,6 @@ void WebRuntimeFeatures::EnableWebShareV2(bool enable) {
 
 void WebRuntimeFeatures::EnableWebGPU(bool enable) {
   RuntimeEnabledFeatures::SetWebGPUEnabled(enable);
-}
-
-void WebRuntimeFeatures::EnableWebVR(bool enable) {
-  RuntimeEnabledFeatures::SetWebVREnabled(enable);
 }
 
 void WebRuntimeFeatures::EnableWebXR(bool enable) {
@@ -583,6 +572,10 @@ void WebRuntimeFeatures::EnableWebAuth(bool enable) {
   RuntimeEnabledFeatures::SetWebAuthEnabled(enable);
 }
 
+void WebRuntimeFeatures::EnableWebAuthenticationFeaturePolicy(bool enable) {
+  RuntimeEnabledFeatures::SetWebAuthenticationFeaturePolicyEnabled(enable);
+}
+
 void WebRuntimeFeatures::EnableLazyInitializeMediaControls(bool enable) {
   RuntimeEnabledFeatures::SetLazyInitializeMediaControlsEnabled(enable);
 }
@@ -629,10 +622,6 @@ void WebRuntimeFeatures::EnableBackgroundFetch(bool enable) {
   RuntimeEnabledFeatures::SetBackgroundFetchEnabled(enable);
 }
 
-void WebRuntimeFeatures::EnableMergeBlockingNonBlockingPools(bool enable) {
-  RuntimeEnabledFeatures::SetMergeBlockingNonBlockingPoolsEnabled(enable);
-}
-
 void WebRuntimeFeatures::EnableGetDisplayMedia(bool enable) {
   RuntimeEnabledFeatures::SetGetDisplayMediaEnabled(enable);
 }
@@ -651,7 +640,6 @@ void WebRuntimeFeatures::EnableCustomElementsV0(bool enable) {
 
 void WebRuntimeFeatures::EnableHTMLImports(bool enable) {
   RuntimeEnabledFeatures::SetHTMLImportsEnabled(enable);
-  RuntimeEnabledFeatures::SetHTMLImportsOnlyChromeEnabled(enable);
 }
 
 void WebRuntimeFeatures::EnableSignedExchangePrefetchCacheForNavigations(

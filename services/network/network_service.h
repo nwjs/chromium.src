@@ -27,7 +27,6 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/dns/dns_config.h"
-#include "net/http/http_auth_preferences.h"
 #include "net/log/net_log.h"
 #include "net/log/trace_net_log_observer.h"
 #include "services/network/keepalive_statistics_recorder.h"
@@ -61,6 +60,8 @@ class NetworkUsageAccumulator;
 class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
     : public mojom::NetworkService {
  public:
+  static const base::TimeDelta kInitialDohProbeTimeout;
+
   NetworkService(std::unique_ptr<service_manager::BinderRegistry> registry,
                  mojo::PendingReceiver<mojom::NetworkService> receiver =
                      mojo::NullReceiver(),
@@ -147,7 +148,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
   void SetCryptConfig(mojom::CryptConfigPtr crypt_config) override;
 #endif
-#if defined(OS_MACOSX) && !defined(OS_IOS)
+#if defined(OS_WIN) || (defined(OS_MACOSX) && !defined(OS_IOS))
   void SetEncryptionKey(const std::string& encryption_key) override;
 #endif
   void AddCorbExceptionForPlugin(uint32_t process_id) override;
@@ -212,9 +213,15 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
     host_resolver_factory_ = std::move(host_resolver_factory);
   }
 
+  bool split_auth_cache_by_network_isolation_key() const {
+    return split_auth_cache_by_network_isolation_key_;
+  }
+
   static NetworkService* GetNetworkServiceForTesting();
 
  private:
+  class DelayedDohProbeActivator;
+
   void DestroyNetworkContexts();
 
   // Called by a NetworkContext when its mojo pipe is closed. Deletes the
@@ -265,10 +272,13 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   std::unique_ptr<net::HostResolverManager> host_resolver_manager_;
   std::unique_ptr<net::HostResolver::Factory> host_resolver_factory_;
   std::unique_ptr<NetworkUsageAccumulator> network_usage_accumulator_;
-
-  net::HttpAuthPreferences http_auth_preferences_;
-  mojom::HttpAuthStaticParamsPtr http_auth_static_params_;
   std::unique_ptr<HttpAuthCacheCopier> http_auth_cache_copier_;
+
+  // Members that would store the http auth network_service related params.
+  // These Params are later used by NetworkContext to create
+  // HttpAuthPreferences.
+  mojom::HttpAuthDynamicParamsPtr http_auth_dynamic_network_service_params_;
+  mojom::HttpAuthStaticParamsPtr http_auth_static_network_service_params_;
 
   // NetworkContexts created by CreateNetworkContext(). They call into the
   // NetworkService when their connection is closed so that it can delete
@@ -309,6 +319,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
 
   // A timer that periodically calls ReportMetrics every hour.
   base::RepeatingTimer metrics_trigger_timer_;
+
+  // Whether new NetworkContexts will be configured to partition their
+  // HttpAuthCaches by NetworkIsolationKey.
+  bool split_auth_cache_by_network_isolation_key_ = false;
+
+  std::unique_ptr<DelayedDohProbeActivator> doh_probe_activator_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkService);
 };

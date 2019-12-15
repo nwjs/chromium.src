@@ -63,14 +63,14 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadFileImpl : public DownloadFile {
   void AddInputStream(std::unique_ptr<InputStream> stream,
                       int64_t offset) override;
   void RenameAndUniquify(const base::FilePath& full_path,
-                         const RenameCompletionCallback& callback) override;
+                         RenameCompletionCallback callback) override;
   void RenameAndAnnotate(
       const base::FilePath& full_path,
       const std::string& client_guid,
       const GURL& source_url,
       const GURL& referrer_url,
       mojo::PendingRemote<quarantine::mojom::Quarantine> remote_quarantine,
-      const RenameCompletionCallback& callback) override;
+      RenameCompletionCallback callback) override;
   void Detach() override;
   void Cancel() override;
   void SetPotentialFileLength(int64_t length) override;
@@ -80,14 +80,13 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadFileImpl : public DownloadFile {
   void Resume() override;
 
 #if defined(OS_ANDROID)
-  void RenameToIntermediateUri(
-      const GURL& original_url,
-      const GURL& referrer_url,
-      const base::FilePath& file_name,
-      const std::string& mime_type,
-      const base::FilePath& current_path,
-      const RenameCompletionCallback& callback) override;
-  void PublishDownload(const RenameCompletionCallback& callback) override;
+  void RenameToIntermediateUri(const GURL& original_url,
+                               const GURL& referrer_url,
+                               const base::FilePath& file_name,
+                               const std::string& mime_type,
+                               const base::FilePath& current_path,
+                               RenameCompletionCallback callback) override;
+  void PublishDownload(RenameCompletionCallback callback) override;
   base::FilePath GetDisplayName() override;
 #endif  // defined(OS_ANDROID)
 
@@ -197,6 +196,11 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadFileImpl : public DownloadFile {
     DISALLOW_COPY_AND_ASSIGN(SourceStream);
   };
 
+  // Sets the task runner for testing purpose, must be called before
+  // Initialize().
+  void SetTaskRunnerForTesting(
+      scoped_refptr<base::SequencedTaskRunner> task_runner);
+
  protected:
   // For test class overrides.
   // Validate the first |bytes_to_validate| bytes and write the next
@@ -228,7 +232,7 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadFileImpl : public DownloadFile {
   struct RenameParameters {
     RenameParameters(RenameOption option,
                      const base::FilePath& new_path,
-                     const RenameCompletionCallback& completion_callback);
+                     RenameCompletionCallback completion_callback);
     ~RenameParameters();
 
     RenameOption option;
@@ -252,7 +256,7 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadFileImpl : public DownloadFile {
 
   // Called after |file_| was renamed.
   void OnRenameComplete(const base::FilePath& content_path,
-                        const RenameCompletionCallback& callback,
+                        RenameCompletionCallback callback,
                         DownloadInterruptReason reason);
 
   // Send an update on our progress.
@@ -380,6 +384,9 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadFileImpl : public DownloadFile {
 
   // TaskRunner to post updates to the |observer_|.
   scoped_refptr<base::SingleThreadTaskRunner> main_task_runner_;
+
+  // TaskRunner this object lives on after initialization.
+  scoped_refptr<base::SequencedTaskRunner> task_runner_;
 
 #if defined(OS_ANDROID)
   base::FilePath display_name_;

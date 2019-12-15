@@ -38,7 +38,12 @@
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/layout/layout_provider.h"
 #include "ui/views/view.h"
-#include "ui/views/window/dialog_client_view.h"
+
+#if defined(PASSWORD_STORE_SELECT_ENABLED)
+#include "base/feature_list.h"
+#include "components/password_manager/core/common/password_manager_features.h"
+#include "ui/views/controls/button/checkbox.h"
+#endif  // defined(PASSWORD_STORE_SELECT_ENABLED)
 
 namespace {
 
@@ -216,6 +221,28 @@ std::unique_ptr<views::View> CreateHeaderImage(int image_id) {
   return image_view;
 }
 
+#if defined(PASSWORD_STORE_SELECT_ENABLED)
+views::Checkbox* MaybeAppendAccountCheckboxRow(
+    views::GridLayout* layout,
+    bool uses_account_store,
+    int height,
+    views::ButtonListener* listener) {
+  if (!base::FeatureList::IsEnabled(
+          password_manager::features::kEnablePasswordsAccountStorageSavingUi)) {
+    return nullptr;
+  }
+  auto account_store_checkbox = std::make_unique<views::Checkbox>(
+      base::ASCIIToUTF16("Store passwords in account store?"), listener);
+  account_store_checkbox->SetChecked(uses_account_store);
+  BuildColumnSet(layout, DOUBLE_VIEW_COLUMN_SET_PASSWORD);
+  layout->StartRow(views::GridLayout::kFixedSize,
+                   DOUBLE_VIEW_COLUMN_SET_PASSWORD);
+  return layout->AddView(std::move(account_store_checkbox), 1, 1,
+                         views::GridLayout::FILL, views::GridLayout::FILL, 0,
+                         height);
+}
+#endif  // defined(PASSWORD_STORE_SELECT_ENABLED)
+
 }  // namespace
 
 PasswordPendingView::PasswordPendingView(content::WebContents* web_contents,
@@ -271,7 +298,14 @@ PasswordPendingView::PasswordPendingView(content::WebContents* web_contents,
     BuildCredentialRows(layout, std::move(username_dropdown),
                         std::move(password_dropdown),
                         std::move(password_view_button));
+#if defined(PASSWORD_STORE_SELECT_ENABLED)
+    account_store_checkbox_ = MaybeAppendAccountCheckboxRow(
+        layout, model()->IsUsingAccountStore(),
+        password_dropdown_->GetPreferredSize().height(), this);
+#endif  // defined(PASSWORD_STORE_SELECT_ENABLED)
   }
+
+  DialogDelegate::SetFootnoteView(CreateFooterView());
 }
 
 views::View* PasswordPendingView::GetUsernameTextfieldForTest() const {
@@ -281,8 +315,6 @@ views::View* PasswordPendingView::GetUsernameTextfieldForTest() const {
 PasswordPendingView::~PasswordPendingView() = default;
 
 bool PasswordPendingView::Accept() {
-  if (sign_in_promo_)
-    return sign_in_promo_->Accept();
   UpdateUsernameAndPasswordInModel();
   model()->OnSaveClicked();
   if (model()->ReplaceToShowPromotionIfNeeded()) {
@@ -293,8 +325,6 @@ bool PasswordPendingView::Accept() {
 }
 
 bool PasswordPendingView::Cancel() {
-  if (sign_in_promo_)
-    return sign_in_promo_->Cancel();
   UpdateUsernameAndPasswordInModel();
   if (is_update_bubble_) {
     model()->OnNopeUpdateClicked();
@@ -310,6 +340,13 @@ bool PasswordPendingView::Close() {
 
 void PasswordPendingView::ButtonPressed(views::Button* sender,
                                         const ui::Event& event) {
+#if defined(PASSWORD_STORE_SELECT_ENABLED)
+  DCHECK(sender);
+  if (sender == account_store_checkbox_) {
+    model()->OnToggleAccountStore(account_store_checkbox_->GetChecked());
+    return;
+  }
+#endif  // defined(PASSWORD_STORE_SELECT_ENABLED)
   DCHECK(sender == password_view_button_);
   TogglePasswordVisibility();
 }
@@ -325,20 +362,10 @@ void PasswordPendingView::OnContentChanged(
       is_ok_button_enabled_before !=
           IsDialogButtonEnabled(ui::DIALOG_BUTTON_OK)) {
     DialogModelChanged();
-    GetDialogClientView()->Layout();
+    // TODO(ellyjones): This should not be necessary; DialogModelChanged()
+    // implies a re-layout of the dialog.
+    GetWidget()->GetRootView()->Layout();
   }
-}
-
-std::unique_ptr<views::View> PasswordPendingView::CreateFootnoteView() {
-  if (sign_in_promo_ || !model()->ShouldShowFooter())
-    return nullptr;
-  auto label = std::make_unique<views::Label>(
-      l10n_util::GetStringUTF16(IDS_SAVE_PASSWORD_FOOTER),
-      ChromeTextContext::CONTEXT_BODY_TEXT_SMALL,
-      views::style::STYLE_SECONDARY);
-  label->SetMultiLine(true);
-  label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-  return label;
 }
 
 gfx::Size PasswordPendingView::CalculatePreferredSize() const {
@@ -362,18 +389,13 @@ views::View* PasswordPendingView::GetInitiallyFocusedView() {
 
 int PasswordPendingView::GetDialogButtons() const {
   if (sign_in_promo_)
-    return sign_in_promo_->GetDialogButtons();
+    return ui::DIALOG_BUTTON_NONE;
 
   return PasswordBubbleViewBase::GetDialogButtons();
 }
 
 base::string16 PasswordPendingView::GetDialogButtonLabel(
     ui::DialogButton button) const {
-  // TODO(pbos): Generalize the different promotion classes to not store and
-  // ask each different possible promo.
-  if (sign_in_promo_)
-    return sign_in_promo_->GetDialogButtonLabel(button);
-
   int message = 0;
   if (button == ui::DIALOG_BUTTON_OK) {
     message = model()->IsCurrentStateUpdate()
@@ -442,10 +464,16 @@ void PasswordPendingView::UpdateUsernameAndPasswordInModel() {
 }
 
 void PasswordPendingView::ReplaceWithPromo() {
+#if defined(OS_CHROMEOS)
+  NOTREACHED();
+#else
   RemoveAllChildViews(true);
   username_dropdown_ = nullptr;
   password_dropdown_ = nullptr;
   password_view_button_ = nullptr;
+#if defined(PASSWORD_STORE_SELECT_ENABLED)
+  account_store_checkbox_ = nullptr;
+#endif  // defined(PASSWORD_STORE_SELECT_ENABLED)
   SetLayoutManager(std::make_unique<views::FillLayout>());
   set_margins(ChromeLayoutProvider::Get()->GetDialogInsetsForContentType(
       views::TEXT, views::TEXT));
@@ -460,4 +488,17 @@ void PasswordPendingView::ReplaceWithPromo() {
   DialogModelChanged();
 
   SizeToContents();
+#endif  // defined(OS_CHROMEOS)
+}
+
+std::unique_ptr<views::View> PasswordPendingView::CreateFooterView() {
+  if (!model()->ShouldShowFooter())
+    return nullptr;
+  auto label = std::make_unique<views::Label>(
+      l10n_util::GetStringUTF16(IDS_SAVE_PASSWORD_FOOTER),
+      ChromeTextContext::CONTEXT_BODY_TEXT_SMALL,
+      views::style::STYLE_SECONDARY);
+  label->SetMultiLine(true);
+  label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  return label;
 }

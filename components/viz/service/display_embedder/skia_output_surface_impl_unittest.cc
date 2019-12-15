@@ -29,6 +29,7 @@
 #include "gpu/vulkan/buildflags.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gl/gl_implementation.h"
 
 #if BUILDFLAG(ENABLE_VULKAN)
 #include "gpu/vulkan/tests/native_window.h"
@@ -77,6 +78,7 @@ class SkiaOutputSurfaceImplTest : public testing::TestWithParam<bool> {
   std::unique_ptr<base::test::ScopedFeatureList> scoped_feature_list_;
   base::WaitableEvent wait_;
   const bool on_screen_;
+  gl::DisableNullDrawGLBindings enable_pixel_output_;
 };
 
 void SkiaOutputSurfaceImplTest::BlockMainThread() {
@@ -222,8 +224,7 @@ TEST_P(SkiaOutputSurfaceImplTest, SupportsColorSpaceChange) {
 
     OutputSurfaceFrame frame;
     frame.size = kSurfaceRect.size();
-    output_surface_->SkiaSwapBuffers(std::move(frame),
-                                     /*wants_sync_token=*/false);
+    output_surface_->SkiaSwapBuffers(std::move(frame));
 
     run_loop.Run();
   }

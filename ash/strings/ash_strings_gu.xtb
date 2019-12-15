@@ -32,6 +32,7 @@
 <translation id="1294929383540927798">લૉક સ્ક્રીન નોટિફિકેશન સેટિંગ બદલો</translation>
 <translation id="1301069673413256657">GSM</translation>
 <translation id="1302880136325416935">બ્લૂટૂથ સેટિંગ બતાવો. <ph name="STATE_TEXT" /></translation>
+<translation id="1312604459020188865">સિગ્નલની સશક્તતા <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="1316069254387866896">હંમેશાં શેલ્ફ બતાવો</translation>
 <translation id="1341651618736211726">ઓવરફ્લો</translation>
 <translation id="1346748346194534595">જમણે</translation>
@@ -47,7 +48,6 @@
 <translation id="1516740043221086139">ખલેલ પાડશો નહીં ચાલુ છે.</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{નોટિફિકેશનની સેટિંગ બતાવો. ઍપ માટે નોટિફિકેશન બંધ છે}one{નોટિફિકેશનની સેટિંગ બતાવો. # ઍપ માટે નોટિફિકેશન બંધ છે}other{નોટિફિકેશનની સેટિંગ બતાવો. # ઍપ માટે નોટિફિકેશન બંધ છે}}</translation>
 <translation id="1525508553941733066">છોડી દો</translation>
-<translation id="1537254971476575106">પૂર્ણસ્ક્રીન મૅગ્નિફાયર</translation>
 <translation id="15373452373711364">મોટું માઉસ કર્સર</translation>
 <translation id="1546492247443594934">ડેસ્ક 2</translation>
 <translation id="1550523713251050646">વધુ વિકલ્પો માટે ક્લિક કરો</translation>
@@ -63,6 +63,7 @@
 <translation id="1747827819627189109">ઓન-સ્ક્રીન કીબોર્ડ સક્ષમ કર્યું</translation>
 <translation id="1761222317188459878">નેટવર્ક કનેક્શન ટૉગલ કરો. <ph name="STATE_TEXT" /></translation>
 <translation id="1771761307086386028">જમણે સ્ક્રોલ કરો</translation>
+<translation id="181103072419391116">સિગ્નલની સશક્તતા <ph name="SIGNAL_STRENGTH" />, તમારા વ્યવસ્થાપક દ્વારા મેનેજ કરવામાં આવે છે</translation>
 <translation id="1812997170047690955">મારી સ્ક્રીન પર શું છે?</translation>
 <translation id="1823873187264960516">ઇથરનેટ: <ph name="ADDRESS" /></translation>
 <translation id="1836215606488044471">સહાયક (લોડ થઈ રહ્યું છે…)</translation>
@@ -79,6 +80,7 @@
 <translation id="1957958912175573503">તમારી ભાષા સેટ કરો</translation>
 <translation id="1962969542251276847">સ્ક્રીન લૉક કરો</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="1972950159383891558">નમસ્કાર, <ph name="USERNAME" /></translation>
 <translation id="1978498689038657292">ટેક્સ્ટ ઇનપુટ</translation>
 <translation id="1993072747612765854">નવીનતમ <ph name="SYSTEM_APP_NAME" /> અપડેટ વિશે વધુ જાણો</translation>
 <translation id="1995660704900986789">પાવર બંધ કરો</translation>
@@ -94,11 +96,13 @@
 <translation id="2148902151539191989">પાછળ</translation>
 <translation id="2208323208084708176">એકીકૃત ડેસ્કટૉપ મોડ</translation>
 <translation id="2220572644011485463">PIN અથવા પાસવર્ડ</translation>
+<translation id="2222338659135520253">સાઇન ઇન આવશ્યક</translation>
 <translation id="225680501294068881">ઉપકરણો માટે સ્કેન કરી રહ્યું છે...</translation>
 <translation id="2268130516524549846">Bluetooth અક્ષમ છે</translation>
 <translation id="2268813581635650749">બધામાંથી સાઇન આઉટ કરો</translation>
 <translation id="2277103315734023688">આગળ લઈ જાઓ</translation>
 <translation id="2292698582925480719">પ્રદર્શન ધોરણ</translation>
+<translation id="2298170939937364391">પૂર્ણ-સ્ક્રીન મૅગ્નિફાયર ચાલુ કર્યું. ટૉગલ કરીને તેને બંધ કરવા માટે ફરીથી Ctrl+Search+M દબાવો.</translation>
 <translation id="2302092602801625023">આ એકાઉન્ટ Family Link દ્વારા મેનેજ થાય છે</translation>
 <translation id="2303600792989757991">ટોગલ વિન્ડો વિહંગાવલોકન</translation>
 <translation id="2339073806695260576">એક નોંધ અથવા સ્ક્રીનશૉટ લેવા, લેઝર પૉઇન્ટર અથવા મૅગ્નિફાયિંગ ગ્લાસનો ઉપયોગ કરવા માટે શેલ્ફ પરના સ્ટાઇલસ બટન પર ટૅપ કરો.</translation>
@@ -116,13 +120,14 @@
 <translation id="2484513351006226581">કીબોર્ડ લેઆઉટ સ્વિચ કરવા માટે <ph name="KEYBOARD_SHORTCUT" />ને દબાવો.</translation>
 <translation id="2501920221385095727">સ્ટિકી કી</translation>
 <translation id="2509468283778169019">CAPS LOCK ચાલુ છે</translation>
-<translation id="2532589005999780174">ઉચ્ચ કોન્ટ્રાસ્ટ મોડ</translation>
+<translation id="2517825809102302935">આજ રાત્રિ પૂરતું બંધ કરો</translation>
 <translation id="2542089167727451762">તમારા પ્રોફાઇલ ફોટા પર ટૅપ કરો</translation>
 <translation id="255671100581129685">જાહેર સત્રમાં Google આસિસ્ટંટ ઉપલબ્ધ હોતું નથી.</translation>
 <translation id="256712445991462162">ડૉક કરેલું મૅગ્નિફાયર</translation>
 <translation id="2575685495496069081">એકથી વધુ સાઇન ઇનને બંધ કરવામાં આવેલ છે</translation>
 <translation id="2582112259361606227">અપડેટ કરવા માટે ફરી શરૂ કરો</translation>
 <translation id="2617342710774726426">SIM કાર્ડ લૉક કરેલ છે</translation>
+<translation id="2621713457727696555">સુરક્ષિત</translation>
 <translation id="2653659639078652383">સબમિટ કરો</translation>
 <translation id="2658778018866295321">ક્લિક કરો અને ખેંચો</translation>
 <translation id="2700493154570097719">તમારું કીબોર્ડ સેટ કરો</translation>
@@ -159,15 +164,15 @@
 <translation id="3139942575505304791">ડેસ્ક 1</translation>
 <translation id="315116470104423982">મોબાઇલ ડેટા</translation>
 <translation id="3151786313568798007">ઓરિએન્ટેશન</translation>
-<translation id="3152934361839663679">તમારું ડિવાઇસ વધુમાં વધુ મૉનિટરથી કનેક્ટ થયેલું છે, તેથી તેમાંની એક સ્ક્રીન ડિસ્કનેક્ટ કરવામાં આવી છે.</translation>
 <translation id="3153444934357957346">તમે એકથી વધુ સાઇન ઇનમાં માત્ર <ph name="MULTI_PROFILE_USER_LIMIT" /> સુધી એકાઉન્ટ રાખી શકો છો.</translation>
 <translation id="3154351730702813399">ડિવાઇસ વ્યવસ્થાપક તમારી બ્રાઉઝિંગ પ્રવૃત્તિને મોનિટર કરી શકે છે.</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{ઉપકરણ સાથે કનેક્ટ કર્યું}one{# ઉપકરણો સાથે કનેક્ટ કર્યું}other{# ઉપકરણો સાથે કનેક્ટ કર્યું}}</translation>
+<translation id="3217205077783620295">વૉલ્યૂમ ચાલુ છે, ટૉગલ કરવાથી ઑડિયો મ્યૂટ થશે.</translation>
 <translation id="3226991577105957773">+ વધુ <ph name="COUNT" /></translation>
 <translation id="3236488194889173876">કોઈ મોબાઇલ નેટવર્ક ઉપલબ્ધ નથી</translation>
 <translation id="3249513730522716925">વિડો <ph name="WINDOW_TITLE" />ને ડેસ્ક <ph name="ACTIVE_DESK" />માંથી ડેસ્ક <ph name="TARGET_DESK" />માં ખસેડી</translation>
 <translation id="3255483164551725916">તમે શું કરી શકો?</translation>
-<translation id="3277674767125718685">વૉલ્યૂમ ચાલુ છે.</translation>
+<translation id="3290356915286466215">અસુરક્ષિત</translation>
 <translation id="3294437725009624529">અતિથિ</translation>
 <translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> હજીએ થોડા સમય પછી સાઇન ઇન કરી શકશે.</translation>
 <translation id="3321628682574733415">માતાપિતાનો કોડ ખોટો</translation>
@@ -183,7 +188,9 @@
 <translation id="3445925074670675829">USB-C ઉપકરણ</translation>
 <translation id="3454224730401036106">તમારું કનેક્શન એક વધુ સુરક્ષિત નેટવર્ક પર સ્વિચ કર્યુંં છે</translation>
 <translation id="3465223694362104965">તમે છેલ્લે સાઇન ઇન કર્યું તે પછી આ ડિવાઇસ સાથે બીજું કીબોર્ડ કનેક્ટ કરવામાં આવ્યું છે. તમે આ કીબોર્ડનો ઉપયોગ કરો તે પહેલાં ખાતરી કરો કે તમને તેના પર વિશ્વાસ છે.</translation>
+<translation id="3465356146291925647">તમારા વ્યવસ્થાપક દ્વારા મેનેજ કરવામાં આવે છે</translation>
 <translation id="3477079411857374384">Control-Shift-Space</translation>
+<translation id="3485319357743610354"><ph name="SECURITY_STATUS" />, <ph name="CONNECTION_STATUS" />, સિગ્નલની સશક્તતા <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="3510164367642747937">માઉસ કર્સરને હાઇલાઇટ કરો</translation>
 <translation id="3513798432020909783"><ph name="MANAGER_EMAIL" /> દ્વારા મેનેજ કરાતું એકાઉન્ટ</translation>
 <translation id="3573179567135747900">"<ph name="FROM_LOCALE" />" પર પાછા જાઓ (ફરી શરૂ કરવું જરૂરી છે)</translation>
@@ -250,6 +257,7 @@
 <translation id="4430019312045809116">વૉલ્યૂમ</translation>
 <translation id="4450893287417543264">ફરી બતાવશો નહીં</translation>
 <translation id="4477350412780666475">આગલો ટ્રૅક</translation>
+<translation id="4477892968187500306">આ ડિવાઇસમાં એવી ઍપ હોય શકે કે જેની Google દ્વારા ચકાસણી કરવામાં આવી છે.</translation>
 <translation id="4479639480957787382">ઇથરનેટ</translation>
 <translation id="4481530544597605423">જોડીથી અલગ કરેલા ઉપકરણો</translation>
 <translation id="4505050298327493054">સક્રિય ડેસ્ક.</translation>
@@ -287,6 +295,7 @@
 <translation id="4924411785043111640">ફરી શરૂ કરો અને રીસેટ કરો</translation>
 <translation id="495046168593986294">ઉપર સ્ક્રોલ કરો</translation>
 <translation id="4961318399572185831">સ્ક્રીનને કાસ્ટ કરો</translation>
+<translation id="5018302031617932556">રાત્રિ પ્રકાશથી તમે તમારી સ્ક્રીનને સરળતાથી જોઈ શકો છો અથવા ઓછા પ્રકાશમાં વાંચી શકો છો. આને બદલવા માટે ટૅપ કરો.</translation>
 <translation id="5030687792513154421">સમય પૂરો થયો</translation>
 <translation id="5035236842988137213"><ph name="DEVICE_NAME" />, નવા ફોન સાથે કનેક્ટ થયું</translation>
 <translation id="5083553833479578423">આસિસ્ટંટની વધુ સુવિધાઓને અનલૉક કરો.</translation>
@@ -297,6 +306,7 @@
 <translation id="523505283826916779">ઍક્સેસિબિલિટી સેટિંગ્સ</translation>
 <translation id="5260676007519551770">ડેસ્ક 4</translation>
 <translation id="5283198616748585639">1 મિનિટ ઉમેરો</translation>
+<translation id="5286194356314741248">સ્કેનિંગ</translation>
 <translation id="5302048478445481009">ભાષા</translation>
 <translation id="5313326810920013265">Bluetooth સેટિંગ</translation>
 <translation id="5331975486040154427">USB-C ડિવાઇસ (ડાબી બાજુનું પાછળનું પોર્ટ)</translation>
@@ -322,8 +332,10 @@
 <translation id="5682642926269496722">હાલના વપરાશકર્તા એકાઉન્ટ માટે Google આસિસ્ટંટ ઉપલબ્ધ નથી.</translation>
 <translation id="5691772641933328258">ફિંગરપ્રિન્ટ ઓળખી શકાઈ નથી</translation>
 <translation id="5710450975648804523">ખલેલ પાડશો નહીં ચાલુ છે</translation>
+<translation id="573413375004481890">આ ડિવાઇસ તમારા બધા ડિસ્પ્લેને સપોર્ટ કરી શક્યું નથી, તેથી એકને ડિસ્કનેક્ટ કરવામાં આવ્યું છે</translation>
 <translation id="574392208103952083">મધ્યમ</translation>
 <translation id="5744083938413354016">ખેંચવાને ટૅપ કરો</translation>
+<translation id="5745612484876805746">સૂર્યાસ્ત વખતે રાત્રિ પ્રકાશ ઑટોમૅટિક રીતે ચાલુ થાય છે</translation>
 <translation id="5750765938512549687">બ્લૂટૂથ બંધ છે</translation>
 <translation id="576453121877257266">રાત્રિ પ્રકાશ ચાલુ છે.</translation>
 <translation id="5777841717266010279">સ્ક્રીન શેરિંગ રોકીએ?</translation>
@@ -345,6 +357,7 @@
 <translation id="5992218262414051481">હાઇ કોન્ટ્રાસ્ટ મોડ સક્ષમ કર્યો. ટૉગલ બંધ કરવા માટે ફરીથી Ctrl+Search+H ફરીથી દબાવો.</translation>
 <translation id="6018164090099858612">મીરર મોડથી બહાર નીકળે છે</translation>
 <translation id="602001110135236999">ડાબે સ્ક્રોલ કરો</translation>
+<translation id="6025324406281560198"><ph name="SECURITY_STATUS" />, <ph name="CONNECTION_STATUS" />, સિગ્નલની સશક્તતા <ph name="SIGNAL_STRENGTH" />, તમારા વ્યવસ્થાપક દ્વારા મેનેજ કરવામાં આવે છે</translation>
 <translation id="6040143037577758943">બંધ કરો</translation>
 <translation id="6043212731627905357">આ મૉનિટર તમારા <ph name="DEVICE_TYPE" /> સાથે કામ કરી રહ્યું નથી (મૉનિટર સમર્થિત નથી).</translation>
 <translation id="6043994281159824495">હવે સાઇન આઉટ કરો</translation>
@@ -368,6 +381,7 @@
 <translation id="6376931439017688372">બ્લૂટૂથ ચાલુ છે</translation>
 <translation id="639644700271529076">CAPS LOCK બંધ છે</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="6424520630891723617"><ph name="SECURITY_STATUS" />, સિગ્નલની સશક્તતા <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="642644398083277086">બધા નોટિફિકેશન સાફ કરો</translation>
 <translation id="643147933154517414">થઈ ગયું</translation>
 <translation id="6445835306623867477"><ph name="RECEIVER_NAME" /> પર <ph name="ROUTE_TITLE" /></translation>
@@ -381,9 +395,11 @@
 <translation id="6521655319214113338">હસ્તલેખન ઇનપુટ</translation>
 <translation id="6528179044667508675">ખલેલ પાડશો નહીં</translation>
 <translation id="6537270692134705506">સ્ક્રીનને કૅપ્ચર કરો</translation>
+<translation id="6537924328260219877">સિગ્નલની સશક્તતા <ph name="SIGNAL_STRENGTH" />, ફોનની બૅટરી <ph name="BATTERY_STATUS" /></translation>
 <translation id="6542521951477560771"><ph name="RECEIVER_NAME" /> પર કાસ્ટ કરી રહ્યાં છીએ</translation>
 <translation id="6559976592393364813">વ્યવસ્થાપકને પૂછો</translation>
 <translation id="6585808820553845416"><ph name="SESSION_TIME_REMAINING" /> માં સત્ર સમાપ્ત થાય છે.</translation>
+<translation id="661203523074512333"><ph name="SECURITY_STATUS" />, સિગ્નલની સશક્તતા <ph name="SIGNAL_STRENGTH" />, તમારા વ્યવસ્થાપક દ્વારા મેનેજ કરવામાં આવે છે</translation>
 <translation id="6627638273713273709">શોધ+Shift+K</translation>
 <translation id="6637729079642709226">સમય બદલો</translation>
 <translation id="6650933572246256093">Bluetooth ડિવાઇસ "<ph name="DEVICE_NAME" />" ને જોડી બનાવવા માટે પરવાનગી જોઈએ છે. કૃપા કરીને તે ડિવાઇસ પર આ પાસકીને દાખલ કરો: <ph name="PASSKEY" /></translation>
@@ -415,6 +431,7 @@
 <translation id="7015766095477679451"><ph name="COME_BACK_TIME" /> વાગ્યે પાછા આવો.</translation>
 <translation id="7025533177575372252">તમારા <ph name="DEVICE_NAME" />ને તમારા ફોન સાથે કનેક્ટ કરો</translation>
 <translation id="7029814467594812963">સત્રમાંથી બહાર નીકળો</translation>
+<translation id="703425375924687388"><ph name="QUERY_NAME" />, Google આસિસ્ટંટ</translation>
 <translation id="7042322267639375032">સ્ટેટસ એરિયા ઓછો કરો</translation>
 <translation id="7066646422045619941">આ નેટવર્ક તમારા વ્યવસ્થાપક દ્વારા અક્ષમ કરેલ છે.</translation>
 <translation id="7067196344162293536">સ્વતઃ ફેરવો</translation>
@@ -476,12 +493,12 @@
 <translation id="7904094684485781019">આ એકાઉન્ટ માટે વ્યસ્થાપકે એકથી વધુ સાઇન ઇનને નામંજૂર કર્યું છે.</translation>
 <translation id="7933084174919150729">Google સહાયક માત્ર પ્રાથમિક પ્રોફાઇલ માટે જ ઉપલબ્ધ છે.</translation>
 <translation id="79341161159229895"><ph name="FIRST_PARENT_EMAIL" /> અને <ph name="SECOND_PARENT_EMAIL" /> દ્વારા મેનેજ કરાતું એકાઉન્ટ</translation>
+<translation id="7955885781510802139">ઉચ્ચ કોન્ટ્રાસ્ટ મોડ</translation>
 <translation id="7977927628060636163">મોબાઇલ નેટવર્કની શોધ કરી રહ્યું છે...</translation>
 <translation id="7982789257301363584">નેટવર્ક</translation>
 <translation id="7984197416080286869">ફિંગરપ્રિન્ટ માટેના ઘણા બધા પ્રયત્નો</translation>
 <translation id="7994370417837006925">બહુવિધ સાઇન-ઇન</translation>
 <translation id="8000066093800657092">નેટવર્ક નથી</translation>
-<translation id="8029241286966751120">પૂર્ણસ્ક્રીન મૅગ્નિફાયર ચાલુ કર્યું. ટૉગલ બંધ કરવા માટે ફરીથી Ctrl+Search+M દબાવો.</translation>
 <translation id="8030169304546394654">ડિસ્કનેક્ટેડ</translation>
 <translation id="8054466585765276473">બેટરી સમયની ગણના કરે છે.</translation>
 <translation id="8061464966246066292">ઉચ્ચ કોન્ટ્રાસ્ટ</translation>
@@ -497,6 +514,8 @@
 <translation id="8192202700944119416">નોટિફિકેશન છુપાવેલા છે.</translation>
 <translation id="8203795194971602413">રાઇટ ક્લિક કરો</translation>
 <translation id="8236042855478648955">વિરામ લેવાનો સમય</translation>
+<translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, સિગ્નલની સશક્તતા <ph name="SIGNAL_STRENGTH" />, ફોનની બૅટરી <ph name="BATTERY_STATUS" /></translation>
+<translation id="826107067893790409"><ph name="USER_EMAIL_ADDRESS" /> માટે અનલૉક કરવા Enter દબાવો</translation>
 <translation id="8261506727792406068">ડિલીટ કરો</translation>
 <translation id="8297006494302853456">નબળું</translation>
 <translation id="8308637677604853869">પાછલું મેનૂ</translation>
@@ -506,7 +525,6 @@
 <translation id="8388750414311082622">છેલ્લું ડેસ્ક કાઢી નાખી શકાતું નથી.</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> માટે વિકલ્પો મેનૂ</translation>
 <translation id="8394567579869570560">તમારા માતાપિતાએ આ ડિવાઇસને લૉક કર્યું છે</translation>
-<translation id="8406981827175133772">પૂર્ણસ્ક્રીન મૅગ્નિફાયર</translation>
 <translation id="8425213833346101688">બદલો</translation>
 <translation id="8427213022735114808">કોઈપણ ટેક્સ્ટ ફીલ્ડમાં અવાજ ટાઇપ કરવાને મંજૂરી આપવા માટે, શ્રુતલેખન Googleને તમારો અવાજ મોકલે છે.</translation>
 <translation id="8428213095426709021">સેટિંગ્સ</translation>
@@ -521,10 +539,12 @@
 <translation id="8513108775083588393">ઑટો રોટેટ</translation>
 <translation id="8517041960877371778">તમારું <ph name="DEVICE_TYPE" /> ચાલુ હોય ત્યારે તે ચાર્જ ન થાય તેવું બની શકે.</translation>
 <translation id="8627191004499078455"><ph name="DEVICE_NAME" /> સાથે કનેક્ટ થયા</translation>
+<translation id="8637598503828012618"><ph name="CONNECTION_STATUS" />, સિગ્નલની સશક્તતા <ph name="SIGNAL_STRENGTH" />, તમારા વ્યવસ્થાપક દ્વારા મેનેજ કરવામાં આવે છે</translation>
 <translation id="8639760480004882931"><ph name="PERCENTAGE" /> બાકી</translation>
 <translation id="8649101189709089199">બોલીને-પસંદ-કરો</translation>
 <translation id="8652175077544655965">સેટિંગ બંધ કરો</translation>
 <translation id="8653151467777939995">નોટિફિકેશન સેટિંગ બતાવો. નોટિફિકેશન ચાલુ છે</translation>
+<translation id="8663756353922886599"><ph name="CONNECTION_STATUS" />, સિગ્નલની સશક્તતા <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="8664753092453405566">નેટવર્ક સૂચિ બતાવો. <ph name="STATE_TEXT" /></translation>
 <translation id="8673028979667498656">270°</translation>
 <translation id="8676770494376880701">નિમ્ન-પાવર ચાર્જર કનેક્ટ કર્યું છે</translation>
@@ -533,6 +553,7 @@
 <translation id="8734991477317290293">તે તમારા કીસ્ટ્રોકની ચોરી કરવાનો પ્રયાસ કરતું હોઈ શકે છે</translation>
 <translation id="8735953464173050365">કીબોર્ડ સેટિંગ બતાવો. <ph name="KEYBOARD_NAME" /> પસંદ કરેલું છે</translation>
 <translation id="875593634123171288">VPN સેટિંગ બતાવો</translation>
+<translation id="8785070478575117577"><ph name="NETWORK_NAME" /> સાથે કનેક્ટ કરો</translation>
 <translation id="8814190375133053267">વાઇ-ફાઇ</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8843682306134542540">રોટેશન લૉક ટૉગલ કરો. <ph name="STATE_TEXT" /></translation>
@@ -551,9 +572,9 @@
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590"><ph name="IME_NAME" />નો ઉપયોગ કરી રહ્યા છે</translation>
 <translation id="899350903320462459">નોટિફિકેશન ક્રિયા કરવા માટે ઉપકરણને <ph name="LOGIN_ID" /> તરીકે અનલૉક કરો</translation>
-<translation id="8995603266996330174"><ph name="DOMAIN" /> દ્વારા સંચાલિત</translation>
 <translation id="9017320285115481645">Family Linkનો માતાપિતા માટેનો ઍક્સેસ કોડ દાખલ કરો.</translation>
 <translation id="9029474291399787231">Adobe Flash Player અપડેટ ઉપલબ્ધ છે</translation>
+<translation id="9047624247355796468"><ph name="NETWORK_NAME" /> માટે સેટિંગ ખોલો</translation>
 <translation id="9056839673611986238">ઉપકરણ રોલ બૅક કરવામાં આવશે</translation>
 <translation id="9070640332319875144">આસિસ્ટંટ સેટિંગ</translation>
 <translation id="9072519059834302790">બૅટરી ખલાસ થવામાં <ph name="TIME_LEFT" /> બાકી છે.</translation>
@@ -565,8 +586,11 @@
 <translation id="9091626656156419976"><ph name="DISPLAY_NAME" /> ડિસ્પ્લે કાઢી નાખ્યું</translation>
 <translation id="9151726767154816831">અપડેટ કરવા માટે પુનઃપ્રારંભ કરો અને પાવરવૉશ કરો</translation>
 <translation id="9179259655489829027">આ સુવિધા તમને પાસવર્ડની જરૂર વગર ઝડપથી કોઈ સાઇન-ઇન થયેલ વપરાશકર્તાને ઍક્સેસ કરવાની પરવાનગી આપે છે. માત્ર તમે જેના પર વિશ્વાસ કરતા હો તે એકાઉન્ટ સાથે જ આ સુવિધાનો ઉપયોગ કરો.</translation>
+<translation id="9183456764293710005">પૂર્ણ-સ્ક્રીન મૅગ્નિફાયર</translation>
 <translation id="9193626018745640770">અજાણ્યા પ્રાપ્તકર્તા પર કાસ્ટ કરી રહ્યાં છીએ</translation>
 <translation id="9194617393863864469">અન્ય વપરાશકર્તા સાઇન ઇન કરો...</translation>
+<translation id="9201374708878217446"><ph name="CONNECTION_STATUS" />, તમારા વ્યવસ્થાપક દ્વારા મેનેજ કરવામાં આવે છે</translation>
+<translation id="9205817095063786319"><ph name="DOMAIN" /> દ્વારા મેનેજ કરાતું ડિવાઇસ</translation>
 <translation id="9210037371811586452">એકીકૃત ડેસ્કટૉપ મોડથી બહાર નીકળે છે</translation>
 <translation id="9211681782751733685">બૅટરી સંપૂર્ણપણે ચાર્જ થવામાં <ph name="TIME_REMAINING" /> બાકી છે.</translation>
 <translation id="9215934040295798075">વૉલપેપર સેટ કરો</translation>

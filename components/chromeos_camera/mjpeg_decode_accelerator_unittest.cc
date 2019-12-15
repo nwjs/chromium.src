@@ -40,8 +40,8 @@
 #include "media/base/format_utils.h"
 #include "media/base/test_data_util.h"
 #include "media/base/video_frame_layout.h"
-#include "media/capture/video/chromeos/local_gpu_memory_buffer_manager.h"
 #include "media/gpu/buildflags.h"
+#include "media/gpu/test/local_gpu_memory_buffer_manager.h"
 #include "media/gpu/test/video_accelerator_unittest_helpers.h"
 #include "media/gpu/test/video_frame_helpers.h"
 #include "media/parsers/jpeg_parser.h"
@@ -1105,7 +1105,7 @@ std::string TestParamToString(::testing::TestParamInfo<bool> param_info) {
   return param_info.param ? "DMABUF" : "SHMEM";
 }
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          MjpegDecodeAcceleratorTest,
                          ::testing::Bool(),
                          TestParamToString);

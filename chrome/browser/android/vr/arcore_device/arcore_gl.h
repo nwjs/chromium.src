@@ -116,19 +116,26 @@ class ArCoreGl : public mojom::XRFrameDataProvider,
 
   void SubscribeToHitTest(
       mojom::XRNativeOriginInformationPtr native_origin_information,
+      const std::vector<mojom::EntityTypeForHitTest>& entity_types,
       mojom::XRRayPtr ray,
       mojom::XREnvironmentIntegrationProvider::SubscribeToHitTestCallback
           callback) override;
+  void SubscribeToHitTestForTransientInput(
+      const std::string& profile_name,
+      const std::vector<mojom::EntityTypeForHitTest>& entity_types,
+      mojom::XRRayPtr ray,
+      mojom::XREnvironmentIntegrationProvider::
+          SubscribeToHitTestForTransientInputCallback callback) override;
 
-  void UnsubscribeFromHitTest(uint32_t subscription_id) override;
+  void UnsubscribeFromHitTest(uint64_t subscription_id) override;
 
-  void CreateAnchor(mojom::VRPosePtr anchor_pose,
+  void CreateAnchor(mojom::PosePtr anchor_pose,
                     CreateAnchorCallback callback) override;
-  void CreatePlaneAnchor(mojom::VRPosePtr anchor_pose,
-                         uint32_t plane_id,
+  void CreatePlaneAnchor(mojom::PosePtr anchor_pose,
+                         uint64_t plane_id,
                          CreatePlaneAnchorCallback callback) override;
 
-  void DetachAnchor(uint32_t anchor_id) override;
+  void DetachAnchor(uint64_t anchor_id) override;
 
   // mojom::XRSessionController
   void SetFrameDataRestricted(bool restricted) override;

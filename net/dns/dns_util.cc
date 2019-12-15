@@ -144,7 +144,7 @@ const std::vector<DohUpgradeEntry>& GetDohUpgradeList() {
   // DohProviderId histogram suffix list in
   // tools/metrics/histograms/histograms.xml.
   static const base::NoDestructor<std::vector<DohUpgradeEntry>>
-      upgradable_servers({
+      upgradable_servers{{
           DohUpgradeEntry(
               "CleanBrowsingAdult",
               {"185.228.168.10", "185.228.169.11", "2a0d:2a00:1::1",
@@ -177,7 +177,7 @@ const std::vector<DohUpgradeEntry>& GetDohUpgradeList() {
           DohUpgradeEntry("Comcast",
                           {"75.75.75.75", "75.75.76.76", "2001:558:feed::1",
                            "2001:558:feed::2"},
-                          {""} /* DoT hostname */,
+                          {"dot.xfinity.com"} /* DoT hostname */,
                           {"https://doh.xfinity.com/dns-query{?dns}",
                            false /* use_post */}),
           DohUpgradeEntry(
@@ -221,7 +221,7 @@ const std::vector<DohUpgradeEntry>& GetDohUpgradeList() {
               {"9.9.9.9", "149.112.112.112", "2620:fe::fe", "2620:fe::9"},
               {"dns.quad9.net", "dns9.quad9.net"} /* DoT hostname */,
               {"https://dns.quad9.net/dns-query", true /* use_post */}),
-      });
+      }};
   return *upgradable_servers;
 }
 
@@ -401,6 +401,8 @@ uint16_t DnsQueryTypeToQtype(DnsQueryType dns_query_type) {
       return dns_protocol::kTypePTR;
     case DnsQueryType::SRV:
       return dns_protocol::kTypeSRV;
+    case DnsQueryType::ESNI:
+      return dns_protocol::kExperimentalTypeEsniDraft4;
   }
 }
 

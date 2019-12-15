@@ -284,6 +284,11 @@ const char kDeviceLoginScreenInputMethods[] =
 const char kDeviceLoginScreenSystemInfoEnforced[] =
     "cros.device_login_screen_system_info_enforced";
 
+// A boolean pref that indicates whether to show numeric keyboard for entering
+// password or not.
+const char kDeviceShowNumericKeyboardForPassword[] =
+    "cros.device_show_numeric_keyboard_for_password";
+
 // A boolean pref that matches enable-per-user-time-zone chrome://flags value.
 const char kPerUserTimezoneEnabled[] = "cros.flags.per_user_timezone_enabled";
 
@@ -396,4 +401,9 @@ const char kDeviceSecondFactorAuthenticationMode[] =
 
 // A boolean pref specifying if the device is allowed to powerwash.
 const char kDevicePowerwashAllowed[] = "cros.device.device_powerwash_allowed";
+
+// A list pref storing URL patterns that are allowed for device attestation
+// during SAML authentication.
+extern const char kDeviceWebBasedAttestationAllowedUrls[] =
+    "cros.device.device_web_based_attestation_allowed_urls";
 }  // namespace chromeos

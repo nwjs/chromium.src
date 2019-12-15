@@ -15,7 +15,8 @@
 #include "components/remote_cocoa/browser/application_host.h"
 #include "components/remote_cocoa/common/native_widget_ns_window.mojom.h"
 #include "components/remote_cocoa/common/native_widget_ns_window_host.mojom.h"
-#include "mojo/public/cpp/bindings/associated_binding.h"
+#include "mojo/public/cpp/bindings/associated_receiver.h"
+#include "mojo/public/cpp/bindings/associated_remote.h"
 #include "ui/accelerated_widget_mac/accelerated_widget_mac.h"
 #include "ui/base/cocoa/accessibility_focus_overrider.h"
 #include "ui/base/ime/input_method_delegate.h"
@@ -106,7 +107,7 @@ class VIEWS_EXPORT NativeWidgetMacNSWindowHost
   gfx::NativeViewAccessible GetNativeViewAccessibleForNSWindow() const;
 
   // The mojo interface through which to communicate with the underlying
-  // NSWindow and NSView. This points to either |remote_ns_window_ptr_| or
+  // NSWindow and NSView. This points to either |remote_ns_window_remote_| or
   // |in_process_ns_window_bridge_|.
   remote_cocoa::mojom::NativeWidgetNSWindow* GetNSWindowMojo() const;
 
@@ -210,9 +211,10 @@ class VIEWS_EXPORT NativeWidgetMacNSWindowHost
   void SetNativeWindowProperty(const char* name, void* value);
   void* GetNativeWindowProperty(const char* name) const;
 
-  // Updates |associated_views_| on NativeViewHost::Attach()/Detach().
-  void SetAssociationForView(const views::View* view, NSView* native_view);
-  void ClearAssociationForView(const views::View* view);
+  // Updates |attached_native_view_host_views_| on
+  // NativeViewHost::Attach()/Detach().
+  void OnNativeViewHostAttach(const views::View* view, NSView* native_view);
+  void OnNativeViewHostDetach(const views::View* view);
 
   // Sorts child NSViews according to NativeViewHosts order in views hierarchy.
   void ReorderChildViews();
@@ -232,7 +234,13 @@ class VIEWS_EXPORT NativeWidgetMacNSWindowHost
 
   void UpdateCompositorProperties();
   void DestroyCompositor();
-  void RankNSViewsRecursive(View* view, std::map<NSView*, int>* rank) const;
+
+  // Sort |attached_native_view_host_views_| by the order in which their
+  // NSViews should appear as subviews. This does a recursive pre-order
+  // traversal of the views::View tree starting at |view|.
+  void GetAttachedNativeViewHostViewsRecursive(
+      View* view,
+      std::vector<NSView*>* attached_native_view_host_views_ordered) const;
 
   // If we are accessing the BridgedNativeWidget through mojo, then
   // |in_process_ns_window_| is not the true window that is resized. This
@@ -400,8 +408,8 @@ class VIEWS_EXPORT NativeWidgetMacNSWindowHost
   NativeWidgetMacNSWindowHost* parent_ = nullptr;
   std::vector<NativeWidgetMacNSWindowHost*> children_;
 
-  // The factory that was used to create |remote_ns_window_ptr_|. This must be
-  // the same as |parent_->application_host_|.
+  // The factory that was used to create |remote_ns_window_remote_|. This must
+  // be the same as |parent_->application_host_|.
   remote_cocoa::ApplicationHost* application_host_ = nullptr;
 
   Widget::InitParams::Type widget_type_ = Widget::InitParams::TYPE_WINDOW;
@@ -414,9 +422,10 @@ class VIEWS_EXPORT NativeWidgetMacNSWindowHost
 
   std::unique_ptr<DragDropClientMac> drag_drop_client_;
 
-  // The mojo pointer to a BridgedNativeWidget, which may exist in another
+  // The mojo remote for a BridgedNativeWidget, which may exist in another
   // process.
-  remote_cocoa::mojom::NativeWidgetNSWindowAssociatedPtr remote_ns_window_ptr_;
+  mojo::AssociatedRemote<remote_cocoa::mojom::NativeWidgetNSWindow>
+      remote_ns_window_remote_;
 
   // Remote accessibility objects corresponding to the NSWindow and its root
   // NSView.
@@ -472,11 +481,12 @@ class VIEWS_EXPORT NativeWidgetMacNSWindowHost
   // Properties used by Set/GetNativeWindowProperty.
   std::map<std::string, void*> native_window_properties_;
 
-  // Contains NativeViewHost->gfx::NativeView associations.
-  std::map<const views::View*, NSView*> associated_views_;
+  // Contains NativeViewHost->gfx::NativeView associations for NativeViewHosts
+  // attached to |this|.
+  std::map<const views::View*, NSView*> attached_native_view_host_views_;
 
-  mojo::AssociatedBinding<remote_cocoa::mojom::NativeWidgetNSWindowHost>
-      remote_ns_window_host_binding_;
+  mojo::AssociatedReceiver<remote_cocoa::mojom::NativeWidgetNSWindowHost>
+      remote_ns_window_host_receiver_{this};
   DISALLOW_COPY_AND_ASSIGN(NativeWidgetMacNSWindowHost);
 };
 

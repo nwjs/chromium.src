@@ -25,8 +25,10 @@
     </declare-styleable>
 
     <declare-styleable name="ListMenuButton">
-        <!-- Used to customize the width of the popup menu. -->
-        <attr name="menuWidth" format="reference|dimension" />
+        <attr name="menuMaxWidth" format="reference|dimension" />
+        <attr name="menuVerticalOverlapAnchor" format="boolean" />
+        <attr name="menuHorizontalOverlapAnchor" format="boolean" />
+        <attr name="menuBackground" format="reference" />
     </declare-styleable>
 
     <declare-styleable name="MaterialProgressBar">
@@ -58,6 +60,11 @@
         <attr name="drawableHeight" format="dimension"/>
         <!-- drawableTint wasn't added in Android until API level 23. -->
         <attr name="chromeDrawableTint" format="color"/>
+    </declare-styleable>
+
+    <declare-styleable name="WrappingLayout">
+        <attr name="horizontalSpacing" format="dimension" />
+        <attr name="verticalSpacing" format="dimension" />
     </declare-styleable>
 
 </resources>

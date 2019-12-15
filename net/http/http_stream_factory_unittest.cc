@@ -47,6 +47,7 @@
 #include "net/proxy_resolution/proxy_info.h"
 #include "net/proxy_resolution/proxy_resolution_service.h"
 #include "net/quic/mock_crypto_client_stream_factory.h"
+#include "net/quic/mock_quic_context.h"
 #include "net/quic/quic_http_utils.h"
 #include "net/quic/quic_stream_factory_peer.h"
 #include "net/quic/quic_test_packet_maker.h"
@@ -845,10 +846,12 @@ TEST_F(HttpStreamFactoryTest, QuicProxyMarkedAsBad) {
     MultiLogCTVerifier ct_verifier;
     session_context.cert_transparency_verifier = &ct_verifier;
     DefaultCTPolicyEnforcer ct_policy_enforcer;
+    QuicContext quic_context;
     session_context.ct_policy_enforcer = &ct_policy_enforcer;
     session_context.proxy_resolution_service = proxy_resolution_service.get();
     session_context.ssl_config_service = &ssl_config_service;
     session_context.http_server_properties = &http_server_properties;
+    session_context.quic_context = &quic_context;
 
     auto session =
         std::make_unique<HttpNetworkSession>(session_params, session_context);
@@ -974,6 +977,7 @@ void SetupForQuicAlternativeProxyTest(
     SSLConfigServiceDefaults* ssl_config_service,
     MockHostResolver* host_resolver,
     TransportSecurityState* transport_security_state,
+    QuicContext* quic_context,
     bool set_alternative_proxy_server) {
   session_params->enable_quic = true;
 
@@ -986,6 +990,7 @@ void SetupForQuicAlternativeProxyTest(
   session_context->cert_verifier = cert_verifier;
   session_context->ct_policy_enforcer = ct_policy_enforcer;
   session_context->cert_transparency_verifier = ct_verifier;
+  session_context->quic_context = quic_context;
 
   if (set_alternative_proxy_server) {
     test_proxy_delegate->set_alternative_proxy_server(
@@ -1023,12 +1028,14 @@ TEST_F(HttpStreamFactoryTest, WithQUICAlternativeProxyMarkedAsBad) {
       SSLConfigServiceDefaults ssl_config_service;
       MockHostResolver host_resolver;
       TransportSecurityState transport_security_state;
+      QuicContext quic_context;
       SetupForQuicAlternativeProxyTest(
           &session_params, &session_context, &socket_factory,
           proxy_resolution_service.get(), &test_proxy_delegate,
           &http_server_properties, &cert_verifier, &ct_policy_enforcer,
           &ct_verifier, &ssl_config_service, &host_resolver,
-          &transport_security_state, set_alternative_proxy_server);
+          &transport_security_state, &quic_context,
+          set_alternative_proxy_server);
 
       auto session =
           std::make_unique<HttpNetworkSession>(session_params, session_context);
@@ -1138,13 +1145,14 @@ TEST_F(HttpStreamFactoryTest, WithQUICAlternativeProxyNotMarkedAsBad) {
     SSLConfigServiceDefaults ssl_config_service;
     MockHostResolver host_resolver;
     TransportSecurityState transport_security_state;
+    QuicContext quic_context;
 
     SetupForQuicAlternativeProxyTest(
         &session_params, &session_context, &socket_factory,
         proxy_resolution_service.get(), &test_proxy_delegate,
         &http_server_properties, &cert_verifier, &ct_policy_enforcer,
         &ct_verifier, &ssl_config_service, &host_resolver,
-        &transport_security_state, true);
+        &transport_security_state, &quic_context, true);
 
     HostPortPair host_port_pair("badproxy", 99);
     auto session =
@@ -1234,7 +1242,7 @@ TEST_F(HttpStreamFactoryTest, UsePreConnectIfNoZeroRTT) {
                                host_port_pair.port());
     http_server_properties.SetQuicAlternativeService(
         server, NetworkIsolationKey(), alternative_service, expiration,
-        session_params.quic_params.supported_versions);
+        DefaultSupportedQuicVersions());
 
     HttpNetworkSession::Context session_context =
         SpdySessionDependencies::CreateSessionContext(&session_deps);
@@ -2177,24 +2185,23 @@ class HttpStreamFactoryBidirectionalQuicTest
       : default_url_(kDefaultUrl),
         version_(std::get<0>(GetParam())),
         client_headers_include_h2_stream_dependency_(std::get<1>(GetParam())),
-        random_generator_(0),
-        client_packet_maker_(
-            version_,
-            quic::QuicUtils::CreateRandomConnectionId(&random_generator_),
-            &clock_,
-            "www.example.org",
-            quic::Perspective::IS_CLIENT,
-            client_headers_include_h2_stream_dependency_),
-        server_packet_maker_(
-            version_,
-            quic::QuicUtils::CreateRandomConnectionId(&random_generator_),
-            &clock_,
-            "www.example.org",
-            quic::Perspective::IS_SERVER,
-            false),
+        client_packet_maker_(version_,
+                             quic::QuicUtils::CreateRandomConnectionId(
+                                 quic_context_.random_generator()),
+                             quic_context_.clock(),
+                             "www.example.org",
+                             quic::Perspective::IS_CLIENT,
+                             client_headers_include_h2_stream_dependency_),
+        server_packet_maker_(version_,
+                             quic::QuicUtils::CreateRandomConnectionId(
+                                 quic_context_.random_generator()),
+                             quic_context_.clock(),
+                             "www.example.org",
+                             quic::Perspective::IS_SERVER,
+                             false),
         proxy_resolution_service_(ProxyResolutionService::CreateDirect()),
         ssl_config_service_(new SSLConfigServiceDefaults) {
-    clock_.AdvanceTime(quic::QuicTime::Delta::FromMilliseconds(20));
+    quic_context_.AdvanceTime(quic::QuicTime::Delta::FromMilliseconds(20));
     if (version_.handshake_protocol == quic::PROTOCOL_TLS1_3) {
       SetQuicReloadableFlag(quic_supports_tls_handshake, true);
     }
@@ -2205,20 +2212,19 @@ class HttpStreamFactoryBidirectionalQuicTest
   // Disable bidirectional stream over QUIC. This should be invoked before
   // Initialize().
   void DisableQuicBidirectionalStream() {
-    params_.quic_params.disable_bidirectional_streams = true;
+    quic_context_.params()->disable_bidirectional_streams = true;
   }
 
   void Initialize() {
     params_.enable_quic = true;
-    params_.quic_params.supported_versions =
+    quic_context_.params()->supported_versions =
         quic::test::SupportedVersions(version_);
-    params_.quic_params.headers_include_h2_stream_dependency =
+    quic_context_.params()->headers_include_h2_stream_dependency =
         client_headers_include_h2_stream_dependency_;
 
     HttpNetworkSession::Context session_context;
     session_context.http_server_properties = &http_server_properties_;
-    session_context.quic_random = &random_generator_;
-    session_context.quic_clock = &clock_;
+    session_context.quic_context = &quic_context_;
 
     // Load a certificate that is valid for *.example.org
     scoped_refptr<X509Certificate> test_cert(
@@ -2251,7 +2257,7 @@ class HttpStreamFactoryBidirectionalQuicTest
     http_server_properties_.SetQuicAlternativeService(
         url::SchemeHostPort(default_url_), NetworkIsolationKey(),
         alternative_service, expiration,
-        session_->params().quic_params.supported_versions);
+        session_->context().quic_context->params()->supported_versions);
   }
 
   test::QuicTestPacketMaker& client_packet_maker() {
@@ -2278,8 +2284,7 @@ class HttpStreamFactoryBidirectionalQuicTest
   QuicFlagSaver saver_;
   const quic::ParsedQuicVersion version_;
   const bool client_headers_include_h2_stream_dependency_;
-  quic::MockClock clock_;
-  quic::test::MockRandom random_generator_;
+  MockQuicContext quic_context_;
   test::QuicTestPacketMaker client_packet_maker_;
   test::QuicTestPacketMaker server_packet_maker_;
   MockTaggingClientSocketFactory socket_factory_;
@@ -3333,6 +3338,7 @@ class ProcessAlternativeServicesTest : public TestWithTaskEnvironment {
     session_context_.ct_policy_enforcer = &ct_policy_enforcer_;
     session_context_.ssl_config_service = &ssl_config_service_;
     session_context_.http_server_properties = &http_server_properties_;
+    session_context_.quic_context = &quic_context_;
   }
 
  protected:
@@ -3340,6 +3346,7 @@ class ProcessAlternativeServicesTest : public TestWithTaskEnvironment {
   HttpNetworkSession::Context session_context_;
   std::unique_ptr<HttpNetworkSession> session_;
   HttpServerProperties http_server_properties_;
+  QuicContext quic_context_;
 
  private:
   std::unique_ptr<ProxyResolutionService> proxy_resolution_service_ =
@@ -3404,7 +3411,7 @@ TEST_F(ProcessAlternativeServicesTest, ProcessAltSvcClear) {
 }
 
 TEST_F(ProcessAlternativeServicesTest, ProcessAltSvcQuic) {
-  session_params_.quic_params.supported_versions = quic::AllSupportedVersions();
+  quic_context_.params()->supported_versions = quic::AllSupportedVersions();
   session_ =
       std::make_unique<HttpNetworkSession>(session_params_, session_context_);
   url::SchemeHostPort origin(url::kHttpsScheme, "example.com", 443);
@@ -3435,7 +3442,7 @@ TEST_F(ProcessAlternativeServicesTest, ProcessAltSvcQuic) {
 }
 
 TEST_F(ProcessAlternativeServicesTest, ProcessAltSvcQuicIetf) {
-  session_params_.quic_params.supported_versions = quic::AllSupportedVersions();
+  quic_context_.params()->supported_versions = quic::AllSupportedVersions();
   session_ =
       std::make_unique<HttpNetworkSession>(session_params_, session_context_);
   url::SchemeHostPort origin(url::kHttpsScheme, "example.com", 443);
@@ -3461,9 +3468,7 @@ TEST_F(ProcessAlternativeServicesTest, ProcessAltSvcQuicIetf) {
       {quic::PROTOCOL_QUIC_CRYPTO, quic::QUIC_VERSION_50},
       {quic::PROTOCOL_QUIC_CRYPTO, quic::QUIC_VERSION_49},
       {quic::PROTOCOL_QUIC_CRYPTO, quic::QUIC_VERSION_48},
-      {quic::PROTOCOL_QUIC_CRYPTO, quic::QUIC_VERSION_47},
       {quic::PROTOCOL_QUIC_CRYPTO, quic::QUIC_VERSION_43},
-      {quic::PROTOCOL_QUIC_CRYPTO, quic::QUIC_VERSION_39},
   };
   AlternativeServiceInfoVector alternatives =
       http_server_properties_.GetAlternativeServiceInfos(origin,
@@ -3479,7 +3484,7 @@ TEST_F(ProcessAlternativeServicesTest, ProcessAltSvcQuicIetf) {
 }
 
 TEST_F(ProcessAlternativeServicesTest, ProcessAltSvcHttp2) {
-  session_params_.quic_params.supported_versions = quic::AllSupportedVersions();
+  quic_context_.params()->supported_versions = quic::AllSupportedVersions();
   session_ =
       std::make_unique<HttpNetworkSession>(session_params_, session_context_);
   url::SchemeHostPort origin(url::kHttpsScheme, "example.com", 443);

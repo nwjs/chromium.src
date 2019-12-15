@@ -16,7 +16,6 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "components/prefs/pref_change_registrar.h"
-#include "components/sync/protocol/device_info_specifics.pb.h"
 #include "components/sync_device_info/device_info.h"
 
 namespace syncer {
@@ -30,6 +29,8 @@ class PrefRegistrySyncable;
 }
 
 class PrefService;
+
+enum class SharingDevicePlatform;
 
 // SharingSyncPreference manages all preferences related to Sharing using Sync,
 // such as storing list of user devices synced via Chrome and VapidKey used
@@ -82,13 +83,16 @@ class SharingSyncPreference {
 
   void ClearFCMRegistration();
 
-  // Returns the SharingInfo from sync with specified |guid|.
-  base::Optional<syncer::DeviceInfo::SharingInfo> GetSharingInfo(
+  // Returns eanbled feaures of device with specified |device_info|.
+  // |device_info| must not be nullptr.
+  std::set<sync_pb::SharingSpecificFields::EnabledFeatures> GetEnabledFeatures(
+      const syncer::DeviceInfo* device_info) const;
+
+  // Returns the SharingTargetInfo of device with specified |device_info|.
+  base::Optional<syncer::DeviceInfo::SharingTargetInfo> GetTargetInfo(
       const std::string& guid) const;
 
-  // Returns the SharingInfo from sync with specified |device_info|.
-  base::Optional<syncer::DeviceInfo::SharingInfo> GetSharingInfo(
-      const syncer::DeviceInfo* device_info) const;
+  SharingDevicePlatform GetDevicePlatform(const std::string& guid) const;
 
   base::Optional<syncer::DeviceInfo::SharingInfo> GetLocalSharingInfo() const;
 
@@ -105,14 +109,6 @@ class SharingSyncPreference {
   // Returns local SharingInfo stored in preferences.
   static base::Optional<syncer::DeviceInfo::SharingInfo> GetLocalSharingInfo(
       PrefService* prefs);
-
-  // Convert SharingInfo to value readable by legacy devices.
-  static base::Value SharingInfoToValue(
-      const syncer::DeviceInfo::SharingInfo& device);
-
-  // Read SharingInfo from value created by legacy devices.
-  static base::Optional<syncer::DeviceInfo::SharingInfo> ValueToSharingInfo(
-      const base::Value& value);
 
   PrefService* prefs_;
   syncer::DeviceInfoSyncService* device_info_sync_service_;

@@ -18,6 +18,9 @@
 namespace extensions {
 namespace declarative_net_request {
 
+class ActionTracker;
+struct RequestAction;
+
 // Per extension instance which manages the different rulesets for an extension
 // while respecting their priorities.
 class CompositeMatcher {
@@ -43,7 +46,8 @@ class CompositeMatcher {
   using MatcherList = std::vector<std::unique_ptr<RulesetMatcher>>;
 
   // Each RulesetMatcher should have a distinct ID and priority.
-  explicit CompositeMatcher(MatcherList matchers);
+  explicit CompositeMatcher(MatcherList matchers,
+                            ActionTracker* action_tracker);
   ~CompositeMatcher();
 
   // Adds the |new_matcher| to the list of matchers. If a matcher with the
@@ -64,10 +68,13 @@ class CompositeMatcher {
 
   // Returns the bitmask of headers to remove from the request corresponding to
   // rules matched from this extension. The bitmask corresponds to
-  // RemoveHeadersMask type. |ignored_mask| denotes the current mask of headers
-  // to be skipped for evaluation and is excluded in the return value.
-  uint8_t GetRemoveHeadersMask(const RequestParams& params,
-                               uint8_t ignored_mask) const;
+  // RemoveHeadersMask type. |excluded_remove_headers_mask| denotes the current
+  // mask of headers to be skipped for evaluation and is excluded in the return
+  // value.
+  uint8_t GetRemoveHeadersMask(
+      const RequestParams& params,
+      uint8_t excluded_remove_headers_mask,
+      std::vector<RequestAction>* remove_headers_actions) const;
 
   // Returns whether this modifies "extraHeaders".
   bool HasAnyExtraHeadersMatcher() const;
@@ -78,12 +85,21 @@ class CompositeMatcher {
   // Sorts |matchers_| in descending order of priority.
   void SortMatchersByPriority();
 
+  // Check if |matcher| has an allow action for |params| and tracks the action
+  // if needed.
+  bool HasAllowAction(const RulesetMatcher& matcher,
+                      const RequestParams& params) const;
+
   // Sorted by priority in descending order.
   MatcherList matchers_;
 
   // Denotes the cached return value for |HasAnyExtraHeadersMatcher|. Care must
   // be taken to reset this as this object is modified.
   mutable base::Optional<bool> has_any_extra_headers_matcher_;
+
+  // Used to track when allow rules are matched; can be null during unit tests.
+  // Owned by RulesMonitorService.
+  ActionTracker* action_tracker_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(CompositeMatcher);
 };

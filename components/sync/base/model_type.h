@@ -12,7 +12,6 @@
 #include <string>
 
 #include "base/logging.h"
-#include "components/reading_list/features/reading_list_buildflags.h"
 #include "components/sync/base/enum_set.h"
 
 namespace base {
@@ -123,8 +122,6 @@ enum ModelType {
   READING_LIST,
   // Commit only user events.
   USER_EVENTS,
-  // Shares in project Mountain.
-  MOUNTAIN_SHARES,
   // Commit only user consents.
   USER_CONSENTS,
   // Tabs sent between devices.
@@ -178,8 +175,10 @@ inline ModelType ModelTypeFromInt(int i) {
 // Instead of using entries from this enum directly, you'll usually want to get
 // them via ModelTypeHistogramValue(model_type).
 // These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused. When you add a new entry, also update
-// SyncModelTypes in enums.xml
+// numeric values should never be reused. When you add a new entry or when you
+// deprecate an existing one, also update SyncModelTypes in enums.xml and
+// SyncModelType and SyncModelTypeByMacro suffixes in histograms.xml.
+// TODO(crbug.com/1019744): Remove the SyncModelTypeByMacro suffixes.
 enum class ModelTypeForHistograms {
   kUnspecified = 0,
   kTopLevelFolder = 1,
@@ -221,7 +220,7 @@ enum class ModelTypeForHistograms {
   kPrinters = 37,
   kReadingList = 38,
   kUserEvents = 39,
-  kMountainShares = 40,
+  // kDeprecatedMountainShares = 40,
   kUserConsents = 41,
   kSendTabToSelf = 42,
   kSecurityEvents = 43,
@@ -258,9 +257,8 @@ constexpr ModelTypeSet ProtocolTypes() {
       FAVICON_TRACKING, DEVICE_INFO, PRIORITY_PREFERENCES,
       SUPERVISED_USER_SETTINGS, APP_LIST, SUPERVISED_USER_WHITELISTS,
       ARC_PACKAGE, PRINTERS, READING_LIST, USER_EVENTS, NIGORI,
-      DEPRECATED_EXPERIMENTS, MOUNTAIN_SHARES, USER_CONSENTS, SEND_TAB_TO_SELF,
-      SECURITY_EVENTS, WEB_APPS, WIFI_CONFIGURATIONS, OS_PREFERENCES,
-      OS_PRIORITY_PREFERENCES);
+      DEPRECATED_EXPERIMENTS, USER_CONSENTS, SEND_TAB_TO_SELF, SECURITY_EVENTS,
+      WEB_APPS, WIFI_CONFIGURATIONS, OS_PREFERENCES, OS_PRIORITY_PREFERENCES);
 }
 
 // These are the normal user-controlled types. This is to distinguish from
@@ -274,6 +272,14 @@ constexpr ModelTypeSet UserTypes() {
 constexpr ModelTypeSet AlwaysPreferredUserTypes() {
   return ModelTypeSet(DEVICE_INFO, USER_CONSENTS, SECURITY_EVENTS,
                       SUPERVISED_USER_SETTINGS, SUPERVISED_USER_WHITELISTS);
+}
+
+// User types which are always encrypted.
+constexpr ModelTypeSet AlwaysEncryptedUserTypes() {
+  // If you add a new model type here that is conceptually different from a
+  // password, make sure you audit UI code that refers to these types as
+  // passwords, e.g. consumers of IsEncryptEverythingEnabled().
+  return ModelTypeSet(PASSWORDS, WIFI_CONFIGURATIONS);
 }
 
 // This is the subset of UserTypes() that have priority over other types.  These
@@ -317,7 +323,8 @@ constexpr ModelTypeSet CommitOnlyTypes() {
   return ModelTypeSet(USER_EVENTS, USER_CONSENTS, SECURITY_EVENTS);
 }
 
-// This is the subset of UserTypes() that can be encrypted.
+// User types that can be encrypted, which is a subset of UserTypes() and a
+// superset of AlwaysEncryptedUserTypes();
 ModelTypeSet EncryptableUserTypes();
 
 // Determine a model type from the field number of its associated
@@ -381,6 +388,7 @@ std::ostream& operator<<(std::ostream& out, ModelTypeSet model_type_set);
 // Returns the set of comma-separated model types from |model_type_string|.
 ModelTypeSet ModelTypeSetFromString(const std::string& model_type_string);
 
+// Generates a base::ListValue from |model_types|.
 std::unique_ptr<base::ListValue> ModelTypeSetToValue(ModelTypeSet model_types);
 
 // Returns a string corresponding to the syncable tag for this datatype.

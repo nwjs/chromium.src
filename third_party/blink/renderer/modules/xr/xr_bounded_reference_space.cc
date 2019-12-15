@@ -4,13 +4,29 @@
 
 #include "third_party/blink/renderer/modules/xr/xr_bounded_reference_space.h"
 
+#include <memory>
+
 #include "device/vr/public/mojom/vr_service.mojom-blink.h"
 #include "third_party/blink/renderer/modules/xr/xr_reference_space_event.h"
 #include "third_party/blink/renderer/modules/xr/xr_rigid_transform.h"
 #include "third_party/blink/renderer/modules/xr/xr_session.h"
 #include "third_party/blink/renderer/modules/xr/xr_utils.h"
+#include "third_party/blink/renderer/platform/geometry/float_point_3d.h"
 
 namespace blink {
+namespace {
+float RoundCm(float val) {
+  // Float round will only round to the nearest whole number. In order to get
+  // two decimal points of precision, we need to move the decimal out then
+  // back.
+  return std::round(val * 100) / 100;
+}
+
+Member<DOMPointReadOnly> RoundedDOMPoint(const FloatPoint3D& val) {
+  return DOMPointReadOnly::Create(RoundCm(val.X()), RoundCm(val.Y()),
+                                  RoundCm(val.Z()), 1.0);
+}
+}  // anonymous namespace
 
 XRBoundedReferenceSpace::XRBoundedReferenceSpace(XRSession* session)
     : XRReferenceSpace(session, Type::kTypeBoundedFloor) {}
@@ -51,32 +67,15 @@ void XRBoundedReferenceSpace::EnsureUpdated() {
     // in the boundsGeometry accessor.
     TransformationMatrix bounds_transform = InverseOriginOffsetMatrix();
 
+    // We may not have bounds if we've lost tracking after being created.
+    // Whether we have them or not, we need to clear the existing bounds.
+    bounds_geometry_.clear();
     if (display_info->stage_parameters->bounds) {
-      bounds_geometry_.clear();
-
       for (const auto& bound : *(display_info->stage_parameters->bounds)) {
         FloatPoint3D p =
-            bounds_transform.MapPoint(FloatPoint3D(bound.x, 0.0, bound.z));
-        bounds_geometry_.push_back(
-            DOMPointReadOnly::Create(p.X(), p.Y(), p.Z(), 1.0));
+            bounds_transform.MapPoint(FloatPoint3D(bound.X(), 0.0, bound.Z()));
+        bounds_geometry_.push_back(RoundedDOMPoint(p));
       }
-    } else {
-      double hx = display_info->stage_parameters->size_x * 0.5;
-      double hz = display_info->stage_parameters->size_z * 0.5;
-      FloatPoint3D a = bounds_transform.MapPoint(FloatPoint3D(hx, 0.0, -hz));
-      FloatPoint3D b = bounds_transform.MapPoint(FloatPoint3D(hx, 0.0, hz));
-      FloatPoint3D c = bounds_transform.MapPoint(FloatPoint3D(-hx, 0.0, hz));
-      FloatPoint3D d = bounds_transform.MapPoint(FloatPoint3D(-hx, 0.0, -hz));
-
-      bounds_geometry_.clear();
-      bounds_geometry_.push_back(
-          DOMPointReadOnly::Create(a.X(), a.Y(), a.Z(), 1.0));
-      bounds_geometry_.push_back(
-          DOMPointReadOnly::Create(b.X(), b.Y(), b.Z(), 1.0));
-      bounds_geometry_.push_back(
-          DOMPointReadOnly::Create(c.X(), c.Y(), c.Z(), 1.0));
-      bounds_geometry_.push_back(
-          DOMPointReadOnly::Create(d.X(), d.Y(), d.Z(), 1.0));
     }
   } else {
     // If stage parameters aren't available set the transform to null, which

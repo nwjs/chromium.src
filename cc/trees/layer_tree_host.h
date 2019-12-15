@@ -35,6 +35,7 @@
 #include "cc/layers/layer_list_iterator.h"
 #include "cc/metrics/begin_main_frame_metrics.h"
 #include "cc/paint/node_id.h"
+#include "cc/trees/browser_controls_params.h"
 #include "cc/trees/compositor_mode.h"
 #include "cc/trees/layer_tree_frame_sink.h"
 #include "cc/trees/layer_tree_host_client.h"
@@ -49,6 +50,7 @@
 #include "components/viz/common/surfaces/local_surface_id_allocation.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/overlay_transform.h"
 
 namespace gfx {
 struct PresentationFeedback;
@@ -333,7 +335,8 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   };
 
   // Sets the collection of viewport property ids, defined to allow viewport
-  // pinch-zoom etc. on the compositor thread.
+  // pinch-zoom etc. on the compositor thread. This is set only on the
+  // main-frame's compositor, i.e., will be unset in OOPIF and UI compositors.
   void RegisterViewportPropertyIds(const ViewportPropertyIds&);
 
   LayerTreeHost::ViewportPropertyIds ViewportPropertyIdsForTesting() const {
@@ -382,10 +385,8 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
 
   gfx::Rect device_viewport_rect() const { return device_viewport_rect_; }
 
-  void SetBrowserControlsHeight(float top_height,
-                                float bottom_height,
-                                bool shrink);
-  void SetBrowserControlsShownRatio(float ratio);
+  void SetBrowserControlsParams(const BrowserControlsParams& params);
+  void SetBrowserControlsShownRatio(float top_ratio, float bottom_ratio);
 
   void SetOverscrollBehavior(const OverscrollBehavior& overscroll_behavior);
   const OverscrollBehavior& overscroll_behavior() const {
@@ -401,6 +402,13 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
 
   void set_background_color(SkColor color) { background_color_ = color; }
   SkColor background_color() const { return background_color_; }
+
+  void set_display_transform_hint(gfx::OverlayTransform hint) {
+    display_transform_hint_ = hint;
+  }
+  gfx::OverlayTransform display_transform_hint() const {
+    return display_transform_hint_;
+  }
 
   void StartPageScaleAnimation(const gfx::Vector2d& target_offset,
                                bool use_anchor,
@@ -478,9 +486,7 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   void UnregisterLayer(Layer* layer);
   Layer* LayerById(int id) const;
 
-  bool PaintContent(const LayerList& update_layer_list,
-                    bool* content_has_slow_paths,
-                    bool* content_has_non_aa_paint);
+  bool PaintContent(const LayerList& update_layer_list);
   bool in_paint_layer_contents() const { return in_paint_layer_contents_; }
 
   void SetHasCopyRequest(bool has_copy_request);
@@ -510,6 +516,7 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // position. If a HUD layer exists but is no longer needed, it is destroyed.
   void UpdateHudLayer(bool show_hud_info);
   HeadsUpDisplayLayer* hud_layer() const { return hud_layer_.get(); }
+  bool is_hud_layer(const Layer*) const;
 
   virtual void SetNeedsFullTreeSync();
   bool needs_full_tree_sync() const { return needs_full_tree_sync_; }
@@ -671,6 +678,10 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // NodeId in |content| and return true, otherwise return false.
   bool CaptureContent(std::vector<NodeId>* content);
 
+  std::unique_ptr<BeginMainFrameMetrics> begin_main_frame_metrics() {
+    return std::move(begin_main_frame_metrics_);
+  }
+
  protected:
   LayerTreeHost(InitParams params, CompositorMode mode);
 
@@ -750,8 +761,6 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
 
   bool visible_ = false;
 
-  bool content_has_slow_paths_ = false;
-  bool content_has_non_aa_paint_ = false;
   bool gpu_rasterization_histogram_recorded_ = false;
 
   // If set, then page scale animation has completed, but the client hasn't been
@@ -773,12 +782,11 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
 
   ViewportPropertyIds viewport_property_ids_;
 
-  float top_controls_height_ = 0.f;
-  float top_controls_shown_ratio_ = 0.f;
-  bool browser_controls_shrink_blink_size_ = false;
   OverscrollBehavior overscroll_behavior_;
 
-  float bottom_controls_height_ = 0.f;
+  BrowserControlsParams browser_controls_params_;
+  float top_controls_shown_ratio_ = 0.f;
+  float bottom_controls_shown_ratio_ = 0.f;
 
   float device_scale_factor_ = 1.f;
   float painted_device_scale_factor_ = 1.f;
@@ -802,6 +810,9 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   uint32_t defer_main_frame_update_count_ = 0;
 
   SkColor background_color_ = SK_ColorWHITE;
+
+  // Display transform hint to tag generated compositor frames.
+  gfx::OverlayTransform display_transform_hint_ = gfx::OVERLAY_TRANSFORM_NONE;
 
   LayerSelection selection_;
 

@@ -201,7 +201,8 @@ InfoBarService* DefaultBindingsDelegate::GetInfoBarService() {
 
 std::unique_ptr<base::DictionaryValue> BuildObjectForResponse(
     const net::HttpResponseHeaders* rh,
-    bool success) {
+    bool success,
+    int net_error) {
   auto response = std::make_unique<base::DictionaryValue>();
   int responseCode = 200;
   if (rh) {
@@ -211,6 +212,7 @@ std::unique_ptr<base::DictionaryValue> BuildObjectForResponse(
     responseCode = 404;
   }
   response->SetInteger("statusCode", responseCode);
+  response->SetInteger("netError", net_error);
 
   auto headers = std::make_unique<base::DictionaryValue>();
   size_t iterator = 0;
@@ -497,7 +499,8 @@ class DevToolsUIBindings::NetworkResourceLoader
           stream_id_, bindings_, resource_request_, traffic_annotation_,
           std::move(url_loader_factory_), callback_, delay);
     } else {
-      auto response = BuildObjectForResponse(response_headers_.get(), success);
+      auto response = BuildObjectForResponse(response_headers_.get(), success,
+                                             loader_->NetError());
       callback_.Run(response.get());
     }
     bindings_->loaders_.erase(bindings_->loaders_.find(this));
@@ -585,10 +588,19 @@ void DevToolsUIBindings::FrontendWebContentsObserver::RenderProcessGone(
 #endif
     case base::TERMINATION_STATUS_PROCESS_CRASHED:
     case base::TERMINATION_STATUS_LAUNCH_FAILED:
+    case base::TERMINATION_STATUS_OOM:
+#if defined(OS_WIN)
+    case base::TERMINATION_STATUS_INTEGRITY_FAILURE:
+#endif
       if (devtools_bindings_->agent_host_.get())
         devtools_bindings_->Detach();
       break;
-    default:
+    case base::TERMINATION_STATUS_NORMAL_TERMINATION:
+    case base::TERMINATION_STATUS_STILL_RUNNING:
+#if defined(OS_ANDROID)
+    case base::TERMINATION_STATUS_OOM_PROTECTED:
+#endif
+    case base::TERMINATION_STATUS_MAX_ENUM:
       crashed = false;
       break;
   }
@@ -723,7 +735,7 @@ void DevToolsUIBindings::DispatchProtocolMessage(
 void DevToolsUIBindings::AgentHostClosed(
     content::DevToolsAgentHost* agent_host) {
   DCHECK(agent_host == agent_host_.get());
-  agent_host_ = NULL;
+  agent_host_.reset();
   delegate_->InspectedContentsClosing();
 }
 
@@ -794,6 +806,7 @@ void DevToolsUIBindings::LoadNetworkResource(const DispatchCallback& callback,
   if (!gurl.is_valid()) {
     base::DictionaryValue response;
     response.SetInteger("statusCode", 404);
+    response.SetBoolean("urlValid", false);
     callback.Run(&response);
     return;
   }
@@ -1468,7 +1481,7 @@ void DevToolsUIBindings::AttachTo(
 void DevToolsUIBindings::Detach() {
   if (agent_host_.get())
     agent_host_->DetachClient(this);
-  agent_host_ = NULL;
+  agent_host_.reset();
 }
 
 bool DevToolsUIBindings::IsAttachedTo(content::DevToolsAgentHost* agent_host) {

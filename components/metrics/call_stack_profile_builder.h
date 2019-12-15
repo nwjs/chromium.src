@@ -13,10 +13,12 @@
 
 #include "base/callback.h"
 #include "base/macros.h"
+#include "base/optional.h"
 #include "base/profiler/metadata_recorder.h"
 #include "base/profiler/profile_builder.h"
 #include "base/sampling_heap_profiler/module_cache.h"
 #include "base/time/time.h"
+#include "components/metrics/call_stack_profile_metadata.h"
 #include "components/metrics/call_stack_profile_params.h"
 #include "components/metrics/child_call_stack_profile_collector.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -69,8 +71,8 @@ class CallStackProfileBuilder : public base::ProfileBuilder {
 
   // base::ProfileBuilder:
   base::ModuleCache* GetModuleCache() override;
-  void RecordMetadata(base::ProfileBuilder::MetadataProvider*
-                          metadata_provider = nullptr) override;
+  void RecordMetadata(
+      base::ProfileBuilder::MetadataProvider* metadata_provider) override;
   void OnSampleCompleted(std::vector<base::Frame> frames) override;
   void OnProfileCompleted(base::TimeDelta profile_duration,
                           base::TimeDelta sampling_period) override;
@@ -99,15 +101,6 @@ class CallStackProfileBuilder : public base::ProfileBuilder {
                     const CallStackProfile::Stack* stack2) const;
   };
 
-  // Adds the already-collected metadata to the sample.
-  void AddSampleMetadata(CallStackProfile* profile,
-                         CallStackProfile::StackSample* sample);
-
-  // Adds the specified name hash to the profile's name hash collection if it's
-  // not already in it. Returns the index of the name hash in the collection.
-  size_t MaybeAddNameHashToProfile(CallStackProfile* profile,
-                                   uint64_t name_hash);
-
   // The module cache to use for the duration the sampling associated with this
   // ProfileBuilder.
   base::ModuleCache module_cache_;
@@ -135,14 +128,8 @@ class CallStackProfileBuilder : public base::ProfileBuilder {
   // The start time of a profile collection.
   const base::TimeTicks profile_start_time_;
 
-  // The data fetched from the MetadataRecorder for the next sample.
-  base::ProfileBuilder::MetadataItemArray metadata_items_;
-  size_t metadata_item_count_ = 0;
-  // The data fetched from the MetadataRecorder for the previous sample.
-  std::map<uint64_t, int64_t> previous_items_;
-
-  // Maps metadata hash to index in |metadata_name_hash| array.
-  std::unordered_map<uint64_t, int> metadata_hashes_cache_;
+  // Maintains the current metadata to apply to samples.
+  CallStackProfileMetadata metadata_;
 
   DISALLOW_COPY_AND_ASSIGN(CallStackProfileBuilder);
 };

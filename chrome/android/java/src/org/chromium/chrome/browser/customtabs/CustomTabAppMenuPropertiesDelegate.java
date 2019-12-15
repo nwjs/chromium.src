@@ -15,10 +15,10 @@ import android.view.MenuItem;
 import android.view.View;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ObservableSupplier;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.DefaultBrowserInfo;
@@ -32,8 +32,11 @@ import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
+import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
+import org.chromium.chrome.browser.ui.appmenu.CustomViewBinder;
 import org.chromium.chrome.browser.util.UrlConstants;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +86,12 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
     }
 
     @Override
-    public void prepareMenu(Menu menu) {
+    public @Nullable List<CustomViewBinder> getCustomViewBinders() {
+        return Collections.EMPTY_LIST;
+    }
+
+    @Override
+    public void prepareMenu(Menu menu, AppMenuHandler handler) {
         Tab currentTab = mActivityTabProvider.get();
         if (currentTab != null) {
             MenuItem forwardMenuItem = menu.findItem(R.id.forward_menu_id);
@@ -212,7 +220,8 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
 
     /**
      * @return The index that the given menu item should appear in the result of
-     *         {@link CustomTabIntentDataProvider#getMenuTitles()}. Returns -1 if item not found.
+     *         {@link BrowserServicesIntentDataProvider#getMenuTitles()}. Returns -1 if item not
+     * found.
      */
     public static int getIndexOfMenuItemFromBundle(Bundle menuItemData) {
         if (menuItemData != null && menuItemData.containsKey(CUSTOM_MENU_ITEM_ID_KEY)) {

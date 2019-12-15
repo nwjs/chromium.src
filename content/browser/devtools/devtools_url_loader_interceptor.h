@@ -13,6 +13,8 @@
 #include "content/browser/devtools/protocol/network.h"
 #include "content/public/common/resource_type.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "net/base/auth.h"
 #include "net/base/net_errors.h"
@@ -201,9 +203,9 @@ class DevToolsURLLoaderInterceptor {
       bool is_download,
       const base::Optional<std::string>& renderer_request_id,
       std::unique_ptr<CreateLoaderParameters> create_params,
-      network::mojom::URLLoaderRequest loader_request,
-      network::mojom::URLLoaderClientPtr client,
-      network::mojom::URLLoaderFactoryPtr target_factory,
+      mojo::PendingReceiver<network::mojom::URLLoader> loader_receiver,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client,
+      mojo::PendingRemote<network::mojom::URLLoaderFactory> target_factory,
       mojo::PendingRemote<network::mojom::CookieManager> cookie_manager);
 
   InterceptionStage GetInterceptionStage(const GURL& url,
@@ -247,23 +249,24 @@ class DevToolsURLLoaderFactoryAdapter
  public:
   DevToolsURLLoaderFactoryAdapter() = delete;
   explicit DevToolsURLLoaderFactoryAdapter(
-      network::mojom::URLLoaderFactoryPtr factory);
+      mojo::PendingRemote<network::mojom::URLLoaderFactory> factory);
   ~DevToolsURLLoaderFactoryAdapter() override;
 
  private:
   // network::mojom::URLLoaderFactory implementation
-  void CreateLoaderAndStart(network::mojom::URLLoaderRequest loader,
-                            int32_t routing_id,
-                            int32_t request_id,
-                            uint32_t options,
-                            const network::ResourceRequest& request,
-                            network::mojom::URLLoaderClientPtr client,
-                            const net::MutableNetworkTrafficAnnotationTag&
-                                traffic_annotation) override;
+  void CreateLoaderAndStart(
+      mojo::PendingReceiver<network::mojom::URLLoader> loader,
+      int32_t routing_id,
+      int32_t request_id,
+      uint32_t options,
+      const network::ResourceRequest& request,
+      mojo::PendingRemote<network::mojom::URLLoaderClient> client,
+      const net::MutableNetworkTrafficAnnotationTag& traffic_annotation)
+      override;
   void Clone(mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver)
       override;
 
-  network::mojom::URLLoaderFactoryPtr factory_;
+  mojo::Remote<network::mojom::URLLoaderFactory> factory_;
 };
 
 inline DevToolsURLLoaderInterceptor::InterceptionStage& operator|=(

@@ -18,7 +18,7 @@ class CC_EXPORT PaintedScrollbarLayer : public ScrollbarLayerBase {
   std::unique_ptr<LayerImpl> CreateLayerImpl(LayerTreeImpl* tree_impl) override;
 
   static scoped_refptr<PaintedScrollbarLayer> Create(
-      std::unique_ptr<Scrollbar> scrollbar);
+      scoped_refptr<Scrollbar> scrollbar);
 
   PaintedScrollbarLayer(const PaintedScrollbarLayer&) = delete;
   PaintedScrollbarLayer& operator=(const PaintedScrollbarLayer&) = delete;
@@ -33,7 +33,7 @@ class CC_EXPORT PaintedScrollbarLayer : public ScrollbarLayerBase {
   }
 
  protected:
-  explicit PaintedScrollbarLayer(std::unique_ptr<Scrollbar> scrollbar);
+  explicit PaintedScrollbarLayer(scoped_refptr<Scrollbar> scrollbar);
   ~PaintedScrollbarLayer() override;
 
   // For unit tests
@@ -47,8 +47,7 @@ class CC_EXPORT PaintedScrollbarLayer : public ScrollbarLayerBase {
   void UpdateThumbAndTrackGeometry();
 
  private:
-  gfx::Rect ScrollbarLayerRectToContentRect(const gfx::Rect& layer_rect) const;
-  gfx::Rect OriginThumbRect() const;
+  gfx::Size LayerSizeToContentSize(const gfx::Size& layer_size) const;
 
   template <typename T>
   bool UpdateProperty(T value, T* prop) {
@@ -59,11 +58,12 @@ class CC_EXPORT PaintedScrollbarLayer : public ScrollbarLayerBase {
     return true;
   }
 
-  UIResourceBitmap RasterizeScrollbarPart(const gfx::Rect& layer_rect,
-                                          const gfx::Rect& content_rect,
-                                          ScrollbarPart part);
+  UIResourceBitmap RasterizeScrollbarPart(
+      const gfx::Size& size,
+      const gfx::Size& requested_content_size,
+      ScrollbarPart part);
 
-  std::unique_ptr<Scrollbar> scrollbar_;
+  scoped_refptr<Scrollbar> scrollbar_;
   ElementId scroll_element_id_;
 
   float internal_contents_scale_;
@@ -71,20 +71,20 @@ class CC_EXPORT PaintedScrollbarLayer : public ScrollbarLayerBase {
 
   // Snapshot of properties taken in UpdateThumbAndTrackGeometry and used in
   // PushPropertiesTo.
-  bool supports_drag_snap_back_;
-  int thumb_thickness_;
-  int thumb_length_;
-  gfx::Point location_;
+  gfx::Size thumb_size_;
   gfx::Rect track_rect_;
   gfx::Rect back_button_rect_;
   gfx::Rect forward_button_rect_;
-  bool is_overlay_;
+  float thumb_opacity_;
   bool has_thumb_;
+
+  const bool supports_drag_snap_back_;
+  const bool is_left_side_vertical_scrollbar_;
+  const bool is_overlay_;
+  const ScrollbarOrientation orientation_;
 
   std::unique_ptr<ScopedUIResource> track_resource_;
   std::unique_ptr<ScopedUIResource> thumb_resource_;
-
-  float thumb_opacity_;
 };
 
 }  // namespace cc

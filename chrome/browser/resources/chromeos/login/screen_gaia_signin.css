@@ -2,11 +2,6 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file. */
 
-:host(.saml-interstitial) {
-  height: 528px;
-  width: 448px;
-}
-
 .signin-link {
   color: rgb(37, 79, 155);
   cursor: pointer;
@@ -78,15 +73,6 @@
   font-size: 13px;
 }
 
-:host(.whitelist-error) .step-contents,
-:host(.whitelist-error) .gaia-dialog {
-  visibility: hidden;
-}
-
-:host(.whitelist-error) .step-loading {
-  visibility: hidden;
-}
-
 .step-loading {
   align-items: center;
   bottom: 0;
@@ -106,21 +92,8 @@
   position: absolute;
   right: 0;
   top: 0;
-  visibility: hidden;
-}
-
-:host(.whitelist-error) #gaia-whitelist-error {
-  visibility: visible;
-}
-
-:host(:not(.saml-interstitial)) #gaia-step-contents {
-  display: none;
 }
 
 :host(.saml) #signin-frame-container {
   padding-top: 44px;
-}
-
-#gaia-screen-buttons-overlay {
-  background: rgba(0, 0, 0, 0.6);
 }

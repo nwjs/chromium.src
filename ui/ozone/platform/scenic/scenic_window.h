@@ -21,7 +21,7 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/size_f.h"
 #include "ui/gfx/native_widget_types.h"
-#include "ui/platform_window/platform_window_base.h"
+#include "ui/platform_window/platform_window.h"
 #include "ui/platform_window/platform_window_delegate.h"
 
 namespace ui {
@@ -29,7 +29,7 @@ namespace ui {
 class ScenicWindowManager;
 
 class COMPONENT_EXPORT(OZONE) ScenicWindow
-    : public PlatformWindowBase,
+    : public PlatformWindow,
       public InputEventDispatcherDelegate {
  public:
   // Both |window_manager| and |delegate| must outlive the ScenicWindow.
@@ -44,7 +44,9 @@ class COMPONENT_EXPORT(OZONE) ScenicWindow
 
   scenic::Session* scenic_session() { return &scenic_session_; }
 
-  void AttachSurface(fuchsia::ui::gfx::ExportToken surface_export_token);
+  // Embeds the View identified by |token| into the render node,
+  // causing its contents to be displayed in this window.
+  void AttachSurfaceView(fuchsia::ui::views::ViewHolderToken token);
 
   // PlatformWindow implementation.
   gfx::Rect GetBounds() override;
@@ -114,6 +116,7 @@ class COMPONENT_EXPORT(OZONE) ScenicWindow
 
   // Node in |scenic_session_| for rendering (hit testing disabled).
   scenic::EntityNode render_node_;
+  std::unique_ptr<scenic::ViewHolder> surface_view_holder_;
 
   // The ratio used for translating device-independent coordinates to absolute
   // pixel coordinates.
