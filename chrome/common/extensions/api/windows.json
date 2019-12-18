@@ -301,6 +301,7 @@
             "type": "object",
             "name": "updateInfo",
             "properties": {
+              "show": {"type": "boolean", "optional": true, "description": ""},
               "resizable": {"type": "boolean", "optional": true, "description": "Whether the window is resizable"},
               "allVisible": {"type": "boolean", "optional": true, "description": "Whether the window is visible on all workspaces"},
               "alwaysOnTop": {"type": "boolean", "optional": true, "description": "Whether the window is set to be always on top."},
