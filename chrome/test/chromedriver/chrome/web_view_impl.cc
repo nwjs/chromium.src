@@ -721,6 +721,7 @@ Status WebViewImpl::AddCookie(const std::string& name,
                               const std::string& value,
                               const std::string& domain,
                               const std::string& path,
+                              const std::string& sameSite,
                               bool secure,
                               bool httpOnly,
                               double expiry) {
@@ -732,6 +733,8 @@ Status WebViewImpl::AddCookie(const std::string& name,
   params.SetString("path", path);
   params.SetBoolean("secure", secure);
   params.SetBoolean("httpOnly", httpOnly);
+  if (!sameSite.empty())
+    params.SetString("sameSite", sameSite);
   if (expiry >= 0)
     params.SetDouble("expires", expiry);
 

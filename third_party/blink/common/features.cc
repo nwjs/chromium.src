@@ -400,7 +400,7 @@ const base::Feature kLowerJavaScriptPriorityWhenForceDeferred{
     base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kHtmlImportsRequestInitiatorLock{
-    "HtmlImportsRequestInitiatorLock", base::FEATURE_ENABLED_BY_DEFAULT};
+    "HtmlImportsRequestInitiatorLock", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // When 'enabled', directly compositing images is turned off.
 const base::Feature kDisableDirectlyCompositedImages{

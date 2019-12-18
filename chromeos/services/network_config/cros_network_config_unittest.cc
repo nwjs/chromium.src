@@ -24,8 +24,14 @@
 #include "chromeos/network/network_state_test_helper.h"
 #include "chromeos/network/network_type_pattern.h"
 #include "chromeos/network/onc/onc_utils.h"
+#include "chromeos/network/proxy/ui_proxy_config_service.h"
 #include "chromeos/services/network_config/public/cpp/cros_network_config_test_observer.h"
 #include "components/onc/onc_constants.h"
+#include "components/onc/onc_pref_names.h"
+#include "components/prefs/testing_pref_service.h"
+#include "components/proxy_config/pref_proxy_config_tracker_impl.h"
+#include "components/proxy_config/proxy_config_pref_names.h"
+#include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "net/base/ip_address.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/cros_system_api/dbus/shill/dbus-constants.h"
@@ -53,11 +59,21 @@ class CrosNetworkConfigTest : public testing::Test {
             NetworkConfigurationHandler::InitializeForTest(
                 helper_.network_state_handler(),
                 network_device_handler_.get()));
+
+    PrefProxyConfigTrackerImpl::RegisterProfilePrefs(user_prefs_.registry());
+    PrefProxyConfigTrackerImpl::RegisterPrefs(local_state_.registry());
+    ::onc::RegisterProfilePrefs(user_prefs_.registry());
+    ::onc::RegisterPrefs(local_state_.registry());
+
+    ui_proxy_config_service_ = std::make_unique<chromeos::UIProxyConfigService>(
+        &user_prefs_, &local_state_, helper_.network_state_handler(),
+        network_profile_handler_.get());
+
     managed_network_configuration_handler_ =
         ManagedNetworkConfigurationHandler::InitializeForTesting(
             helper_.network_state_handler(), network_profile_handler_.get(),
-            network_device_handler_.get(),
-            network_configuration_handler_.get());
+            network_device_handler_.get(), network_configuration_handler_.get(),
+            ui_proxy_config_service_.get());
     network_connection_handler_ =
         NetworkConnectionHandler::InitializeForTesting(
             helper_.network_state_handler(),
@@ -81,6 +97,7 @@ class CrosNetworkConfigTest : public testing::Test {
     network_configuration_handler_.reset();
     network_device_handler_.reset();
     network_profile_handler_.reset();
+    ui_proxy_config_service_.reset();
     NetworkCertLoader::Shutdown();
     LoginState::Shutdown();
   }
@@ -435,6 +452,9 @@ class CrosNetworkConfigTest : public testing::Test {
   std::unique_ptr<ManagedNetworkConfigurationHandler>
       managed_network_configuration_handler_;
   std::unique_ptr<NetworkConnectionHandler> network_connection_handler_;
+  std::unique_ptr<chromeos::UIProxyConfigService> ui_proxy_config_service_;
+  sync_preferences::TestingPrefServiceSyncable user_prefs_;
+  TestingPrefServiceSimple local_state_;
   std::unique_ptr<CrosNetworkConfig> cros_network_config_;
   std::unique_ptr<CrosNetworkConfigTestObserver> observer_;
   std::string wifi1_path_;
@@ -756,12 +776,14 @@ TEST_F(CrosNetworkConfigTest, SetProperties) {
   ASSERT_TRUE(properties->priority);
   EXPECT_EQ(1, properties->priority->active_value);
 
-  // Set auto connect only. Priority should remain unchanged.
+  // Set auto connect only. Priority should remain unchanged. Also provide a
+  // matching |guid|.
   config = mojom::ConfigProperties::New();
   config->type_config = mojom::NetworkTypeConfigProperties::NewWifi(
       mojom::WiFiConfigProperties::New());
   config->auto_connect = mojom::AutoConnectConfig::New();
   config->auto_connect->value = true;
+  config->guid = kGUID;
   success = SetProperties(kGUID, std::move(config));
   ASSERT_TRUE(success);
   properties = GetManagedProperties(kGUID);
@@ -774,6 +796,16 @@ TEST_F(CrosNetworkConfigTest, SetProperties) {
   EXPECT_TRUE(wifi->auto_connect->active_value);
   ASSERT_TRUE(properties->priority);
   EXPECT_EQ(1, properties->priority->active_value);
+
+  // Set auto connect with a mismatched guid; call should fail.
+  config = mojom::ConfigProperties::New();
+  config->type_config = mojom::NetworkTypeConfigProperties::NewWifi(
+      mojom::WiFiConfigProperties::New());
+  config->auto_connect = mojom::AutoConnectConfig::New();
+  config->auto_connect->value = false;
+  config->guid = "Mismatched guid";
+  success = SetProperties(kGUID, std::move(config));
+  EXPECT_FALSE(success);
 }
 
 TEST_F(CrosNetworkConfigTest, ConfigureNetwork) {
@@ -782,6 +814,7 @@ TEST_F(CrosNetworkConfigTest, ConfigureNetwork) {
   const std::string ssid = "new_wifi_ssid";
   // Configure a new wifi network.
   auto config = mojom::ConfigProperties::New();
+  config->name = ssid;
   auto wifi = mojom::WiFiConfigProperties::New();
   wifi->ssid = ssid;
   config->type_config =
@@ -798,6 +831,24 @@ TEST_F(CrosNetworkConfigTest, ConfigureNetwork) {
   ASSERT_TRUE(network->type_state);
   ASSERT_TRUE(network->type_state->is_wifi());
   EXPECT_EQ(ssid, network->type_state->get_wifi()->ssid);
+}
+
+TEST_F(CrosNetworkConfigTest, ConfigureNetworkExistingGuid) {
+  // Note: shared = false requires a UserManager instance.
+  bool shared = true;
+  const std::string guid = "new_wifi_guid";
+  const std::string ssid = "new_wifi_ssid";
+  // Configure a new wifi network with an existing guid.
+  auto config = mojom::ConfigProperties::New();
+  config->guid = guid;
+  config->name = ssid;
+  auto wifi = mojom::WiFiConfigProperties::New();
+  wifi->ssid = ssid;
+  config->type_config =
+      mojom::NetworkTypeConfigProperties::NewWifi(std::move(wifi));
+  std::string config_guid = ConfigureNetwork(std::move(config), shared);
+  // The new guid should be the same as the existing guid.
+  EXPECT_EQ(config_guid, guid);
 }
 
 TEST_F(CrosNetworkConfigTest, ForgetNetwork) {
