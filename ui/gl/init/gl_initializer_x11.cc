@@ -100,6 +100,7 @@ bool InitializeStaticEGLInternal(GLImplementation implementation) {
     if (!base::PathService::Get(base::DIR_MODULE, &module_path))
       return false;
 
+    module_path = module_path.Append("lib");
     glesv2_path = module_path.Append(kGLESv2ANGLELibraryName);
     egl_path = module_path.Append(kEGLANGLELibraryName);
   }
