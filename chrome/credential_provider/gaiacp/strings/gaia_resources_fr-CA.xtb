@@ -19,13 +19,13 @@
 <translation id="6033715878377252112">Aide du fournisseur d'authentifiants Google pour Windows</translation>
 <translation id="6149399665202317746">Fournisseur d'authentifiants Google pour Windows</translation>
 <translation id="6239180560789153226">Les données de récupération de votre appareil sont manquantes. Connectez-vous à l'aide de votre compte professionnel Google.</translation>
-<translation id="6312494990035843744">La connexion avec un compte professionnel n'est pas autorisée sur ce domaine. Utilisez un autre compte.</translation>
 <translation id="6463752215771576050">Impossible d'inscrire cet ordinateur à la gestion d'entreprise.  Veuillez vous connecter avec un autre compte professionnel.</translation>
 <translation id="6657585470893396449">Mot de passe</translation>
 <translation id="6937049691815837345">Votre appareil doit être inscrit à l'aide d'une solution de gestion d'appareils. Connectez-vous à l'aide de votre compte professionnel Google.</translation>
 <translation id="7209941495304122410">Entrer votre mot de passe Windows</translation>
 <translation id="7357241217513796177">Assurez-vous que vous disposez d'une connexion réseau et réessayez.</translation>
 <translation id="7536769223115622137">Ajouter un compte professionnel</translation>
+<translation id="7811865856574012727">Votre administrateur a restreint la connexion d'appareil aux domaines suivants : <ph name="EMAIL_DOMAINS" />. Réessayez en utilisant un compte professionnel valide.</translation>
 <translation id="7856245195110636219">Pour continuer, vous devez entrer le mot de passe Windows actuel. Veuillez communiquer avec un administrateur système.</translation>
 <translation id="8639729688781680518">Mot de passe Windows oublié</translation>
 <translation id="866458870819756755">Impossible de créer l'utilisateur.</translation>

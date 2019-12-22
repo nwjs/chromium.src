@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/browser_command_controller.h"
+#include "content/nw/src/common/shell_switches.h"
 
 #include <stddef.h>
 
@@ -1202,6 +1203,10 @@ void BrowserCommandController::UpdateCommandsForDevTools() {
 
   bool dev_tools_enabled = DevToolsWindow::AllowDevToolsFor(
       profile(), browser_->tab_strip_model()->GetActiveWebContents());
+  const base::CommandLine* command_line =
+      base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kDisableDevTools))
+    dev_tools_enabled = false;
   command_updater_.UpdateCommandEnabled(IDC_DEV_TOOLS, dev_tools_enabled);
   command_updater_.UpdateCommandEnabled(IDC_DEV_TOOLS_CONSOLE,
                                         dev_tools_enabled);

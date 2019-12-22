@@ -4079,6 +4079,12 @@ void RenderFrameHostImpl::OnDidStopLoading() {
   was_discarded_ = false;
   is_loading_ = false;
 
+  // If we have a PeakGpuMemoryTrack, close it as loading as stopped. It will
+  // asynchronously receive the statistics from the GPU process, and update
+  // UMA stats.
+  if (loading_mem_tracker_)
+    loading_mem_tracker_.reset();
+
   // Only inform the FrameTreeNode of a change in load state if the load state
   // of this RenderFrameHost is being tracked.
   if (is_active())
@@ -6591,6 +6597,12 @@ void RenderFrameHostImpl::GetPresentationService(
   presentation_service_->Bind(std::move(receiver));
 }
 
+PresentationServiceImpl&
+RenderFrameHostImpl::GetPresentationServiceForTesting() {
+  DCHECK(presentation_service_);
+  return *presentation_service_.get();
+}
+
 void RenderFrameHostImpl::GetSpeechSynthesis(
     mojo::PendingReceiver<blink::mojom::SpeechSynthesis> receiver) {
   if (!speech_synthesis_impl_) {
@@ -7239,6 +7251,21 @@ bool RenderFrameHostImpl::DidCommitNavigationInternal(
       !navigation_request->IsSameDocument() &&
       !navigation_request->IsServedFromBackForwardCache()) {
     render_view_host_->ResetPerPageState();
+  }
+
+  // If we still have a PeakGpuMemoryTracker, then the loading it was observing
+  // never completed. Cancel it's callback so that we don't report partial
+  // loads to UMA.
+  if (loading_mem_tracker_)
+    loading_mem_tracker_->Cancel();
+  loading_mem_tracker_ = navigation_request->TakePeakGpuMemoryTracker();
+  // Main Frames will create the tracker, add a callback to report the memory
+  // usage. This will be triggered after we receive OnDidStopLoading.
+  if (loading_mem_tracker_) {
+    loading_mem_tracker_->SetCallback(base::BindOnce([](uint64_t peak_memory) {
+      UMA_HISTOGRAM_MEMORY_KB("Memory.GPU.PeakMemoryUsage.PageLoad",
+                              peak_memory / 1024u);
+    }));
   }
 
   frame_tree_node()->navigator()->DidNavigate(this, *validated_params,

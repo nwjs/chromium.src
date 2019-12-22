@@ -55,6 +55,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.document.TabDelegate;
+import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.chrome.browser.util.ConversionUtils;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.chrome.browser.util.UrlConstants;
@@ -73,7 +74,6 @@ import org.chromium.components.offline_items_collection.OfflineItemState;
 import org.chromium.components.offline_items_collection.PendingState;
 import org.chromium.content_public.browser.BrowserStartupController;
 import org.chromium.content_public.browser.LoadUrlParams;
-import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.widget.Toast;
 
@@ -217,14 +217,6 @@ public class DownloadUtils {
     }
 
     /**
-     * @return Whether Chrome is currently offline and Offline Home should be shown for downloads.
-     */
-    public static boolean shouldShowOfflineHome() {
-        return ChromeFeatureList.isEnabled(ChromeFeatureList.OFFLINE_HOME)
-                && NetworkChangeNotifier.isInitialized() && !NetworkChangeNotifier.isOnline();
-    }
-
-    /**
      * @return Whether or not the Intent corresponds to a DownloadActivity that should show off the
      *         record downloads.
      */
@@ -238,6 +230,15 @@ public class DownloadUtils {
      */
     public static boolean shouldShowPrefetchContent(Intent intent) {
         return IntentUtils.safeGetBooleanExtra(intent, EXTRA_SHOW_PREFETCHED_CONTENT, false);
+    }
+
+    /**
+     * @return Whether or not pagination headers should be shown on download home.
+     */
+    public static boolean shouldShowPaginationHeaders() {
+        return AccessibilityUtil.isAccessibilityEnabled()
+                || AccessibilityUtil.isHardwareKeyboardAttached(
+                        ContextUtils.getApplicationContext().getResources().getConfiguration());
     }
 
     /**

@@ -43,6 +43,8 @@ class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView {
 
   void UpdateGroup();
 
+  SkColor background_color() const { return color(); }
+
   TabController* const tab_controller_;
   const TabGroupId group_;
 
@@ -55,6 +57,8 @@ class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView {
     // views::TextfieldController:
     void ContentsChanged(views::Textfield* sender,
                          const base::string16& new_contents) override;
+    bool HandleKeyEvent(views::Textfield* sender,
+                        const ui::KeyEvent& key_event) override;
 
    private:
     TabGroupEditorBubbleView* const parent_;

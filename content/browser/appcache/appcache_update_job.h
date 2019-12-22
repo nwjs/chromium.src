@@ -175,6 +175,11 @@ class CONTENT_EXPORT AppCacheUpdateJob
   void CheckIfManifestChanged();
   void OnManifestDataReadComplete(int result);
 
+  // Used to read a manifest from the cache in case of a 304 Not Modified HTTP
+  // response.
+  void ReadManifestFromCacheAndContinue();
+  void OnManifestFromCacheDataReadComplete(int result);
+
   // Creates the list of files that may need to be fetched and initiates
   // fetches. Section 6.9.4 steps 12-17
   void BuildUrlFileList(const AppCacheManifest& manifest);
@@ -239,6 +244,12 @@ class CONTENT_EXPORT AppCacheUpdateJob
   std::string cached_manifest_scope_;
   // Stores the manifest scope determined during the fetch phase.
   std::string fetched_manifest_scope_;
+  // Stores the manifest scope determined during the refetch phase.
+  std::string refetched_manifest_scope_;
+
+  // If true, AppCaches will be limited to their determined manifest scope
+  // (either the scope of the manifest URL or the override the server gives us).
+  bool manifest_scope_checks_enabled_;
 
   // Defined prior to refs to AppCaches and Groups because destruction
   // order matters, the disabled_storage_reference_ must outlive those

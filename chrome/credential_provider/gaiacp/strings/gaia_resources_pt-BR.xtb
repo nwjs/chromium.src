@@ -19,13 +19,13 @@
 <translation id="6033715878377252112">Assistente do Provedor de credenciais do Google para Windows</translation>
 <translation id="6149399665202317746">Provedor de credenciais do Google para Windows</translation>
 <translation id="6239180560789153226">Não há informações de recuperação no seu dispositivo. Faça login usando sua Conta do Google de trabalho.</translation>
-<translation id="6312494990035843744">O login com uma conta de trabalho não é permitido neste domínio. Use outra conta.</translation>
 <translation id="6463752215771576050">Não é possível inscrever este computador para o gerenciamento empresarial.  Faça login com outra conta de trabalho.</translation>
 <translation id="6657585470893396449">Senha</translation>
 <translation id="6937049691815837345">É necessário inscrever seu dispositivo no gerenciamento. Faça login usando sua Conta do Google de trabalho.</translation>
 <translation id="7209941495304122410">Insira a senha do Windows</translation>
 <translation id="7357241217513796177">Verifique se você tem uma conexão de rede e tente novamente.</translation>
 <translation id="7536769223115622137">Adicionar conta de trabalho</translation>
+<translation id="7811865856574012727">O administrador restringiu o login no dispositivo para os seguintes domínios: <ph name="EMAIL_DOMAINS" />. Tente novamente usando uma conta de trabalho válida.</translation>
 <translation id="7856245195110636219">Não é possível continuar sem inserir a senha atual do Windows. Entre em contato com um administrador do sistema.</translation>
 <translation id="8639729688781680518">Esqueci minha senha do Windows</translation>
 <translation id="866458870819756755">Não foi possível criar um usuário.</translation>

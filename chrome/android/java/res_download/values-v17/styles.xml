@@ -20,10 +20,7 @@
         <item name="android:layout_marginStart">8dp</item>
         <item name="android:layout_marginTop">8dp</item>
     </style>
-    <style name="PaginationHeaderText" tools:ignore="UnusedResources">
-        <item name="android:paddingTop">0dp</item>
-        <item name="android:paddingBottom">0dp</item>
-        <item name="android:paddingStart">16dp</item>
+    <style name="ListPaginationHeaderText">
         <item name="android:textAppearance">@style/TextAppearance.BlueButtonText2</item>
     </style>
 

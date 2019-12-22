@@ -127,7 +127,7 @@ TabGroupEditorBubbleView::TabGroupEditorBubbleView(
 
   color_selector_ =
       group_modifier_container->AddChildView(std::make_unique<ColorPickerView>(
-          GetColorPickerList(), current_data->color(),
+          GetColorPickerList(), background_color(), current_data->color(),
           base::Bind(&TabGroupEditorBubbleView::UpdateGroup,
                      base::Unretained(this))));
   color_selector_->SetBorder(views::CreateEmptyBorder(
@@ -201,6 +201,21 @@ void TabGroupEditorBubbleView::TitleFieldController::ContentsChanged(
     const base::string16& new_contents) {
   DCHECK_EQ(sender, parent_->title_field_);
   parent_->UpdateGroup();
+}
+
+bool TabGroupEditorBubbleView::TitleFieldController::HandleKeyEvent(
+    views::Textfield* sender,
+    const ui::KeyEvent& key_event) {
+  DCHECK_EQ(sender, parent_->title_field_);
+
+  const ui::KeyboardCode key_code = key_event.key_code();
+  if (key_code == ui::VKEY_RETURN || key_code == ui::VKEY_ESCAPE) {
+    parent_->GetWidget()->CloseWithReason(
+        views::Widget::ClosedReason::kUnspecified);
+    return true;
+  }
+
+  return false;
 }
 
 TabGroupEditorBubbleView::ButtonListener::ButtonListener(

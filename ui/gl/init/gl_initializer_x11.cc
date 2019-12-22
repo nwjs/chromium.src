@@ -101,6 +101,7 @@ bool InitializeStaticEGLInternal(GLImplementation implementation) {
       return false;
     module_path = module_path.Append("lib/");
 
+    module_path = module_path.Append("lib");
     glesv2_path = module_path.Append(kGLESv2ANGLELibraryName);
     egl_path = module_path.Append(kEGLANGLELibraryName);
   }

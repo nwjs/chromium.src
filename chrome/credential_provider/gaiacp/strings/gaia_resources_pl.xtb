@@ -19,13 +19,13 @@
 <translation id="6033715878377252112">Konto pomocnicze dostawcy danych uwierzytelniających Google do systemów Windows</translation>
 <translation id="6149399665202317746">Dostawca danych uwierzytelniających Google do systemów Windows</translation>
 <translation id="6239180560789153226">Na Twoim urządzeniu brakuje danych odzyskiwania. Zaloguj się, używając swojego konta Google do pracy.</translation>
-<translation id="6312494990035843744">Logowanie się w tej domenie za pomocą konta do pracy jest niedozwolone. Użyj innego konta.</translation>
 <translation id="6463752215771576050">Nie udało się zarejestrować tego komputera na potrzeby zarządzania w firmie.  Zaloguj się, używając innego konta do pracy.</translation>
 <translation id="6657585470893396449">Hasło</translation>
 <translation id="6937049691815837345">Twoje urządzenie wymaga zarejestrowania w Zarządzaniu urządzeniami. Zaloguj się, używając swojego konta Google do pracy.</translation>
 <translation id="7209941495304122410">Wpisz hasło do Windows</translation>
 <translation id="7357241217513796177">Upewnij się, że masz połączenie sieciowe, i spróbuj ponownie.</translation>
 <translation id="7536769223115622137">Dodaj konto do pracy</translation>
+<translation id="7811865856574012727">Administrator ograniczył logowanie na urządzeniu do tych domen: <ph name="EMAIL_DOMAINS" />. Spróbuj ponownie, używając odpowiedniego konta do pracy.</translation>
 <translation id="7856245195110636219">Nie można przejść dalej bez wpisania obecnego hasła do Windows. Skontaktuj się z administratorem systemu.</translation>
 <translation id="8639729688781680518">Nie pamiętam hasła do Windows</translation>
 <translation id="866458870819756755">Nie udało się utworzyć użytkownika.</translation>

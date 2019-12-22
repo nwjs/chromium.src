@@ -1134,6 +1134,7 @@ if (!is_android) {
       "../browser/safe_browsing/test_safe_browsing_database_helper.cc",
       "../browser/safe_browsing/test_safe_browsing_database_helper.h",
       "../browser/safe_xml_parser_browsertest.cc",
+      "../browser/search/ntp_custom_background_enabled_policy_handler_browsertest.cc",
       "../browser/search_engines/template_url_scraper_browsertest.cc",
       "../browser/secure_origin_whitelist_browsertest.cc",
       "../browser/serial/chrome_serial_browsertest.cc",
@@ -2539,6 +2540,7 @@ if (!is_android) {
         "../browser/ui/cocoa/task_manager_mac_browsertest.mm",
         "../browser/ui/cocoa/touchbar/browser_window_touch_bar_controller_browsertest.mm",
         "../browser/ui/views/certificate_viewer_mac_browsertest.mm",
+        "../browser/ui/views/frame/browser_non_client_frame_view_mac_browsertest.cc",
         "../browser/ui/views/ssl_client_certificate_selector_mac_browsertest.mm",
         "../common/profiler/stack_sampling_browsertest.cc",
 

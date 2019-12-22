@@ -982,6 +982,8 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     }
   }
 
+  if (params->update_info.show && *params->update_info.show)
+    browser->window()->Show();
   if (params->update_info.resizable)
     browser->window()->SetResizable(*params->update_info.resizable);
   if (params->update_info.all_visible)
