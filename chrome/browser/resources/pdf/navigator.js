@@ -185,7 +185,7 @@ class PdfNavigator {
    */
   isValidUrl_(url) {
     // Make sure |url| starts with a valid scheme.
-    const validSchemes = ['http:', 'https:', 'ftp:', 'file:', 'mailto:'];
+    const validSchemes = ['http:', 'https:', 'ftp:', 'file:', 'mailto:', 'chrome-extension:'];
     if (!validSchemes.includes(url.protocol)) {
       return false;
     }
