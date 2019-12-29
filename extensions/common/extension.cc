@@ -131,7 +131,7 @@ const int Extension::kInitFromValueFlagBits = 15;
 const char Extension::kMimeType[] = "application/x-chrome-extension";
 
 const int Extension::kValidWebExtentSchemes =
-    URLPattern::SCHEME_HTTP | URLPattern::SCHEME_HTTPS;
+  URLPattern::SCHEME_HTTP | URLPattern::SCHEME_HTTPS | URLPattern::SCHEME_FILE;
 
 const int Extension::kValidBookmarkAppSchemes = URLPattern::SCHEME_HTTP |
                                                 URLPattern::SCHEME_HTTPS |
