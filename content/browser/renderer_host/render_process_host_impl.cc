@@ -2558,7 +2558,10 @@ void RenderProcessHostImpl::CreateURLLoaderFactoryInternal(
     } else {
       params->is_corb_enabled = true;
     }
-
+    if (GetContentClient()->browser()->IsNWOrigin(*origin, GetBrowserContext())) {
+      params->is_corb_enabled = false;
+      params->disable_web_security = true;
+    }
     network_context->CreateURLLoaderFactory(std::move(receiver),
                                             std::move(params));
   }

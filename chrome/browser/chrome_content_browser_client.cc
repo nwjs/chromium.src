@@ -1599,10 +1599,11 @@ ChromeContentBrowserClient::GetInitiatorSchemeBypassingDocumentBlocking() {
 #endif
 }
 
-bool ChromeContentBrowserClient::IsNWOrigin(const url::Origin& origin, content::ResourceContext* context) {
-  ProfileIOData* io_data = ProfileIOData::FromResourceContext(context);
-  const Extension* extension =
-    io_data->GetExtensionInfoMap()->extensions().GetByID(nw::GetMainExtensionId());
+bool ChromeContentBrowserClient::IsNWOrigin(const url::Origin& origin, content::BrowserContext* context) {
+  const extensions::ExtensionRegistry* registry =
+    extensions::ExtensionRegistry::Get(context);
+  const extensions::Extension* extension =
+    registry->enabled_extensions().GetByID(nw::GetMainExtensionId());
   if (!extension)
     return false;
   if (extension->web_extent().MatchesURL(origin.GetURL()))

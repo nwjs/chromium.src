@@ -152,7 +152,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   const char* GetInitiatorSchemeBypassingDocumentBlocking() override;
   bool ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
       base::StringPiece scheme) override;
-  bool IsNWOrigin(const url::Origin& origin, content::ResourceContext* context) override;
+  bool IsNWOrigin(const url::Origin& origin, content::BrowserContext* context) override;
   network::mojom::URLLoaderFactoryPtrInfo
   CreateURLLoaderFactoryForNetworkRequests(
       content::RenderProcessHost* process,

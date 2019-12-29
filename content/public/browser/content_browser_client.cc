@@ -139,7 +139,7 @@ bool ContentBrowserClient::ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
   return false;
 }
 
-bool ContentBrowserClient::IsNWOrigin(const url::Origin& origin, ResourceContext* context) {
+bool ContentBrowserClient::IsNWOrigin(const url::Origin& origin, BrowserContext* context) {
   return false;
 }
 
