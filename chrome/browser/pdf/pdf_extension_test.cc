@@ -1380,6 +1380,28 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionLinkClickTest, ShiftLeft) {
   EXPECT_EQ("http://www.example.com/", url.spec());
 }
 
+IN_PROC_BROWSER_TEST_F(PDFExtensionLinkClickTest, NWJSClick) {
+  LoadTestLinkPdfGetGuestContents();
+
+  ASSERT_EQ(1U, chrome::GetTotalBrowserCount());
+
+  WebContents* web_contents = GetActiveWebContents();
+
+  content::SimulateMouseClickAt(
+      GetWebContentsForInputRouting(), 0,
+      blink::WebMouseEvent::Button::kLeft, GetLinkPosition());
+  ui_test_utils::WaitForBrowserToOpen();
+
+  ASSERT_EQ(2U, chrome::GetTotalBrowserCount());
+
+  WebContents* active_web_contents =
+      chrome::FindLastActive()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_NE(web_contents, active_web_contents);
+
+  const GURL& url = active_web_contents->GetURL();
+  EXPECT_EQ("http://www.example.com/", url.spec());
+}
+
 // This test opens a PDF by clicking a link via javascript and verifies that
 // the PDF is loaded and functional by clicking a link in the PDF. The link
 // click in the PDF opens a new tab. The main page handles the pageShow event

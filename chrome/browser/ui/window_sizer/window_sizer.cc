@@ -275,7 +275,7 @@ void WindowSizer::GetDefaultWindowBounds(const display::Display& display,
 
   default_bounds->SetRect(kWindowTilePixels + work_area.x(),
                           kWindowTilePixels + work_area.y(),
-                          640, 480);
+                          800, 600);
 }
 
 void WindowSizer::AdjustBoundsToBeVisibleOnDisplay(
