@@ -139,6 +139,11 @@ int BrowserDesktopWindowTreeHostWin::GetInitialShowState() const {
 bool BrowserDesktopWindowTreeHostWin::GetClientAreaInsets(
     gfx::Insets* insets,
     HMONITOR monitor) const {
+  //NWJS#7221, this is called during NCCALCSIZE handler
+  //without this, it will lead to a window with white bg shown
+  //initially during first ShowWindow call.
+  if (browser_view_->browser()->is_transparent())
+    return false;
   // Always use default insets for opaque frame.
   if (!ShouldUseNativeFrame())
     return false;
