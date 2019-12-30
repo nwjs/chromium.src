@@ -153,6 +153,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
       base::StringPiece scheme) override;
   bool IsNWOrigin(const url::Origin& origin, content::BrowserContext* context) override;
+  static bool IsNWURL(const GURL& origin, content::BrowserContext* context);
   network::mojom::URLLoaderFactoryPtrInfo
   CreateURLLoaderFactoryForNetworkRequests(
       content::RenderProcessHost* process,

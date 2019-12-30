@@ -1600,13 +1600,17 @@ ChromeContentBrowserClient::GetInitiatorSchemeBypassingDocumentBlocking() {
 }
 
 bool ChromeContentBrowserClient::IsNWOrigin(const url::Origin& origin, content::BrowserContext* context) {
+  return IsNWURL(origin.GetURL(), context);
+}
+
+bool ChromeContentBrowserClient::IsNWURL(const GURL& url, content::BrowserContext* context) {
   const extensions::ExtensionRegistry* registry =
     extensions::ExtensionRegistry::Get(context);
   const extensions::Extension* extension =
     registry->enabled_extensions().GetByID(nw::GetMainExtensionId());
   if (!extension)
     return false;
-  if (extension->web_extent().MatchesURL(origin.GetURL()))
+  if (extension->web_extent().MatchesURL(url))
     return true;
   return false;
 }
