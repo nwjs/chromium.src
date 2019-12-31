@@ -255,9 +255,12 @@ gfx::Rect OpaqueBrowserFrameView::GetWindowBoundsForClientBounds(
 int OpaqueBrowserFrameView::NonClientHitTest(const gfx::Point& point) {
   if (frameless_) {
     constexpr int kResizeAreaCornerSize = 16;
+    views::WidgetDelegate* delegate = frame()->widget_delegate();
+    if (!delegate)
+      return HTCAPTION;
     int window_component = GetHTComponentForFrame(
       point, 5, 5,
-      kResizeAreaCornerSize, kResizeAreaCornerSize, true);
+      kResizeAreaCornerSize, kResizeAreaCornerSize, delegate->CanResize());
     if (window_component != HTNOWHERE)
       return window_component;
   }
