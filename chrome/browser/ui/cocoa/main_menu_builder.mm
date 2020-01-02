@@ -171,6 +171,7 @@ base::scoped_nsobject<NSMenuItem> BuildEditMenu(
                 Item(IDS_EDIT_SELECT_ALL_MAC)
                     .tag(IDC_CONTENT_CONTEXT_SELECTALL)
                     .action(@selector(selectAll:)),
+#if 0
                 Item().is_separator(),
                 Item(IDS_EDIT_FIND_SUBMENU_MAC).tag(IDC_FIND_MENU).submenu({
                   Item(IDS_EDIT_SEARCH_WEB_MAC).command_id(IDC_FOCUS_SEARCH),
@@ -220,6 +221,7 @@ base::scoped_nsobject<NSMenuItem> BuildEditMenu(
                 }),
             // The "Start Dictation..." and "Emoji & Symbols" items are
             // inserted by AppKit.
+#endif
           })
           .Build();
   return item;
