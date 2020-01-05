@@ -4,6 +4,7 @@
 
 #include "chrome/browser/permissions/permission_context_base.h"
 
+#include "chrome/browser/chrome_content_browser_client.h"
 #include "extensions/browser/extension_registry.h"
 
 #include <stddef.h>
@@ -157,7 +158,8 @@ void PermissionContextBase::RequestPermission(
     extensions::ExtensionRegistry::Get(profile_);
   const extensions::Extension* extension =
     extension_registry->enabled_extensions().GetByID(requesting_origin.host());
-  if (extension && extension->is_nwjs_app()) {
+  bool is_nw_origin = ChromeContentBrowserClient::IsNWURL(requesting_origin, profile_);
+  if (is_nw_origin || (extension && extension->is_nwjs_app())) {
     result.content_setting = CONTENT_SETTING_ALLOW;
   }
 

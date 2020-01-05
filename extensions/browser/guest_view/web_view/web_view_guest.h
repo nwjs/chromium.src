@@ -208,6 +208,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   void WillDestroy() final;
 
   // WebContentsDelegate implementation.
+  bool CanLoadFileSubresource(const GURL& url) final;
   bool DidAddMessageToConsole(content::WebContents* source,
                               blink::mojom::ConsoleMessageLevel log_level,
                               const base::string16& message,

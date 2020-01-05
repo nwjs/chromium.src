@@ -333,7 +333,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // cross-origin read blocking.  nullptr can be returned to indicate that no
   // exceptions should be granted based on initiator's scheme.
   virtual const char* GetInitiatorSchemeBypassingDocumentBlocking();
-  virtual bool IsNWOrigin(const url::Origin& origin, ResourceContext* context);
+  virtual bool IsNWOrigin(const url::Origin& origin, BrowserContext* context);
 
   // Returns true if everything embedded inside a document with given scheme
   // should be treated as first-party content. |scheme| will be in canonical

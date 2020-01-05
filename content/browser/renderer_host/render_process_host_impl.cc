@@ -2659,6 +2659,10 @@ void RenderProcessHostImpl::CreateURLLoaderFactoryInternal(
   } else {
     params->is_corb_enabled = true;
   }
+  if (GetContentClient()->browser()->IsNWOrigin(origin, GetBrowserContext())) {
+    params->is_corb_enabled = false;
+    params->disable_web_security = true;
+  }
   params->factory_override = std::move(factory_override);
 
   GetContentClient()->browser()->OverrideURLLoaderFactoryParams(this, origin,

@@ -4,6 +4,14 @@
 
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 
+#if defined(USE_AURA)
+#if defined(OS_WIN)
+#include "ui/views/win/hwnd_util.h"
+#endif
+#include "ui/aura/window.h"
+#include "chrome/browser/ui/views/apps/app_window_easy_resize_window_targeter.h"
+#endif
+
 #include <utility>
 
 #include "base/bind.h"
@@ -109,7 +117,19 @@ void BrowserFrame::InitBrowserFrame() {
   }
 
   Init(std::move(params));
+#if defined(USE_AURA)
+  if (frameless_) {
+#if 0
+    HWND hwnd = views::HWNDForWidget(GetTopLevelWidget());
+    int current_style = ::GetWindowLong(hwnd, GWL_STYLE);
+    ::SetWindowLong(hwnd, GWL_STYLE, current_style | WS_CAPTION);
+#endif
+    aura::Window* window = browser_view_->GetWidget()->GetNativeWindow();
+    window->SetEventTargeter(std::make_unique<AppWindowEasyResizeWindowTargeter>(
+      gfx::Insets(5), browser_view_));
 
+  }
+#endif
   if (!native_browser_frame_->UsesNativeSystemMenu()) {
     DCHECK(non_client_view());
     non_client_view()->set_context_menu_controller(this);

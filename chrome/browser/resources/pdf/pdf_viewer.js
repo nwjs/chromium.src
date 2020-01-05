@@ -1316,7 +1316,7 @@ export class PDFViewer {
       this.navigator_.navigate(
           url, PdfNavigator.WindowOpenDisposition.NEW_BACKGROUND_TAB);
     } else {
-      this.navigator_.navigate(url, Navigator.WindowOpenDisposition.NEW_BACKGROUND_TAB);
+      this.navigator_.navigate(url, PdfNavigator.WindowOpenDisposition.NEW_BACKGROUND_TAB);
     }
   }
 

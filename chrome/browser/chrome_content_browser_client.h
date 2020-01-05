@@ -154,10 +154,11 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
       base::StringPiece scheme,
       bool is_embedded_origin_secure) override;
-  bool IsNWOrigin(const url::Origin& origin, content::ResourceContext* context) override;
+  bool IsNWOrigin(const url::Origin& origin, content::BrowserContext* context) override;
   bool ShouldIgnoreSameSiteCookieRestrictionsWhenTopLevel(
       base::StringPiece scheme,
       bool is_embedded_origin_secure) override;
+  static bool IsNWURL(const GURL& origin, content::BrowserContext* context);
   void OverrideURLLoaderFactoryParams(
       content::RenderProcessHost* process,
       const url::Origin& origin,

@@ -5425,7 +5425,14 @@ void RenderFrameHostImpl::CommitNavigation(
     //
     // For loading Web Bundle files, we don't set FileURLLoaderFactory.
     // Because loading local files from a Web Bundle file is prohibited.
-    if (common_params->url.SchemeIsFile() && !navigation_to_web_bundle) {
+    bool can_load_file_subresource = false;
+    WebContents* web_contents = delegate_->GetAsWebContents();
+    if (web_contents) {
+      auto* delegate = web_contents->GetDelegate();
+      if (delegate && delegate->CanLoadFileSubresource(common_params->url))
+        can_load_file_subresource = true;
+    }
+    if ((common_params->url.SchemeIsFile() && !navigation_to_web_bundle) || can_load_file_subresource) {
       auto file_factory = std::make_unique<FileURLLoaderFactory>(
           browser_context->GetPath(),
           browser_context->GetSharedCorsOriginAccessList(),

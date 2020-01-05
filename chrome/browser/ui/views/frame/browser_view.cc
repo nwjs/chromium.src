@@ -10,6 +10,10 @@
 #include "components/favicon/content/content_favicon_driver.h"
 #include "content/public/browser/render_widget_host.h"
 
+#if defined(OS_MACOSX)
+#include "content/nw/src/nw_content_mac.h"
+#endif
+
 #if defined(OS_WIN)
 #include <shobjidl.h>
 #include <dwmapi.h>
@@ -540,6 +544,8 @@ void BrowserView::SetShowInTaskbar(bool show) {
     LOG(ERROR) << "Failed to change the show in taskbar attribute";
     return;
   }
+#elif defined(OS_MACOSX)
+  NWSetNSWindowShowInTaskbar(browser()->window()->GetNativeWindow(), show);
 #endif
 }
 
