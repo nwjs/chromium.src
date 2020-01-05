@@ -125,6 +125,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   // commit.  Defaults to true.
   virtual bool ShouldTransferNavigation(bool is_main_frame_navigation);
 
+  virtual bool CanLoadFileSubresource(const GURL& url);
   // Called to inform the delegate that the WebContents's navigation state
   // changed. The |changed_flags| indicates the parts of the navigation state
   // that have been updated.

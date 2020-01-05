@@ -1464,6 +1464,17 @@ void WebViewGuest::RequestToLockMouse(WebContents* web_contents,
           base::Unretained(web_contents)));
 }
 
+bool WebViewGuest::CanLoadFileSubresource(const GURL& url) {
+  GURL test_file_url("file:///");
+  const Extension* extension =
+      ExtensionRegistry::Get(browser_context())->enabled_extensions().GetByID(owner_host());
+  if (extension && WebviewInfo::IsURLWebviewAccessible(extension,
+                                                       GetPartitionID(web_contents()->GetRenderViewHost()->GetProcess()),
+                                                       test_file_url))
+    return true;
+  return false;
+}
+
 void WebViewGuest::LoadURLWithParams(
     const GURL& url,
     const content::Referrer& referrer,
