@@ -15,8 +15,10 @@ import static org.mockito.Mockito.verify;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.CREDENTIAL;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.FORMATTED_ORIGIN;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.ON_CLICK_LISTENER;
+import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FooterProperties.BRANDING_MESSAGE_ID;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.FORMATTED_URL;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.ORIGIN_SECURE;
+import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.SINGLE_CREDENTIAL;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.ON_CLICK_MANAGE;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.SHEET_ITEMS;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.VISIBLE;
@@ -42,6 +44,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.ScalableTimeout;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeSwitches;
+import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FooterProperties;
 import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties;
 import org.chromium.chrome.browser.touch_to_fill.data.Credential;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
@@ -108,6 +111,48 @@ public class TouchToFillViewTest {
 
     @Test
     @MediumTest
+    public void testSingleCredentialTitleDisplayed() {
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            mModel.get(SHEET_ITEMS)
+                    .add(new MVCListAdapter.ListItem(TouchToFillProperties.ItemType.HEADER,
+                            new PropertyModel.Builder(HeaderProperties.ALL_KEYS)
+                                    .with(SINGLE_CREDENTIAL, true)
+                                    .with(FORMATTED_URL, "www.example.org")
+                                    .with(ORIGIN_SECURE, true)
+                                    .build()));
+            mModel.set(VISIBLE, true);
+        });
+        pollUiThread(() -> getBottomSheetState() == BottomSheetController.SheetState.HALF);
+        TextView title =
+                mTouchToFillView.getContentView().findViewById(R.id.touch_to_fill_sheet_title);
+
+        assertThat(title.getText(),
+                is(getActivity().getString(R.string.touch_to_fill_sheet_title_single)));
+    }
+
+    @Test
+    @MediumTest
+    public void testMultiCredentialTitleDisplayed() {
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            mModel.get(SHEET_ITEMS)
+                    .add(new MVCListAdapter.ListItem(TouchToFillProperties.ItemType.HEADER,
+                            new PropertyModel.Builder(HeaderProperties.ALL_KEYS)
+                                    .with(SINGLE_CREDENTIAL, false)
+                                    .with(FORMATTED_URL, "www.example.org")
+                                    .with(ORIGIN_SECURE, true)
+                                    .build()));
+            mModel.set(VISIBLE, true);
+        });
+        pollUiThread(() -> getBottomSheetState() == BottomSheetController.SheetState.HALF);
+        TextView title =
+                mTouchToFillView.getContentView().findViewById(R.id.touch_to_fill_sheet_title);
+
+        assertThat(
+                title.getText(), is(getActivity().getString(R.string.touch_to_fill_sheet_title)));
+    }
+
+    @Test
+    @MediumTest
     public void testSecureSubtitleUrlDisplayed() {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             mModel.get(SHEET_ITEMS)
@@ -142,6 +187,46 @@ public class TouchToFillViewTest {
                 mTouchToFillView.getContentView().findViewById(R.id.touch_to_fill_sheet_subtitle);
 
         assertThat(subtitle.getText(), is(getFormattedNotSecureSubtitle("m.example.org")));
+    }
+
+    @Test
+    @MediumTest
+    public void testBrandingVariationZeroHides() {
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            mModel.get(SHEET_ITEMS)
+                    .add(new MVCListAdapter.ListItem(TouchToFillProperties.ItemType.FOOTER,
+                            new PropertyModel.Builder(FooterProperties.ALL_KEYS)
+                                    .with(BRANDING_MESSAGE_ID, 0)
+                                    .build()));
+            mModel.set(VISIBLE, true);
+        });
+        pollUiThread(() -> getBottomSheetState() == BottomSheetController.SheetState.HALF);
+        TextView brandingMessage =
+                mTouchToFillView.getContentView().findViewById(R.id.touch_to_fill_branding_message);
+
+        assertThat(brandingMessage.getVisibility(), is(View.GONE));
+    }
+
+    @Test
+    @MediumTest
+    public void testBrandingVariationOneDisplayed() {
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            mModel.get(SHEET_ITEMS)
+                    .add(new MVCListAdapter.ListItem(TouchToFillProperties.ItemType.FOOTER,
+                            new PropertyModel.Builder(FooterProperties.ALL_KEYS)
+                                    .with(BRANDING_MESSAGE_ID,
+                                            R.string.touch_to_fill_branding_variation_1)
+                                    .build()));
+            mModel.set(VISIBLE, true);
+        });
+        pollUiThread(() -> getBottomSheetState() == BottomSheetController.SheetState.HALF);
+        TextView brandingMessage =
+                mTouchToFillView.getContentView().findViewById(R.id.touch_to_fill_branding_message);
+
+        String expectedBrandingMessage =
+                String.format(getActivity().getString(R.string.touch_to_fill_branding_variation_1),
+                        getActivity().getString(org.chromium.chrome.R.string.app_name));
+        assertThat(brandingMessage.getText(), is(expectedBrandingMessage));
     }
 
     @Test

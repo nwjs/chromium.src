@@ -4911,6 +4911,7 @@ Unknown properties are collapsed to zero. -->
   <int value="-1442160010" label="Serial"/>
   <int value="-1314032804" label="MediaSessionImpl::OnServiceCreated"/>
   <int value="-1303768664" label="PopupBlockerTabHelper"/>
+  <int value="-1192330754" label="autofill::ContentAutofillDriver"/>
   <int value="-866479064" label="content::protocol::SecurityHandler"/>
   <int value="-684843031" label="SafeBrowsingTriggeredPopupBlocker"/>
   <int value="-438850149" label="PermissionRequestManager"/>
@@ -4924,6 +4925,8 @@ Unknown properties are collapsed to zero. -->
   <int value="2013040510" label="RenderFrameDevToolsAgentHost"/>
   <int value="2024383223"
       label="ChromePasswordManagerClient::BindCredentialManager"/>
+  <int value="2129248270"
+      label="password_manager::ContentPasswordManagerDriver"/>
 </enum>
 
 <enum name="BackForwardCacheEvictedAfterDocumentRestoredReason">
@@ -14409,6 +14412,7 @@ Called by update_net_error_codes.py.-->
   <int value="10" label="new_tab"/>
   <int value="11" label="close_tab"/>
   <int value="12" label="close_all_tabs"/>
+  <int value="13" label="find_in_page"/>
 </enum>
 
 <enum name="DirectCompositionVideoPresentationMode">
@@ -18909,6 +18913,7 @@ Called by update_net_error_codes.py.-->
   <int value="651" label="PaymentMethodQueryEnabled"/>
   <int value="652" label="StricterMixedContentTreatmentEnabled"/>
   <int value="653" label="NTPCustomBackgroundEnabled"/>
+  <int value="654" label="DNSInterceptionChecksEnabled"/>
 </enum>
 
 <enum name="EnterprisePolicyInvalidations">
@@ -37408,7 +37413,6 @@ from previous Chrome versions.
       label="CrossOriginMediaPlaybackRequiresUserGesture:disabled"/>
   <int value="-296179618" label="CookiesWithoutSameSiteMustBeSecure:enabled"/>
   <int value="-295237704" label="EnableRemovingAllThirdPartyCookies:enabled"/>
-  <int value="-291936879" label="UsernameFirstFlowFilling:disabled"/>
   <int value="-290672626" label="enable-asm-wasm"/>
   <int value="-290329565" label="CrosVmCupsProxy:disabled"/>
   <int value="-288316828" label="enable-delegated-renderer"/>
@@ -37992,7 +37996,6 @@ from previous Chrome versions.
   <int value="452139294" label="VrShellExperimentalRendering:enabled"/>
   <int value="452955571" label="EnableFilesystemInIncognito:disabled"/>
   <int value="453102772" label="OfflinePagesLoadSignalCollecting:disabled"/>
-  <int value="454106312" label="UsernameFirstFlowFilling:enabled"/>
   <int value="455698038"
       label="disable-gesture-requirement-for-media-playback"/>
   <int value="455754036" label="MirroringService:disabled"/>
@@ -38325,6 +38328,7 @@ from previous Chrome versions.
   <int value="892899792" label="MaterialDesignIncognitoNTP:disabled"/>
   <int value="898311758" label="ReaderMode:disabled"/>
   <int value="900614020" label="ContentSuggestionsShowSummary:disabled"/>
+  <int value="902209599" label="ShelfHotseat:enabled"/>
   <int value="902839593" label="WebContentsForceDark:disabled"/>
   <int value="903267263" label="disable-offline-pages"/>
   <int value="908302031"
@@ -38430,6 +38434,7 @@ from previous Chrome versions.
       label="AllowDownloadResumptionWithoutStrongValidators:enabled"/>
   <int value="1046878091" label="PasswordForceSaving:enabled"/>
   <int value="1046981538" label="OfflinePagesShowAlternateDinoPage:disabled"/>
+  <int value="1047110483" label="ShelfHotseat:disabled"/>
   <int value="1049885154" label="OfflinePagesPrefetching:disabled"/>
   <int value="1050048304" label="enable-font-cache-scaling"/>
   <int value="1050321458" label="new-profile-management"/>
@@ -45164,6 +45169,12 @@ Called by update_net_trust_anchors.py.-->
   <int value="4" label="Stylus ejected"/>
 </enum>
 
+<enum name="NewTabPage.ExploreOffline.Action">
+  <int value="0" label="Displayed explore offline card on NTP"/>
+  <int value="1" label="Clicked confirm button"/>
+  <int value="2" label="Clicked cancel button"/>
+</enum>
+
 <enum name="NewTabPageActionAndroid">
   <obsolete>
     Deprecated as of 01/2017. Replaced by NewTabPageActionAndroid2.
@@ -48121,6 +48132,13 @@ Called by update_net_trust_anchors.py.-->
   <int value="1" label="Clicked Close"/>
   <int value="2" label="Clicked Check passwords"/>
   <int value="3" label="Clicked Ok"/>
+</enum>
+
+<enum name="PasswordLeakDetectionError">
+  <int value="0" label="Not signed in"/>
+  <int value="1" label="Token request error"/>
+  <int value="2" label="Hashing/encryption error"/>
+  <int value="3" label="Invalid server response"/>
 </enum>
 
 <enum name="PasswordLeakLookupResponseResult">
@@ -56703,6 +56721,7 @@ Called by update_net_trust_anchors.py.-->
   <int value="4" label="CONNECTION_ERROR"/>
   <int value="5" label="RESPONSE_READER_ERROR"/>
   <int value="6" label="META_DATA_SENDER_ERROR"/>
+  <int value="7" label="NO_CONTEXT_ERROR"/>
 </enum>
 
 <enum name="ServiceWorkerMainResourceRequestDestination">
@@ -57330,6 +57349,13 @@ Called by update_net_trust_anchors.py.-->
   <int value="1" label="Dialog without devices but with an app"/>
   <int value="2" label="Educational dialog without devices or apps"/>
   <int value="3" label="Error dialog"/>
+</enum>
+
+<enum name="SharingMajorVersionComparison">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Sender version is lower"/>
+  <int value="2" label="Sender and receiver versions are same"/>
+  <int value="3" label="Sender version is higher"/>
 </enum>
 
 <enum name="SharingMessageType">
@@ -61373,6 +61399,16 @@ would be helpful to identify which type is being sent.
   <int value="2" label="FROZEN_IMPLICIT_PASSPHRASE"/>
   <int value="3" label="CUSTOM_PASSPHRASE"/>
   <int value="4" label="TRUSTED_VAULT_PASSPHRASE"/>
+</enum>
+
+<enum name="SyncPassphraseType2">
+  <int value="0" label="No active syncing profiles"/>
+  <int value="1" label="Inconsistent state across profiles"/>
+  <int value="2" label="Implicit passphrase"/>
+  <int value="3" label="Keystore passphrase"/>
+  <int value="4" label="Frozen implicit passphrase"/>
+  <int value="5" label="Custom passphrase"/>
+  <int value="6" label="Trusted vault passphrase"/>
 </enum>
 
 <enum name="SyncPositioningScheme">

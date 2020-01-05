@@ -1025,6 +1025,7 @@
 <translation id="2445484935443597917">Создај нов профил</translation>
 <translation id="2446585455334014596"><ph name="APP_NAME" /> сака да го потврди вашиот идентитет</translation>
 <translation id="2448312741937722512">Тип</translation>
+<translation id="2448734521821581858">Колачињата се датотеки создадени од веб-сајтовите што ги посетувате. Има два типа колачиња: првиот тип колачиња ги создава сајтот што го посетувате. Сајтот се прикажува во лентата за адреси. Вториот тип колачиња ги создаваат други сајтови. Овие сајтови се сопственици на дел од содржините, како рекламите или сликите што ги гледате на веб-сајтот што го посетувате.</translation>
 <translation id="2450223707519584812">Нема да може да додадете корисници, затоа што недостасуваат клучевите на Google API. Видете ја <ph name="DETAILS_URL" /> за повеќе детали.</translation>
 <translation id="2450849356604136918">Нема активни прикази</translation>
 <translation id="2451298179137331965">2x</translation>
@@ -1192,7 +1193,6 @@
 <translation id="2665919335226618153">Аман! Имаше грешка за време на форматирањето.</translation>
 <translation id="2666990579225592931">Отвори прозорец за гостин</translation>
 <translation id="2667463864537187133">Управувајте со проверката на правописот</translation>
-<translation id="2669093958999339774">Блокирај ги потсетниците за известувања за да не ме прекинуваат и користи потивки пораки</translation>
 <translation id="2670102641511624474"><ph name="APP_NAME" /> споделува картичка на Chrome.</translation>
 <translation id="2670429602441959756">Страницава содржи функции што сѐ уште не се поддржани во режим на виртуелна реалност. Излегуваме…</translation>
 <translation id="2671451824761031126">Обележувачите и поставките се подготвени</translation>
@@ -1965,7 +1965,6 @@
 <translation id="37613671848467444">Отвори во &amp;Инкогнито прозорец</translation>
 <translation id="3764583730281406327">{NUM_DEVICES,plural, =1{Комуницирај со USB-уред}one{Комуницирај со # USB-уред}other{Комуницирај со # USB-уреди}}</translation>
 <translation id="3765246971671567135">Не можеше да се вчита правилото за офлајн демо-режим.</translation>
-<translation id="3767376082821709728">Новите сајтови што ги посетувате не може да ви испраќаат известувања</translation>
 <translation id="3768037234834996183">Се синхронизираат вашите претпочитања...</translation>
 <translation id="377050016711188788">Сладолед</translation>
 <translation id="3771294271822695279">Видеодатотеки</translation>
@@ -3129,6 +3128,7 @@
 <translation id="5496587651328244253">Организирај</translation>
 <translation id="5499313591153584299">Оваа датотека може да биде штетна за вашиот компјутер.</translation>
 <translation id="5502500733115278303">Увезени од Firefox</translation>
+<translation id="5505264765875738116">Сајтовите не можат да прашуваат дали да испраќаат известувања</translation>
 <translation id="5505307013568720083">Нема мастило</translation>
 <translation id="5507756662695126555">Неотповикливост</translation>
 <translation id="5509693895992845810">Зачувај &amp;како...</translation>
@@ -3679,6 +3679,7 @@
 <translation id="6267547857941397424">Мрежа <ph name="NETWORK_INDEX" /> од <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, јачина на сигналот: <ph name="SIGNAL_STRENGTH" /> %, батерија на телефонот: <ph name="BATTERY_STATUS" /> %, поврзи</translation>
 <translation id="6268252012308737255">Отвори со <ph name="APP" /></translation>
 <translation id="6268718011101775129">NFC</translation>
+<translation id="6270391203985052864">Сајтовите можат да прашуваат дали да испраќаат известувања</translation>
 <translation id="6270770586500173387">Испрати <ph name="BEGIN_LINK1" />информации за системот и апликацијата<ph name="END_LINK1" /> и <ph name="BEGIN_LINK2" />метриката<ph name="END_LINK2" /></translation>
 <translation id="6272643420381259437">Грешка (<ph name="ERROR" />) при преземањето на приклучокот</translation>
 <translation id="6273677812470008672">Квалитет</translation>
@@ -3869,6 +3870,7 @@
 <translation id="6555810572223193255">Чистењето во моментов не е достапно</translation>
 <translation id="6556866813142980365">Повтори</translation>
 <translation id="6557290421156335491">Мои кратенки</translation>
+<translation id="6561560012278703671">Користете потивки пораки (не дозволува известувањата да ве попречуваат)</translation>
 <translation id="6561726789132298588">enter</translation>
 <translation id="656293578423618167">Патеката на датотеката или нејзиното име се многу долги. Зачувајте ја со пократко име или на друга локација.</translation>
 <translation id="6563469144985748109">Управникот уште не го одобрил</translation>
@@ -4915,7 +4917,6 @@
 <translation id="8044899503464538266">Бавно</translation>
 <translation id="8045253504249021590">Синхронизацијата беше запрена преку „Контролната табла на Google“.</translation>
 <translation id="8045923671629973368">Внеси ID на апликација или URL на веб-продавница</translation>
-<translation id="8046278916126163020">Новите сајтови што ги посетувате може да побараат ваша дозвола за испраќање известувања</translation>
 <translation id="804786196054284061">Договор за лиценца со краен корисник</translation>
 <translation id="8049705080247101012">Google ја означи „<ph name="EXTENSION_NAME" />“ како злонамерна и инсталацијата беше спречена</translation>
 <translation id="8050038245906040378">Пријавување со комерцијален код на Microsoft</translation>

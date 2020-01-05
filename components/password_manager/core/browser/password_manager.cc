@@ -130,7 +130,7 @@ PasswordFormManager* FindMatchedManagerByRendererId(
 
 bool HasSingleUsernameVote(const FormPredictions& form) {
   if (!base::FeatureList::IsEnabled(
-          password_manager::features::kUsernameFirstFlowFilling)) {
+          password_manager::features::kUsernameFirstFlow)) {
     return false;
   }
   for (const auto& field : form.fields) {
@@ -145,9 +145,8 @@ bool HasSingleUsernameVote(const FormPredictions& form) {
 bool HasNewPasswordVote(const FormPredictions& form) {
   if (!base::FeatureList::IsEnabled(
           password_manager::features::
-              KEnablePasswordGenerationForClearTextFields)) {
+              KEnablePasswordGenerationForClearTextFields))
     return false;
-  }
   for (const auto& field : form.fields) {
     if (field.type == ACCOUNT_CREATION_PASSWORD || field.type == NEW_PASSWORD)
       return true;
@@ -964,15 +963,17 @@ void PasswordManager::MaybeSavePasswordHash(
   }
 
   DCHECK(should_save_gaia_pw);
+  bool is_sync_account_email =
+      client_->GetStoreResultFilter()->IsSyncAccountEmail(username);
   GaiaPasswordHashChange event =
-      client_->GetStoreResultFilter()->IsSyncAccountEmail(username)
+      is_sync_account_email
           ? (is_password_change
                  ? GaiaPasswordHashChange::CHANGED_IN_CONTENT_AREA
                  : GaiaPasswordHashChange::SAVED_IN_CONTENT_AREA)
           : (is_password_change
                  ? GaiaPasswordHashChange::NOT_SYNC_PASSWORD_CHANGE
                  : GaiaPasswordHashChange::SAVED_IN_CONTENT_AREA);
-  store->SaveGaiaPasswordHash(username, password, event);
+  store->SaveGaiaPasswordHash(username, password, is_sync_account_email, event);
 #endif
 }
 

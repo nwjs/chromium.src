@@ -8,9 +8,12 @@ import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.Cr
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.FAVICON_OR_FALLBACK;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.FORMATTED_ORIGIN;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.ON_CLICK_LISTENER;
+import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FIELD_TRIAL_PARAM_BRANDING_MESSAGE;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FIELD_TRIAL_PARAM_SHOW_CONFIRMATION_BUTTON;
+import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FooterProperties.BRANDING_MESSAGE_ID;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.FORMATTED_URL;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.ORIGIN_SECURE;
+import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.SINGLE_CREDENTIAL;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.ON_CLICK_MANAGE;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.SHEET_ITEMS;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.VISIBLE;
@@ -70,6 +73,7 @@ class TouchToFillMediator {
 
         sheetItems.add(new ListItem(TouchToFillProperties.ItemType.HEADER,
                 new PropertyModel.Builder(HeaderProperties.ALL_KEYS)
+                        .with(SINGLE_CREDENTIAL, credentials.size() == 1)
                         .with(FORMATTED_URL,
                                 UrlFormatter.formatUrlForSecurityDisplayOmitScheme(url))
                         .with(ORIGIN_SECURE, isOriginSecure)
@@ -84,6 +88,12 @@ class TouchToFillMediator {
                 sheetItems.add(new ListItem(TouchToFillProperties.ItemType.FILL_BUTTON, model));
             }
         }
+
+        sheetItems.add(new ListItem(TouchToFillProperties.ItemType.FOOTER,
+                new PropertyModel.Builder(TouchToFillProperties.FooterProperties.ALL_KEYS)
+                        .with(BRANDING_MESSAGE_ID, getBrandingMessageId())
+                        .build()));
+
         mModel.set(VISIBLE, true);
     }
 
@@ -153,6 +163,25 @@ class TouchToFillMediator {
                 && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                         ChromeFeatureList.TOUCH_TO_FILL_ANDROID,
                         FIELD_TRIAL_PARAM_SHOW_CONFIRMATION_BUTTON, false);
+    }
+
+    /**
+     * Returns the id of the branding message to be shown. Returns 0 in case no message should be
+     * displayed.
+     */
+    private int getBrandingMessageId() {
+        int id = ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
+                ChromeFeatureList.TOUCH_TO_FILL_ANDROID, FIELD_TRIAL_PARAM_BRANDING_MESSAGE, 0);
+        switch (id) {
+            case 1:
+                return R.string.touch_to_fill_branding_variation_1;
+            case 2:
+                return R.string.touch_to_fill_branding_variation_2;
+            case 3:
+                return R.string.touch_to_fill_branding_variation_3;
+            default:
+                return 0;
+        }
     }
 
     private PropertyModel createModel(Credential credential) {

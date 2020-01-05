@@ -1025,6 +1025,7 @@
 <translation id="2445484935443597917">新しいプロフィールを作成</translation>
 <translation id="2446585455334014596"><ph name="APP_NAME" /> が本人確認を求めています</translation>
 <translation id="2448312741937722512">種類</translation>
+<translation id="2448734521821581858">Cookie は、アクセスしたウェブサイトによって作成されるファイルです。Cookie には 2 種類あります。1 つ目の「ファーストパーティの Cookie」は、現在アクセスしているサイト、つまりアドレスバーに表示されているサイトによって作成されます。2 つ目の「サードパーティの Cookie」は、他のサイト、つまりアクセス中のウェブサイトに表示されているコンテンツの一部（広告、画像など）を所有しているサイトによって作成されます。</translation>
 <translation id="2450223707519584812">Google API キーがないため、ユーザーを追加できません。詳しくは、<ph name="DETAILS_URL" /> をご覧ください。</translation>
 <translation id="2450849356604136918">アクティブ ビューなし</translation>
 <translation id="2451298179137331965">2 倍</translation>
@@ -1192,7 +1193,6 @@
 <translation id="2665919335226618153">フォーマット中にエラーが発生しました。</translation>
 <translation id="2666990579225592931">ゲスト ウィンドウを開く</translation>
 <translation id="2667463864537187133">スペルチェックの管理</translation>
-<translation id="2669093958999339774">妨げになる形での通知の確認をブロックし、代わりに目立たない形でメッセージを表示します</translation>
 <translation id="2670102641511624474"><ph name="APP_NAME" /> が Chrome タブを共有しています。</translation>
 <translation id="2670429602441959756">このページには VR でまだご利用いただけない機能が含まれています。VR モードを終了します...</translation>
 <translation id="2671451824761031126">ブックマークと設定をインポートしました</translation>
@@ -1965,7 +1965,6 @@
 <translation id="37613671848467444">シークレット ウィンドウで開く(&amp;I)</translation>
 <translation id="3764583730281406327">{NUM_DEVICES,plural, =1{1 台の USB デバイスと通信します}other{# 台の USB デバイスと通信します}}</translation>
 <translation id="3765246971671567135">オフライン デモモード ポリシーを読み取ることができませんでした。</translation>
-<translation id="3767376082821709728">初めてアクセスしたサイトは通知を表示できません</translation>
 <translation id="3768037234834996183">設定を同期しています...</translation>
 <translation id="377050016711188788">アイスクリーム</translation>
 <translation id="3771294271822695279">動画ファイル</translation>
@@ -2205,7 +2204,7 @@
 <translation id="4084682180776658562">ブックマーク</translation>
 <translation id="4084835346725913160"><ph name="TAB_NAME" /> を閉じる</translation>
 <translation id="4085270836953633510">サイトからシリアルポートへのアクセス許可を求められたときに確認する</translation>
-<translation id="4085298594534903246">このページの Javascript はブロックされました。</translation>
+<translation id="4085298594534903246">このページの JavaScript はブロックされました。</translation>
 <translation id="4087089424473531098">拡張機能を作成しました:
 
 <ph name="EXTENSION_FILE" /></translation>
@@ -2968,7 +2967,7 @@
 <translation id="5269977353971873915">印刷の失敗</translation>
 <translation id="5275352920323889391">犬</translation>
 <translation id="5275776633505022322">残り試行回数: <ph name="ATTEMPTS_LEFT" /></translation>
-<translation id="527605982717517565"><ph name="HOST" /> の Javascript を常に許可する</translation>
+<translation id="527605982717517565"><ph name="HOST" /> の JavaScript を常に許可する</translation>
 <translation id="5280174558369304332">削除対象の拡張機能:</translation>
 <translation id="5280426389926346830">ショートカットを作成しますか？</translation>
 <translation id="528208740344463258">Android アプリをダウンロードして使用するには、まずこの必須のアップデートをインストールする必要があります。<ph name="DEVICE_TYPE" /> の更新中、ご利用いただくことはできません。インストールが完了すると、<ph name="DEVICE_TYPE" /> は再起動されます。</translation>
@@ -3129,6 +3128,7 @@
 <translation id="5496587651328244253">管理</translation>
 <translation id="5499313591153584299">このファイルはパソコンに危害を加える可能性があります。</translation>
 <translation id="5502500733115278303">Firefox ブックマーク</translation>
+<translation id="5505264765875738116">通知を送信するかどうかの確認をサイトに許可しない</translation>
 <translation id="5505307013568720083">インクがありません</translation>
 <translation id="5507756662695126555">否認防止</translation>
 <translation id="5509693895992845810">別名で保存(&amp;A)...</translation>
@@ -3679,6 +3679,7 @@
 <translation id="6267547857941397424"><ph name="NETWORK_INDEX" /> 番目のネットワーク（全 <ph name="NETWORK_COUNT" /> 件）、<ph name="PHONE_NAME" />、信号強度 <ph name="SIGNAL_STRENGTH" />%、電池残量 <ph name="BATTERY_STATUS" />%、接続</translation>
 <translation id="6268252012308737255"><ph name="APP" /> で開く</translation>
 <translation id="6268718011101775129">NFC</translation>
+<translation id="6270391203985052864">通知を送信するかどうかの確認をサイトに許可する</translation>
 <translation id="6270770586500173387"><ph name="BEGIN_LINK1" />システムとアプリの情報<ph name="END_LINK1" />と<ph name="BEGIN_LINK2" />指標<ph name="END_LINK2" />を送信する</translation>
 <translation id="6272643420381259437">プラグインのダウンロード中にエラー（<ph name="ERROR" />）が発生しました。</translation>
 <translation id="6273677812470008672">品質</translation>
@@ -3801,7 +3802,7 @@
 <translation id="6455894534188563617">新しいフォルダ(&amp;N)</translation>
 <translation id="6456394469623773452">中程度</translation>
 <translation id="6456955391422100996">広告を削除しました。</translation>
-<translation id="645705751491738698">Javascript を引き続きブロックする</translation>
+<translation id="645705751491738698">JavaScript を引き続きブロックする</translation>
 <translation id="6458701200018867744">アップロードできませんでした（<ph name="WEBRTC_LOG_UPLOAD_TIME" />）。</translation>
 <translation id="6459488832681039634">選択部分を検索に使用</translation>
 <translation id="6459799433792303855">アクティブなウィンドウが別のディスプレイに移動しました。</translation>
@@ -3869,6 +3870,7 @@
 <translation id="6555810572223193255">現在、クリーンアップ ツールをご利用いただけません</translation>
 <translation id="6556866813142980365">やり直す</translation>
 <translation id="6557290421156335491">カスタム ショートカット</translation>
+<translation id="6561560012278703671">静かな方法で通知する（割り込み通知を行わない）</translation>
 <translation id="6561726789132298588">Enter</translation>
 <translation id="656293578423618167">ファイルのパスまたは名前が長すぎます。名前を短くするか、別の場所に保存してください。</translation>
 <translation id="6563469144985748109">管理者がまだサイトを開くことを許可していません</translation>
@@ -4517,7 +4519,7 @@
 <translation id="7513029293694390567">保存されている認証情報を使用してウェブサイトに自動的にログインします。この機能が無効になっている場合は、ウェブサイトにログインするときに毎回確認を求められます。</translation>
 <translation id="7514239104543605883">デバイスにコピー</translation>
 <translation id="7514365320538308">ダウンロード</translation>
-<translation id="7521387064766892559">Javascript</translation>
+<translation id="7521387064766892559">JavaScript</translation>
 <translation id="7522255036471229694">「OK Google」と言ってください</translation>
 <translation id="7525067979554623046">作成</translation>
 <translation id="7529411698175791732">インターネット接続を確認してください。問題が解消しない場合は、ログアウトして再度ログインしてみてください。</translation>
@@ -4916,7 +4918,6 @@
 <translation id="8044899503464538266">遅い</translation>
 <translation id="8045253504249021590">同期は Google ダッシュボードで停止されています。</translation>
 <translation id="8045923671629973368">アプリケーション ID またはウェブストアの URL を入力します</translation>
-<translation id="8046278916126163020">初めてアクセスしたサイトは通知を表示するかどうか確認できます</translation>
 <translation id="804786196054284061">エンドユーザー使用許諾契約</translation>
 <translation id="8049705080247101012">「<ph name="EXTENSION_NAME" />」は、不正な拡張機能として認識されているためインストールされませんでした</translation>
 <translation id="8050038245906040378">Microsoft 商用コード署名</translation>

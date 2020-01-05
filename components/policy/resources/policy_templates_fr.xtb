@@ -1412,7 +1412,7 @@ Si cette règle est définie sur "False", les utilisateurs ne pourront pas jouer
 <translation id="3016255526521614822">Les applications de prise de note ajoutées à la liste blanche sont autorisées sur l'écran de verrouillage de <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3020064401262077616">Contrôle les règles de supervision parentale s'appliquant uniquement aux comptes d'utilisateurs mineurs.</translation>
 <translation id="3021562480854470924">Nombre de versions intermédiaires autorisées pour le rollback</translation>
-<translation id="3023572080620427845">URL d'un fichier XML qui contient des URL à charger dans un autre navigateur.</translation>
+<translation id="3023572080620427845">URL d'un fichier XML qui contient des URL à charger dans un navigateur secondaire.</translation>
 <translation id="3026740867910702435">Permet d'activer la fonctionnalité d'accessibilité de grand curseur sur l'écran de connexion.
 
           Si cette règle est définie sur "True", le grand curseur est toujours activé sur l'écran de connexion.
@@ -2018,9 +2018,9 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
 <translation id="3984028218719007910">Détermine si <ph name="PRODUCT_OS_NAME" /> doit conserver les données locales des comptes après la déconnexion. Si cette règle est définie sur "true", aucun compte persistant n'est conservé par <ph name="PRODUCT_OS_NAME" />. Par ailleurs, toutes les données de la session utilisateur sont supprimées après la déconnexion. Si cette règle est définie sur "false" ou si elle n'est pas configurée, l'appareil peut conserver des données utilisateur locales (chiffrées).</translation>
 <translation id="398475542699441679">Cette règle contrôle l'activation de Legacy Browser Support.
 
-      Si elle n'est pas définie, ou si elle est définie sur "false", Chrome n'essaiera pas de lancer les URL indiquées dans un autre navigateur.
+      Si elle n'est pas définie, ou si elle est définie sur "false", Chrome n'essaiera pas de lancer les URL indiquées dans un navigateur secondaire.
 
-      Si elle est définie sur "true", Chrome essaiera de lancer certaines URL dans un autre navigateur (par exemple Internet Explorer). Cette fonctionnalité est configurée à l'aide des règles du groupe <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP" />.
+      Si elle est définie sur "true", Chrome essaiera de lancer certaines URL dans un navigateur secondaire (par exemple Internet Explorer). Cette fonctionnalité est configurée à l'aide des règles du groupe <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP" />.
 
       Cette fonctionnalité remplace l'extension <ph name="LEGACY_BROWSER_SUPPORT_EXTENSION_NAME" />. La configuration définie dans l'extension sera appliquée à cette fonctionnalité, mais il est vivement conseillé de lui préférer les règles Chrome. Une meilleure compatibilité sera ainsi assurée à l'avenir.</translation>
 <translation id="3993187551086357615">Retarder les importations et les téléchargements jusqu'à ce que les résultats d'analyse soient connus</translation>
@@ -2468,6 +2468,11 @@ Si cette règle n'est pas configurée, l'utilisateur peut décider d'afficher ou
       Si cette règle est désactivée ou n'est pas définie, les sites ne sont pas autorisés à parcourir et à ouvrir une nouvelle fenêtre ou un nouvel onglet simultanément.</translation>
 <translation id="4680961954980851756">Activer la saisie automatique</translation>
 <translation id="4693779768620889402">Destinations basées sur des extensions</translation>
+<translation id="4699592681017489215">Cette règle configure un interrupteur local pouvant être utilisé pour désactiver les contrôles d'interception des requêtes DNS. Ces contrôles ont pour but de déterminer si le navigateur est situé derrière un proxy qui redirige les noms d'hôte inconnus.
+
+      Ils ne sont pas forcément nécessaires dans un environnement d'entreprise où la configuration réseau est connue, car cela engendre un certain volume de trafic DNS et HTTP au démarrage, et chaque fois que la configuration DNS change.
+
+      Si cette règle n'est pas configurée ou qu'elle est activée, les contrôles d'interception des requêtes DNS ont lieu. Si elle est explicitement désactivée, les contrôles n'ont pas lieu.</translation>
 <translation id="4703402283970867140">Activer le modèle de réduction intelligente de la luminosité pour augmenter le délai d'assombrissement de l'écran</translation>
 <translation id="4722122254122249791">Activer l'isolation des sites pour des origines définies</translation>
 <translation id="4722399051042571387">Si la règle est configurée sur "false", les utilisateurs ne pourront pas définir un code faible et facile à deviner.
@@ -2594,7 +2599,7 @@ Si cette règle n'est pas configurée, l'utilisateur peut décider d'afficher ou
 <translation id="4978405676361550165">Si la règle de désactivation OffHours est définie, les règles spécifiées relatives aux appareils sont ignorées (utilisation des paramètres par défaut de ces règles) pendant la période définie. Les règles relatives aux appareils sont de nouveau appliquées par Chrome à chaque événement lorsque la période de désactivation OffHours commence ou se termine. L'utilisateur recevra une notification, puis il sera obligé de se déconnecter à la fin de la période de désactivation OffHours et lorsque les paramètres des règles relatives aux appareils sont modifiés (par exemple, si l'utilisateur est connecté avec un compte non autorisé).</translation>
 <translation id="4980635395568992380">Type de données :</translation>
 <translation id="4980794848194997251">Permet de contrôler le traitement du contenu mixte (contenu HTTP sur les sites HTTPS) dans le navigateur.
-       Si cette règle est définie sur "True" ou si elle n'est pas configurée, le contenu mixte audio et vidéo est mis à niveau automatiquement vers HTTPS (c'est-à-dire que l'URL est réécrite pour apparaître sous la forme HTTPS, sans aucune solution de remplacement si la ressource n'est pas disponible sur HTTPS). En outre, un avertissement "Non sécurisé" s'affiche dans la barre d'URL pour les images.
+       Si cette règle est définie sur "True" ou si elle n'est pas configurée, le contenu mixte audio et vidéo est mis à niveau automatiquement vers HTTPS (c'est-à-dire que l'URL est réécrite pour apparaître sous la forme HTTPS, sans aucune solution de remplacement si la ressource n'est pas disponible via HTTPS). En outre, un avertissement "Non sécurisé" s'affiche dans la barre d'URL pour les images.
        Si cette règle est définie sur "False", le contenu audio et vidéo n'est pas mis à niveau automatiquement, et aucun avertissement ne s'affiche pour les images.
        Cette règle n'influe pas sur les types de contenus mixtes autres que les images et les contenus audio/vidéo.</translation>
 <translation id="4983201894483989687">Autoriser l'exécution de plug-ins obsolètes</translation>
@@ -2668,9 +2673,9 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
       Si cette règle indique 0, la modification du mot de passe machine est désactivée.
 
       Notez que la validité des mots de passe peut dépasser le délai spécifié en cas de mise hors connexion du client pendant une période plus longue.</translation>
-<translation id="510196893779239086">Cette règle détermine si Chrome doit être complètement fermé lorsque le dernier onglet bascule vers un autre navigateur.
+<translation id="510196893779239086">Cette règle détermine si Chrome doit être complètement fermé lorsque le dernier onglet bascule vers un navigateur secondaire.
 
-      Si elle n'est pas configurée, ou si elle est définie sur "True", Chrome laissera au moins un onglet ouvert après le passage à un autre navigateur.
+      Si elle n'est pas configurée, ou si elle est définie sur "True", Chrome laissera au moins un onglet ouvert après le passage à un navigateur secondaire.
 
       Si elle est définie sur "False", Chrome fermera l'onglet lorsque vous changez de navigateur, même s'il s'agissait du dernier onglet. Chrome sera alors fermé complètement.</translation>
 <translation id="5102203758995933166">Permet de transférer l'application de la configuration réseau par utilisateur vers un appareil utilisant <ph name="PRODUCT_OS_NAME" />. La configuration réseau correspond à une chaîne formatée par JSON conformément au format de configuration de réseau ouvert.</translation>
@@ -2978,13 +2983,13 @@ Lorsque cette règle n'est pas configurée, le paramètre par défaut utilisé c
 <translation id="546726650689747237">Délai d'assombrissement de l'écran (secteur)</translation>
 <translation id="5469143988693423708">L'utilisateur est autorisé à exécuter Crostini</translation>
 <translation id="5469825884154817306">Bloquer les images sur ces sites</translation>
-<translation id="5472668698895343595">Cette règle contrôle la liste des sites Web à ouvrir dans un autre navigateur.
+<translation id="5472668698895343595">Cette règle contrôle la liste des sites Web à ouvrir dans un navigateur secondaire.
 
       Notez que vous pouvez également ajouter des éléments à cette liste avec les règles <ph name="USE_IE_SITELIST_POLICY_NAME" /> et <ph name="EXTERNAL_SITELIST_URL_POLICY_NAME" />.
 
       Si cette règle n'est pas définie, aucun site Web n'est ajouté à la liste.
 
-      Si cette règle est définie, chaque élément est traité comme une instruction pour un élément à ouvrir dans un autre navigateur. <ph name="PRODUCT_NAME" /> utilise ces instructions pour décider si une URL doit être ouverte dans un autre navigateur ou non.
+      Si cette règle est définie, chaque élément est traité comme une instruction pour un élément à ouvrir dans un navigateur secondaire. <ph name="PRODUCT_NAME" /> utilise ces instructions pour décider si une URL doit être ouverte dans un navigateur secondaire ou non.
 
       Si le module complémentaire d'Internet Explorer est présent et activé, Internet Explorer bascule de nouveau vers <ph name="PRODUCT_NAME" /> lorsque les instructions ne concordent pas.
 
@@ -3805,6 +3810,7 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
       Consultez la page https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables pour obtenir la liste des variables pouvant être utilisées.
 
       Si cette règle n'est pas définie, le chemin de profil par défaut sera utilisé, et l'utilisateur pourra le remplacer avec l'indicateur de ligne de commande "--user-data-dir".</translation>
+<translation id="7008308728445338159">Contrôles d'interception des requêtes DNS activés</translation>
 <translation id="7027785306666625591">Configurer la gestion de l'alimentation dans <ph name="PRODUCT_OS_NAME" />
 
       Ces règles vous permettent de configurer le comportement du système d'exploitation "<ph name="PRODUCT_OS_NAME" />" lorsque l'utilisateur est inactif pendant un certain temps.</translation>
@@ -3892,7 +3898,7 @@ En cas de non-configuration de cette règle, aucune restriction ne s'applique qu
       Si vous définissez cette règle, les utilisateurs ne peuvent pas modifier la configuration. Si cette règle n'est pas définie, les utilisateurs peuvent continuer à utiliser la configuration actuelle à condition que les règles autorisent le conteneur Crostini.</translation>
 <translation id="713121532817834879">Cette règle se rapporte à une URL, qui renvoie vers un fichier XML au même format que celui de la règle <ph name="IEEM_SITELIST_POLICY" /> d'Internet Explorer. Les instructions sont ainsi chargées à partir d'un fichier XML, sans être partagées avec Internet Explorer.
 
-      Les règles de ce fichier XML s'appliquent de la même manière que pour la règle <ph name="GREYLIST_POLICY_NAME" />. C'est-à-dire que ces règles empêchent <ph name="PRODUCT_NAME" /> d'ouvrir le navigateur secondaire et empêchent le navigateur secondaire d'ouvrir <ph name="PRODUCT_NAME" />.
+      Les règles de ce fichier XML s'appliquent de la même manière que pour la règle <ph name="GREYLIST_POLICY_NAME" />. C'est-à-dire que ces règles empêchent <ph name="PRODUCT_NAME" /> d'ouvrir le navigateur secondaire et empêchent ce dernier d'ouvrir <ph name="PRODUCT_NAME" />.
 
       Si cette règle n'est pas définie, ou si elle est définie sur une URL qui n'est pas valide, <ph name="PRODUCT_NAME" /> ne l'utilise pas comme source des règles qui ne déclenchent pas un changement de navigateur.
 
@@ -4875,7 +4881,7 @@ Cette règle n'est prise en compte que si la règle "DefaultSearchProviderEnable
       Si ce paramètre est désactivé, la suppression de l'historique du navigateur et de l'historique des téléchargements n'est pas possible.</translation>
 <translation id="8749803771700374502">Si vous ajoutez des types d'imprimantes à la liste deny, vous ne pourrez plus les voir ni récupérer leurs fonctionnalités.
 
-      Lorsque vous placez tous les types d'imprimantes sur la liste deny, vous désactivez l'impression. En effet, plus aucune destination n'est alors disponible au moment d'envoyer un document pour impression.
+      Lorsque vous placez tous les types d'imprimantes sur la liste deny, vous désactivez l'impression. En effet, plus aucune destination n'est alors disponible lorsque vous envoyez un document pour impression.
 
       Inclure le type "<ph name="POLICY_ENUM_PRINTERTYPEDENYLIST_CLOUD" />" dans la liste deny revient à définir la règle "<ph name="POLICY_CLOUDPRINTSUBMITENABLED" />" sur "False". Pour que les destinations <ph name="CLOUD_PRINT_NAME" /> restent visibles, la règle "<ph name="POLICY_CLOUDPRINTSUBMITENABLED" />" doit être définie sur "True", et le type "<ph name="POLICY_ENUM_PRINTERTYPEDENYLIST_CLOUD" />" ne doit pas figurer sur la liste deny.
 

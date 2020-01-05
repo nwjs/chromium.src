@@ -779,6 +779,12 @@ ShelfBackgroundType ShelfLayoutManager::GetShelfBackgroundType() const {
   }
 
   if (maximized) {
+    // When a window is maximized, if the auto-hide shelf is enabled and we are
+    // in clamshell mode, the shelf will keep the default transparent
+    // background.
+    if (!IsTabletModeEnabled() && state_.visibility_state == SHELF_AUTO_HIDE)
+      return ShelfBackgroundType::kDefaultBg;
+
     return ShelfBackgroundType::kMaximized;
   }
 
@@ -1040,6 +1046,17 @@ gfx::Rect ShelfLayoutManager::GetNavigationBounds() const {
   return nav_bounds;
 }
 
+gfx::Rect ShelfLayoutManager::GetHotseatBounds() const {
+  gfx::Vector2d offset = target_bounds_.shelf_bounds.OffsetFromOrigin();
+  gfx::Rect hotseat_bounds = target_bounds_.hotseat_bounds_in_shelf;
+  hotseat_bounds.Offset(offset);
+  return hotseat_bounds;
+}
+
+float ShelfLayoutManager::GetOpacity() const {
+  return target_bounds_.opacity;
+}
+
 int ShelfLayoutManager::CalculateHotseatYInShelf(
     HotseatState hotseat_target_state) const {
   DCHECK(shelf_->IsHorizontalAlignment());
@@ -1290,6 +1307,7 @@ HotseatState ShelfLayoutManager::CalculateHotseatState(
 
       if (shelf_widget_->hotseat_widget()->IsExtended())
         return HotseatState::kExtended;
+
       // |drag_amount_| is relative to the top of the hotseat when the drag
       // begins with an extended hotseat. Correct for this to get
       // |total_amount_dragged|.
@@ -1458,13 +1476,9 @@ void ShelfLayoutManager::UpdateBoundsAndOpacity(
     status_widget->SetBounds(status_bounds);
 
     // Let the navigation widget handle its own layout changes.
-    nav_widget->UpdateLayout();
+    nav_widget->UpdateLayout(animate);
 
-    gfx::Vector2d hotseat_offset =
-        target_bounds_.shelf_bounds.OffsetFromOrigin();
-    gfx::Rect hotseat_bounds = target_bounds_.hotseat_bounds_in_shelf;
-    hotseat_bounds.Offset(hotseat_offset);
-    hotseat_widget->SetBounds(hotseat_bounds);
+    hotseat_widget->UpdateLayout(animate);
 
     // Do not update the work area during overview animation.
     if (!suspend_work_area_update_) {
@@ -1770,7 +1784,9 @@ void ShelfLayoutManager::UpdateTargetBoundsForGesture(
       return;
     }
 
-    const bool move_shelf_with_hotseat = visibility_state() == SHELF_AUTO_HIDE;
+    const bool move_shelf_with_hotseat =
+        !Shell::Get()->overview_controller()->InOverviewSession() &&
+        visibility_state() == SHELF_AUTO_HIDE;
     if (move_shelf_with_hotseat) {
       // Do not allow the shelf to be dragged more than |shelf_size| from the
       // bottom of the display.
@@ -2300,9 +2316,11 @@ bool ShelfLayoutManager::StartShelfDrag(
     return false;
 
   drag_status_ = kDragInProgress;
-  drag_auto_hide_state_ = visibility_state() == SHELF_AUTO_HIDE
-                              ? auto_hide_state()
-                              : SHELF_AUTO_HIDE_SHOWN;
+  drag_auto_hide_state_ =
+      (!Shell::Get()->overview_controller()->InOverviewSession() &&
+       visibility_state() == SHELF_AUTO_HIDE)
+          ? auto_hide_state()
+          : SHELF_AUTO_HIDE_SHOWN;
   MaybeSetupHotseatDrag(event_in_screen);
   if (hotseat_is_in_drag_) {
     DCHECK(!hotseat_presentation_time_recorder_);
@@ -2334,9 +2352,17 @@ void ShelfLayoutManager::MaybeSetupHotseatDrag(
     const ui::LocatedEvent& event_in_screen) {
   if (!IsHotseatEnabled())
     return;
+
   // Do not allow Hotseat dragging when the hotseat is shown within the shelf.
   if (hotseat_state() == HotseatState::kShown)
     return;
+
+  if (hotseat_is_in_drag_)
+    return;
+
+  // Make sure hotseat is stacked above other shelf control windows when the
+  // hotseat drag starts.
+  shelf_widget_->hotseat_widget()->StackAtTop();
 
   hotseat_is_in_drag_ = true;
 }
@@ -2537,6 +2563,9 @@ bool ShelfLayoutManager::ShouldChangeVisibilityAfterDrag(
   // SHELF_AUTO_HIDE_SHOWN. See details in IsVisible. Dragging on SHELF_VISIBLE
   // shelf should not change its visibility since it should be kept visible.
   if (visibility_state() == SHELF_VISIBLE)
+    return false;
+
+  if (Shell::Get()->overview_controller()->InOverviewSession())
     return false;
 
   if (event_in_screen.type() == ui::ET_GESTURE_SCROLL_END ||

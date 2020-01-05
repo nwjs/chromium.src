@@ -110,8 +110,7 @@ bool IsInShelfContainer(aura::Window* container) {
   if (!container)
     return false;
   int id = container->id();
-  if (id == ash::kShellWindowId_StatusContainer ||
-      id == ash::kShellWindowId_ShelfControlContainer ||
+  if (id == ash::kShellWindowId_ShelfControlContainer ||
       id == ash::kShellWindowId_ShelfContainer ||
       id == ash::kShellWindowId_ShelfBubbleContainer) {
     return true;
@@ -896,16 +895,15 @@ void RootWindowController::InitLayoutManagers() {
   // Make it easier to resize windows that partially overlap the shelf. Must
   // occur after the ShelfLayoutManager is constructed by ShelfWidget.
   aura::Window* shelf_container = GetContainer(kShellWindowId_ShelfContainer);
-  shelf_container->SetEventTargeter(
-      std::make_unique<ShelfWindowTargeter>(shelf_container, shelf_.get()));
+  shelf_container->SetEventTargeter(std::make_unique<ShelfWindowTargeter>(
+      shelf_container, shelf_.get(),
+      true /*extend_touch_area_for_auto_hidden_shelf*/));
   aura::Window* shelf_control_container =
       GetContainer(kShellWindowId_ShelfControlContainer);
   shelf_control_container->SetEventTargeter(
-      std::make_unique<ShelfWindowTargeter>(shelf_control_container,
-                                            shelf_.get()));
-  aura::Window* status_container = GetContainer(kShellWindowId_StatusContainer);
-  status_container->SetEventTargeter(
-      std::make_unique<ShelfWindowTargeter>(status_container, shelf_.get()));
+      std::make_unique<ShelfWindowTargeter>(
+          shelf_control_container, shelf_.get(),
+          false /*extend_touch_area_for_auto_hidden_shelf*/));
 }
 
 void RootWindowController::CreateContainers() {
@@ -1050,11 +1048,11 @@ void RootWindowController::CreateContainers() {
   lock_modal_container->SetProperty(::wm::kUsesScreenCoordinatesKey, true);
   window_util::SetChildrenUseExtendedHitRegionForWindow(lock_modal_container);
 
-  aura::Window* status_container =
-      CreateContainer(kShellWindowId_StatusContainer, "StatusContainer",
-                      lock_screen_related_containers);
-  status_container->SetProperty(::wm::kUsesScreenCoordinatesKey, true);
-  status_container->SetProperty(kLockedToRootKey, true);
+  aura::Window* overview_focus_container =
+      CreateContainer(kShellWindowId_OverviewFocusContainer,
+                      "OverviewFocusContainer", lock_screen_related_containers);
+  overview_focus_container->SetProperty(::wm::kUsesScreenCoordinatesKey, true);
+  overview_focus_container->SetProperty(kLockedToRootKey, true);
 
   aura::Window* shelf_control_container =
       CreateContainer(kShellWindowId_ShelfControlContainer,

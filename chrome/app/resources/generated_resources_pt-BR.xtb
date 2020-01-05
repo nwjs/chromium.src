@@ -1025,6 +1025,7 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="2445484935443597917">Criar um novo perfil</translation>
 <translation id="2446585455334014596"><ph name="APP_NAME" /> quer verificar sua identidade</translation>
 <translation id="2448312741937722512">Tipo</translation>
+<translation id="2448734521821581858">Os cookies são arquivos criados pelos sites que você visita. Há dois tipos de cookies: os primários são criados pelo site que você visita. Esse é o site exibido na barra de endereço. Os cookies de terceiros são criados por outros sites. Esses sites possuem uma parte do conteúdo, como anúncios ou imagens, que você vê na página da Web visitada.</translation>
 <translation id="2450223707519584812">Não é possível adicionar usuários, porque as chaves da API do Google estão ausentes. Consulte <ph name="DETAILS_URL" /> para ter mais detalhes.</translation>
 <translation id="2450849356604136918">Não há visualizações ativas</translation>
 <translation id="2451298179137331965">2x</translation>
@@ -1192,7 +1193,6 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="2665919335226618153">Ah, não! Ocorreu um erro durante a formatação.</translation>
 <translation id="2666990579225592931">Abrir janela de visitante</translation>
 <translation id="2667463864537187133">Gerenciar a verificação ortográfica</translation>
-<translation id="2669093958999339774">Impedir que prompts de notificação interrompam você e usar uma forma de mensagem mais silenciosa</translation>
 <translation id="2670102641511624474">O app <ph name="APP_NAME" /> está compartilhando uma guia do Chrome.</translation>
 <translation id="2670429602441959756">Esta página contém recursos que ainda não são compatíveis com a realidade virtual. Saindo…</translation>
 <translation id="2671451824761031126">Seus favoritos e configurações estão prontos</translation>
@@ -1965,7 +1965,6 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="37613671848467444">Abrir em &amp;janela anônima</translation>
 <translation id="3764583730281406327">{NUM_DEVICES,plural, =1{Comunicar-se com um dispositivo USB}one{Comunicar-se com # dispositivos USB}other{Comunicar-se com # dispositivos USB}}</translation>
 <translation id="3765246971671567135">Não foi possível ler a política do modo de demonstração off-line.</translation>
-<translation id="3767376082821709728">Os sites que você visita pela primeira vez não podem enviar notificações</translation>
 <translation id="3768037234834996183">Sincronizando suas preferências...</translation>
 <translation id="377050016711188788">Sorvete</translation>
 <translation id="3771294271822695279">Arquivos de vídeo</translation>
@@ -3129,6 +3128,7 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="5496587651328244253">Organizar</translation>
 <translation id="5499313591153584299">Este arquivo pode ser prejudicial para seu computador.</translation>
 <translation id="5502500733115278303">Importado do Firefox</translation>
+<translation id="5505264765875738116">Os sites não podem pedir para enviar notificações</translation>
 <translation id="5505307013568720083">Sem tinta</translation>
 <translation id="5507756662695126555">Não repúdio</translation>
 <translation id="5509693895992845810">Salvar &amp;como...</translation>
@@ -3681,6 +3681,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6267547857941397424">Rede <ph name="NETWORK_INDEX" /> de <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, intensidade do sinal em <ph name="SIGNAL_STRENGTH" />%, bateria do smartphone em <ph name="BATTERY_STATUS" />%, conectar</translation>
 <translation id="6268252012308737255">Abrir com <ph name="APP" /></translation>
 <translation id="6268718011101775129">NFC</translation>
+<translation id="6270391203985052864">Os sites podem pedir para enviar notificações</translation>
 <translation id="6270770586500173387">Enviar <ph name="BEGIN_LINK2" />métricas<ph name="END_LINK2" /> e <ph name="BEGIN_LINK1" />informações sobre o sistema e apps<ph name="END_LINK1" /></translation>
 <translation id="6272643420381259437">Ocorreu um erro (<ph name="ERROR" />) ao fazer o download do plug-in</translation>
 <translation id="6273677812470008672">Qualidade</translation>
@@ -3871,6 +3872,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6555810572223193255">A limpeza está indisponível no momento</translation>
 <translation id="6556866813142980365">Refazer</translation>
 <translation id="6557290421156335491">Meus atalhos</translation>
+<translation id="6561560012278703671">Usar mensagens mais silenciosas (bloqueia notificações que interrompem você)</translation>
 <translation id="6561726789132298588">enter</translation>
 <translation id="656293578423618167">O caminho ou nome do arquivo é muito longo. Salve com um nome mais curto ou em outro local.</translation>
 <translation id="6563469144985748109">Seu administrador ainda não o aprovou</translation>
@@ -4918,7 +4920,6 @@ Mantenha a sua chave de arquivo em um local seguro. Você precisará dela para c
 <translation id="8044899503464538266">Lento</translation>
 <translation id="8045253504249021590">A sincronização foi interrompida por meio do Painel do Google.</translation>
 <translation id="8045923671629973368">Informe o ID do aplicativo ou o URL da loja on-line</translation>
-<translation id="8046278916126163020">Os sites que você visita pela primeira vez podem pedir para enviar notificações</translation>
 <translation id="804786196054284061">Contrato de licença do usuário final</translation>
 <translation id="8049705080247101012">O Google sinalizou a extensão "<ph name="EXTENSION_NAME" />" como maliciosa e impediu a instalação</translation>
 <translation id="8050038245906040378">Assinatura do código comercial da Microsoft</translation>

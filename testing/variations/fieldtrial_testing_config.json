@@ -6539,6 +6539,25 @@
             ]
         }
     ],
+    "TextFragmentAnchor": [
+        {
+            "platforms": [
+                "android",
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled_20191216",
+                    "enable_features": [
+                        "TextFragmentAnchor"
+                    ]
+                }
+            ]
+        }
+    ],
     "ThirdPartyModulesBlocking": [
         {
             "platforms": [
@@ -6944,6 +6963,26 @@
                     "name": "Enabled",
                     "enable_features": [
                         "UseInProgressDownloadManagerForDownloadService"
+                    ]
+                }
+            ]
+        }
+    ],
+    "UseRegistrableDomainInNetworkIsolationKey": [
+        {
+            "platforms": [
+                "android",
+                "android_webview",
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "UseRegistrableDomainInNetworkIsolationKey"
                     ]
                 }
             ]

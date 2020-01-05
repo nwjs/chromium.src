@@ -259,6 +259,9 @@ class ShelfView::FadeOutAnimationDelegate : public gfx::AnimationDelegate {
     view_->layer()->ScheduleDraw();
   }
   void AnimationEnded(const Animation* animation) override {
+    // Ensures that |view| is not used after destruction.
+    shelf_view_->StopAnimatingViewIfAny(view_.get());
+
     // Remove the view which has been faded away.
     view_.reset();
 
@@ -460,6 +463,11 @@ ShelfAppButton* ShelfView::GetShelfAppButton(const ShelfID& id) {
   views::View* const view = view_model_->view_at(index);
   DCHECK_EQ(ShelfAppButton::kViewClassName, view->GetClassName());
   return static_cast<ShelfAppButton*>(view);
+}
+
+void ShelfView::StopAnimatingViewIfAny(views::View* view) {
+  if (bounds_animator_->IsAnimating(view))
+    bounds_animator_->StopAnimatingView(view);
 }
 
 bool ShelfView::ShouldHideTooltip(const gfx::Point& cursor_location) const {
@@ -2250,7 +2258,8 @@ void ShelfView::ShelfItemRemoved(int model_index, const ShelfItem& old_item) {
   if (old_item.id == context_menu_id_ && shelf_menu_model_adapter_)
     shelf_menu_model_adapter_->Cancel();
 
-  // If not moved, |view| will be deleted once out of scope.
+  // If std::move is not called on |view|, |view| will be deleted once out of
+  // scope.
   std::unique_ptr<views::View> view(view_model_->view_at(model_index));
   view_model_->Remove(model_index);
 
@@ -2280,6 +2289,13 @@ void ShelfView::ShelfItemRemoved(int model_index, const ShelfItem& old_item) {
         view.get(), std::unique_ptr<gfx::AnimationDelegate>(
                         new FadeOutAnimationDelegate(this, std::move(view))));
   } else {
+    // Ensures that |view| is not used after destruction.
+    StopAnimatingViewIfAny(view.get());
+
+    // Removes |view| to trigger ViewHierarchyChanged function in the parent
+    // view if any.
+    view.reset();
+
     // If there is no fade out animation, notify the parent view of the
     // changed size before bounds animations start.
     if (chromeos::switches::ShouldShowScrollableShelf())

@@ -555,7 +555,7 @@
 <translation id="177336675152937177">ହୋଷ୍ଟ କରାଯାଇଥିବା ଆପ୍‍ ଡାଟା</translation>
 <translation id="1776712937009046120">ଉପଯୋଗକର୍ତ୍ତାଙ୍କୁ ଯୋଗ କରନ୍ତୁ</translation>
 <translation id="1776883657531386793"><ph name="OID" />: <ph name="INFO" /></translation>
-<translation id="1777310661937894236">ଏହି ଡିଭାଇସ୍ <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> ଙ୍କ ଦ୍ୱାରା ପରିଚାଳିତ ହେଉଛି।
+<translation id="1777310661937894236">ଏହି ଡିଭାଇସ୍ <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> ଦ୍ୱାରା ପରିଚାଳିତ ହେଉଛି।
     ଆପଣଙ୍କର <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> ଆକାଉଣ୍ଟରେ ସାଇନ୍ ଇନ୍ ଜାରି ରଖିବାକୁ, ଦୟାକରି "ପରବର୍ତ୍ତୀ"ରେ କ୍ଲିକ୍ କରନ୍ତୁ।</translation>
 <translation id="1779652936965200207">ଦୟାକରି ଏହି ପାସ୍‌କୀ "<ph name="DEVICE_NAME" />"ରେ ଲେଖନ୍ତୁ</translation>
 <translation id="1780152987505130652">ଗୋଷ୍ଠୀ ବନ୍ଦ କରନ୍ତୁ</translation>
@@ -744,7 +744,7 @@
 <translation id="2048653237708779538">କାର୍ଯ୍ୟ ଉପଲବ୍ଧ ନାହିଁ</translation>
 <translation id="2050339315714019657">ପୋଟ୍ରେଟ୍‌</translation>
 <translation id="2053312383184521053">ନିଷ୍କ୍ରିୟ ସ୍ଥିତିରେ ଥିବା ଡାଟା</translation>
-<translation id="2055585478631012616">ଖୋଲା ଥିବା ଟାବ୍‍ଗୁଡ଼ିକ ସହିତ, ଆପଣଙ୍କୁ ଏହି ସାଇଟ୍‍ଗୁଡ଼ିକରୁ ସାଇନ୍ ଆଉଟ୍ କରିଦିଆଯିବ</translation>
+<translation id="2055585478631012616">ଖୋଲାଥିବା ଟାବ୍‌ଗୁଡ଼ିକ ସମେତ ଆପଣ ଏହି ସାଇଟ୍‌ଗୁଡ଼ିକରୁ ସାଇନ୍ ଆଉଟ୍ ହୋଇଯିବେ।</translation>
 <translation id="205560151218727633">Google ଆସିଷ୍ଟାଣ୍ଟ ଲୋଗୋ</translation>
 <translation id="2058456167109518507">ଡିଭାଇସ୍ ଚିହ୍ନଟ କରାଯାଇଛି</translation>
 <translation id="2059913712424898428">ସମୟ କ୍ଷେତ୍ର</translation>
@@ -1020,6 +1020,7 @@
 <translation id="2445484935443597917">ଗୋଟିଏ ନୂତନ ପ୍ରୋଫାଇଲ୍ ତିଆରି କରନ୍ତୁ</translation>
 <translation id="2446585455334014596"><ph name="APP_NAME" /> ଆପଣଙ୍କର ପରିଚୟ ଯାଞ୍ଚ କରିବାକୁ ଚାହୁଁଛି</translation>
 <translation id="2448312741937722512">ପ୍ରକାର</translation>
+<translation id="2448734521821581858">କୁକୀଗୁଡ଼ିକ ସେହି ଫାଇଲ୍ ଯାହା ଆପଣ ଯାଉଥିବା ୱେବ୍‌ସାଇଟ୍‌ଗୁଡ଼ିକ ଦ୍ୱାରା ତିଆରି କରାଯାଇଛି। କୁକୀଗୁଡ଼ିକ ଦୁଇ ପ୍ରକାରର ଅଟେ: ପ୍ରଥମ-ପକ୍ଷ କୁକୀଗୁଡ଼ିକ ଯାହା ଆପଣ ଯାଉଥିବା ୱେବ୍‌ସାଇଟ୍‌ଗୁଡ଼ିକ ଦ୍ୱାରା ତିଆରି କରାଯାଇଛି। ଠିକଣା ବାର୍‍‍ରେ ସାଇଟ୍‌ ଦେଖାଯାଇଛି। ଅନ୍ୟ ସାଇଟ୍‌ଗୁଡ଼ିକ ଦ୍ୱାରା ତୃତୀୟ-ପକ୍ଷ କୁକୀଗୁଡ଼ିକ ତିଆରି କରାଯାଇଛି। ଏହି ସାଇଟ୍‌ଗୁଡ଼ିକରେ ବିଜ୍ଞାପନ କିମ୍ବା ଛବି ପରି କିଛି ବିଷୟବସ୍ତୁ ଅଛି, ଯାହାକୁ ଆପଣ ଯାଉଥିବା ୱେବ୍‌ସାଇଟ୍‌ରେ ଦେଖନ୍ତି।</translation>
 <translation id="2450223707519584812">ଆପଣ ଉପଯୋଗକର୍ତ୍ତାଙ୍କୁ ଯୋଗ କରିବାରେ ସକ୍ଷମ ହେବେ ନାହିଁ, କାରଣ Google API କୀଗୁଡ଼ିକ ମିଳୁନାହିଁ। ସବିଶେଷ ବିବରଣୀ ପାଇଁ <ph name="DETAILS_URL" /> ଦେଖନ୍ତୁ।</translation>
 <translation id="2450849356604136918">କୌଣସି ସକ୍ରିୟ ଭ୍ୟୁ ନାହିଁ</translation>
 <translation id="2451298179137331965">2x</translation>
@@ -1187,7 +1188,6 @@
 <translation id="2665919335226618153">ଇସ୍‍, କିଛି ଭୁଲ୍ ହୋଇଛି! ଫର୍ମାଟ୍ କରିବା ସମୟରେ କିଛି ତ୍ରୁଟି ହୋଇଛି।</translation>
 <translation id="2666990579225592931">ଅତିଥି ୱିଣ୍ଡୋ ଖୋଲନ୍ତୁ</translation>
 <translation id="2667463864537187133">ବନାନ ଯାଞ୍ଚ ପରିଚାଳନ କରନ୍ତୁ</translation>
-<translation id="2669093958999339774">ଆପଣଙ୍କ ପାଇଁ ବାଧା ସୃଷ୍ଟି କରିବାରୁ ବିଜ୍ଞପ୍ତି ପ୍ରମ୍ପ୍ଟଗୁଡ଼ିକ ବ୍ଲକ୍ କରନ୍ତୁ ଏବଂ ଏହା ପରିବର୍ତ୍ତେ ଏକ ନୀରବ ମେସେଜ୍ ବ୍ୟବହାର କରନ୍ତୁ</translation>
 <translation id="2670102641511624474"><ph name="APP_NAME" /> ଏକ Chrome ଟାବ୍‌ ସେୟାର୍‌ କରୁଛି।</translation>
 <translation id="2670429602441959756">ଏହି ପୃଷ୍ଠାରେ ଥିବା ବୈଶିଷ୍ଟ୍ୟଗୁଡ଼ିକ, ଏପର୍ଯ୍ୟନ୍ତ ସୁଦ୍ଧା VRରେ ସମର୍ଥିତ ନୁହେଁ। ବାହାରି ଯାଉଛି...</translation>
 <translation id="2671451824761031126">ଆପଣଙ୍କର ବୁକ୍‌ମାର୍କସ୍ ଏବଂ ସେଟିଂସ୍ ପ୍ରସ୍ତୁତ ଅଛି</translation>
@@ -1287,7 +1287,7 @@
 <translation id="2800760947029405028">ଏକ ଛବି ଅପଲୋଡ୍ କରନ୍ତୁ</translation>
 <translation id="2803375539583399270">PIN ଲେଖନ୍ତୁ</translation>
 <translation id="2804043232879091219">ବିକଳ୍ପ ବ୍ରାଉଜର୍ ଖୋଲାଯାଇପାରିଲା ନାହିଁ</translation>
-<translation id="2804667941345577550">ଖୋଲା ଥିବା ଟାବ୍‍ଗୁଡ଼ିକ ସହିତ, ଆପଣଙ୍କୁ ଏହି ସାଇଟ୍‍ରୁ ସାଇନ୍ ଆଉଟ୍ କରିଦିଆଯିବ</translation>
+<translation id="2804667941345577550">ଖୋଲାଥିବା ଟାବ୍‌ଗୁଡ଼ିକ ସମେତ ଆପଣ ଏହି ସାଇଟ୍‌ରୁ ସାଇନ୍ ଆଉଟ୍ ହୋଇଯିବେ।</translation>
 <translation id="2804680522274557040">କ୍ୟାମେରା ବନ୍ଦ କରାଯାଇଛି</translation>
 <translation id="2805646850212350655">Microsoft ଏନ୍‌କ୍ରିପ୍ଟିଂ ଫାଇଲ୍ ସିଷ୍ଟମ୍</translation>
 <translation id="2805756323405976993">ଆପ୍ସ</translation>
@@ -1960,7 +1960,6 @@
 <translation id="37613671848467444">&amp;ଇନ୍‌କଗ୍ନିଟୋ ୱିଣ୍ଡୋରେ ଖୋଲନ୍ତୁ</translation>
 <translation id="3764583730281406327">{NUM_DEVICES,plural, =1{ଏକ USB ଡିଭାଇସ୍ ସହିତ ଯୋଗାଯୋଗ କରନ୍ତୁ}other{#ଟି USB ଡିଭାଇସ୍ ସହିତ ଯୋଗାଯୋଗ କରନ୍ତୁ}}</translation>
 <translation id="3765246971671567135">ଅଫ୍‌ଲାଇନ୍‌ ଡେମୋ ମୋଡ୍‌ ନୀତି ପଢାଯାଇପାରିଲା ନାହିଁ।</translation>
-<translation id="3767376082821709728">ଆପଣ ଯାଉଥିବା ନୂଆ ସାଇଟ୍‍ଗୁଡ଼ିକ ଆପଣଙ୍କୁ ବିଜ୍ଞପ୍ତିଗୁଡ଼ିକ ପଠାଇ ପାରିବେ ନାହିଁ</translation>
 <translation id="3768037234834996183">ଆପଣଙ୍କ ଅଗ୍ରାଧିକାରଗୁଡ଼ିକ ସିଙ୍କ୍ ହେଉଛି...</translation>
 <translation id="377050016711188788">ଆଇସ୍‌କ୍ରିମ୍</translation>
 <translation id="3771294271822695279">ଭିଡିଓ ଫାଇଲ୍‌ଗୁଡ଼ିକ</translation>
@@ -2568,7 +2567,7 @@
 <translation id="4665446389743427678"><ph name="SITE" /> ଦ୍ୱାରା ଷ୍ଟୋର୍‌ କରାଯାଇଥିବା ସମସ୍ତ ଡାଟା ଡିଲିଟ୍‌ କରାଯିବ।</translation>
 <translation id="4668721319092543482"><ph name="PLUGIN_NAME" />କୁ ସକ୍ଷମ କରିବା ପାଇଁ କ୍ଲିକ୍ କରନ୍ତୁ</translation>
 <translation id="4672657274720418656">ଶୁଦ୍ଧ ପୃଷ୍ଠା</translation>
-<translation id="46733273239502219">ଇନଷ୍ଟଲ୍ କରାଯାଇଥିବା ଆପ୍‍ଗୁଡ଼ିକରୁ ଅଫ୍‍ଲାଇନ୍ ଡାଟା ଖାଲି କରାଯିବ</translation>
+<translation id="46733273239502219">ଇନଷ୍ଟଲ୍ କରାଯାଇଥିବା ଆପ୍‍ଗୁଡ଼ିକରୁ ଅଫ୍‍ଲାଇନ୍ ଡାଟା ମଧ୍ୟ ଖାଲି କରାଯିବ</translation>
 <translation id="4673442866648850031">ଷ୍ଟାଇଲସ୍ ବାହାର କରିବା ସମୟରେ ଷ୍ଟାଇଲସ୍ ଟୁଲ୍ ଖୋଲନ୍ତୁ</translation>
 <translation id="4677585247300749148"><ph name="URL" /> ଆକ୍ସେସିବିଲିଟୀ ଇଭେଣ୍ଟକୁ ପ୍ରତିକ୍ରିୟା ଦେବାକୁ ଚାହୁଁଛି</translation>
 <translation id="4677772697204437347">GPU ମେମୋରୀ</translation>
@@ -3123,6 +3122,7 @@
 <translation id="5496587651328244253">ଆୟୋଜିତ</translation>
 <translation id="5499313591153584299">ଏହି ଫାଇଲ୍ ଆପଣଙ୍କର କମ୍ପ୍ୟୁଟର୍ ପାଇଁ କ୍ଷତିକାରକ ହୋଇପାରେ।</translation>
 <translation id="5502500733115278303">Firefox ରୁ ଆମଦାନି କରାଗଲା</translation>
+<translation id="5505264765875738116">ବିଜ୍ଞପ୍ତିଗୁଡ଼ିକୁ ପଠାଇବାକୁ ସାଇଟ୍‌ଗୁଡ଼ିକ ପଚାରିପାରିବେ ନାହିଁ</translation>
 <translation id="5505307013568720083">ସ୍ୟାହୀ ଶେଷ ହୋଇଯାଇଛି</translation>
 <translation id="5507756662695126555">ସ୍ୱୀକାର କରିବା</translation>
 <translation id="5509693895992845810">ଏହି &amp;ରୂପେ ସେଭ୍ କରନ୍ତୁ...</translation>
@@ -3673,6 +3673,7 @@
 <translation id="6267547857941397424"><ph name="NETWORK_COUNT" />ଟିର <ph name="NETWORK_INDEX" /> ନେଟ୍‌ୱାର୍କ, <ph name="PHONE_NAME" />, ସିଗ୍‍ନାଲ୍‍ର କ୍ଷମତା <ph name="SIGNAL_STRENGTH" />%, ଫୋନ୍‌ ବ୍ୟାଟେରୀ <ph name="BATTERY_STATUS" />%, ସଂଯୋଗ କରନ୍ତୁ</translation>
 <translation id="6268252012308737255"><ph name="APP" />ରେ ଖୋଲନ୍ତୁ</translation>
 <translation id="6268718011101775129">NFC</translation>
+<translation id="6270391203985052864">ବିଜ୍ଞପ୍ତିଗୁଡ଼ିକୁ ପଠାଇବାକୁ ସାଇଟ୍‌ଗୁଡ଼ିକ ପଚାରିପାରିବେ</translation>
 <translation id="6270770586500173387"><ph name="BEGIN_LINK1" />ସିଷ୍ଟମ୍‌ ଏବଂ ଆପ୍‌ ସୂଚନା <ph name="END_LINK1" /> ଏବଂ <ph name="BEGIN_LINK2" />ମେଟ୍ରିକ୍ସ<ph name="END_LINK2" /> ପଠାନ୍ତୁ</translation>
 <translation id="6272643420381259437">ପ୍ଲଗ୍‌ଇନ୍ ଡାଉନ୍‌ଲୋଡ୍ କରିବା ସମୟରେ ଏକ ତ୍ରୁଟି (<ph name="ERROR" />) ଦେଖାଯାଇଥିଲା</translation>
 <translation id="6273677812470008672">ଗୁଣବତ୍ତା</translation>
@@ -3864,6 +3865,7 @@ Google Chrome ଆପଣଙ୍କ ମୋବାଇଲ୍ ଡାଟା ବ୍ୟବ
 <translation id="6555810572223193255">ବର୍ତ୍ତମାନ ’କ୍ଲିନ୍‍ଅପ୍’ ଉପଲବ୍ଧ ନାହିଁ</translation>
 <translation id="6556866813142980365">ରି-ଡୁ କରନ୍ତୁ</translation>
 <translation id="6557290421156335491">ମୋର ସର୍ଟକଟ୍‌ଗୁଡ଼ିକ</translation>
+<translation id="6561560012278703671">’କ୍ୱାଇଟର୍ ମେସେଜିଂ’ ବ୍ୟବହାର କରନ୍ତୁ (ଆପଣଙ୍କୁ ବାଧା ଦେବାରୁ ବିଜ୍ଞପ୍ତି ପ୍ରମ୍ପ୍ଟଗୁଡ଼ିକୁ ବ୍ଲକ୍ କରେ)</translation>
 <translation id="6561726789132298588">ଏଣ୍ଟର୍</translation>
 <translation id="656293578423618167">ଫାଇଲ୍‌ର ପାଥ୍‍ କିମ୍ବା ନାମ ବହୁତ ଲମ୍ବା ଅଟେ।  ଦୟାକରି ଛୋଟ ନାମରେ କିମ୍ବା ଅନ୍ୟ ଏକ ଲୋକେସନ୍‌ରେ ସେଭ୍‌ କରନ୍ତୁ।</translation>
 <translation id="6563469144985748109">ଏପର୍ଯ୍ୟନ୍ତସୁଦ୍ଧା ଆପଣଙ୍କର ପରିଚାଳକ ଏହାକୁ ଅନୁମୋଦିତ କରିନାହାନ୍ତି</translation>
@@ -4910,7 +4912,6 @@ Google Chrome ଆପଣଙ୍କ ମୋବାଇଲ୍ ଡାଟା ବ୍ୟବ
 <translation id="8044899503464538266">ଧୀର</translation>
 <translation id="8045253504249021590">Google ଡ୍ୟାସ୍‍‍ବୋର୍ଡ ମାଧ୍ୟମରେ ସିଙ୍କକୁ ବନ୍ଦ କରାଯାଇଛି।</translation>
 <translation id="8045923671629973368">ଆପ୍ଲିକେସନ୍ ID କିମ୍ୱା ୱେବ୍‌ଷ୍ଟୋର୍ URL ଲେଖନ୍ତୁ</translation>
-<translation id="8046278916126163020">ଆପଣ ଯାଉଥିବା ନୂଆ ସାଇଟ୍‍ଗୁଡ଼ିକ ଆପଣଙ୍କୁ ବିଜ୍ଞପ୍ତିଗୁଡ଼ିକ ପଠାଇବାକୁ କହିପାରନ୍ତି</translation>
 <translation id="804786196054284061">ଅନ୍ତିମ ଉପଯୋଗକର୍ତ୍ତା ଲାଇସେନ୍ସ ଚୁକ୍ତି</translation>
 <translation id="8049705080247101012">Google "<ph name="EXTENSION_NAME" />"କୁ କ୍ଷତିକାରକ ରୂପେ ଫ୍ଲାଗ୍ କରିଛି ଏବଂ ଇନ୍‌ଷ୍ଟଲେସନ୍ ବାଧିତ ହୋଇଛି</translation>
 <translation id="8050038245906040378">Microsoft ବାଣିଜ୍ୟ କୋଡ୍‌ ସ୍ୱାକ୍ଷର</translation>

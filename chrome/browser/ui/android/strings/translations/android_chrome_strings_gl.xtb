@@ -232,7 +232,6 @@
 <translation id="2650751991977523696">Queres volver descargar o ficheiro?</translation>
 <translation id="2651091186440431324">{FILE_COUNT,plural, =1{# ficheiro de audio}other{# ficheiros de audio}}</translation>
 <translation id="2653659639078652383">Enviar</translation>
-<translation id="2669093958999339774">Impedir solicitudes de notificacións para evitar interrupcións e así utilizar mensaxes máis discretas</translation>
 <translation id="2677748264148917807">Saír</translation>
 <translation id="2704606927547763573">Copiada</translation>
 <translation id="2707726405694321444">Actualiza páxina</translation>
@@ -367,7 +366,6 @@
 <translation id="3739899004075612870">Engadiuse aos marcadores en <ph name="PRODUCT_NAME" /></translation>
 <translation id="3744111561329211289">Sincronización en segundo plano</translation>
 <translation id="3749259744154402564">Acción non admitida</translation>
-<translation id="3767376082821709728">Os sitios aos que accedas por primeira vez non che poden enviar notificacións</translation>
 <translation id="3771001275138982843">Non se puido descargar a actualización</translation>
 <translation id="3771033907050503522">Pestanas de incógnito</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />Activa o Bluetooth<ph name="END_LINK" /> para permitir a sincronización</translation>
@@ -606,6 +604,7 @@ Para cambiar esta opción de configuración, deberás <ph name="BEGIN_LINK" />re
 <translation id="5487521232677179737">Borrar datos</translation>
 <translation id="5494752089476963479">Bloquear anuncios en sitios que mostran anuncios enganosos ou intrusivos</translation>
 <translation id="5500777121964041360">É posible que non estea dispoñible na túa localización</translation>
+<translation id="5505264765875738116">Os sitios non poden pedir permiso para enviar notificacións</translation>
 <translation id="5512137114520586844"><ph name="PARENT_NAME" /> xestiona esta conta.</translation>
 <translation id="5514904542973294328">Desactivado polo administrador deste dispositivo</translation>
 <translation id="5515439363601853141">Desbloquea a pantalla para ver o teu contrasinal</translation>
@@ -712,6 +711,7 @@ Para cambiar esta opción de configuración, deberás <ph name="BEGIN_LINK" />re
 Por exemplo, algúns sitios web poden responder a esta solicitude mostrándoche anuncios que non estean baseados noutros sitios web que visitases. Moitos sitios web seguirán recompilando e utilizando os teus datos de navegación para, por exemplo, mellorar a seguranza, fornecer contido, anuncios e recomendacións e para crear estatísticas de informes.</translation>
 <translation id="624789221780392884">Actualización lista</translation>
 <translation id="6255999984061454636">Suxestións de contido</translation>
+<translation id="6270391203985052864">Os sitios poden pedir permiso para enviar notificacións</translation>
 <translation id="6277522088822131679">Produciuse un problema ao imprimir a páxina. Téntao de novo.</translation>
 <translation id="6295158916970320988">Todos os sitios</translation>
 <translation id="629730747756840877">Conta</translation>
@@ -756,6 +756,7 @@ Por exemplo, algúns sitios web poden responder a esta solicitude mostrándoche 
 <translation id="6545864417968258051">Busca de dispositivos Bluetooth</translation>
 <translation id="6560414384669816528">Buscar con Sogou</translation>
 <translation id="656065428026159829">Ver máis</translation>
+<translation id="6561560012278703671">Utilizar mensaxaría máis silenciosa (impide que as notificacións te interrompan)</translation>
 <translation id="6566259936974865419">Chrome permitiuche aforrar <ph name="GIGABYTES" /> GB</translation>
 <translation id="6573096386450695060">Permitir sempre</translation>
 <translation id="6573431926118603307">Aquí aparecerán as pestanas que abrises en Chrome noutros dispositivos.</translation>
@@ -959,7 +960,6 @@ O sitio NON terá acceso á cámara. As imaxes da cámara só poderás velas ti.
 <translation id="8035133914807600019">Cartafol novo...</translation>
 <translation id="8037750541064988519">Quedan <ph name="DAYS" /> días</translation>
 <translation id="804335162455518893">Non se atopou a tarxeta SD</translation>
-<translation id="8046278916126163020">Os sitios aos que accedas por primeira vez poden solicitar enviarche notificacións</translation>
 <translation id="805047784848435650">Suxestións baseadas no teu historial de navegación</translation>
 <translation id="8051695050440594747">Almacenamento dispoñible: <ph name="MEGABYTES" /> MB</translation>
 <translation id="8058746566562539958">Abrir na pestana de Chrome</translation>

@@ -6,6 +6,8 @@ package org.chromium.chrome.features.start_surface;
 
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_FAKE_SEARCH_BOX_VISIBLE;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_INCOGNITO;
+import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_INCOGNITO_DESCRIPTION_INITIALIZED;
+import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_INCOGNITO_DESCRIPTION_VISIBLE;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_TAB_CAROUSEL_VISIBLE;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.IS_VOICE_RECOGNITION_BUTTON_VISIBLE;
 import static org.chromium.chrome.browser.tasks.TasksSurfaceProperties.MORE_TABS_CLICK_LISTENER;
@@ -32,6 +34,7 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeState;
 import org.chromium.chrome.browser.feed.FeedSurfaceCoordinator;
+import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
 import org.chromium.chrome.browser.ntp.FakeboxDelegate;
 import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
@@ -104,13 +107,14 @@ class StartSurfaceMediator
     private TabModelObserver mNormalTabModelObserver;
     @Nullable
     private TabModelSelectorObserver mTabModelSelectorObserver;
+    private FullscreenManager mFullScreenManager;
 
     StartSurfaceMediator(TabSwitcher.Controller controller, TabModelSelector tabModelSelector,
             @Nullable PropertyModel propertyModel,
             @Nullable ExploreSurfaceCoordinator.FeedSurfaceCreator feedSurfaceCreator,
             @Nullable SecondaryTasksSurfaceInitializer secondaryTasksSurfaceInitializer,
             @SurfaceMode int surfaceMode, @Nullable FakeboxDelegate fakeboxDelegate,
-            NightModeStateProvider nightModeStateProvider) {
+            NightModeStateProvider nightModeStateProvider, FullscreenManager fullscreenManager) {
         mController = controller;
         mTabModelSelector = tabModelSelector;
         mPropertyModel = propertyModel;
@@ -119,6 +123,7 @@ class StartSurfaceMediator
         mSurfaceMode = surfaceMode;
         mFakeboxDelegate = fakeboxDelegate;
         mNightModeStateProvider = nightModeStateProvider;
+        mFullScreenManager = fullscreenManager;
 
         if (mPropertyModel != null) {
             assert mSurfaceMode == SurfaceMode.SINGLE_PANE || mSurfaceMode == SurfaceMode.TWO_PANES
@@ -170,13 +175,16 @@ class StartSurfaceMediator
                 mNormalTabModelObserver = new EmptyTabModelObserver() {
                     @Override
                     public void willCloseTab(Tab tab, boolean animate) {
-                        if (mNormalTabModel.getCount() <= 1) {
+                        if (mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE
+                                && mNormalTabModel.getCount() <= 1) {
                             setTabCarouselVisibility(false);
                         }
                     }
                     @Override
                     public void tabClosureUndone(Tab tab) {
-                        setTabCarouselVisibility(true);
+                        if (mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE) {
+                            setTabCarouselVisibility(true);
+                        }
                     }
                 };
             }
@@ -195,14 +203,13 @@ class StartSurfaceMediator
             mUrlFocusChangeListener = new UrlFocusChangeListener() {
                 @Override
                 public void onUrlFocusChange(boolean hasFocus) {
-                    // No fake search box on the explore pane in two panes mode.
-                    if (mSurfaceMode != SurfaceMode.TWO_PANES
-                            || !mPropertyModel.get(IS_EXPLORE_SURFACE_VISIBLE)) {
-                        mPropertyModel.set(IS_FAKE_SEARCH_BOX_VISIBLE, !hasFocus);
-                    }
-                    if (mPropertyModel.get(IS_SECONDARY_SURFACE_VISIBLE)) {
-                        mSecondaryTasksSurfacePropertyModel.set(
-                                IS_FAKE_SEARCH_BOX_VISIBLE, !hasFocus);
+                    if (hasFakeSearchBox()) {
+                        if (mPropertyModel.get(IS_SECONDARY_SURFACE_VISIBLE)) {
+                            mSecondaryTasksSurfacePropertyModel.set(
+                                    IS_FAKE_SEARCH_BOX_VISIBLE, !hasFocus);
+                        } else {
+                            setFakeBoxVisibility(!hasFocus);
+                        }
                     }
                     notifyStateChange();
                 }
@@ -237,24 +244,30 @@ class StartSurfaceMediator
         if (state == mOverviewModeState) return;
 
         mOverviewModeState = state;
-        setOverviewStateInternal(mOverviewModeState);
+        setOverviewStateInternal();
         notifyStateChange();
     }
 
-    private void setOverviewStateInternal(@OverviewModeState int newState) {
-        if (newState == OverviewModeState.SHOWN_HOMEPAGE) {
+    private void setOverviewStateInternal() {
+        if (mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE) {
             RecordUserAction.record("StartSurface.SinglePane");
             setExploreSurfaceVisibility(!mIsIncognito);
             setTabCarouselVisibility(
                     mTabModelSelector.getModel(false).getCount() > 0 && !mIsIncognito);
             setMVTilesVisibility(!mIsIncognito);
+            setFakeBoxVisibility(!mIsIncognito);
             setSecondaryTasksSurfaceVisibility(mIsIncognito);
+
+            // Only pad single pane home page since tabs grid has already been padding for the
+            // bottom bar.
+            mPropertyModel.set(BOTTOM_BAR_HEIGHT, mFullScreenManager.getBottomControlsHeight());
             mNormalTabModel.addObserver(mNormalTabModelObserver);
 
         } else if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER) {
             setExploreSurfaceVisibility(false);
             setTabCarouselVisibility(false);
             setMVTilesVisibility(false);
+            setFakeBoxVisibility(false);
             setSecondaryTasksSurfaceVisibility(true);
         } else if (mOverviewModeState == OverviewModeState.SHOWN_TWO_PANES) {
             RecordUserAction.record("StartSurface.TwoPanes");
@@ -278,8 +291,14 @@ class StartSurfaceMediator
             RecordUserAction.record("StartSurface.TasksOnly");
             setMVTilesVisibility(!mIsIncognito);
             setExploreSurfaceVisibility(false);
+            setFakeBoxVisibility(true);
         } else if (mOverviewModeState == OverviewModeState.NOT_SHOWN) {
             if (mSecondaryTasksSurfaceController != null) setSecondaryTasksSurfaceVisibility(false);
+        }
+
+        if (mOverviewModeState != OverviewModeState.NOT_SHOWN) {
+            setIncognitoModeDescriptionVisibility(
+                    mIsIncognito && mTabModelSelector.getModel(true).getCount() <= 0);
         }
     }
 
@@ -301,7 +320,6 @@ class StartSurfaceMediator
 
     @Override
     public void hideOverview(boolean animate) {
-        setOverviewState(OverviewModeState.NOT_SHOWN);
         mController.hideOverview(animate);
     }
 
@@ -448,18 +466,8 @@ class StartSurfaceMediator
         if (isIncognito == mIsIncognito) return;
         mIsIncognito = isIncognito;
 
-        // This is because LocationBarVoiceRecognitionHandler monitors incognito mode and returns
-        // false in incognito mode. However, when switching incognito mode, this class is notified
-        // earlier than the LocationBarVoiceRecognitionHandler, so isVoiceSearchEnabled returns
-        // incorrect state if check synchronously.
-        ThreadUtils.postOnUiThread(() -> {
-            mPropertyModel.set(IS_VOICE_RECOGNITION_BUTTON_VISIBLE,
-                    mFakeboxDelegate.getLocationBarVoiceRecognitionHandler()
-                            .isVoiceSearchEnabled());
-        });
-
         mPropertyModel.set(IS_INCOGNITO, mIsIncognito);
-        setOverviewStateInternal(mOverviewModeState);
+        setOverviewStateInternal();
 
         // TODO(crbug.com/1021399): This looks not needed since there is no way to change incognito
         // mode when focusing on the omnibox and incognito mode change won't affect the visibility
@@ -491,27 +499,36 @@ class StartSurfaceMediator
         }
     }
 
-    private boolean shouldShowTabSwitcherToolbar() {
-        // Do not show Tab switcher toolbar on explore pane.
+    private boolean hasFakeSearchBox() {
+        // No fake search box on the explore pane in two panes mode.
+        if (mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE
+                || mOverviewModeState == OverviewModeState.SHOWN_TASKS_ONLY
+                || (mOverviewModeState == OverviewModeState.SHOWN_TWO_PANES
+                        && !mPropertyModel.get(IS_EXPLORE_SURFACE_VISIBLE))) {
+            return true;
+        }
+        return false;
+    }
+
+    @VisibleForTesting
+    public boolean shouldShowTabSwitcherToolbar() {
+        // Always show in TABSWITCHER
+        if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER) return true;
+
+        // Never show on explore pane.
         if (mOverviewModeState == OverviewModeState.SHOWN_TWO_PANES
                 && mPropertyModel.get(IS_EXPLORE_SURFACE_VISIBLE)) {
             return false;
         }
 
-        // Do not show Tab switcher toolbar when focusing the Omnibox.
-        return mPropertyModel.get(IS_FAKE_SEARCH_BOX_VISIBLE);
+        // Hide when focusing the Omnibox.
+        return (mPropertyModel.get(IS_SECONDARY_SURFACE_VISIBLE)
+                        ? mSecondaryTasksSurfacePropertyModel.get(IS_FAKE_SEARCH_BOX_VISIBLE)
+                        : mPropertyModel.get(IS_FAKE_SEARCH_BOX_VISIBLE));
     }
 
     private void setTabCarouselVisibility(boolean isVisible) {
-
         if (isVisible == mPropertyModel.get(IS_TAB_CAROUSEL_VISIBLE)) return;
-
-        // Hide the more Tabs view when the last Tab is closed.
-        if (!isVisible && mSecondaryTasksSurfaceController != null
-                && mSecondaryTasksSurfaceController.overviewVisible()) {
-            setSecondaryTasksSurfaceVisibility(false);
-            setExploreSurfaceVisibility(true);
-        }
 
         mPropertyModel.set(IS_TAB_CAROUSEL_VISIBLE, isVisible);
     }
@@ -521,8 +538,38 @@ class StartSurfaceMediator
         mPropertyModel.set(MV_TILES_VISIBLE, isVisible);
     }
 
+    private void setFakeBoxVisibility(boolean isVisible) {
+        if (mPropertyModel == null) return;
+        mPropertyModel.set(IS_FAKE_SEARCH_BOX_VISIBLE, isVisible);
+
+        // This is because LocationBarVoiceRecognitionHandler monitors incognito mode and returns
+        // false in incognito mode. However, when switching incognito mode, this class is notified
+        // earlier than the LocationBarVoiceRecognitionHandler, so isVoiceSearchEnabled returns
+        // incorrect state if check synchronously.
+        ThreadUtils.postOnUiThread(() -> {
+            mPropertyModel.set(IS_VOICE_RECOGNITION_BUTTON_VISIBLE,
+                    mFakeboxDelegate.getLocationBarVoiceRecognitionHandler()
+                            .isVoiceSearchEnabled());
+        });
+    }
+
+    private void setIncognitoModeDescriptionVisibility(boolean isVisible) {
+        if (isVisible == mPropertyModel.get(IS_INCOGNITO_DESCRIPTION_VISIBLE)) return;
+
+        if (!mPropertyModel.get(IS_INCOGNITO_DESCRIPTION_INITIALIZED)) {
+            mPropertyModel.set(IS_INCOGNITO_DESCRIPTION_INITIALIZED, true);
+        }
+        mPropertyModel.set(IS_INCOGNITO_DESCRIPTION_VISIBLE, isVisible);
+        if (mSecondaryTasksSurfacePropertyModel != null) {
+            if (!mSecondaryTasksSurfacePropertyModel.get(IS_INCOGNITO_DESCRIPTION_INITIALIZED)) {
+                mSecondaryTasksSurfacePropertyModel.set(IS_INCOGNITO_DESCRIPTION_INITIALIZED, true);
+            }
+            mSecondaryTasksSurfacePropertyModel.set(IS_INCOGNITO_DESCRIPTION_VISIBLE, isVisible);
+        }
+    }
+
     @OverviewModeState
-    public int computeOverviewStateShown() {
+    private int computeOverviewStateShown() {
         if (mSurfaceMode == SurfaceMode.SINGLE_PANE) return OverviewModeState.SHOWN_HOMEPAGE;
         if (mSurfaceMode == SurfaceMode.TWO_PANES) return OverviewModeState.SHOWN_TWO_PANES;
         if (mSurfaceMode == SurfaceMode.TASKS_ONLY) return OverviewModeState.SHOWN_TASKS_ONLY;

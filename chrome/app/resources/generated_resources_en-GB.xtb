@@ -1025,6 +1025,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="2445484935443597917">Create a New Profile</translation>
 <translation id="2446585455334014596"><ph name="APP_NAME" /> wants to verify your identity</translation>
 <translation id="2448312741937722512">Types</translation>
+<translation id="2448734521821581858">Cookies are files created by websites that you visit. There are two types of cookies: first-party cookies are created by the site that you visit. The site is shown on the address bar. Third-party cookies are created by other sites. These sites own some of the content, like ads or images, that you see on the website that you visit.</translation>
 <translation id="2450223707519584812">You will not be able to add users because Google API keys are missing. See <ph name="DETAILS_URL" /> for details.</translation>
 <translation id="2450849356604136918">No active views</translation>
 <translation id="2451298179137331965">2x</translation>
@@ -1192,7 +1193,6 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="2665919335226618153">Oh no! There was an error during formatting.</translation>
 <translation id="2666990579225592931">Open Guest window</translation>
 <translation id="2667463864537187133">Manage spell check</translation>
-<translation id="2669093958999339774">Block notification prompts from interrupting you, and use a quieter message instead</translation>
 <translation id="2670102641511624474"><ph name="APP_NAME" /> is sharing a Chrome tab.</translation>
 <translation id="2670429602441959756">This page contains features not yet supported in VR. Exiting...</translation>
 <translation id="2671451824761031126">Your bookmarks and settings are ready</translation>
@@ -1965,7 +1965,6 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="37613671848467444">Open in &amp;Incognito Window</translation>
 <translation id="3764583730281406327">{NUM_DEVICES,plural, =1{Communicate with a USB device}other{Communicate with # USB devices}}</translation>
 <translation id="3765246971671567135">Could not read offline demo mode policy.</translation>
-<translation id="3767376082821709728">New sites that you visit can't send you notifications</translation>
 <translation id="3768037234834996183">Syncing your preferences...</translation>
 <translation id="377050016711188788">Ice-cream</translation>
 <translation id="3771294271822695279">Video Files</translation>
@@ -3129,6 +3128,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="5496587651328244253">Organise</translation>
 <translation id="5499313591153584299">This file may be harmful for your computer.</translation>
 <translation id="5502500733115278303">Imported From Firefox</translation>
+<translation id="5505264765875738116">Sites can't ask to send notifications</translation>
 <translation id="5505307013568720083">Out of ink</translation>
 <translation id="5507756662695126555">Non-repudiation</translation>
 <translation id="5509693895992845810">Save &amp;As...</translation>
@@ -3679,6 +3679,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="6267547857941397424">Network <ph name="NETWORK_INDEX" /> of <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, signal strength <ph name="SIGNAL_STRENGTH" />%, phone battery <ph name="BATTERY_STATUS" />%, connect</translation>
 <translation id="6268252012308737255">Open with <ph name="APP" /></translation>
 <translation id="6268718011101775129">NFC</translation>
+<translation id="6270391203985052864">Sites can ask to send notifications</translation>
 <translation id="6270770586500173387">Send <ph name="BEGIN_LINK1" />system and app information<ph name="END_LINK1" />, and <ph name="BEGIN_LINK2" />metrics<ph name="END_LINK2" /></translation>
 <translation id="6272643420381259437">There was an error (<ph name="ERROR" />) while downloading the plug-in</translation>
 <translation id="6273677812470008672">Quality</translation>
@@ -3869,6 +3870,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="6555810572223193255">Cleanup is currently unavailable</translation>
 <translation id="6556866813142980365">Redo</translation>
 <translation id="6557290421156335491">My shortcuts</translation>
+<translation id="6561560012278703671">Use quieter messaging (blocks notification prompts from interrupting you)</translation>
 <translation id="6561726789132298588">enter</translation>
 <translation id="656293578423618167">The file path or name is too long.  Please save with a shorter name or to another location.</translation>
 <translation id="6563469144985748109">Your manager hasn't approved it yet</translation>
@@ -4916,7 +4918,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8044899503464538266">Slow</translation>
 <translation id="8045253504249021590">Sync has been stopped via the Google Dashboard.</translation>
 <translation id="8045923671629973368">Enter application ID or web store URL</translation>
-<translation id="8046278916126163020">New sites that you visit can ask to send you notifications</translation>
 <translation id="804786196054284061">End User Licence Agreement</translation>
 <translation id="8049705080247101012">Google has flagged '<ph name="EXTENSION_NAME" />' as malicious, and installation has been prevented</translation>
 <translation id="8050038245906040378">Microsoft Commercial Code Signing</translation>

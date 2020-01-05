@@ -748,7 +748,7 @@
 <translation id="2048653237708779538">無法執行操作</translation>
 <translation id="2050339315714019657">直向</translation>
 <translation id="2053312383184521053">閒置狀態資料</translation>
-<translation id="2055585478631012616">系統會將你登出這些網站，包括在開啟的分頁中也一樣</translation>
+<translation id="2055585478631012616">系統會將你登出這些網站 (這項操作會套用到所有已開啟的分頁)。</translation>
 <translation id="205560151218727633">Google 助理標誌</translation>
 <translation id="2058456167109518507">偵測到裝置</translation>
 <translation id="2059913712424898428">時區</translation>
@@ -1024,6 +1024,7 @@
 <translation id="2445484935443597917">建立新的個人資料</translation>
 <translation id="2446585455334014596"><ph name="APP_NAME" /> 想驗證你的身分</translation>
 <translation id="2448312741937722512">類型</translation>
+<translation id="2448734521821581858">Cookie 是你造訪過的網站所建立的檔案，Cookie 分為兩種類型：第一方 Cookie 由你造訪過的網站所建立，也就是網址列所顯示的網站。第三方 Cookie 由其他網站所建立。這類網站通常是在你造訪的網站上提供部分內容 (例如廣告或圖片) 的其他網站。</translation>
 <translation id="2450223707519584812">找不到 Google API 金鑰，因此您無法新增使用者。詳情請參閱 <ph name="DETAILS_URL" />。</translation>
 <translation id="2450849356604136918">沒有運作中的檢視畫面</translation>
 <translation id="2451298179137331965">2x</translation>
@@ -1191,7 +1192,6 @@
 <translation id="2665919335226618153">糟糕！格式化過程中發生錯誤。</translation>
 <translation id="2666990579225592931">開啟訪客視窗</translation>
 <translation id="2667463864537187133">管理拼字檢查</translation>
-<translation id="2669093958999339774">禁止網站顯示通知，以免干擾；改以低擾模式通知</translation>
 <translation id="2670102641511624474"><ph name="APP_NAME" /> 正在共用 Chrome 分頁。</translation>
 <translation id="2670429602441959756">這個網頁所含的功能目前與 VR 不相容。正在結束 VR 模式...</translation>
 <translation id="2671451824761031126">現在可以使用你的書籤和設定了</translation>
@@ -1291,7 +1291,7 @@
 <translation id="2800760947029405028">上傳圖片</translation>
 <translation id="2803375539583399270">輸入 PIN</translation>
 <translation id="2804043232879091219">無法開啟替代瀏覽器</translation>
-<translation id="2804667941345577550">系統會將你登出這個網站，包括在開啟的分頁中也一樣</translation>
+<translation id="2804667941345577550">系統會將你登出這個網站 (這項操作會套用到所有已開啟的分頁)。</translation>
 <translation id="2804680522274557040">攝影機已關閉</translation>
 <translation id="2805646850212350655">Microsoft 加密檔案系統</translation>
 <translation id="2805756323405976993">應用程式</translation>
@@ -1964,7 +1964,6 @@
 <translation id="37613671848467444">在無痕式視窗中開啟(&amp;I)</translation>
 <translation id="3764583730281406327">{NUM_DEVICES,plural, =1{與 1 個 USB 裝置通訊}other{與 # 個 USB 裝置通訊}}</translation>
 <translation id="3765246971671567135">無法讀取離線示範模式的政策。</translation>
-<translation id="3767376082821709728">不允許造訪的新網站傳送通知給你</translation>
 <translation id="3768037234834996183">正在處理您的偏好設定...</translation>
 <translation id="377050016711188788">冰淇淋</translation>
 <translation id="3771294271822695279">影片檔</translation>
@@ -3127,6 +3126,7 @@
 <translation id="5496587651328244253">整理</translation>
 <translation id="5499313591153584299">這個檔案可能對你的電腦有害。</translation>
 <translation id="5502500733115278303">從 Firefox 匯入的書籤</translation>
+<translation id="5505264765875738116">網站無法要求傳送通知給你</translation>
 <translation id="5505307013568720083">墨水已用盡</translation>
 <translation id="5507756662695126555">不可否認性</translation>
 <translation id="5509693895992845810">另存為(&amp;A)...</translation>
@@ -3623,7 +3623,7 @@
 <translation id="6196640612572343990">封鎖第三方 Cookie</translation>
 <translation id="6196854373336333322">您的 Proxy 設定已受到擴充功能「<ph name="EXTENSION_NAME" />」控制，該擴充功能可變更、中斷、或監視您在網路上的行為。如果您不確定這項變更的發生原因，建議您停用該擴充功能。</translation>
 <translation id="6198102561359457428">登出然後再次登入...</translation>
-<translation id="6198252989419008588">變更 PIN</translation>
+<translation id="6198252989419008588">變更 PIN 碼</translation>
 <translation id="6202304368170870640">你可以使用 PIN 碼登入裝置，或將裝置解鎖。</translation>
 <translation id="6206311232642889873">複製圖片(&amp;Y)</translation>
 <translation id="6207200176136643843">重設為預設縮放等級</translation>
@@ -3677,6 +3677,7 @@
 <translation id="6267547857941397424">第 <ph name="NETWORK_INDEX" /> 個網路 (共 <ph name="NETWORK_COUNT" /> 個)，<ph name="PHONE_NAME" />，訊號強度 <ph name="SIGNAL_STRENGTH" />%，手機電量：<ph name="BATTERY_STATUS" />%，連線</translation>
 <translation id="6268252012308737255">使用「<ph name="APP" />」開啟</translation>
 <translation id="6268718011101775129">NFC</translation>
+<translation id="6270391203985052864">網站可以要求傳送通知給你</translation>
 <translation id="6270770586500173387">傳送<ph name="BEGIN_LINK1" />系統和應用程式資訊<ph name="END_LINK1" />，以及<ph name="BEGIN_LINK2" />指標<ph name="END_LINK2" />資訊</translation>
 <translation id="6272643420381259437">下載外掛程式時發生錯誤 (<ph name="ERROR" />)</translation>
 <translation id="6273677812470008672">品質</translation>
@@ -3867,6 +3868,7 @@
 <translation id="6555810572223193255">目前無法執行清理作業</translation>
 <translation id="6556866813142980365">重做</translation>
 <translation id="6557290421156335491">我的捷徑</translation>
+<translation id="6561560012278703671">使用低擾式通知 (禁止網站顯示通知，以免干擾)</translation>
 <translation id="6561726789132298588">Enter 鍵</translation>
 <translation id="656293578423618167">檔案路徑或檔案名稱過長。請縮短檔案名稱或選擇其他儲存位置。</translation>
 <translation id="6563469144985748109">你的管理員尚未核准這個網站</translation>
@@ -3892,7 +3894,7 @@
 <translation id="6602956230557165253">使用向左鍵和向右鍵瀏覽。</translation>
 <translation id="6605847144724004692">還沒有任何使用者給予評分。</translation>
 <translation id="6607831829715835317">更多工具(&amp;L)</translation>
-<translation id="6611972847767394631">在這裡尋找你的分頁</translation>
+<translation id="6611972847767394631">你可以在這裡找到已開啟的分頁</translation>
 <translation id="6612358246767739896">受保護內容</translation>
 <translation id="6615455863669487791">顯示</translation>
 <translation id="6618097958368085618">確定保留</translation>
@@ -4914,7 +4916,6 @@
 <translation id="8044899503464538266">慢</translation>
 <translation id="8045253504249021590">已透過 Google 資訊主頁停止同步功能。</translation>
 <translation id="8045923671629973368">輸入應用程式 ID 或線上應用程式商店網址</translation>
-<translation id="8046278916126163020">造訪的新網站可以要求傳送通知給你</translation>
 <translation id="804786196054284061">使用者授權協議</translation>
 <translation id="8049705080247101012">Google 已將「<ph name="EXTENSION_NAME" />」標示為惡意擴充功能並禁止安裝</translation>
 <translation id="8050038245906040378">Microsoft 商用程式碼簽署</translation>
@@ -5251,7 +5252,7 @@
 <translation id="8546186510985480118">裝置空間即將用盡</translation>
 <translation id="8546306075665861288">圖片快取</translation>
 <translation id="8546541260734613940">[*.]example.com</translation>
-<translation id="854655314928502177">Web Proxy Auto Discovery 網址：</translation>
+<translation id="854655314928502177">網路 Proxy 自動探索網址：</translation>
 <translation id="8546930481464505581">自訂 Touch Bar</translation>
 <translation id="8547013269961688403">啟用全螢幕放大鏡</translation>
 <translation id="85486688517848470">按住搜尋鍵即可切換最上排按鍵的行為</translation>

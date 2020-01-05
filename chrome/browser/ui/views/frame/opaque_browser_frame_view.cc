@@ -177,13 +177,6 @@ void OpaqueBrowserFrameView::InitViews() {
     window_icon_->Update();
   }
 
-  window_title_ = new views::Label(browser_view()->GetWindowTitle());
-  window_title_->SetVisible(browser_view()->ShouldShowWindowTitle());
-  window_title_->SetSubpixelRenderingEnabled(false);
-  window_title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-  window_title_->SetID(VIEW_ID_WINDOW_TITLE);
-  AddChildView(window_title_);
-
   web_app::AppBrowserController* controller =
       browser_view()->browser()->app_controller();
   if (controller && controller->HasTitlebarToolbar()) {
@@ -193,6 +186,16 @@ void OpaqueBrowserFrameView::InitViews() {
             GetCaptionColor(BrowserFrameActiveState::kActive),
             GetCaptionColor(BrowserFrameActiveState::kInactive))));
   }
+
+  // The window title appears above the web app frame toolbar (if present),
+  // which surrounds the title with minimal-ui buttons on the left,
+  // and other controls (such as the app menu button) on the right.
+  window_title_ = new views::Label(browser_view()->GetWindowTitle());
+  window_title_->SetVisible(browser_view()->ShouldShowWindowTitle());
+  window_title_->SetSubpixelRenderingEnabled(false);
+  window_title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  window_title_->SetID(VIEW_ID_WINDOW_TITLE);
+  AddChildView(window_title_);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -72,6 +72,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/window_parenting_client.h"
@@ -503,6 +504,20 @@ class ShelfLayoutManagerTestBase : public AshTestBase {
                          ->GetBoundsInScreen()
                          .top_center());
     const gfx::Point end(start + gfx::Vector2d(0, 40));
+    const base::TimeDelta kTimeDelta = base::TimeDelta::FromMilliseconds(100);
+    const int kNumScrollSteps = 4;
+    GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
+                                               kNumScrollSteps);
+  }
+
+  void DragHotseatDownToBezel() {
+    gfx::Rect shelf_widget_bounds = GetShelfWidget()->GetWindowBoundsInScreen();
+    gfx::Rect hotseat_bounds =
+        GetShelfWidget()->hotseat_widget()->GetWindowBoundsInScreen();
+    gfx::Point start = hotseat_bounds.top_center();
+    const gfx::Point end =
+        gfx::Point(shelf_widget_bounds.x() + shelf_widget_bounds.width() / 2,
+                   shelf_widget_bounds.bottom() + 1);
     const base::TimeDelta kTimeDelta = base::TimeDelta::FromMilliseconds(100);
     const int kNumScrollSteps = 4;
     GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
@@ -1013,15 +1028,16 @@ class ShelfLayoutManagerTest : public ShelfLayoutManagerTestBase,
   // testing::Test:
   void SetUp() override {
     if (testing::UnitTest::GetInstance()->current_test_info()->value_param()) {
-      if (GetParam())
-        base::CommandLine::ForCurrentProcess()->AppendSwitch(
-            chromeos::switches::kShelfHotseat);
+      if (GetParam()) {
+        scoped_feature_list_.InitAndEnableFeature(
+            chromeos::features::kShelfHotseat);
+      }
     }
     AshTestBase::SetUp();
   }
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(ShelfLayoutManagerTest);
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Used to test the Hotseat, ScrollabeShelf, and DenseShelf features.
@@ -1402,7 +1418,7 @@ TEST_P(ShelfLayoutManagerTest, VisibleWhenLockScreenShowing) {
 
   UnlockScreen();
   EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
-  EXPECT_EQ(ShelfBackgroundType::kMaximized,
+  EXPECT_EQ(ShelfBackgroundType::kDefaultBg,
             GetShelfWidget()->GetBackgroundType());
 }
 
@@ -2621,8 +2637,8 @@ TEST_P(ShelfLayoutManagerTest, TabletModeTransitionWithAppListVisible) {
   EXPECT_EQ(ShelfBackgroundType::kInApp, GetShelfWidget()->GetBackgroundType());
 }
 
-// Verify that the auto-hide shelf has default background by default and has
-// maxmimized background when a window is maximized.
+// Verify that the auto-hide shelf has default background by default and still
+// has the default background when a window is maximized in clamshell mode.
 TEST_P(ShelfLayoutManagerTest, ShelfBackgroundColorAutoHide) {
   EXPECT_EQ(ShelfBackgroundType::kDefaultBg,
             GetShelfWidget()->GetBackgroundType());
@@ -2635,7 +2651,7 @@ TEST_P(ShelfLayoutManagerTest, ShelfBackgroundColorAutoHide) {
             GetShelfWidget()->GetBackgroundType());
 
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MAXIMIZED);
-  EXPECT_EQ(ShelfBackgroundType::kMaximized,
+  EXPECT_EQ(ShelfBackgroundType::kDefaultBg,
             GetShelfWidget()->GetBackgroundType());
 }
 
@@ -3296,13 +3312,13 @@ class HotseatShelfLayoutManagerTest
 
   // testing::Test:
   void SetUp() override {
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        chromeos::switches::kShelfHotseat);
+    scoped_feature_list_.InitAndEnableFeature(
+        chromeos::features::kShelfHotseat);
     AshTestBase::SetUp();
   }
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(HotseatShelfLayoutManagerTest);
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Tests that the always shown shelf forwards the appropriate events to the home
@@ -3603,8 +3619,8 @@ TEST_P(HotseatShelfLayoutManagerTest, SwipeUpOnHotseatBackgroundDoesNothing) {
   // Swipe up on the Hotseat (parent of ShelfView) does nothing.
   gfx::Point start(GetPrimaryShelf()
                        ->shelf_widget()
-                       ->shelf_view_for_testing()
-                       ->GetBoundsInScreen()
+                       ->hotseat_widget()
+                       ->GetWindowBoundsInScreen()
                        .top_center());
   const gfx::Point end(start + gfx::Vector2d(0, -300));
   const base::TimeDelta kTimeDelta = base::TimeDelta::FromMilliseconds(100);
@@ -3968,6 +3984,223 @@ TEST_P(HotseatShelfLayoutManagerTest, ExitingOvervieHidesHotseat) {
   EXPECT_EQ(HotseatState::kHidden, GetShelfLayoutManager()->hotseat_state());
 }
 
+// Tests that hotseat remains in extended state while in overview mode when
+// flinging the shelf up or down.
+TEST_P(HotseatShelfLayoutManagerTest, SwipeOnHotseatInOverview) {
+  GetPrimaryShelf()->SetAutoHideBehavior(GetParam());
+  TabletModeControllerTestApi().EnterTabletMode();
+
+  std::unique_ptr<aura::Window> window =
+      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+  wm::ActivateWindow(window.get());
+
+  OverviewController* overview_controller = Shell::Get()->overview_controller();
+  overview_controller->StartOverview();
+
+  Shelf* const shelf = GetPrimaryShelf();
+
+  SwipeUpOnShelf();
+
+  EXPECT_TRUE(overview_controller->InOverviewSession());
+  EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
+  if (GetParam() == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
+    EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
+    EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
+  } else {
+    EXPECT_EQ(SHELF_VISIBLE, shelf->GetVisibilityState());
+  }
+
+  // Drag from the hotseat to the bezel, the hotseat should remain in extended
+  // state.
+  DragHotseatDownToBezel();
+
+  EXPECT_TRUE(overview_controller->InOverviewSession());
+  EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
+  if (GetParam() == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
+    EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
+    EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
+  } else {
+    EXPECT_EQ(SHELF_VISIBLE, shelf->GetVisibilityState());
+  }
+
+  SwipeUpOnShelf();
+
+  EXPECT_TRUE(overview_controller->InOverviewSession());
+  EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
+  if (GetParam() == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
+    EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
+    EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
+  } else {
+    EXPECT_EQ(SHELF_VISIBLE, shelf->GetVisibilityState());
+  }
+}
+
+TEST_P(HotseatShelfLayoutManagerTest, SwipeOnHotseatInSplitViewWithOverview) {
+  GetPrimaryShelf()->SetAutoHideBehavior(GetParam());
+  TabletModeControllerTestApi().EnterTabletMode();
+
+  std::unique_ptr<aura::Window> window =
+      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+  wm::ActivateWindow(window.get());
+
+  OverviewController* overview_controller = Shell::Get()->overview_controller();
+  overview_controller->StartOverview();
+
+  SplitViewController* split_view_controller =
+      SplitViewController::Get(Shell::GetPrimaryRootWindow());
+  split_view_controller->SnapWindow(window.get(), SplitViewController::LEFT);
+
+  Shelf* const shelf = GetPrimaryShelf();
+
+  // TODO(https://crbug.com/1032669): Replace the drag with SwipeUpOnShelf()
+  //     once the issue is fixed - for now offset the drag start point to ensure
+  //     it's not over the split view divider.
+  gfx::Rect display_bounds =
+      display::Screen::GetScreen()->GetPrimaryDisplay().bounds();
+  gfx::Point start = display_bounds.bottom_center() + gfx::Vector2d(100, 0);
+  gfx::Point end = start + gfx::Vector2d(0, -80);
+  const base::TimeDelta kTimeDelta = base::TimeDelta::FromMilliseconds(100);
+  const int kNumScrollSteps = 4;
+  GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
+                                             kNumScrollSteps);
+
+  EXPECT_TRUE(split_view_controller->InSplitViewMode());
+  EXPECT_TRUE(overview_controller->InOverviewSession());
+  EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
+  if (GetParam() == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
+    EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
+    EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
+  } else {
+    EXPECT_EQ(SHELF_VISIBLE, shelf->GetVisibilityState());
+  }
+
+  // Drag from the hotseat to the bezel, the hotseat should hide.
+  // TODO(https://crbug.com/1032669): Replace the drag with
+  // DragHotseatDownToBezel()
+  //     once the issue is fixed - for now offset the drag start point to ensure
+  //     it's not over the split view divider.
+  gfx::Rect shelf_widget_bounds = GetShelfWidget()->GetWindowBoundsInScreen();
+  gfx::Rect hotseat_bounds =
+      GetShelfWidget()->hotseat_widget()->GetWindowBoundsInScreen();
+  start = hotseat_bounds.top_center() + gfx::Vector2d(100, 0);
+  end = gfx::Point(shelf_widget_bounds.x() + shelf_widget_bounds.width() / 2,
+                   shelf_widget_bounds.bottom() + 1) +
+        gfx::Vector2d(100, 0);
+  GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
+                                             kNumScrollSteps);
+
+  EXPECT_TRUE(split_view_controller->InSplitViewMode());
+  EXPECT_TRUE(overview_controller->InOverviewSession());
+  EXPECT_EQ(HotseatState::kHidden, GetShelfLayoutManager()->hotseat_state());
+  if (GetParam() == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
+    EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
+    EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
+  } else {
+    EXPECT_EQ(SHELF_VISIBLE, shelf->GetVisibilityState());
+  }
+
+  // Swiping up on shelf should move hotseat back into extended state.
+  // TODO(https://crbug.com/1032669): Replace the drag with SwipeUpOnShelf()
+  //     once the issue is fixed - for now offset the drag start point to ensure
+  //     it's not over the split view divider.
+  start = display_bounds.bottom_center() + gfx::Vector2d(100, 0);
+  end = start + gfx::Vector2d(0, -80);
+  GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
+                                             kNumScrollSteps);
+
+  EXPECT_TRUE(split_view_controller->InSplitViewMode());
+  EXPECT_TRUE(overview_controller->InOverviewSession());
+  EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
+  if (GetParam() == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
+    EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
+    EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
+  } else {
+    EXPECT_EQ(SHELF_VISIBLE, shelf->GetVisibilityState());
+  }
+}
+
+TEST_P(HotseatShelfLayoutManagerTest, SwipeOnHotseatInSplitView) {
+  GetPrimaryShelf()->SetAutoHideBehavior(GetParam());
+  TabletModeControllerTestApi().EnterTabletMode();
+
+  std::unique_ptr<aura::Window> window1 =
+      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+  std::unique_ptr<aura::Window> window2 =
+      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+  wm::ActivateWindow(window1.get());
+
+  SplitViewController* split_view_controller =
+      SplitViewController::Get(Shell::GetPrimaryRootWindow());
+  split_view_controller->SnapWindow(window1.get(), SplitViewController::LEFT);
+  split_view_controller->SnapWindow(window2.get(), SplitViewController::RIGHT);
+  EXPECT_TRUE(split_view_controller->InSplitViewMode());
+
+  Shelf* const shelf = GetPrimaryShelf();
+
+  // TODO(https://crbug.com/1032669): Replace the drag with SwipeUpOnShelf()
+  //     once the issue is fixed - for now offset the drag start point to ensure
+  //     it's not over the split view divider.
+  gfx::Rect display_bounds =
+      display::Screen::GetScreen()->GetPrimaryDisplay().bounds();
+  gfx::Point start = display_bounds.bottom_center() + gfx::Vector2d(100, 0);
+  gfx::Point end = start + gfx::Vector2d(0, -80);
+  const base::TimeDelta kTimeDelta = base::TimeDelta::FromMilliseconds(100);
+  const int kNumScrollSteps = 4;
+  GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
+                                             kNumScrollSteps);
+
+  EXPECT_TRUE(split_view_controller->InSplitViewMode());
+  EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
+  if (GetParam() == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
+    EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
+    EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
+  } else {
+    EXPECT_EQ(SHELF_VISIBLE, shelf->GetVisibilityState());
+  }
+
+  // Drag from the hotseat to the bezel, the hotseat and shelf should hide.
+  // TODO(https://crbug.com/1032669): Replace the drag with
+  // DragHotseatDownToBezel()
+  //     once the issue is fixed - for now offset the drag start point to ensure
+  //     it's not over the split view divider.
+  gfx::Rect shelf_widget_bounds = GetShelfWidget()->GetWindowBoundsInScreen();
+  gfx::Rect hotseat_bounds =
+      GetShelfWidget()->hotseat_widget()->GetWindowBoundsInScreen();
+  start = hotseat_bounds.top_center() + gfx::Vector2d(100, 0);
+  end = gfx::Point(shelf_widget_bounds.x() + shelf_widget_bounds.width() / 2,
+                   shelf_widget_bounds.bottom() + 1) +
+        gfx::Vector2d(100, 0);
+  GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
+                                             kNumScrollSteps);
+
+  EXPECT_TRUE(split_view_controller->InSplitViewMode());
+  EXPECT_EQ(HotseatState::kHidden, GetShelfLayoutManager()->hotseat_state());
+  if (GetParam() == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
+    EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
+    EXPECT_EQ(SHELF_AUTO_HIDE_HIDDEN, shelf->GetAutoHideState());
+  } else {
+    EXPECT_EQ(SHELF_VISIBLE, shelf->GetVisibilityState());
+  }
+
+  // Swiping up on shelf should move hotseat back into extended state.
+  // TODO(https://crbug.com/1032669): Replace the drag with SwipeUpOnShelf()
+  //     once the issue is fixed - for now offset the drag start point to ensure
+  //     it's not over the split view divider.
+  start = display_bounds.bottom_center() + gfx::Vector2d(100, 0);
+  end = start + gfx::Vector2d(0, -80);
+  GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
+                                             kNumScrollSteps);
+
+  EXPECT_TRUE(split_view_controller->InSplitViewMode());
+  EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
+  if (GetParam() == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
+    EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
+    EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
+  } else {
+    EXPECT_EQ(SHELF_VISIBLE, shelf->GetVisibilityState());
+  }
+}
+
 // Tests that swiping downward, towards the bezel, from a variety of points
 // results in hiding the hotseat.
 TEST_F(HotseatShelfLayoutManagerTest, HotseatHidesWhenSwipedToBezel) {
@@ -3979,24 +4212,22 @@ TEST_F(HotseatShelfLayoutManagerTest, HotseatHidesWhenSwipedToBezel) {
   SwipeUpOnShelf();
 
   // Drag from the hotseat to the bezel, the hotseat should hide.
-  gfx::Rect shelf_widget_bounds = GetShelfWidget()->GetWindowBoundsInScreen();
-  gfx::Rect hotseat_bounds =
-      GetShelfWidget()->hotseat_widget()->GetWindowBoundsInScreen();
-  gfx::Point start = hotseat_bounds.top_center();
-  const gfx::Point end =
-      gfx::Point(shelf_widget_bounds.x() + shelf_widget_bounds.width() / 2,
-                 shelf_widget_bounds.bottom() + 1);
-  const base::TimeDelta kTimeDelta = base::TimeDelta::FromMilliseconds(100);
-  const int kNumScrollSteps = 4;
-  GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
-                                             kNumScrollSteps);
-
+  DragHotseatDownToBezel();
   EXPECT_EQ(HotseatState::kHidden, GetShelfLayoutManager()->hotseat_state());
 
   // Reset the hotseat and swipe from the center of the hotseat, it should hide.
   SwipeUpOnShelf();
 
-  start = hotseat_bounds.CenterPoint();
+  gfx::Rect shelf_widget_bounds = GetShelfWidget()->GetWindowBoundsInScreen();
+  gfx::Rect hotseat_bounds =
+      GetShelfWidget()->hotseat_widget()->GetWindowBoundsInScreen();
+  gfx::Point start = hotseat_bounds.CenterPoint();
+  const gfx::Point end =
+      gfx::Point(shelf_widget_bounds.x() + shelf_widget_bounds.width() / 2,
+                 shelf_widget_bounds.bottom() + 1);
+  const base::TimeDelta kTimeDelta = base::TimeDelta::FromMilliseconds(100);
+  const int kNumScrollSteps = 4;
+
   GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
                                              kNumScrollSteps);
 
@@ -4718,6 +4949,34 @@ TEST_F(HotseatShelfLayoutManagerTest, SwipeDownOnFocusedHotseat) {
   EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
 }
 
+// Tests that in overview, we can still exit by clicking on the hotseat if the
+// point is not on the visible area.
+TEST_F(HotseatShelfLayoutManagerTest, ExitOverviewWithClickOnHotseat) {
+  std::unique_ptr<aura::Window> window1 = AshTestBase::CreateTestWindow();
+  ShelfTestUtil::AddAppShortcut("app_id_1", TYPE_APP);
+
+  TabletModeControllerTestApi().EnterTabletMode();
+  ASSERT_TRUE(TabletModeControllerTestApi().IsTabletModeStarted());
+  ASSERT_FALSE(WindowState::Get(window1.get())->IsMinimized());
+
+  // Enter overview, hotseat is visible. Choose the point to the farthest left.
+  // This point will not be visible.
+  auto* overview_controller = Shell::Get()->overview_controller();
+  auto* hotseat_widget = GetShelfWidget()->hotseat_widget();
+  overview_controller->StartOverview();
+  ASSERT_TRUE(overview_controller->InOverviewSession());
+  ASSERT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
+  gfx::Point far_left_point =
+      hotseat_widget->GetWindowBoundsInScreen().left_center();
+
+  // Tests that on clicking, we exit overview and all windows are minimized.
+  GetEventGenerator()->set_current_screen_location(far_left_point);
+  GetEventGenerator()->ClickLeftButton();
+  EXPECT_EQ(HotseatState::kShown, GetShelfLayoutManager()->hotseat_state());
+  EXPECT_TRUE(WindowState::Get(window1.get())->IsMinimized());
+  EXPECT_FALSE(overview_controller->InOverviewSession());
+}
+
 class ShelfLayoutManagerWindowDraggingTest : public ShelfLayoutManagerTestBase {
  public:
   ShelfLayoutManagerWindowDraggingTest() = default;
@@ -4725,10 +4984,10 @@ class ShelfLayoutManagerWindowDraggingTest : public ShelfLayoutManagerTestBase {
 
   // AshTestBase:
   void SetUp() override {
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        chromeos::switches::kShelfHotseat);
-    scoped_feature_list_.InitAndEnableFeature(
-        features::kDragFromShelfToHomeOrOverview);
+    scoped_feature_list_.InitWithFeatures(
+        {chromeos::features::kShelfHotseat,
+         features::kDragFromShelfToHomeOrOverview},
+        {});
     AshTestBase::SetUp();
 
     TabletModeControllerTestApi().EnterTabletMode();
@@ -4741,7 +5000,6 @@ class ShelfLayoutManagerWindowDraggingTest : public ShelfLayoutManagerTestBase {
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
-  DISALLOW_COPY_AND_ASSIGN(ShelfLayoutManagerWindowDraggingTest);
 };
 
 // Test that when swiping up on the shelf, we may or may not drag up the MRU

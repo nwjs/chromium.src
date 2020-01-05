@@ -1021,6 +1021,7 @@
 <translation id="2445484935443597917">नयाँ प्रोफाइल बनाउनुहोस्</translation>
 <translation id="2446585455334014596"><ph name="APP_NAME" /> ले तपाईंको पहिचान पुष्टि गर्न चाहन्छ</translation>
 <translation id="2448312741937722512">प्रकार</translation>
+<translation id="2448734521821581858">कुकीहरू भनेका तपाईं जाने वेबसाइटहरूले सिर्जना गर्ने फाइल हुन्। कुकीहरू दुई प्रकारका हुन्छन्: तपाईं जाने साइटले प्रथम पक्षका कुकीहरू बनाउँछ। यो साइट ठेगाना पट्टीमा देखाइन्छ। अन्य साइटहरूले तेस्रो पक्षीय कुकीहरू सिर्जना गर्छन्। तपाईंले जाने वेबसाइटमा तपाईंले देख्ने विज्ञापन वा छविहरू जस्ता केही सामग्री यी साइटहरूको स्वामित्वमा रहन्छन्।</translation>
 <translation id="2450223707519584812">Google API कुञ्जीहरू छुटेको कारण तपाईं प्रयोगकर्ताहरू थप गर्न सक्षम हुनु हुने छैन। विवरणहरूको लागि <ph name="DETAILS_URL" /> हेर्नुहोस्।</translation>
 <translation id="2450849356604136918">कुनै सक्रीय दृश्य छैन</translation>
 <translation id="2451298179137331965">२ गुणा</translation>
@@ -1188,7 +1189,6 @@
 <translation id="2665919335226618153">ओ, तस्बिर! ढाँचाका क्रममा एउटा त्रुटी भयो ।</translation>
 <translation id="2666990579225592931">अतिथि विन्डो खोल्नुहोस्</translation>
 <translation id="2667463864537187133">हिज्जे जाँचको व्यवस्थापन गर्नुहोस्</translation>
-<translation id="2669093958999339774">सूचनाका प्रम्प्टहरूलाई आफूलाई बाधा पुर्‍याउनबाट रोकी यसको सट्टा तपाईंलाई सुटुक्क सूचित गर्ने सुविधा प्रयोग गर्नुहोस्।</translation>
 <translation id="2670102641511624474"><ph name="APP_NAME" /> Chrome को एउटा ट्याबलाई साझेदारी गर्दैछ।</translation>
 <translation id="2670429602441959756">यो पृष्ठमा अझै VR मा समर्थित नभएका सुविधाहरू समावेश छन्। बाहिरिँदै...</translation>
 <translation id="2671451824761031126">तपाईंका पुस्तक चिन्ह र सेटिङहरू तयार छन्</translation>
@@ -1962,7 +1962,6 @@
 <translation id="37613671848467444">&amp;इनकगनिटो विण्डोमा खोल्नुहोस्</translation>
 <translation id="3764583730281406327">{NUM_DEVICES,plural, =1{ एउटा USB यन्त्रमार्फत संचार गर्नुहोस्}other{ # USB यन्त्रहरूमार्फत संचार गर्नुहोस्}}</translation>
 <translation id="3765246971671567135">अफलाइन डेमो मोड नीति पढ्न सकिएन।</translation>
-<translation id="3767376082821709728">तपाईं जाने नयाँ साइटहरूले तपाईंलाई सूचना पठाउन सक्दैनन्</translation>
 <translation id="3768037234834996183">तपाईँका प्राथमिकताहरू सिंक गर्दै...</translation>
 <translation id="377050016711188788">आइसक्रिम</translation>
 <translation id="3771294271822695279">भिडियो फाइलहरू</translation>
@@ -3125,6 +3124,7 @@
 <translation id="5496587651328244253">सुव्यवस्थित गर्नुहोस्</translation>
 <translation id="5499313591153584299">यो फाइल तपाईंको कम्प्युटरका लागि हानिकारक हुन सक्छ।</translation>
 <translation id="5502500733115278303">Firefox बाट आयात गरिएको</translation>
+<translation id="5505264765875738116">साइटहरूले सूचनाहरू पठाउनका निम्ति अनुमति माग्न सक्दैनन्।</translation>
 <translation id="5505307013568720083">मसी सकियो</translation>
 <translation id="5507756662695126555">खण्डन-नगरिएको</translation>
 <translation id="5509693895992845810">यसको &amp;रूपमा बचत गर्नुहोस्...</translation>
@@ -3674,6 +3674,7 @@
 <translation id="6267547857941397424"><ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" /> मध्ये नेटवर्क <ph name="NETWORK_INDEX" />, सिग्नलको क्षमता <ph name="SIGNAL_STRENGTH" />%, फोनको ब्याट्री <ph name="BATTERY_STATUS" />%, जोड्नुहोस्</translation>
 <translation id="6268252012308737255"><ph name="APP" /> मार्फत खोल्नुहोस्</translation>
 <translation id="6268718011101775129">NFC</translation>
+<translation id="6270391203985052864">साइटहरूले सूचनाहरू पठाउनका निम्ति अनुमति माग्न सक्छन्।</translation>
 <translation id="6270770586500173387"><ph name="BEGIN_LINK1" />प्रणाली तथा अनुप्रयोग सम्बन्धी जानकारी<ph name="END_LINK1" /> र <ph name="BEGIN_LINK2" />मेट्रिक्स<ph name="END_LINK2" /> पठाउनुहोस्</translation>
 <translation id="6272643420381259437">प्लगइन डाउनलोड गर्दा त्रुटि (<ph name="ERROR" />) भयो</translation>
 <translation id="6273677812470008672">गुण</translation>
@@ -3864,6 +3865,7 @@
 <translation id="6555810572223193255">खाली गर्ने सुविधा अब उप्रान्त उपलब्ध छैन</translation>
 <translation id="6556866813142980365">फेरि गर्नुहोस्</translation>
 <translation id="6557290421156335491">मेरा सर्टकटहरू</translation>
+<translation id="6561560012278703671">सुटुक्क सन्देश पठाउने सुविधा प्रयोग गर्नुहोस् (यसले सूचनाका प्रम्प्टलाई आफूलाई बाधा पुर्‍याउनबाट रोक लगाउँछ)</translation>
 <translation id="6561726789132298588">प्रविष्टि गर्नुहोस्</translation>
 <translation id="656293578423618167">फाइलको बाटो वा नाम निकै लामो छ । कृपया छोटो नाम दिएर वा अर्को स्थानमा बचत गर्नुहोस् ।</translation>
 <translation id="6563469144985748109">तपाईंको प्रबन्धकले अझै पनि यसलाई अनुमोदन गर्नुभएको छैन</translation>
@@ -4910,7 +4912,6 @@
 <translation id="8044899503464538266">मन्द</translation>
 <translation id="8045253504249021590">Google Dashboard मार्फत सिंक असक्षम पारिएको छ।</translation>
 <translation id="8045923671629973368">अनुप्रयोगको ID वा वेबस्टोरको URL प्रविष्टि गर्नुहोस्</translation>
-<translation id="8046278916126163020">तपाईं जाने नयाँ साइटहरूले तपाईंलाई सूचनाहरू पठाउन तपाईंसँग अनुमति माग्न सक्छन्।</translation>
 <translation id="804786196054284061">प्रयोगकर्ताको इजाजतपत्रसम्बन्धी सम्झौता</translation>
 <translation id="8049705080247101012">Google ले "<ph name="EXTENSION_NAME" />" लाई खराब भएको भनी फ्ल्याग गरेको हुनाले यसको स्थापना कार्य रोकिएको छ</translation>
 <translation id="8050038245906040378">Microsoft वाणिज्य कोड सङ्केत</translation>

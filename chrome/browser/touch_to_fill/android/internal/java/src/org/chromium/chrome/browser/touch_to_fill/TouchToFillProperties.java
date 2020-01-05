@@ -24,6 +24,7 @@ import java.lang.annotation.RetentionPolicy;
  */
 class TouchToFillProperties {
     static final String FIELD_TRIAL_PARAM_SHOW_CONFIRMATION_BUTTON = "show_confirmation_button";
+    static final String FIELD_TRIAL_PARAM_BRANDING_MESSAGE = "branding_message";
 
     static final PropertyModel.WritableBooleanPropertyKey VISIBLE =
             new PropertyModel.WritableBooleanPropertyKey("visible");
@@ -85,17 +86,26 @@ class TouchToFillProperties {
      * Properties defined here reflect the visible state of the header in the TouchToFill sheet.
      */
     static class HeaderProperties {
+        static final PropertyModel.ReadableBooleanPropertyKey SINGLE_CREDENTIAL =
+                new PropertyModel.ReadableBooleanPropertyKey("single_credential");
         static final PropertyModel.ReadableObjectPropertyKey<String> FORMATTED_URL =
                 new PropertyModel.ReadableObjectPropertyKey<>("formatted_url");
         static final PropertyModel.ReadableBooleanPropertyKey ORIGIN_SECURE =
                 new PropertyModel.ReadableBooleanPropertyKey("origin_secure");
 
-        static final PropertyKey[] ALL_KEYS = {FORMATTED_URL, ORIGIN_SECURE};
+        static final PropertyKey[] ALL_KEYS = {SINGLE_CREDENTIAL, FORMATTED_URL, ORIGIN_SECURE};
 
         private HeaderProperties() {}
     }
 
-    @IntDef({ItemType.HEADER, ItemType.CREDENTIAL, ItemType.FILL_BUTTON})
+    static class FooterProperties {
+        static final PropertyModel.ReadableIntPropertyKey BRANDING_MESSAGE_ID =
+                new PropertyModel.ReadableIntPropertyKey("branding_message_id");
+        static final PropertyKey[] ALL_KEYS = {BRANDING_MESSAGE_ID};
+        private FooterProperties() {}
+    }
+
+    @IntDef({ItemType.HEADER, ItemType.CREDENTIAL, ItemType.FILL_BUTTON, ItemType.FOOTER})
     @Retention(RetentionPolicy.SOURCE)
     @interface ItemType {
         /**
@@ -112,6 +122,11 @@ class TouchToFillProperties {
          * The fill button at the end of the sheet that filling more obvious for one suggestion.
          */
         int FILL_BUTTON = 3;
+
+        /**
+         * The branding message at the bottom of the sheet to draw attention to the feature.
+         */
+        int FOOTER = 4;
     }
 
     /**

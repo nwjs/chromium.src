@@ -300,6 +300,8 @@ class PasswordFormManagerTest : public testing::Test,
     field.unique_renderer_id = 2;
     observed_form_.fields.push_back(field);
 
+    non_password_form_ = observed_form_;
+
     field.name = ASCIIToUTF16("password");
     field.id_attribute = field.name;
     field.name_attribute = field.name;
@@ -333,6 +335,10 @@ class PasswordFormManagerTest : public testing::Test,
     submitted_form_ = observed_form_;
     submitted_form_.fields[kUsernameFieldIndex].value = ASCIIToUTF16("user1");
     submitted_form_.fields[kPasswordFieldIndex].value = ASCIIToUTF16("secret1");
+
+    submitted_non_password_form_ = non_password_form_;
+    submitted_non_password_form_.fields[kUsernameFieldIndex].value =
+        ASCIIToUTF16("user1");
 
     saved_match_.origin = origin;
     saved_match_.action = action;
@@ -383,6 +389,8 @@ class PasswordFormManagerTest : public testing::Test,
   FormData observed_form_;
   FormData submitted_form_;
   FormData observed_form_only_password_fields_;
+  FormData non_password_form_;
+  FormData submitted_non_password_form_;
   PasswordForm saved_match_;
   PasswordForm psl_saved_match_;
   PasswordForm parsed_observed_form_;
@@ -2085,7 +2093,7 @@ TEST_P(PasswordFormManagerTest, UpdateGeneratedPasswordBeforePresaving) {
 TEST_P(PasswordFormManagerTest, UsernameFirstFlow) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kUsernameFirstFlowSaving);
+  feature_list.InitAndEnableFeature(features::kUsernameFirstFlow);
 
   CreateFormManager(observed_form_only_password_fields_);
   fetcher_->NotifyFetchCompleted();
@@ -2109,7 +2117,7 @@ TEST_P(PasswordFormManagerTest, UsernameFirstFlow) {
 TEST_P(PasswordFormManagerTest, UsernameFirstFlowDifferentDomains) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kUsernameFirstFlowSaving);
+  feature_list.InitAndEnableFeature(features::kUsernameFirstFlow);
 
   CreateFormManager(observed_form_only_password_fields_);
   fetcher_->NotifyFetchCompleted();
@@ -2133,7 +2141,7 @@ TEST_P(PasswordFormManagerTest, UsernameFirstFlowDifferentDomains) {
 TEST_P(PasswordFormManagerTest, UsernameFirstFlowVotes) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kUsernameFirstFlowSaving);
+  feature_list.InitAndEnableFeature(features::kUsernameFirstFlow);
 
   CreateFormManager(observed_form_only_password_fields_);
   fetcher_->NotifyFetchCompleted();
@@ -2186,7 +2194,7 @@ TEST_P(PasswordFormManagerTest, UsernameFirstFlowVotes) {
 // username on username first flow.
 TEST_P(PasswordFormManagerTest, PossibleUsernameServerPredictions) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kUsernameFirstFlowSaving);
+  feature_list.InitAndEnableFeature(features::kUsernameFirstFlow);
 
   const base::string16 possible_username = ASCIIToUTF16("possible_username");
   PossibleUsernameData possible_username_data(
@@ -2229,7 +2237,7 @@ TEST_P(PasswordFormManagerTest, PossibleUsernameServerPredictions) {
 // offering username on username first flow.
 TEST_P(PasswordFormManagerTest, PossibleUsernameFieldManager) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kUsernameFirstFlowSaving);
+  feature_list.InitAndEnableFeature(features::kUsernameFirstFlow);
 
   const base::string16 possible_username = ASCIIToUTF16("possible_username");
   PossibleUsernameData possible_username_data(
@@ -2278,6 +2286,19 @@ TEST_P(PasswordFormManagerTest, PossibleUsernameFieldManager) {
     }
     Mock::VerifyAndClearExpectations(&client_);
   }
+}
+
+// Tests that the a form with the username field but without a password field is
+// not provisionally saved.
+TEST_P(PasswordFormManagerTest, ProvisinallySavedOnSingleUsernameForm) {
+  CreateFormManager(non_password_form_);
+  std::map<FormSignature, FormPredictions> predictions =
+      CreatePredictions(non_password_form_,
+                        {std::make_pair(kUsernameFieldIndex, SINGLE_USERNAME)});
+  form_manager_->ProcessServerPredictions(predictions);
+
+  EXPECT_FALSE(form_manager_->ProvisionallySave(submitted_non_password_form_,
+                                                &driver_, nullptr));
 }
 
 INSTANTIATE_TEST_SUITE_P(,
@@ -2692,7 +2713,7 @@ TEST_F(PasswordFormManagerTestWithMockedSaver, HTTPAuthAlreadySaved) {
 TEST_F(PasswordFormManagerTestWithMockedSaver, UsernameFirstFlow) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kUsernameFirstFlowSaving);
+  feature_list.InitAndEnableFeature(features::kUsernameFirstFlow);
   CreateFormManager(observed_form_only_password_fields_);
   fetcher_->NotifyFetchCompleted();
   const base::string16 possible_username = ASCIIToUTF16("possible_username");
@@ -2714,7 +2735,7 @@ TEST_F(PasswordFormManagerTestWithMockedSaver,
        UsernameFirstFlowDifferentDomains) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kUsernameFirstFlowSaving);
+  feature_list.InitAndEnableFeature(features::kUsernameFirstFlow);
   CreateFormManager(observed_form_only_password_fields_);
   fetcher_->NotifyFetchCompleted();
   base::string16 possible_username = ASCIIToUTF16("possible_username");

@@ -559,8 +559,8 @@
 <translation id="177336675152937177">代管應用程式數據</translation>
 <translation id="1776712937009046120">新增使用者</translation>
 <translation id="1776883657531386793"><ph name="OID" />：<ph name="INFO" /></translation>
-<translation id="1777310661937894236">這個裝置是由 <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> 所管理。
-    請按 [下一步] 繼續登入你的 <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> 帳戶。</translation>
+<translation id="1777310661937894236">此裝置由 <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> 管理。
+    請點擊 [下一步] 繼續登入您的 <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> 帳戶。</translation>
 <translation id="1779652936965200207">請在「<ph name="DEVICE_NAME" />」上輸入以下密碼金鑰：</translation>
 <translation id="1780152987505130652">關閉群組</translation>
 <translation id="1781291988450150470">目前的 PIN</translation>
@@ -748,7 +748,7 @@
 <translation id="2048653237708779538">無法執行操作</translation>
 <translation id="2050339315714019657">直向</translation>
 <translation id="2053312383184521053">閒置狀態數據</translation>
-<translation id="2055585478631012616">系統會將你登出這些網站，包括在開啟的分頁中也一樣</translation>
+<translation id="2055585478631012616">您將會從這些網站 (包括已開啟的分頁) 登出</translation>
 <translation id="205560151218727633">「Google 助理」標誌</translation>
 <translation id="2058456167109518507">偵測到的裝置</translation>
 <translation id="2059913712424898428">時區</translation>
@@ -1024,6 +1024,7 @@
 <translation id="2445484935443597917">建立新的設定檔</translation>
 <translation id="2446585455334014596"><ph name="APP_NAME" /> 要求驗證您的身分</translation>
 <translation id="2448312741937722512">類型</translation>
+<translation id="2448734521821581858">Cookie 是您瀏覽的網站所建立的檔案，並可分為兩種：第一方 Cookie 由您瀏覽的網站建立，網址列上會顯示該網站的網址。第三方 Cookie 則由其他網站建立。這些網站擁有所瀏覽網站的部分內容，例如廣告和圖片。</translation>
 <translation id="2450223707519584812">找不到 Google API 金鑰，因此您無法新增使用者。詳情請參閱 <ph name="DETAILS_URL" />。</translation>
 <translation id="2450849356604136918">沒有運作中的檢視</translation>
 <translation id="2451298179137331965">2 倍</translation>
@@ -1116,7 +1117,7 @@
 <translation id="255747371423522804">新增至現有群組</translation>
 <translation id="2558896001721082624">一律在系統選單中顯示無障礙功能選項</translation>
 <translation id="2562743677925229011">未登入「<ph name="SHORT_PRODUCT_NAME" />」</translation>
-<translation id="2564520396658920462">透過 AppleScript 執行 Javascript 的功能已關閉。如要開啟此功能，請從選單列前往「檢視模式」&gt;「開發人員」&gt;「允許透過 Apple 活動執行 Javascript」。如需瞭解詳情，請瀏覽：https://support.google.com/chrome/?p=applescript</translation>
+<translation id="2564520396658920462">透過 AppleScript 執行 JavaScript 的功能已關閉。如要開啟此功能，請從選單列前往「檢視模式」&gt;「開發人員」&gt;「允許透過 Apple 活動執行 JavaScript」。如需瞭解詳情，請瀏覽：https://support.google.com/chrome/?p=applescript</translation>
 <translation id="2564653188463346023">強化的拼字檢查</translation>
 <translation id="2566124945717127842">執行「清空」(恢復原廠設定) 會將您的 <ph name="IDS_SHORT_PRODUCT_NAME" /> 裝置重設並恢復為原廠設定。</translation>
 <translation id="2568774940984945469">資料列容器</translation>
@@ -1191,7 +1192,6 @@
 <translation id="2665919335226618153">糟糕！格式化過程中發生錯誤。</translation>
 <translation id="2666990579225592931">開啟訪客視窗</translation>
 <translation id="2667463864537187133">管理拼字檢查</translation>
-<translation id="2669093958999339774">使用較靜態的訊息功能，免受通知提示打擾</translation>
 <translation id="2670102641511624474"><ph name="APP_NAME" /> 正在共用 Chrome 分頁。</translation>
 <translation id="2670429602441959756">此網頁包含尚未支援 VR 模式的功能。即將退出…</translation>
 <translation id="2671451824761031126">現在可以使用您的書籤和設定了</translation>
@@ -1291,7 +1291,7 @@
 <translation id="2800760947029405028">上載圖片</translation>
 <translation id="2803375539583399270">請輸入 PIN</translation>
 <translation id="2804043232879091219">無法開啟替代瀏覽器</translation>
-<translation id="2804667941345577550">系統會將你登出這個網站，包括在開啟的分頁中也一樣</translation>
+<translation id="2804667941345577550">您將會從此網站 (包括在開啟的分頁) 登出。</translation>
 <translation id="2804680522274557040">相機已關閉</translation>
 <translation id="2805646850212350655">Microsoft 加密檔案系統</translation>
 <translation id="2805756323405976993">應用程式</translation>
@@ -1963,7 +1963,6 @@
 <translation id="37613671848467444">在無痕式視窗中開啟(&amp;I)</translation>
 <translation id="3764583730281406327">{NUM_DEVICES,plural, =1{與 1 個 USB 裝置通訊}other{與 # 個 USB 裝置通訊}}</translation>
 <translation id="3765246971671567135">無法讀取離線示範模式的政策。</translation>
-<translation id="3767376082821709728">最新瀏覽的網站將無法向您傳送通知</translation>
 <translation id="3768037234834996183">正在同步您的偏好設定…</translation>
 <translation id="377050016711188788">雪糕</translation>
 <translation id="3771294271822695279">影片檔</translation>
@@ -2197,7 +2196,7 @@
 <translation id="407520071244661467">縮放比例</translation>
 <translation id="4075639477629295004">無法投放 <ph name="FILE_NAME" />。</translation>
 <translation id="4077917118009885966">已封鎖此網站的廣告</translation>
-<translation id="4077919383365622693"><ph name="SITE" /> 儲存的所有資料和 Cookie 都將遭到清除。</translation>
+<translation id="4077919383365622693">系統將會清除所有 <ph name="SITE" /> 儲存的資料和 Cookie。</translation>
 <translation id="4079140982534148664">使用進階拼字檢查功能</translation>
 <translation id="4081242589061676262">無法投放檔案。</translation>
 <translation id="4084682180776658562">書籤</translation>
@@ -2572,7 +2571,7 @@
 <translation id="4665446389743427678"><ph name="SITE" /> 儲存的所有資料都會被刪除。</translation>
 <translation id="4668721319092543482">按一下即可啟用 <ph name="PLUGIN_NAME" /></translation>
 <translation id="4672657274720418656">提取頁面</translation>
-<translation id="46733273239502219">已安裝應用程式中的離線資料也將遭到清除</translation>
+<translation id="46733273239502219">系統亦會清除已安裝應用程式的離線資料。</translation>
 <translation id="4673442866648850031">拔出觸控筆後開啟觸控筆工具</translation>
 <translation id="4677585247300749148"><ph name="URL" /> 希望回應無障礙功能事件</translation>
 <translation id="4677772697204437347">GPU 記憶體使用量</translation>
@@ -2705,7 +2704,7 @@
 <translation id="4876273079589074638">協助我們的軟件工程師調查和修正此當機問題。請盡可能列出所有實際步驟，越詳細越好！</translation>
 <translation id="4876895919560854374">鎖定和解鎖屏幕</translation>
 <translation id="4877276003880815204">檢查元素</translation>
-<translation id="4878653975845355462">你的系統管理員已停用自訂背景功能</translation>
+<translation id="4878653975845355462">管理員已關閉自訂背景功能</translation>
 <translation id="4879491255372875719">自動 (預設)</translation>
 <translation id="4880328057631981605">接入點名稱 (APN)</translation>
 <translation id="4880827082731008257">搜尋記錄</translation>
@@ -3127,6 +3126,7 @@
 <translation id="5496587651328244253">管理</translation>
 <translation id="5499313591153584299">這個檔案可能對您的電腦有害。</translation>
 <translation id="5502500733115278303">從 Firefox 匯入的書籤</translation>
+<translation id="5505264765875738116">網站將無法要求向您傳送通知</translation>
 <translation id="5505307013568720083">墨水用完</translation>
 <translation id="5507756662695126555">不可否認性</translation>
 <translation id="5509693895992845810">另存為(&amp;A)…</translation>
@@ -3264,7 +3264,7 @@
 <translation id="5687326903064479980">時區</translation>
 <translation id="5689516760719285838">位置</translation>
 <translation id="56907980372820799">連結數據</translation>
-<translation id="5691180005790455277"><ph name="SITE_GROUP_NAME" /> 及該群組中所有網站儲存的資料和 Cookie 都將遭到清除。</translation>
+<translation id="5691180005790455277">系統將會清除所有 <ph name="SITE_GROUP_NAME" /> 儲存的資料和 Cookie，以及此群組中的所有網站。</translation>
 <translation id="5691511426247308406">家庭</translation>
 <translation id="5692183275898619210">列印完成</translation>
 <translation id="5696143504434933566">舉報「<ph name="EXTENSION_NAME" />」的濫用行為</translation>
@@ -3677,6 +3677,7 @@
 <translation id="6267547857941397424">第 <ph name="NETWORK_INDEX" /> 個網絡，一共有 <ph name="NETWORK_COUNT" /> 個網絡，<ph name="PHONE_NAME" />，訊號強度係 <ph name="SIGNAL_STRENGTH" />%，手機電量係 <ph name="BATTERY_STATUS" />%，連接</translation>
 <translation id="6268252012308737255">使用 <ph name="APP" /> 開啟</translation>
 <translation id="6268718011101775129">NFC</translation>
+<translation id="6270391203985052864">網站將可以要求向您傳送通知</translation>
 <translation id="6270770586500173387">傳送<ph name="BEGIN_LINK1" />系統和應用程式資訊<ph name="END_LINK1" />，以及<ph name="BEGIN_LINK2" />指標數據<ph name="END_LINK2" /></translation>
 <translation id="6272643420381259437">下載外掛程式時發生錯誤 (<ph name="ERROR" />)</translation>
 <translation id="6273677812470008672">品質</translation>
@@ -3867,6 +3868,7 @@
 <translation id="6555810572223193255">目前無法進行清理</translation>
 <translation id="6556866813142980365">重做</translation>
 <translation id="6557290421156335491">我的捷徑</translation>
+<translation id="6561560012278703671">使用靜態訊息功能 (免受通知提示干擾)</translation>
 <translation id="6561726789132298588">Enter 鍵</translation>
 <translation id="656293578423618167">檔案路徑或名稱太長。請選用較短的名稱或將其儲存至其他位置。</translation>
 <translation id="6563469144985748109">您的管理員尚未批准瀏覽此網站</translation>
@@ -3892,7 +3894,7 @@
 <translation id="6602956230557165253">使用向左鍵和向右鍵瀏覽。</translation>
 <translation id="6605847144724004692">尚未有使用者評分。</translation>
 <translation id="6607831829715835317">更多工具(&amp;L)</translation>
-<translation id="6611972847767394631">在這裡尋找你的分頁</translation>
+<translation id="6611972847767394631">您的分頁會在這裡顯示</translation>
 <translation id="6612358246767739896">受保護內容</translation>
 <translation id="6615455863669487791">顯示</translation>
 <translation id="6618097958368085618">仍要保留</translation>
@@ -4914,7 +4916,6 @@
 <translation id="8044899503464538266">慢</translation>
 <translation id="8045253504249021590">已透過「Google 資訊主頁」停用同步功能。</translation>
 <translation id="8045923671629973368">請輸入應用程式 ID 或網上商店網址</translation>
-<translation id="8046278916126163020">最新瀏覽的網站可以要求向您傳送通知</translation>
 <translation id="804786196054284061">使用者授權協議</translation>
 <translation id="8049705080247101012">Google 已將「<ph name="EXTENSION_NAME" />」標示為惡意程式並已阻止其安裝</translation>
 <translation id="8050038245906040378">Microsoft 商用程式碼簽署</translation>
@@ -5714,7 +5715,7 @@
 <translation id="9188732951356337132">傳送使用情況和診斷資料。此裝置目前會自動將診斷、裝置及應用程式的使用情況資料傳送至 Google。這些資料不會用來識別您子女的身分，而是用於改善系統和應用程式的穩定性和其他效能。部分彙整資料也會用於協助 Google 應用程式與合作夥伴 (例如 Android 開發人員)。如果已為子女開啟其他「網絡及應用程式活動記錄」設定，系統可能會將此資料儲存至其 Google 帳戶。<ph name="BEGIN_LINK2" />瞭解詳情<ph name="END_LINK2" /></translation>
 <translation id="9190063653747922532">L2TP/IPsec + 預先共用金鑰</translation>
 <translation id="920045321358709304">透過 <ph name="SEARCH_ENGINE" /> 搜尋</translation>
-<translation id="9201023452444595544">所有離線資料都將遭到清除</translation>
+<translation id="9201023452444595544">所有離線資料將會被清除</translation>
 <translation id="9201220332032049474">螢幕鎖定選項</translation>
 <translation id="9203398526606335860">分析已啟用(&amp;P)</translation>
 <translation id="9203904171912129171">選取裝置</translation>
@@ -5727,7 +5728,7 @@
 <translation id="9220525904950070496">移除帳戶</translation>
 <translation id="9220820413868316583">提起手指，然後再試一次。</translation>
 <translation id="923467487918828349">全部顯示</translation>
-<translation id="929117907539171075">已安裝應用程式中的離線資料也將遭到清除</translation>
+<translation id="929117907539171075">系統亦會清除已安裝應用程式的離線資料</translation>
 <translation id="930268624053534560">詳細的時間戳</translation>
 <translation id="932327136139879170">首頁</translation>
 <translation id="932508678520956232">無法初始化列印操作。</translation>

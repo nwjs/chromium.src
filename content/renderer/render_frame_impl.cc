@@ -33,6 +33,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/optional.h"
 #include "base/process/process.h"
+#include "base/run_loop.h"
 #include "base/stl_util.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_piece.h"
@@ -1825,7 +1826,6 @@ RenderFrameImpl::RenderFrameImpl(CreateParams params)
       handling_select_range_(false),
       render_accessibility_(nullptr),
       is_pasting_(false),
-      suppress_further_dialogs_(false),
       blame_context_(nullptr),
 #if BUILDFLAG(ENABLE_PLUGINS)
       focused_pepper_plugin_(nullptr),
@@ -2235,8 +2235,6 @@ bool RenderFrameImpl::OnMessageReceived(const IPC::Message& msg) {
                         OnGetSavableResourceLinks)
     IPC_MESSAGE_HANDLER(FrameMsg_GetSerializedHtmlWithLocalLinks,
                         OnGetSerializedHtmlWithLocalLinks)
-    IPC_MESSAGE_HANDLER(FrameMsg_SuppressFurtherDialogs,
-                        OnSuppressFurtherDialogs)
     IPC_MESSAGE_HANDLER(FrameMsg_ClearFocusedElement, OnClearFocusedElement)
     IPC_MESSAGE_HANDLER(FrameMsg_BlinkFeatureUsageReport,
                         OnBlinkFeatureUsageReport)
@@ -2347,6 +2345,7 @@ void RenderFrameImpl::OnSwapOut(
     const FrameReplicationState& replicated_frame_state) {
   TRACE_EVENT1("navigation,rail", "RenderFrameImpl::OnSwapOut",
                "id", routing_id_);
+  DCHECK(!base::RunLoop::IsNestedOnCurrentThread());
 
   // Send an UpdateState message before we get deleted.
   SendUpdateState();
@@ -2874,11 +2873,6 @@ bool RenderFrameImpl::RunJavaScriptDialog(JavaScriptDialogType type,
                                           const base::string16& message,
                                           const base::string16& default_value,
                                           base::string16* result) {
-  // Don't allow further dialogs if we are waiting to swap out, since the
-  // ScopedPageLoadDeferrer in our stack prevents it.
-  if (suppress_further_dialogs_)
-    return false;
-
   int32_t message_length = static_cast<int32_t>(message.length());
   if (WebUserGestureIndicator::ProcessedUserGestureSinceLoad(frame_)) {
     UMA_HISTOGRAM_COUNTS_1M("JSDialogs.CharacterCount.UserGestureSinceLoad",
@@ -4952,11 +4946,6 @@ bool RenderFrameImpl::RunModalPromptDialog(
 }
 
 bool RenderFrameImpl::RunModalBeforeUnloadDialog(bool is_reload) {
-  // Don't allow further dialogs if we are waiting to swap out, since the
-  // ScopedPageLoadDeferrer in our stack prevents it.
-  if (suppress_further_dialogs_)
-    return false;
-
   bool success = false;
   // This is an ignored return value, but is included so we can accept the same
   // response as RunJavaScriptDialog.
@@ -6274,10 +6263,6 @@ void RenderFrameImpl::OnWriteMHTMLComplete(
                 "mismatching enums: " #a)
 #undef STATIC_ASSERT_ENUM
 #endif
-
-void RenderFrameImpl::OnSuppressFurtherDialogs() {
-  suppress_further_dialogs_ = true;
-}
 
 void RenderFrameImpl::OnClearFocusedElement() {
   // TODO(ekaramad): Should we add a method to WebLocalFrame instead and avoid

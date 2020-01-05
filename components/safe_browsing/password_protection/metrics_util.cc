@@ -36,6 +36,10 @@ const char kGSuiteNonSyncPasswordEntryRequestOutcomeHistogram[] =
     "PasswordProtection.RequestOutcome.GSuiteNonSyncPasswordEntry";
 const char kSavedPasswordEntryRequestOutcomeHistogram[] =
     "PasswordProtection.RequestOutcome.SavedPasswordEntry";
+const char kUnknownPrimaryAccountPasswordEntryVerdictHistogram[] =
+    "PasswordProtection.Verdict.UnknownPrimaryPasswordEntry";
+const char kUnknownNonPrimaryAccountPasswordEntryVerdictHistogram[] =
+    "PasswordProtection.Verdict.UnknownNonPrimaryPasswordEntry";
 const char kGSuiteSyncPasswordEntryVerdictHistogram[] =
     "PasswordProtection.Verdict.GSuiteSyncPasswordEntry";
 const char kGSuiteNonSyncPasswordEntryVerdictHistogram[] =
@@ -62,7 +66,6 @@ const char kNonSyncPasswordInterstitialHistogram[] =
     "PasswordProtection.InterstitialAction.NonSyncPasswordEntry";
 const char kNonSyncPasswordPageInfoHistogram[] =
     "PasswordProtection.PageInfoAction.NonSyncPasswordEntry";
-
 const char kGSuiteSyncPasswordInterstitialHistogram[] =
     "PasswordProtection.InterstitialAction.GSuiteSyncPasswordEntry";
 const char kGSuiteNonSyncPasswordInterstitialHistogram[] =
@@ -114,15 +117,14 @@ void LogPasswordEntryRequestOutcome(
 
   bool is_gsuite_user =
       password_account_type.account_type() == ReusedPasswordAccountType::GSUITE;
+  bool is_gmail_user =
+      password_account_type.account_type() == ReusedPasswordAccountType::GMAIL;
   bool is_primary_account_password = password_account_type.is_account_syncing();
   if (is_primary_account_password) {
-    if (is_gsuite_user) {
-      UMA_HISTOGRAM_ENUMERATION(kGSuiteSyncPasswordEntryRequestOutcomeHistogram,
-                                outcome);
-    } else {
-      UMA_HISTOGRAM_ENUMERATION(kGmailSyncPasswordEntryRequestOutcomeHistogram,
-                                outcome);
-    }
+    base::UmaHistogramEnumeration(
+        is_gsuite_user ? kGSuiteSyncPasswordEntryRequestOutcomeHistogram
+                       : kGmailSyncPasswordEntryRequestOutcomeHistogram,
+        outcome);
     UMA_HISTOGRAM_ENUMERATION(kSyncPasswordEntryRequestOutcomeHistogram,
                               outcome);
   } else if (password_account_type.account_type() ==
@@ -133,14 +135,11 @@ void LogPasswordEntryRequestOutcome(
              ReusedPasswordAccountType::SAVED_PASSWORD) {
     UMA_HISTOGRAM_ENUMERATION(kSavedPasswordEntryRequestOutcomeHistogram,
                               outcome);
-  } else {
-    if (is_gsuite_user) {
-      UMA_HISTOGRAM_ENUMERATION(
-          kGSuiteNonSyncPasswordEntryRequestOutcomeHistogram, outcome);
-    } else {
-      UMA_HISTOGRAM_ENUMERATION(
-          kGmailNonSyncPasswordEntryRequestOutcomeHistogram, outcome);
-    }
+  } else if (is_gsuite_user || is_gmail_user) {
+    base::UmaHistogramEnumeration(
+        is_gsuite_user ? kGSuiteNonSyncPasswordEntryRequestOutcomeHistogram
+                       : kGmailNonSyncPasswordEntryRequestOutcomeHistogram,
+        outcome);
     UMA_HISTOGRAM_ENUMERATION(kNonSyncPasswordEntryRequestOutcomeHistogram,
                               outcome);
   }
@@ -201,6 +200,12 @@ void LogPasswordProtectionVerdict(
           kAnyPasswordEntryVerdictHistogram, verdict_type,
           (LoginReputationClientResponse_VerdictType_VerdictType_MAX + 1));
       if (is_account_syncing) {
+        if (password_account_type.account_type() ==
+            ReusedPasswordAccountType::UNKNOWN) {
+          UMA_HISTOGRAM_ENUMERATION(
+              kUnknownPrimaryAccountPasswordEntryVerdictHistogram, verdict_type,
+              (LoginReputationClientResponse_VerdictType_VerdictType_MAX + 1));
+        }
         UMA_HISTOGRAM_ENUMERATION(
             kSyncPasswordEntryVerdictHistogram, verdict_type,
             (LoginReputationClientResponse_VerdictType_VerdictType_MAX + 1));
@@ -238,6 +243,11 @@ void LogPasswordProtectionVerdict(
                  ReusedPasswordAccountType::SAVED_PASSWORD) {
         UMA_HISTOGRAM_ENUMERATION(
             kSavedPasswordEntryVerdictHistogram, verdict_type,
+            (LoginReputationClientResponse_VerdictType_VerdictType_MAX + 1));
+      } else {
+        UMA_HISTOGRAM_ENUMERATION(
+            kUnknownNonPrimaryAccountPasswordEntryVerdictHistogram,
+            verdict_type,
             (LoginReputationClientResponse_VerdictType_VerdictType_MAX + 1));
       }
       break;

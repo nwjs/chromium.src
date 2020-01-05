@@ -10,6 +10,7 @@
 #include "base/containers/flat_set.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/metrics/histogram_macros_local.h"
 #include "base/rand_util.h"
 #include "base/sequenced_task_runner.h"
 #include "base/strings/stringprintf.h"
@@ -113,7 +114,9 @@ PredictionManager::PredictionManager(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     PrefService* pref_service,
     Profile* profile)
-    : session_fcp_(),
+    : host_model_features_cache_(
+          std::max(features::MaxHostModelFeaturesCacheSize(), size_t(1))),
+      session_fcp_(),
       top_host_provider_(top_host_provider),
       model_and_features_store_(std::move(model_and_features_store)),
       url_loader_factory_(url_loader_factory),
@@ -142,6 +145,10 @@ void PredictionManager::Initialize(const std::vector<proto::OptimizationTarget>&
 void PredictionManager::UpdateFCPSessionStatistics(base::TimeDelta fcp) {
   previous_load_fcp_ms_ = static_cast<float>(fcp.InMilliseconds());
   session_fcp_.AddSample(*previous_load_fcp_ms_);
+  pref_service_->SetDouble(prefs::kSessionStatisticFCPMean,
+                           session_fcp_.GetMean());
+  pref_service_->SetDouble(prefs::kSessionStatisticFCPStdDev,
+                           session_fcp_.GetStdDev());
 }
 
 void PredictionManager::RegisterOptimizationTargets(
@@ -212,14 +219,30 @@ base::Optional<float> PredictionManager::GetValueForClientFeature(
           engagement_service->GetScore(navigation_handle->GetURL()));
     }
     case proto::CLIENT_MODEL_FEATURE_SAME_ORIGIN_NAVIGATION: {
-      return static_cast<float>(url::IsSameOriginWith(
-          navigation_handle->GetURL(), navigation_handle->GetPreviousURL()));
+      OptimizationGuideNavigationData* nav_data =
+          OptimizationGuideNavigationData::GetFromNavigationHandle(
+              navigation_handle);
+
+      bool is_same_origin = nav_data && nav_data->is_same_origin_navigation();
+
+      LOCAL_HISTOGRAM_BOOLEAN(
+          "OptimizationGuide.PredictionManager.IsSameOrigin", is_same_origin);
+
+      return static_cast<float>(is_same_origin);
     }
     case proto::CLIENT_MODEL_FEATURE_FIRST_CONTENTFUL_PAINT_SESSION_MEAN: {
+      if (session_fcp_.GetNumberOfSamples() == 0) {
+        return static_cast<float>(
+            pref_service_->GetDouble(prefs::kSessionStatisticFCPMean));
+      }
       return session_fcp_.GetMean();
     }
     case proto::
         CLIENT_MODEL_FEATURE_FIRST_CONTENTFUL_PAINT_SESSION_STANDARD_DEVIATION: {
+      if (session_fcp_.GetNumberOfSamples() == 0) {
+        return static_cast<float>(
+            pref_service_->GetDouble(prefs::kSessionStatisticFCPStdDev));
+      }
       return session_fcp_.GetStdDev();
     }
     case proto::
@@ -234,7 +257,7 @@ base::Optional<float> PredictionManager::GetValueForClientFeature(
 
 base::flat_map<std::string, float> PredictionManager::BuildFeatureMap(
     content::NavigationHandle* navigation_handle,
-    const base::flat_set<std::string>& model_features) const {
+    const base::flat_set<std::string>& model_features) {
   SEQUENCE_CHECKER(sequence_checker_);
   base::flat_map<std::string, float> feature_map;
   if (model_features.size() == 0)
@@ -243,8 +266,8 @@ base::flat_map<std::string, float> PredictionManager::BuildFeatureMap(
   const base::flat_map<std::string, float>* host_model_features = nullptr;
 
   std::string host = navigation_handle->GetURL().host();
-  auto it = host_model_features_map_.find(host);
-  if (it != host_model_features_map_.end())
+  auto it = host_model_features_cache_.Get(host);
+  if (it != host_model_features_cache_.end())
     host_model_features = &(it->second);
 
   UMA_HISTOGRAM_BOOLEAN(
@@ -263,7 +286,7 @@ base::flat_map<std::string, float> PredictionManager::BuildFeatureMap(
       continue;
     }
     if (!host_model_features || !host_model_features->contains(model_feature)) {
-      feature_map[model_feature] = 0.0;
+      feature_map[model_feature] = -1.0;
       continue;
     }
     feature_map[model_feature] =
@@ -274,7 +297,7 @@ base::flat_map<std::string, float> PredictionManager::BuildFeatureMap(
 
 OptimizationTargetDecision PredictionManager::ShouldTargetNavigation(
     content::NavigationHandle* navigation_handle,
-    proto::OptimizationTarget optimization_target) const {
+    proto::OptimizationTarget optimization_target) {
   SEQUENCE_CHECKER(sequence_checker_);
   DCHECK(navigation_handle->GetURL().SchemeIsHTTPOrHTTPS());
 
@@ -352,9 +375,9 @@ PredictionModel* PredictionManager::GetPredictionModelForTesting(
   return nullptr;
 }
 
-base::flat_map<std::string, base::flat_map<std::string, float>>
+const HostModelFeaturesMRUCache*
 PredictionManager::GetHostModelFeaturesForTesting() const {
-  return host_model_features_map_;
+  return &host_model_features_cache_;
 }
 
 void PredictionManager::SetPredictionModelFetcherForTesting(
@@ -380,6 +403,19 @@ void PredictionManager::FetchModelsAndHostModelFeatures() {
     return;
 
   std::vector<std::string> top_hosts = top_host_provider_->GetTopHosts();
+
+  // Remove hosts that are already available in the host model features cache.
+  // The request should still be made in case there is a new model or a model
+  // that does not rely on host model features to be fetched.
+  auto it = top_hosts.begin();
+  while (it != top_hosts.end()) {
+    if (host_model_features_cache_.Peek(*it) !=
+        host_model_features_cache_.end()) {
+      it = top_hosts.erase(it);
+      continue;
+    }
+    ++it;
+  }
 
   if (!prediction_model_fetcher_) {
     prediction_model_fetcher_ = std::make_unique<PredictionModelFetcher>(
@@ -515,6 +551,9 @@ void PredictionManager::OnHostModelFeaturesStored() {
   // Clear any data remaining in the stored get models response.
   get_models_response_data_to_store_.reset();
 
+  // Purge any expired host model features from the store.
+  model_and_features_store_->PurgeExpiredHostModelFeatures();
+
   // TODO(crbug/1027596): Stopping the timer can be removed once the fetch
   // callback refactor is done. Otherwise, at the start of a fetch, a timer is
   // running to handle the cases that a fetch fails but the callback is not run.
@@ -563,7 +602,7 @@ void PredictionManager::OnLoadHostModelFeatures(
   }
   UMA_HISTOGRAM_COUNTS_1000(
       "OptimizationGuide.PredictionManager.HostModelFeaturesMapSize",
-      host_model_features_map_.size());
+      host_model_features_cache_.size());
 
   // Load the prediction models for all the registered optimization targets now
   // that it is not blocked by loading the host model features.
@@ -661,8 +700,8 @@ bool PredictionManager::ProcessAndStoreHostModelFeatures(
   }
   if (model_features_for_host.size() == 0)
     return false;
-  host_model_features_map_[host_model_features.host()] =
-      model_features_for_host;
+  host_model_features_cache_.Put(host_model_features.host(),
+                                 model_features_for_host);
   return true;
 }
 
@@ -721,9 +760,17 @@ void PredictionManager::SetClockForTesting(const base::Clock* clock) {
 }
 
 void PredictionManager::ClearHostModelFeatures() {
-  host_model_features_map_.clear();
+  host_model_features_cache_.Clear();
   if (model_and_features_store_)
     model_and_features_store_->ClearHostModelFeaturesFromDatabase();
+}
+
+base::Optional<base::flat_map<std::string, float>>
+PredictionManager::GetHostModelFeaturesForHost(const std::string& host) const {
+  auto it = host_model_features_cache_.Peek(host);
+  if (it == host_model_features_cache_.end())
+    return base::nullopt;
+  return it->second;
 }
 
 }  // namespace optimization_guide

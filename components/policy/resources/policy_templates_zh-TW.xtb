@@ -2382,6 +2382,11 @@
       如果停用這項政策或不予設定，則無法同時在多個網站中進行瀏覽及開啟新視窗/分頁。</translation>
 <translation id="4680961954980851756">啟用自動填入</translation>
 <translation id="4693779768620889402">可支援擴充功能的目的地</translation>
+<translation id="4699592681017489215">這項政策會設定可用於停用 DNS 攔截檢查功能的本機切換按鈕。這些檢查機制會嘗試偵測瀏覽器是否透過 Proxy，將使用者重新導向未知的主機名稱。
+
+      在企業環境中，由於網路設定並沒有不確定性，所以可能不需要使用這種偵測機制，因為這項功能會在啟動裝置和每次變更 DNS 設定時產生一些 DNS 和 HTTP 流量。
+
+      如果不設定這項政策或設為啟用，系統會執行 DNS 攔截檢查。如果明確指定停用這項政策，系統就不會執行 DNS 攔截檢查。</translation>
 <translation id="4703402283970867140">啟用智慧型調光模式來延長使用時間，直到螢幕變暗為止</translation>
 <translation id="4722122254122249791">為指定來源啟用網站隔離</translation>
 <translation id="4722399051042571387">如果設為 False，使用者將無法設定系統判定強度不足而容易被破解的 PIN。
@@ -2548,7 +2553,7 @@
 <translation id="5067143124345820993">登入使用者許可清單</translation>
 <translation id="5073609397321802133">如果將這項政策設為 False，系統將禁止使用者自訂新分頁的背景。即使日後將這項政策設為 True，系統仍會永久移除任何現有的自訂背景。
 
-      如果不設定這項政策或設為 True，使用者可以自訂新分頁的背景。</translation>
+      如果不設定這項政策或將其設為 True，使用者可以自訂新分頁的背景。</translation>
 <translation id="5075834892754086022">如果設定這項政策，系統會強制使用政策所設定的 PIN 碼長度
           下限。(PIN 碼長度的絕對下限為 1；系統會將低於 1
           的值視為 1 處理。)
@@ -3667,6 +3672,7 @@
       如需可使用的變數清單，請參閱 https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables。
 
       如果未設定這項政策，系統會使用預設的設定檔目錄，日後使用者可以自行透過「'--user-data-dir」命令列標記覆寫這個目錄。</translation>
+<translation id="7008308728445338159">已啟用 DNS 攔截檢查功能</translation>
 <translation id="7027785306666625591">設定 <ph name="PRODUCT_OS_NAME" /> 的電源管理。
 
       這些政策可讓你設定當使用者閒置一段時間後，要讓 <ph name="PRODUCT_OS_NAME" /> 採取的動作。</translation>
@@ -4709,7 +4715,7 @@
       如果停用這項政策，則使用者無法刪除瀏覽和下載記錄項目。</translation>
 <translation id="8749803771700374502">系統不會搜尋拒絕清單上列出的印表機類型，也不會擷取這類印表機可支援的列印功能。
 
-      在拒絕清單上列出所有印表機類型的效果與停用列印功能相同，因為這樣一來，系統傳送文件進行列印時就沒有可用的目的地。
+      在拒絕清單上列出所有印表機類型的效果與停用列印功能相同，因為這樣一來，系統傳送文件進行列印時，就沒有目的地可供使用。
 
       在拒絕清單上加入「<ph name="POLICY_ENUM_PRINTERTYPEDENYLIST_CLOUD" />」的作用等同於將「<ph name="POLICY_CLOUDPRINTSUBMITENABLED" />」政策設定為 False。如要讓系統搜尋到 <ph name="CLOUD_PRINT_NAME" /> 目的地，「<ph name="POLICY_CLOUDPRINTSUBMITENABLED" />」政策必須設為 True，且拒絕清單中不得包含「<ph name="POLICY_ENUM_PRINTERTYPEDENYLIST_CLOUD" />」。
 

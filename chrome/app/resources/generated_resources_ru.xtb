@@ -1023,6 +1023,7 @@
 <translation id="2445484935443597917">Создать профиль</translation>
 <translation id="2446585455334014596">Приложение "<ph name="APP_NAME" />" запрашивает подтверждение вашей личности</translation>
 <translation id="2448312741937722512">Тип</translation>
+<translation id="2448734521821581858">Файлы cookie создаются сайтами для хранения пользовательской информации. Существует два типа таких файлов. Собственные файлы cookie создает тот сайт, на который вы зашли. Он указан в адресной строке браузера. Сторонние файлы cookie создаются другими сайтами, которые размещают свой контент (например, объявления или изображения) на просматриваемых вами веб-страницах.</translation>
 <translation id="2450223707519584812">Отсутствуют ключи API Google. Вы не сможете добавлять пользователей. Подробная информация: <ph name="DETAILS_URL" />.</translation>
 <translation id="2450849356604136918">нет активных режимов просмотра.</translation>
 <translation id="2451298179137331965">2x</translation>
@@ -1190,7 +1191,6 @@
 <translation id="2665919335226618153">Произошла ошибка форматирования.</translation>
 <translation id="2666990579225592931">Открыть окно в гостевом режиме</translation>
 <translation id="2667463864537187133">Настроить проверку орфографии</translation>
-<translation id="2669093958999339774">Включить тихий режим для запросов разрешений на показ уведомлений с сайтов</translation>
 <translation id="2670102641511624474">Приложение "<ph name="APP_NAME" />" предоставило доступ к вкладке Chrome.</translation>
 <translation id="2670429602441959756">На этой странице есть элементы, которые пока не поддерживаются в VR. Выход из VR-режима…</translation>
 <translation id="2671451824761031126">Импорт закладок и настроек завершен</translation>
@@ -1963,7 +1963,6 @@
 <translation id="37613671848467444">Открыть в режиме &amp;инкогнито</translation>
 <translation id="3764583730281406327">{NUM_DEVICES,plural, =1{Доступно 1 USB-устройство}one{Доступно # USB-устройство}few{Доступно # USB-устройства}many{Доступно # USB-устройств}other{Доступно # USB-устройства}}</translation>
 <translation id="3765246971671567135">Не удалось прочитать политику работы офлайн в демонстрационном режиме.</translation>
-<translation id="3767376082821709728">Новые сайты, которые вы посещаете, не могут присылать вам уведомления.</translation>
 <translation id="3768037234834996183">Синхронизация настроек...</translation>
 <translation id="377050016711188788">Мороженое</translation>
 <translation id="3771294271822695279">Видеофайлы</translation>
@@ -3127,6 +3126,7 @@
 <translation id="5496587651328244253">Управление</translation>
 <translation id="5499313591153584299">Этот файл может быть опасен для вашего компьютера.</translation>
 <translation id="5502500733115278303">Импортированные из Firefox</translation>
+<translation id="5505264765875738116">Сайты не могут запрашивать разрешения на отправку уведомлений</translation>
 <translation id="5505307013568720083">Закончились чернила</translation>
 <translation id="5507756662695126555">Без отказа</translation>
 <translation id="5509693895992845810">Сохранить как...</translation>
@@ -3677,6 +3677,7 @@
 <translation id="6267547857941397424">Сеть <ph name="NETWORK_INDEX" /> из <ph name="NETWORK_COUNT" />, телефон – <ph name="PHONE_NAME" />, уровень сигнала – <ph name="SIGNAL_STRENGTH" /> %, заряд батареи – <ph name="BATTERY_STATUS" /> %, подключение</translation>
 <translation id="6268252012308737255">Открыть в приложении <ph name="APP" /></translation>
 <translation id="6268718011101775129">NFC</translation>
+<translation id="6270391203985052864">Сайты могут запрашивать разрешения на отправку уведомлений</translation>
 <translation id="6270770586500173387">Отправлять <ph name="BEGIN_LINK1" />информацию о системе и приложениях<ph name="END_LINK1" /> и различные <ph name="BEGIN_LINK2" />показатели<ph name="END_LINK2" /></translation>
 <translation id="6272643420381259437">При скачивании плагина произошла ошибка (<ph name="ERROR" />)</translation>
 <translation id="6273677812470008672">Качество</translation>
@@ -3867,6 +3868,7 @@
 <translation id="6555810572223193255">Инструмент очистки недоступен</translation>
 <translation id="6556866813142980365">Повторить</translation>
 <translation id="6557290421156335491">Мои ярлыки</translation>
+<translation id="6561560012278703671">Не прерывать мою работу при запросе разрешения на показ уведомлений</translation>
 <translation id="6561726789132298588">Войти</translation>
 <translation id="656293578423618167">Слишком длинное название файла или путь к нему. Выберите другое название или каталог.</translation>
 <translation id="6563469144985748109">Ещё не одобрено администратором</translation>
@@ -4914,7 +4916,6 @@
 <translation id="8044899503464538266">Медленно</translation>
 <translation id="8045253504249021590">Синхронизация остановлена через Личный кабинет Google.</translation>
 <translation id="8045923671629973368">Введите идентификатор приложения или URL интернет-магазина</translation>
-<translation id="8046278916126163020">Новые сайты, которые вы посещаете, могут запрашивать разрешение на отправку уведомлений.</translation>
 <translation id="804786196054284061">Лицензионное соглашение с конечным пользователем</translation>
 <translation id="8049705080247101012">Google заблокировал установку потенциально опасной программы (<ph name="EXTENSION_NAME" />).</translation>
 <translation id="8050038245906040378">Подписывание коммерческого кода Microsoft</translation>

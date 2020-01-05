@@ -91,6 +91,10 @@ class CONTENT_EXPORT CacheStorageContextImpl
   // If called on the cache_storage target sequence the real manager will be
   // returned directly.  If called on any other sequence then a cross-sequence
   // wrapper object will be created and returned instead.
+  //
+  // Note, this may begun returning nullptr at any time if shutdown is initiated
+  // on a separate thread.  Prefer to call CacheManager() once and hold a
+  // reference to the returned object.
   scoped_refptr<CacheStorageManager> CacheManager() override;
 
   bool is_incognito() const { return is_incognito_; }
@@ -137,6 +141,9 @@ class CONTENT_EXPORT CacheStorageContextImpl
 
   // Initialized in Init(); true if the user data directory is empty.
   bool is_incognito_ = false;
+
+  // True once Shutdown() has been called on the UI thread.
+  std::atomic<bool> shutdown_;
 
   // Initialized in Init().
   scoped_refptr<storage::SpecialStoragePolicy> special_storage_policy_;
