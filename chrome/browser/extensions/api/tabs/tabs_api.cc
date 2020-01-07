@@ -887,6 +887,7 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
   else
     bounds = browser->window()->GetBounds();
   bool set_bounds = false;
+  bool set_pos_only = false;
 
   bool set_min_size = false;
   bool set_max_size = false;
@@ -916,21 +917,25 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
   if (params->update_info.left) {
     bounds.set_x(*params->update_info.left);
     set_bounds = true;
+    set_pos_only = true;
   }
 
   if (params->update_info.top) {
     bounds.set_y(*params->update_info.top);
     set_bounds = true;
+    set_pos_only = true;
   }
 
   if (params->update_info.width) {
     bounds.set_width(*params->update_info.width);
     set_bounds = true;
+    set_pos_only = false;
   }
 
   if (params->update_info.height) {
     bounds.set_height(*params->update_info.height);
     set_bounds = true;
+    set_pos_only = false;
   }
 
   bool set_client_bounds = false;
@@ -961,7 +966,12 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     }
     // TODO(varkha): Updating bounds during a drag can cause problems and a more
     // general solution is needed. See http://crbug.com/251813 .
-    browser->window()->SetBounds(bounds);
+#if defined(OS_WIN)
+    if (set_pos_only)
+      browser->window()->SetPosition(bounds.origin());
+    else
+#endif
+      browser->window()->SetBounds(bounds);
   }
 
   if (params->update_info.position &&

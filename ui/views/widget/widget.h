@@ -496,6 +496,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // Sizes and/or places the widget to the specified bounds, size or position.
   void SetBounds(const gfx::Rect& bounds);
+#if defined(OS_WIN)
+  void SetPosition(const gfx::Point& position);
+#endif
   void SetSize(const gfx::Size& size);
 
   // Sizes the window to the specified size and centers it.

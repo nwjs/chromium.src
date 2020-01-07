@@ -269,6 +269,10 @@ class BrowserWindow : public ui::BaseWindow {
   // be called after the TabStripModel has an active tab.
   virtual void SetContentsSize(const gfx::Size& size) = 0;
 
+#if defined(OS_WIN)
+  virtual void SetPosition(const gfx::Point& pos) = 0;
+#endif
+
   // Updates the visual state of the specified page action icon if present on
   // the window. Returns whether any change occurred.
   virtual bool UpdatePageActionIcon(PageActionIconType type) = 0;

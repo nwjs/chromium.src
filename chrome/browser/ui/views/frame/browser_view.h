@@ -289,6 +289,9 @@ class BrowserView : public BrowserWindow,
   void Hide() override;
   bool IsVisible() const override;
   void SetBounds(const gfx::Rect& bounds) override;
+#if defined(OS_WIN)
+  void SetPosition(const gfx::Point& pos) override;
+#endif
   void Close() override;
   void Activate() override;
   void Deactivate() override;

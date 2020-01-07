@@ -200,6 +200,9 @@ class AURA_EXPORT WindowTreeHost : public ui::internal::InputMethodDelegate,
   // depending on the platform. The |local_surface_id| takes effect when (and
   // if) the new size is confirmed (potentially asynchronously) by the platform.
   virtual void SetBoundsInPixels(const gfx::Rect& bounds_in_pixels) = 0;
+#if defined(OS_WIN)
+  virtual void SetPositionInPixels(const gfx::Point& pos_in_pixels);
+#endif
   virtual gfx::Rect GetBoundsInPixels() const = 0;
 
   // Sets the OS capture to the root window.

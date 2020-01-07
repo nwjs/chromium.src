@@ -770,6 +770,13 @@ void BrowserView::SetBounds(const gfx::Rect& bounds) {
   GetWidget()->SetBounds(bounds);
 }
 
+#if defined(OS_WIN)
+void BrowserView::SetPosition(const gfx::Point& pos) {
+  ExitFullscreen();
+  GetWidget()->SetPosition(pos);
+}
+#endif
+
 void BrowserView::Close() {
   frame_->Close();
 }

@@ -3479,6 +3479,11 @@ bool HWNDMessageHandler::HandleMouseInputForCaption(unsigned int message,
   return handled;
 }
 
+void HWNDMessageHandler::SetPosition(const gfx::Point& pos_in_pixels) {
+  SetWindowPos(hwnd(), nullptr, pos_in_pixels.x(), pos_in_pixels.y(),
+    0, 0, SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOSIZE);
+}
+
 void HWNDMessageHandler::SetBoundsInternal(const gfx::Rect& bounds_in_pixels,
                                            bool force_size_changed) {
   gfx::Size old_size = GetClientAreaBounds().size();

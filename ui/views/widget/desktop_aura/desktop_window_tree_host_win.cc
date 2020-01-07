@@ -553,6 +553,10 @@ gfx::Rect DesktopWindowTreeHostWin::GetBoundsInPixels() const {
   return without_expansion;
 }
 
+void DesktopWindowTreeHostWin::SetPositionInPixels(const gfx::Point& pos) {
+  message_handler_->SetPosition(pos);
+}
+
 void DesktopWindowTreeHostWin::SetBoundsInPixels(const gfx::Rect& bounds) {
   // If the window bounds have to be expanded we need to subtract the
   // window_expansion_top_left_delta_ from the origin and add the
