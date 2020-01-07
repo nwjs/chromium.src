@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "extensions/components/native_app_window/native_app_window_views.h"
+#include "content/nw/src/browser/nw_chrome_browser_hooks.h"
 
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
@@ -55,12 +56,12 @@ bool NativeAppWindowViews::ExecuteAppCommand(int command_id) {
 
 NativeAppWindowViews::NativeAppWindowViews() {
 #if defined(OS_LINUX) || defined(OS_WIN)
-  //const extensions::Extension* extension = app_window_->GetExtension();
-  if (true) { //extension && extension->is_nwjs_app()) {
+  const extensions::Extension* extension = nw::GetMainExtension();
+  if (extension && extension->is_nwjs_app()) {
       auto layout = std::make_unique<BrowserViewLayout>();
       SetLayoutManager(std::move(layout));
       return;
-    }
+  }
 #endif
   SetLayoutManager(std::make_unique<views::FillLayout>());
 }
