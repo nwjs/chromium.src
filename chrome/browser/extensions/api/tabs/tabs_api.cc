@@ -267,7 +267,7 @@ bool IsValidStateForWindowsCreateFunction(
     case windows::WINDOW_STATE_FULLSCREEN:
     case windows::WINDOW_STATE_LOCKED_FULLSCREEN:
       // If maximised/fullscreen, default focused state should be focused.
-      return !(create_data->focused && !*create_data->focused) && !has_bound;
+      return true; //!(create_data->focused && !*create_data->focused) && !has_bound;
     case windows::WINDOW_STATE_NORMAL:
     case windows::WINDOW_STATE_NONE:
     case windows::WINDOW_STATE_HIDDEN:
