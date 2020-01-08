@@ -1655,7 +1655,7 @@ void Browser::ContentsMouseEvent(WebContents* source,
 }
 
 void Browser::ContentsZoomChange(bool zoom_in) {
-  chrome::ExecuteCommand(this, zoom_in ? IDC_ZOOM_PLUS : IDC_ZOOM_MINUS);
+  //chrome::ExecuteCommand(this, zoom_in ? IDC_ZOOM_PLUS : IDC_ZOOM_MINUS);
 }
 
 bool Browser::TakeFocus(content::WebContents* source, bool reverse) {
