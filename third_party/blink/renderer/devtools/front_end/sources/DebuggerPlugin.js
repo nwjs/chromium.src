@@ -501,25 +501,6 @@ Sources.DebuggerPlugin = class extends Sources.UISourceCodeFrame.Plugin {
       }
     }
 
-    // The eager evaluation on works sort of reliably within the top-most scope of
-    // the selected call frame, so don't even try outside the top-most scope.
-    const [scope] = selectedCallFrame.scopeChain();
-    if (scope && scope.startLocation() && scope.endLocation()) {
-      if (editorLineNumber < scope.startLocation().lineNumber) {
-        return null;
-      }
-      if (editorLineNumber === scope.startLocation().lineNumber &&
-          startHighlight < scope.startLocation().columnNumber) {
-        return null;
-      }
-      if (editorLineNumber > scope.endLocation().lineNumber) {
-        return null;
-      }
-      if (editorLineNumber === scope.endLocation().lineNumber && endHighlight > scope.endLocation().columnNumber) {
-        return null;
-      }
-    }
-
     let objectPopoverHelper;
     let highlightDescriptor;
 

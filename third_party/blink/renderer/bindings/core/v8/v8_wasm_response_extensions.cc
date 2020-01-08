@@ -234,23 +234,14 @@ RawResource* GetRawResource(ScriptState* script_state,
 class WasmStreamingClient : public v8::WasmStreaming::Client {
  public:
   WasmStreamingClient(const String& response_url,
-                      const base::Time& response_time,
-                      v8::Isolate* isolate,
-                      v8::Local<v8::Context> context)
+                      const base::Time& response_time)
       : response_url_(response_url.IsolatedCopy()),
-        response_time_(response_time),
-        context_(isolate, context) {
-    context_.SetWeak();
-  }
+        response_time_(response_time) {}
 
   void OnModuleCompiled(v8::CompiledWasmModule compiled_module) override {
     TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"),
                          "v8.wasm.compiledModule", TRACE_EVENT_SCOPE_THREAD,
                          "url", response_url_.Utf8());
-
-    // Don't cache if Context has been destroyed.
-    if (context_.IsEmpty())
-      return;
 
     // Our heuristic for whether it's worthwhile to cache is that the module
     // was fully compiled and it is "large". Wire bytes size is likely to be
@@ -292,7 +283,6 @@ class WasmStreamingClient : public v8::WasmStreaming::Client {
  private:
   String response_url_;
   base::Time response_time_;
-  v8::Global<v8::Context> context_;
   scoped_refptr<CachedMetadata> cached_module_;
 
   DISALLOW_COPY_AND_ASSIGN(WasmStreamingClient);
@@ -365,8 +355,7 @@ void StreamFromResponseCallback(
         raw_resource->ScriptCacheHandler();
     if (cache_handler) {
       auto client = std::make_shared<WasmStreamingClient>(
-          url, raw_resource->GetResponse().ResponseTime(), args.GetIsolate(),
-          script_state->GetContext());
+          url, raw_resource->GetResponse().ResponseTime());
       streaming->SetClient(client);
       scoped_refptr<CachedMetadata> cached_module =
           cache_handler->GetCachedMetadata(kWasmModuleTag);

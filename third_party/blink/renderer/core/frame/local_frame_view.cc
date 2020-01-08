@@ -2434,11 +2434,9 @@ bool LocalFrameView::RunPrePaintLifecyclePhase(
     SCOPED_UMA_AND_UKM_TIMER(EnsureUkmAggregator(),
                              LocalFrameUkmAggregator::kPrePaint);
 
-    // This is before WalkTree because it may SetNeedsPaintPropertyUpdate() on
-    // layout objects.
-    GetPage()->GetLinkHighlight().UpdatePrePaint();
-
+    GetPage()->GetLinkHighlight().UpdateBeforePrePaint();
     PrePaintTreeWalk().WalkTree(*this);
+    GetPage()->GetLinkHighlight().UpdateAfterPrePaint();
   }
 
   UpdateCompositedSelectionIfNeeded();
@@ -4034,8 +4032,9 @@ void LocalFrameView::SetPaintArtifactCompositorNeedsUpdate() {
 
 void LocalFrameView::SetForeignLayerListNeedsUpdate() {
   DCHECK(!RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
-  LocalFrameView* root = GetFrame().LocalFrameRoot().View();
-  if (root) {
+  DCHECK_NE(Lifecycle().GetState(), DocumentLifecycle::kInPaint);
+
+  if (LocalFrameView* root = GetFrame().LocalFrameRoot().View()) {
     // We will re-collect foreign layers in PushPaintArtifactsToCompositor().
     root->paint_controller_ = nullptr;
     if (root->paint_artifact_compositor_)
