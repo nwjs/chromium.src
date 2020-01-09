@@ -61,7 +61,7 @@ class CORE_EXPORT FrameTree final {
   Frame* TraverseNext(const Frame* stay_within = nullptr) const;
 
   // For plugins and tests only.
-  Frame* FindFrameByName(const AtomicString& name) const;
+  Frame* FindFrameByName(const AtomicString& name, bool nw = false) const;
 
   // https://html.spec.whatwg.org/#the-rules-for-choosing-a-browsing-context-given-a-browsing-context-name
   struct FindResult {

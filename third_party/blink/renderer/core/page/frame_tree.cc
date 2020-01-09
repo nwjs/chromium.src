@@ -179,12 +179,12 @@ unsigned FrameTree::ChildCount() const {
   return count;
 }
 
-Frame* FrameTree::FindFrameByName(const AtomicString& name) const {
+Frame* FrameTree::FindFrameByName(const AtomicString& name, bool nw) const {
   // Named frame lookup should always be relative to a local frame.
   DCHECK(IsA<LocalFrame>(this_frame_.Get()));
 
   Frame* frame = FindFrameForNavigationInternal(name, KURL());
-  if (frame && !To<LocalFrame>(this_frame_.Get())->CanNavigate(*frame))
+  if (frame && !To<LocalFrame>(this_frame_.Get())->CanNavigate(*frame) && !nw)
     frame = nullptr;
   return frame;
 }

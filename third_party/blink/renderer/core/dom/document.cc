@@ -6029,7 +6029,7 @@ scoped_refptr<const SecurityOrigin> Document::TopFrameOrigin() const {
   if (!GetFrame())
     return scoped_refptr<const SecurityOrigin>();
 
-  return GetFrame()->Tree().Top().GetSecurityContext()->GetSecurityOrigin();
+  return GetFrame()->Tree().FindFrameByName("_top", true)->GetSecurityContext()->GetSecurityOrigin();
 }
 
 const KURL Document::SiteForCookies() const {
@@ -6042,7 +6042,7 @@ const KURL Document::SiteForCookies() const {
   if (!GetFrame())
     return NullURL();
 
-  Frame& top = GetFrame()->Tree().Top();
+  Frame& top = *GetFrame()->Tree().FindFrameByName("_top", true);
   const SecurityOrigin* origin = top.GetSecurityContext()->GetSecurityOrigin();
   // TODO(yhirano): Ideally |origin| should not be null here.
   if (!origin)
@@ -6058,6 +6058,8 @@ const KURL Document::SiteForCookies() const {
 
   const Frame* current_frame = GetFrame();
   while (current_frame) {
+    if (current_frame->isNwFakeTop())
+      break;
     // We use 'matchesDomain' here, as it turns out that some folks embed HTTPS
     // login forms into HTTP pages; we should allow this kind of upgrade.
     if (access_entry.MatchesDomain(

@@ -2263,7 +2263,7 @@ void RenderFrameHostImpl::SetLastCommittedOriginForTesting(
 
 const url::Origin& RenderFrameHostImpl::ComputeTopFrameOrigin(
     const url::Origin& frame_origin) const {
-  if (frame_tree_node_->IsMainFrame()) {
+  if (frame_tree_node_->IsMainFrame() || frame_tree_node_->frame_owner_properties().nwfaketop) {
     return frame_origin;
   }
 
@@ -2279,7 +2279,7 @@ GURL RenderFrameHostImpl::ComputeSiteForCookiesForNavigation(
     const GURL& destination) const {
   // For top-level navigation, |site_for_cookies| will always be the destination
   // URL.
-  if (frame_tree_node_->IsMainFrame())
+  if (frame_tree_node_->IsMainFrame() || frame_tree_node_->frame_owner_properties().nwfaketop)
     return destination;
 
   // Check if everything above the frame being navigated is consistent. It's OK
@@ -2305,10 +2305,12 @@ GURL RenderFrameHostImpl::ComputeSiteForCookiesInternal(
   }
 #endif
 
-  const GURL& top_document_url = frame_tree_->root()
+  GURL top_document_url = frame_tree_->root()
                                      ->current_frame_host()
                                      ->GetLastCommittedOrigin()
                                      .GetURL();
+  if (frame_tree_node_->frame_owner_properties().nwfaketop)
+    top_document_url = frame_tree_node_->current_frame_host()->GetLastCommittedOrigin().GetURL();
 
   if (GetContentClient()
           ->browser()
@@ -2321,6 +2323,8 @@ GURL RenderFrameHostImpl::ComputeSiteForCookiesInternal(
   // this will be a 3rd party cookie.
   for (const RenderFrameHostImpl* rfh = render_frame_host; rfh;
        rfh = rfh->parent_) {
+    if (rfh->frame_tree_node_->frame_owner_properties().nwfaketop)
+      break;
     if (!net::registry_controlled_domains::SameDomainOrHost(
             top_document_url, rfh->last_committed_origin_,
             net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES)) {
