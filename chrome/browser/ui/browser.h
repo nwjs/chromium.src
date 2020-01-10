@@ -655,6 +655,7 @@ class Browser : public TabStripModelObserver,
   void SetIsInTabDragging(bool is_in_tab_dragging);
 
  private:
+  bool last_to_different_document_ = false;
   std::vector<DidFinishFirstNavigationCallback> on_did_finish_first_navigation_callbacks_;
   // Whether the first navigation was completed in both browser and renderer
   // processes.

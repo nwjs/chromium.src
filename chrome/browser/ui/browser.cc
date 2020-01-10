@@ -1616,6 +1616,24 @@ void Browser::LoadingStateChanged(WebContents* source,
                                   bool to_different_document) {
   ScheduleUIUpdate(source, content::INVALIDATE_TYPE_LOAD);
   UpdateWindowForLoadingStateChanged(source, to_different_document);
+  std::string nwstatus;
+  if (source->IsLoading()) {
+    nwstatus = "loading";
+    last_to_different_document_ = to_different_document;
+    if (!to_different_document) //NWJS#5001
+      return;
+  } else {
+    if (!last_to_different_document_)
+      return;
+    nwstatus = "loaded";
+  }
+  extensions::TabsWindowsAPI* tabs_window_api = extensions::TabsWindowsAPI::Get(profile_);
+  if (!tabs_window_api)
+    return;
+  extensions::TabsEventRouter* tabs_event_router = tabs_window_api->tabs_event_router();
+  if (!tabs_event_router)
+    return;
+  tabs_event_router->NWStatusUpdated(source, nwstatus);
 }
 
 void Browser::CloseContents(WebContents* source) {
