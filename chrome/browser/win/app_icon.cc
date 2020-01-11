@@ -23,7 +23,7 @@ int GetAppIconResourceId() {
 }  // namespace
 
 HICON GetAppIcon() {
-#if 0
+#if 1
   HICON ret = nw::GetWindowHIcon();
   if (ret)
     return ret;
@@ -37,7 +37,7 @@ HICON GetAppIcon() {
 }
 
 HICON GetSmallAppIcon() {
-#if 0
+#if 1
   HICON ret = nw::GetAppHIcon();
   if (ret)
     return ret;
