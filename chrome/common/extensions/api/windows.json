@@ -234,6 +234,7 @@
                   {"type": "array", "items": {"type": "string"}}
                 ]
               },
+              "id": {"type":"string", "optional": true, "description": ""},
               "tabId": {"type": "integer", "minimum": 0, "optional": true, "description": "The ID of the tab to add to the new window."},
               "maxWidth": {"type": "integer", "optional": true, "description": ""},  
               "maxHeight": {"type": "integer", "optional": true, "description": ""},  

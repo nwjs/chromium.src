@@ -223,6 +223,7 @@ class Browser : public TabStripModelObserver,
 
     // Specifies the browser is_trusted_source_ value.
     bool trusted_source = false;
+    std::string windows_key;
 
     // The bounds of the window to open.
     gfx::Rect initial_bounds;
@@ -324,6 +325,7 @@ class Browser : public TabStripModelObserver,
   const CreateParams& create_params() const { return create_params_; }
   Type type() const { return type_; }
   const std::string& app_name() const { return app_name_; }
+  const std::string& windows_key() const { return windows_key_; }
   bool is_trusted_source() const { return is_trusted_source_; }
   bool is_frameless() const { return frameless_; }
   bool is_transparent() const {
@@ -1083,6 +1085,7 @@ class Browser : public TabStripModelObserver,
   // 1) we launch an application via an application shortcut or extension API.
   // 2) we launch an undocked devtool window.
   const std::string app_name_;
+  const std::string windows_key_;
 
   // True if the source is trusted (i.e. we do not need to show the URL in a
   // a popup window). Also used to determine which app windows to save and

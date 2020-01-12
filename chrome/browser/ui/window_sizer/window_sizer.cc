@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
 
+#include "content/nw/src/nw_base.h"
 #include <utility>
 
 #include "base/command_line.h"
@@ -49,6 +50,8 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
     if (!browser_ || !browser_->profile()->GetPrefs())
       return false;
 
+    if (browser_->is_type_popup() && browser_->windows_key().empty())
+      return false;
     const base::DictionaryValue* wp_pref =
         chrome::GetWindowPlacementDictionaryReadOnly(
             chrome::GetWindowName(browser_), browser_->profile()->GetPrefs());
@@ -243,6 +246,14 @@ void WindowSizer::GetDefaultWindowBounds(const display::Display& display,
 #endif
   gfx::Rect work_area = display.work_area();
 
+  int default_width = 800;
+  int default_height = 600;
+  nw::Package* package = nw::package();
+  if (package && package->window()) {
+    package->window()->GetInteger("width", &default_width);
+    package->window()->GetInteger("height", &default_height);
+  }
+
 #if 0
   // The default size is either some reasonably wide width, or if the work
   // area is narrower, then the work area width less some aesthetic padding.
@@ -275,7 +286,7 @@ void WindowSizer::GetDefaultWindowBounds(const display::Display& display,
 
   default_bounds->SetRect(kWindowTilePixels + work_area.x(),
                           kWindowTilePixels + work_area.y(),
-                          800, 600);
+                          default_width, default_height);
 }
 
 void WindowSizer::AdjustBoundsToBeVisibleOnDisplay(

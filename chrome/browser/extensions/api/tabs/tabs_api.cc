@@ -554,6 +554,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   int min_width = 0; int min_height = 0; int max_width = 0; int max_height = 0;
   std::string extension_id;
   std::string position;
+  std::string windows_key;
 
   std::string inject_js_start, inject_js_end;
   if (create_data) {
@@ -575,8 +576,9 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
     // Initialize default window bounds according to window type.
     ui::WindowShowState ignored_show_state = ui::SHOW_STATE_DEFAULT;
+    gfx::Rect ignored_window_bounds;
     WindowSizer::GetBrowserWindowBoundsAndShowState(std::string(), gfx::Rect(),
-                                                    nullptr, &window_bounds,
+                                                    nullptr, &ignored_window_bounds,
                                                     &ignored_show_state);
 
     // Any part of the bounds can optionally be set by the caller.
@@ -640,6 +642,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       position = *create_data->position;
     if (create_data->block_parser)
       block_parser = *create_data->block_parser;
+    if (create_data->id)
+      windows_key = *create_data->id;
   }
 
   // Create a new BrowserWindow.
@@ -654,6 +658,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
         extension() && extension()->is_nwjs_app() /* trusted_source */, window_bounds, window_profile,
         user_gesture());
   }
+  create_params.windows_key = windows_key;
   create_params.frameless = frameless;
   create_params.alpha_enabled = transparent;
   create_params.always_on_top = always_on_top;
