@@ -4709,14 +4709,14 @@
             ],
             "experiments": [
                 {
-                    "name": "Enabled",
+                    "name": "Disabled",
                     "params": {
                         "HighLoadedTabCount": "1000",
                         "ShouldPeriodicallyUnfreeze": "true",
                         "ShouldProactivelyDiscard": "false",
                         "ShouldProtectTabsSharingBrowsingInstance": "true"
                     },
-                    "enable_features": [
+                    "disable_features": [
                         "ProactiveTabFreezeAndDiscard",
                         "stop-non-timers-in-background"
                     ]
