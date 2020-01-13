@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <utility>
+#include "chrome/browser/ui/browser_finder.h"
 
 #include "base/bind.h"
 #include "base/feature_list.h"
@@ -552,6 +553,10 @@ bool TabLifecycleUnitSource::TabLifecycleUnit::CanFreeze(
   // rejection reasons. These aren't worth reporting about, as they have nothing
   // to do with the content itself.
 
+  Browser* browser = chrome::FindBrowserWithWebContents(web_contents());
+  if (browser && browser->is_type_popup())
+    return false;
+
   if (!IsValidStateChange(GetState(), LifecycleUnitState::PENDING_FREEZE,
                           StateChangeReason::BROWSER_INITIATED)) {
     return false;
@@ -637,6 +642,9 @@ bool TabLifecycleUnitSource::TabLifecycleUnit::CanDiscard(
     DecisionDetails* decision_details) const {
   DCHECK(decision_details->reasons().empty());
 
+  Browser* browser = chrome::FindBrowserWithWebContents(web_contents());
+  if (browser && browser->is_type_popup())
+    return false;
   // Leave the |decision_details| empty and return immediately for "trivial"
   // rejection reasons. These aren't worth reporting about, as they have nothing
   // to do with the content itself.

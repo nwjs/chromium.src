@@ -499,8 +499,13 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
     }
   }
 
+  if (nwfaketop()) {
+    KURL url(url_to_request.BaseAsString());
+    scoped_refptr<SecurityOrigin> origin = SecurityOrigin::Create(url);
+    request.SetRequestorOrigin(origin);
+  }
   child_frame->Loader().StartNavigation(
-      FrameLoadRequest(&GetDocument(), request), child_load_type);
+      FrameLoadRequest(nwfaketop() ? nullptr : &GetDocument(), request), child_load_type);
 
   return true;
 }

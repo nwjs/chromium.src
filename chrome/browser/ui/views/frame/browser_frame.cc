@@ -95,6 +95,7 @@ void BrowserFrame::InitBrowserFrame() {
     params.visible_on_all_workspaces = true;
   params.delegate = browser_view_;
   if (browser_view_->browser()->is_type_normal() ||
+      browser_view_->browser()->is_type_popup() ||
       browser_view_->browser()->is_type_devtools()) {
     // Typed panel/popup can only return a size once the widget has been
     // created.

@@ -11,6 +11,11 @@
 namespace views {
 namespace internal {
 
+#if defined(OS_WIN)
+void NativeWidgetPrivate::SetPosition(const gfx::Point& pos) {
+
+}
+#endif
 // static
 gfx::Rect NativeWidgetPrivate::ConstrainBoundsToDisplayWorkArea(
     const gfx::Rect& bounds) {

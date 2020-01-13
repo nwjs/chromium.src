@@ -147,11 +147,13 @@ void TabsEventRouter::TabEntry::NavigationEntryCommitted(
   router_->TabUpdated(this, std::move(changed_property_names));
 }
 
-void TabsEventRouter::TabEntry::DidStopLoading() {
+void TabsEventRouter::NWStatusUpdated(content::WebContents* web_contents,
+                                      const std::string& nwstatus) {
   std::set<std::string> changed_property_names;
   changed_property_names.insert("nwstatus");
-
-  router_->TabUpdated(this, std::move(changed_property_names));
+  TabEntry* entry = GetTabEntry(web_contents);
+  if (entry)
+    TabUpdated(entry, std::move(changed_property_names));
 }
 
 void TabsEventRouter::TabEntry::TitleWasSet(content::NavigationEntry* entry) {

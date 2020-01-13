@@ -540,6 +540,12 @@ void Widget::SetBounds(const gfx::Rect& bounds) {
   native_widget_->SetBounds(bounds);
 }
 
+#if defined(OS_WIN)
+void Widget::SetPosition(const gfx::Point& pos) {
+  native_widget_->SetPosition(pos);
+}
+#endif
+
 void Widget::SetSize(const gfx::Size& size) {
   native_widget_->SetSize(size);
 }

@@ -588,6 +588,7 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   // please refer to the SetBounds() function.
   void SetBoundsInternal(const gfx::Rect& bounds_in_pixels,
                          bool force_size_changed);
+  void SetPosition(const gfx::Point& pos_in_pixels);
 
   // Checks if there is a full screen window on the same monitor as the
   // |window| which is becoming active. If yes then we reduce the size of the

@@ -78,6 +78,8 @@ class WindowPlacementPrefUpdate : public DictionaryPrefUpdate {
 }  // namespace
 
 std::string GetWindowName(const Browser* browser) {
+  if (browser->is_type_popup() && !browser->windows_key().empty())
+    return browser->windows_key();
   if (browser->app_name().empty()) {
     return browser->is_type_normal() ? prefs::kBrowserWindowPlacement
                                      : prefs::kBrowserWindowPlacementPopup;
@@ -161,19 +163,9 @@ void GetSavedWindowBoundsAndShowState(const Browser* browser,
   DCHECK(browser);
   DCHECK(bounds);
   DCHECK(show_state);
-  gfx::Rect manifest_bounds;
+
   *bounds = browser->override_bounds();
-  manifest_bounds = *bounds;
-  if (bounds->IsEmpty()) {
-    nw::Package* package = nw::package();
-    if (package && package->window()) {
-      int width = 0, height = 0;
-      package->window()->GetInteger("width", &width);
-      package->window()->GetInteger("height", &height);
-      bounds->set_width(width);
-      bounds->set_height(height);
-    }
-  }
+
   WindowSizer::GetBrowserWindowBoundsAndShowState(browser->app_name(), *bounds,
                                                   browser, bounds, show_state);
 
@@ -182,14 +174,6 @@ void GetSavedWindowBoundsAndShowState(const Browser* browser,
 
   internal::UpdateWindowBoundsAndShowStateFromCommandLine(parsed_command_line,
                                                           bounds, show_state);
-  if (manifest_bounds.height())
-    bounds->set_height(manifest_bounds.height());
-  if (manifest_bounds.width())
-    bounds->set_width(manifest_bounds.width());
-  if (manifest_bounds.x())
-    bounds->set_x(manifest_bounds.x());
-  if (manifest_bounds.y())
-    bounds->set_y(manifest_bounds.y());
 }
 
 namespace internal {

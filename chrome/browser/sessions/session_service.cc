@@ -93,7 +93,7 @@ SessionService::SessionService(Profile* profile)
 }
 
 SessionService::SessionService(const base::FilePath& save_path)
-    : profile_(NULL),
+    : profile_(nullptr),
       should_use_delayed_save_(false),
       base_session_service_(new sessions::BaseSessionService(
           sessions::BaseSessionService::SESSION_RESTORE,
@@ -136,7 +136,7 @@ bool SessionService::ShouldNewWindowStartSession() {
 }
 
 bool SessionService::RestoreIfNecessary(const std::vector<GURL>& urls_to_open) {
-  return RestoreIfNecessary(urls_to_open, NULL);
+  return RestoreIfNecessary(urls_to_open, nullptr);
 }
 
 void SessionService::ResetFromCurrentBrowsers() {
@@ -487,9 +487,8 @@ void SessionService::TabRestored(WebContents* tab, bool pinned) {
   if (!ShouldTrackChangesToWindow(session_tab_helper->window_id()))
     return;
 
-  // TODO(crbug.com/930991): handle tab groups here.
   BuildCommandsForTab(session_tab_helper->window_id(), tab, -1, base::nullopt,
-                      pinned, NULL);
+                      pinned, nullptr);
   base_session_service_->StartSaveTimer();
 }
 

@@ -38,7 +38,7 @@ FaviconDriverImpl::FaviconDriverImpl(FaviconService* favicon_service)
         favicon_service_, this, FaviconDriverObserver::TOUCH_LARGEST));
   } else {
     handlers_.push_back(std::make_unique<FaviconHandler>(
-        favicon_service_, this, FaviconDriverObserver::NON_TOUCH_16_DIP));
+        favicon_service_, this, FaviconDriverObserver::NON_TOUCH_LARGEST));
   }
 }
 

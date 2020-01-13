@@ -810,6 +810,13 @@ void BrowserView::SetBounds(const gfx::Rect& bounds) {
   GetWidget()->SetBounds(bounds);
 }
 
+#if defined(OS_WIN)
+void BrowserView::SetPosition(const gfx::Point& pos) {
+  ExitFullscreen();
+  GetWidget()->SetPosition(pos);
+}
+#endif
+
 void BrowserView::Close() {
   frame_->Close();
 }
@@ -2338,7 +2345,6 @@ void BrowserView::SaveWindowPlacement(const gfx::Rect& bounds,
   // which we want to ignore.
   if (!IsFullscreen() && frame_->ShouldSaveWindowPlacement() &&
       chrome::ShouldSaveWindowPlacement(browser_.get())) {
-    WidgetDelegate::SaveWindowPlacement(bounds, show_state);
     gfx::Rect saved_bounds = bounds;
     if (chrome::SavedBoundsAreContentBounds(browser_.get())) {
       // Invert the transformation done in GetSavedWindowPlacement().
@@ -2348,6 +2354,7 @@ void BrowserView::SaveWindowPlacement(const gfx::Rect& bounds,
         client_size.Enlarge(0, -toolbar_->GetPreferredSize().height());
       saved_bounds.set_size(client_size);
     }
+    WidgetDelegate::SaveWindowPlacement(saved_bounds, show_state);
     chrome::SaveWindowPlacement(browser_.get(), saved_bounds, show_state);
   }
   NativeWindowChanged();

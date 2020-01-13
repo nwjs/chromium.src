@@ -173,6 +173,9 @@ class VIEWS_EXPORT NativeWidgetPrivate : public NativeWidget {
   virtual gfx::Rect GetRestoredBounds() const = 0;
   virtual std::string GetWorkspace() const = 0;
   virtual void SetBounds(const gfx::Rect& bounds) = 0;
+#if defined(OS_WIN)
+  virtual void SetPosition(const gfx::Point& pos);
+#endif
   virtual void SetBoundsConstrained(const gfx::Rect& bounds) = 0;
   virtual void SetSize(const gfx::Size& size) = 0;
   virtual void StackAbove(gfx::NativeView native_view) = 0;

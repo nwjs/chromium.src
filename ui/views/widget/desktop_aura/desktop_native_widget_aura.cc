@@ -753,6 +753,14 @@ void DesktopNativeWidgetAura::SetBounds(const gfx::Rect& bounds) {
   desktop_window_tree_host_->SetBoundsInDIP(bounds);
 }
 
+#if defined(OS_WIN)
+void DesktopNativeWidgetAura::SetPosition(const gfx::Point& pos) {
+  if (!content_window_)
+    return;
+  desktop_window_tree_host_->SetPositionInDIP(pos);
+}
+#endif
+
 void DesktopNativeWidgetAura::SetBoundsConstrained(const gfx::Rect& bounds) {
   if (!content_window_)
     return;

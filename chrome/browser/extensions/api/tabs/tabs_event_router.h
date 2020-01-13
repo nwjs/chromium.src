@@ -43,6 +43,8 @@ class TabsEventRouter : public TabStripModelObserver,
  public:
   explicit TabsEventRouter(Profile* profile);
   ~TabsEventRouter() override;
+  void NWStatusUpdated(content::WebContents* web_contents,
+                       const std::string& nwstatus);
 
   // BrowserTabStripTrackerDelegate:
   bool ShouldTrackBrowser(Browser* browser) override;
@@ -172,7 +174,6 @@ class TabsEventRouter : public TabStripModelObserver,
         const content::LoadCommittedDetails& load_details) override;
     void TitleWasSet(content::NavigationEntry* entry) override;
     void WebContentsDestroyed() override;
-    void DidStopLoading() override;
 
    private:
     // Whether we are waiting to fire the 'complete' status change. This will

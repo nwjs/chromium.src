@@ -2346,6 +2346,9 @@ std::string ChromeContentBrowserClient::GetAcceptLangs(
 }
 
 gfx::ImageSkia ChromeContentBrowserClient::GetDefaultFavicon() {
+  gfx::ImageSkia* icon = nw::GetAppIcon();
+  if (icon)
+    return *icon;
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   return rb.GetNativeImageNamed(IDR_DEFAULT_FAVICON).AsImageSkia();
 }

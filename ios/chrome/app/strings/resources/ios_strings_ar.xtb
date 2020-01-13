@@ -484,7 +484,7 @@
 <translation id="7464701184726199289">يمحو هذا الخيار البيانات المتزامنة من كافة الأجهزة. لن يتم حذف إعدادات موقع الويب المحفوظة وقد تعكس عادات التصفح. <ph name="BEGIN_LINK" />مزيد من المعلومات<ph name="END_LINK" /></translation>
 <translation id="7472734401283673885">اسم الشركة</translation>
 <translation id="7481312909269577407">إلى الأمام</translation>
-<translation id="750493650310597496">لم يتم تحديد أي إشارات</translation>
+<translation id="750493650310597496">لم يتم اختيار أي إشارات</translation>
 <translation id="7514365320538308">تنزيل</translation>
 <translation id="7537586195939242955">‏عذرًا، لا يمكن أن تكون بطاقتك مثبتة على Passbook في الوقت الحالي.</translation>
 <translation id="7554791636758816595">علامة تبويب جديدة</translation>
@@ -531,7 +531,7 @@
 <translation id="8261506727792406068">حذف</translation>
 <translation id="8281781826761538115">التلقائي - <ph name="DEFAULT_LOCALE" /></translation>
 <translation id="8319076807703933069">بحث جديد</translation>
-<translation id="8323906514956095947">اللمس مع الاستمرار لعرض المزيد من خيارات علامات التبويب</translation>
+<translation id="8323906514956095947">النقر مع الاستمرار لعرض المزيد من خيارات علامات التبويب</translation>
 <translation id="8328777765163860529">إغلاق الكل</translation>
 <translation id="8407669440184693619">لم يتم العثور على كلمات مرور لهذا الموقع الإلكتروني</translation>
 <translation id="842017693807136194">تم تسجيل الدخول باستخدام</translation>

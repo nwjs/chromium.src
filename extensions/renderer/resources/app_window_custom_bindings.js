@@ -223,8 +223,11 @@ apiBridge.registerCustomHook(function(bindingsAPI) {
   apiFunctions.setHandleRequest('getAll', function() {
     var views = runtimeNatives.GetExtensionViews(-1, -1, 'APP_WINDOW');
     return $Array.map(views, function(win) {
-      if (try_nw(win).nw) //check for undefined case in NWJS#5528
-        try_nw(win).nw.Window.get(); //construct the window object for NWJS#5294
+      try {
+        if (try_nw(win).nw) //check for undefined case in NWJS#5528
+          try_nw(win).nw.Window.get(); //construct the window object for NWJS#5294
+      } catch (e) { //NWJS#7310
+      }
       return try_hidden(win).chrome.app.window.current();
     });
   });

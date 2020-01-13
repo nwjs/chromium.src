@@ -87,7 +87,7 @@ class BrowserViewLayout::WebContentsModalDialogHostViews
     views::View* view = browser_view_layout_->contents_container_;
     gfx::Rect content_area = view->ConvertRectToWidget(view->GetLocalBounds());
     const int middle_x = content_area.x() + content_area.width() / 2;
-    const int top = browser_view_layout_->web_contents_modal_dialog_top_y_;
+    const int top = content_area.y() + content_area.height() / 2 - size.height() / 2; //browser_view_layout_->web_contents_modal_dialog_top_y_;
     return gfx::Point(middle_x - size.width() / 2, top);
   }
 

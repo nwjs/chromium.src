@@ -42,6 +42,8 @@ if (manifest.window) {
     options.icon = manifest.window.icon;
   if (manifest.window.title)
     options.title = manifest.window.title;
+  if (manifest.window.id)
+    options.id = manifest.window.id;
 }
 
 chrome.windows.create(options, function(win) {

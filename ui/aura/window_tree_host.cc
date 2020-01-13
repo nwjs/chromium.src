@@ -209,6 +209,12 @@ void WindowTreeHost::UpdateCompositorScaleAndSize(
                                window_->GetLocalSurfaceIdAllocation());
 }
 
+#if defined(OS_WIN)
+void WindowTreeHost::SetPositionInPixels(const gfx::Point& pos_in_pixels) {
+
+}
+#endif
+
 void WindowTreeHost::ConvertDIPToScreenInPixels(gfx::Point* point) const {
   ConvertDIPToPixels(point);
   gfx::Point location = GetLocationOnScreenInPixels();
