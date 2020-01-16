@@ -275,6 +275,11 @@ class WebContents : public PageNavigator,
 
   ~WebContents() override {}
 
+  virtual bool is_silent_printing();
+  virtual void set_silent_printing(bool);
+
+  bool silent_printing_ = false;
+
   // Intrinsic tab state -------------------------------------------------------
 
   // Gets/Sets the delegate.

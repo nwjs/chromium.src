@@ -482,8 +482,11 @@ bool NWPrintGetCustomPrinting() {
   return g_nw_custom_printing;
 }
 
-void NWPrintSetOptions(const base::DictionaryValue* dict) {
+void NWPrintSetOptions(const base::DictionaryValue* dict, WebContents* web_contents) {
+  bool silent_printing = false;
   *g_nw_print_options = dict->CreateDeepCopy();
+  if ((*g_nw_print_options)->GetBoolean("silent", &silent_printing) && web_contents)
+    web_contents->set_silent_printing(silent_printing);
 }
 
 void NWPrintSetPDFPath(const base::FilePath& path) {

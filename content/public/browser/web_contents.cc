@@ -11,6 +11,14 @@
 
 namespace content {
 
+bool WebContents::is_silent_printing() {
+  return silent_printing_;
+}
+
+void WebContents::set_silent_printing(bool flag) {
+  silent_printing_ = flag;
+}
+
 WebContents::CreateParams::CreateParams(BrowserContext* context)
     : CreateParams(context, nullptr) {}
 

@@ -193,6 +193,7 @@ class ConstrainedWebDialogDelegateViews
 
   // ui::WebDialogWebContentsDelegate:
   void CloseContents(content::WebContents* source) override {
+    if (view_->GetWidget())
     view_->GetWidget()->Close();
   }
 

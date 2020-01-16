@@ -42,7 +42,7 @@ void WebContentsModalDialogManager::ShowDialogWithManager(
 
   if (child_dialogs_.size() == 1) {
     BlockWebContentsInteraction(true);
-    if (delegate_ && delegate_->IsWebContentsVisible(web_contents()))
+    if (!web_contents()->is_silent_printing() && delegate_ && delegate_->IsWebContentsVisible(web_contents()))
       child_dialogs_.back().manager->Show();
   }
 }
@@ -110,7 +110,8 @@ void WebContentsModalDialogManager::BlockWebContentsInteraction(bool blocked) {
     // The WebContents has already disconnected.
     return;
   }
-
+  if (!blocked && contents->is_silent_printing())
+    contents->set_silent_printing(false);
   contents->SetIgnoreInputEvents(blocked);
   if (delegate_)
     delegate_->SetWebContentsBlocked(contents, blocked);

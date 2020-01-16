@@ -30,6 +30,10 @@ class RefCountedMemory;
 class ListValue;
 }
 
+namespace content {
+class WebContents;
+}
+
 namespace chrome {
   void PrintersToValues(const printing::PrinterList& printer_list,
                       base::ListValue* printers);
@@ -38,11 +42,7 @@ namespace chrome {
   void NWPrintSetDefaultPrinter(const std::string& printer_name);
   void NWPrintSetPDFPath(const base::FilePath& path);
   const base::FilePath& NWPrintGetPDFPath();
-  void NWPrintSetOptions(const base::DictionaryValue* dict);
-}
-
-namespace content {
-class WebContents;
+void NWPrintSetOptions(const base::DictionaryValue* dict, content::WebContents*);
 }
 
 namespace printing {

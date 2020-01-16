@@ -4304,8 +4304,10 @@ bool Element::IsFocusable() const {
 bool Element::IsKeyboardFocusable() const {
   // No point in checking NeedsLayoutTreeUpdateForNode when the document
   // isn't active (style can't be invalidated in a non-active document).
+#if 0
   DCHECK(!GetDocument().IsActive() ||
          !GetDocument().NeedsLayoutTreeUpdateForNode(*this));
+#endif
   return isConnected() && !IsInert() && IsFocusableStyle() &&
          ((SupportsFocus() &&
            GetIntegralAttribute(html_names::kTabindexAttr, 0) >= 0) ||
@@ -4318,8 +4320,10 @@ bool Element::IsKeyboardFocusable() const {
 bool Element::IsMouseFocusable() const {
   // No point in checking NeedsLayoutTreeUpdateForNode when the document
   // isn't active (style can't be invalidated in a non-active document).
+#if 0
   DCHECK(!GetDocument().IsActive() ||
          !GetDocument().NeedsLayoutTreeUpdateForNode(*this));
+#endif
   return isConnected() && !IsInert() && IsFocusableStyle() && SupportsFocus() &&
          !DisplayLockPreventsActivation(
              DisplayLockActivationReason::kUserFocus);
