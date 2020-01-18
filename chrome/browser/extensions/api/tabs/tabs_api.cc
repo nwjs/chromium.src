@@ -694,7 +694,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
   BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(new_window)->frame();
   if (position == "center") {
-    gfx::Rect bounds = frame->non_client_view()->GetWindowBoundsForClientBounds(create_params.initial_bounds);
+    gfx::Rect bounds = frame->GetWindowBoundsInScreen();
     frame->CenterWindow(bounds.size());
   }
 
