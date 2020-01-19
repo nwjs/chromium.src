@@ -1259,6 +1259,8 @@ void BrowserView::RestoreFocus() {
 }
 
 void BrowserView::FullscreenStateChanged() {
+  if (!GetExclusiveAccessManager())
+    return;
   bool fullscreen = IsFullscreen();
   ProcessFullscreen(
       fullscreen, GURL(),
@@ -2343,7 +2345,7 @@ void BrowserView::SaveWindowPlacement(const gfx::Rect& bounds,
   // If IsFullscreen() is true, we've just changed into fullscreen mode, and
   // we're catching the going-into-fullscreen sizing and positioning calls,
   // which we want to ignore.
-  if (!IsFullscreen() && frame_->ShouldSaveWindowPlacement() &&
+  if (/*!IsFullscreen() && */frame_->ShouldSaveWindowPlacement() &&
       chrome::ShouldSaveWindowPlacement(browser_.get())) {
     gfx::Rect saved_bounds = bounds;
     if (chrome::SavedBoundsAreContentBounds(browser_.get())) {

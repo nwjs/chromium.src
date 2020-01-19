@@ -57,12 +57,14 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
             chrome::GetWindowName(browser_), browser_->profile()->GetPrefs());
     int top = 0, left = 0, bottom = 0, right = 0;
     bool maximized = false;
+    bool fullscreen = false;
     bool has_prefs = wp_pref &&
                      wp_pref->GetInteger("top", &top) &&
                      wp_pref->GetInteger("left", &left) &&
                      wp_pref->GetInteger("bottom", &bottom) &&
                      wp_pref->GetInteger("right", &right) &&
-                     wp_pref->GetBoolean("maximized", &maximized);
+                     wp_pref->GetBoolean("maximized", &maximized) &&
+                     wp_pref->GetBoolean("fullscreen", &fullscreen);
     bounds->SetRect(left, top, std::max(0, right - left),
                     std::max(0, bottom - top));
 
@@ -77,6 +79,8 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
       wp_pref->GetInteger("work_area_right", &work_area_right);
       if (*show_state == ui::SHOW_STATE_DEFAULT && maximized)
         *show_state = ui::SHOW_STATE_MAXIMIZED;
+      if (*show_state == ui::SHOW_STATE_DEFAULT && fullscreen)
+        *show_state = ui::SHOW_STATE_FULLSCREEN;
     }
     work_area->SetRect(work_area_left, work_area_top,
                       std::max(0, work_area_right - work_area_left),

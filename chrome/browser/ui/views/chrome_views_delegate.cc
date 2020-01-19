@@ -93,6 +93,8 @@ void ChromeViewsDelegate::SaveWindowPlacement(const views::Widget* window,
   window_preferences->SetInteger("bottom", bounds.bottom());
   window_preferences->SetBoolean("maximized",
                                  show_state == ui::SHOW_STATE_MAXIMIZED);
+  window_preferences->SetBoolean("fullscreen",
+                                 show_state == ui::SHOW_STATE_FULLSCREEN);
 
   gfx::Rect work_area(display::Screen::GetScreen()
                           ->GetDisplayNearestView(window->GetNativeView())
@@ -127,9 +129,14 @@ bool ChromeViewsDelegate::GetSavedWindowPlacement(
   bounds->SetRect(left, top, right - left, bottom - top);
 
   bool maximized = false;
-  if (dictionary)
+  bool fullscreen = false;
+  if (dictionary) {
     dictionary->GetBoolean("maximized", &maximized);
+    dictionary->GetBoolean("fullscreen", &fullscreen);
+  }
   *show_state = maximized ? ui::SHOW_STATE_MAXIMIZED : ui::SHOW_STATE_NORMAL;
+  if (fullscreen)
+    *show_state = ui::SHOW_STATE_FULLSCREEN;
 
 #if defined(OS_CHROMEOS)
   AdjustSavedWindowPlacementChromeOS(widget, bounds);

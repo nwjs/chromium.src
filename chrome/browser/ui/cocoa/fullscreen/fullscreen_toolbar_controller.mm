@@ -54,7 +54,7 @@
 }
 
 - (void)exitFullscreenMode {
-  DCHECK(inFullscreenMode_);
+  //DCHECK(inFullscreenMode_);
   inFullscreenMode_ = NO;
 
   animationController_->StopAnimationAndTimer();

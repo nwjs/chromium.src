@@ -580,7 +580,6 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
     WindowSizer::GetBrowserWindowBoundsAndShowState(std::string(), gfx::Rect(),
                                                     nullptr, &ignored_window_bounds,
                                                     &ignored_show_state);
-
     // Any part of the bounds can optionally be set by the caller.
     if (create_data->left)
       window_bounds.set_x(*create_data->left);
@@ -677,7 +676,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       create_params.icon = app_icon;
     }
   }
-  create_params.initial_show_state = ui::SHOW_STATE_NORMAL;
+
+  create_params.initial_show_state = ui::SHOW_STATE_DEFAULT;
   if (create_data && create_data->state) {
     if (create_data->state == windows::WINDOW_STATE_LOCKED_FULLSCREEN &&
         !ExtensionHasLockedFullscreenPermission(extension())) {
