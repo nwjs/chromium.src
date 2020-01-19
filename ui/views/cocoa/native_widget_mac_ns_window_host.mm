@@ -628,6 +628,11 @@ ui::InputMethod* NativeWidgetMacNSWindowHost::GetInputMethod() {
 gfx::Rect NativeWidgetMacNSWindowHost::GetRestoredBounds() const {
   if (target_fullscreen_state_ || in_fullscreen_transition_)
     return window_bounds_before_fullscreen_;
+  if (IsMaximized()) {
+    gfx::Rect ret;
+    if (GetNSWindowMojo()->GetRestoredBounds(&ret))
+      return ret;
+  }
   return window_bounds_in_screen_;
 }
 

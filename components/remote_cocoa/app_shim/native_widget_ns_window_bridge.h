@@ -232,7 +232,9 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   void SetMaximized(bool maximized) override;
   bool IsMaximized(bool* maximized) override;
   void IsMaximized(IsMaximizedCallback callback) override;
-
+  void GetRestoredBounds(GetRestoredBoundsCallback callback) override;
+  bool GetRestoredBounds(gfx::Rect* bounds) override;
+  void SetRestoredBounds(const gfx::Rect& bounds) override;
   void SetSizeConstraints(const gfx::Size& min_size,
                           const gfx::Size& max_size,
                           bool is_resizable,

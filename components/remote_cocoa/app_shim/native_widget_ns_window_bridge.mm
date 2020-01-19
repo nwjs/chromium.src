@@ -1248,6 +1248,19 @@ void NativeWidgetNSWindowBridge::IsMaximized(IsMaximizedCallback callback) {
   std::move(callback).Run(maximized);
 }
 
+void NativeWidgetNSWindowBridge::SetRestoredBounds(const gfx::Rect& bounds) {
+  bounds_before_maximize_ = gfx::ScreenRectToNSRect(bounds);
+}
+
+bool NativeWidgetNSWindowBridge::GetRestoredBounds(gfx::Rect* bounds) {
+  *bounds = gfx::ScreenRectFromNSRect(bounds_before_maximize_);
+  return true;
+}
+
+void NativeWidgetNSWindowBridge::GetRestoredBounds(GetRestoredBoundsCallback callback) {
+  std::move(callback).Run(gfx::ScreenRectFromNSRect(bounds_before_maximize_));
+}
+
 void NativeWidgetNSWindowBridge::SetMaximized(bool maximized) {
   if (!maximized) {
     if (NSWindowIsMaximized(window_))

@@ -177,6 +177,8 @@ interface NativeWidgetNSWindow {
 
   SetMaximized(bool maximized);
   [Sync] IsMaximized() => (bool maximized);
+  [Sync] GetRestoredBounds() => (gfx.mojom.Rect bounds);
+  SetRestoredBounds(gfx.mojom.Rect bounds);
 
   // Called by NativeWidgetMac when the window size constraints change.
   SetSizeConstraints(gfx.mojom.Size min_size,
