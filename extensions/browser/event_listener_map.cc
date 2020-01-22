@@ -4,6 +4,7 @@
 
 #include "extensions/browser/event_listener_map.h"
 
+#include "chrome/common/extensions/api/windows.h"
 #include <stddef.h>
 
 #include <utility>
@@ -284,6 +285,8 @@ void EventListenerMap::LoadFilteredLazyListeners(
     bool is_for_service_worker,
     const DictionaryValue& filtered) {
   for (DictionaryValue::Iterator it(filtered); !it.IsAtEnd(); it.Advance()) {
+    if (it.key() == extensions::api::windows::OnRemoving::kEventName)
+      continue; //NWJS#7326
     // We skip entries if they are malformed.
     const base::ListValue* filter_list = nullptr;
     if (!it.value().GetAsList(&filter_list))
