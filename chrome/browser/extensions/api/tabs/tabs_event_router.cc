@@ -196,6 +196,13 @@ void TabsEventRouter::OnBrowserSetLastActive(Browser* browser) {
   }
 }
 
+void TabsEventRouter::OnBrowserNoLongerActive(Browser* browser) {
+  TabsWindowsAPI* tabs_window_api = TabsWindowsAPI::Get(profile_);
+  if (tabs_window_api) {
+    tabs_window_api->windows_event_router()->OnActiveWindowChanged(NULL);
+  }
+}
+
 void TabsEventRouter::OnTabStripModelChanged(
     TabStripModel* tab_strip_model,
     const TabStripModelChange& change,

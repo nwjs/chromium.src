@@ -51,6 +51,7 @@ class TabsEventRouter : public TabStripModelObserver,
 
   // BrowserListObserver:
   void OnBrowserSetLastActive(Browser* browser) override;
+  void OnBrowserNoLongerActive(Browser* browser) override;
 
   // TabStripModelObserver:
   void OnTabStripModelChanged(

@@ -68,6 +68,7 @@ class BrowserTabStripTracker : public BrowserListObserver {
   void OnBrowserAdded(Browser* browser) override;
   void OnBrowserRemoved(Browser* browser) override;
   void OnBrowserSetLastActive(Browser* browser) override;
+  void OnBrowserNoLongerActive(Browser* browser) override;
 
   TabStripModelObserver* tab_strip_model_observer_;
   BrowserTabStripTrackerDelegate* delegate_;
