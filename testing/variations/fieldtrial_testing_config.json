@@ -1979,7 +1979,7 @@
             "experiments": [
                 {
                     "name": "Enabled_20191004",
-                    "enable_features": [
+                    "disable_features": [
                         "DefaultPassthroughCommandDecoder"
                     ]
                 }
