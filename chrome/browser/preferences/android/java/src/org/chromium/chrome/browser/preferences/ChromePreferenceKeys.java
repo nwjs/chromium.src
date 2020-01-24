@@ -317,6 +317,11 @@ public final class ChromePreferenceKeys {
     public static final String LABELED_BOTTOM_TOOLBAR_ENABLED_KEY =
             "labeled_bottom_toolbar_enabled";
 
+     /**
+     * Key to cache the enabled bottom toolbar parameter.
+     */
+    public static final String VARIATION_CACHED_BOTTOM_TOOLBAR = "bottom_toolbar_variation";
+
     /**
      * Whether or not night mode is available.
      * Default value is false.
@@ -347,6 +352,13 @@ public final class ChromePreferenceKeys {
      * Default value is false.
      */
     public static final String START_SURFACE_ENABLED_KEY = "start_surface_enabled";
+
+    /**
+     * Whether or not the start surface single pane is enabled.
+     * Default value is false.
+     */
+    public static final String START_SURFACE_SINGLE_PANE_ENABLED_KEY =
+            "Chrome.StartSurface.SinglePaneEnabled";
 
     /**
      * Whether or not the grid tab switcher is enabled.
@@ -484,11 +496,13 @@ public final class ChromePreferenceKeys {
                 BOTTOM_TOOLBAR_ENABLED_KEY,
                 ADAPTIVE_TOOLBAR_ENABLED_KEY,
                 LABELED_BOTTOM_TOOLBAR_ENABLED_KEY,
+                VARIATION_CACHED_BOTTOM_TOOLBAR,
                 NIGHT_MODE_AVAILABLE_KEY,
                 NIGHT_MODE_DEFAULT_TO_LIGHT,
                 NIGHT_MODE_CCT_AVAILABLE_KEY,
                 COMMAND_LINE_ON_NON_ROOTED_ENABLED_KEY,
                 START_SURFACE_ENABLED_KEY,
+                START_SURFACE_SINGLE_PANE_ENABLED_KEY,
                 GRID_TAB_SWITCHER_ENABLED_KEY,
                 TAB_GROUPS_ANDROID_ENABLED_KEY,
                 DUET_TABSTRIP_INTEGRATION_ANDROID_ENABLED_KEY,
@@ -613,6 +627,7 @@ public final class ChromePreferenceKeys {
                 BOTTOM_TOOLBAR_ENABLED_KEY,
                 ADAPTIVE_TOOLBAR_ENABLED_KEY,
                 LABELED_BOTTOM_TOOLBAR_ENABLED_KEY,
+                VARIATION_CACHED_BOTTOM_TOOLBAR,
                 NIGHT_MODE_AVAILABLE_KEY,
                 NIGHT_MODE_DEFAULT_TO_LIGHT,
                 NIGHT_MODE_CCT_AVAILABLE_KEY,

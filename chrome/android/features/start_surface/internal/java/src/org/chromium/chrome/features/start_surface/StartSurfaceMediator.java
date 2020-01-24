@@ -34,7 +34,7 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeState;
 import org.chromium.chrome.browser.feed.FeedSurfaceCoordinator;
-import org.chromium.chrome.browser.fullscreen.FullscreenManager;
+import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
 import org.chromium.chrome.browser.ntp.FakeboxDelegate;
 import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
@@ -100,6 +100,8 @@ class StartSurfaceMediator
     private StartSurface.StateObserver mStateObserver;
     @OverviewModeState
     private int mOverviewModeState;
+    @OverviewModeState
+    private int mPreviousOverviewModeState;
     private boolean mIsOmniboxFocused;
     @Nullable
     private TabModel mNormalTabModel;
@@ -107,14 +109,16 @@ class StartSurfaceMediator
     private TabModelObserver mNormalTabModelObserver;
     @Nullable
     private TabModelSelectorObserver mTabModelSelectorObserver;
-    private FullscreenManager mFullScreenManager;
+    private ChromeFullscreenManager mFullScreenManager;
+    private ChromeFullscreenManager.FullscreenListener mFullScreenListener;
 
     StartSurfaceMediator(TabSwitcher.Controller controller, TabModelSelector tabModelSelector,
             @Nullable PropertyModel propertyModel,
             @Nullable ExploreSurfaceCoordinator.FeedSurfaceCreator feedSurfaceCreator,
             @Nullable SecondaryTasksSurfaceInitializer secondaryTasksSurfaceInitializer,
             @SurfaceMode int surfaceMode, @Nullable FakeboxDelegate fakeboxDelegate,
-            NightModeStateProvider nightModeStateProvider, FullscreenManager fullscreenManager) {
+            NightModeStateProvider nightModeStateProvider,
+            ChromeFullscreenManager fullscreenManager) {
         mController = controller;
         mTabModelSelector = tabModelSelector;
         mPropertyModel = propertyModel;
@@ -187,6 +191,18 @@ class StartSurfaceMediator
                         }
                     }
                 };
+
+                mFullScreenListener = new ChromeFullscreenManager.FullscreenListener() {
+                    @Override
+                    public void onBottomControlsHeightChanged(
+                            int bottomControlsHeight, int bottomControlsMinHeight) {
+                        // Only pad single pane home page since tabs grid has already been
+                        // padded for the bottom bar.
+                        if (mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE) {
+                            mPropertyModel.set(BOTTOM_BAR_HEIGHT, bottomControlsHeight);
+                        }
+                    }
+                };
             }
 
             // Initialize
@@ -216,6 +232,7 @@ class StartSurfaceMediator
             };
         }
         mController.addOverviewModeObserver(this);
+        mPreviousOverviewModeState = OverviewModeState.NOT_SHOWN;
         mOverviewModeState = OverviewModeState.NOT_SHOWN;
     }
 
@@ -239,18 +256,57 @@ class StartSurfaceMediator
         return mController.overviewVisible();
     }
 
-    @VisibleForTesting
+    @Override
     public void setOverviewState(@OverviewModeState int state) {
-        if (state == mOverviewModeState) return;
+        // TODO(crbug.com/1039691): Refactor into state and trigger to separate SHOWING and SHOWN
+        // states.
+
+        if (mPropertyModel == null || state == mOverviewModeState) return;
+
+        // Cache previous state.
+        if (mOverviewModeState != OverviewModeState.NOT_SHOWN) {
+            mPreviousOverviewModeState = mOverviewModeState;
+        }
 
         mOverviewModeState = state;
         setOverviewStateInternal();
+
+        // Immediately transition from SHOWING to SHOWN state if overview is visible but state not
+        // SHOWN. This is only necessary when the new state is a SHOWING state.
+        if (mPropertyModel.get(IS_SHOWING_OVERVIEW)
+                && mOverviewModeState != OverviewModeState.NOT_SHOWN
+                && !isShownState(mOverviewModeState)) {
+            // Compute SHOWN state before updating previous state, because the previous state is
+            // still needed to compute the shown state.
+            @OverviewModeState
+            int shownState = computeOverviewStateShown();
+
+            // Cache previous state
+            mPreviousOverviewModeState = mOverviewModeState;
+
+            mOverviewModeState = shownState;
+            setOverviewStateInternal();
+        }
         notifyStateChange();
+
+        // Metrics collection
+        if (mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE) {
+            RecordUserAction.record("StartSurface.SinglePane.Home");
+        } else if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER) {
+            RecordUserAction.record("StartSurface.SinglePane.Tabswitcher");
+        } else if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_TWO_PANES) {
+            RecordUserAction.record("StartSurface.TwoPanes");
+            String defaultOnUserActionString = mPropertyModel.get(IS_EXPLORE_SURFACE_VISIBLE)
+                    ? "ExploreSurface"
+                    : "HomeSurface";
+            RecordUserAction.record("StartSurface.TwoPanes.DefaultOn" + defaultOnUserActionString);
+        } else if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_TASKS_ONLY) {
+            RecordUserAction.record("StartSurface.TasksOnly");
+        }
     }
 
     private void setOverviewStateInternal() {
         if (mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE) {
-            RecordUserAction.record("StartSurface.SinglePane");
             setExploreSurfaceVisibility(!mIsIncognito);
             setTabCarouselVisibility(
                     mTabModelSelector.getModel(false).getCount() > 0 && !mIsIncognito);
@@ -269,13 +325,8 @@ class StartSurfaceMediator
             setMVTilesVisibility(false);
             setFakeBoxVisibility(false);
             setSecondaryTasksSurfaceVisibility(true);
-        } else if (mOverviewModeState == OverviewModeState.SHOWN_TWO_PANES) {
-            RecordUserAction.record("StartSurface.TwoPanes");
-            String defaultOnUserActionString = mPropertyModel.get(IS_EXPLORE_SURFACE_VISIBLE)
-                    ? "ExploreSurface"
-                    : "HomeSurface";
-            RecordUserAction.record("StartSurface.TwoPanes.DefaultOn" + defaultOnUserActionString);
 
+        } else if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_TWO_PANES) {
             // Show Explore Surface if last visible pane explore.
             setExploreSurfaceVisibility(
                     ReturnToStartSurfaceUtil.shouldShowExploreSurface() && !mIsIncognito);
@@ -287,8 +338,7 @@ class StartSurfaceMediator
                                            .getDimensionPixelSize(R.dimen.ss_bottom_bar_height));
             mPropertyModel.set(IS_BOTTOM_BAR_VISIBLE, !mIsIncognito);
 
-        } else if (mOverviewModeState == OverviewModeState.SHOWN_TASKS_ONLY) {
-            RecordUserAction.record("StartSurface.TasksOnly");
+        } else if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_TASKS_ONLY) {
             setMVTilesVisibility(!mIsIncognito);
             setExploreSurfaceVisibility(false);
             setFakeBoxVisibility(true);
@@ -296,7 +346,7 @@ class StartSurfaceMediator
             if (mSecondaryTasksSurfaceController != null) setSecondaryTasksSurfaceVisibility(false);
         }
 
-        if (mOverviewModeState != OverviewModeState.NOT_SHOWN) {
+        if (isShownState(mOverviewModeState)) {
             setIncognitoModeDescriptionVisibility(
                     mIsIncognito && mTabModelSelector.getModel(true).getCount() <= 0);
         }
@@ -327,13 +377,23 @@ class StartSurfaceMediator
     public void showOverview(boolean animate) {
         // TODO(crbug.com/982018): Animate the bottom bar together with the Tab Grid view.
         if (mPropertyModel != null) {
-            int state = computeOverviewStateShown();
+            RecordUserAction.record("StartSurface.Shown");
 
             // update incognito
             mIsIncognito = mTabModelSelector.isIncognitoSelected();
             mPropertyModel.set(IS_INCOGNITO, mIsIncognito);
 
-            setOverviewState(state);
+            // if OvervieModeState is NOT_SHOWN, default to SHOWING_HOMEPAGE. This should only
+            // happen when entering Start through SwipeDown gesture on URL bar.
+            if (mOverviewModeState == OverviewModeState.NOT_SHOWN) {
+                mOverviewModeState = OverviewModeState.SHOWING_HOMEPAGE;
+            }
+
+            // set OverviewModeState
+            @OverviewModeState
+            int shownState = computeOverviewStateShown();
+            assert (isShownState(shownState));
+            setOverviewState(shownState);
 
             // Make sure FeedSurfaceCoordinator is built before the explore surface is showing by
             // default.
@@ -344,6 +404,10 @@ class StartSurfaceMediator
                                 mNightModeStateProvider.isInNightMode()));
             }
             mTabModelSelector.addObserver(mTabModelSelectorObserver);
+
+            if (mFullScreenListener != null) {
+                mFullScreenManager.addListener(mFullScreenListener);
+            }
 
             mPropertyModel.set(IS_SHOWING_OVERVIEW, true);
             mFakeboxDelegate.addUrlFocusChangeListener(mUrlFocusChangeListener);
@@ -357,13 +421,15 @@ class StartSurfaceMediator
         if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER
                 // Secondary tasks surface is used as the main surface in incognito mode.
                 && !mIsIncognito) {
-            // TODO: differentiate between "more tabs" and tabswitcher
-            setOverviewState(OverviewModeState.SHOWN_HOMEPAGE);
-            return true;
+            // If we reached tabswitcher from HomePage.
+            if (mPreviousOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE) {
+                setOverviewState(OverviewModeState.SHOWN_HOMEPAGE);
+                return true;
+            }
         }
 
         if (mPropertyModel != null && mPropertyModel.get(IS_EXPLORE_SURFACE_VISIBLE)
-                && mOverviewModeState == OverviewModeState.SHOWN_TWO_PANES) {
+                && mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_TWO_PANES) {
             setExploreSurfaceVisibility(false);
             notifyStateChange();
             return true;
@@ -405,6 +471,11 @@ class StartSurfaceMediator
             if (mTabModelSelectorObserver != null) {
                 mTabModelSelector.removeObserver(mTabModelSelectorObserver);
             }
+            if (mFullScreenListener != null) {
+                mFullScreenManager.removeListener(mFullScreenListener);
+            }
+            setOverviewState(OverviewModeState.NOT_SHOWN);
+            RecordUserAction.record("StartSurface.Hidden");
         }
         for (StartSurface.OverviewModeObserver observer : mObservers) {
             observer.startedHiding();
@@ -416,7 +487,6 @@ class StartSurfaceMediator
         for (StartSurface.OverviewModeObserver observer : mObservers) {
             observer.finishedHiding();
         }
-        setOverviewState(OverviewModeState.NOT_SHOWN);
     }
 
     private void destroyFeedSurfaceCoordinator() {
@@ -437,8 +507,8 @@ class StartSurfaceMediator
             assert mSecondaryTasksSurfacePropertyModel != null;
         }
 
-        setOverviewState(OverviewModeState.SHOWN_TABSWITCHER);
         RecordUserAction.record("StartSurface.SinglePane.MoreTabs");
+        setOverviewState(OverviewModeState.SHOWN_TABSWITCHER);
     }
 
     /** This interface builds the feed surface coordinator when showing if needed. */
@@ -454,7 +524,7 @@ class StartSurfaceMediator
 
         mPropertyModel.set(IS_EXPLORE_SURFACE_VISIBLE, isVisible);
 
-        if (mOverviewModeState == OverviewModeState.SHOWN_TWO_PANES) {
+        if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_TWO_PANES) {
             // Update the 'BOTTOM_BAR_SELECTED_TAB_POSITION' property to reflect the change. This is
             // needed when clicking back button on the explore surface.
             mPropertyModel.set(BOTTOM_BAR_SELECTED_TAB_POSITION, isVisible ? 1 : 0);
@@ -502,8 +572,8 @@ class StartSurfaceMediator
     private boolean hasFakeSearchBox() {
         // No fake search box on the explore pane in two panes mode.
         if (mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE
-                || mOverviewModeState == OverviewModeState.SHOWN_TASKS_ONLY
-                || (mOverviewModeState == OverviewModeState.SHOWN_TWO_PANES
+                || mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_TASKS_ONLY
+                || (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_TWO_PANES
                         && !mPropertyModel.get(IS_EXPLORE_SURFACE_VISIBLE))) {
             return true;
         }
@@ -516,7 +586,7 @@ class StartSurfaceMediator
         if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER) return true;
 
         // Never show on explore pane.
-        if (mOverviewModeState == OverviewModeState.SHOWN_TWO_PANES
+        if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_TWO_PANES
                 && mPropertyModel.get(IS_EXPLORE_SURFACE_VISIBLE)) {
             return false;
         }
@@ -569,10 +639,37 @@ class StartSurfaceMediator
     }
 
     @OverviewModeState
+
     private int computeOverviewStateShown() {
-        if (mSurfaceMode == SurfaceMode.SINGLE_PANE) return OverviewModeState.SHOWN_HOMEPAGE;
-        if (mSurfaceMode == SurfaceMode.TWO_PANES) return OverviewModeState.SHOWN_TWO_PANES;
-        if (mSurfaceMode == SurfaceMode.TASKS_ONLY) return OverviewModeState.SHOWN_TASKS_ONLY;
+        if (mSurfaceMode == SurfaceMode.SINGLE_PANE) {
+            if (mOverviewModeState == OverviewModeState.SHOWING_PREVIOUS) {
+                assert (isShownState(mPreviousOverviewModeState));
+                return mPreviousOverviewModeState;
+            } else if (mOverviewModeState == OverviewModeState.SHOWING_START) {
+                return OverviewModeState.SHOWN_HOMEPAGE;
+            } else if (mOverviewModeState == OverviewModeState.SHOWING_TABSWITCHER) {
+                return OverviewModeState.SHOWN_TABSWITCHER;
+            } else if (mOverviewModeState == OverviewModeState.SHOWING_HOMEPAGE) {
+                return OverviewModeState.SHOWN_HOMEPAGE;
+            } else {
+                assert (isShownState(mOverviewModeState)
+                        || mOverviewModeState == OverviewModeState.NOT_SHOWN);
+                return mOverviewModeState;
+            }
+        }
+        if (mSurfaceMode == SurfaceMode.TWO_PANES) {
+            return OverviewModeState.SHOWN_TABSWITCHER_TWO_PANES;
+        }
+        if (mSurfaceMode == SurfaceMode.TASKS_ONLY) {
+            return OverviewModeState.SHOWN_TABSWITCHER_TASKS_ONLY;
+        }
         return OverviewModeState.DISABLED;
+    }
+
+    private boolean isShownState(@OverviewModeState int state) {
+        return state == OverviewModeState.SHOWN_HOMEPAGE
+                || state == OverviewModeState.SHOWN_TABSWITCHER
+                || state == OverviewModeState.SHOWN_TABSWITCHER_TWO_PANES
+                || state == OverviewModeState.SHOWN_TABSWITCHER_TASKS_ONLY;
     }
 }

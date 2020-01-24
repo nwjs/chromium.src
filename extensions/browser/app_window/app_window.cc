@@ -581,7 +581,11 @@ void AppWindow::ExitPictureInPicture() {
 }
 
 bool AppWindow::ShouldShowStaleContentOnEviction(content::WebContents* source) {
+#if defined(OS_CHROMEOS)
   return true;
+#else
+  return false;
+#endif  // defined(OS_CHROMEOS)
 }
 
 BubbleManager* AppWindow::GetBubbleManager() {

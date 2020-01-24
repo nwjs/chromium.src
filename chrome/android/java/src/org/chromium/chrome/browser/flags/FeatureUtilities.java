@@ -29,6 +29,7 @@ import org.chromium.chrome.browser.firstrun.FirstRunUtils;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementModuleProvider;
+import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarVariationManager;
 import org.chromium.ui.base.DeviceFormFactor;
 
 import java.util.HashMap;
@@ -221,6 +222,16 @@ public class FeatureUtilities {
      */
     public static void cacheBottomToolbarEnabled() {
         cacheFlag(ChromePreferenceKeys.BOTTOM_TOOLBAR_ENABLED_KEY, ChromeFeatureList.CHROME_DUET);
+        cacheBottomToolbarVariation();
+    }
+
+    /**
+     * Cache the enabled bottom toolbar variation.
+     */
+    public static void cacheBottomToolbarVariation() {
+        cacheVariation(ChromePreferenceKeys.VARIATION_CACHED_BOTTOM_TOOLBAR,
+                ChromeFeatureList.CHROME_DUET,
+                BottomToolbarVariationManager.getVariationParamName());
     }
 
     /**
@@ -264,6 +275,15 @@ public class FeatureUtilities {
                 && !DeviceFormFactor.isNonMultiDisplayContextOnTablet(
                         ContextUtils.getApplicationContext())
                 && (isDuetTabStripIntegrationAndroidEnabled() || !isTabGroupsAndroidEnabled());
+    }
+
+    /**
+     * @return The currently enabled bottom toolbar variation.
+     */
+    public static String getBottomToolbarVariation() {
+        return SharedPreferencesManager.getInstance().readString(
+                ChromePreferenceKeys.VARIATION_CACHED_BOTTOM_TOOLBAR,
+                BottomToolbarVariationManager.Variations.NONE);
     }
 
     /**
@@ -404,16 +424,31 @@ public class FeatureUtilities {
     private static void cacheStartSurfaceEnabled() {
         cacheFlag(ChromePreferenceKeys.START_SURFACE_ENABLED_KEY,
                 ChromeFeatureList.START_SURFACE_ANDROID);
+        String feature = ChromeFeatureList.getFieldTrialParamByFeature(
+                ChromeFeatureList.START_SURFACE_ANDROID, "start_surface_variation");
+        SharedPreferencesManager.getInstance().writeBoolean(
+                ChromePreferenceKeys.START_SURFACE_SINGLE_PANE_ENABLED_KEY,
+                feature.equals("single"));
     }
 
     /**
      * @return Whether the Start Surface is enabled.
      */
     public static boolean isStartSurfaceEnabled() {
-        return isFlagEnabled(ChromePreferenceKeys.START_SURFACE_ENABLED_KEY, false);
+        return isFlagEnabled(ChromePreferenceKeys.START_SURFACE_ENABLED_KEY, false)
+               && !SysUtils.isLowEndDevice();
     }
 
-    private static void cacheGridTabSwitcherEnabled() {
+    /**
+     * @return Whether the Start Surface SinglePane is enabled.
+     */
+    public static boolean isStartSurfaceSinglePaneEnabled() {
+        return isStartSurfaceEnabled()
+                && isFlagEnabled(ChromePreferenceKeys.START_SURFACE_SINGLE_PANE_ENABLED_KEY, false);
+    }
+
+    @VisibleForTesting
+    static void cacheGridTabSwitcherEnabled() {
         SharedPreferencesManager sharedPreferencesManager = SharedPreferencesManager.getInstance();
         String featureKey = ChromePreferenceKeys.GRID_TAB_SWITCHER_ENABLED_KEY;
         boolean shouldQueryFeatureFlag = !DeviceClassManager.enableAccessibilityLayout();
@@ -645,6 +680,12 @@ public class FeatureUtilities {
     private static void cacheFlag(String preferenceName, String featureName) {
         SharedPreferencesManager.getInstance().writeBoolean(
                 preferenceName, ChromeFeatureList.isEnabled(featureName));
+    }
+
+    private static void cacheVariation(
+            String preferenceName, String featureName, String variationName) {
+        SharedPreferencesManager.getInstance().writeString(preferenceName,
+                ChromeFeatureList.getFieldTrialParamByFeature(featureName, variationName));
     }
 
     private static boolean isFlagEnabled(String preferenceName, boolean defaultValue) {

@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.tasks;
 
 import android.app.Activity;
+import android.text.TextUtils;
 
 import androidx.annotation.VisibleForTesting;
 
@@ -16,8 +17,11 @@ import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.locale.LocaleManager;
+import org.chromium.chrome.browser.ntp.NewTabPage;
+import org.chromium.chrome.browser.partnercustomizations.HomepageManager;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.PageTransition;
 
@@ -170,5 +174,18 @@ public final class ReturnToChromeExperimentsUtil {
         if (!chromeActivity.isInOverviewMode()) return null;
 
         return chromeActivity;
+    }
+
+    /**
+     * Check whether we should show Start Surface as the home page.
+     * @return Whether Start Surface should be shown as the home page, otherwise false.
+     */
+    public static boolean shouldShowStartSurfaceAsTheHomePage() {
+        // Note that we should only show StartSurface as the HomePage if Single Pane is enabled,
+        // HomePage is not customized and accessibility is not enabled.
+        String homePageUrl = HomepageManager.getHomepageUri();
+        return FeatureUtilities.isStartSurfaceSinglePaneEnabled()
+                && (TextUtils.isEmpty(homePageUrl) || NewTabPage.isNTPUrl(homePageUrl))
+                && !AccessibilityUtil.isAccessibilityEnabled();
     }
 }

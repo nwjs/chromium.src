@@ -13,6 +13,8 @@ import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
 import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.ThemeColorProvider.TintObserver;
+import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
+import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.util.UrlConstants;
@@ -28,8 +30,21 @@ class ShareButton extends ChromeImageButton implements TintObserver {
     /** The {@link ActivityTabTabObserver} used to know when the active page changed. */
     private ActivityTabTabObserver mActivityTabTabObserver;
 
+    /** The {@link OverviewModeBehavior} used to observe overview state changes.  */
+    private OverviewModeBehavior mOverviewModeBehavior;
+
+    /** The {@link OvervieModeObserver} observing the OverviewModeBehavior  */
+    private OverviewModeBehavior.OverviewModeObserver mOverviewModeObserver;
+
     public ShareButton(Context context, AttributeSet attrs) {
         super(context, attrs);
+
+        mOverviewModeObserver = new EmptyOverviewModeObserver() {
+            @Override
+            public void onOverviewModeStartedShowing(boolean showTabSwitcherToolbar) {
+                setEnabled(false);
+            }
+        };
     }
 
     void setThemeColorProvider(ThemeColorProvider themeColorProvider) {
@@ -53,6 +68,12 @@ class ShareButton extends ChromeImageButton implements TintObserver {
         };
     }
 
+    public void setOverviewModeBehavior(OverviewModeBehavior overviewModeBehavior) {
+        assert overviewModeBehavior != null;
+        mOverviewModeBehavior = overviewModeBehavior;
+        mOverviewModeBehavior.addOverviewModeObserver(mOverviewModeObserver);
+    }
+
     void destroy() {
         if (mThemeColorProvider != null) {
             mThemeColorProvider.removeTintObserver(this);
@@ -62,9 +83,18 @@ class ShareButton extends ChromeImageButton implements TintObserver {
             mActivityTabTabObserver.destroy();
             mActivityTabTabObserver = null;
         }
+
+        if (mOverviewModeBehavior != null) {
+            mOverviewModeBehavior.removeOverviewModeObserver(mOverviewModeObserver);
+            mOverviewModeObserver = null;
+        }
     }
 
-    private void updateButtonEnabledState(Tab tab) {
+    public void updateButtonEnabledState(Tab tab) {
+        if (tab == null) {
+            setEnabled(false);
+            return;
+        }
         final String url = tab.getUrl();
         final boolean isChromeScheme = url.startsWith(UrlConstants.CHROME_URL_PREFIX)
                 || url.startsWith(UrlConstants.CHROME_NATIVE_URL_PREFIX);

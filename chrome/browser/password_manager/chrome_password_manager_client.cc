@@ -658,6 +658,9 @@ void ChromePasswordManagerClient::DidFinishNavigation(
 #if defined(OS_ANDROID)
   credential_cache_.ClearCredentials();
 #endif  // defined(OS_ANDROID)
+
+  // Hide form filling UI on navigating away.
+  HideFillingUI();
 }
 
 void ChromePasswordManagerClient::RenderFrameCreated(
@@ -854,6 +857,16 @@ gfx::RectF ChromePasswordManagerClient::GetBoundsInScreenSpace(
     const gfx::RectF& bounds) {
   gfx::Rect client_area = web_contents()->GetContainerBounds();
   return bounds + client_area.OffsetFromOrigin();
+}
+
+void ChromePasswordManagerClient::HideFillingUI() {
+#if defined(OS_ANDROID)
+  base::WeakPtr<ManualFillingController> mf_controller =
+      ManualFillingController::Get(web_contents());
+  // Hides all the manual filling UI if the controller already exists.
+  if (mf_controller)
+    mf_controller->Hide();
+#endif  // defined(OS_ANDROID)
 }
 
 void ChromePasswordManagerClient::AutomaticGenerationAvailable(
@@ -1237,6 +1250,9 @@ void ChromePasswordManagerClient::FocusedInputChanged(
       static_cast<password_manager::ContentPasswordManagerDriver*>(driver);
   if (!PasswordAccessoryControllerImpl::ShouldAcceptFocusEvent(
           web_contents(), content_driver, focused_field_type))
+    return;
+
+  if (!content_driver->CanShowAutofillUi())
     return;
 
   if (!PasswordAccessoryController::AllowedForWebContents(web_contents()))

@@ -13844,6 +13844,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileToolbarStackViewNewIncognitoTab">
+  <owner>gogerald@chromium.org</owner>
+  <description>
+    The user taps the new tab button '+' on the tab switcher toolbar to create a
+    new incognito tab.
+  </description>
+</action>
+
 <action name="MobileToolbarStackViewNewTab">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -20801,11 +20809,37 @@ should be able to be added at any place in this file.
   <description>Please enter the description of the metric.</description>
 </action>
 
+<action name="StartSurface.Hidden">
+  <owner>gogerald@chromium.org</owner>
+  <description>
+    Metric record when the StartSurface overview is hidden.
+  </description>
+</action>
+
+<action name="StartSurface.Shown">
+  <owner>gogerald@chromium.org</owner>
+  <description>
+    Metric record when the StartSurface overview is shown.
+  </description>
+</action>
+
 <action name="StartSurface.SinglePane">
+  <obsolete>
+    Split in StartSurface.SinglePane.Home and
+    StartSurface.SinglePane.Tabswitcher.
+  </obsolete>
   <owner>gogerald@chromium.org</owner>
   <description>
     Metric record when the single pane start surface is shown (the user taps the
     tab switcher button or on chrome start).
+  </description>
+</action>
+
+<action name="StartSurface.SinglePane.Home">
+  <owner>gogerald@chromium.org</owner>
+  <description>
+    Metric record when the single pane home surface is shown (the user taps the
+    home button or on chrome start).
   </description>
 </action>
 
@@ -20814,6 +20848,14 @@ should be able to be added at any place in this file.
   <description>
     Metric record when the user taps the more tabs button on the single pane
     start surface.
+  </description>
+</action>
+
+<action name="StartSurface.SinglePane.Tabswitcher">
+  <owner>gogerald@chromium.org</owner>
+  <description>
+    Metric record when the single pane tabswitcher surface is shown (the user
+    taps the tabswitcher button or more tabs button).
   </description>
 </action>
 
