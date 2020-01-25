@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/sad_tab_view.h"
 
+#include "components/strings/grit/components_strings.h"
 #include <string>
 
 #include "base/metrics/histogram_macros.h"
@@ -124,7 +125,7 @@ SadTabView::SadTabView(content::WebContents* web_contents, SadTabKind kind)
 
   std::unique_ptr<views::LabelButton> action_button =
       views::MdTextButton::CreateSecondaryUiBlueButton(
-          this, l10n_util::GetStringUTF16(GetButtonTitle()));
+          this, l10n_util::GetStringUTF16(IDS_CLOSE));
   auto help_link = std::make_unique<views::Link>(
       l10n_util::GetStringUTF16(GetHelpLinkTitle()));
   help_link->set_listener(this);

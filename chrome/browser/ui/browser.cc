@@ -1841,8 +1841,10 @@ void Browser::RendererUnresponsive(
     WebContents* source,
     content::RenderWidgetHost* render_widget_host,
     base::RepeatingClosure hang_monitor_restarter) {
+#if 0
   TabDialogs::FromWebContents(source)->ShowHungRendererDialog(
       render_widget_host, std::move(hang_monitor_restarter));
+#endif
 }
 
 void Browser::RendererResponsive(

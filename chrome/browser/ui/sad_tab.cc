@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/sad_tab.h"
 
+#include "chrome/browser/ui/browser_commands.h"
 #include <vector>
 
 #include "base/metrics/histogram_macros.h"
@@ -238,8 +239,12 @@ void SadTab::PerformAction(SadTab::Action action) {
                                          : IDS_KILLED_TAB_FEEDBACK_MESSAGE),
             std::string(kCategoryTagCrash), std::string());
       } else {
-        web_contents_->GetController().Reload(content::ReloadType::NORMAL,
-                                              true);
+        Browser* browser = chrome::FindBrowserWithWebContents(web_contents_);
+        if (browser) {
+          chrome::CloseTab(browser);
+        } else
+        web_contents_->Close(); //GetController().Reload(content::ReloadType::NORMAL,
+                                //              true);
       }
       break;
     case Action::HELP_LINK:
