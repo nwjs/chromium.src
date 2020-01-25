@@ -259,7 +259,7 @@ void SelectFileDialogBridge::Show(
         [open_dialog setCanCreateDirectories:NO];
 
       NSString* prompt =
-          (type_ == SelectFileDialogType::kUploadFolder)
+          (false && type_ == SelectFileDialogType::kUploadFolder)
               ? l10n_util::GetNSString(IDS_SELECT_UPLOAD_FOLDER_BUTTON_TITLE)
               : l10n_util::GetNSString(IDS_SELECT_FOLDER_BUTTON_TITLE);
       [open_dialog setPrompt:prompt];
