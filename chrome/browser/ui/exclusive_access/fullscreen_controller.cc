@@ -280,6 +280,7 @@ void FullscreenController::WindowFullscreenStateChanged() {
 }
 
 bool FullscreenController::HandleUserPressedEscape() {
+  return false;
   WebContents* const active_web_contents =
       exclusive_access_manager()->context()->GetActiveWebContents();
   if (IsFullscreenWithinTab(active_web_contents)) {
