@@ -12,7 +12,7 @@ body {
 }
 
 #nwjsver {
-    background: #474747; display: table; color: #ccc;
+    display: table; color: #ccc;
     text-align: right;
     position: absolute;
     bottom: 0;
@@ -33,6 +33,13 @@ body {
 
 }
 
+#logo {
+    height: 100px;
+    left: 10;
+    position: absolute;
+    bottom: 10;
+    z-index: 10;
+}
 .shimmer {
   text-align: center;
   color: rgba(55,55,55,0.1);
@@ -62,13 +69,15 @@ body {
 </head>
 <body>
 <div id="inset">
-	<h1 class="shimmer">NW.js</h1>
-</div>
+    <object type="image/svg+xml" id='logo' data="rotate.svg"></object>
+  <script src="rotate.js"></script>
 <div id="nwjsver">
   nw.js v<script>document.write(nw.process.versions['nw']);</script><br/>
   Node v<script>document.write(nw.process.versions['node']);</script><br/>
   Chromium <script>document.write(nw.process.versions['chromium']);</script><br/>
   commit hash: <script>document.write(nw.process.versions['nw-commit-id']);</script><br/>
+</div>
+	<h1 class="shimmer">NW.js</h1>
 </div>
 </body>
 </html>

@@ -100,6 +100,8 @@
       <include name="IDR_NWJS_DEFAPP_MAIN_JS"    file="nwjs_default_app/main.js" type="BINDATA" />
       <include name="IDR_NWJS_NEWWINAPP_INDEX_HTML" file="nwjs_newwin_app/nw_blank.html" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_NWJS_NEWWINAPP_MAIN_JS"    file="nwjs_newwin_app/main.js" type="BINDATA" />
+      <include name="IDR_NWJS_NEWWINAPP_ROTATE_JS"    file="nwjs_newwin_app/rotate.js" type="BINDATA" />
+      <include name="IDR_NWJS_NEWWINAPP_ROTATE_SVG"    file="nwjs_newwin_app/rotate.svg" type="BINDATA" />
       <if expr="enable_plugins">
         <!-- Note that resources included here also must be included in
              print_preview_ui.cc such these resources will be exposed to
