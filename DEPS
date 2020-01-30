@@ -40,7 +40,7 @@ gclient_gn_args = [
 
 
 vars = {
-  "buildspec_platforms": "linux64, mac64, win, win64",
+  "buildspec_platforms": "linux64, mac64, win, win64, android, ios",
   # Variable that can be used to support multiple build scenarios, like having
   # Chromium specific targets in a client project's GN file or sync dependencies
   # conditionally etc.
@@ -178,7 +178,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '0d24498011b4eba2e0cff1686eadaae0ed28344e',
+  'v8_revision': 'fc55b9e7a591bff6c9ec020d97e2b11925c23af5',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -1573,7 +1573,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@447b4ea9442940e7fe57a7200e0c4a7fc7d08a42',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@19ec96ce72e9e3b279dedc250f64995bf47e67a3',
     'condition': 'checkout_src_internal',
   },
 

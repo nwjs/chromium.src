@@ -20816,6 +20816,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="StartSurface.OmniboxOnly">
+  <owner>wychen@chromium.org</owner>
+  <description>
+    Metric record when the omnibox only start surface is shown (the user taps
+    the tab switcher button or on chrome start).
+  </description>
+</action>
+
 <action name="StartSurface.Shown">
   <owner>gogerald@chromium.org</owner>
   <description>
@@ -23761,6 +23769,9 @@ should be able to be added at any place in this file.
 </action-suffix>
 
 <action-suffix separator="." ordering="suffix">
+  <suffix name="NewTabTile"
+      label="Users tapped the new tab tile in GridTabSwitcher, causing a new
+             tab to be created."/>
   <suffix name="TabGridDialogFromStrip"
       label="Users tapped '+' button on the tab group dialog toolbar, causing
              a new tab to be created in the group. The dialog is expanded

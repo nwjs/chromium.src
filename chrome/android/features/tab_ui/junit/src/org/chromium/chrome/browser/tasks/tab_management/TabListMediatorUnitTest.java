@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertTrue;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.not;
@@ -12,7 +14,6 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -28,6 +29,9 @@ import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.ChromeFeatureList.TAB_GROUPS_ANDROID;
 import static org.chromium.chrome.browser.ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID;
+import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_TYPE;
+import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.MESSAGE;
+import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.OTHERS;
 
 import android.app.Activity;
 import android.content.ComponentCallbacks;
@@ -215,6 +219,7 @@ public class TabListMediatorUnitTest {
     private RecyclerView.ViewHolder mDummyViewHolder2;
     private View mItemView1 = mock(View.class);
     private View mItemView2 = mock(View.class);
+    private TabModelObserver mMediatorTabModelObserver;
     private TabGroupModelFilter.Observer mMediatorTabGroupModelFilterObserver;
 
     @Before
@@ -632,6 +637,33 @@ public class TabListMediatorUnitTest {
         // model is updated.
         assertThat(actionListenerBeforeUpdate, not(actionListenerAfterUpdate));
         assertThat(mModel.size(), equalTo(2));
+    }
+
+    @Test
+    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
+            ChromeFeatureList.TAB_GROUPS_UI_IMPROVEMENTS_ANDROID})
+    // clang-format off
+    public void tabAddition_Restore_SyncingTabListModelWithTabModel() {
+        // clang-format on
+        setUpForTabGroupOperation(TabListMediatorType.TAB_SWITCHER);
+        // Mock that tab restoring stage is over.
+        mMediator.setTabRestoreCompletedForTesting(true);
+
+        // Mock that tab1 and tab2 are in the same group, and they are being restored. The
+        // TabListModel has been cleaned out before the restoring happens. This case could happen
+        // within a incognito tab group when user switches between light/dark mode.
+        createTabGroup(new ArrayList<>(Arrays.asList(mTab1, mTab2)), TAB1_ID);
+        doReturn(POSITION1).when(mTabGroupModelFilter).indexOf(mTab1);
+        doReturn(POSITION1).when(mTabGroupModelFilter).indexOf(mTab2);
+        doReturn(mTab1).when(mTabGroupModelFilter).getTabAt(POSITION1);
+        doReturn(1).when(mTabGroupModelFilter).getCount();
+        mModel.clear();
+
+        mMediatorTabModelObserver.didAddTab(mTab2, TabLaunchType.FROM_RESTORE);
+        assertThat(mModel.size(), equalTo(0));
+
+        mMediatorTabModelObserver.didAddTab(mTab1, TabLaunchType.FROM_RESTORE);
+        assertThat(mModel.size(), equalTo(1));
     }
 
     @Test
@@ -1389,7 +1421,9 @@ public class TabListMediatorUnitTest {
 
     @Test
     public void addSpecialItem() {
-        mMediator.addSpecialItemToModel(0, TabProperties.UiType.DIVIDER, new PropertyModel());
+        PropertyModel model = mock(PropertyModel.class);
+        when(model.get(CARD_TYPE)).thenReturn(MESSAGE);
+        mMediator.addSpecialItemToModel(0, TabProperties.UiType.DIVIDER, model);
 
         assertTrue(mModel.size() > 0);
         assertEquals(TabProperties.UiType.DIVIDER, mModel.get(0).type);
@@ -1397,7 +1431,9 @@ public class TabListMediatorUnitTest {
 
     @Test
     public void addSpecialItem_notPersistOnReset() {
-        mMediator.addSpecialItemToModel(0, TabProperties.UiType.DIVIDER, new PropertyModel());
+        PropertyModel model = mock(PropertyModel.class);
+        when(model.get(CARD_TYPE)).thenReturn(MESSAGE);
+        mMediator.addSpecialItemToModel(0, TabProperties.UiType.DIVIDER, model);
         assertEquals(TabProperties.UiType.DIVIDER, mModel.get(0).type);
 
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, mTab2));
@@ -1406,9 +1442,14 @@ public class TabListMediatorUnitTest {
         assertNotEquals(TabProperties.UiType.DIVIDER, mModel.get(0).type);
         assertNotEquals(TabProperties.UiType.DIVIDER, mModel.get(1).type);
 
-        mMediator.addSpecialItemToModel(1, TabProperties.UiType.DIVIDER, new PropertyModel());
+        mMediator.addSpecialItemToModel(1, TabProperties.UiType.DIVIDER, model);
         assertThat(mModel.size(), equalTo(3));
         assertEquals(TabProperties.UiType.DIVIDER, mModel.get(1).type);
+    }
+
+    @Test(expected = AssertionError.class)
+    public void addSpecialItem_withoutTabListModelProperties() {
+        mMediator.addSpecialItemToModel(0, TabProperties.UiType.DIVIDER, new PropertyModel());
     }
 
     @Test
@@ -1581,6 +1622,30 @@ public class TabListMediatorUnitTest {
         verify(mTab2, times(2)).addObserver(mTabObserverCaptor.getValue());
     }
 
+    @Test
+    public void testUnchangeCheckIgnoreNonTabs() {
+        initAndAssertAllProperties();
+        List<Tab> tabs = new ArrayList<>();
+        for (int i = 0; i < mTabModel.getCount(); i++) {
+            tabs.add(mTabModel.getTabAt(i));
+        }
+
+        boolean showQuickly = mMediator.resetWithListOfTabs(tabs, false, false);
+        assertThat(showQuickly, equalTo(true));
+
+        // Create a PropertyModel that is not a tab and add it to the existing TabListModel.
+        PropertyModel propertyModel = new PropertyModel.Builder(NewTabTileViewProperties.ALL_KEYS)
+                                              .with(CARD_TYPE, OTHERS)
+                                              .build();
+        mMediator.addSpecialItemToModel(
+                mModel.size(), TabProperties.UiType.NEW_TAB_TILE, propertyModel);
+        assertThat(mModel.size(), equalTo(tabs.size() + 1));
+
+        // TabListModel unchange check should ignore the non-Tab item.
+        showQuickly = mMediator.resetWithListOfTabs(tabs, false, false);
+        assertThat(showQuickly, equalTo(true));
+    }
+
     private void initAndAssertAllProperties() {
         List<Tab> tabs = new ArrayList<>();
         for (int i = 0; i < mTabModel.getCount(); i++) {
@@ -1680,9 +1745,10 @@ public class TabListMediatorUnitTest {
                 mTabListFaviconProvider, actionOnRelatedTabs, null, null, null, handler,
                 getClass().getSimpleName(), 0);
 
-        // There are two TabGroupModelFilter.Observer added when initializing TabListMediator, one
-        // from TabListMediator and the other from TabGroupTitleEditor. Here we only test the one
-        // from TabListMediator.
+        // There are two TabModelObserver and two TabGroupModelFilter.Observer added when
+        // initializing TabListMediator, one set from TabListMediator and the other from
+        // TabGroupTitleEditor. Here we only test the ones from TabListMediator.
+        mMediatorTabModelObserver = mTabModelObserverCaptor.getAllValues().get(1);
         mMediatorTabGroupModelFilterObserver =
                 mTabGroupModelFilterObserverCaptor.getAllValues().get(0);
 

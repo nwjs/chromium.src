@@ -943,6 +943,20 @@ void ChromeLauncherController::OnAppInstalled(
   UpdateAppLaunchersFromSync();
 }
 
+void ChromeLauncherController::OnAppUpdated(
+    content::BrowserContext* browser_context,
+    const std::string& app_id) {
+  // Ensure that icon loader tracks the icon for this app - in particular, this
+  // is needed when updating chrome launcher controller after user change in
+  // multi-profile sessions, as icon loaders get reset when clearing the state
+  // from the previous profile.
+  if (IsAppPinned(app_id)) {
+    AppIconLoader* app_icon_loader = GetAppIconLoaderForApp(app_id);
+    if (app_icon_loader)
+      app_icon_loader->FetchImage(app_id);
+  }
+}
+
 void ChromeLauncherController::OnAppUninstalledPrepared(
     content::BrowserContext* browser_context,
     const std::string& app_id) {
@@ -1282,6 +1296,17 @@ void ChromeLauncherController::AttachProfile(Profile* profile_to_attach) {
         std::make_unique<AppServiceAppIconLoader>(
             profile_, extension_misc::EXTENSION_ICON_MEDIUM, this);
     app_icon_loaders_.push_back(std::move(app_service_app_icon_loader));
+
+    // Some special extensions open new windows, and on Chrome OS, those windows
+    // should show the extension icon in the shelf. Extensions are not present
+    // in the App Service, so try loading extensions icon using
+    // ChromeAppIconLoader.
+    std::unique_ptr<extensions::ChromeAppIconLoader> chrome_app_icon_loader =
+        std::make_unique<extensions::ChromeAppIconLoader>(
+            profile_, extension_misc::EXTENSION_ICON_MEDIUM,
+            base::BindRepeating(&app_list::MaybeResizeAndPadIconForMd), this);
+    chrome_app_icon_loader->SetExtensionsOnly();
+    app_icon_loaders_.push_back(std::move(chrome_app_icon_loader));
   } else {
     // TODO(skuhne): The AppIconLoaderImpl has the same problem. Each loaded
     // image is associated with a profile (its loader requires the profile).
@@ -1331,9 +1356,19 @@ void ChromeLauncherController::AttachProfile(Profile* profile_to_attach) {
     std::unique_ptr<LauncherAppUpdater> app_service_app_updater(
         new LauncherAppServiceAppUpdater(this, profile()));
     app_updaters_.push_back(std::move(app_service_app_updater));
+
+    // Some special extensions open new windows, and on Chrome OS, those windows
+    // should show the extension icon in the shelf. Extensions are not present
+    // in the App Service, so use LauncherExtensionAppUpdater to handle
+    // extensions life-cycle events.
+    std::unique_ptr<LauncherExtensionAppUpdater> extension_app_updater(
+        new LauncherExtensionAppUpdater(this, profile(),
+                                        true /* extensions_only */));
+    app_updaters_.push_back(std::move(extension_app_updater));
   } else {
     std::unique_ptr<LauncherAppUpdater> extension_app_updater(
-        new LauncherExtensionAppUpdater(this, profile()));
+        new LauncherExtensionAppUpdater(this, profile(),
+                                        false /* extensions_only */));
     app_updaters_.push_back(std::move(extension_app_updater));
 
     if (arc::IsArcAllowedForProfile(profile())) {

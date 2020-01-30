@@ -1224,12 +1224,49 @@ const FeatureEntry::FeatureVariation kChromeDuetVariations[] = {
 };
 
 const FeatureEntry::FeatureParam kTabGridLayoutAndroid_NewTabVariation[] = {
-    {"tab_grid_layout_android_new_tab", "NewTabVariation"}};
+    {"tab_grid_layout_android_new_tab", "NewTabVariation"},
+    {"allow_to_refetch", "true"}};
+
+const FeatureEntry::FeatureParam kTabGridLayoutAndroid_NewTabTile[] = {
+    {"tab_grid_layout_android_new_tab_tile", "NewTabTile"}};
+
+const FeatureEntry::FeatureParam
+    kTabGridLayoutAndroid_ThumbnailAspectRatio_2[] = {
+        {"thumbnail_aspect_ratio", "2.0"},
+        {"allow_to_refetch", "true"}};
+
+const FeatureEntry::FeatureParam
+    kTabGridLayoutAndroid_ThumbnailAspectRatio_three_quarter[] = {
+        {"thumbnail_aspect_ratio", "0.75"},
+        {"allow_to_refetch", "true"}};
+
+const FeatureEntry::FeatureParam
+    kTabGridLayoutAndroid_ThumbnailAspectRatio_half[] = {
+        {"thumbnail_aspect_ratio", "0.5"},
+        {"allow_to_refetch", "true"}};
+
+const FeatureEntry::FeatureParam kTabGridLayoutAndroid_DisableRefetch[] = {
+    {"allow_to_refetch", "false"}};
 
 const FeatureEntry::FeatureVariation kTabGridLayoutAndroidVariations[] = {
     {"New Tab Variation", kTabGridLayoutAndroid_NewTabVariation,
      base::size(kTabGridLayoutAndroid_NewTabVariation), nullptr},
+    {"New Tab Tile", kTabGridLayoutAndroid_NewTabTile,
+     base::size(kTabGridLayoutAndroid_NewTabTile), nullptr},
+    {"thumbnail aspect ratio - 2:1",
+     kTabGridLayoutAndroid_ThumbnailAspectRatio_2,
+     base::size(kTabGridLayoutAndroid_ThumbnailAspectRatio_2), nullptr},
+    {"thumbnail aspect ratio - 1:2",
+     kTabGridLayoutAndroid_ThumbnailAspectRatio_half,
+     base::size(kTabGridLayoutAndroid_ThumbnailAspectRatio_half), nullptr},
+    {"thumbnail aspect ratio - 3:4",
+     kTabGridLayoutAndroid_ThumbnailAspectRatio_three_quarter,
+     base::size(kTabGridLayoutAndroid_ThumbnailAspectRatio_three_quarter),
+     nullptr},
+    {"Disable refetch", kTabGridLayoutAndroid_DisableRefetch,
+     base::size(kTabGridLayoutAndroid_DisableRefetch), nullptr},
 };
+
 const FeatureEntry::FeatureParam kStartSurfaceAndroid_SingleSurface[] = {
     {"start_surface_variation", "single"}};
 
@@ -1242,6 +1279,9 @@ const FeatureEntry::FeatureParam kStartSurfaceAndroid_Toolbar[] = {
 const FeatureEntry::FeatureParam kStartSurfaceAndroid_TasksOnly[] = {
     {"start_surface_variation", "tasksonly"}};
 
+const FeatureEntry::FeatureParam kStartSurfaceAndroid_OmniboxOnly[] = {
+    {"start_surface_variation", "omniboxonly"}};
+
 const FeatureEntry::FeatureVariation kStartSurfaceAndroidVariations[] = {
     {"Single Surface", kStartSurfaceAndroid_SingleSurface,
      base::size(kStartSurfaceAndroid_SingleSurface), nullptr},
@@ -1250,7 +1290,9 @@ const FeatureEntry::FeatureVariation kStartSurfaceAndroidVariations[] = {
     {"Start Surface Toolbar", kStartSurfaceAndroid_Toolbar,
      base::size(kStartSurfaceAndroid_Toolbar), nullptr},
     {"Tasks Only", kStartSurfaceAndroid_TasksOnly,
-     base::size(kStartSurfaceAndroid_TasksOnly), nullptr}};
+     base::size(kStartSurfaceAndroid_TasksOnly), nullptr},
+    {"Omnibox Only", kStartSurfaceAndroid_OmniboxOnly,
+     base::size(kStartSurfaceAndroid_OmniboxOnly), nullptr}};
 #endif  // OS_ANDROID
 
 #if defined(OS_ANDROID)

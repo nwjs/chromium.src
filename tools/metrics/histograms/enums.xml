@@ -1899,6 +1899,15 @@ Unknown properties are collapsed to zero. -->
   <int value="2" label="Cache Hit From Disk"/>
 </enum>
 
+<enum name="AnnouncementNotificationEvent">
+  <int value="0" label="Start"/>
+  <int value="1" label="Show notification"/>
+  <int value="2" label="Click"/>
+  <int value="3" label="Close"/>
+  <int value="4" label="Ack"/>
+  <int value="5" label="Review"/>
+</enum>
+
 <enum name="AntiVirusMetricsProviderResult">
   <int value="0" label="RESULT_SUCCESS"/>
   <int value="1" label="RESULT_GENERIC_FAILURE"/>
@@ -4904,6 +4913,7 @@ Unknown properties are collapsed to zero. -->
   <int value="8" label="Error page"/>
   <int value="9" label="Already has matching browsing instance"/>
   <int value="10" label="Renderer debug URL"/>
+  <int value="11" label="Not enabled and not needed for back-forward cache"/>
 </enum>
 
 <enum name="BackForwardCacheDisabledForRenderFrameHostReason">
@@ -30797,6 +30807,7 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="0" label="Got JPEG thumbnail"/>
   <int value="1" label="Got ETC1 thumbnail"/>
   <int value="2" label="Got nothing"/>
+  <int value="3" label="Got different aspect ratio JPEG thumbnail"/>
 </enum>
 
 <enum name="GsaAccountChangeNotificationSource">
@@ -30895,6 +30906,7 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="6" label="Below probability limit"/>
   <int value="7" label="Trigger string mismatch"/>
   <int value="8" label="Not regular browser"/>
+  <int value="9" label="Incognito mode disabled"/>
 </enum>
 
 <enum name="HeapProfilingMode">
@@ -61556,6 +61568,8 @@ would be helpful to identify which type is being sent.
       label="[Deprecated in M79] Sharing notification dismiss button"/>
   <int value="11" label="Sharing error notification try again button"/>
   <int value="12" label="Settings button for notifications."/>
+  <int value="13" label="Announcement notification ack button."/>
+  <int value="14" label="Announcement notification open button."/>
 </enum>
 
 <enum name="SystemNotificationType">
@@ -61580,6 +61594,7 @@ would be helpful to identify which type is being sent.
   <int value="18" label="Shared Clipboard"/>
   <int value="19" label="Permission Requests"/>
   <int value="20" label="Permission Requests High"/>
+  <int value="21" label="Announcement"/>
 </enum>
 
 <enum name="TabBackgroundLoadStatus">
@@ -63127,9 +63142,7 @@ Full version information for the fingerprint enum values:
   <int value="7" label="Can not create extracted file on disk"/>
   <int value="8" label="Can not write the extracted file on disk"/>
   <int value="9" label="Can not set the extract time to file"/>
-  <int value="10" label="Can not close extracted file (Deprecated)"/>
-  <int value="11" label="Can not create file memory mapping"/>
-  <int value="12" label="File CRC mismatch"/>
+  <int value="10" label="Can not close extracted file"/>
 </enum>
 
 <enum name="UnsupportedContainers">

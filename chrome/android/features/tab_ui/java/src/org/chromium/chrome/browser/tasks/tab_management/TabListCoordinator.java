@@ -23,6 +23,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -30,6 +31,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
+import org.chromium.chrome.browser.util.MathUtils;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.ui.modelutil.MVCListAdapter;
@@ -147,8 +149,20 @@ public class TabListCoordinator implements Destroyable {
                 ViewLookupCachingFrameLayout root = (ViewLookupCachingFrameLayout) holder.itemView;
                 ImageView thumbnail = (ImageView) root.fastFindViewById(R.id.tab_thumbnail);
                 if (thumbnail == null) return;
-                thumbnail.setImageDrawable(null);
-                thumbnail.setMinimumHeight(thumbnail.getWidth());
+                if (FeatureUtilities.isTabThumbnailAspectRatioNotOne()) {
+                    float expectedThumbnailAspectRatio =
+                            (float) ChromeFeatureList.getFieldTrialParamByFeatureAsDouble(
+                                    ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID,
+                                    "thumbnail_aspect_ratio", 1.0);
+                    expectedThumbnailAspectRatio =
+                            MathUtils.clamp(expectedThumbnailAspectRatio, 0.5f, 2.0f);
+                    int height = (int) (thumbnail.getWidth() * 1.0 / expectedThumbnailAspectRatio);
+                    thumbnail.setMinimumHeight(Math.min(thumbnail.getHeight(), height));
+                    thumbnail.setImageDrawable(null);
+                } else {
+                    thumbnail.setImageDrawable(null);
+                    thumbnail.setMinimumHeight(thumbnail.getWidth());
+                }
             };
         } else if (mMode == TabListMode.STRIP) {
             mAdapter.registerType(UiType.STRIP, () -> {
@@ -367,5 +381,19 @@ public class TabListCoordinator implements Destroyable {
      */
     void addSpecialListItem(int index, @UiType int uiType, PropertyModel model) {
         mMediator.addSpecialItemToModel(index, uiType, model);
+    }
+
+    /**
+     * Removes a special {@link org.chromium.ui.modelutil.MVCListAdapter.ListItem} that
+     * has the given {@code uiType} and/or its {@link PropertyModel} has the given
+     * {@code itemIdentifier}.
+     *
+     * @param uiType The uiType to match.
+     * @param itemIdentifier The itemIdentifier to match. This can be obsoleted if the {@link
+     *         org.chromium.ui.modelutil.MVCListAdapter.ListItem} does not need additional
+     *         identifier.
+     */
+    void removeSpecialListItem(@UiType int uiType, int itemIdentifier) {
+        mMediator.removeSpecialItemFromModel(uiType, itemIdentifier);
     }
 }

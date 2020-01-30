@@ -24,6 +24,7 @@
 <translation id="1029317248976101138">Zoom</translation>
 <translation id="1030706264415084469"><ph name="URL" /> möchte dauerhaft umfangreiche Daten auf Ihrem Gerät speichern</translation>
 <translation id="1031362278801463162">Vorschau wird geladen...</translation>
+<translation id="1032605640136438169">Bitte lesen Sie sich die neue Fassung durch</translation>
 <translation id="103279545524624934">Geben Sie Speicherplatz frei, um Android-Apps starten zu können.</translation>
 <translation id="1033780634303702874">Auf Ihre seriellen Geräte zugreifen</translation>
 <translation id="1034942643314881546">Zulassen, dass ADB App-Illustrationen erstellt</translation>
@@ -1710,7 +1711,7 @@ Servernachricht: <ph name="SERVER_MSG" /></translation>
 <translation id="3439153939049640737"><ph name="HOST" /> immer Zugriff auf Ihr Mikrofon gestatten</translation>
 <translation id="3439970425423980614">PDF-Vorschau wird geöffnet...</translation>
 <translation id="3440663250074896476">Weitere Aktionen für <ph name="BOOKMARK_NAME" /></translation>
-<translation id="3440761377721825626">Nachfragen, wenn eine Website ein Plug-in für den Zugriff auf Ihren Computer verwenden möchte</translation>
+<translation id="3440761377721825626">Nachfragen, wenn eine Website ein Plug-in für den Zugriff auf meinen Computer verwenden möchte</translation>
 <translation id="3441653493275994384">Bildschirm</translation>
 <translation id="3445925074670675829">USB-C-Gerät</translation>
 <translation id="344630545793878684">Ihre Daten auf verschiedenen Websites lesen</translation>
@@ -1768,7 +1769,7 @@ Servernachricht: <ph name="SERVER_MSG" /></translation>
 <translation id="3515983984924808886">Tippen Sie noch einmal auf Ihren Sicherheitsschlüssel, um das Zurücksetzen zu bestätigen. Damit werden alle auf dem Sicherheitsschlüssel gespeicherten Informationen und die zugehörige PIN gelöscht.</translation>
 <translation id="3518985090088779359">Akzeptieren &amp; weiter</translation>
 <translation id="351952459507671940">Neuer Gruppe hinzufügen</translation>
-<translation id="3523642406908660543">Nachfragen, wenn eine Website ein Plug-in für den Zugriff auf Ihren Computer verwenden möchte (empfohlen)</translation>
+<translation id="3523642406908660543">Nachfragen, wenn eine Website ein Plug-in für den Zugriff auf meinen Computer verwenden möchte (empfohlen)</translation>
 <translation id="3524965460886318643">Aktivitäten exportieren</translation>
 <translation id="3526034519184079374">Daten der Website können nicht gelesen oder geändert werden</translation>
 <translation id="3527085408025491307">Ordner</translation>
@@ -2795,6 +2796,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="4997086284911172121">Keine Internetverbindung.</translation>
 <translation id="4998873842614926205">Änderungen bestätigen</translation>
 <translation id="5000922062037820727">Blockiert (empfohlen)</translation>
+<translation id="5007392906805964215">Ansehen</translation>
 <translation id="5008936837313706385">Aktivitätsname</translation>
 <translation id="5010043101506446253">Zertifizierungsstelle</translation>
 <translation id="5015344424288992913">Proxy auflösen...</translation>
@@ -2996,6 +2998,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="5310281978693206542">Link an meine Geräte senden</translation>
 <translation id="5311304534597152726">Anmeldung als</translation>
 <translation id="53116743016968120"><ph name="ERROR_MESSAGE" /> Bitte versuchen Sie es noch einmal.</translation>
+<translation id="5314381603623123224">Die Nutzungsbedingungen von Chrome ändern sich am 31. März</translation>
 <translation id="5315738755890845852">Zusätzliche geschweifte Klammer: <ph name="ERROR_LINE" /></translation>
 <translation id="5315873049536339193">Identität</translation>
 <translation id="5317780077021120954">Speichern</translation>
