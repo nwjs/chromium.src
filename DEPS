@@ -40,7 +40,7 @@ gclient_gn_args = [
 
 
 vars = {
-  "buildspec_platforms": "all",
+  "buildspec_platforms": "linux64, mac64, win, win64, android",
   # Variable that can be used to support multiple build scenarios, like having
   # Chromium specific targets in a client project's GN file or sync dependencies
   # conditionally etc.
@@ -1573,7 +1573,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@deb5a4422df197a5ff571b006086b21c2b2b25f0',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@c64a4479021e5a2be52e64f6b0f540ade3df1430',
     'condition': 'checkout_src_internal',
   },
 
