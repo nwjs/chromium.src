@@ -261,6 +261,8 @@ void WindowsEventRouter::Observe(
 void WindowsEventRouter::OnWindowMove(WindowController* window_controller) {
   if (!HasEventListener(windows::OnMove::kEventName))
     return;
+  if (!window_controller)
+    return;
   if (!profile_->IsSameProfile(window_controller->profile()))
     return;
   // Ignore any windows without an associated browser (e.g., AppWindows).
