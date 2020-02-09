@@ -121,6 +121,7 @@ BrowserWindowTouchBarController* BrowserFrameMac::GetTouchBarController()
 // BrowserFrameMac, views::NativeWidgetMac implementation:
 
 int32_t BrowserFrameMac::SheetOffsetY() {
+  return 0; //NWJS#7349
   // ModalDialogHost::GetDialogPosition() is relative to the host view. In
   // practice, this ends up being the widget's content view.
   web_modal::WebContentsModalDialogHost* dialog_host =
