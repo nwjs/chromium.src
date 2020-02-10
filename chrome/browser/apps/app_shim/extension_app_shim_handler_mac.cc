@@ -493,6 +493,7 @@ const Extension* ExtensionAppShimHandler::MaybeGetAppExtension(
 const Extension* ExtensionAppShimHandler::MaybeGetAppForBrowser(
     Browser* browser) {
   if (!browser || !browser->deprecated_is_app())
+    if (!browser->is_type_popup())
     return NULL;
 
   return MaybeGetAppExtension(
