@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/lifetime/application_lifetime.h"
+#include "content/public/common/content_features.h"
+
 #import "chrome/browser/ui/cocoa/apps/app_shim_menu_controller_mac.h"
 
 #include "base/mac/scoped_nsautorelease_pool.h"
@@ -585,6 +588,11 @@ extensions::AppWindowRegistry::AppWindowList GetAppWindowsForNSWindow(
 }
 
 - (void)quitCurrentPlatformApp {
+  if (base::FeatureList::IsEnabled(::features::kNWNewWin)) {
+    chrome::CloseAllBrowsers(false, true);
+    return;
+  }
+
   auto windows = GetAppWindowsForNSWindow([NSApp keyWindow]);
   for (auto it = windows.rbegin(); it != windows.rend(); ++it) {
     if ((*it)->NWCanClose(true))
