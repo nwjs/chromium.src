@@ -313,6 +313,7 @@ void PaymentRequest::Retry(mojom::PaymentValidationErrorsPtr errors) {
     return;
   }
 
+  state()->SetAvailablePaymentAppForRetry();
   spec()->Retry(std::move(errors));
   display_handle_->Retry();
 }
