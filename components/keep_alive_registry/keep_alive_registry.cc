@@ -102,7 +102,8 @@ KeepAliveRegistry::~KeepAliveRegistry() {
 
 void KeepAliveRegistry::Register(KeepAliveOrigin origin,
                                  KeepAliveRestartOption restart) {
-  CHECK(!is_shutting_down_);
+  //nw1 crash when quit from dock
+//  CHECK(!is_shutting_down_);
 
   bool old_keeping_alive = IsKeepingAlive();
   bool old_restart_allowed = IsRestartAllowed();

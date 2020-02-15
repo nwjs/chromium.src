@@ -1349,7 +1349,7 @@ void BrowserProcessImpl::Pin() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   // CHECK(!IsShuttingDown());
-  if (IsShuttingDown()) {
+  if (false && IsShuttingDown()) {
     // TODO(rsesek): Consider removing this trace, but it has been helpful
     // in debugging several shutdown crashes (https://crbug.com/113031,
     // https://crbug.com/625646, and https://crbug.com/779829).
