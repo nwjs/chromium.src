@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "extensions/browser/extension_protocols.h"
 #include "chrome/browser/devtools/devtools_ui_bindings.h"
 
 #include <stddef.h>
@@ -844,6 +845,11 @@ void DevToolsUIBindings::LoadNetworkResource(const DispatchCallback& callback,
   resource_request.headers.AddHeadersFromString(headers);
 
   NetworkResourceLoader::URLLoaderFactoryHolder url_loader_factory;
+  if (gurl.SchemeIs("chrome-extension")) {
+    content::RenderFrameHost* frame_host = web_contents()->GetMainFrame();
+    url_loader_factory = extensions::CreateExtensionURLLoaderFactory(frame_host->GetProcess()->GetID(),
+                                                    frame_host->GetRoutingID());
+  } else
   if (gurl.SchemeIsFile()) {
     url_loader_factory = content::CreateFileURLLoaderFactory(
         base::FilePath() /* profile_path */,
